@@ -270,13 +270,14 @@ export interface ToolFromOperationOptions<
     TExecute,
     TPreview
   >,
-  'schema' | 'call' | 'preview' | 'operation' | 'previewOperation'
+  'schema' | 'call' | 'preview' | 'operation' | 'previewOperation' | 'maxItems'
 > {
   execute: ExecuteProjectionRef<TOperation, TExecute>
   preview?: PreviewProjectionRef<TOperation, TPreview>
   executeOperation?: ConvexToolOperation
   previewOperation?: ConvexToolOperation
   schema?: AnyConvexSchema
+  maxItems?: { field: string; limit: number }
 }
 
 export type ValidateMcpToolOptions<

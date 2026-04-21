@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
     readBody: async () => await readBody<WebhookBody>(event),
-    parse: (value) => {
+    parse: (value: WebhookBody) => {
       if (!value.projectId || !value.title) {
         throw createError({
           statusCode: 400,

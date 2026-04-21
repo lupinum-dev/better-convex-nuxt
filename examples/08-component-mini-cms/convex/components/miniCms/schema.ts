@@ -1,7 +1,7 @@
 import { defineSchema } from 'convex/server'
 
-import { schema } from './features'
+import { pagesTables } from './features/pages'
 
 export default defineSchema({
-  ...schema,
+  ...pagesTables,
 })

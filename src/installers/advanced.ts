@@ -14,12 +14,7 @@ export function installAdvancedTrellis(options: InstallAdvancedOptions): void {
     filename: 'trellis/server.ts',
     write: true,
     getContents: () => `
-export {
-  createServerConvexCaller,
-  serverConvexQuery,
-  serverConvexMutation,
-  serverConvexAction,
-} from '${resolver.resolve('./runtime/server/index')}'
+export * from '${resolver.resolve('./runtime/server/index')}'
 `,
   })
 

@@ -14,11 +14,7 @@ export type Redaction<TActor, TValue> = {
   }
   project: {
     <TOutput>(actor: TActor, value: TValue, projector: (value: TValue) => TOutput): TOutput
-    <TOutput>(
-      actor: TActor,
-      value: TValue[],
-      projector: (value: TValue) => TOutput,
-    ): TOutput[]
+    <TOutput>(actor: TActor, value: TValue[], projector: (value: TValue) => TOutput): TOutput[]
   }
 }
 
@@ -67,12 +63,11 @@ export function defineRedaction<TValue extends Record<string, unknown>, TActor>(
     value: TValue | TValue[],
     projector: (value: TValue) => TOutput,
   ) {
-    const redacted = apply(actor, value)
-    if (Array.isArray(redacted)) {
-      return redacted.map((entry) => projector(entry))
+    if (Array.isArray(value)) {
+      return apply(actor, value).map((entry) => projector(entry))
     }
 
-    return projector(redacted)
+    return projector(apply(actor, value))
   }
 
   return {

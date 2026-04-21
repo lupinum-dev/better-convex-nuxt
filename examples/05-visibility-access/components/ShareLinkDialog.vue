@@ -32,9 +32,10 @@
 import { ref, computed } from 'vue'
 
 import { api } from '#trellis/api'
+import type { Id } from '~/convex/_generated/dataModel'
 
 const props = defineProps<{
-  articleId: string
+  articleId: Id<'articles'>
 }>()
 
 const toast = useToast()
@@ -65,7 +66,7 @@ const shareUrl = computed(() => {
 async function handleCreate() {
   const expiresInMs = expiresIn.value !== 'none' ? Number(expiresIn.value) : undefined
   const token = await createToken({
-    articleId: props.articleId as any,
+    articleId: props.articleId,
     level: level.value,
     expiresInMs,
   })

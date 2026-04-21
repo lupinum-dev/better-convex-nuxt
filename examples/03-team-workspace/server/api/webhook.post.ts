@@ -56,8 +56,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      return value as Required<Pick<WebhookBody, 'workspaceId' | 'eventId' | 'title'>> &
-        WebhookBody
+      return value as Required<Pick<WebhookBody, 'workspaceId' | 'eventId' | 'title'>> & WebhookBody
     },
   })
 

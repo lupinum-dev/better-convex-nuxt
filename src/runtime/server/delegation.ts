@@ -29,9 +29,7 @@ function optionalTenant(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
-async function resolveAllow(
-  value: DelegateToUserOptions['allow'],
-): Promise<boolean> {
+async function resolveAllow(value: DelegateToUserOptions['allow']): Promise<boolean> {
   if (typeof value === 'function') {
     return await value()
   }
@@ -44,14 +42,8 @@ export async function delegateToUser(options: DelegateToUserOptions): Promise<De
   const expectedTenantId = optionalTenant(options.expectedTenantId)
   const targetTenantId = optionalTenant(options.targetTenantId)
 
-  if (
-    expectedTenantId !== null &&
-    targetTenantId !== null &&
-    expectedTenantId !== targetTenantId
-  ) {
-    throw new Error(
-      `Cannot delegate to user "${userId}" outside the expected tenant boundary.`,
-    )
+  if (expectedTenantId !== null && targetTenantId !== null && expectedTenantId !== targetTenantId) {
+    throw new Error(`Cannot delegate to user "${userId}" outside the expected tenant boundary.`)
   }
 
   const allowed = await resolveAllow(options.allow)

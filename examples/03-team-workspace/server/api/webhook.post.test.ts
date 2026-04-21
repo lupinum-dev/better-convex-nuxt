@@ -33,13 +33,7 @@ vi.mock('#trellis/server', () => ({
     const body = await readBody()
     return parse ? await parse(body) : body
   },
-  delegateToUser: async ({
-    userId,
-    reason,
-  }: {
-    userId: string
-    reason?: string
-  }) => ({
+  delegateToUser: async ({ userId, reason }: { userId: string; reason?: string }) => ({
     subject: `user:${userId}`,
     ...(reason ? { reason } : {}),
   }),

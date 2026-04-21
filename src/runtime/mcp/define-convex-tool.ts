@@ -592,7 +592,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 
         // ── Step 3: Max items ─────────────────────────────────────────────
         if (maxItems) {
-          const arr = normalizedArgs.clean[maxItems.field]
+          const cleanArgs = normalizedArgs.clean as Record<string, unknown>
+          const arr = cleanArgs[maxItems.field]
           if (Array.isArray(arr) && arr.length > maxItems.limit) {
             return wrapError(
               'scope_exceeded',

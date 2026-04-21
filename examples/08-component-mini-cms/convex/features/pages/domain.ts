@@ -33,14 +33,14 @@ const publishPreviewResultValidator = v.object({
     }),
   }),
 })
-const bridgeApi = internal.features.pages.bridge as any
-
 async function bridgePrincipalArgs(ctx: {
   principal: () => Promise<MiniCmsPrincipal>
 }): Promise<{ principal?: Exclude<MiniCmsPrincipal, { kind: 'anonymous' }> }> {
   const principal = await ctx.principal()
   return principal.kind === 'anonymous' ? {} : { principal }
 }
+
+const bridgeApi = internal.features.pages.bridge as any
 
 export const listPublished = query({
   args: listPublishedPagesSchema.args,

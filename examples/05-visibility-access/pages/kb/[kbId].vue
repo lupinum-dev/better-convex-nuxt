@@ -151,17 +151,17 @@ import { enrollmentManage } from '~/convex/features/knowledgeBases/permissions'
 
 const route = useRoute()
 const toast = useToast()
-const kbId = route.params.kbId as string
+const kbId = route.params.kbId as Id<'knowledgeBases'>
 
 const { allows } = usePermissions()
 const canManage = allows(enrollmentManage)
 const canCreateArticles = allows(articleCreate)
 
 const { data: kb } = await useConvexQuery(api.features.knowledgeBases.domain.get, {
-  id: kbId as any,
+  id: kbId,
 })
 const { data: articles } = await useConvexQuery(api.features.articles.domain.list, {
-  knowledgeBaseId: kbId as any,
+  knowledgeBaseId: kbId,
 })
 
 const publishKB = useConvexMutation(api.features.knowledgeBases.domain.publish, {
@@ -205,29 +205,29 @@ const parentArticleOptions = computed(() =>
 )
 
 async function handlePublish() {
-  await publishKB({ id: kbId as any })
+  await publishKB({ id: kbId })
 }
 
 async function handleSeed() {
-  await seedArticles({ knowledgeBaseId: kbId as any })
+  await seedArticles({ knowledgeBaseId: kbId })
 }
 
 async function handleEnroll() {
-  await enrollUser({ knowledgeBaseId: kbId as any, email: enrollForm.email })
+  await enrollUser({ knowledgeBaseId: kbId, email: enrollForm.email })
   enrollForm.email = ''
 }
 
 async function handlePublishArticle(articleId: string) {
-  await publishArticle({ id: articleId as any })
+  await publishArticle({ id: articleId as Id<'articles'> })
 }
 
 async function handleCreateArticle() {
   await createArticle({
-    knowledgeBaseId: kbId as any,
+    knowledgeBaseId: kbId,
     title: articleForm.title,
     body: articleForm.body,
     visibility: articleForm.visibility,
-    parentArticleId: articleForm.parentArticleId as any,
+    parentArticleId: articleForm.parentArticleId,
     internalNotes: articleForm.internalNotes || undefined,
   })
   articleForm.title = ''

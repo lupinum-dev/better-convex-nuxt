@@ -1,5 +1,6 @@
-import { createError } from 'h3'
 import { timingSafeEqual } from 'node:crypto'
+
+import { createError } from 'h3'
 
 function toUtf8Buffer(value: string): Buffer {
   return Buffer.from(value, 'utf8')

@@ -181,15 +181,18 @@ export function inspectProject(cwd: string): ProjectInspection {
 export function findMissingCanonicalLayoutPaths(project: ProjectInspection): string[] {
   const authDisabled = isAuthExplicitlyDisabled(project)
   const usesPermissions = usesPermissionSurfaces(project)
+  const hasAppDirectory = existsSync(resolve(project.cwd, 'app'))
+  const usesMcpToolkit =
+    hasDependency(project, '@nuxtjs/mcp-toolkit') ||
+    /server[/\\]mcp[/\\]/.test(project.nuxtConfigText) ||
+    project.sourceFiles.some((file) => /[/\\]server[/\\]mcp[/\\]/.test(file.path))
   const paths = [
     'convex/functions.ts',
     'convex/schema.ts',
     'convex/features',
     'shared/features',
-    'app/features',
     'pages',
-    'server/api',
-    'server/mcp',
+    ...(hasAppDirectory ? ['app/features'] : []),
     ...(authDisabled
       ? []
       : [
@@ -200,6 +203,7 @@ export function findMissingCanonicalLayoutPaths(project: ProjectInspection): str
           'convex/auth',
         ]),
     ...(usesPermissions ? ['convex/permissions'] : []),
+    ...(usesMcpToolkit ? ['server/mcp'] : []),
   ]
 
   return paths.filter((relativePath) => !existsSync(resolve(project.cwd, relativePath)))
@@ -313,9 +317,10 @@ export function findEnvKeySource(
 }
 
 function isPublicFacingSourcePath(filePath: string): boolean {
-  return /[/\\](?:app|components|composables|layouts|pages|plugins|shared|utils)[/\\]/.test(
-    filePath,
-  )
+  const normalized = filePath.replaceAll('\\', '/')
+  if (/\/convex\//.test(normalized)) return false
+
+  return /\/(?:app|components|composables|layouts|pages|plugins|shared|utils)\//.test(normalized)
 }
 
 export function findTrustedForwardingPublicExposure(

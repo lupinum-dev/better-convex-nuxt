@@ -519,13 +519,14 @@ export default tool({
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/functions'
 import { ${ctx.singularCamel}DeletePermission, previewRemove${ctx.singularPascal}, remove, remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}'
 
 import { tool } from '../runtime'
 
 export default tool.fromOperation(remove${ctx.singularPascal}Op, {
-  execute: remove,
-  preview: previewRemove${ctx.singularPascal},
+  execute: executeOperationRef(remove${ctx.singularPascal}Op, remove),
+  preview: previewOperationRef(remove${ctx.singularPascal}Op, previewRemove${ctx.singularPascal}),
   permission: ${ctx.singularCamel}DeletePermission,
   meta: {
     name: 'delete-${ctx.fileStem}',

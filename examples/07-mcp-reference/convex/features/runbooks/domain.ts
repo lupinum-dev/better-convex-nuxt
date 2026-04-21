@@ -218,8 +218,8 @@ export const update = mutation({
   },
 })
 
-export const remove = mutation(removeRunbookOp as any)
-export const bulkRemove = mutation(bulkRemoveRunbooksOp as any)
+export const remove = mutation(removeRunbookOp)
+export const bulkRemove = mutation(bulkRemoveRunbooksOp)
 
 export const workspaceOverview = query({
   args: listRunbooks.args,

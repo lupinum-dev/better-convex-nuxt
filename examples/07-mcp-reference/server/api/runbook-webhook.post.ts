@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
     readBody: async () => await readBody<WebhookBody>(event),
-    parse: (value) => {
+    parse: (value: WebhookBody) => {
       if (!value.title?.trim()) {
         throw createError({
           statusCode: 400,
@@ -77,6 +77,13 @@ export default defineEventHandler(async (event) => {
       return value
     },
   })
+  const title = body.title?.trim()
+  if (!title) {
+    throw createError({
+      statusCode: 400,
+      message: 'title is required.',
+    })
+  }
 
   // The webhook is the real caller, but it is allowed to act for one bound
   // workspace user so the app can authorize the mutation as that user.
@@ -84,7 +91,7 @@ export default defineEventHandler(async (event) => {
     event,
     api.features.runbooks.domain.create,
     {
-      title: body.title.trim(),
+      title,
       summary: body.summary?.trim() || 'Created by the verified webhook example.',
       content:
         body.content?.trim() ||

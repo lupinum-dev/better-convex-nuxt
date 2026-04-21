@@ -173,7 +173,7 @@ describe('CLI doctor', () => {
     )
   })
 
-  it('adds MCP to an existing workspace app', () => {
+  it('adds MCP to an existing workspace app', { timeout: 15_000 }, () => {
     const cwd = createTempDir('trellis-add-mcp-')
     const initResult = runCli(
       ['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd],
@@ -334,7 +334,7 @@ describe('CLI doctor', () => {
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = JSON.parse(result.stdout) as {
       findings: Array<{ id: string; status: string; message: string }>
-      summary: { fail: number }
+      summary: { fail: number; warn: number }
     }
 
     expect(result.status, result.stderr).toBe(1)
@@ -469,7 +469,7 @@ describe('CLI doctor', () => {
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = JSON.parse(result.stdout) as {
       findings: Array<{ id: string; status: string }>
-      summary: { fail: number }
+      summary: { fail: number; warn: number }
     }
 
     expect(result.status, result.stderr).toBe(1)

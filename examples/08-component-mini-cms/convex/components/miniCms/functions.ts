@@ -47,8 +47,8 @@ export const { mutation, query } = defineTrellis(
     actor: getActorFromPrincipal,
     trustedForwardingKey: process.env.CONVEX_TRUSTED_FORWARDING_KEY,
     destructiveSafety: {
-      redemptionTable: 'destructiveRedemptions' as never,
-      auditTable: 'destructiveAuditLog' as never,
+      redemptionTable: 'destructiveRedemptions',
+      auditTable: 'destructiveAuditLog',
     },
   },
 )

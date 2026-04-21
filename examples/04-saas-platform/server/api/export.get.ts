@@ -10,6 +10,10 @@ import { serverConvexQuery } from '#trellis/server'
 
 import type { Id } from '../../convex/_generated/dataModel'
 
+function escapeCsvCell(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`
+}
+
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const projectId = query.projectId
@@ -27,9 +31,16 @@ export default defineEventHandler(async (event) => {
 
   const csv = [
     'title,status,priority,assignee,createdAt',
-    ...tasks.map(
-      (task: (typeof tasks)[number]) =>
-        `"${task.title}","${task.status}","${task.priority}","${task.assigneeId ?? ''}","${new Date(task.createdAt).toISOString()}"`,
+    ...tasks.map((task: (typeof tasks)[number]) =>
+      [
+        task.title,
+        task.status,
+        task.priority,
+        task.assigneeId ?? '',
+        new Date(task.createdAt).toISOString(),
+      ]
+        .map(escapeCsvCell)
+        .join(','),
     ),
   ].join('\n')
 

@@ -225,6 +225,7 @@ while current-workspace project actions stay behind their own feature API.
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
+import type { Id } from '~~/convex/_generated/dataModel'
 import { projectPermissionMatrix } from '~~/convex/features/projects/permissions'
 
 import { api } from '#trellis/api'
@@ -309,8 +310,8 @@ async function handleSignOut() {
   await signOut()
 }
 
-async function handleSwitchWorkspace(workspaceId: string) {
-  await switchWorkspace({ workspaceId: workspaceId as any })
+async function handleSwitchWorkspace(workspaceId: Id<'workspaces'>) {
+  await switchWorkspace({ workspaceId })
 }
 
 async function handleSeed() {

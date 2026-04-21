@@ -76,11 +76,12 @@
 
 <script setup lang="ts">
 import { api } from '#trellis/api'
+import type { Id } from '~/convex/_generated/dataModel'
 import { articleCreate, shareCreate } from '~/convex/features/articles/permissions'
 
 const route = useRoute()
 const toast = useToast()
-const articleId = route.params.id as string
+const articleId = route.params.id as Id<'articles'>
 const shareToken = route.query.token as string | undefined
 const kbId = route.query.kbId as string | undefined
 
@@ -93,7 +94,7 @@ const canPublish = allows(articleCreate)
 const { data: article, error } = await useConvexQuery(
   api.features.articles.domain.view,
   computed(() => ({
-    id: articleId as any,
+    id: articleId,
     shareToken: shareToken || undefined,
   })),
 )
@@ -111,10 +112,10 @@ const publishArticle = useConvexMutation(api.features.articles.domain.publish, {
 })
 
 async function handleComplete() {
-  await markCompleted({ articleId: articleId as any })
+  await markCompleted({ articleId })
 }
 
 async function handlePublish() {
-  await publishArticle({ id: articleId as any })
+  await publishArticle({ id: articleId })
 }
 </script>

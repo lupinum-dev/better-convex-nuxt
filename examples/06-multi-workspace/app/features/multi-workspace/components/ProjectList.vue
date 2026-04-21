@@ -61,10 +61,12 @@
 </template>
 
 <script setup lang="ts">
+import type { Id } from '~~/convex/_generated/dataModel'
+
 import { api } from '#trellis/api'
 
 defineProps<{
-  projects: Array<{ _id: string; name: string; status: string }> | null
+  projects: Array<{ _id: Id<'projects'>; name: string; status: string }> | null
   canCreate: boolean
 }>()
 
@@ -87,7 +89,7 @@ async function handleCreate() {
   projectName.value = ''
 }
 
-async function handleToggle(id: string) {
-  await toggleStatus({ id: id as any })
+async function handleToggle(id: Id<'projects'>) {
+  await toggleStatus({ id })
 }
 </script>

@@ -53,11 +53,12 @@ export const removeRunbookOp = defineOperation({
   load: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
     if (!runbook) throw new Error('Runbook not found.')
+    const actor = await ctx.actor()
+    if (!actor || !can(actor, canDeleteRunbook(runbook))) {
+      throw new Error('Forbidden: Delete runbook')
+    }
     return { runbook }
   },
-  authorize: {
-    check: (_actor: Actor, { runbook }: LoadedRunbook) => canDeleteRunbook(runbook),
-  } as any,
   preview: async (
     _ctx: RunbookMutationCtx,
     _args: DeleteRunbookArgs,
@@ -198,5 +199,5 @@ export const bulkRemoveRunbooksOp = defineOperation({
   },
 })
 
-export const previewRemove = query(previewOf(removeRunbookOp as any) as any)
-export const previewBulkRemove = query(previewOf(bulkRemoveRunbooksOp as any) as any)
+export const previewRemove = query(previewOf(removeRunbookOp))
+export const previewBulkRemove = query(previewOf(bulkRemoveRunbooksOp))

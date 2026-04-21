@@ -25,7 +25,7 @@ export const publishPageOp = defineOperation({
       }),
     }),
   }),
-  guard: canManagePages as never,
+  guard: canManagePages,
   load: async (ctx, args) => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
     requireRecord(page, 'Page')

@@ -23,8 +23,8 @@ export const { mutation, query, unsafe } = defineTrellis(
       globalTables: explicitlyGlobalTables,
     },
     destructiveSafety: {
-      redemptionTable: 'destructiveRedemptions' as never,
-      auditTable: 'destructiveAuditLog' as never,
+      redemptionTable: 'destructiveRedemptions',
+      auditTable: 'destructiveAuditLog',
     },
   },
 )

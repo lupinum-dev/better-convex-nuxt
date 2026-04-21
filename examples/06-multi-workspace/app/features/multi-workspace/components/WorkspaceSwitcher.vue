@@ -43,14 +43,16 @@
 </template>
 
 <script setup lang="ts">
+import type { Id } from '~~/convex/_generated/dataModel'
+
 defineProps<{
-  workspaces: Array<{ workspaceId: string; name: string; role: string }> | null
+  workspaces: Array<{ workspaceId: Id<'workspaces'>; name: string; role: string }> | null
   currentTenantId: string | null
   seedLoading?: boolean
 }>()
 
 defineEmits<{
-  switch: [workspaceId: string]
+  switch: [workspaceId: Id<'workspaces'>]
   seed: []
 }>()
 

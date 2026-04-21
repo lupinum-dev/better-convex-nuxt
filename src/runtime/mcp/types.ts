@@ -32,6 +32,10 @@ export type InferSchemaValidators<S extends AnyConvexSchema> =
 export type ValidateToolArgs<S extends AnyConvexSchema, TArgs> =
   TArgs extends NoInfer<InferSchemaData<S>> ? TArgs : never
 
+type ToolFieldName<S extends AnyConvexSchema> = [keyof InferSchemaData<S> & string] extends [never]
+  ? string
+  : keyof InferSchemaData<S> & string
+
 // ============================================================================
 // Structured response envelope
 // ============================================================================
@@ -189,7 +193,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
    */
   destructive?: boolean
   /** Limit array field size for bulk operations. Field must exist in schema. */
-  maxItems?: { field: keyof InferSchemaData<S> & string; limit: number }
+  maxItems?: { field: ToolFieldName<S>; limit: number }
   /**
    * Per-tool request budget. Requires explicit `name`.
    *
