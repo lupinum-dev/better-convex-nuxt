@@ -2,6 +2,10 @@
  * Why this file exists:
  * Nitro routes often need to accept verified external requests, validate the payload, and then
  * hand work to a narrow internal Convex entrypoint.
+ *
+ * This example intentionally stops at the route-owned boundary. Example 07 shows the fuller
+ * trusted-forwarding model where a service principal and delegated user flow through the protected
+ * root refs themselves.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
@@ -29,6 +33,8 @@ function getWebhookSecret(): string {
 }
 export default defineEventHandler(async (event) => {
   const body = await readVerifiedWebhookBody({
+    // Demo transport boundary: shared route secret only. Add timestamped HMAC verification and a
+    // replay window in production if the sender supports it.
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
     readBody: async () => await readBody<WebhookBody>(event),

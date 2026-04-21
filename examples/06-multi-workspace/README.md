@@ -51,6 +51,17 @@ App-owned env vars:
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 
+## Production notes
+
+- The cross-tenant seams here are intentional and membership-bounded. Trellis escapes tenant
+  isolation only to resolve memberships, switch the active workspace, or aggregate the agency
+  portfolio across workspaces the caller already belongs to.
+- That makes this example an architectural fork from `03-team-workspace`, not a permission shortcut.
+  If each user still belongs to exactly one workspace, staying on the single-workspace model is the
+  safer and simpler design.
+- The agency dashboard is a bounded operator view, not a general cross-tenant query pattern. Keep
+  the membership gate and explicit bypass reasons if you adapt it for production.
+
 ## Test
 
 - `pnpm test`

@@ -67,6 +67,7 @@ export const listPublic = unsafe.query({
   bypass: 'Expose the public runbook catalog without a workspace actor.',
   args: listRunbooks.args,
   handler: async (ctx) => {
+    // Public by design, but still bounded to already-public records and a capped catalog read.
     const db = escapeTenantIsolation(
       ctx.db,
       'Public runbook catalog intentionally spans all workspaces.',
@@ -75,7 +76,7 @@ export const listPublic = unsafe.query({
       .query('runbooks')
       .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
       .order('desc')
-      .collect()
+      .take(50)
     return runbooks.map(toPublicRunbook)
   },
 })
@@ -85,6 +86,7 @@ export const searchPublic = unsafe.query({
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
+    // Search the same public catalog, but keep the candidate set bounded before local filtering.
     const db = escapeTenantIsolation(
       ctx.db,
       'Public runbook search intentionally spans all workspaces.',
@@ -120,6 +122,8 @@ export const get = unsafe.query({
   bypass: 'Read public runbooks before the caller resolves to a workspace actor.',
   args: getRunbook.args,
   handler: async (ctx, args) => {
+    // This query may cross tenants, but only to read one public runbook before a workspace actor is
+    // available. Workspace-only records still fall back to the normal actor checks below.
     const db = escapeTenantIsolation(
       ctx.db,
       'Reading a public runbook may cross tenant boundaries.',

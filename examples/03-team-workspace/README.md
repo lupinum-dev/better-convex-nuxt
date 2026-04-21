@@ -57,6 +57,16 @@ App-owned env vars:
 - `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
 - `TEAM_WORKSPACE_WEBHOOK_AUTH_ID`: existing workspace user that verified webhook calls act for
 
+## Production notes
+
+- This example keeps the route boundary intentionally small: one verified shared-secret header plus a
+  delegated trusted-forwarding call into the protected mutation.
+- Replay protection is demonstrated in the app layer, not just at the route edge. The webhook
+  mutation stores processed event ids so external retries stay safe.
+- If you need timestamped HMAC verification, signature rotation, or several service principals, use
+  this as the tenant-safe baseline and then study [`07-mcp-reference`](../07-mcp-reference/README.md)
+  for the fuller server-owned identity shape.
+
 ## Test
 
 - `pnpm test`

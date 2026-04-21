@@ -47,6 +47,7 @@ import {
   routeShellTemplate,
   testSetupTemplate,
   todoContractTemplate,
+  uploadsContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
   workspaceActorTemplate,
@@ -838,28 +839,57 @@ function readmeTemplate(options: {
   template: CanonicalAppTemplate
   mcp: boolean
 }) {
-  return `
-# ${options.appName}
+  const maintainedReferenceLines =
+    options.template === 'public'
+      ? [
+          '- Start with the maintained reference: [`01-public-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/01-public-todo).',
+        ]
+      : options.template === 'personal'
+        ? [
+            '- Start with the maintained reference: [`02-auth-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/02-auth-todo).',
+          ]
+        : options.template === 'workspace' && options.mcp
+          ? [
+              '- Start with the protected-app baseline: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
+              '- Then study the MCP branch: [`07-mcp-reference`](https://github.com/lupinum-dev/trellis/tree/main/examples/07-mcp-reference).',
+            ]
+          : options.template === 'workspace'
+            ? [
+                '- Start with the maintained reference: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
+              ]
+            : [
+                '- Start with the maintained reference: [`08-component-mini-cms`](https://github.com/lupinum-dev/trellis/tree/main/examples/08-component-mini-cms).',
+              ]
 
-Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp ? ' --mcp' : ''}\`.
+  const lines = [
+    `# ${options.appName}`,
+    '',
+    `Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp ? ' --mcp' : ''}\`.`,
+    '',
+    '## Quick start',
+    '',
+    '```bash',
+    'pnpm install',
+    'pnpm convex:dev',
+    'pnpm dev',
+    '```',
+    '',
+    '## Canonical shape',
+    '',
+    '- `convex/features/` for backend feature modules',
+    '- `shared/features/` for runtime-neutral contracts',
+    `- \`convex/auth/\` for actor and guard logic${options.template === 'public' ? ' (not used in the public starter)' : ''}`,
+    '- `convex/permissions/` for permission projection when the starter uses permission context',
+    '- `app/features/` for feature-owned UI and route shells',
+  ]
 
-## Quick start
+  if (options.mcp) {
+    lines.push('- server/mcp/ for MCP runtime and tools')
+  }
 
-\`\`\`bash
-pnpm install
-pnpm convex:dev
-pnpm dev
-\`\`\`
+  lines.push('', '## Maintained reference', '', ...maintainedReferenceLines, '')
 
-## Canonical shape
-
-- \`convex/features/\` for backend feature modules
-- \`shared/features/\` for runtime-neutral contracts
-- \`convex/auth/\` for actor and guard logic${options.template === 'public' ? ' (not used in the public starter)' : ''}
-- \`convex/permissions/\` for permission projection when the starter uses permission context
-- \`app/features/\` for feature-owned UI and route shells
-${options.mcp ? '- \\`server/mcp/\\` for MCP runtime and tools' : ''}
-`.trimStart()
+  return `${lines.join('\n')}`
 }
 
 function gitignoreTemplate() {
@@ -1156,6 +1186,11 @@ export async function getAddTemplateSet(options: {
       label: 'add:uploads',
       description: 'Add a canonical upload URL seam and starter page',
       files: [
+        {
+          path: 'shared/features/files/contract.ts',
+          content: uploadsContractTemplate(),
+          ownership: 'authored',
+        },
         {
           path: 'convex/features/files/domain.ts',
           content: uploadsDomainTemplate(),

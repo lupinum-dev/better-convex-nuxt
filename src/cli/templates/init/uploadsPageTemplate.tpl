@@ -8,7 +8,7 @@ const {
   data: storageId,
   error,
   reset,
-} = useConvexUpload(api.features.files.domain.generateUploadUrl, {
+} = useConvexUpload(api.features.files.domain.generateUploadUrlMutation, {
   allowedTypes: ['image/*', 'application/pdf'],
   maxSizeBytes: 5_000_000,
 })

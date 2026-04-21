@@ -755,6 +755,10 @@ export function uploadsDomainTemplate() {
   return readStaticTemplate('uploadsDomainTemplate')
 }
 
+export function uploadsContractTemplate() {
+  return readStaticTemplate('uploadsContractTemplate')
+}
+
 export function uploadsPageTemplate() {
   return readStaticTemplate('uploadsPageTemplate')
 }

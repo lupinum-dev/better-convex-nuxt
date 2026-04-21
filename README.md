@@ -13,6 +13,24 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 - [Examples](./examples/README.md)
 - [Spec](./meta/SPEC-FINAL.md)
 
+## Good Fit
+
+Use Trellis when:
+
+- the app is on Nuxt + Convex + Better Auth already
+- you need one protected backend model reused across browser UI, Nitro routes, and MCP
+- tenant isolation, roles, permission projection, or destructive-work safety are real product requirements
+- you want starters, generators, examples, lint rules, and `doctor` to reinforce one framework shape
+
+## Not Ideal
+
+Do not start here when:
+
+- the app is a tiny public or one-off internal tool and raw Convex is already enough
+- you want an unopinionated helper layer instead of a framework
+- you are not willing to keep the canonical app shape and feature layout
+- you do not need shared auth, permission, or MCP conventions across surfaces
+
 ## Official Product Surface
 
 Canonical CLI:

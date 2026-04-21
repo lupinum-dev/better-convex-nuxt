@@ -685,6 +685,100 @@ export default defineEventHandler(async (event) => {
     ).toBe('fail')
   })
 
+  it('surfaces unsafe and cross-tenant escape inventories without turning them into failures', () => {
+    const cwd = createTempDir('trellis-doctor-inventory-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/domain.ts'),
+      `${read(resolve(appRoot, 'convex/features/todos/domain.ts')).replace(
+        "import { mutation, query } from '../../functions'",
+        "import { mutation, query, unsafe } from '../../functions'",
+      )}
+
+export const publicCatalog = unsafe.query({
+  bypass: 'Intentional public listing for doctor inventory coverage.',
+  args: listTodos.args,
+  handler: async (ctx) => {
+    const db = ctx.db.escapeTenantIsolation({
+      reason: 'Intentional cross-tenant escape for doctor inventory coverage.',
+    })
+    return await db.query('todos').collect()
+  },
+})
+`,
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.status).toBe(
+      'pass',
+    )
+    expect(
+      report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.message,
+    ).toContain('convex/features/todos/domain.ts')
+    expect(
+      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.status,
+    ).toBe('pass')
+    expect(
+      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.message,
+    ).toContain('convex/features/todos/domain.ts')
+  })
+
+  it('surfaces destructive operation inventory without turning it into a failure', () => {
+    const cwd = createTempDir('trellis-doctor-destructive-inventory-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/operations.ts'),
+      `
+import { defineOperation } from '@lupinum/trellis/functions'
+import { v } from 'convex/values'
+
+export const purgeTodoOp = defineOperation({
+  id: 'todos.purge',
+  kind: 'destructive',
+  args: { id: v.string() },
+  guard: open,
+  handler: async () => null,
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(
+      report.findings.find((entry) => entry.id === 'destructive-operation-inventory')?.status,
+    ).toBe('pass')
+    expect(
+      report.findings.find((entry) => entry.id === 'destructive-operation-inventory')?.message,
+    ).toContain('convex/features/todos/operations.ts')
+  })
+
   it('fails doctor when a destructive MCP tool skips tool.fromOperation', () => {
     const cwd = createTempDir('trellis-doctor-mcp-operation-binding-')
     const initResult = runCli(

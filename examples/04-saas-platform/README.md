@@ -55,6 +55,18 @@ App-owned env vars:
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `PROJECT_BOARD_WEBHOOK_SECRET`: webhook route signature secret
 
+## Production notes
+
+- The webhook route here is intentionally narrower than the full Trellis trusted-forwarding model.
+  It verifies one route-owned secret and hands work to an internal mutation instead of forwarding a
+  service principal through the whole protected app.
+- That keeps the server-integration example readable, but it is not the full production identity
+  story for complex integrations. Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you
+  need explicit service principals plus delegated users on the protected root refs themselves.
+- If you keep this narrower route-owned pattern in production, add the normal transport hardening
+  around it: timestamped HMAC signatures, replay windows, secret rotation, and provider-specific
+  event idempotency if the sender retries independently of your Convex writes.
+
 ## Test
 
 - `pnpm test`

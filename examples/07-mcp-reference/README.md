@@ -78,6 +78,19 @@ Rate-limited MCP tools in this example use Trellis's Redis-backed store. For loc
 Redis instance such as `docker run --rm -p 6379:6379 redis:7-alpine` and keep
 `MCP_RATE_LIMIT_REDIS_URL` pointed at it.
 
+## Production notes
+
+- This is the full Trellis server-owned identity example: the MCP key or webhook service is the real
+  caller, and delegation is how that caller is allowed to act for one bound workspace user.
+- Rate-limited MCP tools are wired to a distributed Redis-backed store here on purpose. Treat that as
+  part of the deployment contract, not as optional demo polish.
+- The public runbook catalog is also intentional and bounded. Those handlers escape tenant isolation
+  only for records whose visibility is already `public`, and the search path caps the candidate set
+  instead of pretending public access means unbounded scans are acceptable.
+- The verified webhook route still keeps the transport boundary intentionally simple so the principal
+  and delegation flow stay readable. For production integrations, add timestamped HMAC verification,
+  replay windows, and provider event ids on top of the trusted-forwarding lane shown here.
+
 ## Test
 
 - `pnpm test`

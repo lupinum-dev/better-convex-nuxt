@@ -7,14 +7,17 @@ import {
   createImportBoundaryRule,
   createRule,
   getFilename,
+  getHandlerFunction,
   getLiteralValue,
   getObjectProperty,
   getSourceCode,
+  hasTenantCollectionMethod,
   isBuilderCall,
   isCallNamed,
   isIdentifier,
   isNullishBooleanLiteral,
   traverse,
+  unwindCallChain,
 } from '../shared.js'
 
 function toPortablePath(path: string): string {
@@ -271,6 +274,39 @@ export const boundaryRules = {
         context.report({
           node: bypass ?? options,
           messageId: 'bypass',
+        })
+      },
+    }),
+  ),
+  'unsafe-query-collection-requires-index': createRule(
+    {
+      type: 'problem',
+      schema: [],
+      messages: {
+        indexed:
+          'Collection reads inside `unsafe.query(...)` should use `.withIndex(...)` before collecting results.',
+      },
+    },
+    (context) => ({
+      CallExpression(node: any) {
+        if (!isBuilderCall(node, 'unsafe', 'query')) return
+        const handler = getHandlerFunction(node)
+        if (!handler || handler.body?.type !== 'BlockStatement') return
+
+        traverse(handler.body, (child) => {
+          if (child.type !== 'CallExpression') return
+          const chain = unwindCallChain(child)
+          const queryStep = chain.find((entry) => isCallNamed(entry.node, 'query'))
+          if (!queryStep) return
+
+          const lastStep = chain[chain.length - 1]
+          if (!lastStep || !hasTenantCollectionMethod(lastStep.name)) return
+          if (chain.some((entry) => entry.name === 'withIndex')) return
+
+          context.report({
+            node: queryStep.node,
+            messageId: 'indexed',
+          })
         })
       },
     }),

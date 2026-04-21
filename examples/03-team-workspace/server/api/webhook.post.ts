@@ -3,6 +3,10 @@ import { subject } from '@lupinum/trellis/auth'
  * Why this file exists:
  * Nitro route that receives external webhook payloads and forwards them to a protected Convex
  * mutation after verifying a server-owned signature.
+ *
+ * This example keeps the transport boundary deliberately small. The important thing to study is the
+ * trusted principal plus delegated user that reaches the protected mutation, while replay protection
+ * lives in the app layer through processed event ids.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 import { api } from '~~/convex/_generated/api'
@@ -45,6 +49,8 @@ function getWebhookActorAuthId(): string {
 export default defineEventHandler(async (event) => {
   const authId = getWebhookActorAuthId()
   const body = await readVerifiedWebhookBody({
+    // Demo route boundary: one shared secret header. Production integrations usually add a
+    // timestamped HMAC scheme and replay window on top of this before forwarding inward.
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
     readBody: async () => await readBody<WebhookBody>(event),

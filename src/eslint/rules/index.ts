@@ -31,6 +31,7 @@ export const recommendedRuleLevels: Record<string, 'error' | 'warn'> = {
   [`${TENANT_RULE_NAME}/unsafe-get-requires-tenant-check`]: 'error',
   [`${TENANT_RULE_NAME}/escape-tenant-isolation-requires-reason`]: 'error',
   [`${TENANT_RULE_NAME}/unsafe-requires-bypass`]: 'error',
+  [`${TENANT_RULE_NAME}/unsafe-query-collection-requires-index`]: 'error',
 }
 
 export const strictOnlyRuleLevels: Record<string, 'error'> = {

@@ -317,6 +317,44 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
+  it('requires indexed collection reads inside unsafe query handlers', async () => {
+    const rootDir = createProjectFixture({})
+    const eslint = await createEslint(rootDir)
+
+    const [badResult] = await eslint.lintText(
+      `
+      export const listPublic = unsafe.query({
+        bypass: 'Fixture-only public read for lint coverage.',
+        args: {},
+        handler: async (ctx) => {
+          return await ctx.db.query('runbooks').collect()
+        },
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/runbooks.ts') },
+    )
+
+    const [goodResult] = await eslint.lintText(
+      `
+      export const listPublic = unsafe.query({
+        bypass: 'Fixture-only public read for lint coverage.',
+        args: {},
+        handler: async (ctx) => {
+          return await ctx.db.query('runbooks').withIndex('by_visibility', (q) => q.eq('visibility', 'public')).collect()
+        },
+      })
+      `,
+      { filePath: resolve(rootDir, 'convex/runbooks.ts') },
+    )
+
+    expect(badResult!.messages.map((message) => message.ruleId)).toContain(
+      '@lupinum/trellis/unsafe-query-collection-requires-index',
+    )
+    expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
+      '@lupinum/trellis/unsafe-query-collection-requires-index',
+    )
+  })
+
   it('keeps shared feature contracts runtime-neutral', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)

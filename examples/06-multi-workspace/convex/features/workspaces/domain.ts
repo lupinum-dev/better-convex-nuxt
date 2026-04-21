@@ -24,6 +24,7 @@ export const listAccessibleWorkspaces = query({
     const actor = await getActor(ctx)
     if (!actor) return []
 
+    // This lookup crosses tenant boundaries only to resolve the caller's own memberships.
     const db = ctx.db.escapeTenantIsolation({
       reason: 'Agency membership lookup spans multiple workspaces.',
     })
@@ -49,6 +50,8 @@ export const createWorkspaceMutation = mutation({
     const subject = await getIdentitySubject(ctx)
     if (!subject) throw deny('Not authenticated.')
 
+    // Workspace bootstrap is one of the few legitimate writes that must happen before the caller has
+    // a current tenant.
     const db = ctx.db.escapeTenantIsolation({
       reason: 'Workspace bootstrap must write outside the current tenant scope.',
     })
@@ -105,6 +108,8 @@ export const switchWorkspace = mutation({
 
     if (!user) throw new Error('Current user row not found.')
 
+    // Switching tenants validates membership in another workspace before patching the user's active
+    // workspace pointer.
     await requireWorkspaceMembership(
       ctx.db.escapeTenantIsolation({
         reason: 'Workspace switching validates membership in another tenant.',
@@ -127,6 +132,8 @@ export const seedAgencyPortfolioMutation = mutation({
     const actor = await getActor(ctx)
     if (!actor) throw deny('Not authenticated.')
 
+    // Demo-only seed path: intentionally creates records across several workspaces so the operator
+    // dashboard has something real to show.
     const db = ctx.db.escapeTenantIsolation({
       reason: 'Agency portfolio seeding intentionally creates records across tenants.',
     })

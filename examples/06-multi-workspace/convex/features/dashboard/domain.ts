@@ -24,6 +24,8 @@ export const portfolio = unsafe.query({
     const scopedActor = await getActor(ctx)
     if (!scopedActor) throw deny('Not authenticated.')
 
+    // Cross-tenant by design, but still membership-bounded: the portfolio only spans workspaces
+    // where this actor already has an agency role.
     const db = escapeTenantIsolation(
       ctx.db,
       'Agency portfolio intentionally spans multiple workspaces.',

@@ -19,11 +19,14 @@ import {
   findEnvKeySource,
   findConvexHttpSource,
   findConvexAuthSource,
+  findCrossTenantEscapeInventory,
   findConfiguredPermissionQueryPath,
+  findDestructiveOperationInventory,
   findDestructiveMcpToolsWithoutOperationBinding,
   findForwardedPrincipalWithoutTrustedAuth,
   findMcpRateLimitStoreSupport,
   findMissingCanonicalLayoutPaths,
+  findUnsafeSurfaceInventory,
   findTrustedForwardingPublicExposure,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
@@ -79,6 +82,9 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.fromOperation\s*\(/.test(file.text),
   )
+  const unsafeSurfaceInventory = findUnsafeSurfaceInventory(project)
+  const crossTenantEscapeInventory = findCrossTenantEscapeInventory(project)
+  const destructiveOperationInventory = findDestructiveOperationInventory(project)
   const mcpRateLimitExpected = usesMcpRateLimit(project)
   const mcpRateLimitStoreSupport = findMcpRateLimitStoreSupport(project)
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
@@ -364,6 +370,57 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         forwardedPrincipalMisuse.length > 0
           ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'`."
           : 'Keep forwarded principals confined to verified trusted-forwarding lanes.',
+    },
+    {
+      id: 'unsafe-surface-inventory',
+      category: 'advanced',
+      title: 'Unsafe surface inventory',
+      status: 'pass',
+      message:
+        unsafeSurfaceInventory.length === 0
+          ? 'No `unsafe.query(...)` or `unsafe.mutation(...)` entrypoints were detected.'
+          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${unsafeSurfaceInventory
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${unsafeSurfaceInventory.length > 3 ? ', ...' : ''}.`,
+      fixHint:
+        unsafeSurfaceInventory.length === 0
+          ? 'No action needed unless you add intentional escape hatches later.'
+          : 'Review each unsafe entrypoint and keep the bypass reason narrow, explicit, and tested.',
+    },
+    {
+      id: 'cross-tenant-escape-inventory',
+      category: 'advanced',
+      title: 'Cross-tenant escape inventory',
+      status: 'pass',
+      message:
+        crossTenantEscapeInventory.length === 0
+          ? 'No `ctx.db.escapeTenantIsolation(...)` sites were detected.'
+          : `Found ${crossTenantEscapeInventory.length} tenant-isolation escape${crossTenantEscapeInventory.length === 1 ? '' : 's'} in ${crossTenantEscapeInventory
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${crossTenantEscapeInventory.length > 3 ? ', ...' : ''}.`,
+      fixHint:
+        crossTenantEscapeInventory.length === 0
+          ? 'No action needed unless the app adds cross-tenant workflows later.'
+          : 'Review each tenant-isolation escape and keep the reason, caller boundary, and data scope explicit.',
+    },
+    {
+      id: 'destructive-operation-inventory',
+      category: 'advanced',
+      title: 'Destructive operation inventory',
+      status: 'pass',
+      message:
+        destructiveOperationInventory.length === 0
+          ? 'No `kind: "destructive"` operations were detected.'
+          : `Found ${destructiveOperationInventory.length} destructive operation${destructiveOperationInventory.length === 1 ? '' : 's'} in ${destructiveOperationInventory
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${destructiveOperationInventory.length > 3 ? ', ...' : ''}.`,
+      fixHint:
+        destructiveOperationInventory.length === 0
+          ? 'No action needed unless the app adds destructive preview/confirm flows later.'
+          : 'Review each destructive operation and keep preview, confirmation, and audit expectations explicit.',
     },
     {
       id: 'mcp-confirmation-key-configured',

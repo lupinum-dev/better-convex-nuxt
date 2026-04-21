@@ -73,7 +73,7 @@ Use narrower checks while iterating, but do not mark a release-gating item compl
 - [x] No maintained example is allowed to drift from the declared product contract without an explicit documented exception.
 - [x] No new product-surface rewrite is introduced while this roadmap cycle is in progress.
 - [x] No new public example teaches cast-heavy unsafe seams as the normal path.
-- [ ] `03-team-workspace` remains the canonical protected-app reference across docs, examples, starters, and release gating.
+- [x] `03-team-workspace` remains the canonical protected-app reference across docs, examples, starters, and release gating.
 
 ## Workstream 0: Freeze Decision Surface
 
@@ -113,7 +113,7 @@ Eliminate visible drift between the public product contract and the repo reality
 - [x] Audit every maintained example against the current product contract.
 - [x] Classify every remaining mismatch as either a defect to fix now or an intentional maintained-reference exception to document explicitly.
 - [x] Fix all public README and env-table mismatches in the main learning path.
-- [ ] Review webhook examples and clearly distinguish demo teaching lanes from production expectations.
+- [x] Review webhook examples and clearly distinguish demo teaching lanes from production expectations.
 - [x] Review example layout expectations against canonical layout enforcement.
 - [x] Ensure maintained examples do not fail `doctor` unless the failure reflects an intentional, documented rule.
 - [ ] Remove or rewrite any public teaching path that contradicts current starter guidance.
@@ -123,6 +123,7 @@ Progress note:
 - Verified maintained examples `03` through `08` against `trellis doctor`, typecheck, and their local test suites.
 - Fixed example/docs drift in [examples/README.md](/Users/matthias/Git/0_libs/WORK/trellis/examples/README.md:1) and corrected CSV escaping in [examples/04-saas-platform/server/api/export.get.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/04-saas-platform/server/api/export.get.ts:1).
 - Example `07-mcp-reference` now wires a supported Redis-backed MCP rate-limit store and can satisfy the deployment check when `MCP_RATE_LIMIT_REDIS_URL` is configured.
+- Clarified webhook and trusted-forwarding teaching lanes in the maintained example READMEs and route comments so the demo transport boundary is clearly separated from production expectations.
 
 ### Acceptance Criteria
 
@@ -183,10 +184,10 @@ Make dangerous paths visible, enforced, and release-critical across the framewor
 
 - [ ] Expand `trellis doctor` coverage for unsafe, cross-tenant, destructive, and MCP deployment surfaces.
 - [x] Review canonical layout checks and align them with maintained example reality.
-- [ ] Add or tighten checks for public and cross-tenant escape inventories where useful.
-- [ ] Add or tighten checks for destructive operation inventory where useful.
+- [x] Add or tighten checks for public and cross-tenant escape inventories where useful.
+- [x] Add or tighten checks for destructive operation inventory where useful.
 - [x] Strengthen MCP deployment checks, especially around distributed rate-limit expectations.
-- [ ] Strengthen ESLint rules around trust boundaries, unsafe access, and public handler quality.
+- [x] Strengthen ESLint rules around trust boundaries, unsafe access, and public handler quality.
 - [ ] Promote relevant drift checks from advisory to release-gating where appropriate.
 - [ ] Ensure repo CI fails on framework drift instead of tolerating it.
 
@@ -194,6 +195,9 @@ Progress note:
 
 - Aligned `doctor` canonical-layout checks with maintained example reality in [src/cli/lib/project.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/project.ts:181).
 - Fixed trusted-forwarding public-exposure false positives for component code in [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts:388), restored MCP distributed-store enforcement as a hard failure, and updated unit coverage in [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:1).
+- Added explicit `doctor` inventory findings for `unsafe.query(...)` / `unsafe.mutation(...)` entrypoints and `escapeTenantIsolation(...)` call sites in [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts:351) and [src/cli/lib/project.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/project.ts:545), with regression coverage in [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:688).
+- Added `doctor` inventory findings for destructive operations declared with `kind: 'destructive'` in [src/cli/commands/doctor.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/commands/doctor.ts:384) and [src/cli/lib/project.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/project.ts:573), with regression coverage in [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:736).
+- Strengthened the ESLint trust-boundary surface by adding indexed-collection enforcement for `unsafe.query(...)` handlers in [src/eslint/rules/boundaries.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/eslint/rules/boundaries.ts:289), wiring it into the recommended config in [src/eslint/rules/index.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/eslint/rules/index.ts:14), and covering representative good/bad fixtures in [tests/unit/eslint-plugin.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/eslint-plugin.test.ts:320).
 
 ### Acceptance Criteria
 
@@ -216,18 +220,21 @@ Make the product story simpler by pulling starters and maintained examples towar
 
 ### Checklist
 
-- [ ] Audit starter output against `03-team-workspace` and current canonical layout expectations.
-- [ ] Improve `workspace` so it is clearly the default serious-app lane.
-- [ ] Improve `workspace --mcp` so MCP remains an extension of the workspace model, not a parallel starter family.
+- [x] Audit starter output against `03-team-workspace` and current canonical layout expectations.
+- [x] Improve `workspace` so it is clearly the default serious-app lane.
+- [x] Improve `workspace --mcp` so MCP remains an extension of the workspace model, not a parallel starter family.
 - [ ] Improve `cms` so it feels aligned with the same product conventions.
 - [ ] Improve `trellis add entity` output so generated slices require less manual cleanup.
-- [ ] Improve `trellis add uploads` output so it matches the same canonical product story.
+- [x] Improve `trellis add uploads` output so it matches the same canonical product story.
 - [x] Improve `trellis add operation` output so generated operations align with current destructive and shared-work expectations.
-- [ ] Remove mixed signals in docs and examples about which protected-app path is primary.
+- [x] Remove mixed signals in docs and examples about which protected-app path is primary.
 
 Progress note:
 
 - Updated generated MCP delete-operation output in [src/cli/lib/resource.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/resource.ts:519) to stamp execute/preview refs correctly for `tool.fromOperation(...)`.
+- Audited generated `workspace` and `workspace --mcp` starter trees against the canonical layout and `03-team-workspace` baseline with temporary CLI scaffolds.
+- Updated starter README generation in [src/cli/lib/init.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init.ts:836) so `workspace` points directly at `03-team-workspace`, while `workspace --mcp` points to `03-team-workspace` first and `07-mcp-reference` second.
+- Updated `trellis add uploads` to scaffold the same contract-backed unsafe upload seam taught by the maintained SaaS example via [src/cli/templates/init/uploadsContractTemplate.tpl](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/templates/init/uploadsContractTemplate.tpl:1), [src/cli/templates/init/uploadsDomainTemplate.tpl](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/templates/init/uploadsDomainTemplate.tpl:1), and regression coverage in [tests/unit/cli-add-resource.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-add-resource.test.ts:156).
 
 ### Acceptance Criteria
 
@@ -250,10 +257,10 @@ Make the most powerful Trellis paths production-shaped instead of merely impress
 
 ### Checklist
 
-- [ ] Review MCP examples and docs for production deployment clarity.
+- [x] Review MCP examples and docs for production deployment clarity.
 - [x] Make distributed MCP rate-limit expectations explicit wherever rate-limited MCP tools are taught.
-- [ ] Review public and cross-tenant examples so those surfaces are visibly intentional and bounded.
-- [ ] Review webhook and trusted-forwarding examples for replay-aware, production-grade guidance.
+- [x] Review public and cross-tenant examples so those surfaces are visibly intentional and bounded.
+- [x] Review webhook and trusted-forwarding examples for replay-aware, production-grade guidance.
 - [ ] Review component-bridge maintained references for ergonomics and unsafe glue.
 - [ ] Add narrow helpers only where repetition and risk justify them after earlier coherence work lands.
 - [ ] Remove any remaining accidental teaching of shortcuts on advanced maintained reference paths.
@@ -262,6 +269,7 @@ Progress note:
 
 - Restored an explicit per-request size bound on the destructive MCP bulk-delete reference in [examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts:1).
 - Fixed the underlying `tool.fromOperation(...).maxItems` typing seam in [src/runtime/mcp/types.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/types.ts:32), [src/runtime/mcp/define-mcp-app.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-mcp-app.ts:255), and [src/runtime/mcp/define-convex-tool.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-convex-tool.ts:593) so the maintained example no longer needs a cast for `maxItems`.
+- Clarified public and cross-tenant escape hatches in the maintained advanced examples, and bounded the public runbook catalog read in [examples/07-mcp-reference/convex/features/runbooks/domain.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/convex/features/runbooks/domain.ts:66).
 - Wired Example `07-mcp-reference` to a supported Redis-backed MCP rate-limit store in [server/mcp/rate-limit-store.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/rate-limit-store.ts:1) and documented `MCP_RATE_LIMIT_REDIS_URL` in the example README and env table.
 
 ### Acceptance Criteria
@@ -285,11 +293,15 @@ Make Trellis easier to evaluate correctly by tightening the public product story
 ### Checklist
 
 - [ ] Tighten docs and website language so Trellis is consistently described as a framework.
-- [ ] Make the intended audience explicit.
-- [ ] Make the non-ideal audience explicit.
+- [x] Make the intended audience explicit.
+- [x] Make the non-ideal audience explicit.
 - [ ] Keep future families in `labs` until they earn promotion into the public product contract.
 - [ ] Remove or rewrite mixed messaging that frames Trellis as both an unopinionated helper layer and a full framework.
 - [ ] Ensure roadmap-shaped ideas stay clearly separated from current product promises.
+
+Progress note:
+
+- Added explicit good-fit and non-ideal-fit framing to the public entry points in [README.md](/Users/matthias/Git/0_libs/WORK/trellis/README.md:1) and [apps/docs/content/docs/01.getting-started/1.start-here.md](/Users/matthias/Git/0_libs/WORK/trellis/apps/docs/content/docs/01.getting-started/1.start-here.md:1).
 
 ### Acceptance Criteria
 
@@ -312,10 +324,10 @@ Define the final conditions for calling this roadmap cycle complete.
 ### Checklist
 
 - [x] Confirm maintained examples match the intended product contract.
-- [ ] Confirm starter output and docs agree on canonical shape.
+- [x] Confirm starter output and docs agree on canonical shape.
 - [ ] Confirm advanced example code no longer relies on visible cast-heavy seams.
 - [x] Confirm `doctor` and lint meaningfully enforce the dangerous paths Trellis owns.
-- [ ] Confirm `03-team-workspace` is unmistakably the golden path.
+- [x] Confirm `03-team-workspace` is unmistakably the golden path.
 - [ ] Confirm no blocked item remains in an earlier workstream without an explicit documented deferral.
 
 Current release-gate status:
@@ -323,6 +335,7 @@ Current release-gate status:
 - Maintained examples `03` through `08` pass `trellis doctor` when their documented local environment is configured, including the Redis-backed MCP rate-limit store for `07-mcp-reference`.
 - Verified local typecheck and test passes for maintained examples `04` through `08`.
 - Verified [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:1) passes.
+- Verified generated `workspace` and `workspace --mcp` starter READMEs point back to the maintained canonical references after rebuilding the CLI.
 - Verified repo-level release-gate commands on 2026-04-21:
   - `pnpm run check`
   - `pnpm run test:contracts`

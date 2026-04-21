@@ -689,3 +689,88 @@ export function findDestructiveMcpToolsWithoutOperationBinding(
 
   return findings
 }
+
+export function findUnsafeSurfaceInventory(project: ProjectInspection): ProjectSourceLocation[] {
+  const analysis = createAnalysisProject(project)
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const callee = unwrapExpression(call.getExpression())
+      if (!callee || !Node.isPropertyAccessExpression(callee)) continue
+      if (
+        !Node.isIdentifier(callee.getExpression()) ||
+        callee.getExpression().getText() !== 'unsafe'
+      ) {
+        continue
+      }
+
+      const method = callee.getName()
+      if (method !== 'query' && method !== 'mutation') continue
+
+      findings.push({
+        path: sourceFile.getFilePath(),
+        line: call.getStartLineNumber(),
+      })
+    }
+  }
+
+  return findings
+}
+
+export function findCrossTenantEscapeInventory(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const analysis = createAnalysisProject(project)
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const callee = unwrapExpression(call.getExpression())
+      if (!callee || !Node.isPropertyAccessExpression(callee)) continue
+      if (callee.getName() !== 'escapeTenantIsolation') continue
+
+      findings.push({
+        path: sourceFile.getFilePath(),
+        line: call.getStartLineNumber(),
+      })
+    }
+  }
+
+  return findings
+}
+
+export function findDestructiveOperationInventory(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const analysis = createAnalysisProject(project)
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of analysis.getSourceFiles()) {
+    for (const objectLiteral of sourceFile.getDescendantsOfKind(
+      SyntaxKind.ObjectLiteralExpression,
+    )) {
+      const kindProperty = objectLiteral
+        .getProperties()
+        .find((property) => getPropertyName(property) === 'kind')
+      if (!kindProperty || !Node.isPropertyAssignment(kindProperty)) continue
+
+      const initializer = unwrapExpression(kindProperty.getInitializer())
+      if (
+        !initializer ||
+        (!Node.isStringLiteral(initializer) && !Node.isNoSubstitutionTemplateLiteral(initializer))
+      ) {
+        continue
+      }
+
+      if (initializer.getLiteralText() !== 'destructive') continue
+
+      findings.push({
+        path: sourceFile.getFilePath(),
+        line: objectLiteral.getStartLineNumber(),
+      })
+    }
+  }
+
+  return findings
+}

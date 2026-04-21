@@ -63,6 +63,8 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 export default defineEventHandler(async (event) => {
   const authId = getWebhookActorAuthId()
   const body = await readVerifiedWebhookBody({
+    // Keep the transport check small so the service-principal + delegation path is the thing being
+    // demonstrated. Production senders should usually add timestamped HMAC verification too.
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
     readBody: async () => await readBody<WebhookBody>(event),

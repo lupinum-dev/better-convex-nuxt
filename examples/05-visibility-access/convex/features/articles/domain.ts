@@ -77,6 +77,8 @@ export const view = query({
   guard: open,
   args: viewArticle.args,
   handler: async (ctx, args) => {
+    // Keep the cross-tenant seam narrow: this is only for one hashed share token resolving one
+    // article before a workspace actor exists.
     const crossTenantDb = ctx.db.escapeTenantIsolation({
       reason: 'Resolve share-token reads across tenant boundaries.',
     })

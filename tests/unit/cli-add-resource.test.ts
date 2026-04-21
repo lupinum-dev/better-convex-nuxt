@@ -151,3 +151,29 @@ describe('trellis add entity', () => {
     ).resolves.toContain('authorId: v.string()')
   })
 })
+
+describe('trellis add uploads', () => {
+  it('scaffolds the canonical upload seam with a shared contract and explicit unsafe boundary', async () => {
+    const cwd = await scaffoldApp('workspace')
+    const template = await getAddTemplateSet({
+      feature: 'uploads',
+      cwd,
+      appName: 'demo-app',
+    })
+
+    await applyInitTemplateSet(cwd, template, false)
+
+    await expect(
+      readFile(resolve(cwd, 'shared/features/files/contract.ts'), 'utf8'),
+    ).resolves.toContain('export const generateUploadUrl = defineArgs')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/files/domain.ts'), 'utf8'),
+    ).resolves.toContain('Why this file exists:')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/files/domain.ts'), 'utf8'),
+    ).resolves.toContain('args: generateUploadUrlContract.args')
+    await expect(
+      readFile(resolve(cwd, 'app/features/uploads/components/UploadsStarterPage.vue'), 'utf8'),
+    ).resolves.toContain('useConvexUpload(api.features.files.domain.generateUploadUrlMutation')
+  })
+})
