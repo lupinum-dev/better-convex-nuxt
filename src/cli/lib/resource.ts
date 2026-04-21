@@ -520,7 +520,9 @@ export default tool({
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/functions'
-import { ${ctx.singularCamel}DeletePermission, previewRemove${ctx.singularPascal}, remove, remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}'
+import { remove } from '~~/convex/features/${ctx.tableName}/domain'
+import { previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
+import { ${ctx.singularCamel}DeletePermission } from '~~/convex/features/${ctx.tableName}/permissions'
 
 import { tool } from '../runtime'
 
@@ -580,7 +582,6 @@ ${permissionsLine}})
 
 function resourceIndexTemplate(ctx: ResourceGeneratorContext): string {
   return `
-export { create, get, list, remove, update } from './domain'
 export { ${ctx.tableName}Feature } from './feature'
 export {
   ${ctx.singularCamel}CreatePermission,

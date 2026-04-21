@@ -9,9 +9,9 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { todosTables } from './features/todos'
-import { userTables } from './features/users'
-import { workspaceTables } from './features/workspaces'
+import { todosTables } from './features/todos/schema'
+import { userTables } from './features/users/schema'
+import { workspaceTables } from './features/workspaces/schema'
 
 export default defineSchema({
   ...workspaceTables,

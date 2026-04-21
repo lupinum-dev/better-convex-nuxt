@@ -38,8 +38,9 @@ function expectCanonicalLayout(appRoot: string, options: CanonicalLayoutOptions)
     'convex/schema.ts',
     'convex/features',
     'shared/features',
+    'app/app.vue',
     'app/features',
-    'pages',
+    'app/pages',
     'server/api',
     'server/mcp',
     ...(options.auth
@@ -132,7 +133,7 @@ describe('CLI doctor', () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expectCanonicalLayout(appRoot, { auth: true, permissions: false })
     expect(read(resolve(appRoot, 'package.json'))).toContain('"name": "demo-personal"')
-    expect(read(resolve(appRoot, 'pages/index.vue'))).toContain('PersonalStarterPage')
+    expect(read(resolve(appRoot, 'app/pages/index.vue'))).toContain('PersonalStarterPage')
     expect(
       read(resolve(appRoot, 'app/features/personal/components/PersonalStarterPage.vue')),
     ).toContain('Personal Starter')
@@ -636,7 +637,7 @@ describe('CLI doctor', () => {
       "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
     )
     writeFileSync(
-      resolve(cwd, 'pages/index.vue'),
+      resolve(cwd, 'app/pages/index.vue'),
       '<script setup lang="ts">\nconst { allows } = usePermissions()\n</script>\n',
     )
 

@@ -103,8 +103,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { projectArchive, projectRead } from '~~/convex/features/projects'
-import { taskCreate } from '~~/convex/features/tasks'
+import { projectArchive, projectRead } from '~~/convex/features/projects/permissions'
+import { taskCreate } from '~~/convex/features/tasks/permissions'
 
 import { api } from '#trellis/api'
 

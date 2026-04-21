@@ -2,7 +2,18 @@
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -576,6 +587,31 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function workspacePnpmArgs(cwd, args) {
+  return ['--dir', cwd, ...args]
+}
+
+function ensureLocalWorkspacePackageLink(cwd) {
+  const scopeDir = path.join(cwd, 'node_modules', '@lupinum')
+  const packageLink = path.join(scopeDir, 'trellis')
+  const desiredTarget = path.resolve(scopeDir, path.relative(scopeDir, REPO_ROOT))
+
+  mkdirSync(scopeDir, { recursive: true })
+
+  try {
+    const existing = lstatSync(packageLink)
+    if (existing.isSymbolicLink()) {
+      const currentTarget = path.resolve(scopeDir, readlinkSync(packageLink))
+      if (currentTarget === desiredTarget) return
+    }
+    rmSync(packageLink, { recursive: true, force: true })
+  } catch {
+    // Nothing to replace.
+  }
+
+  symlinkSync(path.relative(scopeDir, desiredTarget), packageLink, 'dir')
+}
+
 function createLinePrefix(label, colorCode) {
   return `${colorize(label.padEnd(6), colorCode)} `
 }
@@ -667,10 +703,18 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
     await runCheckedCommand({
       label: 'convex',
       spawnFn,
-      cwd,
+      cwd: REPO_ROOT,
       env,
       command: 'pnpm',
-      args: ['exec', 'convex', 'env', 'set', '--force', '--from-file', tmpPath],
+      args: workspacePnpmArgs(cwd, [
+        'exec',
+        'convex',
+        'env',
+        'set',
+        '--force',
+        '--from-file',
+        tmpPath,
+      ]),
       stdout,
       stderr,
     })
@@ -685,12 +729,16 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
 
 function areConvexAiFilesDisabled(cwd, env = process.env) {
   try {
-    const result = spawnSync('pnpm', ['exec', 'convex', 'ai-files', 'status'], {
-      cwd,
-      env,
-      encoding: 'utf8',
-      stdio: 'pipe',
-    })
+    const result = spawnSync(
+      'pnpm',
+      workspacePnpmArgs(cwd, ['exec', 'convex', 'ai-files', 'status']),
+      {
+        cwd: REPO_ROOT,
+        env,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      },
+    )
     if (result.status !== 0) {
       return false
     }
@@ -792,6 +840,8 @@ export async function runExampleDev({
     await prepareLocalModuleForDev({ spawnFn, stdout, stderr })
   }
 
+  ensureLocalWorkspacePackageLink(cwd)
+
   const exampleSourceFingerprint = buildExampleSourceFingerprint(cwd)
   const desiredNuxtPort = getDesiredNuxtPort(cwd)
   const storedConvexLocalConfig = readConvexLocalConfigFn(cwd)
@@ -867,7 +917,7 @@ export async function runExampleDev({
 
   const convex = spawnFn(
     'pnpm',
-    [
+    workspacePnpmArgs(cwd, [
       'exec',
       'convex',
       'dev',
@@ -876,9 +926,9 @@ export async function runExampleDev({
       String(port),
       '--local-site-port',
       String(port + 1),
-    ],
+    ]),
     {
-      cwd,
+      cwd: REPO_ROOT,
       env: convexEnv,
       stdio: ['inherit', 'pipe', 'pipe'],
     },
@@ -967,10 +1017,10 @@ export async function runExampleDev({
       await runCheckedCommand({
         label: 'convex',
         spawnFn,
-        cwd,
+        cwd: REPO_ROOT,
         env: postReadyConvexEnv,
         command: 'pnpm',
-        args: ['exec', 'convex', 'ai-files', 'disable'],
+        args: workspacePnpmArgs(cwd, ['exec', 'convex', 'ai-files', 'disable']),
         stdout,
         stderr,
       })
@@ -985,7 +1035,7 @@ export async function runExampleDev({
       PORT: String(desiredNuxtPort),
     }
 
-    nuxt = spawnFn('pnpm', ['run', 'dev:nuxt'], {
+    nuxt = spawnFn('pnpm', workspacePnpmArgs(cwd, ['run', 'dev:nuxt']), {
       cwd,
       env: {
         ...process.env,

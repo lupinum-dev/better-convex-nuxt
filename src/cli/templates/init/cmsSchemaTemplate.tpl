@@ -1,8 +1,8 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { pagesTables } from './features/pages/schema'
-import { userTables } from './features/users/schema'
+import { pagesTables } from './features/pages'
+import { userTables } from './features/users'
 
 export default defineSchema({
   ...userTables,

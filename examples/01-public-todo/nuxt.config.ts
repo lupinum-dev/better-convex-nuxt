@@ -5,7 +5,7 @@
  */
 export default defineNuxtConfig({
   modules: ['@lupinum/trellis', '@nuxt/ui'],
-  css: ['~/assets/css/main.css'],
+  css: ['~~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
 
@@ -19,5 +19,6 @@ export default defineNuxtConfig({
 
   trellis: {
     url: process.env.CONVEX_URL,
+    auth: false,
   },
 })

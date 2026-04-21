@@ -8,11 +8,11 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { commentTables } from './features/comments'
-import { projectTables } from './features/projects'
-import { taskTables } from './features/tasks'
-import { userTables } from './features/users'
-import { workspaceTables } from './features/workspaces'
+import { commentTables } from './features/comments/schema'
+import { projectTables } from './features/projects/schema'
+import { taskTables } from './features/tasks/schema'
+import { userTables } from './features/users/schema'
+import { workspaceTables } from './features/workspaces/schema'
 
 export default defineSchema({
   ...workspaceTables,

@@ -1,8 +1,22 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const initTemplateDir = resolve(dirname(fileURLToPath(import.meta.url)), '../templates/init')
+const initTemplateDirCandidates = [
+  resolve(dirname(fileURLToPath(import.meta.url)), '../templates/init'),
+  resolve(dirname(fileURLToPath(import.meta.url)), './templates/init'),
+]
+function resolveInitTemplateDir(): string {
+  const initTemplateDir = initTemplateDirCandidates.find((path) => existsSync(path))
+  if (!initTemplateDir) {
+    throw new Error(
+      `Missing CLI template directory. Checked: ${initTemplateDirCandidates.join(', ')}`,
+    )
+  }
+
+  return initTemplateDir
+}
+const initTemplateDir = resolveInitTemplateDir()
 const staticTemplateCache = new Map<string, string>()
 
 function readStaticTemplate(name: string): string {
@@ -46,7 +60,7 @@ export function publicSchemaTemplate() {
   return `
 import { defineSchema } from 'convex/server'
 
-import { todosTables } from './features/todos/schema'
+import { todosTables } from './features/todos'
 
 export default defineSchema({
   ...todosTables,
@@ -220,8 +234,8 @@ export function personalSchemaTemplate() {
   return `
 import { defineSchema } from 'convex/server'
 
-import { todosTables } from './features/todos/schema'
-import { userTables } from './features/users/schema'
+import { todosTables } from './features/todos'
+import { userTables } from './features/users'
 
 export default defineSchema({
   ...userTables,
@@ -396,7 +410,6 @@ export const todosTables = {
 
 export function publicTodosIndexTemplate() {
   return `
-export { create, list, remove, toggle } from './domain'
 export { todosTables } from './schema'
 `.trimStart()
 }
@@ -419,7 +432,6 @@ export const todosTables = {
 
 export function personalTodosIndexTemplate() {
   return `
-export { create, list, toggle } from './domain'
 export { todosTables } from './schema'
 `.trimStart()
 }
@@ -665,7 +677,6 @@ export const pagesFeature = defineFeature({
 
 export function cmsPagesIndexTemplate() {
   return `
-export { create, getPublished, listPublished, listStudio, previewPublish, publish, save } from './domain'
 export { pagesFeature } from './feature'
 export { pageCreate, pagePermissions, pagePublish, studioRead } from './permissions'
 export { pagesTables } from './schema'
@@ -913,7 +924,6 @@ export const todosFeature = defineFeature({
 
 export function workspaceTodosIndexTemplate() {
   return `
-export { create, list } from './domain'
 export { todosFeature } from './feature'
 export { todoCreate, todoPermissions, workspaceRead } from './permissions'
 export { todosTables } from './schema'
@@ -1050,9 +1060,18 @@ export const workspacesFeature = defineFeature({
 
 export function workspaceWorkspacesIndexTemplate() {
   return `
-export { createWorkspaceMutation } from './domain'
 export { workspacesFeature } from './feature'
 export { workspaceTables } from './schema'
+`.trimStart()
+}
+
+export function appShellTemplate() {
+  return `
+<template>
+  <UApp>
+    <NuxtPage />
+  </UApp>
+</template>
 `.trimStart()
 }
 

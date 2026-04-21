@@ -2,6 +2,7 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 
 import {
+  appShellTemplate,
   authConfigTemplate,
   authTsTemplate,
   cmsChecksTemplate,
@@ -253,7 +254,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/index.vue',
+          path: 'app/app.vue',
+          content: appShellTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/pages/index.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/public/components/PublicStarterPage.vue',
             componentName: 'PublicStarterPage',
@@ -318,7 +324,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/index.vue',
+          path: 'app/app.vue',
+          content: appShellTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/pages/index.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/personal/components/PersonalStarterPage.vue',
             componentName: 'PersonalStarterPage',
@@ -430,7 +441,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/index.vue',
+          path: 'app/app.vue',
+          content: appShellTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/pages/index.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/workspace/components/WorkspaceStarterPage.vue',
             componentName: 'WorkspaceStarterPage',
@@ -544,7 +560,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/index.vue',
+          path: 'app/app.vue',
+          content: appShellTemplate(),
+          ownership: 'authored',
+        },
+        {
+          path: 'app/pages/index.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/cms/components/CmsHomePage.vue',
             componentName: 'CmsHomePage',
@@ -552,7 +573,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/studio.vue',
+          path: 'app/pages/studio.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/cms/components/CmsStudioPage.vue',
             componentName: 'CmsStudioPage',
@@ -560,7 +581,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
           ownership: 'authored',
         },
         {
-          path: 'pages/[slug].vue',
+          path: 'app/pages/[slug].vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/cms/components/CmsPublishedPage.vue',
             componentName: 'CmsPublishedPage',
@@ -693,7 +714,12 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
         ownership: 'authored',
       },
       {
-        path: 'pages/index.vue',
+        path: 'app/app.vue',
+        content: appShellTemplate(),
+        ownership: 'authored',
+      },
+      {
+        path: 'app/pages/index.vue',
         content: routeShellTemplate({
           importPath: '~~/app/features/workspace/components/WorkspaceStarterPage.vue',
           componentName: 'WorkspaceStarterPage',

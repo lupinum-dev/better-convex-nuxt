@@ -191,7 +191,9 @@ export function findMissingCanonicalLayoutPaths(project: ProjectInspection): str
     'convex/schema.ts',
     'convex/features',
     'shared/features',
-    'pages',
+    'app',
+    'app/app.vue',
+    'app/pages',
     ...(hasAppDirectory ? ['app/features'] : []),
     ...(authDisabled
       ? []

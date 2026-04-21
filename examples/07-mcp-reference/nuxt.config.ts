@@ -5,7 +5,7 @@
  */
 export default defineNuxtConfig({
   modules: ['@lupinum/trellis', '@nuxt/ui', '@nuxtjs/mcp-toolkit'],
-  css: ['~/assets/css/main.css'],
+  css: ['~~/assets/css/main.css'],
 
   compatibilityDate: '2026-03-30',
 

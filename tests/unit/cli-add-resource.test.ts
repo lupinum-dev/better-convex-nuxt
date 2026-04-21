@@ -147,7 +147,7 @@ describe('trellis add entity', () => {
     await applyInitTemplateSet(cwd, template, false)
 
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
-      "import { pagesTables } from './features/pages/schema'",
+      "import { pagesTables } from './features/pages'",
     )
     await expect(
       readFile(resolve(cwd, 'convex/features/entries/domain.ts'), 'utf8'),

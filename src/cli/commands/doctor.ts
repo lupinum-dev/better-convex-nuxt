@@ -159,7 +159,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       message: !isNuxtApp
         ? 'Skipping canonical layout checks because this is not a Nuxt app root.'
         : missingCanonicalLayoutPaths.length === 0
-          ? 'Found the canonical convex/, shared/features/, pages/, and server/ layout.'
+          ? 'Found the canonical convex/, shared/features/, app/pages/, and server/ layout.'
           : `Missing canonical paths: ${missingCanonicalLayoutPaths.join(', ')}.`,
       fixHint: !isNuxtApp
         ? 'Run doctor inside a generated Trellis app root.'

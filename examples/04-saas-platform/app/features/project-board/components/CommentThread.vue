@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
-import { commentCreate } from '~~/convex/features/comments'
+import { commentCreate } from '~~/convex/features/comments/permissions'
 
 import { api } from '#trellis/api'
 

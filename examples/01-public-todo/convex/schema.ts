@@ -4,7 +4,7 @@
  */
 import { defineSchema } from 'convex/server'
 
-import { todosTables } from './features/todos'
+import { todosTables } from './features/todos/schema'
 
 export default defineSchema({
   ...todosTables,

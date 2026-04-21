@@ -324,9 +324,9 @@
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
-import { commentPermissionMatrix } from '~~/convex/features/comments'
-import { projectCreate, projectPermissionMatrix } from '~~/convex/features/projects'
-import { taskPermissionMatrix } from '~~/convex/features/tasks'
+import { commentPermissionMatrix } from '~~/convex/features/comments/permissions'
+import { projectCreate, projectPermissionMatrix } from '~~/convex/features/projects/permissions'
+import { taskPermissionMatrix } from '~~/convex/features/tasks/permissions'
 
 import { api } from '#trellis/api'
 

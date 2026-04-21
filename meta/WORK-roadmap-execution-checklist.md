@@ -151,15 +151,16 @@ Make the advanced Trellis surface feel trustworthy under refactor and remove vis
 - [x] Audit remaining cast-heavy seams in maintained examples.
 - [ ] Tighten `defineOperation(...)` so `load`, `authorize`, `preview`, and `handler` infer cleanly through the same operation definition.
 - [ ] Tighten actor-resolution helpers so common app patterns do not require loose internal typing.
-- [ ] Tighten component-bridge typing so bridge inventory and projected refs do not leak `any` into app code.
+- [x] Tighten component-bridge typing so bridge inventory and projected refs do not leak `any` into app code.
 - [ ] Tighten MCP operation projection typing so operation-backed tool flows do not require cast-heavy call sites.
 - [ ] Add narrow typed helpers where they eliminate repeated unsafe glue without widening the public model unnecessarily.
 - [x] Remove unnecessary casts from maintained example feature and domain code.
 
 Progress note:
 
-- Removed unnecessary `as any` / `as never` usage from maintained example feature and domain code across examples `03`, `04`, `05`, `06`, `07`, and `08`, except for one intentional localized bridge cast in [examples/08-component-mini-cms/convex/features/pages/domain.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/08-component-mini-cms/convex/features/pages/domain.ts:36) where the generated bridge API still forms a cyclic type seam.
+- Removed unnecessary `as any` / `as never` usage from maintained example feature and domain code across examples `03`, `04`, `05`, `06`, `07`, and `08`, including the last visible component-bridge cast in [examples/08-component-mini-cms/convex/features/pages/domain.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/08-component-mini-cms/convex/features/pages/domain.ts:43), which now uses the generated bridge ref type directly with an explicit annotation instead of erasing the seam to `any`.
 - Switched operation-backed MCP tools and generator output to use projected refs via [src/cli/lib/resource.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/resource.ts:519) and the maintained example MCP tools.
+- Fixed the local package build so advanced-seam verification survives a fresh `dist/` rebuild by adding [src/runtime/observability](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/observability:1) to [build.config.ts](/Users/matthias/Git/0_libs/WORK/trellis/build.config.ts:1), and fixed the bundled CLI template lookup in [src/cli/lib/init-templates.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/cli/lib/init-templates.ts:1) plus [scripts/copy-cli-templates.mjs](/Users/matthias/Git/0_libs/WORK/trellis/scripts/copy-cli-templates.mjs:1) so `pnpm run check` no longer depends on stale CLI artifacts surviving `build:module`.
 
 ### Acceptance Criteria
 
@@ -264,7 +265,7 @@ Make the most powerful Trellis paths production-shaped instead of merely impress
 - [x] Make distributed MCP rate-limit expectations explicit wherever rate-limited MCP tools are taught.
 - [x] Review public and cross-tenant examples so those surfaces are visibly intentional and bounded.
 - [x] Review webhook and trusted-forwarding examples for replay-aware, production-grade guidance.
-- [ ] Review component-bridge maintained references for ergonomics and unsafe glue.
+- [x] Review component-bridge maintained references for ergonomics and unsafe glue.
 - [ ] Add narrow helpers only where repetition and risk justify them after earlier coherence work lands.
 - [ ] Remove any remaining accidental teaching of shortcuts on advanced maintained reference paths.
 
@@ -274,6 +275,7 @@ Progress note:
 - Fixed the underlying `tool.fromOperation(...).maxItems` typing seam in [src/runtime/mcp/types.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/types.ts:32), [src/runtime/mcp/define-mcp-app.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-mcp-app.ts:255), and [src/runtime/mcp/define-convex-tool.ts](/Users/matthias/Git/0_libs/WORK/trellis/src/runtime/mcp/define-convex-tool.ts:593) so the maintained example no longer needs a cast for `maxItems`.
 - Clarified public and cross-tenant escape hatches in the maintained advanced examples, and bounded the public runbook catalog read in [examples/07-mcp-reference/convex/features/runbooks/domain.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/convex/features/runbooks/domain.ts:66).
 - Wired Example `07-mcp-reference` to a supported Redis-backed MCP rate-limit store in [server/mcp/rate-limit-store.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/07-mcp-reference/server/mcp/rate-limit-store.ts:1) and documented `MCP_RATE_LIMIT_REDIS_URL` in the example README and env table.
+- Removed the last visible cast-heavy bridge seam from the maintained component reference in [examples/08-component-mini-cms/convex/features/pages/domain.ts](/Users/matthias/Git/0_libs/WORK/trellis/examples/08-component-mini-cms/convex/features/pages/domain.ts:43), while keeping the bridge on generated `FunctionReference` types instead of introducing a new wrapper abstraction.
 
 ### Acceptance Criteria
 
@@ -329,7 +331,7 @@ Define the final conditions for calling this roadmap cycle complete.
 
 - [x] Confirm maintained examples match the intended product contract.
 - [x] Confirm starter output and docs agree on canonical shape.
-- [ ] Confirm advanced example code no longer relies on visible cast-heavy seams.
+- [x] Confirm advanced example code no longer relies on visible cast-heavy seams.
 - [x] Confirm `doctor` and lint meaningfully enforce the dangerous paths Trellis owns.
 - [x] Confirm `03-team-workspace` is unmistakably the golden path.
 - [ ] Confirm no blocked item remains in an earlier workstream without an explicit documented deferral.
@@ -338,6 +340,7 @@ Current release-gate status:
 
 - Maintained examples `03` through `08` pass `trellis doctor` when their documented local environment is configured, including the Redis-backed MCP rate-limit store for `07-mcp-reference`.
 - Verified local typecheck and test passes for maintained examples `04` through `08`.
+- Verified the last maintained-example bridge seam no longer relies on visible `as any` / `as never` usage in app feature/domain code.
 - Verified [tests/unit/cli-doctor.test.ts](/Users/matthias/Git/0_libs/WORK/trellis/tests/unit/cli-doctor.test.ts:1) passes.
 - Verified generated `workspace` and `workspace --mcp` starter READMEs point back to the maintained canonical references after rebuilding the CLI.
 - Verified repo-level release-gate commands on 2026-04-21:

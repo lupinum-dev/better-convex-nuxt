@@ -10,10 +10,16 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { schema } from './features'
+import { mcpKeyTables } from './features/mcpKeys/schema'
+import { runbookTables } from './features/runbooks/schema'
+import { userTables } from './features/users/schema'
+import { workspaceTables } from './features/workspaces/schema'
 
 export default defineSchema({
-  ...schema,
+  ...workspaceTables,
+  ...userTables,
+  ...runbookTables,
+  ...mcpKeyTables,
 
   destructiveRedemptions: defineTable({
     jti: v.string(),

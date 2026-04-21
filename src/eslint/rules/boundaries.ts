@@ -90,6 +90,13 @@ function isFeatureOwnedTestFile(path: string, featureName: string, boundaryRoot:
   return /(?:^|\/)tests?(?:\.[^/]+)?$/u.test(info.internalPath)
 }
 
+function isSchemaEntryFile(relativeFilename: string): boolean {
+  return (
+    /(?:^|\/)schema(?:\.[^/]+)?$/u.test(relativeFilename) &&
+    !relativeFilename.startsWith('features/')
+  )
+}
+
 function createFeatureBoundaryRule() {
   return createRule(
     {
@@ -118,6 +125,7 @@ function createFeatureBoundaryRule() {
           '/',
         )
         const isFeatureManifestFile = /^features\/index(?:\.[^/]+)?$/u.test(relativeFilename)
+        const isSchemaShellFile = isSchemaEntryFile(relativeFilename)
 
         const currentFeature = getFeatureInfo(toPortablePath(filename), boundaryRoot)
         const targetFeature = getFeatureInfo(target, boundaryRoot)
@@ -125,6 +133,9 @@ function createFeatureBoundaryRule() {
 
         if (!currentFeature) {
           if (isFeatureManifestFile && /^feature(?:\.[^/]+)?$/u.test(targetFeature.internalPath)) {
+            return
+          }
+          if (isSchemaShellFile && /^schema(?:\.[^/]+)?$/u.test(targetFeature.internalPath)) {
             return
           }
           if (!isFeatureBarrelImport(targetFeature)) {

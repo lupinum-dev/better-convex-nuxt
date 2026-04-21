@@ -225,6 +225,30 @@ export default createConfigForNuxt({
       },
     },
     {
+      files: [
+        'examples/**/convex/schema.ts',
+        'examples/**/convex/components/**/schema.ts',
+        'apps/harness/convex/schema.ts',
+        'apps/harness/convex/components/**/schema.ts',
+      ],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: 'ImportDeclaration[source.value=/^\\.\\/features$/]',
+            message:
+              'Schema entrypoints must not import aggregated ./features barrels. Import schema modules directly.',
+          },
+          {
+            selector:
+              'ImportDeclaration[source.value=/^\\.\\/features\\/[^/]+(?:\\/index)?$/]',
+            message:
+              'Schema entrypoints must import ./features/*/schema directly, never a feature barrel.',
+          },
+        ],
+      },
+    },
+    {
       files: ['apps/harness/middleware/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
