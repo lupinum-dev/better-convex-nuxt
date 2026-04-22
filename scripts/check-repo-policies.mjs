@@ -32,7 +32,7 @@ for (const check of checks) {
   }
 
   try {
-    execSync(check.cmd, { stdio: 'pipe', shell: '/bin/zsh' })
+    execSync(check.cmd, { stdio: 'pipe', shell: true })
     throw new Error(`repo policy violated: ${check.name}`)
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('repo policy violated:')) {

@@ -60,6 +60,8 @@ Temporary Items
 # Convex generated state
 **/.convex
 **/convex/_generated
+!apps/harness/convex/_generated/
+!apps/harness/convex/_generated/**
 
 # Local pnpm workspace shims
 **/pnpm-workspace.yaml
