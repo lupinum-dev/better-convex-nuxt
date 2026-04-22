@@ -5,4 +5,3 @@ node_modules
 dist
 coverage
 .env.local
-convex/_generated

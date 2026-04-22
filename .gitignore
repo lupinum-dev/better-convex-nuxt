@@ -62,6 +62,12 @@ Temporary Items
 **/convex/_generated
 !apps/harness/convex/_generated/
 !apps/harness/convex/_generated/**
+!examples/04-saas-platform/convex/_generated/
+!examples/04-saas-platform/convex/_generated/**
+!examples/05-visibility-access/convex/_generated/
+!examples/05-visibility-access/convex/_generated/**
+!examples/06-multi-workspace/convex/_generated/
+!examples/06-multi-workspace/convex/_generated/**
 
 # Local pnpm workspace shims
 **/pnpm-workspace.yaml

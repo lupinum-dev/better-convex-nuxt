@@ -149,7 +149,7 @@
     "harness:convex:codegen": "node scripts/harness-convex-codegen.mjs",
     "release:verify": "pnpm run lint && pnpm run check:publish-surface && pnpm run test:full && pnpm run build && pnpm run test:types && pnpm run test:types:public:compat",
     "release": "pnpm run release:verify && changelogen --release && npm publish && git push --follow-tags",
-    "lint": "pnpm run check:repo-policies && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint src tests examples",
+    "lint": "pnpm run check:repo-policies && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint src tests examples --ignore-pattern '**/_generated/**'",
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
