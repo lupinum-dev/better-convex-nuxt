@@ -34,8 +34,9 @@ const convexCliPath = fileURLToPath(
   new URL('../../../node_modules/convex/bin/main.js', import.meta.url),
 )
 const execFileAsync = promisify(execFile)
-const MANAGED_CONVEX_ENV_SET_RETRIES = 5
-const MANAGED_CONVEX_ENV_SET_RETRY_DELAY_MS = 250
+const MANAGED_CONVEX_ENV_SET_RETRIES = 10
+const MANAGED_CONVEX_ENV_SET_RETRY_DELAY_MS = 500
+const MANAGED_CONVEX_ENV_DISCOVERY_TIMEOUT_MS = 15_000
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -43,7 +44,15 @@ function sleep(ms: number): Promise<void> {
 
 function isRetryableConvexEnvSetError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
-  return /OptimisticConcurrencyControlFailure/.test(error.message)
+  const details = [
+    error.message,
+    'stdout' in error && typeof error.stdout === 'string' ? error.stdout : '',
+    'stderr' in error && typeof error.stderr === 'string' ? error.stderr : '',
+  ].join('\n')
+
+  return /OptimisticConcurrencyControlFailure|fetch failed|ECONNREFUSED|connection refused|timed out/i.test(
+    details,
+  )
 }
 
 async function setManagedLocalConvexEnvVar(
@@ -54,10 +63,14 @@ async function setManagedLocalConvexEnvVar(
 ): Promise<void> {
   for (let attempt = 1; attempt <= MANAGED_CONVEX_ENV_SET_RETRIES; attempt += 1) {
     try {
-      await execFileAsync(process.execPath, [convexCliPath, 'env', 'set', name, value], {
-        cwd,
-        env: processEnv,
-      })
+      await execFileAsync(
+        process.execPath,
+        [convexCliPath, 'env', 'set', name, value, '--env-file', '.env.local'],
+        {
+          cwd,
+          env: processEnv,
+        },
+      )
       return
     } catch (error) {
       if (!isRetryableConvexEnvSetError(error) || attempt === MANAGED_CONVEX_ENV_SET_RETRIES) {
@@ -66,6 +79,38 @@ async function setManagedLocalConvexEnvVar(
       await sleep(MANAGED_CONVEX_ENV_SET_RETRY_DELAY_MS * attempt)
     }
   }
+}
+
+async function waitForManagedConvexEnv(
+  cwd: string,
+  expectedPort: number,
+  timeoutMs: number,
+): Promise<{ url: string; siteUrl: string }> {
+  const started = Date.now()
+
+  while (Date.now() - started <= timeoutMs) {
+    const envFile = await readLocalConvexEnv(cwd)
+
+    if (envFile.url && envFile.siteUrl) {
+      try {
+        const url = new URL(envFile.url)
+        if (Number.parseInt(url.port || '0', 10) === expectedPort) {
+          return {
+            url: envFile.url,
+            siteUrl: envFile.siteUrl,
+          }
+        }
+      } catch {
+        // Keep polling until Convex has written a usable env file.
+      }
+    }
+
+    await sleep(250)
+  }
+
+  throw new Error(
+    `[e2e][managed-convex] Timed out waiting for .env.local to expose CONVEX_URL/CONVEX_SITE_URL for port ${expectedPort}.`,
+  )
 }
 
 async function setManagedLocalConvexEnv(
@@ -107,6 +152,19 @@ function parseManagedConvexUrl(urlString: string): { port: number; url: string }
   }
 }
 
+function parseLocalPort(urlString: string): number | null {
+  try {
+    const url = new URL(urlString)
+    if (url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') {
+      return null
+    }
+    const port = Number.parseInt(url.port, 10)
+    return Number.isNaN(port) ? null : port
+  } catch {
+    return null
+  }
+}
+
 export async function ensureManagedLocalConvex(
   options: EnsureManagedLocalConvexOptions = {},
 ): Promise<ManagedLocalConvexResult> {
@@ -116,21 +174,19 @@ export async function ensureManagedLocalConvex(
   const resolved = parseManagedConvexUrl(
     process.env.CONVEX_URL ?? envFile.url ?? 'http://127.0.0.1:3210',
   )
-  const siteUrl =
+  const initialSiteUrl =
     process.env.CONVEX_SITE_URL ??
     envFile.siteUrl ??
     deriveSiteUrlFromConvexUrl(resolved.url) ??
     `http://127.0.0.1:${resolved.port + 1}`
   const trustedForwardingKey =
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY ??
-    envFile.trustedForwardingKey ??
-    INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY ?? INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY
   const mcpConfirmationKey =
     process.env.TRELLIS_MCP_CONFIRMATION_KEY ?? 'mcp-confirmation-key-1234567890'
 
   if (!activeHandle) {
     const managedPorts = new Set<number>([resolved.port, resolved.port + 1])
-    for (const candidate of [resolved.url, siteUrl]) {
+    for (const candidate of [resolved.url, initialSiteUrl]) {
       try {
         const parsed = new URL(candidate)
         if (parsed.port) {
@@ -173,6 +229,17 @@ export async function ensureManagedLocalConvex(
 
     try {
       await Promise.race([waitForPort(resolved.port, timeoutMs), managedProcess.unexpectedExit])
+      const managedEnv = await Promise.race([
+        waitForManagedConvexEnv(cwd, resolved.port, MANAGED_CONVEX_ENV_DISCOVERY_TIMEOUT_MS),
+        managedProcess.unexpectedExit,
+      ])
+      activeHandle.url = managedEnv.url
+      const managedSitePort = parseLocalPort(managedEnv.siteUrl)
+
+      if (managedSitePort !== null) {
+        await Promise.race([waitForPort(managedSitePort, timeoutMs), managedProcess.unexpectedExit])
+      }
+
       await Promise.race([
         setManagedLocalConvexEnv(
           cwd,
@@ -185,8 +252,8 @@ export async function ensureManagedLocalConvex(
           },
           {
             ...process.env,
-            CONVEX_URL: resolved.url,
-            CONVEX_SITE_URL: siteUrl,
+            CONVEX_URL: managedEnv.url,
+            CONVEX_SITE_URL: managedEnv.siteUrl,
             CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
           },
         ),
@@ -196,10 +263,10 @@ export async function ensureManagedLocalConvex(
         assertLocalAuthReady({
           cwd,
           env: {
-            CONVEX_URL: resolved.url,
-            CONVEX_SITE_URL: siteUrl,
+            CONVEX_URL: managedEnv.url,
+            CONVEX_SITE_URL: managedEnv.siteUrl,
           },
-          timeoutMs: 10_000,
+          timeoutMs: 20_000,
         }),
         managedProcess.unexpectedExit,
       ])
@@ -208,8 +275,8 @@ export async function ensureManagedLocalConvex(
           cwd,
           env: {
             ...process.env,
-            CONVEX_URL: resolved.url,
-            CONVEX_SITE_URL: siteUrl,
+            CONVEX_URL: managedEnv.url,
+            CONVEX_SITE_URL: managedEnv.siteUrl,
             CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
           },
         }),
@@ -234,15 +301,18 @@ export async function ensureManagedLocalConvex(
     await releaseManagedHandle()
   }
 
+  const finalEnv = await readLocalConvexEnv(cwd)
+  const finalSiteUrl = finalEnv.siteUrl ?? process.env.CONVEX_SITE_URL ?? initialSiteUrl
+
   return {
     env: {
       ALLOW_TEST_RESET: 'true',
       CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
       TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
-      CONVEX_URL: resolved.url,
-      CONVEX_SITE_URL: siteUrl,
-      NUXT_PUBLIC_CONVEX_URL: resolved.url,
-      NUXT_PUBLIC_CONVEX_SITE_URL: siteUrl,
+      CONVEX_URL: activeHandle.url,
+      CONVEX_SITE_URL: finalSiteUrl,
+      NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
+      NUXT_PUBLIC_CONVEX_SITE_URL: finalSiteUrl,
     },
     release,
   }

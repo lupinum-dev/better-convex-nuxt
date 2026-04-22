@@ -1,46 +1,30 @@
 # Changelog
 
-## v0.4.0
+## v0.4.1
 
-[compare changes](https://github.com/lupinum-dev/trellis/compare/v0.4.0...v1.0.0-rc.1)
+[compare changes](https://github.com/lupinum-dev/trellis/compare/v0.4.0...v0.4.1)
 
-This release candidate freezes Trellis' 1.0 support contract:
-
-- `Core Stable`: module setup, Nuxt auto-imports, auth, permissions, uploads, and server helpers
-- `Advanced / Expert`: MCP, testing helpers, trusted-forwarding utilities, and lower-level runtime builder surfaces
-- No broad API pruning in the RC; the package surface stays public, but the support boundary is now explicit
-
-### ⚠️ Upgrade Notes
-
-- Replace legacy docs or snippets that still reference `trellis/*` legacy import spellings with `@lupinum/trellis/*`.
-- Treat `@lupinum/trellis/functions`, `@lupinum/trellis/mcp`, `@lupinum/trellis/testing`, and `@lupinum/trellis/trusted-forwarding` as advanced surfaces even though they remain public.
-- The recommended 1.0 path is still: Nuxt module setup -> composables -> auth -> permissions -> server helpers. Reach for MCP, trusted-forwarding, and lower-level builders only when your app genuinely needs them.
+This patch release focuses on release credibility and one small additive CLI contract.
 
 ### 🚀 Enhancements
 
-- `useConvexQuery()` and `useConvexPaginatedQuery()` now expose `isStale`, making it possible to distinguish "showing previous args while refreshing" from initial loading, skipped queries, and steady-state data.
-- Server auth resolution is now shared per request across SSR hydration and `serverConvexQuery()` / `serverConvexMutation()` / `serverConvexAction()`, avoiding repeated cookie parsing and token exchange within the same Nitro request.
-- Shared Convex validators now support a finished multi-runtime DX story:
-  - `@lupinum/trellis/args` remains the shared-schema entrypoint for app and server code
-  - `@lupinum/trellis/mcp` is the MCP-only entrypoint
-  - `defineConvexMcpTool()` now derives MCP input schemas from the same shared Convex validators used by forms, H3 validation, and Convex mutation args
-- MCP-only packages are now optional peers instead of unconditional runtime dependencies.
+- `trellis init` and `trellis add` now support `--json`, returning a stable machine-readable
+  summary with `status`, `command`, `label`, `cwd`, `description`, and file lists for
+  `authored`, `generated`, `written`, and `skipped`.
 
-### ⚠️ Breaking Changes
+### 🩹 Fixes
 
-- `schema.toMcpInput(...)` was removed. MCP tools should use `defineConvexMcpTool({ schema, ... })`.
-- `defineConvexMcpTool` moved from `@lupinum/trellis/server` to `@lupinum/trellis/mcp`.
-- Server-side shared-schema imports should use `@lupinum/trellis/args` instead of `@lupinum/trellis/composables`.
+- Restored the release gate by fixing the formatting drift in `eslint.config.mjs`.
+- Fixed the CLI doctor fixture covering permission-composable misuse so the test now creates the
+  expected app directory before writing the page file.
 
-### 📖 Documentation
+### ⚠️ Support Guidance
 
-- Added docs and API reference coverage for `isStale`, request-scoped server auth reuse, and the new shared-schema `schema` / `server` / `mcp` import split.
-
-### Scope
-
-- No new auth modes were added in this pass.
-- No headless or external-session auth support was added in this pass.
-- No `expectAuth` query mode was added in this pass.
+- The mainstream Trellis path remains: module setup -> composables -> auth -> permissions ->
+  server helpers.
+- `@lupinum/trellis/functions`, `@lupinum/trellis/mcp`, `@lupinum/trellis/testing`, and
+  `@lupinum/trellis/trusted-forwarding` remain public, but they should still be treated as
+  advanced surfaces for apps that genuinely need them.
 
 ## v0.4.0
 

@@ -54,6 +54,7 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
+- `CONVEX_TRUSTED_FORWARDING_KEY`: shared secret for trusted forwarding from the webhook route into Convex
 - `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
 - `TEAM_WORKSPACE_WEBHOOK_AUTH_ID`: existing workspace user that verified webhook calls act for
 

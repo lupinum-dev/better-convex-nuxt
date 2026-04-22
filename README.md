@@ -74,7 +74,7 @@ shared/
   features/
 app/
   features/
-pages/
+  pages/
 server/
   api/
   mcp/

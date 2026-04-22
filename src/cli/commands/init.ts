@@ -1,13 +1,13 @@
 import { resolve } from 'node:path'
 
-import { note, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
+import {
+  createTemplateCommandResult,
+  renderTemplateCommandResult,
+  writeTemplateCommandResultJson,
+} from '../lib/command-output.js'
 import { applyInitTemplateSet, getCanonicalAppTemplateSet } from '../lib/init.js'
-
-function formatList(items: string[]): string {
-  return items.length > 0 ? items.join('\n') : '(none)'
-}
 
 function assertAppName(value: string | undefined): string {
   const appName = value?.trim()
@@ -57,6 +57,11 @@ export const initCommand = defineCommand({
       description: 'Overwrite existing files',
       default: false,
     },
+    json: {
+      type: 'boolean',
+      description: 'Write a machine-readable JSON summary to stdout',
+      default: false,
+    },
   },
   async run({ args }) {
     const appName = assertAppName(args.name ? String(args.name) : undefined)
@@ -84,16 +89,19 @@ export const initCommand = defineCommand({
       mcp,
     })
     const result = await applyInitTemplateSet(cwd, templateSet, Boolean(args.force))
+    const commandResult = createTemplateCommandResult({
+      command: 'init',
+      label: templateSet.label,
+      cwd,
+      description: templateSet.description,
+      ...result,
+    })
 
-    note(templateSet.description, templateSet.label)
-    note(formatList(result.authored), 'authored files')
-    note(formatList(result.generated), 'generated plumbing')
-    if (result.written.length > 0) {
-      note(formatList(result.written), 'written')
+    if (args.json) {
+      writeTemplateCommandResultJson(commandResult)
+      return
     }
-    if (result.skipped.length > 0) {
-      note(formatList(result.skipped), 'skipped')
-    }
-    outro(`Finished ${templateSet.label} init in ${cwd}`)
+
+    renderTemplateCommandResult(commandResult)
   },
 })

@@ -7,10 +7,16 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { schema as featureSchema } from './features'
+import { articleTables } from './features/articles/schema'
+import { knowledgeBaseTables } from './features/knowledgeBases/schema'
+import { userTables } from './features/users/schema'
+import { workspaceTables } from './features/workspaces/schema'
 
 export default defineSchema({
-  ...featureSchema,
+  ...workspaceTables,
+  ...userTables,
+  ...knowledgeBaseTables,
+  ...articleTables,
 
   destructiveRedemptions: defineTable({
     jti: v.string(),

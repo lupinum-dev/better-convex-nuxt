@@ -1,2 +1,2 @@
 export const INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY =
-  'internal-harness-local-trusted-forwarding-key-not-for-production'
+  '8b6f7e5d9c1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4'

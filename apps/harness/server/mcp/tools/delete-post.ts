@@ -5,9 +5,15 @@ import { postDeletePermission } from '../../../convex/auth/permissions'
 import { removePostOp } from '../../../convex/posts'
 import { tool } from '../runtime'
 
+const removeWithConfirmationRef = executeOperationRef(
+  removePostOp,
+  Object.create(api.posts.removeWithConfirmation),
+)
+const previewRemoveRef = previewOperationRef(removePostOp, Object.create(api.posts.previewRemove))
+
 export default tool.fromOperation(removePostOp, {
-  execute: executeOperationRef(removePostOp, api.posts.removeWithConfirmation),
-  preview: previewOperationRef(removePostOp, api.posts.previewRemove),
+  execute: removeWithConfirmationRef,
+  preview: previewRemoveRef,
   permission: postDeletePermission,
   meta: {
     name: 'delete-post',

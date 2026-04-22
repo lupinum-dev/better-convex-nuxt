@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { $fetch, createPage, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { harnessE2ePort } from '../support/e2e/harness-port'
 import { fetchWithTimeout } from '../support/e2e/http'
 import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
 import { startManagedNuxtDev } from '../support/e2e/managed-nuxt-dev'
@@ -16,6 +17,7 @@ const local = await ensureManagedLocalConvex({
 await setup({
   rootDir: harnessRoot,
   env: local.env,
+  port: harnessE2ePort,
 })
 
 describe('internal harness smoke', () => {

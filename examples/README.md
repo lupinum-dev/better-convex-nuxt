@@ -6,6 +6,7 @@ These are maintained framework references, not CLI templates.
 
 If you want the productized starting points, use:
 
+- `trellis init my-app --template public`
 - `trellis init my-app --template personal`
 - `trellis init my-app --template workspace`
 - `trellis init my-app --template workspace --mcp`

@@ -1,6 +1,6 @@
 /**
  * Integration tests for tenantIsolation runtime enforcement and
- * the `ctx.db.crossTenant` / `ctx.db.raw` escape hatches.
+ * the `ctx.db.escapeTenantIsolation(...)` / `unsafe.*` escape hatches.
  *
  * The default-db path (`ctx.db`) is already covered by posts.test.ts
  * (see "returns posts in users org only" and "surfaces a tenant
@@ -8,10 +8,10 @@
  *
  * This file adds the missing pieces:
  *
- * 1. `ctx.db.crossTenant` actually sees across tenants
- * 2. `ctx.db.crossTenant` emits `db.cross_tenant.used`
- * 3. `ctx.db.raw`         actually sees across tenants
- * 4. `ctx.db.raw`         emits `db.raw.used`
+ * 1. `ctx.db.escapeTenantIsolation(...)` actually sees across tenants
+ * 2. `ctx.db.escapeTenantIsolation(...)` emits `db.escape_tenant_isolation.used`
+ * 3. `unsafe.query(...)`                 still respects tenant isolation on plain `ctx.db`
+ * 4. `unsafe.query(...)`                 emits `unsafe.handler.used`
  * 5. Tenant denials on the default db emit `rls.denied`
  *
  * Together with posts.test.ts these prove the Spec §14 claim that
@@ -81,7 +81,7 @@ describe('tenantIsolation — ctx.db (default)', () => {
   })
 })
 
-describe('tenantIsolation — ctx.db.crossTenant', () => {
+describe('tenantIsolation — ctx.db.escapeTenantIsolation', () => {
   it('can read posts from another tenant', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
@@ -91,7 +91,7 @@ describe('tenantIsolation — ctx.db.crossTenant', () => {
     })
 
     // user2 lives in a different org. Default ctx.db would return
-    // nothing; ctx.db.crossTenant crosses the boundary explicitly.
+    // nothing; ctx.db.escapeTenantIsolation crosses the boundary explicitly.
     const crossRead = await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
 
     expect(crossRead).not.toBeNull()
@@ -109,7 +109,7 @@ describe('tenantIsolation — ctx.db.crossTenant', () => {
     expect(all.map((p) => p.title).sort()).toEqual(['A', 'B'])
   })
 
-  it('emits db.cross_tenant.used when the crossTenant seam is read', async () => {
+  it('emits db.escape_tenant_isolation.used when the tenant-isolation escape seam is read', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
     const user1PostId = await asUser1.mutation(api.posts.create, {
@@ -120,7 +120,7 @@ describe('tenantIsolation — ctx.db.crossTenant', () => {
     capture.clear()
     await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
 
-    const crossTenantEvents = capture.find('db.cross_tenant.used')
+    const crossTenantEvents = capture.find('db.escape_tenant_isolation.used')
     expect(crossTenantEvents.length).toBeGreaterThan(0)
     const first = crossTenantEvents[0]
     expect(first?.status).toBe('success')
@@ -128,8 +128,8 @@ describe('tenantIsolation — ctx.db.crossTenant', () => {
   })
 })
 
-describe('tenantIsolation — ctx.db.raw', () => {
-  it('can read posts from another tenant via the raw escape hatch', async () => {
+describe('tenantIsolation — unsafe.query', () => {
+  it('still rejects cross-tenant reads when the handler uses plain ctx.db', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
     const user1PostId = await asUser1.mutation(api.posts.create, {
@@ -137,13 +137,12 @@ describe('tenantIsolation — ctx.db.raw', () => {
       content: 'Content',
     })
 
-    const rawRead = await asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })
-
-    expect(rawRead).not.toBeNull()
-    expect(rawRead?.title).toBe('Raw Read')
+    await expect(asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })).rejects.toThrow(
+      'Document belongs to a different tenant.',
+    )
   })
 
-  it('emits db.raw.used when the raw seam is read', async () => {
+  it('emits unsafe.handler.used even when the handler later fails tenant isolation', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
     const user1PostId = await asUser1.mutation(api.posts.create, {
@@ -152,9 +151,11 @@ describe('tenantIsolation — ctx.db.raw', () => {
     })
 
     capture.clear()
-    await asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })
+    await expect(asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })).rejects.toThrow(
+      'Document belongs to a different tenant.',
+    )
 
-    const rawEvents = capture.find('db.raw.used')
+    const rawEvents = capture.find('unsafe.handler.used')
     expect(rawEvents.length).toBeGreaterThan(0)
     const first = rawEvents[0]
     expect(first?.status).toBe('success')

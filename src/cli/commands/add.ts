@@ -1,13 +1,13 @@
 import { basename, resolve } from 'node:path'
 
-import { note, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
+import {
+  createTemplateCommandResult,
+  renderTemplateCommandResult,
+  writeTemplateCommandResultJson,
+} from '../lib/command-output.js'
 import { applyInitTemplateSet, getAddTemplateSet } from '../lib/init.js'
-
-function formatList(items: string[]): string {
-  return items.length > 0 ? items.join('\n') : '(none)'
-}
 
 export const addCommand = defineCommand({
   meta: {
@@ -33,6 +33,11 @@ export const addCommand = defineCommand({
     force: {
       type: 'boolean',
       description: 'Overwrite existing files',
+      default: false,
+    },
+    json: {
+      type: 'boolean',
+      description: 'Write a machine-readable JSON summary to stdout',
       default: false,
     },
   },
@@ -61,16 +66,19 @@ export const addCommand = defineCommand({
       appName: basename(cwd),
     })
     const result = await applyInitTemplateSet(cwd, templateSet, Boolean(args.force))
+    const commandResult = createTemplateCommandResult({
+      command: 'add',
+      label: templateSet.label,
+      cwd,
+      description: templateSet.description,
+      ...result,
+    })
 
-    note(templateSet.description, templateSet.label)
-    note(formatList(result.authored), 'authored files')
-    note(formatList(result.generated), 'generated plumbing')
-    if (result.written.length > 0) {
-      note(formatList(result.written), 'written')
+    if (args.json) {
+      writeTemplateCommandResultJson(commandResult)
+      return
     }
-    if (result.skipped.length > 0) {
-      note(formatList(result.skipped), 'skipped')
-    }
-    outro(`Finished ${templateSet.label} add in ${cwd}`)
+
+    renderTemplateCommandResult(commandResult)
   },
 })

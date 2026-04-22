@@ -83,11 +83,13 @@ Use this shortened maintainer summary only:
 - `auth`
 - `args`
 - `composables`
+- `feature`
 - `functions`
 - `mcp`
 - `server`
 - `testing`
 - `trusted-forwarding`
+- `type-primitives`
 - `visibility`
 - `eslint`
 
@@ -112,14 +114,16 @@ Keep those scripts only while the build still needs them. They are part of the p
 ## Running Tests
 
 ```bash
-# Run the default maintainer test gate (repo + examples)
-pnpm run test
+# PR-safe default gate
+pnpm run test:types
+pnpm run lint
+pnpm run test:contracts
 
 # Run the strict release-style test gate (adds e2e)
 pnpm run test:full
 ```
 
-For targeted work, use the focused lanes above instead of adding more top-level aliases.
+Use the PR-safe gate before pushing. Reserve `test:full` for release work or when you need the managed e2e path.
 
 ## Linting
 
@@ -176,7 +180,7 @@ labs/                    # Experimental or archived examples
 1. Create a feature branch from `main`.
 2. Keep PRs focused — one feature or fix per PR.
 3. Add or update tests for any changed behavior.
-4. Run `pnpm run lint && pnpm run test` before pushing.
+4. Run `pnpm run test:types && pnpm run lint && pnpm run test:contracts` before pushing.
 5. Write a clear description of what changed and why.
 
 ## Code Style

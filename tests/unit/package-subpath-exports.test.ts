@@ -43,7 +43,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports['./auth'].import).toBe('./dist/runtime/auth/index.mjs')
     expect(packageJson.exports['./args'].import).toBe('./dist/runtime/args/index.mjs')
     expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')
-    expect(packageJson.exports['./feature'].import).toBe('./dist/runtime/feature/index.mjs')
+    expect(packageJson.exports['./feature'].import).toBe('./dist/runtime/feature/index.js')
     expect(packageJson.exports['./functions'].import).toBe('./dist/runtime/functions/index.mjs')
     expect(packageJson.exports['./mcp'].import).toBe('./dist/runtime/mcp/index.mjs')
     expect(packageJson.exports['./trusted-forwarding'].import).toBe(

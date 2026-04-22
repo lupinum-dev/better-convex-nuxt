@@ -14,7 +14,7 @@ It is an opinionated framework, not a neutral helper layer. The product surface 
 Start with [Start here](/docs/getting-started/start-here) if you are evaluating Trellis, then do [First live query](/docs/getting-started/first-live-query) before the protected app path.
 ::
 
-:u-input-copy{value="pnpm add @lupinum/trellis"}
+:u-input-copy{value="pnpm add convex @lupinum/trellis"}
 
 ## Common paths
 

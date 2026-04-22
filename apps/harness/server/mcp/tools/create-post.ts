@@ -11,7 +11,6 @@ export default defineTool({
   auth: 'required',
   check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
   scoped: true,
-  rateLimit: { max: 10, window: '1m' },
   enabled: async (event) => {
     const auth = await resolveHarnessMcpAuth(event)
     return !!auth?.tenantId

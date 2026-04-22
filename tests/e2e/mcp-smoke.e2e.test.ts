@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { $fetch, setup } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { harnessE2ePort } from '../support/e2e/harness-port'
 import { ensureManagedLocalConvex } from '../support/e2e/managed-convex'
 import {
   fetchMcpBootstrap,
@@ -23,6 +24,7 @@ describe('MCP route smoke', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../apps/harness', import.meta.url)),
     env: local.env,
+    port: harnessE2ePort,
   })
 
   const fetchAny = $fetch as unknown as (

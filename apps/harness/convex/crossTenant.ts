@@ -10,7 +10,10 @@
  *                         — bypasses tenant isolation only. Service rules
  *                           and triggers still apply. Must emit
  *                           `db.escape_tenant_isolation.used` on use.
- * - `unsafe.query(...)`   — full escape hatch. No protected handler pipeline.
+ * - `unsafe.query(...)`   — bypasses the protected handler pipeline, but plain
+ *                           `ctx.db` still keeps tenant isolation unless the
+ *                           handler explicitly calls
+ *                           `ctx.db.escapeTenantIsolation({ reason })`.
  *
  * The `posts` table in this harness is configured to participate in
  * tenant isolation via `organizationId` (see ./functions.ts). Tests in
@@ -64,7 +67,11 @@ export const listAllPosts = query({
 })
 
 /**
- * Read a post using the full builder-level `unsafe.query(...)` escape hatch.
+ * Read a post through `unsafe.query(...)` while still using the default
+ * tenant-aware `ctx.db` inside the handler.
+ *
+ * This exists to prove that `unsafe.*` does not silently become a
+ * cross-tenant DB seam on its own.
  */
 export const getAnyPostRaw = unsafe.query({
   bypass: 'Harness full-bypass post lookup.',

@@ -829,6 +829,7 @@ export async function runExampleDev({
   writeLocalEnvFileFn = writeLocalEnvFile,
   readConvexLocalConfigFn = readConvexLocalConfig,
   writeConvexLocalConfigFn = writeConvexLocalConfig,
+  ensureLocalWorkspacePackageLinkFn = ensureLocalWorkspacePackageLink,
   clearPortsFn = clearPorts,
   stdout = process.stdout,
   stderr = process.stderr,
@@ -840,7 +841,7 @@ export async function runExampleDev({
     await prepareLocalModuleForDev({ spawnFn, stdout, stderr })
   }
 
-  ensureLocalWorkspacePackageLink(cwd)
+  ensureLocalWorkspacePackageLinkFn(cwd)
 
   const exampleSourceFingerprint = buildExampleSourceFingerprint(cwd)
   const desiredNuxtPort = getDesiredNuxtPort(cwd)

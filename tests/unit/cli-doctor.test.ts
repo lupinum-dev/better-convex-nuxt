@@ -32,6 +32,10 @@ function read(path: string): string {
   return readFileSync(path, 'utf8')
 }
 
+function parseJsonOutput<T>(output: string): T {
+  return JSON.parse(stripVTControlCharacters(output)) as T
+}
+
 function expectCanonicalLayout(appRoot: string, options: CanonicalLayoutOptions) {
   const canonicalPaths = [
     'convex/functions.ts',
@@ -122,6 +126,42 @@ describe('CLI doctor', () => {
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
   })
 
+  it('returns a machine-readable JSON summary for init', () => {
+    const cwd = createTempDir('trellis-init-json-')
+    const result = runCli(
+      ['init', 'demo-json', '--template', 'workspace', '--cwd', cwd, '--json'],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-json')
+    const report = parseJsonOutput<{
+      status: string
+      command: string
+      label: string
+      cwd: string
+      description: string
+      authored: string[]
+      generated: string[]
+      written: string[]
+      skipped: string[]
+    }>(result.stdout)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(report).toMatchObject({
+      status: 'ok',
+      command: 'init',
+      label: 'init:workspace',
+      cwd: appRoot,
+      description: 'Bootstrap a workspace Trellis app',
+    })
+    expect(Array.isArray(report.authored)).toBe(true)
+    expect(Array.isArray(report.generated)).toBe(true)
+    expect(Array.isArray(report.written)).toBe(true)
+    expect(Array.isArray(report.skipped)).toBe(true)
+    expect(result.stdout).not.toContain('authored files')
+    expect(result.stdout).not.toContain('Finished ')
+  })
+
   it('initializes a personal app in a named target directory with the canonical layout', () => {
     const cwd = createTempDir('trellis-init-personal-')
     const result = runCli(
@@ -192,6 +232,56 @@ describe('CLI doctor', () => {
     )
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
+  })
+
+  it('returns a machine-readable JSON summary for add', { timeout: 15_000 }, () => {
+    const cwd = createTempDir('trellis-add-json-')
+    const initResult = runCli(
+      ['init', 'demo-workspace', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-workspace')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const addResult = runCli(['add', 'uploads', '--cwd', appRoot, '--json'], repoRoot)
+    const report = parseJsonOutput<{
+      status: string
+      command: string
+      label: string
+      cwd: string
+      description: string
+      authored: string[]
+      generated: string[]
+      written: string[]
+      skipped: string[]
+    }>(addResult.stdout)
+
+    expect(addResult.status, `${addResult.stdout}\n${addResult.stderr}`).toBe(0)
+    expect(addResult.stderr).toBe('')
+    expect(report).toMatchObject({
+      status: 'ok',
+      command: 'add',
+      label: 'add:uploads',
+      cwd: appRoot,
+      description: 'Add a canonical upload URL seam and starter page',
+    })
+    expect(Array.isArray(report.authored)).toBe(true)
+    expect(Array.isArray(report.generated)).toBe(true)
+    expect(Array.isArray(report.written)).toBe(true)
+    expect(Array.isArray(report.skipped)).toBe(true)
+    expect(report.written).toContain('shared/features/files/contract.ts')
+    expect(addResult.stdout).not.toContain('authored files')
+    expect(addResult.stdout).not.toContain('Finished ')
+  })
+
+  it('keeps the default init output human-readable when --json is not used', () => {
+    const cwd = createTempDir('trellis-init-human-output-')
+    const result = runCli(['init', 'demo-human', '--template', 'public', '--cwd', cwd], repoRoot)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(result.stdout).toContain('authored files')
+    expect(result.stdout).toContain('generated plumbing')
+    expect(result.stdout).toContain('Finished init:public init')
   })
 
   it('adds uploads and destructive operation scaffolds', () => {
@@ -636,6 +726,7 @@ describe('CLI doctor', () => {
       resolve(cwd, 'nuxt.config.ts'),
       "export default defineNuxtConfig({ modules: ['@lupinum/trellis'] })\n",
     )
+    mkdirSync(resolve(cwd, 'app/pages'), { recursive: true })
     writeFileSync(
       resolve(cwd, 'app/pages/index.vue'),
       '<script setup lang="ts">\nconst { allows } = usePermissions()\n</script>\n',

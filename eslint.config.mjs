@@ -240,8 +240,7 @@ export default createConfigForNuxt({
               'Schema entrypoints must not import aggregated ./features barrels. Import schema modules directly.',
           },
           {
-            selector:
-              'ImportDeclaration[source.value=/^\\.\\/features\\/[^/]+(?:\\/index)?$/]',
+            selector: 'ImportDeclaration[source.value=/^\\.\\/features\\/[^/]+(?:\\/index)?$/]',
             message:
               'Schema entrypoints must import ./features/*/schema directly, never a feature barrel.',
           },

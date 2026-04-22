@@ -14,11 +14,12 @@ This file is an operational appendix for Trellis-local development.
 
 ```bash
 pnpm install
+pnpm run dev:prepare
 ```
 
-`pnpm install` prepares the Nuxt type projects needed for editor support, linting, and `pnpm test:types`.
+`pnpm install` installs dependencies only. `pnpm run dev:prepare` prepares the Nuxt type projects and the internal harness workspace needed for editor support, linting, and `pnpm test:types`.
 
-`pnpm dev:prepare` is now intentionally narrow. It prepares the internal harness and module type surfaces. It does not rebuild the publishable package or CLI.
+`pnpm run dev:prepare` is intentionally narrow. It prepares the internal harness and module type surfaces. It does not rebuild the publishable package or CLI.
 
 ## Daily Commands
 
@@ -46,7 +47,7 @@ pnpm docs:api-surface
 - `pnpm test:internals` runs extracted helper and internal state-machine suites.
 - `pnpm release:verify` runs the maintainer release gate without publishing anything.
 - `pnpm release` follows the official Nuxt module starter release flow: verify, changelog, publish, push tags.
-- The `vitest/environments` deprecation warning currently comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
+- With the current dependency set, the `vitest/environments` deprecation warning comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
 
 ## Hotspots
 
@@ -55,7 +56,7 @@ Current files that need active pressure to shrink rather than grow:
 - `src/runtime/composables/internal/query-runtime.ts`
 - `src/runtime/composables/internal/pagination-runtime.ts`
 - `src/runtime/composables/internal/upload-runtime.ts`
-- `src/runtime/client/auth-engine.ts`
+- `src/runtime/auth/client/auth-engine.ts`
 - `src/module.ts`
 
 ## Internal Harness

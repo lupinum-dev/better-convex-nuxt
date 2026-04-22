@@ -71,6 +71,13 @@ function createSucceededChildProcess(): FakeChildProcess {
   return child
 }
 
+function stripWorkspacePnpmArgs(args: string[]) {
+  if (args[0] === '--dir' && typeof args[1] === 'string') {
+    return args.slice(2)
+  }
+  return args
+}
+
 describe('example dev launcher', () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -580,7 +587,8 @@ describe('example dev launcher', () => {
   it('passes the pre-selected port to convex dev via local port flags', async () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn((command, args) => {
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+      const normalizedArgs = stripWorkspacePnpmArgs(args)
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'env') {
         return createSucceededChildProcess()
       }
       return convex
@@ -604,6 +612,7 @@ describe('example dev launcher', () => {
       writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
+      ensureLocalWorkspacePackageLinkFn: vi.fn(),
       clearPortsFn,
       stdout: process.stdout,
       stderr: process.stderr,
@@ -618,6 +627,8 @@ describe('example dev launcher', () => {
       expect(spawnFn).toHaveBeenCalledWith(
         'pnpm',
         [
+          '--dir',
+          '/repo/examples/01-public-todo',
           'exec',
           'convex',
           'dev',
@@ -652,7 +663,8 @@ describe('example dev launcher', () => {
   it('bootstraps .env.local with app-owned values only before Convex configures the deployment', async () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn((command, args) => {
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+      const normalizedArgs = stripWorkspacePnpmArgs(args)
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'env') {
         return createSucceededChildProcess()
       }
       return convex
@@ -681,6 +693,7 @@ describe('example dev launcher', () => {
       writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
+      ensureLocalWorkspacePackageLinkFn: vi.fn(),
       clearPortsFn,
       stdout: process.stdout,
       stderr: process.stderr,
@@ -713,13 +726,14 @@ describe('example dev launcher', () => {
     const convex = createChildProcess()
     const nuxt = createChildProcess()
     const spawnFn = vi.fn((command, args) => {
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+      const normalizedArgs = stripWorkspacePnpmArgs(args)
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'env') {
         return createSucceededChildProcess()
       }
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'dev') {
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'dev') {
         return convex
       }
-      if (command === 'pnpm' && args[0] === 'run' && args[1] === 'dev:nuxt') {
+      if (command === 'pnpm' && normalizedArgs[0] === 'run' && normalizedArgs[1] === 'dev:nuxt') {
         return nuxt
       }
       return createSucceededChildProcess()
@@ -747,6 +761,7 @@ describe('example dev launcher', () => {
       writeLocalEnvFileFn,
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
+      ensureLocalWorkspacePackageLinkFn: vi.fn(),
       clearPortsFn,
       stdout: process.stdout,
       stderr: process.stderr,
@@ -759,13 +774,23 @@ describe('example dev launcher', () => {
 
     expect(spawnFn).toHaveBeenCalledWith(
       'pnpm',
-      ['exec', 'convex', 'env', 'set', '--force', '--from-file', expect.any(String)],
+      [
+        '--dir',
+        '/repo/examples/01-public-todo',
+        'exec',
+        'convex',
+        'env',
+        'set',
+        '--force',
+        '--from-file',
+        expect.any(String),
+      ],
       expect.any(Object),
     )
 
     expect(spawnFn).toHaveBeenCalledWith(
       'pnpm',
-      ['run', 'dev:nuxt'],
+      ['--dir', '/repo/examples/01-public-todo', 'run', 'dev:nuxt'],
       expect.objectContaining({
         env: expect.objectContaining({
           HOST: '127.0.0.1',
@@ -800,15 +825,16 @@ describe('example dev launcher', () => {
     const pushedEnvContents: string[] = []
     let convexDevEnv: Record<string, string> | undefined
     const spawnFn = vi.fn((command, args, options) => {
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'dev') {
+      const normalizedArgs = stripWorkspacePnpmArgs(args)
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'dev') {
         convexDevEnv = options?.env as Record<string, string>
         return convex
       }
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
-        pushedEnvContents.push(readFileSync(String(args[6]), 'utf8'))
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'env') {
+        pushedEnvContents.push(readFileSync(String(normalizedArgs[6]), 'utf8'))
         return createSucceededChildProcess()
       }
-      if (command === 'pnpm' && args[0] === 'run' && args[1] === 'dev:nuxt') {
+      if (command === 'pnpm' && normalizedArgs[0] === 'run' && normalizedArgs[1] === 'dev:nuxt') {
         return nuxt
       }
       return createSucceededChildProcess()
@@ -870,7 +896,8 @@ describe('example dev launcher', () => {
   it('fails closed when Convex exits before readiness', async () => {
     const convex = createChildProcess()
     const spawnFn = vi.fn((command, args) => {
-      if (command === 'pnpm' && args[1] === 'convex' && args[2] === 'env') {
+      const normalizedArgs = stripWorkspacePnpmArgs(args)
+      if (command === 'pnpm' && normalizedArgs[1] === 'convex' && normalizedArgs[2] === 'env') {
         return createSucceededChildProcess()
       }
       return convex
@@ -893,6 +920,7 @@ describe('example dev launcher', () => {
       writeLocalEnvFileFn: vi.fn(),
       readConvexLocalConfigFn: () => null,
       writeConvexLocalConfigFn: vi.fn(),
+      ensureLocalWorkspacePackageLinkFn: vi.fn(),
       clearPortsFn,
       stdout: process.stdout,
       stderr: process.stderr,
