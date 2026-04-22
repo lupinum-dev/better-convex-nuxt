@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,5 +12,7 @@ if (!existsSync(sourceDir)) {
 
 for (const destDir of destDirs) {
   mkdirSync(destDir, { recursive: true })
-  cpSync(sourceDir, destDir, { recursive: true })
+  for (const entry of readdirSync(sourceDir)) {
+    cpSync(resolve(sourceDir, entry), resolve(destDir, entry), { recursive: true })
+  }
 }

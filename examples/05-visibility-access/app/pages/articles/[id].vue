@@ -75,6 +75,9 @@
 </template>
 
 <script setup lang="ts">
+import AccessBadge from '~~/app/features/visibility-access/components/AccessBadge.vue'
+import ShareLinkDialog from '~~/app/features/visibility-access/components/ShareLinkDialog.vue'
+
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'
 import { articleCreate, shareCreate } from '~/convex/features/articles/permissions'

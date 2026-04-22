@@ -4,10 +4,17 @@ import { resolve } from 'node:path'
 
 const repoRoot = process.cwd()
 const cliPath = resolve(repoRoot, 'dist/cli.mjs')
+const initTemplateDir = resolve(repoRoot, 'dist/templates/init')
 
-if (!existsSync(cliPath)) {
-  console.error('[trellis] dist/cli.mjs is missing. Run `pnpm run build:cli` first.')
-  process.exit(1)
+function ensureBuiltCli() {
+  if (existsSync(cliPath) && existsSync(initTemplateDir)) return
+
+  console.warn('[trellis] rebuilding CLI for maintained example doctor checks')
+  execFileSync('pnpm', ['run', 'build:cli'], {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    env: process.env,
+  })
 }
 
 const sharedEnv = {
@@ -37,6 +44,7 @@ const maintainedExamples = [
 ]
 
 for (const relativePath of maintainedExamples) {
+  ensureBuiltCli()
   const cwd = resolve(repoRoot, relativePath)
   console.log(`[trellis] doctor ${relativePath}`)
   execFileSync(process.execPath, [cliPath, 'doctor', '--cwd', cwd], {

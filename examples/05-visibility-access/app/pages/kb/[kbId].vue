@@ -143,6 +143,7 @@
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
+import ArticleCard from '~~/app/features/visibility-access/components/ArticleCard.vue'
 
 import { api } from '#trellis/api'
 import type { Id } from '~/convex/_generated/dataModel'

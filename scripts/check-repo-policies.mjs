@@ -1,51 +1,80 @@
-import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import path from 'node:path'
 
 const checks = [
   {
     name: 'protocol-specific agent kinds',
-    cmd: String.raw`rg -n "kind: 'mcp'|kind:\s*v\.literal\('mcp'\)|case 'mcp'|principal\.kind === 'mcp'" README.md apps/docs/content/docs examples src/cli -g '!**/node_modules/**' -g '!**/_generated/**'`,
+    pattern: /kind: 'mcp'|kind:\s*v\.literal\('mcp'\)|case 'mcp'|principal\.kind === 'mcp'/,
+    roots: ['README.md', 'apps/docs/content/docs', 'examples', 'src/cli'],
   },
   {
     name: 'query composables in middleware',
-    cmd: String.raw`rg -n "useConvexQuery\(|useConvexPaginatedQuery\(" apps/harness/middleware apps/harness/plugins -g "!**/node_modules/**"`,
-    paths: ['apps/harness/middleware', 'apps/harness/plugins'],
+    pattern: /useConvexQuery\(|useConvexPaginatedQuery\(/,
+    roots: ['apps/harness/middleware', 'apps/harness/plugins'],
   },
   {
     name: 'useRoute in middleware',
-    cmd: String.raw`rg -n "useRoute\(" apps/harness/middleware -g "!**/node_modules/**"`,
-    paths: ['apps/harness/middleware'],
+    pattern: /useRoute\(/,
+    roots: ['apps/harness/middleware'],
   },
   {
     name: 'middleware subscribe:false docs',
-    cmd: String.raw`rg -n "middleware.*subscribe:[[:space:]]*false|subscribe:[[:space:]]*false.*middleware" apps/docs/content/docs`,
+    pattern: /middleware.*subscribe:\s*false|subscribe:\s*false.*middleware/,
+    roots: ['apps/docs/content/docs'],
   },
 ]
 
-for (const check of checks) {
-  if (
-    'paths' in check &&
-    Array.isArray(check.paths) &&
-    check.paths.every((path) => !existsSync(path))
-  ) {
-    continue
-  }
+const repoRoot = process.cwd()
+const ignoredDirNames = new Set(['node_modules', '_generated', '.git'])
 
-  try {
-    execSync(check.cmd, { stdio: 'pipe', shell: true })
-    throw new Error(`repo policy violated: ${check.name}`)
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith('repo policy violated:')) {
-      throw error
+function collectFiles(rootPath) {
+  const absoluteRoot = path.resolve(repoRoot, rootPath)
+  if (!existsSync(absoluteRoot)) return []
+
+  const stats = statSync(absoluteRoot)
+  if (stats.isFile()) return [absoluteRoot]
+
+  const files = []
+  for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (ignoredDirNames.has(entry.name)) continue
+      files.push(...collectFiles(path.join(rootPath, entry.name)))
+      continue
     }
 
-    const status = error && typeof error === 'object' ? Reflect.get(error, 'status') : undefined
-    if (status === 1) continue
-
-    throw new Error(
-      `[trellis] repo policy check failed for ${check.name}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    )
+    if (!entry.isFile()) continue
+    files.push(path.join(absoluteRoot, entry.name))
   }
+
+  return files
+}
+
+function findMatches(check) {
+  const matches = []
+  for (const root of check.roots) {
+    for (const filePath of collectFiles(root)) {
+      let source
+      try {
+        source = readFileSync(filePath, 'utf8')
+      } catch {
+        continue
+      }
+
+      const lines = source.split('\n')
+      lines.forEach((line, index) => {
+        if (!check.pattern.test(line)) return
+        matches.push(`${path.relative(repoRoot, filePath)}:${index + 1}:${line.trim()}`)
+      })
+    }
+  }
+
+  return matches
+}
+
+for (const check of checks) {
+  const matches = findMatches(check)
+  if (matches.length === 0) continue
+
+  const preview = matches.slice(0, 10).join('\n')
+  throw new Error(`[trellis] repo policy violated: ${check.name}\n${preview}`)
 }
