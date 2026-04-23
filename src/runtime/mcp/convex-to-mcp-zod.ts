@@ -9,6 +9,7 @@ type ConvexValidatorLike = {
   element?: unknown
   fields?: Record<string, unknown>
   members?: unknown[]
+  key?: unknown
   value?: unknown
 }
 
@@ -23,6 +24,7 @@ const SUPPORTED_KINDS = [
   'id',
   'array',
   'object',
+  'record',
   'union',
 ] as const
 
@@ -48,6 +50,7 @@ function containsConvexId(value: unknown): boolean {
 
   if (validator.kind === 'id') return true
   if (validator.kind === 'array') return containsConvexId(validator.element)
+  if (validator.kind === 'record') return containsConvexId(validator.value)
   if (validator.kind === 'object') {
     return Object.values(validator.fields ?? {}).some((field) => containsConvexId(field))
   }
@@ -129,6 +132,23 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
         ),
         cv,
       )
+    case 'record': {
+      const key = asValidator(cv.key)
+      if (!key || typeof key !== 'object' || key.kind !== 'string') {
+        throw new Error(
+          `defineTool: v.record() at ${formatPath(path)} must use v.string() keys to be projected into an MCP input schema.`,
+        )
+      }
+      if (!cv.value) {
+        throw new Error(
+          `defineTool: v.record() at ${formatPath(path)} is missing its value validator.`,
+        )
+      }
+      return withOptional(
+        z.record(z.string(), convexToMcpZodValidator(cv.value, path ? `${path}{}` : '{}')),
+        cv,
+      )
+    }
     case 'union': {
       const members = cv.members ?? []
       if (members.length === 0) {

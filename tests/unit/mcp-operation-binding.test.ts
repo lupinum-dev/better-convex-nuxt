@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  projectOperationRef,
   trellisOperationProjectionMetadataKey,
   type TrellisOperationProjectionMetadata,
 } from '../../src/runtime/functions'
@@ -24,6 +25,30 @@ describe('mcp operation binding', () => {
         ref({ operationId: 'boards.archive', projection: 'execute' }),
         ref({ operationId: 'boards.archive', projection: 'preview' }),
       ),
+    ).not.toThrow()
+  })
+
+  it('accepts projected proxy refs that hide custom symbol reads', () => {
+    function proxyRef() {
+      return new Proxy(
+        {},
+        {
+          get(target, property, receiver) {
+            if (property === trellisOperationProjectionMetadataKey) return undefined
+            return Reflect.get(target, property, receiver)
+          },
+        },
+      )
+    }
+
+    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const execute = projectOperationRef(operation, 'execute', proxyRef())
+    const preview = projectOperationRef(operation, 'preview', proxyRef())
+
+    expect(Object.getOwnPropertySymbols(execute)).toContain(trellisOperationProjectionMetadataKey)
+    expect(execute[trellisOperationProjectionMetadataKey]).toBeUndefined()
+    expect(() =>
+      assertOperationBinding(operation, execute as never, preview as never),
     ).not.toThrow()
   })
 

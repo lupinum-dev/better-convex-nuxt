@@ -569,7 +569,7 @@ export function defineMcpApp<
                   max: tool.rateLimit.max,
                   windowMs: parseWindowString(tool.rateLimit.window),
                 },
-                options.rateLimitStore,
+                tool.rateLimitStore ?? appRateLimitStore,
               )
 
               if (!check.allowed) {
@@ -891,7 +891,7 @@ export function defineMcpApp<
                     max: options.rateLimit.max,
                     windowMs: parseWindowString(options.rateLimit.window),
                   },
-                  options.rateLimitStore,
+                  options.rateLimitStore ?? appRateLimitStore,
                 )
 
                 if (!check.allowed) {
@@ -1058,6 +1058,31 @@ export function defineMcpApp<
           return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
         }
 
+        const normalizeOperationPreview = (previewResult: unknown): OperationPreviewPayload => {
+          if (options.previewResult) {
+            return {
+              display: options.previewResult({
+                args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+                result: previewResult as TPreview extends AnyFunctionRef
+                  ? FunctionLikeReturnType<TPreview>
+                  : unknown,
+                principal: projectionCtx.principal,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+              }),
+              confirm: executeArgs as SerializableValue,
+            }
+          }
+
+          if (!isOperationPreviewPayload(previewResult)) {
+            throw new Error(
+              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
+            )
+          }
+
+          return previewResult
+        }
+
         if (isDestructive) {
           if (!options.preview) {
             return ctx.error('server', 'Destructive operation is missing a preview ref.')
@@ -1080,15 +1105,10 @@ export function defineMcpApp<
               >,
             )
 
-            if (!isOperationPreviewPayload(previewResult)) {
-              throw new Error(
-                `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
-              )
-            }
-
-            const display = normalizePreviewDisplay(previewResult.display)
-            const previewHash = hash(previewResult.confirm)
-            const versionHash = hashPreviewVersion(previewResult.version)
+            const previewPayload = normalizeOperationPreview(previewResult)
+            const display = normalizePreviewDisplay(previewPayload.display)
+            const previewHash = hash(previewPayload.confirm)
+            const versionHash = hashPreviewVersion(previewPayload.version)
             await projectionCtx.observe({
               name: 'operation.preview.completed',
               status: 'success',
@@ -1196,13 +1216,8 @@ export function defineMcpApp<
             >,
           )
 
-          if (!isOperationPreviewPayload(previewResult)) {
-            throw new Error(
-              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
-            )
-          }
-
-          const display = normalizePreviewDisplay(previewResult.display)
+          const previewPayload = normalizeOperationPreview(previewResult)
+          const display = normalizePreviewDisplay(previewPayload.display)
           if (display.blocked) {
             const explanation = createDenialExplanation({
               reasonCode: 'tool.confirmation_mismatch',
@@ -1218,7 +1233,7 @@ export function defineMcpApp<
             )
           }
 
-          if (payload.previewHash !== hash(previewResult.confirm)) {
+          if (payload.previewHash !== hash(previewPayload.confirm)) {
             await projectionCtx.observe({
               name: 'operation.confirm.drifted',
               status: 'deny',
@@ -1249,7 +1264,7 @@ export function defineMcpApp<
             )
           }
 
-          if ((payload.versionHash ?? null) !== hashPreviewVersion(previewResult.version)) {
+          if ((payload.versionHash ?? null) !== hashPreviewVersion(previewPayload.version)) {
             await projectionCtx.observe({
               name: 'operation.confirm.drifted',
               status: 'deny',

@@ -60,15 +60,17 @@ const scopedSchema = defineArgs({
 let rateLimitStore: ToolRateLimiter
 
 describe('defineTool MCP input projection', () => {
-  it('projects ids, arrays, nested objects, and literal unions into JSON-schema-safe Zod', () => {
+  it('projects ids, arrays, records, nested objects, and literal unions into JSON-schema-safe Zod', () => {
     const schema = defineArgs({
       description: 'Projected tool',
       args: {
         postId: v.id('posts'),
         workspaceId: v.optional(v.id('workspaces')),
         tagIds: v.array(v.id('tags')),
+        labels: v.union(v.string(), v.record(v.string(), v.string())),
         filters: v.object({
           ownerId: v.id('users'),
+          metadata: v.optional(v.record(v.string(), v.union(v.string(), v.number(), v.null()))),
         }),
         visibility: v.optional(v.union(v.literal('public'), v.literal('draft'))),
       },
@@ -96,6 +98,7 @@ describe('defineTool MCP input projection', () => {
       inputSchema.safeParse({
         postId: 'post_1',
         tagIds: ['tag_1', 'tag_2'],
+        labels: { en: 'Hello' },
         filters: { ownerId: 'user_1' },
         visibility: 'public',
       }).success,
@@ -106,7 +109,15 @@ describe('defineTool MCP input projection', () => {
         postId: 'post_1',
         workspaceId: undefined,
         tagIds: ['tag_1'],
-        filters: { ownerId: 'user_1' },
+        labels: 'Hello',
+        filters: {
+          ownerId: 'user_1',
+          metadata: {
+            section: 'hero',
+            priority: 1,
+            fallback: null,
+          },
+        },
       }).success,
     ).toBe(true)
   })

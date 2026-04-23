@@ -16,6 +16,8 @@ export const trellisOperationProjectionMetadataKey = Symbol.for('trellis.operati
 
 export type OperationProjectionKind = TrellisOperationProjectionMetadata['projection']
 
+const operationProjectionMetadataByRef = new WeakMap<object, TrellisOperationProjectionMetadata>()
+
 type OperationMetadataCarrier = {
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   id?: string
@@ -75,7 +77,10 @@ export function getOperationMetadata(operation: {
 export function getOperationProjectionMetadata(value: {
   [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
 }): TrellisOperationProjectionMetadata | null {
-  return value[trellisOperationProjectionMetadataKey] ?? null
+  const metadata = value[trellisOperationProjectionMetadataKey]
+  if (metadata) return metadata
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return null
+  return operationProjectionMetadataByRef.get(value) ?? null
 }
 
 export function stampOperationProjection<T>(
@@ -87,12 +92,18 @@ export function stampOperationProjection<T>(
     return value
   }
 
-  Object.defineProperty(value, trellisOperationProjectionMetadataKey, {
-    value: metadata,
-    enumerable: false,
-    configurable: true,
-    writable: false,
-  })
+  operationProjectionMetadataByRef.set(value, metadata)
+
+  try {
+    Object.defineProperty(value, trellisOperationProjectionMetadataKey, {
+      value: metadata,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    })
+  } catch {
+    // Some function refs are proxies that reject extension. The WeakMap above is the source of truth.
+  }
 
   return value
 }
