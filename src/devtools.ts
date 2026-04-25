@@ -18,12 +18,30 @@ import {
 } from './runtime/devtools/constants.js'
 import type { ServerRpcFunctions, ClientRpcFunctions } from './runtime/devtools/types.js'
 
-export function setupConvexDevtools(nuxt: Nuxt): void {
+export function resolveDevtoolsUiMode(paths: {
+  clientPath: string
+  sourcePath: string
+}): 'client' | 'source' | null {
+  if (existsSync(paths.clientPath)) {
+    return 'client'
+  }
+  if (existsSync(paths.sourcePath)) {
+    return 'source'
+  }
+  return null
+}
+
+export function setupConvexDevtools(nuxt: Nuxt): boolean {
   const resolver = createResolver(import.meta.url)
   const clientPath = resolver.resolve('./client')
-  const isProductionBuild = existsSync(clientPath)
+  const sourcePath = resolver.resolve('../apps/devtools-ui')
+  const uiMode = resolveDevtoolsUiMode({ clientPath, sourcePath })
 
-  if (isProductionBuild) {
+  if (!uiMode) {
+    return false
+  }
+
+  if (uiMode === 'client') {
     nuxt.hook('vite:serverCreated', async (server) => {
       const sirv = await import('sirv').then((r) => r.default || r)
       server.middlewares.use(DEVTOOLS_UI_PATH, sirv(clientPath, { dev: true, single: true }))
@@ -46,7 +64,7 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
       startSubprocess(
         {
           ...resolveNuxtCliArgs(import.meta.url, 'dev', ['--port', DEVTOOLS_UI_PORT.toString()]),
-          cwd: resolver.resolve('../apps/devtools-ui'),
+          cwd: sourcePath,
           stdio: 'pipe',
           env: {
             PORT: DEVTOOLS_UI_PORT.toString(),
@@ -93,4 +111,6 @@ export function setupConvexDevtools(nuxt: Nuxt): void {
       },
     })
   })
+
+  return true
 }

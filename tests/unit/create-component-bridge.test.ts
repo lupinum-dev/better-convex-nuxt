@@ -286,6 +286,73 @@ describe('createComponentBridge', () => {
     ).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
   })
 
+  it('uses an explicit trusted forwarding key without reading process env', async () => {
+    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (_ctx, args) =>
+            (args as { principal?: typeof principal }).principal ?? principal,
+        }),
+        trustedForwardingKey: 'explicit-component-boundary-key',
+      },
+    )
+
+    const registered = bridge.internalMutation({
+      component: 'component.mutation' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runMutation: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
+    }
+
+    const runMutation = vi.fn(async () => ({ ok: true }))
+    const customized = await registered.customization.input({ runMutation }, { principal })
+
+    await registered.definition.handler(
+      {
+        ...customized.ctx,
+        runMutation,
+      },
+      { slug: 'docs' },
+    )
+
+    expect(runMutation).toHaveBeenCalledWith('component.mutation', {
+      slug: 'docs',
+      _trustedForwardingKey: 'explicit-component-boundary-key',
+      _trustedForwarding: {
+        principalSubject: 'service:mcp',
+      },
+      principal,
+    })
+  })
+
   it('rejects weak trusted forwarding keys in production', async () => {
     process.env.NODE_ENV = 'production'
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'

@@ -140,8 +140,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {
-      setupConvexDevtools(nuxt)
-      logger.info('Nuxt DevTools integration enabled')
+      if (setupConvexDevtools(nuxt)) {
+        logger.info('Nuxt DevTools integration enabled')
+      }
     }
   },
 })

@@ -71,8 +71,7 @@ export async function loadManifestFromPackage(
     const fallback = findPackageJsonInNodeModules(packageName, cwd)
     if (!fallback) {
       throw new Error(
-        `Could not locate "${packageName}" from ${cwd}. ` +
-          `Is the package installed?`,
+        `Could not locate "${packageName}" from ${cwd}. ` + `Is the package installed?`,
       )
     }
     packageJsonPath = fallback
@@ -187,10 +186,7 @@ export async function checkBridgeDrift(
   return violations
 }
 
-export async function assertBridgeInstalled(
-  packageName: string,
-  rootDir: string,
-): Promise<void> {
+export async function assertBridgeInstalled(packageName: string, rootDir: string): Promise<void> {
   const manifest = await loadManifestFromPackage(packageName, rootDir)
   const violations = await checkBridgeDrift(manifest, rootDir)
   if (violations.length === 0) return

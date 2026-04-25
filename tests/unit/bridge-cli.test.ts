@@ -55,7 +55,7 @@ function writeConsumerPackage(appRoot: string, packageName = '@fixture/bridge-co
       2,
     ),
   )
-  write(resolve(appRoot, 'nuxt.config.ts'), "export default defineNuxtConfig({})\n")
+  write(resolve(appRoot, 'nuxt.config.ts'), 'export default defineNuxtConfig({})\n')
 }
 
 function writeBridgePackage(
@@ -140,7 +140,9 @@ describe('Trellis bridge CLI and runtime contract', () => {
     writeConsumerPackage(appRoot)
     writeBridgePackage(appRoot, { exportPackageJson: false })
 
-    await expect(loadManifestFromPackage('@fixture/bridge-component', appRoot)).resolves.toMatchObject({
+    await expect(
+      loadManifestFromPackage('@fixture/bridge-component', appRoot),
+    ).resolves.toMatchObject({
       packageName: '@fixture/bridge-component',
     })
   })
@@ -168,44 +170,54 @@ export default {
 `.trimStart(),
     })
 
-    await expect(loadManifestFromPackage('@fixture/bridge-component', mismatchRoot)).rejects.toThrow(
-      'declares a different packageName',
-    )
+    await expect(
+      loadManifestFromPackage('@fixture/bridge-component', mismatchRoot),
+    ).rejects.toThrow('declares a different packageName')
   })
 
-  it('installs, checks, lists, detects drift, and repairs bridge output', { timeout: 20_000 }, async () => {
-    const appRoot = createTempDir('trellis-bridge-cli-')
-    writeConsumerPackage(appRoot)
-    writeBridgePackage(appRoot)
+  it(
+    'installs, checks, lists, detects drift, and repairs bridge output',
+    { timeout: 20_000 },
+    async () => {
+      const appRoot = createTempDir('trellis-bridge-cli-')
+      writeConsumerPackage(appRoot)
+      writeBridgePackage(appRoot)
 
-    const install = runCli(['bridge', 'install', '@fixture/bridge-component', '--cwd', appRoot])
-    expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0)
-    expect(read(resolve(appRoot, 'convex/fixture/generated.ts'))).toContain(
-      '@trellis-bridge-package: @fixture/bridge-component',
-    )
-    expect(read(resolve(appRoot, 'convex/convex.config.ts'))).toContain('// fixture managed')
+      const install = runCli(['bridge', 'install', '@fixture/bridge-component', '--cwd', appRoot])
+      expect(install.status, `${install.stdout}\n${install.stderr}`).toBe(0)
+      expect(read(resolve(appRoot, 'convex/fixture/generated.ts'))).toContain(
+        '@trellis-bridge-package: @fixture/bridge-component',
+      )
+      expect(read(resolve(appRoot, 'convex/convex.config.ts'))).toContain('// fixture managed')
 
-    const cleanCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
-    expect(cleanCheck.status, `${cleanCheck.stdout}\n${cleanCheck.stderr}`).toBe(0)
+      const cleanCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
+      expect(cleanCheck.status, `${cleanCheck.stdout}\n${cleanCheck.stderr}`).toBe(0)
 
-    const ls = runCli(['bridge', 'ls', '--cwd', appRoot])
-    expect(ls.status, `${ls.stdout}\n${ls.stderr}`).toBe(0)
-    await expect(discoverInstalledBridgeComponents(appRoot)).resolves.toMatchObject([
-      { packageName: '@fixture/bridge-component' },
-    ])
+      const ls = runCli(['bridge', 'ls', '--cwd', appRoot])
+      expect(ls.status, `${ls.stdout}\n${ls.stderr}`).toBe(0)
+      await expect(discoverInstalledBridgeComponents(appRoot)).resolves.toMatchObject([
+        { packageName: '@fixture/bridge-component' },
+      ])
 
-    write(resolve(appRoot, 'convex/fixture/generated.ts'), 'drift\n')
-    write(resolve(appRoot, 'convex/convex.config.ts'), 'const app = {}\n')
-    const driftCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
-    expect(driftCheck.status, `${driftCheck.stdout}\n${driftCheck.stderr}`).toBe(1)
-    expect(`${driftCheck.stdout}\n${driftCheck.stderr}`).toContain('convex/fixture/generated.ts')
-    expect(`${driftCheck.stdout}\n${driftCheck.stderr}`).toContain('convex/convex.config.ts')
+      write(resolve(appRoot, 'convex/fixture/generated.ts'), 'drift\n')
+      write(resolve(appRoot, 'convex/convex.config.ts'), 'const app = {}\n')
+      const driftCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
+      expect(driftCheck.status, `${driftCheck.stdout}\n${driftCheck.stderr}`).toBe(1)
+      expect(`${driftCheck.stdout}\n${driftCheck.stderr}`).toContain('convex/fixture/generated.ts')
+      expect(`${driftCheck.stdout}\n${driftCheck.stderr}`).toContain('convex/convex.config.ts')
 
-    const generate = runCli(['bridge', 'generate', '@fixture/bridge-component', '--cwd', appRoot])
-    expect(generate.status, `${generate.stdout}\n${generate.stderr}`).toBe(0)
-    const repairedCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
-    expect(repairedCheck.status, `${repairedCheck.stdout}\n${repairedCheck.stderr}`).toBe(0)
-  })
+      const generate = runCli(['bridge', 'generate', '@fixture/bridge-component', '--cwd', appRoot])
+      expect(generate.status, `${generate.stdout}\n${generate.stderr}`).toBe(0)
+      const repairedCheck = runCli([
+        'bridge',
+        'check',
+        '@fixture/bridge-component',
+        '--cwd',
+        appRoot,
+      ])
+      expect(repairedCheck.status, `${repairedCheck.stdout}\n${repairedCheck.stderr}`).toBe(0)
+    },
+  )
 
   it('does not write partial output when managed edit rendering fails', () => {
     const appRoot = createTempDir('trellis-bridge-partial-')
@@ -240,7 +252,9 @@ export default {
     const appRoot = createTempDir('trellis-bridge-doctor-')
     writeConsumerPackage(appRoot)
     writeBridgePackage(appRoot)
-    expect(runCli(['bridge', 'install', '@fixture/bridge-component', '--cwd', appRoot]).status).toBe(0)
+    expect(
+      runCli(['bridge', 'install', '@fixture/bridge-component', '--cwd', appRoot]).status,
+    ).toBe(0)
 
     const cleanDoctor = runCli(['doctor', '--json', '--cwd', appRoot])
     const cleanReport = JSON.parse(cleanDoctor.stdout) as {
