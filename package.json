@@ -51,6 +51,9 @@
       "functions": [
         "./dist/runtime/functions/index.d.ts"
       ],
+      "bridge": [
+        "./dist/runtime/bridge/index.d.ts"
+      ],
       "feature": [
         "./dist/runtime/feature/index.d.ts"
       ],
@@ -94,6 +97,10 @@
     "./functions": {
       "types": "./dist/runtime/functions/index.d.ts",
       "import": "./dist/runtime/functions/index.mjs"
+    },
+    "./bridge": {
+      "types": "./dist/runtime/bridge/index.d.ts",
+      "import": "./dist/runtime/bridge/index.mjs"
     },
     "./feature": {
       "types": "./dist/runtime/feature/index.d.ts",

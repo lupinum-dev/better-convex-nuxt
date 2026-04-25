@@ -105,9 +105,9 @@ describe('CLI doctor', () => {
     expect(result.status, output).toBe(0)
     expect(output).toContain('@lupinum/trellis')
     expect(output).toContain('add')
+    expect(output).toContain('bridge')
     expect(output).toContain('doctor')
     expect(output).toContain('init')
-    expect(output).not.toContain('bridge')
     expect(output).toContain('USAGE')
   })
 

@@ -7,6 +7,11 @@ import consola from 'consola'
 import { collectModuleValidationFindings } from '../../analysis/validation.js'
 import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 import {
+  checkBridgeDrift,
+  discoverInstalledBridgeComponents,
+  loadManifestFromPackage,
+} from '../../runtime/bridge/index.js'
+import {
   getTrustedForwardingKeyProductionIssue,
   minimumTrustedForwardingKeyLength,
 } from '../../runtime/trusted-forwarding/shared.js'
@@ -501,8 +506,60 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   return [...baseFindings, ...moduleValidationFindings]
 }
 
-export function buildDoctorReport(cwd: string): DoctorReport {
-  const findings = createDoctorFindings(cwd)
+async function collectBridgeFindings(cwd: string): Promise<DoctorFinding[]> {
+  const installed = await discoverInstalledBridgeComponents(cwd)
+  if (installed.length === 0) return []
+
+  const findings: DoctorFinding[] = []
+  for (const entry of installed) {
+    try {
+      const manifest = await loadManifestFromPackage(entry.packageName, cwd)
+      const violations = await checkBridgeDrift(manifest, cwd)
+      const id = `bridge-${entry.packageName.replace(/[^a-zA-Z0-9]+/g, '-')}`
+      if (violations.length === 0) {
+        findings.push({
+          id,
+          category: 'core',
+          title: `${entry.packageName} bridge`,
+          status: 'pass',
+          message: `Bridge files for ${entry.packageName}@${manifest.version} are up to date.`,
+          fixHint: `Keep the bridge in sync with \`pnpm exec trellis bridge generate ${entry.packageName}\` after upgrades.`,
+        })
+        continue
+      }
+      const summary = violations
+        .slice(0, 3)
+        .map((v) => `${v.relativePath} ${v.reason === 'missing' ? 'is missing' : 'is out of date'}`)
+        .join('; ')
+      const more = violations.length > 3 ? `, and ${violations.length - 3} more` : ''
+      findings.push({
+        id,
+        category: 'core',
+        title: `${entry.packageName} bridge`,
+        status: 'fail',
+        message: `Bridge for ${entry.packageName}@${manifest.version} has ${violations.length} issue(s): ${summary}${more}.`,
+        fixHint: `Run \`pnpm exec trellis bridge generate ${entry.packageName}\` and commit the result.`,
+      })
+    } catch (error) {
+      findings.push({
+        id: `bridge-${entry.packageName.replace(/[^a-zA-Z0-9]+/g, '-')}`,
+        category: 'core',
+        title: `${entry.packageName} bridge`,
+        status: 'fail',
+        message: `Could not evaluate bridge for ${entry.packageName}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        fixHint: `Verify ${entry.packageName} ships a valid \`./convex/manifest\` export and reinstall with \`pnpm install\`.`,
+      })
+    }
+  }
+  return findings
+}
+
+export async function buildDoctorReport(cwd: string): Promise<DoctorReport> {
+  const baseFindings = createDoctorFindings(cwd)
+  const bridgeFindings = await collectBridgeFindings(cwd)
+  const findings = [...baseFindings, ...bridgeFindings]
   return {
     cwd,
     findings,
@@ -552,7 +609,7 @@ export const doctorCommand = defineCommand({
     logger?.debug(`Inspecting ${cwd}`)
     loadingSpinner?.start(`Inspecting ${cwd}`)
 
-    const report = buildDoctorReport(cwd)
+    const report = await buildDoctorReport(cwd)
 
     loadingSpinner?.stop('Inspection complete')
     logger?.debug(`Found ${report.summary.fail} failures and ${report.summary.warn} warnings`)
