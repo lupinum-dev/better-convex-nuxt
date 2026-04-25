@@ -80,6 +80,9 @@ export function getOperationProjectionMetadata(value: {
   const metadata = value[trellisOperationProjectionMetadataKey]
   if (metadata) return metadata
   if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return null
+  const descriptor = Object.getOwnPropertyDescriptor(value, trellisOperationProjectionMetadataKey)
+  const descriptorMetadata = descriptor?.value
+  if (descriptorMetadata) return descriptorMetadata as TrellisOperationProjectionMetadata
   return operationProjectionMetadataByRef.get(value) ?? null
 }
 

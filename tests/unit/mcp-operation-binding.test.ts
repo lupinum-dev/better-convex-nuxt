@@ -52,6 +52,39 @@ describe('mcp operation binding', () => {
     ).not.toThrow()
   })
 
+  it('accepts proxy refs stamped outside the local WeakMap', () => {
+    function proxyRef(metadata: TrellisOperationProjectionMetadata) {
+      const value = new Proxy(
+        {},
+        {
+          get(target, property, receiver) {
+            if (property === trellisOperationProjectionMetadataKey) return undefined
+            return Reflect.get(target, property, receiver)
+          },
+        },
+      )
+
+      Object.defineProperty(value, trellisOperationProjectionMetadataKey, {
+        value: metadata,
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      })
+
+      return value
+    }
+
+    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+
+    expect(() =>
+      assertOperationBinding(
+        operation,
+        proxyRef({ operationId: operation.id, projection: 'execute' }) as never,
+        proxyRef({ operationId: operation.id, projection: 'preview' }) as never,
+      ),
+    ).not.toThrow()
+  })
+
   it('rejects execute refs without operation metadata', () => {
     expect(() =>
       assertOperationBinding(
