@@ -26,6 +26,7 @@ import type { LogLevel } from './runtime/utils/logger'
 export type { LogLevel } from './runtime/utils/logger'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 export type { Resource } from './runtime/composables/usePermissions'
+export type { ConvexUser } from './runtime/devtools/types'
 
 const logger = useLogger('better-convex-nuxt')
 
