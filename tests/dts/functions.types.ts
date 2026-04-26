@@ -1,7 +1,8 @@
 import { open } from '@lupinum/trellis/auth'
 import {
   callComponentBridgeRegistrar,
-  type ComponentBridgeRegistrar,
+  type ComponentBridgeMutationRegistrar,
+  type ComponentBridgeQueryRegistrar,
   defineOperation,
   executeOperationRef,
   previewOperationRef,
@@ -58,10 +59,41 @@ expectTypeOf(
 ).toEqualTypeOf<'preview'>()
 
 const componentRef = {} as FunctionReference<'query', 'public', { slug: string }, { ok: true }>
-const componentBridgeRegistrar = ((definition: never) => definition) as ComponentBridgeRegistrar
+const componentMutationRef = {} as FunctionReference<
+  'mutation',
+  'public',
+  { id: string },
+  { ok: true }
+>
+const componentBridgeQueryRegistrar = ((definition: never) =>
+  definition) as unknown as ComponentBridgeQueryRegistrar<'public'>
+const componentBridgeMutationRegistrar = ((definition: never) =>
+  definition) as unknown as ComponentBridgeMutationRegistrar<'public'>
 expectTypeOf(
-  callComponentBridgeRegistrar(componentBridgeRegistrar, {
+  callComponentBridgeRegistrar(componentBridgeQueryRegistrar, {
     component: componentRef,
     args: { slug: v.string() },
   }),
-).toEqualTypeOf<unknown>()
+).toEqualTypeOf<
+  import('convex/server').RegisteredQuery<'public', { slug: string }, Promise<{ ok: true }>>
+>()
+expectTypeOf(
+  callComponentBridgeRegistrar(componentBridgeMutationRegistrar, {
+    component: componentMutationRef,
+    args: { id: v.string() },
+  }),
+).toEqualTypeOf<
+  import('convex/server').RegisteredMutation<'public', { id: string }, Promise<{ ok: true }>>
+>()
+
+// @ts-expect-error query registrar must reject mutation refs
+callComponentBridgeRegistrar(componentBridgeQueryRegistrar, {
+  component: componentMutationRef,
+  args: { id: v.string() },
+})
+
+// @ts-expect-error mutation registrar must reject query refs
+callComponentBridgeRegistrar(componentBridgeMutationRegistrar, {
+  component: componentRef,
+  args: { slug: v.string() },
+})

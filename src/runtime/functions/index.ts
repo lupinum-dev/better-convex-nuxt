@@ -78,9 +78,8 @@ export type {
 export { callComponentBridgeRegistrar, createComponentBridge } from './create-component-bridge.js'
 export type {
   ComponentBridgeComponent,
-  ComponentBridgeOperation,
-  ComponentBridgeRegistrar,
-  ComponentBridgeRegistrarDefinition,
+  ComponentBridgeMutationRegistrar,
+  ComponentBridgeQueryRegistrar,
 } from './create-component-bridge.js'
 export {
   defineComponentBridgeManifest,
@@ -739,7 +738,10 @@ async function resolveServiceAccess<
 
   const tenantId =
     service.access.tenant === 'derived'
-      ? await service.access.deriveTenant({ principal, args: stripTransportReservedArgs(args) })
+      ? await service.access.deriveTenant({
+          principal,
+          args: stripTransportReservedArgs(args),
+        })
       : null
 
   return {
@@ -820,7 +822,10 @@ async function resolveRules<
 }
 
 type StructuredQueryBuilder<
-  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -842,7 +847,10 @@ type StructuredQueryBuilder<
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredMutationBuilder<
-  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -864,7 +872,10 @@ type StructuredMutationBuilder<
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredActionBuilder<
-  TCtx extends { principal: () => Promise<unknown>; delegation: () => Promise<unknown | null> },
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
   Visibility extends FunctionVisibility,
   TActor,
 > = <
@@ -1143,10 +1154,14 @@ function getConfirmationToken(args: Record<string, unknown>): string | undefined
   return typeof args._confirmationToken === 'string' ? args._confirmationToken : undefined
 }
 
-function isDestructivePreviewPayload(
-  value: unknown,
-): value is DestructiveOperationPreview<
-  string | { blocked?: boolean; summary?: string; warn?: string; affects?: Record<string, number> },
+function isDestructivePreviewPayload(value: unknown): value is DestructiveOperationPreview<
+  | string
+  | {
+      blocked?: boolean
+      summary?: string
+      warn?: string
+      affects?: Record<string, number>
+    },
   { [key: string]: SerializableValue }
 > {
   return (
@@ -1883,10 +1898,14 @@ function buildTrellisRuntime<
     mutation: wrapUnsafeBuilder(unsafe.mutation, 'unsafe.mutation'),
     ...(unsafe.action ? { action: wrapUnsafeBuilder(unsafe.action, 'unsafe.action') } : {}),
     ...(unsafe.internal.query
-      ? { internalQuery: wrapUnsafeBuilder(unsafe.internal.query, 'unsafe.internalQuery') }
+      ? {
+          internalQuery: wrapUnsafeBuilder(unsafe.internal.query, 'unsafe.internalQuery'),
+        }
       : {}),
     ...(unsafe.internal.mutation
-      ? { internalMutation: wrapUnsafeBuilder(unsafe.internal.mutation, 'unsafe.internalMutation') }
+      ? {
+          internalMutation: wrapUnsafeBuilder(unsafe.internal.mutation, 'unsafe.internalMutation'),
+        }
       : {}),
   }
 

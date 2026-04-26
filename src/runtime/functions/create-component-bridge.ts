@@ -65,51 +65,100 @@ type CreateComponentBridgeBuilders<
   internalMutation: MutationBuilder<DataModel, InternalMutationVisibility>
 }
 
-type AnyFunctionRef = FunctionReference<'query' | 'mutation', 'public' | 'internal'>
-type QueryRef = FunctionReference<'query', 'public' | 'internal'>
-type MutationRef = FunctionReference<'mutation', 'public' | 'internal'>
+type ComponentBridgeFunctionRef = FunctionReference<'query' | 'mutation', 'public' | 'internal'>
+type ComponentBridgeQueryRef = FunctionReference<'query', 'public' | 'internal'>
+type ComponentBridgeMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 
-type BridgeDefinition<TRef extends AnyFunctionRef> = {
-  args: PropertyValidators
+type ComponentBridgeOperation = 'query' | 'mutation' | 'internalQuery' | 'internalMutation'
+
+type ComponentBridgeDefinition<
+  TRef extends ComponentBridgeFunctionRef,
+  TArgs extends PropertyValidators = PropertyValidators,
+> = {
+  args: TArgs
   returns?: GenericValidator
   component: TRef
+} & Record<never, never>
+
+type ComponentBridgeQueryDefinition<
+  TRef extends ComponentBridgeQueryRef = ComponentBridgeQueryRef,
+  TArgs extends PropertyValidators = PropertyValidators,
+> = ComponentBridgeDefinition<TRef, TArgs>
+
+type ComponentBridgeMutationDefinition<
+  TRef extends ComponentBridgeMutationRef = ComponentBridgeMutationRef,
+  TArgs extends PropertyValidators = PropertyValidators,
+> = ComponentBridgeDefinition<TRef, TArgs>
+
+export type ComponentBridgeQueryRegistrar<
+  Visibility extends FunctionVisibility = FunctionVisibility,
+> = <TRef extends ComponentBridgeQueryRef, TArgs extends PropertyValidators>(
+  definition: ComponentBridgeQueryDefinition<TRef, TArgs>,
+) => RegisteredQuery<Visibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
+
+export type ComponentBridgeMutationRegistrar<
+  Visibility extends FunctionVisibility = FunctionVisibility,
+> = <TRef extends ComponentBridgeMutationRef, TArgs extends PropertyValidators>(
+  definition: ComponentBridgeMutationDefinition<TRef, TArgs>,
+) => RegisteredMutation<Visibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
+
+export type ComponentBridgeComponent<
+  QueryVisibility extends FunctionVisibility = FunctionVisibility,
+  MutationVisibility extends FunctionVisibility = FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility = FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility = FunctionVisibility,
+> = {
+  query: ComponentBridgeQueryRegistrar<QueryVisibility>
+  mutation: ComponentBridgeMutationRegistrar<MutationVisibility>
+  internalQuery: ComponentBridgeQueryRegistrar<InternalQueryVisibility>
+  internalMutation: ComponentBridgeMutationRegistrar<InternalMutationVisibility>
 }
 
-export type ComponentBridgeOperation = 'query' | 'mutation' | 'internalQuery' | 'internalMutation'
-
-export type ComponentBridgeRegistrarDefinition = Record<string, unknown>
-
-export type ComponentBridgeRegistrar<TDefinition = never, TResult = unknown> = (
-  definition: TDefinition,
-) => TResult
-
-export type ComponentBridgeComponent = Record<ComponentBridgeOperation, ComponentBridgeRegistrar>
-
-export function callComponentBridgeRegistrar<TResult = unknown>(
-  registrar: ComponentBridgeRegistrar,
-  definition: ComponentBridgeRegistrarDefinition,
-): TResult {
-  return (registrar as (definition: ComponentBridgeRegistrarDefinition) => TResult)(definition)
+export function callComponentBridgeRegistrar<
+  TRef extends ComponentBridgeQueryRef,
+  TArgs extends PropertyValidators,
+  TResult,
+>(
+  registrar: (definition: ComponentBridgeQueryDefinition<TRef, TArgs>) => TResult,
+  definition: ComponentBridgeQueryDefinition<TRef, TArgs>,
+): TResult
+export function callComponentBridgeRegistrar<
+  TRef extends ComponentBridgeMutationRef,
+  TArgs extends PropertyValidators,
+  TResult,
+>(
+  registrar: (definition: ComponentBridgeMutationDefinition<TRef, TArgs>) => TResult,
+  definition: ComponentBridgeMutationDefinition<TRef, TArgs>,
+): TResult
+export function callComponentBridgeRegistrar(
+  registrar: (definition: ComponentBridgeDefinition<ComponentBridgeFunctionRef>) => unknown,
+  definition: ComponentBridgeDefinition<ComponentBridgeFunctionRef>,
+): unknown {
+  return registrar(definition)
 }
 
-type QueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefinition<TRef> & {
-  operation: 'query'
+type QueryBridgeBatchDefinition<TRef extends ComponentBridgeQueryRef = ComponentBridgeQueryRef> =
+  ComponentBridgeDefinition<TRef> & {
+    operation: 'query'
+  }
+
+type MutationBridgeBatchDefinition<
+  TRef extends ComponentBridgeMutationRef = ComponentBridgeMutationRef,
+> = ComponentBridgeDefinition<TRef> & {
+  operation: 'mutation'
 }
 
-type MutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> =
-  BridgeDefinition<TRef> & {
-    operation: 'mutation'
-  }
+type InternalQueryBridgeBatchDefinition<
+  TRef extends ComponentBridgeQueryRef = ComponentBridgeQueryRef,
+> = ComponentBridgeDefinition<TRef> & {
+  operation: 'internalQuery'
+}
 
-type InternalQueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> =
-  BridgeDefinition<TRef> & {
-    operation: 'internalQuery'
-  }
-
-type InternalMutationBridgeBatchDefinition<TRef extends MutationRef = MutationRef> =
-  BridgeDefinition<TRef> & {
-    operation: 'internalMutation'
-  }
+type InternalMutationBridgeBatchDefinition<
+  TRef extends ComponentBridgeMutationRef = ComponentBridgeMutationRef,
+> = ComponentBridgeDefinition<TRef> & {
+  operation: 'internalMutation'
+}
 
 type BridgeBatchDefinition =
   | QueryBridgeBatchDefinition
@@ -129,19 +178,19 @@ type BridgeBatchResult<
   [Key in keyof TDefinitions]: TDefinitions[Key] extends {
     operation: 'query'
     args: infer TArgs extends PropertyValidators
-    component: infer TRef extends QueryRef
+    component: infer TRef extends ComponentBridgeQueryRef
   }
     ? RegisteredQuery<QueryVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
     : TDefinitions[Key] extends {
           operation: 'mutation'
           args: infer TArgs extends PropertyValidators
-          component: infer TRef extends MutationRef
+          component: infer TRef extends ComponentBridgeMutationRef
         }
       ? RegisteredMutation<MutationVisibility, ObjectType<TArgs>, Promise<FunctionReturnType<TRef>>>
       : TDefinitions[Key] extends {
             operation: 'internalQuery'
             args: infer TArgs extends PropertyValidators
-            component: infer TRef extends QueryRef
+            component: infer TRef extends ComponentBridgeQueryRef
           }
         ? RegisteredQuery<
             InternalQueryVisibility,
@@ -151,7 +200,7 @@ type BridgeBatchResult<
         : TDefinitions[Key] extends {
               operation: 'internalMutation'
               args: infer TArgs extends PropertyValidators
-              component: infer TRef extends MutationRef
+              component: infer TRef extends ComponentBridgeMutationRef
             }
           ? RegisteredMutation<
               InternalMutationVisibility,
@@ -440,7 +489,9 @@ export function createComponentBridge<
   const internalQuery = customQuery(builders.internalQuery, internalCustomization.query)
   const internalMutation = customMutation(builders.internalMutation, internalCustomization.mutation)
 
-  const registerQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
+  const registerQuery = <TRef extends ComponentBridgeQueryRef>(
+    definition: ComponentBridgeDefinition<TRef>,
+  ) =>
     query({
       args: definition.args,
       returns: definition.returns,
@@ -456,7 +507,9 @@ export function createComponentBridge<
       },
     })
 
-  const registerMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
+  const registerMutation = <TRef extends ComponentBridgeMutationRef>(
+    definition: ComponentBridgeDefinition<TRef>,
+  ) =>
     mutation({
       args: definition.args,
       returns: definition.returns,
@@ -472,7 +525,9 @@ export function createComponentBridge<
       },
     })
 
-  const registerInternalQuery = <TRef extends QueryRef>(definition: BridgeDefinition<TRef>) =>
+  const registerInternalQuery = <TRef extends ComponentBridgeQueryRef>(
+    definition: ComponentBridgeDefinition<TRef>,
+  ) =>
     internalQuery({
       args: definition.args,
       returns: definition.returns,
@@ -488,7 +543,9 @@ export function createComponentBridge<
       },
     })
 
-  const registerInternalMutation = <TRef extends MutationRef>(definition: BridgeDefinition<TRef>) =>
+  const registerInternalMutation = <TRef extends ComponentBridgeMutationRef>(
+    definition: ComponentBridgeDefinition<TRef>,
+  ) =>
     internalMutation({
       args: definition.args,
       returns: definition.returns,
@@ -505,19 +562,23 @@ export function createComponentBridge<
     })
 
   return {
-    query<TRef extends QueryRef>(definition: BridgeDefinition<TRef>) {
+    query<TRef extends ComponentBridgeQueryRef>(definition: ComponentBridgeDefinition<TRef>) {
       return registerQuery(definition)
     },
 
-    mutation<TRef extends MutationRef>(definition: BridgeDefinition<TRef>) {
+    mutation<TRef extends ComponentBridgeMutationRef>(definition: ComponentBridgeDefinition<TRef>) {
       return registerMutation(definition)
     },
 
-    internalQuery<TRef extends QueryRef>(definition: BridgeDefinition<TRef>) {
+    internalQuery<TRef extends ComponentBridgeQueryRef>(
+      definition: ComponentBridgeDefinition<TRef>,
+    ) {
       return registerInternalQuery(definition)
     },
 
-    internalMutation<TRef extends MutationRef>(definition: BridgeDefinition<TRef>) {
+    internalMutation<TRef extends ComponentBridgeMutationRef>(
+      definition: ComponentBridgeDefinition<TRef>,
+    ) {
       return registerInternalMutation(definition)
     },
 
