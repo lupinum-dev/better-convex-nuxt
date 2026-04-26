@@ -1,5 +1,7 @@
 import { open } from '@lupinum/trellis/auth'
 import {
+  callComponentBridgeRegistrar,
+  type ComponentBridgeRegistrar,
   defineOperation,
   executeOperationRef,
   previewOperationRef,
@@ -54,3 +56,12 @@ expectTypeOf(
 expectTypeOf(
   previewRef[trellisOperationProjectionMetadataKey].projection,
 ).toEqualTypeOf<'preview'>()
+
+const componentRef = {} as FunctionReference<'query', 'public', { slug: string }, { ok: true }>
+const componentBridgeRegistrar = ((definition: never) => definition) as ComponentBridgeRegistrar
+expectTypeOf(
+  callComponentBridgeRegistrar(componentBridgeRegistrar, {
+    component: componentRef,
+    args: { slug: v.string() },
+  }),
+).toEqualTypeOf<unknown>()

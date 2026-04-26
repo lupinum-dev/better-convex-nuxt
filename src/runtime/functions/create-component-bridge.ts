@@ -75,6 +75,23 @@ type BridgeDefinition<TRef extends AnyFunctionRef> = {
   component: TRef
 }
 
+export type ComponentBridgeOperation = 'query' | 'mutation' | 'internalQuery' | 'internalMutation'
+
+export type ComponentBridgeRegistrarDefinition = Record<string, unknown>
+
+export type ComponentBridgeRegistrar<TDefinition = never, TResult = unknown> = (
+  definition: TDefinition,
+) => TResult
+
+export type ComponentBridgeComponent = Record<ComponentBridgeOperation, ComponentBridgeRegistrar>
+
+export function callComponentBridgeRegistrar<TResult = unknown>(
+  registrar: ComponentBridgeRegistrar,
+  definition: ComponentBridgeRegistrarDefinition,
+): TResult {
+  return (registrar as (definition: ComponentBridgeRegistrarDefinition) => TResult)(definition)
+}
+
 type QueryBridgeBatchDefinition<TRef extends QueryRef = QueryRef> = BridgeDefinition<TRef> & {
   operation: 'query'
 }

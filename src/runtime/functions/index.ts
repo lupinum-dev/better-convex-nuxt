@@ -75,7 +75,13 @@ export type {
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
-export { createComponentBridge } from './create-component-bridge.js'
+export { callComponentBridgeRegistrar, createComponentBridge } from './create-component-bridge.js'
+export type {
+  ComponentBridgeComponent,
+  ComponentBridgeOperation,
+  ComponentBridgeRegistrar,
+  ComponentBridgeRegistrarDefinition,
+} from './create-component-bridge.js'
 export {
   defineComponentBridgeManifest,
   ensureBridgeImport,
