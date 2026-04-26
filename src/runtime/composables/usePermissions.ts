@@ -53,8 +53,8 @@ export interface Resource {
  * Check permission function signature.
  * User provides this from their permissions.config.ts
  */
-export type CheckPermissionFn<TPermission extends string = string> = (
-  ctx: { role: string; userId: string } | null,
+export type CheckPermissionFn<TPermission extends string = string, TContext extends PermissionContext = PermissionContext> = (
+  ctx: TContext | null,
   permission: TPermission,
   resource?: Resource,
 ) => boolean
@@ -64,12 +64,12 @@ export type CheckPermissionFn<TPermission extends string = string> = (
  */
 export interface CreatePermissionsOptions<
   TPermission extends string = string,
-  _TContext extends PermissionContext = PermissionContext,
+  TContext extends PermissionContext = PermissionContext,
 > {
   /** Convex query that returns permission context (role, userId, orgId, etc.) */
   query: FunctionReference<'query'>
   /** Permission checking function from permissions.config.ts */
-  checkPermission: CheckPermissionFn<TPermission>
+  checkPermission: CheckPermissionFn<TPermission, TContext>
 }
 
 /**
@@ -161,10 +161,7 @@ export function createPermissions<
     const ctx = computed(() => {
       const context = permissionContext.value as TContext | null
       if (!context?.role) return null
-      return {
-        role: context.role,
-        userId: context.userId,
-      }
+      return context
     })
 
     // Permission check function (returns reactive ComputedRef)
