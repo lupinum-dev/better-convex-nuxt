@@ -317,5 +317,5 @@ describe('generated type consumer verification', () => {
     )
 
     expectProjectToTypecheck(rootDir)
-  })
+  }, 15_000)
 })

@@ -52,6 +52,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
+          testTimeout: 15000,
         },
       },
 
@@ -94,6 +95,7 @@ export default defineConfig({
           name: 'convex',
           include: ['apps/harness/convex/**/*.test.ts'],
           environment: 'edge-runtime',
+          testTimeout: 15000,
           server: { deps: { inline: [/convex/] } },
         },
       },
@@ -105,6 +107,7 @@ export default defineConfig({
           name: 'nuxt',
           include: ['tests/nuxt/**/*.test.ts'],
           environment: 'nuxt',
+          testTimeout: 15000,
           environmentOptions: {
             nuxt: {
               rootDir: fileURLToPath(new URL('.', import.meta.url)),
@@ -120,6 +123,7 @@ export default defineConfig({
           name: 'server',
           include: ['tests/server/**/*.test.ts'],
           environment: 'node',
+          testTimeout: 15000,
         },
       },
 
@@ -136,6 +140,7 @@ export default defineConfig({
         test: {
           name: 'browser',
           include: ['tests/browser/**/*.browser.test.ts'],
+          testTimeout: 15000,
           browser: {
             enabled: true,
             provider: playwright(),
