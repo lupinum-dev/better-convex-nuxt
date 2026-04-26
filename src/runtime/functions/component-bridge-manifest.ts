@@ -159,6 +159,67 @@ export function upsertBridgeManagedBlock(
   return `${prefix}\n\n${block}\n\n${suffix}`.trimEnd()
 }
 
+export interface ConvexAppBinding {
+  appName: string
+  anchorStart: number
+  anchorEnd: number
+  anchorText: string
+  anchorKind: 'betterAuth' | 'defineApp'
+}
+
+const identifierPattern = String.raw`[A-Za-z_$][\w$]*`
+
+export function resolveConvexAppBinding(source: string): ConvexAppBinding | null {
+  const betterAuthPattern = new RegExp(
+    String.raw`\b(${identifierPattern})\.use\s*\(\s*betterAuth\s*,\s*\{[\s\S]*?\bname\s*:\s*['"]betterAuth['"][\s\S]*?\}\s*\)\s*;?`,
+    'm',
+  )
+  const betterAuthMatch = betterAuthPattern.exec(source)
+  if (betterAuthMatch?.[1] && betterAuthMatch.index !== undefined) {
+    return {
+      appName: betterAuthMatch[1],
+      anchorStart: betterAuthMatch.index,
+      anchorEnd: betterAuthMatch.index + betterAuthMatch[0].length,
+      anchorText: betterAuthMatch[0],
+      anchorKind: 'betterAuth',
+    }
+  }
+
+  const defineAppPattern = new RegExp(
+    String.raw`\b(?:const|let|var)\s+(${identifierPattern})\s*=\s*defineApp\s*\(\s*\)\s*;?`,
+    'm',
+  )
+  const defineAppMatch = defineAppPattern.exec(source)
+  if (defineAppMatch?.[1] && defineAppMatch.index !== undefined) {
+    return {
+      appName: defineAppMatch[1],
+      anchorStart: defineAppMatch.index,
+      anchorEnd: defineAppMatch.index + defineAppMatch[0].length,
+      anchorText: defineAppMatch[0],
+      anchorKind: 'defineApp',
+    }
+  }
+
+  return null
+}
+
+export function stripBridgeManagedBlock(
+  source: string,
+  options: {
+    packageName: string
+    key: string
+  },
+): string {
+  const startMarker = `// @trellis-managed-start: ${options.packageName} ${options.key}`
+  const endMarker = `// @trellis-managed-end: ${options.packageName} ${options.key}`
+  const existingBlockPattern = new RegExp(
+    `${escapeRegExp(startMarker)}[\\s\\S]*?${escapeRegExp(endMarker)}\\s*`,
+    'g',
+  )
+
+  return source.replace(existingBlockPattern, '')
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

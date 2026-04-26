@@ -82,6 +82,8 @@ export {
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
   renderComponentBridgeManagedEdits,
+  resolveConvexAppBinding,
+  stripBridgeManagedBlock,
   stripComponentBridgeMetadata,
   upsertBridgeManagedBlock,
 } from './component-bridge-manifest.js'
