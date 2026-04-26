@@ -515,7 +515,7 @@ async function collectBridgeFindings(cwd: string): Promise<DoctorFinding[]> {
     try {
       const manifest = await loadManifestFromPackage(entry.packageName, cwd)
       const violations = await checkBridgeDrift(manifest, cwd)
-      const id = `bridge-${entry.packageName.replace(/[^a-zA-Z0-9]+/g, '-')}`
+      const id = `bridge-${entry.packageName.replace(/[^a-z0-9]+/gi, '-')}`
       if (violations.length === 0) {
         findings.push({
           id,
@@ -542,7 +542,7 @@ async function collectBridgeFindings(cwd: string): Promise<DoctorFinding[]> {
       })
     } catch (error) {
       findings.push({
-        id: `bridge-${entry.packageName.replace(/[^a-zA-Z0-9]+/g, '-')}`,
+        id: `bridge-${entry.packageName.replace(/[^a-z0-9]+/gi, '-')}`,
         category: 'core',
         title: `${entry.packageName} bridge`,
         status: 'fail',

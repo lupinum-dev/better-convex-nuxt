@@ -191,6 +191,7 @@
     "defu": "^6.1.7",
     "evlog": "2.13.0",
     "h3": "1.15.11",
+    "jose": "^6.2.0",
     "ohash": "^2.0.11",
     "sirv": "^3.0.2",
     "ts-morph": "^27.0.0",
@@ -212,7 +213,7 @@
     "@vitest/browser-playwright": "^4.1.4",
     "ai": "^6.0.154",
     "changelogen": "^0.6.2",
-    "convex": "^1.34.1",
+    "convex": "^1.36.1",
     "convex-helpers": "^0.1.114",
     "convex-test": "^0.0.47",
     "convex-vite-plugin": "^0.4.0",
@@ -220,14 +221,19 @@
     "eslint": "^10.2.0",
     "happy-dom": "^20.8.9",
     "husky": "^9.1.7",
+    "jiti": "^2.6.1",
     "lint-staged": "^16.4.0",
+    "nitropack": "2.13.3",
     "nuxt": "^4.4.2",
     "oxfmt": "^0.44.0",
     "playwright-core": "^1.59.1",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "secure-exec": "^0.2.1",
     "typescript": "~6.0.2",
     "vitest": "^4.1.4",
     "vitest-browser-vue": "^2.1.0",
+    "vue-router": "5.0.6",
     "vue-tsc": "^3.2.6",
     "zod": "^4.3.6"
   },
@@ -251,10 +257,5 @@
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"
   },
-  "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "overrides": {
-      "vite": "7.3.2"
-    }
-  }
+  "packageManager": "pnpm@10.33.0"
 }
