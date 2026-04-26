@@ -113,7 +113,7 @@ export default {
 
 describe('Trellis bridge CLI and runtime contract', () => {
   beforeAll(() => {
-    const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
+    const buildResult = spawnSync('pnpm', ['run', 'build'], {
       cwd: repoRoot,
       encoding: 'utf8',
       env: {
@@ -122,7 +122,7 @@ describe('Trellis bridge CLI and runtime contract', () => {
       },
     })
     expect(buildResult.status, `${buildResult.stdout}\n${buildResult.stderr}`).toBe(0)
-  }, 30_000)
+  }, 90_000)
 
   it('loads an import-conditioned manifest from the target consumer cwd', async () => {
     const appRoot = createTempDir('trellis-bridge-load-')
@@ -192,6 +192,11 @@ export default {
 
       const cleanCheck = runCli(['bridge', 'check', '@fixture/bridge-component', '--cwd', appRoot])
       expect(cleanCheck.status, `${cleanCheck.stdout}\n${cleanCheck.stderr}`).toBe(0)
+
+      const inspect = runCli(['bridge', 'inspect', '@fixture/bridge-component', '--cwd', appRoot])
+      expect(inspect.status, `${inspect.stdout}\n${inspect.stderr}`).toBe(0)
+      expect(`${inspect.stdout}\n${inspect.stderr}`).toContain('Generated files (1)')
+      expect(`${inspect.stdout}\n${inspect.stderr}`).toContain('Managed edits (1)')
 
       const ls = runCli(['bridge', 'ls', '--cwd', appRoot])
       expect(ls.status, `${ls.stdout}\n${ls.stderr}`).toBe(0)

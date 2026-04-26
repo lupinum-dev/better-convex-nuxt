@@ -189,6 +189,52 @@ export const bridgeCommand = defineCommand({
         return 1
       },
     }),
+    inspect: defineCommand({
+      meta: {
+        name: 'inspect',
+        description: 'Print bridge files, managed edits, and drift state without writing',
+      },
+      args: {
+        package: {
+          type: 'positional',
+          required: true,
+          description: 'Component package name',
+        },
+        cwd: {
+          type: 'string',
+          description: 'Target consumer app directory',
+          valueHint: 'path',
+        },
+      },
+      async run({ args }) {
+        const cwd = resolve(args.cwd || process.cwd())
+        const packageName = String(args.package)
+        const manifest = await loadManifestFromPackage(packageName, cwd)
+        const files = await renderComponentBridgeFiles(manifest)
+        const edits = await renderComponentBridgeManagedEdits(manifest)
+        const violations = await checkBridgeDrift(manifest, cwd)
+        const driftByPath = new Map(
+          violations.map((violation) => [violation.relativePath, violation.reason]),
+        )
+
+        process.stdout.write(`${packageName}@${manifest.version} bridge plan for ${cwd}\n`)
+        process.stdout.write(`Generated files (${files.length}):\n`)
+        for (const file of files) {
+          const reason = driftByPath.get(file.relativePath)
+          process.stdout.write(`  ${file.relativePath}${reason ? ` — ${reason}` : ' — ok'}\n`)
+        }
+        process.stdout.write(`Managed edits (${edits.length}):\n`)
+        for (const edit of edits) {
+          const reason = driftByPath.get(edit.relativePath)
+          process.stdout.write(`  ${edit.relativePath}${reason ? ` — ${reason}` : ' — ok'}\n`)
+        }
+        if (violations.length > 0) {
+          process.exitCode = 1
+          return 1
+        }
+        return 0
+      },
+    }),
     ls: defineCommand({
       meta: {
         name: 'ls',

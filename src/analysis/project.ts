@@ -198,6 +198,11 @@ export function collectConvexFunctionPaths(projectRoot: string): string[] {
     )) {
       paths.add(`${relativeFile}.${match[1]}`)
     }
+    if (text.includes('@trellis-bridge-package:')) {
+      for (const match of text.matchAll(/export\s+const\s+(\w+)\s*=\s*[\w$]+\.[\w$]+/g)) {
+        paths.add(`${relativeFile}.${match[1]}`)
+      }
+    }
   }
 
   return [...paths].sort()

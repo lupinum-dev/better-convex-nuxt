@@ -118,6 +118,8 @@ export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
 export type {
   ComponentBridgeGeneratedFile,
+  ComponentBridgeModule,
+  ComponentBridgeModuleImport,
   ComponentBridgeManagedEdit,
   ComponentBridgeManifest,
 } from './component-bridge-manifest.js'

@@ -17,7 +17,12 @@ function isComponentBridgeManifest(value: unknown): value is ComponentBridgeMani
   const candidate = value as Record<string, unknown>
   if (typeof candidate.packageName !== 'string') return false
   if (typeof candidate.version !== 'string') return false
-  return Array.isArray(candidate.renderFiles) || typeof candidate.renderFiles === 'function'
+  return (
+    Array.isArray(candidate.renderFiles) ||
+    typeof candidate.renderFiles === 'function' ||
+    Array.isArray(candidate.modules) ||
+    typeof candidate.modules === 'function'
+  )
 }
 
 function requireFromCwd(cwd: string): NodeRequire {
