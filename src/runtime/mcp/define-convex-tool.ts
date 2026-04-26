@@ -463,7 +463,6 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     maxItems,
     rateLimit,
     rateLimitStore,
-    preview,
     group,
     tags,
     outputSchema,
@@ -485,7 +484,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     throw new Error(`defineTool: "check" needs auth. Set auth to "required" or "optional".`)
   }
 
-  if (destructive || preview) {
+  if (destructive) {
     throw new Error(
       'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.fromOperation(...).',
     )

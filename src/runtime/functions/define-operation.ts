@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any -- Type-level function-shape inference needs `any` for parameter contravariance. */
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
 import type {
@@ -90,10 +90,10 @@ export type OperationDefinition<
 
 export type OperationShape = {
   args: PropertyValidators
-  guard: StructuredGuard<any, any>
-  handler: (...args: any[]) => any
-  load?: (...args: any[]) => any
-  preview?: (...args: any[]) => any
+  guard: StructuredGuard<unknown, unknown>
+  handler: (...args: any[]) => unknown
+  load?: (...args: any[]) => unknown
+  preview?: (...args: any[]) => unknown
   returns?: GenericValidator
   previewReturns?: GenericValidator
   id?: string
@@ -106,7 +106,7 @@ export type OperationShape = {
 export type InferOperationCtx<TDefinition extends OperationShape> = TDefinition['handler'] extends (
   ctx: infer TCtx,
   ...args: any[]
-) => any
+) => unknown
   ? TCtx
   : unknown
 
@@ -135,7 +135,7 @@ type InferActorFromGuard<TGuard> =
 
 type InferOperationGuard<TDefinition extends OperationShape> =
   TDefinition['guard'] extends infer TGuard
-    ? TGuard extends StructuredGuard<any, any>
+    ? TGuard extends StructuredGuard<unknown, unknown>
       ? TGuard
       : never
     : never
@@ -156,7 +156,7 @@ export type InferOperationLoaded<TDefinition extends OperationShape> = TDefiniti
         args: unknown,
         loaded: infer TLoaded,
         ...rest: any[]
-      ) => any
+      ) => unknown
     ? TLoaded
     : undefined
 
@@ -184,9 +184,9 @@ export type ValidateOperationDefinition<TDefinition extends OperationShape> = TD
   ResolvedOperationDefinition<TDefinition>
 
 type ContextBoundOperationShape<TCtx> = Omit<OperationShape, 'handler' | 'load' | 'preview'> & {
-  handler: (ctx: TCtx, ...args: any[]) => any
-  load?: (ctx: TCtx, ...args: any[]) => any
-  preview?: (ctx: TCtx, ...args: any[]) => any
+  handler: (ctx: TCtx, ...args: any[]) => unknown
+  load?: (ctx: TCtx, ...args: any[]) => unknown
+  preview?: (ctx: TCtx, ...args: any[]) => unknown
 }
 
 type DefineOperationFn = {

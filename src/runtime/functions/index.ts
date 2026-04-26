@@ -26,12 +26,11 @@ import type {
 } from 'convex/server'
 import type { ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
-import { hash } from 'ohash'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny } from '../auth/index.js'
-import { verifyConfirmationToken } from '../mcp/confirmation-token.js'
+import { hashConfirmationValue, verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -1173,8 +1172,8 @@ function isDestructivePreviewPayload(value: unknown): value is DestructiveOperat
   )
 }
 
-function hashPreviewVersion(version: SerializableValue | undefined): string | null {
-  return version === undefined ? null : hash(version)
+async function hashPreviewVersion(version: SerializableValue | undefined): Promise<string | null> {
+  return version === undefined ? null : await hashConfirmationValue(version)
 }
 
 function toDestructiveSafetyError(
@@ -1603,7 +1602,7 @@ function buildStructuredMutationRuntime<
           )
         }
 
-        const argsHash = hash(executeArgs)
+        const argsHash = await hashConfirmationValue(executeArgs)
         if (payload.argsHash !== argsHash) {
           await ctx.observe({
             name: 'operation.confirm.drifted',
@@ -1695,7 +1694,7 @@ function buildStructuredMutationRuntime<
           throw new Error('Previewed state is blocked and can no longer be executed.')
         }
 
-        const previewHash = hash(previewResult.confirm)
+        const previewHash = await hashConfirmationValue(previewResult.confirm)
         if (payload.previewHash !== previewHash) {
           await ctx.observe({
             name: 'operation.confirm.drifted',
@@ -1716,7 +1715,7 @@ function buildStructuredMutationRuntime<
             'Previewed state changed before confirmation. Preview again before executing.',
           )
         }
-        if ((payload.versionHash ?? null) !== hashPreviewVersion(previewResult.version)) {
+        if ((payload.versionHash ?? null) !== (await hashPreviewVersion(previewResult.version))) {
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',

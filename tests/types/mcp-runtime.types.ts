@@ -70,15 +70,19 @@ runtime.tool({
   call: queryRef,
   operation: 'query',
   permission: readEntryPermission,
-  preview: queryRef,
-  previewResult: ({ result }) => {
-    type _previewResult = Assert<IsEqual<typeof result, { title: string; count: number }>>
-    return result.title
-  },
   mapResult: ({ result }) => {
     type _mappedQuery = Assert<IsEqual<typeof result, { title: string; count: number }>>
     return result.count
   },
+})
+
+runtime.tool({
+  schema,
+  call: queryRef,
+  operation: 'query',
+  permission: readEntryPermission,
+  // @ts-expect-error generic MCP previews are unsupported; use tool.fromOperation(...)
+  preview: queryRef,
 })
 
 runtime.tool({

@@ -202,11 +202,8 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   rateLimit?: { max: number; window: string }
   /** Optional distributed rate-limit store for this tool. Prefer `createRedisMcpRateLimitStore(...)` for a first-party atomic implementation. */
   rateLimitStore?: McpRateLimitStore
-  /** Preview function for destructive tools. Unsupported on generic tools; use operation-backed tools instead. */
-  preview?: (
-    args: InferSchemaData<S>,
-    ctx: ConvexToolHandlerCtx<TRole>,
-  ) => string | PreviewResult | Promise<string | PreviewResult>
+  /** Generic previews are unsupported; use `defineMcpApp(...).tool.fromOperation(...)`. */
+  preview?: never
 
   // ── Grouping ──────────────────────────────────────────────
   /** Functional group (auto-inferred from directory by mcp-toolkit). */

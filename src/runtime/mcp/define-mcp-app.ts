@@ -1,7 +1,6 @@
 import type { McpToolDefinition } from '@nuxtjs/mcp-toolkit/server'
 import { v, type PropertyValidators } from 'convex/values'
 import type { H3Event } from 'h3'
-import { hash } from 'ohash'
 import type { ZodRawShape } from 'zod'
 
 import {
@@ -40,7 +39,12 @@ import {
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
-import { signConfirmationToken, verifyConfirmationToken } from './confirmation-token.js'
+import {
+  hashConfirmationValue,
+  signConfirmationToken,
+  verifyConfirmationToken,
+  type ToolConfirmationPayload,
+} from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
 import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { checkToolRateLimit, parseWindowString, type McpRateLimitStore } from './rate-limiter.js'
@@ -56,13 +60,6 @@ type MaybePromise<T> = T | Promise<T>
 type AnyQueryRef = AnyQueryFunction
 type AnyMutationRef = AnyMutationFunction
 type AnyActionRef = AnyActionFunction
-type ProjectionPreviewResult = string | PreviewResult
-type PreviewResolver<S extends AnyConvexSchema, TPrincipal, TCapabilities, TRuntime> = (ctx: {
-  args: import('./types.js').InferSchemaData<S>
-  principal: TPrincipal
-  capabilities: TCapabilities
-  runtime: TRuntime
-}) => MaybePromise<ProjectionPreviewResult>
 
 export interface McpConvexCaller {
   query: <Query extends AnyQueryRef>(
@@ -125,7 +122,35 @@ export interface DefineMcpAppOptions<
   }) => MaybePromise<TRuntime>
   principalKey?: (principal: TPrincipal) => string
   rateLimitStore?: McpRateLimitStore
+  confirmationStore?: McpConfirmationStore
   observability?: TrellisObservabilityOptions
+}
+
+export type McpConfirmationRedemptionInput = {
+  payload: ToolConfirmationPayload
+  operationId: string
+  principalKey: string
+  tenantKey: string
+  argsHash: string
+  previewHash: string
+  executePath: string
+  previewPath: string
+}
+
+export interface McpConfirmationStore {
+  redeem(input: McpConfirmationRedemptionInput): MaybePromise<'redeemed' | 'replayed'>
+}
+
+function createMemoryConfirmationStore(): McpConfirmationStore {
+  const redeemed = new Set<string>()
+  return {
+    redeem(input) {
+      const key = `${input.tenantKey}:${input.principalKey}:${input.operationId}:${input.payload.jti}`
+      if (redeemed.has(key)) return 'replayed'
+      redeemed.add(key)
+      return 'redeemed'
+    },
+  }
 }
 
 type CapabilityKey<TCapabilities> =
@@ -155,8 +180,8 @@ function assertProductionRateLimitStore(
   )
 }
 
-function hashPreviewVersion(version: SerializableValue | undefined): string | null {
-  return version === undefined ? null : hash(version)
+async function hashPreviewVersion(version: SerializableValue | undefined): Promise<string | null> {
+  return version === undefined ? null : await hashConfirmationValue(version)
 }
 
 export interface ToolOptions<
@@ -171,15 +196,9 @@ export interface ToolOptions<
   schema: S
   call: TCall
   operation?: ConvexToolOperation
-  preview?: TPreview | PreviewResolver<S, TPrincipal, TCapabilities, TRuntime>
-  previewOperation?: ConvexToolOperation
-  previewResult?: (ctx: {
-    args: import('./types.js').InferSchemaData<S>
-    result: TPreview extends AnyFunctionRef ? FunctionLikeReturnType<TPreview> : unknown
-    principal: TPrincipal
-    capabilities: TCapabilities
-    runtime: TRuntime
-  }) => string | PreviewResult
+  preview?: never
+  previewOperation?: never
+  previewResult?: never
   permission?: PermissionHandle<CapabilityKey<TCapabilities>>
   enabled?: (
     ctx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
@@ -270,12 +289,34 @@ export interface ToolFromOperationOptions<
     TExecute,
     TPreview
   >,
-  'schema' | 'call' | 'preview' | 'operation' | 'previewOperation' | 'maxItems'
+  | 'schema'
+  | 'call'
+  | 'preview'
+  | 'operation'
+  | 'previewOperation'
+  | 'previewResult'
+  | 'maxItems'
 > {
   execute: ExecuteProjectionRef<TOperation, TExecute>
   preview?: PreviewProjectionRef<TOperation, TPreview>
   executeOperation?: ConvexToolOperation
   previewOperation?: ConvexToolOperation
+  previewResult?: (ctx: {
+    args: import('./types.js').InferSchemaData<AnyConvexSchema>
+    result: TPreview extends AnyFunctionRef ? FunctionLikeReturnType<TPreview> : unknown
+    principal: TPrincipal
+    capabilities: TCapabilities
+    runtime: TRuntime
+  }) => string | PreviewResult
+  /**
+   * Forward the MCP confirmation token to the execute ref.
+   *
+   * Keep enabled for Trellis destructive mutations registered through
+   * `runtime.mutation(operation)`, because Convex-side redemption/audit relies on
+   * the token. Disable only for transport-confirmed bridge mutations that do not
+   * accept Trellis destructive-safety args.
+   */
+  forwardConfirmationToken?: boolean
   schema?: AnyConvexSchema
   maxItems?: { field: string; limit: number }
 }
@@ -436,6 +477,7 @@ export function defineMcpApp<
 >(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
   const appRateLimitStore = options.rateLimitStore
+  const confirmationStore = options.confirmationStore ?? createMemoryConfirmationStore()
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
@@ -539,9 +581,9 @@ export function defineMcpApp<
   >(
     tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition => {
-    if (tool.meta?.destructive) {
+    if (tool.meta?.destructive || tool.preview) {
       throw new Error(
-        'Destructive MCP tools must use tool.fromOperation(...). Generic tool({...}) destructive mode is not supported.',
+        'MCP tools with destructive or preview behavior must use tool.fromOperation(...). Generic tool({...}) preview/destructive mode is not supported.',
       )
     }
 
@@ -552,7 +594,6 @@ export function defineMcpApp<
     )
 
     const operation = tool.operation ?? 'mutation'
-    const previewOperation = tool.previewOperation ?? 'query'
     const middleware: ConvexToolMiddleware<S> | undefined =
       tool.rateLimit || tool.middleware
         ? async (args, ctx, next) => {
@@ -642,42 +683,6 @@ export function defineMcpApp<
         }
         return allowed
       },
-      preview: tool.preview
-        ? async (args, ctx): Promise<string | PreviewResult> => {
-            const projectionCtx = await resolve(ctx.event)
-            if (typeof tool.preview === 'function') {
-              return await tool.preview({
-                args,
-                principal: projectionCtx.principal,
-                capabilities: projectionCtx.capabilities,
-                runtime: projectionCtx.runtime,
-              })
-            }
-
-            const result = await callByOperation(
-              projectionCtx.convex,
-              previewOperation,
-              tool.preview as Exclude<TPreview, undefined>,
-              Object.assign({}, args as Record<string, unknown>, {
-                principal: projectionCtx.principal,
-              }) as FunctionLikeArgs<Exclude<TPreview, undefined>>,
-            )
-
-            if (!tool.previewResult) {
-              return result as string | PreviewResult
-            }
-
-            return tool.previewResult({
-              args,
-              result: result as TPreview extends AnyFunctionRef
-                ? FunctionLikeReturnType<TPreview>
-                : unknown,
-              principal: projectionCtx.principal,
-              capabilities: projectionCtx.capabilities,
-              runtime: projectionCtx.runtime,
-            })
-          }
-        : undefined,
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
         if (!permissionAllows(projectionCtx.capabilities, tool.permission)) {
@@ -1010,7 +1015,7 @@ export function defineMcpApp<
         const previewPath = options.preview ? getFunctionName(options.preview) : executePath
         const principalKey = principalKeyResolver(projectionCtx.principal)
         const tenantKey = defaultTenantKey(projectionCtx.principal)
-        const argsHash = hash(executeArgs)
+        const argsHash = await hashConfirmationValue(executeArgs)
         projectionCtx.wideSummary.set({
           tool: options.meta?.name ?? metadata.name ?? metadata.id,
           operation: metadata.id,
@@ -1107,8 +1112,8 @@ export function defineMcpApp<
 
             const previewPayload = normalizeOperationPreview(previewResult)
             const display = normalizePreviewDisplay(previewPayload.display)
-            const previewHash = hash(previewPayload.confirm)
-            const versionHash = hashPreviewVersion(previewPayload.version)
+            const previewHash = await hashConfirmationValue(previewPayload.confirm)
+            const versionHash = await hashPreviewVersion(previewPayload.version)
             await projectionCtx.observe({
               name: 'operation.preview.completed',
               status: 'success',
@@ -1233,7 +1238,8 @@ export function defineMcpApp<
             )
           }
 
-          if (payload.previewHash !== hash(previewPayload.confirm)) {
+          const previewHash = await hashConfirmationValue(previewPayload.confirm)
+          if (payload.previewHash !== previewHash) {
             await projectionCtx.observe({
               name: 'operation.confirm.drifted',
               status: 'deny',
@@ -1264,7 +1270,7 @@ export function defineMcpApp<
             )
           }
 
-          if ((payload.versionHash ?? null) !== hashPreviewVersion(previewPayload.version)) {
+          if ((payload.versionHash ?? null) !== (await hashPreviewVersion(previewPayload.version))) {
             await projectionCtx.observe({
               name: 'operation.confirm.drifted',
               status: 'deny',
@@ -1302,6 +1308,31 @@ export function defineMcpApp<
             operation: metadata.id,
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
           })
+
+          const redemption = await confirmationStore.redeem({
+            payload,
+            operationId: metadata.id,
+            principalKey,
+            tenantKey,
+            argsHash,
+            previewHash,
+            executePath,
+            previewPath,
+          })
+          if (redemption === 'replayed') {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.confirmation_mismatch',
+              decision: 'destructive_confirm',
+              message: 'Confirmation token has already been redeemed.',
+              suggestedAction: 'retry_with_confirmation',
+            })
+            return ctx.error(
+              'conflict',
+              'Confirmation token has already been redeemed. Preview again before executing.',
+              undefined,
+              explanation,
+            )
+          }
         }
 
         try {
@@ -1310,7 +1341,9 @@ export function defineMcpApp<
             options.executeOperation ?? 'mutation',
             options.execute,
             Object.assign({}, executeArgs as Record<string, unknown>, {
-              ...(confirmationToken ? { _confirmationToken: confirmationToken } : {}),
+              ...(confirmationToken && options.forwardConfirmationToken !== false
+                ? { _confirmationToken: confirmationToken }
+                : {}),
             }) as FunctionLikeArgs<TExecute>,
           )
 

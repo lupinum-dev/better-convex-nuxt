@@ -719,4 +719,132 @@ describe('Destructive confirmation payload validation', () => {
       },
     })
   })
+
+  it('can keep confirmation token out of transport-confirmed bridge mutations', async () => {
+    let executedArgs: Record<string, unknown> | null = null
+
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async (_ref, args) => {
+          executedArgs = args as Record<string, unknown>
+          return { ok: true }
+        },
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.fromOperation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+      forwardConfirmationToken: false,
+    })
+
+    const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+
+    await tool.handler(
+      {
+        id: 'post-1',
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      } as never,
+      {} as never,
+    )
+
+    expect(executedArgs).toEqual({ id: 'post-1' })
+  })
+
+  it('rejects replayed transport confirmation tokens', async () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.fromOperation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+      forwardConfirmationToken: false,
+    })
+
+    const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+    const args = {
+      id: 'post-1',
+      _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+    }
+
+    await tool.handler(args as never, {} as never)
+    const replay = await tool.handler(args as never, {} as never)
+
+    expect(replay).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'conflict',
+          message: expect.stringContaining('already been redeemed'),
+        },
+      },
+    })
+  })
 })

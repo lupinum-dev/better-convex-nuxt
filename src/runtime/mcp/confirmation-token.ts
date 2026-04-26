@@ -27,6 +27,30 @@ function getConfirmationSecret(): Uint8Array {
   return new TextEncoder().encode(`${PURPOSE}:${secret}`)
 }
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalize(item))
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entryValue]) => [key, canonicalize(entryValue)])
+    return Object.fromEntries(entries)
+  }
+  return value
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export async function hashConfirmationValue(value: unknown): Promise<string> {
+  const payload = JSON.stringify(canonicalize(value))
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(payload),
+  )
+  return toHex(new Uint8Array(digest))
+}
+
 export async function signConfirmationToken(
   payload: ToolConfirmationPayload,
   ttlSeconds = DEFAULT_TTL_SECONDS,
