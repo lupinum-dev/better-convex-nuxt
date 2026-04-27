@@ -9,7 +9,11 @@ import {
   buildMissingSiteUrlMessage,
   buildTokenExchangeFailureMessage,
 } from '../shared/auth-errors.js'
-import { filterBetterAuthCookieHeader, getBetterAuthSessionToken } from '../shared/auth-token.js'
+import {
+  filterBetterAuthCookieHeader,
+  getBetterAuthSessionToken,
+  getBetterAuthSessionTokens,
+} from '../shared/auth-token.js'
 import { getCachedAuthToken, serverConvexClearAuthCache, setCachedAuthToken } from './auth-cache.js'
 import { verifyServerJwt } from './verified-jwt.js'
 
@@ -58,21 +62,6 @@ function getCookieHeader(event: H3Event): string {
   return typeof raw === 'string' ? raw : ''
 }
 
-function getHeader(event: H3Event, name: string): string | null {
-  const lowerName = name.toLowerCase()
-  const directHeader = (event as { headers?: { get?: (header: string) => string | null } }).headers
-  if (directHeader?.get) {
-    return directHeader.get(lowerName) ?? directHeader.get(name) ?? null
-  }
-
-  const nodeHeaders = (
-    event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } }
-  ).node?.req?.headers
-  const raw = nodeHeaders?.[lowerName]
-  if (Array.isArray(raw)) return raw[0] ?? null
-  return typeof raw === 'string' ? raw : null
-}
-
 function resolveForwardedClientIp(event: H3Event): string | null {
   const trustedClientAddress = event.context?.clientAddress
   if (trustedClientAddress) {
@@ -84,7 +73,11 @@ function resolveForwardedClientIp(event: H3Event): string | null {
     return remoteAddress
   }
 
-  return getHeader(event, 'x-forwarded-for')?.split(',')[0]?.trim() ?? null
+  return null
+}
+
+function canCacheSessionCookie(cookieHeader: string): boolean {
+  return new Set(getBetterAuthSessionTokens(cookieHeader)).size === 1
 }
 
 function buildServerTokenExchangeHeaders(
@@ -113,28 +106,21 @@ async function revalidateServerSession(
   event: H3Event,
   cookieHeader: string,
   siteUrl: string,
-): Promise<{ status: number | null; error: Error | null; body: string | null }> {
+): Promise<{ status: number | null; error: Error | null }> {
   try {
     const response = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
       headers: buildServerTokenExchangeHeaders(event, cookieHeader, siteUrl),
       timeoutMs: SERVER_FETCH_TIMEOUT_MS,
     })
 
-    const body =
-      response.ok || response.status === 401 || response.status === 403
-        ? null
-        : await response.text().catch(() => null)
-
     return {
       status: response.status,
       error: null,
-      body,
     }
   } catch (error) {
     return {
       status: null,
       error: error instanceof Error ? error : new Error(String(error)),
-      body: null,
     }
   }
 }
@@ -180,6 +166,7 @@ async function resolveRequestAuthUncached(
   const sessionCheckStart = Date.now()
   const sessionToken = getBetterAuthSessionToken(cookieHeader)
   const hasSessionCookie = Boolean(sessionToken)
+  const cacheSessionCookie = canCacheSessionCookie(cookieHeader)
 
   phases.push(
     buildPhase(
@@ -230,7 +217,7 @@ async function resolveRequestAuthUncached(
     }
   }
 
-  const cacheEnabled = config.auth.cache?.enabled === true
+  const cacheEnabled = config.auth.cache?.enabled === true && cacheSessionCookie
   const cacheTtlSeconds = config.auth.cache?.ttl ?? 60
   let cacheHit = false
 
@@ -266,8 +253,7 @@ async function resolveRequestAuthUncached(
 
         if (isSessionRejected) {
           await serverConvexClearAuthCache(sessionToken)
-          const bodyDetail = sessionCheck.body ? ` ${sessionCheck.body.slice(0, 500)}` : ''
-          const error = `Session cookie present but rejected by auth endpoint (HTTP ${sessionCheck.status}).${bodyDetail} The session may have been revoked or the auth secret may have changed.`
+          const error = `Session cookie present but rejected by auth endpoint (HTTP ${sessionCheck.status}). The session may have been revoked or the auth secret may have changed.`
           return {
             token: null,
             user: null,
@@ -287,12 +273,11 @@ async function resolveRequestAuthUncached(
         }
 
         if (isMisconfigError) {
-          const error =
-            buildTokenExchangeFailureMessage({
-              siteUrl: config.siteUrl,
-              status: sessionCheck.status ?? undefined,
-              error: sessionCheck.error ?? undefined,
-            }) + (sessionCheck.body ? ` ${sessionCheck.body.slice(0, 500)}` : '')
+          const error = buildTokenExchangeFailureMessage({
+            siteUrl: config.siteUrl,
+            status: sessionCheck.status ?? undefined,
+            error: sessionCheck.error ?? undefined,
+          })
           return {
             token: null,
             user: null,
@@ -383,7 +368,6 @@ async function resolveRequestAuthUncached(
     const exchangeStart = Date.now()
     let tokenExchangeStatus: number | null = null
     let tokenExchangeError: Error | null = null
-    let tokenExchangeBody: string | null = null
     let tokenResponse: { token?: string } | null = null
 
     try {
@@ -401,8 +385,7 @@ async function resolveRequestAuthUncached(
           )
         }
       } else {
-        // Read upstream error body for diagnostic context
-        tokenExchangeBody = await response.text().catch(() => null)
+        await response.body?.cancel().catch(() => undefined)
       }
     } catch (error) {
       tokenExchangeError = error instanceof Error ? error : new Error(String(error))
@@ -495,15 +478,14 @@ async function resolveRequestAuthUncached(
       (tokenExchangeStatus !== null && tokenExchangeStatus >= 500)
     const isSessionRejected =
       !isMisconfigError && (tokenExchangeStatus === 401 || tokenExchangeStatus === 403)
-    const bodyDetail = tokenExchangeBody ? ` ${tokenExchangeBody.slice(0, 500)}` : ''
     const error = isMisconfigError
       ? buildTokenExchangeFailureMessage({
           siteUrl: config.siteUrl,
           status: tokenExchangeStatus ?? undefined,
           error: tokenExchangeError ?? undefined,
-        }) + bodyDetail
+        })
       : isSessionRejected
-        ? `Session cookie present but rejected by auth endpoint (HTTP ${tokenExchangeStatus}).${bodyDetail} The session may have been revoked or the auth secret may have changed.`
+        ? `Session cookie present but rejected by auth endpoint (HTTP ${tokenExchangeStatus}). The session may have been revoked or the auth secret may have changed.`
         : null
 
     phases.push(

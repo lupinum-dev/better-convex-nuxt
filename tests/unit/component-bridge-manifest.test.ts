@@ -128,4 +128,40 @@ export default app
       }),
     ).toThrow('duplicate export')
   })
+
+  it('rejects bridge file and managed edit paths that escape the app root', async () => {
+    await expect(
+      renderComponentBridgeFiles({
+        packageName: '@example/component',
+        version: '1.0.0',
+        renderFiles: [{ relativePath: '../outside.ts', content: '' }],
+      }),
+    ).rejects.toThrow(/unsafe relative path/)
+
+    await expect(
+      renderComponentBridgeFiles({
+        packageName: '@example/component',
+        version: '1.0.0',
+        modules: [
+          {
+            relativePath: '/tmp/outside.ts',
+            factory: { name: 'createExampleBridge', from: '@example/component/bridge/example' },
+            imports: [],
+            factoryArgs: {},
+            exportNames: ['one'],
+          },
+        ],
+      }),
+    ).rejects.toThrow(/unsafe relative path/)
+
+    const { renderComponentBridgeManagedEdits } =
+      await import('../../src/runtime/functions/component-bridge-manifest')
+    await expect(
+      renderComponentBridgeManagedEdits({
+        packageName: '@example/component',
+        version: '1.0.0',
+        managedEdits: [{ relativePath: 'convex/../outside.ts', apply: () => '' }],
+      }),
+    ).rejects.toThrow(/unsafe relative path/)
+  })
 })

@@ -62,7 +62,7 @@ describe('auth proxy header helpers', () => {
     expect(headers['x-forwarded-for']).toBe('198.51.100.24')
   })
 
-  it('falls back to x-forwarded-for only when Nitro has no trusted client address', () => {
+  it('does not trust x-forwarded-for when Nitro has no trusted client address', () => {
     const event = {
       headers: new Headers({
         'x-forwarded-for': '203.0.113.10, 10.0.0.2',
@@ -72,7 +72,7 @@ describe('auth proxy header helpers', () => {
       canonicalOrigin: new URL('https://canonical.example.com'),
     })
 
-    expect(headers['x-forwarded-for']).toBe('203.0.113.10')
+    expect(headers['x-forwarded-for']).toBeUndefined()
   })
 
   it('skips unsafe proxy response headers', () => {

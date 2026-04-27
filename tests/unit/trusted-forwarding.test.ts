@@ -251,4 +251,21 @@ describe('trusted forwarding helpers', () => {
       /delegation` subject does not match/i,
     )
   })
+
+  it('rejects forwarded principals whose explicit subject conflicts with their id fields', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+    const ctx: Record<string, unknown> = {}
+
+    setTrustedForwardingContext(ctx, {
+      principal: { kind: 'user', userId: 'victim', subject: 'user:attacker' },
+      _trustedForwardingKey: 'trusted-key',
+      _trustedForwarding: {
+        principalSubject: 'user:attacker',
+      },
+    })
+
+    expect(() =>
+      getForwardedPrincipal<{ kind: 'user'; userId: string; subject: string }>(ctx),
+    ).toThrow(/canonical subject/i)
+  })
 })

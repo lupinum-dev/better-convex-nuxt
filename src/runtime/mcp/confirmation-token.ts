@@ -44,10 +44,7 @@ function toHex(bytes: Uint8Array): string {
 
 export async function hashConfirmationValue(value: unknown): Promise<string> {
   const payload = JSON.stringify(canonicalize(value))
-  const digest = await globalThis.crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(payload),
-  )
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload))
   return toHex(new Uint8Array(digest))
 }
 

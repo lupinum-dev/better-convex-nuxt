@@ -159,6 +159,65 @@ describe('server SSR auth cache', () => {
     expect(storageSetCalls.at(-1)).toEqual(expect.objectContaining({ ttl: 17, value: freshToken }))
   })
 
+  it('does not cache exchanged tokens when secure and non-secure session cookies disagree', async () => {
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+    const secureCookieToken = await mintServerJwt({
+      sub: 'secure-cookie-user',
+      name: 'Secure Cookie User',
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response(JSON.stringify({ token: secureCookieToken }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }
+      if (url.endsWith('/api/auth/convex/jwks')) {
+        return await createServerJwksResponse()
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const resolved = await resolveRequestAuth(
+      createEvent(
+        'better-auth.session_token=plain-cookie-user; __Secure-better-auth.session_token=secure-cookie-user',
+      ),
+      mockConvexConfig(),
+    )
+
+    expect(resolved.source).toBe('exchange')
+    expect(resolved.token).toBe(secureCookieToken)
+    expect(storageSetCalls).toHaveLength(0)
+  })
+
+  it('does not expose upstream auth response bodies in resolver errors', async () => {
+    const { resolveRequestAuth } = await import('../../src/runtime/auth/server/auth-resolver')
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith('/api/auth/convex/token')) {
+        return new Response('super-secret-upstream-body', { status: 500 })
+      }
+      throw new Error(`Unexpected fetch target: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const resolved = await resolveRequestAuth(
+      createEvent('better-auth.session_token=session-secret'),
+      mockConvexConfig({
+        auth: {
+          cache: {
+            enabled: false,
+            ttl: 60,
+          },
+        },
+      }),
+    )
+
+    expect(resolved.error).toMatch(/Token exchange failed/)
+    expect(resolved.error).not.toContain('super-secret-upstream-body')
+  })
+
   it('resolver cache can be disabled without changing raw cache utility behavior', async () => {
     const { setCachedAuthToken, getCachedAuthToken } =
       await import('../../src/runtime/auth/server/auth-cache')

@@ -38,6 +38,21 @@ export function getBetterAuthSessionToken(cookieHeader: string): string | null {
   return null
 }
 
+export function getBetterAuthSessionTokens(cookieHeader: string): string[] {
+  const tokens: string[] = []
+  const segments = cookieHeader.split(';')
+  for (const segment of segments) {
+    const trimmed = segment.trim()
+    if (trimmed.startsWith(`${BETTER_AUTH_SESSION_COOKIE_NAME}=`)) {
+      tokens.push(trimmed.slice(BETTER_AUTH_SESSION_COOKIE_NAME.length + 1))
+    } else if (trimmed.startsWith(`${BETTER_AUTH_SECURE_SESSION_COOKIE_NAME}=`)) {
+      tokens.push(trimmed.slice(BETTER_AUTH_SECURE_SESSION_COOKIE_NAME.length + 1))
+    }
+  }
+
+  return tokens.filter((token) => token.length > 0)
+}
+
 function isBetterAuthCookieName(cookieName: string): boolean {
   return cookieName.startsWith('better-auth.') || cookieName.startsWith('__Secure-better-auth.')
 }

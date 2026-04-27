@@ -77,6 +77,8 @@ export type {
 
 export type {
   DefineMcpAppOptions,
+  McpConfirmationRedemptionInput,
+  McpConfirmationStore,
   McpConvexCaller,
   ToolFromOperationOptions,
   ToolOptions,

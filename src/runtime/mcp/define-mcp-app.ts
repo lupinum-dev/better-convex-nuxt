@@ -180,6 +180,26 @@ function assertProductionRateLimitStore(
   )
 }
 
+function assertProductionConfirmationStore(options: {
+  toolName: string
+  destructive: boolean
+  forwardConfirmationToken: boolean | undefined
+  hasExplicitConfirmationStore: boolean
+}): void {
+  if (
+    process.env.NODE_ENV !== 'production' ||
+    !options.destructive ||
+    options.forwardConfirmationToken !== false ||
+    options.hasExplicitConfirmationStore
+  ) {
+    return
+  }
+
+  throw new Error(
+    `${options.toolName}: production destructive MCP tools with forwardConfirmationToken: false require an explicit distributed confirmationStore.`,
+  )
+}
+
 async function hashPreviewVersion(version: SerializableValue | undefined): Promise<string | null> {
   return version === undefined ? null : await hashConfirmationValue(version)
 }
@@ -191,7 +211,7 @@ export interface ToolOptions<
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
   TCall extends AnyFunctionRef = AnyMutationRef,
-  TPreview extends AnyFunctionRef | undefined = undefined,
+  _TPreview extends AnyFunctionRef | undefined = undefined,
 > {
   schema: S
   call: TCall
@@ -289,13 +309,7 @@ export interface ToolFromOperationOptions<
     TExecute,
     TPreview
   >,
-  | 'schema'
-  | 'call'
-  | 'preview'
-  | 'operation'
-  | 'previewOperation'
-  | 'previewResult'
-  | 'maxItems'
+  'schema' | 'call' | 'preview' | 'operation' | 'previewOperation' | 'previewResult' | 'maxItems'
 > {
   execute: ExecuteProjectionRef<TOperation, TExecute>
   preview?: PreviewProjectionRef<TOperation, TPreview>
@@ -317,6 +331,7 @@ export interface ToolFromOperationOptions<
    * accept Trellis destructive-safety args.
    */
   forwardConfirmationToken?: boolean
+  confirmationStore?: McpConfirmationStore
   schema?: AnyConvexSchema
   maxItems?: { field: string; limit: number }
 }
@@ -477,7 +492,8 @@ export function defineMcpApp<
 >(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
   const appRateLimitStore = options.rateLimitStore
-  const confirmationStore = options.confirmationStore ?? createMemoryConfirmationStore()
+  const appConfirmationStore = options.confirmationStore
+  const confirmationStore = appConfirmationStore ?? createMemoryConfirmationStore()
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
@@ -837,6 +853,7 @@ export function defineMcpApp<
     const operationId = metadata.id
 
     const isDestructive = metadata.kind === 'destructive'
+    const toolName = options.meta?.name ?? toKebabCase(metadata.name ?? operationId)
     if (isDestructive && !options.preview) {
       throw new Error(
         `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
@@ -862,16 +879,24 @@ export function defineMcpApp<
         })
       : baseSchema
 
+    const toolConfirmationStore = options.confirmationStore ?? confirmationStore
+
     assertProductionRateLimitStore(
-      options.meta?.name ?? toKebabCase(metadata.name ?? operationId),
+      toolName,
       options.rateLimit,
       options.rateLimitStore ?? appRateLimitStore,
     )
+    assertProductionConfirmationStore({
+      toolName,
+      destructive: isDestructive,
+      forwardConfirmationToken: options.forwardConfirmationToken,
+      hasExplicitConfirmationStore: Boolean(options.confirmationStore ?? appConfirmationStore),
+    })
 
     return defineTool({
       schema,
       auth: 'none',
-      name: options.meta?.name ?? toKebabCase(metadata.name ?? operationId),
+      name: toolName,
       description: options.meta?.description ?? schema.description,
       operation: options.executeOperation ?? 'mutation',
       destructive: false,
@@ -1270,7 +1295,9 @@ export function defineMcpApp<
             )
           }
 
-          if ((payload.versionHash ?? null) !== (await hashPreviewVersion(previewPayload.version))) {
+          if (
+            (payload.versionHash ?? null) !== (await hashPreviewVersion(previewPayload.version))
+          ) {
             await projectionCtx.observe({
               name: 'operation.confirm.drifted',
               status: 'deny',
@@ -1309,7 +1336,7 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
           })
 
-          const redemption = await confirmationStore.redeem({
+          const redemption = await toolConfirmationStore.redeem({
             payload,
             operationId: metadata.id,
             principalKey,

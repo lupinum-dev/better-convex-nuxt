@@ -69,8 +69,6 @@ type ComponentBridgeFunctionRef = FunctionReference<'query' | 'mutation', 'publi
 type ComponentBridgeQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type ComponentBridgeMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 
-type ComponentBridgeOperation = 'query' | 'mutation' | 'internalQuery' | 'internalMutation'
-
 type ComponentBridgeDefinition<
   TRef extends ComponentBridgeFunctionRef,
   TArgs extends PropertyValidators = PropertyValidators,

@@ -236,6 +236,42 @@ describe('plugin.server token exchange failure policy', () => {
     )
   })
 
+  it('does not forward spoofable x-forwarded-for when no trusted request address exists', async () => {
+    useRequestEventMock.mockReturnValue({
+      path: '/dashboard',
+      method: 'GET',
+      context: {},
+      node: {
+        req: { url: '/dashboard' },
+        res: { setHeader: vi.fn(), getHeader: vi.fn() },
+      },
+      headers: new Headers({
+        cookie: 'theme=dark; better-auth.session_token=abc',
+        'x-forwarded-for': '203.0.113.9',
+      }),
+    })
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(401, { error: 'unauthorized' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server.ts')).default as (
+      nuxtApp: unknown,
+    ) => Promise<void>
+    await expect(plugin(createNuxtAppMock())).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
+      'https://demo.convex.site/api/auth/convex/token',
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          'x-forwarded-for': '203.0.113.9',
+        }),
+      }),
+    )
+  })
+
   it('marks authenticated SSR responses as private and uncacheable', async () => {
     const setHeader = vi.fn()
     const getHeader = vi.fn()

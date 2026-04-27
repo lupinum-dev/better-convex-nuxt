@@ -141,6 +141,10 @@ export function extractSubject(value: unknown): Subject | undefined {
     hasSubjectField ? (value as { subject?: unknown }).subject : undefined,
   )
   if (isCanonicalSubject(subject)) {
+    const derivedSubject = deriveCanonicalSubject(value)
+    if (derivedSubject && derivedSubject !== subject) {
+      return undefined
+    }
     return subject
   }
 

@@ -14,7 +14,7 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.101",
     "@lupinum/trellis": "workspace:*",
-    "@nuxt/ui": "^4.6.0",
+    "@nuxt/ui": "^4.7.0",
     "convex": "^1.36.1",
     "nuxt": "^4.4.2",
     "tailwindcss": "^4.2.2"

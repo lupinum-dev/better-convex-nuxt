@@ -205,7 +205,7 @@
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.2",
     "@nuxt/test-utils": "^4.0.0",
-    "@nuxtjs/mcp-toolkit": "^0.13.4",
+    "@nuxtjs/mcp-toolkit": "^0.14.0",
     "@nuxtjs/robots": "6.0.6",
     "@playwright/test": "^1.59.1",
     "@types/node": "^25.5.2",
@@ -238,7 +238,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "@nuxtjs/mcp-toolkit": "^0.13.3",
+    "@nuxtjs/mcp-toolkit": "^0.14.0",
     "convex": "^1.32.0",
     "convex-helpers": "^0.1.114",
     "zod": "^4.3.6"

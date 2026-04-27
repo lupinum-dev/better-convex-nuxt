@@ -40,8 +40,7 @@ function resolveForwardedClientIp(event: H3Event): string | null {
     return remoteAddress
   }
 
-  const forwarded = event.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwarded || null
+  return null
 }
 
 export function buildAuthProxyForwardHeaders(

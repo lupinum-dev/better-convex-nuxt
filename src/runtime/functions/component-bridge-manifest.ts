@@ -44,6 +44,21 @@ export function defineComponentBridgeManifest<TManifest extends ComponentBridgeM
   return manifest
 }
 
+function assertBridgeRelativePath(relativePath: string, packageName: string): void {
+  const parts = relativePath.split('/')
+  if (
+    relativePath.length === 0 ||
+    relativePath.startsWith('/') ||
+    relativePath.includes('\\') ||
+    parts.includes('..') ||
+    parts.includes('')
+  ) {
+    throw new Error(
+      `Bridge manifest for ${packageName} contains an unsafe relative path: ${relativePath}`,
+    )
+  }
+}
+
 export async function renderComponentBridgeFiles(
   manifest: ComponentBridgeManifest,
 ): Promise<ComponentBridgeGeneratedFile[]> {
@@ -63,6 +78,7 @@ export async function renderComponentBridgeFiles(
   ].sort((left, right) => left.relativePath.localeCompare(right.relativePath))
   const seen = new Set<string>()
   for (const file of files) {
+    assertBridgeRelativePath(file.relativePath, manifest.packageName)
     if (seen.has(file.relativePath)) {
       throw new Error(
         `Bridge manifest for ${manifest.packageName} contains a duplicate file: ${file.relativePath}`,
@@ -73,8 +89,8 @@ export async function renderComponentBridgeFiles(
   return files
 }
 
-const bridgeIdentifierPattern = /^[A-Za-z_$][\w$]*$/
-const bridgePathPattern = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/
+const bridgeIdentifierPattern = /^[a-z_$][\w$]*$/i
+const bridgePathPattern = /^[a-z_$][\w$]*(?:\.[a-z_$][\w$]*)*$/i
 
 function assertIdentifier(value: string, label: string): void {
   if (!bridgeIdentifierPattern.test(value)) {
@@ -154,6 +170,7 @@ export async function renderComponentBridgeManagedEdits(
   )
   const seen = new Set<string>()
   for (const edit of edits) {
+    assertBridgeRelativePath(edit.relativePath, manifest.packageName)
     if (seen.has(edit.relativePath)) {
       throw new Error(
         `Bridge manifest for ${manifest.packageName} contains a duplicate managed edit: ${edit.relativePath}`,
@@ -267,7 +284,6 @@ const identifierPattern = String.raw`[A-Za-z_$][\w$]*`
 export function resolveConvexAppBinding(source: string): ConvexAppBinding | null {
   const betterAuthPattern = new RegExp(
     String.raw`\b(${identifierPattern})\.use\s*\(\s*betterAuth\s*,\s*\{[\s\S]*?\bname\s*:\s*['"]betterAuth['"][\s\S]*?\}\s*\)\s*;?`,
-    'm',
   )
   const betterAuthMatch = betterAuthPattern.exec(source)
   if (betterAuthMatch?.[1] && betterAuthMatch.index !== undefined) {
@@ -282,7 +298,6 @@ export function resolveConvexAppBinding(source: string): ConvexAppBinding | null
 
   const defineAppPattern = new RegExp(
     String.raw`\b(?:const|let|var)\s+(${identifierPattern})\s*=\s*defineApp\s*\(\s*\)\s*;?`,
-    'm',
   )
   const defineAppMatch = defineAppPattern.exec(source)
   if (defineAppMatch?.[1] && defineAppMatch.index !== undefined) {
