@@ -82,6 +82,7 @@ Use this shortened maintainer summary only:
 - root module
 - `auth`
 - `args`
+- `bridge`
 - `composables`
 - `feature`
 - `functions`

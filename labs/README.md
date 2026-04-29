@@ -1,6 +1,6 @@
 # Labs
 
-This folder is Trellis's experimental example portfolio.
+This folder is Trellis's archived and experimental example portfolio.
 
 It is not part of the canonical public learning path.
 
@@ -36,8 +36,8 @@ If an entry does not pressure the framework, it is marketing, not validation.
 
 `examples/` is the maintained public example set today:
 
-- `01 → 02 → 03` is the first-reader ladder
-- `04–06` are maintained pattern catalogs
+- `01 -> 02 -> 03 -> 04` is the first-reader ladder
+- `05–06` are maintained pattern catalogs
 - `07` is the maintained MCP reference
 - `08` is the maintained component-boundary reference
 
@@ -45,8 +45,9 @@ If an entry does not pressure the framework, it is marketing, not validation.
 
 ## Official product surface
 
-The official starters are still:
+The official starters are:
 
+- `public`
 - `personal`
 - `workspace`
 - `cms`

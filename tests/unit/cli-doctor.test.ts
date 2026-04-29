@@ -296,7 +296,7 @@ describe('CLI doctor', () => {
     const uploadsResult = runCli(['add', 'uploads', '--cwd', appRoot], repoRoot)
     expect(uploadsResult.status, `${uploadsResult.stdout}\n${uploadsResult.stderr}`).toBe(0)
     expect(read(resolve(appRoot, 'convex/features/files/domain.ts'))).toContain('generateUploadUrl')
-    expect(read(resolve(appRoot, 'pages/uploads.vue'))).toContain('UploadsStarterPage')
+    expect(read(resolve(appRoot, 'app/pages/uploads.vue'))).toContain('UploadsStarterPage')
 
     const operationResult = runCli(
       ['add', 'operation', 'publish-entry', '--kind', 'destructive', '--cwd', appRoot],

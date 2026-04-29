@@ -1,6 +1,6 @@
 # Trellis
 
-Trellis is an opinionated app platform for repeated `Nuxt + Convex + Better Auth + MCP` apps on one backend model.
+Trellis is an opinionated app framework for building reliable `Nuxt + Convex` apps with strong identity, permissions, tenant isolation, and agent-friendly structure.
 
 It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, trusted forwarding, and MCP tools without re-solving auth, permissions, tenancy, and destructive-work safety in every app.
 
@@ -11,7 +11,13 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 
 - [Documentation](https://trellis.vercel.app)
 - [Examples](./examples/README.md)
-- [Spec](./meta/SPEC-FINAL.md)
+- [Vision](./VISION.md)
+- [Architecture](./ARCHITECTURE.md)
+- [Abstractions](./ABSTRACTIONS.md)
+- [Security](./SECURITY.md)
+- [ADRs](./adr/README.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Development](./DEVELOPMENT.md)
 
 ## Good Fit
 
@@ -36,14 +42,16 @@ Do not start here when:
 Canonical CLI:
 
 ```bash
-npx trellis init my-app --template public
-npx trellis init my-app --template personal
-npx trellis init my-app --template workspace --mcp
-npx trellis add entity project
-npx trellis add uploads
-npx trellis add operation publish-entry --kind destructive
-npx trellis doctor
+pnpm dlx @lupinum/trellis init my-app --template public
+pnpm dlx @lupinum/trellis init my-app --template personal
+pnpm dlx @lupinum/trellis init my-app --template workspace --mcp
+pnpm dlx @lupinum/trellis add entity project
+pnpm dlx @lupinum/trellis add uploads
+pnpm dlx @lupinum/trellis add operation publish-entry --kind destructive
+pnpm dlx @lupinum/trellis doctor
 ```
+
+After local install, the binary is `trellis`.
 
 Official starters:
 
@@ -56,7 +64,7 @@ MCP is a capability added to `workspace`, not a separate starter.
 
 ## Canonical Shape
 
-Generated apps converge on this layout:
+Generated apps converge on this layout. Public apps omit the auth and permission folders until those capabilities are added.
 
 ```text
 nuxt.config.ts
@@ -86,7 +94,7 @@ Treat each top-level feature component as a mini-Trellis boundary: routes stay t
 
 ## Runtime Contract
 
-Trellis keeps one protected backend path:
+Trellis keeps one protected backend decision path:
 
 1. principal
 2. actor
@@ -94,9 +102,10 @@ Trellis keeps one protected backend path:
 4. load
 5. authorize
 6. handler
-7. observe
 
 The same business model is then projected into browser UI, server callers, and MCP tools.
+
+Observation is emitted around guard, authorization, destructive-operation, MCP, and trust-boundary decisions. It is not a guaranteed final post-handler phase.
 
 Key invariants:
 
@@ -119,10 +128,11 @@ Recommended reading order:
 7. [`examples/07-mcp-reference`](./examples/07-mcp-reference/README.md)
 8. [`examples/08-component-mini-cms`](./examples/08-component-mini-cms/README.md)
 
-Read `01 → 02 → 03` as the ladder.
+Read `01 -> 02 -> 03 -> 04` as the beginner ladder.
 
 - `03-team-workspace` is the canonical protected workspace reference.
-- `04–06` are maintained pattern catalogs for deeper app boundaries.
+- `04-saas-platform` is the server-integration branch of that ladder.
+- `05–06` are maintained pattern catalogs for deeper authorization and tenant boundaries.
 - `07-mcp-reference` is the maintained agent/MCP reference.
 - `08-component-mini-cms` is a maintained boundary/reference app, not a general starter.
 
@@ -131,7 +141,7 @@ Read `01 → 02 → 03` as the ladder.
 - archived and exploratory material that may inform future example families
 - a set of concept briefs and legacy inputs, not maintained public references
 
-Future starter families are intentionally not promised until they ship. The public Trellis contract today is still the three starters plus optional MCP on `workspace`.
+Future starter families are intentionally not promised until they ship. The public Trellis contract today is the current starter set plus optional MCP on `workspace`.
 
 ## Contributing
 
@@ -139,6 +149,8 @@ Future starter families are intentionally not promised until they ship. The publ
 corepack pnpm install
 pnpm dev
 ```
+
+Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the command map and contribution rules. Use [DEVELOPMENT.md](./DEVELOPMENT.md) as the local development appendix.
 
 [npm-version-src]: https://img.shields.io/npm/v/@lupinum/trellis/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
 [npm-version-href]: https://npmjs.com/package/@lupinum/trellis

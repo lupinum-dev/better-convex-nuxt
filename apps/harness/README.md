@@ -20,8 +20,9 @@ Do not use it as the source of truth for:
 
 Those live in:
 
-- [meta/SPEC-FINAL.md](../../meta/SPEC-FINAL.md)
 - [README.md](../../README.md)
+- [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- [ABSTRACTIONS.md](../../ABSTRACTIONS.md)
 - [examples/README.md](../../examples/README.md)
 
 Important rules:

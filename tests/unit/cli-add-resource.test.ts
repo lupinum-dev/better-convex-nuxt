@@ -200,5 +200,8 @@ describe('trellis add uploads', () => {
     await expect(
       readFile(resolve(cwd, 'app/features/uploads/components/UploadsStarterPage.vue'), 'utf8'),
     ).resolves.toContain('useConvexUpload(api.features.files.domain.generateUploadUrlMutation')
+    await expect(readFile(resolve(cwd, 'app/pages/uploads.vue'), 'utf8')).resolves.toContain(
+      'UploadsStarterPage',
+    )
   })
 })

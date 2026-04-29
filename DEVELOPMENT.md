@@ -53,9 +53,9 @@ pnpm docs:api-surface
 
 Current files that need active pressure to shrink rather than grow:
 
-- `src/runtime/composables/internal/query-runtime.ts`
-- `src/runtime/composables/internal/pagination-runtime.ts`
-- `src/runtime/composables/internal/upload-runtime.ts`
+- `src/runtime/convex/query/query-runtime.ts`
+- `src/runtime/convex/pagination/pagination-runtime.ts`
+- `src/runtime/convex/upload/upload-runtime.ts`
 - `src/runtime/auth/client/auth-engine.ts`
 - `src/module.ts`
 

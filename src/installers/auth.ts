@@ -30,6 +30,18 @@ export function installAuthTrellis(options: InstallAuthOptions): void {
       name: 'useConvexAuthActions',
       from: resolver.resolve('./runtime/auth/composables/useConvexAuthActions'),
     },
+    {
+      name: 'useConvexSignIn',
+      from: resolver.resolve('./runtime/auth/composables/useConvexSignIn'),
+    },
+    {
+      name: 'useConvexSignUp',
+      from: resolver.resolve('./runtime/auth/composables/useConvexSignUp'),
+    },
+    {
+      name: 'useConvexPasswordReset',
+      from: resolver.resolve('./runtime/auth/composables/useConvexPasswordReset'),
+    },
   ])
 
   addComponentsDir({

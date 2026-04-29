@@ -9,7 +9,7 @@ before auth, tenants, permissions, or server integrations show up.
 
 ## What it teaches
 
-- minimal Trellis setup in the RFC v2 layout
+- minimal Trellis setup in the feature-folder layout
 - runtime-neutral contracts under `shared/features/*`
 - Convex business code under `convex/features/*`
 - one live query plus mutation-driven page flow

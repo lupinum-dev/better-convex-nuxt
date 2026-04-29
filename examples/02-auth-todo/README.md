@@ -13,7 +13,7 @@ and no tenant model yet.
 - app-owned actor resolution
 - signed-in / signed-out UI states
 - personal ownership checks in handlers
-- RFC v2 feature layout with `shared/features/*`, `convex/features/*`, and `app/features/*`
+- feature layout with `shared/features/*`, `convex/features/*`, and `app/features/*`
 - Trellis-backed handlers without workspace or role complexity
 
 ## What this example assumes

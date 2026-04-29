@@ -14,7 +14,7 @@ description: >
 
 # Trellis
 
-Nuxt module for Convex with SSR queries, realtime subscriptions, Better Auth integration, app-owned permissions, server helpers, uploads, testing helpers, and MCP tooling.
+Opinionated Nuxt + Convex app framework with SSR queries, realtime subscriptions, Better Auth integration, app-owned permissions, tenant boundaries, server helpers, uploads, testing helpers, and MCP tooling.
 
 Docs: https://trellis.vercel.app
 
@@ -25,12 +25,17 @@ Published package imports:
 - `@lupinum/trellis`
 - `@lupinum/trellis/auth`
 - `@lupinum/trellis/args`
+- `@lupinum/trellis/bridge`
 - `@lupinum/trellis/composables`
+- `@lupinum/trellis/feature`
+- `@lupinum/trellis/functions`
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
 - `@lupinum/trellis/trusted-forwarding`
+- `@lupinum/trellis/type-primitives`
 - `@lupinum/trellis/visibility`
+- `@lupinum/trellis/eslint`
 
 Nuxt-generated surfaces:
 
@@ -114,20 +119,26 @@ Do not confuse package exports with Nuxt auto-imports or generated aliases.
 
 - `src/`: package source
 - `apps/docs/`: hosted docs app and docs content
-- `demo/`: public showcase app
 - `apps/harness/`: contributor-only dev and test harness
 - `examples/`: runnable consumer reference apps
+- `labs/`: archived and experimental concept material
+- `adr/`: accepted architecture decisions
 
 ## Source Of Truth
 
 Prefer these docs when answering questions:
 
-- `apps/docs/content/docs/12.api-reference/7.api-surface.md`
-- `apps/docs/content/docs/12.api-reference/1.composables.md`
-- `apps/docs/content/docs/12.api-reference/3.server-utilities.md`
-- `apps/docs/content/docs/12.api-reference/5.mcp.md`
-- `apps/docs/content/docs/7.permissions/*.md`
-- `apps/docs/content/docs/13.mcp-tools/*.md`
+- `apps/docs/content/docs/13.api-reference/7.api-surface.md`
+- `apps/docs/content/docs/13.api-reference/1.composables.md`
+- `apps/docs/content/docs/13.api-reference/4.server.md`
+- `apps/docs/content/docs/13.api-reference/5.mcp.md`
+- `apps/docs/content/docs/08.permissions/*.md`
+- `apps/docs/content/docs/14.mcp-tools/*.md`
+- `VISION.md`
+- `ARCHITECTURE.md`
+- `ABSTRACTIONS.md`
+- `SECURITY.md`
+- `adr/README.md`
 
 When in doubt, verify against:
 

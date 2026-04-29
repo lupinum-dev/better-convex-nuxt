@@ -1229,7 +1229,7 @@ export async function getAddTemplateSet(options: {
           ownership: 'authored',
         },
         {
-          path: 'pages/uploads.vue',
+          path: 'app/pages/uploads.vue',
           content: routeShellTemplate({
             importPath: '~~/app/features/uploads/components/UploadsStarterPage.vue',
             componentName: 'UploadsStarterPage',
