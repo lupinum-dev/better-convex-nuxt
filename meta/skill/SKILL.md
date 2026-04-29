@@ -5,8 +5,9 @@ description: >
   @lupinum/trellis. Trigger for Trellis package exports, Nuxt auto-imports,
   generated aliases, Convex SSR/live queries, mutations, uploads, Better Auth,
   permissions, tenant isolation, trusted forwarding, Nitro server helpers, MCP
-  tools, feature manifests, component bridges, testing helpers, docs, examples,
-  or APIs such as defineTrellis, defineArgs, useConvexQuery,
+  tools, module options, CLI starters, feature manifests, component bridges,
+  testing helpers, docs, examples, or APIs such as defineTrellis, defineArgs,
+  useConvexQuery,
   useConvexMutation, useCachedQuery, usePermissions, useAuthGuard,
   serverConvexQuery, createServerConvexCaller, defineTool, defineMcpApp,
   withTrustedForwarding, enforce, requireRecord, defineFeature,
@@ -23,7 +24,8 @@ code-generated Nuxt aliases.
 ## Start Here
 
 1. Identify the task surface before editing: client composable, Convex backend,
-   Nitro server route, MCP tool, test, CLI/template, docs, or example app.
+   Nitro server route, MCP tool, module config, CLI/template, test, docs, or
+   example app.
 2. Read the matching reference file below before changing code or answering with
    API guidance.
 3. Verify anything user-facing against implementation when it could drift. Use
@@ -50,7 +52,10 @@ code-generated Nuxt aliases.
 - For Nitro server helpers, trusted server-to-server calls, webhooks, MCP apps,
   MCP tools, result envelopes, sessions, and destructive operations: read
   [references/server-mcp.md](references/server-mcp.md).
-- For tests, examples, CLI scaffolds, docs maintenance, and repo validation:
+- For `trellis` module options, environment-sensitive setup, CLI starters,
+  `trellis add`, and canonical app shape: read
+  [references/config-cli.md](references/config-cli.md).
+- For tests, examples, docs maintenance, and repo validation:
   read [references/testing-examples-docs.md](references/testing-examples-docs.md).
 
 ## Source Priority
@@ -60,7 +65,7 @@ Use this priority order when documentation and code disagree:
 1. Current implementation and generated/public surface tests.
 2. Maintained docs in `apps/docs/content/docs/**`.
 3. Maintained examples in `examples/01-*` through `examples/08-*`.
-4. Architecture docs and ADRs.
+4. Architecture docs and ADRs under `meta/`.
 5. Labs, old notes, generated `dist`, and stale build artifacts only as
    historical context.
 

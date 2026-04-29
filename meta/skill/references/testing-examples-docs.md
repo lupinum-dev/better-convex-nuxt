@@ -1,7 +1,8 @@
 # Testing, Examples, Docs
 
-Use this for Trellis tests, maintained examples, CLI scaffolds, docs updates,
-and validation commands.
+Use this for Trellis tests, maintained examples, docs updates, and validation
+commands. For module options and CLI commands, read
+[config-cli.md](config-cli.md).
 
 ## Source Files
 
@@ -10,7 +11,6 @@ and validation commands.
   `apps/docs/content/docs/13.api-reference/6.testing.md`.
 - Example apps: `examples/01-public-todo` through `examples/08-component-mini-cms`.
 - Harness: `apps/harness`.
-- CLI scaffolds: `src/cli/**`, especially `src/cli/templates/init/**`.
 - Docs content: `apps/docs/content/docs/**`.
 - Docs style: `apps/docs/STYLE.md`.
 - API surface generator: `scripts/generate-api-surface.mjs`.
@@ -95,7 +95,7 @@ Use `examples/03-team-workspace` as the canonical protected-app reference when
 you need one concrete pattern for actors, permissions, tenant isolation, and
 operations.
 
-## CLI And Scaffolds
+## Scaffolds
 
 When changing scaffolded conventions, inspect both:
 

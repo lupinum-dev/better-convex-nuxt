@@ -22,10 +22,10 @@ services, and trusted-forwarding validators.
   `apps/docs/content/docs/13.api-reference/3.functions.md`,
   `apps/docs/content/docs/13.api-reference/8.type-primitives.md`,
   `apps/docs/content/docs/07.server-side/5.component-bridge.md`.
-- Architecture: `ARCHITECTURE.md`, `ABSTRACTIONS.md`, `SECURITY.md`,
-  `adr/0004-protected-handler-pipeline.md`,
-  `adr/0005-backend-owned-permissions-and-tenant-isolation.md`,
-  `adr/0006-trusted-forwarding-for-server-identity.md`.
+- Architecture: `meta/ARCHITECTURE.md`, `meta/ABSTRACTIONS.md`,
+  `meta/SECURITY.md`, `meta/adr/0004-protected-handler-pipeline.md`,
+  `meta/adr/0005-backend-owned-permissions-and-tenant-isolation.md`,
+  `meta/adr/0006-trusted-forwarding-for-server-identity.md`.
 
 ## Protected Backend Runtime
 
