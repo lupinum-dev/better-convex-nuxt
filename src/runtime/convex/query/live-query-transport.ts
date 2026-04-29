@@ -7,6 +7,7 @@ import { handleUnauthorizedAuthFailure } from '../../auth/shared/auth-unauthoriz
 import type { ConvexClientAuthMode } from '../../utils/types.js'
 import { fetchAuthToken, getFunctionName, parseConvexResponse } from '../shared/convex-cache.js'
 import { getConvexRuntimeConfig } from '../shared/runtime-config.js'
+import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../server/http.js'
 import { executeQueryViaSubscriptionOnce } from './one-shot-subscription.js'
 
 export interface LiveQueryTransportOptions<Query extends FunctionReference<'query'>> {
@@ -31,6 +32,7 @@ export async function executeQueryHttp<T>(
   const response = await $fetch(`${convexUrl}/api/query`, {
     method: 'POST',
     headers,
+    timeout: DEFAULT_SERVER_FETCH_TIMEOUT_MS,
     body: { path: functionPath, args: args ?? {} },
   })
 

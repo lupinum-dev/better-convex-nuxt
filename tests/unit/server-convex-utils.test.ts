@@ -106,6 +106,23 @@ describe('server Convex fetch helpers', () => {
     expect(body.args.__trellis).toBeUndefined()
   })
 
+  it('applies the shared server fetch timeout to Convex HTTP calls', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        expect(init?.signal).toBeInstanceOf(AbortSignal)
+        return new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        })
+      },
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      serverConvexQuery(createEvent(), { _path: 'notes:list' } as never, {} as never),
+    ).resolves.toEqual({ ok: true })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('resolves the current Nitro event when the event argument is omitted', async () => {
     const fetchMock = vi.fn(
       async () =>

@@ -30,6 +30,7 @@ import {
   type FunctionLikeReturnType,
 } from '../shared/convex-shared.js'
 import { normalizeConvexRuntimeConfig } from '../shared/runtime-config.js'
+import { fetchWithTimeout } from './http.js'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 type ServerConvexHelperName = 'serverConvexQuery' | 'serverConvexMutation' | 'serverConvexAction'
@@ -303,7 +304,7 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   }
 
   try {
-    const response = await fetch(`${convexUrl}/api/${operationType}`, {
+    const response = await fetchWithTimeout(`${convexUrl}/api/${operationType}`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
