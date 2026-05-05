@@ -22,6 +22,7 @@ import {
 } from './operation-metadata.js'
 
 export {
+  defineOperationMetadata,
   executeOperationRef,
   getOperationMetadata,
   previewOperationRef,
@@ -30,6 +31,7 @@ export {
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'
 export type {
+  OperationMetadataDefinition,
   OperationKind,
   OperationIdOf,
   OperationProjectionRef,
@@ -90,7 +92,7 @@ export type OperationDefinition<
 
 export type OperationShape = {
   args: PropertyValidators
-  guard: StructuredGuard<unknown, unknown>
+  guard: StructuredGuard<any, any>
   handler: (...args: any[]) => unknown
   load?: (...args: any[]) => unknown
   preview?: (...args: any[]) => unknown
@@ -135,7 +137,7 @@ type InferActorFromGuard<TGuard> =
 
 type InferOperationGuard<TDefinition extends OperationShape> =
   TDefinition['guard'] extends infer TGuard
-    ? TGuard extends StructuredGuard<unknown, unknown>
+    ? TGuard extends StructuredGuard<any, any>
       ? TGuard
       : never
     : never

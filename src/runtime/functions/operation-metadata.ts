@@ -25,6 +25,49 @@ type OperationMetadataCarrier = {
   kind?: OperationKind
 }
 
+export type OperationMetadataDefinition<
+  TId extends string = string,
+  TArgs extends Record<string, unknown> = Record<string, unknown>,
+> = {
+  id: TId
+  name?: string
+  kind?: OperationKind
+  args?: TArgs
+  [trellisOperationMetadataKey]: TrellisOperationMetadata
+}
+
+export function defineOperationMetadata<
+  const TId extends string,
+  const TArgs extends Record<string, unknown> = Record<string, unknown>,
+>(definition: {
+  id: TId
+  name?: string
+  kind?: OperationKind
+  args?: TArgs
+}): OperationMetadataDefinition<TId, TArgs> {
+  const metadata = {
+    id: definition.id,
+    name: definition.name,
+    kind: definition.kind ?? 'safe',
+  } satisfies TrellisOperationMetadata
+
+  if (metadata.kind === 'destructive' && !metadata.id) {
+    throw new Error('defineOperationMetadata(...) requires `id` for destructive operations.')
+  }
+
+  return Object.assign(
+    {
+      id: definition.id,
+      name: definition.name,
+      kind: metadata.kind,
+      args: definition.args,
+    },
+    {
+      [trellisOperationMetadataKey]: metadata,
+    },
+  ) as OperationMetadataDefinition<TId, TArgs>
+}
+
 export type OperationIdOf<TOperation extends OperationMetadataCarrier> = TOperation extends {
   id: infer TId extends string
 }

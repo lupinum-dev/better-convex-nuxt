@@ -4,6 +4,7 @@ import {
   type ComponentBridgeMutationRegistrar,
   type ComponentBridgeQueryRegistrar,
   defineOperation,
+  defineOperationMetadata,
   executeOperationRef,
   previewOperationRef,
   type InferOperationResult,
@@ -57,6 +58,20 @@ expectTypeOf(
 expectTypeOf(
   previewRef[trellisOperationProjectionMetadataKey].projection,
 ).toEqualTypeOf<'preview'>()
+
+const metadataOnlyOperation = defineOperationMetadata({
+  id: 'entries.archive-metadata',
+  name: 'archiveEntry',
+  kind: 'destructive',
+  args: { id: v.string() },
+})
+const metadataOnlyExecuteRef = executeOperationRef(
+  metadataOnlyOperation,
+  {} as FunctionReference<'mutation', 'internal', { id: string }, { archived: true }>,
+)
+expectTypeOf(
+  metadataOnlyExecuteRef[trellisOperationProjectionMetadataKey].operationId,
+).toEqualTypeOf<'entries.archive-metadata'>()
 
 const componentRef = {} as FunctionReference<'query', 'public', { slug: string }, { ok: true }>
 const componentMutationRef = {} as FunctionReference<

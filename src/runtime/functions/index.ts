@@ -76,6 +76,7 @@ export type {
 } from './define-handler.js'
 export { callComponentBridgeRegistrar, createComponentBridge } from './create-component-bridge.js'
 export type {
+  ComponentBridgeActionRegistrar,
   ComponentBridgeComponent,
   ComponentBridgeMutationRegistrar,
   ComponentBridgeQueryRegistrar,
@@ -92,6 +93,7 @@ export {
   upsertBridgeManagedBlock,
 } from './component-bridge-manifest.js'
 export {
+  defineOperationMetadata,
   defineOperation,
   executeOperationRef,
   getOperationMetadata,
@@ -107,6 +109,7 @@ export type {
   InferOperationResult,
   InferOperationPreview,
   OperationDefinition,
+  OperationMetadataDefinition,
   OperationIdOf,
   OperationKind,
   OperationProjectionRef,
@@ -1580,13 +1583,29 @@ function buildStructuredMutationRuntime<
       handler: async (
         ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
         rawArgs: Record<string, unknown>,
-        loaded: unknown,
+        _loaded: unknown,
       ) => {
         const confirmationToken = getConfirmationToken(rawArgs)
         const executeArgs = stripConfirmationToken(rawArgs)
 
         if (!confirmationToken) {
-          return await originalHandler(ctx, executeArgs, loaded)
+          await ctx.observe({
+            name: 'operation.confirm.missing',
+            status: 'deny',
+            operation: metadata.id,
+            reasonCode: 'tool.confirmation_mismatch',
+            details: {
+              explanation: createDenialExplanation({
+                reasonCode: 'tool.confirmation_mismatch',
+                decision: 'destructive_confirm',
+                message: 'Destructive operation execution requires a confirmation token.',
+                suggestedAction: 'retry_with_confirmation',
+              }),
+            },
+          })
+          throw new Error(
+            'Destructive operation requires confirmation. Preview again before executing.',
+          )
         }
 
         await ctx.observe({
@@ -1924,6 +1943,7 @@ function buildTrellisRuntime<
         {
           query: builders.query,
           mutation: builders.mutation,
+          ...(builders.action ? { action: builders.action } : {}),
           internalQuery: builders.internalQuery!,
           internalMutation: builders.internalMutation!,
         },

@@ -1,7 +1,11 @@
 import { v } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { customMutationMock, customQueryMock } = vi.hoisted(() => ({
+const { customActionMock, customMutationMock, customQueryMock } = vi.hoisted(() => ({
+  customActionMock: vi.fn((_builder, customization) => (definition) => ({
+    customization,
+    definition,
+  })),
   customQueryMock: vi.fn((_builder, customization) => (definition) => ({
     customization,
     definition,
@@ -13,6 +17,7 @@ const { customMutationMock, customQueryMock } = vi.hoisted(() => ({
 }))
 
 vi.mock('convex-helpers/server/customFunctions', () => ({
+  customAction: customActionMock,
   customQuery: customQueryMock,
   customMutation: customMutationMock,
 }))
@@ -89,6 +94,75 @@ describe('createComponentBridge', () => {
     )
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
+      slug: 'docs',
+      _trustedForwardingKey: 'bridge-secret',
+      _trustedForwarding: {
+        principalSubject: 'service:mcp',
+      },
+      principal,
+    })
+  })
+
+  it('forwards the resolved principal unchanged for internal action bridges', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        action: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+        internalAction: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (_ctx, args) =>
+            (args as { principal?: typeof principal }).principal ?? principal,
+        }),
+      },
+    )
+
+    const registered = bridge.internalAction!({
+      component: 'component.action' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runAction: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
+    }
+
+    const runAction = vi.fn(async () => ({ ok: true }))
+    const customized = await registered.customization.input({ runAction }, { principal })
+
+    await registered.definition.handler(
+      {
+        ...customized.ctx,
+        runAction,
+      },
+      { slug: 'docs' },
+    )
+
+    expect(runAction).toHaveBeenCalledWith('component.action', {
       slug: 'docs',
       _trustedForwardingKey: 'bridge-secret',
       _trustedForwarding: {

@@ -113,7 +113,7 @@ export default {
 
 describe('Trellis bridge CLI and runtime contract', () => {
   beforeAll(() => {
-    const buildResult = spawnSync('pnpm', ['run', 'build'], {
+    const buildResult = spawnSync('pnpm', ['run', 'build:cli'], {
       cwd: repoRoot,
       encoding: 'utf8',
       env: {
@@ -122,7 +122,7 @@ describe('Trellis bridge CLI and runtime contract', () => {
       },
     })
     expect(buildResult.status, `${buildResult.stdout}\n${buildResult.stderr}`).toBe(0)
-  }, 90_000)
+  }, 60_000)
 
   it('loads an import-conditioned manifest from the target consumer cwd', async () => {
     const appRoot = createTempDir('trellis-bridge-load-')

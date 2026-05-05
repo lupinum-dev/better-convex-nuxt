@@ -109,7 +109,7 @@ export const api = new Proxy(
       throw error()
     },
   },
-) as never
+)
 
 export const internal = new Proxy(
   {},
@@ -121,7 +121,7 @@ export const internal = new Proxy(
       throw error()
     },
   },
-) as never
+)
 `
       }
 

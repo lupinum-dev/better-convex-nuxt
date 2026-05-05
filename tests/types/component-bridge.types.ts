@@ -1,8 +1,10 @@
 import type {
+  ActionBuilder,
   FunctionReference,
   GenericDataModel,
   MutationBuilder,
   QueryBuilder,
+  RegisteredAction,
   RegisteredMutation,
   RegisteredQuery,
 } from 'convex/server'
@@ -20,8 +22,10 @@ type Principal = { kind: 'service'; service: string }
 const builders = {
   query: (() => null as never) as QueryBuilder<DataModel, 'public'>,
   mutation: (() => null as never) as MutationBuilder<DataModel, 'public'>,
+  action: (() => null as never) as ActionBuilder<DataModel, 'public'>,
   internalQuery: (() => null as never) as QueryBuilder<DataModel, 'internal'>,
   internalMutation: (() => null as never) as MutationBuilder<DataModel, 'internal'>,
+  internalAction: (() => null as never) as ActionBuilder<DataModel, 'internal'>,
 }
 
 const principal = definePrincipal({
@@ -59,6 +63,20 @@ const publicMutationRef = {} as FunctionReference<
   { id: string }
 >
 
+const actionRef = {} as FunctionReference<
+  'action',
+  'internal',
+  { id: string; principal: Principal },
+  { ok: true }
+>
+
+const publicActionRef = {} as FunctionReference<
+  'action',
+  'public',
+  { id: string; principal: Principal },
+  { id: string }
+>
+
 const _runtimePublicQuery = bridge.query({
   component: publicQueryRef,
   args: { slug: v.string() },
@@ -79,6 +97,16 @@ const _runtimeInternalMutation = bridge.internalMutation({
   args: { id: v.string() },
 })
 
+const _runtimePublicAction = bridge.action!({
+  component: publicActionRef,
+  args: { id: v.string() },
+})
+
+const _runtimeInternalAction = bridge.internalAction!({
+  component: actionRef,
+  args: { id: v.string() },
+})
+
 const _runtimeBatchBridge = bridge.from({
   publicList: {
     operation: 'query',
@@ -88,6 +116,11 @@ const _runtimeBatchBridge = bridge.from({
   internalPublish: {
     operation: 'internalMutation',
     component: mutationRef,
+    args: { id: v.string() },
+  },
+  internalAsyncPublish: {
+    operation: 'internalAction',
+    component: actionRef,
     args: { id: v.string() },
   },
 })
@@ -116,6 +149,18 @@ type _internalMutation = Assert<
     RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>
   >
 >
+type _publicAction = Assert<
+  IsEqual<
+    typeof _runtimePublicAction,
+    RegisteredAction<'public', { id: string }, Promise<{ id: string }>>
+  >
+>
+type _internalAction = Assert<
+  IsEqual<
+    typeof _runtimeInternalAction,
+    RegisteredAction<'internal', { id: string }, Promise<{ ok: true }>>
+  >
+>
 type _batchPublicQuery = Assert<
   IsEqual<
     typeof _runtimeBatchBridge.publicList,
@@ -126,6 +171,12 @@ type _batchInternalMutation = Assert<
   IsEqual<
     typeof _runtimeBatchBridge.internalPublish,
     RegisteredMutation<'internal', { id: string }, Promise<{ ok: true }>>
+  >
+>
+type _batchInternalAction = Assert<
+  IsEqual<
+    typeof _runtimeBatchBridge.internalAsyncPublish,
+    RegisteredAction<'internal', { id: string }, Promise<{ ok: true }>>
   >
 >
 
