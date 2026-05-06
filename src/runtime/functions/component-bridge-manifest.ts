@@ -138,8 +138,8 @@ export function renderComponentBridgeModule(bridgeModule: ComponentBridgeModule)
     ...bridgeModule.imports.map(renderNamedImport),
   ]
   const args = Object.entries(bridgeModule.factoryArgs)
-    .map(([key, value]) => `  ${key}: ${value},`)
-    .join('\n')
+    .map(([key, value]) => `  ${key}: ${value}`)
+    .join(',\n')
   const exports = bridgeModule.exportNames
     .map((name) => `export const ${name} = bridge.${name}`)
     .join('\n')
