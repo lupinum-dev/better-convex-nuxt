@@ -52,6 +52,12 @@ function toPosixPath(value: string): string {
   return value.replaceAll('\\', '/')
 }
 
+function isPrivateMcpSurfaceFile(rootDir: string, sourceFile: SourceFile): boolean {
+  const file = toPosixPath(relative(rootDir, sourceFile.getFilePath()))
+  if (!file.startsWith('server/mcp/')) return false
+  return basename(file).startsWith('_')
+}
+
 function createProject(rootDir: string, include: readonly string[]): Project {
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
@@ -313,6 +319,8 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
   const tools: ToolDefinitionMetadata[] = []
 
   for (const sourceFile of project.getSourceFiles()) {
+    if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+
     const fileOperations = extractOperationDefinitions(rootDir, sourceFile)
     const operationsByExport = new Map(
       fileOperations.map((operation) => [operation.exportName, operation]),
@@ -412,6 +420,9 @@ export function renderPublicSurfaceCodegenMetadata(metadata: PublicSurfaceCodege
 export function shouldRefreshPublicSurfaceCodegen(changedPath: string): boolean {
   const normalizedPath = toPosixPath(changedPath)
   if (!normalizedPath.endsWith('.ts')) return false
+  if (normalizedPath.startsWith('server/mcp/') && basename(normalizedPath).startsWith('_')) {
+    return false
+  }
 
   return normalizedPath.startsWith('convex/') || normalizedPath.startsWith('server/mcp/tools/')
 }

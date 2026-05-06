@@ -27,6 +27,7 @@ export {
   getOperationMetadata,
   previewOperationRef,
   projectOperationRef,
+  transportExecuteOperationRef,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'

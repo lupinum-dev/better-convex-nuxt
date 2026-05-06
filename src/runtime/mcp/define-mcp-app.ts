@@ -183,20 +183,20 @@ function assertProductionRateLimitStore(
 function assertProductionConfirmationStore(options: {
   toolName: string
   destructive: boolean
-  forwardConfirmationToken: boolean | undefined
+  confirmationMode: McpDestructiveConfirmationMode
   hasExplicitConfirmationStore: boolean
 }): void {
   if (
     process.env.NODE_ENV !== 'production' ||
     !options.destructive ||
-    options.forwardConfirmationToken !== false ||
+    options.confirmationMode !== 'transport' ||
     options.hasExplicitConfirmationStore
   ) {
     return
   }
 
   throw new Error(
-    `${options.toolName}: production destructive MCP tools with forwardConfirmationToken: false require an explicit distributed confirmationStore.`,
+    `${options.toolName}: production destructive MCP tools with confirmationMode: "transport" require an explicit distributed confirmationStore.`,
   )
 }
 
@@ -291,6 +291,8 @@ type PreviewProjectionRef<
   ? OperationProjectionRef<TRef, OperationProjectionId<TOperation>, 'preview'>
   : never
 
+export type McpDestructiveConfirmationMode = 'backend' | 'transport'
+
 export interface ToolFromOperationOptions<
   TOperation extends AnyOperationDefinition,
   TPrincipal,
@@ -322,15 +324,7 @@ export interface ToolFromOperationOptions<
     capabilities: TCapabilities
     runtime: TRuntime
   }) => string | PreviewResult
-  /**
-   * Forward the MCP confirmation token to the execute ref.
-   *
-   * Keep enabled for Trellis destructive mutations registered through
-   * `runtime.mutation(operation)`, because Convex-side redemption/audit relies on
-   * the token. Disable only for transport-confirmed bridge mutations that do not
-   * accept Trellis destructive-safety args.
-   */
-  forwardConfirmationToken?: boolean
+  confirmationMode?: McpDestructiveConfirmationMode
   confirmationStore?: McpConfirmationStore
   schema?: AnyConvexSchema
   maxItems?: { field: string; limit: number }
@@ -853,6 +847,7 @@ export function defineMcpApp<
     const operationId = metadata.id
 
     const isDestructive = metadata.kind === 'destructive'
+    const confirmationMode = options.confirmationMode ?? 'backend'
     const toolName = options.meta?.name ?? toKebabCase(metadata.name ?? operationId)
     if (isDestructive && !options.preview) {
       throw new Error(
@@ -889,7 +884,7 @@ export function defineMcpApp<
     assertProductionConfirmationStore({
       toolName,
       destructive: isDestructive,
-      forwardConfirmationToken: options.forwardConfirmationToken,
+      confirmationMode,
       hasExplicitConfirmationStore: Boolean(options.confirmationStore ?? appConfirmationStore),
     })
 
@@ -1368,7 +1363,7 @@ export function defineMcpApp<
             options.executeOperation ?? 'mutation',
             options.execute,
             Object.assign({}, executeArgs as Record<string, unknown>, {
-              ...(confirmationToken && options.forwardConfirmationToken !== false
+              ...(confirmationToken && confirmationMode === 'backend'
                 ? { _confirmationToken: confirmationToken }
                 : {}),
             }) as FunctionLikeArgs<TExecute>,

@@ -1,4 +1,4 @@
-import { defineNuxtModule, createResolver, useLogger } from '@nuxt/kit'
+import { defineNuxtModule, createResolver, getLayerDirectories, useLogger } from '@nuxt/kit'
 
 import { setupConvexDevtools } from './devtools.js'
 import { installAdvancedTrellis } from './installers/advanced.js'
@@ -6,6 +6,7 @@ import { installAuthTrellis } from './installers/auth.js'
 import { installCoreTrellis } from './installers/core.js'
 import { installPermissionCodegen } from './installers/permission-codegen.js'
 import { installPermissionTrellis } from './installers/permissions.js'
+import { validateFinalMcpDefinitionFiles } from './module-internals/mcp-definition-preflight.js'
 import type { ModuleOptions } from './module-internals/options.js'
 import {
   buildPublicConvexRuntimeConfig,
@@ -137,6 +138,17 @@ export default defineNuxtModule<ModuleOptions>({
         include: setup.permissionCodegenInclude,
       })
     }
+
+    nuxt.hook('modules:done', async () => {
+      const mcpOptions = nuxt.options as { mcp?: { dir?: string } }
+      await validateFinalMcpDefinitionFiles({
+        callDefinitionsHook: async (paths) => {
+          await nuxt.callHook('mcp:definitions:paths' as never, paths as never)
+        },
+        layerServers: getLayerDirectories().map((layer) => layer.server),
+        mcpDir: mcpOptions.mcp?.dir,
+      })
+    })
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {

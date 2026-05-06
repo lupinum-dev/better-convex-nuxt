@@ -99,6 +99,7 @@ export {
   getOperationMetadata,
   previewOperationRef,
   projectOperationRef,
+  transportExecuteOperationRef,
   previewOf,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
@@ -849,6 +850,31 @@ type StructuredQueryBuilder<
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredMutationBuilder<
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TGuard extends StructuredGuard<Awaited<ReturnType<TCtx['principal']>>, TActor>,
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: StructuredHandlerDefinition<
+    TCtx,
+    Awaited<ReturnType<TCtx['principal']>>,
+    Awaited<ReturnType<TCtx['delegation']>>,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TResult
+  >,
+) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type StructuredTransportMutationBuilder<
   TCtx extends {
     principal: () => Promise<unknown>
     delegation: () => Promise<unknown | null>
@@ -1830,6 +1856,142 @@ function buildStructuredMutationRuntime<
   >
 }
 
+function buildStructuredTransportMutationRuntime<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  builder: unknown,
+): StructuredTransportMutationBuilder<
+  MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+  Visibility,
+  TActor
+> {
+  const structured = buildStructuredBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    TPrincipal,
+    TDelegation,
+    TActor,
+    never
+  >(builder as never)
+
+  return ((definition) => {
+    const metadata = getOperationMetadata(definition as never)
+    if (metadata.kind !== 'destructive') {
+      return structured(definition as never)
+    }
+
+    if (!metadata.id) {
+      throw new Error(
+        'transportMutation(op) requires `operation.id` for destructive operations.',
+      )
+    }
+
+    const originalLoad = definition.load as
+      | ((
+          ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+          args: Record<string, unknown>,
+        ) => Promise<unknown> | unknown)
+      | undefined
+    const originalAuthorize = definition.authorize as
+      | {
+          label?: string
+          check: (
+            actor: unknown,
+            loaded: unknown,
+            args: unknown,
+            ctx: unknown,
+          ) => Promise<unknown> | unknown
+        }
+      | undefined
+    const originalHandler = definition.handler as (
+      ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+      args: Record<string, unknown>,
+      loaded: unknown,
+    ) => Promise<unknown> | unknown
+
+    const transformed = {
+      ...definition,
+      load: originalLoad
+        ? async (
+            ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+            rawArgs: Record<string, unknown>,
+          ) => await originalLoad(ctx, stripConfirmationToken(rawArgs))
+        : undefined,
+      authorize: originalAuthorize
+        ? {
+            ...originalAuthorize,
+            check: async (
+              actor: unknown,
+              loaded: unknown,
+              rawArgs: Record<string, unknown>,
+              ctx: unknown,
+            ) =>
+              await originalAuthorize.check(
+                actor,
+                loaded,
+                stripConfirmationToken(rawArgs),
+                ctx,
+              ),
+          }
+        : undefined,
+      handler: async (
+        ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+        rawArgs: Record<string, unknown>,
+        loaded: unknown,
+      ) => {
+        const executeArgs = stripConfirmationToken(rawArgs)
+        await ctx.observe({
+          name: 'operation.confirm.validated',
+          status: 'success',
+          operation: metadata.id,
+          transport: 'mcp',
+        })
+
+        try {
+          const result = await originalHandler(ctx, executeArgs, loaded)
+          await ctx.observe({
+            name: 'operation.execute.completed',
+            status: 'success',
+            operation: metadata.id,
+            transport: 'mcp',
+          })
+          return result
+        } catch (error) {
+          await ctx.observe({
+            name: 'operation.execute.failed',
+            status: 'error',
+            operation: metadata.id,
+            transport: 'mcp',
+            reasonCode: 'operation.execute.failed',
+            details:
+              error instanceof Error
+                ? {
+                    message: error.message,
+                    explanation: createDenialExplanation({
+                      reasonCode: 'operation.execute.failed',
+                      decision: 'destructive_confirm',
+                      message: error.message,
+                      suggestedAction: 'contact_admin',
+                    }),
+                  }
+                : undefined,
+          })
+          throw error
+        }
+      },
+    }
+
+    return structured(transformed as never)
+  }) as StructuredTransportMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+}
+
 function buildTrellisRuntime<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -1871,6 +2033,13 @@ function buildTrellisRuntime<
       TDelegation,
       TActor
     >(unsafe.mutation, options),
+    transportMutation: buildStructuredTransportMutationRuntime<
+      DataModel,
+      MutationVisibility,
+      TPrincipal,
+      TDelegation,
+      TActor
+    >(unsafe.mutation),
   }
 
   const structuredInternal =
@@ -1894,6 +2063,13 @@ function buildTrellisRuntime<
             TDelegation,
             TActor
           >(unsafe.internal.mutation, options),
+          transportMutation: buildStructuredTransportMutationRuntime<
+            DataModel,
+            InternalMutationVisibility,
+            TPrincipal,
+            TDelegation,
+            TActor
+          >(unsafe.internal.mutation),
         }
       : undefined
 
@@ -1930,11 +2106,13 @@ function buildTrellisRuntime<
   return {
     query: structured.query,
     mutation: structured.mutation,
+    transportMutation: structured.transportMutation,
     ...(action ? { action } : {}),
     ...(structuredInternal
       ? {
           internalQuery: structuredInternal.query,
           internalMutation: structuredInternal.mutation,
+          internalTransportMutation: structuredInternal.transportMutation,
         }
       : {}),
     unsafe: explicitUnsafe,
@@ -1986,11 +2164,13 @@ export function defineTrellis<
   return {
     query: runtime.query,
     mutation: runtime.mutation,
+    transportMutation: runtime.transportMutation,
     ...(runtime.action ? { action: runtime.action } : {}),
     ...(runtime.internalQuery
       ? {
           internalQuery: runtime.internalQuery,
           internalMutation: runtime.internalMutation,
+          internalTransportMutation: runtime.internalTransportMutation,
         }
       : {}),
     unsafe: runtime.unsafe,

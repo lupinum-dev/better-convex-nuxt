@@ -181,6 +181,13 @@ export function executeOperationRef<TOperation extends OperationMetadataCarrier,
   return projectOperationRef(operation, 'execute', ref)
 }
 
+export function transportExecuteOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
+  operation: TOperation,
+  ref: TRef,
+): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
+  return projectOperationRef(operation, 'execute', ref)
+}
+
 export function previewOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,

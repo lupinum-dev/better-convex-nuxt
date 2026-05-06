@@ -640,7 +640,7 @@ describe('Destructive confirmation payload validation', () => {
         mcp.tool.fromOperation(operation, {
           execute: operation as never,
           preview: preview as never,
-          forwardConfirmationToken: false,
+          confirmationMode: 'transport',
         }),
       ).toThrow(/confirmationStore|distributed/i)
     } finally {
@@ -813,7 +813,7 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.fromOperation(operation, {
       execute: operation as never,
       preview: preview as never,
-      forwardConfirmationToken: false,
+      confirmationMode: 'transport',
     })
 
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
@@ -871,7 +871,7 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.fromOperation(operation, {
       execute: operation as never,
       preview: preview as never,
-      forwardConfirmationToken: false,
+      confirmationMode: 'transport',
     })
 
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
