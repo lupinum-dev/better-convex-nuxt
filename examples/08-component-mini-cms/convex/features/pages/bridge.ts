@@ -14,13 +14,22 @@ import {
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
 import { components } from '../../_generated/api'
-import { internalMutation, internalQuery, mutation, query } from '../../_generated/server'
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from '../../_generated/server'
 import { principal } from '../../auth/principal'
 
 const miniCmsComponents = components.miniCms.features.pages
 
 const bridge = createComponentBridge(
   {
+    action,
+    internalAction,
     query,
     mutation,
     internalQuery,

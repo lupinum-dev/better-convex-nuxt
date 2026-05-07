@@ -12,7 +12,7 @@ import {
   studioPageValidator,
 } from '../../../../../shared/features/pages/contract'
 import type { Id } from '../../_generated/dataModel'
-import { canManagePages, mutation, query } from '../../functions'
+import { canManagePages, mutation, query, transportMutation } from '../../functions'
 import { publishPageOp } from './operations'
 
 function toPublishedPage(page: {
@@ -159,4 +159,4 @@ export const save = mutation({
   },
 })
 
-export const publish = mutation(publishPageOp)
+export const publish = transportMutation(publishPageOp)

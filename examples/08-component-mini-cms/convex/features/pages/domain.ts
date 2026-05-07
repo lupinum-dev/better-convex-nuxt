@@ -15,7 +15,7 @@ import {
 } from '../../../shared/features/pages/contract'
 import type { MiniCmsPrincipal } from '../../../shared/principal'
 import { internal } from '../../_generated/api'
-import { mutation, query } from '../../functions'
+import { action, mutation, query } from '../../functions'
 
 const publishedPageListValidator = v.array(publishedPageValidator)
 const studioPageListValidator = v.array(studioPageValidator)
@@ -98,6 +98,17 @@ export const save = mutation({
 })
 
 export const publish = mutation({
+  args: publishPageSchema.args,
+  returns: publishResultValidator,
+  guard: open,
+  handler: async (ctx, args) =>
+    await ctx.runMutation(bridgeApi.publish, {
+      ...args,
+      ...(await bridgePrincipalArgs(ctx)),
+    }),
+})
+
+export const publishAction = action({
   args: publishPageSchema.args,
   returns: publishResultValidator,
   guard: open,

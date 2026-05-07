@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { readFileSync } from 'node:fs'
+
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
@@ -103,6 +105,51 @@ describe('example 08 component mini cms', () => {
       publishedBody: 'Draft v2',
       status: 'published',
     })
+  })
+
+  it('publishes through the action-backed operation path used by MCP', async () => {
+    const ctx = createCtx()
+    const editor = ctx.raw.withIdentity({
+      subject: 'editor-action-publish',
+      email: 'editor-action-publish@example.com',
+      name: 'Editor Action Publish',
+    }) as {
+      action: (fn: unknown, args: Record<string, unknown>) => Promise<any>
+      mutation: (fn: unknown, args: Record<string, unknown>) => Promise<any>
+      query: (fn: unknown, args: Record<string, unknown>) => Promise<any>
+    }
+
+    const id = await editor.mutation(api.features.pages.domain.create, {
+      slug: 'action-backed',
+      title: 'Action backed',
+      draftBody: 'Published by action',
+    })
+
+    await expect(editor.action(api.features.pages.domain.publishAction, { id })).resolves.toEqual({
+      pageId: id,
+      published: true,
+    })
+
+    const page = await editor.query(api.features.pages.domain.getPublished, {
+      slug: 'action-backed',
+    })
+    expect(page).toMatchObject({
+      _id: id,
+      body: 'Published by action',
+      status: 'published',
+    })
+  })
+
+  it('binds the MCP publish tool to the action-backed operation ref', () => {
+    const source = readFileSync(
+      new URL('../server/mcp/tools/publish-page.ts', import.meta.url),
+      'utf8',
+    )
+
+    expect(source).toContain('tool.fromOperation(publishPageOp')
+    expect(source).toContain('transportExecuteOperationRef(publishPageOp, publishAction)')
+    expect(source).toContain("executeOperation: 'action'")
+    expect(source).toContain('previewOperationRef(publishPageOp, previewPublish)')
   })
 
   it('rejects forwarded principals on public root wrappers', async () => {

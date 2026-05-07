@@ -17,7 +17,7 @@ is already clear.
 - local Convex component boundaries
 - principal forwarding across browser, root app, and component
 - app-owned bridge inventory with `createComponentBridge(...)`
-- MCP over internal bridge refs and bridge-backed operations
+- MCP over internal bridge refs and action-backed bridge operations
 - why a component/host architecture differs from ordinary root-app handlers
 
 ## What this example assumes
@@ -31,15 +31,16 @@ You already understand the canonical protected workspace model from
 1. `convex/components/miniCms/features/pages/domain.ts`
 2. `convex/components/miniCms/features/pages/operations.ts`
 3. `convex/features/pages/{bridge,domain}.ts`
-4. `server/lib/mcp-runtime.ts`
-5. `app/features/pages/components/MiniCmsStudioPage.vue`
+4. `server/mcp/tools/publish-page.ts`
+5. `server/lib/mcp-runtime.ts`
+6. `app/features/pages/components/MiniCmsStudioPage.vue`
 
 ## Demo flow
 
 1. Start the example and sign in to the studio.
 2. Create or edit a draft through the root-app wrappers.
 3. Inspect how the root app forwards the principal into the component.
-4. Use the demo MCP caller to exercise the same bridge-backed operations.
+4. Use the demo MCP caller to exercise the action-backed publish operation over the same bridge.
 
 ## Run
 
