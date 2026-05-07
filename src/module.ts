@@ -7,6 +7,7 @@ import { installCoreTrellis } from './installers/core.js'
 import { installPermissionCodegen } from './installers/permission-codegen.js'
 import { installPermissionTrellis } from './installers/permissions.js'
 import { validateFinalMcpDefinitionFiles } from './module-internals/mcp-definition-preflight.js'
+import type { McpDefinitionPreflightPaths } from './module-internals/mcp-definition-preflight.js'
 import type { ModuleOptions } from './module-internals/options.js'
 import {
   buildPublicConvexRuntimeConfig,
@@ -33,6 +34,10 @@ export type {
 } from './module-internals/options.js'
 
 const logger = useLogger('trellis')
+
+type McpDefinitionsPathHook = {
+  callHook(name: 'mcp:definitions:paths', paths: McpDefinitionPreflightPaths): Promise<void>
+}
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
@@ -143,7 +148,7 @@ export default defineNuxtModule<ModuleOptions>({
       const mcpOptions = nuxt.options as { mcp?: { dir?: string } }
       await validateFinalMcpDefinitionFiles({
         callDefinitionsHook: async (paths) => {
-          await nuxt.callHook('mcp:definitions:paths' as never, paths as never)
+          await (nuxt as McpDefinitionsPathHook).callHook('mcp:definitions:paths', paths)
         },
         layerServers: getLayerDirectories().map((layer) => layer.server),
         mcpDir: mcpOptions.mcp?.dir,
