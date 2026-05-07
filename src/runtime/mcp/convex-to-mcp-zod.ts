@@ -26,6 +26,7 @@ const SUPPORTED_KINDS = [
   'object',
   'record',
   'union',
+  'any',
 ] as const
 
 function asValidator(value: unknown): ConvexValidatorLike {
@@ -84,6 +85,14 @@ function withOptional(validator: ZodTypeAny, cv: ConvexValidatorLike): ZodTypeAn
   return validator.description ? optional.describe(validator.description) : optional
 }
 
+function createJsonValueSchema(depth: number): ZodTypeAny {
+  const primitive = z.union([z.string(), z.number(), z.boolean(), z.null()])
+  if (depth <= 0) return primitive
+
+  const child = createJsonValueSchema(depth - 1)
+  return z.union([primitive, z.array(child), z.record(z.string(), child)])
+}
+
 function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
   const cv = asValidator(value)
   if (!cv || typeof cv !== 'object' || !cv.kind) {
@@ -91,6 +100,8 @@ function convexToMcpZodValidator(value: unknown, path: string): ZodTypeAny {
   }
 
   switch (cv.kind) {
+    case 'any':
+      return withOptional(createJsonValueSchema(3), cv)
     case 'string':
       return withOptional(z.string(), cv)
     case 'float64':
