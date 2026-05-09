@@ -1,14 +1,15 @@
-import { projectOperationRef } from '../../../../src/runtime/functions'
+import { projectOperationRef } from '../../../../src/runtime/functions/define-operation'
+import { api } from '../convex/_generated/api'
 import { deleteProjectDescriptor } from '../shared/features/projects/operations'
 
 export const executeDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'execute',
-  {} as never,
+  api.features.projects.domain.deleteProject,
 )
 
 export const previewDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'preview',
-  {} as never,
+  api.features.projects.domain.previewDeleteProject,
 )

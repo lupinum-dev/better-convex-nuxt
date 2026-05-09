@@ -1,6 +1,6 @@
 import { defineMcpApp } from '../../../../../src/runtime/mcp/define-mcp-app'
 
-export const { tool } = defineMcpApp({
+export const mcpRuntime = defineMcpApp({
   resolvePrincipal: async () => ({
     kind: 'agent' as const,
     subject: 'agent:phase0',
@@ -14,3 +14,6 @@ export const { tool } = defineMcpApp({
     action: async () => null,
   }),
 })
+
+export const { tool } = mcpRuntime
+export default mcpRuntime

@@ -1,0 +1,17 @@
+{
+  "name": "fixture-phase0-workspace-mcp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxi build",
+    "convex:codegen": "convex codegen --typecheck=disable",
+    "prepare": "nuxi prepare"
+  },
+  "dependencies": {
+    "@lupinum/trellis": "workspace:*",
+    "@nuxtjs/mcp-toolkit": "^0.14.0",
+    "convex": "^1.36.1",
+    "nuxt": "^4.4.2",
+    "zod": "^4.3.6"
+  }
+}

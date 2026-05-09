@@ -1,4 +1,4 @@
-import { implementOperation } from '../../../../../../src/runtime/functions'
+import { implementOperation } from '../../../../../../src/runtime/functions/define-operation'
 import { deleteProjectDescriptor } from '../../../shared/features/projects/operations'
 import { projectDelete } from './permissions'
 

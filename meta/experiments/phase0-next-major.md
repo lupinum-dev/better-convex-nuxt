@@ -32,10 +32,19 @@ operation metadata and projection-ref system without a parallel runtime. The
 shared descriptor, Convex implementation, generated-style projection refs, MCP
 tool import, and app inventory JSON.
 
+Follow-up result:
+
+Go for real fixture generation. The fixture now runs through real Convex local
+deployment codegen and Nuxt build. The generated Trellis helper wraps
+`convex/_generated/api` refs instead of fake refs, while the MCP tool still
+imports only shared descriptors and generated refs. One boundary issue surfaced
+and was fixed: shared/Convex fixture files must import focused runtime modules,
+not broad barrels that can drag server-only code into the Convex bundle.
+
 Remaining proof:
 
-- prove generated Convex refs can carry enough projection metadata for MCP
-  server files after real Convex codegen, not only generated-style test refs;
+- move the generated-ref helper from fixture-local proof to the actual starter
+  generation path;
 - decide whether descriptors or generated handles are the canonical MCP import.
 
 ## Experiment: Signed Forwarding Envelope
@@ -85,9 +94,14 @@ Go for examples and fixture work. The alias works with both operation
 implementations and shared descriptors plus projected refs. The fixture keeps the
 MCP server tool free of Convex implementation imports.
 
+Follow-up result:
+
+Go for starter integration. A real Nuxt build accepts the runtime/tool shape once
+the fixture exports the MCP runtime as the default handler expected by
+`@nuxtjs/mcp-toolkit`.
+
 Remaining proof:
 
 - add direct `query`/`mutation` lane safety metadata;
-- run the pattern in a generated `workspace-mcp` starter, not only a focused
-  fixture;
+- wire the pattern into generated `workspace-mcp` starter output;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.

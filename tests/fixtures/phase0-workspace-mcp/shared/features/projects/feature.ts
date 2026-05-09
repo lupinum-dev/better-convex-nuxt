@@ -1,4 +1,4 @@
-import { defineFeature } from '../../../../../../src/runtime/feature'
+import { defineFeature } from '../../../../../../src/runtime/feature/define-feature'
 import { deleteProjectDescriptor } from './operations'
 
 export const projectsFeature = defineFeature({

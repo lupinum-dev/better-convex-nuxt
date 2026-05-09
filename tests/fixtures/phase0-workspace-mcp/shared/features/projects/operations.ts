@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 
-import { defineOperationDescriptor } from '../../../../../../src/runtime/functions'
+import { defineOperationDescriptor } from '../../../../../../src/runtime/functions/define-operation'
 import { projectDeleteKey } from './permissions'
 
 export const deleteProjectDescriptor = defineOperationDescriptor({

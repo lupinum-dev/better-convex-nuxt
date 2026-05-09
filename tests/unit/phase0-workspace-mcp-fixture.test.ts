@@ -48,5 +48,18 @@ describe('phase0 workspace-mcp fixture', () => {
     )
     expect(toolSource).not.toContain('/convex/')
     expect(toolSource).not.toContain('convex/features')
+
+    const operationRefsSource = readFileSync(
+      resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
+      'utf8',
+    )
+    expect(operationRefsSource).toContain("from '../convex/_generated/api'")
+    expect(operationRefsSource).not.toContain('{} as never')
+
+    const generatedApiTypes = readFileSync(
+      resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),
+      'utf8',
+    )
+    expect(generatedApiTypes).toContain('"features/projects/domain"')
   })
 })
