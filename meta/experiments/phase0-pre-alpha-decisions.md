@@ -75,6 +75,15 @@ The manifest may list generated files, but generated output must be reproducible
 from explicit metadata and covered by drift tests. Phase 0 does not add a broad
 starter generator service.
 
+### Workspace MCP Starter Name
+
+`workspace-mcp` is the canonical alpha template spelling for the agent-enabled
+workspace starter.
+
+`workspace --mcp` remains an accepted CLI alias while the next-major starter
+surface is being shaped. The alias is CLI sugar only; it is not a separate
+starter source.
+
 ### Forwarding Envelope
 
 The HMAC envelope remains a spike and benchmark baseline.

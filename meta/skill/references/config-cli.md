@@ -69,7 +69,7 @@ Canonical init command:
 pnpm dlx @lupinum/trellis init my-app --template public
 pnpm dlx @lupinum/trellis init my-app --template personal
 pnpm dlx @lupinum/trellis init my-app --template workspace
-pnpm dlx @lupinum/trellis init my-app --template workspace --mcp
+pnpm dlx @lupinum/trellis init my-app --template workspace-mcp
 pnpm dlx @lupinum/trellis init my-app --template cms
 ```
 
@@ -78,10 +78,11 @@ Supported templates are only:
 - `public`
 - `personal`
 - `workspace`
+- `workspace-mcp`
 - `cms`
 
-`--mcp` is only valid with `--template workspace`. MCP is a capability on the
-workspace starter, not a standalone starter.
+`workspace-mcp` is the first-class template name for the agent-enabled workspace
+starter. `--mcp` remains an accepted alias with `--template workspace`.
 
 Legacy `trellis init app|auth|permissions|mcp` flows are removed. Do not revive
 them as compatibility paths unless explicitly requested.

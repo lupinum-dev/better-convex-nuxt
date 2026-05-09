@@ -141,5 +141,6 @@ it is not a public barrel API decision.
 
 Remaining proof:
 
-- wire the pattern into the future CLI `workspace-mcp` starter command;
+- wire the pattern into the future fixture-backed `workspace-mcp` starter
+  generator;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.

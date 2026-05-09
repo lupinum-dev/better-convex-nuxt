@@ -40,7 +40,7 @@ export const initCommand = defineCommand({
     template: {
       type: 'string',
       required: true,
-      description: 'App template. One of: public, personal, workspace, cms',
+      description: 'App template. One of: public, personal, workspace, workspace-mcp, cms',
     },
     mcp: {
       type: 'boolean',
@@ -72,13 +72,18 @@ export const initCommand = defineCommand({
       template !== 'public' &&
       template !== 'personal' &&
       template !== 'workspace' &&
+      template !== 'workspace-mcp' &&
       template !== 'cms'
     ) {
-      throw new Error('Invalid template. Use one of: public, personal, workspace, cms.')
+      throw new Error(
+        'Invalid template. Use one of: public, personal, workspace, workspace-mcp, cms.',
+      )
     }
 
-    if (mcp && template !== 'workspace') {
-      throw new Error('`--mcp` is currently only supported with `--template workspace`.')
+    if (mcp && template !== 'workspace' && template !== 'workspace-mcp') {
+      throw new Error(
+        '`--mcp` is currently only supported with `--template workspace` or `--template workspace-mcp`.',
+      )
     }
 
     const parentDir = resolve(args.cwd || process.cwd())

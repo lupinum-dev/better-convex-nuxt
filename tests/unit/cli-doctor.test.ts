@@ -214,6 +214,27 @@ describe('CLI doctor', () => {
     )
   })
 
+  it('initializes a workspace MCP app with the first-class template name', () => {
+    const cwd = createTempDir('trellis-init-workspace-mcp-template-')
+    const result = runCli(
+      ['init', 'demo-workspace', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-workspace')
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expectCanonicalLayout(appRoot, { auth: true, permissions: true })
+    expect(read(resolve(appRoot, 'README.md'))).toContain(
+      'Generated with `trellis init demo-workspace --template workspace-mcp`.',
+    )
+    expect(read(resolve(appRoot, 'nuxt.config.ts'))).toContain(
+      "mcp: { name: 'demo-workspace', sessions: true }",
+    )
+    expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
+    expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
+    expect(existsSync(resolve(appRoot, 'server/mcp/.gitkeep'))).toBe(false)
+  })
+
   it('adds MCP to an existing workspace app', { timeout: 15_000 }, () => {
     const cwd = createTempDir('trellis-add-mcp-')
     const initResult = runCli(

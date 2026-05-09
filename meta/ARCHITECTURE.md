@@ -54,14 +54,16 @@ Current first-class starters are:
 - `public`
 - `personal`
 - `workspace`
+- `workspace-mcp`
 - `cms`
 
-MCP is a capability on `workspace`, not a separate starter taxonomy.
+MCP remains a workspace capability. `workspace-mcp` is the first-class template
+name for the agent-enabled workspace starter; `workspace --mcp` is a CLI alias.
 
 Canonical CLI shape:
 
 ```bash
-trellis init <name> --template public|personal|workspace|cms [--mcp]
+trellis init <name> --template public|personal|workspace|workspace-mcp|cms
 trellis add entity <name>
 trellis add uploads
 trellis add operation <name> --kind safe|destructive

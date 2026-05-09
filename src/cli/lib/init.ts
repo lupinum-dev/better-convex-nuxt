@@ -91,7 +91,7 @@ export interface InitTemplateSet {
   afterWrite?: (cwd: string) => Promise<void>
 }
 
-export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'cms'
+export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'entity'
 
 function buildAuthTemplateSet(): InitTemplateSet {
@@ -865,21 +865,22 @@ function readmeTemplate(options: {
   template: CanonicalAppTemplate
   mcp: boolean
 }) {
+  const baseTemplate = options.template === 'workspace-mcp' ? 'workspace' : options.template
   const maintainedReferenceLines =
-    options.template === 'public'
+    baseTemplate === 'public'
       ? [
           '- Start with the maintained reference: [`01-public-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/01-public-todo).',
         ]
-      : options.template === 'personal'
+      : baseTemplate === 'personal'
         ? [
             '- Start with the maintained reference: [`02-auth-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/02-auth-todo).',
           ]
-        : options.template === 'workspace' && options.mcp
+        : baseTemplate === 'workspace' && options.mcp
           ? [
               '- Start with the protected-app baseline: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
               '- Then study the MCP branch: [`07-mcp-reference`](https://github.com/lupinum-dev/trellis/tree/main/examples/07-mcp-reference).',
             ]
-          : options.template === 'workspace'
+          : baseTemplate === 'workspace'
             ? [
                 '- Start with the maintained reference: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
               ]
@@ -891,7 +892,7 @@ function readmeTemplate(options: {
   const lines = [
     `# ${options.appName}`,
     '',
-    `Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp ? ' --mcp' : ''}\`.`,
+    `Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp && options.template !== 'workspace-mcp' ? ' --mcp' : ''}\`.`,
     '',
     '## Quick start',
     '',
@@ -905,7 +906,7 @@ function readmeTemplate(options: {
     '',
     '- `convex/features/` for backend feature modules',
     '- `shared/features/` for runtime-neutral contracts',
-    `- \`convex/auth/\` for actor and guard logic${options.template === 'public' ? ' (not used in the public starter)' : ''}`,
+    `- \`convex/auth/\` for actor and guard logic${baseTemplate === 'public' ? ' (not used in the public starter)' : ''}`,
     '- `convex/permissions/` for permission projection when the starter uses permission context',
     '- `app/features/` for feature-owned UI and route shells',
   ]
@@ -1145,16 +1146,17 @@ export function getCanonicalAppTemplateSet(options: {
   template: CanonicalAppTemplate
   mcp?: boolean
 }): InitTemplateSet {
-  const mcp = options.mcp === true
+  const mcp = options.mcp === true || options.template === 'workspace-mcp'
   const template = options.template === 'workspace' && mcp ? 'workspace-mcp' : options.template
+  const scaffoldTemplate = template === 'workspace-mcp' ? 'workspace-mcp' : options.template
 
   return {
-    label: `init:${options.template}${mcp ? '+mcp' : ''}`,
-    description: `Bootstrap a ${options.template}${mcp ? ' + MCP' : ''} Trellis app`,
+    label: `init:${template}`,
+    description: `Bootstrap a ${template} Trellis app`,
     files: mergeTemplateSets(
       appScaffoldTemplateSet({
         appName: options.appName,
-        template: options.template,
+        template: scaffoldTemplate,
         mcp,
       }),
       buildAppTemplateSet(template),

@@ -108,10 +108,15 @@ Still required before production implementation:
 
 ### CLI Starter Generation
 
-Partial.
+Partial go.
 
 The fixture renderer proves generated file shape and drift checks. The actual
-`workspace-mcp` CLI starter command is not implemented in Phase 0.
+fixture-backed starter generator is not implemented in Phase 0.
+
+The CLI now accepts `--template workspace-mcp` as the first-class agent-enabled
+workspace starter spelling while keeping `--template workspace --mcp` as an
+alias. This is naming cleanup only; it does not yet make the CLI starter consume
+the Phase 0 fixture manifest.
 
 ### Public API Naming
 
