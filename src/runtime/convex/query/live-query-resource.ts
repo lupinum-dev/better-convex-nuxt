@@ -1,11 +1,18 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { getCurrentInstance, getCurrentScope, onUnmounted, type ComputedRef, type Ref } from 'vue'
+import {
+  getCurrentInstance,
+  getCurrentScope,
+  onUnmounted,
+  ref,
+  type ComputedRef,
+  type Ref,
+} from 'vue'
 
 import { computed, onScopeDispose, useAsyncData, watch } from '#imports'
 
 import type { ConvexClientAuthMode } from '../../utils/types.js'
-import { computeQueryStatus, type QueryStatus } from '../shared/convex-cache.js'
-import { executeLiveQuery, executeQueryHttp } from './live-query-transport.js'
+import { computeQueryStatus, getFunctionName, type QueryStatus } from '../shared/convex-cache.js'
+import { executeLiveQuery, executeQueryHttp, normalizeQueryError } from './live-query-transport.js'
 import {
   startSharedQuerySubscription,
   type SharedQuerySubscriptionHandle,
@@ -38,6 +45,9 @@ export interface LiveQueryResourceOptions<Query extends FunctionReference<'query
 
 export interface LiveQueryResource<Result> {
   asyncData: ReturnType<typeof useAsyncData<Result | null, Error>>
+  error: Ref<Error | null>
+  refresh: () => Promise<void>
+  clear: () => void
   pending: ComputedRef<boolean>
   status: ComputedRef<QueryStatus>
   resolvePromise: Promise<void>
@@ -61,12 +71,15 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     dedupe,
     onShare,
   } = options
+  const functionName = getFunctionName(query)
+  const currentError = ref<Error | null>(null)
 
   const asyncData = useAsyncData<Result | null, Error>(
     cacheKey,
     async () => {
       const currentArgs = args.value
       if (isSkipped.value || currentArgs == null) {
+        currentError.value = null
         return null
       }
 
@@ -77,10 +90,15 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
           subscribe,
           authMode,
         })
+        currentError.value = null
         options.onData?.(result, 'loader')
         return result
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error))
+      } catch (cause) {
+        const err = normalizeQueryError(cause, {
+          functionName,
+          authMode,
+        })
+        currentError.value = err
         options.onError?.(err)
         throw err
       }
@@ -108,6 +126,7 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     const syncSubscription = () => {
       const currentArgs = args.value
       if (isSkipped.value || currentArgs == null) {
+        currentError.value = null
         releaseSubscriptionHandle('args-skipped')
         return
       }
@@ -122,14 +141,20 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
         onData: (result) => {
           ;(asyncData.data as Ref<Result | null>).value = result
           ;(asyncData.error as Ref<Error | null>).value = null
+          currentError.value = null
           options.onData?.(result, 'subscription')
         },
-        onError: (error) => {
+        onError: (cause) => {
+          const err = normalizeQueryError(cause, {
+            functionName,
+            authMode,
+          })
           const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
           if (!hasData) {
-            ;(asyncData.error as Ref<Error | null>).value = error
+            ;(asyncData.error as Ref<Error | null>).value = err
+            currentError.value = err
           }
-          options.onError?.(error)
+          options.onError?.(err)
         },
       })
     }
@@ -177,7 +202,7 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
     (): QueryStatus =>
       computeQueryStatus(
         isSkipped.value,
-        asyncData.error.value != null,
+        currentError.value != null,
         pending.value,
         asyncData.data.value != null,
       ),
@@ -194,8 +219,21 @@ export function createLiveQueryResource<Query extends FunctionReference<'query'>
       hasExistingData || resolveImmediately ? Promise.resolve() : asyncData.then(() => {})
   }
 
+  const refresh = async () => {
+    currentError.value = null
+    await asyncData.refresh()
+  }
+
+  const clear = () => {
+    currentError.value = null
+    asyncData.clear()
+  }
+
   return {
     asyncData,
+    error: currentError,
+    refresh,
+    clear,
     pending,
     status,
     resolvePromise,

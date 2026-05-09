@@ -263,7 +263,7 @@ export function createConvexQueryState<
       keepPreviousData,
       isSkipped: isSkipped.value,
       pending: resource.pending.value,
-      hasError: resource.asyncData.error.value != null,
+      hasError: resource.error.value != null,
       currentArgsHash: currentArgsHash.value,
       lastSettledArgsHash: lastSettledArgsHash?.value ?? null,
       lastReceivedArgsHash: lastReceivedArgsHash?.value ?? null,
@@ -274,9 +274,9 @@ export function createConvexQueryState<
   return {
     resultData: {
       data,
-      error: resource.asyncData.error as Ref<Error | null>,
-      refresh: resource.asyncData.refresh,
-      clear: resource.asyncData.clear,
+      error: resource.error,
+      refresh: resource.refresh,
+      clear: resource.clear,
       pending: resource.pending as Ref<boolean>,
       status: resource.status as Ref<QueryStatus>,
       isStale: isStale as Ref<boolean>,

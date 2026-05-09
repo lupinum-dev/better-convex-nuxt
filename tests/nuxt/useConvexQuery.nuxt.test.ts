@@ -10,6 +10,7 @@ import {
   type UseConvexQueryOptions,
 } from '../../src/runtime/convex/composables/useConvexQuery'
 import { createConvexQueryState } from '../../src/runtime/convex/query/query-runtime'
+import { ConvexCallError } from '../../src/runtime/utils/call-result'
 import { MockConvexClient, mockFnRef } from '../support/nuxt/mock-convex-client'
 import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'
@@ -607,6 +608,74 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     convex.emitQueryError(query, {}, new Error('upstream down'))
     await waitFor(() => result.error.value?.message === 'upstream down')
     expect(result.status.value).toBe('error')
+    expect(result.error.value).toBeInstanceOf(ConvexCallError)
+    expect((result.error.value as ConvexCallError).operation).toBe('query')
+    expect((result.error.value as ConvexCallError).functionPath).toBe('notes:list:error-state')
+  })
+
+  it('resolves initial query failures into error state without throwing by default', async () => {
+    const query = mockFnRef<'query'>('notes:list:loader-error')
+    const fetchMock = vi.fn(async () => {
+      const error = new Error('Sign in required') as Error & {
+        data?: Record<string, unknown>
+        status?: number
+      }
+      error.data = {
+        code: 'UNAUTHENTICATED',
+        message: 'Sign in required',
+        status: 401,
+      }
+      error.status = 401
+      throw error
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const captured = await captureInNuxt(() => useConvexQuery(query, {}, { subscribe: false }), {
+      convex: new MockConvexClient(),
+    })
+
+    const result = await captured.result
+
+    expect(result.status.value).toBe('error')
+    expect(result.pending.value).toBe(false)
+    expect(result.error.value).toBeInstanceOf(ConvexCallError)
+
+    const error = result.error.value as ConvexCallError
+    expect(error.message).toBe('Sign in required')
+    expect(error.operation).toBe('query')
+    expect(error.functionPath).toBe('notes:list:loader-error')
+    expect(error.code).toBe('UNAUTHENTICATED')
+    expect(error.status).toBe(401)
+    expect(error.category).toBe('auth')
+  })
+
+  it('refresh recovers initial query failures and clears error state', async () => {
+    const query = mockFnRef<'query'>('notes:list:refresh-after-error')
+    let requestCount = 0
+    const fetchMock = vi.fn(async () => {
+      requestCount += 1
+      if (requestCount === 1) {
+        throw new Error('first query failed')
+      }
+      return { value: [{ _id: 'n1', title: 'Recovered' }] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const captured = await captureInNuxt(() => useConvexQuery(query, {}, { subscribe: false }), {
+      convex: new MockConvexClient(),
+    })
+    const result = await captured.result
+
+    expect(result.status.value).toBe('error')
+    expect(result.error.value).toBeInstanceOf(ConvexCallError)
+
+    const refreshPromise = result.refresh()
+    expect(result.error.value).toBeNull()
+    await refreshPromise
+
+    expect(result.status.value).toBe('success')
+    expect(result.error.value).toBeNull()
+    expect(result.data.value).toEqual([{ _id: 'n1', title: 'Recovered' }])
   })
 
   it('keeps shared subscription alive until the final consumer scope stops', async () => {
