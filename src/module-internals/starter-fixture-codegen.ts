@@ -1,3 +1,4 @@
+import { renderMcpToolRefsModule, type McpToolRefBindingInput } from './mcp-tool-ref-codegen.js'
 import {
   renderOperationRefsModule,
   type OperationRefBindingInput,
@@ -12,6 +13,15 @@ export type StarterGeneratedFile =
       descriptorImport: string
       descriptors: readonly string[]
       refs: readonly OperationRefBindingInput[]
+    }
+  | {
+      kind: 'mcpToolRefs'
+      path: string
+      projectMcpToolRefImport: string
+      apiImport: string
+      descriptorImport: string
+      descriptors: readonly string[]
+      refs: readonly McpToolRefBindingInput[]
     }
 
 export interface StarterFixtureManifest {
@@ -36,6 +46,11 @@ export function renderStarterGeneratedFiles(
         return {
           path: file.path,
           content: renderOperationRefsModule(file),
+        }
+      case 'mcpToolRefs':
+        return {
+          path: file.path,
+          content: renderMcpToolRefsModule(file),
         }
     }
   })

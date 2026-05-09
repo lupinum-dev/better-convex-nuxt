@@ -19,6 +19,12 @@ export type TrellisMcpToolSafety = {
   reason: string
 }
 
+export type McpToolRefDescriptor = {
+  readonly _type: 'mcp-tool-ref-descriptor'
+  readonly name: string
+  readonly safety: TrellisMcpToolSafety
+}
+
 export const trellisMcpToolSafetyKey = Symbol.for('trellis.mcp.toolSafety')
 
 const mcpToolSafetyByRef = new WeakMap<object, TrellisMcpToolSafety>()
@@ -92,6 +98,25 @@ export function stampMcpToolSafety<T>(value: T, safety: TrellisMcpToolSafety): T
   }
 
   return value
+}
+
+export function defineMcpToolRefDescriptor(definition: {
+  name: string
+  safety: TrellisMcpToolSafety
+}): McpToolRefDescriptor {
+  if (definition.name.trim().length === 0) {
+    throw new Error('defineMcpToolRefDescriptor(...) requires a non-empty tool name.')
+  }
+
+  return {
+    _type: 'mcp-tool-ref-descriptor',
+    name: definition.name,
+    safety: definition.safety,
+  }
+}
+
+export function projectMcpToolRef<T>(descriptor: McpToolRefDescriptor, ref: T): T {
+  return stampMcpToolSafety(ref, descriptor.safety)
 }
 
 export function getMcpToolSafety(value: unknown): TrellisMcpToolSafety | null {

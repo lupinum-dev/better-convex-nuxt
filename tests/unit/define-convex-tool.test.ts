@@ -16,7 +16,11 @@ import {
 } from '../../src/runtime/functions/define-operation'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
-import { stampMcpToolSafety } from '../../src/runtime/mcp/operation-binding'
+import {
+  defineMcpToolRefDescriptor,
+  projectMcpToolRef,
+  stampMcpToolSafety,
+} from '../../src/runtime/mcp/operation-binding'
 import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
@@ -552,18 +556,19 @@ describe('MCP rate-limit integration', () => {
       }),
     })
 
-    const createPost = stampMcpToolSafety({} as never, {
-      kind: 'bounded-write',
-      reason: 'Creates one post explicitly named by args.',
-    })
-    const tool = mcp.tool({
-      schema: emptySchema,
-      call: createPost,
-      operation: 'mutation',
+    const createPostDescriptor = defineMcpToolRefDescriptor({
+      name: 'create-post',
       safety: {
         kind: 'bounded-write',
         reason: 'Creates one post explicitly named by args.',
       },
+    })
+    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
+    const tool = mcp.tool({
+      schema: emptySchema,
+      call: createPost,
+      operation: 'mutation',
+      safety: createPostDescriptor.safety,
       rateLimit: { max: 1, window: '1m' },
       meta: { name: 'limited-project-tool' },
     })
@@ -584,6 +589,38 @@ describe('MCP rate-limit integration', () => {
         },
       },
     })
+  })
+
+  it('accepts direct mutation safety projected from a shared tool ref descriptor', () => {
+    const createPostDescriptor = defineMcpToolRefDescriptor({
+      name: 'create-post',
+      safety: {
+        kind: 'bounded-write',
+        reason: 'Creates one post explicitly named by args.',
+      },
+    })
+    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    expect(() =>
+      mcp.tool({
+        schema: emptySchema,
+        call: createPost,
+        operation: 'mutation',
+        safety: createPostDescriptor.safety,
+      }),
+    ).not.toThrow()
   })
 
   it('rejects direct mutation tools when safety only exists on the MCP declaration', () => {

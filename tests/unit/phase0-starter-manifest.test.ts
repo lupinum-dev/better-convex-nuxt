@@ -7,6 +7,7 @@ type StarterManifest = {
   name: string
   include: string[]
   exclude: string[]
+  generated?: { path: string }[]
 }
 
 const fixtureRoot = resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp')
@@ -49,11 +50,14 @@ describe('phase0 workspace-mcp starter manifest', () => {
       'convex/_generated/server.js',
       'convex/features/projects/domain.ts',
       'convex/schema.ts',
+      'generated/mcp-tool-refs.ts',
       'generated/operation-refs.ts',
       'nuxt.config.ts',
       'package.json',
+      'server/mcp/tools/create-project.ts',
       'server/mcp/tools/delete-project.ts',
       'shared/app-inventory.ts',
+      'shared/features/projects/tools.ts',
     ]
 
     for (const path of selected) {
@@ -70,6 +74,10 @@ describe('phase0 workspace-mcp starter manifest', () => {
     expect(manifest.include).not.toContain('.nuxt/**')
     expect(manifest.include).not.toContain('.output/**')
 
+    expect(manifest.generated?.map((file) => file.path)).toEqual([
+      'generated/operation-refs.ts',
+      'generated/mcp-tool-refs.ts',
+    ])
     expect(toFixturePath(manifestPath)).toBe('starter.manifest.json')
   })
 })

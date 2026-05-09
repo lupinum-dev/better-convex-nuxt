@@ -22,6 +22,8 @@ describe('phase0 workspace-mcp fixture', () => {
   it('builds inventory from shared descriptors and binds MCP tools without Convex implementation imports', async () => {
     const { default: deleteProjectTool } =
       await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
+    const { default: createProjectTool } =
+      await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/create-project')
 
     expect(toAppInventoryJson(appInventory)).toEqual({
       schemaVersion: 1,
@@ -38,16 +40,16 @@ describe('phase0 workspace-mcp fixture', () => {
       safety: 'destructive-write',
     })
     expect(deleteProjectTool.name).toBe('delete-project')
+    expect(createProjectTool.name).toBe('create-project')
 
-    const toolSource = readFileSync(
-      resolve(
-        process.cwd(),
-        'tests/fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project.ts',
-      ),
-      'utf8',
-    )
-    expect(toolSource).not.toContain('/convex/')
-    expect(toolSource).not.toContain('convex/features')
+    for (const toolPath of [
+      'tests/fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project.ts',
+      'tests/fixtures/phase0-workspace-mcp/server/mcp/tools/create-project.ts',
+    ]) {
+      const toolSource = readFileSync(resolve(process.cwd(), toolPath), 'utf8')
+      expect(toolSource).not.toContain('/convex/')
+      expect(toolSource).not.toContain('convex/features')
+    }
 
     const operationRefsSource = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/operation-refs.ts'),
@@ -55,6 +57,13 @@ describe('phase0 workspace-mcp fixture', () => {
     )
     expect(operationRefsSource).toContain("from '../convex/_generated/api'")
     expect(operationRefsSource).not.toContain('{} as never')
+
+    const mcpToolRefsSource = readFileSync(
+      resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/generated/mcp-tool-refs.ts'),
+      'utf8',
+    )
+    expect(mcpToolRefsSource).toContain("from '../convex/_generated/api'")
+    expect(mcpToolRefsSource).toContain('projectMcpToolRef')
 
     const generatedApiTypes = readFileSync(
       resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp/convex/_generated/api.d.ts'),

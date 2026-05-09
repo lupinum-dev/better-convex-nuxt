@@ -120,6 +120,26 @@ Initial policy target:
 If the chosen algorithm cannot meet the initial performance target, the RFC must
 record the measured cost and justify the tradeoff.
 
+Phase 0 benchmark command:
+
+```bash
+node scripts/bench-forwarding-envelope.mjs
+```
+
+Local result on 2026-05-09 for the HMAC spike:
+
+```json
+{
+  "benchmark": "trusted-forwarding-envelope.verify",
+  "iterations": 20000,
+  "algorithm": "HS256 phase0 spike",
+  "p50Ms": 0.0077,
+  "p95Ms": 0.013,
+  "p99Ms": 0.0236,
+  "maxMs": 1.2096
+}
+```
+
 ## Production Stores
 
 Production-safe forwarding must name first-party store paths for:

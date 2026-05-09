@@ -91,9 +91,16 @@ suite asserts those vectors against the spike implementation. This still does
 not freeze the production algorithm; it gives the RFC a concrete baseline to
 accept or replace.
 
+Benchmark result:
+
+Go for baseline tracking. `node scripts/bench-forwarding-envelope.mjs` measures
+the Phase 0 HMAC verification spike without making the result a flaky unit-test
+gate. Local result on 2026-05-09: p50 0.0077ms, p95 0.013ms, p99 0.0236ms over
+20,000 verifications. The production RFC can keep this target or replace it if
+the final algorithm changes.
+
 Remaining proof:
 
-- benchmark verification after the signing algorithm is chosen;
 - wire the envelope through server/MCP/bridge callers behind one helper;
 - keep old raw forwarding path until the migration slice is ready.
 
@@ -123,15 +130,16 @@ the fixture exports the MCP runtime as the default handler expected by
 
 Direct mutation safety result:
 
-Partial go. Direct MCP mutation tools now require `bounded-write` safety on both
-the tool declaration and the backend/generated ref. Sensitive, destructive, and
-external-side-effect writes must use operations. This is a runtime/type surface
-spike, not yet a generated metadata story.
+Go for generated metadata. Direct MCP mutation tools now require `bounded-write`
+safety on both the tool declaration and the backend/generated ref. Sensitive,
+destructive, and external-side-effect writes must use operations. The
+`phase0-workspace-mcp` fixture includes a direct `create-project` mutation whose
+generated ref gets safety from a shared `defineMcpToolRefDescriptor(...)`
+descriptor through `projectMcpToolRef(...)`, not from the MCP tool file alone.
+The helper remains on the focused operation-binding module path during Phase 0;
+it is not a public barrel API decision.
 
 Remaining proof:
 
-- add direct `query`/`mutation` lane safety metadata;
-- generate direct mutation safety metadata from backend descriptors rather than
-  stamping refs by hand;
-- wire the pattern into generated `workspace-mcp` starter output;
+- wire the pattern into the future CLI `workspace-mcp` starter command;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.

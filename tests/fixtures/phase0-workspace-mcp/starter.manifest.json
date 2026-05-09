@@ -13,5 +13,44 @@
     "server/**/*.ts",
     "shared/**/*.ts"
   ],
-  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**"]
+  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**"],
+  "generated": [
+    {
+      "kind": "operationRefs",
+      "path": "generated/operation-refs.ts",
+      "projectOperationRefImport": "../../../../src/runtime/functions/define-operation",
+      "apiImport": "../convex/_generated/api",
+      "descriptorImport": "../shared/features/projects/operations",
+      "descriptors": ["deleteProjectDescriptor"],
+      "refs": [
+        {
+          "exportName": "executeDeleteProjectRef",
+          "descriptorName": "deleteProjectDescriptor",
+          "projection": "execute",
+          "apiPath": ["features", "projects", "domain", "deleteProject"]
+        },
+        {
+          "exportName": "previewDeleteProjectRef",
+          "descriptorName": "deleteProjectDescriptor",
+          "projection": "preview",
+          "apiPath": ["features", "projects", "domain", "previewDeleteProject"]
+        }
+      ]
+    },
+    {
+      "kind": "mcpToolRefs",
+      "path": "generated/mcp-tool-refs.ts",
+      "projectMcpToolRefImport": "../../../../src/runtime/mcp/operation-binding",
+      "apiImport": "../convex/_generated/api",
+      "descriptorImport": "../shared/features/projects/tools",
+      "descriptors": ["createProjectToolDescriptor"],
+      "refs": [
+        {
+          "exportName": "createProjectRef",
+          "descriptorName": "createProjectToolDescriptor",
+          "apiPath": ["features", "projects", "domain", "createProject"]
+        }
+      ]
+    }
+  ]
 }
