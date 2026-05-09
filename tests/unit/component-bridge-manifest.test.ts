@@ -91,7 +91,7 @@ export default app
         '',
         'const bridge = createExampleBridge({',
         '  component: component,',
-        '  components: components.example.public,',
+        '  components: components.example.public',
         '})',
         '',
         'export const getPage = bridge.getPage',

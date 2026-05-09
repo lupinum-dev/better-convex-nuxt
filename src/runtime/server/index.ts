@@ -32,6 +32,8 @@ type ForwardedPrincipalOptions = {
   delegation?: Delegation
 } & ServerConvexOptions
 
+type ServerConvexCallOptions = Pick<ServerConvexOptions, 'trustedForwardingEnvelope'>
+
 function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
   options?: ForwardedPrincipalOptions,
@@ -40,11 +42,7 @@ function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefine
     return args
   }
 
-  return {
-    ...(args ?? {}),
-    ...(options?.principal !== undefined ? { principal: options.principal } : {}),
-    ...(options?.delegation !== undefined ? { delegation: options.delegation } : {}),
-  } as unknown as TArgs
+  return args
 }
 
 /**
@@ -93,32 +91,35 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
     query: async <Query extends AnyQueryFunction>(
       fn: Query,
       args?: FunctionLikeArgs<Query>,
+      perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Query>> =>
       await serverConvexQuery(
         event,
         fn,
         withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Query>), options),
-        callOptions,
+        { ...callOptions, ...perCallOptions },
       ),
     mutation: async <Mutation extends AnyMutationFunction>(
       fn: Mutation,
       args?: FunctionLikeArgs<Mutation>,
+      perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Mutation>> =>
       await serverConvexMutation(
         event,
         fn,
         withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Mutation>), options),
-        callOptions,
+        { ...callOptions, ...perCallOptions },
       ),
     action: async <Action extends AnyActionFunction>(
       fn: Action,
       args?: FunctionLikeArgs<Action>,
+      perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Action>> =>
       await serverConvexAction(
         event,
         fn,
         withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Action>), options),
-        callOptions,
+        { ...callOptions, ...perCallOptions },
       ),
   }
 }

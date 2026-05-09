@@ -10,7 +10,9 @@ import {
   type EventObservationState,
 } from '../../observability/envelope.js'
 import { createRuntimeObserver } from '../../observability/runtime-observer.js'
+import type { TrustedForwardingPurpose } from '../../trusted-forwarding/envelope.js'
 import {
+  createTrustedForwardingEnvelopeArgs,
   extractSubject,
   getTrustedForwardingKeyProductionIssue,
   hasForwardedIdentityFields,
@@ -81,6 +83,13 @@ export interface ServerConvexOptions {
    * Explicit trusted forwarding key override. Defaults to CONVEX_TRUSTED_FORWARDING_KEY.
    */
   trustedForwardingKey?: string
+  /**
+   * Internal alpha override for operation-backed trusted forwarding envelopes.
+   */
+  trustedForwardingEnvelope?: {
+    purpose?: TrustedForwardingPurpose
+    jti?: string
+  }
 }
 
 function getHelperName(operationType: ConvexOperationType): ServerConvexHelperName {
@@ -246,10 +255,8 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       )
     }
 
-    const principalSubject = validateForwardedPrincipal(principal)
-    const delegationSubject = options?.delegation
-      ? validateForwardedDelegation(options.delegation)
-      : undefined
+    validateForwardedPrincipal(principal)
+    if (options?.delegation) validateForwardedDelegation(options.delegation)
 
     const trustedForwardingKey =
       options?.trustedForwardingKey ?? process.env.CONVEX_TRUSTED_FORWARDING_KEY
@@ -264,16 +271,22 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
       throw createServerConvexError(trustedForwardingKeyIssue, errorContext)
     }
 
-    requestArgs = {
-      ...requestArgs,
-      ...(options.principal ? { principal: options.principal } : {}),
+    const trustedAppArgs = stripForwardedIdentityFields(requestArgs as Record<string, unknown>)
+    requestArgs = createTrustedForwardingEnvelopeArgs({
+      args: trustedAppArgs,
+      principal,
       ...(options.delegation ? { delegation: options.delegation } : {}),
-      _trustedForwardingKey: trustedForwardingKey,
-      _trustedForwarding: {
-        principalSubject,
-        ...(delegationSubject ? { delegationSubject } : {}),
-      },
-    }
+      functionRef: functionPath,
+      operation: operationType,
+      ...(options?.trustedForwardingEnvelope?.purpose
+        ? { purpose: options.trustedForwardingEnvelope.purpose }
+        : {}),
+      ...(options?.trustedForwardingEnvelope?.jti
+        ? { jti: options.trustedForwardingEnvelope.jti }
+        : {}),
+      key: trustedForwardingKey,
+      transport: 'server',
+    }) as FunctionLikeArgs<Fn>
   } else {
     if (hasForwardedIdentityFields(rawRequestArgs)) {
       throw createServerConvexError(

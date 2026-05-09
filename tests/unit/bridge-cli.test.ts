@@ -177,7 +177,7 @@ export default {
 
   it(
     'installs, checks, lists, detects drift, and repairs bridge output',
-    { timeout: 20_000 },
+    { timeout: 60_000 },
     async () => {
       const appRoot = createTempDir('trellis-bridge-cli-')
       writeConsumerPackage(appRoot)

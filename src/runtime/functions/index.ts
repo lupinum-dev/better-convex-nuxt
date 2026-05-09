@@ -297,6 +297,10 @@ type ActionCustomizationCtx<
   TActor,
 > = GenericActionCtx<DataModel> & FunctionsCtxExtension<TPrincipal, TDelegation, TActor>
 
+type TrustedForwardingCustomizationExtra = {
+  trustedForwardingFunctionRef?: string
+}
+
 type AppBuilders<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -1010,11 +1014,17 @@ function createContextWithRuntime<
     principal: TPrincipal,
     delegation: TDelegation | null,
   ) => Promise<TActor | null>,
+  extra?: TrustedForwardingCustomizationExtra,
 ): RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
   const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
-  setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, options.trustedForwardingKey)
+  setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, {
+    expectedKeyOverride: options.trustedForwardingKey,
+    ...(extra?.trustedForwardingFunctionRef
+      ? { expectedFunctionRef: extra.trustedForwardingFunctionRef }
+      : {}),
+  })
   const trustedForwarding = getTrustedForwarding(ctxWithTrustedForwarding)
   if (!trustedForwarding && hasForwardedIdentityFields(rawAppArgs)) {
     throw deny('Forwarded identity fields are only allowed on verified trusted forwarding paths.', {
@@ -1240,7 +1250,8 @@ function createQueryCustomization<
   GenericQueryCtx<DataModel>,
   PropertyValidators,
   QueryCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
-  Record<string, never>
+  Record<string, never>,
+  TrustedForwardingCustomizationExtra
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const delegationDefinition = resolveDelegation(options.delegation)
@@ -1258,7 +1269,7 @@ function createQueryCustomization<
 
   return {
     args: principalArgs,
-    input: async (ctx, args) => {
+    input: async (ctx, args, extra) => {
       const { baseCtx } = createContextWithRuntime(
         ctx,
         args,
@@ -1266,6 +1277,7 @@ function createQueryCustomization<
         principalDefinition,
         delegationDefinition,
         actorResolver,
+        extra,
       )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
         baseCtx,
@@ -1303,7 +1315,8 @@ function createMutationCustomization<
   GenericMutationCtx<DataModel>,
   PropertyValidators,
   MutationCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
-  Record<string, never>
+  Record<string, never>,
+  TrustedForwardingCustomizationExtra
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const delegationDefinition = resolveDelegation(options.delegation)
@@ -1321,7 +1334,7 @@ function createMutationCustomization<
 
   return {
     args: principalArgs,
-    input: async (ctx, args) => {
+    input: async (ctx, args, extra) => {
       const { baseCtx } = createContextWithRuntime(
         ctx,
         args,
@@ -1329,6 +1342,7 @@ function createMutationCustomization<
         principalDefinition,
         delegationDefinition,
         actorResolver,
+        extra,
       )
       const { dbRules, crossTenantRules, serviceAccess } = await resolveRules(
         baseCtx,
@@ -1393,7 +1407,8 @@ function createActionCustomization<
   GenericActionCtx<DataModel>,
   PropertyValidators,
   ActionCustomizationCtx<DataModel, TPrincipal, TDelegation, TActor>,
-  Record<string, never>
+  Record<string, never>,
+  TrustedForwardingCustomizationExtra
 > {
   const principalDefinition = resolvePrincipal(options.principal)
   const delegationDefinition = resolveDelegation(options.delegation)
@@ -1411,7 +1426,7 @@ function createActionCustomization<
 
   return {
     args: principalArgs,
-    input: async (ctx, args) => {
+    input: async (ctx, args, extra) => {
       const { baseCtx } = createContextWithRuntime(
         ctx,
         args,
@@ -1419,6 +1434,7 @@ function createActionCustomization<
         principalDefinition,
         delegationDefinition,
         actorResolver,
+        extra,
       )
       const finalCtx = baseCtx as unknown as ActionCtxWithRuntime<
         DataModel,

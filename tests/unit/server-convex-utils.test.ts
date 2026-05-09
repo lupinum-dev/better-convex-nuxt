@@ -8,6 +8,7 @@ import {
   serverConvexQuery,
 } from '../../src/runtime/convex/server/convex'
 import { createObservationCapture } from '../../src/runtime/testing'
+import { verifyTrustedForwardingEnvelope } from '../../src/runtime/trusted-forwarding'
 import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 const originalNodeEnv = process.env.NODE_ENV
@@ -107,14 +108,12 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('applies the shared server fetch timeout to Convex HTTP calls', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        expect(init?.signal).toBeInstanceOf(AbortSignal)
-        return new Response(JSON.stringify({ value: { ok: true } }), {
-          headers: { 'content-type': 'application/json' },
-        })
-      },
-    )
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal)
+      return new Response(JSON.stringify({ value: { ok: true } }), {
+        headers: { 'content-type': 'application/json' },
+      })
+    })
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(
@@ -430,7 +429,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted injects trusted forwarding args instead of bearer auth', async () => {
+  it('auth:trusted injects a signed trusted forwarding envelope instead of bearer auth', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -438,7 +437,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-123'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-with-enough-entropy'
 
     await serverConvexMutation(
       createEvent(),
@@ -461,20 +460,76 @@ describe('server Convex fetch helpers', () => {
       'Content-Type': 'application/json',
     })
     expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
-    expect(JSON.parse(String(init.body))).toEqual({
-      path: 'tasks:create',
-      args: {
-        title: 'From webhook',
+    const body = JSON.parse(String(init.body))
+    expect(body.path).toBe('tasks:create')
+    expect(body.args).toMatchObject({
+      title: 'From webhook',
+    })
+    expect(body.args).not.toHaveProperty('principal')
+    expect(body.args).not.toHaveProperty('_trustedForwardingKey')
+    expect(body.args).not.toHaveProperty('_trustedForwarding')
+    expect(typeof body.args._trellisForwarding).toBe('string')
+
+    expect(
+      verifyTrustedForwardingEnvelope(body.args._trellisForwarding, {
+        keys: { default: 'trusted-forwarding-key-with-enough-entropy' },
+        expectedIssuer: 'trellis://server',
+        expectedAudience: 'trellis://convex',
+        functionRef: 'tasks:create',
+        args: body.args,
+      }),
+    ).toMatchObject({
+      sub: 'user:user_admin',
+      principal: {
+        kind: 'user',
+        userId: 'user_admin',
+        subject: 'user:user_admin',
+      },
+    })
+  })
+
+  it('auth:trusted can bind operation-execute envelopes to the confirmation jti', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-with-enough-entropy'
+
+    await serverConvexMutation(
+      createEvent(),
+      { _path: 'tasks:delete' } as never,
+      { id: 'task_1' } as never,
+      {
+        auth: 'trusted',
         principal: {
-          kind: 'user',
-          userId: 'user_admin',
-          subject: 'user:user_admin',
+          kind: 'agent',
+          agentId: 'assistant',
+          subject: 'agent:assistant',
         },
-        _trustedForwardingKey: 'trusted-forwarding-key-123',
-        _trustedForwarding: {
-          principalSubject: 'user:user_admin',
+        trustedForwardingEnvelope: {
+          purpose: 'operation-execute',
+          jti: 'confirmation-jti-1',
         },
       },
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(String(init.body))
+    const payload = verifyTrustedForwardingEnvelope(body.args._trellisForwarding, {
+      keys: { default: 'trusted-forwarding-key-with-enough-entropy' },
+      expectedIssuer: 'trellis://server',
+      expectedAudience: 'trellis://convex',
+      functionRef: 'tasks:delete',
+      args: body.args,
+    })
+
+    expect(payload).toMatchObject({
+      purpose: 'operation-execute',
+      jti: 'confirmation-jti-1',
+      sub: 'agent:assistant',
     })
   })
 

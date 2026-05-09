@@ -70,18 +70,28 @@ server/MCP/bridge code understand signing details?
 
 Implemented:
 
-- deterministic args canonicalization with `_trellisForwarding` and `__trellis`
-  excluded;
+- deterministic args canonicalization with `_trellisForwarding`, legacy raw
+  forwarding fields, reserved identity fields, and `__trellis` excluded;
 - base64url SHA-256 args hash;
-- compact JWS-like HMAC envelope;
+- compact JWS-like HS256 envelope;
+- alpha key source from `CONVEX_TRUSTED_FORWARDING_KEY` with optional
+  `CONVEX_TRUSTED_FORWARDING_KEY_ID`;
+- alpha TTL defaults: query 60s, mutation/action 30s, operation-preview 30s,
+  operation-execute 10s;
 - verification for signature, issuer, audience, function ref, args hash, expiry,
   unknown key id, and replay redemption.
+- `_trellisForwarding` accepted by trusted-forwarding validators and preferred
+  over legacy raw forwarding fields;
+- server trusted callers now sign app args into `_trellisForwarding` without
+  exposing `principal` / `delegation` as public app args;
+- legacy raw `_trustedForwardingKey` / `_trustedForwarding` remains supported for
+  current callers.
 
 Current result:
 
-Go for RFC development, not production implementation. The technical shape is
-small enough to keep isolated, but signing algorithm, key rotation, replay store,
-test vectors, and principal/delegation validators still need the security RFC.
+Go for alpha foundation, not production acceptance. The RFC now records HS256 as
+the alpha baseline and names Matthias as owner, but production forwarding still
+requires external security-aware review before public API freeze or migration.
 
 Test-vector result:
 
@@ -95,13 +105,18 @@ Benchmark result:
 
 Go for baseline tracking. `node scripts/bench-forwarding-envelope.mjs` measures
 the Phase 0 HMAC verification spike without making the result a flaky unit-test
-gate. Local result on 2026-05-09: p50 0.0077ms, p95 0.013ms, p99 0.0236ms over
+gate. Local result on 2026-05-09: p50 0.0079ms, p95 0.0129ms, p99 0.062ms over
 20,000 verifications. The production RFC can keep this target or replace it if
 the final algorithm changes.
 
 Remaining proof:
 
-- wire the envelope through server/MCP/bridge callers behind one helper;
+- wire generated operation refs or starter output to populate protected handler
+  `trustedForwardingFunctionRef` metadata where the Convex function identity is
+  known;
+- wire Convex-side `operation-execute` envelope replay redemption to the existing
+  destructive safety redemption table;
+- add first-party production rate-limit store paths;
 - keep old raw forwarding path until the migration slice is ready.
 
 ## Experiment: Operation-First MCP Authoring

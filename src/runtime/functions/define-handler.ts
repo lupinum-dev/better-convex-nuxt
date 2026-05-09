@@ -42,6 +42,7 @@ type RuntimeContext<TPrincipal, TDelegation, TActor> = {
 type AnyBuilder = (definition: {
   args: PropertyValidators
   returns?: GenericValidator
+  trustedForwardingFunctionRef?: string
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -163,6 +164,11 @@ type HandlerDefinition<
     ],
     MaybePromise<TResult>
   >
+  /**
+   * Internal alpha metadata. When present, protected handler setup verifies
+   * signed trusted-forwarding envelopes against this exact Convex function ref.
+   */
+  trustedForwardingFunctionRef?: string
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
     projection: 'execute' | 'preview'
@@ -371,6 +377,9 @@ function createStructuredBuilder<
     const built = builder({
       args: definition.args,
       returns: definition.returns,
+      ...(definition.trustedForwardingFunctionRef
+        ? { trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef }
+        : {}),
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>

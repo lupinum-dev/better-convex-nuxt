@@ -40,7 +40,7 @@ export interface VerifyTrustedForwardingEnvelopeOptions {
   readonly keys: Record<string, string>
   readonly expectedIssuer: string
   readonly expectedAudience: string
-  readonly functionRef: string
+  readonly functionRef?: string
   readonly args: unknown
   readonly now?: number
   readonly clockSkewMs?: number
@@ -69,7 +69,14 @@ export class TrustedForwardingEnvelopeError extends Error {
 }
 
 const headerType = 'trellis-forwarding+jws'
-const excludedArgsKeys = new Set(['_trellisForwarding', '__trellis'])
+const excludedArgsKeys = new Set([
+  '_trellisForwarding',
+  '_trustedForwardingKey',
+  '_trustedForwarding',
+  '__trellis',
+  'principal',
+  'delegation',
+])
 
 function base64UrlEncode(input: string | Buffer): string {
   return Buffer.from(input).toString('base64url')
@@ -226,7 +233,7 @@ export function verifyTrustedForwardingEnvelope(
   if (payload.aud !== options.expectedAudience) {
     throw new TrustedForwardingEnvelopeError('Forwarding envelope audience mismatch.', 'audience')
   }
-  if (payload.functionRef !== options.functionRef) {
+  if (options.functionRef !== undefined && payload.functionRef !== options.functionRef) {
     throw new TrustedForwardingEnvelopeError(
       'Forwarding envelope function ref mismatch.',
       'function-ref',

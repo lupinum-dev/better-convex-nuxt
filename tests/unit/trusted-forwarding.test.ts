@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   clearTrustedForwardingContext,
+  createTrustedForwardingEnvelope,
   getForwardedPrincipal,
   getForwardedDelegation,
   getTrustedForwarding,
@@ -10,12 +11,14 @@ import {
   verifyTrustedForwardingKey,
   withTrustedForwarding,
 } from '../../src/runtime/trusted-forwarding'
+import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
 const originalNodeEnv = process.env.NODE_ENV
 
 describe('trusted forwarding helpers', () => {
   beforeEach(() => {
     delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY_ID
     clearTrustedForwardingContext({})
   })
 
@@ -32,7 +35,12 @@ describe('trusted forwarding helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual(['title', '_trustedForwardingKey', '_trustedForwarding'])
+    expect(Object.keys(args)).toEqual([
+      'title',
+      '_trellisForwarding',
+      '_trustedForwardingKey',
+      '_trustedForwarding',
+    ])
   })
 
   it('returns the trusted forwarding identity when the trusted forwarding key matches', () => {
@@ -94,6 +102,173 @@ describe('trusted forwarding helpers', () => {
 
     clearTrustedForwardingContext(ctx)
     expect(getTrustedForwarding(ctx)).toBeNull()
+  })
+
+  it('stores forwarded identity from a signed forwarding envelope without public identity args', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const ctx: Record<string, unknown> = {}
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Envelope' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      delegation: { subject: 'user:u1', reason: 'approved' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      jti: 'call-1',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    expect(args).toMatchObject({ title: 'Envelope' })
+    expect(args).not.toHaveProperty('principal')
+    expect(args).not.toHaveProperty('delegation')
+
+    setTrustedForwardingContext(ctx, args, {
+      expectedFunctionRef: 'tasks:create',
+      now: Date.UTC(2026, 4, 9, 12, 0, 1),
+    })
+
+    expect(getTrustedForwarding(ctx)).toEqual({
+      principalSubject: 'agent:a1',
+      delegationSubject: 'user:u1',
+    })
+    expect(getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toEqual({
+      kind: 'agent',
+      agentId: 'a1',
+      subject: 'agent:a1',
+    })
+    expect(getForwardedDelegation<{ subject: string; reason?: string }>(ctx)).toEqual({
+      subject: 'user:u1',
+      reason: 'approved',
+    })
+  })
+
+  it('prefers signed forwarding envelopes over legacy raw forwarding fields', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const ctx: Record<string, unknown> = {}
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Envelope' },
+      principal: { kind: 'agent', agentId: 'signed', subject: 'agent:signed' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      jti: 'call-1',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    setTrustedForwardingContext(
+      ctx,
+      {
+        ...args,
+        principal: { kind: 'agent', agentId: 'raw', subject: 'agent:raw' },
+        _trustedForwardingKey: 'trusted-key-with-enough-alpha-entropy',
+        _trustedForwarding: { principalSubject: 'agent:raw' },
+      },
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      },
+    )
+
+    expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'agent:signed' })
+    expect(getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toEqual({
+      kind: 'agent',
+      agentId: 'signed',
+      subject: 'agent:signed',
+    })
+  })
+
+  it('fails closed on invalid signed forwarding envelopes', () => {
+    const now = Date.UTC(2026, 4, 9, 12, 0, 0)
+    const key = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = key
+    const base = {
+      key,
+      keyId: 'default',
+      iss: 'trellis://server',
+      aud: 'trellis://convex',
+      jti: 'call-1',
+      sub: 'agent:a1',
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      transport: 'server' as const,
+      purpose: 'mutation' as const,
+      functionRef: 'tasks:create',
+      args: { title: 'Envelope' },
+      now,
+      ttlMs: 30_000,
+    }
+
+    const cases = [
+      {
+        label: 'unknown key',
+        envelope: createTrustedForwardingEnvelope({ ...base, keyId: 'unknown' }),
+        message: /unknown-key/,
+      },
+      {
+        label: 'audience',
+        envelope: createTrustedForwardingEnvelope({ ...base, aud: 'trellis://other' }),
+        message: /audience/,
+      },
+      {
+        label: 'function',
+        envelope: createTrustedForwardingEnvelope({ ...base, functionRef: 'tasks:delete' }),
+        message: /function-ref/,
+      },
+      {
+        label: 'args',
+        envelope: createTrustedForwardingEnvelope(base),
+        args: { title: 'Changed' },
+        message: /args-hash/,
+      },
+      {
+        label: 'expired',
+        envelope: createTrustedForwardingEnvelope({ ...base, ttlMs: 1 }),
+        now: now + 30_000,
+        message: /expired/,
+      },
+    ]
+
+    for (const testCase of cases) {
+      const ctx: Record<string, unknown> = {}
+      expect(
+        () =>
+          setTrustedForwardingContext(
+            ctx,
+            {
+              ...(testCase.args ?? base.args),
+              _trellisForwarding: testCase.envelope,
+            },
+            {
+              expectedFunctionRef: 'tasks:create',
+              now: testCase.now ?? now + 1_000,
+            },
+          ),
+        testCase.label,
+      ).toThrow(testCase.message)
+    }
+  })
+
+  it('fails closed on signed forwarding replay when redemption is required', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const seen = new Set<string>()
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Envelope' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'replay-call',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+    const options = {
+      expectedFunctionRef: 'tasks:create',
+      now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      redeemJti: (jti: string) => {
+        if (seen.has(jti)) return false
+        seen.add(jti)
+        return true
+      },
+    }
+
+    expect(() => setTrustedForwardingContext({}, args, options)).not.toThrow()
+    expect(() => setTrustedForwardingContext({}, args, options)).toThrow(/replayed/)
   })
 
   it('accepts an explicit expected key override when process.env is unavailable', () => {

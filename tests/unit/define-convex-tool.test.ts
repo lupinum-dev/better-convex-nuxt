@@ -400,13 +400,6 @@ describe('defineTool trusted principal forwarding', () => {
       'posts:create',
       {
         title: 'Hello',
-        principal: {
-          kind: 'agent',
-          agentId: 'member-1',
-          subject: 'agent:member-1',
-          provider: 'mcp',
-          tenantId: 'org-1',
-        },
       },
       {
         auth: 'trusted',
@@ -479,14 +472,6 @@ describe('defineMcpApp middleware forwarding', () => {
       'runbooks:getWorkspace',
       {
         id: 'runbook_1',
-        principal: {
-          kind: 'agent',
-          agentId: 'assistant-bot',
-          subject: 'agent:assistant-bot',
-        },
-        delegation: {
-          subject: 'user:user_1',
-        },
       },
       {
         auth: 'trusted',
@@ -1166,5 +1151,93 @@ describe('Destructive confirmation payload validation', () => {
         },
       },
     })
+  })
+
+  it('routes destructive operation execute through trusted server forwarding without raw identity args', async () => {
+    vi.mocked(serverConvexQuery).mockResolvedValue({
+      display: { summary: 'Delete post' },
+      confirm: { id: 'post-1' },
+    })
+    vi.mocked(serverConvexMutation).mockResolvedValue({ ok: true })
+
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+    const principal = {
+      kind: 'agent' as const,
+      agentId: 'assistant-bot',
+      subject: 'agent:assistant-bot',
+    }
+    const delegation = {
+      subject: 'user:user_1',
+    }
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => principal,
+      resolveDelegation: async () => delegation,
+      callConvex: async (event, caller) =>
+        createServerConvexCaller(event, {
+          auth: 'trusted',
+          principal: caller.principal,
+          ...(caller.delegation ? { delegation: caller.delegation } : {}),
+        }),
+    })
+
+    const tool = mcp.tool.operation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+    })
+
+    const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+
+    await tool.handler(
+      {
+        id: 'post-1',
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      } as never,
+      {} as never,
+    )
+
+    expect(serverConvexQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      preview,
+      { id: 'post-1' },
+      { auth: 'trusted', principal, delegation },
+    )
+    expect(serverConvexMutation).toHaveBeenCalledWith(
+      expect.anything(),
+      operation,
+      {
+        id: 'post-1',
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      },
+      {
+        auth: 'trusted',
+        principal,
+        delegation,
+        trustedForwardingEnvelope: {
+          purpose: 'operation-execute',
+          jti: expect.any(String),
+        },
+      },
+    )
   })
 })

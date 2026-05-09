@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
 import { defineTrellis } from '../../src/runtime/functions'
@@ -9,6 +9,7 @@ import {
   signConfirmationToken,
 } from '../../src/runtime/mcp/confirmation-token'
 import { createObservationCapture } from '../../src/runtime/testing'
+import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
 type MemoryRow = Record<string, unknown>
 
@@ -19,7 +20,10 @@ function createMemoryDb() {
     tables,
     db: {
       query: (table: string) => ({
-        withIndex: (_indexName: string, callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown) => {
+        withIndex: (
+          _indexName: string,
+          callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+        ) => {
           const filters: Array<{ field: string; value: unknown }> = []
           callback({
             eq: (field, value) => {
@@ -68,6 +72,16 @@ async function confirmationToken(args: {
 }
 
 describe('defineTrellis', () => {
+  const originalTrustedForwardingKey = process.env.CONVEX_TRUSTED_FORWARDING_KEY
+
+  afterEach(() => {
+    if (originalTrustedForwardingKey === undefined) {
+      delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    } else {
+      process.env.CONVEX_TRUSTED_FORWARDING_KEY = originalTrustedForwardingKey
+    }
+  })
+
   it('exposes direct protected builders and unsafe escape hatches', () => {
     const builder = () => null as never
 
@@ -82,6 +96,53 @@ describe('defineTrellis', () => {
     expect(runtime.unsafe.mutation).toBeTypeOf('function')
     expect(runtime).not.toHaveProperty('app')
     expect(runtime).not.toHaveProperty('publicQuery')
+  })
+
+  it('rejects signed forwarding envelopes for the wrong function ref on real protected handlers', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const definition = runtime.query({
+      args: {
+        title: v.string(),
+      },
+      trustedForwardingFunctionRef: 'posts:create',
+      guard: open,
+      handler: async () => ({ ok: true }),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Hello' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'posts:delete',
+      operation: 'query',
+      jti: 'wrong-function-ref',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/function-ref/)
   })
 
   it('forwards internal builders when provided', () => {
@@ -330,6 +391,82 @@ describe('defineTrellis', () => {
     expect(executions).toBe(1)
     expect(memory.tables.destructiveRedemptions).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog).toHaveLength(1)
+  })
+
+  it('re-runs authorization after destructive confirmation before redeeming', async () => {
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let authorized = true
+    let executed = false
+    const destructiveOp = defineOperation({
+      id: 'tests.destroy',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: open,
+      authorize: {
+        label: 'tests.destroy',
+        check: async () => authorized,
+      },
+      preview: async (_ctx, args) => ({
+        display: { summary: 'Destroy test record' },
+        confirm: { id: args.id },
+      }),
+      handler: async () => {
+        executed = true
+        return 'destroyed'
+      },
+    })
+
+    const definition = runtime.mutation(destructiveOp) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string; _confirmationToken: string },
+      ) => Promise<unknown>
+    }
+    const memory = createMemoryDb()
+    const executeArgs = { id: 'record-1' }
+    const token = await confirmationToken({
+      operationId: 'tests.destroy',
+      executeArgs,
+      confirm: { id: 'record-1' },
+      jti: 'auth-recheck',
+    })
+
+    authorized = false
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        { ...executeArgs, _confirmationToken: token },
+      ),
+    ).rejects.toThrow(/tests\.destroy|Access denied|Forbidden/i)
+
+    expect(executed).toBe(false)
+    expect(memory.tables.destructiveRedemptions ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 
   it('rejects stale destructive operation confirmation tokens when preview state changes', async () => {

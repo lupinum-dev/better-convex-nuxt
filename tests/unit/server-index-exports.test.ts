@@ -110,8 +110,40 @@ describe('server entrypoint exports', () => {
     expect(serverConvexQueryMock).toHaveBeenCalledWith(
       event,
       { _path: 'notes:list' },
-      { limit: 2, principal, delegation },
+      { limit: 2 },
       { auth: 'trusted', principal, delegation },
+    )
+  })
+
+  it('forwards per-call trusted envelope options to request-scoped calls', async () => {
+    serverConvexMutationMock.mockResolvedValueOnce({ ok: true })
+
+    const event = { __is_event__: true } as never
+    const principal = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
+    const caller = serverApi.createServerConvexCaller(event, {
+      auth: 'trusted',
+      principal,
+    })
+
+    await caller.mutation({ _path: 'notes:delete' } as never, { id: 'n1' } as never, {
+      trustedForwardingEnvelope: {
+        purpose: 'operation-execute',
+        jti: 'confirm-1',
+      },
+    })
+
+    expect(serverConvexMutationMock).toHaveBeenCalledWith(
+      event,
+      { _path: 'notes:delete' },
+      { id: 'n1' },
+      {
+        auth: 'trusted',
+        principal,
+        trustedForwardingEnvelope: {
+          purpose: 'operation-execute',
+          jti: 'confirm-1',
+        },
+      },
     )
   })
 

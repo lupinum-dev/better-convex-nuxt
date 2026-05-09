@@ -5,6 +5,13 @@ import { deny } from '../auth/index.js'
 import { getSubjectKind, getSubjectValue, subject } from '../auth/subject.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { Subject } from '../functions/define-principal.js'
+import {
+  createTrustedForwardingEnvelope,
+  TrustedForwardingEnvelopeError,
+  verifyTrustedForwardingEnvelope,
+  type TrustedForwardingPurpose,
+  type TrustedForwardingTransport,
+} from './envelope.js'
 
 export type TrustedForwardingIdentity = {
   principalSubject: Subject
@@ -12,6 +19,7 @@ export type TrustedForwardingIdentity = {
 }
 
 export type TrustedForwardingInput = {
+  _trellisForwarding?: unknown
   _trustedForwardingKey?: unknown
   _trustedForwarding?: {
     principalSubject?: unknown
@@ -32,7 +40,10 @@ export type TrustedForwardingPayload = {
   delegation?: unknown
 }
 
+const envelopePayloadByArgs = new WeakMap<object, TrustedForwardingPayload>()
+
 export const trustedForwardingValidators = {
+  _trellisForwarding: v.optional(v.string()),
   _trustedForwardingKey: v.optional(v.string()),
   _trustedForwarding: v.optional(
     v.object({
@@ -41,6 +52,44 @@ export const trustedForwardingValidators = {
     }),
   ),
 } satisfies PropertyValidators
+
+export const trustedForwardingAlphaIssuer = 'trellis://server'
+export const trustedForwardingAlphaAudience = 'trellis://convex'
+export const trustedForwardingDefaultKeyId = 'default'
+
+export const trustedForwardingAlphaTtlsMs = {
+  query: 60_000,
+  mutation: 30_000,
+  action: 30_000,
+  'operation-preview': 30_000,
+  'operation-execute': 10_000,
+} satisfies Record<TrustedForwardingPurpose, number>
+
+export type TrustedForwardingEnvelopeContextOptions = {
+  expectedKeyOverride?: string
+  expectedIssuer?: string
+  expectedAudience?: string
+  expectedFunctionRef?: string
+  now?: number
+  redeemJti?: (jti: string) => boolean
+}
+
+export type CreateTrustedForwardingArgsOptions = {
+  args?: Record<string, unknown>
+  principal: { subject: Subject } & Record<string, unknown>
+  delegation?: Delegation
+  functionRef: string
+  operation: 'query' | 'mutation' | 'action'
+  purpose?: TrustedForwardingPurpose
+  transport?: TrustedForwardingTransport
+  key?: string
+  keyId?: string
+  issuer?: string
+  audience?: string
+  jti?: string
+  now?: number
+  ttlMs?: number
+}
 
 export function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -66,6 +115,43 @@ export function verifyTrustedForwardingKey(provided: string, expected: string): 
 
 function nonBlankString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
+}
+
+function getRequiredTrustedForwardingKey(override?: string): string {
+  const key = nonBlankString(override) ?? nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
+
+  if (!key) {
+    throw deny('Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+
+  const keyIssue = getTrustedForwardingKeyProductionIssue(key)
+  if (keyIssue) {
+    throw deny(keyIssue, {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+
+  return key
+}
+
+function toTrustedForwardingDeny(error: unknown): Error {
+  if (error instanceof TrustedForwardingEnvelopeError) {
+    return deny(`Invalid trusted forwarding envelope: ${error.code}.`, {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    }) as Error
+  }
+
+  if (error instanceof Error) return error
+
+  return deny('Invalid trusted forwarding envelope.', {
+    source: 'trusted-forwarding',
+    category: 'auth',
+  }) as Error
 }
 
 export const minimumTrustedForwardingKeyLength = 32
@@ -219,11 +305,70 @@ export function assertForwardableDelegation(
 
 export function extractTrustedForwardingFromArgs(
   args: unknown,
-  expectedKeyOverride?: string,
+  expectedKeyOverrideOrOptions?: string | TrustedForwardingEnvelopeContextOptions,
 ): TrustedForwardingIdentity | null {
   if (!isObject(args)) return null
 
   const input = args as TrustedForwardingInput
+  const options =
+    typeof expectedKeyOverrideOrOptions === 'string'
+      ? { expectedKeyOverride: expectedKeyOverrideOrOptions }
+      : (expectedKeyOverrideOrOptions ?? {})
+
+  if (input._trellisForwarding !== undefined) {
+    if (typeof input._trellisForwarding !== 'string') {
+      throw deny('Malformed trusted forwarding envelope.', {
+        source: 'trusted-forwarding',
+        category: 'auth',
+      })
+    }
+
+    const key = getRequiredTrustedForwardingKey(options.expectedKeyOverride)
+    const keyId = nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY_ID)
+    const keys = keyId
+      ? { [trustedForwardingDefaultKeyId]: key, [keyId]: key }
+      : { [trustedForwardingDefaultKeyId]: key }
+
+    try {
+      const payload = verifyTrustedForwardingEnvelope(input._trellisForwarding, {
+        keys,
+        expectedIssuer: options.expectedIssuer ?? trustedForwardingAlphaIssuer,
+        expectedAudience: options.expectedAudience ?? trustedForwardingAlphaAudience,
+        ...(options.expectedFunctionRef ? { functionRef: options.expectedFunctionRef } : {}),
+        args,
+        ...(options.now !== undefined ? { now: options.now } : {}),
+        ...(options.redeemJti ? { redeemJti: (jti) => options.redeemJti!(jti) } : {}),
+      })
+
+      const principalSubject = extractSubject(payload.principal)
+      const delegationSubject =
+        payload.delegation === undefined ? undefined : extractSubject(payload.delegation)
+
+      if (
+        !principalSubject ||
+        principalSubject !== payload.sub ||
+        (payload.delegation !== undefined && !delegationSubject)
+      ) {
+        throw deny('Malformed trusted forwarding envelope identity payload.', {
+          source: 'trusted-forwarding',
+          category: 'auth',
+        })
+      }
+
+      envelopePayloadByArgs.set(args, {
+        principal: payload.principal,
+        ...(payload.delegation !== undefined ? { delegation: payload.delegation } : {}),
+      })
+
+      return {
+        principalSubject,
+        ...(delegationSubject ? { delegationSubject } : {}),
+      }
+    } catch (error) {
+      throw toTrustedForwardingDeny(error)
+    }
+  }
+
   const hasTransport =
     input._trustedForwardingKey !== undefined || input._trustedForwarding !== undefined
   if (!hasTransport) return null
@@ -242,23 +387,7 @@ export function extractTrustedForwardingFromArgs(
     })
   }
 
-  const expectedKey =
-    nonBlankString(expectedKeyOverride) ?? nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
-
-  if (!expectedKey) {
-    throw deny('Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.', {
-      source: 'trusted-forwarding',
-      category: 'auth',
-    })
-  }
-
-  const keyIssue = getTrustedForwardingKeyProductionIssue(expectedKey)
-  if (keyIssue) {
-    throw deny(keyIssue, {
-      source: 'trusted-forwarding',
-      category: 'auth',
-    })
-  }
+  const expectedKey = getRequiredTrustedForwardingKey(options.expectedKeyOverride)
 
   if (!verifyTrustedForwardingKey(input._trustedForwardingKey, expectedKey)) {
     throw deny('Invalid trusted forwarding credentials.', {
@@ -279,14 +408,15 @@ export function createTrustedForwardingContextDelta(
 ): TrustedForwardingContextCarrier {
   const payload =
     identity && isObject(args)
-      ? ({
+      ? (envelopePayloadByArgs.get(args) ??
+        ({
           ...(Object.prototype.hasOwnProperty.call(args, 'principal')
             ? { principal: (args as { principal?: unknown }).principal }
             : {}),
           ...(Object.prototype.hasOwnProperty.call(args, 'delegation')
             ? { delegation: (args as { delegation?: unknown }).delegation }
             : {}),
-        } satisfies TrustedForwardingPayload)
+        } satisfies TrustedForwardingPayload))
       : null
 
   return {
@@ -295,6 +425,51 @@ export function createTrustedForwardingContextDelta(
       payload && (payload.principal !== undefined || payload.delegation !== undefined)
         ? payload
         : null,
+  }
+}
+
+export function createTrustedForwardingEnvelopeArgs(
+  options: CreateTrustedForwardingArgsOptions,
+): Record<string, unknown> {
+  const principalSubject = extractSubject(options.principal)
+  if (!principalSubject) {
+    throw new Error('Trusted forwarding envelope requires a principal with a canonical subject.')
+  }
+
+  const delegationSubject =
+    options.delegation === undefined ? undefined : extractSubject(options.delegation)
+  if (options.delegation !== undefined && !delegationSubject) {
+    throw new Error('Trusted forwarding envelope requires delegation with a canonical subject.')
+  }
+
+  const purpose = options.purpose ?? options.operation
+  const key = options.key ?? getRequiredTrustedForwardingKey()
+  const keyId =
+    options.keyId ??
+    nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY_ID) ??
+    trustedForwardingDefaultKeyId
+  const args = {
+    ...(options.args ?? {}),
+  }
+
+  return {
+    ...args,
+    _trellisForwarding: createTrustedForwardingEnvelope({
+      key,
+      keyId,
+      iss: options.issuer ?? trustedForwardingAlphaIssuer,
+      aud: options.audience ?? trustedForwardingAlphaAudience,
+      jti: options.jti ?? crypto.randomUUID(),
+      sub: principalSubject,
+      principal: options.principal,
+      ...(options.delegation !== undefined ? { delegation: options.delegation } : {}),
+      transport: options.transport ?? 'server',
+      purpose,
+      functionRef: options.functionRef,
+      args,
+      ...(options.now !== undefined ? { now: options.now } : {}),
+      ttlMs: options.ttlMs ?? trustedForwardingAlphaTtlsMs[purpose],
+    }),
   }
 }
 
@@ -311,6 +486,7 @@ export function hasForwardedIdentityFields(args: unknown): boolean {
   return (
     Object.prototype.hasOwnProperty.call(args, 'principal') ||
     Object.prototype.hasOwnProperty.call(args, 'delegation') ||
+    Object.prototype.hasOwnProperty.call(args, '_trellisForwarding') ||
     Object.prototype.hasOwnProperty.call(args, '_trustedForwardingKey') ||
     Object.prototype.hasOwnProperty.call(args, '_trustedForwarding')
   )
@@ -322,6 +498,7 @@ export function stripForwardedIdentityFields<TArgs>(args: TArgs): TArgs {
   const {
     principal: _principal,
     delegation: _delegation,
+    _trellisForwarding: _trellisForwarding,
     _trustedForwardingKey: _trustedForwardingKey,
     _trustedForwarding: _trustedForwarding,
     ...rest

@@ -36,6 +36,7 @@ import {
   type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
+import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
@@ -85,15 +86,25 @@ export interface McpConvexCaller {
   query: <Query extends AnyQueryRef>(
     fn: Query,
     args?: FunctionLikeArgs<Query>,
+    options?: McpConvexCallOptions,
   ) => Promise<FunctionLikeReturnType<Query>>
   mutation: <Mutation extends AnyMutationRef>(
     fn: Mutation,
     args?: FunctionLikeArgs<Mutation>,
+    options?: McpConvexCallOptions,
   ) => Promise<FunctionLikeReturnType<Mutation>>
   action: <Action extends AnyActionRef>(
     fn: Action,
     args?: FunctionLikeArgs<Action>,
+    options?: McpConvexCallOptions,
   ) => Promise<FunctionLikeReturnType<Action>>
+}
+
+export type McpConvexCallOptions = {
+  trustedForwardingEnvelope?: {
+    purpose?: TrustedForwardingPurpose
+    jti?: string
+  }
 }
 
 type ProjectionCapabilitySnapshot = Record<string, boolean>
@@ -463,23 +474,27 @@ async function callByOperation<TRef extends AnyFunctionRef>(
   operation: ConvexToolOperation,
   ref: TRef,
   args: FunctionLikeArgs<TRef>,
+  options?: McpConvexCallOptions,
 ): Promise<FunctionLikeReturnType<TRef>> {
   switch (operation) {
     case 'query':
       return (await convex.query(
         ref as AnyQueryRef,
         args as FunctionLikeArgs<AnyQueryRef>,
+        options,
       )) as FunctionLikeReturnType<TRef>
     case 'action':
       return (await convex.action(
         ref as AnyActionRef,
         args as FunctionLikeArgs<AnyActionRef>,
+        options,
       )) as FunctionLikeReturnType<TRef>
     case 'mutation':
     default:
       return (await convex.mutation(
         ref as AnyMutationRef,
         args as FunctionLikeArgs<AnyMutationRef>,
+        options,
       )) as FunctionLikeReturnType<TRef>
   }
 }
@@ -1170,6 +1185,7 @@ export function defineMcpApp<
           )
         }
 
+        let operationExecuteJti: string | undefined
         if (isDestructive) {
           if (!options.preview) {
             return ctx.error('server', 'Destructive operation is missing a preview ref.')
@@ -1239,6 +1255,7 @@ export function defineMcpApp<
             return await returnConfirmationFailure(confirmation.failure)
           }
           const payload = confirmation.payload
+          operationExecuteJti = payload.jti
 
           const previewResult = await callByOperation(
             projectionCtx.convex,
@@ -1297,6 +1314,14 @@ export function defineMcpApp<
                 ? { _confirmationToken: confirmationToken }
                 : {}),
             }) as FunctionLikeArgs<TExecute>,
+            confirmationToken && isDestructive
+              ? {
+                  trustedForwardingEnvelope: {
+                    purpose: 'operation-execute',
+                    ...(operationExecuteJti ? { jti: operationExecuteJti } : {}),
+                  },
+                }
+              : undefined,
           )
 
           await projectionCtx.observe({

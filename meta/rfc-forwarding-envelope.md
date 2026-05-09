@@ -1,7 +1,7 @@
 # RFC: Trusted Forwarding Envelope
 
-Status: draft skeleton
-Owner: TBD before Phase 0 sign-off
+Status: alpha decision baseline
+Owner: Matthias
 Reviewer: TBD security-aware reviewer outside the implementation author
 
 ## Purpose
@@ -23,14 +23,20 @@ authorization, and handler logic remain authoritative.
 
 ## Proposed Shape
 
-The Phase 0 spike uses a compact JWS-like shape:
+Alpha uses compact JWS-like `HS256`:
 
 ```text
 base64url(header).base64url(payload).base64url(signature)
 ```
 
-The production RFC must decide whether this remains HMAC-signed or moves to an
-asymmetric signature. The decision must name the operational tradeoff: key
+The HMAC key is read from `CONVEX_TRUSTED_FORWARDING_KEY`. The key id is read
+from `CONVEX_TRUSTED_FORWARDING_KEY_ID` when set and otherwise defaults to
+`default`. During alpha, verification accepts the configured key id and
+`default` for the same HMAC key so local rotation experiments can prove the
+shape without a multi-key store.
+
+The production RFC may keep HMAC or move to an asymmetric signature. If it
+changes the algorithm, the decision must name the operational tradeoff: key
 distribution, rotation, local development, bridge/package callers, and verifier
 deployment.
 
@@ -65,16 +71,23 @@ Verification must check:
 - known `kid`;
 - signature;
 - issuer and audience;
-- function ref;
+- function ref wherever the transport edge knows the expected Convex function
+  identity;
 - args hash;
 - issued/expiry timestamps with bounded skew;
 - purpose-specific replay policy;
-- principal payload validator;
-- delegation payload validator when present;
+- principal payload validator based on existing canonical subject extraction;
+- delegation payload validator based on existing canonical subject extraction
+  when present;
 - maximum serialized envelope size.
 
 Invalid envelope errors must be classified without logging raw principal,
 delegation, bearer tokens, or envelope payloads.
+
+Alpha protected handlers accept internal `trustedForwardingFunctionRef` metadata
+on the Convex function definition. When present, handler setup verifies the
+signed envelope against that exact function ref before principal, actor, guard,
+load, authorize, or handler execution.
 
 ## Canonical Args Hash
 
@@ -86,6 +99,8 @@ The Phase 0 spike currently:
 - omits object properties with `undefined`;
 - serializes array `undefined` as `null`;
 - excludes `_trellisForwarding`;
+- excludes legacy `_trustedForwardingKey` and `_trustedForwarding`;
+- excludes reserved public identity fields `principal` and `delegation`;
 - excludes `__trellis`.
 
 The production RFC must include test vectors for:
@@ -107,15 +122,25 @@ Phase 0 vectors:
 
 ## TTL And Replay Matrix
 
-Initial policy target:
+Alpha policy:
 
 | Purpose             | Max TTL | Replay                       |
 | ------------------- | ------- | ---------------------------- |
-| `query`             | TBD     | TTL only                     |
-| `mutation`          | TBD     | depends on safety class      |
-| `action`            | TBD     | depends on side-effect class |
-| `operation-preview` | TBD     | TTL + rate limit             |
-| `operation-execute` | TBD     | one-time redemption required |
+| `query`             | 60s     | TTL only                     |
+| `mutation`          | 30s     | TTL only                     |
+| `action`            | 30s     | TTL only                     |
+| `operation-preview` | 30s     | TTL + rate limit             |
+| `operation-execute` | 10s     | one-time redemption required |
+
+Alpha exposes a replay redemption hook in trusted-forwarding context setup.
+Only `operation-execute` is required to use one-time redemption in alpha. Other
+purposes may add redemption later if the security review or production data says
+they need it.
+
+Backend destructive operation execution already uses the destructive safety
+redemption table as the first-party one-time confirmation redemption path. The
+alpha `operation-execute` forwarding path shares the confirmation token `jti`
+so forwarding replay and confirmation replay stay one source of truth.
 
 If the chosen algorithm cannot meet the initial performance target, the RFC must
 record the measured cost and justify the tradeoff.
@@ -133,10 +158,10 @@ Local result on 2026-05-09 for the HMAC spike:
   "benchmark": "trusted-forwarding-envelope.verify",
   "iterations": 20000,
   "algorithm": "HS256 phase0 spike",
-  "p50Ms": 0.0077,
-  "p95Ms": 0.013,
-  "p99Ms": 0.0236,
-  "maxMs": 1.2096
+  "p50Ms": 0.0079,
+  "p95Ms": 0.0129,
+  "p99Ms": 0.062,
+  "maxMs": 2.1461
 }
 ```
 
@@ -156,3 +181,9 @@ use, clock skew behavior, idempotency, and failure mode behavior.
 Phase 0 may keep throwaway or fixture-only envelope spikes before RFC sign-off.
 Production implementation, public API freeze, and migration work must wait for
 this RFC to be reviewed and accepted.
+
+Alpha transport support accepts `_trellisForwarding` first and falls back to the
+legacy raw `_trustedForwardingKey` / `_trustedForwarding` fields so current
+callers keep working during migration. This fallback is explicitly temporary and
+does not change the security rule: a valid envelope authenticates forwarding
+only. It never grants permission.

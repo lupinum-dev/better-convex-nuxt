@@ -47,7 +47,11 @@ describe('trusted forwarding envelopes', () => {
         z: 1,
         a: { b: true },
         _trellisForwarding: 'ignored',
+        _trustedForwardingKey: 'ignored',
+        _trustedForwarding: { principalSubject: 'ignored' },
         __trellis: { trace: 'ignored' },
+        principal: { subject: 'ignored' },
+        delegation: { subject: 'ignored' },
       }),
     ).toBe('{"a":{"b":true},"z":1}')
     expect(hashForwardingArgs({ b: 2, a: 1 })).toBe(hashForwardingArgs({ a: 1, b: 2 }))
@@ -60,7 +64,11 @@ describe('trusted forwarding envelopes', () => {
           z: 1,
           a: { b: true },
           _trellisForwarding: 'ignored',
+          _trustedForwardingKey: 'ignored',
+          _trustedForwarding: { principalSubject: 'ignored' },
           __trellis: { trace: 'ignored' },
+          principal: { subject: 'ignored' },
+          delegation: { subject: 'ignored' },
         },
         canonical: '{"a":{"b":true},"z":1}',
         hash: 'EfLFajqAf5JyfYGFIP9-L2OuKX0xG0gC8pMA6gq-NG8',
