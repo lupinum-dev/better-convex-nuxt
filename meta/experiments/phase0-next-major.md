@@ -114,8 +114,8 @@ Remaining proof:
 - wire generated operation refs or starter output to populate protected handler
   `trustedForwardingFunctionRef` metadata where the Convex function identity is
   known;
-- wire Convex-side `operation-execute` envelope replay redemption to the existing
-  destructive safety redemption table;
+- harden production diagnostics and first-party store contracts around the
+  existing destructive safety redemption table;
 - add first-party production rate-limit store paths;
 - keep old raw forwarding path until the migration slice is ready.
 

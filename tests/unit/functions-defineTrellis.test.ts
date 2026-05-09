@@ -145,6 +145,120 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/function-ref/)
   })
 
+  it('rejects replayed operation-execute forwarding envelopes before handler execution', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let executed = false
+    const definition = runtime.mutation({
+      args: {
+        id: v.string(),
+      },
+      trustedForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      handler: async () => {
+        executed = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    memory.tables.destructiveRedemptions = [{ jti: 'execute-1' }]
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'task_1' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:delete',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'execute-1',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/already been redeemed/i)
+    expect(executed).toBe(false)
+  })
+
+  it('fails closed for operation-execute forwarding envelopes without destructive safety', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    let executed = false
+    const definition = runtime.mutation({
+      args: {
+        id: v.string(),
+      },
+      trustedForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      handler: async () => {
+        executed = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'task_1' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:delete',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'execute-1',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/operation-execute envelopes require destructive safety redemption/i)
+    expect(executed).toBe(false)
+  })
+
   it('forwards internal builders when provided', () => {
     const builder = () => null as never
 

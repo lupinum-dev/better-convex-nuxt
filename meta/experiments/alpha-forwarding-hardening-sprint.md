@@ -71,19 +71,23 @@ Current state:
 - replay is required by the RFC only for `operation-execute` in alpha;
 - backend destructive operation execution already uses the destructive safety
   redemption table as the one-time confirmation redemption path;
+- protected handler setup now rejects `operation-execute` envelopes whose `jti`
+  is already present in the destructive safety redemption table before handler
+  execution;
 - a regression test now proves preview success is not an authorization grant:
   execute re-runs authorization before redeeming or running the handler.
 
 Remaining work:
 
-- wire envelope replay redemption to the existing destructive safety table at
-  Convex verification time. The transport side now signs `operation-execute`
-  envelopes with the confirmation token `jti` so the IDs already match.
+- harden the production store contract and diagnostics for missing tables or
+  indexes. The transport side now signs `operation-execute` envelopes with the
+  confirmation token `jti` so the IDs already match.
 
 Acceptance evidence:
 
-- first execute with a valid confirmation/envelope succeeds;
-- replaying the same execute fails;
+- first execute with a valid confirmation/envelope succeeds through the
+  destructive handler path;
+- replaying the same execute fails through the existing redemption table;
 - revoked permission between preview and execute fails before redemption.
 
 ### 3. Confirmation Binding Recheck

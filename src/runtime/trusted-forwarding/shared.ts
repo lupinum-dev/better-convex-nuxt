@@ -30,17 +30,26 @@ export type TrustedForwardingInput = {
 export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
   [trustedForwardingContextKey]?: TrustedForwardingIdentity | null
   [trustedForwardingPayloadContextKey]?: TrustedForwardingPayload | null
+  [trustedForwardingEnvelopeContextKey]?: TrustedForwardingEnvelopeState | null
 }
 
 export const trustedForwardingContextKey = Symbol('trellis.trustedForwarding')
 export const trustedForwardingPayloadContextKey = Symbol('trellis.trustedForwardingPayload')
+export const trustedForwardingEnvelopeContextKey = Symbol('trellis.trustedForwardingEnvelope')
 
 export type TrustedForwardingPayload = {
   principal?: unknown
   delegation?: unknown
 }
 
+export type TrustedForwardingEnvelopeState = {
+  jti: string
+  purpose: TrustedForwardingPurpose
+  functionRef: string
+}
+
 const envelopePayloadByArgs = new WeakMap<object, TrustedForwardingPayload>()
+const envelopeStateByArgs = new WeakMap<object, TrustedForwardingEnvelopeState>()
 
 export const trustedForwardingValidators = {
   _trellisForwarding: v.optional(v.string()),
@@ -359,6 +368,11 @@ export function extractTrustedForwardingFromArgs(
         principal: payload.principal,
         ...(payload.delegation !== undefined ? { delegation: payload.delegation } : {}),
       })
+      envelopeStateByArgs.set(args, {
+        jti: payload.jti,
+        purpose: payload.purpose,
+        functionRef: payload.functionRef,
+      })
 
       return {
         principalSubject,
@@ -425,6 +439,8 @@ export function createTrustedForwardingContextDelta(
       payload && (payload.principal !== undefined || payload.delegation !== undefined)
         ? payload
         : null,
+    [trustedForwardingEnvelopeContextKey]:
+      identity && isObject(args) ? (envelopeStateByArgs.get(args) ?? null) : null,
   }
 }
 
@@ -478,6 +494,18 @@ export function getTrustedForwardingPayload(value: unknown): TrustedForwardingPa
   return (
     (value[trustedForwardingPayloadContextKey] as TrustedForwardingPayload | null | undefined) ??
     null
+  )
+}
+
+export function getTrustedForwardingEnvelopeState(
+  value: unknown,
+): TrustedForwardingEnvelopeState | null {
+  if (!isTrustedForwardingContextCarrier(value)) return null
+  return (
+    (value[trustedForwardingEnvelopeContextKey] as
+      | TrustedForwardingEnvelopeState
+      | null
+      | undefined) ?? null
   )
 }
 

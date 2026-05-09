@@ -141,6 +141,10 @@ Backend destructive operation execution already uses the destructive safety
 redemption table as the first-party one-time confirmation redemption path. The
 alpha `operation-execute` forwarding path shares the confirmation token `jti`
 so forwarding replay and confirmation replay stay one source of truth.
+During Convex protected handler setup, `operation-execute` envelopes are checked
+against that redemption table before principal, actor, guard, load,
+authorization, or handler execution. The destructive operation handler remains
+the canonical place that redeems/inserts the `jti` during successful execution.
 
 If the chosen algorithm cannot meet the initial performance target, the RFC must
 record the measured cost and justify the tradeoff.

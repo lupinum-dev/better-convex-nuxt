@@ -1,15 +1,11 @@
-import {
-  customAction,
-  customMutation,
-  customQuery,
-  type Customization,
-} from 'convex-helpers/server/customFunctions'
+import type { Customization } from 'convex-helpers/server/customFunctions'
 import {
   type Rules,
   wrapDatabaseReader,
   wrapDatabaseWriter,
 } from 'convex-helpers/server/rowLevelSecurity'
 import type { Triggers } from 'convex-helpers/server/triggers'
+import { addFieldsToValidator } from 'convex-helpers/validators'
 import type {
   ActionBuilder,
   FunctionVisibility,
@@ -44,6 +40,7 @@ import {
 } from '../observability/index.js'
 import { getTrustedForwarding, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
 import {
+  getTrustedForwardingEnvelopeState,
   hasForwardedIdentityFields,
   stripForwardedIdentityFields,
   trustedForwardingValidators,
@@ -301,6 +298,15 @@ type TrustedForwardingCustomizationExtra = {
   trustedForwardingFunctionRef?: string
 }
 
+type DestructiveRedemptionReader<DataModel extends GenericDataModel> = {
+  query: (table: TableNamesInDataModel<DataModel>) => {
+    withIndex: (
+      indexName: string,
+      callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+    ) => { unique: () => Promise<unknown> }
+  }
+}
+
 type AppBuilders<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -423,6 +429,59 @@ function requireUnsafeBypass(definition: UnsafeDefinition | undefined, surface: 
 
 function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb {
   return (db as TDb & { [trellisUnsafeDbKey]: TDb })[trellisUnsafeDbKey]
+}
+
+async function assertNoOperationExecuteEnvelopeReplay<
+  DataModel extends GenericDataModel,
+  TCtx extends AnyCtx<DataModel>,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+>(
+  ctx: TCtx,
+  ctxWithTrustedForwarding: TCtx & Record<PropertyKey, unknown>,
+  options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor>,
+): Promise<void> {
+  const envelope = getTrustedForwardingEnvelopeState(ctxWithTrustedForwarding)
+  if (envelope?.purpose !== 'operation-execute') return
+
+  if (!options.destructiveSafety) {
+    throw deny(
+      'Trusted forwarding operation-execute envelopes require destructive safety redemption.',
+      {
+        source: 'trusted-forwarding',
+        category: 'auth',
+      },
+    )
+  }
+
+  const db = 'db' in ctx ? (ctx as { db?: unknown }).db : undefined
+  if (!db || typeof db !== 'object') {
+    throw deny('Trusted forwarding operation-execute replay checks require database access.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+
+  const unsafeDb =
+    getInternalUnsafeDb(db as object) ?? (db as DestructiveRedemptionReader<DataModel>)
+
+  let existingRedemption
+  try {
+    existingRedemption = await (unsafeDb as DestructiveRedemptionReader<DataModel>)
+      .query(options.destructiveSafety.redemptionTable)
+      .withIndex('by_jti', (q) => q.eq('jti', envelope.jti))
+      .unique()
+  } catch (error) {
+    throw toDestructiveSafetyError(error, envelope.functionRef, options.destructiveSafety)
+  }
+
+  if (existingRedemption) {
+    throw deny('Trusted forwarding operation-execute envelope has already been redeemed.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
 }
 
 function wrapUnsafeBuilder<TBuilder>(builder: TBuilder, label: string): TBuilder {
@@ -995,7 +1054,7 @@ function resolveActor<
   ) => Promise<TActor | null>
 }
 
-function createContextWithRuntime<
+async function createContextWithRuntime<
   DataModel extends GenericDataModel,
   TCtx extends AnyCtx<DataModel>,
   TPrincipal,
@@ -1015,7 +1074,7 @@ function createContextWithRuntime<
     delegation: TDelegation | null,
   ) => Promise<TActor | null>,
   extra?: TrustedForwardingCustomizationExtra,
-): RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor> {
+): Promise<RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor>> {
   const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
@@ -1025,6 +1084,7 @@ function createContextWithRuntime<
       ? { expectedFunctionRef: extra.trustedForwardingFunctionRef }
       : {}),
   })
+  await assertNoOperationExecuteEnvelopeReplay(ctx, ctxWithTrustedForwarding, options)
   const trustedForwarding = getTrustedForwarding(ctxWithTrustedForwarding)
   if (!trustedForwarding && hasForwardedIdentityFields(rawAppArgs)) {
     throw deny('Forwarded identity fields are only allowed on verified trusted forwarding paths.', {
@@ -1270,7 +1330,7 @@ function createQueryCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = createContextWithRuntime(
+      const { baseCtx } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1335,7 +1395,7 @@ function createMutationCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = createContextWithRuntime(
+      const { baseCtx } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1427,7 +1487,7 @@ function createActionCustomization<
   return {
     args: principalArgs,
     input: async (ctx, args, extra) => {
-      const { baseCtx } = createContextWithRuntime(
+      const { baseCtx } = await createContextWithRuntime(
         ctx,
         args,
         options,
@@ -1450,6 +1510,86 @@ function createActionCustomization<
       }
     },
   }
+}
+
+type CustomFunctionDefinition = {
+  args?: PropertyValidators
+  returns?: unknown
+  handler?: (ctx: unknown, args: Record<string, unknown>) => unknown
+  [key: string]: unknown
+}
+
+type CustomFunctionBuilder = (definition: CustomFunctionDefinition) => unknown
+
+function omitKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): Record<string, unknown> {
+  const omitted = new Set(keys)
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !omitted.has(key)))
+}
+
+function createFullArgsCustomBuilder<
+  TBuilder extends CustomFunctionBuilder,
+  TCtx,
+  TCustomCtx extends Record<string, unknown>,
+  TCustomArgs extends Record<string, unknown>,
+  TExtra extends Record<string, unknown>,
+>(
+  builder: TBuilder,
+  customization: Customization<TCtx, PropertyValidators, TCustomCtx, TCustomArgs, TExtra>,
+): TBuilder {
+  const inputArgs = customization.args ?? {}
+  const inputKeys = Object.keys(inputArgs)
+  const customInput =
+    customization.input ??
+    (async () => ({ ctx: {}, args: {} }) as { ctx: TCustomCtx; args: TCustomArgs })
+
+  return ((definition: CustomFunctionDefinition) => {
+    const { args, handler = definition as unknown, returns, ...extra } = definition
+    if (!args) {
+      if (inputKeys.length > 0) {
+        throw new Error(
+          'If you are using a custom function with arguments for the input customization, you must declare the arguments for the function too.',
+        )
+      }
+
+      return builder({
+        returns,
+        handler: async (ctx: unknown, rawArgs: Record<string, unknown>) => {
+          const added = await customInput(ctx as TCtx, rawArgs, extra as TExtra)
+          const finalCtx = { ...(ctx as Record<string, unknown>), ...added.ctx }
+          const finalArgs = { ...rawArgs, ...added.args }
+          const result = await (
+            handler as (ctx: unknown, args: Record<string, unknown>) => unknown
+          )(finalCtx, finalArgs)
+          if (added.onSuccess) {
+            await added.onSuccess({ ctx, args: rawArgs, result })
+          }
+          return result
+        },
+      })
+    }
+
+    return builder({
+      args: addFieldsToValidator(args, inputArgs),
+      returns,
+      handler: async (ctx: unknown, allArgs: Record<string, unknown>) => {
+        const added = await customInput(ctx as TCtx, allArgs, extra as TExtra)
+        const appArgs = omitKeys(allArgs, inputKeys)
+        const finalCtx = { ...(ctx as Record<string, unknown>), ...added.ctx }
+        const finalArgs = { ...appArgs, ...added.args }
+        const result = await (handler as (ctx: unknown, args: Record<string, unknown>) => unknown)(
+          finalCtx,
+          finalArgs,
+        )
+        if (added.onSuccess) {
+          await added.onSuccess({ ctx, args: appArgs, result })
+        }
+        return result
+      },
+    })
+  }) as TBuilder
 }
 
 function buildUnsafeFunctions<
@@ -1486,16 +1626,19 @@ function buildUnsafeFunctions<
   const mutationCustomization = createMutationCustomization(options)
   const actionCustomization = createActionCustomization(options)
 
-  const unsafeQuery = customQuery(builders.query, queryCustomization)
-  const unsafeMutation = customMutation(builders.mutation, mutationCustomization)
+  const unsafeQuery = createFullArgsCustomBuilder(builders.query as never, queryCustomization)
+  const unsafeMutation = createFullArgsCustomBuilder(
+    builders.mutation as never,
+    mutationCustomization,
+  )
   const unsafeAction = builders.action
-    ? customAction(builders.action, actionCustomization)
+    ? createFullArgsCustomBuilder(builders.action as never, actionCustomization)
     : undefined
   const unsafeInternalQuery = builders.internalQuery
-    ? customQuery(builders.internalQuery, queryCustomization)
+    ? createFullArgsCustomBuilder(builders.internalQuery as never, queryCustomization)
     : undefined
   const unsafeInternalMutation = builders.internalMutation
-    ? customMutation(builders.internalMutation, mutationCustomization)
+    ? createFullArgsCustomBuilder(builders.internalMutation as never, mutationCustomization)
     : undefined
 
   return {
