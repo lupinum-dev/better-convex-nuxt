@@ -14,9 +14,9 @@ import type { SchemaFieldMeta } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import { createServerConvexCaller } from '../server/index.js'
 import { extractSubject } from '../trusted-forwarding/shared.js'
-import { toConvexError } from '../utils/call-result.js'
-import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
+import type { ConvexToolOperation } from '../utils/types.js'
 import { convexToMcpZodFields } from './convex-to-mcp-zod.js'
+import { normalizeMcpError } from './error-normalization.js'
 import { checkToolRateLimit, parseWindowString } from './rate-limiter.js'
 import { withSummary, wrapError, wrapPreview, wrapSuccess } from './result-envelope.js'
 import type {
@@ -197,44 +197,6 @@ function normalizeToolArgs<S extends AnyConvexSchema>(
   return {
     clean: args as InferSchemaData<S>,
   }
-}
-
-function cleanErrorMessage(message: string): string {
-  let cleaned = message
-    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
-    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
-    .replace(/\n\s+at .+/g, '')
-    .trim()
-
-  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
-  if (uncaughtMatch) {
-    cleaned = uncaughtMatch[1]!.trim()
-  }
-
-  return cleaned || message
-}
-
-function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefined {
-  const lower = message.toLowerCase()
-  if (
-    lower.includes('unauthorized') ||
-    lower.includes('unauthenticated') ||
-    lower.includes('forbidden')
-  ) {
-    return 'auth'
-  }
-  if (lower.includes('not found')) return 'not_found'
-  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
-  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
-  if (
-    lower.includes('conflict') ||
-    lower.includes('changed in another session') ||
-    lower.includes('version mismatch') ||
-    lower.includes('stale')
-  ) {
-    return 'conflict'
-  }
-  return undefined
 }
 
 // ============================================================================
@@ -429,8 +391,8 @@ function createToolContext<TRole extends string>(
     actor,
     ...calls,
     ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
-    error: (category, message, issues, explanation, details) =>
-      wrapError(category, message, issues, explanation, details),
+    error: (category, message, issues, explanation, details, code) =>
+      wrapError(category, message, issues, explanation, details, code),
     preview: (preview) => wrapPreview(normalizePreview(preview)),
     blocked: (preview) =>
       wrapPreview({
@@ -627,13 +589,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
         return await runHandler(normalizedArgs, ctx)
       } catch (err) {
         console.error(`[${toolLabel}]`, err)
-        const convexError = toConvexError(err)
-        const message = cleanErrorMessage(convexError.message)
-        const category =
-          convexError.category !== 'unknown'
-            ? convexError.category
-            : (inferCategoryFromMessage(message) ?? 'unknown')
-        return wrapError(category, message, convexError.issues, undefined, convexError.details)
+        const normalizedError = normalizeMcpError(err)
+        return wrapError(normalizedError)
       }
     },
   )

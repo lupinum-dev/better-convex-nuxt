@@ -12,6 +12,7 @@ export type ToolConfirmationPayload = {
   principalKey: string
   tenantKey: string
   argsHash: string
+  argsFieldHashes?: Record<string, string>
   previewHash: string
   versionHash?: string
 }
@@ -74,6 +75,18 @@ export async function verifyConfirmationToken(token: string): Promise<ToolConfir
     principalKey: String(payload.principalKey),
     tenantKey: String(payload.tenantKey),
     argsHash: String(payload.argsHash),
+    ...(payload.argsFieldHashes &&
+    typeof payload.argsFieldHashes === 'object' &&
+    !Array.isArray(payload.argsFieldHashes)
+      ? {
+          argsFieldHashes: Object.fromEntries(
+            Object.entries(payload.argsFieldHashes).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[0] === 'string' && typeof entry[1] === 'string',
+            ),
+          ),
+        }
+      : {}),
     previewHash: String(payload.previewHash),
     ...(typeof payload.versionHash === 'string' ? { versionHash: payload.versionHash } : {}),
   }

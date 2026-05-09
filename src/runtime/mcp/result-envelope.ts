@@ -5,6 +5,15 @@ import type { SerializableValue, ValidateSerializable } from '../types/type-util
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
 import type { PreviewResult } from './types.js'
 
+export type NormalizedToolError = {
+  category: ConvexErrorCategory
+  message: string
+  issues?: ConvexErrorIssue[]
+  explanation?: TrellisDenialExplanation
+  details?: Record<string, unknown>
+  code?: string
+}
+
 const RETRYABLE_CATEGORIES: ReadonlySet<ConvexErrorCategory> = new Set([
   'auth',
   'validation',
@@ -125,23 +134,51 @@ export function wrapSuccess(value: unknown): CallToolResult {
 /**
  * Wrap an error into a structured CallToolResult with categorized envelope.
  */
+export function wrapError(error: NormalizedToolError): CallToolResult
 export function wrapError(
   category: ConvexErrorCategory,
   message: string,
   issues?: ConvexErrorIssue[],
   explanation?: TrellisDenialExplanation,
   details?: Record<string, unknown>,
+  code?: string,
+): CallToolResult
+export function wrapError(
+  categoryOrError: ConvexErrorCategory | NormalizedToolError,
+  messageInput?: string,
+  issuesInput?: ConvexErrorIssue[],
+  explanationInput?: TrellisDenialExplanation,
+  detailsInput?: Record<string, unknown>,
+  codeInput?: string,
 ): CallToolResult {
+  const normalized =
+    typeof categoryOrError === 'string'
+      ? {
+          category: categoryOrError,
+          message: messageInput ?? 'Unknown error',
+          issues: issuesInput,
+          explanation: explanationInput,
+          details: detailsInput,
+          code: codeInput,
+        }
+      : categoryOrError
+  const { category, message, issues, explanation, details, code } = normalized
+  const suggestedAction =
+    details && typeof details.suggestedAction === 'string'
+      ? details.suggestedAction
+      : explanation?.suggestedAction
   return {
     content: [{ type: 'text', text: message }],
     structuredContent: {
       ok: false,
       error: {
         category,
+        ...(code ? { code } : {}),
         message,
         retryable: isRetryable(category),
         ...(issues?.length ? { issues } : {}),
         ...(details ? { details } : {}),
+        ...(suggestedAction ? { suggestedAction } : {}),
         ...(explanation ? { explanation } : {}),
       },
     },

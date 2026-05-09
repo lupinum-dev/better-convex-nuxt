@@ -772,6 +772,80 @@ describe('Destructive confirmation payload validation', () => {
     })
   })
 
+  it('reports changed top-level args when destructive confirmation drifts', async () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+        message: v.optional(v.string()),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.fromOperation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+    })
+
+    const previewResult = (await tool.handler(
+      { id: 'post-1', message: 'first' } as never,
+      {} as never,
+    )) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+
+    const confirmed = await tool.handler(
+      {
+        id: 'post-1',
+        message: 'changed',
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      } as never,
+      {} as never,
+    )
+
+    expect(confirmed).toMatchObject({
+      structuredContent: {
+        ok: false,
+        error: {
+          category: 'conflict',
+          code: 'CONFIRMATION_ARGS_MISMATCH',
+          details: {
+            changedKeys: ['message'],
+            retryWithPreview: true,
+          },
+        },
+      },
+    })
+  })
+
   it('can keep confirmation token out of transport-confirmed bridge mutations', async () => {
     let executedArgs: Record<string, unknown> | null = null
 

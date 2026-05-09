@@ -25,7 +25,10 @@ describe('wrapSuccess', () => {
       data: { id: 'abc', title: 'Hello' },
     })
     expect(result.content).toEqual([
-      { type: 'text', text: '[structured output omitted from model text channel]' },
+      {
+        type: 'text',
+        text: '[structured output omitted from model text channel]',
+      },
     ])
     expect(result.isError).toBeUndefined()
   })
@@ -51,8 +54,14 @@ describe('wrapSuccess', () => {
 
   it('wraps primitive values', () => {
     expect(wrapSuccess(42).structuredContent).toEqual({ ok: true, data: 42 })
-    expect(wrapSuccess('hello').structuredContent).toEqual({ ok: true, data: 'hello' })
-    expect(wrapSuccess(null).structuredContent).toEqual({ ok: true, data: null })
+    expect(wrapSuccess('hello').structuredContent).toEqual({
+      ok: true,
+      data: 'hello',
+    })
+    expect(wrapSuccess(null).structuredContent).toEqual({
+      ok: true,
+      data: null,
+    })
   })
 
   it('wraps undefined safely', () => {
@@ -125,6 +134,41 @@ describe('wrapError', () => {
     ])
   })
 
+  it('includes stable error codes, details, and suggested actions', () => {
+    const result = wrapError(
+      'validation',
+      'Backup required',
+      undefined,
+      undefined,
+      { suggestedAction: 'export-backup', entryId: 'entry-1' },
+      'BACKUP_REQUIRED',
+    )
+
+    expect(getErrorResult(result).error).toMatchObject({
+      category: 'validation',
+      code: 'BACKUP_REQUIRED',
+      message: 'Backup required',
+      suggestedAction: 'export-backup',
+      details: { suggestedAction: 'export-backup', entryId: 'entry-1' },
+    })
+  })
+
+  it('wraps already-normalized error objects', () => {
+    const result = wrapError({
+      category: 'validation',
+      code: 'UNSUPPORTED_LOCALE',
+      message: 'Locale "fr" is not supported.',
+      details: { locale: 'fr', supportedLocales: ['en', 'de'] },
+    })
+
+    expect(getErrorResult(result).error).toMatchObject({
+      category: 'validation',
+      code: 'UNSUPPORTED_LOCALE',
+      message: 'Locale "fr" is not supported.',
+      details: { locale: 'fr', supportedLocales: ['en', 'de'] },
+    })
+  })
+
   it('includes structured explanation payloads when provided', () => {
     const result = wrapError('auth', 'Authentication required', undefined, {
       reasonCode: 'guard.auth_required',
@@ -174,6 +218,8 @@ describe('wrapPreview', () => {
         affects: { posts: 1 },
       },
       awaitingConfirmation: true,
+      executed: false,
+      requiresConfirmation: true,
     })
     expect(result.content).toEqual([{ type: 'text', text: 'Will delete "My Post"' }])
     expect(result.isError).toBeUndefined()

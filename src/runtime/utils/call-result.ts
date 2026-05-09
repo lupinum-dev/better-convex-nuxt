@@ -103,8 +103,18 @@ export function categorizeError(code?: string, status?: number): ConvexErrorCate
     const upper = code.toUpperCase()
     if (upper.includes('UNAUTH') || upper === 'FORBIDDEN') return 'auth'
     if (upper.startsWith('LIMIT_')) return 'rate_limit'
-    if (upper === 'NOT_FOUND') return 'not_found'
-    if (upper === 'VALIDATION' || upper === 'INVALID_ARGS') return 'validation'
+    if (upper === 'NOT_FOUND' || upper.includes('NOT_FOUND')) return 'not_found'
+    if (
+      upper === 'VALIDATION' ||
+      upper === 'INVALID_ARGS' ||
+      upper.includes('INVALID') ||
+      upper.includes('UNSUPPORTED') ||
+      upper.includes('REQUIRED') ||
+      upper.includes('MIME') ||
+      upper.includes('NOT_ALLOWED')
+    ) {
+      return 'validation'
+    }
     if (
       upper === 'CONFLICT' ||
       upper.includes('CONFLICT') ||
@@ -125,6 +135,29 @@ export function categorizeError(code?: string, status?: number): ConvexErrorCate
     if (status >= 500) return 'server'
   }
   return 'unknown'
+}
+
+function categorizeMessage(message: string): ConvexErrorCategory | undefined {
+  const lower = message.toLowerCase()
+  if (
+    lower.includes('unauthorized') ||
+    lower.includes('unauthenticated') ||
+    lower.includes('forbidden')
+  ) {
+    return 'auth'
+  }
+  if (lower.includes('not found')) return 'not_found'
+  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
+  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
+  if (
+    lower.includes('conflict') ||
+    lower.includes('changed in another session') ||
+    lower.includes('version mismatch') ||
+    lower.includes('stale')
+  ) {
+    return 'conflict'
+  }
+  return undefined
 }
 
 // ============================================================================
@@ -171,6 +204,27 @@ function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+function parseJsonObjectText(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  try {
+    const parsed = JSON.parse(trimmed)
+    return asRecord(parsed)
+  } catch {
+    return null
+  }
+}
+
+function extractStructuredDataFromMessage(message: string): Record<string, unknown> | null {
+  for (let start = message.indexOf('{'); start >= 0; start = message.indexOf('{', start + 1)) {
+    for (let end = message.lastIndexOf('}'); end > start; end = message.lastIndexOf('}', end - 1)) {
+      const parsed = parseJsonObjectText(message.slice(start, end + 1))
+      if (parsed) return parsed
+    }
+  }
+  return null
+}
+
 function getErrorInit(
   record: Record<string, unknown>,
 ): Omit<ConstructorParameters<typeof ConvexCallError>[1] & object, 'cause' | 'code' | 'status'> {
@@ -183,7 +237,10 @@ function getErrorInit(
   }
 }
 
-function parseMessageForCode(message: string): { message: string; code?: string } {
+function parseMessageForCode(message: string): {
+  message: string
+  code?: string
+} {
   const markerIndex = message.indexOf(LIMIT_ERROR_MARKER)
   if (markerIndex < 0) return { message }
 
@@ -198,6 +255,21 @@ function parseMessageForCode(message: string): { message: string; code?: string 
   if (!normalizedMessage) return { message, code }
 
   return { message: normalizedMessage, code }
+}
+
+function cleanServerFramedMessage(message: string): string {
+  let cleaned = message
+    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
+    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
+    .replace(/\n\s+at .+/g, '')
+    .trim()
+
+  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
+  if (uncaughtMatch) {
+    cleaned = uncaughtMatch[1]!.trim()
+  }
+
+  return cleaned || message
 }
 
 function extractIssues(data: Record<string, unknown>): ConvexErrorIssue[] | undefined {
@@ -269,12 +341,26 @@ export function toConvexError(error: unknown): ConvexCallError {
       }
     }
     const message = asString(record.message) ?? fallbackMessage
-    const parsed = parseMessageForCode(message)
+    const structuredMessage = extractStructuredDataFromMessage(message)
+    if (structuredMessage) {
+      const fromMessage = fromStructuredData(structuredMessage)
+      if (fromMessage) {
+        return new ConvexCallError(fromMessage.message, {
+          ...init,
+          code: fromMessage.code,
+          status: fromMessage.status ?? asNumber(record.status),
+          issues: fromMessage.issues,
+          details: fromMessage.details,
+          cause: record,
+        })
+      }
+    }
+    const parsed = parseMessageForCode(cleanServerFramedMessage(message))
     return new ConvexCallError(parsed.message, {
       ...init,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
-      category: isNetworkError(error) ? 'network' : undefined,
+      category: isNetworkError(error) ? 'network' : categorizeMessage(parsed.message),
       cause: record,
     })
   }
@@ -297,20 +383,35 @@ export function toConvexError(error: unknown): ConvexCallError {
       }
     }
     const message = asString(record.message) ?? fallbackMessage
-    const parsed = parseMessageForCode(message)
+    const structuredMessage = extractStructuredDataFromMessage(message)
+    if (structuredMessage) {
+      const fromMessage = fromStructuredData(structuredMessage)
+      if (fromMessage) {
+        return new ConvexCallError(fromMessage.message, {
+          ...init,
+          code: fromMessage.code,
+          status: fromMessage.status ?? asNumber(record.status),
+          issues: fromMessage.issues,
+          details: fromMessage.details,
+          cause: error,
+        })
+      }
+    }
+    const parsed = parseMessageForCode(cleanServerFramedMessage(message))
     return new ConvexCallError(parsed.message, {
       ...init,
       code: asString(record.code) ?? parsed.code,
       status: asNumber(record.status),
+      category: categorizeMessage(parsed.message),
       cause: error,
     })
   }
 
   const message = typeof error === 'string' && error.length > 0 ? error : fallbackMessage
-  const parsed = parseMessageForCode(message)
+  const parsed = parseMessageForCode(cleanServerFramedMessage(message))
   return new ConvexCallError(parsed.message, {
     code: parsed.code,
-    category: isNetworkError(error) ? 'network' : undefined,
+    category: isNetworkError(error) ? 'network' : categorizeMessage(parsed.message),
     cause: error,
   })
 }

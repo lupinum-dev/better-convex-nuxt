@@ -203,6 +203,22 @@ describe('toConvexError category and issues', () => {
     ])
   })
 
+  it('extracts structured ConvexError JSON from server-framed messages', () => {
+    const error = toConvexError(
+      new Error(
+        '[Request ID: abc] Server Error\nUncaught ConvexError: {"code":"ASSET_MIME_NOT_ALLOWED","message":"Unsupported asset MIME type: image/svg+xml.","details":{"mimeType":"image/svg+xml","allowedMimeTypes":["image/png"]}}\n    at handler (server.js:1:1)',
+      ),
+    )
+
+    expect(error.message).toBe('Unsupported asset MIME type: image/svg+xml.')
+    expect(error.code).toBe('ASSET_MIME_NOT_ALLOWED')
+    expect(error.category).toBe('validation')
+    expect(error.details).toEqual({
+      mimeType: 'image/svg+xml',
+      allowedMimeTypes: ['image/png'],
+    })
+  })
+
   it('extracts issues from errors array', () => {
     const error = toConvexError({
       data: {

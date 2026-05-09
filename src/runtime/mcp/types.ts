@@ -58,6 +58,7 @@ export interface ConvexToolErrorResult {
   ok: false
   error: {
     category: ConvexErrorCategory
+    code?: string
     message: string
     retryable: boolean
     issues?: ConvexErrorIssue[]
@@ -124,6 +125,7 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
     issues?: ConvexErrorIssue[],
     explanation?: TrellisDenialExplanation,
     details?: Record<string, unknown>,
+    code?: string,
   ) => McpToolCallbackResult
   preview: (preview: string | PreviewResult) => McpToolCallbackResult
   blocked: (preview: string | PreviewResult) => McpToolCallbackResult

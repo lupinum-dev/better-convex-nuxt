@@ -37,16 +37,24 @@ import {
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
-import { toConvexError } from '../utils/call-result.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
-import {
-  hashConfirmationValue,
-  signConfirmationToken,
-  verifyConfirmationToken,
-  type ToolConfirmationPayload,
-} from './confirmation-token.js'
+import { hashConfirmationValue } from './confirmation-token.js'
 import { defineTool } from './define-convex-tool.js'
+import {
+  assertProductionConfirmationStore,
+  createMemoryConfirmationStore,
+  hashArgsForDiagnostics,
+  hashPreviewVersion,
+  replayedConfirmationFailure,
+  signDestructivePreviewToken,
+  validateDestructivePreviewState,
+  verifyDestructiveConfirmationToken,
+  type DestructiveConfirmationFailure,
+  type McpConfirmationStore,
+} from './destructive-confirmation.js'
+import { normalizeMcpError } from './error-normalization.js'
+import { markDestructiveExecuted } from './mcp-tool-result.js'
 import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
 import { checkToolRateLimit, parseWindowString, type McpRateLimitStore } from './rate-limiter.js'
 import type {
@@ -57,6 +65,11 @@ import type {
 } from './types.js'
 
 type MaybePromise<T> = T | Promise<T>
+
+export type {
+  McpConfirmationRedemptionInput,
+  McpConfirmationStore,
+} from './destructive-confirmation.js'
 
 type AnyQueryRef = AnyQueryFunction
 type AnyMutationRef = AnyMutationFunction
@@ -79,74 +92,9 @@ export interface McpConvexCaller {
 
 type ProjectionCapabilitySnapshot = Record<string, boolean>
 
-function cleanMcpErrorMessage(message: string): string {
-  let cleaned = message
-    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
-    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
-    .replace(/\n\s+at .+/g, '')
-    .trim()
-
-  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
-  if (uncaughtMatch) {
-    cleaned = uncaughtMatch[1]!.trim()
-  }
-
-  return cleaned || message
-}
-
-function inferMcpErrorCategory(message: string): ConvexErrorCategory | undefined {
-  const lower = message.toLowerCase()
-  if (
-    lower.includes('unauthorized') ||
-    lower.includes('unauthenticated') ||
-    lower.includes('forbidden')
-  ) {
-    return 'auth'
-  }
-  if (lower.includes('not found')) return 'not_found'
-  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
-  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
-  if (
-    lower.includes('conflict') ||
-    lower.includes('changed in another session') ||
-    lower.includes('version mismatch') ||
-    lower.includes('stale')
-  ) {
-    return 'conflict'
-  }
-  return undefined
-}
-
-function markDestructiveExecuted(
-  result: unknown,
-  wrapRaw: (value: unknown) => unknown = (value) => value,
-): unknown {
-  if (!result || typeof result !== 'object' || !('structuredContent' in result)) {
-    const wrapped = wrapRaw(result)
-    if (wrapped && typeof wrapped === 'object' && 'structuredContent' in wrapped) {
-      return markDestructiveExecuted(wrapped)
-    }
-    return wrapped
-  }
-  const toolResult = result as {
-    structuredContent?: unknown
-  }
-  const structuredContent = toolResult.structuredContent
-  if (!structuredContent || typeof structuredContent !== 'object') {
-    return result
-  }
-  const envelope = structuredContent as Record<string, unknown>
-  if (envelope.ok !== true || 'preview' in envelope || envelope.executed === true) {
-    return result
-  }
-  return {
-    ...(result as Record<string, unknown>),
-    structuredContent: {
-      ...envelope,
-      executed: true,
-    },
-  }
-}
+// Architecture: this file wires MCP app execution. Error parsing, destructive
+// confirmation, and result envelope semantics live in focused MCP runtime
+// modules so app orchestration does not become a second source of truth.
 
 type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilities, TRuntime> = {
   event: H3Event
@@ -196,33 +144,6 @@ export interface DefineMcpAppOptions<
   observability?: TrellisObservabilityOptions
 }
 
-export type McpConfirmationRedemptionInput = {
-  payload: ToolConfirmationPayload
-  operationId: string
-  principalKey: string
-  tenantKey: string
-  argsHash: string
-  previewHash: string
-  executePath: string
-  previewPath: string
-}
-
-export interface McpConfirmationStore {
-  redeem(input: McpConfirmationRedemptionInput): MaybePromise<'redeemed' | 'replayed'>
-}
-
-function createMemoryConfirmationStore(): McpConfirmationStore {
-  const redeemed = new Set<string>()
-  return {
-    redeem(input) {
-      const key = `${input.tenantKey}:${input.principalKey}:${input.operationId}:${input.payload.jti}`
-      if (redeemed.has(key)) return 'replayed'
-      redeemed.add(key)
-      return 'redeemed'
-    },
-  }
-}
-
 type CapabilityKey<TCapabilities> =
   TCapabilities extends Record<string, boolean>
     ? string extends keyof TCapabilities
@@ -250,30 +171,6 @@ function assertProductionRateLimitStore(
   )
 }
 
-function assertProductionConfirmationStore(options: {
-  toolName: string
-  destructive: boolean
-  confirmationMode: McpDestructiveConfirmationMode
-  hasExplicitConfirmationStore: boolean
-}): void {
-  if (
-    process.env.NODE_ENV !== 'production' ||
-    !options.destructive ||
-    options.confirmationMode !== 'transport' ||
-    options.hasExplicitConfirmationStore
-  ) {
-    return
-  }
-
-  throw new Error(
-    `${options.toolName}: production destructive MCP tools with confirmationMode: "transport" require an explicit distributed confirmationStore.`,
-  )
-}
-
-async function hashPreviewVersion(version: SerializableValue | undefined): Promise<string | null> {
-  return version === undefined ? null : await hashConfirmationValue(version)
-}
-
 export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
@@ -296,7 +193,10 @@ export interface ToolOptions<
   meta?: ProjectToolMeta
   rateLimit?: { max: number; window: string }
   rateLimitStore?: McpRateLimitStore
-  maxItems?: { field: keyof import('./types.js').InferSchemaData<S> & string; limit: number }
+  maxItems?: {
+    field: keyof import('./types.js').InferSchemaData<S> & string
+    limit: number
+  }
   middleware?: ConvexToolMiddleware<S>
   mapResult?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
@@ -325,6 +225,7 @@ export interface ToolOptions<
       issues?: import('../utils/types.js').ConvexErrorIssue[],
       explanation?: import('../observability/index.js').TrellisDenialExplanation,
       details?: Record<string, unknown>,
+      code?: string,
     ) => unknown
   }) => unknown
   outputSchema?: ZodRawShape
@@ -617,7 +518,10 @@ export function defineMcpApp<
               convex: preDelegationConvex,
             })
           : null
-        const convex = await options.callConvex(event, { principal, delegation })
+        const convex = await options.callConvex(event, {
+          principal,
+          delegation,
+        })
         const capabilities = options.resolveCapabilities
           ? await options.resolveCapabilities({
               event,
@@ -837,8 +741,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
-              error: (code, message, issues, explanation, details) =>
-                ctx.error(code, message, issues, explanation, details),
+              error: (category, message, issues, explanation, details, code) =>
+                ctx.error(category, message, issues, explanation, details, code),
             })
             await projectionCtx.observe({
               name: 'tool.executed',
@@ -877,25 +781,32 @@ export function defineMcpApp<
           projectionCtx.wideSummary.emit({ status: 'success' })
           return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
         } catch (error) {
+          const normalizedError = normalizeMcpError(error)
+          const errorDetails = {
+            category: normalizedError.category,
+            message: normalizedError.message,
+            ...(normalizedError.code ? { code: normalizedError.code } : {}),
+          }
           await projectionCtx.observe({
             name: 'tool.failed',
             status: 'error',
             transport: 'mcp',
             tool: tool.meta?.name ?? 'project-tool',
             reasonCode: 'tool.execution_failed',
-            details: error instanceof Error ? { message: error.message } : undefined,
+            details: errorDetails,
           })
           projectionCtx.wideSummary.emit({
             status: 'error',
-            details: error instanceof Error ? { message: error.message } : undefined,
+            details: errorDetails,
           })
-          const convexError = toConvexError(error)
-          const message = cleanMcpErrorMessage(convexError.message)
-          const category =
-            convexError.category !== 'unknown'
-              ? convexError.category
-              : (inferMcpErrorCategory(message) ?? 'unknown')
-          return ctx.error(category, message, convexError.issues, undefined, convexError.details)
+          return ctx.error(
+            normalizedError.category,
+            normalizedError.message,
+            normalizedError.issues,
+            undefined,
+            normalizedError.details,
+            normalizedError.code,
+          )
         }
       },
     })
@@ -1113,6 +1024,16 @@ export function defineMcpApp<
         const principalKey = principalKeyResolver(projectionCtx.principal)
         const tenantKey = defaultTenantKey(projectionCtx.principal)
         const argsHash = await hashConfirmationValue(executeArgs)
+        const argsFieldHashes = await hashArgsForDiagnostics(executeArgs)
+        const confirmationBinding = {
+          operationId: metadata.id,
+          executePath,
+          previewPath,
+          principalKey,
+          tenantKey,
+          argsHash,
+          argsFieldHashes,
+        }
         projectionCtx.wideSummary.set({
           tool: options.meta?.name ?? metadata.name ?? metadata.id,
           operation: metadata.id,
@@ -1134,8 +1055,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
-              error: (code, message, issues, explanation, details) =>
-                ctx.error(code, message, issues, explanation, details),
+              error: (category, message, issues, explanation, details, code) =>
+                ctx.error(category, message, issues, explanation, details, code),
             })
           }
 
@@ -1185,6 +1106,29 @@ export function defineMcpApp<
           return previewResult
         }
 
+        const returnConfirmationFailure = async (failure: DestructiveConfirmationFailure) => {
+          await projectionCtx.observe({
+            name: 'operation.confirm.drifted',
+            status: 'deny',
+            transport: 'mcp',
+            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            reasonCode: 'tool.confirmation_mismatch',
+            details: {
+              ...failure.details,
+              explanation: failure.explanation,
+            },
+          })
+          return ctx.error(
+            failure.category,
+            failure.message,
+            undefined,
+            failure.explanation,
+            failure.details,
+            failure.code,
+          )
+        }
+
         if (isDestructive) {
           if (!options.preview) {
             return ctx.error('server', 'Destructive operation is missing a preview ref.')
@@ -1223,17 +1167,10 @@ export function defineMcpApp<
               return ctx.blocked(display)
             }
 
-            const signedToken = await signConfirmationToken({
-              v: 1,
-              operationId,
-              executePath,
-              previewPath,
-              jti: crypto.randomUUID(),
-              principalKey,
-              tenantKey,
-              argsHash,
+            const signedToken = await signDestructivePreviewToken({
+              binding: confirmationBinding,
               previewHash,
-              ...(versionHash ? { versionHash } : {}),
+              versionHash,
             })
 
             await projectionCtx.observe({
@@ -1253,61 +1190,14 @@ export function defineMcpApp<
             })
           }
 
-          let payload
-          try {
-            payload = await verifyConfirmationToken(confirmationToken)
-          } catch {
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Confirmation token is invalid or expired.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'confirmation_required',
-              'Invalid or expired confirmation token. Preview again before executing.',
-              undefined,
-              explanation,
-            )
+          const confirmation = await verifyDestructiveConfirmationToken(
+            confirmationToken,
+            confirmationBinding,
+          )
+          if (!confirmation.ok) {
+            return await returnConfirmationFailure(confirmation.failure)
           }
-
-          if (
-            payload.operationId !== metadata.id ||
-            payload.executePath !== executePath ||
-            payload.previewPath !== previewPath ||
-            payload.principalKey !== principalKey ||
-            payload.tenantKey !== tenantKey ||
-            payload.argsHash !== argsHash
-          ) {
-            await projectionCtx.observe({
-              name: 'operation.confirm.drifted',
-              status: 'deny',
-              transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
-              reasonCode: 'tool.confirmation_mismatch',
-              details: {
-                explanation: createDenialExplanation({
-                  reasonCode: 'tool.confirmation_mismatch',
-                  decision: 'destructive_confirm',
-                  message: 'Confirmation token no longer matches the previewed destructive state.',
-                  suggestedAction: 'retry_with_confirmation',
-                }),
-              },
-            })
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Confirmation token no longer matches the previewed destructive state.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Confirmation token no longer matches this destructive request. Repeat the same arguments byte-for-byte with the returned token, or preview again before executing.',
-              undefined,
-              explanation,
-            )
-          }
+          const payload = confirmation.payload
 
           const previewResult = await callByOperation(
             projectionCtx.convex,
@@ -1320,84 +1210,17 @@ export function defineMcpApp<
 
           const previewPayload = normalizeOperationPreview(previewResult)
           const display = normalizePreviewDisplay(previewPayload.display)
-          if (display.blocked) {
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Previewed state is now blocked and can no longer be executed.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Previewed state is blocked and can no longer be executed. Preview again before executing.',
-              undefined,
-              explanation,
-            )
-          }
 
           const previewHash = await hashConfirmationValue(previewPayload.confirm)
-          if (payload.previewHash !== previewHash) {
-            await projectionCtx.observe({
-              name: 'operation.confirm.drifted',
-              status: 'deny',
-              transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
-              reasonCode: 'tool.confirmation_mismatch',
-              details: {
-                explanation: createDenialExplanation({
-                  reasonCode: 'tool.confirmation_mismatch',
-                  decision: 'destructive_confirm',
-                  message: 'Previewed state changed before confirmation completed.',
-                  suggestedAction: 'retry_with_confirmation',
-                }),
-              },
-            })
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Previewed state changed before confirmation completed.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Previewed state changed before confirmation. Preview again before executing.',
-              undefined,
-              explanation,
-            )
-          }
-
-          if (
-            (payload.versionHash ?? null) !== (await hashPreviewVersion(previewPayload.version))
-          ) {
-            await projectionCtx.observe({
-              name: 'operation.confirm.drifted',
-              status: 'deny',
-              transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
-              reasonCode: 'tool.confirmation_mismatch',
-              details: {
-                explanation: createDenialExplanation({
-                  reasonCode: 'tool.confirmation_mismatch',
-                  decision: 'destructive_confirm',
-                  message: 'Preview version changed before confirmation completed.',
-                  suggestedAction: 'retry_with_confirmation',
-                }),
-              },
-            })
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Preview version changed before confirmation completed.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Preview version changed before confirmation. Preview again before executing.',
-              undefined,
-              explanation,
-            )
+          const versionHash = await hashPreviewVersion(previewPayload.version)
+          const previewFailure = validateDestructivePreviewState({
+            payload,
+            blocked: display.blocked === true,
+            previewHash,
+            versionHash,
+          })
+          if (previewFailure) {
+            return await returnConfirmationFailure(previewFailure)
           }
 
           await projectionCtx.observe({
@@ -1419,18 +1242,7 @@ export function defineMcpApp<
             previewPath,
           })
           if (redemption === 'replayed') {
-            const explanation = createDenialExplanation({
-              reasonCode: 'tool.confirmation_mismatch',
-              decision: 'destructive_confirm',
-              message: 'Confirmation token has already been redeemed.',
-              suggestedAction: 'retry_with_confirmation',
-            })
-            return ctx.error(
-              'conflict',
-              'Confirmation token has already been redeemed. Preview again before executing.',
-              undefined,
-              explanation,
-            )
+            return await returnConfirmationFailure(replayedConfirmationFailure())
           }
         }
 
@@ -1459,6 +1271,12 @@ export function defineMcpApp<
             ? markDestructiveExecuted(finalized, (value) => ctx.ok(value as SerializableValue))
             : finalized
         } catch (error) {
+          const normalizedError = normalizeMcpError(error)
+          const errorDetails = {
+            category: normalizedError.category,
+            message: normalizedError.message,
+            ...(normalizedError.code ? { code: normalizedError.code } : {}),
+          }
           await projectionCtx.observe({
             name: 'tool.failed',
             status: 'error',
@@ -1466,19 +1284,20 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? metadata.id,
             operation: metadata.id,
             reasonCode: 'tool.execution_failed',
-            details: error instanceof Error ? { message: error.message } : undefined,
+            details: errorDetails,
           })
           projectionCtx.wideSummary.emit({
             status: 'error',
-            details: error instanceof Error ? { message: error.message } : undefined,
+            details: errorDetails,
           })
-          const convexError = toConvexError(error)
-          const message = cleanMcpErrorMessage(convexError.message)
-          const category =
-            convexError.category !== 'unknown'
-              ? convexError.category
-              : (inferMcpErrorCategory(message) ?? 'unknown')
-          return ctx.error(category, message, convexError.issues, undefined, convexError.details)
+          return ctx.error(
+            normalizedError.category,
+            normalizedError.message,
+            normalizedError.issues,
+            undefined,
+            normalizedError.details,
+            normalizedError.code,
+          )
         }
       },
     })
