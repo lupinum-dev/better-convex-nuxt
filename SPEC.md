@@ -1,0 +1,1833 @@
+# Trellis Next Major Spec
+
+Status: discussion draft
+Target: Trellis 1.0 / next major
+Date: 2026-05-09
+
+This document describes the desired next-major shape of Trellis. It is not a
+current implementation document. The goal is to give the team a concrete target
+for discussion before choosing follow-up refactors.
+
+The important premise is simple: Trellis should remain an opinionated framework
+for serious Nuxt + Convex apps. It should not become a generic utility library.
+The refactor target is not smaller ambition. The target is a smaller, calmer
+surface around the same security model.
+
+## Executive Summary
+
+Trellis next major should be the safest and fastest way to build workspace-style
+Nuxt + Convex apps with first-class agent support.
+
+The current architecture has the right spine:
+
+```text
+principal -> actor -> guard -> load -> authorize -> handler
+```
+
+That spine stays.
+
+MCP stays a projection of the same backend model, not a second backend.
+Destructive agent-facing work stays operation-backed with preview, confirmation,
+drift detection, replay protection, and audit.
+
+The next major changes the shape around that spine:
+
+- Move component bridge out of core into a packaged-integration package.
+- Make Ginko CMS the reference user of that bridge package, not an exception.
+- Collapse the visible product into progressive layers: Core, Auth, Workspace,
+  Agent/MCP, Platform Integrations.
+- Simplify public imports and authoring APIs.
+- Replace identity-in-args and long-lived shared forwarding secrets with a
+  signed, short-lived forwarding envelope.
+- Make operations the canonical unit for cross-surface business work.
+- Make `trellis doctor` an adoption and security dashboard.
+- Replace string-template sprawl with tested fixture apps plus codemods.
+- Add `trellis upgrade` and `trellis explain`.
+- Keep semantic observability, but move delivery implementation out of core.
+- Harden generated workspace MCP so key -> principal -> actor -> permission ->
+  tool execution is proven end to end.
+
+The desired result:
+
+```text
+Create app.
+Add feature.
+Protect handler.
+Expose operation to MCP.
+Run doctor.
+```
+
+Advanced machinery exists, but it appears only when the app crosses the
+boundary that needs it.
+
+## Design Principles
+
+### Keep The One Backend Model
+
+Browser UI, Nitro routes, webhooks, component package bridges, and MCP tools
+must share the same backend authorization model.
+
+Transport-specific code may authenticate and shape a request. It must not own
+domain authorization.
+
+### One Source Of Truth Per Concept
+
+Every important concept must have one owner.
+
+- Handlers own behavior.
+- Operations own cross-surface business actions.
+- Feature manifests own inventory.
+- Backend permissions own authorization truth.
+- UI `_can` data owns only projection.
+- MCP tools own transport projection, not policy.
+- Bridge manifests own package integration files, not app behavior.
+- Observability events own decision explanation, not identity.
+
+Derived data is allowed only when it is rebuildable from the canonical source
+and covered by drift tests.
+
+### Make The Safe Path Shortest
+
+The safe path must be shorter than the unsafe path.
+
+Common app code should not require bridge concepts, transport confirmations,
+observability internals, generic MCP handlers, or low-level forwarding fields.
+
+Unsafe and advanced paths should be explicit, narrow, named, and checkable.
+
+### Prefer Hard Cutovers
+
+This is a next-major spec. Do not preserve old and new public paths side by
+side unless the team explicitly chooses a migration compatibility window.
+
+The preferred shape is:
+
+1. Build the new path.
+2. Port maintained examples and Ginko CMS.
+3. Add codemods where useful.
+4. Delete the old path.
+
+### MCP Is A Serious Boundary
+
+MCP support does not mean "tool wrapper".
+
+MCP-ready means:
+
+- authenticated or explicitly public tools;
+- capability-aware discovery;
+- backend-owned permission checks;
+- tenant enforcement in Convex;
+- trusted forwarding over a verified boundary;
+- result envelopes that separate structured data from model-facing text;
+- rate limiting at ingress;
+- semantic observability;
+- destructive operations through preview/confirm/execute.
+
+## Non-Goals
+
+Trellis next major should not become:
+
+- stack-neutral;
+- backend-neutral;
+- auth-provider-neutral by default;
+- a generic MCP SDK;
+- a UI component library;
+- a plugin ecosystem where the core bends around arbitrary integrations;
+- a hidden DSL that makes auth, tenant, or destructive behavior hard to inspect.
+
+Nuxt + Convex + Better Auth + TypeScript + MCP remains the lane.
+
+## Product Layers
+
+The next major should present Trellis as layers. These layers can map to npm
+packages, docs sections, CLI modes, and examples. They must be visible even if
+some packages remain bundled for release practicality.
+
+### Layer 1: Trellis Core
+
+Purpose: make Nuxt + Convex app development boring.
+
+Includes:
+
+- Nuxt module.
+- Convex URL and site URL wiring.
+- SSR/live query composables.
+- mutation/action composables.
+- upload helpers.
+- server Convex callers.
+- `defineArgs`.
+- minimal testing helpers.
+- core `doctor` setup checks.
+
+Does not require:
+
+- Better Auth;
+- workspaces;
+- tenant isolation;
+- MCP;
+- component bridges;
+- feature manifests for simple public apps.
+
+Core should be useful for public and simple authenticated apps without making
+users learn the full platform.
+
+### Layer 2: Trellis Auth
+
+Purpose: make identity explicit and reusable.
+
+Includes:
+
+- Better Auth integration.
+- auth proxy and route safety.
+- principal resolution.
+- actor resolution.
+- auth composables and auth state.
+- protected handler pipeline.
+- fail-closed auth wiring.
+
+The protected handler pipeline belongs here:
+
+```text
+principal -> actor -> guard -> load -> authorize -> handler
+```
+
+### Layer 3: Trellis Workspace
+
+Purpose: make roles, permissions, and tenancy reviewable.
+
+Includes:
+
+- guards and permission definitions;
+- permission projection;
+- `_can` projection helpers;
+- tenant isolation wrappers;
+- typed unsafe permits;
+- feature manifests;
+- `composeFeatures`;
+- tenant and permission doctor checks;
+- workspace starter.
+
+Feature manifests stay inventory, not business logic.
+
+### Layer 4: Trellis Agent / MCP
+
+Purpose: expose app operations to agents without creating a side backend.
+
+Includes:
+
+- MCP runtime.
+- tool projection.
+- capability-aware discovery.
+- result envelopes.
+- sessions.
+- ingress rate limiting.
+- signed forwarding envelope integration.
+- destructive operation preview/confirm/execute.
+- MCP-specific doctor checks.
+- agent-safe denial explanations.
+
+MCP is enabled only when requested.
+
+### Layer 5: Trellis Platform Integrations
+
+Purpose: support reusable Trellis-aware packages such as Ginko CMS.
+
+Includes:
+
+- component bridge runtime;
+- bridge manifests;
+- bridge CLI;
+- bridge drift checks;
+- managed host edits;
+- package integration test helpers.
+
+This layer is not part of the normal app-building story.
+
+## Package Shape
+
+The desired monorepo package layout:
+
+```text
+packages/
+  trellis/                 # @lupinum/trellis
+  trellis-auth/            # @lupinum/trellis-auth
+  trellis-workspace/       # @lupinum/trellis-workspace
+  trellis-mcp/             # @lupinum/trellis-mcp
+  trellis-bridge/          # @lupinum/trellis-bridge
+  trellis-observability/   # @lupinum/trellis-observability
+  trellis-eslint/          # @lupinum/trellis-eslint
+  trellis-cli/             # @lupinum/trellis-cli
+  trellis-fixtures/        # private, fixture apps used by CLI and tests
+```
+
+The exact package split can be evaluated, but the core rule is fixed:
+
+`@lupinum/trellis` must no longer export component bridge APIs.
+
+For adoption simplicity, the root `@lupinum/trellis` package may re-export the
+most common Core/Auth/Workspace APIs if that does not reintroduce bridge,
+observability, CLI, or ESLint surface into every consumer.
+
+### Public Imports
+
+Teach a small import map:
+
+```text
+@lupinum/trellis              Nuxt module and core app helpers
+@lupinum/trellis/backend      Convex backend builders and operations
+@lupinum/trellis/auth         principal, actor, guards, permissions
+@lupinum/trellis/workspace    tenant isolation and feature manifests
+@lupinum/trellis/mcp          MCP runtime and operation projection
+@lupinum/trellis/server       Nitro/server helpers
+@lupinum/trellis/testing      test harness helpers
+```
+
+Advanced packages:
+
+```text
+@lupinum/trellis-bridge       packaged component integrations
+@lupinum/trellis-observability evlog delivery and capture implementation
+@lupinum/trellis-eslint       optional framework lint rules
+@lupinum/trellis-cli          CLI binary and codemods
+```
+
+Do not teach internal repo structure as public API.
+
+## Desired Repo Structure
+
+The source tree should match domain boundaries:
+
+```text
+src/
+  core/
+    module/
+    config/
+    diagnostics/
+    public-surface/
+
+  convex/
+    client/
+    server/
+    query/
+    mutation/
+    pagination/
+    upload/
+    testing/
+
+  auth/
+    better-auth/
+    principal/
+    actor/
+    guards/
+    permissions/
+    projection/
+
+  workspace/
+    tenant/
+    feature-manifest/
+    visibility/
+    unsafe-permits/
+
+  operations/
+    define-operation.ts
+    projection.ts
+    preview.ts
+    confirmation.ts
+    audit.ts
+
+  mcp/
+    runtime/
+    tools/
+    operation-tools/
+    confirmation/
+    capabilities/
+    sessions/
+    rate-limit/
+    result-envelope/
+
+  trusted-forwarding/
+    envelope.ts
+    signing.ts
+    validation.ts
+    convex-validators.ts
+
+  observability/
+    events/
+    envelope/
+    capture/
+    summaries/
+
+  cli/
+    init/
+    add/
+    doctor/
+    upgrade/
+    explain/
+    bridge-adapter/
+
+  eslint/
+```
+
+Component bridge code moves to `packages/trellis-bridge/src`.
+
+The important cleanup is responsibility separation. Large runtime files should
+not coordinate auth, tenant isolation, operations, bridge forwarding, MCP
+projection, and observability in one place.
+
+## What Stays
+
+### Protected Handler Pipeline
+
+Keep the structured handler model. It is the framework spine.
+
+Canonical authoring shape:
+
+```ts
+export const updateProject = mutation.protected({
+  args: updateProjectArgs,
+  guard: projectWrite,
+  load: async (ctx, args) => ({
+    project: await ctx.db.required(args.id, 'Project'),
+  }),
+  authorize: {
+    label: 'project.update',
+    check: (actor, { project }) => actor.workspaceId === project.workspaceId,
+  },
+  handler: async (ctx, args, { project }) => {
+    await ctx.db.patch(project._id, { name: args.name })
+  },
+})
+```
+
+Record-specific authorization belongs after `load`. UI gates and route
+middleware do not replace it.
+
+### Backend-Owned Permissions
+
+Keep backend permissions as the source of truth.
+
+UI capability state remains derived:
+
+- `usePermissions()`;
+- `_can`;
+- route affordances;
+- MCP tool visibility.
+
+Backend handlers still enforce authorization.
+
+### Tenant Isolation
+
+Keep runtime-enforced tenant isolation.
+
+Improve inspectability through `doctor tenant`:
+
+```text
+Tenant model
+  key: workspaceId
+  index: by_workspace
+
+Tenant-scoped tables
+  projects       ok
+  documents      missing by_workspace index
+
+Global tables
+  users          ok
+  workspaces     ok
+
+Escapes
+  convex/auth/actor.ts:17      membership lookup
+  convex/support/audit.ts:42   operator support view
+```
+
+### Feature Folders
+
+Keep feature folders as ownership boundaries:
+
+```text
+shared/features/<feature>/
+convex/features/<feature>/
+app/features/<feature>/
+```
+
+Routes and shell files stay thin. Product behavior lives in features.
+
+### Feature Manifests
+
+Keep manifests as inventory:
+
+```ts
+export const projectsFeature = defineFeature({
+  name: 'projects',
+  schema: projectsTables,
+  permissions: projectPermissions,
+  tenant: {
+    tables: ['projects'],
+  },
+  operations: [deleteProjectOperation],
+  capabilities: [projectCapabilities],
+})
+```
+
+Do not move business logic into manifests.
+
+### Destructive Operations
+
+Keep preview/confirm/execute for agent-facing destructive work.
+
+The next major should make destructive authoring easier, not weaker.
+
+```ts
+export const deleteProject = destructiveOperation({
+  id: 'projects.delete',
+  args: deleteProjectArgs,
+  guard: projectDelete,
+  load: async (ctx, args) => ({
+    project: await ctx.db.required(args.id, 'Project'),
+    taskCount: await countProjectTasks(ctx, args.id),
+  }),
+  authorize: {
+    label: 'project.delete',
+    check: (actor, { project }) => actor.workspaceId === project.workspaceId,
+  },
+  preview: ({ project, taskCount }) => ({
+    display: {
+      summary: `Delete "${project.name}"`,
+      warning: 'This cannot be undone.',
+      affects: { projects: 1, tasks: taskCount },
+    },
+    confirm: {
+      projectId: project._id,
+      projectVersion: project.updatedAt,
+      taskCount,
+    },
+  }),
+  execute: async (ctx, args, { project }) => {
+    await deleteProjectCascade(ctx, project._id)
+  },
+})
+```
+
+The operation definition should derive:
+
+- preview ref;
+- execute ref;
+- operation metadata;
+- MCP binding metadata;
+- confirmation payload shape;
+- audit metadata;
+- doctor inventory;
+- test helpers.
+
+### Doctor
+
+Keep and expand `trellis doctor`. It is a core product surface.
+
+## What Changes
+
+### 1. Component Bridge Leaves Core
+
+Current issue:
+
+The bridge is real for Ginko CMS and packaged Convex components, but most apps
+do not need it. Keeping it in core makes every Trellis user see and pay for a
+package-integration concern.
+
+Next-major decision:
+
+Move bridge runtime, manifests, CLI command, drift checks, and package author
+docs into `@lupinum/trellis-bridge`.
+
+Core Trellis knows only that trusted forwarding exists. It does not know about
+component bridge manifests.
+
+Desired bridge imports:
+
+```ts
+import { createComponentBridge } from '@lupinum/trellis-bridge/convex'
+import { defineBridgeManifest } from '@lupinum/trellis-bridge/manifest'
+```
+
+Bridge CLI:
+
+```bash
+trellis-bridge install @lupinum/ginko-cms
+trellis-bridge check @lupinum/ginko-cms
+trellis-bridge inspect @lupinum/ginko-cms
+```
+
+The Trellis CLI may delegate to this package for convenience, but the package
+boundary must be real.
+
+### 2. Ginko CMS Becomes The Reference Bridge Consumer
+
+Ginko CMS is exactly the packaged integration that justifies the bridge:
+
+- it ships a reusable Convex component;
+- host apps need generated root refs;
+- Ginko should keep internal component refs private;
+- Ginko owns the user-facing install experience;
+- bridge files must stay thin and drift-checkable.
+
+Next-major alignment:
+
+- Ginko depends on `@lupinum/trellis-bridge` for bridge internals.
+- Ginko continues to expose `ginko-cms bridge check` and `ginko-cms setup`.
+- Ginko docs do not require users to learn Trellis bridge concepts.
+- Ginko bridge manifests remain the source of generated host files.
+- Ginko bridge exports shrink as CMS operations converge.
+
+Ginko rule:
+
+```text
+Trellis bridge powers package integration.
+Ginko CMS owns product setup and product terminology.
+```
+
+### 3. Signed Forwarding Envelope Replaces Raw Shared Key Args
+
+Current issue:
+
+Trusted forwarding uses public args carrying `_trustedForwardingKey`,
+`_trustedForwarding`, `principal`, and sometimes `delegation`. This is guarded,
+but it normalizes identity-shaped args and moves a long-lived secret through
+function inputs.
+
+Next-major decision:
+
+Forwarded identity travels in a signed, short-lived envelope.
+
+Envelope shape:
+
+```ts
+type TrustedForwardingEnvelope = {
+  v: 1
+  kid: string
+  sub: string
+  principal: unknown
+  delegation?: unknown
+  transport: 'server' | 'webhook' | 'mcp' | 'bridge'
+  functionRef: string
+  argsHash: string
+  issuedAt: number
+  expiresAt: number
+  nonce?: string
+  signature: string
+}
+```
+
+Convex verifies:
+
+- key id is accepted;
+- signature is valid;
+- envelope is not expired;
+- function ref matches;
+- args hash matches;
+- subject matches principal;
+- delegation subject matches delegation;
+- nonce/replay policy matches the operation class.
+
+Normal public args must not contain `principal`, `delegation`, or raw forwarding
+keys.
+
+Generated validators should expose one reserved field:
+
+```ts
+_trellisForwarding: v.optional(v.string())
+```
+
+That field contains the signed envelope, not identity data.
+
+### 4. MCP Uses Projected Operations By Default
+
+Current issue:
+
+The MCP surface has too many similar choices:
+
+- toolkit `defineMcpTool`;
+- Trellis `defineTool`;
+- `defineMcpApp(...).tool(...)`;
+- `defineMcpApp(...).tool.fromOperation(...)`;
+- operation refs;
+- transport confirmations;
+- backend confirmations.
+
+Next-major decision:
+
+Teach three blessed MCP lanes:
+
+```ts
+mcp.tool.query(...)
+mcp.tool.mutation(...)
+mcp.tool.operation(...)
+```
+
+Generic custom tools remain, but they are advanced:
+
+```ts
+mcp.tool.custom({
+  unsafe: {
+    reason: 'Calls a non-Convex external service after backend policy is checked.',
+  },
+  ...
+})
+```
+
+Destructive tools are only exposed through `mcp.tool.operation(...)`.
+
+Example:
+
+```ts
+export default mcp.tool.operation(deleteProject, {
+  name: 'delete-project',
+  permission: projectDelete,
+})
+```
+
+The tool should derive:
+
+- schema;
+- preview ref;
+- execute ref;
+- destructive annotations;
+- confirmation requirements;
+- audit binding;
+- doctor inventory.
+
+### 5. Destructive MCP Annotations Match Reality
+
+Current issue:
+
+Operation-backed destructive tools go through Trellis destructive handling, but
+the internal call can still pass `destructive: false` into lower-level tool
+definition to avoid generic destructive rejection.
+
+Next-major decision:
+
+Separate two concepts:
+
+- generic destructive tools are forbidden;
+- operation-backed destructive tools must advertise destructive MCP metadata.
+
+The public tool metadata for a destructive operation must include destructive
+annotations, even though the unsafe generic destructive path remains blocked.
+
+### 6. Explicit Tenant Binding For MCP Confirmations
+
+Current issue:
+
+The default confirmation tenant key is derived from `principal.tenantId`. In
+real workspace apps, tenant can come from actor resolution, delegation, selected
+workspace, capability context, or operation args.
+
+Next-major decision:
+
+`defineMcpRuntime` requires an explicit `tenantKey` resolver for workspace MCP:
+
+```ts
+defineMcpRuntime({
+  principalKey: ({ principal }) => principal.subject,
+  tenantKey: ({ actor, capabilities, args }) => actor.workspaceId,
+})
+```
+
+If no tenant applies, the app must say so:
+
+```ts
+tenantKey: () => 'global'
+```
+
+No silent fallback for destructive confirmations.
+
+### 7. Fail Closed On Missing Runtime Identity Wiring
+
+Current issue:
+
+Some runtime paths can return anonymous/null principal accessors in production
+when wiring is missing. That is too forgiving for a security framework.
+
+Next-major decision:
+
+Missing principal, actor, or trusted-forwarding wiring fails closed in every
+environment unless the handler is explicitly public.
+
+Public paths use an explicit `public` guard, not accidental missing wiring.
+
+### 8. Remove Arity-Based Authorization Inference
+
+Current issue:
+
+`authorize` shorthand can infer meaning from `function.length`. That is fragile
+for wrapped functions, defaults, rest params, and minification.
+
+Next-major decision:
+
+Keep simple shorthands only when unambiguous:
+
+```ts
+authorize: canEditProject
+```
+
+For loaded-record checks, prefer object form:
+
+```ts
+authorize: {
+  label: 'project.update',
+  check: (actor, loaded, args, ctx) => ...
+}
+```
+
+If a factory form is still useful, name it explicitly:
+
+```ts
+authorize: fromLoaded((loaded) => canEditProject(loaded.project))
+```
+
+### 9. Reduce Declaration-Merging Registries
+
+Current issue:
+
+Declaration-merged registries make types depend on generated files and module
+augmentation state. This can produce cryptic `never` errors when codegen has
+not run.
+
+Next-major decision:
+
+Use explicit registry values where possible:
+
+```ts
+export const appInventory = defineAppInventory({
+  features: [projectsFeature, membersFeature],
+})
+```
+
+Generated types may still exist, but app source should not become unusable
+before generation. If declaration merging remains, it must be hidden behind
+generated `.d.ts` and covered by a dedicated "codegen not run" diagnostic.
+
+### 10. Observability Moves To A Narrow Boundary
+
+Current issue:
+
+Trellis owns semantic observability, which is correct, but delivery details add
+surface to core. The current code also makes observability feel like a full
+runtime system app developers need to understand early.
+
+Next-major decision:
+
+Core owns event vocabulary and event emission points. Delivery lives in
+`@lupinum/trellis-observability`.
+
+Core API:
+
+```ts
+observe(event)
+```
+
+Event schema remains framework-owned. Apps cannot redefine event names, reason
+codes, redaction rules, or identity semantics.
+
+Delivery package:
+
+```ts
+import { evlogObservability } from '@lupinum/trellis-observability/evlog'
+```
+
+Evaluate a constrained sink adapter:
+
+```ts
+observability: {
+  sink: evlogObservability(),
+}
+```
+
+The sink can choose delivery. It cannot change the schema or redaction contract.
+
+### 11. ESLint Leaves Core
+
+Current issue:
+
+Lint rules are useful, but they should not make the runtime package feel like a
+full tooling platform.
+
+Next-major decision:
+
+Move rules to `@lupinum/trellis-eslint`.
+
+Default severities:
+
+- security boundary rules: error;
+- boundary/style rules: warn;
+- experimental rules: off.
+
+Consumers opt into strict mode:
+
+```js
+import trellis from '@lupinum/trellis-eslint'
+
+export default [
+  trellis.configs.recommended,
+  trellis.configs.strictWorkspace,
+  trellis.configs.strictMcp,
+]
+```
+
+### 12. Templates Become Tested Fixture Apps
+
+Current issue:
+
+Many `.tpl` templates are hard to reason about and can drift from examples and
+runtime behavior.
+
+Next-major decision:
+
+Starters are generated from real fixture apps.
+
+```text
+fixtures/
+  public/
+  personal/
+  workspace/
+  workspace-mcp/
+  cms/
+```
+
+Each fixture app:
+
+- builds;
+- typechecks;
+- runs a minimal test suite;
+- passes `doctor`;
+- has generated snapshots for CLI output;
+- is the source for starter generation.
+
+String templates are allowed only for tiny generated fragments where a fixture
+file would be worse.
+
+### 13. Add `trellis upgrade`
+
+Generated code rots without an upgrade path.
+
+Next-major CLI:
+
+```bash
+trellis upgrade
+trellis upgrade --from 0.4 --to 1.0
+trellis upgrade --check
+trellis upgrade --write
+```
+
+Each breaking release ships codemods.
+
+Codemods must be:
+
+- idempotent;
+- test-backed on fixture apps;
+- conservative;
+- explicit about files they cannot update safely.
+
+### 14. Add `trellis explain`
+
+Trellis already knows a lot about the app. Expose that as a developer tool.
+
+Examples:
+
+```bash
+trellis explain
+trellis explain feature projects
+trellis explain operation projects.delete
+trellis explain mcp delete-project
+trellis explain file convex/features/projects/domain.ts
+```
+
+Desired output:
+
+```text
+Operation projects.delete
+  kind: destructive
+  guard: projectDelete
+  load: project + task count
+  authorize: project.delete
+  tenant: workspaceId from loaded project
+  preview: convex/features/projects/operations.previewDelete
+  execute: convex/features/projects/operations.delete
+  MCP tool: delete-project
+  confirmation: required
+```
+
+This helps humans and agents debug the framework without reading internals.
+
+### 15. Make Doctor An Adoption Dashboard
+
+`trellis doctor` should not only report failures. It should explain what
+Trellis thinks the app is.
+
+CLI:
+
+```bash
+trellis doctor
+trellis doctor --security
+trellis doctor --mcp
+trellis doctor --tenant
+trellis doctor --adoption
+trellis doctor --json
+trellis doctor --fix
+```
+
+Normal output:
+
+```text
+Detected app
+  layers: Core, Auth, Workspace, MCP
+  starter lineage: workspace-mcp
+  features: projects, members, documents
+  tenant key: workspaceId
+  MCP tools: 7 total, 2 destructive
+  unsafe permits: 2
+
+Findings
+  error   destructive MCP tool archive-project is missing operation binding
+  warn    documents table has workspaceId but no by_workspace index
+```
+
+`--fix` handles only safe mechanical changes.
+
+## Operations-First Model
+
+Handlers remain useful for simple backend code. Operations become the canonical
+unit for work that crosses surfaces.
+
+Use operations when work is:
+
+- exposed to MCP;
+- called from both UI and server;
+- destructive;
+- audited;
+- packaged through bridge;
+- expected to need preview;
+- reused by Studio and agent paths.
+
+Operation definition:
+
+```ts
+export const publishEntry = operation({
+  id: 'cms.entries.publish',
+  kind: 'destructive',
+  args: publishEntryArgs,
+  guard: publishEntryPermission,
+  load: async (ctx, args) => ({
+    entry: await loadEntry(ctx, args.entryId),
+    readiness: await computePublishReadiness(ctx, args),
+  }),
+  authorize: {
+    label: 'cms.entries.publish',
+    check: (actor, { entry }) => actor.cmsId === entry.cmsId,
+  },
+  preview: ({ entry, readiness }) => ({
+    display: {
+      summary: `Publish "${entry.title}"`,
+      affects: readiness.affectedRoutes,
+      blocked: readiness.blocked,
+    },
+    confirm: {
+      entryId: entry._id,
+      draftVersion: entry.draftVersion,
+      draftHash: entry.draftHash,
+      routeDiffHash: readiness.routeDiffHash,
+    },
+  }),
+  execute: async (ctx, args, loaded, confirmation) => {
+    assertDraftStillMatches(loaded.entry, confirmation.confirm)
+    return await publishLoadedEntry(ctx, loaded.entry, args.locales)
+  },
+})
+```
+
+Projection:
+
+```ts
+export const previewPublishEntry = query(publishEntry.preview)
+export const executePublishEntry = mutation(publishEntry.execute)
+export const publishEntryTool = mcp.tool.operation(publishEntry)
+```
+
+The operation is the source of truth. The projections are derived.
+
+## MCP Runtime Spec
+
+### Runtime Setup
+
+Desired app setup:
+
+```ts
+export const mcp = defineMcpRuntime({
+  resolvePrincipal: async (event) => await resolveMcpPrincipal(event),
+  resolveActor: async ({ principal, convex }) => await convex.query(internal.auth.resolveActor, {}),
+  resolveCapabilities: async ({ actor, convex }) =>
+    await convex.query(internal.permissions.context, {}),
+  principalKey: ({ principal }) => principal.subject,
+  tenantKey: ({ actor }) => actor.workspaceId,
+  callConvex: trustedConvexCaller(),
+})
+```
+
+The generated workspace MCP starter must prove this flow:
+
+```text
+MCP bearer token
+  -> token lookup
+  -> principal
+  -> signed forwarding envelope
+  -> Convex actor resolution
+  -> backend permission context
+  -> capability-aware tool discovery
+  -> protected handler execution
+```
+
+### Tool Types
+
+```ts
+mcp.tool.query({
+  name: 'list-projects',
+  ref: api.features.projects.list,
+  schema: listProjectsArgs,
+  permission: projectRead,
+})
+
+mcp.tool.mutation({
+  name: 'create-project',
+  ref: api.features.projects.create,
+  schema: createProjectArgs,
+  permission: projectCreate,
+})
+
+mcp.tool.operation(deleteProject, {
+  name: 'delete-project',
+  permission: projectDelete,
+})
+```
+
+### Generic Tools
+
+Generic tools are advanced.
+
+They are allowed for:
+
+- external service calls after backend policy is checked;
+- diagnostics;
+- public read-only data not backed by Convex;
+- transport-specific protocol work.
+
+They are not allowed for:
+
+- destructive app mutations;
+- direct tenant-scoped business writes;
+- bypassing protected handlers;
+- identity forwarding through public args.
+
+### Result Envelope
+
+Keep explicit result envelopes:
+
+```ts
+return ctx.ok(data, 'Created project.')
+return ctx.error('auth', 'You do not have permission to create projects.')
+return ctx.preview({ summary, confirmationToken })
+return ctx.blocked({ summary, reasons })
+```
+
+Untrusted user-authored text must be marked:
+
+```ts
+withUntrustedText(entry.bodyMdc)
+```
+
+## Component Bridge Spec
+
+### Purpose
+
+The bridge exists for packaged integrations, not app-local architecture.
+
+Use it when a package needs to:
+
+- install host-owned Convex files;
+- expose stable root refs;
+- hide internal component refs;
+- forward a verified principal into component functions;
+- drift-check generated host files;
+- manage host setup edits.
+
+Do not use it when app-local code can call root handlers directly.
+
+### Package API
+
+```ts
+import { createComponentBridge } from '@lupinum/trellis-bridge/convex'
+
+export const component = createComponentBridge({
+  query,
+  mutation,
+  action,
+  internalQuery,
+  internalMutation,
+  internalAction,
+})
+```
+
+```ts
+import { defineBridgeManifest } from '@lupinum/trellis-bridge/manifest'
+
+export default defineBridgeManifest({
+  packageName: '@lupinum/ginko-cms',
+  version,
+  modules: [...],
+  managedEdits: [...],
+})
+```
+
+### Bridge Invariants
+
+- Bridge files are generated, thin, and host-owned.
+- Bridge manifests do not contain business logic.
+- Bridge functions forward identity through the signed forwarding envelope.
+- Component guards, actor resolution, and authorization still run.
+- Direct internal component refs remain private.
+- Drift is checkable.
+- Package authors own product-specific setup commands.
+
+### Ginko CMS Alignment
+
+Ginko CMS should keep:
+
+- `@lupinum/ginko-cms` as the Nuxt module and public product package;
+- `@lupinum/ginko-cms-contract` as framework-neutral contracts;
+- `@lupinum/ginko-cms-convex` as the Convex component;
+- Ginko-owned CLI and docs;
+- generated host bridge files;
+- `ginko-cms bridge check`.
+
+Ginko should change:
+
+- import bridge primitives from `@lupinum/trellis-bridge`;
+- stop depending on bridge APIs from `@lupinum/trellis/functions`;
+- shrink bridge exports to one command per real backend concern;
+- move all destructive Studio and MCP workflows onto real operations;
+- delete pseudo-operation wrappers as each real operation lands.
+
+Ginko's rule for destructive CMS work:
+
+```text
+Studio preview and MCP preview are the same backend operation preview.
+Studio execution and MCP execution are projections of the same operation.
+```
+
+## Starter Strategy
+
+Official starters:
+
+```text
+public
+personal
+workspace
+workspace-mcp
+cms
+```
+
+MCP can remain "workspace + capability" internally, but the CLI may expose
+`workspace-mcp` as a clearer generated target.
+
+### Public Starter
+
+Includes:
+
+- one public feature;
+- live query;
+- mutation;
+- no auth;
+- no tenant;
+- no MCP;
+- no bridge.
+
+### Personal Starter
+
+Includes:
+
+- auth;
+- user principal;
+- personal actor;
+- owner-scoped records;
+- one authorization test.
+
+### Workspace Starter
+
+Includes:
+
+- auth;
+- workspace membership;
+- roles;
+- permissions;
+- tenant-scoped table;
+- `_can` projection;
+- one server route;
+- tenant tests.
+
+### Workspace MCP Starter
+
+Includes everything in Workspace plus:
+
+- MCP token/key flow;
+- principal resolution;
+- actor/capability resolution;
+- one read tool;
+- one write tool;
+- one destructive operation tool;
+- confirmation store;
+- rate limiting;
+- e2e or integration test proving tool execution.
+
+### CMS Starter
+
+The CMS starter should be treated as a maintained reference for packaged
+integration and content workflows. It should not be the first beginner path.
+
+## CLI Spec
+
+Canonical commands:
+
+```bash
+trellis init <name> --starter public
+trellis init <name> --starter personal
+trellis init <name> --starter workspace
+trellis init <name> --starter workspace-mcp
+trellis init <name> --starter cms
+
+trellis add auth
+trellis add workspace
+trellis add mcp
+trellis add feature projects
+trellis add entity project
+trellis add operation delete-project --kind destructive
+trellis add uploads
+
+trellis doctor
+trellis explain
+trellis upgrade
+```
+
+Advanced:
+
+```bash
+trellis bridge ...
+```
+
+Only if the bridge package is installed, or as a delegating alias to
+`trellis-bridge`.
+
+## Testing Spec
+
+The pipeline is the product. Tests must exercise the pipeline, not only leaf
+helpers.
+
+### Required Contract Tests
+
+Core:
+
+- live query state;
+- server caller auth modes;
+- uploads;
+- config validation.
+
+Auth:
+
+- missing runtime identity fails closed;
+- signed-in principal does not imply actor;
+- actor resolution is app-owned;
+- forged forwarded identity fails.
+
+Workspace:
+
+- viewer/member/admin role checks;
+- cross-tenant read denial;
+- tenant escape requires typed permit;
+- `_can` projection matches backend policy in representative cases.
+
+MCP:
+
+- token -> principal -> actor -> permission -> tool execution;
+- capability hidden means tool unavailable;
+- backend denial still blocks visible tool;
+- destructive operation requires preview;
+- confirmation replay fails;
+- confirmation drift fails;
+- wrong tenant key fails;
+- missing distributed rate-limit store fails production checks.
+
+Bridge:
+
+- generated bridge forwards signed envelope;
+- query, mutation, action, internal variants work;
+- generated files drift-check;
+- Ginko fixture passes bridge check.
+
+### Starter Tests
+
+Every starter fixture must:
+
+- install;
+- build;
+- typecheck;
+- run minimal tests;
+- pass `trellis doctor`;
+- avoid advanced layers it did not enable.
+
+### Ginko CMS Reference Tests
+
+The Trellis repo should include a bridge consumer fixture derived from Ginko CMS
+or a narrow Ginko-like test package. The Ginko CMS repo should continue to run
+full package E2E against packed Trellis packages.
+
+Acceptance:
+
+- Ginko can expose bridged actions.
+- Ginko can bind destructive MCP tools through real operations.
+- Ginko users run Ginko commands, not Trellis internals.
+
+## Documentation Spec
+
+Docs must use progressive disclosure.
+
+### Front Door
+
+1. What is Trellis?
+2. Should you use Trellis?
+3. Build a public app in 10 minutes.
+4. Add auth.
+5. Add a workspace.
+6. Add MCP safely.
+7. Add a destructive operation.
+8. Debug with doctor.
+
+### Decision Docs
+
+Add pages for wrong-but-tempting paths:
+
+- Why not put `principal` in args?
+- Why MCP tools should not duplicate Convex handlers.
+- Why `usePermissions()` is not authorization.
+- Why tenant isolation is not business policy.
+- Why destructive MCP tools need preview.
+- Why generic MCP tools are advanced.
+- Why component bridge is only for packaged integrations.
+
+### API Docs
+
+API docs should group by job:
+
+- app/client;
+- backend;
+- auth;
+- workspace;
+- server;
+- MCP;
+- testing;
+- bridge package authors.
+
+Do not lead with a complete export inventory.
+
+## Security Spec
+
+### Production Safety Defaults
+
+Production must fail closed for:
+
+- missing trusted forwarding signing keys;
+- weak forwarding keys;
+- expired forwarding envelope;
+- missing principal accessor on protected handlers;
+- destructive MCP tool without operation binding;
+- process-local confirmation store for production destructive MCP;
+- process-local rate limiter for production MCP when rate limiting is enabled;
+- public runtime config exposing secrets.
+
+### Unsafe Permits
+
+Replace string-only bypass reasons with typed permits.
+
+```ts
+unsafe.mutation({
+  permit: unsafe.permit({
+    kind: 'preTenantUpload',
+    reason: 'Generate upload URL before an asset record exists.',
+    reviewBy: '2026-07-01',
+  }),
+  ...
+})
+```
+
+Doctor groups and audits permits:
+
+```text
+Unsafe permits
+  preTenantUpload      1
+  operatorSupportView  2
+  uncategorized        0
+```
+
+Expired `reviewBy` dates warn or fail in strict mode.
+
+### Confirmation Binding
+
+Destructive confirmation tokens bind:
+
+- operation id;
+- execute ref;
+- preview ref;
+- principal key;
+- tenant key;
+- args hash;
+- preview confirm hash;
+- version hash;
+- expiry;
+- replay id.
+
+Backend execution must validate confirmation when `confirmationMode: backend`
+is used.
+
+Transport confirmation may exist only when the backend operation boundary still
+receives enough proof to reject missing or stale confirmation.
+
+## Public Surface Budget
+
+Next major should have a public surface budget. Every public export needs one of
+these labels:
+
+- core;
+- auth;
+- workspace;
+- mcp;
+- server;
+- testing;
+- package-author;
+- internal.
+
+Public export acceptance:
+
+1. Is this needed by consumer app code?
+2. Is this needed by package authors such as Ginko CMS?
+3. Can it be generated instead?
+4. Can it be private and surfaced through `doctor` or `explain`?
+5. Does it create a second source of truth?
+
+If the answer is weak, do not export it.
+
+## Migration Strategy
+
+This is a major release. Prefer deletion over compatibility.
+
+### Phase 0: Prove The Target In Fixtures
+
+- Create fixture apps for all starters.
+- Create bridge consumer fixture.
+- Create operation-first MCP fixture.
+- Add target API type tests.
+
+No production API changes yet.
+
+### Phase 1: Extract Bridge
+
+- Create `@lupinum/trellis-bridge`.
+- Move bridge runtime, manifest, drift checks, and CLI.
+- Update Ginko CMS to consume the new package.
+- Delete bridge exports from core.
+- Add a migration codemod for imports.
+
+Acceptance:
+
+- Trellis core has no bridge public export.
+- Ginko package E2E passes.
+- Existing mini CMS example is updated or moved to bridge examples.
+
+### Phase 2: Harden Trusted Forwarding
+
+- Implement signed forwarding envelope.
+- Update server callers.
+- Update MCP runtime.
+- Update bridge runtime.
+- Update Ginko CMS generated bridge.
+- Delete raw shared-key forwarding args.
+
+Acceptance:
+
+- `rg "principal:"` in generated transport args finds no identity forwarding
+  except in envelope construction tests.
+- forged principal args fail.
+- stale envelope fails.
+- wrong function ref fails.
+- wrong args hash fails.
+
+### Phase 3: Operation-First MCP
+
+- Add `mcp.tool.query`, `mcp.tool.mutation`, `mcp.tool.operation`.
+- Mark generic custom tools advanced.
+- Fix destructive MCP annotations.
+- Add explicit tenant key resolver.
+- Update examples and Ginko destructive tools.
+- Delete old `tool.fromOperation` public path unless kept as an internal alias
+  for one release by explicit team decision.
+
+Acceptance:
+
+- no destructive MCP tool uses generic custom tool;
+- Ginko publish/unpublish/archive/delete tools bind real operations;
+- workspace MCP starter has e2e coverage.
+
+### Phase 4: Public Surface Cleanup
+
+- Remove declaration-merging registries where explicit inventory works.
+- Simplify exports.
+- Move ESLint and observability delivery out of core.
+- Add public-surface CI budgets.
+- Update docs to job-based imports.
+
+Acceptance:
+
+- public export count decreases;
+- "most people need these imports" docs fit on one page;
+- type errors for missing codegen have explicit diagnostics.
+
+### Phase 5: CLI And Docs
+
+- Add `trellis upgrade`.
+- Add `trellis explain`.
+- Convert starters to fixture-app generation.
+- Rewrite front-door docs.
+- Expand doctor dashboard.
+
+Acceptance:
+
+- fresh user can build public app, workspace app, and workspace MCP app from
+  docs without reading ADRs;
+- doctor explains app shape;
+- upgrade codemods run on old fixtures.
+
+## Experiments Before Committing
+
+### Experiment 1: Bridge Extraction With Ginko
+
+Question:
+
+Can bridge leave core without making Ginko worse?
+
+Build:
+
+- new `@lupinum/trellis-bridge` package;
+- update Ginko imports and setup CLI internally;
+- keep Ginko public commands unchanged.
+
+Success:
+
+- Ginko package E2E passes;
+- `ginko-cms bridge check` still works;
+- Trellis core no longer exports bridge APIs;
+- Ginko docs remain Ginko-first.
+
+### Experiment 2: Signed Forwarding Envelope
+
+Question:
+
+Can signed envelopes replace raw forwarding args without too much ceremony?
+
+Build:
+
+- envelope signer and verifier;
+- server caller integration;
+- MCP caller integration;
+- bridge integration;
+- Ginko generated bridge update.
+
+Success:
+
+- no raw shared secret travels as a Convex arg;
+- no public principal/delegation args are required;
+- tests cover expiry, function mismatch, args mismatch, and subject mismatch.
+
+### Experiment 3: Operation-First MCP API
+
+Question:
+
+Can destructive MCP authoring become one obvious line?
+
+Build:
+
+```ts
+mcp.tool.operation(publishEntry)
+```
+
+Success:
+
+- preview and execute refs derive from operation metadata;
+- destructive annotations are correct;
+- backend confirmation remains enforced;
+- Ginko publish tool becomes thinner.
+
+### Experiment 4: Fixture-Based Starters
+
+Question:
+
+Can starter generation stop relying on many string templates?
+
+Build:
+
+- convert `public` and `workspace-mcp` first;
+- snapshot generated output;
+- add upgrade codemod harness.
+
+Success:
+
+- fixture apps run as real examples;
+- generated apps pass doctor;
+- CLI code shrinks.
+
+### Experiment 5: Doctor As App Map
+
+Question:
+
+Can doctor explain the app instead of only warning?
+
+Build:
+
+- `doctor --adoption`;
+- `doctor --mcp`;
+- app inventory summary from composed features.
+
+Success:
+
+- output identifies enabled layers;
+- output lists tenant model, features, operations, MCP tools, unsafe permits;
+- CI JSON remains stable.
+
+### Experiment 6: Observability Boundary
+
+Question:
+
+Can core own event schema while delivery moves out?
+
+Build:
+
+- core event emitter interface;
+- evlog sink package;
+- test capture sink.
+
+Success:
+
+- event vocabulary remains stable;
+- app cannot redefine identity/redaction semantics;
+- core dependency graph gets smaller;
+- tests can assert events without replacing production logger.
+
+## Decisions From Review Feedback
+
+Accepted:
+
+- Trellis is a framework, not a small library.
+- The protected handler pipeline is the franchise and stays.
+- MCP as projection is the differentiator and should be clearer.
+- Destructive operation safety is justified.
+- Component bridge belongs outside core.
+- Generated code needs an upgrade path.
+- The first user experience should be calmer.
+- Large runtime files should split by responsibility.
+- Public imports need pruning and clearer names.
+- Workspace MCP identity flow needs a golden-path test.
+- Trusted forwarding should be hardened.
+- Doctor should become more educational.
+- Ginko CMS is a valid bridge use case and should not build a second bridge.
+
+Partially accepted:
+
+- Observability should loosen delivery, but not event vocabulary or redaction
+  semantics.
+- ESLint should move out of core, but security-critical rules can still be
+  errors in strict configs.
+- Resource DSL should wait until raw operation projection is excellent.
+
+Rejected:
+
+- Making Trellis stack-neutral.
+- Adding a broad plugin system.
+- Keeping old and new bridge paths side by side after the major cutover.
+- Keeping generic destructive MCP tools as a supported lane.
+- Treating Ginko CMS users as Trellis users in public setup docs.
+
+## Acceptance Criteria For The Dream Version
+
+Trellis next major is ready when:
+
+- A new user can build a public app without seeing workspace, MCP, or bridge
+  concepts.
+- A new user can build a workspace MCP app and see one safe read tool, one safe
+  write tool, and one destructive operation tool work end to end.
+- A reviewer can answer where trust enters, how actor resolution happens, where
+  tenant boundaries are enforced, which permission gates the action, and how MCP
+  reuses the backend model.
+- Core package exports no bridge APIs.
+- Ginko CMS package E2E passes using the extracted bridge package.
+- Destructive MCP tools cannot be generic custom tools.
+- Operation-backed destructive MCP tools advertise destructive annotations.
+- Trusted forwarding no longer passes a raw long-lived shared key as a Convex
+  arg.
+- Missing protected runtime identity wiring fails closed in production.
+- `trellis doctor --mcp` catches destructive tool, confirmation store,
+  rate-limit store, tenant key, and capability drift.
+- `trellis explain operation <id>` can describe guard, load, authorize, preview,
+  execute, tenant, and MCP projection.
+- Starter fixtures are tested and used as generation sources.
+- `trellis upgrade --check` can identify old bridge imports and old MCP tool
+  patterns.
+
+## Open Questions
+
+1. Should Auth and Workspace be separate packages or product layers inside the
+   root package?
+2. Should `tool.fromOperation` be deleted outright in the major, or retained as
+   an internal alias hidden from docs?
+3. How much of operation projection can be derived without Convex codegen
+   ordering problems?
+4. Should typed unsafe permits be required everywhere or only in strict mode?
+5. Should `workspace-mcp` be a first-class starter name, or should CLI keep
+   `workspace --mcp` and docs call it a journey?
+6. How much observability sink customization can be allowed without weakening
+   schema and redaction guarantees?
+7. Should Ginko CMS remain in a separate repo for package E2E, or should Trellis
+   keep a small Ginko-like bridge fixture in-tree?
+
+## Final Target Shape
+
+The best version of Trellis is not a bigger framework. It is a calmer
+framework.
+
+It should feel small at the start:
+
+```text
+Nuxt + Convex, clean data calls, one feature folder.
+```
+
+It should become strict at trust boundaries:
+
+```text
+auth, actor resolution, permissions, tenant isolation.
+```
+
+It should become unforgiving at agent write boundaries:
+
+```text
+operation preview, signed confirmation, drift check, replay protection.
+```
+
+And it should keep packaged integrations behind a clear door:
+
+```text
+Use bridge only when you are shipping something like Ginko CMS.
+```
+
+That is the dream form: opinionated, safe, inspectable, agent-ready, and small
+enough in the developer's head that teams can actually adopt it.
