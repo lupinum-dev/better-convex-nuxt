@@ -73,10 +73,14 @@ The next major must ship:
 - operation-first destructive MCP;
 - a tested `workspace-mcp` fixture proving token -> principal -> actor ->
   permission -> tool execution;
-- fixture-based starter generation for at least `public`, `workspace`, and
+- fixture-based starter generation for `public`, `personal`, `workspace`, and
   `workspace-mcp`;
 - `doctor` checks for forwarding, tenant boundaries, destructive MCP,
   confirmation stores, and rate-limit stores;
+- one typed unsafe permit mechanism for unsafe handlers, tenant escapes, and
+  generic MCP custom tools;
+- a shared inventory engine with versioned JSON output for `doctor`,
+  `upgrade --check`, public-surface checks, and future `explain` commands;
 - a public-surface budget enforced in CI.
 
 The next major may ship if the foundation is ready:
@@ -85,7 +89,6 @@ The next major may ship if the foundation is ready:
 - `trellis upgrade`;
 - observability delivery extraction;
 - ESLint package extraction;
-- typed unsafe permits everywhere;
 - declaration-registry cleanup beyond the paths needed for the new inventory
   model.
 
@@ -99,6 +102,10 @@ experiments:
 3. fixture-generated `workspace-mcp` is understandable and passes the full MCP
    trust path.
 
+Each Phase 0 experiment must produce a short go/no-go note. Partial success is
+allowed only when the fallback authoring shape is written down and still meets
+the safety invariants.
+
 ## ADR Impact
 
 This spec amends or supersedes several current ADRs:
@@ -106,11 +113,17 @@ This spec amends or supersedes several current ADRs:
 - ADR 0002 starters: amended. MCP remains conceptually a workspace capability,
   but `workspace-mcp` becomes the canonical CLI starter name if the fixture
   proves clearer than `workspace --mcp`.
+- ADR 0004 protected backend path: retained, with possible public/protected/
+  unsafe builder spelling changes and stricter fail-closed setup behavior.
 - ADR 0006 trusted forwarding: superseded by signed forwarding envelopes.
 - ADR 0008 MCP as workspace capability: retained; the user-facing starter name
   may change.
 - ADR 0011 raw MCP projection before DSL: retained; operation-first MCP is not
   a resource DSL.
+- ADR 0010 rate limiting boundaries: amended by production MCP rate-limit store
+  requirements and store self-tests.
+- ADR 0013 feature manifests/app inventory: amended by `defineAppInventory`
+  and the shared inventory engine.
 - ADR 0014 component bridges: retained but extracted to
   `@lupinum/trellis-bridge`.
 - ADR 0016 evlog observability: amended. Trellis keeps the event vocabulary and
@@ -206,6 +219,13 @@ packages.
 ### Layer 1: Trellis Core And Backend
 
 Purpose: make Nuxt + Convex app development boring.
+
+Docs may present this as two mental sublayers even if it stays in one package:
+
+- Core App Runtime: Nuxt module, Convex client/server helpers, uploads, and
+  basic setup.
+- Backend Model: public/protected/unsafe builders, operations, projection
+  metadata, and pipeline testing.
 
 Includes:
 
@@ -374,7 +394,8 @@ Do not teach internal repo structure as public API.
 - Core/backend must not import ESLint.
 - Core/backend must not require evlog delivery at runtime.
 - MCP may depend on backend, auth, workspace concepts, operations, and trusted
-  forwarding.
+  forwarding. MCP server tools may import shared descriptors and generated refs;
+  they must not import Convex implementation modules.
 - Bridge may depend on backend operation metadata and trusted forwarding.
 - Bridge must not be imported by normal app starters.
 - CLI may orchestrate every package, but package runtimes must not depend on
@@ -508,10 +529,16 @@ export default mcp.tool.operation(deleteProjectDescriptor, {
 })
 ```
 
-The dream one-liner is still valid if experiments prove it:
+If Experiment 3 does not prove the one-liner safely, the explicit checked
+binding form above is the accepted fallback. It is still a good API when Trellis
+can verify that descriptor id, kind, args, permission key, preview ref, execute
+ref, and tool metadata all describe the same operation.
+
+The dream one-liner is valid only if the imported value is a shared descriptor
+or generated operation handle, not a Convex implementation object:
 
 ```ts
-export default mcp.tool.operation(deleteProject)
+export default mcp.tool.operation(projects.deleteProject)
 ```
 
 But the accepted invariant is stricter than the syntax:
@@ -523,6 +550,54 @@ But the accepted invariant is stricter than the syntax:
   fragile source scanning.
 - Before Convex codegen runs, operation metadata either works from descriptors
   or fails with a clear diagnostic, never with a cryptic `never` type.
+
+### Permission Descriptor Boundary
+
+Shared code and MCP tool files should reference permission keys, not backend
+permission implementations.
+
+```ts
+// shared/features/projects/permissions.ts
+export const projectDeleteKey = definePermissionKey('projects.delete')
+```
+
+```ts
+// convex/features/projects/permissions.ts
+export const projectDelete = definePermission({
+  key: projectDeleteKey,
+  check: hasWorkspaceRole('admin'),
+})
+```
+
+```ts
+// server/mcp/tools/delete-project.ts
+export default mcp.tool.operation(deleteProjectDescriptor, {
+  permission: projectDeleteKey,
+  preview: api.features.projects.operations.previewDeleteProject,
+  execute: api.features.projects.operations.executeDeleteProject,
+})
+```
+
+Backend handlers enforce the real permission implementation. MCP discovery and
+operation descriptors use the key for visibility, inventory, and drift checks.
+
+### Operation Descriptor Invariants
+
+Operation descriptors must not become a second source of truth.
+
+`implementOperation(descriptor, implementation)` is the checked binding point.
+It must preserve descriptor id, kind, args, result schema, and permission key.
+Generated preview/execute projections must carry the same descriptor id and
+projection kind.
+
+Doctor fails when:
+
+- descriptor kind and projection kind disagree;
+- descriptor args and implementation args diverge;
+- descriptor permission key and implementation permission key diverge;
+- destructive operation metadata lacks preview or execute projection;
+- MCP binding points at refs whose generated metadata does not match the
+  descriptor id.
 
 ## What Stays
 
@@ -691,6 +766,15 @@ The implementation may use generated metadata or explicit thin exports. Users
 must not hand-maintain mismatched operation ids, preview refs, execute refs, and
 MCP bindings.
 
+More precise wording for implementation:
+
+```text
+operation descriptor + checked projections = source of truth for preview and execute refs
+operation implementation = source of truth for backend behavior
+feature manifest = source of truth for feature inventory
+app inventory = composed source for doctor/explain/MCP/upgrade
+```
+
 ### Doctor
 
 Keep and expand `trellis doctor`. It is a core product surface.
@@ -819,11 +903,17 @@ the implementation later chooses encryption. Principal and delegation payloads
 must be minimal and non-secret. Actor resolution should still load app state
 inside Convex.
 
+A valid envelope authenticates the forwarding boundary. It does not grant
+permission. Backend guards, tenant isolation, authorization, and destructive
+confirmation still decide whether the operation may execute.
+
 This section requires a dedicated security RFC before implementation. That RFC
 must define:
 
 - signing algorithm and key storage;
+- whether Trellis uses HMAC, asymmetric signing, or a JWS-like format, and why;
 - `kid` rotation and overlap windows;
+- local key-rotation test workflow;
 - exact canonical Convex args serialization for `argsHash`;
 - exclusion of `_trellisForwarding`, `__trellis`, and transient transport
   metadata from `argsHash`;
@@ -832,8 +922,16 @@ must define:
 - clock-skew tolerance;
 - replay policy by purpose;
 - production nonce/redemption store requirements;
+- principal and delegation validators used during envelope verification;
+- maximum serialized envelope size;
+- redaction behavior for invalid principal/delegation payloads;
 - observable error taxonomy for invalid, expired, replayed, or mismatched
   envelopes.
+
+The forwarding envelope RFC is a trusted-forwarding phase gating dependency.
+Before Phase 0 sign-off, the team must name an owner for the RFC and choose at
+least one security-aware reviewer outside the implementation author.
+Implementation should not begin until the RFC has review sign-off.
 
 ### 4. MCP Uses Blessed Projection Lanes
 
@@ -879,13 +977,15 @@ Destructive tools are only exposed through `mcp.tool.operation(...)`.
 Example:
 
 ```ts
-export default mcp.tool.operation(deleteProject, {
+export default mcp.tool.operation(deleteProjectDescriptor, {
   name: 'delete-project',
-  permission: projectDelete,
+  permission: projectDeleteKey,
+  preview: api.features.projects.operations.previewDeleteProject,
+  execute: api.features.projects.operations.executeDeleteProject,
 })
 ```
 
-The tool should derive:
+The tool should derive or verify:
 
 - schema;
 - preview ref;
@@ -894,6 +994,42 @@ The tool should derive:
 - confirmation requirements;
 - audit binding;
 - doctor inventory.
+
+If derivation is blocked by Convex codegen or runtime boundaries, explicit
+checked bindings are the accepted fallback. The fallback still must let Trellis
+prove that the descriptor, refs, destructive annotations, tenant binding, and
+confirmation mode agree.
+
+Direct MCP mutations need an explicit safety classification. Unclassified
+mutations cannot be projected to MCP except through operations.
+
+```ts
+mcp.tool.mutation({
+  name: 'create-project',
+  ref: api.features.projects.create,
+  schema: createProjectArgs,
+  permission: projectCreateKey,
+  safety: {
+    kind: 'safe-write',
+    reason: 'Creates one draft project record named in args.',
+  },
+})
+```
+
+Initial safety vocabulary:
+
+- `read`: no write or external side effect;
+- `safe-write`: bounded write to records named in args;
+- `sensitive-write`: invites, tokens, billing, public state, or security impact;
+- `destructive-write`: delete, archive, revoke, publish, bulk, irreversible, or
+  hard-to-reverse mutation;
+- `external-side-effect`: email, webhook, third-party API, indexing, billing, or
+  other non-Convex side effect.
+
+`mcp.tool.mutation(...)` accepts only `safe-write`. Sensitive, destructive,
+bulk, publish-like, revoke-like, audited, and external-side-effect work uses
+`mcp.tool.operation(...)`. Doctor should warn when names, metadata, or affected
+tables look inconsistent with the declared safety class.
 
 ### 5. Destructive MCP Annotations Match Reality
 
@@ -969,6 +1105,8 @@ export const deleteProject = destructiveOperation({
 The confirmation tenant key should come from loaded/previewed data whenever the
 target record determines tenant scope. If runtime tenant, operation tenant, and
 loaded tenant disagree, execution fails closed and emits a drift observation.
+For destructive operations, final confirmation tenant binding happens after
+preview/load, not only during MCP runtime setup.
 
 ### 7. Fail Closed On Missing Runtime Identity Wiring
 
@@ -988,7 +1126,9 @@ Development and test behavior: throw a clear actionable error naming the missing
 wiring and the handler/tool that needed it. This is still fail-closed; it is
 just friendlier to debug.
 
-Public paths use an explicit `public` guard, not accidental missing wiring.
+Public-access paths use an explicit guard such as `publicAccess`, `open`, or a
+`query.public(...)` builder. They do not become public because identity wiring
+is missing.
 
 ### 8. Remove Arity-Based Authorization Inference
 
@@ -1090,6 +1230,8 @@ The sink receives already-normalized, already-redacted events. It can choose
 delivery destination. It cannot change schema, redaction, correlation, identity
 semantics, sampling, or request behavior. Trellis-owned config controls
 enablement and sampling before the sink. Sink failure is always fail-open.
+Sinks must be bounded: slow, unavailable, or backpressured delivery must not
+delay user requests beyond a small configured timeout.
 
 Test capture remains available through `@lupinum/trellis/testing` so framework
 and app tests can assert emitted events without installing an evlog delivery
@@ -1152,6 +1294,10 @@ Each fixture app:
 - passes `doctor`;
 - has generated snapshots for CLI output;
 - is the source for starter generation.
+
+Each fixture should also have a starter manifest that controls which files are
+copied, excluded, and transformed. Fixture-only test files, `.env.local`,
+coverage, and package-local artifacts must not leak into generated apps.
 
 String templates are allowed only for tiny generated fragments where a fixture
 file would be worse.
@@ -1249,6 +1395,12 @@ Findings
 
 `--fix` handles only safe mechanical changes.
 
+`doctor --fix` must never silently change authorization, tenant
+classification, forwarding identity behavior, destructive operation binding, or
+MCP safety classification. For those, it may generate an audit report or
+suggested patch, but applying security-sensitive rewrites requires an explicit
+user decision and a semantics-preserving proof.
+
 Doctor should be built from two reusable engines:
 
 - inventory engine: what Trellis thinks the app is;
@@ -1257,6 +1409,20 @@ Doctor should be built from two reusable engines:
 `doctor`, `explain`, `upgrade --check`, docs generation, and public-surface
 checks should reuse the same inventory engine instead of each scanning the repo
 differently.
+
+Every machine-readable output from `doctor`, `explain`, and `upgrade --check`
+uses a versioned JSON schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "layers": [],
+  "features": [],
+  "operations": [],
+  "tools": [],
+  "findings": []
+}
+```
 
 ## Operations-First Model
 
@@ -1318,14 +1484,29 @@ Projection:
 ```ts
 export const previewPublishEntry = query(publishEntry.preview)
 export const executePublishEntry = mutation(publishEntry.execute)
-export const publishEntryTool = mcp.tool.operation(publishEntry)
+export const publishEntryTool = mcp.tool.operation(publishEntryDescriptor, {
+  preview: api.features.entries.operations.previewPublishEntry,
+  execute: api.features.entries.operations.executePublishEntry,
+})
 ```
 
-The operation is the source of truth. The projections are derived.
+The operation descriptor plus checked projections are the cross-surface source
+of truth. The implementation owns backend behavior. The projections may be
+derived automatically, or they may be explicit checked bindings when Convex
+codegen boundaries require it.
 
 Operation metadata should be structured enough for `doctor` and `explain` to
 work from inventory first. Labels for load, authorize, tenant, preview, and
 execute are preferred to brittle source inference.
+
+Operation ownership chain:
+
+```text
+operation descriptors describe operations
+feature manifests include operations
+app inventory composes features
+doctor, explain, MCP, docs, and upgrade read app inventory first
+```
 
 ## MCP Runtime Spec
 
@@ -1369,25 +1550,69 @@ mcp.tool.query({
   name: 'list-projects',
   ref: api.features.projects.list,
   schema: listProjectsArgs,
-  permission: projectRead,
+  permission: projectReadKey,
 })
 
 mcp.tool.mutation({
   name: 'create-project',
   ref: api.features.projects.create,
   schema: createProjectArgs,
-  permission: projectCreate,
+  permission: projectCreateKey,
+  safety: {
+    kind: 'safe-write',
+    reason: 'Creates one project record named by args.',
+  },
 })
 
-mcp.tool.operation(deleteProject, {
+mcp.tool.operation(deleteProjectDescriptor, {
   name: 'delete-project',
-  permission: projectDelete,
+  permission: projectDeleteKey,
+  preview: api.features.projects.operations.previewDeleteProject,
+  execute: api.features.projects.operations.executeDeleteProject,
 })
 ```
 
 `mcp.tool.mutation(...)` is only for non-destructive or explicitly safe
 mutations. Anything destructive, publish-like, revoke-like, bulk-mutating, or
 audited uses `mcp.tool.operation(...)`.
+
+Direct `mcp.tool.query(...)`, `mcp.tool.mutation(...)`, and any future direct
+action projection must point at Trellis public/protected backend handlers with
+their own backend policy. MCP capability visibility is not policy. Doctor must
+warn when a direct tool points at a raw Convex handler that has no Trellis
+metadata, unless it is explicitly public and read-only.
+
+### Actions
+
+Convex actions are allowed, but they are easy to misuse because they usually
+touch external systems.
+
+Default rule:
+
+- external-side-effect, audited, sensitive, or destructive action work should be
+  modeled as an operation;
+- a future `mcp.tool.action(...)` may exist only for explicitly classified safe
+  or diagnostic actions;
+- generic custom tools must not become the action escape hatch for protected app
+  writes.
+
+Candidate direct action shape:
+
+```ts
+mcp.tool.action({
+  name: 'sync-linear-issue',
+  ref: api.features.integrations.syncLinearIssue,
+  schema: syncLinearIssueArgs,
+  permission: integrationSyncKey,
+  safety: {
+    kind: 'external-side-effect',
+    reason: 'Calls Linear after backend policy decides the workspace is allowed.',
+  },
+})
+```
+
+That shape requires an API spike. Until then, action-backed MCP work should use
+operations when it has business impact.
 
 ### Generic Tools
 
@@ -1405,6 +1630,8 @@ They are not allowed for:
 - destructive app mutations;
 - direct tenant-scoped business writes;
 - bypassing protected handlers;
+- direct protected Convex mutations/actions unless they go through a Trellis
+  protected backend ref projection or operation;
 - identity forwarding through public args.
 
 ### Result Envelope
@@ -1789,8 +2016,19 @@ trellis: {
 ```
 
 Trellis may infer the default from environment, but `doctor` must print the
-resolved mode. Preview deployments that handle real data should be able to opt
-into production safety.
+resolved mode and the source of inference. Preview deployments that handle real
+data should be able to opt into production safety.
+
+Mode behavior:
+
+```text
+development  memory stores allowed; loud warnings and actionable throws
+preview      production-like warnings; configurable strict failures
+production   fail closed at security boundaries
+```
+
+If a deployment environment looks public but resolves to `development`,
+`doctor --security` should warn.
 
 MCP production policy:
 
@@ -1800,6 +2038,14 @@ MCP production policy:
 - destructive MCP cannot opt out of distributed confirmation/replay state;
 - custom stores are allowed only if they expose a self-test that `doctor --mcp`
   can run.
+
+Preferred first-party production defaults should exist before 1.0 final:
+
+- Convex-backed confirmation/replay store for destructive operation execution;
+- Redis or supported Nitro storage backed rate limiter for MCP ingress.
+
+Custom stores may exist, but doctor should mark them unverified unless their
+self-test covers atomic redeem, expiry, and concurrent use.
 
 ### Unsafe Permits
 
@@ -1841,6 +2087,18 @@ Strict/security mode:
 - expired `reviewBy` fails;
 - uncategorized permits fail.
 
+Apps may define allowed permit kinds so `kind` does not become string soup:
+
+```ts
+export const unsafePermitKinds = defineUnsafePermitKinds({
+  preTenantUpload: { defaultScope: ['assets'] },
+  operatorSupportView: { requiresReviewBy: true },
+  externalService: { requiresScope: true },
+})
+```
+
+Unknown kinds warn by default and fail in strict/security mode.
+
 ### Confirmation Binding
 
 Destructive confirmation tokens bind:
@@ -1868,7 +2126,7 @@ receives enough proof to reject missing or stale confirmation.
 | ------------------------ | -------------------------------------------------- | -------------------------------------------------------------- |
 | Protected handler        | missing principal accessor                         | deny in production; actionable throw in dev/test               |
 | Protected handler        | missing actor when guard requires actor            | deny in production; actionable throw in dev/test               |
-| Public handler           | no identity wiring                                 | allowed only with explicit public guard                        |
+| Public handler           | no identity wiring                                 | allowed only with explicit public-access guard                 |
 | Trusted forwarding       | invalid, expired, replayed, or mismatched envelope | hard deny                                                      |
 | MCP discovery            | capability resolution fails                        | hide protected tools and emit observation                      |
 | MCP execution            | backend denies after discovery allowed tool        | backend denial wins; emit capability/backend drift observation |
@@ -1876,6 +2134,15 @@ receives enough proof to reject missing or stale confirmation.
 | Rate limiting            | limiter unavailable for protected/destructive MCP  | hard deny unless explicit read-only opt-out applies            |
 | Observability delivery   | sink throws or times out                           | fail open; never changes request behavior                      |
 | Doctor                   | finding fails strict policy                        | non-zero exit                                                  |
+
+Actor resolution detail:
+
+- missing actor resolver wiring is setup failure for protected handlers that
+  can access actor-required guards or permissions;
+- a resolved `null` actor is allowed only when the guard/permission is
+  explicitly anonymous-capable;
+- actor-required guards and permissions should carry metadata so Trellis can
+  distinguish missing wiring from a normal denied anonymous actor.
 
 ## Public Surface Budget
 
@@ -1916,12 +2183,20 @@ If the answer is weak, do not export it.
 Add a CI command:
 
 ```bash
+pnpm run check:public-api
 trellis check-public-api
 ```
 
 It snapshots package exports, aliases, auto-imports, CLI commands, and generated
 contracts. CI fails when public surface changes without an explicit accepted
 diff.
+
+Public surface diffs require at least one of:
+
+- accepted ADR/spec update;
+- migration note;
+- test update;
+- docs update.
 
 ## Runtime And Build Budget
 
@@ -1936,6 +2211,9 @@ The calmer surface must not hide heavier runtime costs.
   state instead of repeating Convex calls unnecessarily.
 - Signed forwarding should use local key material and avoid per-call remote key
   lookups.
+- Phase 0 should add a benchmark target for forwarding envelope verification.
+  Initial target: under 1ms p99 per verification in the local benchmark fixture
+  before network or Convex execution time.
 - Fixture generation may be slower than string templates, but generated apps
   must be simpler to inspect and validate.
 
@@ -1955,9 +2233,18 @@ Authorization migrations, especially removal of arity-based `authorize`
 inference, must default to audit reports unless the codemod can prove the
 rewrite is safe. Silent authorization rewrites are not acceptable.
 
+Release gates:
+
+```text
+1.0-alpha  fixtures, descriptor boundary, signed forwarding spike, MCP spike
+1.0-beta   bridge package boundary, workspace-mcp fixture, doctor security checks
+1.0-rc     public surface budget, docs, migration tooling, codemods
+1.0        old public paths removed according to the accepted migration table
+```
+
 ### Phase 0: Fixture And API Spikes
 
-- Create `public`, `workspace`, and `workspace-mcp` fixture apps.
+- Create `public`, `personal`, `workspace`, and `workspace-mcp` fixture apps.
 - Create a minimal Ginko-shaped bridge consumer fixture.
 - Spike operation-first MCP without Convex implementation imports in server
   tool files.
@@ -1966,10 +2253,17 @@ rewrite is safe. Silent authorization rewrites are not acceptable.
 
 No production API changes yet.
 
+Phase 0 exit gate:
+
+- all fixture apps build, typecheck, run minimal tests, and pass doctor;
+- each risky experiment has a written go/no-go note;
+- CMS/Ginko ownership for `cms` versus `bridge-consumer` is decided before
+  Phase 0 sign-off.
+
 ### Phase 1: Commit Fixture-Based Starters
 
-- Convert starter generation for `public`, `workspace`, and `workspace-mcp` to
-  fixture sources.
+- Convert starter generation for `public`, `personal`, `workspace`, and
+  `workspace-mcp` to fixture sources.
 - Make fixtures build, typecheck, test, and pass doctor.
 - Add starter snapshots.
 
@@ -1979,7 +2273,21 @@ Acceptance:
 - `workspace-mcp` proves read, write, destructive preview, confirmation, replay
   failure, and drift failure.
 
-### Phase 2: Harden Trusted Forwarding
+### Phase 2: Establish Bridge Package Boundary
+
+- Create `@lupinum/trellis-bridge`.
+- Move bridge code mechanically enough that forwarding work targets the real
+  package boundary.
+- Keep product migration small: Ginko can continue to validate through the
+  Ginko-shaped fixture while signed forwarding is still being finalized.
+
+Acceptance:
+
+- Trellis core no longer needs bridge imports for normal app runtime tests;
+- bridge package can run fixture drift checks;
+- no new bridge API is designed before signed forwarding invariants are known.
+
+### Phase 3: Harden Trusted Forwarding
 
 - Implement signed forwarding envelope.
 - Update server callers.
@@ -1997,15 +2305,15 @@ Acceptance:
 - wrong args hash fails.
 - unknown `kid`, wrong audience, and replayed destructive execution fail.
 
-### Phase 3: Operation-First MCP
+### Phase 4: Operation-First MCP
 
 - Add `mcp.tool.query`, `mcp.tool.mutation`, `mcp.tool.operation`.
 - Mark generic custom tools advanced.
 - Fix destructive MCP annotations.
 - Add explicit runtime and operation-level tenant binding.
 - Update examples and Ginko-shaped fixture destructive tools.
-- Delete old `tool.fromOperation` public path unless retained as an internal
-  alias by explicit team decision.
+- Delete old `tool.fromOperation` public path and ship a mechanical codemod to
+  `mcp.tool.operation(...)`.
 
 Acceptance:
 
@@ -2014,9 +2322,8 @@ Acceptance:
 - workspace MCP starter has e2e coverage;
 - codegen-not-run cases fail with a clear diagnostic.
 
-### Phase 4: Extract Bridge
+### Phase 5: Complete Bridge Extraction
 
-- Create `@lupinum/trellis-bridge`.
 - Move bridge runtime, manifest, drift checks, and CLI.
 - Update the Ginko-shaped fixture to consume the new package.
 - Coordinate Ginko CMS repo migration against packed Trellis packages.
@@ -2030,7 +2337,7 @@ Acceptance:
 - Ginko package E2E passes in the Ginko repo for coordinated release.
 - Existing mini CMS example is updated or moved to bridge examples.
 
-### Phase 5: Public Surface Cleanup
+### Phase 6: Public Surface Cleanup
 
 - Remove declaration-merging registries where explicit inventory works.
 - Simplify exports.
@@ -2044,7 +2351,7 @@ Acceptance:
 - "most people need these imports" docs fit on one page;
 - type errors for missing codegen have explicit diagnostics.
 
-### Phase 6: CLI And Docs
+### Phase 7: CLI And Docs
 
 - Add `trellis upgrade`.
 - Add `trellis explain`.
@@ -2109,7 +2416,10 @@ Can destructive MCP authoring become one obvious line?
 Build:
 
 ```ts
-mcp.tool.operation(publishEntry)
+mcp.tool.operation(publishEntryDescriptor, {
+  preview: api.features.entries.operations.previewPublishEntry,
+  execute: api.features.entries.operations.executePublishEntry,
+})
 ```
 
 Success:
@@ -2122,6 +2432,16 @@ Success:
 - codegen-not-run cases fail clearly;
 - Ginko publish tool becomes thinner.
 
+Best-case future syntax:
+
+```ts
+mcp.tool.operation(entries.publish)
+```
+
+where `entries.publish` is a shared descriptor or generated operation handle.
+It must not require Nitro/server tool files to import Convex implementation
+modules.
+
 ### Experiment 4: Fixture-Based Starters
 
 Question:
@@ -2130,7 +2450,7 @@ Can starter generation stop relying on many string templates?
 
 Build:
 
-- convert `public` and `workspace-mcp` first;
+- convert `public`, `personal`, `workspace`, and `workspace-mcp`;
 - snapshot generated output;
 - add upgrade codemod harness.
 
@@ -2215,6 +2535,46 @@ Rejected:
 - Keeping generic destructive MCP tools as a supported lane.
 - Treating Ginko CMS users as Trellis users in public setup docs.
 
+## Maintenance And Version Lifecycle
+
+Trellis 1.0 should set adopter expectations, not only API shape.
+
+- 1.0 should receive bugfix releases for at least 12 months after final
+  release.
+- The final 0.x line should receive critical security and migration-blocking
+  fixes for a short, announced window after 1.0 final.
+- Future removals should be deprecated one major in advance when the old path is
+  already released and widely used.
+- Security-sensitive or unreleased greenfield paths may still use hard cutovers
+  when tests and codemods exist.
+
+## Acceptance Criteria For 1.0
+
+The 1.0 release is ready when:
+
+- bridge is removed from core public exports;
+- production-safe forwarding replaces raw shared-key and identity args;
+- destructive MCP uses operation-backed preview/confirm/execute only;
+- `workspace-mcp` proves token -> principal -> actor -> permission -> tool
+  execution, plus destructive preview, confirmation, replay failure, and drift
+  failure;
+- `public`, `personal`, `workspace`, and `workspace-mcp` starters are generated
+  from tested fixtures;
+- typed unsafe permits cover unsafe handlers, tenant escapes, and generic MCP
+  custom tools;
+- direct MCP mutations require explicit `safe-write` classification;
+- doctor checks forwarding, tenant boundaries, MCP safety, destructive
+  operations, confirmation stores, and rate-limit stores;
+- the inventory engine emits versioned JSON used by doctor and upgrade checks;
+- public-surface budget runs in CI;
+- old bridge imports, old MCP tool patterns, and old forwarding helpers have
+  codemods or `upgrade --check` diagnostics;
+- the forwarding envelope RFC has named ownership and security-aware review.
+
+`trellis explain operation <id>` is the first `explain` command to ship if the
+inventory engine can support it without a second analyzer. Broader `explain`
+commands may wait for the full dream version.
+
 ## Acceptance Criteria For The Dream Version
 
 The full dream version is ready when:
@@ -2244,16 +2604,23 @@ The full dream version is ready when:
 
 ## Open Questions
 
-1. Should `tool.fromOperation` be deleted outright in the major, or retained as
-   an internal alias hidden from docs?
-2. How much of operation projection can be derived without Convex codegen
+1. How much of operation projection can be derived without Convex codegen
    ordering problems?
-3. Does `workspace-mcp` fully replace `workspace --mcp`, or should the old flag
+2. Does `workspace-mcp` fully replace `workspace --mcp`, or should the old flag
    exist as a transitional alias?
-4. Is `cms` a Ginko-owned setup path, an advanced bridge-author fixture, or both
-   in separate places?
-5. Which old public paths get hard deletion, and which get a one-release hidden
+3. Is `cms` a Ginko-owned setup path, an advanced bridge-author fixture, or both
+   in separate places? Decide before Phase 0 sign-off.
+4. Should the public backend import become `@lupinum/trellis/backend`, or should
+   Trellis keep `@lupinum/trellis/functions` for Convex backend builders?
+5. Should public-access handlers use `query.public(...)`, `guard: open`, or a
+   clearer guard such as `publicAccess`?
+6. Which old public paths get hard deletion, and which get a one-release hidden
    alias by explicit team decision?
+
+Resolved for 1.0 unless the team explicitly reopens it:
+
+- `tool.fromOperation` is hard-deleted from public API and replaced by
+  `mcp.tool.operation(...)` plus a codemod.
 
 ## Final Target Shape
 
