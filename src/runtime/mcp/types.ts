@@ -43,12 +43,15 @@ type ToolFieldName<S extends AnyConvexSchema> = [keyof InferSchemaData<S> & stri
 export interface ConvexToolSuccessResult<T = unknown> {
   ok: true
   data: ValidateSerializable<T>
+  executed?: boolean
 }
 
 export interface ConvexToolPreviewResult {
   ok: true
   preview: PreviewResult
   awaitingConfirmation: boolean
+  requiresConfirmation: boolean
+  executed: false
 }
 
 export interface ConvexToolErrorResult {
@@ -58,6 +61,7 @@ export interface ConvexToolErrorResult {
     message: string
     retryable: boolean
     issues?: ConvexErrorIssue[]
+    details?: Record<string, unknown>
     explanation?: TrellisDenialExplanation
   }
 }
@@ -119,6 +123,7 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
     message: string,
     issues?: ConvexErrorIssue[],
     explanation?: TrellisDenialExplanation,
+    details?: Record<string, unknown>,
   ) => McpToolCallbackResult
   preview: (preview: string | PreviewResult) => McpToolCallbackResult
   blocked: (preview: string | PreviewResult) => McpToolCallbackResult

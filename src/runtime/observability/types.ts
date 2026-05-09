@@ -97,6 +97,7 @@ type ObservationDefinitionMap = {
   'operation.preview.completed': { status: 'success'; reasonCode?: never }
   'operation.confirm.validated': { status: 'success'; reasonCode?: never }
   'operation.confirm.drifted': { status: 'deny'; reasonCode: 'tool.confirmation_mismatch' }
+  'operation.confirm.missing': { status: 'deny'; reasonCode: 'tool.confirmation_mismatch' }
   'operation.execute.completed': { status: 'success'; reasonCode?: never }
   'operation.execute.failed': { status: 'error'; reasonCode?: 'operation.execute.failed' }
   'tool.called': { status: 'success'; reasonCode?: never }

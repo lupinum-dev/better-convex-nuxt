@@ -49,6 +49,9 @@ export class ConvexCallError extends Error {
   /** Field-level validation issues when category is 'validation'. */
   issues?: ConvexErrorIssue[]
 
+  /** Safe structured details returned by the remote function. */
+  details?: Record<string, unknown>
+
   /** Whether the error is likely recoverable (auth, network, rate_limit). */
   get isRecoverable(): boolean {
     return this.category === 'auth' || this.category === 'network' || this.category === 'rate_limit'
@@ -67,6 +70,7 @@ export class ConvexCallError extends Error {
       authMode?: string
       category?: ConvexErrorCategory
       issues?: ConvexErrorIssue[]
+      details?: Record<string, unknown>
     },
   ) {
     super(message, init?.cause !== undefined ? { cause: init.cause } : undefined)
@@ -80,6 +84,7 @@ export class ConvexCallError extends Error {
       this.convexUrl = init.convexUrl
       this.authMode = init.authMode
       this.issues = init.issues
+      this.details = init.details
     }
     this.category = init?.category ?? categorizeError(this.code, this.status)
   }
@@ -160,6 +165,12 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
+function asPlainRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
 function getErrorInit(
   record: Record<string, unknown>,
 ): Omit<ConstructorParameters<typeof ConvexCallError>[1] & object, 'cause' | 'code' | 'status'> {
@@ -202,9 +213,13 @@ function extractIssues(data: Record<string, unknown>): ConvexErrorIssue[] | unde
   return mapped.length > 0 ? mapped : undefined
 }
 
-function fromStructuredData(
-  data: Record<string, unknown>,
-): { message: string; code?: string; status?: number; issues?: ConvexErrorIssue[] } | null {
+function fromStructuredData(data: Record<string, unknown>): {
+  message: string
+  code?: string
+  status?: number
+  issues?: ConvexErrorIssue[]
+  details?: Record<string, unknown>
+} | null {
   const dataMessage = asString(data.message)
   const dataCode = asString(data.code) ?? asString(data.errorCode)
   const dataStatus = asNumber(data.status)
@@ -217,6 +232,7 @@ function fromStructuredData(
     code: dataCode ?? parsed.code,
     status: dataStatus,
     issues: extractIssues(data),
+    details: asPlainRecord(data.details),
   }
 }
 
@@ -247,6 +263,7 @@ export function toConvexError(error: unknown): ConvexCallError {
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
           issues: fromData.issues,
+          details: fromData.details,
           cause: record,
         })
       }
@@ -274,6 +291,7 @@ export function toConvexError(error: unknown): ConvexCallError {
           code: fromData.code,
           status: fromData.status ?? asNumber(record.status),
           issues: fromData.issues,
+          details: fromData.details,
           cause: error,
         })
       }

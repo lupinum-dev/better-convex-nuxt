@@ -117,6 +117,37 @@ function inferMcpErrorCategory(message: string): ConvexErrorCategory | undefined
   return undefined
 }
 
+function markDestructiveExecuted(
+  result: unknown,
+  wrapRaw: (value: unknown) => unknown = (value) => value,
+): unknown {
+  if (!result || typeof result !== 'object' || !('structuredContent' in result)) {
+    const wrapped = wrapRaw(result)
+    if (wrapped && typeof wrapped === 'object' && 'structuredContent' in wrapped) {
+      return markDestructiveExecuted(wrapped)
+    }
+    return wrapped
+  }
+  const toolResult = result as {
+    structuredContent?: unknown
+  }
+  const structuredContent = toolResult.structuredContent
+  if (!structuredContent || typeof structuredContent !== 'object') {
+    return result
+  }
+  const envelope = structuredContent as Record<string, unknown>
+  if (envelope.ok !== true || 'preview' in envelope || envelope.executed === true) {
+    return result
+  }
+  return {
+    ...(result as Record<string, unknown>),
+    structuredContent: {
+      ...envelope,
+      executed: true,
+    },
+  }
+}
+
 type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilities, TRuntime> = {
   event: H3Event
   principal: TPrincipal
@@ -293,6 +324,7 @@ export interface ToolOptions<
       message: string,
       issues?: import('../utils/types.js').ConvexErrorIssue[],
       explanation?: import('../observability/index.js').TrellisDenialExplanation,
+      details?: Record<string, unknown>,
     ) => unknown
   }) => unknown
   outputSchema?: ZodRawShape
@@ -805,8 +837,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
-              error: (code, message, issues, explanation) =>
-                ctx.error(code, message, issues, explanation),
+              error: (code, message, issues, explanation, details) =>
+                ctx.error(code, message, issues, explanation, details),
             })
             await projectionCtx.observe({
               name: 'tool.executed',
@@ -863,7 +895,7 @@ export function defineMcpApp<
             convexError.category !== 'unknown'
               ? convexError.category
               : (inferMcpErrorCategory(message) ?? 'unknown')
-          return ctx.error(category, message, convexError.issues)
+          return ctx.error(category, message, convexError.issues, undefined, convexError.details)
         }
       },
     })
@@ -1102,8 +1134,8 @@ export function defineMcpApp<
               capabilities: projectionCtx.capabilities,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
-              error: (code, message, issues, explanation) =>
-                ctx.error(code, message, issues, explanation),
+              error: (code, message, issues, explanation, details) =>
+                ctx.error(code, message, issues, explanation, details),
             })
           }
 
@@ -1422,7 +1454,10 @@ export function defineMcpApp<
             operation: metadata.id,
           })
           projectionCtx.wideSummary.emit({ status: 'success' })
-          return finalizeResult(result)
+          const finalized = finalizeResult(result)
+          return isDestructive
+            ? markDestructiveExecuted(finalized, (value) => ctx.ok(value as SerializableValue))
+            : finalized
         } catch (error) {
           await projectionCtx.observe({
             name: 'tool.failed',
@@ -1443,7 +1478,7 @@ export function defineMcpApp<
             convexError.category !== 'unknown'
               ? convexError.category
               : (inferMcpErrorCategory(message) ?? 'unknown')
-          return ctx.error(category, message, convexError.issues)
+          return ctx.error(category, message, convexError.issues, undefined, convexError.details)
         }
       },
     })

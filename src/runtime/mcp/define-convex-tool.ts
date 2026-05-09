@@ -429,8 +429,8 @@ function createToolContext<TRole extends string>(
     actor,
     ...calls,
     ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
-    error: (category, message, issues, explanation) =>
-      wrapError(category, message, issues, explanation),
+    error: (category, message, issues, explanation, details) =>
+      wrapError(category, message, issues, explanation, details),
     preview: (preview) => wrapPreview(normalizePreview(preview)),
     blocked: (preview) =>
       wrapPreview({
@@ -633,7 +633,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
           convexError.category !== 'unknown'
             ? convexError.category
             : (inferCategoryFromMessage(message) ?? 'unknown')
-        return wrapError(category, message, convexError.issues)
+        return wrapError(category, message, convexError.issues, undefined, convexError.details)
       }
     },
   )

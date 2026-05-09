@@ -130,6 +130,7 @@ export function wrapError(
   message: string,
   issues?: ConvexErrorIssue[],
   explanation?: TrellisDenialExplanation,
+  details?: Record<string, unknown>,
 ): CallToolResult {
   return {
     content: [{ type: 'text', text: message }],
@@ -140,6 +141,7 @@ export function wrapError(
         message,
         retryable: isRetryable(category),
         ...(issues?.length ? { issues } : {}),
+        ...(details ? { details } : {}),
         ...(explanation ? { explanation } : {}),
       },
     },
@@ -157,6 +159,8 @@ export function wrapPreview(preview: PreviewResult): CallToolResult {
       ok: true,
       preview,
       awaitingConfirmation: preview.blocked === true ? false : true,
+      requiresConfirmation: preview.blocked === true ? false : true,
+      executed: false,
     },
   }
 }
