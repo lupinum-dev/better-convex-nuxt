@@ -41,10 +41,24 @@ imports only shared descriptors and generated refs. One boundary issue surfaced
 and was fixed: shared/Convex fixture files must import focused runtime modules,
 not broad barrels that can drag server-only code into the Convex bundle.
 
+Starter boundary result:
+
+Go for manifest-backed generation. `starter.manifest.json` now marks the files
+that may become starter output and keeps local deployment/build artifacts out of
+the starter source.
+
+Generated ref result:
+
+Go for a small internal renderer. The fixture's `generated/operation-refs.ts`
+shape is now reproducible from explicit descriptor/API metadata through
+`renderOperationRefsModule(...)`. This proves the checked-binding fallback can be
+generated without source scanning or importing Convex implementation modules
+into MCP server files. Full CLI starter wiring remains out of scope for this
+experiment.
+
 Remaining proof:
 
-- move the generated-ref helper from fixture-local proof to the actual starter
-  generation path;
+- wire the generated-ref renderer into the actual starter generation path;
 - decide whether descriptors or generated handles are the canonical MCP import.
 
 ## Experiment: Signed Forwarding Envelope
@@ -69,9 +83,16 @@ Go for RFC development, not production implementation. The technical shape is
 small enough to keep isolated, but signing algorithm, key rotation, replay store,
 test vectors, and principal/delegation validators still need the security RFC.
 
+Test-vector result:
+
+Go for canonical hash stabilization. Phase 0 now records fixed canonical args
+and SHA-256 base64url hash vectors in the forwarding RFC skeleton, and the unit
+suite asserts those vectors against the spike implementation. This still does
+not freeze the production algorithm; it gives the RFC a concrete baseline to
+accept or replace.
+
 Remaining proof:
 
-- add RFC test vectors;
 - benchmark verification after the signing algorithm is chosen;
 - wire the envelope through server/MCP/bridge callers behind one helper;
 - keep old raw forwarding path until the migration slice is ready.
@@ -100,8 +121,17 @@ Go for starter integration. A real Nuxt build accepts the runtime/tool shape onc
 the fixture exports the MCP runtime as the default handler expected by
 `@nuxtjs/mcp-toolkit`.
 
+Direct mutation safety result:
+
+Partial go. Direct MCP mutation tools now require `bounded-write` safety on both
+the tool declaration and the backend/generated ref. Sensitive, destructive, and
+external-side-effect writes must use operations. This is a runtime/type surface
+spike, not yet a generated metadata story.
+
 Remaining proof:
 
 - add direct `query`/`mutation` lane safety metadata;
+- generate direct mutation safety metadata from backend descriptors rather than
+  stamping refs by hand;
 - wire the pattern into generated `workspace-mcp` starter output;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.

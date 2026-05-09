@@ -16,6 +16,7 @@ import {
 } from '../../src/runtime/functions/define-operation'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
+import { stampMcpToolSafety } from '../../src/runtime/mcp/operation-binding'
 import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
@@ -449,10 +450,18 @@ describe('defineMcpApp middleware forwarding', () => {
         }),
     })
 
+    const updateRunbook = stampMcpToolSafety({} as never, {
+      kind: 'bounded-write',
+      reason: 'Updates one runbook explicitly named by args.',
+    })
     const tool = mcp.tool({
       schema: emptySchema,
-      call: 'runbooks:update' as never,
+      call: updateRunbook,
       operation: 'mutation',
+      safety: {
+        kind: 'bounded-write',
+        reason: 'Updates one runbook explicitly named by args.',
+      },
       middleware: async (_args, ctx, next) => {
         await ctx.query('runbooks:getWorkspace' as never, { id: 'runbook_1' } as never)
         return await next()
@@ -543,10 +552,18 @@ describe('MCP rate-limit integration', () => {
       }),
     })
 
+    const createPost = stampMcpToolSafety({} as never, {
+      kind: 'bounded-write',
+      reason: 'Creates one post explicitly named by args.',
+    })
     const tool = mcp.tool({
       schema: emptySchema,
-      call: 'posts:create' as never,
+      call: createPost,
       operation: 'mutation',
+      safety: {
+        kind: 'bounded-write',
+        reason: 'Creates one post explicitly named by args.',
+      },
       rateLimit: { max: 1, window: '1m' },
       meta: { name: 'limited-project-tool' },
     })
@@ -567,6 +584,64 @@ describe('MCP rate-limit integration', () => {
         },
       },
     })
+  })
+
+  it('rejects direct mutation tools when safety only exists on the MCP declaration', () => {
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    expect(() =>
+      mcp.tool({
+        schema: emptySchema,
+        call: {} as never,
+        operation: 'mutation',
+        safety: {
+          kind: 'bounded-write',
+          reason: 'Creates one record.',
+        },
+      }),
+    ).toThrow(/safety must be stamped on the backend\/generated ref/)
+  })
+
+  it('rejects direct mutation tools when backend safety is not bounded-write', () => {
+    const publishPost = stampMcpToolSafety({} as never, {
+      kind: 'sensitive-write',
+      reason: 'Publishes content.',
+    })
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    expect(() =>
+      mcp.tool({
+        schema: emptySchema,
+        call: publishPost,
+        operation: 'mutation',
+        safety: {
+          kind: 'sensitive-write',
+          reason: 'Publishes content.',
+        },
+      }),
+    ).toThrow(/Use tool\.operation/)
   })
 
   it('refuses production rate-limited tools without an explicit distributed store', () => {

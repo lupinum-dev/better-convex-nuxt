@@ -55,7 +55,13 @@ import {
 } from './destructive-confirmation.js'
 import { normalizeMcpError } from './error-normalization.js'
 import { markDestructiveExecuted } from './mcp-tool-result.js'
-import { assertOperationBinding, toKebabCase, type AnyFunctionRef } from './operation-binding.js'
+import {
+  assertOperationBinding,
+  getMcpToolSafety,
+  toKebabCase,
+  type AnyFunctionRef,
+  type TrellisMcpToolSafety,
+} from './operation-binding.js'
 import { checkToolRateLimit, parseWindowString, type McpRateLimitStore } from './rate-limiter.js'
 import type {
   AnyConvexSchema,
@@ -191,6 +197,7 @@ export interface ToolOptions<
     ctx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
   ) => MaybePromise<boolean>
   meta?: ProjectToolMeta
+  safety?: TrellisMcpToolSafety
   rateLimit?: { max: number; window: string }
   rateLimitStore?: McpRateLimitStore
   maxItems?: {
@@ -407,6 +414,38 @@ function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | n
   return capabilities[resolvePermissionKey(permission)] === true
 }
 
+function assertDirectToolSafety(
+  toolName: string,
+  operation: ConvexToolOperation,
+  ref: AnyFunctionRef,
+  declaredSafety: TrellisMcpToolSafety | undefined,
+): void {
+  if (operation === 'query') return
+
+  if (!declaredSafety) {
+    throw new Error(
+      `${toolName}: direct MCP ${operation} tools must declare bounded-write safety or use tool.operation(...).`,
+    )
+  }
+  if (declaredSafety.kind !== 'bounded-write') {
+    throw new Error(
+      `${toolName}: direct MCP ${operation} tools only support bounded-write safety. Use tool.operation(...) for ${declaredSafety.kind}.`,
+    )
+  }
+
+  const backendSafety = getMcpToolSafety(ref)
+  if (!backendSafety) {
+    throw new Error(
+      `${toolName}: direct MCP ${operation} safety must be stamped on the backend/generated ref, not only declared on the tool.`,
+    )
+  }
+  if (backendSafety.kind !== declaredSafety.kind) {
+    throw new Error(
+      `${toolName}: direct MCP ${operation} safety "${declaredSafety.kind}" does not match backend ref safety "${backendSafety.kind}".`,
+    )
+  }
+}
+
 function withProjectionCalls<TRole extends string, TPrincipal, TDelegation extends Delegation>(
   ctx: ConvexToolHandlerCtx<TRole>,
   projectionCtx: ProjectionRuntimeCtx<TPrincipal, TDelegation, unknown, unknown>,
@@ -580,6 +619,7 @@ export function defineMcpApp<
     )
 
     const operation = tool.operation ?? 'mutation'
+    assertDirectToolSafety(tool.meta?.name ?? 'project-tool', operation, tool.call, tool.safety)
     const middleware: ConvexToolMiddleware<S> | undefined =
       tool.rateLimit || tool.middleware
         ? async (args, ctx, next) => {

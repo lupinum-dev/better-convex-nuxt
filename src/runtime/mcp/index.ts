@@ -12,6 +12,7 @@ export {
 
 export { defineTool } from './define-convex-tool.js'
 export { defineMcpApp } from './define-mcp-app.js'
+export { stampMcpToolSafety, trellisMcpToolSafetyKey } from './operation-binding.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
 
 export { useMcpServer } from './use-mcp-server.js'
@@ -84,6 +85,8 @@ export type {
   ToolOptions,
   ValidateMcpToolOptions,
 } from './define-mcp-app.js'
+
+export type { TrellisMcpToolSafety } from './operation-binding.js'
 
 export type {
   McpPromptExtra,

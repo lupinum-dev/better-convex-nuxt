@@ -6,12 +6,22 @@ import type {
 import {
   getOperationMetadata,
   getOperationProjectionMetadata,
+  type McpWriteSafety,
 } from '../functions/operation-metadata.js'
 
 type AnyQueryRef = AnyQueryFunction
 type AnyMutationRef = AnyMutationFunction
 type AnyActionRef = AnyActionFunction
 export type AnyFunctionRef = AnyQueryRef | AnyMutationRef | AnyActionRef
+
+export type TrellisMcpToolSafety = {
+  kind: McpWriteSafety
+  reason: string
+}
+
+export const trellisMcpToolSafetyKey = Symbol.for('trellis.mcp.toolSafety')
+
+const mcpToolSafetyByRef = new WeakMap<object, TrellisMcpToolSafety>()
 
 export function toKebabCase(input: string): string {
   return input
@@ -61,4 +71,39 @@ export function assertOperationBinding(
       `tool.fromOperation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
     )
   }
+}
+
+export function stampMcpToolSafety<T>(value: T, safety: TrellisMcpToolSafety): T {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') {
+    return value
+  }
+
+  mcpToolSafetyByRef.set(value, safety)
+
+  try {
+    Object.defineProperty(value, trellisMcpToolSafetyKey, {
+      value: safety,
+      enumerable: false,
+      configurable: true,
+      writable: false,
+    })
+  } catch {
+    // Some generated function refs are proxies that reject extension. The WeakMap remains canonical.
+  }
+
+  return value
+}
+
+export function getMcpToolSafety(value: unknown): TrellisMcpToolSafety | null {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') return null
+
+  const keyedSafety = (value as { [trellisMcpToolSafetyKey]?: TrellisMcpToolSafety })[
+    trellisMcpToolSafetyKey
+  ]
+  if (keyedSafety) return keyedSafety
+
+  const descriptor = Object.getOwnPropertyDescriptor(value, trellisMcpToolSafetyKey)
+  if (descriptor?.value) return descriptor.value as TrellisMcpToolSafety
+
+  return mcpToolSafetyByRef.get(value) ?? null
 }

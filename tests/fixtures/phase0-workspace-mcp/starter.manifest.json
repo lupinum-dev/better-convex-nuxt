@@ -1,0 +1,17 @@
+{
+  "name": "phase0-workspace-mcp",
+  "description": "Phase 0 proof for fixture-backed workspace MCP starter generation.",
+  "include": [
+    ".gitignore",
+    "app.vue",
+    "convex.json",
+    "nuxt.config.ts",
+    "package.json",
+    "convex/**/*.ts",
+    "convex/**/*.js",
+    "generated/**/*.ts",
+    "server/**/*.ts",
+    "shared/**/*.ts"
+  ],
+  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**"]
+}

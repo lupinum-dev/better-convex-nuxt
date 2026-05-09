@@ -53,6 +53,42 @@ describe('trusted forwarding envelopes', () => {
     expect(hashForwardingArgs({ b: 2, a: 1 })).toBe(hashForwardingArgs({ a: 1, b: 2 }))
   })
 
+  it('keeps canonical args hash test vectors stable', () => {
+    const vectors = [
+      {
+        args: {
+          z: 1,
+          a: { b: true },
+          _trellisForwarding: 'ignored',
+          __trellis: { trace: 'ignored' },
+        },
+        canonical: '{"a":{"b":true},"z":1}',
+        hash: 'EfLFajqAf5JyfYGFIP9-L2OuKX0xG0gC8pMA6gq-NG8',
+      },
+      {
+        args: {
+          items: [1, undefined, null, { b: 2, a: 1 }],
+          optional: undefined,
+        },
+        canonical: '{"items":[1,null,null,{"a":1,"b":2}]}',
+        hash: 'llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q',
+      },
+      {
+        args: {
+          id: 'j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p',
+          nested: { beta: 'b', alpha: 'a' },
+        },
+        canonical: '{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}',
+        hash: '0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ',
+      },
+    ]
+
+    for (const vector of vectors) {
+      expect(canonicalizeForwardingArgs(vector.args)).toBe(vector.canonical)
+      expect(hashForwardingArgs(vector.args)).toBe(vector.hash)
+    }
+  })
+
   it('signs and verifies a compact forwarding envelope', () => {
     const envelope = createEnvelope()
     const payload = verify(envelope)
