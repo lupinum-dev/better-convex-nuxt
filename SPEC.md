@@ -129,6 +129,12 @@ This spec amends or supersedes several current ADRs:
 - ADR 0016 evlog observability: amended. Trellis keeps the event vocabulary and
   redaction contract; delivery may move behind a constrained sink interface.
 
+## Adoption Boundary
+
+Do not use Trellis just because an app needs a Convex query helper. Use Trellis
+when the team wants one reviewable backend model across browser, server,
+workspace, bridge, and agent surfaces.
+
 ## Design Principles
 
 ### Keep The One Backend Model
@@ -594,6 +600,8 @@ Doctor fails when:
 
 - descriptor kind and projection kind disagree;
 - descriptor args and implementation args diverge;
+- descriptor result or preview result schema and generated projection metadata
+  diverge;
 - descriptor permission key and implementation permission key diverge;
 - destructive operation metadata lacks preview or execute projection;
 - MCP binding points at refs whose generated metadata does not match the
@@ -707,7 +715,7 @@ export const projectsFeature = defineFeature({
   tenant: {
     tables: ['projects'],
   },
-  operations: [deleteProjectOperation],
+  operations: [deleteProjectDescriptor],
   capabilities: [projectCapabilities],
 })
 ```
@@ -765,6 +773,14 @@ The operation definition is the source of truth for:
 The implementation may use generated metadata or explicit thin exports. Users
 must not hand-maintain mismatched operation ids, preview refs, execute refs, and
 MCP bindings.
+
+Preview is side-effect-free. It may read data, authorize, compute readiness, and
+produce confirmation material. It must not mutate app data, call external
+systems, enqueue jobs, or perform irreversible work.
+
+Execution must re-run guard, load, authorization, tenant binding, and drift
+checks after confirmation redemption. A successful preview is not an
+authorization grant.
 
 More precise wording for implementation:
 
@@ -922,6 +938,8 @@ must define:
 - clock-skew tolerance;
 - replay policy by purpose;
 - production nonce/redemption store requirements;
+- canonical serialization test vectors for nested args, arrays, Convex ids,
+  optional fields, and excluded metadata;
 - principal and delegation validators used during envelope verification;
 - maximum serialized envelope size;
 - redaction behavior for invalid principal/delegation payloads;
@@ -932,6 +950,10 @@ The forwarding envelope RFC is a trusted-forwarding phase gating dependency.
 Before Phase 0 sign-off, the team must name an owner for the RFC and choose at
 least one security-aware reviewer outside the implementation author.
 Implementation should not begin until the RFC has review sign-off.
+
+Phase 0 may build throwaway or fixture-only forwarding spikes before RFC
+sign-off. Production implementation, public API, and migration work wait for
+RFC sign-off.
 
 ### 4. MCP Uses Blessed Projection Lanes
 
@@ -1010,7 +1032,7 @@ mcp.tool.mutation({
   schema: createProjectArgs,
   permission: projectCreateKey,
   safety: {
-    kind: 'safe-write',
+    kind: 'bounded-write',
     reason: 'Creates one draft project record named in args.',
   },
 })
@@ -1019,17 +1041,23 @@ mcp.tool.mutation({
 Initial safety vocabulary:
 
 - `read`: no write or external side effect;
-- `safe-write`: bounded write to records named in args;
+- `bounded-write`: bounded write to records named in args;
 - `sensitive-write`: invites, tokens, billing, public state, or security impact;
 - `destructive-write`: delete, archive, revoke, publish, bulk, irreversible, or
   hard-to-reverse mutation;
 - `external-side-effect`: email, webhook, third-party API, indexing, billing, or
   other non-Convex side effect.
 
-`mcp.tool.mutation(...)` accepts only `safe-write`. Sensitive, destructive,
+`mcp.tool.mutation(...)` accepts only `bounded-write`. Sensitive, destructive,
 bulk, publish-like, revoke-like, audited, and external-side-effect work uses
 `mcp.tool.operation(...)`. Doctor should warn when names, metadata, or affected
 tables look inconsistent with the declared safety class.
+
+The tool-side classification is not the source of truth by itself. The
+referenced backend handler, shared descriptor, or generated Trellis function
+metadata must also declare a compatible safety class. MCP binding may confirm or
+narrow safety; it must not down-classify a dangerous backend ref as
+`bounded-write`.
 
 ### 5. Destructive MCP Annotations Match Reality
 
@@ -1398,8 +1426,7 @@ Findings
 `doctor --fix` must never silently change authorization, tenant
 classification, forwarding identity behavior, destructive operation binding, or
 MCP safety classification. For those, it may generate an audit report or
-suggested patch, but applying security-sensitive rewrites requires an explicit
-user decision and a semantics-preserving proof.
+suggested patch, never an automatic rewrite.
 
 Doctor should be built from two reusable engines:
 
@@ -1423,6 +1450,11 @@ uses a versioned JSON schema:
   "findings": []
 }
 ```
+
+Inventory and finding JSON must be safe to attach to bug reports. It must not
+contain secrets, raw forwarding envelopes, bearer tokens, raw
+principal/delegation payloads, request headers, or unredacted user-authored
+data.
 
 ## Operations-First Model
 
@@ -1508,6 +1540,17 @@ app inventory composes features
 doctor, explain, MCP, docs, and upgrade read app inventory first
 ```
 
+Concrete app inventory shape:
+
+```ts
+export const appInventory = defineAppInventory({
+  features: [projectsFeature, membersFeature],
+})
+```
+
+The shared inventory engine reads `appInventory` first. Static source analysis
+is only a supplement for diagnostics and drift detection.
+
 ## MCP Runtime Spec
 
 ### Runtime Setup
@@ -1559,7 +1602,7 @@ mcp.tool.mutation({
   schema: createProjectArgs,
   permission: projectCreateKey,
   safety: {
-    kind: 'safe-write',
+    kind: 'bounded-write',
     reason: 'Creates one project record named by args.',
   },
 })
@@ -1572,8 +1615,8 @@ mcp.tool.operation(deleteProjectDescriptor, {
 })
 ```
 
-`mcp.tool.mutation(...)` is only for non-destructive or explicitly safe
-mutations. Anything destructive, publish-like, revoke-like, bulk-mutating, or
+`mcp.tool.mutation(...)` is only for direct bounded writes. Anything
+destructive, publish-like, revoke-like, bulk-mutating, external-side-effect, or
 audited uses `mcp.tool.operation(...)`.
 
 Direct `mcp.tool.query(...)`, `mcp.tool.mutation(...)`, and any future direct
@@ -1581,6 +1624,12 @@ action projection must point at Trellis public/protected backend handlers with
 their own backend policy. MCP capability visibility is not policy. Doctor must
 warn when a direct tool points at a raw Convex handler that has no Trellis
 metadata, unless it is explicitly public and read-only.
+
+Direct MCP refs must carry generated Trellis function metadata produced by
+public/protected backend builders. Raw Convex refs without Trellis metadata are
+rejected unless explicitly declared public and read-only. MCP tools are
+allowlisted through explicit declarations or generated inventory; Trellis does
+not expose Convex refs by directory convention alone.
 
 ### Actions
 
@@ -1591,28 +1640,36 @@ Default rule:
 
 - external-side-effect, audited, sensitive, or destructive action work should be
   modeled as an operation;
-- a future `mcp.tool.action(...)` may exist only for explicitly classified safe
-  or diagnostic actions;
+- a future `mcp.tool.action(...)` may exist only for read-only or diagnostic
+  actions;
 - generic custom tools must not become the action escape hatch for protected app
   writes.
 
-Candidate direct action shape:
+Business-impacting external side effects should use operations:
+
+```ts
+mcp.tool.operation(syncLinearIssueDescriptor, {
+  preview: api.features.integrations.operations.previewSyncLinearIssue,
+  execute: api.features.integrations.operations.executeSyncLinearIssue,
+})
+```
+
+Candidate direct action shape for diagnostics:
 
 ```ts
 mcp.tool.action({
-  name: 'sync-linear-issue',
-  ref: api.features.integrations.syncLinearIssue,
-  schema: syncLinearIssueArgs,
-  permission: integrationSyncKey,
+  name: 'check-linear-status',
+  ref: api.features.integrations.checkLinearStatus,
+  schema: checkLinearStatusArgs,
+  permission: integrationReadKey,
   safety: {
-    kind: 'external-side-effect',
-    reason: 'Calls Linear after backend policy decides the workspace is allowed.',
+    kind: 'read',
+    reason: 'Reads integration health only; no external mutation.',
   },
 })
 ```
 
-That shape requires an API spike. Until then, action-backed MCP work should use
-operations when it has business impact.
+That direct action shape requires an API spike.
 
 ### Generic Tools
 
@@ -2039,13 +2096,14 @@ MCP production policy:
 - custom stores are allowed only if they expose a self-test that `doctor --mcp`
   can run.
 
-Preferred first-party production defaults should exist before 1.0 final:
+First-party production defaults must exist before 1.0 final:
 
 - Convex-backed confirmation/replay store for destructive operation execution;
 - Redis or supported Nitro storage backed rate limiter for MCP ingress.
 
 Custom stores may exist, but doctor should mark them unverified unless their
-self-test covers atomic redeem, expiry, and concurrent use.
+self-test covers atomic redeem, expiry, concurrent use, clock-skew behavior,
+idempotency behavior, and failure-mode behavior.
 
 ### Unsafe Permits
 
@@ -2213,7 +2271,11 @@ The calmer surface must not hide heavier runtime costs.
   lookups.
 - Phase 0 should add a benchmark target for forwarding envelope verification.
   Initial target: under 1ms p99 per verification in the local benchmark fixture
-  before network or Convex execution time.
+  before network or Convex execution time. If the security RFC chooses an
+  algorithm that exceeds this, the RFC must justify the tradeoff and set a
+  measured budget. CI should fail on significant regressions after the baseline
+  is accepted, not on the first absolute target before implementation tradeoffs
+  are known.
 - Fixture generation may be slower than string templates, but generated apps
   must be simpler to inspect and validate.
 
@@ -2232,6 +2294,21 @@ Every removed public path needs:
 Authorization migrations, especially removal of arity-based `authorize`
 inference, must default to audit reports unless the codemod can prove the
 rewrite is safe. Silent authorization rewrites are not acceptable.
+
+### Initial Migration Table
+
+| Old path or pattern          | New path or pattern                        | Migration                         |
+| ---------------------------- | ------------------------------------------ | --------------------------------- |
+| `@lupinum/trellis/bridge`    | `@lupinum/trellis-bridge`                  | codemod                           |
+| `@lupinum/trellis/functions` | `@lupinum/trellis/backend` or keep as-is   | open question                     |
+| `tool.fromOperation(...)`    | `mcp.tool.operation(...)`                  | codemod                           |
+| raw trusted forwarding args  | `_trellisForwarding` signed envelope       | codemod plus manual audit         |
+| `unsafe.*({ bypass })`       | `unsafe.*({ permit: unsafe.permit(...) })` | codemod when shape is obvious     |
+| arity-inferred `authorize`   | explicit `authorize` object or helper      | audit report unless provably safe |
+| `workspace --mcp`            | `workspace-mcp` or transitional alias      | CLI alias decision                |
+
+This table is intentionally incomplete until Phase 0 finishes. It exists so
+public API impact stays visible while the remaining naming decisions are made.
 
 Release gates:
 
@@ -2285,7 +2362,8 @@ Acceptance:
 
 - Trellis core no longer needs bridge imports for normal app runtime tests;
 - bridge package can run fixture drift checks;
-- no new bridge API is designed before signed forwarding invariants are known.
+- no new bridge public API is stabilized beyond the minimal package boundary
+  required for forwarding and fixtures.
 
 ### Phase 3: Harden Trusted Forwarding
 
@@ -2562,7 +2640,10 @@ The 1.0 release is ready when:
   from tested fixtures;
 - typed unsafe permits cover unsafe handlers, tenant escapes, and generic MCP
   custom tools;
-- direct MCP mutations require explicit `safe-write` classification;
+- direct MCP mutations require explicit `bounded-write` classification backed
+  by generated Trellis metadata;
+- first-party production-safe confirmation/replay and MCP rate-limit store paths
+  exist and pass doctor self-tests;
 - doctor checks forwarding, tenant boundaries, MCP safety, destructive
   operations, confirmation stores, and rate-limit stores;
 - the inventory engine emits versioned JSON used by doctor and upgrade checks;
@@ -2581,7 +2662,7 @@ The full dream version is ready when:
 
 - A new user can build a public app without seeing workspace, MCP, or bridge
   concepts.
-- A new user can build a workspace MCP app and see one safe read tool, one safe
+- A new user can build a workspace MCP app and see one read tool, one bounded
   write tool, and one destructive operation tool work end to end.
 - A reviewer can answer where trust enters, how actor resolution happens, where
   tenant boundaries are enforced, which permission gates the action, and how MCP
