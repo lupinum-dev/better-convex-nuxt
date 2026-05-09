@@ -225,7 +225,7 @@ export interface ToolOptions<
       issues?: import('../utils/types.js').ConvexErrorIssue[],
       explanation?: import('../observability/index.js').TrellisDenialExplanation,
       details?: Record<string, unknown>,
-      code?: string,
+      errorCode?: string,
     ) => unknown
   }) => unknown
   outputSchema?: ZodRawShape
@@ -895,7 +895,7 @@ export function defineMcpApp<
               if (options.rateLimit) {
                 const projectionCtx = await resolve(ctx.event)
                 const bucket = [
-                  options.meta?.name ?? metadata.name ?? metadata.id,
+                  options.meta?.name ?? metadata.name ?? operationId,
                   principalKeyResolver(projectionCtx.principal),
                 ].join(':')
 
@@ -931,8 +931,8 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
             reasonCode: 'tool.capability_denied',
             details: {
               explanation: createDenialExplanation({
@@ -951,8 +951,8 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
             reasonCode: 'tool.disabled',
             details: {
               explanation: createDenialExplanation({
@@ -979,8 +979,8 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
             reasonCode: 'tool.capability_denied',
             details: { explanation },
           })
@@ -1002,8 +1002,8 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
             reasonCode: 'tool.disabled',
             details: { explanation },
           })
@@ -1027,7 +1027,7 @@ export function defineMcpApp<
         const argsHash = await hashConfirmationValue(executeArgs)
         const argsFieldHashes = await hashArgsForDiagnostics(executeArgs)
         const confirmationBinding = {
-          operationId: metadata.id,
+          operationId,
           executePath,
           previewPath,
           principalKey,
@@ -1036,15 +1036,15 @@ export function defineMcpApp<
           argsFieldHashes,
         }
         projectionCtx.wideSummary.set({
-          tool: options.meta?.name ?? metadata.name ?? metadata.id,
-          operation: metadata.id,
+          tool: options.meta?.name ?? metadata.name ?? operationId,
+          operation: operationId,
         })
         await projectionCtx.observe({
           name: 'tool.called',
           status: 'success',
           transport: 'mcp',
-          tool: options.meta?.name ?? metadata.name ?? metadata.id,
-          operation: metadata.id,
+          tool: options.meta?.name ?? metadata.name ?? operationId,
+          operation: operationId,
         })
 
         const finalizeResult = (result: FunctionLikeReturnType<TExecute>) => {
@@ -1112,8 +1112,8 @@ export function defineMcpApp<
             name: 'operation.confirm.drifted',
             status: 'deny',
             transport: 'mcp',
-            operation: metadata.id,
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: operationId,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               ...failure.details,
@@ -1140,8 +1140,8 @@ export function defineMcpApp<
               name: 'operation.preview.started',
               status: 'success',
               transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              operation: operationId,
+              tool: options.meta?.name ?? metadata.name ?? operationId,
             })
             const previewResult = await callByOperation(
               projectionCtx.convex,
@@ -1160,8 +1160,8 @@ export function defineMcpApp<
               name: 'operation.preview.completed',
               status: 'success',
               transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              operation: operationId,
+              tool: options.meta?.name ?? metadata.name ?? operationId,
             })
 
             if (display.blocked) {
@@ -1178,8 +1178,8 @@ export function defineMcpApp<
               name: 'tool.confirmation.required',
               status: 'success',
               transport: 'mcp',
-              operation: metadata.id,
-              tool: options.meta?.name ?? metadata.name ?? metadata.id,
+              operation: operationId,
+              tool: options.meta?.name ?? metadata.name ?? operationId,
             })
             projectionCtx.wideSummary.emit({
               status: 'success',
@@ -1228,13 +1228,13 @@ export function defineMcpApp<
             name: 'operation.confirm.validated',
             status: 'success',
             transport: 'mcp',
-            operation: metadata.id,
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
+            operation: operationId,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
           })
 
           const redemption = await toolConfirmationStore.redeem({
             payload,
-            operationId: metadata.id,
+            operationId,
             principalKey,
             tenantKey,
             argsHash,
@@ -1263,8 +1263,8 @@ export function defineMcpApp<
             name: 'tool.executed',
             status: 'success',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
           })
           projectionCtx.wideSummary.emit({ status: 'success' })
           const finalized = finalizeResult(result)
@@ -1282,8 +1282,8 @@ export function defineMcpApp<
             name: 'tool.failed',
             status: 'error',
             transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? metadata.id,
-            operation: metadata.id,
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
             reasonCode: 'tool.execution_failed',
             details: errorDetails,
           })

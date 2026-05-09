@@ -8,7 +8,12 @@ import {
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/convex/server/convex'
-import { defineOperation, previewOf } from '../../src/runtime/functions/define-operation'
+import {
+  defineOperation,
+  defineOperationDescriptor,
+  previewOf,
+  projectOperationRef,
+} from '../../src/runtime/functions/define-operation'
 import { defineTool } from '../../src/runtime/mcp/define-convex-tool'
 import { defineMcpApp } from '../../src/runtime/mcp/define-mcp-app'
 import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
@@ -635,6 +640,43 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
+    })
+
+    expect(tool.name).toBe('delete-post')
+  })
+
+  it('binds operation-first MCP tools from shared descriptors and projected refs', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'posts.delete',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      safety: 'destructive-write',
+    })
+    const execute = projectOperationRef(descriptor, 'execute', {} as never)
+    const preview = projectOperationRef(descriptor, 'preview', {} as never)
+
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.operation(descriptor, {
+      execute,
+      preview,
     })
 
     expect(tool.name).toBe('delete-post')

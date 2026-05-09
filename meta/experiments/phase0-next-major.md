@@ -27,13 +27,15 @@ Implemented:
 Current result:
 
 Go for continued Phase 0. The descriptor shape can bind to the existing
-operation metadata and projection-ref system without a parallel runtime.
+operation metadata and projection-ref system without a parallel runtime. The
+`phase0-workspace-mcp` fixture now proves the intended source-of-truth chain:
+shared descriptor, Convex implementation, generated-style projection refs, MCP
+tool import, and app inventory JSON.
 
 Remaining proof:
 
-- run against a generated or fixture `workspace-mcp` app;
 - prove generated Convex refs can carry enough projection metadata for MCP
-  server files without importing Convex implementation modules;
+  server files after real Convex codegen, not only generated-style test refs;
 - decide whether descriptors or generated handles are the canonical MCP import.
 
 ## Experiment: Signed Forwarding Envelope
@@ -79,13 +81,13 @@ Implemented:
 
 Current result:
 
-Go for examples and fixture work. This is only an authoring alias today; it does
-not yet prove descriptor-only imports or final destructive annotations.
+Go for examples and fixture work. The alias works with both operation
+implementations and shared descriptors plus projected refs. The fixture keeps the
+MCP server tool free of Convex implementation imports.
 
 Remaining proof:
 
-- bind `mcp.tool.operation(descriptor, { preview, execute })` without importing
-  Convex implementation modules;
 - add direct `query`/`mutation` lane safety metadata;
-- update a `workspace-mcp` fixture to use the new spelling;
+- run the pattern in a generated `workspace-mcp` starter, not only a focused
+  fixture;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.
