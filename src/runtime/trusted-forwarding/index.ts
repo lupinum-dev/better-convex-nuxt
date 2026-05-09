@@ -16,6 +16,21 @@ import {
 } from './shared.js'
 import { verifyTrustedForwardingKey as verifyTrustedForwardingKeyInternal } from './shared.js'
 
+export {
+  canonicalizeForwardingArgs,
+  createTrustedForwardingEnvelope,
+  hashForwardingArgs,
+  TrustedForwardingEnvelopeError,
+  verifyTrustedForwardingEnvelope,
+} from './envelope.js'
+export type {
+  CreateTrustedForwardingEnvelopeOptions,
+  TrustedForwardingEnvelopePayload,
+  TrustedForwardingPurpose,
+  TrustedForwardingTransport,
+  VerifyTrustedForwardingEnvelopeOptions,
+} from './envelope.js'
+
 /** Add trusted-forwarding transport fields to a Convex args validator. Advanced use only. */
 export function withTrustedForwarding<V extends PropertyValidators>(args: V): V {
   return {

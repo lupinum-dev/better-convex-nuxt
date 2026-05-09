@@ -93,6 +93,7 @@ export {
   upsertBridgeManagedBlock,
 } from './component-bridge-manifest.js'
 export {
+  defineOperationDescriptor,
   defineOperationMetadata,
   defineOperation,
   executeOperationRef,
@@ -100,6 +101,7 @@ export {
   previewOperationRef,
   projectOperationRef,
   transportExecuteOperationRef,
+  implementOperation,
   previewOf,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
@@ -109,6 +111,8 @@ export type {
   InferOperationLoaded,
   InferOperationResult,
   InferOperationPreview,
+  McpWriteSafety,
+  OperationDescriptor,
   OperationDefinition,
   OperationMetadataDefinition,
   OperationIdOf,
@@ -1884,9 +1888,7 @@ function buildStructuredTransportMutationRuntime<
     }
 
     if (!metadata.id) {
-      throw new Error(
-        'transportMutation(op) requires `operation.id` for destructive operations.',
-      )
+      throw new Error('transportMutation(op) requires `operation.id` for destructive operations.')
     }
 
     const originalLoad = definition.load as
@@ -1928,13 +1930,7 @@ function buildStructuredTransportMutationRuntime<
               loaded: unknown,
               rawArgs: Record<string, unknown>,
               ctx: unknown,
-            ) =>
-              await originalAuthorize.check(
-                actor,
-                loaded,
-                stripConfirmationToken(rawArgs),
-                ctx,
-              ),
+            ) => await originalAuthorize.check(actor, loaded, stripConfirmationToken(rawArgs), ctx),
           }
         : undefined,
       handler: async (

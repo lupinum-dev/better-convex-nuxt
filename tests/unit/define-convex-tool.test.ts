@@ -600,6 +600,46 @@ describe('Destructive confirmation payload validation', () => {
     delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
   })
 
+  it('exposes operation-first MCP alias for Phase 0 authoring', () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    const tool = mcp.tool.operation(operation, {
+      execute: operation as never,
+      preview: preview as never,
+    })
+
+    expect(tool.name).toBe('delete-post')
+  })
+
   it('refuses production transport-only destructive confirmation without a distributed store', () => {
     const previousNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'

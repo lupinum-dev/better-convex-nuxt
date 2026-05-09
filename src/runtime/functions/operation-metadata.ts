@@ -1,9 +1,22 @@
+import type { GenericValidator, PropertyValidators } from 'convex/values'
+
+import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
+
 export type OperationKind = 'safe' | 'destructive'
+
+export type McpWriteSafety =
+  | 'read'
+  | 'bounded-write'
+  | 'sensitive-write'
+  | 'destructive-write'
+  | 'external-side-effect'
 
 export type TrellisOperationMetadata = {
   id?: string
   name?: string
   kind: OperationKind
+  permissionKey?: string
+  safety?: McpWriteSafety
 }
 
 export type TrellisOperationProjectionMetadata = {
@@ -23,6 +36,26 @@ type OperationMetadataCarrier = {
   id?: string
   name?: string
   kind?: OperationKind
+}
+
+export type OperationDescriptor<
+  TId extends string = string,
+  TArgs extends PropertyValidators = PropertyValidators,
+  TPermission extends PermissionKeyHandle<string> | undefined =
+    | PermissionKeyHandle<string>
+    | undefined,
+> = {
+  readonly _type: 'operation-descriptor'
+  readonly id: TId
+  readonly name?: string
+  readonly kind: OperationKind
+  readonly args: TArgs
+  readonly permission?: TPermission
+  readonly permissionKey?: string
+  readonly returns?: GenericValidator
+  readonly previewReturns?: GenericValidator
+  readonly safety?: McpWriteSafety
+  readonly [trellisOperationMetadataKey]: TrellisOperationMetadata
 }
 
 export type OperationMetadataDefinition<
@@ -66,6 +99,54 @@ export function defineOperationMetadata<
       [trellisOperationMetadataKey]: metadata,
     },
   ) as OperationMetadataDefinition<TId, TArgs>
+}
+
+export function defineOperationDescriptor<
+  const TId extends string,
+  const TArgs extends PropertyValidators,
+  const TPermission extends PermissionKeyHandle<string> | undefined = undefined,
+>(definition: {
+  id: TId
+  name?: string
+  kind?: OperationKind
+  args: TArgs
+  permission?: TPermission
+  returns?: GenericValidator
+  previewReturns?: GenericValidator
+  safety?: McpWriteSafety
+}): OperationDescriptor<TId, TArgs, TPermission> {
+  if (definition.id.trim().length === 0) {
+    throw new Error('defineOperationDescriptor(...) requires a non-empty operation id.')
+  }
+
+  const kind = definition.kind ?? 'safe'
+  const permissionKey =
+    definition.permission === undefined ? undefined : resolvePermissionKey(definition.permission)
+  const metadata = {
+    id: definition.id,
+    name: definition.name,
+    kind,
+    ...(permissionKey ? { permissionKey } : {}),
+    ...(definition.safety ? { safety: definition.safety } : {}),
+  } satisfies TrellisOperationMetadata
+
+  if (metadata.kind === 'destructive' && !metadata.id) {
+    throw new Error('defineOperationDescriptor(...) requires `id` for destructive operations.')
+  }
+
+  return {
+    _type: 'operation-descriptor',
+    id: definition.id,
+    ...(definition.name ? { name: definition.name } : {}),
+    kind,
+    args: definition.args,
+    ...(definition.permission !== undefined ? { permission: definition.permission } : {}),
+    ...(permissionKey ? { permissionKey } : {}),
+    ...(definition.returns ? { returns: definition.returns } : {}),
+    ...(definition.previewReturns ? { previewReturns: definition.previewReturns } : {}),
+    ...(definition.safety ? { safety: definition.safety } : {}),
+    [trellisOperationMetadataKey]: metadata,
+  }
 }
 
 export type OperationIdOf<TOperation extends OperationMetadataCarrier> = TOperation extends {

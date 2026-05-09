@@ -1,4 +1,5 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
+import { getOperationMetadata } from '../functions/operation-metadata.js'
 import type { Expand, UnionToIntersection } from '../types/type-utils.js'
 import type { FeatureDefinition } from './define-feature.js'
 
@@ -22,6 +23,7 @@ type FeatureTenantTable<TFeature extends AnyFeature> =
   | TFeature['tenantTables'][number]
   | FeatureSchemaTable<TFeature>
 type FeatureGlobalTable<TFeature extends AnyFeature> = TFeature['globalTables'][number]
+type FeatureOperation<TFeature extends AnyFeature> = NonNullable<TFeature['operations']>[number]
 type ComposedFeatureSchema<TFeatures extends readonly AnyFeature[]> = Expand<
   UnionToIntersection<FeatureSchema<TFeatures[number]>> & Record<string, unknown>
 >
@@ -32,11 +34,36 @@ export interface FeatureManifest<
     readonly ErasedPermissionDefinition[],
   TTenantTable extends string = string,
   TGlobalTable extends string = string,
+  TOperations extends readonly unknown[] = readonly unknown[],
 > {
   readonly schema: TSchema
   readonly permissions: TPermissions
   readonly tenantTables: readonly TTenantTable[]
   readonly globalTables: readonly TGlobalTable[]
+  readonly operations: TOperations
+}
+
+export interface AppInventory<
+  TFeatures extends readonly AnyFeature[] = readonly AnyFeature[],
+  TSchema extends Record<string, unknown> = Record<string, never>,
+  TPermissions extends readonly ErasedPermissionDefinition[] =
+    readonly ErasedPermissionDefinition[],
+  TTenantTable extends string = string,
+  TGlobalTable extends string = string,
+  TOperations extends readonly unknown[] = readonly unknown[],
+> {
+  readonly _type: 'app-inventory'
+  readonly schemaVersion: 1
+  readonly features: TFeatures
+  readonly manifest: FeatureManifest<TSchema, TPermissions, TTenantTable, TGlobalTable, TOperations>
+}
+
+export interface AppInventoryJson {
+  readonly schemaVersion: 1
+  readonly layers: readonly string[]
+  readonly features: readonly string[]
+  readonly operations: readonly { id: string; kind: string; feature: string }[]
+  readonly findings: readonly unknown[]
 }
 
 function dedupePreservingOrder(values: readonly string[]): string[] {
@@ -98,15 +125,18 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
   ComposedFeatureSchema<TFeatures>,
   readonly FeaturePermission<TFeatures[number]>[],
   FeatureTenantTable<TFeatures[number]>,
-  FeatureGlobalTable<TFeatures[number]>
+  FeatureGlobalTable<TFeatures[number]>,
+  readonly FeatureOperation<TFeatures[number]>[]
 > {
   const seenFeatureNames = new Set<string>()
   const seenSchemaKeys = new Map<string, string>()
   const seenPermissionKeys = new Map<string, string>()
   const schema: Record<string, unknown> = {}
   const permissions: ErasedPermissionDefinition[] = []
+  const operations: unknown[] = []
   const tenantTableOverrides: string[] = []
   const globalTables: string[] = []
+  const seenOperationIds = new Map<string, string>()
 
   for (const feature of features) {
     if (seenFeatureNames.has(feature.name)) {
@@ -138,6 +168,24 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
       permissions.push(permission)
     }
 
+    for (const operation of feature.operations ?? []) {
+      const metadata = getOperationMetadata(operation as never)
+      if (!metadata.id) {
+        operations.push(operation)
+        continue
+      }
+
+      const owner = seenOperationIds.get(metadata.id)
+      if (owner) {
+        throw new Error(
+          `composeFeatures(...) received duplicate operation id "${metadata.id}" from features "${owner}" and "${feature.name}".`,
+        )
+      }
+
+      seenOperationIds.set(metadata.id, feature.name)
+      operations.push(operation)
+    }
+
     tenantTableOverrides.push(...feature.tenantTables)
     globalTables.push(...feature.globalTables)
   }
@@ -163,5 +211,41 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
     permissions: permissions as readonly FeaturePermission<TFeatures[number]>[],
     tenantTables: uniqueTenantTables as readonly FeatureTenantTable<TFeatures[number]>[],
     globalTables: uniqueGlobalTables as readonly FeatureGlobalTable<TFeatures[number]>[],
+    operations: operations as readonly FeatureOperation<TFeatures[number]>[],
+  }
+}
+
+export function defineAppInventory<const TFeatures extends readonly AnyFeature[]>(definition: {
+  features: TFeatures
+}): AppInventory<
+  TFeatures,
+  ComposedFeatureSchema<TFeatures>,
+  readonly FeaturePermission<TFeatures[number]>[],
+  FeatureTenantTable<TFeatures[number]>,
+  FeatureGlobalTable<TFeatures[number]>,
+  readonly FeatureOperation<TFeatures[number]>[]
+> {
+  return {
+    _type: 'app-inventory',
+    schemaVersion: 1,
+    features: definition.features,
+    manifest: composeFeatures(definition.features),
+  }
+}
+
+export function toAppInventoryJson(inventory: AppInventory): AppInventoryJson {
+  const operations: AppInventoryJson['operations'] = inventory.features.flatMap((feature) =>
+    (feature.operations ?? []).flatMap((operation) => {
+      const metadata = getOperationMetadata(operation as never)
+      return metadata.id ? [{ id: metadata.id, kind: metadata.kind, feature: feature.name }] : []
+    }),
+  )
+
+  return {
+    schemaVersion: 1,
+    layers: [],
+    features: inventory.features.map((feature) => feature.name),
+    operations,
+    findings: [],
   }
 }

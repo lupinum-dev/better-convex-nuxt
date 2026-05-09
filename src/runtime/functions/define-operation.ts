@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Type-level function-shape inference needs `any` for parameter contravariance. */
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
+import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
 import type {
   AwaitedValue,
   FallbackIfUnknownOrNever,
@@ -16,12 +17,15 @@ import {
   getOperationMetadata,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
+  type McpWriteSafety,
   type OperationKind,
+  type OperationDescriptor,
   type TrellisOperationMetadata,
   type TrellisOperationProjectionMetadata,
 } from './operation-metadata.js'
 
 export {
+  defineOperationDescriptor,
   defineOperationMetadata,
   executeOperationRef,
   getOperationMetadata,
@@ -32,6 +36,8 @@ export {
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'
 export type {
+  McpWriteSafety,
+  OperationDescriptor,
   OperationMetadataDefinition,
   OperationKind,
   OperationIdOf,
@@ -85,6 +91,8 @@ export type OperationDefinition<
   id?: string
   name?: string
   kind?: OperationKind
+  permission?: PermissionKeyHandle<string>
+  safety?: McpWriteSafety
   preview?: PreviewFn<TCtx, TArgsValidator, TLoaded, TPreview>
   previewReturns?: GenericValidator
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
@@ -102,6 +110,8 @@ export type OperationShape = {
   id?: string
   name?: string
   kind?: OperationKind
+  permission?: PermissionKeyHandle<string>
+  safety?: McpWriteSafety
   [trellisOperationMetadataKey]?: TrellisOperationMetadata
   [trellisOperationProjectionMetadataKey]?: TrellisOperationProjectionMetadata
 }
@@ -192,6 +202,28 @@ type ContextBoundOperationShape<TCtx> = Omit<OperationShape, 'handler' | 'load' 
   preview?: (ctx: TCtx, ...args: any[]) => unknown
 }
 
+type DescriptorBoundOperationShape = Omit<
+  OperationShape,
+  'id' | 'kind' | 'args' | 'permission' | 'safety' | 'returns' | 'previewReturns'
+> & {
+  id?: string
+  kind?: OperationKind
+  args?: PropertyValidators
+  permission?: PermissionKeyHandle<string>
+  safety?: McpWriteSafety
+  returns?: GenericValidator
+  previewReturns?: GenericValidator
+}
+
+type DescriptorBoundOperationDefinition<
+  TDescriptor extends OperationDescriptor,
+  TDefinition extends DescriptorBoundOperationShape,
+> = TDefinition & {
+  id: TDescriptor['id']
+  kind: TDescriptor['kind']
+  args: TDescriptor['args']
+}
+
 type DefineOperationFn = {
   <const TDefinition extends OperationShape>(
     definition: ValidateOperationDefinition<TDefinition>,
@@ -211,10 +243,14 @@ type DefineOperationFn = {
 function defineOperationImpl<const TDefinition extends OperationShape>(
   definition: ValidateOperationDefinition<TDefinition>,
 ): ValidateOperationDefinition<TDefinition> {
+  const permissionKey =
+    definition.permission === undefined ? undefined : resolvePermissionKey(definition.permission)
   const metadata = {
     id: definition.id,
     name: definition.name,
     kind: definition.kind ?? 'safe',
+    ...(permissionKey ? { permissionKey } : {}),
+    ...(definition.safety ? { safety: definition.safety } : {}),
   } satisfies TrellisOperationMetadata
 
   if (metadata.kind === 'destructive' && !metadata.id) {
@@ -242,6 +278,67 @@ export const defineOperation = Object.assign(defineOperationImpl, {
     ) =>
       defineOperationImpl(definition),
 }) as DefineOperationFn
+
+function assertDescriptorValue(
+  label: string,
+  descriptorValue: unknown,
+  implementationValue: unknown,
+): void {
+  if (implementationValue === undefined || implementationValue === descriptorValue) return
+  throw new Error(
+    `implementOperation(...) received ${label} that does not match the operation descriptor.`,
+  )
+}
+
+function assertDescriptorPermission(
+  descriptor: OperationDescriptor,
+  definition: { permission?: PermissionKeyHandle<string> },
+): void {
+  if (!definition.permission || !descriptor.permissionKey) return
+  const definitionKey = resolvePermissionKey(definition.permission)
+  if (definitionKey === descriptor.permissionKey) return
+  throw new Error(
+    `implementOperation(...) received permission "${definitionKey}" but descriptor "${descriptor.id}" uses "${descriptor.permissionKey}".`,
+  )
+}
+
+/**
+ * Bind a shared operation descriptor to its Convex implementation.
+ *
+ * The descriptor owns cross-surface metadata. The implementation owns backend
+ * behavior. This helper keeps the two from silently drifting while Phase 0
+ * proves operation-first MCP.
+ */
+export function implementOperation<
+  const TDescriptor extends OperationDescriptor,
+  const TDefinition extends DescriptorBoundOperationShape,
+>(
+  descriptor: TDescriptor,
+  definition: TDefinition,
+): ValidateOperationDefinition<DescriptorBoundOperationDefinition<TDescriptor, TDefinition>> {
+  assertDescriptorValue('id', descriptor.id, definition.id)
+  assertDescriptorValue('kind', descriptor.kind, definition.kind)
+  assertDescriptorValue('args', descriptor.args, definition.args)
+  assertDescriptorValue('returns', descriptor.returns, definition.returns)
+  assertDescriptorValue('previewReturns', descriptor.previewReturns, definition.previewReturns)
+  assertDescriptorPermission(descriptor, definition)
+
+  return defineOperationImpl({
+    ...definition,
+    id: descriptor.id,
+    name: definition.name ?? descriptor.name,
+    kind: descriptor.kind,
+    args: descriptor.args,
+    ...(descriptor.permission !== undefined
+      ? { permission: definition.permission ?? descriptor.permission }
+      : {}),
+    ...(descriptor.safety !== undefined ? { safety: definition.safety ?? descriptor.safety } : {}),
+    ...(descriptor.returns !== undefined ? { returns: descriptor.returns } : {}),
+    ...(descriptor.previewReturns !== undefined
+      ? { previewReturns: descriptor.previewReturns }
+      : {}),
+  } as ValidateOperationDefinition<DescriptorBoundOperationDefinition<TDescriptor, TDefinition>>)
+}
 
 /**
  * Expose the preview phase of an operation as a standalone structured handler.

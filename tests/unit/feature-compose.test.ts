@@ -3,7 +3,13 @@ import { v } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
 import { definePermission } from '../../src/runtime/auth/define-permission'
-import { composeFeatures, defineFeature } from '../../src/runtime/feature'
+import {
+  composeFeatures,
+  defineAppInventory,
+  defineFeature,
+  toAppInventoryJson,
+} from '../../src/runtime/feature'
+import { defineOperationDescriptor } from '../../src/runtime/functions'
 
 describe('feature composition', () => {
   it('composes schema, permissions, and tenant/global tables into a manifest', () => {
@@ -156,5 +162,58 @@ describe('feature composition', () => {
 
     expect(manifest.tenantTables).toEqual(['tasks'])
     expect(manifest.globalTables).toEqual(['auditEvents'])
+  })
+
+  it('composes operation descriptors into app inventory', () => {
+    const archiveTask = defineOperationDescriptor({
+      id: 'tasks.archive',
+      kind: 'destructive',
+      args: { id: v.string() },
+    })
+    const tasks = defineFeature({
+      name: 'tasks',
+      operations: [archiveTask] as const,
+    })
+
+    const inventory = defineAppInventory({
+      features: [tasks] as const,
+    })
+
+    expect(inventory.schemaVersion).toBe(1)
+    expect(inventory.manifest.operations).toEqual([archiveTask])
+    expect(toAppInventoryJson(inventory)).toEqual({
+      schemaVersion: 1,
+      layers: [],
+      features: ['tasks'],
+      operations: [{ id: 'tasks.archive', kind: 'destructive', feature: 'tasks' }],
+      findings: [],
+    })
+  })
+
+  it('throws on duplicate operation ids from different features', () => {
+    const one = defineFeature({
+      name: 'tasks',
+      operations: [
+        defineOperationDescriptor({
+          id: 'tasks.archive',
+          kind: 'destructive',
+          args: { id: v.string() },
+        }),
+      ] as const,
+    })
+    const two = defineFeature({
+      name: 'archive',
+      operations: [
+        defineOperationDescriptor({
+          id: 'tasks.archive',
+          kind: 'destructive',
+          args: { id: v.string() },
+        }),
+      ] as const,
+    })
+
+    expect(() => composeFeatures([one, two] as const)).toThrow(
+      'composeFeatures(...) received duplicate operation id "tasks.archive" from features "tasks" and "archive".',
+    )
   })
 })

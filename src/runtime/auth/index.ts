@@ -40,6 +40,7 @@ export type { CanonicalSubject, Subject, SubjectKind } from './subject.js'
 export { derivePermissionMatrix } from './derive-permission-matrix.js'
 export type { PermissionMatrixRow } from './derive-permission-matrix.js'
 export {
+  definePermissionKey,
   definePermission,
   isGuardPermissionDefinition,
   isPermissionDefinition,
@@ -52,6 +53,8 @@ export type {
   PermissionKeysByKey,
   PermissionDefinition,
   PermissionHandle,
+  PermissionKeyDefinition,
+  PermissionKeyHandle,
   ProjectedPermissionKeysByKey,
   RegisteredPermissionKey,
   RegisteredPermissions,

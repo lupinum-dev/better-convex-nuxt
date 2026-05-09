@@ -10,6 +10,13 @@ export interface ErasedPermissionDefinition<TKey extends string = string> {
   readonly project?: boolean
 }
 
+export interface PermissionKeyDefinition<TKey extends string = string> {
+  readonly _type: 'permission-key'
+  readonly key: TKey
+  readonly label?: string
+  readonly description?: string
+}
+
 export interface PermissionDefinition<TKey extends string = string, TActor = unknown> extends Omit<
   ErasedPermissionDefinition<TKey>,
   'check'
@@ -40,6 +47,39 @@ export type PermissionHandle<TKey extends string = string> = Pick<
   PermissionDefinition<TKey>,
   '_type' | 'key'
 >
+
+export type PermissionKeyHandle<TKey extends string = string> =
+  | PermissionHandle<TKey>
+  | PermissionKeyDefinition<TKey>
+  | TKey
+
+export function definePermissionKey<TKey extends string>(key: TKey): PermissionKeyDefinition<TKey>
+export function definePermissionKey<TKey extends string>(options: {
+  key: TKey
+  label?: string
+  description?: string
+}): PermissionKeyDefinition<TKey>
+export function definePermissionKey<TKey extends string>(
+  input:
+    | TKey
+    | {
+        key: TKey
+        label?: string
+        description?: string
+      },
+): PermissionKeyDefinition<TKey> {
+  const key = typeof input === 'string' ? input : input.key
+  if (key.trim().length === 0) {
+    throw new Error('definePermissionKey(...) requires a non-empty permission key.')
+  }
+
+  return {
+    _type: 'permission-key',
+    key,
+    ...(typeof input === 'string' || !input.label ? {} : { label: input.label }),
+    ...(typeof input === 'string' || !input.description ? {} : { description: input.description }),
+  }
+}
 
 export function definePermission<TKey extends string, TActor = unknown>(options: {
   key: TKey
@@ -91,7 +131,8 @@ export function resolvePermissionLabel(permission: ErasedPermissionDefinition): 
 }
 
 export function resolvePermissionKey<TKey extends string>(
-  permission: PermissionHandle<TKey>,
+  permission: PermissionKeyHandle<TKey>,
 ): TKey {
+  if (typeof permission === 'string') return permission
   return permission.key as TKey
 }

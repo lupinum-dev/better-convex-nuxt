@@ -351,6 +351,7 @@ type ToolFactory<
       TPreview
     >,
   ) => McpToolDefinition
+  operation: ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime>['fromOperation']
 }
 
 function defaultPrincipalKey(principal: unknown): string {
@@ -1302,6 +1303,8 @@ export function defineMcpApp<
       },
     })
   }
+
+  tool.operation = tool.fromOperation
 
   return {
     resolve,
