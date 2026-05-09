@@ -48,7 +48,7 @@ export interface ConvexToolSuccessResult<T = unknown> {
 export interface ConvexToolPreviewResult {
   ok: true
   preview: PreviewResult
-  awaitingConfirmation: true
+  awaitingConfirmation: boolean
 }
 
 export interface ConvexToolErrorResult {

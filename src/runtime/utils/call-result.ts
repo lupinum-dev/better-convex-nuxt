@@ -100,7 +100,15 @@ export function categorizeError(code?: string, status?: number): ConvexErrorCate
     if (upper.startsWith('LIMIT_')) return 'rate_limit'
     if (upper === 'NOT_FOUND') return 'not_found'
     if (upper === 'VALIDATION' || upper === 'INVALID_ARGS') return 'validation'
-    if (upper === 'CONFLICT') return 'conflict'
+    if (
+      upper === 'CONFLICT' ||
+      upper.includes('CONFLICT') ||
+      upper.includes('CONCURRENT_EDIT') ||
+      upper.includes('VERSION_MISMATCH') ||
+      upper.startsWith('STALE_')
+    ) {
+      return 'conflict'
+    }
     if (upper === 'INTERNAL_ERROR' || upper === 'INTERNAL') return 'server'
   }
   if (status !== undefined) {

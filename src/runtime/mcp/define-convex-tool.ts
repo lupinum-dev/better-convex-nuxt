@@ -226,6 +226,14 @@ function inferCategoryFromMessage(message: string): ConvexErrorCategory | undefi
   if (lower.includes('not found')) return 'not_found'
   if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
   if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
+  if (
+    lower.includes('conflict') ||
+    lower.includes('changed in another session') ||
+    lower.includes('version mismatch') ||
+    lower.includes('stale')
+  ) {
+    return 'conflict'
+  }
   return undefined
 }
 

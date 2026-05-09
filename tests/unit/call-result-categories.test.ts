@@ -41,6 +41,12 @@ describe('categorizeError', () => {
       expect(categorizeError('CONFLICT')).toBe('conflict')
     })
 
+    it('maps domain conflict codes to conflict', () => {
+      expect(categorizeError('ENTRY_CONCURRENT_EDIT')).toBe('conflict')
+      expect(categorizeError('ENTRY_VERSION_MISMATCH')).toBe('conflict')
+      expect(categorizeError('STALE_PUBLISH_PREVIEW')).toBe('conflict')
+    })
+
     it('maps INTERNAL_ERROR to server', () => {
       expect(categorizeError('INTERNAL_ERROR')).toBe('server')
     })

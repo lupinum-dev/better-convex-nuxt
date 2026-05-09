@@ -188,6 +188,7 @@ describe('wrapPreview', () => {
 
     expect(getPreviewResult(result).preview.warn).toBe('Permission denied')
     expect(getPreviewResult(result).preview.blocked).toBe(true)
+    expect(getPreviewResult(result).awaitingConfirmation).toBe(false)
   })
 })
 

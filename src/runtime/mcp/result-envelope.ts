@@ -156,7 +156,7 @@ export function wrapPreview(preview: PreviewResult): CallToolResult {
     structuredContent: {
       ok: true,
       preview,
-      awaitingConfirmation: true,
+      awaitingConfirmation: preview.blocked === true ? false : true,
     },
   }
 }

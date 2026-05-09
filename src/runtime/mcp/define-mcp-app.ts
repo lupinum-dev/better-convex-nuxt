@@ -37,6 +37,7 @@ import {
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
+import { toConvexError } from '../utils/call-result.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import {
@@ -77,6 +78,44 @@ export interface McpConvexCaller {
 }
 
 type ProjectionCapabilitySnapshot = Record<string, boolean>
+
+function cleanMcpErrorMessage(message: string): string {
+  let cleaned = message
+    .replace(/^\[server\w+\]\s*(?:Request failed for \S+ via \S+\.\s*)?/, '')
+    .replace(/\[Request ID: [^\]]+\]\s*/g, '')
+    .replace(/\n\s+at .+/g, '')
+    .trim()
+
+  const uncaughtMatch = cleaned.match(/(?:Uncaught )?Error:\s*(.+)/)
+  if (uncaughtMatch) {
+    cleaned = uncaughtMatch[1]!.trim()
+  }
+
+  return cleaned || message
+}
+
+function inferMcpErrorCategory(message: string): ConvexErrorCategory | undefined {
+  const lower = message.toLowerCase()
+  if (
+    lower.includes('unauthorized') ||
+    lower.includes('unauthenticated') ||
+    lower.includes('forbidden')
+  ) {
+    return 'auth'
+  }
+  if (lower.includes('not found')) return 'not_found'
+  if (lower.includes('rate limit') || lower.includes('too many')) return 'rate_limit'
+  if (lower.includes('validation') || lower.includes('invalid arg')) return 'validation'
+  if (
+    lower.includes('conflict') ||
+    lower.includes('changed in another session') ||
+    lower.includes('version mismatch') ||
+    lower.includes('stale')
+  ) {
+    return 'conflict'
+  }
+  return undefined
+}
 
 type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilities, TRuntime> = {
   event: H3Event
@@ -818,7 +857,13 @@ export function defineMcpApp<
             status: 'error',
             details: error instanceof Error ? { message: error.message } : undefined,
           })
-          throw error
+          const convexError = toConvexError(error)
+          const message = cleanMcpErrorMessage(convexError.message)
+          const category =
+            convexError.category !== 'unknown'
+              ? convexError.category
+              : (inferMcpErrorCategory(message) ?? 'unknown')
+          return ctx.error(category, message, convexError.issues)
         }
       },
     })
@@ -1226,7 +1271,7 @@ export function defineMcpApp<
             })
             return ctx.error(
               'conflict',
-              'Confirmation token no longer matches this destructive request. Preview again before executing.',
+              'Confirmation token no longer matches this destructive request. Repeat the same arguments byte-for-byte with the returned token, or preview again before executing.',
               undefined,
               explanation,
             )
@@ -1392,7 +1437,13 @@ export function defineMcpApp<
             status: 'error',
             details: error instanceof Error ? { message: error.message } : undefined,
           })
-          throw error
+          const convexError = toConvexError(error)
+          const message = cleanMcpErrorMessage(convexError.message)
+          const category =
+            convexError.category !== 'unknown'
+              ? convexError.category
+              : (inferMcpErrorCategory(message) ?? 'unknown')
+          return ctx.error(category, message, convexError.issues)
         }
       },
     })
