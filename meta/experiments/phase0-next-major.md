@@ -1,6 +1,6 @@
 # Phase 0 Next Major Experiments
 
-Status: started
+Status: go for alpha foundation; see `meta/experiments/phase0-go-no-go.md`
 Branch: `trellis-next-phase0`
 Date: 2026-05-09
 
