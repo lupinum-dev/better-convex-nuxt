@@ -119,6 +119,15 @@ describe('mcp operation binding', () => {
     ).toThrow(/requires an execute ref projected from the same operation/)
   })
 
+  it('rejects destructive operation bindings without preview refs', () => {
+    expect(() =>
+      assertOperationBinding(
+        { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' },
+        ref({ operationId: 'boards.archive', projection: 'execute' }),
+      ),
+    ).toThrow(/requires a preview ref for destructive operations/)
+  })
+
   it('rejects mismatched execute refs', () => {
     expect(() =>
       assertOperationBinding(

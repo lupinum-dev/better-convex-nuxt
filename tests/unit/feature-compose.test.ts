@@ -9,7 +9,11 @@ import {
   defineFeature,
   toAppInventoryJson,
 } from '../../src/runtime/feature'
-import { defineOperationDescriptor } from '../../src/runtime/functions'
+import {
+  defineOperation,
+  defineOperationDescriptor,
+  getOperationMetadata,
+} from '../../src/runtime/functions'
 
 describe('feature composition', () => {
   it('composes schema, permissions, and tenant/global tables into a manifest', () => {
@@ -165,10 +169,17 @@ describe('feature composition', () => {
   })
 
   it('composes operation descriptors into app inventory', () => {
+    const taskArchive = definePermission({
+      key: 'task.archive',
+      check: true,
+    })
     const archiveTask = defineOperationDescriptor({
       id: 'tasks.archive',
+      name: 'ArchiveTask',
       kind: 'destructive',
       args: { id: v.string() },
+      permission: taskArchive,
+      safety: 'destructive-write',
     })
     const tasks = defineFeature({
       name: 'tasks',
@@ -185,9 +196,42 @@ describe('feature composition', () => {
       schemaVersion: 1,
       layers: [],
       features: ['tasks'],
-      operations: [{ id: 'tasks.archive', kind: 'destructive', feature: 'tasks' }],
+      operations: [
+        {
+          id: 'tasks.archive',
+          name: 'ArchiveTask',
+          kind: 'destructive',
+          feature: 'tasks',
+          permissionKey: 'task.archive',
+          safety: 'destructive-write',
+        },
+      ],
       findings: [],
     })
+  })
+
+  it('rejects Convex operation implementations in feature manifests', () => {
+    const archiveTask = defineOperation({
+      id: 'tasks.archive',
+      kind: 'destructive',
+      args: { id: v.string() },
+      guard: definePermission({ key: 'task.archive', check: true }),
+      preview: async () => ({
+        display: { summary: 'Archive task' },
+        confirm: { id: 'task-1' },
+      }),
+      handler: async () => null,
+    })
+
+    expect(getOperationMetadata(archiveTask)).toMatchObject({ id: 'tasks.archive' })
+    expect(() =>
+      defineFeature({
+        name: 'tasks',
+        operations: [archiveTask] as never,
+      }),
+    ).toThrow(
+      'defineFeature(tasks) operations must be shared operation descriptors, not Convex operation implementations.',
+    )
   })
 
   it('throws on duplicate operation ids from different features', () => {

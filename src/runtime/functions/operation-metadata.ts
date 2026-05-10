@@ -1,4 +1,4 @@
-import type { GenericValidator, PropertyValidators } from 'convex/values'
+import type { PropertyValidators } from 'convex/values'
 
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
 
@@ -45,6 +45,8 @@ export type OperationDescriptor<
   TPermission extends PermissionKeyHandle<string> | undefined =
     | PermissionKeyHandle<string>
     | undefined,
+  TReturns = unknown,
+  TPreviewReturns = unknown,
 > = {
   readonly _type: 'operation-descriptor'
   readonly id: TId
@@ -53,10 +55,22 @@ export type OperationDescriptor<
   readonly args: TArgs
   readonly permission?: TPermission
   readonly permissionKey?: string
-  readonly returns?: GenericValidator
-  readonly previewReturns?: GenericValidator
+  readonly returns?: TReturns
+  readonly previewReturns?: TPreviewReturns
   readonly safety?: McpWriteSafety
   readonly [trellisOperationMetadataKey]: TrellisOperationMetadata
+}
+
+export function isOperationDescriptor(value: unknown): value is OperationDescriptor {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { _type?: unknown })._type === 'operation-descriptor' &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { kind?: unknown }).kind === 'string' &&
+    (value as { [trellisOperationMetadataKey]?: unknown })[trellisOperationMetadataKey] !==
+      undefined
+  )
 }
 
 export type OperationMetadataDefinition<
@@ -106,16 +120,18 @@ export function defineOperationDescriptor<
   const TId extends string,
   const TArgs extends PropertyValidators,
   const TPermission extends PermissionKeyHandle<string> | undefined = undefined,
+  const TReturns = unknown,
+  const TPreviewReturns = unknown,
 >(definition: {
   id: TId
   name?: string
   kind?: OperationKind
   args: TArgs
   permission?: TPermission
-  returns?: GenericValidator
-  previewReturns?: GenericValidator
+  returns?: TReturns
+  previewReturns?: TPreviewReturns
   safety?: McpWriteSafety
-}): OperationDescriptor<TId, TArgs, TPermission> {
+}): OperationDescriptor<TId, TArgs, TPermission, TReturns, TPreviewReturns> {
   if (definition.id.trim().length === 0) {
     throw new Error('defineOperationDescriptor(...) requires a non-empty operation id.')
   }

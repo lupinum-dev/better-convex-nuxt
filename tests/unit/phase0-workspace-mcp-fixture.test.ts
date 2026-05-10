@@ -58,7 +58,16 @@ describe('phase0 workspace-mcp fixture', () => {
       schemaVersion: 1,
       layers: [],
       features: ['projects'],
-      operations: [{ id: 'projects.delete', kind: 'destructive', feature: 'projects' }],
+      operations: [
+        {
+          id: 'projects.delete',
+          name: 'deleteProject',
+          kind: 'destructive',
+          feature: 'projects',
+          permissionKey: 'projects.delete',
+          safety: 'destructive-write',
+        },
+      ],
       findings: [],
     })
 

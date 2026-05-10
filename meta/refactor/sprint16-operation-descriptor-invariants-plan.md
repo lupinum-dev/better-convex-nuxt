@@ -55,52 +55,52 @@ starting broader MCP blessed-lane conversion.
 
 ### 1. Harden Descriptor/Implementation Drift Checks
 
-- [ ] Add an explicit invariant for `safety` drift between descriptor and
+- [x] Add an explicit invariant for `safety` drift between descriptor and
       implementation.
-- [ ] Ensure destructive descriptors fail clearly when the implementation or
+- [x] Ensure destructive descriptors fail clearly when the implementation or
       registration path cannot provide the required preview/execute projection
       contract.
-- [ ] Keep the failure at the backend/operation boundary, not in MCP
+- [x] Keep the failure at the backend/operation boundary, not in MCP
       orchestration.
-- [ ] Improve drift error messages so they name the operation id and field.
-- [ ] Add focused tests in `tests/unit/operation-descriptor.test.ts`.
+- [x] Improve drift error messages so they name the operation id and field.
+- [x] Add focused tests in `tests/unit/operation-descriptor.test.ts`.
 
 ### 2. Make Feature Manifests Descriptor-First
 
-- [ ] Add or expose a small `isOperationDescriptor(...)` predicate if needed.
-- [ ] Prefer `OperationDescriptor` values in `defineFeature({ operations })`.
-- [ ] Reject Convex implementation objects in feature manifests if this can be
+- [x] Add or expose a small `isOperationDescriptor(...)` predicate if needed.
+- [x] Prefer `OperationDescriptor` values in `defineFeature({ operations })`.
+- [x] Reject Convex implementation objects in feature manifests if this can be
       done without creating a second compatibility path.
-- [ ] Update fixtures/tests so feature manifests list descriptors, not
+- [x] Update fixtures/tests so feature manifests list descriptors, not
       implementation objects.
-- [ ] Preserve duplicate operation-id checks.
+- [x] Preserve duplicate operation-id checks.
 
 ### 3. Expand Versioned Inventory Operation JSON
 
-- [ ] Include stable operation fields: `id`, `name`, `kind`, `feature`,
+- [x] Include stable operation fields: `id`, `name`, `kind`, `feature`,
       `permissionKey`, and `safety`.
-- [ ] Do not include handlers, functions, raw schemas, source paths, raw
+- [x] Do not include handlers, functions, raw schemas, source paths, raw
       principals, envelopes, tokens, or user data.
-- [ ] Add tests proving inventory JSON is descriptor-derived and secret-safe.
-- [ ] Keep `schemaVersion: 1` stable unless the existing contract truly needs a
+- [x] Add tests proving inventory JSON is descriptor-derived and secret-safe.
+- [x] Keep `schemaVersion: 1` stable unless the existing contract truly needs a
       breaking schema bump.
 
 ### 4. Strengthen Projection Binding Tests
 
-- [ ] Add or tighten tests proving execute and preview refs carry matching
+- [x] Add or tighten tests proving execute and preview refs carry matching
       operation ids and projection kinds.
-- [ ] Prove destructive operation bindings reject missing preview projections.
-- [ ] Prove descriptor-projected refs can bind without importing Convex
+- [x] Prove destructive operation bindings reject missing preview projections.
+- [x] Prove descriptor-projected refs can bind without importing Convex
       implementation objects in the MCP/server-side test path.
-- [ ] Keep projection metadata generated or descriptor-derived, never inferred
+- [x] Keep projection metadata generated or descriptor-derived, never inferred
       by regex/source scanning.
 
 ### 5. Update The 1.0 Tracker
 
-- [ ] Update Slice 5 in `meta/trellis-1.0-refactor-plan.md` only for the items
+- [x] Update Slice 5 in `meta/trellis-1.0-refactor-plan.md` only for the items
       actually completed.
-- [ ] Leave later Slice 6 MCP blessed-lane work unchecked.
-- [ ] Record any deliberate follow-up if a broader conversion is not safe in
+- [x] Leave later Slice 6 MCP blessed-lane work unchecked.
+- [x] Record any deliberate follow-up if a broader conversion is not safe in
       this sprint.
 
 ## Verification
@@ -149,21 +149,33 @@ drift.
 
 ## Acceptance Criteria
 
-- [ ] Descriptor/implementation `safety` drift fails with a clear error.
-- [ ] Destructive descriptor preview/execute requirements fail at an invariant
+- [x] Descriptor/implementation `safety` drift fails with a clear error.
+- [x] Destructive descriptor preview/execute requirements fail at an invariant
       boundary with a focused test.
-- [ ] Feature manifests use operation descriptors as the canonical operation
+- [x] Feature manifests use operation descriptors as the canonical operation
       input.
-- [ ] App inventory operation JSON includes id, name, kind, feature,
+- [x] App inventory operation JSON includes id, name, kind, feature,
       permissionKey, and safety without implementation functions or secrets.
-- [ ] Projection binding tests prove descriptor-derived refs work without
+- [x] Projection binding tests prove descriptor-derived refs work without
       importing Convex implementation modules in MCP/server paths.
-- [ ] No new operation source scanner, duplicate registry, compatibility alias,
+- [x] No new operation source scanner, duplicate registry, compatibility alias,
       or parallel metadata list is added.
-- [ ] The 1.0 refactor tracker reflects the completed Slice 5 subset.
-- [ ] Verification commands above pass except explicitly listed non-gates.
-- [ ] Sprint changes are committed after verification.
+- [x] The 1.0 refactor tracker reflects the completed Slice 5 subset.
+- [x] Verification commands above pass except explicitly listed non-gates.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- [ ] Fill this in during implementation.
+- [x] `defineFeature({ operations })` now rejects Convex implementation objects
+      and accepts shared operation descriptors only.
+- [x] `implementOperation(...)` now rejects name, safety, and destructive
+      preview drift at the descriptor/implementation boundary.
+- [x] `toAppInventoryJson(...)` now emits operation name, permission key, and
+      safety while keeping handlers/schemas/secrets out of JSON.
+- [x] Descriptor return schemas now preserve the app-provided validator object
+      without forcing Trellis' installed Convex validator type identity.
+- [x] Focused unit, surface, reference example, and Ginko type checks passed.
+- [x] `pnpm run test:types:contracts` and
+      `pnpm --dir examples/03-team-workspace typecheck` remain non-gates due
+      existing Vue Router / generated API / Convex dependency-version type
+      drift.

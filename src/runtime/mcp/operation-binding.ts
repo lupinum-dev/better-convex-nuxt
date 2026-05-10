@@ -61,7 +61,14 @@ export function assertOperationBinding(
     )
   }
 
-  if (!previewRef) return
+  if (!previewRef) {
+    if (metadata.kind === 'destructive') {
+      throw new Error(
+        `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
+      )
+    }
+    return
+  }
 
   const previewTarget = getOperationProjectionMetadata(previewRef as Record<PropertyKey, unknown>)
   if (!previewTarget) {

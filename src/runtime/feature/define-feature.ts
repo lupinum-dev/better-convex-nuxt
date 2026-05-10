@@ -1,4 +1,5 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
+import { isOperationDescriptor, type OperationDescriptor } from '../functions/operation-metadata.js'
 
 export interface FeatureDefinition<
   TName extends string = string,
@@ -8,7 +9,7 @@ export interface FeatureDefinition<
   TTenantTables extends readonly string[] = readonly string[],
   TGlobalTables extends readonly string[] = readonly string[],
   TCapabilities = unknown,
-  TOperations extends readonly unknown[] = readonly unknown[],
+  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
 > {
   readonly _type: 'feature'
   readonly name: TName
@@ -27,7 +28,7 @@ export function defineFeature<
   TTenantTables extends readonly string[] = readonly [],
   TGlobalTables extends readonly string[] = readonly [],
   TCapabilities = unknown,
-  TOperations extends readonly unknown[] = readonly [],
+  TOperations extends readonly OperationDescriptor[] = readonly [],
 >(definition: {
   name: TName
   schema?: TSchema
@@ -47,6 +48,13 @@ export function defineFeature<
 > {
   if (definition.name.trim().length === 0) {
     throw new Error('defineFeature(...) requires a non-empty feature name.')
+  }
+
+  for (const operation of definition.operations ?? []) {
+    if (isOperationDescriptor(operation)) continue
+    throw new Error(
+      `defineFeature(${definition.name}) operations must be shared operation descriptors, not Convex operation implementations.`,
+    )
   }
 
   return {

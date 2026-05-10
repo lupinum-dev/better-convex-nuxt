@@ -30,6 +30,7 @@ export {
   executeOperationRef,
   getOperationMetadata,
   getOperationProjectionMetadata,
+  isOperationDescriptor,
   previewOperationRef,
   projectOperationRef,
   transportExecuteOperationRef,
@@ -281,13 +282,14 @@ export const defineOperation = Object.assign(defineOperationImpl, {
 }) as DefineOperationFn
 
 function assertDescriptorValue(
+  descriptor: OperationDescriptor,
   label: string,
   descriptorValue: unknown,
   implementationValue: unknown,
 ): void {
   if (implementationValue === undefined || implementationValue === descriptorValue) return
   throw new Error(
-    `implementOperation(...) received ${label} that does not match the operation descriptor.`,
+    `implementOperation(${descriptor.id}) received ${label} that does not match the operation descriptor.`,
   )
 }
 
@@ -317,12 +319,25 @@ export function implementOperation<
   descriptor: TDescriptor,
   definition: TDefinition,
 ): ValidateOperationDefinition<DescriptorBoundOperationDefinition<TDescriptor, TDefinition>> {
-  assertDescriptorValue('id', descriptor.id, definition.id)
-  assertDescriptorValue('kind', descriptor.kind, definition.kind)
-  assertDescriptorValue('args', descriptor.args, definition.args)
-  assertDescriptorValue('returns', descriptor.returns, definition.returns)
-  assertDescriptorValue('previewReturns', descriptor.previewReturns, definition.previewReturns)
+  assertDescriptorValue(descriptor, 'id', descriptor.id, definition.id)
+  assertDescriptorValue(descriptor, 'name', descriptor.name, definition.name)
+  assertDescriptorValue(descriptor, 'kind', descriptor.kind, definition.kind)
+  assertDescriptorValue(descriptor, 'args', descriptor.args, definition.args)
+  assertDescriptorValue(descriptor, 'returns', descriptor.returns, definition.returns)
+  assertDescriptorValue(
+    descriptor,
+    'previewReturns',
+    descriptor.previewReturns,
+    definition.previewReturns,
+  )
+  assertDescriptorValue(descriptor, 'safety', descriptor.safety, definition.safety)
   assertDescriptorPermission(descriptor, definition)
+
+  if (descriptor.kind === 'destructive' && !definition.preview) {
+    throw new Error(
+      `implementOperation(${descriptor.id}) requires a preview handler for destructive operations.`,
+    )
+  }
 
   return defineOperationImpl({
     ...definition,

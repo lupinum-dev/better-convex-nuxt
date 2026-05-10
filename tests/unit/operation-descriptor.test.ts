@@ -67,6 +67,95 @@ describe('operation descriptors', () => {
     ).toThrow('args that does not match the operation descriptor')
   })
 
+  it('rejects descriptor and implementation result schema drift', () => {
+    const returns = v.object({ ok: v.boolean() })
+    const previewReturns = v.object({
+      display: v.object({ summary: v.string() }),
+      confirm: v.object({ id: v.string() }),
+    })
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.archive',
+      kind: 'destructive',
+      args: { id: v.string() },
+      returns,
+      previewReturns,
+    })
+
+    expect(() =>
+      implementOperation(descriptor, {
+        returns: v.null(),
+        guard: definePermission({ key: 'projects.archive', check: true }),
+        preview: async () => ({
+          display: { summary: 'Archive project' },
+          confirm: { id: 'project-1' },
+        }),
+        handler: async () => null,
+      } as never),
+    ).toThrow('implementOperation(projects.archive) received returns')
+
+    expect(() =>
+      implementOperation(descriptor, {
+        previewReturns: v.null(),
+        guard: definePermission({ key: 'projects.archive', check: true }),
+        preview: async () => ({
+          display: { summary: 'Archive project' },
+          confirm: { id: 'project-1' },
+        }),
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow('implementOperation(projects.archive) received previewReturns')
+  })
+
+  it('rejects descriptor and implementation safety drift', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.create',
+      name: 'CreateProject',
+      kind: 'safe',
+      args: { name: v.string() },
+      safety: 'bounded-write',
+    })
+
+    expect(() =>
+      implementOperation(descriptor, {
+        safety: 'sensitive-write',
+        guard: definePermission({ key: 'projects.create', check: true }),
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow('implementOperation(projects.create) received safety')
+  })
+
+  it('rejects descriptor and implementation name drift', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.rename',
+      name: 'RenameProject',
+      kind: 'safe',
+      args: { id: v.string(), name: v.string() },
+    })
+
+    expect(() =>
+      implementOperation(descriptor, {
+        name: 'ChangeProjectName',
+        guard: definePermission({ key: 'projects.rename', check: true }),
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow('implementOperation(projects.rename) received name')
+  })
+
+  it('requires destructive descriptor implementations to provide a preview handler', () => {
+    const descriptor = defineOperationDescriptor({
+      id: 'projects.delete',
+      kind: 'destructive',
+      args: { id: v.string() },
+    })
+
+    expect(() =>
+      implementOperation(descriptor, {
+        guard: definePermission({ key: 'projects.delete', check: true }),
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow('implementOperation(projects.delete) requires a preview handler')
+  })
+
   it('rejects descriptor and implementation permission drift', () => {
     const descriptor = defineOperationDescriptor({
       id: 'projects.archive',

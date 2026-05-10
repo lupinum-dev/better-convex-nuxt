@@ -315,20 +315,20 @@ path.
 
 ## Slice 5: Operation Descriptor Model
 
-Status: pending
+Status: in progress
 
 Goal: make descriptors the cross-surface source of meaning and implementations
 the backend source of behavior.
 
 ### Canonical Sources
 
-- [ ] Shared operation descriptor owns id, kind, args, result schema, permission
+- [x] Shared operation descriptor owns id, kind, args, result schema, permission
       key, safety class, labels.
 - [ ] Convex implementation owns guard, load, authorize, preview, execute,
       handler behavior.
-- [ ] Feature manifest includes descriptors.
-- [ ] App inventory composes feature manifests.
-- [ ] Generated refs bind descriptors to Convex API refs.
+- [x] Feature manifest includes descriptors.
+- [x] App inventory composes feature manifests.
+- [x] Generated refs bind descriptors to Convex API refs.
 
 ### Delete
 
@@ -339,18 +339,18 @@ the backend source of behavior.
 
 ### Prove
 
-- [ ] Descriptor/implementation id drift fails.
-- [ ] Descriptor kind/projection drift fails.
-- [ ] Permission key drift fails.
-- [ ] Args/result schema drift fails.
-- [ ] Destructive operation without preview/execute projections fails.
-- [ ] MCP server files do not import Convex implementation modules.
+- [x] Descriptor/implementation id drift fails.
+- [x] Descriptor kind/projection drift fails.
+- [x] Permission key drift fails.
+- [x] Args/result schema drift fails.
+- [x] Destructive operation without preview/execute projections fails.
+- [x] MCP server files do not import Convex implementation modules.
 
 ### Done Means
 
-- [ ] Doctor/inventory can explain operations from descriptors and generated
+- [x] Doctor/inventory can explain operations from descriptors and generated
       metadata.
-- [ ] Implementation remains backend-owned.
+- [x] Implementation remains backend-owned.
 
 ## Slice 6: MCP Blessed Lanes
 

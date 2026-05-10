@@ -1,5 +1,10 @@
 import type { ErasedPermissionDefinition } from '../auth/define-permission.js'
-import { getOperationMetadata } from '../functions/operation-metadata.js'
+import {
+  getOperationMetadata,
+  isOperationDescriptor,
+  type McpWriteSafety,
+  type OperationDescriptor,
+} from '../functions/operation-metadata.js'
 import type { Expand, UnionToIntersection } from '../types/type-utils.js'
 import type { FeatureDefinition } from './define-feature.js'
 
@@ -10,7 +15,7 @@ type AnyFeature = FeatureDefinition<
   readonly string[],
   readonly string[],
   unknown,
-  readonly unknown[]
+  readonly OperationDescriptor[]
 >
 
 type FeatureSchema<TFeature extends AnyFeature> = TFeature['schema']
@@ -34,7 +39,7 @@ export interface FeatureManifest<
     readonly ErasedPermissionDefinition[],
   TTenantTable extends string = string,
   TGlobalTable extends string = string,
-  TOperations extends readonly unknown[] = readonly unknown[],
+  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
 > {
   readonly schema: TSchema
   readonly permissions: TPermissions
@@ -50,7 +55,7 @@ export interface AppInventory<
     readonly ErasedPermissionDefinition[],
   TTenantTable extends string = string,
   TGlobalTable extends string = string,
-  TOperations extends readonly unknown[] = readonly unknown[],
+  TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
 > {
   readonly _type: 'app-inventory'
   readonly schemaVersion: 1
@@ -62,7 +67,14 @@ export interface AppInventoryJson {
   readonly schemaVersion: 1
   readonly layers: readonly string[]
   readonly features: readonly string[]
-  readonly operations: readonly { id: string; kind: string; feature: string }[]
+  readonly operations: readonly {
+    id: string
+    name?: string
+    kind: string
+    feature: string
+    permissionKey?: string
+    safety?: McpWriteSafety
+  }[]
   readonly findings: readonly unknown[]
 }
 
@@ -169,6 +181,12 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
     }
 
     for (const operation of feature.operations ?? []) {
+      if (!isOperationDescriptor(operation)) {
+        throw new Error(
+          `composeFeatures(...) received non-descriptor operation from feature "${feature.name}".`,
+        )
+      }
+
       const metadata = getOperationMetadata(operation as never)
       if (!metadata.id) {
         operations.push(operation)
@@ -237,7 +255,18 @@ export function toAppInventoryJson(inventory: AppInventory): AppInventoryJson {
   const operations: AppInventoryJson['operations'] = inventory.features.flatMap((feature) =>
     (feature.operations ?? []).flatMap((operation) => {
       const metadata = getOperationMetadata(operation as never)
-      return metadata.id ? [{ id: metadata.id, kind: metadata.kind, feature: feature.name }] : []
+      return metadata.id
+        ? [
+            {
+              id: metadata.id,
+              ...(metadata.name ? { name: metadata.name } : {}),
+              kind: metadata.kind,
+              feature: feature.name,
+              ...(metadata.permissionKey ? { permissionKey: metadata.permissionKey } : {}),
+              ...(metadata.safety ? { safety: metadata.safety } : {}),
+            },
+          ]
+        : []
     }),
   )
 

@@ -1,12 +1,12 @@
 import { requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation } from '@lupinum/trellis/backend'
+import { defineOperationDescriptor, implementOperation } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { deleteTodo } from '../../../shared/features/todos/contract'
 import { canDeleteTodo } from './checks'
 import { todoRead } from './permissions'
 
-export const removeTodoOp = defineOperation({
+export const removeTodoDescriptor = defineOperationDescriptor({
   id: 'todos.remove',
   name: 'removeTodo',
   kind: 'destructive',
@@ -28,7 +28,13 @@ export const removeTodoOp = defineOperation({
       }),
     }),
   }),
+  permission: todoRead,
+  safety: 'destructive-write',
+})
+
+export const removeTodoOp = implementOperation(removeTodoDescriptor, {
   guard: todoRead,
+  permission: todoRead,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
