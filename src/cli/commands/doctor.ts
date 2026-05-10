@@ -11,7 +11,7 @@ import {
   minimumTrustedForwardingKeyLength,
 } from '../../runtime/trusted-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
-import { summarizeFindings } from '../lib/findings.js'
+import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
@@ -671,7 +671,7 @@ export const doctorCommand = defineCommand({
       color,
     })
 
-    const exitCode = report.summary.fail > 0 ? 1 : 0
+    const exitCode = exitCodeForFindings(report.summary)
     process.exitCode = exitCode
     return exitCode
   },

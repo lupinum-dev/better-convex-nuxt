@@ -2,22 +2,19 @@ import { relative, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
 
-import type { DoctorFinding, DoctorSummary } from '../lib/findings.js'
-import { summarizeFindings } from '../lib/findings.js'
+import type { DoctorFinding, FindingReport } from '../lib/findings.js'
+import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
   type TrellisCliInventory,
   type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
+import { renderFindingReport } from '../lib/output.js'
 import { inspectProject, type ProjectInspection } from '../lib/project.js'
 
-export interface UpgradeCheckReport {
+export interface UpgradeCheckReport extends FindingReport {
   schemaVersion: 1
-  cwd: string
-  inventory: TrellisCliInventory
-  findings: DoctorFinding[]
-  summary: DoctorSummary
 }
 
 type UpgradeFindingOptions = {
@@ -231,23 +228,6 @@ export async function buildUpgradeCheckReport(cwd: string): Promise<UpgradeCheck
   }
 }
 
-function renderUpgradeCheckReport(report: UpgradeCheckReport, json: boolean): void {
-  if (json) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
-    return
-  }
-
-  process.stdout.write('Trellis 1.0 upgrade check\n\n')
-  for (const finding of report.findings) {
-    process.stdout.write(`${finding.status.padEnd(4)}  ${finding.title}\n`)
-    process.stdout.write(`      ${finding.message}\n`)
-    process.stdout.write(`      Fix: ${finding.fixHint}\n\n`)
-  }
-  process.stdout.write(
-    `Summary: ${report.summary.pass} passed, ${report.summary.warn} warnings, ${report.summary.fail} failures\n`,
-  )
-}
-
 export const upgradeCommand = defineCommand({
   meta: {
     name: 'upgrade',
@@ -280,9 +260,12 @@ export const upgradeCommand = defineCommand({
     }
 
     const report = await buildUpgradeCheckReport(resolve(args.cwd || process.cwd()))
-    renderUpgradeCheckReport(report, Boolean(args.json))
+    renderFindingReport(report, {
+      json: Boolean(args.json),
+      title: 'Trellis 1.0 upgrade check',
+    })
 
-    const exitCode = report.summary.fail > 0 ? 1 : 0
+    const exitCode = exitCodeForFindings(report.summary)
     process.exitCode = exitCode
     return exitCode
   },

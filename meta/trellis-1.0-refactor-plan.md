@@ -502,6 +502,9 @@ docs generation, and future explain commands.
 - Sprint 38 is planned to share finding report types, rendering, and
   failure-based exit behavior between doctor and upgrade before adding another
   inventory consumer.
+- Sprint 38 added shared `FindingReport`, `renderFindingReport(...)`, and
+  `exitCodeForFindings(...)` so doctor and upgrade use one report/summary/exit
+  path while keeping their existing finding semantics.
 
 ### Done Means
 

@@ -18,12 +18,15 @@ export interface DoctorSummary {
   fail: number
 }
 
-export interface DoctorReport {
+export interface FindingReport {
+  schemaVersion?: 1
   cwd: string
   inventory: TrellisCliInventory
   findings: DoctorFinding[]
   summary: DoctorSummary
 }
+
+export type DoctorReport = FindingReport
 
 export function summarizeFindings(findings: DoctorFinding[]): DoctorSummary {
   return findings.reduce<DoctorSummary>(
@@ -33,4 +36,8 @@ export function summarizeFindings(findings: DoctorFinding[]): DoctorSummary {
     },
     { pass: 0, warn: 0, fail: 0 },
   )
+}
+
+export function exitCodeForFindings(summary: DoctorSummary): 0 | 1 {
+  return summary.fail > 0 ? 1 : 0
 }

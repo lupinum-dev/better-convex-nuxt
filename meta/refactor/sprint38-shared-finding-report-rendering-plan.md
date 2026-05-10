@@ -109,37 +109,37 @@ Keep it boring. Failure count greater than zero means exit code `1`, otherwise
 
 ### 1. Generalize Report Types
 
-- [ ] Add a neutral `FindingReport` type.
-- [ ] Keep `DoctorReport` compatible with existing tests.
-- [ ] Keep `UpgradeCheckReport` versioned and compatible with existing tests.
-- [ ] Avoid a second summary or finding type.
+- [x] Add a neutral `FindingReport` type.
+- [x] Keep `DoctorReport` compatible with existing tests.
+- [x] Keep `UpgradeCheckReport` versioned and compatible with existing tests.
+- [x] Avoid a second summary or finding type.
 
 ### 2. Share Rendering
 
-- [ ] Move flat finding rendering out of `upgrade.ts`.
-- [ ] Keep doctor rendering behavior stable.
-- [ ] Render upgrade check through the shared output helper.
-- [ ] Keep JSON output exactly machine-readable and secret-safe.
+- [x] Move flat finding rendering out of `upgrade.ts`.
+- [x] Keep doctor rendering behavior stable.
+- [x] Render upgrade check through the shared output helper.
+- [x] Keep JSON output exactly machine-readable and secret-safe.
 
 ### 3. Share Exit Logic
 
-- [ ] Add or reuse one helper for failure-based exit codes.
-- [ ] Use it from doctor.
-- [ ] Use it from upgrade.
+- [x] Add or reuse one helper for failure-based exit codes.
+- [x] Use it from doctor.
+- [x] Use it from upgrade.
 
 ### 4. Add/Adjust Tests
 
-- [ ] Test doctor JSON still contains inventory and findings.
-- [ ] Test doctor human output still renders grouped checks.
-- [ ] Test upgrade JSON still has top-level `schemaVersion: 1`.
-- [ ] Test upgrade human output still renders the migration title and summary.
-- [ ] Test doctor and upgrade both exit non-zero only when failures exist.
+- [x] Test doctor JSON still contains inventory and findings.
+- [x] Test doctor human output still renders grouped checks.
+- [x] Test upgrade JSON still has top-level `schemaVersion: 1`.
+- [x] Test upgrade human output still renders the migration title and summary.
+- [x] Test doctor and upgrade both exit non-zero only when failures exist.
 
 ### 5. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Do not mark public-surface check reuse or `explain` work complete.
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Do not mark public-surface check reuse or `explain` work complete.
 
 ## Verification
 
@@ -181,18 +181,28 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Doctor and upgrade share one finding report rendering path.
-- [ ] Doctor and upgrade share one failure-based exit-code helper or equivalent.
-- [ ] Existing doctor output expectations remain stable.
-- [ ] Existing upgrade output expectations remain stable.
-- [ ] No check semantics change.
-- [ ] No new compatibility path is introduced.
-- [ ] Slice 8 tracker is updated.
+- [x] Doctor and upgrade share one finding report rendering path.
+- [x] Doctor and upgrade share one failure-based exit-code helper or equivalent.
+- [x] Existing doctor output expectations remain stable.
+- [x] Existing upgrade output expectations remain stable.
+- [x] No check semantics change.
+- [x] No new compatibility path is introduced.
+- [x] Slice 8 tracker is updated.
 - [ ] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- pending
+- Added neutral `FindingReport` and kept `DoctorReport` as the compatible
+  report alias.
+- Kept `UpgradeCheckReport` as the versioned report specialization.
+- Added `exitCodeForFindings(...)` and used it from doctor and upgrade.
+- Added shared `renderFindingReport(...)` for JSON, grouped doctor output, flat
+  upgrade output, finding rendering, and summary formatting.
+- Removed command-local upgrade report rendering.
+- Did not change doctor or upgrade finding semantics.
+- Focused CLI tests pass sequentially. The combined parallel Vitest command hit
+  an existing `build:cli` race in `copy-cli-templates.mjs`; the same suites pass
+  when run sequentially.
 
 ## Next Sprint Candidate
 
