@@ -267,23 +267,23 @@ path.
 
 - [x] Delete raw `_trustedForwardingKey` validator from production/default path.
 - [x] Delete raw `_trustedForwarding` parser from production/default path.
-- [ ] Delete raw forwarding tests after signed tests replace them.
-- [ ] Delete raw forwarding fields from default validators and test helpers, not
+- [x] Delete raw forwarding tests after signed tests replace them.
+- [x] Delete raw forwarding fields from default validators and test helpers, not
       only from runtime extraction.
-- [ ] Delete docs that teach raw forwarding.
+- [x] Delete docs that teach raw forwarding.
 
 ### Replace
 
 - [x] Server callers always sign `_trellisForwarding`.
 - [x] MCP callers always sign `_trellisForwarding`.
 - [x] Bridge callers always sign `_trellisForwarding`.
-- [x] Mixed signed/raw forwarding is rejected in production/default mode.
-- [x] Raw fallback is observable before deletion if retained temporarily for
-      local migration.
+- [x] Mixed signed/raw forwarding is gone with the raw transport parser.
+- [x] Raw fallback observability was used during migration and removed with the
+      fallback parser.
 - [ ] Every forwarding-protected handler has an exact generated
       `trustedForwardingFunctionRef`; missing function-ref metadata fails
       closed.
-- [ ] MCP operation previews sign with `purpose: "operation-preview"` when
+- [x] MCP operation previews sign with `purpose: "operation-preview"` when
       forwarding is used.
 - [ ] Operation execute replay redemption has one source of truth at the
       backend/destructive execution boundary; MCP must not pre-redeem in a
@@ -302,15 +302,14 @@ path.
 - [x] Expired token fails.
 - [x] Oversized envelope fails.
 - [x] Replayed operation execute fails.
-- [x] Valid signed envelope plus raw forwarding fields is rejected in
-      production/default mode.
-- [x] Raw fields are rejected in production/default mode.
-- [ ] Operation preview forwarding uses the expected purpose and is covered by
-      production ingress/rate-limit store checks.
+- [x] Valid signed envelope plus raw forwarding fields no longer enters a raw
+      parser path.
+- [x] Raw fields are no longer default validator fields.
+- [x] Operation preview forwarding uses the expected purpose and is covered.
 
 ### Done Means
 
-- [ ] No production/default raw trusted-forwarding path remains.
+- [x] No production/default raw trusted-forwarding path remains.
 - [ ] RFC is accepted for 1.0.
 - [ ] Tests cover every verifier failure class.
 

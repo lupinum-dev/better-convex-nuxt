@@ -1205,6 +1205,11 @@ export function defineMcpApp<
               executeArgs as FunctionLikeArgs<
                 PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
               >,
+              {
+                trustedForwardingEnvelope: {
+                  purpose: 'operation-preview',
+                },
+              },
             )
 
             const previewPayload = normalizeOperationPreview(previewResult)
@@ -1263,6 +1268,11 @@ export function defineMcpApp<
             executeArgs as FunctionLikeArgs<
               PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
             >,
+            {
+              trustedForwardingEnvelope: {
+                purpose: 'operation-preview',
+              },
+            },
           )
 
           const previewPayload = normalizeOperationPreview(previewResult)

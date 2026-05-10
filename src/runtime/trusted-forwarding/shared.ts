@@ -21,15 +21,6 @@ export type TrustedForwardingIdentity = {
 
 export type TrustedForwardingInput = {
   _trellisForwarding?: unknown
-  _trustedForwardingKey?: unknown
-  _trustedForwarding?: {
-    principalSubject?: unknown
-    delegationSubject?: unknown
-  } | null
-}
-
-const rawForwardingFallbackObservation = {
-  count: 0,
 }
 
 export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
@@ -58,13 +49,6 @@ const envelopeStateByArgs = new WeakMap<object, TrustedForwardingEnvelopeState>(
 
 export const trustedForwardingValidators = {
   _trellisForwarding: v.optional(v.string()),
-  _trustedForwardingKey: v.optional(v.string()),
-  _trustedForwarding: v.optional(
-    v.object({
-      principalSubject: v.string(),
-      delegationSubject: v.optional(v.string()),
-    }),
-  ),
 } satisfies PropertyValidators
 
 export const trustedForwardingAlphaIssuer = 'trellis://server'
@@ -114,18 +98,6 @@ export function isTrustedForwardingContextCarrier(
   return isObject(value)
 }
 
-export function verifyTrustedForwardingKey(provided: string, expected: string): boolean {
-  if (!provided || !expected) return false
-  const enc = new TextEncoder()
-  const a = enc.encode(provided)
-  const b = enc.encode(expected)
-  let mismatch = a.byteLength ^ b.byteLength
-  for (let i = 0; i < b.byteLength; i++) {
-    mismatch |= (a[i] ?? 0) ^ b[i]!
-  }
-  return mismatch === 0
-}
-
 function nonBlankString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
@@ -165,23 +137,6 @@ function toTrustedForwardingDeny(error: unknown): Error {
     source: 'trusted-forwarding',
     category: 'auth',
   }) as Error
-}
-
-function hasRawTrustedForwardingInput(input: TrustedForwardingInput): boolean {
-  return input._trustedForwardingKey !== undefined || input._trustedForwarding !== undefined
-}
-
-function assertRawForwardingFallbackAllowed(input: TrustedForwardingInput): void {
-  if (!hasRawTrustedForwardingInput(input)) return
-
-  if (process.env.NODE_ENV === 'production') {
-    throw deny('Raw trusted forwarding fields are not accepted in production.', {
-      source: 'trusted-forwarding',
-      category: 'auth',
-    })
-  }
-
-  rawForwardingFallbackObservation.count += 1
 }
 
 export const minimumTrustedForwardingKeyLength = 32
@@ -346,13 +301,6 @@ export function extractTrustedForwardingFromArgs(
       : (expectedKeyOverrideOrOptions ?? {})
 
   if (input._trellisForwarding !== undefined) {
-    if (hasRawTrustedForwardingInput(input) && process.env.NODE_ENV === 'production') {
-      throw deny('Mixed signed and raw trusted forwarding fields are not accepted in production.', {
-        source: 'trusted-forwarding',
-        category: 'auth',
-      })
-    }
-
     if (typeof input._trellisForwarding !== 'string') {
       throw deny('Malformed trusted forwarding envelope.', {
         source: 'trusted-forwarding',
@@ -416,43 +364,7 @@ export function extractTrustedForwardingFromArgs(
     }
   }
 
-  const hasTransport =
-    input._trustedForwardingKey !== undefined || input._trustedForwarding !== undefined
-  if (!hasTransport) return null
-
-  assertRawForwardingFallbackAllowed(input)
-
-  const principalSubject = nonBlankString(input._trustedForwarding?.principalSubject)
-  const delegationSubject = nonBlankString(input._trustedForwarding?.delegationSubject)
-
-  if (
-    typeof input._trustedForwardingKey !== 'string' ||
-    !isCanonicalSubject(principalSubject) ||
-    (delegationSubject !== undefined && !isCanonicalSubject(delegationSubject))
-  ) {
-    throw deny('Malformed trusted forwarding payload.', {
-      source: 'trusted-forwarding',
-      category: 'auth',
-    })
-  }
-
-  const expectedKey = getRequiredTrustedForwardingKey(options.expectedKeyOverride)
-
-  if (!verifyTrustedForwardingKey(input._trustedForwardingKey, expectedKey)) {
-    throw deny('Invalid trusted forwarding credentials.', {
-      source: 'trusted-forwarding',
-      category: 'auth',
-    })
-  }
-
-  return {
-    principalSubject: principalSubject as Subject,
-    ...(delegationSubject ? { delegationSubject: delegationSubject as Subject } : {}),
-  }
-}
-
-export function getRawTrustedForwardingFallbackCount(): number {
-  return rawForwardingFallbackObservation.count
+  return null
 }
 
 export function createTrustedForwardingContextDelta(
@@ -553,9 +465,7 @@ export function hasForwardedIdentityFields(args: unknown): boolean {
   return (
     Object.prototype.hasOwnProperty.call(args, 'principal') ||
     Object.prototype.hasOwnProperty.call(args, 'delegation') ||
-    Object.prototype.hasOwnProperty.call(args, '_trellisForwarding') ||
-    Object.prototype.hasOwnProperty.call(args, '_trustedForwardingKey') ||
-    Object.prototype.hasOwnProperty.call(args, '_trustedForwarding')
+    Object.prototype.hasOwnProperty.call(args, '_trellisForwarding')
   )
 }
 
@@ -566,8 +476,6 @@ export function stripForwardedIdentityFields<TArgs>(args: TArgs): TArgs {
     principal: _principal,
     delegation: _delegation,
     _trellisForwarding: _trellisForwarding,
-    _trustedForwardingKey: _trustedForwardingKey,
-    _trustedForwarding: _trustedForwarding,
     ...rest
   } = args as Record<string, unknown>
 

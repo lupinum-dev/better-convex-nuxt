@@ -134,13 +134,13 @@ drift.
 
 Phase 0 vectors:
 
-| Label                           | Canonical Args                                                                                                                                                                    | SHA-256 Base64url Hash                        |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| top-level metadata excluded     | `{"a":{"b":true},"delegation":{"subject":"ignored"},"principal":{"subject":"ignored"},"z":1}`                                                                                     | `iLSkFSs_EoAdiRE7_H-ndlsK9-8RIE6_tdcnvvSPAKM` |
-| identity keys authenticated     | `{"delegation":{"subject":"ignored"},"nested":{"delegation":"business","principal":"business"},"principal":{"subject":"ignored"},"z":1}`                                          | `MPMtWV7R94A-_2iWrr6sIKZdAitV6matgP3ag5F5AH0` |
-| nested metadata keys hashed     | `{"nested":{"__trellis":{"trace":"business"},"_trellisForwarding":"business","_trustedForwarding":{"principalSubject":"business"},"_trustedForwardingKey":"business"}}`           | `-0htiQFh9WsLXih-k-lOIaYuUN2EClu5SEDRMzAZkGs` |
-| nullish array                   | `{"items":[1,null,null,{"a":1,"b":2}]}`                                                                                                                                           | `llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q` |
-| ID string                       | `{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}`                                                                                                     | `0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ` |
+| Label                       | Canonical Args                                                                                                                                                          | SHA-256 Base64url Hash                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| top-level metadata excluded | `{"a":{"b":true},"delegation":{"subject":"ignored"},"principal":{"subject":"ignored"},"z":1}`                                                                           | `iLSkFSs_EoAdiRE7_H-ndlsK9-8RIE6_tdcnvvSPAKM` |
+| identity keys authenticated | `{"delegation":{"subject":"ignored"},"nested":{"delegation":"business","principal":"business"},"principal":{"subject":"ignored"},"z":1}`                                | `MPMtWV7R94A-_2iWrr6sIKZdAitV6matgP3ag5F5AH0` |
+| nested metadata keys hashed | `{"nested":{"__trellis":{"trace":"business"},"_trellisForwarding":"business","_trustedForwarding":{"principalSubject":"business"},"_trustedForwardingKey":"business"}}` | `-0htiQFh9WsLXih-k-lOIaYuUN2EClu5SEDRMzAZkGs` |
+| nullish array               | `{"items":[1,null,null,{"a":1,"b":2}]}`                                                                                                                                 | `llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q` |
+| ID string                   | `{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}`                                                                                           | `0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ` |
 
 ## TTL And Replay Matrix
 
@@ -247,13 +247,10 @@ Phase 0 may keep throwaway or fixture-only envelope spikes before RFC sign-off.
 Production implementation, public API freeze, and migration work must wait for
 this RFC to be reviewed and accepted.
 
-Alpha transport support accepts `_trellisForwarding` first and falls back to the
-legacy raw `_trustedForwardingKey` / `_trustedForwarding` fields only outside
-production while local migration is still underway. Raw fallback is temporary
-and observable with redacted counters. Production rejects raw forwarding fields
-and rejects mixed signed/raw forwarding fields instead of silently choosing one.
-The alpha fallback does not change the security rule: a valid envelope
-authenticates forwarding only. It never grants permission.
+Alpha transport support accepts `_trellisForwarding` only. The legacy raw
+`_trustedForwardingKey` / `_trustedForwarding` parser was kept only during local
+migration and is deleted before 1.0. A valid envelope authenticates forwarding
+only. It never grants permission.
 
 ## External Review Packet
 
@@ -282,9 +279,9 @@ The review should answer these finite questions:
 7. Are principal/delegation validators based on canonical subject extraction
    strict enough, and what payload fields should be rejected before actor
    resolution?
-8. Is the temporary raw forwarding fallback acceptable during alpha migration,
-   provided production migration makes fallback observable and then disables or
-   rejects it?
+8. Is deleting the raw forwarding fallback before 1.0 sufficient, or should the
+   verifier also emit a dedicated redacted diagnostic when raw fields are seen
+   as unexpected app args?
 9. Are the redaction requirements sufficient to keep invalid envelope,
    principal, delegation, and bearer data out of logs and diagnostics?
 10. Is the alpha maximum serialized envelope size of 8192 bytes appropriate for

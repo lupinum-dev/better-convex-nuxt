@@ -1220,7 +1220,14 @@ describe('Destructive confirmation payload validation', () => {
       expect.anything(),
       preview,
       { id: 'post-1' },
-      { auth: 'trusted', principal, delegation },
+      {
+        auth: 'trusted',
+        principal,
+        delegation,
+        trustedForwardingEnvelope: {
+          purpose: 'operation-preview',
+        },
+      },
     )
     expect(serverConvexMutation).toHaveBeenCalledWith(
       expect.anything(),

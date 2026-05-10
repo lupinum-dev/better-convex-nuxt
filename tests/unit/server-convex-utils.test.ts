@@ -636,8 +636,7 @@ describe('server Convex fetch helpers', () => {
         { _path: 'tasks:create' } as never,
         {
           title: 'From webhook',
-          _trustedForwardingKey: 'forged',
-          _trustedForwarding: { principalSubject: 'user:user_admin' },
+          _trellisForwarding: 'forged',
         } as never,
         { auth: 'none' },
       ),

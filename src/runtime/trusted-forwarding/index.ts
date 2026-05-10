@@ -15,7 +15,6 @@ import {
   type TrustedForwardingEnvelopeContextOptions,
   type TrustedForwardingIdentity,
 } from './shared.js'
-import { verifyTrustedForwardingKey as verifyTrustedForwardingKeyInternal } from './shared.js'
 
 export {
   canonicalizeForwardingArgs,
@@ -132,9 +131,4 @@ export function getForwardedDelegation<TDelegation extends Delegation>(
 
   assertForwardableDelegation(delegation, trustedForwarding)
   return delegation as TDelegation
-}
-
-/** Compare a provided trusted-forwarding key with the expected shared secret. */
-export function verifyTrustedForwardingKey(provided: string, expected: string): boolean {
-  return verifyTrustedForwardingKeyInternal(provided, expected)
 }

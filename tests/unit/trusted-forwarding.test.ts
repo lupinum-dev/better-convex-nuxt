@@ -8,15 +8,37 @@ import {
   getForwardedDelegation,
   getTrustedForwarding,
   setTrustedForwardingContext,
-  verifyTrustedForwardingKey,
   withTrustedForwarding,
 } from '../../src/runtime/trusted-forwarding'
-import {
-  createTrustedForwardingEnvelopeArgs,
-  getRawTrustedForwardingFallbackCount,
-} from '../../src/runtime/trusted-forwarding/shared'
+import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
 const originalNodeEnv = process.env.NODE_ENV
+const trustedForwardingKey = 'trusted-key-with-enough-alpha-entropy'
+
+function signedArgs({
+  args = {},
+  principal = { kind: 'agent', agentId: 'agent_1', subject: 'agent:agent_1' },
+  delegation,
+  functionRef = 'tasks:create',
+  operation = 'mutation',
+}: {
+  args?: Record<string, unknown>
+  principal?: { subject: string } & Record<string, unknown>
+  delegation?: { subject: string } & Record<string, unknown>
+  functionRef?: string
+  operation?: 'query' | 'mutation' | 'action'
+} = {}) {
+  process.env.CONVEX_TRUSTED_FORWARDING_KEY = trustedForwardingKey
+  return createTrustedForwardingEnvelopeArgs({
+    args,
+    principal,
+    ...(delegation ? { delegation } : {}),
+    functionRef,
+    operation,
+    jti: `call-${functionRef}`,
+    now: Date.UTC(2026, 4, 9, 12, 0, 0),
+  })
+}
 
 describe('trusted forwarding helpers', () => {
   beforeEach(() => {
@@ -38,26 +60,24 @@ describe('trusted forwarding helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual([
-      'title',
-      '_trellisForwarding',
-      '_trustedForwardingKey',
-      '_trustedForwarding',
-    ])
+    expect(Object.keys(args)).toEqual(['title', '_trellisForwarding'])
   })
 
-  it('returns the trusted forwarding identity when the trusted forwarding key matches', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
-
-    expect(
-      getTrustedForwarding({
-        title: 'Hello',
-        _trustedForwardingKey: 'trusted-key',
-        _trustedForwarding: {
-          principalSubject: 'user:u_1',
-        },
+  it('returns the trusted forwarding identity from a signed envelope', () => {
+    const ctx: Record<string, unknown> = {}
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        args: { title: 'Hello' },
+        principal: { kind: 'user', userId: 'u_1', subject: 'user:u_1' },
       }),
-    ).toEqual({
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      },
+    )
+
+    expect(getTrustedForwarding(ctx)).toEqual({
       principalSubject: 'user:u_1',
     })
   })
@@ -67,39 +87,36 @@ describe('trusted forwarding helpers', () => {
   })
 
   it('throws on malformed trusted forwarding transport', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
-
     expect(() =>
       getTrustedForwarding({
-        _trustedForwardingKey: 'trusted-key',
-        _trustedForwarding: {},
+        _trellisForwarding: {},
       }),
-    ).toThrow(/Malformed trusted forwarding payload/)
+    ).toThrow(/Malformed trusted forwarding envelope/)
   })
 
-  it('rejects non-canonical trusted forwarding subjects', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
-
-    expect(() =>
+  it('ignores deleted raw trusted forwarding fields', () => {
+    expect(() => getTrustedForwarding({ _trustedForwardingKey: 'trusted-key' })).not.toThrow()
+    expect(
       getTrustedForwarding({
         _trustedForwardingKey: 'trusted-key',
-        _trustedForwarding: {
-          principalSubject: 'not-a-subject',
-        },
+        _trustedForwarding: { principalSubject: 'user:u_1' },
       }),
-    ).toThrow(/Malformed trusted forwarding payload/)
+    ).toBeNull()
   })
 
   it('stores and clears trusted forwarding context for no-arg actor resolution', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'user:u_ctx',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'user', userId: 'u_ctx', subject: 'user:u_ctx' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
     expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'user:u_ctx' })
 
@@ -144,11 +161,15 @@ describe('trusted forwarding helpers', () => {
     })
   })
 
-  it('prefers signed forwarding envelopes over legacy raw forwarding fields outside production', () => {
+  it('treats deleted raw forwarding fields as normal args for signed envelopes', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const ctx: Record<string, unknown> = {}
     const args = createTrustedForwardingEnvelopeArgs({
-      args: { title: 'Envelope' },
+      args: {
+        title: 'Envelope',
+        _trustedForwardingKey: 'business',
+        _trustedForwarding: { principalSubject: 'business' },
+      },
       principal: { kind: 'agent', agentId: 'signed', subject: 'agent:signed' },
       functionRef: 'tasks:create',
       operation: 'mutation',
@@ -156,18 +177,10 @@ describe('trusted forwarding helpers', () => {
       now: Date.UTC(2026, 4, 9, 12, 0, 0),
     })
 
-    setTrustedForwardingContext(
-      ctx,
-      {
-        ...args,
-        _trustedForwardingKey: 'trusted-key-with-enough-alpha-entropy',
-        _trustedForwarding: { principalSubject: 'agent:raw' },
-      },
-      {
-        expectedFunctionRef: 'tasks:create',
-        now: Date.UTC(2026, 4, 9, 12, 0, 1),
-      },
-    )
+    setTrustedForwardingContext(ctx, args, {
+      expectedFunctionRef: 'tasks:create',
+      now: Date.UTC(2026, 4, 9, 12, 0, 1),
+    })
 
     expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'agent:signed' })
     expect(getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toEqual({
@@ -175,34 +188,6 @@ describe('trusted forwarding helpers', () => {
       agentId: 'signed',
       subject: 'agent:signed',
     })
-  })
-
-  it('rejects mixed signed and raw forwarding fields in production', () => {
-    process.env.NODE_ENV = 'production'
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'prodforwardingsecret0123456789abcdef'
-    const args = createTrustedForwardingEnvelopeArgs({
-      args: { title: 'Envelope' },
-      principal: { kind: 'agent', agentId: 'signed', subject: 'agent:signed' },
-      functionRef: 'tasks:create',
-      operation: 'mutation',
-      jti: 'call-1',
-      now: Date.UTC(2026, 4, 9, 12, 0, 0),
-    })
-
-    expect(() =>
-      setTrustedForwardingContext(
-        {},
-        {
-          ...args,
-          _trustedForwardingKey: 'prodforwardingsecret0123456789abcdef',
-          _trustedForwarding: { principalSubject: 'agent:raw' },
-        },
-        {
-          expectedFunctionRef: 'tasks:create',
-          now: Date.UTC(2026, 4, 9, 12, 0, 1),
-        },
-      ),
-    ).toThrow(/mixed signed and raw/i)
   })
 
   it('fails closed on invalid signed forwarding envelopes', () => {
@@ -321,62 +306,63 @@ describe('trusted forwarding helpers', () => {
     expect(() => setTrustedForwardingContext({}, args, options)).toThrow(/replayed/)
   })
 
+  it('fails closed when operation preview and execute purposes are used on the wrong path', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const previewArgs = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'project-1' },
+      principal: { kind: 'agent', agentId: 'assistant', subject: 'agent:assistant' },
+      functionRef: 'projects:previewDelete',
+      operation: 'query',
+      purpose: 'operation-preview',
+      jti: 'preview-call',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+    const executeArgs = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'project-1', _confirmationToken: 'confirmed' },
+      principal: { kind: 'agent', agentId: 'assistant', subject: 'agent:assistant' },
+      functionRef: 'projects:delete',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'execute-call',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    expect(() =>
+      setTrustedForwardingContext({}, executeArgs, {
+        expectedFunctionRef: 'projects:delete',
+        expectedPurpose: 'operation-preview',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      }),
+    ).toThrow(/purpose/)
+    expect(() =>
+      setTrustedForwardingContext({}, previewArgs, {
+        expectedFunctionRef: 'projects:previewDelete',
+        expectedPurpose: 'operation-execute',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      }),
+    ).toThrow(/purpose/)
+  })
+
   it('accepts an explicit expected key override when process.env is unavailable', () => {
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(
-      ctx,
-      {
-        _trustedForwardingKey: 'component-key',
-        _trustedForwarding: {
-          principalSubject: 'user:u_component',
-        },
-      },
-      'component-key',
-    )
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Component' },
+      principal: { kind: 'user', userId: 'u_component', subject: 'user:u_component' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      key: 'component-key',
+      jti: 'component-call',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    setTrustedForwardingContext(ctx, args, {
+      expectedKeyOverride: 'component-key',
+      expectedFunctionRef: 'tasks:create',
+      now: Date.UTC(2026, 4, 9, 12, 0, 1),
+    })
 
     expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'user:u_component' })
-  })
-
-  it('rejects raw forwarding fields in production even with a strong key', () => {
-    process.env.NODE_ENV = 'production'
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'prodforwardingsecret0123456789abcdef'
-
-    expect(() =>
-      getTrustedForwarding({
-        _trustedForwardingKey: 'prodforwardingsecret0123456789abcdef',
-        _trustedForwarding: {
-          principalSubject: 'user:u_prod',
-        },
-      }),
-    ).toThrow(/raw trusted forwarding fields/i)
-  })
-
-  it('tracks dev/test raw forwarding fallback use without exposing payloads', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
-    const before = getRawTrustedForwardingFallbackCount()
-
-    expect(
-      getTrustedForwarding({
-        _trustedForwardingKey: 'trusted-key',
-        _trustedForwarding: {
-          principalSubject: 'user:u_1',
-        },
-      }),
-    ).toEqual({ principalSubject: 'user:u_1' })
-
-    expect(getRawTrustedForwardingFallbackCount()).toBe(before + 1)
-  })
-
-  it('rejects trusted forwarding payloads when no server-owned key exists', () => {
-    expect(() =>
-      getTrustedForwarding({
-        _trustedForwardingKey: 'forged-key',
-        _trustedForwarding: {
-          principalSubject: 'user:u_env',
-        },
-      }),
-    ).toThrow(/Trusted forwarding auth is not configured/i)
   })
 
   it('rejects short trusted forwarding keys in production', () => {
@@ -407,13 +393,6 @@ describe('trusted forwarding helpers', () => {
     ).toThrow(/development or placeholder value/i)
   })
 
-  it('verifies trusted forwarding keys', () => {
-    expect(verifyTrustedForwardingKey('abc', 'abc')).toBe(true)
-    expect(verifyTrustedForwardingKey('abc', 'def')).toBe(false)
-    expect(verifyTrustedForwardingKey('ab', 'abc')).toBe(false)
-    expect(verifyTrustedForwardingKey('abcd', 'abc')).toBe(false)
-  })
-
   it('rejects forwarded principal reads on untrusted paths', () => {
     expect(() =>
       getForwardedPrincipal({}, { principal: { kind: 'agent', subject: 'agent:u_1' } }),
@@ -421,18 +400,19 @@ describe('trusted forwarding helpers', () => {
   })
 
   it('returns forwarded principal and delegation on verified trusted forwarding paths', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      principal: { kind: 'agent', subject: 'agent:agent_1' },
-      delegation: { subject: 'user:u_forwarded', reason: 'approved' },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:agent_1',
-        delegationSubject: 'user:u_forwarded',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'agent', subject: 'agent:agent_1' },
+        delegation: { subject: 'user:u_forwarded', reason: 'approved' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
     expect(
       getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx, {
@@ -447,18 +427,19 @@ describe('trusted forwarding helpers', () => {
   })
 
   it('returns stored forwarded identity from context even when resolver args are sanitized', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      principal: { kind: 'agent', subject: 'agent:agent_1' },
-      delegation: { subject: 'user:u_forwarded', reason: 'approved' },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:agent_1',
-        delegationSubject: 'user:u_forwarded',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'agent', subject: 'agent:agent_1' },
+        delegation: { subject: 'user:u_forwarded', reason: 'approved' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
     expect(getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toEqual({
       kind: 'agent',
@@ -471,56 +452,73 @@ describe('trusted forwarding helpers', () => {
   })
 
   it('returns null when no forwarded delegation is present', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      principal: { kind: 'agent', subject: 'agent:agent_1' },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:agent_1',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'agent', subject: 'agent:agent_1' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
     expect(getForwardedDelegation<{ subject: string }>(ctx)).toBeNull()
   })
 
   it('rejects mismatched forwarded principal and delegation payloads', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      principal: { kind: 'agent', subject: 'agent:other' },
-      delegation: { subject: 'user:other' },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:agent_1',
-        delegationSubject: 'user:u_forwarded',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'agent', subject: 'agent:agent_1' },
+        delegation: { subject: 'user:u_forwarded' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
-    expect(() => getForwardedPrincipal<{ kind: 'agent'; subject: string }>(ctx)).toThrow(
-      /principal` subject does not match/i,
-    )
-    expect(() => getForwardedDelegation<{ subject: string }>(ctx)).toThrow(
-      /delegation` subject does not match/i,
-    )
+    expect(() =>
+      getForwardedPrincipal<{ kind: 'agent'; subject: string }>(
+        ctx,
+        { actor: { kind: 'agent', subject: 'agent:other' } },
+        'actor',
+      ),
+    ).toThrow(/principal` subject does not match/i)
+    expect(() =>
+      getForwardedDelegation<{ subject: string }>(
+        ctx,
+        { target: { subject: 'user:other' } },
+        'target',
+      ),
+    ).toThrow(/delegation` subject does not match/i)
   })
 
   it('rejects forwarded principals whose explicit subject conflicts with their id fields', () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
     const ctx: Record<string, unknown> = {}
 
-    setTrustedForwardingContext(ctx, {
-      principal: { kind: 'user', userId: 'victim', subject: 'user:attacker' },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'user:attacker',
+    setTrustedForwardingContext(
+      ctx,
+      signedArgs({
+        principal: { kind: 'user', userId: 'attacker', subject: 'user:attacker' },
+      }),
+      {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
       },
-    })
+    )
 
     expect(() =>
-      getForwardedPrincipal<{ kind: 'user'; userId: string; subject: string }>(ctx),
+      getForwardedPrincipal<{ kind: 'user'; userId: string; subject: string }>(
+        ctx,
+        { actor: { kind: 'user', userId: 'victim', subject: 'user:attacker' } },
+        'actor',
+      ),
     ).toThrow(/canonical subject/i)
   })
 })

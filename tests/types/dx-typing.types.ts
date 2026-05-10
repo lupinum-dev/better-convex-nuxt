@@ -16,7 +16,7 @@ import { createConfiguredPermissionsComposables } from '../../src/runtime/compos
 import { defineOperation } from '../../src/runtime/functions'
 import { defineTool } from '../../src/runtime/mcp'
 import { createTestContext } from '../../src/runtime/testing'
-import { verifyTrustedForwardingKey } from '../../src/runtime/trusted-forwarding'
+import { createTrustedForwardingEnvelope } from '../../src/runtime/trusted-forwarding'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -38,7 +38,20 @@ type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
 
 deny('Blocked', { source: 'dx-typing' })
 enforce(null, 'Admin page', false)
-verifyTrustedForwardingKey('a', 'b')
+createTrustedForwardingEnvelope({
+  key: 'trusted-forwarding-key-with-enough-entropy',
+  keyId: 'default',
+  iss: 'trellis://server',
+  aud: 'trellis://convex',
+  jti: 'typed-call',
+  sub: 'user:u1',
+  principal: { subject: 'user:u1' },
+  transport: 'server',
+  purpose: 'query',
+  functionRef: 'tasks:list',
+  args: {},
+  ttlMs: 60_000,
+})
 
 type PermissionContext = {
   role: 'owner' | 'member'

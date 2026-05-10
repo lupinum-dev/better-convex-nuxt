@@ -17,7 +17,6 @@ import {
   loadTenantResource,
 } from '../../src/runtime/auth'
 import { isAnonymousPrincipal } from '../../src/runtime/auth/principal-state'
-import { verifyTrustedForwardingKey } from '../../src/runtime/trusted-forwarding'
 
 type ConvexErrorData = {
   category?: string
@@ -153,12 +152,6 @@ describe('auth primitives', () => {
         throw new Error('boom')
       }),
     ).toThrow('boom')
-  })
-
-  it('verifies keys in constant-time-compatible shape', () => {
-    expect(verifyTrustedForwardingKey('abc', 'abc')).toBe(true)
-    expect(verifyTrustedForwardingKey('abc', 'def')).toBe(false)
-    expect(verifyTrustedForwardingKey('', 'def')).toBe(false)
   })
 
   it('requireRecord throws ConvexError with NOT_FOUND code', () => {

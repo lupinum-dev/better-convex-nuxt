@@ -860,10 +860,9 @@ Ginko CMS owns product setup and product terminology.
 
 Current issue:
 
-Trusted forwarding uses public args carrying `_trustedForwardingKey`,
-`_trustedForwarding`, `principal`, and sometimes `delegation`. This is guarded,
-but it normalizes identity-shaped args and moves a long-lived secret through
-function inputs.
+Trusted forwarding used to rely on public args carrying a raw shared key plus
+identity-shaped forwarding payloads. That normalized identity-shaped args and
+moved a long-lived secret through function inputs.
 
 Next-major decision:
 

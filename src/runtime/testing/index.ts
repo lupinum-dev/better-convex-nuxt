@@ -13,8 +13,10 @@ import type {
 } from 'convex/server'
 import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
+import type { Subject } from '../auth/index.js'
 import { subject } from '../auth/subject.js'
 import { getFunctionName } from '../convex/shared/convex-shared.js'
+import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
 import type { TrellisObservationEvent } from '../observability/index.js'
 import { createTrustedForwardingEnvelopeArgs } from '../trusted-forwarding/shared.js'
@@ -326,7 +328,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
           ...principal,
           subject: principalSubject,
         },
-        functionRef: getFunctionName(fn),
+        functionRef: getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
         key: effectiveTrustedForwardingKey,
         transport: 'server',
@@ -342,11 +344,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   function shouldRetryWithoutTrustedTransport(error: unknown): boolean {
     if (!(error instanceof Error)) return false
 
-    return (
-      error.message.includes('Unexpected field `_trustedForwardingKey` in object') ||
-      error.message.includes('Unexpected field `_trustedForwarding` in object') ||
-      error.message.includes('Unexpected field `_trellisForwarding` in object')
-    )
+    return error.message.includes('Unexpected field `_trellisForwarding` in object')
   }
 
   async function callWithPrincipal<
@@ -406,9 +404,9 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   return client as unknown as TestClient<TSchema>
 }
 
-function resolveTrustedForwardingSubject(principal: Record<string, unknown>): string {
+function resolveTrustedForwardingSubject(principal: Record<string, unknown>): Subject {
   if (typeof principal.subject === 'string' && principal.subject) {
-    return principal.subject
+    return principal.subject as Subject
   }
 
   if (typeof principal.userId === 'string' && principal.userId) {
@@ -424,7 +422,7 @@ function resolveTrustedForwardingSubject(principal: Record<string, unknown>): st
   }
 
   if (typeof principal.kind === 'string' && principal.kind) {
-    return `principal:${principal.kind}`
+    return subject.agent(principal.kind)
   }
 
   return subject.agent('trusted-forwarding-test')

@@ -135,12 +135,20 @@ describe('phase0 workspace-mcp fixture', () => {
       {
         operation: 'query',
         args: { id: 'project-1' },
-        options: undefined,
+        options: {
+          trustedForwardingEnvelope: {
+            purpose: 'operation-preview',
+          },
+        },
       },
       {
         operation: 'query',
         args: { id: 'project-1' },
-        options: undefined,
+        options: {
+          trustedForwardingEnvelope: {
+            purpose: 'operation-preview',
+          },
+        },
       },
       {
         operation: 'mutation',

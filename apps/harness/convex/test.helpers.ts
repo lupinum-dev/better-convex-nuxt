@@ -6,6 +6,7 @@
 
 import { convexTest } from 'convex-test'
 
+import { createTrustedForwardingEnvelopeArgs } from '../../../src/runtime/trusted-forwarding/shared'
 import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
@@ -26,21 +27,19 @@ export function withTrustedPrincipal<TArgs extends Record<string, unknown> | und
         : typeof principal.agentId === 'string' && principal.agentId.length > 0
           ? `agent:${principal.agentId}`
           : 'agent:trusted-forwarding-test'
-  const delegationSubject =
-    typeof delegation?.subject === 'string' && delegation.subject.length > 0
-      ? delegation.subject
-      : undefined
-
-  return {
-    ...(args ?? {}),
-    _trustedForwardingKey: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
-    _trustedForwarding: {
-      principalSubject,
-      ...(delegationSubject ? { delegationSubject } : {}),
+  return createTrustedForwardingEnvelopeArgs({
+    args: args ?? {},
+    principal: {
+      ...principal,
+      subject: principalSubject,
     },
-    principal,
-    ...(delegation ? { delegation } : {}),
-  }
+    ...(delegation
+      ? { delegation: delegation as { subject: string } & Record<string, unknown> }
+      : {}),
+    functionRef: 'harness:test',
+    operation: 'mutation',
+    key: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
+  }) as TArgs & { _trellisForwarding: string }
 }
 
 /**

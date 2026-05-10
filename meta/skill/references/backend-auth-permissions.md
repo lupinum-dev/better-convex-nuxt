@@ -200,11 +200,10 @@ Use trusted-forwarding readers only after verification:
 - `getTrustedForwarding(ctxOrArgs)`
 - `getForwardedPrincipal(ctx, args?)`
 - `getForwardedDelegation(ctx, args?)`
-- `verifyTrustedForwardingKey(provided, expected)`
 
-Forwarded principals and delegations are verified transport metadata, not public
-request arguments. A trusted key verifies the transport path; it does not grant
-business authorization by itself.
+Forwarded principals and delegations are verified signed-envelope metadata, not
+public request arguments. A valid envelope verifies the transport path; it does
+not grant business authorization by itself.
 
 ## Pitfalls
 

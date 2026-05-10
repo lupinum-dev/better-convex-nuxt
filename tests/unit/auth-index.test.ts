@@ -41,7 +41,7 @@ describe('auth entrypoint exports', () => {
     expect(authApi).not.toHaveProperty('createFunctions')
 
     expect(trustedForwardingApi).toHaveProperty('getTrustedForwarding')
-    expect(trustedForwardingApi).toHaveProperty('verifyTrustedForwardingKey')
+    expect(trustedForwardingApi).toHaveProperty('createTrustedForwardingEnvelope')
     expect(trustedForwardingApi).toHaveProperty('withTrustedForwarding')
     expect(trustedForwardingApi).toHaveProperty('setTrustedForwardingContext')
     expect(trustedForwardingApi).toHaveProperty('clearTrustedForwardingContext')
