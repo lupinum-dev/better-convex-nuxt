@@ -933,6 +933,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   report every affected line, authorize arity audit is AST-backed and manual,
   deleted import paths are covered by public type tests, and write mode remains
   limited to mechanical codemods.
+- Sprint 64 is planned to close the local Slice 11 hard-cut cleanup by deleting
+  hidden compatibility aliases for removed public paths, starting with the
+  `@lupinum/trellis/functions` Vitest alias. It should not rename the internal
+  `src/runtime/functions/**` implementation directory or touch the cross-repo
+  Ginko gate.
 
 ### Done Means
 
