@@ -122,8 +122,9 @@ permission scanner. Convert its file/line output into inventory
 
 Expected include scope for this sprint:
 
-```ts
-;['convex/**/*.ts', 'shared/**/*.ts']
+```text
+convex/**/*.ts
+shared/**/*.ts
 ```
 
 If that scope is too broad in practice, narrow it with a documented reason and
@@ -133,42 +134,42 @@ tests.
 
 ### 1. Extend Inventory Types
 
-- [ ] Add feature inventory interfaces.
-- [ ] Add permission inventory interfaces.
-- [ ] Add `features` and `permissions` fields to `TrellisCliInventory`.
-- [ ] Keep `schemaVersion: 1` unless the output contract needs a breaking bump.
+- [x] Add feature inventory interfaces.
+- [x] Add permission inventory interfaces.
+- [x] Add `features` and `permissions` fields to `TrellisCliInventory`.
+- [x] Keep `schemaVersion: 1` unless the output contract needs a breaking bump.
 
 ### 2. Add Static Feature Extraction
 
-- [ ] Parse exported `defineFeature(...)` calls without executing source.
-- [ ] Extract static feature name, table lists, permission refs, operation refs,
+- [x] Parse exported `defineFeature(...)` calls without executing source.
+- [x] Extract static feature name, table lists, permission refs, operation refs,
       export name, file, and source location.
-- [ ] Ignore or omit dynamic fields instead of serializing unknown values.
-- [ ] Keep extractor results secret-safe and snippet-free.
+- [x] Ignore or omit dynamic fields instead of serializing unknown values.
+- [x] Keep extractor results secret-safe and snippet-free.
 
 ### 3. Reuse Permission Metadata Extraction
 
-- [ ] Call `extractPermissionCodegenMetadata(...)` from inventory collection.
-- [ ] Map permission definitions into inventory definitions.
-- [ ] Map exported permission inventories into inventory permission inventories.
-- [ ] Do not duplicate permission validation logic from
+- [x] Call `extractPermissionCodegenMetadata(...)` from inventory collection.
+- [x] Map permission definitions into inventory definitions.
+- [x] Map exported permission inventories into inventory permission inventories.
+- [x] Do not duplicate permission validation logic from
       `permission-metadata.ts`.
 
 ### 4. Add Tests
 
-- [ ] Doctor JSON for a generated workspace app includes feature definitions for
+- [x] Doctor JSON for a generated workspace app includes feature definitions for
       todos, users, and workspaces.
-- [ ] Doctor JSON includes permission definitions such as `workspace.read` and
+- [x] Doctor JSON includes permission definitions such as `workspace.read` and
       `todo.create`.
-- [ ] Doctor JSON includes exported permission inventory metadata when present.
-- [ ] Inventory source locations are path/line only.
-- [ ] Human doctor output remains stable.
+- [x] Doctor JSON includes exported permission inventory metadata when present.
+- [x] Inventory source locations are path/line only.
+- [x] Human doctor output remains stable.
 
 ### 5. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 sprint notes.
-- [ ] Leave the broad "Inventory includes ..." checkbox open unless bridge
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 sprint notes.
+- [x] Leave the broad "Inventory includes ..." checkbox open unless bridge
       packages and typed unsafe permit inventory are also complete.
 
 ## Verification
@@ -202,13 +203,25 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `TrellisCliInventory` exposes `features`.
-- [ ] `TrellisCliInventory` exposes `permissions.definitions` and
+- [x] `TrellisCliInventory` exposes `features`.
+- [x] `TrellisCliInventory` exposes `permissions.definitions` and
       `permissions.inventories`.
-- [ ] Feature inventory is static, source-backed, and snippet-free.
-- [ ] Permission inventory reuses existing permission metadata extraction.
-- [ ] Doctor JSON includes feature and permission facts for generated workspace
+- [x] Feature inventory is static, source-backed, and snippet-free.
+- [x] Permission inventory reuses existing permission metadata extraction.
+- [x] Doctor JSON includes feature and permission facts for generated workspace
       apps.
-- [ ] Human doctor output and finding semantics remain unchanged.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Human doctor output and finding semantics remain unchanged.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `inventory.features` with static `defineFeature(...)` export metadata,
+  table names, permission refs, operation refs, and path/line sources.
+- Added `inventory.permissions.definitions` and
+  `inventory.permissions.inventories` by reusing
+  `extractPermissionCodegenMetadata(...)`.
+- Kept operations/tools owned by `inventory.publicSurface`.
+- Added doctor JSON assertions for generated workspace feature and permission
+  facts.
+- Kept human doctor output and finding semantics unchanged.

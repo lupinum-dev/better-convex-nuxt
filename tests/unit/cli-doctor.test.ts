@@ -112,6 +112,34 @@ type DoctorInventoryJsonReport = {
         source: { path: string; line: number }
       }>
     }
+    features: Array<{
+      exportName: string
+      name: string
+      file: string
+      source: { path: string; line: number }
+      tenantTables: string[]
+      globalTables: string[]
+      permissionRefs: string[]
+      operationRefs: string[]
+    }>
+    permissions: {
+      definitions: Array<{
+        exportName: string
+        key: string
+        file: string
+        source: { path: string; line: number }
+        label?: string
+        roles: string[]
+        projected: boolean
+      }>
+      inventories: Array<{
+        exportName: string
+        file: string
+        source: { path: string; line: number }
+        permissions: string[]
+        unknown: string[]
+      }>
+    }
     publicSurface: {
       operations: Array<{
         id: string
@@ -609,6 +637,74 @@ describe('CLI doctor', () => {
         featureBindings: [],
         warnings: [],
       })
+      if (starter.workspace) {
+        expect(report.inventory.features).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exportName: 'todosFeature',
+              name: 'todos',
+              file: 'convex/features/todos/feature.ts',
+              source: expect.objectContaining({
+                path: 'convex/features/todos/feature.ts',
+                line: expect.any(Number),
+              }),
+              permissionRefs: ['todoPermissions'],
+            }),
+            expect.objectContaining({
+              exportName: 'usersFeature',
+              name: 'users',
+              globalTables: ['users'],
+            }),
+            expect.objectContaining({
+              exportName: 'workspacesFeature',
+              name: 'workspaces',
+              globalTables: ['workspaces'],
+            }),
+          ]),
+        )
+        expect(report.inventory.permissions.definitions).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exportName: 'workspaceRead',
+              key: 'workspace.read',
+              file: 'convex/features/todos/permissions.ts',
+              source: expect.objectContaining({
+                path: 'convex/features/todos/permissions.ts',
+                line: expect.any(Number),
+              }),
+              roles: [],
+              projected: true,
+            }),
+            expect.objectContaining({
+              exportName: 'todoCreate',
+              key: 'todo.create',
+              file: 'convex/features/todos/permissions.ts',
+              roles: [],
+              projected: true,
+            }),
+          ]),
+        )
+        expect(report.inventory.permissions.inventories).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exportName: 'todoPermissions',
+              file: 'convex/features/todos/permissions.ts',
+              source: expect.objectContaining({
+                path: 'convex/features/todos/permissions.ts',
+                line: expect.any(Number),
+              }),
+              permissions: ['workspaceRead', 'todoCreate'],
+              unknown: [],
+            }),
+          ]),
+        )
+      } else {
+        expect(report.inventory.features).toEqual([])
+        expect(report.inventory.permissions).toEqual({
+          definitions: [],
+          inventories: [],
+        })
+      }
       expect(report.inventory.publicSurface).toMatchObject({
         operations: [],
         projections: [],

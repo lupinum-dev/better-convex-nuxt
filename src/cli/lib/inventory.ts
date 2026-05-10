@@ -2,6 +2,7 @@ import { relative } from 'node:path'
 
 import { Node, Project, SyntaxKind } from 'ts-morph'
 
+import { extractPermissionCodegenMetadata } from '../../module-internals/permissions-codegen.js'
 import { extractPublicSurfaceCodegenMetadata } from '../../module-internals/public-surface-codegen.js'
 import {
   findConvexAuthSource,
@@ -78,6 +79,35 @@ export interface TrellisCliInventoryPublicSurfaceTool {
   sourceLocation: TrellisCliInventorySourceLocation
 }
 
+export interface TrellisCliInventoryFeature {
+  exportName: string
+  name: string
+  file: string
+  source: TrellisCliInventorySourceLocation
+  tenantTables: string[]
+  globalTables: string[]
+  permissionRefs: string[]
+  operationRefs: string[]
+}
+
+export interface TrellisCliInventoryPermission {
+  exportName: string
+  key: string
+  file: string
+  source: TrellisCliInventorySourceLocation
+  label?: string
+  roles: string[]
+  projected: boolean
+}
+
+export interface TrellisCliInventoryPermissionInventory {
+  exportName: string
+  file: string
+  source: TrellisCliInventorySourceLocation
+  permissions: string[]
+  unknown: string[]
+}
+
 export interface TrellisCliInventory {
   schemaVersion: 1
   cwd: string
@@ -139,6 +169,11 @@ export interface TrellisCliInventory {
     featureBindings: TrellisCliInventoryAppInventoryFeatureBinding[]
     warnings: TrellisCliInventoryAppInventoryWarning[]
   }
+  features: TrellisCliInventoryFeature[]
+  permissions: {
+    definitions: TrellisCliInventoryPermission[]
+    inventories: TrellisCliInventoryPermissionInventory[]
+  }
   publicSurface: {
     operations: TrellisCliInventoryPublicSurfaceOperation[]
     projections: TrellisCliInventoryPublicSurfaceProjection[]
@@ -196,6 +231,143 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       name: tool.name,
       source: tool.source,
       sourceLocation: toMetadataLocation(tool.file, tool.line),
+    })),
+  }
+}
+
+function readStringProperty(
+  node: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): string | null {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return null
+  const initializer = unwrapExpression(property.getInitializer())
+  if (!initializer) return null
+
+  if (Node.isStringLiteral(initializer) || Node.isNoSubstitutionTemplateLiteral(initializer)) {
+    return initializer.getLiteralText()
+  }
+
+  return null
+}
+
+function readStringArrayProperty(
+  node: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): string[] {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return []
+  const initializer = unwrapExpression(property.getInitializer())
+  if (!initializer || !Node.isArrayLiteralExpression(initializer)) return []
+
+  return initializer
+    .getElements()
+    .map((element) => {
+      const unwrapped = unwrapExpression(element)
+      if (Node.isStringLiteral(unwrapped) || Node.isNoSubstitutionTemplateLiteral(unwrapped)) {
+        return unwrapped.getLiteralText()
+      }
+      return null
+    })
+    .filter((value): value is string => typeof value === 'string')
+}
+
+function readIdentifierRefsProperty(
+  node: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): string[] {
+  const property = node.getProperty(name)
+  if (!property || !Node.isPropertyAssignment(property)) return []
+  const initializer = unwrapExpression(property.getInitializer())
+  if (!initializer) return []
+
+  if (Node.isIdentifier(initializer)) return [initializer.getText()]
+
+  if (!Node.isArrayLiteralExpression(initializer)) return []
+
+  return initializer
+    .getElements()
+    .map((element) => {
+      const unwrapped = unwrapExpression(element)
+      if (Node.isIdentifier(unwrapped)) return unwrapped.getText()
+      if (Node.isSpreadElement(unwrapped)) {
+        const expression = unwrapExpression(unwrapped.getExpression())
+        return Node.isIdentifier(expression) ? expression.getText() : null
+      }
+      return null
+    })
+    .filter((value): value is string => typeof value === 'string')
+}
+
+function readDefineFeatureObject(
+  declaration: import('ts-morph').VariableDeclaration,
+): import('ts-morph').ObjectLiteralExpression | null {
+  if (!declaration.getVariableStatement()?.isExported()) return null
+  const initializer = unwrapExpression(declaration.getInitializer())
+  if (!initializer || !Node.isCallExpression(initializer)) return null
+  const callee = unwrapExpression(initializer.getExpression())
+  if (!Node.isIdentifier(callee) || callee.getText() !== 'defineFeature') return null
+  const [firstArg] = initializer.getArguments()
+  const definition = unwrapExpression(firstArg)
+  return definition && Node.isObjectLiteralExpression(definition) ? definition : null
+}
+
+function collectFeatures(project: ProjectInspection): TrellisCliInventoryFeature[] {
+  const parser = new Project({ skipAddingFilesFromTsConfig: true })
+  const features: TrellisCliInventoryFeature[] = []
+
+  for (const source of project.sourceFiles) {
+    if (!/\.(?:ts|js|mts|mjs)$/.test(source.path)) continue
+    const sourceFile = parser.createSourceFile(source.path, source.text, { overwrite: true })
+
+    for (const declaration of sourceFile.getVariableDeclarations()) {
+      const definition = readDefineFeatureObject(declaration)
+      if (!definition) continue
+      const name = readStringProperty(definition, 'name')
+      if (!name) continue
+      const file = toRelative(project, source.path) ?? source.path
+
+      features.push({
+        exportName: declaration.getName(),
+        name,
+        file,
+        source: {
+          path: file,
+          line: declaration.getNameNode().getStartLineNumber(),
+        },
+        tenantTables: readStringArrayProperty(definition, 'tenantTables'),
+        globalTables: readStringArrayProperty(definition, 'globalTables'),
+        permissionRefs: readIdentifierRefsProperty(definition, 'permissions'),
+        operationRefs: readIdentifierRefsProperty(definition, 'operations'),
+      })
+    }
+  }
+
+  return features.sort((a, b) => a.file.localeCompare(b.file) || a.source.line - b.source.line)
+}
+
+function collectPermissions(project: ProjectInspection): TrellisCliInventory['permissions'] {
+  const metadata = extractPermissionCodegenMetadata(project.cwd, [
+    'convex/**/*.ts',
+    'shared/**/*.ts',
+  ])
+
+  return {
+    definitions: metadata.permissions.map((permission) => ({
+      exportName: permission.exportName,
+      key: permission.key,
+      file: permission.file,
+      source: toMetadataLocation(permission.file, permission.line),
+      ...(permission.label ? { label: permission.label } : {}),
+      roles: permission.roles,
+      projected: permission.projected,
+    })),
+    inventories: metadata.inventories.map((inventory) => ({
+      exportName: inventory.exportName,
+      file: inventory.file,
+      source: toMetadataLocation(inventory.file, inventory.line),
+      permissions: inventory.permissions,
+      unknown: inventory.unknown,
     })),
   }
 }
@@ -452,6 +624,8 @@ export function collectTrellisCliInventory(
       destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
     },
     appInventory: collectAppInventory(project, appInventorySource),
+    features: collectFeatures(project),
+    permissions: collectPermissions(project),
     publicSurface: collectPublicSurface(project),
     findings: [],
   }

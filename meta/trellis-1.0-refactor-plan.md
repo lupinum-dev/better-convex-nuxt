@@ -527,6 +527,9 @@ docs generation, and future explain commands.
 - Sprint 42 is planned to add static feature and permission metadata to
   `TrellisCliInventory`, reusing existing permission extraction and avoiding a
   second operation/tool source of truth.
+- Sprint 42 added `inventory.features` plus `inventory.permissions`, reusing
+  existing permission metadata extraction while leaving operation/tool metadata
+  owned by `inventory.publicSurface`.
 
 ### Done Means
 
