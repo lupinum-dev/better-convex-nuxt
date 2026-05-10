@@ -48,8 +48,8 @@ These are not first-reader steps. Open them once `03` makes sense to you.
 | ----------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
 | `05-visibility-access`  | hard authorization rules         | Row visibility, redaction, enrollment, prerequisites, share links              |
 | `06-multi-workspace`    | a memberships-based tenant model | Multi-workspace membership, switching, cross-workspace constraints             |
-| `07-mcp-reference`      | the full MCP surface             | Public/scoped tools, keys, prompts, resources, sessions, confirmations         |
-| `08-component-mini-cms` | a component/host architecture    | Local components, principal forwarding, bridge inventory, MCP over bridge refs |
+| `07-mcp-reference`      | the workspace-MCP branch         | Public/scoped tools, bounded writes, prompts, resources, confirmations         |
+| `08-component-mini-cms` | package-integration architecture | Local components, principal forwarding, bridge inventory, MCP over bridge refs |
 
 ## Concept Matrix
 
@@ -62,8 +62,8 @@ These are not first-reader steps. Open them once `03` makes sense to you.
 | Nitro routes and server-side integrations | `04-saas-platform`      | `03-team-workspace`                     |
 | Advanced authorization patterns           | `05-visibility-access`  | `03-team-workspace`                     |
 | Membership-based multi-workspace auth     | `06-multi-workspace`    | `03-team-workspace`                     |
-| Full MCP implementation                   | `07-mcp-reference`      | `03-team-workspace`                     |
-| Component bridge architecture             | `08-component-mini-cms` | `03-team-workspace`, `07-mcp-reference` |
+| Workspace-MCP starter branch              | `07-mcp-reference`      | `03-team-workspace`                     |
+| Component bridge package integration      | `08-component-mini-cms` | `03-team-workspace`, `07-mcp-reference` |
 
 ## Canonical Defaults
 

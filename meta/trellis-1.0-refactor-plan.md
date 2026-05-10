@@ -840,10 +840,10 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 ### Rewrite
 
 - [x] Front-door “Should you use Trellis?” section.
-- [ ] Public starter guide.
-- [ ] Personal starter guide.
-- [ ] Workspace starter guide.
-- [ ] Workspace MCP starter guide.
+- [x] Public starter guide.
+- [x] Personal starter guide.
+- [x] Workspace starter guide.
+- [x] Workspace MCP starter guide.
 - [ ] Backend builder guide.
 - [ ] Operation/destructive safety guide.
 - [ ] MCP projection guide.
@@ -856,7 +856,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Delete old raw forwarding docs.
 - [x] Delete `tool.fromOperation` docs.
 - [x] Delete `.tpl` starter docs.
-- [ ] Delete beginner bridge references.
+- [x] Delete beginner bridge references.
 
 ### Prove
 
@@ -1035,6 +1035,14 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   examples pages so they read as one progressive fixture-backed starter ladder,
   and should mark beginner bridge references complete only if bridge concepts
   are scoped to advanced/package-author material.
+- Sprint 72 completed the starter guide ladder cleanup. Public, personal, and
+  workspace guide pages were already aligned with their official starters; the
+  MCP getting-started guide now starts from `--template workspace-mcp` and names
+  the read -> bounded-write -> operation-backed destructive progression. The
+  docs examples page and repo examples README now label `07-mcp-reference` as
+  the workspace-MCP branch and `08-component-mini-cms` as advanced
+  package-integration material, keeping bridge concepts out of beginner starter
+  setup.
 
 ### Done Means
 
