@@ -530,6 +530,9 @@ docs generation, and future explain commands.
 - Sprint 42 added `inventory.features` plus `inventory.permissions`, reusing
   existing permission metadata extraction while leaving operation/tool metadata
   owned by `inventory.publicSurface`.
+- Sprint 43 is planned to replace location-only unsafe backend inventory with
+  structured unsafe surface metadata so typed permit migration can use inventory
+  instead of another scanner.
 
 ### Done Means
 
