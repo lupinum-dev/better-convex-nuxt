@@ -1,0 +1,717 @@
+# Trellis 1.0 Refactor Plan
+
+Status: planning baseline
+Owner: Matthias
+
+This is the execution tracker for the hard-cut Trellis 1.0 refactor.
+
+The premise is explicit: there are no current external users to preserve. Trellis
+should ship 1.0 with the new shape cleanly, not with old and new systems kept
+alive side by side.
+
+Related planning docs:
+
+- `meta/experiments/phase0-next-major.md`
+- `meta/experiments/phase0-go-no-go.md`
+- `meta/experiments/phase0-pre-alpha-decisions.md`
+- `meta/rfc-forwarding-envelope.md`
+
+## Refactor Rules
+
+- [ ] No compatibility shim unless this plan names it.
+- [ ] Old APIs are deleted once replacement tests pass.
+- [ ] Every public export has one owner surface: core, functions/backend, args,
+      composables, feature, auth, workspace, mcp, server, testing,
+      trusted-forwarding, visibility, type-primitives, bridge, eslint, cli, or
+      internal.
+- [ ] Every old path is classified as delete, move, replace, or keep.
+- [ ] Every important concept has one source of truth.
+- [ ] Generated/derived data is clearly marked and rebuildable from canonical
+      descriptors or manifests.
+- [ ] Security-sensitive changes use hard cutovers, not hidden aliases.
+- [ ] A slice is not done until old code is removed, tests pass, and docs teach
+      only the new path.
+
+## Global Done Means
+
+- [ ] No public docs mention removed APIs as supported.
+- [ ] `tool.fromOperation(...)` is gone from public API and docs.
+- [ ] Raw trusted-forwarding args are gone from production/default paths.
+- [ ] Bridge APIs are gone from core package exports.
+- [ ] Starter generation is fixture-backed for `public`, `personal`,
+      `workspace`, and `workspace-mcp`.
+- [ ] Public surface snapshots pass and every public diff has rationale.
+- [ ] Full unit suite passes.
+- [ ] Publish surface check passes.
+- [ ] Docs API surface check passes.
+- [ ] Forwarding benchmark remains tracked.
+- [ ] Phase 0 external forwarding security review is resolved or accepted with
+      documented follow-up.
+- [ ] Ginko CMS passes the agreed cross-repo 1.0 validation gate against packed
+      Trellis packages.
+
+## Slice 1: Public Surface Inventory And Decisions
+
+Status: pending
+
+Goal: decide exactly what survives into 1.0 before moving code.
+
+### Inventory
+
+- [ ] List npm exports from `package.json`.
+- [ ] List runtime barrels under `src/runtime/**/index.ts`.
+- [ ] List Nuxt aliases and generated aliases.
+- [ ] List auto-imports and global components.
+- [ ] List CLI commands and subcommands.
+- [ ] List generated file contracts.
+- [ ] List bridge manifest contracts.
+- [ ] List docs snippets that teach import paths.
+- [ ] Classify every current npm subpath: root, `auth`, `args`,
+      `composables`, `functions`, `bridge`, `feature`, `eslint`,
+      `trusted-forwarding`, `visibility`, `mcp`, `type-primitives`, `server`,
+      and `testing`.
+- [ ] Classify internal-looking barrels that could accidentally become public:
+      `schema`, `observability`, and any generated/devtools runtime barrels.
+- [ ] Classify generated Nuxt contracts: `#trellis`, `#trellis/api`,
+      `#trellis/server`, `#trellis/mcp`, permission imports, auth components,
+      client composable auto-imports, and server imports.
+
+### Decide
+
+- [ ] Decide `@lupinum/trellis/functions` versus
+      `@lupinum/trellis/backend`.
+- [ ] Decide public/protected/unsafe builder spelling.
+- [ ] Decide final MCP lanes and public names.
+- [ ] Decide which bridge APIs move to `@lupinum/trellis-bridge`.
+- [ ] Decide which observability delivery APIs remain public.
+- [ ] Decide whether `workspace --mcp` stays as a CLI alias for 1.0.
+- [ ] Decide whether `cms` remains a Trellis starter, is deleted, or becomes
+      Ginko-owned setup only.
+- [ ] Decide whether root `trellis bridge` remains, moves to bridge-owned CLI,
+      or is deleted from the root CLI.
+- [ ] Decide whether `tsconfig.types.public.compat.json` and
+      `test:types:public:compat` are deleted or renamed to a 1.0 meaning.
+
+### Delete / Replace / Keep Table
+
+| Old Surface | 1.0 Surface | Action | Proof |
+| --- | --- | --- | --- |
+| `tool.fromOperation(...)` | `mcp.tool.operation(...)` | delete | codemod/test |
+| raw `_trustedForwardingKey` args | `_trellisForwarding` envelope | delete | forwarding tests |
+| core bridge exports | `@lupinum/trellis-bridge` | move | bridge tests |
+| bridge helpers from `@lupinum/trellis/functions` | `@lupinum/trellis-bridge` | move/delete | type surface tests |
+| generated Nuxt aliases/auto-imports | 1.0 generated contract | keep/delete/move | generated surface tests |
+| `trellis bridge` root CLI | bridge-owned CLI or delete | decide | CLI tests |
+| `cms` starter | Ginko-owned setup or bridge fixture | decide | CLI/starter tests |
+| `.tpl` starter source of truth | fixture manifest | replace | starter tests |
+| arity-based `authorize` inference | explicit authorize object/function | delete | audit report/tests |
+
+### Done Means
+
+- [ ] Surface table is complete.
+- [ ] Each public item has an action.
+- [ ] Public-surface check has an expected 1.0 snapshot path.
+- [ ] No implementation slice starts with an unresolved public naming dependency.
+- [ ] Current generated aliases, auto-imports, and CLI commands are included in
+      the public-surface snapshot, not tracked by separate ad hoc checks.
+
+## Slice 2: Package And Subpath Shape
+
+Status: pending
+
+Goal: make package boundaries match the 1.0 mental model without package
+explosion.
+
+### Keep
+
+- [ ] Root package remains `@lupinum/trellis`.
+- [ ] Auth, workspace, MCP, server, testing remain product layers/subpaths until
+      a dependency graph proves separate packages are needed.
+- [ ] ESLint stays separate if runtime package would otherwise pull tooling.
+
+### Move
+
+- [ ] Move component bridge runtime/package-author APIs to
+      `@lupinum/trellis-bridge`.
+- [ ] Move bridge CLI support to the bridge package or a bridge-owned CLI
+      boundary.
+- [ ] Keep Ginko-shaped fixture in Trellis; keep full Ginko E2E outside Trellis.
+
+### Delete
+
+- [ ] Delete bridge exports from root/core.
+- [ ] Delete bridge exports from `@lupinum/trellis/functions`, including
+      component bridge creation, manifest helpers, render helpers, and bridge
+      package-author types.
+- [ ] Delete old package-author bridge docs from normal app docs.
+- [ ] Delete hidden internal import paths that become reachable by accident.
+
+### Prove
+
+- [ ] Core package can build without bridge runtime imports.
+- [ ] Public/core apps do not load MCP, bridge, ESLint, or observability delivery
+      code at runtime.
+- [ ] Dependency graph check proves root/core does not pull bridge, ESLint,
+      evlog delivery, devtools UI, or other layer-specific implementation code
+      into public/core runtime bundles.
+- [ ] Publish surface check catches reintroduced bridge exports.
+
+### Done Means
+
+- [ ] Package boundaries are enforced by tests/checks, not only docs.
+- [ ] Docs explain layers separately from npm packages.
+
+## Slice 3: Backend Builder Hard Cut
+
+Status: pending
+
+Goal: make public/protected/unsafe trust lanes explicit and delete ambiguous
+builder spellings.
+
+### Decide API
+
+- [ ] Choose final spelling for public handlers.
+- [ ] Choose final spelling for protected handlers.
+- [ ] Choose final spelling for unsafe handlers.
+- [ ] Choose final import subpath.
+
+Candidate target:
+
+```ts
+query.public(...)
+query.protected(...)
+mutation.protected(...)
+mutation.unsafe(...)
+```
+
+### Delete
+
+- [ ] Delete accidental-public behavior.
+- [ ] Delete builder forms where missing guard can be interpreted as public.
+- [ ] Delete arity-based `authorize` inference.
+- [ ] Delete string-only unsafe bypasses after typed permits cover the surface.
+
+### Replace
+
+- [ ] Convert existing examples and fixtures to explicit lanes.
+- [ ] Convert backend tests to explicit lanes.
+- [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
+- [ ] Add audit report for authorization rewrites that cannot be proven safe.
+
+### Prove
+
+- [ ] Missing public/protected/unsafe classification fails.
+- [ ] Missing protected principal/actor wiring fails closed.
+- [ ] Public-access handlers do not require principal/actor wiring.
+- [ ] Resolved-null actor is distinct from missing actor resolver wiring.
+- [ ] Unsafe permit metadata appears in doctor/inventory.
+
+### Done Means
+
+- [ ] Old builder spelling has no runtime implementation.
+- [ ] Old builder docs are removed.
+- [ ] Tests prove no accidental public handler path remains.
+
+## Slice 4: Signed Forwarding Hard Cut
+
+Status: in progress
+
+Goal: make signed forwarding the only production/default trusted-forwarding
+path.
+
+### Already Proven Locally
+
+- [x] Compact JWS-like HS256 alpha envelope.
+- [x] Top-level-only forwarding metadata exclusion in args hashing.
+- [x] Unsupported canonical args values fail closed.
+- [x] Expected function-ref verification.
+- [x] Expected purpose/transport verification support.
+- [x] Max TTL by purpose.
+- [x] Max envelope size.
+- [x] `operation-execute` shares confirmation token `jti`.
+- [x] Destructive execute rejects confirmation/envelope `jti` mismatch.
+- [x] Doctor validates destructive safety table fields and `by_jti`.
+- [x] Forwarding benchmark exists.
+
+### External Review
+
+- [ ] Name external security-aware reviewer.
+- [ ] Review HS256 versus asymmetric production signing.
+- [ ] Review TTL matrix.
+- [ ] Review replay model.
+- [ ] Review canonical args vectors.
+- [ ] Review raw fallback migration plan.
+- [ ] Record accepted changes in `meta/rfc-forwarding-envelope.md`.
+
+### Delete
+
+- [ ] Delete raw `_trustedForwardingKey` validator from production/default path.
+- [ ] Delete raw `_trustedForwarding` parser from production/default path.
+- [ ] Delete raw forwarding tests after signed tests replace them.
+- [ ] Delete raw forwarding fields from default validators and test helpers, not
+      only from runtime extraction.
+- [ ] Delete docs that teach raw forwarding.
+
+### Replace
+
+- [ ] Server callers always sign `_trellisForwarding`.
+- [ ] MCP callers always sign `_trellisForwarding`.
+- [ ] Bridge callers always sign `_trellisForwarding`.
+- [ ] Mixed signed/raw forwarding is rejected in production/default mode.
+- [ ] Raw fallback is observable before deletion if retained temporarily for
+      local migration.
+- [ ] Every forwarding-protected handler has an exact generated
+      `trustedForwardingFunctionRef`; missing function-ref metadata fails
+      closed.
+- [ ] MCP operation previews sign with `purpose: "operation-preview"` when
+      forwarding is used.
+- [ ] Operation execute replay redemption has one source of truth at the
+      backend/destructive execution boundary; MCP must not pre-redeem in a
+      separate store for backend-mode destructive execution.
+
+### Prove
+
+- [ ] Unknown `kid` fails.
+- [ ] Wrong audience fails.
+- [ ] Wrong issuer fails.
+- [ ] Wrong function ref fails.
+- [ ] Wrong purpose fails.
+- [ ] Wrong transport fails.
+- [ ] Args hash drift fails.
+- [ ] Excess TTL fails.
+- [ ] Expired token fails.
+- [ ] Oversized envelope fails.
+- [ ] Replayed operation execute fails.
+- [ ] Valid signed envelope plus raw forwarding fields is rejected in
+      production/default mode.
+- [ ] Raw fields are rejected in production/default mode.
+- [ ] Operation preview forwarding uses the expected purpose and is covered by
+      production ingress/rate-limit store checks.
+
+### Done Means
+
+- [ ] No production/default raw trusted-forwarding path remains.
+- [ ] RFC is accepted for 1.0.
+- [ ] Tests cover every verifier failure class.
+
+## Slice 5: Operation Descriptor Model
+
+Status: pending
+
+Goal: make descriptors the cross-surface source of meaning and implementations
+the backend source of behavior.
+
+### Canonical Sources
+
+- [ ] Shared operation descriptor owns id, kind, args, result schema, permission
+      key, safety class, labels.
+- [ ] Convex implementation owns guard, load, authorize, preview, execute,
+      handler behavior.
+- [ ] Feature manifest includes descriptors.
+- [ ] App inventory composes feature manifests.
+- [ ] Generated refs bind descriptors to Convex API refs.
+
+### Delete
+
+- [ ] Delete operation metadata inferred from implementation imports in MCP
+      server files.
+- [ ] Delete source scanning as the source of operation truth.
+- [ ] Delete duplicated operation lists.
+
+### Prove
+
+- [ ] Descriptor/implementation id drift fails.
+- [ ] Descriptor kind/projection drift fails.
+- [ ] Permission key drift fails.
+- [ ] Args/result schema drift fails.
+- [ ] Destructive operation without preview/execute projections fails.
+- [ ] MCP server files do not import Convex implementation modules.
+
+### Done Means
+
+- [ ] Doctor/inventory can explain operations from descriptors and generated
+      metadata.
+- [ ] Implementation remains backend-owned.
+
+## Slice 6: MCP Blessed Lanes
+
+Status: pending
+
+Goal: keep MCP as a projection of the backend model, not a second backend.
+
+### Keep
+
+- [ ] `mcp.tool.query(...)`.
+- [ ] `mcp.tool.mutation(...)` for bounded writes only.
+- [ ] `mcp.tool.operation(...)` for destructive, sensitive, audited, external,
+      bulk, or previewed work.
+
+### Delete
+
+- [ ] Delete public `tool.fromOperation(...)`.
+- [ ] Delete generic destructive MCP tool path.
+- [ ] Delete custom tool bypasses that can call protected Convex writes directly.
+- [ ] Delete MCP safety labels that exist only in the tool file.
+- [ ] Delete runtime/type aliases where `tool.operation` is implemented as
+      `tool.fromOperation`.
+
+### Replace
+
+- [ ] Direct mutation safety comes from backend/generated ref metadata.
+- [ ] MCP tool declaration may confirm/narrow safety but cannot down-classify.
+- [ ] External side-effect action work becomes operation-backed.
+- [ ] Generic custom tools require typed unsafe permit and non-app-write effect.
+- [ ] Doctor, error messages, safety scanners, codemods, and generated docs all
+      teach `mcp.tool.operation(...)`, not `tool.fromOperation(...)`.
+
+### Prove
+
+- [ ] Direct mutation without bounded-write metadata fails.
+- [ ] Tool-side down-classification fails.
+- [ ] Destructive work through direct mutation/custom tool fails.
+- [ ] Backend denial remains authoritative over MCP visibility.
+- [ ] Capability/backend drift emits observation.
+
+### Done Means
+
+- [ ] MCP docs teach only query/mutation/operation lanes.
+- [ ] `tool.fromOperation` is gone.
+- [ ] No raw app-write escape hatch remains.
+
+## Slice 7: Fixture-Backed Starters
+
+Status: in progress
+
+Goal: make tested fixture apps the source of starter generation.
+
+### Already Proven Locally
+
+- [x] `phase0-workspace-mcp` fixture has manifest.
+- [x] Generated operation refs render from manifest metadata.
+- [x] Generated MCP tool refs render from manifest metadata.
+- [x] Fixture renderer respects includes/excludes.
+- [x] Generated files are derived from manifest, not treated as canonical.
+
+### Convert Starters
+
+- [ ] `public`.
+- [ ] `personal`.
+- [ ] `workspace`.
+- [ ] `workspace-mcp`.
+- [ ] `cms` is either deleted from Trellis 1.0 or replaced by the decided
+      Ginko-owned/bridge-consumer path.
+
+### Delete
+
+- [ ] Delete old `.tpl` files after each fixture-backed starter replaces them.
+- [ ] Delete duplicate starter source files.
+- [ ] Delete generated fixture artifacts from manifest includes.
+
+### Prove
+
+- [ ] Each fixture builds.
+- [ ] Each fixture typechecks.
+- [ ] Each fixture passes doctor.
+- [ ] Each `trellis init --template ...` output matches fixture-rendered
+      expectation.
+- [ ] No starter exposes concepts from disabled layers.
+
+### Done Means
+
+- [ ] Starters are generated from fixtures.
+- [ ] Old template source of truth is gone.
+
+## Slice 8: Inventory, Doctor, And Explain Foundation
+
+Status: pending
+
+Goal: one inventory engine feeds doctor, upgrade checks, public-surface checks,
+docs generation, and future explain commands.
+
+### Build
+
+- [ ] Versioned inventory JSON schema.
+- [ ] Inventory reads app inventory first.
+- [ ] Inventory includes layers, features, permissions, operations, tools,
+      unsafe permits, forwarding config, public surface, bridge packages.
+- [ ] Inventory JSON is safe to share: no secrets, raw envelopes, bearer tokens,
+      raw principal/delegation payloads, confirmation payloads, or user data.
+
+### Replace
+
+- [ ] Doctor reads inventory/finding engine.
+- [ ] Public surface checks reuse inventory where useful.
+- [ ] Upgrade `--check` uses inventory.
+- [ ] `explain operation <id>` uses inventory if included in 1.0.
+
+### Delete
+
+- [ ] Delete duplicated repo scanners.
+- [ ] Delete regex/security-claim source scanning where structured metadata
+      exists.
+
+### Prove
+
+- [ ] Inventory schema is versioned.
+- [ ] Doctor and public-surface checks agree on operations/tools.
+- [ ] Security findings cite the metadata source they came from.
+
+### Done Means
+
+- [ ] One inventory path explains the app.
+- [ ] Machine-readable output is stable and secret-safe.
+
+## Slice 9: Bridge Extraction
+
+Status: pending
+
+Goal: remove packaged integration machinery from the normal app surface.
+
+### Move
+
+- [ ] Create `@lupinum/trellis-bridge` package boundary.
+- [ ] Move component bridge manifest helpers.
+- [ ] Move bridge install/check/generate/inspect support.
+- [ ] Move package-author docs.
+
+### Delete
+
+- [ ] Delete bridge exports from core/root/functions package.
+- [ ] Delete bridge concepts from beginner starter docs.
+- [ ] Delete any Ginko-specific naming from generic Trellis APIs.
+
+### Keep
+
+- [ ] Keep minimal Ginko-shaped fixture in Trellis.
+- [ ] Keep full Ginko E2E in Ginko repo.
+
+### Prove
+
+- [ ] Core package does not import bridge.
+- [ ] Bridge package can use forwarding and backend descriptors without core
+      depending on bridge.
+- [ ] Ginko-shaped fixture passes.
+- [ ] Bridge callers use signed envelopes with `transport: "bridge"` and exact
+      component/root function refs.
+- [ ] Ginko-shaped fixture proves no raw bridge forwarding fields remain.
+
+### Done Means
+
+- [ ] Normal app authors do not see bridge unless they ask for packaged
+      integrations.
+
+## Slice 10: Observability Delivery Cleanup
+
+Status: pending
+
+Goal: keep event vocabulary in core while making delivery bounded and optional.
+
+### Keep
+
+- [ ] Core owns event schema.
+- [ ] Core emits normalized/redacted events.
+- [ ] Testing capture remains easy.
+
+### Move / Delete
+
+- [ ] Move evlog delivery out of core if it creates runtime/package weight.
+- [ ] Delete any sink API that can redefine schema, redaction, sampling,
+      identity semantics, or request behavior.
+
+### Prove
+
+- [ ] Sink receives already-redacted event.
+- [ ] Sink failure is fail-open.
+- [ ] Slow sink is bounded by timeout.
+- [ ] Tests can capture observations without delivery dependency.
+
+### Done Means
+
+- [ ] Observability explains security decisions without becoming request
+      correctness dependency.
+
+## Slice 11: Migration, Codemods, And Hard Deletes
+
+Status: pending
+
+Goal: make the hard cut understandable and verifiable even without compatibility
+shims.
+
+### Migration Table
+
+| Old Pattern | New Pattern | Tooling | Notes |
+| --- | --- | --- | --- |
+| `tool.fromOperation(...)` | `mcp.tool.operation(...)` | codemod | hard delete |
+| raw forwarding args | `_trellisForwarding` | codemod/manual | production raw path deleted |
+| bridge core exports | `@lupinum/trellis-bridge` | codemod | package boundary |
+| arity authorize inference | explicit authorize | audit report | no silent rewrite |
+| string unsafe bypass | typed permit | codemod where safe | strict mode default |
+| `.tpl` starters | fixture manifests | generator | old templates deleted |
+| `@lupinum/trellis/functions` bridge helpers | `@lupinum/trellis-bridge` | codemod | no bridge exports from functions |
+| `@lupinum/trellis/bridge` | `@lupinum/trellis-bridge` | codemod | package boundary |
+| `trellis bridge` | bridge-owned CLI or deleted | CLI migration | open decision |
+| `workspace --mcp` | `workspace-mcp` or alias | CLI migration | open decision |
+| `cms` starter | Ginko-owned setup or bridge fixture | manual/docs | open decision |
+
+### Build
+
+- [ ] `trellis upgrade --check` or equivalent audit command.
+- [ ] Codemod for mechanical import/path renames.
+- [ ] Codemod for `tool.fromOperation`.
+- [ ] Audit report for authorize inference.
+- [ ] Audit report for unsafe bypasses that cannot be rewritten.
+
+### Delete
+
+- [ ] Delete old paths after codemod tests pass.
+- [ ] Delete compatibility aliases not listed in this plan.
+
+### Prove
+
+- [ ] Codemods are tested against fixtures.
+- [ ] Audit reports point to exact files/lines.
+- [ ] Removed imports fail loudly with useful diagnostics or TypeScript errors.
+- [ ] Compatibility test configs/scripts are deleted or renamed to explicit 1.0
+      migration checks.
+
+### Done Means
+
+- [ ] There is one supported 1.0 API shape.
+- [ ] Migration tooling exists for repo-local adopters.
+
+## Cross-Repo Gate: Examples, Harness, And Ginko CMS
+
+Status: pending
+
+Goal: prove the new Trellis shape works in the real local consumers that shaped
+the design, without letting them keep old Trellis paths alive.
+
+### Trellis Examples And Harness
+
+- [ ] Decide which `examples/**`, `apps/harness`, docs app, and devtools UI
+      targets remain for 1.0.
+- [ ] Convert remaining examples and harnesses to explicit public/protected/
+      unsafe builders.
+- [ ] Convert remaining examples and harnesses to signed forwarding only.
+- [ ] Convert remaining examples and harnesses to descriptor-backed operations
+      and `mcp.tool.operation(...)`.
+- [ ] Delete obsolete examples instead of preserving them as compatibility
+      samples.
+
+### Ginko CMS Package Cutover
+
+- [ ] Add `@lupinum/trellis-bridge` package dependency where Ginko package
+      author code needs bridge APIs.
+- [ ] Migrate Ginko authored bridge manifest code, generated
+      `convex/manifest.{js,d.ts}`, CLI bridge checks, module startup validation,
+      and package dependencies away from `@lupinum/trellis/functions` and
+      `@lupinum/trellis/bridge`.
+- [ ] Migrate Ginko component bridge factories, generated host refs, and test
+      helpers from raw `_trustedForwardingKey` / `_trustedForwarding` fields to
+      signed `_trellisForwarding` envelopes.
+- [ ] Migrate Ginko destructive MCP wrapper code from
+      `rawMcpRuntime.tool.fromOperation(...)` to `mcp.tool.operation(...)`.
+- [ ] Update Ginko docs/setup examples so Ginko users see `ginko-cms init`,
+      Ginko-owned bridge health commands, and Ginko terminology rather than
+      Trellis bridge internals.
+- [ ] Keep Trellis historical notes only as historical notes; current Ginko
+      docs must not teach old Trellis APIs.
+
+### Prove
+
+- [ ] Trellis examples/harness validation passes for retained targets.
+- [ ] Packed Trellis packages install into Ginko CMS.
+- [ ] Ginko CMS `pnpm run check` passes against packed Trellis packages.
+- [ ] Ginko CMS package-boundary and no-zombie-path tests pass after import
+      updates.
+- [ ] Ginko destructive MCP confirmation tests pass using only
+      `mcp.tool.operation(...)`.
+- [ ] Ginko bridge package/e2e validation proves no raw forwarding fields remain
+      in generated or authored bridge paths.
+
+### Done Means
+
+- [ ] The real bridge consumer does not rely on deleted Trellis APIs.
+- [ ] Ginko remains Ginko-owned product setup, not a Trellis starter by
+      accident.
+
+## Slice 12: Documentation Rewrite
+
+Status: pending
+
+Goal: docs teach only the new architecture and do not preserve old mental models.
+
+### Rewrite
+
+- [ ] Front-door “Should you use Trellis?” section.
+- [ ] Public starter guide.
+- [ ] Personal starter guide.
+- [ ] Workspace starter guide.
+- [ ] Workspace MCP starter guide.
+- [ ] Backend builder guide.
+- [ ] Operation/destructive safety guide.
+- [ ] MCP projection guide.
+- [ ] Trusted forwarding security guide.
+- [ ] Bridge package-author guide.
+- [ ] Public API reference.
+
+### Delete
+
+- [ ] Delete old raw forwarding docs.
+- [ ] Delete `tool.fromOperation` docs.
+- [ ] Delete `.tpl` starter docs.
+- [ ] Delete beginner bridge references.
+
+### Prove
+
+- [ ] Docs API surface check passes.
+- [ ] Public surface check passes.
+- [ ] Search for removed names returns only migration notes or historical ADRs.
+
+### Done Means
+
+- [ ] Docs match the code that ships.
+
+## Slice 13: Final Cleanup And Release Gate
+
+Status: pending
+
+Goal: remove leftovers and make 1.0 feel like one designed system.
+
+### Search And Delete
+
+- [ ] Search old import paths.
+- [ ] Search old builder names.
+- [ ] Search raw forwarding fields.
+- [ ] Search `tool.fromOperation`.
+- [ ] Search bridge exports in core.
+- [ ] Search `.tpl` starter sources.
+- [ ] Search old docs snippets.
+- [ ] Search TODO/compat/shim/legacy markers.
+
+### Verify
+
+- [ ] Full unit suite.
+- [ ] Type checks.
+- [ ] Lint/format checks.
+- [ ] Docs API surface.
+- [ ] Publish surface.
+- [ ] Fixture starter generation.
+- [ ] Doctor on generated starters.
+- [ ] Forwarding benchmark.
+- [ ] Bridge fixture tests.
+- [ ] Cross-repo examples/harness/Ginko gate.
+
+### Release Gate
+
+- [ ] Public surface diff reviewed with rationale.
+- [ ] ADR impact updated.
+- [ ] Security review notes recorded.
+- [ ] 0.x support/migration window stated.
+- [ ] 1.0 lifecycle statement confirmed.
+
+### Done Means
+
+- [ ] No parallel implementation remains.
+- [ ] No old public path remains unless explicitly listed in this plan.
+- [ ] Trellis 1.0 has one coherent architecture.
