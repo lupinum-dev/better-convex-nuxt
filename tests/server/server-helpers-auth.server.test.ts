@@ -126,7 +126,7 @@ describe('server auth helpers', () => {
         auth: 'required',
       }),
     ).rejects.toThrow(
-      '[serverConvex] Authentication required but no Better Auth session cookie was found',
+      '[serverConvexQuery] Failed to resolve auth for notes:list (auth: required). Authentication required but no Better Auth session cookie was found',
     )
   })
 

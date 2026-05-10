@@ -886,15 +886,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 
 ### Verify
 
-- [ ] Full unit suite.
+- [x] Full unit suite.
 - [x] Type checks.
 - [x] Lint/format checks.
 - [x] Docs API surface.
 - [x] Publish surface.
 - [x] Fixture starter generation.
 - [x] Doctor on generated starters.
-- [ ] Forwarding benchmark.
-- [ ] Bridge fixture tests.
+- [x] Forwarding benchmark.
+- [x] Bridge fixture tests.
 - [ ] Cross-repo examples/harness/Ginko gate.
 
 ### Release Gate
@@ -918,10 +918,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   upgrade regex simplification, unused fixture imports, permission overload
   consolidation, backend function type lint debt, and one MCP type-test
   assertion pattern.
-- Sprint 61 is planned as a local release verification sweep. It closes the
-  remaining Slice 13 local gates for the full unit repository suite, forwarding
-  envelope benchmark, and bridge fixture/package tests before migration tooling,
-  docs, or Ginko cross-repo validation resumes.
+- Sprint 61 completed the local release verification sweep. Full `test:repo`
+  passes, the forwarding benchmark reports p99 `0.1345ms`, and bridge-focused
+  package/component tests pass. The sprint also fixed a concurrent `build:cli`
+  fixture-copy race and updated stale expectations around server auth error
+  context, Better Auth 401 categorization, and Convex cross-process observation
+  capture.
 
 ### Done Means
 

@@ -134,12 +134,14 @@ function sanitizeAuthErrorMessage(rawMessage: string): string {
  */
 export function wrapBetterAuthError(error: unknown, operation: string): ConvexCallError {
   const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null
+  const status = typeof record?.status === 'number' ? record.status : undefined
   return new ConvexCallError(
     (typeof record?.message === 'string' ? record.message : null) || `${operation} failed`,
     {
       code: typeof record?.code === 'string' ? record.code : undefined,
-      status: typeof record?.status === 'number' ? record.status : undefined,
+      status,
       operation,
+      category: status === 401 || status === 403 ? 'auth' : undefined,
       cause: error,
     },
   )

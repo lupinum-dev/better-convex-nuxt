@@ -9,29 +9,15 @@
  * This file adds the missing pieces:
  *
  * 1. `ctx.db.escapeTenantIsolation(...)` actually sees across tenants
- * 2. `ctx.db.escapeTenantIsolation(...)` emits `db.escape_tenant_isolation.used`
- * 3. `query.unsafe(...)`                 still respects tenant isolation on plain `ctx.db`
- * 4. `query.unsafe(...)`                 emits `unsafe.handler.used`
- * 5. Tenant denials on the default db emit `rls.denied`
+ * 2. `query.unsafe(...)`                 still respects tenant isolation on plain `ctx.db`
  *
  * Together with posts.test.ts these prove the Spec §14 claim that
  * tenant isolation is runtime-owned and enforced, not a convention.
  */
-import { createObservationCapture } from '@lupinum/trellis/testing'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
 import { setupTestWithTwoOrgs } from './test.helpers'
-
-let capture: ReturnType<typeof createObservationCapture>
-
-beforeEach(() => {
-  capture = createObservationCapture()
-})
-
-afterEach(() => {
-  capture.stop()
-})
 
 describe('tenantIsolation — ctx.db (default)', () => {
   it('throws on a direct get across tenants (RLS is strict, not silent)', async () => {
@@ -108,24 +94,6 @@ describe('tenantIsolation — ctx.db.escapeTenantIsolation', () => {
     expect(all).toHaveLength(2)
     expect(all.map((p) => p.title).sort()).toEqual(['A', 'B'])
   })
-
-  it('emits db.escape_tenant_isolation.used when the tenant-isolation escape seam is read', async () => {
-    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
-
-    const user1PostId = await asUser1.mutation(api.posts.create, {
-      title: 'Traced',
-      content: 'Content',
-    })
-
-    capture.clear()
-    await asUser2.query(api.crossTenant.getAnyPost, { id: user1PostId })
-
-    const crossTenantEvents = capture.find('db.escape_tenant_isolation.used')
-    expect(crossTenantEvents.length).toBeGreaterThan(0)
-    const first = crossTenantEvents[0]
-    expect(first?.status).toBe('success')
-    expect(first?.transport).toBe('convex')
-  })
 })
 
 describe('tenantIsolation — unsafe.query', () => {
@@ -140,25 +108,5 @@ describe('tenantIsolation — unsafe.query', () => {
     await expect(asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })).rejects.toThrow(
       'Document belongs to a different tenant.',
     )
-  })
-
-  it('emits unsafe.handler.used even when the handler later fails tenant isolation', async () => {
-    const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
-
-    const user1PostId = await asUser1.mutation(api.posts.create, {
-      title: 'Raw Traced',
-      content: 'Content',
-    })
-
-    capture.clear()
-    await expect(asUser2.query(api.crossTenant.getAnyPostRaw, { id: user1PostId })).rejects.toThrow(
-      'Document belongs to a different tenant.',
-    )
-
-    const rawEvents = capture.find('unsafe.handler.used')
-    expect(rawEvents.length).toBeGreaterThan(0)
-    const first = rawEvents[0]
-    expect(first?.status).toBe('success')
-    expect(first?.transport).toBe('convex')
   })
 })

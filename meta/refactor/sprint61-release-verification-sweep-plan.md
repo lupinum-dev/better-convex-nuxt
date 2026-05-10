@@ -38,56 +38,69 @@ assumptions.
 
 ### 1. Establish Baseline
 
-- [ ] Confirm working tree is clean before running release verification.
-- [ ] Run the full local unit repository suite.
-- [ ] Run the forwarding envelope benchmark.
-- [ ] Run bridge-focused fixture and package tests.
-- [ ] Record exact failures here if any gate is red.
+- [x] Confirm working tree is clean before running release verification.
+- [x] Run the full local unit repository suite.
+- [x] Run the forwarding envelope benchmark.
+- [x] Run bridge-focused fixture and package tests.
+- [x] Record exact failures here if any gate is red.
 
 ### 2. Fix Unit Suite Failures
 
-- [ ] Classify failures as stale test, real regression, missing fixture update,
+- [x] Classify failures as stale test, real regression, missing fixture update,
       or environment-only issue.
-- [ ] Fix real regressions directly.
-- [ ] Delete or update stale compatibility expectations that conflict with the
+- [x] Fix real regressions directly.
+- [x] Delete or update stale compatibility expectations that conflict with the
       accepted 1.0 hard cuts.
-- [ ] Keep unit fixes narrow; do not use broad test skips.
+- [x] Keep unit fixes narrow; do not use broad test skips.
 
 ### 3. Fix Forwarding Benchmark Drift
 
-- [ ] Run `node scripts/bench-forwarding-envelope.mjs`.
-- [ ] Confirm benchmark still reports p99 baseline.
-- [ ] If the benchmark fails, fix script/runtime drift rather than weakening the
+- [x] Run `node scripts/bench-forwarding-envelope.mjs`.
+- [x] Confirm benchmark still reports p99 baseline.
+- [x] If the benchmark fails, fix script/runtime drift rather than weakening the
       forwarding model.
-- [ ] Do not turn the benchmark into a hard flaky CI threshold in this sprint.
+- [x] Do not turn the benchmark into a hard flaky CI threshold in this sprint.
 
 ### 4. Fix Bridge Fixture/Test Drift
 
-- [ ] Run bridge package/component tests.
-- [ ] Confirm bridge package exports remain outside core/backend.
-- [ ] Confirm bridge signed-forwarding tests still use `transport: "bridge"` and
+- [x] Run bridge package/component tests.
+- [x] Confirm bridge package exports remain outside core/backend.
+- [x] Confirm bridge signed-forwarding tests still use `transport: "bridge"` and
       exact function refs.
-- [ ] Confirm the Ginko-shaped fixture stays minimal and does not reintroduce
+- [x] Confirm the Ginko-shaped fixture stays minimal and does not reintroduce
       beginner-facing bridge concepts.
 
 ### 5. Update Trackers
 
-- [ ] Mark Slice 13 `Full unit suite` complete only after the full local unit
+- [x] Mark Slice 13 `Full unit suite` complete only after the full local unit
       gate passes.
-- [ ] Mark Slice 13 `Forwarding benchmark` complete only after the benchmark
+- [x] Mark Slice 13 `Forwarding benchmark` complete only after the benchmark
       reports a valid baseline.
-- [ ] Mark Slice 13 `Bridge fixture tests` complete only after bridge-focused
+- [x] Mark Slice 13 `Bridge fixture tests` complete only after bridge-focused
       tests pass.
-- [ ] Add a Sprint 61 completion note to the 1.0 refactor tracker.
+- [x] Add a Sprint 61 completion note to the 1.0 refactor tracker.
 
 ## Verification
 
-- [ ] `pnpm run test:repo`
-- [ ] `node scripts/bench-forwarding-envelope.mjs`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/create-component-bridge.test.ts tests/unit/component-bridge-manifest.test.ts tests/unit/bridge-package.test.ts tests/unit/bridge-package-exports.test.ts tests/unit/backend-index-exports.test.ts tests/unit/functions-index-exports.test.ts`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check meta/refactor/sprint61-release-verification-sweep-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm run test:repo`
+- [x] `node scripts/bench-forwarding-envelope.mjs`
+- [x] `pnpm exec vitest run --project=unit tests/unit/create-component-bridge.test.ts tests/unit/component-bridge-manifest.test.ts tests/unit/bridge-package.test.ts tests/unit/bridge-package-exports.test.ts tests/unit/backend-index-exports.test.ts tests/unit/functions-index-exports.test.ts`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check meta/refactor/sprint61-release-verification-sweep-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Result
+
+- Full `test:repo` passes: 162 files, 1324 tests.
+- Forwarding benchmark reports p99 `0.1345ms` for
+  `trusted-forwarding-envelope.verify`.
+- Bridge-focused unit tests pass: 6 files, 24 tests.
+- Fixed a real concurrent `build:cli` race in fixture copying by staging copied
+  fixture directories in process-local temp directories before publishing them.
+- Updated stale tests to match current 1.0 behavior: server auth errors include
+  the helper/function context, Better Auth 401/403 errors remain auth errors
+  even with `INVALID_*` codes, and Convex cross-process tests no longer assert
+  in-process observation capture.
 
 ## Done Means
 
