@@ -571,6 +571,10 @@ docs generation, and future explain commands.
   removing `cms` and `workspace --mcp` from first-reader starter docs, renaming
   generic resource scaffolding away from CMS-specific language, and keeping
   bridge/CMS references scoped to advanced package-integration material.
+- Sprint 50 is planned to start Slice 10 by adding an internal observability
+  sink boundary, routing evlog through that boundary, keeping test capture
+  delivery-independent, and removing evlog delivery from the normal public
+  observability barrel if it is not part of the 1.0 contract.
 
 ### Done Means
 
