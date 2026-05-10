@@ -184,7 +184,7 @@ explosion.
 
 ## Slice 3: Backend Builder Hard Cut
 
-Status: in progress
+Status: done
 
 Goal: make public/protected/unsafe trust lanes explicit and delete ambiguous
 builder spellings.
@@ -706,7 +706,7 @@ Goal: keep event vocabulary in core while making delivery bounded and optional.
 
 ## Slice 11: Migration, Codemods, And Hard Deletes
 
-Status: pending
+Status: in progress
 
 Goal: make the hard cut understandable and verifiable even without compatibility
 shims.
@@ -726,6 +726,14 @@ shims.
 | `trellis bridge`                            | bridge-owned tooling      | CLI migration      | root CLI path deleted            |
 | `workspace --mcp`                           | `workspace-mcp`           | CLI migration      | alias deleted                    |
 | `cms` starter                               | Ginko-owned setup         | manual/docs        | Trellis starter deleted          |
+
+### Sprint Notes
+
+- Sprint 57 is planned to make `trellis upgrade --check` cover the already
+  deleted 1.0 hard cuts with precise audit findings, starting with old root
+  backend builder calls, deleted starter spellings, and old package/import
+  paths. This is audit coverage only; it must not reintroduce old APIs or hidden
+  aliases.
 
 ### Build
 
