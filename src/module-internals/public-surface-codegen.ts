@@ -34,7 +34,7 @@ export interface ToolDefinitionMetadata {
   name: string
   file: string
   line: number
-  source: 'tool' | 'fromOperation' | 'defineTool'
+  source: 'tool' | 'operation' | 'defineTool'
 }
 
 export interface PublicSurfaceCodegenMetadata {
@@ -252,8 +252,8 @@ function readToolMetadata(
     const unwrappedArg = unwrapExpression(firstArg)
     options = unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null
   } else if (Node.isPropertyAccessExpression(callee)) {
-    if (callee.getName() !== 'fromOperation') return null
-    source = 'fromOperation'
+    if (callee.getName() !== 'operation') return null
+    source = 'operation'
     const [, secondArg] = expression.getArguments()
     const unwrappedArg = unwrapExpression(secondArg)
     options = unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null

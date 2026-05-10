@@ -101,7 +101,7 @@ Use `defineTool(options)` for standalone custom tools where the handler body
 lives in MCP code.
 
 Prefer `defineMcpApp(...).tool(...)` or
-`defineMcpApp(...).tool.fromOperation(...)` when the tool should project a
+`defineMcpApp(...).tool.operation(...)` when the tool should project a
 protected Convex ref or operation. That keeps MCP behavior aligned with the
 same backend authorization model used by browser and server calls.
 
@@ -132,7 +132,7 @@ valid with required auth. It is not a substitute for Convex handler guards.
 ## Destructive MCP Tools
 
 Do not implement destructive generic tools through `defineTool`. Use
-`defineMcpApp(...).tool.fromOperation(...)` so preview, confirmation, and
+`defineMcpApp(...).tool.operation(...)` so preview, confirmation, and
 execute stay bound to one operation identity.
 
 Trellis rejects destructive operation bindings without the required preview

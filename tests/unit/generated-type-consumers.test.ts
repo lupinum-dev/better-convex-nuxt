@@ -250,13 +250,13 @@ describe('generated type consumer verification', () => {
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '../../../../convex/features/tasks/operations'
 
         const tool = {
-          fromOperation: <_TOperation>(
+          operation: <_TOperation>(
             _operation: _TOperation,
             _options: unknown,
           ) => ({ name: 'archive-task' as const }),
         }
 
-        export default tool.fromOperation(archiveTaskOp, {
+        export default tool.operation(archiveTaskOp, {
           execute: archiveTask,
           preview: previewArchiveTask,
           meta: {

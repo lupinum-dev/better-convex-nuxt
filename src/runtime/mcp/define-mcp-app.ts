@@ -283,7 +283,7 @@ type PreviewProjectionRef<
 
 export type McpDestructiveConfirmationMode = 'backend' | 'transport'
 
-export interface ToolFromOperationOptions<
+export interface ToolOperationOptions<
   TOperation extends AnyOperationDefinition,
   TPrincipal,
   TDelegation extends Delegation,
@@ -353,13 +353,13 @@ type ToolFactory<
   >(
     tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
   ): McpToolDefinition
-  fromOperation: <
+  operation: <
     TOperation extends AnyOperationDefinition,
     TExecute extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(
     operation: TOperation,
-    options: ToolFromOperationOptions<
+    options: ToolOperationOptions<
       TOperation,
       TPrincipal,
       TDelegation,
@@ -369,7 +369,6 @@ type ToolFactory<
       TPreview
     >,
   ) => McpToolDefinition
-  operation: ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime>['fromOperation']
 }
 
 function defaultPrincipalKey(principal: unknown): string {
@@ -623,7 +622,7 @@ export function defineMcpApp<
   ): McpToolDefinition => {
     if (tool.meta?.destructive || tool.preview) {
       throw new Error(
-        'MCP tools with destructive or preview behavior must use tool.fromOperation(...). Generic tool({...}) preview/destructive mode is not supported.',
+        'MCP tools with destructive or preview behavior must use tool.operation(...). Generic tool({...}) preview/destructive mode is not supported.',
       )
     }
 
@@ -868,13 +867,13 @@ export function defineMcpApp<
     })
   }) as ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime>
 
-  tool.fromOperation = <
+  tool.operation = <
     TOperation extends AnyOperationDefinition,
     TExecute extends AnyFunctionRef = AnyMutationRef,
     TPreview extends AnyFunctionRef | undefined = undefined,
   >(
     operation: TOperation,
-    options: ToolFromOperationOptions<
+    options: ToolOperationOptions<
       TOperation,
       TPrincipal,
       TDelegation,
@@ -886,7 +885,7 @@ export function defineMcpApp<
   ): McpToolDefinition => {
     const metadata = getOperationMetadata(operation)
     if (!metadata.id) {
-      throw new Error('tool.fromOperation(...) requires an operation with an `id`.')
+      throw new Error('tool.operation(...) requires an operation with an `id`.')
     }
     const operationId = metadata.id
 
@@ -895,7 +894,7 @@ export function defineMcpApp<
     const toolName = options.meta?.name ?? toKebabCase(metadata.name ?? operationId)
     if (isDestructive && !options.preview) {
       throw new Error(
-        `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
+        `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
       )
     }
 
@@ -1155,7 +1154,7 @@ export function defineMcpApp<
 
           if (!isOperationPreviewPayload(previewResult)) {
             throw new Error(
-              `tool.fromOperation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
+              `tool.operation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
             )
           }
 
@@ -1368,8 +1367,6 @@ export function defineMcpApp<
       },
     })
   }
-
-  tool.operation = tool.fromOperation
 
   return {
     resolve,

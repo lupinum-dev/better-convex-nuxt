@@ -81,7 +81,7 @@ export type {
   McpConfirmationRedemptionInput,
   McpConfirmationStore,
   McpConvexCaller,
-  ToolFromOperationOptions,
+  ToolOperationOptions,
   ToolOptions,
   ValidateMcpToolOptions,
 } from './define-mcp-app.js'

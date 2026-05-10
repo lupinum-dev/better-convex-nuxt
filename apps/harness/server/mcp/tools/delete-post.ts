@@ -11,7 +11,7 @@ const removeWithConfirmationRef = executeOperationRef(
 )
 const previewRemoveRef = previewOperationRef(removePostOp, Object.create(api.posts.previewRemove))
 
-export default tool.fromOperation(removePostOp, {
+export default tool.operation(removePostOp, {
   execute: removeWithConfirmationRef,
   preview: previewRemoveRef,
   permission: postDeletePermission,

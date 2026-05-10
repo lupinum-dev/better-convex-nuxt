@@ -1009,7 +1009,7 @@ export const purgeTodoOp = defineOperation({
     ).toContain('convex/features/todos/operations.ts')
   })
 
-  it('fails doctor when a destructive MCP tool skips tool.fromOperation', () => {
+  it('fails doctor when a destructive MCP tool skips tool.operation', () => {
     const cwd = createTempDir('trellis-doctor-mcp-operation-binding-')
     const initResult = runCli(
       ['init', 'doctor-app', '--template', 'workspace', '--mcp', '--cwd', cwd],

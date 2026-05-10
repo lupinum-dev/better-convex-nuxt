@@ -118,7 +118,7 @@ describe('Experiment 15: operations as imported objects', () => {
     expect(meta.isMarkedTrellisOp).toBe(true)
   })
 
-  it('15e: tool.fromOperation can reject a safe op used where destructive required', async () => {
+  it('15e: tool.operation can reject a safe op used where destructive required', async () => {
     const t = convexTest(schema, modules)
     const result = await t.query(internal.expOperationsAsObjects.rejectSafeForDestructivePath, {})
     expect(result.kind).toBe('safe')

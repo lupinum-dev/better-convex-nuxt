@@ -84,13 +84,13 @@ const previewRef = previewOperationRef(
   >,
 )
 
-runtime.tool.fromOperation(operation, {
+runtime.tool.operation(operation, {
   execute: executeRef,
   preview: previewRef,
   permission: publishPermission,
 })
 
-runtime.tool.fromOperation(operation, {
+runtime.tool.operation(operation, {
   // @ts-expect-error execute must be an execute projection ref for this operation
   execute: previewRef,
   // @ts-expect-error preview must be a preview projection ref for this operation

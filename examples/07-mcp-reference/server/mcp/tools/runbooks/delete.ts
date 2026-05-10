@@ -6,7 +6,7 @@ import { runbookDelete } from '~/convex/features/runbooks/permissions'
 
 import { tool } from '../../runtime'
 
-export default tool.fromOperation(removeRunbookOp, {
+export default tool.operation(removeRunbookOp, {
   execute: executeOperationRef(removeRunbookOp, remove),
   preview: previewOperationRef(removeRunbookOp, previewRemove),
   permission: runbookDelete,

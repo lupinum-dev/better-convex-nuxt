@@ -526,7 +526,7 @@ import { ${ctx.singularCamel}DeletePermission } from '~~/convex/features/${ctx.t
 
 import { tool } from '../runtime'
 
-export default tool.fromOperation(remove${ctx.singularPascal}Op, {
+export default tool.operation(remove${ctx.singularPascal}Op, {
   execute: executeOperationRef(remove${ctx.singularPascal}Op, remove, {
     functionRef: 'features/${ctx.tableName}/domain:remove',
   }),

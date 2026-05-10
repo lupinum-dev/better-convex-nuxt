@@ -5,7 +5,7 @@ import { previewPublish, publishAction } from '../../../convex/features/pages/do
 import { publishPagePermission } from '../../../convex/features/pages/permissions'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool.fromOperation(publishPageOp, {
+export default tool.operation(publishPageOp, {
   execute: transportExecuteOperationRef(publishPageOp, publishAction),
   preview: previewOperationRef(publishPageOp, previewPublish),
   executeOperation: 'action',

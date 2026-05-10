@@ -816,7 +816,7 @@ describe('Destructive confirmation payload validation', () => {
       })
 
       expect(() =>
-        mcp.tool.fromOperation(operation, {
+        mcp.tool.operation(operation, {
           execute: operation as never,
           preview: preview as never,
           confirmationMode: 'transport',
@@ -862,7 +862,7 @@ describe('Destructive confirmation payload validation', () => {
       }),
     })
 
-    const tool = mcp.tool.fromOperation(operation, {
+    const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
     })
@@ -917,7 +917,7 @@ describe('Destructive confirmation payload validation', () => {
       }),
     })
 
-    const tool = mcp.tool.fromOperation(operation, {
+    const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
     })
@@ -985,7 +985,7 @@ describe('Destructive confirmation payload validation', () => {
       }),
     })
 
-    const tool = mcp.tool.fromOperation(operation, {
+    const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
     })
@@ -1063,7 +1063,7 @@ describe('Destructive confirmation payload validation', () => {
       }),
     })
 
-    const tool = mcp.tool.fromOperation(operation, {
+    const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
       confirmationMode: 'transport',
@@ -1121,7 +1121,7 @@ describe('Destructive confirmation payload validation', () => {
       }),
     })
 
-    const tool = mcp.tool.fromOperation(operation, {
+    const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
       confirmationMode: 'transport',

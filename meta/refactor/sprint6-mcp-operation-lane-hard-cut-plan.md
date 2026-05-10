@@ -23,72 +23,72 @@ MCP resource code, doctor checks, docs, and tests to teach the 1.0 lane.
 
 ### 1. Runtime API Cut
 
-- [ ] Delete `fromOperation` from the MCP tool factory public type.
-- [ ] Move the implementation body to `tool.operation(...)`.
-- [ ] Delete the `tool.operation = tool.fromOperation` alias.
-- [ ] Update runtime error messages from `tool.fromOperation(...)` to
+- [x] Delete `fromOperation` from the MCP tool factory public type.
+- [x] Move the implementation body to `tool.operation(...)`.
+- [x] Delete the `tool.operation = tool.fromOperation` alias.
+- [x] Update runtime error messages from `tool.fromOperation(...)` to
       `tool.operation(...)`.
-- [ ] Update operation-binding diagnostics to say `tool.operation(...)`.
-- [ ] Update generic destructive-tool rejection messages to point to
+- [x] Update operation-binding diagnostics to say `tool.operation(...)`.
+- [x] Update generic destructive-tool rejection messages to point to
       `defineMcpApp(...).tool.operation(...)`.
 
 ### 2. Generated Resource Tool Cut
 
-- [ ] Update `src/cli/lib/resource.ts` so generated destructive MCP resource
+- [x] Update `src/cli/lib/resource.ts` so generated destructive MCP resource
       tools use `tool.operation(...)`.
-- [ ] Update resource generation tests and snapshots/expected source.
-- [ ] Keep generated imports unchanged unless the tool file no longer needs a
+- [x] Update resource generation tests and snapshots/expected source.
+- [x] Keep generated imports unchanged unless the tool file no longer needs a
       legacy import.
 
 ### 3. Doctor And Inventory Cut
 
-- [ ] Update doctor destructive MCP checks to require `tool.operation(...)`.
-- [ ] Update doctor wording so destructive-looking MCP tools that skip the
+- [x] Update doctor destructive MCP checks to require `tool.operation(...)`.
+- [x] Update doctor wording so destructive-looking MCP tools that skip the
       operation lane mention `tool.operation(...)`.
-- [ ] Update public-surface inventory proof rows to expect `tool.fromOperation`
+- [x] Update public-surface inventory proof rows to expect `tool.fromOperation`
       absence and `tool.operation(...)` teaching.
-- [ ] Keep historical/planning docs allowed, but current docs/templates/runtime
+- [x] Keep historical/planning docs allowed, but current docs/templates/runtime
       must not mention the old API.
 
 ### 4. Docs And Examples Cut
 
-- [ ] Update current MCP docs:
-  - [ ] `apps/docs/content/docs/13.api-reference/5.mcp.md`
-  - [ ] `apps/docs/content/docs/14.mcp-tools/2.define-tools.md`
-  - [ ] `apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md`
-  - [ ] `apps/docs/content/docs/08.permissions/7.operations.md`
+- [x] Update current MCP docs:
+  - [x] `apps/docs/content/docs/13.api-reference/5.mcp.md`
+  - [x] `apps/docs/content/docs/14.mcp-tools/2.define-tools.md`
+  - [x] `apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md`
+  - [x] `apps/docs/content/docs/08.permissions/7.operations.md`
 
-- [ ] Update current skill/reference docs:
-  - [ ] `meta/skill/references/server-mcp.md`
+- [x] Update current skill/reference docs:
+  - [x] `meta/skill/references/server-mcp.md`
 
-- [ ] Update maintained MCP examples:
-  - [ ] `examples/07-mcp-reference/server/mcp/tools/runbooks/delete.ts`
-  - [ ] `examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts`
-  - [ ] related example tests if they assert source text
+- [x] Update maintained MCP examples:
+  - [x] `examples/07-mcp-reference/server/mcp/tools/runbooks/delete.ts`
+  - [x] `examples/07-mcp-reference/server/mcp/tools/runbooks/bulk-delete.ts`
+  - [x] related example tests if they assert source text
 
-- [ ] Leave component mini CMS / bridge example cleanup only if it is not
+- [x] Leave component mini CMS / bridge example cleanup only if it is not
       required for tests. Otherwise migrate the smallest blocking source string
       and record bridge/Ginko leftovers for the bridge sprint.
 
 ### 5. Type And Unit Tests
 
-- [ ] Update `tests/types/mcp-runtime.types.ts`.
-- [ ] Update `tests/dts/mcp.types.ts`.
-- [ ] Update `tests/unit/define-convex-tool.test.ts`.
-- [ ] Update `tests/unit/public-surface-codegen.test.ts`.
-- [ ] Update `tests/unit/generated-type-consumers.test.ts`.
-- [ ] Update `tests/unit/cli-doctor.test.ts`.
-- [ ] Update `src/module-internals/public-surface-codegen.ts` only if the
+- [x] Update `tests/types/mcp-runtime.types.ts`.
+- [x] Update `tests/dts/mcp.types.ts`.
+- [x] Update `tests/unit/define-convex-tool.test.ts`.
+- [x] Update `tests/unit/public-surface-codegen.test.ts`.
+- [x] Update `tests/unit/generated-type-consumers.test.ts`.
+- [x] Update `tests/unit/cli-doctor.test.ts`.
+- [x] Update `src/module-internals/public-surface-codegen.ts` only if the
       source classifier should rename `fromOperation` to `operation`.
 
 ### 6. Verification
 
-- [ ] Run MCP-focused unit tests.
-- [ ] Run CLI doctor/resource generation tests touched by this sprint.
-- [ ] Run type/DTS tests touched by this sprint.
-- [ ] Run docs and public-surface checks.
-- [ ] Run refactor inventory check.
-- [ ] Run a final grep proving current runtime/docs/templates/tests no longer
+- [x] Run MCP-focused unit tests.
+- [x] Run CLI doctor/resource generation tests touched by this sprint.
+- [x] Run type/DTS tests touched by this sprint.
+- [x] Run docs and public-surface checks.
+- [x] Run refactor inventory check.
+- [x] Run a final grep proving current runtime/docs/templates/tests no longer
       contain public `tool.fromOperation(...)` usage.
 
 Suggested commands:
@@ -104,18 +104,31 @@ rg -n "tool\\.fromOperation|fromOperation" src tests apps/docs/content meta/skil
 
 ## Acceptance Criteria
 
-- [ ] `tool.fromOperation(...)` is gone from runtime public types.
-- [ ] `tool.fromOperation(...)` is gone from runtime implementation.
-- [ ] `tool.operation(...)` is the direct implementation path, not an alias.
-- [ ] Generated resource MCP tools use `tool.operation(...)`.
-- [ ] Current MCP docs teach only `mcp.tool.operation(...)` /
+- [x] `tool.fromOperation(...)` is gone from runtime public types.
+- [x] `tool.fromOperation(...)` is gone from runtime implementation.
+- [x] `tool.operation(...)` is the direct implementation path, not an alias.
+- [x] Generated resource MCP tools use `tool.operation(...)`.
+- [x] Current MCP docs teach only `mcp.tool.operation(...)` /
       `tool.operation(...)`.
-- [ ] Doctor and error messages teach `tool.operation(...)`.
-- [ ] Tests pass for the touched MCP/runtime/docs/public-surface paths.
+- [x] Doctor and error messages teach `tool.operation(...)`.
+- [x] Tests pass for the touched MCP/runtime/docs/public-surface paths.
 
 ## Exit Notes To Capture
 
-- [ ] Whether any `fromOperation` hits remain only in historical planning docs.
-- [ ] Whether component mini CMS still needs a bridge/Ginko-specific migration.
-- [ ] Whether Sprint 7 should tackle direct MCP mutation safety metadata or
+- [x] Whether any `fromOperation` hits remain only in historical planning docs.
+- [x] Whether component mini CMS still needs a bridge/Ginko-specific migration.
+- [x] Whether Sprint 7 should tackle direct MCP mutation safety metadata or
       advanced examples next.
+
+Exit notes:
+
+- Remaining `fromOperation` hits are historical/spec/planning text plus the
+  refactor inventory script's search token. Runtime, current MCP docs, tests,
+  harness MCP tools, and maintained MCP tool examples use `tool.operation(...)`.
+- Component mini CMS only needed the direct MCP tool source assertion updated.
+  Its broader bridge imports and raw forwarding paths remain for the bridge/Ginko
+  sprint.
+- `pnpm --dir examples/07-mcp-reference test` still fails before exercising the
+  MCP tool rename because that example has old unclassified backend handlers.
+  That should be the next example migration sprint, not part of this method-name
+  hard cut.

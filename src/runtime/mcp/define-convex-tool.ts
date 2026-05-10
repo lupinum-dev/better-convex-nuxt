@@ -456,7 +456,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
 
   if (destructive) {
     throw new Error(
-      'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.fromOperation(...).',
+      'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.operation(...).',
     )
   }
 
@@ -661,7 +661,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
  * })
  *
  * // Level 3 — destructive tools are operation-backed
- * // Use defineMcpApp(...).tool.fromOperation(...) instead of defineTool(...)
+ * // Use defineMcpApp(...).tool.operation(...) instead of defineTool(...)
  * ```
  */
 export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(

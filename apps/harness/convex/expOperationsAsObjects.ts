@@ -273,7 +273,7 @@ export const getRunbook = internalQuery({
 // ============================================================
 
 /**
- * This simulates what `tool.fromOperation(op)` does: it reads the
+ * This simulates what `tool.operation(op)` does: it reads the
  * operation object's metadata directly. No manifest, no AST walk,
  * no string lookup.
  */
@@ -302,7 +302,7 @@ export const simulatedMcpIntrospection = internalQuery({
 })
 
 /**
- * Simulates tool.fromOperation's runtime check: destructive-only path
+ * Simulates tool.operation's runtime check: destructive-only path
  * rejects a safe operation.
  */
 export const rejectSafeForDestructivePath = internalQuery({

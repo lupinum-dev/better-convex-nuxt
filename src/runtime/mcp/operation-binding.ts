@@ -43,13 +43,13 @@ export function assertOperationBinding(
 ): void {
   const metadata = getOperationMetadata(operation)
   if (!metadata.id) {
-    throw new Error('tool.fromOperation(...) requires an operation with an `id`.')
+    throw new Error('tool.operation(...) requires an operation with an `id`.')
   }
 
   const executeTarget = getOperationProjectionMetadata(executeRef as Record<PropertyKey, unknown>)
   if (!executeTarget) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation.`,
+      `tool.operation(${metadata.name ?? metadata.id}) requires an execute ref projected from the same operation.`,
     )
   }
   if (
@@ -57,7 +57,7 @@ export function assertOperationBinding(
     (executeTarget.operationId !== metadata.id || executeTarget.projection !== 'execute')
   ) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) received an execute ref that does not match operation id "${metadata.id}".`,
+      `tool.operation(${metadata.name ?? metadata.id}) received an execute ref that does not match operation id "${metadata.id}".`,
     )
   }
 
@@ -66,7 +66,7 @@ export function assertOperationBinding(
   const previewTarget = getOperationProjectionMetadata(previewRef as Record<PropertyKey, unknown>)
   if (!previewTarget) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation.`,
+      `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref projected from the same operation.`,
     )
   }
   if (
@@ -74,7 +74,7 @@ export function assertOperationBinding(
     (previewTarget.operationId !== metadata.id || previewTarget.projection !== 'preview')
   ) {
     throw new Error(
-      `tool.fromOperation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
+      `tool.operation(${metadata.name ?? metadata.id}) received a preview ref that does not match operation id "${metadata.id}".`,
     )
   }
 }

@@ -146,7 +146,7 @@ describe('example 08 component mini cms', () => {
       'utf8',
     )
 
-    expect(source).toContain('tool.fromOperation(publishPageOp')
+    expect(source).toContain('tool.operation(publishPageOp')
     expect(source).toContain('transportExecuteOperationRef(publishPageOp, publishAction)')
     expect(source).toContain("executeOperation: 'action'")
     expect(source).toContain('previewOperationRef(publishPageOp, previewPublish)')

@@ -85,7 +85,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
     : null
   const trustedForwardingPublicExposure = findTrustedForwardingPublicExposure(project)
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
-    /tool\.fromOperation\s*\(/.test(file.text),
+    /tool\.operation\s*\(/.test(file.text),
   )
   const unsafeSurfaceInventory = findUnsafeSurfaceInventory(project)
   const crossTenantEscapeInventory = findCrossTenantEscapeInventory(project)
@@ -472,14 +472,14 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       status: destructiveMcpToolMisuse.length > 0 ? 'fail' : 'pass',
       message:
         destructiveMcpToolMisuse.length > 0
-          ? `Found destructive-looking MCP tools that do not use \`tool.fromOperation(...)\` in ${destructiveMcpToolMisuse
+          ? `Found destructive-looking MCP tools that do not use \`tool.operation(...)\` in ${destructiveMcpToolMisuse
               .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
               .slice(0, 3)
               .join(', ')}${destructiveMcpToolMisuse.length > 3 ? ', ...' : ''}.`
           : 'No destructive MCP tools were found outside operation-backed bindings.',
       fixHint:
         destructiveMcpToolMisuse.length > 0
-          ? 'Destructive MCP tools must bind through `tool.fromOperation(...)` so preview, confirmation, and execute stay coupled.'
+          ? 'Destructive MCP tools must bind through `tool.operation(...)` so preview, confirmation, and execute stay coupled.'
           : 'Keep destructive MCP tools operation-backed.',
     },
     ...collectPermissionMetadataFindings(project),

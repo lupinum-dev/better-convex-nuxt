@@ -81,7 +81,7 @@ runtime.tool({
   call: queryRef,
   operation: 'query',
   permission: readEntryPermission,
-  // @ts-expect-error generic MCP previews are unsupported; use tool.fromOperation(...)
+  // @ts-expect-error generic MCP previews are unsupported; use tool.operation(...)
   preview: queryRef,
 })
 
@@ -129,7 +129,7 @@ const archiveEntryOp = defineOperation({
   handler: async () => ({ archived: true as const }),
 })
 
-runtime.tool.fromOperation(archiveEntryOp, {
+runtime.tool.operation(archiveEntryOp, {
   execute: executeOperationRef(
     archiveEntryOp,
     {} as FunctionReference<

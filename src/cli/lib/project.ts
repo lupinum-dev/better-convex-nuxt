@@ -672,7 +672,7 @@ export function findDestructiveMcpToolsWithoutOperationBinding(
     if (!/[/\\]server[/\\]mcp[/\\]tools[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(sourceFile.path)) {
       continue
     }
-    if (/tool\.fromOperation\s*\(/.test(sourceFile.text)) continue
+    if (/tool\.operation\s*\(/.test(sourceFile.text)) continue
     if (!/export\s+default\s+tool\s*\(|defineConvexTool\s*\(/.test(sourceFile.text)) continue
     if (!looksDestructiveTool(sourceFile.text, sourceFile.path)) continue
 

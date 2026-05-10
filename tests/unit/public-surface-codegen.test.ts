@@ -43,7 +43,7 @@ describe('public surface codegen', () => {
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'
         import { tool } from '../../runtime'
 
-        export default tool.fromOperation(archiveTaskOp, {
+        export default tool.operation(archiveTaskOp, {
           execute: archiveTask,
           preview: previewArchiveTask,
           meta: {
@@ -90,7 +90,7 @@ describe('public surface codegen', () => {
         file: 'server/mcp/tools/tasks/archive-task.ts',
         line: expect.any(Number),
         name: 'archive-task',
-        source: 'fromOperation',
+        source: 'operation',
       },
     ])
   }, 15_000)
@@ -117,7 +117,7 @@ describe('public surface codegen', () => {
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'
         import { tool } from '../../runtime'
 
-        export default tool.fromOperation(archiveTaskOp, {
+        export default tool.operation(archiveTaskOp, {
           execute: archiveTask,
           preview: previewArchiveTask,
           meta: { name: 'archive-task' },

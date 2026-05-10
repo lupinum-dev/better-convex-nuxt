@@ -195,7 +195,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   /**
    * Destructive generic tools are not supported.
    *
-   * Use `defineMcpApp(...).tool.fromOperation(...)` for destructive tools so
+   * Use `defineMcpApp(...).tool.operation(...)` for destructive tools so
    * Trellis can bind confirmation to operation identity and previewed state.
    */
   destructive?: boolean
@@ -209,7 +209,7 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   rateLimit?: { max: number; window: string }
   /** Optional distributed rate-limit store for this tool. Prefer `createRedisMcpRateLimitStore(...)` for a first-party atomic implementation. */
   rateLimitStore?: McpRateLimitStore
-  /** Generic previews are unsupported; use `defineMcpApp(...).tool.fromOperation(...)`. */
+  /** Generic previews are unsupported; use `defineMcpApp(...).tool.operation(...)`. */
   preview?: never
 
   // ── Grouping ──────────────────────────────────────────────
