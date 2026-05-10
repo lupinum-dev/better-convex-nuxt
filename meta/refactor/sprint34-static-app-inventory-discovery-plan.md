@@ -108,43 +108,43 @@ versioned inventory section future tools can consume.
 
 ### 1. Add Static Discovery
 
-- [ ] Add a small app-inventory discovery helper in the CLI inventory module or
+- [x] Add a small app-inventory discovery helper in the CLI inventory module or
       a focused sibling module.
-- [ ] Detect the canonical `shared/app-inventory.ts` file.
-- [ ] Detect `defineAppInventory({ features: [...] })` when the feature list is
+- [x] Detect the canonical `shared/app-inventory.ts` file.
+- [x] Detect `defineAppInventory({ features: [...] })` when the feature list is
       a static array of identifiers.
-- [ ] Resolve feature identifier import paths from local import declarations
+- [x] Resolve feature identifier import paths from local import declarations
       without following or executing imports.
-- [ ] Report dynamic or unsupported feature lists as warnings, not guessed
+- [x] Report dynamic or unsupported feature lists as warnings, not guessed
       metadata.
 
 ### 2. Extend Inventory JSON
 
-- [ ] Add an `appInventory` section to `TrellisCliInventory`.
-- [ ] Preserve existing `files.appInventory` for compatibility with the
+- [x] Add an `appInventory` section to `TrellisCliInventory`.
+- [x] Preserve existing `files.appInventory` for compatibility with the
       current JSON shape.
-- [ ] Keep all source references path + line only.
-- [ ] Keep inventory JSON safe to share.
+- [x] Keep all source references path + line only.
+- [x] Keep inventory JSON safe to share.
 
 ### 3. Add Tests
 
-- [ ] Test the Phase 0 fixture reports `shared/app-inventory.ts`.
-- [ ] Test canonical static feature references are reported with feature name,
+- [x] Test the Phase 0 fixture reports `shared/app-inventory.ts`.
+- [x] Test canonical static feature references are reported with feature name,
       import path, and source location.
-- [ ] Test missing app inventory reports `detected: false` without failing
+- [x] Test missing app inventory reports `detected: false` without failing
       generated starters.
-- [ ] Test dynamic feature lists produce a warning instead of guessed feature
+- [x] Test dynamic feature lists produce a warning instead of guessed feature
       metadata.
-- [ ] Test inventory JSON does not include raw source snippets or fixture secret
+- [x] Test inventory JSON does not include raw source snippets or fixture secret
       strings.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes for static app-inventory discovery.
-- [ ] Mark `Inventory reads app inventory first` only if the implemented
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes for static app-inventory discovery.
+- [x] Mark `Inventory reads app inventory first` only if the implemented
       section is strong enough to serve as the first checked inventory source.
-- [ ] Leave public-surface, upgrade, and explain replacement unchecked.
+- [x] Leave public-surface, upgrade, and explain replacement unchecked.
 
 ## Verification
 
@@ -186,19 +186,32 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Inventory JSON has an explicit `appInventory` section.
-- [ ] Canonical static `defineAppInventory({ features: [...] })` is detected.
-- [ ] Static feature bindings include safe path + line source locations.
-- [ ] Dynamic feature lists are reported as warnings, not guessed facts.
-- [ ] Missing app inventory remains valid for generated starters.
-- [ ] Inventory JSON remains snippet-free and secret-safe.
-- [ ] No app source is executed or imported.
-- [ ] Slice 8 tracker is updated.
+- [x] Inventory JSON has an explicit `appInventory` section.
+- [x] Canonical static `defineAppInventory({ features: [...] })` is detected.
+- [x] Static feature bindings include safe path + line source locations.
+- [x] Dynamic feature lists are reported as warnings, not guessed facts.
+- [x] Missing app inventory remains valid for generated starters.
+- [x] Inventory JSON remains snippet-free and secret-safe.
+- [x] No app source is executed or imported.
+- [x] Slice 8 tracker is updated.
 - [ ] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `inventory.appInventory` with `file`, `detected`,
+  `featureBindings`, and `warnings`.
+- Static discovery uses the TypeScript parser and does not import or execute app
+  source.
+- Canonical `defineAppInventory({ features: [projectsFeature] as const })`
+  feature bindings include feature identifier, local import path, and safe
+  source location.
+- Dynamic or malformed app inventory files produce warnings instead of guessed
+  metadata.
+- Generated starters without app inventory remain valid and report
+  `detected: false`.
+- Slice 8's broad "Inventory reads app inventory first" item remains unchecked
+  until app-owned metadata feeds the broader inventory/finding source, not just
+  static discovery.
 
 ## Next Sprint Candidate
 

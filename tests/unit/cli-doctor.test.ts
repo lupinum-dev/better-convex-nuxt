@@ -92,6 +92,19 @@ type DoctorInventoryJsonReport = {
       crossTenantEscapes: Array<{ path: string; line: number }>
       destructiveOperations: Array<{ path: string; line: number }>
     }
+    appInventory: {
+      file: string | null
+      detected: boolean
+      featureBindings: Array<{
+        name: string
+        importPath: string | null
+        source: { path: string; line: number }
+      }>
+      warnings: Array<{
+        code: 'missing-define-app-inventory' | 'dynamic-features'
+        source: { path: string; line: number }
+      }>
+    }
     findings: []
   }
   findings: Array<{ id: string; status: string }>
@@ -561,8 +574,120 @@ describe('CLI doctor', () => {
         crossTenantEscapes: [],
         destructiveOperations: [],
       })
+      expect(report.inventory.appInventory).toEqual({
+        file: null,
+        detected: false,
+        featureBindings: [],
+        warnings: [],
+      })
       expect(report.inventory.findings).toEqual([])
     }
+  })
+
+  it('discovers canonical static app inventory without executing app code', () => {
+    const fixtureRoot = resolve(repoRoot, 'tests/fixtures/phase0-workspace-mcp')
+    const result = runCli(['doctor', '--json', '--cwd', fixtureRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+
+    expect(report.inventory.files.appInventory).toBe('shared/app-inventory.ts')
+    expect(report.inventory.appInventory).toEqual({
+      file: 'shared/app-inventory.ts',
+      detected: true,
+      featureBindings: [
+        {
+          name: 'projectsFeature',
+          importPath: './features/projects/feature',
+          source: {
+            path: 'shared/app-inventory.ts',
+            line: expect.any(Number),
+          },
+        },
+      ],
+      warnings: [],
+    })
+  })
+
+  it('reports dynamic app inventory feature lists without guessing metadata', () => {
+    const cwd = createTempDir('trellis-doctor-dynamic-app-inventory-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'public', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    writeFileSync(
+      resolve(appRoot, 'shared/app-inventory.ts'),
+      `
+import { defineAppInventory } from '@lupinum/trellis/feature'
+
+const features = []
+
+export const appInventory = defineAppInventory({
+  features,
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.inventory.files.appInventory).toBe('shared/app-inventory.ts')
+    expect(report.inventory.appInventory).toMatchObject({
+      file: 'shared/app-inventory.ts',
+      detected: true,
+      featureBindings: [],
+      warnings: [
+        {
+          code: 'dynamic-features',
+          source: {
+            path: 'shared/app-inventory.ts',
+            line: expect.any(Number),
+          },
+        },
+      ],
+    })
+  })
+
+  it('reports malformed app inventory files without executing source', () => {
+    const cwd = createTempDir('trellis-doctor-malformed-app-inventory-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'public', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    writeFileSync(
+      resolve(appRoot, 'shared/app-inventory.ts'),
+      `
+export const appInventory = {
+  features: ['do-not-leak-this-feature-string'],
+}
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const serializedInventory = JSON.stringify(report.inventory)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.inventory.appInventory).toMatchObject({
+      file: 'shared/app-inventory.ts',
+      detected: true,
+      featureBindings: [],
+      warnings: [
+        {
+          code: 'missing-define-app-inventory',
+          source: {
+            path: 'shared/app-inventory.ts',
+            line: 1,
+          },
+        },
+      ],
+    })
+    expect(serializedInventory).not.toContain('do-not-leak-this-feature-string')
   })
 
   it('keeps inventory JSON safe to share', () => {
@@ -586,6 +711,18 @@ export const fixture = {
 }
 `.trimStart(),
     )
+    writeFileSync(
+      resolve(appRoot, 'shared/app-inventory.ts'),
+      `
+import { defineAppInventory } from '@lupinum/trellis/feature'
+
+const localSecret = 'do-not-leak-this-app-inventory-secret'
+
+export const appInventory = defineAppInventory({
+  features: [] as const,
+})
+`.trimStart(),
+    )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
@@ -596,6 +733,7 @@ export const fixture = {
     expect(serializedInventory).not.toContain('do-not-leak-this-confirmation-secret-value')
     expect(serializedInventory).not.toContain('test-secret')
     expect(serializedInventory).not.toContain('do-not-leak-this-subject-value')
+    expect(serializedInventory).not.toContain('do-not-leak-this-app-inventory-secret')
     expect(serializedInventory).not.toContain('BETTER_AUTH_SECRET')
     expect(serializedInventory).not.toContain('CONVEX_TRUSTED_FORWARDING_KEY')
     expect(serializedInventory).not.toContain('TRELLIS_MCP_CONFIRMATION_KEY')

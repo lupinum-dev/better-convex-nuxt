@@ -483,6 +483,10 @@ docs generation, and future explain commands.
 - Sprint 33 moved unsafe backend entrypoints, cross-tenant escapes, and
   destructive operation source-code findings onto `inventory.backend`. Structured
   app inventory, public-surface, upgrade, and explain replacement remain open.
+- Sprint 34 added static `shared/app-inventory.ts` discovery through
+  `inventory.appInventory` without executing app source. The broad "reads app
+  inventory first" item remains open until app-owned metadata feeds the wider
+  inventory/finding source.
 
 ### Done Means
 
