@@ -81,32 +81,32 @@ metadata facts come from inventory, not a second metadata reader.
 
 ### 1. Refactor Permission Findings
 
-- [ ] Add a helper that accepts `TrellisCliInventory` for permission metadata
+- [x] Add a helper that accepts `TrellisCliInventory` for permission metadata
       facts.
-- [ ] Keep `ProjectInspection` only for projected permission usage scanning.
-- [ ] Preserve orphan, unused projection, and unknown-ref finding IDs/statuses.
-- [ ] Add inventory finding sources for orphan and unknown-ref diagnostics.
+- [x] Keep `ProjectInspection` only for projected permission usage scanning.
+- [x] Preserve orphan, unused projection, and unknown-ref finding IDs/statuses.
+- [x] Add inventory finding sources for orphan and unknown-ref diagnostics.
 
 ### 2. Remove Duplicate Doctor Metadata Read
 
-- [ ] Update doctor to call the inventory-backed permission finding helper.
-- [ ] Ensure doctor no longer calls `readPermissionMetadata(...)`.
-- [ ] Delete or narrow old permission metadata helper code if no longer used.
-- [ ] Keep tests for `readPermissionMetadata(...)` only if it remains a real
+- [x] Update doctor to call the inventory-backed permission finding helper.
+- [x] Ensure doctor no longer calls `readPermissionMetadata(...)`.
+- [x] Delete or narrow old permission metadata helper code if no longer used.
+- [x] Keep tests for `readPermissionMetadata(...)` only if it remains a real
       public/internal utility.
 
 ### 3. Test The Cutover
 
-- [ ] Existing permission metadata unit tests are updated for inventory input.
-- [ ] Doctor tests still pass with generated starter permission inventory.
-- [ ] A permission drift test proves sources cite inventory paths.
-- [ ] No output includes permission source snippets or raw app code.
+- [x] Existing permission metadata unit tests are updated for inventory input.
+- [x] Doctor tests still pass with generated starter permission inventory.
+- [x] A permission drift test proves sources cite inventory paths.
+- [x] No output includes permission source snippets or raw app code.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Mark duplicate scanner deletion only if doctor no longer has a duplicate
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Mark duplicate scanner deletion only if doctor no longer has a duplicate
       permission metadata reader.
 
 ## Verification
@@ -144,12 +144,23 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Doctor permission definition/inventory findings use
+- [x] Doctor permission definition/inventory findings use
       `inventory.permissions`.
-- [ ] Doctor no longer re-reads permission metadata for facts that inventory
+- [x] Doctor no longer re-reads permission metadata for facts that inventory
       already owns.
-- [ ] Project source scanning remains only for projected permission usage.
-- [ ] Permission finding IDs/statuses remain stable.
-- [ ] Permission drift findings expose safe inventory source metadata.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Project source scanning remains only for projected permission usage.
+- [x] Permission finding IDs/statuses remain stable.
+- [x] Permission drift findings expose safe inventory source metadata.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Replaced `collectPermissionMetadataFindings(project)` with
+  `collectPermissionInventoryFindings(inventory, project)`.
+- Deleted the duplicate doctor-side `.nuxt/trellis/permissions.json` reader.
+  Permission metadata now enters doctor through `TrellisCliInventory`.
+- Orphan permission definitions and unknown permission inventory refs now cite
+  safe `permissions.definitions` / `permissions.inventories` inventory sources.
+- Projected permission usage remains a source scan because permission usage is
+  not structured inventory yet.

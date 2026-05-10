@@ -552,6 +552,11 @@ docs generation, and future explain commands.
 - Sprint 46 is planned to cut permission definition/inventory drift findings
   over to `inventory.permissions`, leaving only projected permission usage on a
   project source scan until usage becomes structured inventory.
+- Sprint 46 replaced doctor's duplicate permission metadata read with
+  `collectPermissionInventoryFindings(inventory, project)`. Permission
+  definitions and inventory drift now use `inventory.permissions`; projected
+  permission usage remains an explicit source scan until usage is part of
+  inventory.
 
 ### Done Means
 

@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import type { PermissionCodegenMetadata } from '../../module-internals/permissions-codegen.js'
 import type { DoctorFinding } from './findings.js'
+import { findingInventorySource } from './findings.js'
+import type { TrellisCliInventory } from './inventory.js'
 import type { ProjectInspection } from './project.js'
 
 function escapeRegExp(value: string): string {
@@ -27,28 +27,16 @@ function buildPermissionUsagePattern(exportName: string): RegExp {
   )
 }
 
-export function readPermissionMetadata(cwd: string): PermissionCodegenMetadata | null {
-  const path = resolve(cwd, '.nuxt/trellis/permissions.json')
-  if (!existsSync(path)) return null
-
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as PermissionCodegenMetadata
-  } catch (error) {
-    throw new Error(
-      `Invalid permission metadata at ${path}: ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
-}
-
-export function collectPermissionMetadataFindings(project: ProjectInspection): DoctorFinding[] {
-  const metadata = readPermissionMetadata(project.cwd)
-  if (!metadata) return []
-
+export function collectPermissionInventoryFindings(
+  inventory: TrellisCliInventory,
+  project: ProjectInspection,
+): DoctorFinding[] {
   const findings: DoctorFinding[] = []
   const includedPermissions = new Set(
-    metadata.inventories.flatMap((inventory) => inventory.permissions),
+    inventory.permissions.inventories.flatMap((entry) => entry.permissions),
   )
-  for (const permission of metadata.permissions) {
+
+  for (const permission of inventory.permissions.definitions) {
     if (!includedPermissions.has(permission.exportName)) {
       findings.push({
         id: `permissions-definition-orphan:${permission.exportName}`,
@@ -58,6 +46,13 @@ export function collectPermissionMetadataFindings(project: ProjectInspection): D
         message: `Permission "${permission.exportName}" is defined in ${permission.file} but is not included in any exported permissions array.`,
         fixHint:
           'Add the permission handle to the app’s exported permissions inventory or delete the unused definition.',
+        sources: [
+          findingInventorySource('permissions.definitions', [permission.source]),
+          findingInventorySource(
+            'permissions.inventories',
+            inventory.permissions.inventories.map((entry) => entry.source),
+          ),
+        ],
       })
     }
 
@@ -80,20 +75,22 @@ export function collectPermissionMetadataFindings(project: ProjectInspection): D
         message: `Projected permission "${permission.exportName}" is defined and exported but was not referenced by frontend, MCP, or handler code.`,
         fixHint:
           'Use the permission handle from handlers/UI/MCP, mark it `project: false`, or delete the unused definition.',
+        sources: [findingInventorySource('permissions.definitions', [permission.source])],
       })
     }
   }
 
-  for (const inventory of metadata.inventories) {
-    for (const unknown of inventory.unknown) {
+  for (const permissionInventory of inventory.permissions.inventories) {
+    for (const unknown of permissionInventory.unknown) {
       findings.push({
-        id: `permissions-inventory-unknown:${inventory.exportName}:${unknown}`,
+        id: `permissions-inventory-unknown:${permissionInventory.exportName}:${unknown}`,
         category: 'core',
         title: 'Permission inventory drift',
         status: 'warn',
-        message: `Permissions array "${inventory.exportName}" in ${inventory.file} references "${unknown}", but no exported definePermission() definition with that name was found in the file.`,
+        message: `Permissions array "${permissionInventory.exportName}" in ${permissionInventory.file} references "${unknown}", but no exported definePermission() definition with that name was found in the file.`,
         fixHint:
           'Fix the inventory entry name or restore the missing exported permission definition.',
+        sources: [findingInventorySource('permissions.inventories', [permissionInventory.source])],
       })
     }
   }

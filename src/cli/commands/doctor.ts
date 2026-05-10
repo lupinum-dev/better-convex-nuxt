@@ -20,7 +20,7 @@ import {
   type TrellisCliInventoryFacts,
 } from '../lib/inventory.js'
 import { renderDoctorReport } from '../lib/output.js'
-import { collectPermissionMetadataFindings } from '../lib/permission-metadata.js'
+import { collectPermissionInventoryFindings } from '../lib/permission-metadata.js'
 import {
   findConvexUrlSource,
   findEnvKeySource,
@@ -350,7 +350,7 @@ function createDoctorFindings(
         ? 'No action needed unless you add destructive MCP tools later.'
         : 'Set TRELLIS_MCP_CONFIRMATION_KEY in the local environment and the deployment serving destructive MCP traffic.',
     },
-    ...collectPermissionMetadataFindings(project),
+    ...collectPermissionInventoryFindings(inventory, project),
   ]
   const moduleValidationFindings = collectModuleValidationFindings({
     rootDir: cwd,
