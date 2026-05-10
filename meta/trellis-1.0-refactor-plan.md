@@ -806,17 +806,18 @@ the design, without letting them keep old Trellis paths alive.
       signed `_trellisForwarding` envelopes.
 - [x] Migrate Ginko destructive MCP wrapper code from
       `rawMcpRuntime.tool.fromOperation(...)` to `mcp.tool.operation(...)`.
-- [ ] Update Ginko docs/setup examples so Ginko users see `ginko-cms init`,
+- [x] Update Ginko docs/setup examples so Ginko users see `ginko-cms init`,
       Ginko-owned bridge health commands, and Ginko terminology rather than
       Trellis bridge internals.
-- [ ] Keep Trellis historical notes only as historical notes; current Ginko
+- [x] Keep Trellis historical notes only as historical notes; current Ginko
       docs must not teach old Trellis APIs.
 
 ### Prove
 
 - [x] Trellis examples/harness validation passes for retained targets.
-- [ ] Packed Trellis packages install into Ginko CMS.
-- [ ] Ginko CMS `pnpm run check` passes against packed Trellis packages.
+- [x] Packed Trellis packages install into Ginko CMS.
+- [x] Ginko CMS `pnpm run check` passes with packed Trellis package-consumer
+      validation.
 - [x] Ginko CMS package-boundary and no-zombie-path tests pass after import
       updates.
 - [x] Ginko destructive MCP confirmation tests pass using only
@@ -826,8 +827,8 @@ the design, without letting them keep old Trellis paths alive.
 
 ### Done Means
 
-- [ ] The real bridge consumer does not rely on deleted Trellis APIs.
-- [ ] Ginko remains Ginko-owned product setup, not a Trellis starter by
+- [x] The real bridge consumer does not rely on deleted Trellis APIs.
+- [x] Ginko remains Ginko-owned product setup, not a Trellis starter by
       accident.
 
 ## Slice 12: Documentation Rewrite
@@ -1005,6 +1006,14 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   restoring old Trellis paths, or widening scope into packed-package validation.
   It should also clean current Ginko setup/docs wording only where targeted
   scans prove users still see deleted Trellis APIs or bridge internals.
+- Sprint 70 completed the full local Ginko CMS quality gate. Formatting drift
+  was normalized, exact signed-forwarding metadata was added to the asset
+  reference rebuild mutation, public API expectations were updated for stricter
+  data-only and unsupported-locale behavior, and the package-consumer fixture now
+  installs packed Trellis root and bridge tarballs. Full Ginko `pnpm run check`
+  passes, including the packed package-consumer validation. The deleted-path scan
+  found only intentional package-boundary/no-zombie-path tests; current Ginko
+  docs/setup output does not teach deleted Trellis APIs.
 
 ### Done Means
 
