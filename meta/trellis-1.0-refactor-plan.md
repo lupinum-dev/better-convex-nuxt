@@ -913,6 +913,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   consumed by `type-primitives`, maintained examples share the current Convex
   dependency set, and stale confirmation-token imports in example tests now use
   the canonical functions path.
+- Sprint 60 is planned to repair the full `pnpm run lint` gate. The known
+  failure groups are example test imports of repo-local confirmation-token
+  internals, one fixture page name, one upgrade regex cleanup, unused fixture
+  imports, permission overload consolidation, backend function type lint debt,
+  and one type-test unused expression.
 
 ### Done Means
 
