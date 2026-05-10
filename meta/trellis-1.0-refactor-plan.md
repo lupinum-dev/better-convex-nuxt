@@ -557,6 +557,9 @@ docs generation, and future explain commands.
   definitions and inventory drift now use `inventory.permissions`; projected
   permission usage remains an explicit source scan until usage is part of
   inventory.
+- Sprint 47 is planned to add the first `trellis explain` surface:
+  `trellis explain operation <id>`, backed by `TrellisCliInventory` operation,
+  projection, feature, and MCP tool metadata.
 
 ### Done Means
 
