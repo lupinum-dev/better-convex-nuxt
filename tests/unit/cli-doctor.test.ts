@@ -105,6 +105,25 @@ type DoctorInventoryJsonReport = {
         source: { path: string; line: number }
       }>
     }
+    publicSurface: {
+      operations: Array<{
+        id: string
+        exportName: string
+        kind: 'safe' | 'destructive'
+        source: { path: string; line: number }
+      }>
+      projections: Array<{
+        operationId: string
+        exportName: string
+        projection: 'preview' | 'execute'
+        source: { path: string; line: number }
+      }>
+      tools: Array<{
+        name: string
+        source: 'tool' | 'operation' | 'defineTool'
+        sourceLocation: { path: string; line: number }
+      }>
+    }
     findings: []
   }
   findings: Array<{ id: string; status: string }>
@@ -583,6 +602,11 @@ describe('CLI doctor', () => {
         featureBindings: [],
         warnings: [],
       })
+      expect(report.inventory.publicSurface).toMatchObject({
+        operations: [],
+        projections: [],
+      })
+      expect(report.inventory.publicSurface.tools.length).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.findings).toEqual([])
     }
   })
@@ -612,6 +636,18 @@ describe('CLI doctor', () => {
       ],
       warnings: [],
     })
+    expect(report.inventory.publicSurface.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'delete-project',
+          source: 'operation',
+          sourceLocation: expect.objectContaining({
+            path: 'server/mcp/tools/delete-project.ts',
+            line: expect.any(Number),
+          }),
+        }),
+      ]),
+    )
     expect(report.findings.find((entry) => entry.id === 'app-inventory-source')).toMatchObject({
       status: 'pass',
       message: expect.stringContaining('1 static feature binding'),
@@ -1403,6 +1439,131 @@ export const purgeTodoOp = defineOperation({
         line: expect.any(Number),
       }),
     ])
+    expect(report.inventory.publicSurface.operations).toEqual([
+      expect.objectContaining({
+        id: 'todos.purge',
+        exportName: 'purgeTodoOp',
+        kind: 'destructive',
+        source: expect.objectContaining({
+          path: 'convex/features/todos/operations.ts',
+          line: expect.any(Number),
+        }),
+      }),
+    ])
+    expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')?.status).toBe(
+      'pass',
+    )
+  })
+
+  it('warns when MCP is enabled and destructive operations have no operation-backed tool', () => {
+    const cwd = createTempDir('trellis-doctor-operation-tool-drift-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+      'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
+    ])
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/operations.ts'),
+      `
+import { defineOperation } from '@lupinum/trellis/backend'
+import { v } from 'convex/values'
+
+export const purgeTodoOp = defineOperation({
+  id: 'todos.purge',
+  kind: 'destructive',
+  args: { id: v.string() },
+  guard: open,
+  handler: async () => null,
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')).toMatchObject({
+      status: 'warn',
+      message: expect.stringContaining('no operation-backed MCP tools'),
+    })
+  })
+
+  it('passes operation/tool agreement when an operation-backed MCP tool exists', () => {
+    const cwd = createTempDir('trellis-doctor-operation-tool-agreement-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+      'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
+    ])
+
+    writeFileSync(
+      resolve(appRoot, 'convex/features/todos/operations.ts'),
+      `
+import { defineOperation } from '@lupinum/trellis/backend'
+import { v } from 'convex/values'
+
+export const purgeTodoOp = defineOperation({
+  id: 'todos.purge',
+  kind: 'destructive',
+  args: { id: v.string() },
+  guard: open,
+  handler: async () => null,
+})
+`.trimStart(),
+    )
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/delete-todo.ts'),
+      `
+import { purgeTodoOp } from '~~/convex/features/todos/operations'
+import { tool } from '../runtime'
+
+export default tool.operation(purgeTodoOp, {
+  name: 'delete-todo',
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
+      findings: Array<{ id: string; status: string; message: string }>
+      summary: { fail: number; warn: number }
+    }
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.fail).toBe(0)
+    expect(report.inventory.publicSurface.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'delete-todo',
+          source: 'operation',
+          sourceLocation: expect.objectContaining({
+            path: 'server/mcp/tools/delete-todo.ts',
+            line: expect.any(Number),
+          }),
+        }),
+      ]),
+    )
+    expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('operation-backed MCP tool'),
+    })
   })
 
   it('fails doctor when a destructive MCP tool skips tool.operation', () => {

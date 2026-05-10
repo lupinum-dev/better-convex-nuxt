@@ -131,40 +131,40 @@ new local scan.
 
 ### 1. Extend Inventory
 
-- [ ] Import/reuse `extractPublicSurfaceCodegenMetadata(...)` from the existing
+- [x] Import/reuse `extractPublicSurfaceCodegenMetadata(...)` from the existing
       module-internals extractor.
-- [ ] Add `inventory.publicSurface.operations`.
-- [ ] Add `inventory.publicSurface.projections`.
-- [ ] Add `inventory.publicSurface.tools`.
-- [ ] Map all metadata locations to the safe inventory source-location shape.
-- [ ] Preserve existing `inventory.backend`, `inventory.mcp`, and
+- [x] Add `inventory.publicSurface.operations`.
+- [x] Add `inventory.publicSurface.projections`.
+- [x] Add `inventory.publicSurface.tools`.
+- [x] Map all metadata locations to the safe inventory source-location shape.
+- [x] Preserve existing `inventory.backend`, `inventory.mcp`, and
       `inventory.surfaces` fields.
 
 ### 2. Add Doctor Agreement Finding
 
-- [ ] Add `operation-tool-agreement` finding backed by
+- [x] Add `operation-tool-agreement` finding backed by
       `inventory.publicSurface`.
-- [ ] Keep backend-only destructive operations as pass when MCP is not enabled.
-- [ ] Warn only for clear MCP/destructive operation drift.
-- [ ] Keep human output concise and source-location based.
+- [x] Keep backend-only destructive operations as pass when MCP is not enabled.
+- [x] Warn only for clear MCP/destructive operation drift.
+- [x] Keep human output concise and source-location based.
 
 ### 3. Add Tests
 
-- [ ] Test inventory reports operation definitions, projections, and MCP tools
+- [x] Test inventory reports operation definitions, projections, and MCP tools
       from the Phase 0 fixture or generated feature fixture.
-- [ ] Test backend-only destructive operation remains pass.
-- [ ] Test MCP-enabled destructive operation without operation-backed tool
+- [x] Test backend-only destructive operation remains pass.
+- [x] Test MCP-enabled destructive operation without operation-backed tool
       produces a warning only when metadata proves drift.
-- [ ] Test operation-backed MCP tool passes agreement.
-- [ ] Test JSON remains snippet-free and secret-safe.
+- [x] Test operation-backed MCP tool passes agreement.
+- [x] Test JSON remains snippet-free and secret-safe.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes for public-surface metadata in inventory.
-- [ ] Mark `Doctor and public-surface checks agree on operations/tools` only if
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes for public-surface metadata in inventory.
+- [x] Mark `Doctor and public-surface checks agree on operations/tools` only if
       the extractor-backed inventory and doctor finding prove the agreement path.
-- [ ] Leave upgrade and explain replacement unchecked.
+- [x] Leave upgrade and explain replacement unchecked.
 
 ## Verification
 
@@ -207,19 +207,27 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Inventory JSON includes operation, projection, and MCP tool metadata from
+- [x] Inventory JSON includes operation, projection, and MCP tool metadata from
       the existing public-surface extractor.
-- [ ] Doctor has an operation/tool agreement finding backed by inventory.
-- [ ] Backend-only destructive operations remain valid.
-- [ ] Clear MCP/destructive operation drift warns without overclaiming.
-- [ ] No app source is executed or imported.
-- [ ] Inventory JSON remains snippet-free and secret-safe.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Doctor has an operation/tool agreement finding backed by inventory.
+- [x] Backend-only destructive operations remain valid.
+- [x] Clear MCP/destructive operation drift warns without overclaiming.
+- [x] No app source is executed or imported.
+- [x] Inventory JSON remains snippet-free and secret-safe.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `inventory.publicSurface` with operations, projections, and MCP tools
+  sourced from `extractPublicSurfaceCodegenMetadata(...)`.
+- Public-surface inventory stores path + line locations only.
+- Added `operation-tool-agreement`, a conservative doctor finding backed by
+  `inventory.publicSurface`.
+- Backend-only destructive operations remain passing when MCP is not enabled.
+- MCP-enabled apps with destructive operations and no operation-backed MCP tools
+  warn.
+- Operation-backed MCP tools clear the agreement warning.
 
 ## Next Sprint Candidate
 

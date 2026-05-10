@@ -472,7 +472,7 @@ docs generation, and future explain commands.
 ### Prove
 
 - [x] Inventory schema is versioned.
-- [ ] Doctor and public-surface checks agree on operations/tools.
+- [x] Doctor and public-surface checks agree on operations/tools.
 - [ ] Security findings cite the metadata source they came from.
 
 ### Sprint Notes
@@ -490,6 +490,9 @@ docs generation, and future explain commands.
 - Sprint 35 added `app-inventory-source`, the first doctor finding backed by
   `inventory.appInventory`; malformed/dynamic app inventory now warns from the
   app-owned inventory source.
+- Sprint 36 added `inventory.publicSurface` from the existing public-surface
+  extractor and `operation-tool-agreement`, a conservative doctor check for
+  destructive operation/MCP tool drift.
 
 ### Done Means
 

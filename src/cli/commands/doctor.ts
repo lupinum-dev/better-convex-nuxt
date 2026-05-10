@@ -103,6 +103,60 @@ function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFindin
   }
 }
 
+function createOperationToolAgreementFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const destructiveOperations = inventory.publicSurface.operations.filter(
+    (operation) => operation.kind === 'destructive',
+  )
+  const operationBackedTools = inventory.publicSurface.tools.filter(
+    (tool) => tool.source === 'operation',
+  )
+
+  if (destructiveOperations.length === 0) {
+    return {
+      id: 'operation-tool-agreement',
+      category: 'advanced',
+      title: 'Operation/tool agreement',
+      status: 'pass',
+      message: 'No destructive operations were found in public-surface metadata.',
+      fixHint: 'No action needed unless you add destructive operation-backed MCP tools later.',
+    }
+  }
+
+  if (!inventory.layers.mcp) {
+    return {
+      id: 'operation-tool-agreement',
+      category: 'advanced',
+      title: 'Operation/tool agreement',
+      status: 'pass',
+      message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and no MCP layer. Backend-only destructive operations are valid.`,
+      fixHint:
+        'Expose destructive operations to MCP only when the app intentionally needs agent access.',
+    }
+  }
+
+  if (operationBackedTools.length === 0) {
+    return {
+      id: 'operation-tool-agreement',
+      category: 'advanced',
+      title: 'Operation/tool agreement',
+      status: 'warn',
+      message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} but no operation-backed MCP tools in public-surface metadata. First operation: ${formatInventoryLocations([destructiveOperations[0]!.source])}.`,
+      fixHint:
+        'Bind destructive MCP tools with `tool.operation(...)`, or keep the operation backend-only if MCP exposure is not intended.',
+    }
+  }
+
+  return {
+    id: 'operation-tool-agreement',
+    category: 'advanced',
+    title: 'Operation/tool agreement',
+    status: 'pass',
+    message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} in public-surface metadata.`,
+    fixHint:
+      'Keep destructive MCP tools operation-backed so preview, confirmation, and execute stay coupled.',
+  }
+}
+
 function createDoctorFindings(
   project: ProjectInspection,
   inventory: TrellisCliInventory,
@@ -513,6 +567,7 @@ function createDoctorFindings(
           ? 'Destructive MCP tools must bind through `tool.operation(...)` so preview, confirmation, and execute stay coupled.'
           : 'Keep destructive MCP tools operation-backed.',
     },
+    createOperationToolAgreementFinding(inventory),
     {
       id: 'mcp-custom-app-write-bypass',
       category: 'advanced',

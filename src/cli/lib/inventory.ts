@@ -2,6 +2,7 @@ import { relative } from 'node:path'
 
 import { Node, Project, SyntaxKind } from 'ts-morph'
 
+import { extractPublicSurfaceCodegenMetadata } from '../../module-internals/public-surface-codegen.js'
 import {
   findConvexAuthSource,
   findConvexHttpSource,
@@ -55,6 +56,26 @@ export interface TrellisCliInventoryAppInventoryFeatureBinding {
 export interface TrellisCliInventoryAppInventoryWarning {
   code: TrellisCliInventoryAppInventoryWarningCode
   source: TrellisCliInventorySourceLocation
+}
+
+export interface TrellisCliInventoryPublicSurfaceOperation {
+  id: string
+  exportName: string
+  kind: 'safe' | 'destructive'
+  source: TrellisCliInventorySourceLocation
+}
+
+export interface TrellisCliInventoryPublicSurfaceProjection {
+  operationId: string
+  exportName: string
+  projection: 'preview' | 'execute'
+  source: TrellisCliInventorySourceLocation
+}
+
+export interface TrellisCliInventoryPublicSurfaceTool {
+  name: string
+  source: 'tool' | 'operation' | 'defineTool'
+  sourceLocation: TrellisCliInventorySourceLocation
 }
 
 export interface TrellisCliInventory {
@@ -118,6 +139,11 @@ export interface TrellisCliInventory {
     featureBindings: TrellisCliInventoryAppInventoryFeatureBinding[]
     warnings: TrellisCliInventoryAppInventoryWarning[]
   }
+  publicSurface: {
+    operations: TrellisCliInventoryPublicSurfaceOperation[]
+    projections: TrellisCliInventoryPublicSurfaceProjection[]
+    tools: TrellisCliInventoryPublicSurfaceTool[]
+  }
   findings: []
 }
 
@@ -141,6 +167,37 @@ function toInventoryLocations(
   locations: ProjectSourceLocation[],
 ): TrellisCliInventorySourceLocation[] {
   return locations.map((location) => toInventoryLocation(project, location))
+}
+
+function toMetadataLocation(file: string, line: number): TrellisCliInventorySourceLocation {
+  return {
+    path: file,
+    line,
+  }
+}
+
+function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['publicSurface'] {
+  const metadata = extractPublicSurfaceCodegenMetadata(project.cwd)
+
+  return {
+    operations: metadata.operations.map((operation) => ({
+      id: operation.id,
+      exportName: operation.exportName,
+      kind: operation.kind,
+      source: toMetadataLocation(operation.file, operation.line),
+    })),
+    projections: metadata.projections.map((projection) => ({
+      operationId: projection.operationId,
+      exportName: projection.exportName,
+      projection: projection.projection,
+      source: toMetadataLocation(projection.file, projection.line),
+    })),
+    tools: metadata.tools.map((tool) => ({
+      name: tool.name,
+      source: tool.source,
+      sourceLocation: toMetadataLocation(tool.file, tool.line),
+    })),
+  }
 }
 
 function unwrapExpression(node: Node | undefined): Node | undefined {
@@ -395,6 +452,7 @@ export function collectTrellisCliInventory(
       destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
     },
     appInventory: collectAppInventory(project, appInventorySource),
+    publicSurface: collectPublicSurface(project),
     findings: [],
   }
 }
