@@ -1072,6 +1072,13 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   `tool.fromOperation(...)`, raw forwarding, or `_trustedForwardingKey` hits;
   MCP operation ref helper details remain intentionally open for the MCP
   projection sprint.
+- Sprint 75 is planned to continue Slice 12 with the MCP projection guide. The
+  sprint should tighten the MCP define-tools and destructive-tools pages around
+  the three blessed lanes, explicit allowlisting, backend-owned authorization,
+  shared descriptors/permission keys instead of Convex implementation imports,
+  direct mutation safety metadata, and operation-backed preview/execute binding.
+  Trusted forwarding, bridge package-author, and full public API reference
+  rewrites stay open unless this sprint makes only narrow alignment edits.
 
 ### Done Means
 
