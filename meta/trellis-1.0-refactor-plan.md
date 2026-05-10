@@ -972,6 +972,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   `@lupinum/trellis-bridge`; package-boundary, manifest, module-bridge,
   publish-specifier, and installer bridge-boundary checks pass. Raw forwarding
   and full packed-package validation remain open.
+- Sprint 68 is planned to cut over Ginko generated bridge forwarding artifacts.
+  Authored Ginko bridge code already emits signed `_trellisForwarding`; the
+  remaining raw `_trustedForwardingKey` / `_trustedForwarding` hits are in
+  generated component refs and should be removed through the maintained
+  generator/regeneration path plus a no-raw-forwarding guardrail.
 
 ### Done Means
 
