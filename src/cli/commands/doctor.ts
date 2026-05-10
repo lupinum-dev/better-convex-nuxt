@@ -383,7 +383,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
       status: 'pass',
       message:
         unsafeSurfaceInventory.length === 0
-          ? 'No `unsafe.query(...)` or `unsafe.mutation(...)` entrypoints were detected.'
+          ? 'No `query.unsafe(...)` or `mutation.unsafe(...)` entrypoints were detected.'
           : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${unsafeSurfaceInventory
               .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
               .slice(0, 3)

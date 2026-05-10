@@ -700,15 +700,17 @@ export function findUnsafeSurfaceInventory(project: ProjectInspection): ProjectS
     for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const callee = unwrapExpression(call.getExpression())
       if (!callee || !Node.isPropertyAccessExpression(callee)) continue
-      if (
-        !Node.isIdentifier(callee.getExpression()) ||
-        callee.getExpression().getText() !== 'unsafe'
-      ) {
-        continue
-      }
-
       const method = callee.getName()
-      if (method !== 'query' && method !== 'mutation') continue
+      const receiver = callee.getExpression()
+      const isLegacyUnsafe =
+        Node.isIdentifier(receiver) &&
+        receiver.getText() === 'unsafe' &&
+        (method === 'query' || method === 'mutation')
+      const isLaneUnsafe =
+        method === 'unsafe' &&
+        Node.isIdentifier(receiver) &&
+        (receiver.getText() === 'query' || receiver.getText() === 'mutation')
+      if (!isLegacyUnsafe && !isLaneUnsafe) continue
 
       findings.push({
         path: sourceFile.getFilePath(),

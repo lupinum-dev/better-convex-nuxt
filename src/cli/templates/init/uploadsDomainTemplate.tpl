@@ -5,17 +5,17 @@
  * later when another record attaches the returned storage id.
  */
 import { requireAuth } from '@lupinum/trellis/auth'
-import type { ActorAccessor } from '@lupinum/trellis/functions'
+import type { ActorAccessor } from '@lupinum/trellis/backend'
 import type { GenericMutationCtx } from 'convex/server'
 
 import { generateUploadUrl as generateUploadUrlContract } from '../../../shared/features/files/contract'
 import type { DataModel } from '../../_generated/dataModel'
 import type { Actor } from '../../auth/actor'
-import { unsafe } from '../../functions'
+import { mutation } from '../../functions'
 
 type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
 
-export const generateUploadUrlMutation = unsafe.mutation({
+export const generateUploadUrlMutation = mutation.unsafe({
   bypass: 'Generate upload URLs before a concrete tenant-scoped record exists.',
   args: generateUploadUrlContract.args,
   handler: async (ctx: Ctx) => {

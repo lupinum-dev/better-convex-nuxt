@@ -1,9 +1,9 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { unsafe } from '../functions'
+import { mutation } from '../functions'
 
-export const createFirstWorkspace = unsafe.mutation({
+export const createFirstWorkspace = mutation.unsafe({
   bypass: 'Create the first workspace before a tenant-bound actor exists.',
   args: {
     name: v.string(),

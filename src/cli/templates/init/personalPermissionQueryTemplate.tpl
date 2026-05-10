@@ -4,7 +4,7 @@ import { personalPermissions } from '../auth/permissions'
 import { getActor } from '../auth/actor'
 import { query } from '../functions'
 
-export const getPermissionContext = query(
+export const getPermissionContext = query.protected(
   definePermissionContext({
     resolve: getActor,
     permissions: personalPermissions,

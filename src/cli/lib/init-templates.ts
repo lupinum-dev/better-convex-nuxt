@@ -70,23 +70,21 @@ export default defineSchema({
 
 export function publicTodosTemplate() {
   return `
-import { open, requireRecord } from '@lupinum/trellis/auth'
+import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../../../shared/features/todos/contract'
 import { mutation, query } from '../../functions'
 
-export const list = query({
+export const list = query.public({
   args: {},
-  guard: open,
   handler: async (ctx) => {
     return await ctx.db.query('todos').order('desc').collect()
   },
 })
 
-export const create = mutation({
+export const create = mutation.public({
   args: createTodo.args,
-  guard: open,
   handler: async (ctx, args) => {
     return await ctx.db.insert('todos', {
       title: args.title,
@@ -96,9 +94,8 @@ export const create = mutation({
   },
 })
 
-export const toggle = mutation({
+export const toggle = mutation.public({
   args: { id: v.id('todos') },
-  guard: open,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
@@ -111,9 +108,8 @@ export const toggle = mutation({
   },
 })
 
-export const remove = mutation({
+export const remove = mutation.public({
   args: { id: v.id('todos') },
-  guard: open,
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
   },
@@ -213,7 +209,7 @@ import { getPermissionActor } from '../auth/actor'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getPermissionContext = query(
+export const getPermissionContext = query.protected(
   definePermissionContext({
     resolve: getPermissionActor,
     permissions,
@@ -253,7 +249,7 @@ import { createTodo } from '../../../shared/features/todos/contract'
 import { isAuthenticated } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 
-export const list = query({
+export const list = query.protected({
   args: {},
   guard: isAuthenticated,
   handler: async (ctx) => {
@@ -267,7 +263,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTodo.args,
   guard: isAuthenticated,
   handler: async (ctx, args) => {
@@ -282,7 +278,7 @@ export const create = mutation({
   },
 })
 
-export const toggle = mutation({
+export const toggle = mutation.protected({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
@@ -463,7 +459,7 @@ export function workspaceFunctionsAppTemplate() {
   return `
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import { defineTrellis } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/backend'
 
 import { getActorFromPrincipal } from './auth/actor'
 import { principal } from './auth/principal'
@@ -472,7 +468,7 @@ import { globalTables, tenantTables } from './features'
 const isolatedTables = [...tenantTables] as TableNames[]
 const explicitlyGlobalTables = [...globalTables] as TableNames[]
 
-export const { mutation, query, unsafe } = defineTrellis(
+export const { mutation, query } = defineTrellis(
   { query: generatedQuery, mutation: generatedMutation },
   {
     principal,
@@ -491,10 +487,9 @@ export function workspaceTodosTemplate() {
 import { createTodo, listTodos } from '../../../shared/features/todos/contract'
 
 import { mutation, query } from '../../functions'
-import { hasMinimumRole, hasWorkspace } from '../../auth/guards'
 import { todoCreate, workspaceRead } from './permissions'
 
-export const list = query({
+export const list = query.protected({
   args: listTodos.args,
   guard: workspaceRead,
   handler: async (ctx) => {
@@ -509,7 +504,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTodo.args,
   guard: todoCreate,
   handler: async (ctx, args) => {
@@ -1012,7 +1007,7 @@ import { authRequired } from '@lupinum/trellis/auth'
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation({
+export const createWorkspaceMutation = mutation.protected({
   guard: authRequired,
   args: createWorkspace.args,
   handler: async (ctx, args) => {

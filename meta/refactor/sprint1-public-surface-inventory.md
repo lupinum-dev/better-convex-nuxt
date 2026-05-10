@@ -165,13 +165,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | apps/docs/content/docs/13.api-reference/7.api-surface.md                   | `@lupinum/trellis/bridge`                                                                                                                      | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/2.define-tools.md                      | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md                 | `tool.fromOperation`, `@lupinum/trellis/functions`                                                                                             | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/cmsPagesTemplate.tpl                                | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/personalFunctionsTemplate.tpl                       | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/publicFunctionsTemplate.tpl                         | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/uploadsDomainTemplate.tpl                           | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/workspaceFunctionsAppTemplate.tpl                   | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/workspaceFunctionsTemplate.tpl                      | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| src/cli/templates/init/workspacePrincipalTemplate.tpl                      | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
 
 ## Sprint 1 Decisions
 

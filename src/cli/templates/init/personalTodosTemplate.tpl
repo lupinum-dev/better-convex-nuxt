@@ -5,7 +5,7 @@ import { createTodo } from '../../shared/features/todos/contract'
 import { isAuthenticated } from '../auth/guards'
 import { mutation, query } from '../functions'
 
-export const list = query({
+export const list = query.protected({
   args: {},
   guard: isAuthenticated,
   handler: async (ctx) => {
@@ -19,7 +19,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTodo.args,
   guard: isAuthenticated,
   handler: async (ctx, args) => {
@@ -34,7 +34,7 @@ export const create = mutation({
   },
 })
 
-export const toggle = mutation({
+export const toggle = mutation.protected({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {

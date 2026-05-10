@@ -2,7 +2,7 @@ import { createTodo } from '../../shared/features/todos/contract'
 import { hasMinimumRole, hasWorkspace } from '../auth/guards'
 import { mutation, query } from '../functions'
 
-export const list = query({
+export const list = query.protected({
   args: {},
   guard: hasWorkspace,
   handler: async (ctx) => {
@@ -16,7 +16,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTodo.args,
   guard: hasWorkspace.and(hasMinimumRole('member')),
   handler: async (ctx, args) => {

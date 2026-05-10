@@ -1,5 +1,5 @@
 import { getAuth } from '@lupinum/trellis/auth'
-import { defineDelegation, definePrincipal } from '@lupinum/trellis/functions'
+import { defineDelegation, definePrincipal } from '@lupinum/trellis/backend'
 import {
   getForwardedDelegation,
   getForwardedPrincipal,

@@ -199,7 +199,7 @@ export const ${ctx.singularCamel}Permissions = [
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { delete${ctx.singularPascal} } from '../../../shared/features/${ctx.tableName}/contract'
@@ -278,7 +278,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   ].join(',\n      ')
   const removeExport = ctx.hasMcp
     ? `export const remove = mutation(remove${ctx.singularPascal}Op)\n`
-    : `export const remove = mutation({
+    : `export const remove = mutation.protected({
   args: delete${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}DeletePermission,
   load: async (ctx, args) => {
@@ -312,7 +312,7 @@ import {
 import { mutation, query } from '../../functions'
 ${ctx.hasMcp ? `import { remove${ctx.singularPascal}Op } from './operations'\n` : ''}
 
-export const list = query({
+export const list = query.protected({
   args: list${ctx.pluralPascal}.args,
   guard: ${ctx.singularCamel}ReadPermission,
   handler: async (ctx) => {
@@ -325,7 +325,7 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = query.protected({
   args: get${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}ReadPermission,
   load: async (ctx, args) => {
@@ -339,7 +339,7 @@ export const get = query({
   handler: async (_ctx, _args, loaded) => loaded,
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: create${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}CreatePermission,
   handler: async (ctx, args) => {
@@ -351,7 +351,7 @@ export const create = mutation({
   },
 })
 
-export const update = mutation({
+export const update = mutation.protected({
   args: update${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}ReadPermission,
   load: async (ctx, args) => {
@@ -519,7 +519,7 @@ export default tool({
 
 function resourceMcpDeleteTemplate(ctx: ResourceGeneratorContext): string {
   return `
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/functions'
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 import { remove } from '~~/convex/features/${ctx.tableName}/domain'
 import { previewRemove${ctx.singularPascal}, remove${ctx.singularPascal}Op } from '~~/convex/features/${ctx.tableName}/operations'
 import { ${ctx.singularCamel}DeletePermission } from '~~/convex/features/${ctx.tableName}/permissions'

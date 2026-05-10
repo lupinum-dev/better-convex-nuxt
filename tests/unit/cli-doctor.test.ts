@@ -64,6 +64,11 @@ function expectCanonicalLayout(appRoot: string, options: CanonicalLayoutOptions)
   }
 }
 
+function expectNoOldBackendSurface(source: string, label: string) {
+  expect(source, label).not.toContain('@lupinum/trellis/functions')
+  expect(source, label).not.toMatch(/=\s*(?:query|mutation)\(\s*\{/)
+}
+
 function writeDoctorEnv(appRoot: string) {
   writeFileSync(
     resolve(appRoot, '.env.local'),
@@ -124,6 +129,13 @@ describe('CLI doctor', () => {
     expect(existsSync(resolve(appRoot, 'convex/permissions'))).toBe(false)
     expect(existsSync(resolve(appRoot, 'shared/features/todos/contract.ts'))).toBe(true)
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
+    const functions = read(resolve(appRoot, 'convex/functions.ts'))
+    const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
+    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(todos).toContain('query.public({')
+    expect(todos).toContain('mutation.public({')
+    expectNoOldBackendSurface(functions, 'public convex/functions.ts')
+    expectNoOldBackendSurface(todos, 'public todos domain')
   })
 
   it('returns a machine-readable JSON summary for init', () => {
@@ -183,6 +195,13 @@ describe('CLI doctor', () => {
     expect(existsSync(resolve(appRoot, 'convex/auth/permissions.ts'))).toBe(false)
     expect(existsSync(resolve(appRoot, 'shared/features/todos/contract.ts'))).toBe(true)
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
+    const functions = read(resolve(appRoot, 'convex/functions.ts'))
+    const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
+    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(todos).toContain('query.protected({')
+    expect(todos).toContain('mutation.protected({')
+    expectNoOldBackendSurface(functions, 'personal convex/functions.ts')
+    expectNoOldBackendSurface(todos, 'personal todos domain')
   })
 
   it('initializes a workspace app with MCP via --mcp', () => {
@@ -212,6 +231,17 @@ describe('CLI doctor', () => {
     expect(read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))).toContain(
       "serverConvexQuery(event, api.features.mcpKeys.domain.validate, { hash }, { auth: 'none' })",
     )
+    const functions = read(resolve(appRoot, 'convex/functions.ts'))
+    const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
+    const mcpKeys = read(resolve(appRoot, 'convex/features/mcpKeys/domain.ts'))
+    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(todos).toContain('query.protected({')
+    expect(todos).toContain('mutation.protected({')
+    expect(mcpKeys).toContain('query.public({')
+    expect(mcpKeys).toContain('mutation.public({')
+    expectNoOldBackendSurface(functions, 'workspace convex/functions.ts')
+    expectNoOldBackendSurface(todos, 'workspace todos domain')
+    expectNoOldBackendSurface(mcpKeys, 'workspace MCP keys domain')
   })
 
   it('initializes a workspace MCP app with the first-class template name', () => {
@@ -233,6 +263,10 @@ describe('CLI doctor', () => {
     expect(read(resolve(appRoot, 'convex/schema.ts'))).toContain('mcpKeys: defineTable')
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     expect(existsSync(resolve(appRoot, 'server/mcp/.gitkeep'))).toBe(false)
+    const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
+    expect(todos).toContain('query.protected({')
+    expect(todos).toContain('mutation.protected({')
+    expectNoOldBackendSurface(todos, 'workspace-mcp todos domain')
   })
 
   it('adds MCP to an existing workspace app', { timeout: 15_000 }, () => {
@@ -316,7 +350,11 @@ describe('CLI doctor', () => {
 
     const uploadsResult = runCli(['add', 'uploads', '--cwd', appRoot], repoRoot)
     expect(uploadsResult.status, `${uploadsResult.stdout}\n${uploadsResult.stderr}`).toBe(0)
-    expect(read(resolve(appRoot, 'convex/features/files/domain.ts'))).toContain('generateUploadUrl')
+    const uploadsDomain = read(resolve(appRoot, 'convex/features/files/domain.ts'))
+    expect(uploadsDomain).toContain('generateUploadUrl')
+    expect(uploadsDomain).toContain("@lupinum/trellis/backend")
+    expect(uploadsDomain).toContain('mutation.unsafe({')
+    expectNoOldBackendSurface(uploadsDomain, 'uploads domain')
     expect(read(resolve(appRoot, 'app/pages/uploads.vue'))).toContain('UploadsStarterPage')
 
     const operationResult = runCli(
@@ -328,6 +366,24 @@ describe('CLI doctor', () => {
     expect(operation).toContain("kind: 'destructive'")
     expect(operation).toContain('previewPublishEntry')
     expect(operation).toContain('executePublishEntry')
+  })
+
+  it('adds entity resources with backend imports and explicit lanes', () => {
+    const cwd = createTempDir('trellis-add-entity-')
+    const initResult = runCli(
+      ['init', 'demo-personal', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'demo-personal')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+
+    const entityResult = runCli(['add', 'entity', 'bookmark', '--cwd', appRoot], repoRoot)
+    expect(entityResult.status, `${entityResult.stdout}\n${entityResult.stderr}`).toBe(0)
+
+    const domain = read(resolve(appRoot, 'convex/features/bookmarks/domain.ts'))
+    expect(domain).toContain('query.protected({')
+    expect(domain).toContain('mutation.protected({')
+    expectNoOldBackendSurface(domain, 'generated entity domain')
   })
 
   it('rejects the removed legacy init flows with migration guidance', () => {
@@ -874,12 +930,9 @@ export default defineEventHandler(async (event) => {
 
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/domain.ts'),
-      `${read(resolve(appRoot, 'convex/features/todos/domain.ts')).replace(
-        "import { mutation, query } from '../../functions'",
-        "import { mutation, query, unsafe } from '../../functions'",
-      )}
+      `${read(resolve(appRoot, 'convex/features/todos/domain.ts'))}
 
-export const publicCatalog = unsafe.query({
+export const publicCatalog = query.unsafe({
   bypass: 'Intentional public listing for doctor inventory coverage.',
   args: listTodos.args,
   handler: async (ctx) => {

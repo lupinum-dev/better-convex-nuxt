@@ -211,6 +211,7 @@ mutation.unsafe(...)
 ### Replace
 
 - [x] Convert representative examples and harness fixtures to explicit lanes.
+- [x] Convert beginner starter and resource generators to explicit lanes.
 - [x] Convert focused backend tests to explicit lanes.
 - [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
 - [ ] Add audit report for authorization rewrites that cannot be proven safe.

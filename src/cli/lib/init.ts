@@ -1092,7 +1092,7 @@ function operationTemplate(name: string, kind: 'safe' | 'destructive') {
   if (kind === 'destructive') {
     return `
 import { authRequired } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { mutation, query } from '../functions'
@@ -1125,7 +1125,7 @@ export const execute${exportName} = mutation(${exportName}Op)
 
   return `
 import { authRequired } from '@lupinum/trellis/auth'
-import { defineOperation } from '@lupinum/trellis/functions'
+import { defineOperation } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const ${exportName}Op = defineOperation({

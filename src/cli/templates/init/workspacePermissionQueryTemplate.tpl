@@ -4,7 +4,7 @@ import { workspacePermissions } from '../auth/permissions'
 import { getPermissionActor } from '../auth/actor'
 import { query } from '../functions'
 
-export const getPermissionContext = query(
+export const getPermissionContext = query.protected(
   definePermissionContext({
     resolve: getPermissionActor,
     permissions: workspacePermissions,

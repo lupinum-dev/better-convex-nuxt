@@ -1,12 +1,10 @@
-import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { mutation, query } from '../../functions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
-export const validate = query({
-  guard: open,
+export const validate = query.public({
   args: {
     hash: v.string(),
   },
@@ -28,8 +26,7 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
-  guard: open,
+export const touch = mutation.public({
   args: {
     id: v.id('mcpKeys'),
     seenAt: v.number(),
