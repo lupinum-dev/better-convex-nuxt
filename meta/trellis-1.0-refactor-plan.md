@@ -905,6 +905,14 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 - [ ] 0.x support/migration window stated.
 - [ ] 1.0 lifecycle statement confirmed.
 
+### Sprint Notes
+
+- Sprint 59 is planned to repair the aggregate `test:types` gate after the hard
+  cuts. The expected fixes are to keep starter/add fixture source out of the
+  root Nuxt typecheck, repair operation registry type exports for
+  `type-primitives`, and fix any true runtime strictness errors without adding
+  compatibility aliases.
+
 ### Done Means
 
 - [ ] No parallel implementation remains.
