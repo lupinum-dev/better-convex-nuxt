@@ -13,7 +13,7 @@ importers:
         version: 1.2.0
       '@convex-dev/better-auth':
         specifier: ^0.12.2
-        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(convex@1.36.1(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)
+        version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)
       '@nuxt/devtools-kit':
         specifier: ^3.2.4
         version: 3.2.4(magicast@0.5.2)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3))
@@ -103,14 +103,14 @@ importers:
         specifier: ^0.6.2
         version: 0.6.2(magicast@0.5.2)
       convex:
-        specifier: ^1.36.1
-        version: 1.36.1(react@19.2.5)
+        specifier: 1.37.0
+        version: 1.37.0(react@19.2.5)
       convex-helpers:
         specifier: ^0.1.114
-        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)(zod@4.3.6)
+        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)(zod@4.3.6)
       convex-test:
         specifier: ^0.0.47
-        version: 0.0.47(convex@1.36.1(react@19.2.5))
+        version: 0.0.47(convex@1.37.0(react@19.2.5))
       convex-vite-plugin:
         specifier: ^0.4.0
         version: 0.4.0(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3))
@@ -663,9 +663,6 @@ importers:
 
   packages/trellis-bridge:
     dependencies:
-      '@lupinum/trellis':
-        specifier: workspace:*
-        version: link:../..
       consola:
         specifier: ^3.4.2
         version: 3.4.2
@@ -675,6 +672,10 @@ importers:
       convex-helpers:
         specifier: ^0.1.114
         version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@5.9.3)(zod@4.3.6)
+    devDependencies:
+      '@lupinum/trellis':
+        specifier: workspace:*
+        version: link:../..
 
   tests/fixtures/doctor-missing-convex:
     dependencies:
@@ -5569,6 +5570,25 @@ packages:
 
   convex@1.36.1:
     resolution: {integrity: sha512-NVnwNqU+h8jyPuS0Itvj4MPH9c2yF+tA/RNoSDpCqiLhmYD4+kZxm0dDkVM0QDzz66wem9NqheBb9YQGsHwzBQ==}
+    engines: {node: '>=18.0.0', npm: '>=7.0.0'}
+    hasBin: true
+    peerDependencies:
+      '@auth0/auth0-react': ^2.0.1
+      '@clerk/clerk-react': ^4.12.8 || ^5.0.0
+      '@clerk/react': ^6.4.3
+      react: ^18.0.0 || ^19.0.0-0 || ^19.0.0
+    peerDependenciesMeta:
+      '@auth0/auth0-react':
+        optional: true
+      '@clerk/clerk-react':
+        optional: true
+      '@clerk/react':
+        optional: true
+      react:
+        optional: true
+
+  convex@1.37.0:
+    resolution: {integrity: sha512-xGSx5edIsXCEex3OU2U2N0oyB/cOa9qGwKiImF9yOWqjqZgOkx39idtpdlwNBTBSt4S30oAvs4yeXY5xxPIX3A==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -10648,13 +10668,13 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(convex@1.36.1(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)':
+  '@convex-dev/better-auth@0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)':
     dependencies:
       '@better-fetch/fetch': 1.1.21
       better-auth: 1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2))
       common-tags: 1.8.2
-      convex: 1.36.1(react@19.2.5)
-      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.36.1(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)(zod@4.3.6)
+      convex: 1.37.0(react@19.2.5)
+      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)(zod@4.3.6)
       jose: 6.2.2
       react: 19.2.5
       remeda: 2.33.6
@@ -16739,13 +16759,23 @@ snapshots:
       typescript: 6.0.2
       zod: 4.3.6
 
+  convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)(zod@4.3.6):
+    dependencies:
+      convex: 1.37.0(react@19.2.5)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.12.15
+      react: 19.2.5
+      typescript: 6.0.2
+      zod: 4.3.6
+
   convex-test@0.0.46(convex@1.36.1(react@19.2.5)):
     dependencies:
       convex: 1.36.1(react@19.2.5)
 
-  convex-test@0.0.47(convex@1.36.1(react@19.2.5)):
+  convex-test@0.0.47(convex@1.37.0(react@19.2.5)):
     dependencies:
-      convex: 1.36.1(react@19.2.5)
+      convex: 1.37.0(react@19.2.5)
 
   convex-vite-plugin@0.4.0(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3)):
     dependencies:
@@ -16753,6 +16783,17 @@ snapshots:
       vite: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3)
 
   convex@1.36.1(react@19.2.5):
+    dependencies:
+      esbuild: 0.27.0
+      prettier: 3.8.3
+      ws: 8.18.0
+    optionalDependencies:
+      react: 19.2.5
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  convex@1.37.0(react@19.2.5):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.3

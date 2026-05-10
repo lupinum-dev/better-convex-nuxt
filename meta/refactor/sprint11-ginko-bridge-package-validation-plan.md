@@ -51,68 +51,70 @@ consumer has not yet proven the package boundary.
 
 ### 1. Wire Ginko To The Bridge Package
 
-- [ ] Add `@lupinum/trellis-bridge` as an explicit workspace/file dependency in
+- [x] Add `@lupinum/trellis-bridge` as an explicit workspace/file dependency in
       the Ginko packages that import bridge APIs.
-- [ ] Keep `@lupinum/trellis` as the dependency for core/auth/backend/MCP APIs.
-- [ ] Do not make `@lupinum/trellis` depend on `@lupinum/trellis-bridge`.
-- [ ] Update Ginko lockfile/workspace state with normal package-manager output.
+- [x] Keep `@lupinum/trellis` as the dependency for core/auth/backend/MCP APIs.
+- [x] Do not make `@lupinum/trellis` depend on `@lupinum/trellis-bridge`.
+- [x] Update Ginko lockfile/workspace state with normal package-manager output.
 
 ### 2. Replace Old Bridge Imports In Ginko
 
-- [ ] Replace `@lupinum/trellis/bridge` imports with
+- [x] Replace `@lupinum/trellis/bridge` imports with
       `@lupinum/trellis-bridge`.
-- [ ] Replace bridge manifest/render imports from `@lupinum/trellis/functions`
+- [x] Replace bridge manifest/render imports from `@lupinum/trellis/functions`
       with `@lupinum/trellis-bridge`.
-- [ ] Replace `createComponentBridge` imports from
-      `@lupinum/trellis/functions` with `@lupinum/trellis-bridge`.
-- [ ] Replace bridge-related type imports such as
+- [x] Replace `createComponentBridge` imports from
+      `@lupinum/trellis/functions` with `@lupinum/trellis-bridge/component`.
+- [x] Replace bridge-related type imports such as
       `ComponentBridgeManifest` and `ComponentBridgeComponent` with
-      `@lupinum/trellis-bridge`.
-- [ ] Leave non-bridge backend APIs from `@lupinum/trellis/functions` untouched
-      unless a local file can trivially split imports without changing behavior.
+      `@lupinum/trellis-bridge` or `@lupinum/trellis-bridge/component`.
+- [x] Replace remaining Ginko backend API imports from
+      `@lupinum/trellis/functions` with `@lupinum/trellis/backend` because the
+      Ginko compile exposed the same package-boundary drift and the change was a
+      direct hard cut.
 
 ### 3. Ginko CLI Ownership
 
-- [ ] Confirm `ginko-cms bridge generate` remains the user-facing bridge command
+- [x] Confirm `ginko-cms bridge generate` remains the user-facing bridge command
       for Ginko consumers.
-- [ ] Ensure the Ginko CLI uses `@lupinum/trellis-bridge` helpers directly.
-- [ ] Ensure CLI help/remediation text does not point users to root
+- [x] Ensure the Ginko CLI uses `@lupinum/trellis-bridge` helpers directly.
+- [x] Ensure CLI help/remediation text does not point users to root
       `trellis bridge`.
-- [ ] Add or update a test proving Ginko owns its bridge command and Trellis root
+- [x] Add or update a test proving Ginko owns its bridge command and Trellis root
       does not need to expose a bridge command.
 
 ### 4. Package Boundary Checks
 
-- [ ] Update Ginko package-boundary tests to allow `@lupinum/trellis-bridge` and
+- [x] Update Ginko package-boundary tests to allow `@lupinum/trellis-bridge` and
       reject old bridge imports.
-- [ ] Update Ginko publish-specifier checks so package output cannot reference
+- [x] Update Ginko publish-specifier checks so package output cannot reference
       `@lupinum/trellis/bridge`.
-- [ ] Add a focused check that no release-facing Ginko source imports bridge
+- [x] Add a focused check that no release-facing Ginko source imports bridge
       APIs from `@lupinum/trellis/functions`.
-- [ ] Keep historical docs/refactor notes out of blocking checks unless they
+- [x] Keep historical docs/refactor notes out of blocking checks unless they
       are copied into public package docs.
 
 ### 5. Validation Against Packed/Local Trellis
 
-- [ ] Run Ginko module/unit tests that cover bridge manifest rendering and CLI
+- [x] Run Ginko module/unit tests that cover bridge manifest rendering and CLI
       bridge generation.
-- [ ] Run Ginko package-boundary and publish-specifier checks.
-- [ ] Run Ginko type checks for `@lupinum/ginko-cms-convex` and
+- [x] Run Ginko package-boundary and publish-specifier checks.
+- [x] Run Ginko type checks for `@lupinum/ginko-cms-convex` and
       `@lupinum/ginko-cms`.
-- [ ] Run the Ginko package e2e or the narrowest maintained package-consumer
+- [x] Run the Ginko package e2e or the narrowest maintained package-consumer
       test that proves a consumer can install Ginko with the bridge package
       dependency.
-- [ ] If package e2e needs a packed Trellis dependency, pack both Trellis and
+- [x] If package e2e needs a packed Trellis dependency, pack both Trellis and
       `@lupinum/trellis-bridge` and wire the fixture explicitly.
 
 ### 6. Trellis Regression Checks
 
-- [ ] Re-run Trellis bridge package unit tests.
-- [ ] Re-run `pnpm run test:types:bridge`.
-- [ ] Re-run `pnpm run check:publish-surface`.
-- [ ] Re-run `pnpm run check:docs:api-surface`.
-- [ ] Re-run `pnpm run check:refactor:surface:inventory`.
-- [ ] Re-run `pnpm run check:cli` to prove root `trellis bridge` stays absent.
+- [x] Re-run Trellis bridge package unit tests.
+- [x] Re-run `pnpm run test:types:bridge`.
+- [x] Re-run `pnpm run check:publish-surface`.
+- [x] Re-run `pnpm run check:docs:api-surface`.
+- [x] Re-run `pnpm run check:refactor:surface:inventory`.
+- [x] Re-run `pnpm run check:cli` to prove root `trellis bridge` stays absent.
 
 ## Verification
 
@@ -155,30 +157,34 @@ rg -n "createComponentBridge|defineComponentBridgeManifest|renderComponentBridge
 
 ## Acceptance Criteria
 
-- [ ] Ginko release-facing source imports bridge APIs from
+- [x] Ginko release-facing source imports bridge APIs from
       `@lupinum/trellis-bridge`, not from `@lupinum/trellis/functions` or
       `@lupinum/trellis/bridge`.
-- [ ] Ginko package dependencies explicitly include `@lupinum/trellis-bridge`
+- [x] Ginko package dependencies explicitly include `@lupinum/trellis-bridge`
       wherever bridge APIs are imported.
-- [ ] `ginko-cms bridge generate` remains the Ginko-owned consumer command.
-- [ ] Trellis root CLI remains free of bridge commands.
-- [ ] Ginko bridge manifest/render/parity tests pass.
-- [ ] Ginko package-boundary and publish-specifier checks reject old bridge
+- [x] `ginko-cms bridge generate` remains the Ginko-owned consumer command.
+- [x] Trellis root CLI remains free of bridge commands.
+- [x] Ginko bridge manifest/render/parity tests pass.
+- [x] Ginko package-boundary and publish-specifier checks reject old bridge
       import paths.
-- [ ] Ginko package e2e, or an accepted narrow substitute, proves a consumer can
+- [x] Ginko package e2e, or an accepted narrow substitute, proves a consumer can
       use Ginko with `@lupinum/trellis-bridge`.
-- [ ] No compatibility shim or old bridge public path is added to Trellis.
+- [x] No compatibility shim or old bridge public path is added to Trellis.
 
 ## Exit Notes To Capture
 
-- [ ] Whether Ginko needs any bridge package API that is missing from
-      `@lupinum/trellis-bridge`.
-- [ ] Whether Ginko package e2e can consume the bridge package from workspace,
-      file, or packed tarball without Trellis internals.
-- [ ] Whether bridge CLI ownership is fully settled in Ginko, or whether a later
-      `@lupinum/trellis-bridge` binary is justified.
-- [ ] Any remaining old `@lupinum/trellis/functions` imports in Ginko and whether
-      they are backend APIs for a future backend-lane cleanup.
-- [ ] Whether the next sprint should focus on direct MCP mutation safety
-      metadata, forwarding RFC production hardening, or Ginko backend import
-      cleanup.
+- [x] Ginko did not need additional root bridge APIs, but it did need a narrower
+      component-runtime subpath. Trellis now exposes manifest/package-author APIs
+      from `@lupinum/trellis-bridge` and Convex component bridge helpers from
+      `@lupinum/trellis-bridge/component`.
+- [x] Ginko package e2e consumes packed Trellis, packed Trellis bridge, and
+      packed Ginko packages successfully. The first package e2e run caught raw
+      `src/*.ts` bridge exports; the bridge package now builds and packs compiled
+      `dist/*.js` plus `dist/*.d.ts`.
+- [x] Bridge CLI ownership is settled for this slice: `ginko-cms bridge generate`
+      remains the consumer command. No Trellis root bridge command was added.
+- [x] No old `@lupinum/trellis/functions` imports remain in Ginko source after
+      the direct backend import hard cut to `@lupinum/trellis/backend`.
+- [x] Next sprint should focus on one of the remaining 1.0 foundation lanes:
+      direct MCP mutation/action safety metadata, forwarding RFC production
+      hardening, or first-party production stores.

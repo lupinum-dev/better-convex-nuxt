@@ -7,7 +7,8 @@
     "paths": {
       "@lupinum/trellis/backend": ["./src/runtime/backend/index.ts"],
       "@lupinum/trellis/trusted-forwarding": ["./src/runtime/trusted-forwarding/index.ts"],
-      "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"]
+      "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"],
+      "@lupinum/trellis-bridge/component": ["./packages/trellis-bridge/src/component.ts"]
     }
   },
   "include": ["packages/trellis-bridge/src/**/*.ts", "tests/types/component-bridge.types.ts"],

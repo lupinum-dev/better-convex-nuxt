@@ -96,7 +96,8 @@
     },
     "./backend": {
       "types": "./dist/runtime/backend/index.d.ts",
-      "import": "./dist/runtime/backend/index.mjs"
+      "import": "./dist/runtime/backend/index.js",
+      "default": "./dist/runtime/backend/index.js"
     },
     "./feature": {
       "types": "./dist/runtime/feature/index.d.ts",
@@ -108,7 +109,8 @@
     },
     "./trusted-forwarding": {
       "types": "./dist/runtime/trusted-forwarding/index.d.ts",
-      "import": "./dist/runtime/trusted-forwarding/index.mjs"
+      "import": "./dist/runtime/trusted-forwarding/index.js",
+      "default": "./dist/runtime/trusted-forwarding/index.js"
     },
     "./visibility": {
       "types": "./dist/runtime/visibility/index.d.ts",
@@ -212,7 +214,7 @@
     "@vitest/browser-playwright": "^4.1.4",
     "ai": "^6.0.154",
     "changelogen": "^0.6.2",
-    "convex": "^1.36.1",
+    "convex": "1.37.0",
     "convex-helpers": "^0.1.114",
     "convex-test": "^0.0.47",
     "convex-vite-plugin": "^0.4.0",

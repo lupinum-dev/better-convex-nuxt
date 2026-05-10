@@ -34,6 +34,12 @@ import {
   setTrustedForwardingContext,
 } from '@lupinum/trellis/trusted-forwarding'
 
+declare const process:
+  | {
+      env?: Record<string, string | undefined>
+    }
+  | undefined
+
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
@@ -299,7 +305,9 @@ function resolveBridgePrincipalSubject(principal: unknown): string {
 }
 
 function getRequiredBridgeTrustedForwardingKey(override?: string): string {
-  const trustedForwardingKey = override?.trim() || process.env.CONVEX_TRUSTED_FORWARDING_KEY?.trim()
+  const trustedForwardingKey =
+    override?.trim() ||
+    (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY?.trim() : '')
   if (!trustedForwardingKey) {
     throw new Error('createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.')
   }

@@ -20,7 +20,7 @@ import type {
   RegisteredQuery,
   TableNamesInDataModel,
 } from 'convex/server'
-import type { ObjectType, PropertyValidators } from 'convex/values'
+import type { Infer, ObjectType, PropertyValidators, Validator } from 'convex/values'
 import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
@@ -123,6 +123,11 @@ export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = { bypass: string }
 type EscapeTenantIsolationOptions = { reason: string }
+type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
+  ? ObjectType<TArgsValidator>
+  : [TArgsValidator] extends [Validator<any, 'required', any>]
+    ? Infer<TArgsValidator>
+    : Record<string, never>
 
 export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
 
@@ -513,9 +518,59 @@ async function assertNoOperationExecuteEnvelopeReplay<
   }
 }
 
-type UnsafeBuilder<TBuilder> = TBuilder extends (definition: infer TDefinition) => infer TResult
-  ? (definition: Exclude<TDefinition, (...args: any[]) => unknown> & UnsafeDefinition) => TResult
-  : TBuilder
+type UnsafeQueryBuilder<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+> = <
+  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnValue = any,
+>(
+  definition: {
+    args?: TArgsValidator
+    returns?: TReturnsValidator
+    handler: (ctx: GenericQueryCtx<DataModel>, args: UnsafeArgsFor<TArgsValidator>) => TReturnValue
+  } & UnsafeDefinition,
+) => RegisteredQuery<Visibility, UnsafeArgsFor<TArgsValidator>, TReturnValue>
+
+type UnsafeMutationBuilder<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+> = <
+  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnValue = any,
+>(
+  definition: {
+    args?: TArgsValidator
+    returns?: TReturnsValidator
+    handler: (ctx: GenericMutationCtx<DataModel>, args: UnsafeArgsFor<TArgsValidator>) => TReturnValue
+  } & UnsafeDefinition,
+) => RegisteredMutation<Visibility, UnsafeArgsFor<TArgsValidator>, TReturnValue>
+
+type UnsafeActionBuilder<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+> = <
+  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
+  TReturnValue = any,
+>(
+  definition: {
+    args?: TArgsValidator
+    returns?: TReturnsValidator
+    handler: (ctx: GenericActionCtx<DataModel>, args: UnsafeArgsFor<TArgsValidator>) => TReturnValue
+  } & UnsafeDefinition,
+) => RegisteredAction<Visibility, UnsafeArgsFor<TArgsValidator>, TReturnValue>
+
+type UnsafeBuilder<TBuilder> =
+  TBuilder extends QueryBuilder<infer DataModel, infer Visibility>
+    ? UnsafeQueryBuilder<DataModel, Visibility>
+    : TBuilder extends MutationBuilder<infer DataModel, infer Visibility>
+      ? UnsafeMutationBuilder<DataModel, Visibility>
+      : TBuilder extends ActionBuilder<infer DataModel, infer Visibility>
+        ? UnsafeActionBuilder<DataModel, Visibility>
+        : TBuilder
 
 function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
   builder: TBuilder,
@@ -1810,6 +1865,164 @@ function createFullArgsCustomBuilder<
   }) as TBuilder
 }
 
+type ExplicitUnsafeRuntime<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility,
+  ActionVisibility extends FunctionVisibility,
+> = {
+  query: UnsafeBuilder<QueryBuilder<DataModel, QueryVisibility>>
+  mutation: UnsafeBuilder<MutationBuilder<DataModel, MutationVisibility>>
+  action?: UnsafeBuilder<ActionBuilder<DataModel, ActionVisibility>>
+  internalQuery?: UnsafeBuilder<QueryBuilder<DataModel, InternalQueryVisibility>>
+  internalMutation?: UnsafeBuilder<MutationBuilder<DataModel, InternalMutationVisibility>>
+}
+
+type ForwardingBuilderRuntime<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility,
+  ActionVisibility extends FunctionVisibility,
+> = {
+  query: QueryBuilder<DataModel, QueryVisibility>
+  mutation: MutationBuilder<DataModel, MutationVisibility>
+  action?: ActionBuilder<DataModel, ActionVisibility>
+  internal: {
+    query?: QueryBuilder<DataModel, InternalQueryVisibility>
+    mutation?: MutationBuilder<DataModel, InternalMutationVisibility>
+  }
+}
+
+type QueryWithBackendLanes<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = StructuredQueryBuilder<
+  QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+  Visibility,
+  TActor
+> & {
+  public: PublicStructuredQueryBuilder<
+    QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  protected: StructuredQueryBuilder<
+    QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  unsafe: UnsafeBuilder<QueryBuilder<DataModel, Visibility>>
+}
+
+type MutationWithBackendLanes<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = StructuredMutationBuilder<
+  MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+  Visibility,
+  TActor
+> & {
+  public: PublicStructuredMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  protected: StructuredMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  unsafe: UnsafeBuilder<MutationBuilder<DataModel, Visibility>>
+}
+
+type ActionWithBackendLanes<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = StructuredActionBuilder<
+  ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+  Visibility,
+  TActor
+> & {
+  public: PublicStructuredActionBuilder<
+    ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  protected: StructuredActionBuilder<
+    ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    Visibility,
+    TActor
+  >
+  unsafe: UnsafeBuilder<ActionBuilder<DataModel, Visibility>>
+}
+
+type TrellisBackendRuntime<
+  DataModel extends GenericDataModel,
+  QueryVisibility extends FunctionVisibility,
+  MutationVisibility extends FunctionVisibility,
+  InternalQueryVisibility extends FunctionVisibility,
+  InternalMutationVisibility extends FunctionVisibility,
+  ActionVisibility extends FunctionVisibility,
+  TPrincipal,
+  TDelegation extends Delegation,
+  TActor,
+> = {
+  query: QueryWithBackendLanes<DataModel, QueryVisibility, TPrincipal, TDelegation, TActor>
+  mutation: MutationWithBackendLanes<
+    DataModel,
+    MutationVisibility,
+    TPrincipal,
+    TDelegation,
+    TActor
+  >
+  transportMutation: StructuredTransportMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    MutationVisibility,
+    TActor
+  >
+  action?: ActionWithBackendLanes<DataModel, ActionVisibility, TPrincipal, TDelegation, TActor>
+  internalQuery?: QueryWithBackendLanes<
+    DataModel,
+    InternalQueryVisibility,
+    TPrincipal,
+    TDelegation,
+    TActor
+  >
+  internalMutation?: MutationWithBackendLanes<
+    DataModel,
+    InternalMutationVisibility,
+    TPrincipal,
+    TDelegation,
+    TActor
+  >
+  internalTransportMutation?: StructuredTransportMutationBuilder<
+    MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+    InternalMutationVisibility,
+    TActor
+  >
+  unsafe: ExplicitUnsafeRuntime<
+    DataModel,
+    QueryVisibility,
+    MutationVisibility,
+    InternalQueryVisibility,
+    InternalMutationVisibility,
+    ActionVisibility
+  >
+}
+
 function buildUnsafeFunctions<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -1830,7 +2043,14 @@ function buildUnsafeFunctions<
     ActionVisibility
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
-) {
+): ForwardingBuilderRuntime<
+  DataModel,
+  QueryVisibility,
+  MutationVisibility,
+  InternalQueryVisibility,
+  InternalMutationVisibility,
+  ActionVisibility
+> {
   rejectRemovedCustomRlsOption(options)
   validateTenantIsolationOptions(options.tenantIsolation)
 
@@ -2521,7 +2741,7 @@ function buildTrellisRuntime<
           TActor
         >
         protected: typeof structuredInternal.query
-        unsafe: typeof explicitUnsafe.internalQuery
+        unsafe: NonNullable<typeof explicitUnsafe.internalQuery>
       })
     : undefined
   const internalMutationWithLanes = structuredInternal?.mutation
@@ -2535,7 +2755,7 @@ function buildTrellisRuntime<
           TActor
         >
         protected: typeof structuredInternal.mutation
-        unsafe: typeof explicitUnsafe.internalMutation
+        unsafe: NonNullable<typeof explicitUnsafe.internalMutation>
       })
     : undefined
   const actionWithLanes =
@@ -2593,7 +2813,17 @@ export function defineTrellis<
     ActionVisibility
   >,
   options: DefineTrellisOptions<DataModel, TPrincipal, TDelegation, TActor> = {},
-) {
+): TrellisBackendRuntime<
+  DataModel,
+  QueryVisibility,
+  MutationVisibility,
+  InternalQueryVisibility,
+  InternalMutationVisibility,
+  ActionVisibility,
+  TPrincipal,
+  TDelegation,
+  TActor
+> {
   const runtime = buildTrellisRuntime(builders, options)
 
   return {
