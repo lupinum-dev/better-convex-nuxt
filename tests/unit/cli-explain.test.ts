@@ -102,8 +102,8 @@ export const archiveTaskOp = defineOperation({
   handler: async () => null,
 })
 
-export const archiveTask = mutation(archiveTaskOp)
-export const previewArchiveTask = query(previewOf(archiveTaskOp))
+export const archiveTask = mutation.protected(archiveTaskOp)
+export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
 `.trimStart(),
   )
   writeAppFile(

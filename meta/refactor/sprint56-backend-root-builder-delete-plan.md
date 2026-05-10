@@ -55,66 +55,67 @@ The remaining Done Means items are:
 
 ### 1. Prove No Required Root Operation Path Remains
 
-- [ ] Search for direct root backend calls in source, examples, fixtures, docs,
+- [x] Search for direct root backend calls in source, examples, fixtures, docs,
       and tests.
-- [ ] Pay special attention to operation/projection calls such as
+- [x] Pay special attention to operation/projection calls such as
       `mutation(operation)` and `query(previewOf(operation))`.
-- [ ] Convert any real operation/projection call sites to explicit lanes:
+- [x] Convert any real operation/projection call sites to explicit lanes:
       `mutation.protected(operation)` or `query.protected(previewOf(operation))`.
-- [ ] Keep a focused test proving operation/projection registration still works
+- [x] Keep a focused test proving operation/projection registration still works
       through explicit lanes.
 
 ### 2. Delete The Runtime Root Callable
 
-- [ ] Remove `createUnclassifiedLaneBuilder(...)`.
-- [ ] Change lane attachment so `query`, `mutation`, and `action` are plain
+- [x] Remove `createUnclassifiedLaneBuilder(...)`.
+- [x] Change lane attachment so `query`, `mutation`, and `action` are plain
       lane objects, not callable functions.
-- [ ] Update exported runtime types so `runtime.query(...)` and
+- [x] Update exported runtime types so `runtime.query(...)` and
       `runtime.mutation(...)` are TypeScript errors.
-- [ ] Remove runtime tests that expect `runtime.query({...})` to throw.
-- [ ] Replace them with tests asserting root builders are not callable.
+- [x] Remove runtime tests that expect `runtime.query({...})` to throw.
+- [x] Replace them with tests asserting root builders are not callable.
 
 ### 3. Delete Old Builder Docs And Examples
 
-- [ ] Remove docs snippets that teach `query({ ... })` or `mutation({ ... })`
+- [x] Remove docs snippets that teach `query({ ... })` or `mutation({ ... })`
       for backend handlers.
-- [ ] Update component bridge/docs fixtures that still use old backend snippet
+- [x] Update component bridge/docs fixtures that still use old backend snippet
       text.
-- [ ] Keep MCP `tool.query(...)` / `tool.mutation(...)` untouched; those are a
+- [x] Keep MCP `tool.query(...)` / `tool.mutation(...)` untouched; those are a
       different surface.
 
 ### 4. Update Upgrade/Doctor Only If Needed
 
-- [ ] If the inventory scanner already detects old root backend calls, keep the
+- [x] If the inventory scanner already detects old root backend calls, keep the
       existing audit path.
-- [ ] If it does not, add a narrow upgrade check for backend `query({`,
-      `mutation({`, and `action({` call sites imported from Trellis backend
-      runtime.
-- [ ] Do not add broad regex findings that confuse Convex raw builders,
+- N/A: no broad upgrade regex was added; old root call detection needs import
+  aware analysis and should be handled by a future codemod/audit sprint if
+  needed.
+- [x] Do not add broad regex findings that confuse Convex raw builders,
       generated code, logs, or MCP tool builders.
 
 ### 5. Close Slice 3
 
-- [ ] Add a Sprint 56 progress note under Slice 3.
-- [ ] Mark "Old builder spelling has no runtime implementation" complete.
-- [ ] Mark "Old builder docs are removed" complete.
-- [ ] Mark Slice 3 status `done` if no residual Slice 3 work remains.
+- [x] Add a Sprint 56 progress note under Slice 3.
+- [x] Mark "Old builder spelling has no runtime implementation" complete.
+- [x] Mark "Old builder docs are removed" complete.
+- [x] Mark Slice 3 status `done` if no residual Slice 3 work remains.
 
 ## Verification
 
-- [ ] `rg -n 'runtime\\.query\\(|runtime\\.mutation\\(|runtime\\.action\\(' src tests examples apps apps/docs/content/docs`
-- [ ] `rg -n 'export const .* = (query|mutation|action)\\(' src tests examples apps apps/docs/content/docs`
+- [x] `rg -n 'runtime\\.query\\(|runtime\\.mutation\\(|runtime\\.action\\(' src tests examples apps apps/docs/content/docs`
+- [x] `rg -n 'export const .* = (query|mutation|action)\\(' src tests examples apps apps/docs/content/docs`
       returns no Trellis backend handler call sites, excluding raw Convex
       builder fixtures explicitly meant to test non-Trellis code.
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts` if
-      upgrade checks change.
-- [ ] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check src/runtime/functions tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts apps/docs/content/docs meta/refactor/sprint56-backend-root-builder-delete-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
+- N/A: `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`;
+  upgrade checks did not change.
+- [x] `pnpm exec vitest run --project=unit tests/unit/eslint-plugin.test.ts tests/unit/cli-explain.test.ts tests/unit/public-surface-codegen.test.ts`
+- [x] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check src/runtime/functions src/eslint tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-explain.test.ts tests/unit/public-surface-codegen.test.ts apps/docs/content/docs meta/refactor/sprint56-backend-root-builder-delete-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

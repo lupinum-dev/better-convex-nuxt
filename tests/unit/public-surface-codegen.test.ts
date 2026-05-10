@@ -36,8 +36,8 @@ describe('public surface codegen', () => {
           handler: async () => null,
         })
 
-        export const archiveTask = mutation(archiveTaskOp)
-        export const previewArchiveTask = query(previewOf(archiveTaskOp))
+        export const archiveTask = mutation.protected(archiveTaskOp)
+        export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'
@@ -110,8 +110,8 @@ describe('public surface codegen', () => {
           handler: async () => null,
         })
 
-        export const archiveTask = mutation(archiveTaskOp)
-        export const previewArchiveTask = query(previewOf(archiveTaskOp))
+        export const archiveTask = mutation.protected(archiveTaskOp)
+        export const previewArchiveTask = query.protected(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '~/convex/features/tasks/operations'

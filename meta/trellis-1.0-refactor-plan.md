@@ -132,7 +132,7 @@ Goal: decide exactly what survives into 1.0 before moving code.
 
 ## Slice 2: Package And Subpath Shape
 
-Status: in progress
+Status: done
 
 Goal: make package boundaries match the 1.0 mental model without package
 explosion.
@@ -204,6 +204,9 @@ builder spellings.
   `actor()` wiring now throws an actionable setup error in development/test
   when a protected path needs it, production treats it as denial, and resolved
   `null` actors remain ordinary unauthorized runtime state.
+- Sprint 56 deleted the callable root backend builder shape. `query`,
+  `mutation`, `action`, and internal builder exports are now lane containers
+  only; operation/projection registration uses explicit protected lanes.
 
 ### Decide API
 
@@ -249,8 +252,8 @@ mutation.unsafe(...)
 
 ### Done Means
 
-- [ ] Old builder spelling has no runtime implementation.
-- [ ] Old builder docs are removed.
+- [x] Old builder spelling has no runtime implementation.
+- [x] Old builder docs are removed.
 - [x] Tests prove no accidental public handler path remains.
 
 ## Slice 4: Signed Forwarding Hard Cut

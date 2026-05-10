@@ -191,6 +191,8 @@ export const authRules = {
         const isStructuredBuilder =
           bareBuilderName === 'query' ||
           bareBuilderName === 'mutation' ||
+          isBuilderCall(node, 'query', 'protected') ||
+          isBuilderCall(node, 'mutation', 'protected') ||
           isBuilderCall(node, 'unsafe', 'query', 'mutation')
         if (!isStructuredBuilder) return
         const options = getHandlerOptionsObject(node)

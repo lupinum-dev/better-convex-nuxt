@@ -222,8 +222,8 @@ export const removePostOp = implementOperation(removePostDescriptor, {
   },
 })
 
-export const removeWithConfirmation = mutation(removePostOp)
-export const previewRemove = query(previewOf(removePostOp))
+export const removeWithConfirmation = mutation.protected(removePostOp)
+export const previewRemove = query.protected(previewOf(removePostOp))
 
 export const publish = mutation.protected({
   args: { id: v.id('posts') },

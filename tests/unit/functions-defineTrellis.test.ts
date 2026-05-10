@@ -93,8 +93,8 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
 
-    expect(runtime.query).toBeTypeOf('function')
-    expect(runtime.mutation).toBeTypeOf('function')
+    expect(runtime.query).toBeTypeOf('object')
+    expect(runtime.mutation).toBeTypeOf('object')
     expect(runtime.query.public).toBeTypeOf('function')
     expect(runtime.query.protected).toBeTypeOf('function')
     expect(runtime.query.unsafe).toBeTypeOf('function')
@@ -107,7 +107,7 @@ describe('defineTrellis', () => {
     expect(runtime).not.toHaveProperty('publicQuery')
   })
 
-  it('rejects unclassified backend handler definitions', () => {
+  it('does not expose callable root backend builders', () => {
     const builder = ((definition: unknown) => definition) as never
 
     const runtime = defineTrellis({
@@ -115,20 +115,14 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
 
-    expect(() =>
-      runtime.query({
-        args: {},
-        guard: open,
-        handler: async () => ({ ok: true }),
-      } as never),
-    ).toThrow(/Unclassified backend handlers are not allowed/)
-    expect(() =>
-      runtime.mutation({
-        args: {},
-        guard: open,
-        handler: async () => ({ ok: true }),
-      } as never),
-    ).toThrow(/Unclassified backend handlers are not allowed/)
+    expect(runtime.query).not.toBeTypeOf('function')
+    expect(runtime.mutation).not.toBeTypeOf('function')
+    expect(() => (runtime.query as unknown as (definition: unknown) => unknown)({})).toThrow(
+      /runtime\.query is not a function|is not a function/i,
+    )
+    expect(() => (runtime.mutation as unknown as (definition: unknown) => unknown)({})).toThrow(
+      /runtime\.mutation is not a function|is not a function/i,
+    )
   })
 
   it('stamps explicit backend lane metadata', () => {
@@ -316,7 +310,7 @@ describe('defineTrellis', () => {
       }),
       handler: async () => ({ deleted: true }),
     })
-    const definition = runtime.mutation(
+    const definition = runtime.mutation.protected(
       transportExecuteOperationRef(operation, operation, {
         functionRef: 'tasks:delete',
       }),
@@ -534,8 +528,10 @@ describe('defineTrellis', () => {
       internalMutation: builder,
     })
 
-    expect(runtime.internalQuery).toBeTypeOf('function')
-    expect(runtime.internalMutation).toBeTypeOf('function')
+    expect(runtime.internalQuery).toBeTypeOf('object')
+    expect(runtime.internalQuery?.protected).toBeTypeOf('function')
+    expect(runtime.internalMutation).toBeTypeOf('object')
+    expect(runtime.internalMutation?.protected).toBeTypeOf('function')
   })
 
   it('forwards action builders when provided', () => {
@@ -547,7 +543,8 @@ describe('defineTrellis', () => {
       action: builder,
     })
 
-    expect(runtime.action).toBeTypeOf('function')
+    expect(runtime.action).toBeTypeOf('object')
+    expect(runtime.action?.protected).toBeTypeOf('function')
     expect(runtime.unsafe.action).toBeTypeOf('function')
   })
 
@@ -645,7 +642,7 @@ describe('defineTrellis', () => {
       handler: async () => null,
     })
 
-    expect(() => runtime.mutation(destructiveOp)).toThrow(/destructiveSafety/)
+    expect(() => runtime.mutation.protected(destructiveOp)).toThrow(/destructiveSafety/)
   })
 
   it('requires confirmation before executing destructive operation mutations', async () => {
@@ -677,7 +674,7 @@ describe('defineTrellis', () => {
       handler: async () => 'destroyed',
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }
@@ -744,7 +741,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }
@@ -816,7 +813,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }
@@ -893,7 +890,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }
@@ -966,7 +963,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }
@@ -1039,7 +1036,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    const definition = runtime.mutation(destructiveOp) as {
+    const definition = runtime.mutation.protected(destructiveOp) as {
       handler: (
         ctx: {
           auth: { getUserIdentity: () => Promise<null> }

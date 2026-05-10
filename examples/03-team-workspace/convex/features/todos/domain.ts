@@ -84,4 +84,4 @@ export const setCompleted = mutation.protected({
   },
 })
 
-export const remove = mutation(removeTodoOp)
+export const remove = mutation.protected(removeTodoOp)

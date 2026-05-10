@@ -684,40 +684,25 @@ function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown
   return ((definition: never) => stampBackendLane(unsafeBuilder(definition), 'unsafe')) as TBuilder
 }
 
-function createUnclassifiedLaneBuilder<TBuilder extends (definition: never) => unknown>(
-  protectedBuilder: TBuilder,
-): TBuilder {
-  return ((definition: unknown) => {
-    const operationMetadata = getOperationMetadata(definition as never)
-    const projectionMetadata = getOperationProjectionMetadata(definition as never)
-    if (operationMetadata.id || projectionMetadata) {
-      return stampBackendLane(protectedBuilder(definition as never), 'protected')
-    }
-
-    throw new Error(
-      'Unclassified backend handlers are not allowed. Use query.public(...), query.protected(...), query.unsafe(...), mutation.public(...), mutation.protected(...), mutation.unsafe(...), action.public(...), action.protected(...), or action.unsafe(...).',
-    )
-  }) as unknown as TBuilder
-}
-
 function attachBackendQueryLanes<
   TProtectedBuilder extends (definition: never) => unknown,
   TUnsafeBuilder extends ((definition: never) => unknown) | undefined,
 >(
   protectedBuilder: TProtectedBuilder,
   unsafeBuilder?: TUnsafeBuilder,
-): TProtectedBuilder & {
+): {
   public: (definition: never) => unknown
   protected: TProtectedBuilder
   unsafe?: TUnsafeBuilder
 } {
-  const lanes = createUnclassifiedLaneBuilder(protectedBuilder) as TProtectedBuilder & {
+  const lanes: {
     public: (definition: never) => unknown
     protected: TProtectedBuilder
     unsafe?: TUnsafeBuilder
+  } = {
+    public: createPublicLaneBuilder(protectedBuilder),
+    protected: createProtectedLaneBuilder(protectedBuilder),
   }
-  lanes.public = createPublicLaneBuilder(protectedBuilder)
-  lanes.protected = createProtectedLaneBuilder(protectedBuilder)
   if (unsafeBuilder) {
     lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder as never) as TUnsafeBuilder
   }
@@ -1929,11 +1914,7 @@ type QueryWithBackendLanes<
   TPrincipal,
   TDelegation extends Delegation,
   TActor,
-> = StructuredQueryBuilder<
-  QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
-  Visibility,
-  TActor
-> & {
+> = {
   public: PublicStructuredQueryBuilder<
     QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     Visibility,
@@ -1953,11 +1934,7 @@ type MutationWithBackendLanes<
   TPrincipal,
   TDelegation extends Delegation,
   TActor,
-> = StructuredMutationBuilder<
-  MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
-  Visibility,
-  TActor
-> & {
+> = {
   public: PublicStructuredMutationBuilder<
     MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     Visibility,
@@ -1977,11 +1954,7 @@ type ActionWithBackendLanes<
   TPrincipal,
   TDelegation extends Delegation,
   TActor,
-> = StructuredActionBuilder<
-  ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
-  Visibility,
-  TActor
-> & {
+> = {
   public: PublicStructuredActionBuilder<
     ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     Visibility,
@@ -2729,7 +2702,7 @@ function buildTrellisRuntime<
   const queryWithLanes = attachBackendQueryLanes(
     structured.query as never,
     explicitUnsafe.query as never,
-  ) as typeof structured.query & {
+  ) as unknown as {
     public: PublicStructuredQueryBuilder<
       QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       QueryVisibility,
@@ -2741,7 +2714,7 @@ function buildTrellisRuntime<
   const mutationWithLanes = attachBackendQueryLanes(
     structured.mutation as never,
     explicitUnsafe.mutation as never,
-  ) as typeof structured.mutation & {
+  ) as unknown as {
     public: PublicStructuredMutationBuilder<
       MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
       MutationVisibility,
@@ -2754,7 +2727,7 @@ function buildTrellisRuntime<
     ? (attachBackendQueryLanes(
         structuredInternal.query as never,
         explicitUnsafe.internalQuery as never,
-      ) as typeof structuredInternal.query & {
+      ) as unknown as {
         public: PublicStructuredQueryBuilder<
           QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
           InternalQueryVisibility,
@@ -2768,7 +2741,7 @@ function buildTrellisRuntime<
     ? (attachBackendQueryLanes(
         structuredInternal.mutation as never,
         explicitUnsafe.internalMutation as never,
-      ) as typeof structuredInternal.mutation & {
+      ) as unknown as {
         public: PublicStructuredMutationBuilder<
           MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
           InternalMutationVisibility,
@@ -2780,10 +2753,7 @@ function buildTrellisRuntime<
     : undefined
   const actionWithLanes =
     action && explicitUnsafe.action
-      ? (attachBackendQueryLanes(
-          action as never,
-          explicitUnsafe.action as never,
-        ) as typeof action & {
+      ? (attachBackendQueryLanes(action as never, explicitUnsafe.action as never) as unknown as {
           public: PublicStructuredActionBuilder<
             ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             ActionVisibility,

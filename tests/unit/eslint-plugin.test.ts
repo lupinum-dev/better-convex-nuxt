@@ -156,7 +156,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [goodResult] = await eslint.lintText(
       `
-      export const listByProject = query({
+      export const listByProject = query.protected({
         guard: open,
         args: {},
         handler: async (ctx, args) => {
@@ -183,7 +183,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const listPublic = query({
+      export const listPublic = query.protected({
         guard: open,
         args: {},
         handler: async (ctx) => {
@@ -206,7 +206,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const listWorkspace = query({
+      export const listWorkspace = query.protected({
         guard: canReadWorkspaceRunbook,
         args: {},
         handler: async (ctx) => {
@@ -519,7 +519,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      export const updateTodo = mutation({
+      export const updateTodo = mutation.protected({
         guard: async (ctx) => {
           const todo = await ctx.db.get('todo_123')
           return Boolean(todo)
