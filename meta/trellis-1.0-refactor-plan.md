@@ -845,7 +845,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Workspace starter guide.
 - [x] Workspace MCP starter guide.
 - [x] Backend builder guide.
-- [ ] Operation/destructive safety guide.
+- [x] Operation/destructive safety guide.
 - [ ] MCP projection guide.
 - [ ] Trusted forwarding security guide.
 - [ ] Bridge package-author guide.
@@ -1061,6 +1061,17 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   path. MCP projection, trusted forwarding, bridge package-author, and full
   public API reference rewrites stay open unless this sprint makes only narrow
   alignment edits.
+- Sprint 74 completed the operation/destructive safety guide cleanup. The
+  operation guide now names the operation source-of-truth chain, states that
+  destructive preview is side-effect-free, and says execute re-runs
+  guard/load/authorize/tenant/drift checks instead of trusting preview as an
+  authorization grant. The destructive-operation browser guide now separates
+  product confirmation UX from MCP token-backed confirmation and lists the
+  Trellis-enforced invariants versus app-owned UI choices. The functions
+  reference has only a terse invariant note. The scoped docs scan found no
+  `tool.fromOperation(...)`, raw forwarding, or `_trustedForwardingKey` hits;
+  MCP operation ref helper details remain intentionally open for the MCP
+  projection sprint.
 
 ### Done Means
 
