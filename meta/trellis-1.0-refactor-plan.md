@@ -753,7 +753,7 @@ shims.
 - [x] `trellis upgrade --check` or equivalent audit command.
 - [x] Codemod for mechanical import/path renames.
 - [x] Codemod for `tool.fromOperation`.
-- [ ] Audit report for authorize inference.
+- [x] Audit report for authorize inference.
 - [x] Audit report for unsafe bypasses that cannot be rewritten.
 
 ### Delete
@@ -764,8 +764,8 @@ shims.
 ### Prove
 
 - [x] Codemods are tested against fixtures.
-- [ ] Audit reports point to exact files/lines.
-- [ ] Removed imports fail loudly with useful diagnostics or TypeScript errors.
+- [x] Audit reports point to exact files/lines.
+- [x] Removed imports fail loudly with useful diagnostics or TypeScript errors.
 - [x] Compatibility test configs/scripts are deleted or renamed to explicit 1.0
       migration checks.
 
@@ -929,10 +929,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   direct `tool.fromOperation(...)` spelling changes when an `mcp` binding is
   present. Authorization, raw forwarding, unsafe permits, and backend lane
   classification remain audit-only.
-- Sprint 63 is planned to harden the remaining Slice 11 audit path. Scope is
-  exact evidence for manual/security migrations, AST-backed authorize arity
-  audit coverage, and proof that deleted import paths fail loudly without
-  reintroducing hidden aliases.
+- Sprint 63 hardened the remaining Slice 11 audit path. Token findings now
+  report every affected line, authorize arity audit is AST-backed and manual,
+  deleted import paths are covered by public type tests, and write mode remains
+  limited to mechanical codemods.
 
 ### Done Means
 

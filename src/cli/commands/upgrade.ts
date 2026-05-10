@@ -79,6 +79,7 @@ function findTokenLocations(
   patterns: readonly RegExp[],
 ): TrellisCliInventorySourceLocation[] {
   const locations: TrellisCliInventorySourceLocation[] = []
+  const seenLocations = new Set<string>()
   const sources = [
     ...project.sourceFiles,
     ...(project.nuxtConfigPath
@@ -87,19 +88,21 @@ function findTokenLocations(
   ]
 
   for (const source of sources) {
-    const matches = patterns
-      .map((pattern) => source.text.match(pattern))
-      .filter((match): match is RegExpMatchArray => Boolean(match))
-    if (matches.length === 0) continue
-
-    const firstIndex = Math.min(...matches.map((match) => match.index ?? 0))
-    locations.push(
-      toRelativeLocation(
-        project,
-        source.path,
-        source.text.slice(0, firstIndex).split(/\r?\n/).length,
-      ),
-    )
+    for (const pattern of patterns) {
+      const globalPattern = new RegExp(
+        pattern.source,
+        pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`,
+      )
+      for (const match of source.text.matchAll(globalPattern)) {
+        const index = match.index ?? 0
+        const line = source.text.slice(0, index).split(/\r?\n/).length
+        const relativeLocation = toRelativeLocation(project, source.path, line)
+        const key = `${relativeLocation.path}:${relativeLocation.line}`
+        if (seenLocations.has(key)) continue
+        seenLocations.add(key)
+        locations.push(relativeLocation)
+      }
+    }
   }
 
   return locations
@@ -171,6 +174,50 @@ function findLegacyBackendRootBuilderCalls(
 
       const start = call.getStartLineNumber()
       locations.push(toRelativeLocation(project, source.path, start))
+    }
+  }
+
+  return locations
+}
+
+function findAuthorizeArityInference(
+  project: ProjectInspection,
+): TrellisCliInventorySourceLocation[] {
+  const locations: TrellisCliInventorySourceLocation[] = []
+  const tsProject = new Project({
+    compilerOptions: {
+      allowJs: true,
+      jsx: 1,
+    },
+    useInMemoryFileSystem: true,
+  })
+
+  for (const source of project.sourceFiles) {
+    if (!isTsMorphParseablePath(source.path) || !source.text.includes('authorize')) continue
+
+    let sourceFile
+    try {
+      sourceFile = tsProject.createSourceFile(source.path, source.text, {
+        overwrite: true,
+      })
+    } catch {
+      continue
+    }
+
+    for (const property of sourceFile.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+      const name = property.getNameNode()
+      const isAuthorizeProperty =
+        (Node.isIdentifier(name) && name.getText() === 'authorize') ||
+        (Node.isStringLiteral(name) && name.getLiteralText() === 'authorize')
+      if (!isAuthorizeProperty) continue
+
+      const initializer = property.getInitializer()
+      const hasOneParameter =
+        (Node.isArrowFunction(initializer) || Node.isFunctionExpression(initializer)) &&
+        initializer.getParameters().length === 1
+      if (!hasOneParameter) continue
+
+      locations.push(toRelativeLocation(project, source.path, property.getStartLineNumber()))
     }
   }
 
@@ -321,9 +368,7 @@ function createUpgradeFindings(
     /\btemplate\s*:\s*['"]cms['"]/,
   ])
   const legacyBackendRootBuilders = findLegacyBackendRootBuilderCalls(project)
-  const authorizeArityInference = findTokenLocations(project, [
-    /authorize\s*:\s*(?:async\s*)?\(\s*(?:\{[^)]*\}|[A-Za-z_$][\w$]*\s*:\s*\{[^)]*\})\s*\)\s*=>/,
-  ])
+  const authorizeArityInference = findAuthorizeArityInference(project)
   const unsafePermitMigrationEntrypoints = unsafeEntrypointsNeedingPermitMigration(inventory)
   const unsafePermitMigrationLocations = unsafeEntrypointLocations(unsafePermitMigrationEntrypoints)
 

@@ -194,6 +194,51 @@ describe('CLI upgrade', () => {
     expect(JSON.stringify(finding.sources)).not.toContain('subject')
   })
 
+  it('reports multiple token findings in one file with exact line evidence', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/api/legacy.post.ts',
+      [
+        'export default defineEventHandler(async () => {',
+        '  const readArgs = { _trustedForwardingKey: "legacy-read" }',
+        '  const writeArgs = { trustedForwardingKey: "legacy-write" }',
+        '  return { readArgs, writeArgs }',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-raw-forwarding')
+
+    expect(result.status, output).toBe(1)
+    expect(finding.status).toBe('fail')
+    expect(finding.message).toContain('server/api/legacy.post.ts:2')
+    expect(finding.message).toContain('server/api/legacy.post.ts:3')
+    expect(finding.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'project-scan',
+          label: 'legacy raw forwarding tokens',
+          locations: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'server/api/legacy.post.ts',
+              line: 2,
+            }),
+            expect.objectContaining({
+              path: 'server/api/legacy.post.ts',
+              line: 3,
+            }),
+          ]),
+        }),
+      ]),
+    )
+    expect(JSON.stringify(finding.sources)).not.toContain('legacy-read')
+    expect(JSON.stringify(finding.sources)).not.toContain('legacy-write')
+  })
+
   it('warns for tool.fromOperation with file locations', () => {
     const appRoot = createPublicApp()
     writeAppFile(
@@ -402,6 +447,68 @@ describe('CLI upgrade', () => {
     expect(readAppFile(appRoot, 'convex/features/todos/domain.ts')).toBe(before)
   })
 
+  it('warns for one-argument authorize function expressions', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/todos/domain.ts',
+      [
+        "import { mutation } from '@lupinum/trellis/backend'",
+        '',
+        'export const update = mutation.protected({',
+        '  args: {},',
+        '  guard: todoRead,',
+        '  load: async () => ({ todo: { ownerId: "user-1" } }),',
+        '  authorize: function (loaded: { todo: { ownerId: string } }) {',
+        '    return loaded.todo.ownerId === "user-1"',
+        '  },',
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-authorize-arity')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('warn')
+    expect(finding.message).toContain('convex/features/todos/domain.ts:7')
+  })
+
+  it('does not warn for explicit authorize objects or unrelated authorize symbols', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/todos/domain.ts',
+      [
+        "import { mutation } from '@lupinum/trellis/backend'",
+        '',
+        'const authorize = ({ todo }: { todo: { ownerId: string } }) => todo.ownerId === "user-1"',
+        '',
+        'export const update = mutation.protected({',
+        '  args: {},',
+        '  guard: todoRead,',
+        '  load: async () => ({ todo: { ownerId: "user-1" } }),',
+        '  authorize: {',
+        "    label: 'todos.update',",
+        '    check: ({ loaded }) => loaded.todo.ownerId === "user-1",',
+        '  },',
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-authorize-arity')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('pass')
+  })
+
   it('warns for string-only unsafe backend entrypoints without rewriting files', () => {
     const appRoot = createPublicApp()
     writeAppFile(
@@ -594,5 +701,34 @@ describe('CLI upgrade', () => {
     expect(after).toContain('_trustedForwardingKey')
     expect(after).toContain('principal')
     expect(output).toContain('Raw trusted-forwarding migration')
+  })
+
+  it('write mode does not rewrite authorize callbacks or backend lane decisions', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/legacy/domain.ts',
+      [
+        "import { mutation } from '@lupinum/trellis/backend'",
+        '',
+        'export const update = mutation({',
+        '  args: {},',
+        '  guard: todoRead,',
+        '  load: async () => ({ todo: { ownerId: "user-1" } }),',
+        '  authorize: ({ todo }) => todo.ownerId === "user-1",',
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const after = readAppFile(appRoot, 'convex/features/legacy/domain.ts')
+
+    expect(result.status, output).toBe(0)
+    expect(after).toContain('export const update = mutation({')
+    expect(after).toContain('authorize: ({ todo }) => todo.ownerId === "user-1"')
+    expect(output).toContain('Backend root builder migration')
+    expect(output).toContain('Authorize arity migration')
   })
 })

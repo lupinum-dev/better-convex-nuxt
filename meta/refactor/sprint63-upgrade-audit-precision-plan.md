@@ -37,69 +37,84 @@ classification, and MCP safety classification remain human-review decisions.
 
 ### 1. Tighten Location Evidence
 
-- [ ] Replace first-match-per-file token scans with all-occurrence evidence where
+- [x] Replace first-match-per-file token scans with all-occurrence evidence where
       findings are token-based.
-- [ ] Keep file/line output stable and relative to the inspected project.
-- [ ] Include enough source/finding metadata for JSON consumers to distinguish
+- [x] Keep file/line output stable and relative to the inspected project.
+- [x] Include enough source/finding metadata for JSON consumers to distinguish
       project scan evidence from inventory evidence.
-- [ ] Add tests proving two old usages in the same file produce two exact
+- [x] Add tests proving two old usages in the same file produce two exact
       locations when that helps the reviewer.
-- [ ] Avoid logging or serializing sensitive matched values.
+- [x] Avoid logging or serializing sensitive matched values.
 
 ### 2. Strengthen Authorize Arity Audit
 
-- [ ] Replace or supplement the current authorize regex with AST-aware detection
+- [x] Replace or supplement the current authorize regex with AST-aware detection
       for `authorize` object properties.
-- [ ] Flag one-argument callback forms that depend on deleted arity inference.
-- [ ] Do not flag explicit object form such as
+- [x] Flag one-argument callback forms that depend on deleted arity inference.
+- [x] Do not flag explicit object form such as
       `authorize: { label, check }`.
-- [ ] Do not flag unrelated variables/functions named `authorize`.
-- [ ] Add tests for arrow functions, async arrow functions, function expressions,
+- [x] Do not flag unrelated variables/functions named `authorize`.
+- [x] Add tests for arrow functions, async arrow functions, function expressions,
       typed parameters, explicit object form, and unrelated uses.
-- [ ] Keep the finding warning/manual; no automatic rewrite.
+- [x] Keep the finding warning/manual; no automatic rewrite.
 
 ### 3. Prove Removed Imports Fail Loudly
 
-- [ ] Add type or CLI tests proving deleted public import paths fail after the
+- [x] Add type or CLI tests proving deleted public import paths fail after the
       codemod path exists: `@lupinum/trellis/functions` and
       `@lupinum/trellis/bridge`.
-- [ ] Prefer existing public-surface/typecheck fixtures over a new validation
+- [x] Prefer existing public-surface/typecheck fixtures over a new validation
       harness.
-- [ ] Assert the replacement guidance is available through
+- [x] Assert the replacement guidance is available through
       `trellis upgrade --check` / `--write`, not through hidden aliases.
-- [ ] Do not reintroduce old package exports just to improve the error message.
+- [x] Do not reintroduce old package exports just to improve the error message.
 
 ### 4. Verify Write Mode Still Stays Narrow
 
-- [ ] Re-run write-mode tests after audit-location changes.
-- [ ] Add or update tests proving `--write` still does not rewrite raw
+- [x] Re-run write-mode tests after audit-location changes.
+- [x] Add or update tests proving `--write` still does not rewrite raw
       trusted-forwarding fields, authorize callbacks, unsafe permit metadata, or
       backend root builder calls.
-- [ ] Confirm `--write` reruns audit after edits and reports remaining manual
+- [x] Confirm `--write` reruns audit after edits and reports remaining manual
       findings with exact file/line evidence.
 
 ### 5. Update Trackers
 
-- [ ] Mark Slice 11 "Audit report for authorize inference" complete only after
+- [x] Mark Slice 11 "Audit report for authorize inference" complete only after
       AST-backed tests pass.
-- [ ] Mark Slice 11 "Audit reports point to exact files/lines" complete only if
+- [x] Mark Slice 11 "Audit reports point to exact files/lines" complete only if
       token and inventory findings retain precise evidence.
-- [ ] Mark Slice 11 "Removed imports fail loudly..." complete only after tests
+- [x] Mark Slice 11 "Removed imports fail loudly..." complete only after tests
       prove old paths are absent and migration guidance exists.
-- [ ] Add a Sprint 63 completion note to the 1.0 refactor tracker.
-- [ ] Do not mark Slice 11 done unless the remaining delete items are actually
+- [x] Add a Sprint 63 completion note to the 1.0 refactor tracker.
+- [x] Do not mark Slice 11 done unless the remaining delete items are actually
       complete.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
-- [ ] `pnpm run build:cli`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm run test:types`
-- [ ] `pnpm exec oxfmt --check src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts meta/refactor/sprint63-upgrade-audit-precision-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts`
+- [x] `pnpm run build:cli`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm run test:types`
+- [x] `pnpm exec oxfmt --check src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts tests/dts/removed-subpaths.types.ts meta/refactor/sprint63-upgrade-audit-precision-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Result
+
+- Token-based migration findings now report every affected line in a file
+  instead of only the first match.
+- `authorize` arity migration is AST-backed for `authorize` object properties
+  and remains warning/manual.
+- Explicit `{ label, check }` authorize objects and unrelated symbols named
+  `authorize` are not flagged.
+- Removed `@lupinum/trellis/functions` and `@lupinum/trellis/bridge` subpaths
+  are covered by public type tests instead of compatibility aliases.
+- `trellis upgrade --write` still rewrites only mechanical imports and safe
+  `tool.fromOperation(...)` spelling changes; raw forwarding, authorize,
+  unsafe permits, and backend lane decisions stay manual.
 
 ## Done Means
 
