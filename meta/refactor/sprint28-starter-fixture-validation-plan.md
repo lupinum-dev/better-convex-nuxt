@@ -138,46 +138,46 @@ finding ids or exact stable messages.
 
 ### 1. Add Starter Validation Harness
 
-- [ ] Add `scripts/check-starter-fixtures.mjs`.
-- [ ] Generate `public`, `personal`, `workspace`, and `workspace-mcp` into a
+- [x] Add `scripts/check-starter-fixtures.mjs`.
+- [x] Generate `public`, `personal`, `workspace`, and `workspace-mcp` into a
       temp directory with `dist/cli.mjs`.
-- [ ] Make the script fail if `dist/cli.mjs` is missing and tell the developer
+- [x] Make the script fail if `dist/cli.mjs` is missing and tell the developer
       to run `pnpm run build:cli`.
-- [ ] Keep temp output under a predictable ignored path or OS temp path.
-- [ ] Print a concise per-starter summary.
+- [x] Keep temp output under a predictable ignored path or OS temp path.
+- [x] Print a concise per-starter summary.
 
 ### 2. Prove Generated Output Matches Fixture Intent
 
-- [ ] Compare generated output paths with the fixture-rendered paths.
-- [ ] Fail on missing expected files.
-- [ ] Fail on unexpected old template artifacts.
-- [ ] Fail on CMS/Ginko starter wording in retained starter output.
-- [ ] Reuse existing layer-boundary text checks where practical.
+- [x] Compare generated output paths with the fixture-rendered paths.
+- [x] Fail on missing expected files.
+- [x] Fail on unexpected old template artifacts.
+- [x] Fail on CMS/Ginko starter wording in retained starter output.
+- [x] Reuse existing layer-boundary text checks where practical.
 
 ### 3. Add Doctor Validation
 
-- [ ] Run `node dist/cli.mjs doctor --cwd <generated-app> --json` for each
+- [x] Run `node dist/cli.mjs doctor --cwd <generated-app> --json` for each
       generated starter.
-- [ ] Parse JSON output instead of grepping human output.
-- [ ] Classify expected local-env findings explicitly.
-- [ ] Fail on unexpected blocking findings.
+- [x] Parse JSON output instead of grepping human output.
+- [x] Classify expected local-env findings explicitly.
+- [x] Fail on unexpected blocking findings.
 
 ### 4. Add Package Script And Docs
 
-- [ ] Add `check:starter-fixtures` to `package.json`.
-- [ ] Include `pnpm run build:cli && pnpm run check:starter-fixtures` in the
+- [x] Add `check:starter-fixtures` to `package.json`.
+- [x] Include `pnpm run build:cli && pnpm run check:starter-fixtures` in the
       sprint verification.
-- [ ] Update Slice 7 in `meta/trellis-1.0-refactor-plan.md` with the new proof
+- [x] Update Slice 7 in `meta/trellis-1.0-refactor-plan.md` with the new proof
       status.
-- [ ] Add exit notes to this sprint plan.
+- [x] Add exit notes to this sprint plan.
 
 ### 5. Probe Typecheck/Build Feasibility
 
-- [ ] Try the smallest stable typecheck path for one generated starter.
-- [ ] Record whether Convex codegen, Nuxt prepare, package installation, or
+- [x] Try the smallest stable typecheck path for one generated starter.
+- [x] Record whether Convex codegen, Nuxt prepare, package installation, or
       workspace inclusion is the blocker.
-- [ ] Do not commit broad workspace changes only to make the probe pass.
-- [ ] Create the next sprint candidate from the probe result.
+- [x] Do not commit broad workspace changes only to make the probe pass.
+- [x] Create the next sprint candidate from the probe result.
 
 ## Verification
 
@@ -232,15 +232,39 @@ Expected result:
 
 ## Acceptance Criteria
 
-- [ ] A repo-owned `check:starter-fixtures` script exists.
-- [ ] The script generates all retained starters with `dist/cli.mjs`.
-- [ ] The script verifies generated file sets against fixture intent.
-- [ ] The script runs doctor on every generated starter.
-- [ ] Expected doctor findings are named; unexpected findings fail the check.
-- [ ] Layer-boundary checks run against generated starter output.
-- [ ] Typecheck/build feasibility is probed and documented.
-- [ ] Slice 7 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] A repo-owned `check:starter-fixtures` script exists.
+- [x] The script generates all retained starters with `dist/cli.mjs`.
+- [x] The script verifies generated file sets against fixture intent.
+- [x] The script runs doctor on every generated starter.
+- [x] Expected doctor findings are named; unexpected findings fail the check.
+- [x] Layer-boundary checks run against generated starter output.
+- [x] Typecheck/build feasibility is probed and documented.
+- [x] Slice 7 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `scripts/check-starter-fixtures.mjs` and `pnpm run
+  check:starter-fixtures`.
+- The harness builds generated apps from `dist/cli.mjs` for `public`,
+  `personal`, `workspace`, and `workspace-mcp`.
+- It compares generated file sets against the source fixture manifests.
+- It runs layer-boundary checks against generated output, not only fixture
+  source.
+- It writes local validation env and requires doctor JSON to return zero
+  warnings and zero failures for every retained starter.
+- Current validation result:
+  - `public`: 16 files, doctor 24 pass / 0 warn / 0 fail;
+  - `personal`: 25 files, doctor 24 pass / 0 warn / 0 fail;
+  - `workspace`: 36 files, doctor 24 pass / 0 warn / 0 fail;
+  - `workspace-mcp`: 41 files, doctor 24 pass / 0 warn / 0 fail.
+- Typecheck/build probe result: `pnpm --dir <generated-app> exec nuxi
+  typecheck` cannot start because `nuxi` is not installed in the generated temp
+  app. `pnpm install --lockfile-only` then fails because generated apps depend
+  on `@lupinum/trellis: workspace:*` outside a workspace containing Trellis.
+- Next proof work should decide whether generated starter validation happens
+  inside a temporary workspace containing packed/linked Trellis, or by rewriting
+  the generated dependency to a packed tarball for the validation run.
 
 ## Next Sprint Candidate
 

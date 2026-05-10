@@ -178,7 +178,8 @@
     "test:types:examples:canonical": "pnpm run build:module && pnpm --dir examples/04-saas-platform typecheck:tests && pnpm --dir examples/05-visibility-access typecheck:tests && pnpm --dir examples/06-multi-workspace typecheck:tests",
     "test:types:harness-server": "tsc -p apps/harness/server/tsconfig.json --noEmit",
     "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:bridge && pnpm run test:types:public && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:starter-fixtures": "node scripts/check-starter-fixtures.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",

@@ -24,7 +24,6 @@ const textExtensions = new Set([
   ".mts",
   ".vue",
   ".json",
-  ".tpl",
 ]);
 const ignoredDirectories = new Set([
   ".git",
@@ -270,9 +269,8 @@ const authComponents = existsSync(authComponentDir)
   : [];
 const cliCommands = extractCliCommands(mainCli);
 const initTemplates = extractTemplateNames(initCommand);
-const templateFiles = walk("src/cli/templates/init");
 const docsMatches = grepFiles(
-  ["meta", "apps/docs/content", "src/cli/templates"],
+  ["meta", "apps/docs/content"],
   [
     "tool.fromOperation",
     "_trustedForwardingKey",
@@ -363,11 +361,6 @@ const commandRows = [
           : "keep; fixture-backed";
     return [`init template`, `\`${template}\``, action];
   }),
-  ...templateFiles.map((file) => [
-    `template source`,
-    file,
-    "replace with fixture manifest",
-  ]),
 ];
 
 function docsAction(file) {

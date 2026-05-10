@@ -423,21 +423,21 @@ Goal: make tested fixture apps the source of starter generation.
 ### Delete
 
 - [x] Delete old `.tpl` files after each fixture-backed starter replaces them.
-- [ ] Delete duplicate starter source files.
-- [ ] Delete generated fixture artifacts from manifest includes.
+- [x] Delete duplicate starter source files.
+- [x] Delete generated fixture artifacts from manifest includes.
 
 ### Prove
 
 - [ ] Each fixture builds.
 - [ ] Each fixture typechecks.
-- [ ] Each fixture passes doctor.
-- [ ] Each `trellis init --template ...` output matches fixture-rendered
+- [x] Each fixture passes doctor.
+- [x] Each `trellis init --template ...` output matches fixture-rendered
       expectation.
-- [ ] No starter exposes concepts from disabled layers.
+- [x] No starter exposes concepts from disabled layers.
 
 ### Done Means
 
-- [ ] Starters are generated from fixtures.
+- [x] Starters are generated from fixtures.
 - [x] Old template source of truth is gone.
 
 ## Slice 8: Inventory, Doctor, And Explain Foundation
