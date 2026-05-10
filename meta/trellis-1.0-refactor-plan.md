@@ -1091,6 +1091,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   MCP API reference has terse allowlisting, direct mutation safety, and
   confirmation-does-not-replace-authorization notes. Trusted forwarding, bridge
   package-author, and full public API reference rewrites remain open.
+- Sprint 76 is planned to continue Slice 12 with the trusted-forwarding security
+  guide. The sprint should tighten the webhooks/trusted-forwarding task guide,
+  server API reference, and deployment/troubleshooting notes around signed
+  `_trellisForwarding` as the only live transport, server helpers owning
+  envelope creation for `auth: 'trusted'`, raw forwarding fields being deleted
+  from app authoring, fail-closed verification, safe logging, and the invariant
+  that a valid envelope authenticates transport only and never grants business
+  permission. Bridge package-author and full public API reference rewrites stay
+  open unless this sprint makes only narrow alignment edits.
 
 ### Done Means
 
