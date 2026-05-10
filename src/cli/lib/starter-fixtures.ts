@@ -88,3 +88,24 @@ export function renderAppStarterFixture(input: {
     ownership: generatedPaths.has(file.path) ? 'generated' : 'authored',
   }))
 }
+
+export function renderAppStarterFixtureSubset(input: {
+  appName: string
+  template: FixtureBackedTemplate
+  paths: readonly string[]
+}): TemplateFile[] {
+  const filesByPath = new Map(
+    renderAppStarterFixture({
+      appName: input.appName,
+      template: input.template,
+    }).map((file) => [file.path, file]),
+  )
+
+  return input.paths.map((path) => {
+    const file = filesByPath.get(path)
+    if (!file) {
+      throw new Error(`Missing ${input.template} starter fixture file: ${path}`)
+    }
+    return file
+  })
+}

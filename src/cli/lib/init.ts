@@ -2,18 +2,13 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 
 import {
-  mcpCreateTodoToolTemplate,
-  mcpKeysTemplate,
-  mcpListTodosToolTemplate,
-  mcpMiddlewareTemplate,
-  mcpRuntimeTemplate,
   routeShellTemplate,
   uploadsContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
 } from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
-import { renderAppStarterFixture } from './starter-fixtures.js'
+import { renderAppStarterFixture, renderAppStarterFixtureSubset } from './starter-fixtures.js'
 
 export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
 
@@ -33,36 +28,14 @@ export interface InitTemplateSet {
 export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
 export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'entity'
 
-function buildMcpTemplateSet(): InitTemplateSet {
-  return {
-    label: 'mcp',
-    description: 'Scaffold MCP middleware glue',
-    files: [
-      {
-        path: 'server/middleware/mcp-auth.ts',
-        content: mcpMiddlewareTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'server/mcp/runtime.ts',
-        content: mcpRuntimeTemplate(),
-        ownership: 'authored',
-      },
-    ],
-  }
-}
-
-function mergeTemplateSets(...sets: InitTemplateSet[]): TemplateFile[] {
-  const merged = new Map<string, TemplateFile>()
-
-  for (const set of sets) {
-    for (const file of set.files) {
-      merged.set(file.path, file)
-    }
-  }
-
-  return [...merged.values()]
-}
+const mcpAddFixturePaths = [
+  'server/middleware/mcp-auth.ts',
+  'server/mcp/index.ts',
+  'server/mcp/runtime.ts',
+  'server/mcp/tools/list-todos.ts',
+  'server/mcp/tools/create-todo.ts',
+  'convex/features/mcpKeys/domain.ts',
+] as const
 
 function buildAppTemplateSet(template: AppTemplate, appName: string): InitTemplateSet {
   return {
@@ -138,15 +111,6 @@ function appPackageName(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'trellis-app'
   )
-}
-
-function mcpEndpointTemplate(appName: string) {
-  return `
-export default defineMcpHandler({
-  name: '${appPackageName(appName)}',
-  browserRedirect: '/',
-})
-`.trimStart()
 }
 
 function addMcpKeysSchemaBlock() {
@@ -329,28 +293,11 @@ export async function getAddTemplateSet(options: {
     return {
       label: 'add:mcp',
       description: 'Add the canonical MCP runtime to a workspace app',
-      files: mergeTemplateSets(buildMcpTemplateSet()).concat([
-        {
-          path: 'server/mcp/index.ts',
-          content: mcpEndpointTemplate(options.appName ?? 'workspace-app'),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/mcpKeys/domain.ts',
-          content: mcpKeysTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'server/mcp/tools/list-todos.ts',
-          content: mcpListTodosToolTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'server/mcp/tools/create-todo.ts',
-          content: mcpCreateTodoToolTemplate(),
-          ownership: 'authored',
-        },
-      ]),
+      files: renderAppStarterFixtureSubset({
+        appName: options.appName ?? basename(options.cwd),
+        template: 'workspace-mcp',
+        paths: mcpAddFixturePaths,
+      }),
       afterWrite: async (cwd) => {
         await enableNuxtMcpConfig(cwd)
         await addMcpDependency(cwd)

@@ -9,6 +9,7 @@ import {
   getAddTemplateSet,
   getCanonicalAppTemplateSet,
 } from '../../src/cli/lib/init'
+import { renderAppStarterFixtureSubset } from '../../src/cli/lib/starter-fixtures'
 
 const tempDirs: string[] = []
 
@@ -321,6 +322,50 @@ describe('trellis add uploads', () => {
     ).resolves.toContain('useConvexUpload(api.features.files.domain.generateUploadUrlMutation')
     await expect(readFile(resolve(cwd, 'app/pages/uploads.vue'), 'utf8')).resolves.toContain(
       'UploadsStarterPage',
+    )
+  })
+})
+
+describe('trellis add mcp', () => {
+  const mcpAddPaths = [
+    'server/middleware/mcp-auth.ts',
+    'server/mcp/index.ts',
+    'server/mcp/runtime.ts',
+    'server/mcp/tools/list-todos.ts',
+    'server/mcp/tools/create-todo.ts',
+    'convex/features/mcpKeys/domain.ts',
+  ] as const
+
+  it('derives authored MCP files from the workspace-mcp fixture', async () => {
+    const cwd = await scaffoldApp('workspace')
+    const template = await getAddTemplateSet({
+      feature: 'mcp',
+      cwd,
+      appName: 'demo-app',
+    })
+
+    expect(template.files.map((file) => file.path)).toEqual([...mcpAddPaths])
+
+    await applyInitTemplateSet(cwd, template, false)
+
+    const expectedFiles = renderAppStarterFixtureSubset({
+      appName: 'demo-app',
+      template: 'workspace-mcp',
+      paths: mcpAddPaths,
+    })
+
+    for (const expected of expectedFiles) {
+      await expect(readFile(resolve(cwd, expected.path), 'utf8')).resolves.toBe(expected.content)
+    }
+
+    await expect(readFile(resolve(cwd, 'nuxt.config.ts'), 'utf8')).resolves.toContain(
+      "mcp: { name: 'trellis-workspace-",
+    )
+    await expect(readFile(resolve(cwd, 'package.json'), 'utf8')).resolves.toContain(
+      '"@nuxtjs/mcp-toolkit": "^0.13.4"',
+    )
+    await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
+      'mcpKeys: defineTable',
     )
   })
 })

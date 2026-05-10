@@ -83,23 +83,18 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## CLI And Starter Surface
 
-| Kind            | Name                                                 | Sprint 1 Action                     |
-| --------------- | ---------------------------------------------------- | ----------------------------------- |
-| command         | `trellis add`                                        | keep; fixture/inventory-backed only |
-| command         | `trellis doctor`                                     | keep; inventory-backed              |
-| command         | `trellis init`                                       | keep; fixture-backed only           |
-| init template   | `personal`                                           | keep; fixture-backed                |
-| init template   | `public`                                             | keep; fixture-backed                |
-| init template   | `workspace`                                          | keep; fixture-backed                |
-| init template   | `workspace-mcp`                                      | keep; canonical MCP starter         |
-| template source | src/cli/templates/init/mcpCreateTodoToolTemplate.tpl | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpKeysTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpListTodosToolTemplate.tpl  | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpMiddlewareTemplate.tpl     | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpRuntimeTemplate.tpl        | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsContractTemplate.tpl   | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsDomainTemplate.tpl     | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsPageTemplate.tpl       | replace with fixture manifest       |
+| Kind            | Name                                               | Sprint 1 Action                     |
+| --------------- | -------------------------------------------------- | ----------------------------------- |
+| command         | `trellis add`                                      | keep; fixture/inventory-backed only |
+| command         | `trellis doctor`                                   | keep; inventory-backed              |
+| command         | `trellis init`                                     | keep; fixture-backed only           |
+| init template   | `personal`                                         | keep; fixture-backed                |
+| init template   | `public`                                           | keep; fixture-backed                |
+| init template   | `workspace`                                        | keep; fixture-backed                |
+| init template   | `workspace-mcp`                                    | keep; canonical MCP starter         |
+| template source | src/cli/templates/init/uploadsContractTemplate.tpl | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsDomainTemplate.tpl   | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsPageTemplate.tpl     | replace with fixture manifest       |
 
 ## Docs/Templates That Still Teach Old Paths
 

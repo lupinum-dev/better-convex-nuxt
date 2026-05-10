@@ -116,43 +116,43 @@ Delete the corresponding helper exports from `src/cli/lib/init-templates.ts`.
 
 ### 1. Add A Fixture Subset Renderer
 
-- [ ] Add a small helper that renders files from the `workspace-mcp` fixture and
+- [x] Add a small helper that renders files from the `workspace-mcp` fixture and
       filters by explicit paths.
-- [ ] Reuse the existing fixture root/manifest rendering and app-name transform.
-- [ ] Keep ownership metadata consistent with fixture-generated starter files.
-- [ ] Fail loudly if a requested MCP add path is not present in the
+- [x] Reuse the existing fixture root/manifest rendering and app-name transform.
+- [x] Keep ownership metadata consistent with fixture-generated starter files.
+- [x] Fail loudly if a requested MCP add path is not present in the
       `workspace-mcp` fixture.
 
 ### 2. Replace `trellis add mcp`
 
-- [ ] Replace `buildMcpTemplateSet()` with fixture-subset rendering.
-- [ ] Replace direct MCP `.tpl` calls in `getAddTemplateSet({ feature: 'mcp' })`.
-- [ ] Keep `afterWrite` host patches for Nuxt config, package dependency, and
+- [x] Replace `buildMcpTemplateSet()` with fixture-subset rendering.
+- [x] Replace direct MCP `.tpl` calls in `getAddTemplateSet({ feature: 'mcp' })`.
+- [x] Keep `afterWrite` host patches for Nuxt config, package dependency, and
       schema.
-- [ ] Preserve current CLI output paths for `trellis add mcp`.
+- [x] Preserve current CLI output paths for `trellis add mcp`.
 
 ### 3. Delete Old MCP Templates
 
-- [ ] Delete MCP template helper exports from `src/cli/lib/init-templates.ts`.
-- [ ] Delete MCP `.tpl` files from `src/cli/templates/init`.
-- [ ] Update schema-boundary tests that still list MCP `.tpl` targets.
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Delete MCP template helper exports from `src/cli/lib/init-templates.ts`.
+- [x] Delete MCP `.tpl` files from `src/cli/templates/init`.
+- [x] Update schema-boundary tests that still list MCP `.tpl` targets.
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
 
 ### 4. Update Tests
 
-- [ ] Add or update a unit test proving `trellis add mcp` output matches the
+- [x] Add or update a unit test proving `trellis add mcp` output matches the
       `workspace-mcp` fixture for the selected MCP files.
-- [ ] Keep existing `trellis add mcp` behavior tests passing.
-- [ ] Ensure retained app starter tests still pass.
-- [ ] Add a search/regression assertion or documented search check proving MCP
+- [x] Keep existing `trellis add mcp` behavior tests passing.
+- [x] Ensure retained app starter tests still pass.
+- [x] Add a search/regression assertion or documented search check proving MCP
       `.tpl` helpers are gone.
 
 ### 5. Update Trackers
 
-- [ ] Update Slice 7 in `meta/trellis-1.0-refactor-plan.md` if this completes
+- [x] Update Slice 7 in `meta/trellis-1.0-refactor-plan.md` if this completes
       the MCP `.tpl` deletion item.
-- [ ] Add exit notes to this sprint plan.
-- [ ] Commit sprint changes after verification.
+- [x] Add exit notes to this sprint plan.
+- [x] Commit sprint changes after verification.
 
 ## Verification
 
@@ -238,16 +238,31 @@ src/cli/templates/init/uploadsPageTemplate.tpl
 
 ## Acceptance Criteria
 
-- [ ] `trellis add mcp` derives MCP authored files from the `workspace-mcp`
+- [x] `trellis add mcp` derives MCP authored files from the `workspace-mcp`
       fixture.
-- [ ] MCP `.tpl` files and helper exports are deleted.
-- [ ] `trellis add mcp` CLI output paths are unchanged.
-- [ ] Host config patching for Nuxt, package dependency, and Convex schema still
+- [x] MCP `.tpl` files and helper exports are deleted.
+- [x] `trellis add mcp` CLI output paths are unchanged.
+- [x] Host config patching for Nuxt, package dependency, and Convex schema still
       works.
-- [ ] Retained starters still generate successfully.
-- [ ] No MCP add path has a second source of truth.
-- [ ] Surface inventory is regenerated.
-- [ ] Sprint changes are committed after verification.
+- [x] Retained starters still generate successfully.
+- [x] No MCP add path has a second source of truth.
+- [x] Surface inventory is regenerated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- `trellis add mcp` now renders its authored MCP files from the
+  `workspace-mcp` starter fixture.
+- The add-MCP file list is explicit and fails loudly if the fixture no longer
+  contains one of the selected files.
+- `server/mcp/index.ts` now comes from the same fixture as `workspace-mcp`, so
+  the old inline endpoint template is gone.
+- MCP `.tpl` files and MCP helper exports were deleted.
+- The only remaining files in `src/cli/templates/init` are uploads add
+  templates.
+- A unit test now compares add-MCP output against the fixture subset to prevent
+  a second MCP source of truth from returning.
+- Retained app starters and add-MCP CLI smoke checks passed.
 
 ## Next Sprint Candidate
 

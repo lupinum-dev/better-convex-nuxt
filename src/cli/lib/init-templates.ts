@@ -28,26 +28,6 @@ function readStaticTemplate(name: string): string {
   return content
 }
 
-export function mcpMiddlewareTemplate() {
-  return readStaticTemplate('mcpMiddlewareTemplate')
-}
-
-export function mcpRuntimeTemplate() {
-  return readStaticTemplate('mcpRuntimeTemplate')
-}
-
-export function mcpKeysTemplate() {
-  return readStaticTemplate('mcpKeysTemplate')
-}
-
-export function mcpListTodosToolTemplate() {
-  return readStaticTemplate('mcpListTodosToolTemplate')
-}
-
-export function mcpCreateTodoToolTemplate() {
-  return readStaticTemplate('mcpCreateTodoToolTemplate')
-}
-
 export function uploadsDomainTemplate() {
   return readStaticTemplate('uploadsDomainTemplate')
 }
@@ -69,20 +49,5 @@ import ${options.componentName} from '${options.importPath}'
 <template>
   <${options.componentName} />
 </template>
-`.trimStart()
-}
-
-export function mcpEndpointTemplate(appName: string) {
-  return `
-export default defineMcpHandler({
-  name: '${
-    appName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'trellis-app'
-  }',
-  browserRedirect: '/',
-})
 `.trimStart()
 }

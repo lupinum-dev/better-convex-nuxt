@@ -1,4 +1,4 @@
 export default defineMcpHandler({
-  name: 'workspace-app',
+  name: 'trellis-starter-workspace-mcp',
   browserRedirect: '/',
 })
