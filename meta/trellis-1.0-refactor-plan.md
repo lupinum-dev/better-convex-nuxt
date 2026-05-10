@@ -924,3 +924,5 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 - [ ] No parallel implementation remains.
 - [ ] No old public path remains unless explicitly listed in this plan.
 - [ ] Trellis 1.0 has one coherent architecture.
+
+IMPORTANT: If everything is finsihed, and you are still prompted to create a new sprint plan, make sure everyting is properly reviewed, and fixed, everything in full ooptimal state, no debt, straight forward code,.. 
