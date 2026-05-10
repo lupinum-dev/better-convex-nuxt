@@ -720,6 +720,8 @@ shims.
 | bridge core exports                         | `@lupinum/trellis-bridge` | codemod            | package boundary                 |
 | arity authorize inference                   | explicit authorize        | audit report       | no silent rewrite                |
 | string unsafe bypass                        | typed permit              | codemod where safe | strict mode default              |
+| root backend builder calls                  | explicit backend lanes    | audit report       | no silent rewrite                |
+| root operation/projection registration      | explicit protected lanes  | audit report       | no silent rewrite                |
 | `.tpl` starters                             | fixture manifests         | generator          | old templates deleted            |
 | `@lupinum/trellis/functions` bridge helpers | `@lupinum/trellis-bridge` | codemod            | no bridge exports from functions |
 | `@lupinum/trellis/bridge`                   | `@lupinum/trellis-bridge` | codemod            | package boundary                 |
@@ -734,10 +736,15 @@ shims.
   backend builder calls, deleted starter spellings, and old package/import
   paths. This is audit coverage only; it must not reintroduce old APIs or hidden
   aliases.
+- Sprint 57 added import-aware `upgrade-backend-root-builder` audit coverage for
+  deleted Trellis root builder calls and root operation/projection registration,
+  strengthened deleted starter spelling findings, and documented the migration
+  coverage map. Raw Convex builders remain out of scope unless they import
+  Trellis builders.
 
 ### Build
 
-- [ ] `trellis upgrade --check` or equivalent audit command.
+- [x] `trellis upgrade --check` or equivalent audit command.
 - [ ] Codemod for mechanical import/path renames.
 - [ ] Codemod for `tool.fromOperation`.
 - [ ] Audit report for authorize inference.

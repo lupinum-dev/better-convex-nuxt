@@ -124,6 +124,7 @@ describe('CLI upgrade', () => {
     expect(report.summary.warn).toBe(0)
     expect(findFinding(report, 'upgrade-tool-from-operation').status).toBe('pass')
     expect(findFinding(report, 'upgrade-functions-import').status).toBe('pass')
+    expect(findFinding(report, 'upgrade-backend-root-builder').status).toBe('pass')
   })
 
   it('emits human-readable upgrade check output', () => {
@@ -240,6 +241,113 @@ describe('CLI upgrade', () => {
     expect(result.status, output).toBe(0)
     expect(finding.status).toBe('warn')
     expect(finding.message).toContain('convex/features/legacy/domain.ts:1')
+  })
+
+  it('warns for old Trellis backend root builder calls with file locations', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/legacy/domain.ts',
+      [
+        "import { mutation, query as backendQuery } from '@lupinum/trellis/backend'",
+        "import { action as backendAction } from '../../functions'",
+        '',
+        'export const list = backendQuery({',
+        '  args: {},',
+        '  handler: async () => [],',
+        '})',
+        '',
+        'export const remove = mutation(removeTodoOperation)',
+        '',
+        'export const sync = backendAction({',
+        '  args: {},',
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-backend-root-builder')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('warn')
+    expect(finding.message).toContain('convex/features/legacy/domain.ts:4')
+    expect(finding.message).toContain('convex/features/legacy/domain.ts:9')
+    expect(finding.message).toContain('convex/features/legacy/domain.ts:11')
+    expect(finding.sources).toEqual([
+      expect.objectContaining({
+        kind: 'project-scan',
+        label: 'legacy Trellis backend root builder calls',
+        locations: [
+          expect.objectContaining({
+            path: 'convex/features/legacy/domain.ts',
+            line: 4,
+          }),
+          expect.objectContaining({
+            path: 'convex/features/legacy/domain.ts',
+            line: 9,
+          }),
+          expect.objectContaining({
+            path: 'convex/features/legacy/domain.ts',
+            line: 11,
+          }),
+        ],
+      }),
+    ])
+  })
+
+  it('does not flag raw Convex builder calls as Trellis backend root builder calls', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/raw/domain.ts',
+      [
+        "import { mutation, query } from './_generated/server'",
+        '',
+        'export const list = query({',
+        '  args: {},',
+        '  handler: async () => [],',
+        '})',
+        '',
+        'export const remove = mutation({',
+        '  args: {},',
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-backend-root-builder')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('pass')
+  })
+
+  it('warns for deleted starter spellings with file locations', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/legacy-setup.ts',
+      [
+        'export const oldWorkspaceMcp = "trellis init demo --template workspace --mcp"',
+        'export const oldCms = "trellis init cms-demo --template cms"',
+      ].join('\n'),
+    )
+    writeAppFile(appRoot, 'server/create-app.ts', 'export const starter = { template: "cms" }\n')
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-starter-surface')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('warn')
+    expect(finding.message).toContain('server/legacy-setup.ts:1')
+    expect(finding.message).toContain('server/create-app.ts:1')
   })
 
   it('warns for one-argument authorize callbacks without rewriting files', () => {

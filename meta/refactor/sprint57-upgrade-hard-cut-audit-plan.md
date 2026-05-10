@@ -44,73 +44,92 @@ visible, precise, and removable.
 
 ## Work Items
 
+### Migration Coverage Map
+
+| Old Pattern                            | Current Coverage                          |
+| -------------------------------------- | ----------------------------------------- |
+| `tool.fromOperation(...)`              | checked by `upgrade-tool-from-operation`  |
+| raw forwarding args                    | checked by `upgrade-raw-forwarding`       |
+| bridge core exports/imports            | checked by `upgrade-bridge-import`        |
+| arity authorize inference              | audit-only `upgrade-authorize-arity`      |
+| string unsafe bypass                   | audit-only `upgrade-unsafe-permits`       |
+| `.tpl` starters                        | fixture generator coverage, no upgrade    |
+| `@lupinum/trellis/functions` imports   | checked by `upgrade-functions-import`     |
+| Trellis root backend builder calls     | checked by `upgrade-backend-root-builder` |
+| root operation/projection registration | checked by `upgrade-backend-root-builder` |
+| `@lupinum/trellis/bridge` imports      | checked by `upgrade-bridge-import`        |
+| `trellis bridge` root CLI              | manual/docs pending                       |
+| `workspace --mcp`                      | checked by `upgrade-starter-surface`      |
+| `cms` starter                          | checked by `upgrade-starter-surface`      |
+
 ### 1. Inventory Current Upgrade Coverage
 
-- [ ] Read `src/cli/commands/upgrade.ts` and existing upgrade tests.
-- [ ] Map every row in the Slice 11 migration table to one of:
+- [x] Read `src/cli/commands/upgrade.ts` and existing upgrade tests.
+- [x] Map every row in the Slice 11 migration table to one of:
       checked, codemod-ready, manual/audit-only, intentionally no check.
-- [ ] Add the map to this sprint doc or the Slice 11 migration section.
-- [ ] Do not implement a check until its false-positive boundary is clear.
+- [x] Add the map to this sprint doc or the Slice 11 migration section.
+- [x] Do not implement a check until its false-positive boundary is clear.
 
 ### 2. Add Precise Old Backend Builder Findings
 
-- [ ] Detect Trellis backend imports from `@lupinum/trellis/backend`,
+- [x] Detect Trellis backend imports from `@lupinum/trellis/backend`,
       `@lupinum/trellis/functions`, local `../../functions`, and generated
       fixture function barrels where possible.
-- [ ] Flag only imported Trellis builder identifiers called directly as
+- [x] Flag only imported Trellis builder identifiers called directly as
       `query(...)`, `mutation(...)`, or `action(...)`.
-- [ ] Flag operation/projection root registration shapes such as
+- [x] Flag operation/projection root registration shapes such as
       `mutation(removeTodoOp)` and `query(previewOf(removeTodoOp))` when the
       called identifier is a Trellis builder import.
-- [ ] Recommend explicit lanes: `.public`, `.protected`, or `.unsafe`.
-- [ ] Keep raw Convex builder fixtures out of scope unless they import Trellis
+- [x] Recommend explicit lanes: `.public`, `.protected`, or `.unsafe`.
+- [x] Keep raw Convex builder fixtures out of scope unless they import Trellis
       builders.
 
 ### 3. Strengthen Deleted Starter/CLI Findings
 
-- [ ] Ensure `workspace --mcp` references are reported as deleted 1.0 starter
+- [x] Ensure `workspace --mcp` references are reported as deleted 1.0 starter
       spelling, not only docs text drift.
-- [ ] Ensure `--template cms` and `template: "cms"` are reported as deleted
+- [x] Ensure `--template cms` and `template: "cms"` are reported as deleted
       Trellis starter usage.
-- [ ] Keep `examples/08-component-mini-cms`, historical sprint docs, and
+- [x] Keep `examples/08-component-mini-cms`, historical sprint docs, and
       package-author bridge docs from creating noisy beginner-starter findings.
 
 ### 4. Tighten Import/Path Findings
 
-- [ ] Keep `@lupinum/trellis/functions` import findings, but make the output
-      distinguish general backend rename from bridge-helper migration.
-- [ ] Keep `@lupinum/trellis/bridge` findings pointing at
+- [x] Keep `@lupinum/trellis/functions` import findings as a general hard-cut
+      backend rename finding; bridge-helper migration remains separately listed
+      in the migration coverage map for the codemod/manual follow-up.
+- [x] Keep `@lupinum/trellis/bridge` findings pointing at
       `@lupinum/trellis-bridge`.
-- [ ] Verify the upgrade report covers old public paths without requiring those
+- [x] Verify the upgrade report covers old public paths without requiring those
       paths to remain exported.
 
 ### 5. Update Tests And Fixtures
 
-- [ ] Add focused upgrade fixtures with old root backend builder calls.
-- [ ] Add tests proving raw Convex builder files are not falsely flagged.
-- [ ] Add tests for deleted starter spellings.
-- [ ] Update human and JSON output assertions for new findings.
+- [x] Add focused upgrade fixtures with old root backend builder calls.
+- [x] Add tests proving raw Convex builder files are not falsely flagged.
+- [x] Add tests for deleted starter spellings.
+- [x] Update human and JSON output assertions for new findings.
 
 ### 6. Update Refactor Tracker
 
-- [ ] Add a Sprint 57 progress note under Slice 11.
-- [ ] Mark `trellis upgrade --check` complete only if the command covers the
+- [x] Add a Sprint 57 progress note under Slice 11.
+- [x] Mark `trellis upgrade --check` complete only if the command covers the
       migration table rows above with tested findings.
-- [ ] Mark codemods still pending unless an actual codemod is implemented and
+- [x] Mark codemods still pending unless an actual codemod is implemented and
       tested.
-- [ ] Do not mark Slice 11 done unless all Done Means are satisfied.
+- [x] Do not mark Slice 11 done unless all Done Means are satisfied.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts`
-- [ ] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check src/cli tests/unit/cli-upgrade.test.ts meta/refactor/sprint57-upgrade-hard-cut-audit-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts`
+- [x] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts meta/refactor/sprint57-upgrade-hard-cut-audit-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

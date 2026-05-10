@@ -1,6 +1,7 @@
 import { relative, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
+import { Node, Project, SyntaxKind } from 'ts-morph'
 
 import type { DoctorFinding, FindingReport, FindingSource } from '../lib/findings.js'
 import {
@@ -99,6 +100,78 @@ function findTokenLocations(
   return locations
 }
 
+const backendBuilderNames = new Set(['query', 'mutation', 'action'])
+
+function isTsMorphParseablePath(path: string): boolean {
+  return /\.(?:[cm]?[jt]sx?)$/.test(path)
+}
+
+function isTrellisBackendImportSpecifier(specifier: string, sourcePath: string): boolean {
+  if (specifier === '@lupinum/trellis/backend' || specifier === '@lupinum/trellis/functions') {
+    return true
+  }
+
+  const normalizedSourcePath = sourcePath.replaceAll('\\', '/')
+  return (
+    specifier.startsWith('.') &&
+    /(?:^|\/)functions$/.test(specifier) &&
+    normalizedSourcePath.includes('/convex/')
+  )
+}
+
+function findLegacyBackendRootBuilderCalls(
+  project: ProjectInspection,
+): TrellisCliInventorySourceLocation[] {
+  const locations: TrellisCliInventorySourceLocation[] = []
+  const tsProject = new Project({
+    compilerOptions: {
+      allowJs: true,
+      jsx: 1,
+    },
+    useInMemoryFileSystem: true,
+  })
+
+  for (const source of project.sourceFiles) {
+    if (!isTsMorphParseablePath(source.path)) continue
+
+    let sourceFile
+    try {
+      sourceFile = tsProject.createSourceFile(source.path, source.text, {
+        overwrite: true,
+      })
+    } catch {
+      continue
+    }
+
+    const trellisBackendBuilders = new Set<string>()
+
+    for (const declaration of sourceFile.getImportDeclarations()) {
+      if (!isTrellisBackendImportSpecifier(declaration.getModuleSpecifierValue(), source.path)) {
+        continue
+      }
+
+      for (const namedImport of declaration.getNamedImports()) {
+        const importedName = namedImport.getName()
+        if (!backendBuilderNames.has(importedName)) continue
+        trellisBackendBuilders.add(namedImport.getAliasNode()?.getText() ?? importedName)
+      }
+    }
+
+    if (trellisBackendBuilders.size === 0) continue
+
+    for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      const expression = call.getExpression()
+      if (!Node.isIdentifier(expression)) continue
+      if (!trellisBackendBuilders.has(expression.getText())) continue
+
+      const start = call.getStartLineNumber()
+      locations.push(toRelativeLocation(project, source.path, start))
+    }
+  }
+
+  return locations
+}
+
 function createLocationFinding(options: UpgradeFindingOptions): DoctorFinding {
   if (options.locations.length === 0) {
     return {
@@ -138,9 +211,11 @@ function createUpgradeFindings(
   const legacyBridgeImport = findTokenLocations(project, [/['"]@lupinum\/trellis\/bridge['"]/])
   const legacyStarterReferences = findTokenLocations(project, [
     /\bworkspace\s+--mcp\b/,
+    /\b--template\s+workspace\s+--mcp\b/,
     /\b--template\s+cms\b/,
     /\btemplate\s*:\s*['"]cms['"]/,
   ])
+  const legacyBackendRootBuilders = findLegacyBackendRootBuilderCalls(project)
   const authorizeArityInference = findTokenLocations(project, [
     /authorize\s*:\s*(?:async\s*)?\(\s*(?:\{[^)]*\}|[A-Za-z_$][\w$]*\s*:\s*\{[^)]*\})\s*\)\s*=>/,
   ])
@@ -203,6 +278,23 @@ function createUpgradeFindings(
         `Found old core bridge imports at ${formatLocations(locations)}.`,
       cleanMessage: 'No @lupinum/trellis/bridge imports were found.',
       fixHint: 'Move packaged integration code to `@lupinum/trellis-bridge`.',
+    }),
+    createLocationFinding({
+      id: 'upgrade-backend-root-builder',
+      title: 'Backend root builder migration',
+      locations: legacyBackendRootBuilders,
+      sources: [
+        findingProjectScanSource(
+          'legacy Trellis backend root builder calls',
+          legacyBackendRootBuilders,
+        ),
+      ],
+      statusWhenFound: 'warn',
+      foundMessage: (locations) =>
+        `Found deleted Trellis backend root builder calls at ${formatLocations(locations)}.`,
+      cleanMessage: 'No Trellis backend root builder calls were found.',
+      fixHint:
+        'Replace `query(...)`, `mutation(...)`, and `action(...)` Trellis backend calls with explicit lanes such as `.public(...)`, `.protected(...)`, or `.unsafe(...)`.',
     }),
     createLocationFinding({
       id: 'upgrade-mcp-destructive-binding',
