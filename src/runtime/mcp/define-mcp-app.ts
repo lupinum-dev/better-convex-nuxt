@@ -41,7 +41,7 @@ import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { hashConfirmationValue } from './confirmation-token.js'
-import { defineTool } from './define-convex-tool.js'
+import { defineToolInternal as defineTool } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,
   createMemoryConfirmationStore,

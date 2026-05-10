@@ -62,6 +62,13 @@ type ConvexToolGeneratedExamples<V extends PropertyValidators> = Partial<
   Record<keyof V & string, unknown>
 >[]
 
+type DefineConvexToolInternalOptions<
+  S extends AnyConvexSchema,
+  TRole extends string = string,
+> = DefineConvexToolOptions<S, TRole> & {
+  operation?: ConvexToolOperation
+}
+
 interface NormalizedToolArgs<S extends AnyConvexSchema> {
   clean: InferSchemaData<S>
 }
@@ -405,7 +412,7 @@ function isValidCallToolResult(value: unknown): value is McpToolCallbackResult {
 // ============================================================================
 
 function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = string>(
-  options: DefineConvexToolOptions<S, TRole>,
+  options: DefineConvexToolInternalOptions<S, TRole>,
 ): McpToolDefinition<ConvexToolInputSchema, ZodRawShape> {
   type BuiltToolDefinition = McpToolDefinition<ConvexToolInputSchema, ZodRawShape>
 
@@ -663,6 +670,12 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
  */
 export function defineTool<S extends AnyConvexSchema, TRole extends string = string>(
   options: DefineConvexToolOptions<S, TRole>,
+): McpToolDefinition {
+  return _buildToolDefinition(options) as unknown as McpToolDefinition
+}
+
+export function defineToolInternal<S extends AnyConvexSchema, TRole extends string = string>(
+  options: DefineConvexToolInternalOptions<S, TRole>,
 ): McpToolDefinition {
   return _buildToolDefinition(options) as unknown as McpToolDefinition
 }

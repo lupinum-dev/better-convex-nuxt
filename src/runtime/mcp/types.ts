@@ -12,7 +12,7 @@ import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { NoInfer, ValidateSerializable } from '../types/type-utils.js'
-import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
+import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
 import type { McpRateLimitStore } from './rate-limiter.js'
 import type { TrellisUnsafePermit } from './unsafe-permit.js'
 
@@ -157,8 +157,6 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   effect: ConvexToolEffect
   /** Required for external-service custom tools. */
   permit?: TrellisUnsafePermit
-  /** Internal transport annotation override. App code should choose `effect`. */
-  operation?: ConvexToolOperation
   /** Override auto-derived MCP annotations. */
   annotations?: Partial<McpToolAnnotations>
 
