@@ -11,6 +11,10 @@ export const mcpRuntime = defineMcpApp({
     kind: 'agent' as const,
     subject: 'agent:phase0',
   }),
+  resolveCapabilities: async () => ({
+    'projects.create': true,
+    'projects.delete': true,
+  }),
   callConvex: async () => ({
     query: async (_ref, args, options) => {
       convexCalls.push({ operation: 'query', args, options })

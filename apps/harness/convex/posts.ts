@@ -1,10 +1,10 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { implementOperation, previewOf } from '@lupinum/trellis/backend'
 import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
-import { createPost, deletePost, updatePost } from '../shared/schemas/post'
+import { createPost, deletePost, removePostDescriptor, updatePost } from '../shared/schemas/post'
 import type { Doc, Id } from './_generated/dataModel'
 import type { Actor } from './auth/actor'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
@@ -178,29 +178,7 @@ export const remove = mutation.protected({
   },
 })
 
-export const removePostOp = defineOperation({
-  id: 'posts.remove',
-  name: 'removePost',
-  kind: 'destructive',
-  args: deletePost.args,
-  returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        posts: v.number(),
-      }),
-      blocked: v.optional(v.boolean()),
-    }),
-    confirm: v.object({
-      operation: v.literal('posts.remove'),
-      targetId: v.id('posts'),
-      affectedCounts: v.object({
-        posts: v.number(),
-      }),
-    }),
-  }),
+export const removePostOp = implementOperation(removePostDescriptor, {
   guard: canManagePosts,
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     const actor = await ctx.actor()

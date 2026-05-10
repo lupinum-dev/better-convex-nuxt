@@ -1,15 +1,19 @@
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 
-import { bulkRemove } from '~/convex/features/runbooks/domain'
-import { bulkRemoveRunbooksOp, previewBulkRemove } from '~/convex/features/runbooks/operations'
-import { runbookBulkDelete } from '~/convex/features/runbooks/permissions'
+import { api } from '~/convex/_generated/api'
+import { bulkRemoveRunbooksDescriptor } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(bulkRemoveRunbooksOp, {
-  execute: executeOperationRef(bulkRemoveRunbooksOp, bulkRemove),
-  preview: previewOperationRef(bulkRemoveRunbooksOp, previewBulkRemove),
-  permission: runbookBulkDelete,
+export default tool.operation(bulkRemoveRunbooksDescriptor, {
+  execute: executeOperationRef(
+    bulkRemoveRunbooksDescriptor,
+    api.features.runbooks.domain.bulkRemove,
+  ),
+  preview: previewOperationRef(
+    bulkRemoveRunbooksDescriptor,
+    api.features.runbooks.operations.previewBulkRemove,
+  ),
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
   meta: {

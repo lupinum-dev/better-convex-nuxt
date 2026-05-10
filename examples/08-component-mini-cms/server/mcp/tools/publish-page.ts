@@ -1,16 +1,17 @@
 import { previewOperationRef, transportExecuteOperationRef } from '@lupinum/trellis/backend'
 
-import { publishPageOp } from '../../../convex/components/miniCms/features/pages/operations'
-import { previewPublish, publishAction } from '../../../convex/features/pages/domain'
-import { publishPagePermission } from '../../../convex/features/pages/permissions'
+import { api } from '../../../convex/_generated/api'
+import { publishPageDescriptor } from '../../../shared/features/pages/contract'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool.operation(publishPageOp, {
-  execute: transportExecuteOperationRef(publishPageOp, publishAction),
-  preview: previewOperationRef(publishPageOp, previewPublish),
+export default tool.operation(publishPageDescriptor, {
+  execute: transportExecuteOperationRef(
+    publishPageDescriptor,
+    api.features.pages.domain.publishAction,
+  ),
+  preview: previewOperationRef(publishPageDescriptor, api.features.pages.domain.previewPublish),
   executeOperation: 'action',
   confirmationMode: 'transport',
-  permission: publishPagePermission,
   group: 'pages',
   meta: {
     name: 'publish-page',

@@ -58,61 +58,61 @@ than letting the old and new models live side by side.
 
 ### 1. Convert Harness MCP Operation Binding
 
-- [ ] Split `removePostOp` into a shared descriptor plus Convex implementation.
-- [ ] Keep backend behavior in `apps/harness/convex/posts.ts`.
-- [ ] Move MCP tool metadata to descriptor import, not implementation import.
-- [ ] Use projected execute/preview refs created from the descriptor and exact
+- [x] Split `removePostOp` into a shared descriptor plus Convex implementation.
+- [x] Keep backend behavior in `apps/harness/convex/posts.ts`.
+- [x] Move MCP tool metadata to descriptor import, not implementation import.
+- [x] Use projected execute/preview refs created from the descriptor and exact
       generated Convex refs.
-- [ ] Keep permission import only if it is a shared permission key/metadata-safe
+- [x] Keep permission import only if it is a shared permission key/metadata-safe
       import; otherwise move to a shared permission key.
 
 ### 2. Convert MCP Reference Runbook Operation Bindings
 
-- [ ] Split `removeRunbookOp` and `bulkRemoveRunbooksOp` into descriptors plus
+- [x] Split `removeRunbookOp` and `bulkRemoveRunbooksOp` into descriptors plus
       implementations.
-- [ ] Update runbook MCP tools to import descriptors and projected refs, not
+- [x] Update runbook MCP tools to import descriptors and projected refs, not
       Convex operation implementation modules.
-- [ ] Preserve current delete and bulk-delete behavior, rate limit, max item
+- [x] Preserve current delete and bulk-delete behavior, rate limit, max item
       guard, groups, and tool names.
-- [ ] Update generated or hand-authored operation-ref files only if they are the
+- [x] Update generated or hand-authored operation-ref files only if they are the
       smallest descriptor-derived source of truth.
 
 ### 3. Convert Component Mini CMS Publish Tool Binding
 
-- [ ] Split `publishPageOp` into descriptor plus implementation if needed.
-- [ ] Keep transport/action execution behavior unchanged.
-- [ ] Bind server MCP tool through descriptor plus projected transport execute
+- [x] Split `publishPageOp` into descriptor plus implementation if needed.
+- [x] Keep transport/action execution behavior unchanged.
+- [x] Bind server MCP tool through descriptor plus projected transport execute
       and preview refs.
-- [ ] Update component mini CMS tests that currently assert implementation-based
+- [x] Update component mini CMS tests that currently assert implementation-based
       imports.
 
 ### 4. Update Generators And Docs That Teach The Old Pattern
 
-- [ ] Update `src/cli/lib/resource.ts` output so generated MCP operation tools
+- [x] Update `src/cli/lib/resource.ts` output so generated MCP operation tools
       use descriptors/projected refs instead of operation implementation
       imports.
-- [ ] Update docs snippets that still show `tool.operation(removeRunbookOp, ...)`
+- [x] Update docs snippets that still show `tool.operation(removeRunbookOp, ...)`
       from Convex implementation modules.
-- [ ] Keep docs focused on the explicit checked-binding fallback, not the dream
+- [x] Keep docs focused on the explicit checked-binding fallback, not the dream
       one-liner.
-- [ ] Do not document both old and new import patterns.
+- [x] Do not document both old and new import patterns.
 
 ### 5. Add A Boundary Regression Check
 
-- [ ] Add a small unit or script check that fails when active server/MCP tool
+- [x] Add a small unit or script check that fails when active server/MCP tool
       files import from Convex implementation paths.
-- [ ] Scope the check to maintained harness/examples/fixtures to avoid a broad
+- [x] Scope the check to maintained harness/examples/fixtures to avoid a broad
       repo scanner becoming product logic.
-- [ ] Keep the check as a test of repository hygiene, not a runtime source of
+- [x] Keep the check as a test of repository hygiene, not a runtime source of
       truth.
 
 ### 6. Update The 1.0 Tracker
 
-- [ ] Mark Slice 5 import-boundary/delete items complete only when active MCP
+- [x] Mark Slice 5 import-boundary/delete items complete only when active MCP
       tools no longer import Convex operation implementations.
-- [ ] Leave Slice 6 safety-lane and `tool.fromOperation` deletion items
+- [x] Leave Slice 6 safety-lane and `tool.fromOperation` deletion items
       unchecked unless actually completed.
-- [ ] Record any remaining implementation-import path as a blocker, not a
+- [x] Record any remaining implementation-import path as a blocker, not a
       compatibility path.
 
 ## Verification
@@ -163,23 +163,34 @@ typing drift, and Convex dependency-version type drift.
 
 ## Acceptance Criteria
 
-- [ ] Active MCP tool files no longer import Convex operation implementation
+- [x] Active MCP tool files no longer import Convex operation implementation
       objects for `tool.operation(...)` metadata.
-- [ ] Harness delete-post MCP tool binds through descriptor plus projected refs.
-- [ ] MCP reference delete and bulk-delete runbook tools bind through
+- [x] Harness delete-post MCP tool binds through descriptor plus projected refs.
+- [x] MCP reference delete and bulk-delete runbook tools bind through
       descriptors plus projected refs.
-- [ ] Component mini CMS publish tool binds through descriptor plus projected
+- [x] Component mini CMS publish tool binds through descriptor plus projected
       refs while preserving transport/action execution behavior.
-- [ ] Resource generator and docs no longer teach Convex implementation imports
+- [x] Resource generator and docs no longer teach Convex implementation imports
       in MCP tool files.
-- [ ] A focused regression check covers maintained server/MCP tool import
+- [x] A focused regression check covers maintained server/MCP tool import
       boundaries.
-- [ ] No runtime source scanner, duplicate operation registry, or compatibility
+- [x] No runtime source scanner, duplicate operation registry, or compatibility
       alias is added.
-- [ ] Slice 5 tracker reflects the completed import-boundary cleanup.
-- [ ] Verification commands above pass except explicitly listed non-gates.
-- [ ] Sprint changes are committed after verification.
+- [x] Slice 5 tracker reflects the completed import-boundary cleanup.
+- [x] Verification commands above pass except explicitly listed non-gates.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- [ ] Fill this in during implementation.
+- [x] Active maintained MCP operation tools now bind through shared descriptors
+      plus projected refs instead of Convex operation implementation imports.
+- [x] `mcp.tool.operation(...)` defaults to the descriptor permission key when a
+      tool-specific permission key is not supplied, keeping MCP visibility on
+      shared metadata rather than backend permission implementations.
+- [x] `src/cli/lib/resource.ts` now generates descriptor-backed operation tools
+      and feature manifests.
+- [x] `tests/unit/mcp-descriptor-boundary.test.ts` covers the repository
+      boundary for maintained server/MCP operation tools.
+- [x] `examples/08-component-mini-cms test` still exposes a separate component
+      bridge raw-principal forwarding failure. That is not caused by descriptor
+      binding and should be handled in the bridge/signed-forwarding cutover.

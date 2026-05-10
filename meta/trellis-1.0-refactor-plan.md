@@ -324,7 +324,7 @@ the backend source of behavior.
 
 - [x] Shared operation descriptor owns id, kind, args, result schema, permission
       key, safety class, labels.
-- [ ] Convex implementation owns guard, load, authorize, preview, execute,
+- [x] Convex implementation owns guard, load, authorize, preview, execute,
       handler behavior.
 - [x] Feature manifest includes descriptors.
 - [x] App inventory composes feature manifests.
@@ -332,7 +332,7 @@ the backend source of behavior.
 
 ### Delete
 
-- [ ] Delete operation metadata inferred from implementation imports in MCP
+- [x] Delete operation metadata inferred from implementation imports in MCP
       server files.
 - [ ] Delete source scanning as the source of operation truth.
 - [ ] Delete duplicated operation lists.

@@ -11,6 +11,9 @@ export default defineConfig(
     },
     resolve: {
       alias: {
+        '@lupinum/trellis-bridge/component': fileURLToPath(
+          new URL('../../packages/trellis-bridge/src/component.ts', import.meta.url),
+        ),
         '@lupinum/trellis/backend': fileURLToPath(
           new URL('../../src/runtime/backend/index.ts', import.meta.url),
         ),

@@ -115,7 +115,37 @@ describe('trellis add entity', () => {
     ).resolves.toContain('removeProjectOp')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain('permission: projectDeletePermission')
+    ).resolves.toContain('removeProjectDescriptor')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain('api.features.projects.domain.remove')
+    await expect(
+      readFile(resolve(cwd, 'convex/features/projects/feature.ts'), 'utf8'),
+    ).resolves.toContain('operations: [removeProjectDescriptor]')
+    await expect(
+      readFile(resolve(cwd, 'shared/features/projects/contract.ts'), 'utf8'),
+    ).resolves.toContain("permission: 'project.delete'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).not.resolves.toContain('permission: projectDeletePermission')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).not.resolves.toContain("from '~~/convex/features/projects/operations'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).not.resolves.toContain("from '~~/convex/features/projects/domain'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).not.resolves.toContain("from '~~/convex/features/projects/permissions'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain('api.features.projects.operations.previewRemoveProject')
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain("functionRef: 'features/projects/domain:remove'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain("functionRef: 'features/projects/operations:previewRemoveProject'")
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain("functionRef: 'features/projects/domain:remove'")
@@ -135,7 +165,7 @@ describe('trellis add entity', () => {
 
     await expect(
       readFile(resolve(cwd, 'convex/features/pages/domain.ts'), 'utf8'),
-    ).resolves.toContain('export const listPublished = query({')
+    ).resolves.toContain('export const listPublished = query.public({')
     await expect(
       readFile(resolve(cwd, 'convex/features/pages/permissions.ts'), 'utf8'),
     ).resolves.toContain('export const pageCreate = definePermission')

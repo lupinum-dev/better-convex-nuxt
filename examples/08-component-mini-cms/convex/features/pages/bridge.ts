@@ -1,4 +1,4 @@
-import { createComponentBridge } from '@lupinum/trellis-bridge'
+import { createComponentBridge } from '@lupinum/trellis-bridge/component'
 import { v } from 'convex/values'
 
 import {

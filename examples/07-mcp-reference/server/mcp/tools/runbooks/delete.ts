@@ -1,15 +1,16 @@
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 
-import { remove } from '~/convex/features/runbooks/domain'
-import { previewRemove, removeRunbookOp } from '~/convex/features/runbooks/operations'
-import { runbookDelete } from '~/convex/features/runbooks/permissions'
+import { api } from '~/convex/_generated/api'
+import { removeRunbookDescriptor } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 
-export default tool.operation(removeRunbookOp, {
-  execute: executeOperationRef(removeRunbookOp, remove),
-  preview: previewOperationRef(removeRunbookOp, previewRemove),
-  permission: runbookDelete,
+export default tool.operation(removeRunbookDescriptor, {
+  execute: executeOperationRef(removeRunbookDescriptor, api.features.runbooks.domain.remove),
+  preview: previewOperationRef(
+    removeRunbookDescriptor,
+    api.features.runbooks.operations.previewRemove,
+  ),
   group: 'workspace',
   meta: {
     name: 'delete-runbook',

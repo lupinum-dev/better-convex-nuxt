@@ -5,7 +5,7 @@ import type { ZodRawShape } from 'zod'
 
 import {
   resolvePermissionKey,
-  type PermissionHandle,
+  type PermissionKeyHandle,
   type RegisteredPermissionKey,
 } from '../auth/define-permission.js'
 import {
@@ -203,7 +203,7 @@ export interface ToolOptions<
   preview?: never
   previewOperation?: never
   previewResult?: never
-  permission?: PermissionHandle<CapabilityKey<TCapabilities>>
+  permission?: PermissionKeyHandle<CapabilityKey<TCapabilities>>
   enabled?: (
     ctx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
   ) => MaybePromise<boolean>
@@ -417,7 +417,7 @@ function isOperationPreviewPayload(value: unknown): value is OperationPreviewPay
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
   capabilities: TCapabilities,
-  permission: PermissionHandle<string> | undefined,
+  permission: PermissionKeyHandle<string> | undefined,
 ): boolean {
   if (!permission) return true
   if (!capabilities) return false
@@ -888,6 +888,7 @@ export function defineMcpApp<
       throw new Error('tool.operation(...) requires an operation with an `id`.')
     }
     const operationId = metadata.id
+    const toolPermission = options.permission ?? metadata.permissionKey
 
     const isDestructive = metadata.kind === 'destructive'
     const confirmationMode = options.confirmationMode ?? 'backend'
@@ -980,7 +981,7 @@ export function defineMcpApp<
       enabled: async (event) => {
         const ctx = await resolve(event)
 
-        if (!permissionAllows(ctx.capabilities, options.permission)) {
+        if (!permissionAllows(ctx.capabilities, toolPermission)) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
@@ -1022,7 +1023,7 @@ export function defineMcpApp<
       },
       handler: async (rawArgs, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        if (!permissionAllows(projectionCtx.capabilities, options.permission)) {
+        if (!permissionAllows(projectionCtx.capabilities, toolPermission)) {
           const explanation = createDenialExplanation({
             reasonCode: 'tool.capability_denied',
             decision: 'tool',

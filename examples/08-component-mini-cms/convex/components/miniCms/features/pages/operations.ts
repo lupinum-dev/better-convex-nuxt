@@ -1,30 +1,11 @@
 import { requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
-import { v } from 'convex/values'
+import { implementOperation, previewOf } from '@lupinum/trellis/backend'
 
-import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
+import { publishPageDescriptor } from '../../../../../shared/features/pages/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { canManagePages, query } from '../../functions'
 
-export const publishPageOp = defineOperation({
-  id: 'pages.publish',
-  name: 'publishPage',
-  kind: 'destructive',
-  args: publishPage.args,
-  returns: v.object({
-    pageId: v.string(),
-    published: v.boolean(),
-  }),
-  previewReturns: v.object({
-    display: publishPreviewValidator,
-    confirm: v.object({
-      operation: v.literal('pages.publish'),
-      targetId: v.string(),
-      affectedCounts: v.object({
-        pages: v.number(),
-      }),
-    }),
-  }),
+export const publishPageOp = implementOperation(publishPageDescriptor, {
   guard: canManagePages,
   load: async (ctx, args) => {
     const page = await ctx.db.get(args.id as Id<'pages'>)

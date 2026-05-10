@@ -1,8 +1,10 @@
 import { can } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
-import { v } from 'convex/values'
+import { implementOperation, previewOf } from '@lupinum/trellis/backend'
 
-import { bulkDeleteRunbooks, deleteRunbook } from '../../../shared/features/runbooks/contract'
+import {
+  bulkRemoveRunbooksDescriptor,
+  removeRunbookDescriptor,
+} from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { Actor } from '../../auth/actor'
 import { query } from '../../functions'
@@ -27,28 +29,7 @@ type LoadedBulkRunbooks = {
   found: Doc<'runbooks'>[]
 }
 
-export const removeRunbookOp = defineOperation({
-  id: 'runbooks.remove',
-  name: 'removeRunbook',
-  kind: 'destructive',
-  args: deleteRunbook.args,
-  returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-    confirm: v.object({
-      operation: v.literal('runbooks.remove'),
-      targetId: v.id('runbooks'),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
+export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
   guard: runbookRead,
   load: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
@@ -81,40 +62,7 @@ export const removeRunbookOp = defineOperation({
   },
 })
 
-export const bulkRemoveRunbooksOp = defineOperation({
-  id: 'runbooks.bulkRemove',
-  name: 'bulkRemoveRunbooks',
-  kind: 'destructive',
-  args: bulkDeleteRunbooks.args,
-  returns: v.object({
-    deleted: v.number(),
-    skipped: v.array(
-      v.object({
-        id: v.string(),
-        reason: v.string(),
-      }),
-    ),
-    total: v.number(),
-  }),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.optional(v.string()),
-      affects: v.optional(
-        v.object({
-          runbooks: v.number(),
-        }),
-      ),
-      blocked: v.optional(v.boolean()),
-    }),
-    confirm: v.object({
-      operation: v.literal('runbooks.bulkRemove'),
-      targetIds: v.array(v.id('runbooks')),
-      affectedCounts: v.object({
-        runbooks: v.number(),
-      }),
-    }),
-  }),
+export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescriptor, {
   guard: runbookBulkDelete,
   load: async (
     ctx: RunbookMutationCtx,

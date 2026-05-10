@@ -1,20 +1,21 @@
 import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 
 import { api } from '../../../convex/_generated/api'
-import { postDeletePermission } from '../../../convex/auth/permissions'
-import { removePostOp } from '../../../convex/posts'
+import { removePostDescriptor } from '../../../shared/schemas/post'
 import { tool } from '../runtime'
 
 const removeWithConfirmationRef = executeOperationRef(
-  removePostOp,
+  removePostDescriptor,
   Object.create(api.posts.removeWithConfirmation),
 )
-const previewRemoveRef = previewOperationRef(removePostOp, Object.create(api.posts.previewRemove))
+const previewRemoveRef = previewOperationRef(
+  removePostDescriptor,
+  Object.create(api.posts.previewRemove),
+)
 
-export default tool.operation(removePostOp, {
+export default tool.operation(removePostDescriptor, {
   execute: removeWithConfirmationRef,
   preview: previewRemoveRef,
-  permission: postDeletePermission,
   meta: {
     name: 'delete-post',
   },

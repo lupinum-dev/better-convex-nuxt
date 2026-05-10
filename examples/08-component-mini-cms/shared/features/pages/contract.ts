@@ -1,4 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
+import { defineOperationDescriptor } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const pageStatusValidator = v.union(v.literal('draft'), v.literal('published'))
@@ -83,4 +84,27 @@ export const publishPage = defineArgs({
   args: {
     id: v.string(),
   },
+})
+
+export const publishPageDescriptor = defineOperationDescriptor({
+  id: 'pages.publish',
+  name: 'publishPage',
+  kind: 'destructive',
+  args: publishPage.args,
+  permission: 'publishPage',
+  safety: 'external-side-effect',
+  returns: v.object({
+    pageId: v.string(),
+    published: v.boolean(),
+  }),
+  previewReturns: v.object({
+    display: publishPreviewValidator,
+    confirm: v.object({
+      operation: v.literal('pages.publish'),
+      targetId: v.string(),
+      affectedCounts: v.object({
+        pages: v.number(),
+      }),
+    }),
+  }),
 })
