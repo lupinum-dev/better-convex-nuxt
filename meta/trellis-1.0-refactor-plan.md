@@ -783,7 +783,7 @@ the design, without letting them keep old Trellis paths alive.
 
 ### Trellis Examples And Harness
 
-- [ ] Decide which `examples/**`, `apps/harness`, docs app, and devtools UI
+- [x] Decide which `examples/**`, `apps/harness`, docs app, and devtools UI
       targets remain for 1.0.
 - [ ] Convert remaining examples and harnesses to explicit public/protected/
       unsafe builders.
@@ -814,7 +814,7 @@ the design, without letting them keep old Trellis paths alive.
 
 ### Prove
 
-- [ ] Trellis examples/harness validation passes for retained targets.
+- [x] Trellis examples/harness validation passes for retained targets.
 - [ ] Packed Trellis packages install into Ginko CMS.
 - [ ] Ginko CMS `pnpm run check` passes against packed Trellis packages.
 - [ ] Ginko CMS package-boundary and no-zombie-path tests pass after import
@@ -943,6 +943,17 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   Ginko. It should decide retained Trellis examples/harness/docs/devtools
   targets, add or identify a repeatable old-path validation gate for retained
   targets, and record Ginko's active old-path migration surface.
+- Sprint 65 established the local cross-repo gate baseline. Retained targets
+  are: `examples/01-public-todo`, `examples/02-auth-todo`,
+  `examples/03-team-workspace`, `examples/04-saas-platform`,
+  `examples/05-visibility-access`, `examples/06-multi-workspace`,
+  `examples/07-mcp-reference`, `examples/08-component-mini-cms`,
+  `apps/harness`, `apps/docs`, and `apps/devtools-ui`. `check:repo-policies`
+  now scans retained examples/apps for deleted Trellis 1.0 surfaces, and
+  `check:examples:doctor` passes for maintained examples. Ginko already depends
+  on `@lupinum/trellis-bridge`; the first active migration target is
+  `packages/cms/src/server/mcp/runtime.ts`
+  `rawMcpRuntime.tool.fromOperation(...)`.
 
 ### Done Means
 

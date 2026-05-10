@@ -5,6 +5,10 @@ import {
   findRuntimeBoundaryViolations,
   formatRuntimeBoundaryViolation,
 } from './lib/repo-policy-boundaries.mjs'
+import {
+  findDeletedTrellisSurfaceHits,
+  formatDeletedTrellisSurfaceHit,
+} from './lib/retained-target-old-paths.mjs'
 
 const checks = [
   {
@@ -96,5 +100,13 @@ if (runtimeBoundaryViolations.length > 0) {
     .join('\n')
   throw new Error(
     `[trellis] repo policy violated: public/core runtime must not import advanced implementation code\n${preview}`,
+  )
+}
+
+const deletedSurfaceHits = findDeletedTrellisSurfaceHits(repoRoot)
+if (deletedSurfaceHits.length > 0) {
+  const preview = deletedSurfaceHits.slice(0, 20).map(formatDeletedTrellisSurfaceHit).join('\n')
+  throw new Error(
+    `[trellis] repo policy violated: retained examples/apps must not use deleted Trellis 1.0 surfaces\n${preview}`,
   )
 }
