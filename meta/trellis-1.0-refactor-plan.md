@@ -929,6 +929,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   direct `tool.fromOperation(...)` spelling changes when an `mcp` binding is
   present. Authorization, raw forwarding, unsafe permits, and backend lane
   classification remain audit-only.
+- Sprint 63 is planned to harden the remaining Slice 11 audit path. Scope is
+  exact evidence for manual/security migrations, AST-backed authorize arity
+  audit coverage, and proof that deleted import paths fail loudly without
+  reintroducing hidden aliases.
 
 ### Done Means
 
