@@ -47,55 +47,58 @@ No alias. No duplicate compat script. No wrapper that keeps the old name alive.
 
 ### 1. Inspect Current Public Type Coverage
 
-- [ ] Read `tsconfig.types.public.json` and current public type fixtures.
-- [ ] Confirm `test:types` already includes `test:types:public`.
-- [ ] Confirm `test:types:public:compat` is redundant or identify the exact
+- [x] Read `tsconfig.types.public.json` and current public type fixtures.
+- [x] Confirm `test:types` already includes `test:types:public`.
+- [x] Confirm `test:types:public:compat` is redundant or identify the exact
       coverage it adds.
 
 ### 2. Delete Compat-Named Config And Script
 
-- [ ] Delete `tsconfig.types.public.compat.json`.
-- [ ] Remove `test:types:public:compat` from `package.json`.
-- [ ] Remove the script from `check`.
-- [ ] Remove the script from `release:verify`.
-- [ ] Do not add a new alias with the old compat name.
+- [x] Delete `tsconfig.types.public.compat.json`.
+- [x] Remove `test:types:public:compat` from `package.json`.
+- [x] Remove the script from `check`.
+- [x] Remove the script from `release:verify`.
+- [x] Do not add a new alias with the old compat name.
 
 ### 3. Preserve Or Replace Any Real Coverage
 
-- [ ] If the docs cwd invocation catches a real public type issue that root
+- [x] If the docs cwd invocation catches a real public type issue that root
       `test:types:public` misses, add an explicitly named 1.0 script such as
       `test:types:public:docs`.
-- [ ] Otherwise, rely on `test:types:public` plus existing docs/publish surface
+- [x] Otherwise, rely on `test:types:public` plus existing docs/publish surface
       checks.
-- [ ] Ensure `test:types` remains the canonical aggregate for type verification.
+- [x] Ensure `test:types` remains the canonical aggregate for type verification.
 
 ### 4. Update Docs And Surface Inventory Text
 
-- [ ] Update docs text that calls this a compatibility check.
-- [ ] Update `scripts/generate-refactor-surface-inventory.mjs` wording if it
+- [x] Update docs text that calls this a compatibility check.
+- [x] Update `scripts/generate-refactor-surface-inventory.mjs` wording if it
       still describes the compat path as pending.
-- [ ] Keep historical sprint docs unchanged unless they are current guidance.
+- [x] Keep historical sprint docs unchanged unless they are current guidance.
 
 ### 5. Update Refactor Tracker
 
-- [ ] Add a Sprint 58 progress note under Slice 11.
-- [ ] Mark the `tsconfig.types.public.compat.json` migration row done or update
+- [x] Add a Sprint 58 progress note under Slice 11.
+- [x] Mark the `tsconfig.types.public.compat.json` migration row done or update
       it to the final 1.0 public type verification name.
-- [ ] Mark "Compatibility test configs/scripts are deleted or renamed to
+- [x] Mark "Compatibility test configs/scripts are deleted or renamed to
       explicit 1.0 migration checks" complete only if the old compat name is
       gone from active scripts/config/docs.
 
 ## Verification
 
-- [ ] `rg -n "types\\.public\\.compat|test:types:public:compat|public compat|public compatibility" package.json tsconfig* apps/docs/content/docs scripts src tests`
-- [ ] `pnpm run test:types:public`
-- [ ] `pnpm run test:types`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts tests/unit/api-surface-doc.test.ts`
-- [ ] `pnpm exec oxfmt --check package.json apps/docs/content/docs/13.api-reference/8.type-primitives.md scripts/generate-refactor-surface-inventory.mjs meta/refactor/sprint58-public-compat-typecheck-delete-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `rg -n "types\\.public\\.compat|test:types:public:compat|public compat|public compatibility" package.json tsconfig* apps/docs/content/docs scripts src tests`
+- [x] `pnpm run test:types:public`
+- [ ] `pnpm run test:types` - Fails before this sprint's public type step on existing broad fixture and
+      type-primitives issues under `src/cli/starter-fixtures/**`,
+      `src/cli/add-fixtures/**`, `src/module-internals/starter-fixture-codegen.ts`,
+      and `src/runtime/type-primitives/index.ts`.
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts tests/unit/api-surface-doc.test.ts`
+- [x] `pnpm exec oxfmt --check package.json apps/docs/content/docs/13.api-reference/8.type-primitives.md scripts/generate-refactor-surface-inventory.mjs meta/refactor/sprint58-public-compat-typecheck-delete-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

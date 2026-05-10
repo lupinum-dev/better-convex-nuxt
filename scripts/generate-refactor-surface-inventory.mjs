@@ -157,7 +157,7 @@ const decisions = [
   '`cms` is removed from Trellis beginner starters; Ginko owns CMS setup and Trellis keeps only bridge fixtures/docs for package authors.',
   '`trellis bridge` leaves the root Trellis CLI and moves to bridge-owned tooling with `@lupinum/trellis-bridge`.',
   '`workspace-mcp` is the only 1.0 CLI starter spelling; `workspace --mcp` is deleted rather than kept as an alias.',
-  '`tsconfig.types.public.compat.json` and `test:types:public:compat` are deleted or replaced by explicit 1.0 public-surface/migration checks.',
+  '`test:types:public` is the 1.0 public type verification path; the old `public.compat` check is deleted.',
   '`trellis add` remains, but only as a fixture/inventory-backed feature command; old template-backed add slices are replaced with the same fixture discipline as starters.',
 ]
 

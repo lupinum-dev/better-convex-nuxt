@@ -118,7 +118,7 @@ Goal: decide exactly what survives into 1.0 before moving code.
 | arity-based `authorize` inference                | explicit authorize object/function  | delete                       | audit report/tests        |
 | `@lupinum/trellis/functions`                     | `@lupinum/trellis/backend`          | replace/delete               | public type tests/codemod |
 | `workspace --mcp`                                | `workspace-mcp`                     | delete alias                 | CLI tests                 |
-| `tsconfig.types.public.compat.json`              | 1.0 public-surface/migration checks | replace/delete               | package scripts           |
+| `tsconfig.types.public.compat.json`              | `test:types:public`                 | delete                       | package scripts           |
 | template-backed `trellis add` slices             | fixture/inventory-backed add slices | replace                      | CLI/add tests             |
 
 ### Done Means
@@ -744,6 +744,9 @@ shims.
 - Sprint 58 is planned to delete the obsolete public compatibility type-check
   path (`tsconfig.types.public.compat.json` and `test:types:public:compat`) and
   rely on explicit 1.0 public type verification instead.
+- Sprint 58 deleted the compat-named public type-check wrapper and package
+  script. `test:types:public` is now the only 1.0 public type verification path,
+  and aggregate `check`/`release:verify` no longer invoke a compatibility lane.
 
 ### Build
 
@@ -763,7 +766,7 @@ shims.
 - [ ] Codemods are tested against fixtures.
 - [ ] Audit reports point to exact files/lines.
 - [ ] Removed imports fail loudly with useful diagnostics or TypeScript errors.
-- [ ] Compatibility test configs/scripts are deleted or renamed to explicit 1.0
+- [x] Compatibility test configs/scripts are deleted or renamed to explicit 1.0
       migration checks.
 
 ### Done Means
