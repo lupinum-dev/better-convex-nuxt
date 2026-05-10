@@ -1,5 +1,5 @@
 import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { revokeArticleShareToken } from '../../../shared/features/articles/contract'
@@ -53,4 +53,4 @@ export const revokeShareTokenOp = defineOperation({
   },
 })
 
-export const previewRevokeShareToken = query(previewOf(revokeShareTokenOp))
+export const previewRevokeShareToken = query.protected(previewOf(revokeShareTokenOp))

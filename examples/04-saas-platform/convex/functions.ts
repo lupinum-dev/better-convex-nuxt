@@ -1,4 +1,4 @@
-import { defineTrellis } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/backend'
 
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'

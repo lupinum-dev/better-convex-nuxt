@@ -1,5 +1,5 @@
 import { deny, requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { archiveProject } from '../../../shared/features/projects/contract'
@@ -73,4 +73,4 @@ export const archiveProjectOp = defineOperation({
   },
 })
 
-export const previewArchiveProject = query(previewOf(archiveProjectOp))
+export const previewArchiveProject = query.protected(previewOf(archiveProjectOp))

@@ -7,7 +7,7 @@ import { requireWorkspaceTenant } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { commentCreate } from './permissions'
 
-export const listByTask = query({
+export const listByTask = query.protected({
   args: { taskId: v.id('tasks') },
   guard: commentCreate,
   handler: async (ctx, args) => {
@@ -23,7 +23,7 @@ export const listByTask = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createComment.args,
   guard: commentCreate,
   handler: async (ctx, args) => {

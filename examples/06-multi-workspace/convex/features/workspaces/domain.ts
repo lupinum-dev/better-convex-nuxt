@@ -1,4 +1,4 @@
-import { deny, open } from '@lupinum/trellis/auth'
+import { deny } from '@lupinum/trellis/auth'
 
 import {
   createWorkspace,
@@ -17,9 +17,8 @@ async function getIdentitySubject(ctx: {
   return identity?.subject ?? null
 }
 
-export const listAccessibleWorkspaces = query({
+export const listAccessibleWorkspaces = query.public({
   args: listAccessibleWorkspacesArgs.args,
-  guard: open,
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) return []
@@ -43,9 +42,8 @@ export const listAccessibleWorkspaces = query({
   },
 })
 
-export const createWorkspaceMutation = mutation({
+export const createWorkspaceMutation = mutation.public({
   args: createWorkspace.args,
-  guard: open,
   handler: async (ctx, args) => {
     const subject = await getIdentitySubject(ctx)
     if (!subject) throw deny('Not authenticated.')
@@ -94,9 +92,8 @@ export const createWorkspaceMutation = mutation({
   },
 })
 
-export const switchWorkspace = mutation({
+export const switchWorkspace = mutation.public({
   args: switchWorkspaceArgs.args,
-  guard: open,
   handler: async (ctx, args) => {
     const subject = await getIdentitySubject(ctx)
     if (!subject) throw deny('Not authenticated.')
@@ -125,9 +122,8 @@ export const switchWorkspace = mutation({
   },
 })
 
-export const seedAgencyPortfolioMutation = mutation({
+export const seedAgencyPortfolioMutation = mutation.public({
   args: seedAgencyPortfolio.args,
-  guard: open,
   handler: async (ctx) => {
     const actor = await getActor(ctx)
     if (!actor) throw deny('Not authenticated.')

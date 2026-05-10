@@ -9,6 +9,10 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
+import {
+  hashConfirmationValue,
+  signConfirmationToken,
+} from '../../../src/runtime/mcp/confirmation-token'
 import { api } from './_generated/api'
 import { shareCreate } from './features/articles'
 import { kbCreate, kbRead } from './features/knowledgeBases'
@@ -17,6 +21,26 @@ import { modules } from './test.setup'
 
 function createCtx() {
   return createTestContext({ schema, modules })
+}
+
+async function destructiveConfirmationToken(args: {
+  operationId: string
+  executeArgs: Record<string, unknown>
+  confirm: Record<string, unknown>
+}) {
+  process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
+
+  return await signConfirmationToken({
+    v: 1,
+    operationId: args.operationId,
+    executePath: 'execute',
+    previewPath: 'preview',
+    jti: crypto.randomUUID(),
+    principalKey: 'example-principal',
+    tenantKey: 'example-tenant',
+    argsHash: await hashConfirmationValue(args.executeArgs),
+    previewHash: await hashConfirmationValue(args.confirm),
+  })
 }
 
 describe('workspace onboarding', () => {
@@ -474,8 +498,21 @@ describe('share tokens', () => {
       (record) => record.hash === tokenHash,
     )
 
-    await team.users.editor.mutation(api.features.articles.domain.revokeShareToken, {
+    const revokeArgs = {
       tokenId: tokenRecord!._id,
+    }
+    const revokePreview = await team.users.editor.query(
+      api.features.articles.operations.previewRevokeShareToken,
+      revokeArgs,
+    )
+
+    await team.users.editor.mutation(api.features.articles.domain.revokeShareToken, {
+      ...revokeArgs,
+      _confirmationToken: await destructiveConfirmationToken({
+        operationId: 'shareTokens.revoke',
+        executeArgs: revokeArgs,
+        confirm: revokePreview.confirm,
+      }),
     })
 
     await expect(

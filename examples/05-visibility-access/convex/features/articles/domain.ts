@@ -7,7 +7,6 @@ import {
   deny,
   enforce,
   loadTenantResource as loadResource,
-  open,
   requireRecord,
 } from '@lupinum/trellis/auth'
 
@@ -39,7 +38,7 @@ function isStaffActor(actor: NonNullable<Awaited<ReturnType<typeof getActor>>>):
   return hasRole('owner', 'admin', 'editor')(actor)
 }
 
-export const list = query({
+export const list = query.protected({
   guard: articleRead,
   args: listArticles.args,
   load: async (ctx, args) => ({
@@ -73,8 +72,7 @@ export const list = query({
   },
 })
 
-export const view = query({
-  guard: open,
+export const view = query.public({
   args: viewArticle.args,
   handler: async (ctx, args) => {
     // Keep the cross-tenant seam narrow: this is only for one hashed share token resolving one
@@ -108,7 +106,7 @@ export const view = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   guard: articleCreate,
   args: createArticle.args,
   load: async (ctx, args) => ({
@@ -140,7 +138,7 @@ export const create = mutation({
   },
 })
 
-export const publish = mutation({
+export const publish = mutation.protected({
   guard: articleCreate,
   args: publishArticle.args,
   load: async (ctx, args) => ({
@@ -152,7 +150,7 @@ export const publish = mutation({
   },
 })
 
-export const markCompleted = mutation({
+export const markCompleted = mutation.protected({
   guard: articleRead,
   args: markArticleCompleted.args,
   load: async (ctx, args) => ({
@@ -185,7 +183,7 @@ export const markCompleted = mutation({
   },
 })
 
-export const createShareToken = mutation({
+export const createShareToken = mutation.protected({
   guard: shareCreate,
   args: createArticleShareToken.args,
   load: async (ctx, args) => ({
@@ -211,11 +209,11 @@ export const createShareToken = mutation({
   },
 })
 
-export const revokeShareToken = mutation({
+export const revokeShareToken = mutation.protected({
   ...revokeShareTokenOp,
 })
 
-export const seed = mutation({
+export const seed = mutation.protected({
   guard: articleCreate,
   args: seedDemoArticles.args,
   load: async (ctx, args) => ({

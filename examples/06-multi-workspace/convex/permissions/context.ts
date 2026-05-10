@@ -5,7 +5,7 @@ import { getMemberships } from '../auth/agency'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getPermissionContext = query(
+export const getPermissionContext = query.protected(
   definePermissionContext({
     resolve: getActor,
     permissions,

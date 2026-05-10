@@ -6,7 +6,7 @@ import {
 import { mutation, query } from '../../functions'
 import { projectCreate, projectRead } from './permissions'
 
-export const list = query({
+export const list = query.protected({
   args: listProjects.args,
   guard: projectRead,
   handler: async (ctx) => {
@@ -21,7 +21,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createProject.args,
   guard: projectCreate,
   handler: async (ctx, args) => {
@@ -38,7 +38,7 @@ export const create = mutation({
   },
 })
 
-export const toggleStatus = mutation({
+export const toggleStatus = mutation.protected({
   args: toggleProjectStatus.args,
   guard: projectCreate,
   handler: async (ctx, args) => {

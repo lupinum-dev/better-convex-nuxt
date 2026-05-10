@@ -2,7 +2,7 @@ import { listMembers as listMembersArgs } from '../../../shared/features/members
 import { query } from '../../functions'
 import { membershipRead } from './permissions'
 
-export const listMembers = query({
+export const listMembers = query.protected({
   args: listMembersArgs.args,
   guard: membershipRead,
   handler: async (ctx) => {

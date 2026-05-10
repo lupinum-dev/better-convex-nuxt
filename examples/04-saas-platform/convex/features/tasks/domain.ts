@@ -16,7 +16,7 @@ import { canUpdateTask } from './checks'
 import { removeTaskOp } from './operations'
 import { taskAssign, taskCreate, taskRead } from './permissions'
 
-export const listByProject = query({
+export const listByProject = query.protected({
   args: { projectId: v.id('projects') },
   guard: taskRead,
   handler: async (ctx, args) => {
@@ -34,7 +34,7 @@ export const listByProject = query({
   },
 })
 
-export const get = query({
+export const get = query.protected({
   args: { id: v.id('tasks') },
   guard: taskRead,
   handler: async (ctx, args) => {
@@ -44,7 +44,7 @@ export const get = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTask.args,
   guard: taskCreate,
   handler: async (ctx, args) => {
@@ -87,7 +87,7 @@ export const create = mutation({
   },
 })
 
-export const moveToColumn = mutation({
+export const moveToColumn = mutation.protected({
   args: moveTask.args,
   guard: taskRead,
   handler: async (ctx, args) => {
@@ -111,7 +111,7 @@ export const moveToColumn = mutation({
   },
 })
 
-export const assign = mutation({
+export const assign = mutation.protected({
   args: assignTask.args,
   guard: taskAssign,
   handler: async (ctx, args) => {
@@ -145,7 +145,7 @@ export const assign = mutation({
   },
 })
 
-export const bulkUpdateStatus = mutation({
+export const bulkUpdateStatus = mutation.protected({
   args: {
     ids: v.array(v.id('tasks')),
     status: taskStatusValidator,
@@ -190,11 +190,11 @@ export const bulkUpdateStatus = mutation({
   },
 })
 
-export const remove = mutation({
+export const remove = mutation.protected({
   ...removeTaskOp,
 })
 
-export const listForExport = query({
+export const listForExport = query.protected({
   args: { projectId: v.id('projects') },
   guard: taskRead,
   handler: async (ctx, args) => {

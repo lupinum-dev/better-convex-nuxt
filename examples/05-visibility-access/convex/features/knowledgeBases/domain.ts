@@ -11,7 +11,7 @@ import {
 import { mutation, query } from '../../functions'
 import { enrollmentManage, kbCreate, kbRead } from './permissions'
 
-export const list = query({
+export const list = query.protected({
   guard: kbRead,
   args: listKnowledgeBases.args,
   handler: async (ctx) => {
@@ -26,7 +26,7 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = query.protected({
   guard: kbRead,
   args: getKnowledgeBase.args,
   load: async (ctx, args) => ({
@@ -35,7 +35,7 @@ export const get = query({
   handler: async (_ctx, _args, { knowledgeBase }) => knowledgeBase,
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   guard: kbCreate,
   args: createKnowledgeBase.args,
   handler: async (ctx, args) => {
@@ -54,7 +54,7 @@ export const create = mutation({
   },
 })
 
-export const publish = mutation({
+export const publish = mutation.protected({
   guard: kbCreate,
   args: publishKnowledgeBase.args,
   load: async (ctx, args) => ({
@@ -66,7 +66,7 @@ export const publish = mutation({
   },
 })
 
-export const enroll = mutation({
+export const enroll = mutation.protected({
   guard: enrollmentManage,
   args: enrollKnowledgeBaseUser.args,
   load: async (ctx, args) => ({
@@ -104,7 +104,7 @@ export const enroll = mutation({
   },
 })
 
-export const enrollByEmail = mutation({
+export const enrollByEmail = mutation.protected({
   guard: enrollmentManage,
   args: enrollKnowledgeBaseUserByEmail.args,
   load: async (ctx, args) => ({

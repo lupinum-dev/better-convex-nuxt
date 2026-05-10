@@ -8,6 +8,10 @@
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
+import {
+  hashConfirmationValue,
+  signConfirmationToken,
+} from '../../../src/runtime/mcp/confirmation-token'
 import { api, internal } from './_generated/api'
 import { commentCreate } from './features/comments'
 import * as filesDomain from './features/files'
@@ -18,6 +22,26 @@ import { modules } from './test.setup'
 
 function createCtx() {
   return createTestContext({ schema, modules })
+}
+
+async function destructiveConfirmationToken(args: {
+  operationId: string
+  executeArgs: Record<string, unknown>
+  confirm: Record<string, unknown>
+}) {
+  process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
+
+  return await signConfirmationToken({
+    v: 1,
+    operationId: args.operationId,
+    executePath: 'execute',
+    previewPath: 'preview',
+    jti: crypto.randomUUID(),
+    principalKey: 'example-principal',
+    tenantKey: 'example-tenant',
+    argsHash: await hashConfirmationValue(args.executeArgs),
+    previewHash: await hashConfirmationValue(args.confirm),
+  })
 }
 
 describe('server integration workspace example', () => {
@@ -102,7 +126,19 @@ describe('server integration workspace example', () => {
       name: 'Archive me',
       summary: 'Soon frozen',
     })
-    await team.users.owner.mutation(api.features.projects.domain.archive, { id: projectId })
+    const archiveArgs = { id: projectId }
+    const archivePreview = await team.users.owner.query(
+      api.features.projects.operations.previewArchiveProject,
+      archiveArgs,
+    )
+    await team.users.owner.mutation(api.features.projects.domain.archive, {
+      ...archiveArgs,
+      _confirmationToken: await destructiveConfirmationToken({
+        operationId: 'projects.archive',
+        executeArgs: archiveArgs,
+        confirm: archivePreview.confirm,
+      }),
+    })
 
     await expect(
       team.users.owner.mutation(api.features.tasks.domain.create, {

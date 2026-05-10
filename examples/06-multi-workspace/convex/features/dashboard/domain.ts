@@ -4,7 +4,7 @@ import { listAgencyPortfolio } from '../../../shared/features/dashboard/contract
 import type { Doc } from '../../_generated/dataModel'
 import { getActor } from '../../auth/actor'
 import { getAgencyActor, getMemberships, requireAnyAgencyRole } from '../../auth/agency'
-import { unsafe } from '../../functions'
+import { query } from '../../functions'
 
 function escapeTenantIsolation<TDb extends object>(db: TDb, reason: string): TDb {
   return (
@@ -14,7 +14,7 @@ function escapeTenantIsolation<TDb extends object>(db: TDb, reason: string): TDb
   })
 }
 
-export const portfolio = unsafe.query({
+export const portfolio = query.unsafe({
   bypass: 'Show the agency portfolio across assigned workspaces.',
   args: listAgencyPortfolio.args,
   handler: async (ctx) => {

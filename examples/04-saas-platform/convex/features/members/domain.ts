@@ -3,7 +3,7 @@ import { requireWorkspaceTenant } from '../../auth/guards'
 import { query } from '../../functions'
 import { projectRead } from '../projects'
 
-export const list = query({
+export const list = query.protected({
   args: listMembers.args,
   guard: projectRead,
   handler: async (ctx) => {

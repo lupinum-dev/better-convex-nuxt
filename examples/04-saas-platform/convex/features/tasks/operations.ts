@@ -1,5 +1,5 @@
 import { enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { requireWorkspaceTenant } from '../../auth/guards'
@@ -77,4 +77,4 @@ export const removeTaskOp = defineOperation({
   },
 })
 
-export const previewRemoveTask = query(previewOf(removeTaskOp))
+export const previewRemoveTask = query.protected(previewOf(removeTaskOp))

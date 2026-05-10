@@ -8,7 +8,7 @@ import { mutation, query } from '../../functions'
 import { archiveProjectOp } from './operations'
 import { projectCreate, projectExport, projectRead } from './permissions'
 
-export const list = query({
+export const list = query.protected({
   args: { paginationOpts: paginationOptsValidator },
   guard: projectRead,
   handler: async (ctx, args) => {
@@ -23,7 +23,7 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = query.protected({
   args: { id: v.id('projects') },
   guard: projectRead,
   handler: async (ctx, args) => {
@@ -32,7 +32,7 @@ export const get = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createProject.args,
   guard: projectCreate,
   handler: async (ctx, args) => {
@@ -64,11 +64,11 @@ export const create = mutation({
   },
 })
 
-export const archive = mutation({
+export const archive = mutation.protected({
   ...archiveProjectOp,
 })
 
-export const exportProjects = query({
+export const exportProjects = query.protected({
   args: {},
   guard: projectExport,
   handler: async (ctx) => {

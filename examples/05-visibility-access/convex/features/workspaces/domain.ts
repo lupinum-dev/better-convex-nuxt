@@ -3,7 +3,7 @@ import { authRequired } from '@lupinum/trellis/auth'
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation({
+export const createWorkspaceMutation = mutation.protected({
   guard: authRequired,
   args: createWorkspace.args,
   handler: async (ctx, args) => {
