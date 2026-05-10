@@ -422,6 +422,42 @@ function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | n
   return capabilities[resolvePermissionKey(permission)] === true
 }
 
+async function observeCapabilityBackendDrift<
+  TPrincipal,
+  TDelegation extends Delegation,
+  TCapabilities,
+  TRuntime,
+>(
+  projectionCtx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
+  input: {
+    tool: string
+    operation?: string
+    message: string
+    code?: string
+  },
+): Promise<void> {
+  const explanation = createDenialExplanation({
+    reasonCode: 'tool.capability_backend_drift',
+    decision: 'authorize',
+    message: 'MCP capability projection allowed this tool, but backend authorization denied it.',
+    suggestedAction: 'grant_capability',
+  })
+  await projectionCtx.observe({
+    name: 'tool.denied',
+    status: 'deny',
+    transport: 'mcp',
+    tool: input.tool,
+    ...(input.operation ? { operation: input.operation } : {}),
+    reasonCode: 'tool.capability_backend_drift',
+    details: {
+      explanation,
+      category: 'auth',
+      message: input.message,
+      ...(input.code ? { code: input.code } : {}),
+    },
+  })
+}
+
 function assertDirectToolSafety(
   toolName: string,
   operation: ConvexToolOperation,
@@ -840,14 +876,22 @@ export function defineMcpApp<
             message: normalizedError.message,
             ...(normalizedError.code ? { code: normalizedError.code } : {}),
           }
-          await projectionCtx.observe({
-            name: 'tool.failed',
-            status: 'error',
-            transport: 'mcp',
-            tool: definition.meta?.name ?? 'project-tool',
-            reasonCode: 'tool.execution_failed',
-            details: errorDetails,
-          })
+          if (normalizedError.category === 'auth') {
+            await observeCapabilityBackendDrift(projectionCtx, {
+              tool: definition.meta?.name ?? 'project-tool',
+              message: normalizedError.message,
+              ...(normalizedError.code ? { code: normalizedError.code } : {}),
+            })
+          } else {
+            await projectionCtx.observe({
+              name: 'tool.failed',
+              status: 'error',
+              transport: 'mcp',
+              tool: definition.meta?.name ?? 'project-tool',
+              reasonCode: 'tool.execution_failed',
+              details: errorDetails,
+            })
+          }
           projectionCtx.wideSummary.emit({
             status: 'error',
             details: errorDetails,
@@ -1190,6 +1234,45 @@ export function defineMcpApp<
             )
           }
 
+          const returnBackendFailure = async (error: unknown) => {
+            const normalizedError = normalizeMcpError(error)
+            const errorDetails = {
+              category: normalizedError.category,
+              message: normalizedError.message,
+              ...(normalizedError.code ? { code: normalizedError.code } : {}),
+            }
+            if (normalizedError.category === 'auth') {
+              await observeCapabilityBackendDrift(projectionCtx, {
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+                operation: operationId,
+                message: normalizedError.message,
+                ...(normalizedError.code ? { code: normalizedError.code } : {}),
+              })
+            } else {
+              await projectionCtx.observe({
+                name: 'tool.failed',
+                status: 'error',
+                transport: 'mcp',
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+                operation: operationId,
+                reasonCode: 'tool.execution_failed',
+                details: errorDetails,
+              })
+            }
+            projectionCtx.wideSummary.emit({
+              status: 'error',
+              details: errorDetails,
+            })
+            return ctx.error(
+              normalizedError.category,
+              normalizedError.message,
+              normalizedError.issues,
+              undefined,
+              normalizedError.details,
+              normalizedError.code,
+            )
+          }
+
           let operationExecuteJti: string | undefined
           if (isDestructive) {
             if (!options.preview) {
@@ -1204,19 +1287,24 @@ export function defineMcpApp<
                 operation: operationId,
                 tool: options.meta?.name ?? metadata.name ?? operationId,
               })
-              const previewResult = await callByOperation(
-                projectionCtx.convex,
-                options.previewOperation ?? 'query',
-                options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
-                executeArgs as FunctionLikeArgs<
-                  PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
-                >,
-                {
-                  trustedForwardingEnvelope: {
-                    purpose: 'operation-preview',
+              let previewResult: unknown
+              try {
+                previewResult = await callByOperation(
+                  projectionCtx.convex,
+                  options.previewOperation ?? 'query',
+                  options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+                  executeArgs as FunctionLikeArgs<
+                    PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+                  >,
+                  {
+                    trustedForwardingEnvelope: {
+                      purpose: 'operation-preview',
+                    },
                   },
-                },
-              )
+                )
+              } catch (error) {
+                return await returnBackendFailure(error)
+              }
 
               const previewPayload = normalizeOperationPreview(previewResult)
               const display = normalizePreviewDisplay(previewPayload.display)
@@ -1267,19 +1355,24 @@ export function defineMcpApp<
             const payload = confirmation.payload
             operationExecuteJti = payload.jti
 
-            const previewResult = await callByOperation(
-              projectionCtx.convex,
-              options.previewOperation ?? 'query',
-              options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
-              executeArgs as FunctionLikeArgs<
-                PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
-              >,
-              {
-                trustedForwardingEnvelope: {
-                  purpose: 'operation-preview',
+            let previewResult: unknown
+            try {
+              previewResult = await callByOperation(
+                projectionCtx.convex,
+                options.previewOperation ?? 'query',
+                options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+                executeArgs as FunctionLikeArgs<
+                  PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+                >,
+                {
+                  trustedForwardingEnvelope: {
+                    purpose: 'operation-preview',
+                  },
                 },
-              },
-            )
+              )
+            } catch (error) {
+              return await returnBackendFailure(error)
+            }
 
             const previewPayload = normalizeOperationPreview(previewResult)
             const display = normalizePreviewDisplay(previewPayload.display)
@@ -1354,33 +1447,7 @@ export function defineMcpApp<
               ? markDestructiveExecuted(finalized, (value) => ctx.ok(value as SerializableValue))
               : finalized
           } catch (error) {
-            const normalizedError = normalizeMcpError(error)
-            const errorDetails = {
-              category: normalizedError.category,
-              message: normalizedError.message,
-              ...(normalizedError.code ? { code: normalizedError.code } : {}),
-            }
-            await projectionCtx.observe({
-              name: 'tool.failed',
-              status: 'error',
-              transport: 'mcp',
-              tool: options.meta?.name ?? metadata.name ?? operationId,
-              operation: operationId,
-              reasonCode: 'tool.execution_failed',
-              details: errorDetails,
-            })
-            projectionCtx.wideSummary.emit({
-              status: 'error',
-              details: errorDetails,
-            })
-            return ctx.error(
-              normalizedError.category,
-              normalizedError.message,
-              normalizedError.issues,
-              undefined,
-              normalizedError.details,
-              normalizedError.code,
-            )
+            return await returnBackendFailure(error)
           }
         },
       })

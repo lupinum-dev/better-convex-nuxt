@@ -23,6 +23,7 @@ export type TrellisObservationReasonCode =
   | 'rls.denied'
   | 'service.access.denied'
   | 'tool.capability_denied'
+  | 'tool.capability_backend_drift'
   | 'tool.disabled'
   | 'tool.confirmation_mismatch'
   | 'tool.execution_failed'
@@ -103,7 +104,11 @@ type ObservationDefinitionMap = {
   'tool.called': { status: 'success'; reasonCode?: never }
   'tool.denied': {
     status: 'deny'
-    reasonCode: 'tool.capability_denied' | 'tool.disabled' | 'tool.confirmation_mismatch'
+    reasonCode:
+      | 'tool.capability_denied'
+      | 'tool.capability_backend_drift'
+      | 'tool.disabled'
+      | 'tool.confirmation_mismatch'
   }
   'tool.confirmation.required': { status: 'success'; reasonCode?: never }
   'tool.executed': { status: 'success'; reasonCode?: never }

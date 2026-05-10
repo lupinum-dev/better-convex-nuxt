@@ -354,7 +354,7 @@ the backend source of behavior.
 
 ## Slice 6: MCP Blessed Lanes
 
-Status: in progress
+Status: complete
 
 Goal: keep MCP as a projection of the backend model, not a second backend.
 
@@ -388,8 +388,8 @@ Goal: keep MCP as a projection of the backend model, not a second backend.
 - [x] Direct mutation without bounded-write metadata fails.
 - [x] Tool-side down-classification fails.
 - [x] Destructive work through direct mutation/custom tool fails.
-- [ ] Backend denial remains authoritative over MCP visibility.
-- [ ] Capability/backend drift emits observation.
+- [x] Backend denial remains authoritative over MCP visibility.
+- [x] Capability/backend drift emits observation.
 
 ### Done Means
 

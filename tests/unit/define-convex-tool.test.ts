@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+import { definePermissionKey } from '../../src/runtime/auth'
 import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/convex/server/convex'
 import {
   defineOperation,
@@ -21,6 +22,7 @@ import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
 import { unsafe } from '../../src/runtime/mcp/unsafe-permit'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
+import { createObservationCapture } from '../../src/runtime/testing'
 
 const { useEventMock } = vi.hoisted(() => ({
   useEventMock: vi.fn(),
@@ -585,6 +587,77 @@ describe('MCP rate-limit integration', () => {
     ).toThrow(/Use tool\.operation/)
   })
 
+  it('returns backend denial and emits drift when direct mutation visibility is stale', async () => {
+    const capture = createObservationCapture()
+    const permission = definePermissionKey('posts.create')
+    const createPostDescriptor = defineMcpToolRefDescriptor({
+      name: 'create-post',
+      safety: {
+        kind: 'bounded-write',
+        reason: 'Creates one post explicitly named by args.',
+      },
+    })
+    const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
+    const mcp = defineMcpApp({
+      observability: { enabled: true, level: 'verbose' },
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      resolveCapabilities: async () => ({
+        [permission.key]: true,
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => {
+          throw new Error('Forbidden by backend authorize')
+        },
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    try {
+      const tool = mcp.tool.mutation({
+        schema: emptySchema,
+        call: createPost,
+        permission,
+        safety: createPostDescriptor.safety,
+        meta: { name: 'create-post' },
+      })
+
+      const result = await tool.handler({} as never, {} as never)
+
+      expect(result).toMatchObject({
+        structuredContent: {
+          ok: false,
+          error: {
+            category: 'auth',
+            message: expect.stringContaining('Forbidden by backend authorize'),
+          },
+        },
+      })
+      expect(capture.find('tool.denied')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            tool: 'create-post',
+            reasonCode: 'tool.capability_backend_drift',
+            status: 'deny',
+            details: expect.objectContaining({
+              category: 'auth',
+              explanation: expect.objectContaining({
+                reasonCode: 'tool.capability_backend_drift',
+              }),
+            }),
+          }),
+        ]),
+      )
+      expect(capture.find('tool.failed')).toEqual([])
+    } finally {
+      capture.stop()
+    }
+  })
+
   it('refuses production rate-limited tools without an explicit distributed store', () => {
     const previousNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'
@@ -697,6 +770,73 @@ describe('Destructive confirmation payload validation', () => {
     })
 
     expect(tool.name).toBe('delete-post')
+  })
+
+  it('returns backend denial and emits drift when operation visibility is stale', async () => {
+    const capture = createObservationCapture()
+    const permission = definePermissionKey('posts.archive')
+    const operation = defineOperation({
+      id: 'posts.archive',
+      name: 'ArchivePost',
+      kind: 'safe',
+      permission,
+      safety: 'bounded-write',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      handler: async () => ({ ok: true }),
+    })
+    const mcp = defineMcpApp({
+      observability: { enabled: true, level: 'verbose' },
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      resolveCapabilities: async () => ({
+        [permission.key]: true,
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => {
+          throw new Error('Forbidden by backend guard')
+        },
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    try {
+      const tool = mcp.tool.operation(operation, {
+        execute: operation as never,
+        meta: { name: 'archive-post' },
+      })
+
+      const result = await tool.handler({ id: 'post-1' } as never, {} as never)
+
+      expect(result).toMatchObject({
+        structuredContent: {
+          ok: false,
+          error: {
+            category: 'auth',
+            message: expect.stringContaining('Forbidden by backend guard'),
+          },
+        },
+      })
+      expect(capture.find('tool.denied')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            tool: 'archive-post',
+            operation: 'posts.archive',
+            reasonCode: 'tool.capability_backend_drift',
+            status: 'deny',
+          }),
+        ]),
+      )
+      expect(capture.find('tool.failed')).toEqual([])
+    } finally {
+      capture.stop()
+    }
   })
 
   it('refuses production transport-only destructive confirmation without a distributed store', () => {
