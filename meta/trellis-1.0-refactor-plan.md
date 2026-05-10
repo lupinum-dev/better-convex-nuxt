@@ -200,6 +200,10 @@ builder spellings.
   `unsafe.permit(...)` primitive used by MCP custom tools. Runtime unsafe
   handlers now require `permit`, emit structured permit metadata, and upgrade
   audits only flag legacy/missing/non-typed unsafe entrypoints.
+- Sprint 55 proved protected identity wiring fail-closed behavior. Missing
+  `actor()` wiring now throws an actionable setup error in development/test
+  when a protected path needs it, production treats it as denial, and resolved
+  `null` actors remain ordinary unauthorized runtime state.
 
 ### Decide API
 
@@ -237,9 +241,9 @@ mutation.unsafe(...)
 
 - [x] Missing public/protected/unsafe classification fails for plain backend
       handler objects.
-- [ ] Missing protected principal/actor wiring fails closed.
+- [x] Missing protected principal/actor wiring fails closed.
 - [x] Public-access handlers do not require caller-supplied guard fields.
-- [ ] Resolved-null actor is distinct from missing actor resolver wiring.
+- [x] Resolved-null actor is distinct from missing actor resolver wiring.
 - [x] Explicit lane metadata appears on registered function objects for
       tests/doctor/inventory to consume.
 
@@ -247,7 +251,7 @@ mutation.unsafe(...)
 
 - [ ] Old builder spelling has no runtime implementation.
 - [ ] Old builder docs are removed.
-- [ ] Tests prove no accidental public handler path remains.
+- [x] Tests prove no accidental public handler path remains.
 
 ## Slice 4: Signed Forwarding Hard Cut
 

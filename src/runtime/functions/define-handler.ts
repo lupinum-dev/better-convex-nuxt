@@ -206,6 +206,14 @@ function resolveActorAccessor<TCtx extends object, TActor>(
     return ctx.actor as () => Promise<TActor | null>
   }
 
+  if (process.env.NODE_ENV !== 'production') {
+    return async () => {
+      throw new Error(
+        'Context is missing actor() accessor. Use defineTrellis(...) or provide actor() in tests.',
+      )
+    }
+  }
+
   return async () => null
 }
 

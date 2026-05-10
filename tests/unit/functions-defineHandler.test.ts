@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { authRequired, defineGuard, open } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
@@ -22,6 +22,10 @@ function createBuilder() {
 }
 
 describe('buildStructuredFunctions', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('requires a guard and narrows actor for protected handlers at runtime', async () => {
     const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
       createBuilder(),
@@ -140,6 +144,32 @@ describe('buildStructuredFunctions', () => {
     })
 
     expect(actor).not.toHaveBeenCalled()
+  })
+
+  it('does not require actor wiring for open handlers that never touch actor()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+
+    const query = handlers.query({
+      args: {},
+      guard: open,
+      handler: async (ctx) => ({ principal: await ctx.principal(), marker: ctx.marker }),
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'anonymous' }),
+          marker: 'public',
+        } as unknown as TestCtx,
+        {},
+      ),
+    ).resolves.toEqual({
+      principal: { kind: 'anonymous' },
+      marker: 'public',
+    })
   })
 
   it('supports separate load and authorize phases', async () => {
@@ -426,6 +456,56 @@ describe('buildStructuredFunctions', () => {
         {},
       ),
     ).resolves.toBe('Hello')
+  })
+
+  it('throws clearly when protected handlers need actor wiring but context is missing actor()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+
+    const query = handlers.query({
+      args: {},
+      guard,
+      handler: async () => 'never',
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          marker: 'broken',
+        } as unknown as TestCtx,
+        {},
+      ),
+    ).rejects.toThrow(/missing actor\(\) accessor/)
+  })
+
+  it('treats missing actor wiring as fail-closed denial in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+      createBuilder(),
+      createBuilder(),
+    )
+    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+
+    const query = handlers.query({
+      args: {},
+      guard,
+      handler: async () => 'never',
+    }) as BuiltHandler
+
+    await expect(
+      query.handler(
+        {
+          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          marker: 'broken',
+        } as unknown as TestCtx,
+        {},
+      ),
+    ).rejects.toThrow(/Forbidden: dashboard\.read/)
   })
 
   it('throws clearly when context is missing principal()', async () => {

@@ -54,65 +54,65 @@ user.
 
 ### 1. Map The Current Identity Path
 
-- [ ] Trace `defineTrellis(...)` principal resolution, delegation resolution,
+- [x] Trace `defineTrellis(...)` principal resolution, delegation resolution,
       actor resolution, and `buildStructuredBuilder(...)` guard execution.
-- [ ] Identify where missing principal wiring is already a setup failure.
-- [ ] Identify where missing actor wiring is currently treated as `null`.
-- [ ] Document the smallest code location that can enforce the invariant.
+- [x] Identify where missing principal wiring is already a setup failure.
+- [x] Identify where missing actor wiring is currently treated as `null`.
+- [x] Document the smallest code location that can enforce the invariant.
 
 ### 2. Add Focused Runtime Tests
 
-- [ ] Add a test proving protected handlers fail clearly when principal wiring
+- [x] Add a test proving protected handlers fail clearly when principal wiring
       is missing.
-- [ ] Add a test proving protected handlers fail clearly when actor wiring is
+- [x] Add a test proving protected handlers fail clearly when actor wiring is
       missing for actor-required guards.
-- [ ] Add a test proving a resolver that returns `null` is handled as
+- [x] Add a test proving a resolver that returns `null` is handled as
       unauthorized, not setup failure.
-- [ ] Add a test proving public handlers do not require actor wiring.
-- [ ] Add a test proving unsafe handlers still require typed permits, but do
+- [x] Add a test proving public handlers do not require actor wiring.
+- [x] Add a test proving unsafe handlers still require typed permits, but do
       not accidentally become a protected identity shortcut.
 
 ### 3. Tighten Runtime Behavior Only Where Tests Show Drift
 
-- [ ] If missing actor wiring is currently indistinguishable from resolved-null
-      actor, introduce one direct internal sentinel or metadata marker.
-- [ ] Keep the marker internal to runtime code; do not add public config.
-- [ ] Development/test behavior should throw an actionable setup error naming
+- [x] If missing actor wiring is currently indistinguishable from resolved-null
+      actor, introduce one direct internal runtime check.
+- [x] Keep the check internal to runtime code; do not add public config.
+- [x] Development/test behavior should throw an actionable setup error naming
       the missing accessor/resolver and lane.
-- [ ] Production behavior should deny/fail closed without leaking internal
+- [x] Production behavior should deny/fail closed without leaking internal
       setup details.
-- [ ] Preserve resolved-null actor denial messages and observations.
+- [x] Preserve resolved-null actor denial messages and observations.
 
 ### 4. Update Doctor/Inventory Only If There Is A Real Signal
 
 - [ ] If app-level missing actor wiring is statically detectable, add or update
       one doctor finding.
-- [ ] If it is not reliably detectable, do not fake it with regex.
-- [ ] Prefer runtime invariant tests over weak source scanning.
+- [x] If it is not reliably detectable, do not fake it with regex.
+- [x] Prefer runtime invariant tests over weak source scanning.
 
 ### 5. Update Docs And Slice 3
 
-- [ ] Update principal/actor docs with the missing-wiring versus resolved-null
+- [x] Update principal/actor docs with the missing-wiring versus resolved-null
       distinction.
-- [ ] Add a Sprint 55 progress note under Slice 3.
-- [ ] Mark "Missing protected principal/actor wiring fails closed" complete
+- [x] Add a Sprint 55 progress note under Slice 3.
+- [x] Mark "Missing protected principal/actor wiring fails closed" complete
       only after runtime tests prove it.
-- [ ] Mark "Resolved-null actor is distinct from missing actor resolver wiring"
+- [x] Mark "Resolved-null actor is distinct from missing actor resolver wiring"
       complete only after tests prove both paths.
 - [ ] If these complete Slice 3, mark Slice 3 done and record any remaining
       follow-up outside the slice.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts` if
-      doctor findings change.
-- [ ] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check src/runtime/functions src/runtime/auth tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts apps/docs/content/docs/08.permissions/2.principal-and-actor.md meta/refactor/sprint55-protected-identity-wiring-proof-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts`
+- N/A: `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts`;
+  doctor findings did not change.
+- [x] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check src/runtime/functions src/runtime/auth tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts apps/docs/content/docs/08.permissions/2.principal-and-actor.md meta/refactor/sprint55-protected-identity-wiring-proof-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 
