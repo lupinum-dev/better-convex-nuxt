@@ -839,7 +839,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 
 ### Rewrite
 
-- [ ] Front-door “Should you use Trellis?” section.
+- [x] Front-door “Should you use Trellis?” section.
 - [ ] Public starter guide.
 - [ ] Personal starter guide.
 - [ ] Workspace starter guide.
@@ -853,16 +853,16 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 
 ### Delete
 
-- [ ] Delete old raw forwarding docs.
-- [ ] Delete `tool.fromOperation` docs.
-- [ ] Delete `.tpl` starter docs.
+- [x] Delete old raw forwarding docs.
+- [x] Delete `tool.fromOperation` docs.
+- [x] Delete `.tpl` starter docs.
 - [ ] Delete beginner bridge references.
 
 ### Prove
 
-- [ ] Docs API surface check passes.
+- [x] Docs API surface check passes.
 - [ ] Public surface check passes.
-- [ ] Search for removed names returns only migration notes or historical ADRs.
+- [x] Search for removed names returns only migration notes or historical ADRs.
 
 ### Done Means
 
@@ -1020,6 +1020,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   as needed, and add or reuse a repeatable docs guardrail for deleted 1.0
   surfaces. Deeper guide/API-reference rewrites stay open unless this sprint
   edits and verifies them.
+- Sprint 71 completed the docs front-door 1.0 cleanup. The current-docs stale
+  surface scan found no raw forwarding, deleted bridge import, `workspace --mcp`,
+  `cms` starter, `.tpl`, `guard: open`, or `tool.fromOperation` hits; legitimate
+  `query(...)` / `mutation(...)` hits were client/server/test/MCP examples, not
+  old backend builders. The docs landing page now starts with fixture-backed
+  `trellis init`, start-here makes `trellis doctor` part of the first loop, the
+  concepts page states signed forwarding is transport authentication rather than
+  authorization, and the backend API reference no longer lists bridge helpers or
+  old operation projection wording.
 
 ### Done Means
 

@@ -38,82 +38,107 @@ for current docs. It should not become a full documentation rewrite.
 
 ### 1. Establish The Current Docs Baseline
 
-- [ ] Run a stale-surface scan over current user-facing docs:
+- [x] Run a stale-surface scan over current user-facing docs:
 
   ```bash
   rg -n "tool\\.fromOperation|_trustedForwardingKey|_trustedForwarding\\b|@lupinum/trellis/functions|@lupinum/trellis/bridge|workspace --mcp|cms starter|trellis bridge|\\.tpl|query\\(|mutation\\(|guard: open|bypass:" README.md apps/docs/content apps/docs/STYLE.md examples -g '*.md'
   ```
 
-- [ ] Classify hits as:
+- [x] Classify hits as:
       current user-facing stale docs, generated API surface, example docs,
       migration notes, or false positives.
-- [ ] Record the baseline in this plan before editing.
-- [ ] Do not treat `meta/refactor/**` or ADR history as current product docs.
+- [x] Record the baseline in this plan before editing.
+- [x] Do not treat `meta/refactor/**` or ADR history as current product docs.
+
+Baseline: the full scan found no current docs/examples hits for
+`tool.fromOperation`, raw forwarding fields, deleted bridge imports,
+`workspace --mcp`, `cms` starter setup, root `trellis bridge`, `.tpl`,
+`guard: open`, or unsafe `bypass:`. The only stale docs hit was
+`apps/docs/content/docs/13.api-reference/3.functions.md` describing operation
+projection as `mutation(operation)` instead of the 1.0
+`mutation.protected(operation)` lane. The broader `query(...)` / `mutation(...)`
+hits were legitimate client cache, Convex DB, testing caller, server caller, and
+MCP tool examples rather than old backend builder syntax.
 
 ### 2. Rewrite The Front Door
 
-- [ ] Rewrite `README.md` only where it teaches old surfaces or fails to set the
+- [x] Rewrite `README.md` only where it teaches old surfaces or fails to set the
       1.0 product expectation.
-- [ ] Rewrite `apps/docs/content/index.md` if it still reads like a generic
+- [x] Rewrite `apps/docs/content/index.md` if it still reads like a generic
       landing page rather than the Trellis 1.0 entry point.
-- [ ] Rewrite `apps/docs/content/docs/01.getting-started/1.start-here.md` so the
+- [x] Rewrite `apps/docs/content/docs/01.getting-started/1.start-here.md` so the
       first path is:
       choose starter -> run fixture-backed starter -> use explicit backend lanes
       -> run doctor.
-- [ ] Add or preserve the "Should you use Trellis?" honesty:
+- [x] Add or preserve the "Should you use Trellis?" honesty:
       Trellis is for one reviewable backend model across browser, server,
       workspace, and agent surfaces; it is not just a Convex query helper.
-- [ ] Teach the canonical starters only:
+- [x] Teach the canonical starters only:
       `public`, `personal`, `workspace`, and `workspace-mcp`.
-- [ ] Do not mention `cms` as a Trellis beginner starter.
+- [x] Do not mention `cms` as a Trellis beginner starter.
+
+`README.md` already matched the 1.0 expectation, so it was left untouched.
+`apps/docs/content/index.md` now leads with fixture-backed `trellis init`, and
+`start-here` now makes `trellis doctor` part of the first loop.
 
 ### 3. Tighten First-Reader Architecture Pages
 
-- [ ] Update `apps/docs/content/docs/02.concepts/1.how-it-works.md` only if it
+- [x] Update `apps/docs/content/docs/02.concepts/1.how-it-works.md` only if it
       contradicts the current 1.0 model.
-- [ ] Update `apps/docs/content/docs/02.concepts/2.glossary.md` only for terms
+- [x] Update `apps/docs/content/docs/02.concepts/2.glossary.md` only for terms
       that changed names or ownership in 1.0.
-- [ ] Ensure the first-reader model says:
+- [x] Ensure the first-reader model says:
       principal -> actor -> guard/load/authorize -> handler remains backend
       authority.
-- [ ] Ensure signed forwarding is described as transport authentication, not app
+- [x] Ensure signed forwarding is described as transport authentication, not app
       authorization.
-- [ ] Ensure MCP discovery is advisory and backend execution is authoritative.
+- [x] Ensure MCP discovery is advisory and backend execution is authoritative.
+
+The concepts page already taught backend authority and advisory transport
+visibility. It now explicitly says a valid `_trellisForwarding` envelope
+authenticates the forwarding boundary but does not grant permission.
 
 ### 4. Update Starter/Setup Docs Only Where Needed
 
-- [ ] Update `apps/docs/content/docs/01.getting-started/2.installation.md` if it
+- [x] Update `apps/docs/content/docs/01.getting-started/2.installation.md` if it
       teaches deleted starter names or template-backed generation.
-- [ ] Update starter index pages if they still imply `workspace --mcp` or `cms`.
-- [ ] Leave deeper guide rewrites for later sprints unless a link/check fails.
+- [x] Update starter index pages if they still imply `workspace --mcp` or `cms`.
+- [x] Leave deeper guide rewrites for later sprints unless a link/check fails.
+
+No installation/starter page edit was needed; the scan found no deleted starter
+or template-backed generation wording.
 
 ### 5. Add Or Reuse A Docs Guardrail
 
-- [ ] If existing repo-policy/docs checks already catch stale first-reader
+- [x] If existing repo-policy/docs checks already catch stale first-reader
       surfaces, reuse them and document the command.
-- [ ] If they do not, add one narrow current-docs scan for deleted 1.0 public
+- [x] If they do not, add one narrow current-docs scan for deleted 1.0 public
       surfaces.
-- [ ] Exclude historical `meta/**` planning notes from the guardrail.
-- [ ] Do not add a broad scanner that flags legitimate generated API names or
+- [x] Exclude historical `meta/**` planning notes from the guardrail.
+- [x] Do not add a broad scanner that flags legitimate generated API names or
       migration test fixtures without context.
+
+`pnpm run check:repo-policies` already scans retained examples, `apps/docs`,
+`apps/harness`, and `apps/devtools-ui` for deleted Trellis 1.0 surfaces. No new
+guardrail was needed.
 
 ### 6. Verify
 
-- [ ] `pnpm run check:docs:links`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] Stale-surface scan from step 1 returns no current user-facing deleted-path
+- [x] `pnpm run check:docs:links`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] Stale-surface scan from step 1 returns no current user-facing deleted-path
       hits, or every remaining hit is documented here as intentional.
-- [ ] `pnpm exec oxfmt --check README.md apps/docs/content apps/docs/STYLE.md meta/refactor/sprint71-docs-front-door-1-0-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check README.md apps/docs/content apps/docs/STYLE.md meta/refactor/sprint71-docs-front-door-1-0-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ### 7. Update The Refactor Tracker
 
-- [ ] Add a Sprint 71 completion note to
+- [x] Add a Sprint 71 completion note to
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Mark front-door docs items complete only for files actually rewritten and
+- [x] Mark front-door docs items complete only for files actually rewritten and
       verified.
-- [ ] Leave deeper guide/API-reference items open unless this sprint edits and
+- [x] Leave deeper guide/API-reference items open unless this sprint edits and
       verifies them.
 
 ## Done Means
