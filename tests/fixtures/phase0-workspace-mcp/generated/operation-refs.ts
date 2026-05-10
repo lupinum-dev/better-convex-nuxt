@@ -6,10 +6,12 @@ export const executeDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'execute',
   api.features.projects.domain.deleteProject,
+  { functionRef: 'features/projects/domain:deleteProject' },
 )
 
 export const previewDeleteProjectRef = projectOperationRef(
   deleteProjectDescriptor,
   'preview',
   api.features.projects.domain.previewDeleteProject,
+  { functionRef: 'features/projects/domain:previewDeleteProject' },
 )

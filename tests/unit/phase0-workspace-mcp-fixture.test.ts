@@ -1,15 +1,20 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { describe, expect, it, vi } from 'vitest'
+import type { H3Event } from 'h3'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { toAppInventoryJson } from '../../src/runtime/feature'
 import { getOperationMetadata } from '../../src/runtime/functions'
 import { deleteProjectOperation } from '../fixtures/phase0-workspace-mcp/convex/features/projects/operations'
 import { appInventory } from '../fixtures/phase0-workspace-mcp/shared/app-inventory'
 
+const { useEventMock } = vi.hoisted(() => ({
+  useEventMock: vi.fn(),
+}))
+
 vi.mock('nitropack/runtime', () => ({
-  useEvent: vi.fn(),
+  useEvent: useEventMock,
 }))
 
 vi.mock('../../src/runtime/convex/server/convex', () => ({
@@ -18,7 +23,31 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexAction: vi.fn(),
 }))
 
+function createEvent(): H3Event {
+  return {
+    __is_event__: true,
+    method: 'POST',
+    path: '/mcp',
+    headers: new Headers(),
+    context: {},
+    node: {
+      req: {},
+      res: {},
+    },
+  } as unknown as H3Event
+}
+
 describe('phase0 workspace-mcp fixture', () => {
+  const originalConfirmationKey = process.env.TRELLIS_MCP_CONFIRMATION_KEY
+
+  afterEach(() => {
+    if (originalConfirmationKey === undefined) {
+      delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
+    } else {
+      process.env.TRELLIS_MCP_CONFIRMATION_KEY = originalConfirmationKey
+    }
+  })
+
   it('builds inventory from shared descriptors and binds MCP tools without Convex implementation imports', async () => {
     const { default: deleteProjectTool } =
       await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
@@ -70,5 +99,62 @@ describe('phase0 workspace-mcp fixture', () => {
       'utf8',
     )
     expect(generatedApiTypes).toContain('"features/projects/domain"')
+  })
+
+  it('routes destructive execute through operation-execute forwarding options', async () => {
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+    const { default: deleteProjectTool } =
+      await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
+    const { convexCalls } = await import('../fixtures/phase0-workspace-mcp/server/mcp/runtime')
+    convexCalls.length = 0
+    const event = createEvent()
+    useEventMock.mockReturnValue(event)
+
+    const previewResult = (await deleteProjectTool.handler(
+      { id: 'project-1' } as never,
+      event as never,
+    )) as {
+      structuredContent?: {
+        preview?: {
+          confirmationToken?: string
+        }
+      }
+    }
+    const confirmationToken = previewResult.structuredContent?.preview?.confirmationToken
+    expect(confirmationToken).toEqual(expect.any(String))
+
+    await deleteProjectTool.handler(
+      {
+        id: 'project-1',
+        _confirmationToken: confirmationToken,
+      } as never,
+      event as never,
+    )
+
+    expect(convexCalls).toEqual([
+      {
+        operation: 'query',
+        args: { id: 'project-1' },
+        options: undefined,
+      },
+      {
+        operation: 'query',
+        args: { id: 'project-1' },
+        options: undefined,
+      },
+      {
+        operation: 'mutation',
+        args: {
+          id: 'project-1',
+          _confirmationToken: confirmationToken,
+        },
+        options: {
+          trustedForwardingEnvelope: {
+            purpose: 'operation-execute',
+            jti: expect.any(String),
+          },
+        },
+      },
+    ])
   })
 })

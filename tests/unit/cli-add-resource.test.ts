@@ -117,6 +117,12 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
     ).resolves.toContain('permission: projectDeletePermission')
     await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain("functionRef: 'features/projects/domain:remove'")
+    await expect(
+      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
+    ).resolves.toContain("functionRef: 'features/projects/operations:previewRemoveProject'")
+    await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
     ).resolves.toContain('~~/shared/features/projects/contract')
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(

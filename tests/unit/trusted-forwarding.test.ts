@@ -245,6 +245,26 @@ describe('trusted forwarding helpers', () => {
     }
   })
 
+  it('fails closed on oversized signed forwarding envelopes', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Envelope' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      jti: 'oversized-call',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    expect(() =>
+      setTrustedForwardingContext({}, args, {
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+        maxEnvelopeBytes: 64,
+      }),
+    ).toThrow(/too-large/)
+  })
+
   it('fails closed on signed forwarding replay when redemption is required', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const seen = new Set<string>()

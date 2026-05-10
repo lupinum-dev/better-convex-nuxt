@@ -27,6 +27,16 @@ function renderApiPath(path: readonly string[]): string {
   return ['api', ...path].join('.')
 }
 
+export function renderConvexFunctionRef(path: readonly string[]): string {
+  if (path.length < 2) {
+    throw new Error('Operation ref apiPath must include a module path and export name')
+  }
+
+  const exportName = path.at(-1)
+  const modulePath = path.slice(0, -1).join('/')
+  return `${modulePath}:${exportName}`
+}
+
 export function renderOperationRefsModule(input: OperationRefsModuleInput): string {
   if (input.descriptors.length === 0) {
     throw new Error('Operation refs module requires at least one descriptor import')
@@ -48,6 +58,7 @@ export function renderOperationRefsModule(input: OperationRefsModuleInput): stri
     lines.push(`  ${ref.descriptorName},`)
     lines.push(`  '${ref.projection}',`)
     lines.push(`  ${renderApiPath(ref.apiPath)},`)
+    lines.push(`  { functionRef: '${renderConvexFunctionRef(ref.apiPath)}' },`)
     lines.push(')')
     if (index < input.refs.length - 1) lines.push('')
   }

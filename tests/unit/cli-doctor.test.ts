@@ -716,6 +716,70 @@ describe('CLI doctor', () => {
     ).toContain('by_jti')
   })
 
+  it('fails doctor when destructive-safety audit fields drift', () => {
+    const cwd = createTempDir('trellis-doctor-destructive-audit-drift-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'convex/functions.ts'),
+      read(resolve(appRoot, 'convex/functions.ts')).replace(
+        '    tenantIsolation: {\n      tables: isolatedTables,\n      globalTables: explicitlyGlobalTables,\n    },',
+        [
+          '    tenantIsolation: {',
+          '      tables: isolatedTables,',
+          '      globalTables: explicitlyGlobalTables,',
+          '    },',
+          '    destructiveSafety: {',
+          "      redemptionTable: 'destructiveRedemptions' as never,",
+          "      auditTable: 'destructiveAuditLog' as never,",
+          '    },',
+        ].join('\n'),
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'convex/schema.ts'),
+      `${read(resolve(appRoot, 'convex/schema.ts'))
+        .trimEnd()
+        .replace(/\}\)\s*$/, '')},
+  destructiveRedemptions: defineTable({
+    jti: v.string(),
+    operationId: v.string(),
+    principalKey: v.string(),
+    tenantKey: v.string(),
+    redeemedAt: v.number(),
+  }).index('by_jti', ['jti']),
+  destructiveAuditLog: defineTable({
+    operationId: v.string(),
+    jti: v.string(),
+    principalKey: v.string(),
+    tenantKey: v.string(),
+    argsHash: v.string(),
+    previewHash: v.string(),
+    executedAt: v.number(),
+  }),
+})\n`,
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'destructive-safety-schema')?.status).toBe(
+      'fail',
+    )
+    expect(
+      report.findings.find((entry) => entry.id === 'destructive-safety-schema')?.message,
+    ).toContain('executePath')
+  })
+
   it('uses exit code 2 for usage errors', () => {
     const result = runCli(['unknown-command'], repoRoot)
     const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`

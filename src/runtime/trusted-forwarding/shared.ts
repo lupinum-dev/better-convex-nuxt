@@ -80,6 +80,7 @@ export type TrustedForwardingEnvelopeContextOptions = {
   expectedAudience?: string
   expectedFunctionRef?: string
   now?: number
+  maxEnvelopeBytes?: number
   redeemJti?: (jti: string) => boolean
 }
 
@@ -346,6 +347,9 @@ export function extractTrustedForwardingFromArgs(
         ...(options.expectedFunctionRef ? { functionRef: options.expectedFunctionRef } : {}),
         args,
         ...(options.now !== undefined ? { now: options.now } : {}),
+        ...(options.maxEnvelopeBytes !== undefined
+          ? { maxEnvelopeBytes: options.maxEnvelopeBytes }
+          : {}),
         ...(options.redeemJti ? { redeemJti: (jti) => options.redeemJti!(jti) } : {}),
       })
 

@@ -19,6 +19,7 @@ import { can, deny, enforce, requireAuth } from '../auth/index.js'
 import { isAnonymousPrincipal, type AuthenticatedPrincipal } from '../auth/principal-state.js'
 import { createDenialExplanation, type TrellisObservationEvent } from '../observability/index.js'
 import {
+  getOperationProjectionMetadata,
   stampOperationProjection,
   trellisOperationProjectionMetadataKey,
 } from './operation-metadata.js'
@@ -374,12 +375,13 @@ function createStructuredBuilder<
       TResult
     >,
   ): ReturnType<TBuilder> {
+    const functionRef =
+      definition.trustedForwardingFunctionRef ??
+      getOperationProjectionMetadata(definition)?.functionRef
     const built = builder({
       args: definition.args,
       returns: definition.returns,
-      ...(definition.trustedForwardingFunctionRef
-        ? { trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef }
-        : {}),
+      ...(functionRef ? { trustedForwardingFunctionRef: functionRef } : {}),
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>

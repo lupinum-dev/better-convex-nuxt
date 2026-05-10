@@ -22,6 +22,7 @@ export type TrellisOperationMetadata = {
 export type TrellisOperationProjectionMetadata = {
   operationId: string
   projection: 'execute' | 'preview'
+  functionRef?: string
 }
 
 export const trellisOperationMetadataKey = Symbol.for('trellis.operation')
@@ -243,6 +244,7 @@ export function projectOperationRef<
   operation: TOperation,
   projection: TProjection,
   ref: TRef,
+  options: { functionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, TProjection, TRef> {
   const metadata = getOperationMetadata(operation)
   if (!metadata.id) {
@@ -252,26 +254,30 @@ export function projectOperationRef<
   return stampOperationProjection(ref, {
     operationId: metadata.id,
     projection,
+    ...(options.functionRef ? { functionRef: options.functionRef } : {}),
   }) as ValidateOperationProjectionRef<TOperation, TProjection, TRef>
 }
 
 export function executeOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
+  options: { functionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
-  return projectOperationRef(operation, 'execute', ref)
+  return projectOperationRef(operation, 'execute', ref, options)
 }
 
 export function transportExecuteOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
+  options: { functionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'execute', TRef> {
-  return projectOperationRef(operation, 'execute', ref)
+  return projectOperationRef(operation, 'execute', ref, options)
 }
 
 export function previewOperationRef<TOperation extends OperationMetadataCarrier, TRef>(
   operation: TOperation,
   ref: TRef,
+  options: { functionRef?: string } = {},
 ): ValidateOperationProjectionRef<TOperation, 'preview', TRef> {
-  return projectOperationRef(operation, 'preview', ref)
+  return projectOperationRef(operation, 'preview', ref, options)
 }

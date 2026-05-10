@@ -34,6 +34,24 @@ describe('mcp operation binding', () => {
     ).not.toThrow()
   })
 
+  it('keeps Convex function refs on projected operation refs', () => {
+    const operation = { id: 'boards.archive', name: 'archiveBoard', kind: 'destructive' } as const
+    const execute = projectOperationRef(
+      operation,
+      'execute',
+      {},
+      {
+        functionRef: 'features/boards/domain:archiveBoard',
+      },
+    )
+
+    expect(execute[trellisOperationProjectionMetadataKey]).toEqual({
+      operationId: 'boards.archive',
+      projection: 'execute',
+      functionRef: 'features/boards/domain:archiveBoard',
+    })
+  })
+
   it('accepts projected proxy refs that hide custom symbol reads', () => {
     function proxyRef() {
       return new Proxy(

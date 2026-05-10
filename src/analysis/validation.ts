@@ -127,6 +127,23 @@ export function collectModuleValidationFindings(options: {
   if (analysis.destructiveSafety) {
     const redemptionTable = findSchemaTable(analysis, analysis.destructiveSafety.redemptionTable)
     const auditTable = findSchemaTable(analysis, analysis.destructiveSafety.auditTable)
+    const requiredRedemptionFields = [
+      'jti',
+      'operationId',
+      'principalKey',
+      'tenantKey',
+      'redeemedAt',
+    ]
+    const requiredAuditFields = [
+      'operationId',
+      'jti',
+      'principalKey',
+      'tenantKey',
+      'argsHash',
+      'previewHash',
+      'executedAt',
+      'executePath',
+    ]
 
     if (!redemptionTable) {
       findings.push({
@@ -136,11 +153,13 @@ export function collectModuleValidationFindings(options: {
           '`convex/schema.ts`.',
       })
     } else {
-      if (!redemptionTable.fields.includes('jti')) {
-        findings.push({
-          id: 'destructive-safety-schema',
-          message: `Destructive-safety redemption table "${analysis.destructiveSafety.redemptionTable}" is missing the "jti" field.`,
-        })
+      for (const field of requiredRedemptionFields) {
+        if (!redemptionTable.fields.includes(field)) {
+          findings.push({
+            id: 'destructive-safety-schema',
+            message: `Destructive-safety redemption table "${analysis.destructiveSafety.redemptionTable}" is missing the "${field}" field.`,
+          })
+        }
       }
 
       if (!redemptionTable.indexes.includes('by_jti')) {
@@ -158,6 +177,15 @@ export function collectModuleValidationFindings(options: {
           `Destructive-safety audit table "${analysis.destructiveSafety.auditTable}" does not exist in ` +
           '`convex/schema.ts`.',
       })
+    } else {
+      for (const field of requiredAuditFields) {
+        if (!auditTable.fields.includes(field)) {
+          findings.push({
+            id: 'destructive-safety-schema',
+            message: `Destructive-safety audit table "${analysis.destructiveSafety.auditTable}" is missing the "${field}" field.`,
+          })
+        }
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import {
   TrustedForwardingEnvelopeError,
   verifyTrustedForwardingEnvelope,
 } from '../../src/runtime/trusted-forwarding'
+import { defaultTrustedForwardingMaxEnvelopeBytes } from '../../src/runtime/trusted-forwarding/envelope'
 
 const now = Date.UTC(2026, 4, 9, 12, 0, 0)
 const key = 'phase-0-forwarding-key-with-enough-entropy'
@@ -163,6 +164,25 @@ describe('trusted forwarding envelopes', () => {
         now: now + 60_000,
       }),
     ).toThrow(/expired/)
+  })
+
+  it('rejects oversized envelopes before payload verification', () => {
+    const envelope = createEnvelope({
+      title: 'Roadmap',
+      filler: 'x'.repeat(defaultTrustedForwardingMaxEnvelopeBytes),
+    })
+
+    expect(() =>
+      verifyTrustedForwardingEnvelope(envelope, {
+        keys: { '2026-05-a': key },
+        expectedIssuer: 'nuxt://app',
+        expectedAudience: 'convex://deployment',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+        maxEnvelopeBytes: 64,
+      }),
+    ).toThrow(/too large/)
   })
 
   it('supports replay redemption checks', () => {

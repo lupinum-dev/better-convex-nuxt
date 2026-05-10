@@ -29,6 +29,7 @@ export {
   defineOperationMetadata,
   executeOperationRef,
   getOperationMetadata,
+  getOperationProjectionMetadata,
   previewOperationRef,
   projectOperationRef,
   transportExecuteOperationRef,

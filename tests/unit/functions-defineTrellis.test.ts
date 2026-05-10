@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
 import { defineTrellis } from '../../src/runtime/functions'
-import { defineOperation } from '../../src/runtime/functions/define-operation'
+import {
+  defineOperation,
+  transportExecuteOperationRef,
+} from '../../src/runtime/functions/define-operation'
 import {
   hashConfirmationValue,
   signConfirmationToken,
@@ -145,6 +148,70 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/function-ref/)
   })
 
+  it('uses projected operation function-ref metadata for trusted forwarding verification', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    const operation = defineOperation({
+      id: 'tasks.delete',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: open,
+      preview: async (_ctx, args) => ({
+        display: { summary: `Delete ${args.id}` },
+        confirm: { id: args.id },
+      }),
+      handler: async () => ({ deleted: true }),
+    })
+    const definition = runtime.mutation(
+      transportExecuteOperationRef(operation, operation, {
+        functionRef: 'tasks:delete',
+      }),
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'task_1' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:wrong',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'execute-1',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/function-ref/)
+  })
+
   it('rejects replayed operation-execute forwarding envelopes before handler execution', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
@@ -256,6 +323,68 @@ describe('defineTrellis', () => {
         args,
       ),
     ).rejects.toThrow(/operation-execute envelopes require destructive safety redemption/i)
+    expect(executed).toBe(false)
+  })
+
+  it('reports destructive safety misconfiguration for operation-execute envelope replay checks', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let executed = false
+    const definition = runtime.mutation({
+      args: {
+        id: v.string(),
+      },
+      trustedForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      handler: async () => {
+        executed = true
+        return { ok: true }
+      },
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { id: 'task_1' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:delete',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'execute-1',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(
+      /Destructive safety for operation "tasks:delete" is misconfigured.*destructiveRedemptions.*by_jti.*destructiveAuditLog/i,
+    )
     expect(executed).toBe(false)
   })
 
@@ -505,6 +634,153 @@ describe('defineTrellis', () => {
     expect(executions).toBe(1)
     expect(memory.tables.destructiveRedemptions).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog).toHaveLength(1)
+  })
+
+  it('requires operation-execute forwarding and confirmation tokens to share the same jti', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let executed = false
+    const destructiveOp = defineOperation({
+      id: 'tests.destroy',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      trustedForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      preview: async (_ctx, args) => ({
+        display: { summary: `Destroy ${args.id}` },
+        confirm: { id: args.id },
+      }),
+      handler: async () => {
+        executed = true
+        return 'destroyed'
+      },
+    })
+
+    const definition = runtime.mutation(destructiveOp) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+    const memory = createMemoryDb()
+    const executeArgs = { id: 'record-1' }
+    const token = await confirmationToken({
+      operationId: 'tests.destroy',
+      executeArgs,
+      confirm: { id: 'record-1' },
+      jti: 'confirmation-jti',
+    })
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { ...executeArgs, _confirmationToken: token },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'tasks:delete',
+      operation: 'mutation',
+      purpose: 'operation-execute',
+      jti: 'envelope-jti',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: memory.db,
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/operation-execute envelope does not match the confirmation token/i)
+
+    expect(executed).toBe(false)
+    expect(memory.tables.destructiveRedemptions ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
+  })
+
+  it('reports destructive safety misconfiguration before destructive handler execution', async () => {
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let executed = false
+    const destructiveOp = defineOperation({
+      id: 'tests.destroy',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: open,
+      preview: async (_ctx, args) => ({
+        display: { summary: `Destroy ${args.id}` },
+        confirm: { id: args.id },
+      }),
+      handler: async () => {
+        executed = true
+        return 'destroyed'
+      },
+    })
+
+    const definition = runtime.mutation(destructiveOp) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string; _confirmationToken: string },
+      ) => Promise<unknown>
+    }
+    const executeArgs = { id: 'record-1' }
+    const token = await confirmationToken({
+      operationId: 'tests.destroy',
+      executeArgs,
+      confirm: { id: 'record-1' },
+      jti: 'misconfigured-store',
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        { ...executeArgs, _confirmationToken: token },
+      ),
+    ).rejects.toThrow(
+      /Destructive safety for operation "tests.destroy" is misconfigured.*destructiveRedemptions.*by_jti.*destructiveAuditLog/i,
+    )
+
+    expect(executed).toBe(false)
   })
 
   it('re-runs authorization after destructive confirmation before redeeming', async () => {

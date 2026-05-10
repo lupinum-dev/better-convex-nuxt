@@ -527,8 +527,12 @@ import { ${ctx.singularCamel}DeletePermission } from '~~/convex/features/${ctx.t
 import { tool } from '../runtime'
 
 export default tool.fromOperation(remove${ctx.singularPascal}Op, {
-  execute: executeOperationRef(remove${ctx.singularPascal}Op, remove),
-  preview: previewOperationRef(remove${ctx.singularPascal}Op, previewRemove${ctx.singularPascal}),
+  execute: executeOperationRef(remove${ctx.singularPascal}Op, remove, {
+    functionRef: 'features/${ctx.tableName}/domain:remove',
+  }),
+  preview: previewOperationRef(remove${ctx.singularPascal}Op, previewRemove${ctx.singularPascal}, {
+    functionRef: 'features/${ctx.tableName}/operations:previewRemove${ctx.singularPascal}',
+  }),
   permission: ${ctx.singularCamel}DeletePermission,
   meta: {
     name: 'delete-${ctx.fileStem}',

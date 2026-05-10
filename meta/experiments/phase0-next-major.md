@@ -56,10 +56,25 @@ generated without source scanning or importing Convex implementation modules
 into MCP server files. Full CLI starter wiring remains out of scope for this
 experiment.
 
+Starter fixture result:
+
+Go for manifest-backed fixture generation. `renderStarterFixtureFiles(...)` can
+now produce the `phase0-workspace-mcp` starter file set from
+`starter.manifest.json`, respects excluded local artifacts, and renders
+generated operation/MCP refs from manifest metadata instead of treating checked-in
+generated text as canonical.
+
 Remaining proof:
 
-- wire the generated-ref renderer into the actual starter generation path;
-- decide whether descriptors or generated handles are the canonical MCP import.
+- wire the fixture-backed renderer into the actual `trellis init --template
+  workspace-mcp` path during the starter cutover sprint.
+
+MCP import decision:
+
+- shared descriptors are the canonical cross-surface operation/tool identity;
+- generated refs are transport bindings that connect those descriptors to Convex
+  API refs;
+- MCP tool files import both: descriptors for meaning, generated refs for calls.
 
 ## Experiment: Signed Forwarding Envelope
 
@@ -105,18 +120,21 @@ Benchmark result:
 
 Go for baseline tracking. `node scripts/bench-forwarding-envelope.mjs` measures
 the Phase 0 HMAC verification spike without making the result a flaky unit-test
-gate. Local result on 2026-05-09: p50 0.0079ms, p95 0.0129ms, p99 0.062ms over
+gate. Local result on 2026-05-09: p50 0.0079ms, p95 0.0128ms, p99 0.0463ms over
 20,000 verifications. The production RFC can keep this target or replace it if
 the final algorithm changes.
 
 Remaining proof:
 
-- wire generated operation refs or starter output to populate protected handler
-  `trustedForwardingFunctionRef` metadata where the Convex function identity is
-  known;
-- harden production diagnostics and first-party store contracts around the
-  existing destructive safety redemption table;
-- add first-party production rate-limit store paths;
+- keep generated destructive operation projections carrying function-ref
+  metadata. Template audit found no additional starter templates creating these
+  projections beyond the CLI resource generator and `phase0-workspace-mcp`
+  fixture;
+- keep the first-party production rate-limit path covered. The alpha path is
+  `createRedisMcpRateLimitStore(...)` plus production fail-closed checks, doctor
+  checks, and parallel-consume unit coverage. The operation-execute
+  confirmation/replay store contract is the existing destructive safety table
+  pair, now checked by doctor and runtime diagnostics;
 - keep old raw forwarding path until the migration slice is ready.
 
 ## Experiment: Operation-First MCP Authoring
@@ -156,6 +174,6 @@ it is not a public barrel API decision.
 
 Remaining proof:
 
-- wire the pattern into the future fixture-backed `workspace-mcp` starter
-  generator;
+- wire the pattern into the actual fixture-backed `workspace-mcp` starter cutover
+  after `renderStarterFixtureFiles(...)` becomes the CLI init source;
 - keep `tool.fromOperation(...)` until the major migration codemod lands.

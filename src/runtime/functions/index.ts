@@ -59,7 +59,11 @@ import type {
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
-import { getOperationMetadata, type DestructiveOperationPreview } from './define-operation.js'
+import {
+  getOperationMetadata,
+  getOperationProjectionMetadata,
+  type DestructiveOperationPreview,
+} from './define-operation.js'
 import {
   definePrincipal,
   type DefaultPrincipal,
@@ -307,6 +311,11 @@ type DestructiveRedemptionReader<DataModel extends GenericDataModel> = {
   }
 }
 
+type DestructiveSafetyDb<DataModel extends GenericDataModel> =
+  DestructiveRedemptionReader<DataModel> & {
+    insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
+  }
+
 type AppBuilders<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -431,6 +440,45 @@ function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb {
   return (db as TDb & { [trellisUnsafeDbKey]: TDb })[trellisUnsafeDbKey]
 }
 
+function destructiveSafetyMisconfiguredError(
+  operationId: string,
+  safety: { redemptionTable: string; auditTable: string },
+): Error {
+  return new Error(
+    `Destructive safety for operation "${operationId}" is misconfigured. Ensure table "${safety.redemptionTable}" exists with a "jti" field and a "by_jti" index, and ensure audit table "${safety.auditTable}" exists before executing destructive operations.`,
+  )
+}
+
+function getDestructiveRedemptionReader<DataModel extends GenericDataModel>(
+  db: unknown,
+  operationId: string,
+  safety: { redemptionTable: string; auditTable: string },
+): DestructiveRedemptionReader<DataModel> {
+  if (
+    !db ||
+    typeof db !== 'object' ||
+    !('query' in db) ||
+    typeof (db as { query?: unknown }).query !== 'function'
+  ) {
+    throw destructiveSafetyMisconfiguredError(operationId, safety)
+  }
+
+  return db as DestructiveRedemptionReader<DataModel>
+}
+
+function getDestructiveSafetyDb<DataModel extends GenericDataModel>(
+  db: unknown,
+  operationId: string,
+  safety: { redemptionTable: string; auditTable: string },
+): DestructiveSafetyDb<DataModel> {
+  const reader = getDestructiveRedemptionReader<DataModel>(db, operationId, safety)
+  if (!('insert' in reader) || typeof (reader as { insert?: unknown }).insert !== 'function') {
+    throw destructiveSafetyMisconfiguredError(operationId, safety)
+  }
+
+  return reader as DestructiveSafetyDb<DataModel>
+}
+
 async function assertNoOperationExecuteEnvelopeReplay<
   DataModel extends GenericDataModel,
   TCtx extends AnyCtx<DataModel>,
@@ -463,12 +511,15 @@ async function assertNoOperationExecuteEnvelopeReplay<
     })
   }
 
-  const unsafeDb =
-    getInternalUnsafeDb(db as object) ?? (db as DestructiveRedemptionReader<DataModel>)
+  const unsafeDb = getDestructiveRedemptionReader<DataModel>(
+    getInternalUnsafeDb(db as object) ?? db,
+    envelope.functionRef,
+    options.destructiveSafety,
+  )
 
   let existingRedemption
   try {
-    existingRedemption = await (unsafeDb as DestructiveRedemptionReader<DataModel>)
+    existingRedemption = await unsafeDb
       .query(options.destructiveSafety.redemptionTable)
       .withIndex('by_jti', (q) => q.eq('jti', envelope.jti))
       .unique()
@@ -1289,11 +1340,11 @@ function toDestructiveSafetyError(
   }
 
   if (
-    /by_jti|missing.*index|does not exist|unknown table|unknown index|schema/i.test(error.message)
-  ) {
-    return new Error(
-      `Destructive safety for operation "${operationId}" is misconfigured. Ensure table "${safety.redemptionTable}" exists with a "jti" field and a "by_jti" index, and ensure audit table "${safety.auditTable}" exists before executing destructive operations.`,
+    /by_jti|missing.*index|does not exist|unknown table|unknown index|schema|is not a function/i.test(
+      error.message,
     )
+  ) {
+    return destructiveSafetyMisconfiguredError(operationId, safety)
   }
 
   return error
@@ -1676,6 +1727,7 @@ function buildStructuredMutationRuntime<
 
   return ((definition) => {
     const metadata = getOperationMetadata(definition as never)
+    const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
       return structured(definition as never)
     }
@@ -1731,6 +1783,11 @@ function buildStructuredMutationRuntime<
 
     const transformed = {
       ...definition,
+      ...(definition.trustedForwardingFunctionRef
+        ? { trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef }
+        : projectionMetadata?.functionRef
+          ? { trustedForwardingFunctionRef: projectionMetadata.functionRef }
+          : {}),
       args: {
         ...definition.args,
         _confirmationToken: v.optional(v.string()),
@@ -1809,6 +1866,15 @@ function buildStructuredMutationRuntime<
             `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
           )
         }
+        const forwardingEnvelope = getTrustedForwardingEnvelopeState(ctx)
+        if (
+          forwardingEnvelope?.purpose === 'operation-execute' &&
+          forwardingEnvelope.jti !== payload.jti
+        ) {
+          throw new Error(
+            'Trusted forwarding operation-execute envelope does not match the confirmation token.',
+          )
+        }
 
         const argsHash = await hashConfirmationValue(executeArgs)
         if (payload.argsHash !== argsHash) {
@@ -1832,15 +1898,11 @@ function buildStructuredMutationRuntime<
           )
         }
 
-        const unsafeDb = getInternalUnsafeDb(ctx.db) as {
-          query: (table: TableNamesInDataModel<DataModel>) => {
-            withIndex: (
-              indexName: string,
-              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
-            ) => { unique: () => Promise<unknown> }
-          }
-          insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
-        }
+        const unsafeDb = getDestructiveSafetyDb<DataModel>(
+          getInternalUnsafeDb(ctx.db),
+          metadata.id,
+          safety,
+        )
 
         let existingRedemption
         try {

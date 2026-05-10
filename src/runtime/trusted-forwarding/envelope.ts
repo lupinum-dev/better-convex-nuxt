@@ -44,6 +44,7 @@ export interface VerifyTrustedForwardingEnvelopeOptions {
   readonly args: unknown
   readonly now?: number
   readonly clockSkewMs?: number
+  readonly maxEnvelopeBytes?: number
   readonly redeemJti?: (jti: string, payload: TrustedForwardingEnvelopePayload) => boolean
 }
 
@@ -61,6 +62,7 @@ export class TrustedForwardingEnvelopeError extends Error {
       | 'args-hash'
       | 'expired'
       | 'not-yet-valid'
+      | 'too-large'
       | 'replayed',
   ) {
     super(message)
@@ -69,6 +71,7 @@ export class TrustedForwardingEnvelopeError extends Error {
 }
 
 const headerType = 'trellis-forwarding+jws'
+export const defaultTrustedForwardingMaxEnvelopeBytes = 8_192
 const excludedArgsKeys = new Set([
   '_trellisForwarding',
   '_trustedForwardingKey',
@@ -184,6 +187,11 @@ export function verifyTrustedForwardingEnvelope(
   envelope: string,
   options: VerifyTrustedForwardingEnvelopeOptions,
 ): TrustedForwardingEnvelopePayload {
+  const maxEnvelopeBytes = options.maxEnvelopeBytes ?? defaultTrustedForwardingMaxEnvelopeBytes
+  if (Buffer.byteLength(envelope, 'utf8') > maxEnvelopeBytes) {
+    throw new TrustedForwardingEnvelopeError('Forwarding envelope is too large.', 'too-large')
+  }
+
   const parts = envelope.split('.')
   if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
     throw new TrustedForwardingEnvelopeError('Malformed forwarding envelope.', 'malformed')

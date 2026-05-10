@@ -498,7 +498,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         finding.id === 'tenant-isolation-table-coverage' || finding.id === 'tenant-isolation-valid'
           ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
           : finding.id === 'destructive-safety-schema'
-            ? 'Restore the destructive-safety tables in convex/schema.ts, including the redemption `jti` field and `by_jti` index.'
+            ? 'Restore the destructive-safety tables in convex/schema.ts, including the redemption fields, audit fields, and `by_jti` index.'
             : 'Align the project source with the canonical Trellis contract.',
     }),
   )

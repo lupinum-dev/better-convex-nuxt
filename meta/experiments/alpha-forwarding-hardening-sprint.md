@@ -1,6 +1,6 @@
 # Sprint: Forwarding Hardening And Operation Execute
 
-Status: in progress
+Status: local implementation complete; external security review pending
 Branch: `trellis-next-phase0`
 Owner: Matthias
 
@@ -51,12 +51,21 @@ Current state:
 - protected handler setup now accepts internal `trustedForwardingFunctionRef`
   metadata from the Convex function definition and verifies signed envelopes
   against it when present.
+- generated operation refs now derive a Convex `functionRef` string from the
+  same `apiPath` that binds the ref, and projected operation metadata can carry
+  that function ref into protected handler setup.
+- the existing MCP resource generator now emits execute/preview operation refs
+  with explicit function-ref metadata for generated destructive tools.
 
 Remaining work:
 
-- keep old raw forwarding behavior unchanged;
-- wire this metadata from generated operation refs or starter output instead of
-  hand-authored definitions.
+- keep old raw forwarding behavior unchanged.
+
+Template audit:
+
+- no additional starter template currently creates destructive operation
+  projections; the CLI resource generator and `phase0-workspace-mcp` fixture now
+  both include projected function-ref metadata.
 
 Acceptance evidence:
 
@@ -74,14 +83,22 @@ Current state:
 - protected handler setup now rejects `operation-execute` envelopes whose `jti`
   is already present in the destructive safety redemption table before handler
   execution;
+- destructive execution rejects `operation-execute` envelopes whose `jti` does
+  not match the destructive confirmation token `jti`;
+- missing or malformed destructive safety stores fail with one actionable
+  misconfiguration message that names the redemption table, `by_jti` index, and
+  audit table before any destructive handler runs;
+- doctor now validates the first-party destructive safety store contract
+  statically, including redemption fields, audit fields, and `by_jti`;
 - a regression test now proves preview success is not an authorization grant:
   execute re-runs authorization before redeeming or running the handler.
 
 Remaining work:
 
-- harden the production store contract and diagnostics for missing tables or
-  indexes. The transport side now signs `operation-execute` envelopes with the
-  confirmation token `jti` so the IDs already match.
+- keep the first-party MCP rate-limit store path covered. The Redis store,
+  production fail-closed checks, doctor checks, and parallel-consume unit tests
+  already provide the alpha path; avoid adding a second store abstraction in
+  this sprint.
 
 Acceptance evidence:
 
@@ -95,9 +112,10 @@ Acceptance evidence:
 Current state:
 
 - destructive operation safety already has confirmation/redemption concepts;
-- forwarding execute envelopes are not yet fully bound into that path.
+- forwarding execute envelopes now share the destructive confirmation token
+  `jti` and are rejected when that replay identity does not match.
 
-Sprint work:
+Completed work:
 
 - ensure destructive execute binds:
   - operation id;
@@ -137,11 +155,12 @@ Current progress:
 - MCP destructive execute now passes a per-call trusted-forwarding envelope
   override with `purpose: operation-execute` and the verified confirmation token
   `jti`.
+- the `phase0-workspace-mcp` fixture now exercises destructive preview and
+  confirmed execute through its generated descriptor/ref tool, and records the
+  `operation-execute` forwarding override on the execute call.
 
 Remaining work:
 
-- extend the `phase0-workspace-mcp` fixture so destructive operation execute
-  runs through the same path;
 - keep MCP tool files importing shared descriptors plus generated refs only;
 
 Acceptance evidence:
@@ -152,21 +171,34 @@ Acceptance evidence:
 - raw identity fields are absent from public app args;
 - backend denial remains authoritative.
 
+Rate-limit store status:
+
+- `createRedisMcpRateLimitStore(...)` is the first-party production path for MCP
+  ingress rate limiting in alpha;
+- production rate-limited tools fail closed without an explicit store;
+- doctor recognizes direct and locally factored Redis store setup;
+- unit coverage proves the Redis store does not allow more than the configured
+  limit under parallel consume calls.
+
 ### 5. RFC And Security Review Prep
 
 Current state:
 
 - RFC is an alpha decision baseline;
 - owner is named;
-- external reviewer is still TBD.
+- external reviewer is still TBD;
+- the RFC now includes a finite external-review question list covering algorithm,
+  TTLs, replay policy, canonical hashing, shared confirmation/forwarding `jti`,
+  issuer/audience/function-ref binding, validators, raw fallback, redaction, and
+  maximum envelope size;
+- envelope verification now rejects serialized envelopes larger than the alpha
+  8192-byte limit before payload verification.
 
-Sprint work:
+Remaining work:
 
-- add test vectors for the final alpha canonicalization cases used by this
-  sprint;
-- document the replay/confirmation store contract;
-- record what remains open for external review;
-- name the external reviewer or record the blocker if not yet assigned.
+- name the external reviewer. This is the only remaining RFC review gate for
+  the alpha spike; production forwarding implementation and public API freeze
+  still wait for that review.
 
 Acceptance:
 
