@@ -848,7 +848,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Operation/destructive safety guide.
 - [x] MCP projection guide.
 - [x] Trusted forwarding security guide.
-- [ ] Bridge package-author guide.
+- [x] Bridge package-author guide.
 - [ ] Public API reference.
 
 ### Delete
@@ -1120,6 +1120,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   handlers, server helpers, operations, and MCP projection rather than bridge
   internals. Full public API reference remains open unless this sprint makes only
   narrow alignment edits.
+- Sprint 77 completed the bridge package-author guide rewrite. The component
+  bridge page is now titled for bridge package authors, leads with the reader
+  boundary, teaches the packaged integration / host app / `@lupinum/trellis-bridge`
+  ownership model, keeps Ginko/CMS setup product-owned, documents manifest and
+  drift-check workflow, and states that bridge forwarding signs transport only
+  while backend handlers still resolve actors, guards, tenants, authorization,
+  and execution. Server-side next-step links now describe bridge as reusable
+  packaged-integration material, not normal Nitro app wiring. Full public API
+  reference remains open.
 
 ### Done Means
 
