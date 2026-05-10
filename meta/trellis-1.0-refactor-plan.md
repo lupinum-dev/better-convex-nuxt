@@ -1000,6 +1000,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   focused backend/forwarding/bridge tests, and Trellis repo-policy checks pass.
   Full `pnpm run check`, packed Trellis install validation, and Ginko docs/setup
   wording remain open.
+- Sprint 70 is planned to run and close the full local Ginko CMS quality gate.
+  The sprint should make Ginko `pnpm run check` pass without weakening checks,
+  restoring old Trellis paths, or widening scope into packed-package validation.
+  It should also clean current Ginko setup/docs wording only where targeted
+  scans prove users still see deleted Trellis APIs or bridge internals.
 
 ### Done Means
 
