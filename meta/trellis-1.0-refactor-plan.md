@@ -918,6 +918,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   upgrade regex simplification, unused fixture imports, permission overload
   consolidation, backend function type lint debt, and one MCP type-test
   assertion pattern.
+- Sprint 61 is planned as a local release verification sweep. It closes the
+  remaining Slice 13 local gates for the full unit repository suite, forwarding
+  envelope benchmark, and bridge fixture/package tests before migration tooling,
+  docs, or Ginko cross-repo validation resumes.
 
 ### Done Means
 
