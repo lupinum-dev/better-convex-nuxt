@@ -575,6 +575,10 @@ docs generation, and future explain commands.
   sink boundary, routing evlog through that boundary, keeping test capture
   delivery-independent, and removing evlog delivery from the normal public
   observability barrel if it is not part of the 1.0 contract.
+- Sprint 51 is planned to finish the local Slice 10 cleanup by deleting evlog
+  delivery from core, removing the root evlog dependency/imports, replacing
+  evlog-wide-summary coupling with no-op/core summary behavior, and closing
+  observability as semantic events plus test capture rather than a log transport.
 
 ### Done Means
 
