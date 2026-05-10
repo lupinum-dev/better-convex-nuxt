@@ -274,9 +274,9 @@ path.
 
 ### Replace
 
-- [ ] Server callers always sign `_trellisForwarding`.
-- [ ] MCP callers always sign `_trellisForwarding`.
-- [ ] Bridge callers always sign `_trellisForwarding`.
+- [x] Server callers always sign `_trellisForwarding`.
+- [x] MCP callers always sign `_trellisForwarding`.
+- [x] Bridge callers always sign `_trellisForwarding`.
 - [x] Mixed signed/raw forwarding is rejected in production/default mode.
 - [x] Raw fallback is observable before deletion if retained temporarily for
       local migration.

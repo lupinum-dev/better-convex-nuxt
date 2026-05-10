@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import { createTrustedForwardingEnvelope } from '@lupinum/trellis/trusted-forwarding'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -17,6 +18,7 @@ import { modules } from '../convex/test.setup'
 const api = anyApi as any
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
 const TRUSTED_FORWARDING_KEY = 'mcp-reference-test-trusted-forwarding-key'
+const functionNameSymbol = Symbol.for('functionName')
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
@@ -24,6 +26,52 @@ function createCtx() {
     modules,
     trustedForwardingKey: TRUSTED_FORWARDING_KEY,
   })
+}
+
+function getFunctionRef(ref: unknown): string {
+  if (typeof ref === 'string') return ref
+  if (typeof ref === 'object' && ref !== null) {
+    const record = ref as Record<string | symbol, unknown>
+    if (typeof record[functionNameSymbol] === 'string') return record[functionNameSymbol]
+    if (typeof record._path === 'string') return record._path
+    if (typeof record.functionPath === 'string') return record.functionPath
+  }
+
+  throw new Error('Expected generated Convex function ref in MCP reference test.')
+}
+
+function withSignedForwarding(
+  args: Record<string, unknown>,
+  options: {
+    principal: Record<string, unknown>
+    delegation?: Record<string, unknown>
+    ref: unknown
+    operation: 'query' | 'mutation' | 'action'
+  },
+) {
+  const principalSubject = options.principal.subject
+  if (typeof principalSubject !== 'string' || !principalSubject) {
+    throw new Error('Signed test forwarding requires a canonical principal subject.')
+  }
+
+  return {
+    ...args,
+    _trellisForwarding: createTrustedForwardingEnvelope({
+      key: TRUSTED_FORWARDING_KEY,
+      keyId: 'default',
+      iss: 'trellis://server',
+      aud: 'trellis://convex',
+      jti: `mcp-reference-${options.operation}-${principalSubject}`,
+      sub: principalSubject,
+      principal: options.principal,
+      ...(options.delegation ? { delegation: options.delegation } : {}),
+      transport: 'server',
+      purpose: options.operation,
+      functionRef: getFunctionRef(options.ref),
+      args,
+      ttlMs: options.operation === 'query' ? 60_000 : 30_000,
+    }),
+  }
 }
 
 describe('mcp reference example', () => {
@@ -121,22 +169,25 @@ describe('mcp reference example', () => {
       },
     })
 
-    const permissionContext = await ctx.raw.query(api.permissions.context.getPermissionContext, {
-      principal: {
-        kind: 'agent',
-        agentId: 'primary-mcp-key',
-        subject: 'agent:primary-mcp-key',
-        provider: 'mcp',
-      },
-      delegation: {
-        subject: `user:${team.users.member.authId}`,
-      },
-      _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
-      _trustedForwarding: {
-        principalSubject: 'agent:primary-mcp-key',
-        delegationSubject: `user:${team.users.member.authId}`,
-      },
-    })
+    const permissionContext = await ctx.raw.query(
+      api.permissions.context.getPermissionContext,
+      withSignedForwarding(
+        {},
+        {
+          ref: api.permissions.context.getPermissionContext,
+          operation: 'query',
+          principal: {
+            kind: 'agent',
+            agentId: 'primary-mcp-key',
+            subject: 'agent:primary-mcp-key',
+            provider: 'mcp',
+          },
+          delegation: {
+            subject: `user:${team.users.member.authId}`,
+          },
+        },
+      ),
+    )
 
     expect(permissionContext).toMatchObject({
       role: 'member',
@@ -233,51 +284,59 @@ describe('mcp reference example', () => {
     })
 
     await expect(
-      ctx.raw.mutation(api.features.runbooks.domain.create, {
-        title: 'Webhook viewer should fail',
-        summary: 'No permission',
-        content: '# Nope',
-        visibility: 'workspace',
-        tags: ['webhook'],
-        principal: {
-          kind: 'service',
-          serviceId: 'runbook-webhook',
-          subject: 'service:runbook-webhook',
-        },
-        delegation: {
-          subject: `user:${team.users.viewer.authId}`,
-          reason: 'verified runbook webhook',
-        },
-        _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
-        _trustedForwarding: {
-          principalSubject: 'service:runbook-webhook',
-          delegationSubject: `user:${team.users.viewer.authId}`,
-        },
-      }),
+      ctx.raw.mutation(
+        api.features.runbooks.domain.create,
+        withSignedForwarding(
+          {
+            title: 'Webhook viewer should fail',
+            summary: 'No permission',
+            content: '# Nope',
+            visibility: 'workspace',
+            tags: ['webhook'],
+          },
+          {
+            ref: api.features.runbooks.domain.create,
+            operation: 'mutation',
+            principal: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            delegation: {
+              subject: `user:${team.users.viewer.authId}`,
+              reason: 'verified runbook webhook',
+            },
+          },
+        ),
+      ),
     ).rejects.toThrow(/Forbidden: Create runbook/)
 
     await expect(
-      ctx.raw.mutation(api.features.runbooks.domain.create, {
-        title: 'Webhook member may create',
-        summary: 'Allowed',
-        content: '# Allowed',
-        visibility: 'workspace',
-        tags: ['webhook'],
-        principal: {
-          kind: 'service',
-          serviceId: 'runbook-webhook',
-          subject: 'service:runbook-webhook',
-        },
-        delegation: {
-          subject: `user:${team.users.member.authId}`,
-          reason: 'verified runbook webhook',
-        },
-        _trustedForwardingKey: TRUSTED_FORWARDING_KEY,
-        _trustedForwarding: {
-          principalSubject: 'service:runbook-webhook',
-          delegationSubject: `user:${team.users.member.authId}`,
-        },
-      }),
+      ctx.raw.mutation(
+        api.features.runbooks.domain.create,
+        withSignedForwarding(
+          {
+            title: 'Webhook member may create',
+            summary: 'Allowed',
+            content: '# Allowed',
+            visibility: 'workspace',
+            tags: ['webhook'],
+          },
+          {
+            ref: api.features.runbooks.domain.create,
+            operation: 'mutation',
+            principal: {
+              kind: 'service',
+              serviceId: 'runbook-webhook',
+              subject: 'service:runbook-webhook',
+            },
+            delegation: {
+              subject: `user:${team.users.member.authId}`,
+              reason: 'verified runbook webhook',
+            },
+          },
+        ),
+      ),
     ).resolves.toBeTruthy()
   })
 

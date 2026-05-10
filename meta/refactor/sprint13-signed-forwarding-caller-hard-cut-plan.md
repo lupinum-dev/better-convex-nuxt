@@ -43,73 +43,73 @@ Owner: Matthias.
 
 ### 1. Bridge Caller Signing
 
-- [ ] Replace raw bridge forwarding arg construction in
+- [x] Replace raw bridge forwarding arg construction in
       `packages/trellis-bridge/src/create-component-bridge.ts` with the same
       signed envelope helper boundary used by server callers.
-- [ ] Ensure bridge calls sign the app args only, excluding forwarding metadata
+- [x] Ensure bridge calls sign the app args only, excluding forwarding metadata
       through the canonicalizer.
-- [ ] Ensure bridge calls include exact `functionRef` where the component
+- [x] Ensure bridge calls include exact `functionRef` where the component
       bridge knows the target function.
-- [ ] Ensure bridge query/mutation/action purposes map to the correct
+- [x] Ensure bridge query/mutation/action purposes map to the correct
       forwarding purpose.
-- [ ] Ensure bridge does not put forwarded `principal` or `delegation` into
+- [x] Ensure bridge does not put forwarded `principal` or `delegation` into
       public app args outside the envelope.
-- [ ] Keep the signing helper internal to the package/runtime path; do not add a
+- [x] Keep the signing helper internal to the package/runtime path; do not add a
       broad public export.
 
 ### 2. Bridge Verification Context
 
-- [ ] Update bridge-side `setTrustedForwardingContext(...)` calls to pass
+- [x] Update bridge-side `setTrustedForwardingContext(...)` calls to pass
       expected issuer, audience, transport, purpose, and function ref when
       available.
-- [ ] Fail closed when a bridge-protected function cannot supply exact
+- [x] Fail closed when a bridge-protected function cannot supply exact
       forwarding function-ref metadata.
-- [ ] Add tests for wrong function ref and wrong purpose on bridge calls.
+- [x] Add tests for wrong function ref and wrong purpose on bridge calls.
 - [ ] Add tests proving mixed signed/raw bridge args fail in production.
 
 ### 3. Testing Helper Hard Cut
 
-- [ ] Replace raw forwarding emitted by `src/runtime/testing` helpers with
+- [x] Replace raw forwarding emitted by `src/runtime/testing` helpers with
       signed envelopes.
-- [ ] Keep one focused unit test for dev/test raw fallback observability in
+- [x] Keep one focused unit test for dev/test raw fallback observability in
       `tests/unit/trusted-forwarding.test.ts`; remove broad raw helper usage
       elsewhere.
-- [ ] Update any fixture helper that currently returns `_trustedForwardingKey`
+- [x] Update any fixture helper that currently returns `_trustedForwardingKey`
       / `_trustedForwarding` to return `_trellisForwarding`.
-- [ ] Add a regression test proving test helpers do not emit raw forwarding
+- [x] Add a regression test proving test helpers do not emit raw forwarding
       fields.
 
 ### 4. MCP Reference Example Cleanup
 
-- [ ] Replace raw forwarding in `examples/07-mcp-reference/test` with signed
+- [x] Replace raw forwarding in `examples/07-mcp-reference/test` with signed
       `_trellisForwarding` envelopes.
 - [ ] Ensure operation preview forwarding uses
       `purpose: "operation-preview"`.
-- [ ] Ensure operation execute forwarding uses
+- [x] Ensure operation execute forwarding uses
       `purpose: "operation-execute"` and shares the confirmation `jti`.
-- [ ] Add/keep assertions that backend handlers remain authoritative after a
+- [x] Add/keep assertions that backend handlers remain authoritative after a
       valid envelope: principal, actor, guard, load, authorize, tenant, and
       handler still run.
 
 ### 5. Ginko CMS Cross-Repo Proof
 
-- [ ] Update the Ginko CMS bridge/test helper raw forwarding call sites to use
+- [x] Update the Ginko CMS bridge/test helper raw forwarding call sites to use
       signed envelopes against the packed/local Trellis package.
-- [ ] Keep generated Ginko Convex files out of manual edits unless regeneration
+- [x] Keep generated Ginko Convex files out of manual edits unless regeneration
       is the accepted project workflow.
-- [ ] Run the smallest Ginko validation suite that proves component bridge
+- [x] Run the smallest Ginko validation suite that proves component bridge
       forwarding still resolves principal/actor correctly.
-- [ ] Record any Ginko blocker in this sprint plan instead of adding a Trellis
+- [x] Record any Ginko blocker in this sprint plan instead of adding a Trellis
       compatibility path.
 
 ### 6. Docs And Inventory
 
-- [ ] Update `meta/trellis-1.0-refactor-plan.md` Slice 4 checkboxes for server,
+- [x] Update `meta/trellis-1.0-refactor-plan.md` Slice 4 checkboxes for server,
       MCP, bridge, and testing helper signed forwarding.
-- [ ] Update historical allowlist notes if any raw forwarding references move
+- [x] Update historical allowlist notes if any raw forwarding references move
       from active docs/examples into historical-only docs.
-- [ ] Do not update public docs to teach raw forwarding.
-- [ ] If raw fallback remains after this sprint, document the exact remaining
+- [x] Do not update public docs to teach raw forwarding.
+- [x] If raw fallback remains after this sprint, document the exact remaining
       file and deletion trigger.
 
 ## Verification
@@ -141,26 +141,44 @@ commit.
 
 ## Acceptance Criteria
 
-- [ ] Trellis bridge emits signed `_trellisForwarding` envelopes and no raw
+- [x] Trellis bridge emits signed `_trellisForwarding` envelopes and no raw
       forwarding fields.
-- [ ] Trellis server/MCP/example/test helper callers emit signed forwarding and
+- [x] Trellis server/MCP/example/test helper callers emit signed forwarding and
       no raw forwarding fields except the one focused raw fallback test.
-- [ ] Bridge verification passes expected purpose, transport, audience, issuer,
+- [x] Bridge verification passes expected purpose, transport, audience, issuer,
       and exact function ref where available.
 - [ ] Operation preview and execute use distinct forwarding purposes.
-- [ ] Operation execute shares confirmation `jti`.
-- [ ] Ginko CMS bridge proof either passes on signed forwarding or has a
+- [x] Operation execute shares confirmation `jti`.
+- [x] Ginko CMS bridge proof either passes on signed forwarding or has a
       documented blocker with no Trellis compatibility shim added.
-- [ ] Public/docs/publish surfaces remain unchanged except for accepted
+- [x] Public/docs/publish surfaces remain unchanged except for accepted
       forwarding docs/inventory updates.
-- [ ] Work is committed as one sprint commit after verification.
+- [x] Work is committed as one sprint commit after verification.
 
 ## Exit Notes To Capture
 
-- [ ] Exact raw forwarding references that remain, if any, and why they are
-      historical/dev-test-only.
-- [ ] Whether `trustedForwardingValidators` can drop raw fields in Sprint 14.
-- [ ] Whether Ginko needs a generated-code refresh to remove raw fields from
-      `_generated/component.ts`.
-- [ ] Whether bridge function-ref metadata is complete enough to fail closed
-      everywhere, or which caller lacks exact metadata.
+- [x] Remaining raw forwarding references in Trellis are limited to
+      `src/runtime/trusted-forwarding/shared.ts`, canonical hashing vectors,
+      focused raw fallback tests, and negative assertions proving active callers
+      no longer emit raw fields.
+- [x] `trustedForwardingValidators` cannot drop raw fields yet; generated
+      validators and the focused dev/test fallback remain until Sprint 14
+      deletes the fallback parser and regenerates downstream component types.
+- [x] Ginko source/templates/tests no longer emit raw fields. Generated
+      `_generated/component.ts` still contains raw fields and needs regeneration
+      after Trellis validators drop them.
+- [x] Bridge outbound calls have exact function-ref metadata and fail closed
+      when it is missing. Bridge inbound customization verifies purpose and
+      transport but cannot verify function ref through the shared customization
+      hook; exact function-ref verification happens at the signed call boundary.
+
+## Ginko Validation Notes
+
+- [x] `pnpm --filter @lupinum/ginko-cms-convex typecheck` passed.
+- [x] `pnpm --filter @lupinum/ginko-cms typecheck` passed.
+- [x] `pnpm run test:public-content` and
+      `pnpm exec vitest run test/refactor/workflow-vertical-slice.test.ts test/component/diagnostics.test.ts`
+      are blocked by existing Ginko/Trellis alignment issues unrelated to signed
+      forwarding: unclassified backend handlers from the current hard-cut
+      builder API and missing `collections/sync.installCollectionContractsInternal`
+      generated/test export. No Trellis compatibility shim was added.

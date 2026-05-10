@@ -2,6 +2,62 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const originalNodeEnv = process.env.NODE_ENV
+const bridgeIssuer = 'trellis://server'
+const bridgeAudience = 'trellis://convex'
+
+async function expectSignedBridgeArgs(
+  args: unknown,
+  options: {
+    key: string
+    purpose: 'query' | 'mutation' | 'action'
+    functionRef: string
+    appArgs: Record<string, unknown>
+    principal: Record<string, unknown>
+  },
+) {
+  const { verifyTrustedForwardingEnvelope } = await import('../../src/runtime/trusted-forwarding')
+  expect(args).toMatchObject({
+    ...options.appArgs,
+    _trellisForwarding: expect.any(String),
+  })
+  expect(args).not.toHaveProperty('_trustedForwardingKey')
+  expect(args).not.toHaveProperty('_trustedForwarding')
+  expect(args).not.toHaveProperty('principal')
+
+  const envelope = (args as { _trellisForwarding: string })._trellisForwarding
+  const payload = verifyTrustedForwardingEnvelope(envelope, {
+    keys: { default: options.key },
+    expectedIssuer: bridgeIssuer,
+    expectedAudience: bridgeAudience,
+    expectedPurpose: options.purpose,
+    expectedTransport: 'bridge',
+    functionRef: options.functionRef,
+    args: options.appArgs,
+  })
+  expect(payload.principal).toEqual(options.principal)
+  expect(() =>
+    verifyTrustedForwardingEnvelope(envelope, {
+      keys: { default: options.key },
+      expectedIssuer: bridgeIssuer,
+      expectedAudience: bridgeAudience,
+      expectedPurpose: options.purpose,
+      expectedTransport: 'bridge',
+      functionRef: `${options.functionRef}.wrong`,
+      args: options.appArgs,
+    }),
+  ).toThrow(/function ref/)
+  expect(() =>
+    verifyTrustedForwardingEnvelope(envelope, {
+      keys: { default: options.key },
+      expectedIssuer: bridgeIssuer,
+      expectedAudience: bridgeAudience,
+      expectedPurpose: options.purpose === 'query' ? 'mutation' : 'query',
+      expectedTransport: 'bridge',
+      functionRef: options.functionRef,
+      args: options.appArgs,
+    }),
+  ).toThrow(/purpose/)
+}
 
 describe('createComponentBridge', () => {
   afterEach(() => {
@@ -75,10 +131,13 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
-      _trustedForwardingKey: 'bridge-secret',
-      _trustedForwarding: {
-        principalSubject: 'service:mcp',
-      },
+      _trellisForwarding: expect.any(String),
+    })
+    await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
+      key: 'bridge-secret',
+      purpose: 'query',
+      functionRef: 'component.query',
+      appArgs: { slug: 'docs' },
       principal,
     })
   })
@@ -145,10 +204,13 @@ describe('createComponentBridge', () => {
 
     expect(runAction).toHaveBeenCalledWith('component.action', {
       slug: 'docs',
-      _trustedForwardingKey: 'bridge-secret',
-      _trustedForwarding: {
-        principalSubject: 'service:mcp',
-      },
+      _trellisForwarding: expect.any(String),
+    })
+    await expectSignedBridgeArgs(runAction.mock.calls[0]![1], {
+      key: 'bridge-secret',
+      purpose: 'action',
+      functionRef: 'component.action',
+      appArgs: { slug: 'docs' },
       principal,
     })
   })
@@ -286,10 +348,13 @@ describe('createComponentBridge', () => {
 
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
-      _trustedForwardingKey: 'bridge-secret',
-      _trustedForwarding: {
-        principalSubject: 'service:mcp',
-      },
+      _trellisForwarding: expect.any(String),
+    })
+    await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
+      key: 'bridge-secret',
+      purpose: 'query',
+      functionRef: 'component.query',
+      appArgs: { slug: 'docs' },
       principal,
     })
   })
@@ -404,10 +469,13 @@ describe('createComponentBridge', () => {
 
     expect(runMutation).toHaveBeenCalledWith('component.mutation', {
       slug: 'docs',
-      _trustedForwardingKey: 'explicit-component-boundary-key',
-      _trustedForwarding: {
-        principalSubject: 'service:mcp',
-      },
+      _trellisForwarding: expect.any(String),
+    })
+    await expectSignedBridgeArgs(runMutation.mock.calls[0]![1], {
+      key: 'explicit-component-boundary-key',
+      purpose: 'mutation',
+      functionRef: 'component.mutation',
+      appArgs: { slug: 'docs' },
       principal,
     })
   })

@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { defineActor, type DefaultActor } from '../../src/runtime/auth'
 import { setTrustedForwardingContext } from '../../src/runtime/trusted-forwarding'
+import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
 type FakeUser = {
   _id: string
@@ -19,6 +20,20 @@ type FakeMembership = {
 }
 
 type ActorCtx = Parameters<ReturnType<typeof defineActor.fromAuth>['resolve']>[0]
+
+function signedForwardingArgs(options: {
+  principal: { subject: string } & Record<string, unknown>
+  delegation?: { subject: string } & Record<string, unknown>
+}) {
+  return createTrustedForwardingEnvelopeArgs({
+    args: {},
+    principal: options.principal,
+    ...(options.delegation ? { delegation: options.delegation } : {}),
+    functionRef: 'tests.authActor.resolve',
+    operation: 'query',
+    key: 'trusted-key',
+  })
+}
 
 function createCtx(options: {
   identity: { subject: string } | null
@@ -166,17 +181,16 @@ describe('defineActor', () => {
       users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
     })
 
-    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
-      principal: {
-        kind: 'user',
-        userId: 'trusted_user',
-        subject: 'user:trusted_user',
-      },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'user:trusted_user',
-      },
-    })
+    setTrustedForwardingContext(
+      ctx as unknown as Record<string, unknown>,
+      signedForwardingArgs({
+        principal: {
+          kind: 'user',
+          userId: 'trusted_user',
+          subject: 'user:trusted_user',
+        },
+      }),
+    )
 
     await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
@@ -196,17 +210,16 @@ describe('defineActor', () => {
       ],
     })
 
-    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
-      principal: {
-        kind: 'agent',
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:assistant-bot',
-      },
-    })
+    setTrustedForwardingContext(
+      ctx as unknown as Record<string, unknown>,
+      signedForwardingArgs({
+        principal: {
+          kind: 'agent',
+          agentId: 'assistant-bot',
+          subject: 'agent:assistant-bot',
+        },
+      }),
+    )
 
     await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
@@ -231,21 +244,19 @@ describe('defineActor', () => {
       ],
     })
 
-    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
-      principal: {
-        kind: 'agent',
-        agentId: 'assistant-bot',
-        subject: 'agent:assistant-bot',
-      },
-      delegation: {
-        subject: 'user:delegated_user',
-      },
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'agent:assistant-bot',
-        delegationSubject: 'user:delegated_user',
-      },
-    })
+    setTrustedForwardingContext(
+      ctx as unknown as Record<string, unknown>,
+      signedForwardingArgs({
+        principal: {
+          kind: 'agent',
+          agentId: 'assistant-bot',
+          subject: 'agent:assistant-bot',
+        },
+        delegation: {
+          subject: 'user:delegated_user',
+        },
+      }),
+    )
 
     await expect(defineActor.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
@@ -255,7 +266,7 @@ describe('defineActor', () => {
     })
   })
 
-  it('does not resolve an actor from transport metadata alone when no forwarded identity was validated', async () => {
+  it('does not resolve an actor from a non-user signed principal without delegation', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
 
     const ctx = createCtx({
@@ -263,12 +274,16 @@ describe('defineActor', () => {
       users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
     })
 
-    setTrustedForwardingContext(ctx as unknown as Record<string, unknown>, {
-      _trustedForwardingKey: 'trusted-key',
-      _trustedForwarding: {
-        principalSubject: 'user:trusted_user',
-      },
-    })
+    setTrustedForwardingContext(
+      ctx as unknown as Record<string, unknown>,
+      signedForwardingArgs({
+        principal: {
+          kind: 'agent',
+          agentId: 'assistant-bot',
+          subject: 'agent:assistant-bot',
+        },
+      }),
+    )
 
     await expect(defineActor.fromAuth().resolve(ctx)).resolves.toBeNull()
   })

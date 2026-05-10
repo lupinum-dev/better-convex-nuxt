@@ -1,4 +1,16 @@
 import {
+  definePrincipal,
+  type DefaultPrincipal,
+  type PrincipalDefinition,
+} from '@lupinum/trellis/backend'
+import {
+  clearTrustedForwardingContext,
+  createTrustedForwardingEnvelope,
+  extractSubject,
+  getTrustedForwardingKeyProductionIssue,
+  setTrustedForwardingContext,
+} from '@lupinum/trellis/trusted-forwarding'
+import {
   customAction,
   customMutation,
   customQuery,
@@ -22,21 +34,15 @@ import type {
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
-import {
-  definePrincipal,
-  type DefaultPrincipal,
-  type PrincipalDefinition,
-} from '@lupinum/trellis/backend'
-import {
-  clearTrustedForwardingContext,
-  extractSubject,
-  getTrustedForwardingKeyProductionIssue,
-  setTrustedForwardingContext,
-} from '@lupinum/trellis/trusted-forwarding'
-
 declare const process:
   | {
       env?: Record<string, string | undefined>
+    }
+  | undefined
+
+declare const crypto:
+  | {
+      randomUUID?: () => string
     }
   | undefined
 
@@ -114,6 +120,16 @@ type ComponentBridgeActionDefinition<
   TRef extends ComponentBridgeActionRef = ComponentBridgeActionRef,
   TArgs extends PropertyValidators = PropertyValidators,
 > = ComponentBridgeDefinition<TRef, TArgs>
+
+const functionNameSymbol = Symbol.for('functionName')
+const bridgeForwardingIssuer = 'trellis://server'
+const bridgeForwardingAudience = 'trellis://convex'
+const bridgeForwardingKeyId = 'default'
+const bridgeForwardingTtlsMs = {
+  query: 60_000,
+  mutation: 30_000,
+  action: 30_000,
+} satisfies Record<'query' | 'mutation' | 'action', number>
 
 export type ComponentBridgeQueryRegistrar<
   Visibility extends FunctionVisibility = FunctionVisibility,
@@ -319,20 +335,68 @@ function getRequiredBridgeTrustedForwardingKey(override?: string): string {
   return trustedForwardingKey
 }
 
-function createBridgeTrustedForwardingFields(principal: unknown, trustedForwardingKey: string) {
+function getBridgeFunctionRef(ref: ComponentBridgeFunctionRef): string {
+  try {
+    const value = ref as unknown
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && value !== null) {
+      const record = value as Record<string | symbol, unknown>
+      const symbolName = record[functionNameSymbol]
+      if (typeof symbolName === 'string') return symbolName
+      if (typeof record._path === 'string') return record._path
+      if (typeof record.functionPath === 'string') return record.functionPath
+    }
+  } catch {
+    // Fall through to the fail-closed error below.
+  }
+
+  throw new Error('createComponentBridge() requires an exact component function ref.')
+}
+
+function createBridgeJti(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `bridge-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function createBridgeTrustedForwardingFields(
+  args: Record<string, unknown>,
+  principal: unknown,
+  trustedForwardingKey: string,
+  operation: 'query' | 'mutation' | 'action',
+  component: ComponentBridgeFunctionRef,
+) {
   const principalSubject = resolveBridgePrincipalSubject(principal)
+  const functionRef = getBridgeFunctionRef(component)
 
   return {
-    _trustedForwardingKey: trustedForwardingKey,
-    _trustedForwarding: {
-      principalSubject,
-    },
+    _trellisForwarding: createTrustedForwardingEnvelope({
+      key: trustedForwardingKey,
+      keyId:
+        (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY_ID : '') ||
+        bridgeForwardingKeyId,
+      iss: bridgeForwardingIssuer,
+      aud: bridgeForwardingAudience,
+      jti: createBridgeJti(),
+      sub: principalSubject,
+      principal,
+      transport: 'bridge',
+      purpose: operation,
+      functionRef,
+      args,
+      ttlMs: bridgeForwardingTtlsMs[operation],
+    }),
   }
 }
 
 function createBridgeForwardingArgs(
+  args: Record<string, unknown>,
   principal: unknown,
   trustedForwardingKey: string,
+  operation: 'query' | 'mutation' | 'action',
+  component: ComponentBridgeFunctionRef,
 ): Record<string, unknown> {
   if (
     typeof principal === 'object' &&
@@ -340,12 +404,18 @@ function createBridgeForwardingArgs(
     'kind' in principal &&
     (principal as { kind?: unknown }).kind === 'anonymous'
   ) {
-    return {}
+    return args
   }
 
   return {
-    ...createBridgeTrustedForwardingFields(principal, trustedForwardingKey),
-    principal,
+    ...args,
+    ...createBridgeTrustedForwardingFields(
+      args,
+      principal,
+      trustedForwardingKey,
+      operation,
+      component,
+    ),
   }
 }
 
@@ -472,30 +542,17 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const forwardedPrincipal = (args as Record<string, unknown>).principal
-            if (forwardedPrincipal === undefined) {
-              principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
-            } else {
-              const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-                trustedForwardingKeyOverride,
-              )
-              const ctxWithTrustedForwarding = { ...ctx }
-              const argsWithTrustedForwarding = {
-                ...args,
-                ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
-              }
-
-              setTrustedForwardingContext(
-                ctxWithTrustedForwarding,
-                argsWithTrustedForwarding,
-                trustedForwardingKey,
-              )
-              principalPromise = Promise.resolve(
-                principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
-              ).finally(() => {
-                clearTrustedForwardingContext(ctxWithTrustedForwarding)
-              })
-            }
+            const ctxWithTrustedForwarding = { ...ctx }
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedKeyOverride: trustedForwardingKeyOverride,
+              expectedPurpose: 'query',
+              expectedTransport: 'bridge',
+            })
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
+            ).finally(() => {
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
+            })
           }
 
           return await principalPromise
@@ -516,23 +573,14 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-              trustedForwardingKeyOverride,
-            )
-            const forwardedPrincipal = (args as Record<string, unknown>).principal
             const ctxWithTrustedForwarding = { ...ctx }
-            const argsWithTrustedForwarding = {
-              ...args,
-              ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
-            }
-
-            setTrustedForwardingContext(
-              ctxWithTrustedForwarding,
-              argsWithTrustedForwarding,
-              trustedForwardingKey,
-            )
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedKeyOverride: trustedForwardingKeyOverride,
+              expectedPurpose: 'mutation',
+              expectedTransport: 'bridge',
+            })
             principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
             ).finally(() => {
               clearTrustedForwardingContext(ctxWithTrustedForwarding)
             })
@@ -556,23 +604,14 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-              trustedForwardingKeyOverride,
-            )
-            const forwardedPrincipal = (args as Record<string, unknown>).principal
             const ctxWithTrustedForwarding = { ...ctx }
-            const argsWithTrustedForwarding = {
-              ...args,
-              ...createBridgeTrustedForwardingFields(forwardedPrincipal, trustedForwardingKey),
-            }
-
-            setTrustedForwardingContext(
-              ctxWithTrustedForwarding,
-              argsWithTrustedForwarding,
-              trustedForwardingKey,
-            )
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedKeyOverride: trustedForwardingKeyOverride,
+              expectedPurpose: 'action',
+              expectedTransport: 'bridge',
+            })
             principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, argsWithTrustedForwarding),
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
             ).finally(() => {
               clearTrustedForwardingContext(ctxWithTrustedForwarding)
             })
@@ -659,10 +698,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runQuery(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runQuery(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'query',
+            definition.component,
+          ) as never,
+        )
       },
     })
 
@@ -677,10 +722,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runMutation(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runMutation(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'mutation',
+            definition.component,
+          ) as never,
+        )
       },
     })
 
@@ -698,10 +749,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runAction(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runAction(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'action',
+            definition.component,
+          ) as never,
+        )
       },
     })
   }
@@ -717,10 +774,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runQuery(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runQuery(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'query',
+            definition.component,
+          ) as never,
+        )
       },
     })
 
@@ -735,10 +798,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runMutation(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runMutation(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'mutation',
+            definition.component,
+          ) as never,
+        )
       },
     })
 
@@ -756,10 +825,16 @@ export function createComponentBridge<
         const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
           options.trustedForwardingKey,
         )
-        return await ctx.runAction(definition.component, {
-          ...args,
-          ...createBridgeForwardingArgs(principal, trustedForwardingKey),
-        } as never)
+        return await ctx.runAction(
+          definition.component,
+          createBridgeForwardingArgs(
+            args as Record<string, unknown>,
+            principal,
+            trustedForwardingKey,
+            'action',
+            definition.component,
+          ) as never,
+        )
       },
     })
   }

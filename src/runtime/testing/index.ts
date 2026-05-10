@@ -14,8 +14,10 @@ import type {
 import type { ViteUserConfig as UserConfig } from 'vitest/config'
 
 import { subject } from '../auth/subject.js'
+import { getFunctionName } from '../convex/shared/convex-shared.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
 import type { TrellisObservationEvent } from '../observability/index.js'
+import { createTrustedForwardingEnvelopeArgs } from '../trusted-forwarding/shared.js'
 
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
@@ -311,18 +313,28 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
 
   const principalSubject = resolveTrustedForwardingSubject(principal)
 
-  function withPrincipalArgs<TArgs extends Record<string, unknown> | undefined>(
-    args: TArgs,
-    mode: 'plain' | 'trusted',
+  function withPrincipalArgs<TKind extends 'query' | 'mutation' | 'action'>(
+    kind: TKind,
+    fn: FunctionReference<TKind>,
+    args: Record<string, unknown> | undefined,
+    principalMode: 'plain' | 'trusted',
   ) {
+    if (principalMode === 'trusted') {
+      return createTrustedForwardingEnvelopeArgs({
+        args,
+        principal: {
+          ...principal,
+          subject: principalSubject,
+        },
+        functionRef: getFunctionName(fn),
+        operation: kind,
+        key: effectiveTrustedForwardingKey,
+        transport: 'server',
+      })
+    }
+
     return {
       ...(args ?? {}),
-      ...(mode === 'trusted'
-        ? {
-            _trustedForwardingKey: effectiveTrustedForwardingKey,
-            _trustedForwarding: { principalSubject },
-          }
-        : {}),
       principal,
     }
   }
@@ -332,7 +344,8 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
 
     return (
       error.message.includes('Unexpected field `_trustedForwardingKey` in object') ||
-      error.message.includes('Unexpected field `_trustedForwarding` in object')
+      error.message.includes('Unexpected field `_trustedForwarding` in object') ||
+      error.message.includes('Unexpected field `_trellisForwarding` in object')
     )
   }
 
@@ -345,7 +358,12 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       callArgs?: OptionalRestArgs<TFn>[0],
     ) => Promise<FunctionReturnType<TFn>>
 
-    const trustedPayload = withPrincipalArgs(args as Record<string, unknown> | undefined, 'trusted')
+    const trustedPayload = withPrincipalArgs(
+      kind,
+      fn,
+      args as Record<string, unknown> | undefined,
+      'trusted',
+    )
 
     try {
       return await caller(fn, trustedPayload as OptionalRestArgs<TFn>[0])
@@ -354,7 +372,12 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
         throw error
       }
 
-      const plainPayload = withPrincipalArgs(args as Record<string, unknown> | undefined, 'plain')
+      const plainPayload = withPrincipalArgs(
+        kind,
+        fn,
+        args as Record<string, unknown> | undefined,
+        'plain',
+      )
       return await caller(fn, plainPayload as OptionalRestArgs<TFn>[0])
     }
   }
