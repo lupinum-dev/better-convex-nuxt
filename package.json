@@ -153,6 +153,8 @@
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
     "check:docs:api-surface": "node scripts/generate-api-surface.mjs --check",
     "check:docs:links": "node scripts/check-doc-links.mjs",
+    "refactor:surface:inventory": "node scripts/generate-refactor-surface-inventory.mjs",
+    "check:refactor:surface:inventory": "node scripts/generate-refactor-surface-inventory.mjs --check",
     "harness:convex:codegen": "node scripts/harness-convex-codegen.mjs",
     "release:verify": "pnpm run lint && pnpm run check:publish-surface && pnpm run test:full && pnpm run build && pnpm run test:types && pnpm run test:types:public:compat",
     "release": "pnpm run release:verify && changelogen --release && npm publish && git push --follow-tags",

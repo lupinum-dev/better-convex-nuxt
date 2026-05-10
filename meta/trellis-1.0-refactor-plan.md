@@ -52,67 +52,82 @@ Related planning docs:
 
 ## Slice 1: Public Surface Inventory And Decisions
 
-Status: pending
+Status: complete for 1.0 planning baseline
 
 Goal: decide exactly what survives into 1.0 before moving code.
 
 ### Inventory
 
-- [ ] List npm exports from `package.json`.
-- [ ] List runtime barrels under `src/runtime/**/index.ts`.
-- [ ] List Nuxt aliases and generated aliases.
-- [ ] List auto-imports and global components.
-- [ ] List CLI commands and subcommands.
-- [ ] List generated file contracts.
-- [ ] List bridge manifest contracts.
-- [ ] List docs snippets that teach import paths.
-- [ ] Classify every current npm subpath: root, `auth`, `args`,
+- [x] List npm exports from `package.json`.
+- [x] List runtime barrels under `src/runtime/**/index.ts`.
+- [x] List Nuxt aliases and generated aliases.
+- [x] List auto-imports and global components.
+- [x] List CLI commands and subcommands.
+- [x] List generated file contracts.
+- [x] List bridge manifest contracts.
+- [x] List docs snippets that teach import paths.
+- [x] Classify every current npm subpath: root, `auth`, `args`,
       `composables`, `functions`, `bridge`, `feature`, `eslint`,
       `trusted-forwarding`, `visibility`, `mcp`, `type-primitives`, `server`,
       and `testing`.
-- [ ] Classify internal-looking barrels that could accidentally become public:
+- [x] Classify internal-looking barrels that could accidentally become public:
       `schema`, `observability`, and any generated/devtools runtime barrels.
-- [ ] Classify generated Nuxt contracts: `#trellis`, `#trellis/api`,
+- [x] Classify generated Nuxt contracts: `#trellis`, `#trellis/api`,
       `#trellis/server`, `#trellis/mcp`, permission imports, auth components,
       client composable auto-imports, and server imports.
 
 ### Decide
 
-- [ ] Decide `@lupinum/trellis/functions` versus
-      `@lupinum/trellis/backend`.
-- [ ] Decide public/protected/unsafe builder spelling.
-- [ ] Decide final MCP lanes and public names.
-- [ ] Decide which bridge APIs move to `@lupinum/trellis-bridge`.
-- [ ] Decide which observability delivery APIs remain public.
-- [ ] Decide whether `workspace --mcp` stays as a CLI alias for 1.0.
-- [ ] Decide whether `cms` remains a Trellis starter, is deleted, or becomes
-      Ginko-owned setup only.
-- [ ] Decide whether root `trellis bridge` remains, moves to bridge-owned CLI,
-      or is deleted from the root CLI.
-- [ ] Decide whether `tsconfig.types.public.compat.json` and
-      `test:types:public:compat` are deleted or renamed to a 1.0 meaning.
+- [x] Decide `@lupinum/trellis/functions` versus
+      `@lupinum/trellis/backend`: hard-cut to `@lupinum/trellis/backend`.
+- [x] Decide public/protected/unsafe builder spelling: use
+      `query.public`, `query.protected`, `mutation.public`,
+      `mutation.protected`, and `mutation.unsafe`.
+- [x] Decide final MCP lanes and public names: use `mcp.tool.query`,
+      `mcp.tool.mutation`, and `mcp.tool.operation`.
+- [x] Decide which bridge APIs move to `@lupinum/trellis-bridge`: all component
+      bridge runtime, manifest, package-author, check/generate/inspect APIs, and
+      bridge-owned CLI support.
+- [x] Decide which observability delivery APIs remain public: core keeps event
+      schema/capture; evlog delivery is not part of the default core runtime.
+- [x] Decide whether `workspace --mcp` stays as a CLI alias for 1.0: delete the
+      alias; `workspace-mcp` is canonical.
+- [x] Decide whether `cms` remains a Trellis starter, is deleted, or becomes
+      Ginko-owned setup only: Ginko owns CMS setup; Trellis removes the beginner
+      `cms` starter.
+- [x] Decide whether root `trellis bridge` remains, moves to bridge-owned CLI,
+      or is deleted from the root CLI: move to bridge-owned tooling.
+- [x] Decide whether `tsconfig.types.public.compat.json` and
+      `test:types:public:compat` are deleted or renamed to a 1.0 meaning:
+      delete or replace with explicit 1.0 public-surface/migration checks.
+- [x] Decide `trellis add` ownership: keep it only as a fixture/inventory-backed
+      feature command; delete old template-backed add slices.
 
 ### Delete / Replace / Keep Table
 
-| Old Surface | 1.0 Surface | Action | Proof |
-| --- | --- | --- | --- |
-| `tool.fromOperation(...)` | `mcp.tool.operation(...)` | delete | codemod/test |
-| raw `_trustedForwardingKey` args | `_trellisForwarding` envelope | delete | forwarding tests |
-| core bridge exports | `@lupinum/trellis-bridge` | move | bridge tests |
-| bridge helpers from `@lupinum/trellis/functions` | `@lupinum/trellis-bridge` | move/delete | type surface tests |
-| generated Nuxt aliases/auto-imports | 1.0 generated contract | keep/delete/move | generated surface tests |
-| `trellis bridge` root CLI | bridge-owned CLI or delete | decide | CLI tests |
-| `cms` starter | Ginko-owned setup or bridge fixture | decide | CLI/starter tests |
-| `.tpl` starter source of truth | fixture manifest | replace | starter tests |
-| arity-based `authorize` inference | explicit authorize object/function | delete | audit report/tests |
+| Old Surface                                      | 1.0 Surface                         | Action                       | Proof                     |
+| ------------------------------------------------ | ----------------------------------- | ---------------------------- | ------------------------- |
+| `tool.fromOperation(...)`                        | `mcp.tool.operation(...)`           | delete                       | codemod/test              |
+| raw `_trustedForwardingKey` args                 | `_trellisForwarding` envelope       | delete                       | forwarding tests          |
+| core bridge exports                              | `@lupinum/trellis-bridge`           | move/delete                  | bridge tests              |
+| bridge helpers from `@lupinum/trellis/functions` | `@lupinum/trellis-bridge`           | move/delete                  | type surface tests        |
+| generated Nuxt aliases/auto-imports              | 1.0 generated contract              | keep/delete/move             | generated surface tests   |
+| `trellis bridge` root CLI                        | bridge-owned tooling                | move/delete                  | CLI tests                 |
+| `cms` starter                                    | Ginko-owned setup                   | delete from Trellis starters | CLI/starter tests         |
+| `.tpl` starter source of truth                   | fixture manifest                    | replace                      | starter tests             |
+| arity-based `authorize` inference                | explicit authorize object/function  | delete                       | audit report/tests        |
+| `@lupinum/trellis/functions`                     | `@lupinum/trellis/backend`          | replace/delete               | public type tests/codemod |
+| `workspace --mcp`                                | `workspace-mcp`                     | delete alias                 | CLI tests                 |
+| `tsconfig.types.public.compat.json`              | 1.0 public-surface/migration checks | replace/delete               | package scripts           |
+| template-backed `trellis add` slices             | fixture/inventory-backed add slices | replace                      | CLI/add tests             |
 
 ### Done Means
 
-- [ ] Surface table is complete.
-- [ ] Each public item has an action.
-- [ ] Public-surface check has an expected 1.0 snapshot path.
-- [ ] No implementation slice starts with an unresolved public naming dependency.
-- [ ] Current generated aliases, auto-imports, and CLI commands are included in
+- [x] Surface table is complete.
+- [x] Each public item has an action.
+- [x] Public-surface check has an expected 1.0 snapshot path.
+- [x] No implementation slice starts with an unresolved public naming dependency.
+- [x] Current generated aliases, auto-imports, and CLI commands are included in
       the public-surface snapshot, not tracked by separate ad hoc checks.
 
 ## Slice 2: Package And Subpath Shape
@@ -539,19 +554,19 @@ shims.
 
 ### Migration Table
 
-| Old Pattern | New Pattern | Tooling | Notes |
-| --- | --- | --- | --- |
-| `tool.fromOperation(...)` | `mcp.tool.operation(...)` | codemod | hard delete |
-| raw forwarding args | `_trellisForwarding` | codemod/manual | production raw path deleted |
-| bridge core exports | `@lupinum/trellis-bridge` | codemod | package boundary |
-| arity authorize inference | explicit authorize | audit report | no silent rewrite |
-| string unsafe bypass | typed permit | codemod where safe | strict mode default |
-| `.tpl` starters | fixture manifests | generator | old templates deleted |
-| `@lupinum/trellis/functions` bridge helpers | `@lupinum/trellis-bridge` | codemod | no bridge exports from functions |
-| `@lupinum/trellis/bridge` | `@lupinum/trellis-bridge` | codemod | package boundary |
-| `trellis bridge` | bridge-owned CLI or deleted | CLI migration | open decision |
-| `workspace --mcp` | `workspace-mcp` or alias | CLI migration | open decision |
-| `cms` starter | Ginko-owned setup or bridge fixture | manual/docs | open decision |
+| Old Pattern                                 | New Pattern               | Tooling            | Notes                            |
+| ------------------------------------------- | ------------------------- | ------------------ | -------------------------------- |
+| `tool.fromOperation(...)`                   | `mcp.tool.operation(...)` | codemod            | hard delete                      |
+| raw forwarding args                         | `_trellisForwarding`      | codemod/manual     | production raw path deleted      |
+| bridge core exports                         | `@lupinum/trellis-bridge` | codemod            | package boundary                 |
+| arity authorize inference                   | explicit authorize        | audit report       | no silent rewrite                |
+| string unsafe bypass                        | typed permit              | codemod where safe | strict mode default              |
+| `.tpl` starters                             | fixture manifests         | generator          | old templates deleted            |
+| `@lupinum/trellis/functions` bridge helpers | `@lupinum/trellis-bridge` | codemod            | no bridge exports from functions |
+| `@lupinum/trellis/bridge`                   | `@lupinum/trellis-bridge` | codemod            | package boundary                 |
+| `trellis bridge`                            | bridge-owned tooling      | CLI migration      | root CLI path deleted            |
+| `workspace --mcp`                           | `workspace-mcp`           | CLI migration      | alias deleted                    |
+| `cms` starter                               | Ginko-owned setup         | manual/docs        | Trellis starter deleted          |
 
 ### Build
 
