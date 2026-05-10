@@ -155,8 +155,9 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## Docs Front Door Old Builder Hits
 
-| File | Matched Tokens | Action |
-| ---- | -------------- | ------ |
+| File                                                         | Matched Tokens | Action                              |
+| ------------------------------------------------------------ | -------------- | ----------------------------------- |
+| apps/docs/content/docs/02.concepts/3.rate-limiting-layers.md | `query({`      | rewrite before docs front-door gate |
 
 ## Sprint 1 Decisions
 

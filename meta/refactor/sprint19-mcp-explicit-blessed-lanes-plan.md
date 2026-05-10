@@ -59,67 +59,66 @@ starters and docs.
 
 ### 1. Split The App-Backed Tool Factory
 
-- [ ] Replace the callable `ToolFactory` shape with an object containing
+- [x] Replace the callable `ToolFactory` shape with an object containing
       `query`, `mutation`, and `operation`.
-- [ ] Implement `tool.query(...)` as the direct read lane.
-- [ ] Implement `tool.mutation(...)` as the direct bounded-write lane.
-- [ ] Keep `tool.operation(...)` as the existing descriptor-backed operation
+- [x] Implement `tool.query(...)` as the direct read lane.
+- [x] Implement `tool.mutation(...)` as the direct bounded-write lane.
+- [x] Keep `tool.operation(...)` as the existing descriptor-backed operation
       lane.
-- [ ] Delete `operation?: ConvexToolOperation` from direct app-backed tool
+- [x] Delete `operation?: ConvexToolOperation` from direct app-backed tool
       options.
-- [ ] Delete direct `action` projection from the app-backed lane for now; action
+- [x] Delete direct `action` projection from the app-backed lane for now; action
       work with side effects remains operation-backed.
 
 ### 2. Keep Safety Source Of Truth Backend-Owned
 
-- [ ] Direct `tool.mutation(...)` still requires `safety.kind:
-    "bounded-write"`.
-- [ ] Direct `tool.mutation(...)` still rejects missing backend/generated ref
+- [x] Direct `tool.mutation(...)` still requires `safety.kind: "bounded-write"`.
+- [x] Direct `tool.mutation(...)` still rejects missing backend/generated ref
       safety metadata.
-- [ ] Tool-side safety can confirm/narrow but cannot down-classify backend ref
+- [x] Tool-side safety can confirm/narrow but cannot down-classify backend ref
       safety.
-- [ ] `tool.query(...)` does not require write safety metadata.
-- [ ] Destructive, sensitive, audited, bulk, previewed, or external-side-effect
+- [x] `tool.query(...)` does not require write safety metadata.
+- [x] Destructive, sensitive, audited, bulk, previewed, or external-side-effect
       work still requires `tool.operation(...)`.
 
 ### 3. Update Maintained Call Sites
 
-- [ ] Convert maintained server/MCP direct read tools to `tool.query(...)`.
-- [ ] Convert maintained direct bounded writes to `tool.mutation(...)`.
-- [ ] Leave operation-backed tools on `tool.operation(...)`.
-- [ ] Update generated resource MCP tools if they generate direct read/write
+- [x] Convert maintained server/MCP direct read tools to `tool.query(...)`.
+- [x] Convert maintained direct bounded writes to `tool.mutation(...)`.
+- [x] Leave operation-backed tools on `tool.operation(...)`.
+- [x] Update generated resource MCP tools if they generate direct read/write
       examples.
-- [ ] Keep standalone `defineTool(...)` examples only where the tool is genuinely
+- [x] Keep standalone `defineTool(...)` examples only where the tool is genuinely
       custom and not an app-backed write.
 
 ### 4. Update Types And Tests
 
-- [ ] Update DTS/type tests so `runtime.tool(...)` is a type error.
-- [ ] Add tests that `tool.query(...)` calls Convex query refs.
-- [ ] Add tests that `tool.mutation(...)` calls Convex mutation refs.
-- [ ] Add tests that `tool.mutation(...)` rejects missing backend safety
+- [x] Update DTS/type tests so `runtime.tool(...)` is a type error.
+- [x] Add tests that `tool.query(...)` calls Convex query refs.
+- [x] Add tests that `tool.mutation(...)` calls Convex mutation refs.
+- [x] Add tests that `tool.mutation(...)` rejects missing backend safety
       metadata.
-- [ ] Add tests that `tool.mutation(...)` rejects sensitive/destructive/external
+- [x] Add tests that `tool.mutation(...)` rejects sensitive/destructive/external
       backend safety.
-- [ ] Preserve operation binding tests for descriptor/ref drift.
+- [x] Preserve operation binding tests for descriptor/ref drift.
 
 ### 5. Update Docs And Public Surface Checks
 
-- [ ] Update MCP docs to teach only `tool.query`, `tool.mutation`, and
+- [x] Update MCP docs to teach only `tool.query`, `tool.mutation`, and
       `tool.operation` for app-backed tools.
-- [ ] Update API reference wording from `tool(options)` to explicit lanes.
-- [ ] Update public surface inventory notes for Slice 6.
-- [ ] Ensure searches for old callable app-backed examples return only
+- [x] Update API reference wording from `tool(options)` to explicit lanes.
+- [x] Update public surface inventory notes for Slice 6.
+- [x] Ensure searches for old callable app-backed examples return only
       historical/refactor notes.
 
 ### 6. Update The 1.0 Tracker
 
-- [ ] Mark `tool.fromOperation(...)` deletion complete because Sprint 6 already
+- [x] Mark `tool.fromOperation(...)` deletion complete because Sprint 6 already
       did it.
-- [ ] Mark `tool.operation` alias cleanup complete because no alias remains.
-- [ ] Mark explicit MCP lane items complete only after tests/docs/call sites are
+- [x] Mark `tool.operation` alias cleanup complete because no alias remains.
+- [x] Mark explicit MCP lane items complete only after tests/docs/call sites are
       converted.
-- [ ] Leave generic custom unsafe-permit work unchecked unless actually done.
+- [x] Leave generic custom unsafe-permit work unchecked unless actually done.
 
 ## Verification
 
@@ -170,20 +169,28 @@ type drift.
 
 ## Acceptance Criteria
 
-- [ ] `defineMcpApp(...).tool` exposes only `query`, `mutation`, and
+- [x] `defineMcpApp(...).tool` exposes only `query`, `mutation`, and
       `operation` for app-backed tools.
-- [ ] `runtime.tool(...)` is gone from public types and maintained examples.
-- [ ] Direct query tools use `tool.query(...)`.
-- [ ] Direct bounded writes use `tool.mutation(...)`.
-- [ ] Direct mutation safety remains backend/ref-owned and cannot be
+- [x] `runtime.tool(...)` is gone from public types and maintained examples.
+- [x] Direct query tools use `tool.query(...)`.
+- [x] Direct bounded writes use `tool.mutation(...)`.
+- [x] Direct mutation safety remains backend/ref-owned and cannot be
       down-classified in the MCP file.
-- [ ] Operation-backed tools remain descriptor-backed.
-- [ ] Docs teach only the three blessed app-backed lanes.
-- [ ] No compatibility alias is added for the old callable `tool(...)` shape.
-- [ ] Slice 6 tracker reflects completed and still-pending work accurately.
-- [ ] Verification commands above pass except explicitly listed non-gates.
-- [ ] Sprint changes are committed after verification.
+- [x] Operation-backed tools remain descriptor-backed.
+- [x] Docs teach only the three blessed app-backed lanes.
+- [x] No compatibility alias is added for the old callable `tool(...)` shape.
+- [x] Slice 6 tracker reflects completed and still-pending work accurately.
+- [x] Verification commands above pass except explicitly listed non-gates.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- [ ] Fill this in during implementation.
+- App-backed MCP tools are now explicit lanes. `defineMcpApp(...).tool` is not
+  callable and exposes only `query`, `mutation`, and `operation`.
+- Direct mutations keep the existing backend/ref-owned safety invariant:
+  tool-side `safety` can confirm the generated/ref metadata but cannot invent it.
+- Maintained examples, the workspace-MCP fixture, resource generation templates,
+  type tests, doctor checks, and docs now use the explicit lanes.
+- Standalone `defineTool(...)` remains unchanged for custom non-app-write tools.
+- `pnpm run test:types:contracts` remains a non-gate because of the existing
+  Vue Router package identity mismatch between Trellis and Ginko workspaces.

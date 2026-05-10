@@ -199,7 +199,6 @@ export interface ToolOptions<
 > {
   schema: S
   call: TCall
-  operation?: ConvexToolOperation
   preview?: never
   previewOperation?: never
   previewResult?: never
@@ -346,13 +345,12 @@ type ToolFactory<
   TCapabilities extends ProjectionCapabilitySnapshot | null,
   TRuntime,
 > = {
-  <
-    S extends AnyConvexSchema,
-    TCall extends AnyFunctionRef = AnyMutationRef,
-    TPreview extends AnyFunctionRef | undefined = undefined,
-  >(
-    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
-  ): McpToolDefinition
+  query: <S extends AnyConvexSchema, TCall extends AnyQueryRef = AnyQueryRef>(
+    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
+  ) => McpToolDefinition
+  mutation: <S extends AnyConvexSchema, TCall extends AnyMutationRef = AnyMutationRef>(
+    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
+  ) => McpToolDefinition
   operation: <
     TOperation extends AnyOperationDefinition,
     TExecute extends AnyFunctionRef = AnyMutationRef,
@@ -613,84 +611,85 @@ export function defineMcpApp<
     return await cached
   }
 
-  const tool = (<
-    S extends AnyConvexSchema,
-    TCall extends AnyFunctionRef = AnyMutationRef,
-    TPreview extends AnyFunctionRef | undefined = undefined,
-  >(
-    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall, TPreview>,
+  const createDirectTool = <S extends AnyConvexSchema, TCall extends AnyFunctionRef>(
+    operation: 'query' | 'mutation',
+    definition: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
   ): McpToolDefinition => {
-    if (tool.meta?.destructive || tool.preview) {
+    if (definition.meta?.destructive || definition.preview) {
       throw new Error(
-        'MCP tools with destructive or preview behavior must use tool.operation(...). Generic tool({...}) preview/destructive mode is not supported.',
+        'MCP tools with destructive or preview behavior must use tool.operation(...). Direct tool lanes do not support preview/destructive mode.',
       )
     }
 
     assertProductionRateLimitStore(
-      tool.meta?.name ?? 'project-tool',
-      tool.rateLimit,
-      tool.rateLimitStore ?? appRateLimitStore,
+      definition.meta?.name ?? 'project-tool',
+      definition.rateLimit,
+      definition.rateLimitStore ?? appRateLimitStore,
     )
 
-    const operation = tool.operation ?? 'mutation'
-    assertDirectToolSafety(tool.meta?.name ?? 'project-tool', operation, tool.call, tool.safety)
+    assertDirectToolSafety(
+      definition.meta?.name ?? 'project-tool',
+      operation,
+      definition.call,
+      definition.safety,
+    )
     const middleware: ConvexToolMiddleware<S> | undefined =
-      tool.rateLimit || tool.middleware
+      definition.rateLimit || definition.middleware
         ? async (args, ctx, next) => {
-            if (tool.rateLimit) {
+            if (definition.rateLimit) {
               const projectionCtx = await resolve(ctx.event)
               const bucket = [
-                tool.meta?.name ?? 'project-tool',
+                definition.meta?.name ?? 'project-tool',
                 (options.principalKey ?? defaultPrincipalKey)(projectionCtx.principal),
               ].join(':')
 
               const check = await checkToolRateLimit(
                 bucket,
                 {
-                  max: tool.rateLimit.max,
-                  windowMs: parseWindowString(tool.rateLimit.window),
+                  max: definition.rateLimit.max,
+                  windowMs: parseWindowString(definition.rateLimit.window),
                 },
-                tool.rateLimitStore ?? appRateLimitStore,
+                definition.rateLimitStore ?? appRateLimitStore,
               )
 
               if (!check.allowed) {
                 return ctx.error(
                   'cooldown',
-                  `Rate limit exceeded (${tool.rateLimit.max} per ${tool.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+                  `Rate limit exceeded (${definition.rateLimit.max} per ${definition.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
                 )
               }
             }
 
-            if (!tool.middleware) {
+            if (!definition.middleware) {
               return await next()
             }
 
             const projectionCtx = await resolve(ctx.event)
-            return await tool.middleware(args, withProjectionCalls(ctx, projectionCtx), next)
+            return await definition.middleware(args, withProjectionCalls(ctx, projectionCtx), next)
           }
         : undefined
 
     return defineTool({
-      schema: tool.schema,
+      schema: definition.schema,
       auth: 'none',
       operation,
-      name: tool.meta?.name,
-      description: tool.meta?.description ?? tool.schema.description,
-      destructive: tool.meta?.destructive ?? false,
-      maxItems: tool.maxItems,
+      name: definition.meta?.name,
+      description: definition.meta?.description ?? definition.schema.description,
+      destructive: definition.meta?.destructive ?? false,
+      maxItems: definition.maxItems,
       middleware,
-      outputSchema: tool.outputSchema,
-      group: tool.group,
-      tags: tool.tags,
+      outputSchema: definition.outputSchema,
+      group: definition.group,
+      tags: definition.tags,
       enabled: async (event) => {
         const ctx = await resolve(event)
 
-        if (!permissionAllows(ctx.capabilities, tool.permission)) {
+        if (!permissionAllows(ctx.capabilities, definition.permission)) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
             reasonCode: 'tool.capability_denied',
             details: {
               explanation: createDenialExplanation({
@@ -703,13 +702,13 @@ export function defineMcpApp<
           })
           return false
         }
-        const allowed = tool.enabled ? await tool.enabled(ctx) : true
+        const allowed = definition.enabled ? await definition.enabled(ctx) : true
         if (!allowed) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
             reasonCode: 'tool.disabled',
             details: {
               explanation: createDenialExplanation({
@@ -725,7 +724,7 @@ export function defineMcpApp<
       },
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        if (!permissionAllows(projectionCtx.capabilities, tool.permission)) {
+        if (!permissionAllows(projectionCtx.capabilities, definition.permission)) {
           const explanation = createDenialExplanation({
             reasonCode: 'tool.capability_denied',
             decision: 'tool',
@@ -736,7 +735,7 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
             reasonCode: 'tool.capability_denied',
             details: { explanation },
           })
@@ -747,7 +746,7 @@ export function defineMcpApp<
             explanation,
           )
         }
-        if (tool.enabled && !(await tool.enabled(projectionCtx))) {
+        if (definition.enabled && !(await definition.enabled(projectionCtx))) {
           const explanation = createDenialExplanation({
             reasonCode: 'tool.disabled',
             decision: 'tool',
@@ -758,7 +757,7 @@ export function defineMcpApp<
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
             reasonCode: 'tool.disabled',
             details: { explanation },
           })
@@ -770,26 +769,26 @@ export function defineMcpApp<
           )
         }
         projectionCtx.wideSummary.set({
-          tool: tool.meta?.name ?? 'project-tool',
+          tool: definition.meta?.name ?? 'project-tool',
         })
         await projectionCtx.observe({
           name: 'tool.called',
           status: 'success',
           transport: 'mcp',
-          tool: tool.meta?.name ?? 'project-tool',
+          tool: definition.meta?.name ?? 'project-tool',
         })
         try {
           const result = await callByOperation(
             projectionCtx.convex,
             operation,
-            tool.call,
+            definition.call,
             Object.assign({}, args as Record<string, unknown>, {
               principal: projectionCtx.principal,
             }) as FunctionLikeArgs<TCall>,
           )
 
-          if (tool.respond) {
-            const responded = tool.respond({
+          if (definition.respond) {
+            const responded = definition.respond({
               args,
               result,
               principal: projectionCtx.principal,
@@ -803,14 +802,14 @@ export function defineMcpApp<
               name: 'tool.executed',
               status: 'success',
               transport: 'mcp',
-              tool: tool.meta?.name ?? 'project-tool',
+              tool: definition.meta?.name ?? 'project-tool',
             })
             projectionCtx.wideSummary.emit({ status: 'success' })
             return responded
           }
 
-          const mapped = tool.mapResult
-            ? tool.mapResult({
+          const mapped = definition.mapResult
+            ? definition.mapResult({
                 args,
                 result,
                 principal: projectionCtx.principal,
@@ -819,7 +818,7 @@ export function defineMcpApp<
               })
             : result
 
-          const summary = tool.summary?.({
+          const summary = definition.summary?.({
             args,
             result,
             principal: projectionCtx.principal,
@@ -831,7 +830,7 @@ export function defineMcpApp<
             name: 'tool.executed',
             status: 'success',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
           })
           projectionCtx.wideSummary.emit({ status: 'success' })
           return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
@@ -846,7 +845,7 @@ export function defineMcpApp<
             name: 'tool.failed',
             status: 'error',
             transport: 'mcp',
-            tool: tool.meta?.name ?? 'project-tool',
+            tool: definition.meta?.name ?? 'project-tool',
             reasonCode: 'tool.execution_failed',
             details: errorDetails,
           })
@@ -865,340 +864,409 @@ export function defineMcpApp<
         }
       },
     })
-  }) as ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime>
+  }
 
-  tool.operation = <
-    TOperation extends AnyOperationDefinition,
-    TExecute extends AnyFunctionRef = AnyMutationRef,
-    TPreview extends AnyFunctionRef | undefined = undefined,
-  >(
-    operation: TOperation,
-    options: ToolOperationOptions<
-      TOperation,
-      TPrincipal,
-      TDelegation,
-      TCapabilities,
-      TRuntime,
-      TExecute,
-      TPreview
-    >,
-  ): McpToolDefinition => {
-    const metadata = getOperationMetadata(operation)
-    if (!metadata.id) {
-      throw new Error('tool.operation(...) requires an operation with an `id`.')
-    }
-    const operationId = metadata.id
-    const toolPermission = options.permission ?? metadata.permissionKey
+  const tool: ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime> = {
+    query: (definition) => createDirectTool('query', definition),
+    mutation: (definition) => createDirectTool('mutation', definition),
+    operation: <
+      TOperation extends AnyOperationDefinition,
+      TExecute extends AnyFunctionRef = AnyMutationRef,
+      TPreview extends AnyFunctionRef | undefined = undefined,
+    >(
+      operation: TOperation,
+      options: ToolOperationOptions<
+        TOperation,
+        TPrincipal,
+        TDelegation,
+        TCapabilities,
+        TRuntime,
+        TExecute,
+        TPreview
+      >,
+    ): McpToolDefinition => {
+      const metadata = getOperationMetadata(operation)
+      if (!metadata.id) {
+        throw new Error('tool.operation(...) requires an operation with an `id`.')
+      }
+      const operationId = metadata.id
+      const toolPermission = options.permission ?? metadata.permissionKey
 
-    const isDestructive = metadata.kind === 'destructive'
-    const confirmationMode = options.confirmationMode ?? 'backend'
-    const toolName = options.meta?.name ?? toKebabCase(metadata.name ?? operationId)
-    if (isDestructive && !options.preview) {
-      throw new Error(
-        `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
+      const isDestructive = metadata.kind === 'destructive'
+      const confirmationMode = options.confirmationMode ?? 'backend'
+      const toolName = options.meta?.name ?? toKebabCase(metadata.name ?? operationId)
+      if (isDestructive && !options.preview) {
+        throw new Error(
+          `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
+        )
+      }
+
+      assertOperationBinding(operation, options.execute, options.preview)
+
+      const baseSchema =
+        options.schema ??
+        defineArgs({
+          description: options.meta?.description,
+          args: operation.args,
+        })
+
+      const schema = isDestructive
+        ? defineArgs({
+            description: baseSchema.description,
+            args: {
+              ...baseSchema.args,
+              _confirmationToken: v.optional(v.string()),
+            },
+          })
+        : baseSchema
+
+      const toolConfirmationStore = options.confirmationStore ?? confirmationStore
+
+      assertProductionRateLimitStore(
+        toolName,
+        options.rateLimit,
+        options.rateLimitStore ?? appRateLimitStore,
       )
-    }
-
-    assertOperationBinding(operation, options.execute, options.preview)
-
-    const baseSchema =
-      options.schema ??
-      defineArgs({
-        description: options.meta?.description,
-        args: operation.args,
+      assertProductionConfirmationStore({
+        toolName,
+        destructive: isDestructive,
+        confirmationMode,
+        hasExplicitConfirmationStore: Boolean(options.confirmationStore ?? appConfirmationStore),
       })
 
-    const schema = isDestructive
-      ? defineArgs({
-          description: baseSchema.description,
-          args: {
-            ...baseSchema.args,
-            _confirmationToken: v.optional(v.string()),
-          },
-        })
-      : baseSchema
+      return defineTool({
+        schema,
+        auth: 'none',
+        name: toolName,
+        description: options.meta?.description ?? schema.description,
+        operation: options.executeOperation ?? 'mutation',
+        destructive: false,
+        preview: undefined,
+        maxItems: options.maxItems,
+        outputSchema: options.outputSchema,
+        group: options.group,
+        tags: options.tags,
+        middleware:
+          options.rateLimit || options.middleware
+            ? async (args, ctx, next) => {
+                if (options.rateLimit) {
+                  const projectionCtx = await resolve(ctx.event)
+                  const bucket = [
+                    options.meta?.name ?? metadata.name ?? operationId,
+                    principalKeyResolver(projectionCtx.principal),
+                  ].join(':')
 
-    const toolConfirmationStore = options.confirmationStore ?? confirmationStore
-
-    assertProductionRateLimitStore(
-      toolName,
-      options.rateLimit,
-      options.rateLimitStore ?? appRateLimitStore,
-    )
-    assertProductionConfirmationStore({
-      toolName,
-      destructive: isDestructive,
-      confirmationMode,
-      hasExplicitConfirmationStore: Boolean(options.confirmationStore ?? appConfirmationStore),
-    })
-
-    return defineTool({
-      schema,
-      auth: 'none',
-      name: toolName,
-      description: options.meta?.description ?? schema.description,
-      operation: options.executeOperation ?? 'mutation',
-      destructive: false,
-      preview: undefined,
-      maxItems: options.maxItems,
-      outputSchema: options.outputSchema,
-      group: options.group,
-      tags: options.tags,
-      middleware:
-        options.rateLimit || options.middleware
-          ? async (args, ctx, next) => {
-              if (options.rateLimit) {
-                const projectionCtx = await resolve(ctx.event)
-                const bucket = [
-                  options.meta?.name ?? metadata.name ?? operationId,
-                  principalKeyResolver(projectionCtx.principal),
-                ].join(':')
-
-                const check = await checkToolRateLimit(
-                  bucket,
-                  {
-                    max: options.rateLimit.max,
-                    windowMs: parseWindowString(options.rateLimit.window),
-                  },
-                  options.rateLimitStore ?? appRateLimitStore,
-                )
-
-                if (!check.allowed) {
-                  return ctx.error(
-                    'cooldown',
-                    `Rate limit exceeded (${options.rateLimit.max} per ${options.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+                  const check = await checkToolRateLimit(
+                    bucket,
+                    {
+                      max: options.rateLimit.max,
+                      windowMs: parseWindowString(options.rateLimit.window),
+                    },
+                    options.rateLimitStore ?? appRateLimitStore,
                   )
+
+                  if (!check.allowed) {
+                    return ctx.error(
+                      'cooldown',
+                      `Rate limit exceeded (${options.rateLimit.max} per ${options.rateLimit.window}). Try again in ${check.retryAfterSeconds} seconds.`,
+                    )
+                  }
                 }
+
+                if (!options.middleware) {
+                  return await next()
+                }
+
+                return await options.middleware(args, ctx, next)
               }
+            : undefined,
+        enabled: async (event) => {
+          const ctx = await resolve(event)
 
-              if (!options.middleware) {
-                return await next()
-              }
-
-              return await options.middleware(args, ctx, next)
-            }
-          : undefined,
-      enabled: async (event) => {
-        const ctx = await resolve(event)
-
-        if (!permissionAllows(ctx.capabilities, toolPermission)) {
-          await ctx.observe({
-            name: 'tool.denied',
-            status: 'deny',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-            reasonCode: 'tool.capability_denied',
-            details: {
-              explanation: createDenialExplanation({
-                reasonCode: 'tool.capability_denied',
-                decision: 'tool',
-                message: 'Caller does not have the permission required for this tool.',
-                suggestedAction: 'grant_capability',
-              }),
-            },
-          })
-          return false
-        }
-        const allowed = options.enabled ? await options.enabled(ctx) : true
-        if (!allowed) {
-          await ctx.observe({
-            name: 'tool.denied',
-            status: 'deny',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-            reasonCode: 'tool.disabled',
-            details: {
-              explanation: createDenialExplanation({
-                reasonCode: 'tool.disabled',
-                decision: 'tool',
-                message: 'Tool is currently disabled for this request.',
-                suggestedAction: 'contact_admin',
-              }),
-            },
-          })
-        }
-        return allowed
-      },
-      handler: async (rawArgs, ctx) => {
-        const projectionCtx = await resolve(ctx.event)
-        if (!permissionAllows(projectionCtx.capabilities, toolPermission)) {
-          const explanation = createDenialExplanation({
-            reasonCode: 'tool.capability_denied',
-            decision: 'tool',
-            message: 'Caller does not have the permission required for this tool.',
-            suggestedAction: 'grant_capability',
-          })
-          await projectionCtx.observe({
-            name: 'tool.denied',
-            status: 'deny',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-            reasonCode: 'tool.capability_denied',
-            details: { explanation },
-          })
-          return ctx.error(
-            'auth',
-            'Caller does not have the permission required for this tool.',
-            undefined,
-            explanation,
-          )
-        }
-        if (options.enabled && !(await options.enabled(projectionCtx))) {
-          const explanation = createDenialExplanation({
-            reasonCode: 'tool.disabled',
-            decision: 'tool',
-            message: 'Tool is currently disabled for this request.',
-            suggestedAction: 'contact_admin',
-          })
-          await projectionCtx.observe({
-            name: 'tool.denied',
-            status: 'deny',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-            reasonCode: 'tool.disabled',
-            details: { explanation },
-          })
-          return ctx.error(
-            'auth',
-            'Tool is currently disabled for this request.',
-            undefined,
-            explanation,
-          )
-        }
-        const fullArgs = rawArgs as Record<string, unknown>
-        const confirmationToken =
-          typeof fullArgs._confirmationToken === 'string' ? fullArgs._confirmationToken : undefined
-        const executeArgs = Object.fromEntries(
-          Object.entries(fullArgs).filter(([key]) => key !== '_confirmationToken'),
-        )
-        const executePath = getFunctionName(options.execute)
-        const previewPath = options.preview ? getFunctionName(options.preview) : executePath
-        const principalKey = principalKeyResolver(projectionCtx.principal)
-        const tenantKey = defaultTenantKey(projectionCtx.principal)
-        const argsHash = await hashConfirmationValue(executeArgs)
-        const argsFieldHashes = await hashArgsForDiagnostics(executeArgs)
-        const confirmationBinding = {
-          operationId,
-          executePath,
-          previewPath,
-          principalKey,
-          tenantKey,
-          argsHash,
-          argsFieldHashes,
-        }
-        projectionCtx.wideSummary.set({
-          tool: options.meta?.name ?? metadata.name ?? operationId,
-          operation: operationId,
-        })
-        await projectionCtx.observe({
-          name: 'tool.called',
-          status: 'success',
-          transport: 'mcp',
-          tool: options.meta?.name ?? metadata.name ?? operationId,
-          operation: operationId,
-        })
-
-        const finalizeResult = (result: FunctionLikeReturnType<TExecute>) => {
-          if (options.respond) {
-            return options.respond({
-              args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
-              result,
-              principal: projectionCtx.principal,
-              capabilities: projectionCtx.capabilities,
-              runtime: projectionCtx.runtime,
-              ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
-              error: (category, message, issues, explanation, details, code) =>
-                ctx.error(category, message, issues, explanation, details, code),
+          if (!permissionAllows(ctx.capabilities, toolPermission)) {
+            await ctx.observe({
+              name: 'tool.denied',
+              status: 'deny',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+              reasonCode: 'tool.capability_denied',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'tool.capability_denied',
+                  decision: 'tool',
+                  message: 'Caller does not have the permission required for this tool.',
+                  suggestedAction: 'grant_capability',
+                }),
+              },
+            })
+            return false
+          }
+          const allowed = options.enabled ? await options.enabled(ctx) : true
+          if (!allowed) {
+            await ctx.observe({
+              name: 'tool.denied',
+              status: 'deny',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+              reasonCode: 'tool.disabled',
+              details: {
+                explanation: createDenialExplanation({
+                  reasonCode: 'tool.disabled',
+                  decision: 'tool',
+                  message: 'Tool is currently disabled for this request.',
+                  suggestedAction: 'contact_admin',
+                }),
+              },
             })
           }
+          return allowed
+        },
+        handler: async (rawArgs, ctx) => {
+          const projectionCtx = await resolve(ctx.event)
+          if (!permissionAllows(projectionCtx.capabilities, toolPermission)) {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.capability_denied',
+              decision: 'tool',
+              message: 'Caller does not have the permission required for this tool.',
+              suggestedAction: 'grant_capability',
+            })
+            await projectionCtx.observe({
+              name: 'tool.denied',
+              status: 'deny',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+              reasonCode: 'tool.capability_denied',
+              details: { explanation },
+            })
+            return ctx.error(
+              'auth',
+              'Caller does not have the permission required for this tool.',
+              undefined,
+              explanation,
+            )
+          }
+          if (options.enabled && !(await options.enabled(projectionCtx))) {
+            const explanation = createDenialExplanation({
+              reasonCode: 'tool.disabled',
+              decision: 'tool',
+              message: 'Tool is currently disabled for this request.',
+              suggestedAction: 'contact_admin',
+            })
+            await projectionCtx.observe({
+              name: 'tool.denied',
+              status: 'deny',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+              reasonCode: 'tool.disabled',
+              details: { explanation },
+            })
+            return ctx.error(
+              'auth',
+              'Tool is currently disabled for this request.',
+              undefined,
+              explanation,
+            )
+          }
+          const fullArgs = rawArgs as Record<string, unknown>
+          const confirmationToken =
+            typeof fullArgs._confirmationToken === 'string'
+              ? fullArgs._confirmationToken
+              : undefined
+          const executeArgs = Object.fromEntries(
+            Object.entries(fullArgs).filter(([key]) => key !== '_confirmationToken'),
+          )
+          const executePath = getFunctionName(options.execute)
+          const previewPath = options.preview ? getFunctionName(options.preview) : executePath
+          const principalKey = principalKeyResolver(projectionCtx.principal)
+          const tenantKey = defaultTenantKey(projectionCtx.principal)
+          const argsHash = await hashConfirmationValue(executeArgs)
+          const argsFieldHashes = await hashArgsForDiagnostics(executeArgs)
+          const confirmationBinding = {
+            operationId,
+            executePath,
+            previewPath,
+            principalKey,
+            tenantKey,
+            argsHash,
+            argsFieldHashes,
+          }
+          projectionCtx.wideSummary.set({
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
+          })
+          await projectionCtx.observe({
+            name: 'tool.called',
+            status: 'success',
+            transport: 'mcp',
+            tool: options.meta?.name ?? metadata.name ?? operationId,
+            operation: operationId,
+          })
 
-          const mapped = options.mapResult
-            ? options.mapResult({
+          const finalizeResult = (result: FunctionLikeReturnType<TExecute>) => {
+            if (options.respond) {
+              return options.respond({
                 args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
                 result,
                 principal: projectionCtx.principal,
                 capabilities: projectionCtx.capabilities,
                 runtime: projectionCtx.runtime,
+                ok: (data, summary) =>
+                  summary ? ctx.ok(data as SerializableValue, summary) : data,
+                error: (category, message, issues, explanation, details, code) =>
+                  ctx.error(category, message, issues, explanation, details, code),
               })
-            : result
-
-          const summary = options.summary?.({
-            args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
-            result,
-            principal: projectionCtx.principal,
-            capabilities: projectionCtx.capabilities,
-            runtime: projectionCtx.runtime,
-          })
-
-          return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
-        }
-
-        const normalizeOperationPreview = (previewResult: unknown): OperationPreviewPayload => {
-          if (options.previewResult) {
-            return {
-              display: options.previewResult({
-                args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
-                result: previewResult as TPreview extends AnyFunctionRef
-                  ? FunctionLikeReturnType<TPreview>
-                  : unknown,
-                principal: projectionCtx.principal,
-                capabilities: projectionCtx.capabilities,
-                runtime: projectionCtx.runtime,
-              }),
-              confirm: executeArgs as SerializableValue,
             }
+
+            const mapped = options.mapResult
+              ? options.mapResult({
+                  args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+                  result,
+                  principal: projectionCtx.principal,
+                  capabilities: projectionCtx.capabilities,
+                  runtime: projectionCtx.runtime,
+                })
+              : result
+
+            const summary = options.summary?.({
+              args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+              result,
+              principal: projectionCtx.principal,
+              capabilities: projectionCtx.capabilities,
+              runtime: projectionCtx.runtime,
+            })
+
+            return summary ? ctx.ok(mapped as SerializableValue, summary) : mapped
           }
 
-          if (!isOperationPreviewPayload(previewResult)) {
-            throw new Error(
-              `tool.operation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
-            )
+          const normalizeOperationPreview = (previewResult: unknown): OperationPreviewPayload => {
+            if (options.previewResult) {
+              return {
+                display: options.previewResult({
+                  args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+                  result: previewResult as TPreview extends AnyFunctionRef
+                    ? FunctionLikeReturnType<TPreview>
+                    : unknown,
+                  principal: projectionCtx.principal,
+                  capabilities: projectionCtx.capabilities,
+                  runtime: projectionCtx.runtime,
+                }),
+                confirm: executeArgs as SerializableValue,
+              }
+            }
+
+            if (!isOperationPreviewPayload(previewResult)) {
+              throw new Error(
+                `tool.operation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
+              )
+            }
+
+            return previewResult
           }
 
-          return previewResult
-        }
-
-        const returnConfirmationFailure = async (failure: DestructiveConfirmationFailure) => {
-          await projectionCtx.observe({
-            name: 'operation.confirm.drifted',
-            status: 'deny',
-            transport: 'mcp',
-            operation: operationId,
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            reasonCode: 'tool.confirmation_mismatch',
-            details: {
-              ...failure.details,
-              explanation: failure.explanation,
-            },
-          })
-          return ctx.error(
-            failure.category,
-            failure.message,
-            undefined,
-            failure.explanation,
-            failure.details,
-            failure.code,
-          )
-        }
-
-        let operationExecuteJti: string | undefined
-        if (isDestructive) {
-          if (!options.preview) {
-            return ctx.error('server', 'Destructive operation is missing a preview ref.')
-          }
-
-          if (!confirmationToken) {
+          const returnConfirmationFailure = async (failure: DestructiveConfirmationFailure) => {
             await projectionCtx.observe({
-              name: 'operation.preview.started',
-              status: 'success',
+              name: 'operation.confirm.drifted',
+              status: 'deny',
               transport: 'mcp',
               operation: operationId,
               tool: options.meta?.name ?? metadata.name ?? operationId,
+              reasonCode: 'tool.confirmation_mismatch',
+              details: {
+                ...failure.details,
+                explanation: failure.explanation,
+              },
             })
+            return ctx.error(
+              failure.category,
+              failure.message,
+              undefined,
+              failure.explanation,
+              failure.details,
+              failure.code,
+            )
+          }
+
+          let operationExecuteJti: string | undefined
+          if (isDestructive) {
+            if (!options.preview) {
+              return ctx.error('server', 'Destructive operation is missing a preview ref.')
+            }
+
+            if (!confirmationToken) {
+              await projectionCtx.observe({
+                name: 'operation.preview.started',
+                status: 'success',
+                transport: 'mcp',
+                operation: operationId,
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+              })
+              const previewResult = await callByOperation(
+                projectionCtx.convex,
+                options.previewOperation ?? 'query',
+                options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+                executeArgs as FunctionLikeArgs<
+                  PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+                >,
+                {
+                  trustedForwardingEnvelope: {
+                    purpose: 'operation-preview',
+                  },
+                },
+              )
+
+              const previewPayload = normalizeOperationPreview(previewResult)
+              const display = normalizePreviewDisplay(previewPayload.display)
+              const previewHash = await hashConfirmationValue(previewPayload.confirm)
+              const versionHash = await hashPreviewVersion(previewPayload.version)
+              await projectionCtx.observe({
+                name: 'operation.preview.completed',
+                status: 'success',
+                transport: 'mcp',
+                operation: operationId,
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+              })
+
+              if (display.blocked) {
+                return ctx.blocked(display)
+              }
+
+              const signedToken = await signDestructivePreviewToken({
+                binding: confirmationBinding,
+                previewHash,
+                versionHash,
+              })
+
+              await projectionCtx.observe({
+                name: 'tool.confirmation.required',
+                status: 'success',
+                transport: 'mcp',
+                operation: operationId,
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+              })
+              projectionCtx.wideSummary.emit({
+                status: 'success',
+                details: { awaitingConfirmation: true },
+              })
+              return ctx.preview({
+                ...display,
+                confirmationToken: signedToken,
+              })
+            }
+
+            const confirmation = await verifyDestructiveConfirmationToken(
+              confirmationToken,
+              confirmationBinding,
+            )
+            if (!confirmation.ok) {
+              return await returnConfirmationFailure(confirmation.failure)
+            }
+            const payload = confirmation.payload
+            operationExecuteJti = payload.jti
+
             const previewResult = await callByOperation(
               projectionCtx.convex,
               options.previewOperation ?? 'query',
@@ -1215,170 +1283,108 @@ export function defineMcpApp<
 
             const previewPayload = normalizeOperationPreview(previewResult)
             const display = normalizePreviewDisplay(previewPayload.display)
+
             const previewHash = await hashConfirmationValue(previewPayload.confirm)
             const versionHash = await hashPreviewVersion(previewPayload.version)
-            await projectionCtx.observe({
-              name: 'operation.preview.completed',
-              status: 'success',
-              transport: 'mcp',
-              operation: operationId,
-              tool: options.meta?.name ?? metadata.name ?? operationId,
-            })
-
-            if (display.blocked) {
-              return ctx.blocked(display)
-            }
-
-            const signedToken = await signDestructivePreviewToken({
-              binding: confirmationBinding,
+            const previewFailure = validateDestructivePreviewState({
+              payload,
+              blocked: display.blocked === true,
               previewHash,
               versionHash,
             })
+            if (previewFailure) {
+              return await returnConfirmationFailure(previewFailure)
+            }
 
             await projectionCtx.observe({
-              name: 'tool.confirmation.required',
+              name: 'operation.confirm.validated',
               status: 'success',
               transport: 'mcp',
               operation: operationId,
               tool: options.meta?.name ?? metadata.name ?? operationId,
             })
-            projectionCtx.wideSummary.emit({
-              status: 'success',
-              details: { awaitingConfirmation: true },
-            })
-            return ctx.preview({
-              ...display,
-              confirmationToken: signedToken,
-            })
-          }
 
-          const confirmation = await verifyDestructiveConfirmationToken(
-            confirmationToken,
-            confirmationBinding,
-          )
-          if (!confirmation.ok) {
-            return await returnConfirmationFailure(confirmation.failure)
-          }
-          const payload = confirmation.payload
-          operationExecuteJti = payload.jti
-
-          const previewResult = await callByOperation(
-            projectionCtx.convex,
-            options.previewOperation ?? 'query',
-            options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
-            executeArgs as FunctionLikeArgs<
-              PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
-            >,
-            {
-              trustedForwardingEnvelope: {
-                purpose: 'operation-preview',
-              },
-            },
-          )
-
-          const previewPayload = normalizeOperationPreview(previewResult)
-          const display = normalizePreviewDisplay(previewPayload.display)
-
-          const previewHash = await hashConfirmationValue(previewPayload.confirm)
-          const versionHash = await hashPreviewVersion(previewPayload.version)
-          const previewFailure = validateDestructivePreviewState({
-            payload,
-            blocked: display.blocked === true,
-            previewHash,
-            versionHash,
-          })
-          if (previewFailure) {
-            return await returnConfirmationFailure(previewFailure)
-          }
-
-          await projectionCtx.observe({
-            name: 'operation.confirm.validated',
-            status: 'success',
-            transport: 'mcp',
-            operation: operationId,
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-          })
-
-          if (confirmationMode === 'transport') {
-            const redemption = await toolConfirmationStore.redeem({
-              payload,
-              operationId,
-              principalKey,
-              tenantKey,
-              argsHash,
-              previewHash,
-              executePath,
-              previewPath,
-            })
-            if (redemption === 'replayed') {
-              return await returnConfirmationFailure(replayedConfirmationFailure())
+            if (confirmationMode === 'transport') {
+              const redemption = await toolConfirmationStore.redeem({
+                payload,
+                operationId,
+                principalKey,
+                tenantKey,
+                argsHash,
+                previewHash,
+                executePath,
+                previewPath,
+              })
+              if (redemption === 'replayed') {
+                return await returnConfirmationFailure(replayedConfirmationFailure())
+              }
             }
           }
-        }
 
-        try {
-          const result = await callByOperation(
-            projectionCtx.convex,
-            options.executeOperation ?? 'mutation',
-            options.execute,
-            Object.assign({}, executeArgs as Record<string, unknown>, {
-              ...(confirmationToken && confirmationMode === 'backend'
-                ? { _confirmationToken: confirmationToken }
-                : {}),
-            }) as FunctionLikeArgs<TExecute>,
-            confirmationToken && isDestructive
-              ? {
-                  trustedForwardingEnvelope: {
-                    purpose: 'operation-execute',
-                    ...(operationExecuteJti ? { jti: operationExecuteJti } : {}),
-                  },
-                }
-              : undefined,
-          )
+          try {
+            const result = await callByOperation(
+              projectionCtx.convex,
+              options.executeOperation ?? 'mutation',
+              options.execute,
+              Object.assign({}, executeArgs as Record<string, unknown>, {
+                ...(confirmationToken && confirmationMode === 'backend'
+                  ? { _confirmationToken: confirmationToken }
+                  : {}),
+              }) as FunctionLikeArgs<TExecute>,
+              confirmationToken && isDestructive
+                ? {
+                    trustedForwardingEnvelope: {
+                      purpose: 'operation-execute',
+                      ...(operationExecuteJti ? { jti: operationExecuteJti } : {}),
+                    },
+                  }
+                : undefined,
+            )
 
-          await projectionCtx.observe({
-            name: 'tool.executed',
-            status: 'success',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-          })
-          projectionCtx.wideSummary.emit({ status: 'success' })
-          const finalized = finalizeResult(result)
-          return isDestructive
-            ? markDestructiveExecuted(finalized, (value) => ctx.ok(value as SerializableValue))
-            : finalized
-        } catch (error) {
-          const normalizedError = normalizeMcpError(error)
-          const errorDetails = {
-            category: normalizedError.category,
-            message: normalizedError.message,
-            ...(normalizedError.code ? { code: normalizedError.code } : {}),
+            await projectionCtx.observe({
+              name: 'tool.executed',
+              status: 'success',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+            })
+            projectionCtx.wideSummary.emit({ status: 'success' })
+            const finalized = finalizeResult(result)
+            return isDestructive
+              ? markDestructiveExecuted(finalized, (value) => ctx.ok(value as SerializableValue))
+              : finalized
+          } catch (error) {
+            const normalizedError = normalizeMcpError(error)
+            const errorDetails = {
+              category: normalizedError.category,
+              message: normalizedError.message,
+              ...(normalizedError.code ? { code: normalizedError.code } : {}),
+            }
+            await projectionCtx.observe({
+              name: 'tool.failed',
+              status: 'error',
+              transport: 'mcp',
+              tool: options.meta?.name ?? metadata.name ?? operationId,
+              operation: operationId,
+              reasonCode: 'tool.execution_failed',
+              details: errorDetails,
+            })
+            projectionCtx.wideSummary.emit({
+              status: 'error',
+              details: errorDetails,
+            })
+            return ctx.error(
+              normalizedError.category,
+              normalizedError.message,
+              normalizedError.issues,
+              undefined,
+              normalizedError.details,
+              normalizedError.code,
+            )
           }
-          await projectionCtx.observe({
-            name: 'tool.failed',
-            status: 'error',
-            transport: 'mcp',
-            tool: options.meta?.name ?? metadata.name ?? operationId,
-            operation: operationId,
-            reasonCode: 'tool.execution_failed',
-            details: errorDetails,
-          })
-          projectionCtx.wideSummary.emit({
-            status: 'error',
-            details: errorDetails,
-          })
-          return ctx.error(
-            normalizedError.category,
-            normalizedError.message,
-            normalizedError.issues,
-            undefined,
-            normalizedError.details,
-            normalizedError.code,
-          )
-        }
-      },
-    })
+        },
+      })
+    },
   }
 
   return {

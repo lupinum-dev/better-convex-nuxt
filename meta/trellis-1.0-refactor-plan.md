@@ -35,7 +35,7 @@ Related planning docs:
 ## Global Done Means
 
 - [ ] No public docs mention removed APIs as supported.
-- [ ] `tool.fromOperation(...)` is gone from public API and docs.
+- [x] `tool.fromOperation(...)` is gone from public API and docs.
 - [ ] Raw trusted-forwarding args are gone from production/default paths.
 - [ ] Bridge APIs are gone from core package exports.
 - [ ] Starter generation is fixture-backed for `public`, `personal`,
@@ -354,47 +354,47 @@ the backend source of behavior.
 
 ## Slice 6: MCP Blessed Lanes
 
-Status: pending
+Status: in progress
 
 Goal: keep MCP as a projection of the backend model, not a second backend.
 
 ### Keep
 
-- [ ] `mcp.tool.query(...)`.
-- [ ] `mcp.tool.mutation(...)` for bounded writes only.
-- [ ] `mcp.tool.operation(...)` for destructive, sensitive, audited, external,
+- [x] `mcp.tool.query(...)`.
+- [x] `mcp.tool.mutation(...)` for bounded writes only.
+- [x] `mcp.tool.operation(...)` for destructive, sensitive, audited, external,
       bulk, or previewed work.
 
 ### Delete
 
-- [ ] Delete public `tool.fromOperation(...)`.
-- [ ] Delete generic destructive MCP tool path.
+- [x] Delete public `tool.fromOperation(...)`.
+- [x] Delete generic destructive MCP tool path.
 - [ ] Delete custom tool bypasses that can call protected Convex writes directly.
-- [ ] Delete MCP safety labels that exist only in the tool file.
-- [ ] Delete runtime/type aliases where `tool.operation` is implemented as
+- [x] Delete MCP safety labels that exist only in the tool file.
+- [x] Delete runtime/type aliases where `tool.operation` is implemented as
       `tool.fromOperation`.
 
 ### Replace
 
-- [ ] Direct mutation safety comes from backend/generated ref metadata.
-- [ ] MCP tool declaration may confirm/narrow safety but cannot down-classify.
-- [ ] External side-effect action work becomes operation-backed.
+- [x] Direct mutation safety comes from backend/generated ref metadata.
+- [x] MCP tool declaration may confirm/narrow safety but cannot down-classify.
+- [x] External side-effect action work becomes operation-backed.
 - [ ] Generic custom tools require typed unsafe permit and non-app-write effect.
-- [ ] Doctor, error messages, safety scanners, codemods, and generated docs all
+- [x] Doctor, error messages, safety scanners, codemods, and generated docs all
       teach `mcp.tool.operation(...)`, not `tool.fromOperation(...)`.
 
 ### Prove
 
-- [ ] Direct mutation without bounded-write metadata fails.
-- [ ] Tool-side down-classification fails.
-- [ ] Destructive work through direct mutation/custom tool fails.
+- [x] Direct mutation without bounded-write metadata fails.
+- [x] Tool-side down-classification fails.
+- [x] Destructive work through direct mutation/custom tool fails.
 - [ ] Backend denial remains authoritative over MCP visibility.
 - [ ] Capability/backend drift emits observation.
 
 ### Done Means
 
-- [ ] MCP docs teach only query/mutation/operation lanes.
-- [ ] `tool.fromOperation` is gone.
+- [x] MCP docs teach only query/mutation/operation lanes.
+- [x] `tool.fromOperation` is gone.
 - [ ] No raw app-write escape hatch remains.
 
 ## Slice 7: Fixture-Backed Starters

@@ -110,7 +110,6 @@ describe('CLI doctor', () => {
     expect(result.status, output).toBe(0)
     expect(output).toContain('@lupinum/trellis')
     expect(output).toContain('add')
-    expect(output).toContain('bridge')
     expect(output).toContain('doctor')
     expect(output).toContain('init')
     expect(output).toContain('USAGE')
@@ -131,7 +130,7 @@ describe('CLI doctor', () => {
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
-    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('query.public({')
     expect(todos).toContain('mutation.public({')
     expectNoOldBackendSurface(functions, 'public convex/functions.ts')
@@ -197,7 +196,7 @@ describe('CLI doctor', () => {
     expect(existsSync(resolve(appRoot, 'shared/schemas'))).toBe(false)
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
-    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('query.protected({')
     expect(todos).toContain('mutation.protected({')
     expectNoOldBackendSurface(functions, 'personal convex/functions.ts')
@@ -234,7 +233,7 @@ describe('CLI doctor', () => {
     const functions = read(resolve(appRoot, 'convex/functions.ts'))
     const todos = read(resolve(appRoot, 'convex/features/todos/domain.ts'))
     const mcpKeys = read(resolve(appRoot, 'convex/features/mcpKeys/domain.ts'))
-    expect(functions).toContain("@lupinum/trellis/backend")
+    expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('query.protected({')
     expect(todos).toContain('mutation.protected({')
     expect(mcpKeys).toContain('query.public({')
@@ -352,7 +351,7 @@ describe('CLI doctor', () => {
     expect(uploadsResult.status, `${uploadsResult.stdout}\n${uploadsResult.stderr}`).toBe(0)
     const uploadsDomain = read(resolve(appRoot, 'convex/features/files/domain.ts'))
     expect(uploadsDomain).toContain('generateUploadUrl')
-    expect(uploadsDomain).toContain("@lupinum/trellis/backend")
+    expect(uploadsDomain).toContain('@lupinum/trellis/backend')
     expect(uploadsDomain).toContain('mutation.unsafe({')
     expectNoOldBackendSurface(uploadsDomain, 'uploads domain')
     expect(read(resolve(appRoot, 'app/pages/uploads.vue'))).toContain('UploadsStarterPage')
@@ -1025,7 +1024,7 @@ export const purgeTodoOp = defineOperation({
 import { api } from '~/convex/_generated/api'
 import { todoDelete } from '~/convex/features/todos'
 
-export default tool({
+export default tool.mutation({
   permission: todoDelete,
   call: api.features.todos.domain.remove,
   meta: { name: 'delete-todo' },

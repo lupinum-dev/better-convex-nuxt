@@ -4,10 +4,9 @@ import { listPublishedPagesPermission } from '../../../convex/features/pages/per
 import { listPublishedPages } from '../../../shared/features/pages/contract'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool({
+export default tool.query({
   schema: listPublishedPages,
   call: api.features.pages.domain.listPublished,
-  operation: 'query',
   permission: listPublishedPagesPermission,
   group: 'pages',
   meta: {

@@ -5,10 +5,9 @@ import {
 } from '../../../shared/features/projects/tools'
 import { tool } from '../runtime'
 
-export default tool({
+export default tool.mutation({
   schema: createProjectArgs,
   call: createProjectRef,
-  operation: 'mutation',
   safety: createProjectToolDescriptor.safety,
   meta: {
     name: createProjectToolDescriptor.name,

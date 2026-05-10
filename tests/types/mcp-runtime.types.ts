@@ -10,7 +10,7 @@ import {
   previewOperationRef,
   type DestructiveOperationPreview,
 } from '../../src/runtime/functions'
-import { defineMcpApp, type McpConvexCaller } from '../../src/runtime/mcp'
+import { defineMcpApp, stampMcpToolSafety, type McpConvexCaller } from '../../src/runtime/mcp'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
@@ -46,13 +46,11 @@ const mutationRef = {} as FunctionReference<
   { principal: Principal },
   { published: true }
 >
-
-const actionRef = {} as FunctionReference<
-  'action',
-  'internal',
-  { principal: Principal },
-  { executed: true }
->
+const mutationToolSafety = {
+  kind: 'bounded-write',
+  reason: 'Publishes one entry explicitly named by args.',
+} as const
+const safeMutationRef = stampMcpToolSafety(mutationRef, mutationToolSafety)
 
 const runtime = defineMcpApp<Principal, Capabilities>({
   callConvex: async (_event: H3Event, { principal: _principal, delegation: _delegation }) =>
@@ -65,10 +63,9 @@ const runtime = defineMcpApp<Principal, Capabilities>({
   resolveCapabilities: async () => ({ publishEntry: true, readEntry: true }),
 })
 
-runtime.tool({
+runtime.tool.query({
   schema,
   call: queryRef,
-  operation: 'query',
   permission: readEntryPermission,
   mapResult: ({ result }) => {
     type _mappedQuery = Assert<IsEqual<typeof result, { title: string; count: number }>>
@@ -76,34 +73,27 @@ runtime.tool({
   },
 })
 
-runtime.tool({
+runtime.tool.query({
   schema,
   call: queryRef,
-  operation: 'query',
   permission: readEntryPermission,
   // @ts-expect-error generic MCP previews are unsupported; use tool.operation(...)
   preview: queryRef,
 })
 
-runtime.tool({
+runtime.tool.mutation({
   schema,
-  call: mutationRef,
+  call: safeMutationRef,
   permission: publishEntryPermission,
+  safety: mutationToolSafety,
   respond: ({ result, ok }) => {
     type _mutationResult = Assert<IsEqual<typeof result, { published: true }>>
     return ok(result)
   },
 })
 
-runtime.tool({
-  schema,
-  call: actionRef,
-  operation: 'action',
-  respond: ({ result, ok }) => {
-    type _actionResult = Assert<IsEqual<typeof result, { executed: true }>>
-    return ok(result)
-  },
-})
+// @ts-expect-error Direct action projection is intentionally unavailable; use tool.operation(...)
+runtime.tool.action
 
 const archiveEntryOp = defineOperation({
   id: 'entries.archive',

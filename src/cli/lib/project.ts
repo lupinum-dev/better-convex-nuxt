@@ -673,12 +673,18 @@ export function findDestructiveMcpToolsWithoutOperationBinding(
       continue
     }
     if (/tool\.operation\s*\(/.test(sourceFile.text)) continue
-    if (!/export\s+default\s+tool\s*\(|defineConvexTool\s*\(/.test(sourceFile.text)) continue
+    if (
+      !/export\s+default\s+tool\.(?:query|mutation)\s*\(|defineConvexTool\s*\(/.test(
+        sourceFile.text,
+      )
+    ) {
+      continue
+    }
     if (!looksDestructiveTool(sourceFile.text, sourceFile.path)) continue
 
     const firstMatch =
       sourceFile.text.match(
-        /export\s+default\s+tool\s*\(|defineConvexTool\s*\(|delete|remove|archive|revoke|destroy|purge|bulk-delete|bulkDelete/i,
+        /export\s+default\s+tool\.(?:query|mutation)\s*\(|defineConvexTool\s*\(|delete|remove|archive|revoke|destroy|purge|bulk-delete|bulkDelete/i,
       ) ?? null
     const matchIndex = firstMatch?.index ?? 0
     const line = sourceFile.text.slice(0, matchIndex).split(/\r?\n/).length

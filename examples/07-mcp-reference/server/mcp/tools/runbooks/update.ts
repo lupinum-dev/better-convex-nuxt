@@ -1,13 +1,21 @@
+import { stampMcpToolSafety } from '@lupinum/trellis/mcp'
+
 import { api } from '#trellis/api'
 import { runbookCreate } from '~/convex/features/runbooks/permissions'
 import { updateRunbook } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 
-export default tool({
+const updateRunbookSafety = {
+  kind: 'bounded-write',
+  reason: 'Updates one runbook explicitly named by args.',
+} as const
+
+export default tool.mutation({
   schema: updateRunbook,
-  call: api.features.runbooks.domain.update,
+  call: stampMcpToolSafety(api.features.runbooks.domain.update, updateRunbookSafety),
   permission: runbookCreate,
+  safety: updateRunbookSafety,
   group: 'workspace',
   middleware: async (args, ctx, next) => {
     if (

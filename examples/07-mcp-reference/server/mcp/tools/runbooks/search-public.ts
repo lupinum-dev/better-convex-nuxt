@@ -3,12 +3,11 @@ import { searchRunbooks } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 
-export default tool({
+export default tool.query({
   schema: searchRunbooks,
   call: api.features.runbooks.domain.searchPublic,
   group: 'public',
   tags: ['search', 'public'],
-  operation: 'query',
   rateLimit: { max: 20, window: '1m' },
   middleware: async (args, ctx, next) => {
     if (args.term.trim().length < 2) {

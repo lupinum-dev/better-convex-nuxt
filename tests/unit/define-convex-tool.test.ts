@@ -451,10 +451,9 @@ describe('defineMcpApp middleware forwarding', () => {
       kind: 'bounded-write',
       reason: 'Updates one runbook explicitly named by args.',
     })
-    const tool = mcp.tool({
+    const tool = mcp.tool.mutation({
       schema: emptySchema,
       call: updateRunbook,
-      operation: 'mutation',
       safety: {
         kind: 'bounded-write',
         reason: 'Updates one runbook explicitly named by args.',
@@ -549,10 +548,9 @@ describe('MCP rate-limit integration', () => {
       },
     })
     const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
-    const tool = mcp.tool({
+    const tool = mcp.tool.mutation({
       schema: emptySchema,
       call: createPost,
-      operation: 'mutation',
       safety: createPostDescriptor.safety,
       rateLimit: { max: 1, window: '1m' },
       meta: { name: 'limited-project-tool' },
@@ -599,10 +597,9 @@ describe('MCP rate-limit integration', () => {
     })
 
     expect(() =>
-      mcp.tool({
+      mcp.tool.mutation({
         schema: emptySchema,
         call: createPost,
-        operation: 'mutation',
         safety: createPostDescriptor.safety,
       }),
     ).not.toThrow()
@@ -623,10 +620,9 @@ describe('MCP rate-limit integration', () => {
     })
 
     expect(() =>
-      mcp.tool({
+      mcp.tool.mutation({
         schema: emptySchema,
         call: {} as never,
-        operation: 'mutation',
         safety: {
           kind: 'bounded-write',
           reason: 'Creates one record.',
@@ -654,10 +650,9 @@ describe('MCP rate-limit integration', () => {
     })
 
     expect(() =>
-      mcp.tool({
+      mcp.tool.mutation({
         schema: emptySchema,
         call: publishPost,
-        operation: 'mutation',
         safety: {
           kind: 'sensitive-write',
           reason: 'Publishes content.',

@@ -6,12 +6,11 @@ import { listRunbooks } from '~/shared/features/runbooks/contract'
 
 import { tool } from '../../runtime'
 
-export default tool({
+export default tool.query({
   schema: listRunbooks,
   call: api.features.runbooks.domain.workspaceOverview,
   permission: runbookRead,
   group: 'workspace',
-  operation: 'query',
   outputSchema: {
     total: z.number(),
     public: z.number(),

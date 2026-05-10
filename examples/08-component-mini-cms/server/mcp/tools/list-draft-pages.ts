@@ -4,10 +4,9 @@ import { listDraftPagesPermission } from '../../../convex/features/pages/permiss
 import { listDraftPages } from '../../../shared/features/pages/contract'
 import { tool } from '../../lib/mcp-runtime'
 
-export default tool({
+export default tool.query({
   schema: listDraftPages,
   call: api.features.pages.domain.listDraft,
-  operation: 'query',
   permission: listDraftPagesPermission,
   group: 'pages',
   meta: {

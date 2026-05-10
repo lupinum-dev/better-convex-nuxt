@@ -491,10 +491,9 @@ import { list${ctx.pluralPascal} } from '~~/shared/features/${ctx.tableName}/con
 
 import { tool } from '../runtime'
 
-export default tool({
+export default tool.query({
   schema: list${ctx.pluralPascal},
   call: api.features.${ctx.tableName}.domain.list,
-  operation: 'query',
   permission: ${ctx.singularCamel}ReadPermission,
   meta: {
     name: 'list-${ctx.fileStem}',
@@ -506,15 +505,22 @@ export default tool({
 function resourceMcpCreateTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { api } from '#trellis/api'
+import { stampMcpToolSafety } from '@lupinum/trellis/mcp'
 import { ${ctx.singularCamel}CreatePermission } from '~~/convex/features/${ctx.tableName}'
 import { create${ctx.singularPascal} } from '~~/shared/features/${ctx.tableName}/contract'
 
 import { tool } from '../runtime'
 
-export default tool({
+const create${ctx.singularPascal}Safety = {
+  kind: 'bounded-write',
+  reason: 'Creates one ${ctx.singularCamel} named by args.',
+} as const
+
+export default tool.mutation({
   schema: create${ctx.singularPascal},
-  call: api.features.${ctx.tableName}.domain.create,
+  call: stampMcpToolSafety(api.features.${ctx.tableName}.domain.create, create${ctx.singularPascal}Safety),
   permission: ${ctx.singularCamel}CreatePermission,
+  safety: create${ctx.singularPascal}Safety,
   meta: {
     name: 'create-${ctx.fileStem}',
   },
