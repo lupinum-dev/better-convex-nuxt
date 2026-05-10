@@ -38,57 +38,59 @@ should remove that mismatch directly.
 
 ### 1. Inspect The Exact Ginko Binding
 
-- [ ] Read `packages/cms/src/server/mcp/runtime.ts` and confirm the destructive
+- [x] Read `packages/cms/src/server/mcp/runtime.ts` and confirm the destructive
       branch currently builds `executeOperationRef(...)`,
       `transportExecuteOperationRef(...)`, and `previewOperationRef(...)`.
-- [ ] Read `test/shared/mcp-tools.test.ts` and identify assertions that mention
+- [x] Read `test/shared/mcp-tools.test.ts` and identify assertions that mention
       `rawMcpRuntime.tool.fromOperation`.
-- [ ] Confirm whether Ginko imports the Trellis MCP runtime from source,
+- [x] Confirm whether Ginko imports the Trellis MCP runtime from source,
       workspace package, or packed package in the focused test path.
 
 ### 2. Migrate The Active Binding
 
-- [ ] Replace the destructive branch call with
+- [x] Replace the destructive branch call with
       `rawMcpRuntime.tool.operation(operation, { ... })`.
-- [ ] Update the runtime error message to say
-      `Trellis tool.operation(...)`, not `tool.fromOperation(...)`.
-- [ ] Delete any defensive runtime check for `rawMcpRuntime.tool.fromOperation`.
+- [x] Delete the legacy runtime error message for `tool.fromOperation(...)`.
+- [x] Delete any defensive runtime check for `rawMcpRuntime.tool.fromOperation`.
       The current Trellis runtime must expose `tool.operation(...)`; if not, the
       type/test failure is the useful signal.
-- [ ] Keep `previewOperationRef(operation, preview)`.
-- [ ] Keep `executeOperationRef(operation, call)`.
-- [ ] Keep `transportExecuteOperationRef(operation, call)`.
-- [ ] Keep Ginko capability gating and confirmation-store behavior unchanged.
+- [x] Keep `previewOperationRef(operation, preview)`.
+- [x] Keep `executeOperationRef(operation, call)`.
+- [x] Keep `transportExecuteOperationRef(operation, call)`.
+- [x] Keep Ginko capability gating and confirmation-store behavior unchanged.
 
 ### 3. Update Focused Ginko Tests
 
-- [ ] Update `test/shared/mcp-tools.test.ts` to expect
+- [x] Update `test/shared/mcp-tools.test.ts` to expect
       `rawMcpRuntime.tool.operation`.
-- [ ] Add or adjust a negative assertion proving `fromOperation` is not required
+- [x] Add or adjust a negative assertion proving `fromOperation` is not required
       by the Ginko runtime wrapper.
-- [ ] Keep package-boundary assertions for deleted old imports intact.
+- [x] Keep package-boundary assertions for deleted old imports intact.
 
 ### 4. Add Trellis-Side Cross-Repo Evidence
 
-- [ ] Update `meta/trellis-1.0-refactor-plan.md` with a Sprint 66 note.
-- [ ] Mark the Ginko destructive MCP wrapper checklist item complete only if the
+- [x] Update `meta/trellis-1.0-refactor-plan.md` with a Sprint 66 note.
+- [x] Mark the Ginko destructive MCP wrapper checklist item complete only if the
       focused Ginko tests pass.
-- [ ] Do not mark packed Trellis package install or full Ginko `pnpm run check`
+- [x] Do not mark packed Trellis package install or full Ginko `pnpm run check`
       complete unless those gates actually run and pass in this sprint.
 
 ### 5. Verify
 
-- [ ] In Ginko:
+- [x] In Ginko:
       `pnpm exec vitest run test/shared/mcp-tools.test.ts`
-- [ ] In Ginko:
+- [x] In Ginko:
       `pnpm exec vitest run test/module/package-boundaries.test.ts test/shared/mcp-tools.test.ts`
-- [ ] In Ginko:
-      `rg -n "rawMcpRuntime\\.tool\\.fromOperation|tool\\.fromOperation" packages/cms/src test/shared test/module`
-- [ ] In Trellis:
+- [x] In Ginko:
+      `rg -n "rawMcpRuntime\\.tool\\.fromOperation|tool\\.fromOperation" packages/cms/src`
+- [x] In Ginko:
+      `rg -n "rawMcpRuntime\\.tool\\.fromOperation|tool\\.fromOperation" test/shared test/module`
+      returns only negative assertions.
+- [x] In Trellis:
       `pnpm run check:repo-policies`
-- [ ] In Trellis:
+- [x] In Trellis:
       `pnpm exec oxfmt --check meta/refactor/sprint66-ginko-mcp-operation-binding-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] In Trellis and Ginko:
+- [x] In Trellis and Ginko:
       `git diff --check`
 
 ## Done Means
@@ -98,3 +100,12 @@ should remove that mismatch directly.
 - No Ginko active MCP runtime/test path depends on `tool.fromOperation(...)`.
 - Trellis tracker records the Ginko MCP operation binding cutover.
 - Full Ginko package/e2e gates remain honestly open unless run.
+
+## Result
+
+- Ginko `packages/cms/src/server/mcp/runtime.ts` now binds destructive tools
+  through `rawMcpRuntime.tool.operation(...)`.
+- The legacy `rawMcpRuntime.tool.fromOperation` defensive check and error
+  message are deleted.
+- Ginko focused MCP tests now assert the current operation lane and retain a
+  negative assertion against the old spelling.

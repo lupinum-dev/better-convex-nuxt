@@ -804,7 +804,7 @@ the design, without letting them keep old Trellis paths alive.
 - [ ] Migrate Ginko component bridge factories, generated host refs, and test
       helpers from raw `_trustedForwardingKey` / `_trustedForwarding` fields to
       signed `_trellisForwarding` envelopes.
-- [ ] Migrate Ginko destructive MCP wrapper code from
+- [x] Migrate Ginko destructive MCP wrapper code from
       `rawMcpRuntime.tool.fromOperation(...)` to `mcp.tool.operation(...)`.
 - [ ] Update Ginko docs/setup examples so Ginko users see `ginko-cms init`,
       Ginko-owned bridge health commands, and Ginko terminology rather than
@@ -819,7 +819,7 @@ the design, without letting them keep old Trellis paths alive.
 - [ ] Ginko CMS `pnpm run check` passes against packed Trellis packages.
 - [ ] Ginko CMS package-boundary and no-zombie-path tests pass after import
       updates.
-- [ ] Ginko destructive MCP confirmation tests pass using only
+- [x] Ginko destructive MCP confirmation tests pass using only
       `mcp.tool.operation(...)`.
 - [ ] Ginko bridge package/e2e validation proves no raw forwarding fields remain
       in generated or authored bridge paths.
@@ -958,6 +958,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   from `rawMcpRuntime.tool.fromOperation(...)` to
   `rawMcpRuntime.tool.operation(...)`, leaving broader Ginko bridge/raw
   forwarding/package validation open until their own focused sprint.
+- Sprint 66 completed the Ginko MCP operation binding cutover. Ginko
+  `packages/cms/src/server/mcp/runtime.ts` now routes destructive tools through
+  `rawMcpRuntime.tool.operation(...)`; focused Ginko MCP/package-boundary tests
+  pass and only negative test assertions mention `tool.fromOperation(...)`.
 
 ### Done Means
 
