@@ -2,6 +2,7 @@ import { renderUsage, runCommand, defineCommand } from 'citty'
 
 import { addCommand } from './commands/add.js'
 import { doctorCommand } from './commands/doctor.js'
+import { explainCommand } from './commands/explain.js'
 import { initCommand } from './commands/init.js'
 import { upgradeCommand } from './commands/upgrade.js'
 
@@ -19,6 +20,7 @@ export function createCliCommand() {
     subCommands: {
       add: addCommand,
       doctor: doctorCommand,
+      explain: explainCommand,
       init: initCommand,
       upgrade: upgradeCommand,
     },

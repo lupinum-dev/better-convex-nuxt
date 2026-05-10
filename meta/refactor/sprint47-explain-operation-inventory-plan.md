@@ -97,42 +97,42 @@ and, in JSON mode, include available operation ids. Do not dump source snippets.
 
 ### 1. Add Explain Command Shell
 
-- [ ] Add `src/cli/commands/explain.ts`.
-- [ ] Register `explain` in `src/cli/main.ts`.
-- [ ] Support `trellis explain operation <id>`.
-- [ ] Support `--cwd`, `--json`, and `--color` consistently with doctor/upgrade.
+- [x] Add `src/cli/commands/explain.ts`.
+- [x] Register `explain` in `src/cli/main.ts`.
+- [x] Support `trellis explain operation <id>`.
+- [x] Support `--cwd`, `--json`, and `--color` consistently with doctor/upgrade.
 
 ### 2. Build Inventory-Backed Operation Explanation
 
-- [ ] Inspect the project once and collect `TrellisCliInventory`.
-- [ ] Find the operation by exact `inventory.publicSurface.operations[*].id`.
-- [ ] Include preview/execute projections from `inventory.publicSurface.projections`.
-- [ ] Include feature references whose `operationRefs` mention the operation
+- [x] Inspect the project once and collect `TrellisCliInventory`.
+- [x] Find the operation by exact `inventory.publicSurface.operations[*].id`.
+- [x] Include preview/execute projections from `inventory.publicSurface.projections`.
+- [x] Include feature references whose `operationRefs` mention the operation
       export name.
-- [ ] Include operation-backed MCP tools if inventory can prove the binding
+- [x] Include operation-backed MCP tools if inventory can prove the binding
       safely; otherwise state that operation-specific MCP binding cannot yet be
       derived from current tool metadata.
-- [ ] Do not parse implementation bodies or import Convex modules.
+- [x] Do not parse implementation bodies or import Convex modules.
 
 ### 3. Output And Errors
 
-- [ ] Human output is readable and stable.
-- [ ] JSON output is versioned and secret-safe.
-- [ ] Missing operation exits non-zero with available operation ids.
-- [ ] Empty operation inventory reports that no operations were found.
+- [x] Human output is readable and stable.
+- [x] JSON output is versioned and secret-safe.
+- [x] Missing operation exits non-zero with available operation ids.
+- [x] Empty operation inventory reports that no operations were found.
 
 ### 4. Tests
 
-- [ ] Add CLI tests for human and JSON explain output.
-- [ ] Add missing-operation test.
-- [ ] Add generated/no-operation app test.
-- [ ] Ensure explain output uses inventory paths and does not include snippets.
+- [x] Add CLI tests for human and JSON explain output.
+- [x] Add missing-operation test.
+- [x] Add generated/no-operation app test.
+- [x] Ensure explain output uses inventory paths and does not include snippets.
 
 ### 5. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Mark `explain operation <id>` complete only if the command exists and is
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Mark `explain operation <id>` complete only if the command exists and is
       backed by `TrellisCliInventory`.
 
 ## Verification
@@ -168,10 +168,22 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `trellis explain operation <id>` exists.
-- [ ] Operation explanation is built from `TrellisCliInventory`.
-- [ ] JSON output is versioned and safe to share.
-- [ ] Missing operation diagnostics are clear and list available operation ids.
-- [ ] No new operation scanner is added.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] `trellis explain operation <id>` exists.
+- [x] Operation explanation is built from `TrellisCliInventory`.
+- [x] JSON output is versioned and safe to share.
+- [x] Missing operation diagnostics are clear and list available operation ids.
+- [x] No new operation scanner is added.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `trellis explain operation <id>` with human and versioned JSON output.
+- Operation explanations are built from `TrellisCliInventory` operations,
+  projections, and feature refs.
+- MCP tool output is intentionally honest: current inventory can identify
+  operation-backed tools, but not the exact operation id each tool binds to, so
+  operation-specific MCP bindings are reported as not derivable instead of
+  guessed.
+- Missing operation diagnostics list available operation ids, and empty
+  operation inventory reports `no-operations`.

@@ -461,7 +461,7 @@ docs generation, and future explain commands.
 - [x] Doctor reads inventory/finding engine.
 - [x] Public surface checks reuse inventory where useful.
 - [x] Upgrade `--check` uses inventory.
-- [ ] `explain operation <id>` uses inventory if included in 1.0.
+- [x] `explain operation <id>` uses inventory if included in 1.0.
 
 ### Delete
 
@@ -560,10 +560,13 @@ docs generation, and future explain commands.
 - Sprint 47 is planned to add the first `trellis explain` surface:
   `trellis explain operation <id>`, backed by `TrellisCliInventory` operation,
   projection, feature, and MCP tool metadata.
+- Sprint 47 added `trellis explain operation <id>` with human and versioned JSON
+  output from `TrellisCliInventory`. Operation-specific MCP tool bindings are
+  reported as not derivable until tool metadata carries operation ids.
 
 ### Done Means
 
-- [ ] One inventory path explains the app.
+- [x] One inventory path explains the app.
 - [x] Machine-readable output is stable and secret-safe.
 
 ## Slice 9: Bridge Extraction

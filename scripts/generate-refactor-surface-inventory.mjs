@@ -122,9 +122,11 @@ const commandRows = [
             ? 'keep; inventory-backed'
             : command === 'upgrade'
               ? 'keep; inventory-backed migration audit'
-              : command === 'add'
-                ? 'keep; fixture/inventory-backed only'
-                : 'delete unless Slice 1 adds an owner'
+              : command === 'explain'
+                ? 'keep; inventory-backed operation explain'
+                : command === 'add'
+                  ? 'keep; fixture/inventory-backed only'
+                  : 'delete unless Slice 1 adds an owner'
     return [`command`, `\`trellis ${command}\``, action]
   }),
   ...inventory.cli.initTemplates.map((template) => {

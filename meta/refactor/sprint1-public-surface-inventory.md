@@ -83,16 +83,17 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## CLI And Starter Surface
 
-| Kind          | Name              | Sprint 1 Action                        |
-| ------------- | ----------------- | -------------------------------------- |
-| command       | `trellis add`     | keep; fixture/inventory-backed only    |
-| command       | `trellis doctor`  | keep; inventory-backed                 |
-| command       | `trellis init`    | keep; fixture-backed only              |
-| command       | `trellis upgrade` | keep; inventory-backed migration audit |
-| init template | `personal`        | keep; fixture-backed                   |
-| init template | `public`          | keep; fixture-backed                   |
-| init template | `workspace`       | keep; fixture-backed                   |
-| init template | `workspace-mcp`   | keep; canonical MCP starter            |
+| Kind          | Name              | Sprint 1 Action                          |
+| ------------- | ----------------- | ---------------------------------------- |
+| command       | `trellis add`     | keep; fixture/inventory-backed only      |
+| command       | `trellis doctor`  | keep; inventory-backed                   |
+| command       | `trellis explain` | keep; inventory-backed operation explain |
+| command       | `trellis init`    | keep; fixture-backed only                |
+| command       | `trellis upgrade` | keep; inventory-backed migration audit   |
+| init template | `personal`        | keep; fixture-backed                     |
+| init template | `public`          | keep; fixture-backed                     |
+| init template | `workspace`       | keep; fixture-backed                     |
+| init template | `workspace-mcp`   | keep; canonical MCP starter              |
 
 ## Docs/Templates That Still Teach Old Paths
 
