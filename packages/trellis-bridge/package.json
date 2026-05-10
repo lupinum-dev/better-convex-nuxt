@@ -1,17 +1,13 @@
 {
   "name": "@lupinum/trellis-bridge",
   "version": "0.0.0",
-  "description": "Bridge package boundary for Trellis-aware Convex component integrations",
-  "type": "module",
   "private": true,
+  "description": "Bridge package boundary for Trellis-aware Convex component integrations",
   "files": [
     "dist",
     "README.md"
   ],
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "prepack": "pnpm run build"
-  },
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,15 +20,20 @@
       "default": "./dist/component.js"
     }
   },
-  "peerDependencies": {
-    "@lupinum/trellis": "workspace:*",
-    "convex": "^1.32.0",
-    "convex-helpers": "^0.1.114"
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "consola": "^3.4.2"
   },
   "devDependencies": {
-    "@lupinum/trellis": "workspace:*"
+    "@lupinum/trellis": "workspace:*",
+    "convex": "1.37.0"
+  },
+  "peerDependencies": {
+    "@lupinum/trellis": "workspace:*",
+    "convex": "^1.32.0",
+    "convex-helpers": "^0.1.114"
   }
 }

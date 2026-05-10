@@ -5,15 +5,11 @@
  * later when comments attach the returned storage id.
  */
 import { requireAuth } from '@lupinum/trellis/auth'
-import { unsafe as unsafePermit, type ActorAccessor } from '@lupinum/trellis/backend'
-import type { GenericMutationCtx } from 'convex/server'
+import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { generateUploadUrl } from '../../../shared/features/files/contract'
-import type { DataModel } from '../../_generated/dataModel'
-import type { Actor } from '../../auth/actor'
+import { getActor } from '../../auth/actor'
 import { mutation } from '../../functions'
-
-type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
 
 export const generateUploadUrlMutation = mutation.unsafe({
   permit: unsafePermit.permit({
@@ -22,8 +18,8 @@ export const generateUploadUrlMutation = mutation.unsafe({
     scope: ['files'],
   }),
   args: generateUploadUrl.args,
-  handler: async (ctx: Ctx) => {
-    const actor = await ctx.actor()
+  handler: async (ctx) => {
+    const actor = await getActor(ctx)
     requireAuth(actor)
     return await (
       ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }

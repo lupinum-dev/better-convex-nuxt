@@ -34,7 +34,16 @@ const principal = definePrincipal({
   resolve: async (): Promise<Principal> => ({ kind: 'service', service: 'mcp' }),
 })
 
-const bridge = createComponentBridge(builders, { principal })
+const bridge = createComponentBridge<
+  DataModel,
+  'public',
+  'public',
+  'internal',
+  'internal',
+  'public',
+  'internal',
+  Principal
+>(builders, { principal })
 
 const queryRef = {} as FunctionReference<
   'query',

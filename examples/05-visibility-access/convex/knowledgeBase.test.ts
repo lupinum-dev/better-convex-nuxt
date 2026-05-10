@@ -7,13 +7,16 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+// eslint-disable-next-line no-restricted-imports -- Example tests sign confirmation tokens directly to exercise backend operation execution without MCP.
 import {
   hashConfirmationValue,
   signConfirmationToken,
-} from '../../../src/runtime/mcp/confirmation-token'
+} from '../../../src/runtime/functions/confirmation-token'
 import { api } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import { shareCreate } from './features/articles'
 import { kbCreate, kbRead } from './features/knowledgeBases'
 import schema from './schema'
@@ -22,6 +25,13 @@ import { modules } from './test.setup'
 function createCtx() {
   return createTestContext({ schema, modules })
 }
+
+const revokeShareTokenMutation = api.features.articles.domain.revokeShareToken as FunctionReference<
+  'mutation',
+  'public',
+  { tokenId: Id<'shareTokens'>; _confirmationToken: string },
+  null
+>
 
 async function destructiveConfirmationToken(args: {
   operationId: string
@@ -506,7 +516,7 @@ describe('share tokens', () => {
       revokeArgs,
     )
 
-    await team.users.editor.mutation(api.features.articles.domain.revokeShareToken, {
+    await team.users.editor.mutation(revokeShareTokenMutation, {
       ...revokeArgs,
       _confirmationToken: await destructiveConfirmationToken({
         operationId: 'shareTokens.revoke',

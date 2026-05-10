@@ -28,6 +28,8 @@ The failure has two separate causes:
 2. `src/runtime/type-primitives/index.ts` still expects operation registry types
    from `@lupinum/trellis/backend`, but the backend barrel no longer re-exports
    all of them after the 1.0 surface cleanup.
+3. The canonical examples still used older Convex-era dependency versions, so
+   their typecheck ran against a second Convex type universe.
 
 ## Constraints
 
@@ -47,59 +49,85 @@ The failure has two separate causes:
 
 ### 1. Reproduce And Classify The Current Failure
 
-- [ ] Run `pnpm run test:types`.
-- [ ] Record the failure groups in this sprint doc:
+- [x] Run `pnpm run test:types`.
+- [x] Record the failure groups in this sprint doc:
       root fixture inclusion, type-primitives/backend export drift, and any
       remaining true runtime type error.
-- [ ] Do not fix by suppressing diagnostics globally.
+- [x] Do not fix by suppressing diagnostics globally.
 
 ### 2. Fix Root Nuxt Typecheck Scope
 
-- [ ] Update `tsconfig.nuxt.json` so root `vue-tsc` excludes
+- [x] Update `tsconfig.nuxt.json` so root `vue-tsc` excludes
       `src/cli/starter-fixtures/**` and `src/cli/add-fixtures/**`.
-- [ ] Keep `src/cli/**` implementation files included.
-- [ ] Verify root Nuxt typecheck no longer treats generated starter app files as
+- [x] Keep `src/cli/**` implementation files included.
+- [x] Verify root Nuxt typecheck no longer treats generated starter app files as
       root app code.
-- [ ] Confirm starter fixture validation still owns fixture correctness.
+- [x] Confirm starter fixture validation still owns fixture correctness.
 
 ### 3. Repair Type-Primitives Operation Registry Exports
 
-- [ ] Decide the canonical public owner for operation registry types used by
+- [x] Decide the canonical public owner for operation registry types used by
       `@lupinum/trellis/type-primitives`.
-- [ ] Prefer re-exporting existing public types from `@lupinum/trellis/backend`
+- [x] Prefer re-exporting existing public types from `@lupinum/trellis/backend`
       if they are part of the 1.0 contract.
-- [ ] Otherwise update `type-primitives` to import from the actual canonical
-      public owner without exposing a second path.
-- [ ] Add or adjust a public type test if the operation registry type surface is
+- [x] Avoid a second `type-primitives` import path; `backend` remains the
+      canonical public owner for these operation registry types.
+- [x] Add or adjust a public type test if the operation registry type surface is
       meant to remain public.
 
 ### 4. Fix Real Runtime Type Errors
 
-- [ ] Fix the `src/module-internals/starter-fixture-codegen.ts` strictness issue
+- [x] Fix the `src/module-internals/starter-fixture-codegen.ts` strictness issue
       directly, not with a cast that hides invalid manifest paths.
-- [ ] Run `vue-tsc -p tsconfig.nuxt.json --noEmit` after each fix until the root
+- [x] Run `vue-tsc -p tsconfig.nuxt.json --noEmit` after each fix until the root
       typecheck is clean.
 
-### 5. Update Refactor Tracker
+### 5. Align Canonical Example Type Gates
 
-- [ ] Add a Sprint 59 note under Slice 13 verification or the most relevant
+- [x] Align maintained examples and harness package manifests to the repo's
+      current Convex, Better Auth, TypeScript, Vitest, and `convex-test`
+      versions.
+- [x] Align doctor fixture package manifests so the workspace installs one
+      Convex version.
+- [x] Add the bridge package's direct Convex dev dependency so bridge type tests
+      do not resolve a different peer copy.
+- [x] Repair stale example tests after confirmation-token moved under
+      `functions`.
+- [x] Keep destructive confirmation typing local to the generated API call sites
+      instead of adding a compatibility surface.
+
+### 6. Update Refactor Tracker
+
+- [x] Add a Sprint 59 note under Slice 13 verification or the most relevant
       active slice.
-- [ ] Mark type checks complete only if `pnpm run test:types` passes.
-- [ ] If fixture validation reveals separate fixture failures, open a follow-up
+- [x] Mark type checks complete only if `pnpm run test:types` passes.
+- [x] If fixture validation reveals separate fixture failures, open a follow-up
       sprint instead of folding unrelated fixture app work into this one.
 
 ## Verification
 
-- [ ] `pnpm exec vue-tsc -p tsconfig.nuxt.json --noEmit`
-- [ ] `pnpm run test:types:public`
-- [ ] `pnpm run test:types`
-- [ ] `pnpm run check:starter-fixtures`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/api-surface-doc.test.ts tests/unit/runtime-facade-boundaries.test.ts`
-- [ ] `pnpm exec oxfmt --check tsconfig.nuxt.json src/runtime/backend/index.ts src/runtime/type-primitives/index.ts src/module-internals/starter-fixture-codegen.ts meta/refactor/sprint59-type-gate-repair-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vue-tsc -p tsconfig.nuxt.json --noEmit`
+- [x] `pnpm run test:types:public`
+- [x] `pnpm run test:types`
+- [x] `pnpm run build:cli && pnpm run check:starter-fixtures`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec vitest run --project=unit tests/unit/api-surface-doc.test.ts tests/unit/runtime-facade-boundaries.test.ts`
+- [x] `pnpm exec eslint examples/04-saas-platform/convex/projectBoard.test.ts examples/05-visibility-access/convex/knowledgeBase.test.ts --ignore-pattern '**/_generated/**'`
+- [x] `pnpm exec oxfmt --check ...`
+- [x] `git diff --check`
+
+## Result
+
+- Root Nuxt typecheck now excludes starter/add fixture app source while keeping
+  CLI implementation source in scope.
+- `@lupinum/trellis/backend` re-exports the operation registry types consumed by
+  `@lupinum/trellis/type-primitives`.
+- Maintained examples and doctor fixtures no longer install a second Convex
+  type universe.
+- Starter fixture validation still owns generated starter correctness and passes
+  after rebuilding the CLI fixture assets.
 
 ## Done Means
 

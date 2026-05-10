@@ -887,12 +887,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 ### Verify
 
 - [ ] Full unit suite.
-- [ ] Type checks.
+- [x] Type checks.
 - [ ] Lint/format checks.
-- [ ] Docs API surface.
-- [ ] Publish surface.
-- [ ] Fixture starter generation.
-- [ ] Doctor on generated starters.
+- [x] Docs API surface.
+- [x] Publish surface.
+- [x] Fixture starter generation.
+- [x] Doctor on generated starters.
 - [ ] Forwarding benchmark.
 - [ ] Bridge fixture tests.
 - [ ] Cross-repo examples/harness/Ginko gate.
@@ -907,11 +907,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 
 ### Sprint Notes
 
-- Sprint 59 is planned to repair the aggregate `test:types` gate after the hard
-  cuts. The expected fixes are to keep starter/add fixture source out of the
-  root Nuxt typecheck, repair operation registry type exports for
-  `type-primitives`, and fix any true runtime strictness errors without adding
-  compatibility aliases.
+- Sprint 59 repaired the aggregate `test:types` gate after the hard cuts.
+  Starter/add fixture source is excluded from the root Nuxt typecheck and still
+  covered by starter validation, backend re-exports the operation registry types
+  consumed by `type-primitives`, maintained examples share the current Convex
+  dependency set, and stale confirmation-token imports in example tests now use
+  the canonical functions path.
 
 ### Done Means
 

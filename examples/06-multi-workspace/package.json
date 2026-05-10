@@ -13,21 +13,21 @@
     "convex:codegen": "convex codegen"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.11.4",
+    "@convex-dev/better-auth": "^0.12.2",
     "@iconify-json/lucide": "^1.2.101",
     "@lupinum/trellis": "workspace:*",
     "@nuxt/ui": "^4.7.0",
-    "better-auth": "^1.5.6",
-    "convex": "^1.36.1",
+    "better-auth": "1.6.9",
+    "convex": "1.37.0",
     "convex-helpers": "^0.1.114",
     "nuxt": "^4.4.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
-    "convex-test": "^0.0.46",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.2",
+    "convex-test": "^0.0.47",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.4",
     "vue-tsc": "^3.2.6"
   }
 }

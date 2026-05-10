@@ -17,6 +17,8 @@
     "apps/docs",
     "examples",
     "labs",
+    "src/cli/add-fixtures",
+    "src/cli/starter-fixtures",
     "src/runtime/server"
   ]
 }

@@ -6,13 +6,16 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+// eslint-disable-next-line no-restricted-imports -- Example tests sign confirmation tokens directly to exercise backend operation execution without MCP.
 import {
   hashConfirmationValue,
   signConfirmationToken,
-} from '../../../src/runtime/mcp/confirmation-token'
+} from '../../../src/runtime/functions/confirmation-token'
 import { api, internal } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import { commentCreate } from './features/comments'
 import * as filesDomain from './features/files'
 import { projectExport } from './features/projects'
@@ -23,6 +26,13 @@ import { modules } from './test.setup'
 function createCtx() {
   return createTestContext({ schema, modules })
 }
+
+const archiveProjectMutation = api.features.projects.domain.archive as FunctionReference<
+  'mutation',
+  'public',
+  { id: Id<'projects'>; _confirmationToken: string },
+  null
+>
 
 async function destructiveConfirmationToken(args: {
   operationId: string
@@ -131,7 +141,7 @@ describe('server integration workspace example', () => {
       api.features.projects.operations.previewArchiveProject,
       archiveArgs,
     )
-    await team.users.owner.mutation(api.features.projects.domain.archive, {
+    await team.users.owner.mutation(archiveProjectMutation, {
       ...archiveArgs,
       _confirmationToken: await destructiveConfirmationToken({
         operationId: 'projects.archive',

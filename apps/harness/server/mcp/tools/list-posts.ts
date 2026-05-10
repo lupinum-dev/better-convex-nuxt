@@ -5,6 +5,18 @@ import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 import { tool } from '../runtime'
 
 const harnessApi = api as any
+type HarnessPost = {
+  _id: unknown
+  title: unknown
+  content: unknown
+  status: unknown
+  ownerId: unknown
+  organizationId: unknown
+  publishedAt?: unknown
+  createdAt: unknown
+  updatedAt: unknown
+  _can: unknown
+}
 
 const schema = defineArgs({
   description: 'List all posts in the current organization',
@@ -21,8 +33,9 @@ export default tool.query({
   meta: {
     name: 'list-posts',
   },
-  mapResult: ({ result: posts }) => {
-    const items = posts.map((post: any) => ({
+  mapResult: ({ result }) => {
+    const posts = result as HarnessPost[]
+    const items = posts.map((post) => ({
       id: String(post._id),
       title: String(post.title),
       content: String(post.content),
@@ -37,5 +50,8 @@ export default tool.query({
 
     return { count: items.length, posts: items }
   },
-  summary: ({ result: posts }) => `Found ${posts.length} post${posts.length === 1 ? '' : 's'}`,
+  summary: ({ result }) => {
+    const posts = result as HarnessPost[]
+    return `Found ${posts.length} post${posts.length === 1 ? '' : 's'}`
+  },
 })

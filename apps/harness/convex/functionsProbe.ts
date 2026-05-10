@@ -189,8 +189,7 @@ export const resetActorResolverCalls = mutation.unsafe({
   },
 })
 
-export const actorMemoization = query.unsafe({
-  permit: harnessPermit('Harness probe for actor memoization.'),
+export const actorMemoization = query.public({
   args: {},
   trustedForwardingFunctionRef: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
@@ -207,8 +206,7 @@ export const actorMemoization = query.unsafe({
   },
 })
 
-export const trustedForwardingStateProbe = query.unsafe({
-  permit: harnessPermit('Harness probe for signed forwarding context state.'),
+export const trustedForwardingStateProbe = query.public({
   args: {},
   trustedForwardingFunctionRef: 'functionsProbe:trustedForwardingStateProbe',
   handler: async (ctx) => ({
@@ -217,8 +215,7 @@ export const trustedForwardingStateProbe = query.unsafe({
   }),
 })
 
-export const echoedArgs = query.unsafe({
-  permit: harnessPermit('Harness probe for unsafe query arg echo.'),
+export const echoedArgs = query.public({
   args: {
     title: v.string(),
   },

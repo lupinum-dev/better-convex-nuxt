@@ -3,6 +3,7 @@ import { searchNotes } from '../../../shared/schemas/note'
 import { tool } from '../runtime'
 
 const harnessApi = api as any
+type SearchNoteResult = unknown[]
 
 export default tool.query({
   schema: searchNotes,
@@ -10,9 +11,14 @@ export default tool.query({
   meta: {
     name: 'search-notes',
   },
-  mapResult: ({ result }) => ({ results: result, total: result.length }),
-  summary: ({ args, result }) =>
-    result.length
-      ? `Found ${result.length} note${result.length === 1 ? '' : 's'} matching "${args.query}"`
-      : `No notes found matching "${args.query}"`,
+  mapResult: ({ result }) => {
+    const notes = result as SearchNoteResult
+    return { results: notes, total: notes.length }
+  },
+  summary: ({ args, result }) => {
+    const notes = result as SearchNoteResult
+    return notes.length
+      ? `Found ${notes.length} note${notes.length === 1 ? '' : 's'} matching "${args.query}"`
+      : `No notes found matching "${args.query}"`
+  },
 })

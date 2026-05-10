@@ -66,7 +66,9 @@ function toManifestPath(path: string): string {
 function matchesPattern(path: string, pattern: string): boolean {
   const deepFileMatch = pattern.match(/^(.+)\/\*\*\/\*(\.[^/]+)$/)
   if (deepFileMatch) {
-    const [, prefix, suffix] = deepFileMatch
+    const prefix = deepFileMatch[1]
+    const suffix = deepFileMatch[2]
+    if (!prefix || !suffix) return false
     return path.startsWith(`${prefix}/`) && path.endsWith(suffix)
   }
 
