@@ -51,9 +51,6 @@
       "backend": [
         "./dist/runtime/backend/index.d.ts"
       ],
-      "bridge": [
-        "./dist/runtime/bridge/index.d.ts"
-      ],
       "feature": [
         "./dist/runtime/feature/index.d.ts"
       ],
@@ -100,10 +97,6 @@
     "./backend": {
       "types": "./dist/runtime/backend/index.d.ts",
       "import": "./dist/runtime/backend/index.mjs"
-    },
-    "./bridge": {
-      "types": "./dist/runtime/bridge/index.d.ts",
-      "import": "./dist/runtime/bridge/index.mjs"
     },
     "./feature": {
       "types": "./dist/runtime/feature/index.d.ts",
@@ -177,11 +170,12 @@
     "test:full": "pnpm run test && pnpm run test:e2e",
     "test:watch": "vitest watch --project=unit --project=nuxt --project=server",
     "test:types:contracts": "tsc -p tsconfig.types.json --noEmit",
+    "test:types:bridge": "tsc -p tsconfig.types.bridge.json --noEmit",
     "test:types:public:compat": "pnpm exec tsc -p tsconfig.types.public.compat.json --noEmit && pnpm --dir apps/docs exec tsc -p ../../tsconfig.types.public.compat.json --noEmit",
     "test:types:public": "tsc -p tsconfig.types.public.json --noEmit",
     "test:types:examples:canonical": "pnpm run build:module && pnpm --dir examples/04-saas-platform typecheck:tests && pnpm --dir examples/05-visibility-access typecheck:tests && pnpm --dir examples/06-multi-workspace typecheck:tests",
     "test:types:harness-server": "tsc -p apps/harness/server/tsconfig.json --noEmit",
-    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:public && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
+    "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:bridge && pnpm run test:types:public && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
     "prepare": "husky"
   },
   "dependencies": {

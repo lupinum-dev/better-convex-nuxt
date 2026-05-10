@@ -1,27 +1,6 @@
 import { v } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { customActionMock, customMutationMock, customQueryMock } = vi.hoisted(() => ({
-  customActionMock: vi.fn((_builder, customization) => (definition) => ({
-    customization,
-    definition,
-  })),
-  customQueryMock: vi.fn((_builder, customization) => (definition) => ({
-    customization,
-    definition,
-  })),
-  customMutationMock: vi.fn((_builder, customization) => (definition) => ({
-    customization,
-    definition,
-  })),
-}))
-
-vi.mock('convex-helpers/server/customFunctions', () => ({
-  customAction: customActionMock,
-  customQuery: customQueryMock,
-  customMutation: customMutationMock,
-}))
-
 const originalNodeEnv = process.env.NODE_ENV
 
 describe('createComponentBridge', () => {
@@ -38,7 +17,8 @@ describe('createComponentBridge', () => {
 
   it('forwards the resolved principal unchanged for internal query bridges', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
@@ -105,7 +85,8 @@ describe('createComponentBridge', () => {
 
   it('forwards the resolved principal unchanged for internal action bridges', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
@@ -174,7 +155,8 @@ describe('createComponentBridge', () => {
 
   it('rejects caller-supplied principal on public query bridges', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
     const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
 
     const trustedPrincipal = {
@@ -243,7 +225,8 @@ describe('createComponentBridge', () => {
 
   it('forwards the resolved principal unchanged when bridge entries are declared in batch', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
@@ -312,7 +295,8 @@ describe('createComponentBridge', () => {
   })
 
   it('fails closed when no trusted forwarding key is configured', async () => {
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {
@@ -361,7 +345,8 @@ describe('createComponentBridge', () => {
   })
 
   it('uses an explicit trusted forwarding key without reading process env', async () => {
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
@@ -430,7 +415,8 @@ describe('createComponentBridge', () => {
   it('rejects weak trusted forwarding keys in production', async () => {
     process.env.NODE_ENV = 'production'
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {
@@ -492,7 +478,8 @@ describe('createComponentBridge', () => {
 
   it('rejects non-canonical forwarded principal subjects on internal bridge paths', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, definePrincipal } = await import('../../src/runtime/functions')
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/index')
+    const { definePrincipal } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {

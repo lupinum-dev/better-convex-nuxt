@@ -9,8 +9,38 @@ import {
   type ComponentBridgeManifest,
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
+  renderComponentBridgeModule,
   renderComponentBridgeManagedEdits,
-} from '../functions/component-bridge-manifest.js'
+} from './component-bridge-manifest.js'
+export {
+  callComponentBridgeRegistrar,
+  createComponentBridge,
+} from './create-component-bridge.js'
+export type {
+  ComponentBridgeActionRegistrar,
+  ComponentBridgeComponent,
+  ComponentBridgeMutationRegistrar,
+  ComponentBridgeQueryRegistrar,
+} from './create-component-bridge.js'
+export {
+  defineComponentBridgeManifest,
+  ensureBridgeImport,
+  renderComponentBridgeFile,
+  renderComponentBridgeFiles,
+  renderComponentBridgeModule,
+  renderComponentBridgeManagedEdits,
+  resolveConvexAppBinding,
+  stripBridgeManagedBlock,
+  stripComponentBridgeMetadata,
+  upsertBridgeManagedBlock,
+} from './component-bridge-manifest.js'
+export type {
+  ComponentBridgeGeneratedFile,
+  ComponentBridgeManagedEdit,
+  ComponentBridgeManifest,
+  ComponentBridgeModule,
+  ComponentBridgeModuleImport,
+} from './component-bridge-manifest.js'
 
 function isComponentBridgeManifest(value: unknown): value is ComponentBridgeManifest {
   if (typeof value !== 'object' || value === null) return false
@@ -309,9 +339,3 @@ export async function discoverInstalledBridgeComponents(
   }
   return installed
 }
-
-export type {
-  ComponentBridgeGeneratedFile,
-  ComponentBridgeManagedEdit,
-  ComponentBridgeManifest,
-} from '../functions/component-bridge-manifest.js'

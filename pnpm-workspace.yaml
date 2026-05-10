@@ -2,6 +2,7 @@ packages:
   - 'apps/*'
   - 'examples/*'
   - 'labs/*'
+  - 'packages/*'
   - 'tests/fixtures/doctor-*'
 
 ignoredBuiltDependencies:

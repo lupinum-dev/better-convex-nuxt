@@ -13,7 +13,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | `@lupinum/trellis/args`               | keep             | schema/args helper subpath unless merged by Slice 1 decision            |
 | `@lupinum/trellis/auth`               | keep             | auth product layer subpath                                              |
 | `@lupinum/trellis/backend`            | keep             | canonical 1.0 backend builder and operation subpath                     |
-| `@lupinum/trellis/bridge`             | move/delete      | bridge APIs leave core for @lupinum/trellis-bridge                      |
 | `@lupinum/trellis/composables`        | keep             | client composable subpath unless root-only Nuxt auto-imports replace it |
 | `@lupinum/trellis/eslint`             | move/delete      | runtime package should not carry tooling unless explicitly retained     |
 | `@lupinum/trellis/feature`            | keep             | feature manifest layer stays in root package                            |
@@ -31,7 +30,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | `args`               | src/runtime/args/index.ts               | npm export               |
 | `auth`               | src/runtime/auth/index.ts               | npm export               |
 | `backend`            | src/runtime/backend/index.ts            | npm export               |
-| `bridge`             | src/runtime/bridge/index.ts             | npm export               |
 | `composables`        | src/runtime/composables/index.ts        | npm export               |
 | `feature`            | src/runtime/feature/index.ts            | npm export               |
 | `functions`          | src/runtime/functions/index.ts          | internal unless promoted |
@@ -88,7 +86,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | Kind            | Name                                                        | Sprint 1 Action                     |
 | --------------- | ----------------------------------------------------------- | ----------------------------------- |
 | command         | `trellis add`                                               | keep; fixture/inventory-backed only |
-| command         | `trellis bridge`                                            | move/delete from root CLI           |
 | command         | `trellis doctor`                                            | keep; inventory-backed              |
 | command         | `trellis init`                                              | keep; fixture-backed only           |
 | init template   | `cms`                                                       | delete from Trellis starter surface |
@@ -156,8 +153,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | meta/skill/references/public-surface.md                                    | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
 | meta/trellis-1.0-refactor-plan.md                                          | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
 | apps/docs/content/docs/07.server-side/3.webhooks-and-trusted-forwarding.md | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | rewrite/delete before 1.0 docs gate   |
-| apps/docs/content/docs/07.server-side/5.component-bridge.md                | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge`                                                                      | rewrite/delete before 1.0 docs gate   |
-| apps/docs/content/docs/13.api-reference/7.api-surface.md                   | `@lupinum/trellis/bridge`                                                                                                                      | rewrite/delete before 1.0 docs gate   |
 
 ## Docs Front Door Old Builder Hits
 

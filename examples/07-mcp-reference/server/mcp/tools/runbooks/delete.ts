@@ -1,4 +1,4 @@
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/functions'
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 
 import { remove } from '~/convex/features/runbooks/domain'
 import { previewRemove, removeRunbookOp } from '~/convex/features/runbooks/operations'

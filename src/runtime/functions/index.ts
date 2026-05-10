@@ -47,7 +47,6 @@ import {
 } from '../trusted-forwarding/shared.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
-import { createComponentBridge } from './create-component-bridge.js'
 import {
   defineDelegation,
   type Delegation,
@@ -75,24 +74,6 @@ export type {
   StructuredHandlerDefinition,
   StructuredLoadedValue,
 } from './define-handler.js'
-export { callComponentBridgeRegistrar, createComponentBridge } from './create-component-bridge.js'
-export type {
-  ComponentBridgeActionRegistrar,
-  ComponentBridgeComponent,
-  ComponentBridgeMutationRegistrar,
-  ComponentBridgeQueryRegistrar,
-} from './create-component-bridge.js'
-export {
-  defineComponentBridgeManifest,
-  ensureBridgeImport,
-  renderComponentBridgeFile,
-  renderComponentBridgeFiles,
-  renderComponentBridgeManagedEdits,
-  resolveConvexAppBinding,
-  stripBridgeManagedBlock,
-  stripComponentBridgeMetadata,
-  upsertBridgeManagedBlock,
-} from './component-bridge-manifest.js'
 export {
   defineOperationDescriptor,
   defineOperationMetadata,
@@ -129,13 +110,6 @@ export { defineDelegation } from './define-delegation.js'
 export type { Delegation, DelegationDefinition } from './define-delegation.js'
 export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
-export type {
-  ComponentBridgeGeneratedFile,
-  ComponentBridgeModule,
-  ComponentBridgeModuleImport,
-  ComponentBridgeManagedEdit,
-  ComponentBridgeManifest,
-} from './component-bridge-manifest.js'
 
 type DataCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -2590,20 +2564,6 @@ function buildTrellisRuntime<
         }
       : {}),
     unsafe: explicitUnsafe,
-    createComponentBridge: () =>
-      createComponentBridge(
-        {
-          query: builders.query,
-          mutation: builders.mutation,
-          ...(builders.action ? { action: builders.action } : {}),
-          internalQuery: builders.internalQuery!,
-          internalMutation: builders.internalMutation!,
-        },
-        {
-          principal: resolvePrincipal(options.principal),
-          trustedForwardingKey: options.trustedForwardingKey,
-        },
-      ),
   }
 }
 
@@ -2649,6 +2609,5 @@ export function defineTrellis<
         }
       : {}),
     unsafe: runtime.unsafe,
-    createComponentBridge: runtime.createComponentBridge,
   }
 }

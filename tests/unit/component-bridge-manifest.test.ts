@@ -5,7 +5,7 @@ import {
   renderComponentBridgeFiles,
   resolveConvexAppBinding,
   stripBridgeManagedBlock,
-} from '../../src/runtime/functions/component-bridge-manifest'
+} from '@lupinum/trellis-bridge'
 
 describe('component bridge manifest helpers', () => {
   it('prefers better-auth registration as the app insertion anchor', () => {
@@ -155,7 +155,7 @@ export default app
     ).rejects.toThrow(/unsafe relative path/)
 
     const { renderComponentBridgeManagedEdits } =
-      await import('../../src/runtime/functions/component-bridge-manifest')
+      await import('@lupinum/trellis-bridge')
     await expect(
       renderComponentBridgeManagedEdits({
         packageName: '@example/component',

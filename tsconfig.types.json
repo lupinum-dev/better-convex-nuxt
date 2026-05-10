@@ -6,5 +6,12 @@
     "moduleResolution": "Bundler"
   },
   "include": [".nuxt/**/*.d.ts", ".nuxt/**/*.ts", "tests/types/**/*.ts"],
-  "exclude": ["dist", "node_modules", "apps/harness", "tests/fixtures", "examples"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "apps/harness",
+    "tests/fixtures",
+    "examples",
+    "tests/types/component-bridge.types.ts"
+  ]
 }

@@ -10,7 +10,8 @@ import type {
 } from 'convex/server'
 import { v } from 'convex/values'
 
-import { createComponentBridge, definePrincipal } from '../../src/runtime/functions'
+import { definePrincipal } from '@lupinum/trellis/backend'
+import { createComponentBridge } from '@lupinum/trellis-bridge'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =

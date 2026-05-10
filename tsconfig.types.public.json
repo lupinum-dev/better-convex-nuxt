@@ -16,7 +16,8 @@
       "@lupinum/trellis/server": ["./src/runtime/server/index.ts"],
       "@lupinum/trellis/testing": ["./src/runtime/testing/index.ts"],
       "@lupinum/trellis/trusted-forwarding": ["./src/runtime/trusted-forwarding/index.ts"],
-      "@lupinum/trellis/visibility": ["./src/runtime/visibility/index.ts"]
+      "@lupinum/trellis/visibility": ["./src/runtime/visibility/index.ts"],
+      "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"]
     }
   },
   "include": ["tests/dts/**/*.ts"],
