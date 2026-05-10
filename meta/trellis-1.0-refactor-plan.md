@@ -536,6 +536,9 @@ docs generation, and future explain commands.
 - Sprint 43 replaced location-only unsafe backend inventory with structured
   entries that record export name, surface kind, permit style, safe source
   location, and redacted typed-permit summary metadata.
+- Sprint 44 is planned to add structured bridge package inventory so
+  `layers.bridge` has explainable dependency/source evidence without loading
+  bridge manifests or executing app code.
 
 ### Done Means
 
