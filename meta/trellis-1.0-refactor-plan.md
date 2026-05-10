@@ -984,6 +984,13 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   `_trellisForwarding?: string`, and package-boundary guardrails reject live raw
   forwarding fields. Focused Ginko bridge/backup/workflow/package-boundary tests
   pass. Full packed-package validation and Ginko docs/setup wording remain open.
+- Sprint 69 is planned to close the Ginko Convex declaration portability blocker
+  found in Sprint 68. The focused Ginko Convex package typecheck currently
+  fails during declaration emit because exported registered-function types infer
+  through Trellis' workspace `convex/server` dependency path. The sprint should
+  fix that with one clean type boundary, not broad per-handler annotations, and
+  should leave packed-package validation and docs/setup wording open unless
+  those gates actually pass.
 
 ### Done Means
 
