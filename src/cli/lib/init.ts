@@ -30,7 +30,6 @@ import {
   pageContractTemplate,
   nuxtConfigTemplate,
   personalActorTemplate,
-  personalChecksTemplate,
   personalFunctionsTemplate,
   routeShellTemplate,
   testSetupTemplate,
@@ -38,28 +37,6 @@ import {
   uploadsContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
-  workspaceActorTemplate,
-  workspaceChecksTemplate,
-  workspaceFeaturesIndexTemplate,
-  workspaceFunctionsAppTemplate,
-  workspaceFunctionsTemplate,
-  workspacePageTemplate,
-  workspacePermissionQueryTemplate,
-  workspacePrincipalTemplate,
-  workspaceSchemaTemplate,
-  workspaceTodosFeatureTemplate,
-  workspaceTodosIndexTemplate,
-  workspaceTodosPermissionsTemplate,
-  workspaceTodosSchemaTemplate,
-  workspaceTodosTemplate,
-  workspaceUsersFeatureTemplate,
-  workspaceUsersIndexTemplate,
-  workspaceUsersSchemaTemplate,
-  workspaceWorkspacesContractTemplate,
-  workspaceWorkspacesDomainTemplate,
-  workspaceWorkspacesFeatureTemplate,
-  workspaceWorkspacesIndexTemplate,
-  workspaceWorkspacesSchemaTemplate,
 } from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
 import { isFixtureBackedAppTemplate, renderAppStarterFixture } from './starter-fixtures.js'
@@ -97,70 +74,6 @@ function buildAuthTemplateSet(): InitTemplateSet {
       },
       { path: 'convex/test.setup.ts', content: testSetupTemplate(), ownership: 'generated' },
     ],
-  }
-}
-
-function buildPersonalPermissionsTemplateSet(): InitTemplateSet {
-  return {
-    label: 'auth:personal',
-    description: 'Scaffold app-owned personal actor and guard files',
-    files: [
-      { path: 'convex/auth/actor.ts', content: personalActorTemplate(), ownership: 'authored' },
-      {
-        path: 'convex/functions.ts',
-        content: personalFunctionsTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/auth/guards.ts',
-        content: personalChecksTemplate(),
-        ownership: 'authored',
-      },
-    ],
-  }
-}
-
-function buildWorkspacePermissionsTemplateSet(
-  model: 'workspace' | 'workspace-mcp',
-): InitTemplateSet {
-  return {
-    label: `permissions:${model}`,
-    description: 'Scaffold workspace permission policy files',
-    files: [
-      {
-        path: 'convex/auth/principal.ts',
-        content: workspacePrincipalTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/auth/actor.ts',
-        content: workspaceActorTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/auth/guards.ts',
-        content: workspaceChecksTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/functions.ts',
-        content: workspaceFunctionsTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/permissions/context.ts',
-        content: workspacePermissionQueryTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/index.ts',
-        content: workspaceFeaturesIndexTemplate(),
-        ownership: 'authored',
-      },
-    ],
-    afterWrite: async (_cwd) => {
-      // Workspace model: userFields in defineAuth should include role: 'member'
-    },
   }
 }
 
@@ -358,138 +271,7 @@ function buildAppTemplateSet(template: AppTemplate, appName: string): InitTempla
   return {
     label: 'app:workspace-mcp',
     description: 'Bootstrap a workspace + MCP Trellis app inside the current workspace',
-    files: mergeTemplateSets(
-      buildAuthTemplateSet(),
-      buildWorkspacePermissionsTemplateSet('workspace-mcp'),
-      buildMcpTemplateSet(),
-    ).concat([
-      {
-        path: 'nuxt.config.ts',
-        content: nuxtConfigTemplate({
-          permissionsQuery: 'permissions/context.getPermissionContext',
-          mcp: true,
-        }),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/functions.ts',
-        content: workspaceFunctionsAppTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/schema.ts',
-        content: workspaceSchemaTemplate(true),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/todos/schema.ts',
-        content: workspaceTodosSchemaTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/todos/permissions.ts',
-        content: workspaceTodosPermissionsTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/todos/domain.ts',
-        content: workspaceTodosTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/todos/feature.ts',
-        content: workspaceTodosFeatureTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/todos/index.ts',
-        content: workspaceTodosIndexTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'shared/features/todos/contract.ts',
-        content: todoContractTemplate('workspace'),
-        ownership: 'authored',
-      },
-      {
-        path: 'shared/features/workspaces/contract.ts',
-        content: workspaceWorkspacesContractTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/users/schema.ts',
-        content: workspaceUsersSchemaTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/users/feature.ts',
-        content: workspaceUsersFeatureTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/users/index.ts',
-        content: workspaceUsersIndexTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/workspaces/schema.ts',
-        content: workspaceWorkspacesSchemaTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/workspaces/domain.ts',
-        content: workspaceWorkspacesDomainTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/workspaces/feature.ts',
-        content: workspaceWorkspacesFeatureTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/workspaces/index.ts',
-        content: workspaceWorkspacesIndexTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'convex/features/mcpKeys/domain.ts',
-        content: mcpKeysTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'server/mcp/tools/list-todos.ts',
-        content: mcpListTodosToolTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'server/mcp/index.ts',
-        content: mcpEndpointTemplate('workspace-app'),
-        ownership: 'authored',
-      },
-      {
-        path: 'server/mcp/tools/create-todo.ts',
-        content: mcpCreateTodoToolTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'app/features/workspace/components/WorkspaceStarterPage.vue',
-        content: workspacePageTemplate({ title: 'Workspace MCP Starter', mcp: true }),
-        ownership: 'authored',
-      },
-      {
-        path: 'app/app.vue',
-        content: appShellTemplate(),
-        ownership: 'authored',
-      },
-      {
-        path: 'app/pages/index.vue',
-        content: routeShellTemplate({
-          importPath: '~~/app/features/workspace/components/WorkspaceStarterPage.vue',
-          componentName: 'WorkspaceStarterPage',
-        }),
-        ownership: 'authored',
-      },
-    ]),
+    files: renderAppStarterFixture({ appName, template }),
   }
 }
 
@@ -913,11 +695,12 @@ export function getCanonicalAppTemplateSet(options: {
   const template = options.template === 'workspace' && mcp ? 'workspace-mcp' : options.template
   const scaffoldTemplate = template === 'workspace-mcp' ? 'workspace-mcp' : options.template
   const appTemplateSet = buildAppTemplateSet(template, options.appName)
+  const fixtureBacked = isFixtureBackedAppTemplate(template)
 
   return {
     label: `init:${template}`,
     description: `Bootstrap a ${template} Trellis app`,
-    files: isFixtureBackedAppTemplate(template)
+    files: fixtureBacked
       ? appTemplateSet.files
       : mergeTemplateSets(
           appScaffoldTemplateSet({
@@ -927,11 +710,12 @@ export function getCanonicalAppTemplateSet(options: {
           }),
           appTemplateSet,
         ),
-    afterWrite: mcp
-      ? async (cwd) => {
-          await enableNuxtMcpConfig(cwd)
-        }
-      : undefined,
+    afterWrite:
+      mcp && !fixtureBacked
+        ? async (cwd) => {
+            await enableNuxtMcpConfig(cwd)
+          }
+        : undefined,
   }
 }
 

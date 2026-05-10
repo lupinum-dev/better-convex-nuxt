@@ -83,51 +83,40 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## CLI And Starter Surface
 
-| Kind            | Name                                                        | Sprint 1 Action                     |
-| --------------- | ----------------------------------------------------------- | ----------------------------------- |
-| command         | `trellis add`                                               | keep; fixture/inventory-backed only |
-| command         | `trellis doctor`                                            | keep; inventory-backed              |
-| command         | `trellis init`                                              | keep; fixture-backed only           |
-| init template   | `cms`                                                       | delete from Trellis starter surface |
-| init template   | `personal`                                                  | keep; fixture-backed                |
-| init template   | `public`                                                    | keep; fixture-backed                |
-| init template   | `workspace`                                                 | keep; fixture-backed                |
-| init template   | `workspace-mcp`                                             | keep; canonical MCP starter         |
-| template source | src/cli/templates/init/authConfigTemplate.tpl               | replace with fixture manifest       |
-| template source | src/cli/templates/init/authTsTemplate.tpl                   | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsChecksTemplate.tpl                | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPagesTemplate.tpl                 | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPermissionQueryTemplate.tpl       | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPermissionsTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPublicPageTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsSchemaTemplate.tpl                | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsSlugPageTemplate.tpl              | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsStudioPageTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/convexConfigTemplate.tpl             | replace with fixture manifest       |
-| template source | src/cli/templates/init/httpTemplate.tpl                     | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpCreateTodoToolTemplate.tpl        | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpKeysSchemaBlock.tpl               | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpKeysTemplate.tpl                  | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpListTodosToolTemplate.tpl         | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpMiddlewareTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpRuntimeTemplate.tpl               | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalActorTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalChecksTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalFunctionsTemplate.tpl        | replace with fixture manifest       |
-| template source | src/cli/templates/init/sharedPageSchemaTemplate.tpl         | replace with fixture manifest       |
-| template source | src/cli/templates/init/testSetupTemplate.tpl                | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsContractTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsDomainTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsPageTemplate.tpl              | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceActorTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceChecksTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceFunctionsAppTemplate.tpl    | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceFunctionsTemplate.tpl       | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceOnboardingTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspacePermissionQueryTemplate.tpl | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspacePermissionsTemplate.tpl     | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspacePrincipalTemplate.tpl       | replace with fixture manifest       |
-| template source | src/cli/templates/init/workspaceTodosTemplate.tpl           | replace with fixture manifest       |
+| Kind            | Name                                                  | Sprint 1 Action                     |
+| --------------- | ----------------------------------------------------- | ----------------------------------- |
+| command         | `trellis add`                                         | keep; fixture/inventory-backed only |
+| command         | `trellis doctor`                                      | keep; inventory-backed              |
+| command         | `trellis init`                                        | keep; fixture-backed only           |
+| init template   | `cms`                                                 | delete from Trellis starter surface |
+| init template   | `personal`                                            | keep; fixture-backed                |
+| init template   | `public`                                              | keep; fixture-backed                |
+| init template   | `workspace`                                           | keep; fixture-backed                |
+| init template   | `workspace-mcp`                                       | keep; canonical MCP starter         |
+| template source | src/cli/templates/init/authConfigTemplate.tpl         | replace with fixture manifest       |
+| template source | src/cli/templates/init/authTsTemplate.tpl             | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsChecksTemplate.tpl          | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsPagesTemplate.tpl           | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsPermissionQueryTemplate.tpl | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsPermissionsTemplate.tpl     | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsPublicPageTemplate.tpl      | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsSchemaTemplate.tpl          | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsSlugPageTemplate.tpl        | replace with fixture manifest       |
+| template source | src/cli/templates/init/cmsStudioPageTemplate.tpl      | replace with fixture manifest       |
+| template source | src/cli/templates/init/convexConfigTemplate.tpl       | replace with fixture manifest       |
+| template source | src/cli/templates/init/httpTemplate.tpl               | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpCreateTodoToolTemplate.tpl  | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpKeysTemplate.tpl            | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpListTodosToolTemplate.tpl   | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpMiddlewareTemplate.tpl      | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpRuntimeTemplate.tpl         | replace with fixture manifest       |
+| template source | src/cli/templates/init/personalActorTemplate.tpl      | replace with fixture manifest       |
+| template source | src/cli/templates/init/personalFunctionsTemplate.tpl  | replace with fixture manifest       |
+| template source | src/cli/templates/init/sharedPageSchemaTemplate.tpl   | replace with fixture manifest       |
+| template source | src/cli/templates/init/testSetupTemplate.tpl          | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsContractTemplate.tpl    | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsDomainTemplate.tpl      | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsPageTemplate.tpl        | replace with fixture manifest       |
 
 ## Docs/Templates That Still Teach Old Paths
 

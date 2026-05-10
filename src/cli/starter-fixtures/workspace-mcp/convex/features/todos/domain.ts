@@ -1,12 +1,14 @@
-import { createTodo } from '../../shared/features/todos/contract'
-import { hasMinimumRole, hasWorkspace } from '../auth/guards'
-import { mutation, query } from '../functions'
+import { createTodo, listTodos } from '../../../shared/features/todos/contract'
+
+import { mutation, query } from '../../functions'
+import { todoCreate, workspaceRead } from './permissions'
 
 export const list = query.protected({
-  args: {},
-  guard: hasWorkspace,
+  args: listTodos.args,
+  guard: workspaceRead,
   handler: async (ctx) => {
     const actor = await ctx.actor()
+    if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
 
     return await ctx.db
       .query('todos')
@@ -18,9 +20,10 @@ export const list = query.protected({
 
 export const create = mutation.protected({
   args: createTodo.args,
-  guard: hasWorkspace.and(hasMinimumRole('member')),
+  guard: todoCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
+    if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
 
     return await ctx.db.insert('todos', {
       workspaceId: actor.tenantId,

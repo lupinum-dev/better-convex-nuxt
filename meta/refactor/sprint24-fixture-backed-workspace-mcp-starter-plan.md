@@ -121,55 +121,56 @@ bar is "no retained non-CMS starter has a second source of truth."
 
 ### 1. Create Workspace MCP Starter Fixture
 
-- [ ] Generate or copy the current `workspace-mcp` starter output into
+- [x] Generate or copy the current `workspace-mcp` starter output into
       `src/cli/starter-fixtures/workspace-mcp`.
-- [ ] Add `starter.manifest.json`.
-- [ ] Keep only files that should ship in a generated workspace-MCP app.
-- [ ] Exclude all local/runtime artifacts.
-- [ ] Ensure the fixture includes workspace + MCP concepts.
-- [ ] Ensure the fixture does not include CMS, Ginko, bridge-author, or
+- [x] Add `starter.manifest.json`.
+- [x] Keep only files that should ship in a generated workspace-MCP app.
+- [x] Exclude all local/runtime artifacts.
+- [x] Ensure the fixture includes workspace + MCP concepts.
+- [x] Ensure the fixture does not include CMS, Ginko, bridge-author, or
       unrelated operation-projection proof fixture concepts.
-- [ ] Ensure the fixture keeps the current generated starter behavior before
+- [x] Ensure the fixture keeps the current generated starter behavior before
       deleting the legacy path.
 
 ### 2. Wire CLI Init To Workspace MCP Fixture
 
-- [ ] Extend `FixtureBackedTemplate` to include `workspace-mcp`.
-- [ ] Add `workspace-mcp` to the fixture-backed template name set.
-- [ ] Add app-name replacement for `trellis-starter-workspace-mcp`.
-- [ ] Convert `buildAppTemplateSet('workspace-mcp', appName)` to return
+- [x] Extend `FixtureBackedTemplate` to include `workspace-mcp`.
+- [x] Add `workspace-mcp` to the fixture-backed template name set.
+- [x] Add app-name replacement for `trellis-starter-workspace-mcp`.
+- [x] Convert `buildAppTemplateSet('workspace-mcp', appName)` to return
       `renderAppStarterFixture({ appName, template: 'workspace-mcp' })`.
-- [ ] Preserve existing write semantics and package/README app-name transforms.
-- [ ] Keep `cms` on the existing legacy path.
+- [x] Preserve existing write semantics and package/README app-name transforms.
+- [x] Keep `cms` on the existing legacy path.
 
 ### 3. Delete Replaced Starter Template Sources
 
-- [ ] Remove unused workspace/MCP imports from `src/cli/lib/init.ts`.
-- [ ] Delete `buildWorkspacePermissionsTemplateSet(...)` if no longer used.
-- [ ] Delete `buildMcpTemplateSet()` if no longer used.
-- [ ] Delete workspace starter template functions from
+- [x] Remove unused workspace/MCP imports from `src/cli/lib/init.ts`.
+- [x] Delete `buildWorkspacePermissionsTemplateSet(...)` if no longer used.
+- [x] Audit `buildMcpTemplateSet()`; keep it because `trellis add mcp` still
+      uses it.
+- [x] Delete workspace starter template functions from
       `src/cli/lib/init-templates.ts` that no retained path uses.
-- [ ] Delete MCP starter template functions from `src/cli/lib/init-templates.ts`
-      that no retained path uses.
-- [ ] Delete corresponding `.tpl` files under `src/cli/templates/init`.
-- [ ] Keep only templates still used by `cms` and `trellis add` features.
-- [ ] Search proves `workspace` and `workspace-mcp` no longer have inline
+- [x] Audit MCP starter template functions in `src/cli/lib/init-templates.ts`;
+      keep the helpers still used by `trellis add mcp`.
+- [x] Delete corresponding `.tpl` files under `src/cli/templates/init`.
+- [x] Keep only templates still used by `cms` and `trellis add` features.
+- [x] Search proves `workspace` and `workspace-mcp` no longer have inline
       starter assembly branches.
 
 ### 4. Tests And Checks
 
-- [ ] Add manifest tests for `src/cli/starter-fixtures/workspace-mcp`.
-- [ ] Assert the workspace-MCP fixture includes MCP runtime/tools and forwarding
+- [x] Add manifest tests for `src/cli/starter-fixtures/workspace-mcp`.
+- [x] Assert the workspace-MCP fixture includes MCP runtime/tools and forwarding
       env keys.
-- [ ] Assert the workspace-MCP fixture includes workspace/tenant files.
-- [ ] Assert the workspace-MCP fixture does not include CMS/Ginko/bridge-author
+- [x] Assert the workspace-MCP fixture includes workspace/tenant files.
+- [x] Assert the workspace-MCP fixture does not include CMS/Ginko/bridge-author
       concepts.
-- [ ] Smoke-generate `trellis init --template workspace-mcp` from the built CLI.
-- [ ] Verify generated output has app-name transforms and no
+- [x] Smoke-generate `trellis init --template workspace-mcp` from the built CLI.
+- [x] Verify generated output has app-name transforms and no
       `trellis-starter-workspace-mcp` placeholder.
-- [ ] Smoke-generate `public`, `personal`, and `workspace` after the template
+- [x] Smoke-generate `public`, `personal`, and `workspace` after the template
       deletion to prove retained starters still work.
-- [ ] Update refactor surface inventory after deleted template sources.
+- [x] Update refactor surface inventory after deleted template sources.
 
 ## Verification
 
@@ -236,24 +237,24 @@ pnpm exec oxfmt --check \
 Search checks:
 
 ```bash
-rg -n "buildWorkspacePermissionsTemplateSet|buildMcpTemplateSet" src/cli/lib/init.ts
-rg -n "workspacePageTemplate\\(|workspaceFunctionsAppTemplate|workspaceTodosTemplate|mcpRuntimeTemplate|mcpListTodosToolTemplate|mcpCreateTodoToolTemplate" src/cli/lib/init.ts src/cli/lib/init-templates.ts
+rg -n "buildWorkspacePermissionsTemplateSet" src/cli/lib/init.ts
+rg -n "workspacePageTemplate\\(|workspaceFunctionsAppTemplate|workspaceTodosTemplate" src/cli/lib/init.ts src/cli/lib/init-templates.ts
 ```
 
 ## Acceptance Criteria
 
-- [ ] `trellis init --template workspace-mcp` renders from
+- [x] `trellis init --template workspace-mcp` renders from
       `src/cli/starter-fixtures/workspace-mcp/starter.manifest.json`.
-- [ ] Workspace-MCP fixture exposes workspace + MCP concepts but no CMS/Ginko or
+- [x] Workspace-MCP fixture exposes workspace + MCP concepts but no CMS/Ginko or
       bridge-author concepts.
-- [ ] Replaced workspace/MCP starter template code is deleted.
-- [ ] `public`, `personal`, and `workspace` still render from fixtures.
-- [ ] `cms` remains the only app starter on the legacy path.
-- [ ] Existing starter manifest, doctor, schema-boundary, public-surface, and
+- [x] Replaced workspace/MCP starter template code is deleted.
+- [x] `public`, `personal`, and `workspace` still render from fixtures.
+- [x] `cms` remains the only app starter on the legacy path.
+- [x] Existing starter manifest, doctor, schema-boundary, public-surface, and
       CLI checks pass.
-- [ ] Slice 7 `workspace-mcp` item is checked in
+- [x] Slice 7 `workspace-mcp` item is checked in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Sprint changes are committed after verification.
+- [x] Sprint changes are committed after verification.
 
 ## Next Sprint Candidate
 
@@ -262,3 +263,14 @@ surface: either delete `cms` from Trellis 1.0 init entirely and document
 Ginko-owned setup, or convert it into the explicitly decided advanced
 bridge-consumer/bridge-author path. That sprint should also delete any remaining
 starter `.tpl` sources that are only kept for `cms`.
+
+## Exit Notes
+
+- `workspace-mcp` now renders from
+  `src/cli/starter-fixtures/workspace-mcp`.
+- The old workspace/workspace-MCP starter assembly branch was deleted from
+  `src/cli/lib/init.ts`.
+- Workspace-only starter template functions and `.tpl` files were deleted.
+- MCP runtime/tool template helpers remain because `trellis add mcp` still uses
+  them.
+- `cms` remains the only app starter on the legacy template assembly path.
