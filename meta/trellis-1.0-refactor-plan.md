@@ -939,6 +939,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   Remaining old strings are migration tooling/test input, deleted-path
   assertions, or historical/meta inventory text. Cross-repo examples/Ginko
   validation remains the next gate.
+- Sprint 65 is planned to establish the cross-repo gate baseline before editing
+  Ginko. It should decide retained Trellis examples/harness/docs/devtools
+  targets, add or identify a repeatable old-path validation gate for retained
+  targets, and record Ginko's active old-path migration surface.
 
 ### Done Means
 
