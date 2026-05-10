@@ -46,63 +46,88 @@ canonical 1.0 imports or explicit internal source imports.
 
 ### 1. Inventory Hidden Old Public Specifiers
 
-- [ ] Search runtime/test/config code for `@lupinum/trellis/functions` and
+- [x] Search runtime/test/config code for `@lupinum/trellis/functions` and
       `@lupinum/trellis/bridge`.
-- [ ] Classify each hit as: - intentional migration test data; - historical/meta text; - hidden compatibility alias; - test import that should use `@lupinum/trellis/backend`; - internal implementation import that should use a relative source path.
-- [ ] Record the classification in this sprint doc or the Slice 11 notes.
+- [x] Classify each hit as: - intentional migration test data; - historical/meta text; - hidden compatibility alias; - test import that should use `@lupinum/trellis/backend`; - internal implementation import that should use a relative source path.
+- [x] Record the classification in this sprint doc or the Slice 11 notes.
+
+Classification result:
+
+- `vitest.config.ts`: hidden compatibility alias, removed.
+- `tests/unit/cli-upgrade.test.ts`: intentional migration test input strings.
+- `tests/dts/removed-subpaths.types.ts`: explicit deleted-path assertions.
+- `src/cli/commands/upgrade.ts`: migration tooling detection and replacement
+  guidance.
+- `scripts/lib/public-surface-inventory.mjs` and
+  `scripts/generate-refactor-surface-inventory.mjs`: deny-list/inventory
+  reporting.
+- `src/runtime/functions/**` relative imports in tests/fixtures: internal source
+  imports, retained because this sprint does not rename the implementation
+  directory.
 
 ### 2. Delete Vitest Compatibility Aliases
 
-- [ ] Remove `@lupinum/trellis/functions` aliases from all Vitest projects.
-- [ ] Confirm no `@lupinum/trellis/bridge` alias exists in test config.
-- [ ] Add or update a repo policy/public-surface test proving old public
+- [x] Remove `@lupinum/trellis/functions` aliases from all Vitest projects.
+- [x] Confirm no `@lupinum/trellis/bridge` alias exists in test config.
+- [x] Add or update a repo policy/public-surface test proving old public
       specifiers do not appear in config aliases.
-- [ ] Keep `@lupinum/trellis/backend` and `@lupinum/trellis-bridge` aliases
+- [x] Keep `@lupinum/trellis/backend` and `@lupinum/trellis-bridge` aliases
       where tests need canonical package-style imports.
 
 ### 3. Convert Affected Imports
 
-- [ ] Convert tests that import the old public specifier to
+- [x] Convert tests that import the old public specifier to
       `@lupinum/trellis/backend` when they model consumer-facing backend usage.
-- [ ] Convert implementation-unit tests to explicit relative imports from
+- [x] Convert implementation-unit tests to explicit relative imports from
       `src/runtime/functions/**` only when they need internals not exported from
       the backend public surface.
-- [ ] Keep migration tests that embed `@lupinum/trellis/functions` as old input
+- [x] Keep migration tests that embed `@lupinum/trellis/functions` as old input
       strings.
-- [ ] Do not broaden backend exports just to satisfy tests.
+- [x] Do not broaden backend exports just to satisfy tests.
 
 ### 4. Prove The Hard Cut
 
-- [ ] Existing removed-subpath type test still passes.
-- [ ] Package subpath export test still proves `./functions` and `./bridge` are
+- [x] Existing removed-subpath type test still passes.
+- [x] Package subpath export test still proves `./functions` and `./bridge` are
       absent.
-- [ ] `rg` over source/config/test imports has no active
+- [x] `rg` over source/config/test imports has no active
       `@lupinum/trellis/functions` import outside intentional migration test
       data and historical/meta docs.
-- [ ] `trellis upgrade --write` tests still pass and retain old strings only as
+- [x] `trellis upgrade --write` tests still pass and retain old strings only as
       fixture input.
 
 ### 5. Update Trackers
 
-- [ ] Mark Slice 11 "Delete compatibility aliases not listed in this plan"
+- [x] Mark Slice 11 "Delete compatibility aliases not listed in this plan"
       complete only after the Vitest aliases are gone and tested.
-- [ ] Mark Slice 11 "Delete old paths after codemod tests pass" complete only if
+- [x] Mark Slice 11 "Delete old paths after codemod tests pass" complete only if
       no active old public path remains in code/config.
-- [ ] Mark Slice 11 "There is one supported 1.0 API shape" complete only if the
+- [x] Mark Slice 11 "There is one supported 1.0 API shape" complete only if the
       remaining old strings are migration tests or historical notes.
-- [ ] Add a Sprint 64 completion note to the 1.0 refactor tracker.
-- [ ] Do not mark cross-repo Ginko/example gate complete in this sprint.
+- [x] Add a Sprint 64 completion note to the 1.0 refactor tracker.
+- [x] Do not mark cross-repo Ginko/example gate complete in this sprint.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts tests/unit/cli-upgrade.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-index-exports.test.ts tests/unit/backend-index-exports.test.ts`
-- [ ] `pnpm run test:types:public`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm exec oxfmt --check vitest.config.ts tests meta/refactor/sprint64-delete-hidden-compat-aliases-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts tests/unit/cli-upgrade.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-index-exports.test.ts tests/unit/backend-index-exports.test.ts`
+- [x] `pnpm run test:types:public`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm exec oxfmt --check vitest.config.ts tests/unit/package-subpath-exports.test.ts meta/refactor/sprint64-delete-hidden-compat-aliases-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Result
+
+- Removed the hidden `@lupinum/trellis/functions` Vitest aliases from unit and
+  Convex projects.
+- Added a package-subpath export test that rejects old public specifiers in
+  Vitest aliases.
+- Kept canonical `@lupinum/trellis/backend` and
+  `@lupinum/trellis-bridge` aliases.
+- Left old strings only in migration tooling, migration fixture input,
+  deleted-path assertions, and historical/meta inventory text.
 
 ## Done Means
 

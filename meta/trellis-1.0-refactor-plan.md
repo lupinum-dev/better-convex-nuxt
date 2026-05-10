@@ -758,8 +758,8 @@ shims.
 
 ### Delete
 
-- [ ] Delete old paths after codemod tests pass.
-- [ ] Delete compatibility aliases not listed in this plan.
+- [x] Delete old paths after codemod tests pass.
+- [x] Delete compatibility aliases not listed in this plan.
 
 ### Prove
 
@@ -771,8 +771,8 @@ shims.
 
 ### Done Means
 
-- [ ] There is one supported 1.0 API shape.
-- [ ] Migration tooling exists for repo-local adopters.
+- [x] There is one supported 1.0 API shape.
+- [x] Migration tooling exists for repo-local adopters.
 
 ## Cross-Repo Gate: Examples, Harness, And Ginko CMS
 
@@ -933,11 +933,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   report every affected line, authorize arity audit is AST-backed and manual,
   deleted import paths are covered by public type tests, and write mode remains
   limited to mechanical codemods.
-- Sprint 64 is planned to close the local Slice 11 hard-cut cleanup by deleting
-  hidden compatibility aliases for removed public paths, starting with the
-  `@lupinum/trellis/functions` Vitest alias. It should not rename the internal
-  `src/runtime/functions/**` implementation directory or touch the cross-repo
-  Ginko gate.
+- Sprint 64 closed the local Slice 11 hard-cut cleanup by deleting the hidden
+  `@lupinum/trellis/functions` Vitest aliases and adding a public-surface test
+  that prevents deleted public specifiers from returning through test config.
+  Remaining old strings are migration tooling/test input, deleted-path
+  assertions, or historical/meta inventory text. Cross-repo examples/Ginko
+  validation remains the next gate.
 
 ### Done Means
 

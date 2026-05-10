@@ -46,9 +46,6 @@ export default defineConfig({
             '@lupinum/trellis/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
             ),
-            '@lupinum/trellis/functions': fileURLToPath(
-              new URL('./src/runtime/functions/index.ts', import.meta.url),
-            ),
             '@lupinum/trellis-bridge/component': fileURLToPath(
               new URL('./packages/trellis-bridge/src/component.ts', import.meta.url),
             ),
@@ -95,9 +92,6 @@ export default defineConfig({
             ),
             '@lupinum/trellis/args': fileURLToPath(
               new URL('./src/runtime/args/index.ts', import.meta.url),
-            ),
-            '@lupinum/trellis/functions': fileURLToPath(
-              new URL('./src/runtime/functions/index.ts', import.meta.url),
             ),
             '@lupinum/trellis/server': fileURLToPath(
               new URL('./src/runtime/server/index.ts', import.meta.url),

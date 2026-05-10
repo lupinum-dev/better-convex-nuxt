@@ -62,4 +62,13 @@ describe('package subpath exports', () => {
       './dist/runtime/type-primitives/index.js',
     )
   })
+
+  it('does not keep test aliases for deleted public subpaths', () => {
+    const vitestConfig = readFileSync(resolve(process.cwd(), 'vitest.config.ts'), 'utf8')
+
+    expect(vitestConfig).not.toContain("'@lupinum/trellis/functions':")
+    expect(vitestConfig).not.toContain('"@lupinum/trellis/functions":')
+    expect(vitestConfig).not.toContain("'@lupinum/trellis/bridge':")
+    expect(vitestConfig).not.toContain('"@lupinum/trellis/bridge":')
+  })
 })
