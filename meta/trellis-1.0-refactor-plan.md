@@ -924,6 +924,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   fixture-copy race and updated stale expectations around server auth error
   context, Better Auth 401 categorization, and Convex cross-process observation
   capture.
+- Sprint 62 is planned to add the first write-mode migration tooling for
+  Trellis 1.0. Scope is intentionally narrow: mechanical import/path renames
+  and direct `tool.fromOperation(...)` call spelling. Authorization, raw
+  forwarding, unsafe permits, and backend lane classification remain
+  audit-only.
 
 ### Done Means
 
