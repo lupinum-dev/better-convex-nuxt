@@ -442,18 +442,18 @@ Goal: make tested fixture apps the source of starter generation.
 
 ## Slice 8: Inventory, Doctor, And Explain Foundation
 
-Status: pending
+Status: in progress
 
 Goal: one inventory engine feeds doctor, upgrade checks, public-surface checks,
 docs generation, and future explain commands.
 
 ### Build
 
-- [ ] Versioned inventory JSON schema.
+- [x] Versioned inventory JSON schema.
 - [ ] Inventory reads app inventory first.
 - [ ] Inventory includes layers, features, permissions, operations, tools,
       unsafe permits, forwarding config, public surface, bridge packages.
-- [ ] Inventory JSON is safe to share: no secrets, raw envelopes, bearer tokens,
+- [x] Inventory JSON is safe to share: no secrets, raw envelopes, bearer tokens,
       raw principal/delegation payloads, confirmation payloads, or user data.
 
 ### Replace
@@ -471,14 +471,14 @@ docs generation, and future explain commands.
 
 ### Prove
 
-- [ ] Inventory schema is versioned.
+- [x] Inventory schema is versioned.
 - [ ] Doctor and public-surface checks agree on operations/tools.
 - [ ] Security findings cite the metadata source they came from.
 
 ### Done Means
 
 - [ ] One inventory path explains the app.
-- [ ] Machine-readable output is stable and secret-safe.
+- [x] Machine-readable output is stable and secret-safe.
 
 ## Slice 9: Bridge Extraction
 

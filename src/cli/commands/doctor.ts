@@ -12,6 +12,11 @@ import {
 } from '../../runtime/trusted-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
 import { summarizeFindings } from '../lib/findings.js'
+import {
+  collectTrellisCliInventory,
+  collectTrellisCliInventoryFacts,
+  type TrellisCliInventoryFacts,
+} from '../lib/inventory.js'
 import { renderDoctorReport } from '../lib/output.js'
 import { collectPermissionMetadataFindings } from '../lib/permission-metadata.js'
 import {
@@ -19,26 +24,16 @@ import {
   findEnvKeySource,
   findConvexHttpSource,
   findConvexAuthSource,
-  findCrossTenantEscapeInventory,
   findConfiguredPermissionQueryPath,
-  findCustomMcpToolsWithAppWrites,
-  findDestructiveOperationInventory,
-  findDestructiveMcpToolsWithoutOperationBinding,
-  findForwardedPrincipalWithoutTrustedAuth,
-  findMcpRateLimitStoreSupport,
   findMissingCanonicalLayoutPaths,
-  findUnsafeSurfaceInventory,
-  findTrustedForwardingPublicExposure,
   hasBetterAuthTriggerExports,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
   isAuthExplicitlyDisabled,
-  usesMcpRateLimit,
   usesSyncedUsersTable,
-  usesPermissionSurfaces,
-  usesTrustedForwardingSurfaces,
+  type ProjectInspection,
 } from '../lib/project.js'
 
 function toDoctorFindingTitle(id: string): string {
@@ -56,8 +51,11 @@ function toDoctorFindingTitle(id: string): string {
   }
 }
 
-function createDoctorFindings(cwd: string): DoctorFinding[] {
-  const project = inspectProject(cwd)
+function createDoctorFindings(
+  project: ProjectInspection,
+  inventoryFacts: TrellisCliInventoryFacts,
+): DoctorFinding[] {
+  const cwd = project.cwd
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
   const missingCanonicalLayoutPaths = isNuxtApp ? findMissingCanonicalLayoutPaths(project) : []
   const convexUrlSource = findConvexUrlSource(project)
@@ -74,25 +72,25 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const convexAuthSource = findConvexAuthSource(project)
   const expectsSyncedUsers = usesSyncedUsersTable(project)
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
-  const trustedForwardingExpected = usesTrustedForwardingSurfaces(project)
+  const trustedForwardingExpected = inventoryFacts.trustedForwardingExpected
   const trustedForwardingKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
   const trustedForwardingKeyIssue = trustedForwardingKeySource
     ? getTrustedForwardingKeyProductionIssue(trustedForwardingKeySource.value, 'production')
     : null
-  const trustedForwardingPublicExposure = findTrustedForwardingPublicExposure(project)
+  const trustedForwardingPublicExposure = inventoryFacts.trustedForwardingPublicExposure
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.operation\s*\(/.test(file.text),
   )
-  const unsafeSurfaceInventory = findUnsafeSurfaceInventory(project)
-  const crossTenantEscapeInventory = findCrossTenantEscapeInventory(project)
-  const destructiveOperationInventory = findDestructiveOperationInventory(project)
-  const mcpRateLimitExpected = usesMcpRateLimit(project)
-  const mcpRateLimitStoreSupport = findMcpRateLimitStoreSupport(project)
+  const unsafeSurfaceInventory = inventoryFacts.unsafeSurfaceInventory
+  const crossTenantEscapeInventory = inventoryFacts.crossTenantEscapeInventory
+  const destructiveOperationInventory = inventoryFacts.destructiveOperationInventory
+  const mcpRateLimitExpected = inventoryFacts.mcpRateLimitExpected
+  const mcpRateLimitStoreSupport = inventoryFacts.mcpRateLimitStoreSupport
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
-  const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
-  const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
-  const customMcpAppWriteMisuse = findCustomMcpToolsWithAppWrites(project)
-  const usesPermissions = usesPermissionSurfaces(project)
+  const forwardedPrincipalMisuse = inventoryFacts.forwardedPrincipalMisuse
+  const destructiveMcpToolMisuse = inventoryFacts.destructiveMcpToolMisuse
+  const customMcpAppWriteMisuse = inventoryFacts.customMcpAppWriteMisuse
+  const usesPermissions = inventoryFacts.usesPermissions
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
 
@@ -521,9 +519,13 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
 }
 
 export async function buildDoctorReport(cwd: string): Promise<DoctorReport> {
-  const findings = createDoctorFindings(cwd)
+  const project = inspectProject(cwd)
+  const inventoryFacts = collectTrellisCliInventoryFacts(project)
+  const inventory = collectTrellisCliInventory(project, inventoryFacts)
+  const findings = createDoctorFindings(project, inventoryFacts)
   return {
     cwd,
+    inventory,
     findings,
     summary: summarizeFindings(findings),
   }

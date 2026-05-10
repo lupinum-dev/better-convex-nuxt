@@ -36,6 +36,49 @@ function parseJsonOutput<T>(output: string): T {
   return JSON.parse(stripVTControlCharacters(output)) as T
 }
 
+type DoctorInventoryJsonReport = {
+  inventory: {
+    schemaVersion: 1
+    cwd: string
+    package: {
+      hasPackageJson: boolean
+      hasTrellisDependency: boolean
+      hasNuxtDependency: boolean
+      hasConvexDependency: boolean
+    }
+    layers: {
+      core: boolean
+      auth: boolean
+      workspace: boolean
+      mcp: boolean
+      bridge: boolean
+    }
+    files: {
+      nuxtConfig: string | null
+      convexHttp: string | null
+      convexAuth: string | null
+      appInventory: string | null
+    }
+    surfaces: {
+      trustedForwarding: boolean
+      permissions: boolean
+      destructiveOperations: number
+      unsafeEntrypoints: number
+      crossTenantEscapes: number
+      mcpTools: number
+      customMcpToolsWithAppWrites: number
+      forwardedPrincipalMisuses: number
+      trustedForwardingPublicExposures: number
+      destructiveMcpToolMisuses: number
+      mcpRateLimit: boolean
+      mcpRateLimitStore: 'supported' | 'unverified' | 'none'
+    }
+    findings: []
+  }
+  findings: Array<{ id: string; status: string }>
+  summary: { fail: number; warn: number }
+}
+
 function expectCanonicalLayout(appRoot: string, options: CanonicalLayoutOptions) {
   const canonicalPaths = [
     'convex/functions.ts',
@@ -428,6 +471,105 @@ describe('CLI doctor', () => {
     expect(report.summary.warn).toBe(0)
     expect(report.findings.find((entry) => entry.id === 'canonical-layout')?.status).toBe('pass')
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
+  })
+
+  it('includes versioned inventory in doctor JSON for generated starters', () => {
+    const cases = [
+      { template: 'public', auth: false, workspace: false, mcp: false },
+      { template: 'personal', auth: true, workspace: false, mcp: false },
+      { template: 'workspace', auth: true, workspace: true, mcp: false },
+      { template: 'workspace-mcp', auth: true, workspace: true, mcp: true },
+    ] as const
+
+    for (const starter of cases) {
+      const cwd = createTempDir(`trellis-doctor-inventory-${starter.template}-`)
+      const initResult = runCli(
+        ['init', 'doctor-app', '--template', starter.template, '--cwd', cwd],
+        repoRoot,
+      )
+      const appRoot = resolve(cwd, 'doctor-app')
+      expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+      writeDoctorEnv(appRoot)
+
+      if (starter.mcp) {
+        appendDoctorEnv(appRoot, [
+          'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+          'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
+        ])
+      }
+
+      const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+      const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+
+      expect(result.status, result.stderr).toBe(0)
+      expect(report.inventory.schemaVersion).toBe(1)
+      expect(report.inventory.cwd).toBe(appRoot)
+      expect(report.inventory.package).toMatchObject({
+        hasPackageJson: true,
+        hasTrellisDependency: true,
+        hasNuxtDependency: true,
+        hasConvexDependency: true,
+      })
+      expect(report.inventory.layers).toMatchObject({
+        core: true,
+        auth: starter.auth,
+        workspace: starter.workspace,
+        mcp: starter.mcp,
+        bridge: false,
+      })
+      expect(report.inventory.files.nuxtConfig).toBe('nuxt.config.ts')
+      expect(report.inventory.files.appInventory).toBe(null)
+      expect(report.inventory.surfaces.permissions).toBe(starter.workspace)
+      expect(report.inventory.surfaces.trustedForwarding).toBe(starter.mcp)
+      expect(report.inventory.surfaces.mcpTools).toBe(starter.mcp ? 2 : 0)
+      expect(report.inventory.surfaces.mcpRateLimitStore).toBe('none')
+      expect(report.inventory.findings).toEqual([])
+    }
+  })
+
+  it('keeps inventory JSON safe to share', () => {
+    const cwd = createTempDir('trellis-doctor-inventory-secret-safe-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    appendDoctorEnv(appRoot, [
+      'CONVEX_TRUSTED_FORWARDING_KEY=do-not-leak-this-forwarding-secret-value',
+      'TRELLIS_MCP_CONFIRMATION_KEY=do-not-leak-this-confirmation-secret-value',
+    ])
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const serializedInventory = JSON.stringify(report.inventory)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(serializedInventory).not.toContain('do-not-leak-this-forwarding-secret-value')
+    expect(serializedInventory).not.toContain('do-not-leak-this-confirmation-secret-value')
+    expect(serializedInventory).not.toContain('test-secret')
+    expect(serializedInventory).not.toContain('BETTER_AUTH_SECRET')
+    expect(serializedInventory).not.toContain('CONVEX_TRUSTED_FORWARDING_KEY')
+    expect(serializedInventory).not.toContain('TRELLIS_MCP_CONFIRMATION_KEY')
+  })
+
+  it('keeps doctor human output focused on findings', () => {
+    const cwd = createTempDir('trellis-doctor-inventory-human-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'personal', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    const result = runCli(['doctor', '--cwd', appRoot], repoRoot)
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+    expect(result.stdout).toContain('doctor target')
+    expect(result.stdout).not.toContain('schemaVersion')
+    expect(result.stdout).not.toContain('"inventory"')
   })
 
   it('fails doctor when trusted-forwarding surfaces use a placeholder key', () => {

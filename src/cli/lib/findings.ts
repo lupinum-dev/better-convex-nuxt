@@ -1,3 +1,5 @@
+import type { TrellisCliInventory } from './inventory.js'
+
 export type DoctorFindingStatus = 'pass' | 'warn' | 'fail'
 export type DoctorFindingCategory = 'core' | 'auth' | 'advanced'
 
@@ -18,6 +20,7 @@ export interface DoctorSummary {
 
 export interface DoctorReport {
   cwd: string
+  inventory: TrellisCliInventory
   findings: DoctorFinding[]
   summary: DoctorSummary
 }

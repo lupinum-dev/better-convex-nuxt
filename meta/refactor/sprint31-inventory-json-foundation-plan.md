@@ -161,37 +161,37 @@ Explicitly forbidden:
 
 ### 1. Add Inventory Types And Collector
 
-- [ ] Add a CLI inventory type with `schemaVersion: 1`.
-- [ ] Add a collector that accepts the existing `inspectProject(...)` output.
-- [ ] Derive initial layer facts: core, auth, workspace, MCP, bridge.
-- [ ] Derive initial package/dependency facts.
-- [ ] Derive initial file-presence facts.
-- [ ] Derive initial surface counts from existing doctor scanner helpers.
+- [x] Add a CLI inventory type with `schemaVersion: 1`.
+- [x] Add a collector that accepts the existing `inspectProject(...)` output.
+- [x] Derive initial layer facts: core, auth, workspace, MCP, bridge.
+- [x] Derive initial package/dependency facts.
+- [x] Derive initial file-presence facts.
+- [x] Derive initial surface counts from existing doctor scanner helpers.
 
 ### 2. Add Doctor JSON Inventory
 
-- [ ] Extend `DoctorReport` to include `inventory`.
-- [ ] Build inventory once and pass it into doctor report creation.
-- [ ] Keep human doctor output unchanged.
-- [ ] Ensure doctor findings and inventory do not disagree for the same basic
+- [x] Extend `DoctorReport` to include `inventory`.
+- [x] Build inventory once and pass it into doctor report creation.
+- [x] Keep human doctor output unchanged.
+- [x] Ensure doctor findings and inventory do not disagree for the same basic
       facts in generated starter apps.
 
 ### 3. Add Secret-Safety Tests
 
-- [ ] Add tests proving inventory has `schemaVersion: 1`.
-- [ ] Add tests proving doctor JSON includes inventory.
-- [ ] Add tests proving inventory does not include raw env values or known
+- [x] Add tests proving inventory has `schemaVersion: 1`.
+- [x] Add tests proving doctor JSON includes inventory.
+- [x] Add tests proving inventory does not include raw env values or known
       secret fixture strings.
-- [ ] Add tests for generated `public`, `personal`, `workspace`, and
+- [x] Add tests for generated `public`, `personal`, `workspace`, and
       `workspace-mcp` starter inventories.
 
 ### 4. Update Slice 8 Tracker
 
-- [ ] Mark `Versioned inventory JSON schema` complete if implemented.
-- [ ] Mark `Inventory JSON is safe to share` complete only if tests prove it.
-- [ ] Leave doctor/full public-surface replacement unchecked unless actually
+- [x] Mark `Versioned inventory JSON schema` complete if implemented.
+- [x] Mark `Inventory JSON is safe to share` complete only if tests prove it.
+- [x] Leave doctor/full public-surface replacement unchecked unless actually
       completed.
-- [ ] Add sprint exit notes with the exact inventory fields shipped.
+- [x] Add sprint exit notes with the exact inventory fields shipped.
 
 ## Verification
 
@@ -228,19 +228,23 @@ pnpm exec oxfmt --check src/cli/lib/inventory.ts src/cli/commands/doctor.ts test
 
 ## Acceptance Criteria
 
-- [ ] A repo-owned CLI inventory collector exists.
-- [ ] Inventory JSON has `schemaVersion: 1`.
-- [ ] `trellis doctor --json` includes the inventory object.
-- [ ] Human doctor output remains stable.
-- [ ] Inventory JSON is secret-safe by test.
-- [ ] Generated starters expose sensible layer/package/surface inventory.
-- [ ] No broad new scanner duplicates an existing doctor scanner.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] A repo-owned CLI inventory collector exists.
+- [x] Inventory JSON has `schemaVersion: 1`.
+- [x] `trellis doctor --json` includes the inventory object.
+- [x] Human doctor output remains stable.
+- [x] Inventory JSON is secret-safe by test.
+- [x] Generated starters expose sensible layer/package/surface inventory.
+- [x] No broad new scanner duplicates an existing doctor scanner.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `src/cli/lib/inventory.ts` as the first CLI inventory collector.
+- Shipped inventory fields: package dependency presence, core/auth/workspace/MCP/bridge layer flags, key file paths, trusted-forwarding/permission/destructive/unsafe/MCP surface counts, and MCP rate-limit store status.
+- `trellis doctor --json` now includes `inventory.schemaVersion: 1`.
+- Human doctor output remains finding-focused and does not print the inventory object.
+- Unit coverage proves generated starter inventory for `public`, `personal`, `workspace`, and `workspace-mcp`, plus secret-safe inventory output.
 
 ## Next Sprint Candidate
 
