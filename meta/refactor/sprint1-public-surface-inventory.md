@@ -156,8 +156,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | meta/skill/references/public-surface.md                                    | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
 | meta/skill/references/server-mcp.md                                        | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
 | meta/trellis-1.0-refactor-plan.md                                          | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
-| apps/docs/content/docs/01.getting-started/3.first-live-query.md            | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
-| apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md  | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/07.server-side/3.webhooks-and-trusted-forwarding.md | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/07.server-side/5.component-bridge.md                | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge`                                                                      | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/08.permissions/7.operations.md                      | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
@@ -165,6 +163,11 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | apps/docs/content/docs/13.api-reference/7.api-surface.md                   | `@lupinum/trellis/bridge`                                                                                                                      | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/2.define-tools.md                      | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md                 | `tool.fromOperation`, `@lupinum/trellis/functions`                                                                                             | rewrite/delete before 1.0 docs gate   |
+
+## Docs Front Door Old Builder Hits
+
+| File | Matched Tokens | Action |
+| ---- | -------------- | ------ |
 
 ## Sprint 1 Decisions
 

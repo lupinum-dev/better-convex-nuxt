@@ -31,51 +31,51 @@ removes that mismatch before broader example and MCP cleanup begins.
 
 ### 1. Update Beginner Docs
 
-- [ ] Update `apps/docs/content/docs/01.getting-started/3.first-live-query.md`.
-  - [ ] Replace `@lupinum/trellis/functions` with
+- [x] Update `apps/docs/content/docs/01.getting-started/3.first-live-query.md`.
+  - [x] Replace `@lupinum/trellis/functions` with
         `@lupinum/trellis/backend`.
-  - [ ] Replace plain `query({ ... })` / `mutation({ ... })` snippets with
+  - [x] Replace plain `query({ ... })` / `mutation({ ... })` snippets with
         explicit public lanes.
-  - [ ] Keep the example as simple as the current page; do not introduce auth,
+  - [x] Keep the example as simple as the current page; do not introduce auth,
         workspace, MCP, bridge, or operation concepts.
 
-- [ ] Update `apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md`.
-  - [ ] Replace `@lupinum/trellis/functions` with
+- [x] Update `apps/docs/content/docs/01.getting-started/4.build-a-signed-in-todo-app.md`.
+  - [x] Replace `@lupinum/trellis/functions` with
         `@lupinum/trellis/backend`.
-  - [ ] Replace protected handler examples with explicit protected lanes.
-  - [ ] Preserve the current learning sequence: auth first, then actor-protected
+  - [x] Replace protected handler examples with explicit protected lanes.
+  - [x] Preserve the current learning sequence: auth first, then actor-protected
         reads/writes.
 
 ### 2. Update Foundational Reference Language
 
-- [ ] Update `apps/docs/content/docs/13.api-reference/3.functions.md`.
-  - [ ] Teach the 1.0 backend subpath.
-  - [ ] Replace `unsafe.query` / `unsafe.mutation` with
+- [x] Update `apps/docs/content/docs/13.api-reference/3.functions.md`.
+  - [x] Teach the 1.0 backend subpath.
+  - [x] Replace `unsafe.query` / `unsafe.mutation` with
         `query.unsafe` / `mutation.unsafe`.
-  - [ ] Do not document `@lupinum/trellis/functions` as an equal alternative.
+  - [x] Do not document `@lupinum/trellis/functions` as an equal alternative.
 
-- [ ] Update `apps/docs/content/docs/02.concepts/2.glossary.md`.
-  - [ ] Replace legacy unsafe wording with typed lane wording.
+- [x] Update `apps/docs/content/docs/02.concepts/2.glossary.md`.
+  - [x] Replace legacy unsafe wording with typed lane wording.
 
-- [ ] Update `apps/docs/content/docs/08.permissions/6.cross-tenant-and-raw-access.md`.
-  - [ ] Replace `unsafe.query(...)` / `unsafe.mutation(...)` with
+- [x] Update `apps/docs/content/docs/08.permissions/6.cross-tenant-and-raw-access.md`.
+  - [x] Replace `unsafe.query(...)` / `unsafe.mutation(...)` with
         `query.unsafe(...)` / `mutation.unsafe(...)`.
-  - [ ] Preserve the warning that unsafe paths are explicit review surfaces, not
+  - [x] Preserve the warning that unsafe paths are explicit review surfaces, not
         convenience APIs.
 
-- [ ] Update `apps/docs/STYLE.md`.
-  - [ ] Replace generic plain-builder examples with explicit lane examples.
+- [x] Update `apps/docs/STYLE.md`.
+  - [x] Replace generic plain-builder examples with explicit lane examples.
 
 ### 3. Add A Docs Surface Guard
 
-- [ ] Extend the public-surface inventory script or its expectations so beginner
+- [x] Extend the public-surface inventory script or its expectations so beginner
       docs flag:
-  - [ ] `@lupinum/trellis/functions`
-  - [ ] plain `query({ ... })`
-  - [ ] plain `mutation({ ... })`
-  - [ ] legacy `unsafe.query(...)` / `unsafe.mutation(...)`
+  - [x] `@lupinum/trellis/functions`
+  - [x] plain `query({ ... })`
+  - [x] plain `mutation({ ... })`
+  - [x] legacy `unsafe.query(...)` / `unsafe.mutation(...)`
 
-- [ ] Keep allowed old-surface hits scoped to files intentionally deferred:
+- [x] Keep allowed old-surface hits scoped to files intentionally deferred:
   - MCP `tool.fromOperation(...)` docs.
   - bridge/component docs.
   - historical planning docs.
@@ -83,10 +83,10 @@ removes that mismatch before broader example and MCP cleanup begins.
 
 ### 4. Verification
 
-- [ ] Run docs API-surface checks.
-- [ ] Run public/publish surface checks.
-- [ ] Run the refactor public-surface inventory check.
-- [ ] Run focused docs grep checks for the updated beginner docs.
+- [x] Run docs API-surface checks.
+- [x] Run public/publish surface checks.
+- [x] Run the refactor public-surface inventory check.
+- [x] Run focused docs grep checks for the updated beginner docs.
 
 Suggested commands:
 
@@ -99,17 +99,28 @@ rg -n "@lupinum/trellis/functions|\\bquery\\(\\{|\\bmutation\\(\\{|unsafe\\.(que
 
 ## Acceptance Criteria
 
-- [ ] Beginner docs no longer teach `@lupinum/trellis/functions`.
-- [ ] Beginner docs no longer teach plain backend builders.
-- [ ] Foundational unsafe docs use `query.unsafe(...)` /
+- [x] Beginner docs no longer teach `@lupinum/trellis/functions`.
+- [x] Beginner docs no longer teach plain backend builders.
+- [x] Foundational unsafe docs use `query.unsafe(...)` /
       `mutation.unsafe(...)`.
-- [ ] Docs checks and public-surface checks pass.
-- [ ] Any remaining old-surface docs hits are explicitly deferred to MCP,
+- [x] Docs checks and public-surface checks pass.
+- [x] Any remaining old-surface docs hits are explicitly deferred to MCP,
       bridge/CMS, or example migration sprints.
 
 ## Exit Notes To Capture
 
-- [ ] Which docs still intentionally mention old MCP/bridge/example surfaces.
-- [ ] Whether docs checks need a stricter allowlist in Sprint 6.
-- [ ] Whether the next sprint should migrate MCP `tool.fromOperation(...)` or
+- [x] Which docs still intentionally mention old MCP/bridge/example surfaces.
+- [x] Whether docs checks need a stricter allowlist in Sprint 6.
+- [x] Whether the next sprint should migrate MCP `tool.fromOperation(...)` or
       advanced examples first.
+
+Exit notes:
+
+- Remaining docs old-surface hits are MCP `tool.fromOperation(...)`,
+  bridge/component docs, raw trusted-forwarding docs, and planning/reference
+  files. They are intentionally deferred.
+- The generated inventory now has a `Docs Front Door Old Builder Hits` section.
+  It is empty after this sprint and should stay empty.
+- Sprint 6 should migrate MCP `tool.fromOperation(...)` before broader
+  advanced examples, because generated resource MCP tools still teach that old
+  public API.

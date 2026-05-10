@@ -75,7 +75,7 @@ Subsequent uses on the same page are plain text. Never redefine a term inline â€
 
 ````md
 ```ts [convex/todos.ts]
-export const list = query({ ... })
+export const list = query.public({ ... })
 ```
 ````
 

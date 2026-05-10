@@ -42,6 +42,8 @@ function read(path) {
 function walk(directory) {
   const fullDirectory = resolve(rootDir, directory);
   if (!existsSync(fullDirectory)) return [];
+  const rootStats = statSync(fullDirectory);
+  if (rootStats.isFile()) return [directory.replaceAll("\\", "/")];
 
   const entries = [];
   for (const entry of readdirSync(fullDirectory)) {
@@ -281,6 +283,22 @@ const docsMatches = grepFiles(
     "--template cms",
   ],
 );
+const docsFrontDoorMatches = grepFiles(
+  [
+    "apps/docs/STYLE.md",
+    "apps/docs/content/docs/01.getting-started",
+    "apps/docs/content/docs/02.concepts",
+    "apps/docs/content/docs/08.permissions",
+    "apps/docs/content/docs/13.api-reference/3.functions.md",
+  ],
+  [
+    "@lupinum/trellis/functions",
+    "query({",
+    "mutation({",
+    "unsafe.query",
+    "unsafe.mutation",
+  ],
+);
 
 const packageRows = packageExports.map((exportKey) => {
   const decision = packageDecision(exportKey);
@@ -369,6 +387,11 @@ const docsRows = docsMatches.map((row) => [
   row.matches.map((match) => `\`${match}\``).join(", "),
   docsAction(row.file),
 ]);
+const docsFrontDoorRows = docsFrontDoorMatches.map((row) => [
+  row.file,
+  row.matches.map((match) => `\`${match}\``).join(", "),
+  "rewrite before docs front-door gate",
+]);
 
 const decisions = [
   "`@lupinum/trellis/functions` is replaced by `@lupinum/trellis/backend`; no dual public path in 1.0.",
@@ -415,6 +438,10 @@ const file = [
   "## Docs/Templates That Still Teach Old Paths",
   "",
   mdTable(["File", "Matched Tokens", "Action"], docsRows),
+  "",
+  "## Docs Front Door Old Builder Hits",
+  "",
+  mdTable(["File", "Matched Tokens", "Action"], docsFrontDoorRows),
   "",
   "## Sprint 1 Decisions",
   "",
