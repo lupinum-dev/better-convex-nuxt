@@ -1,0 +1,11 @@
+{
+  "name": "uploads",
+  "description": "Fixture-backed uploads add slice.",
+  "include": [
+    "shared/features/files/contract.ts",
+    "convex/features/files/domain.ts",
+    "app/features/uploads/components/UploadsStarterPage.vue",
+    "app/pages/uploads.vue"
+  ],
+  "exclude": []
+}

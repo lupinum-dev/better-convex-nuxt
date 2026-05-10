@@ -18,7 +18,7 @@ const targetFiles = ['src/devtools.ts', 'src/module.ts', 'src/cli.mts']
 const supportedSourceFiles = new Set(['.ts', '.mts', '.vue'])
 const allowedExplicitExtensions = ['.js', '.mjs', '.cjs', '.json', '.vue']
 const ignoredFiles = new Set(['src/cli/lib/init.ts'])
-const ignoredDirectories = ['src/cli/starter-fixtures/']
+const ignoredDirectories = ['src/cli/starter-fixtures/', 'src/cli/add-fixtures/']
 
 function walk(directory) {
   const entries = []

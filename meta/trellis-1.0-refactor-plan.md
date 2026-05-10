@@ -422,7 +422,7 @@ Goal: make tested fixture apps the source of starter generation.
 
 ### Delete
 
-- [ ] Delete old `.tpl` files after each fixture-backed starter replaces them.
+- [x] Delete old `.tpl` files after each fixture-backed starter replaces them.
 - [ ] Delete duplicate starter source files.
 - [ ] Delete generated fixture artifacts from manifest includes.
 
@@ -438,7 +438,7 @@ Goal: make tested fixture apps the source of starter generation.
 ### Done Means
 
 - [ ] Starters are generated from fixtures.
-- [ ] Old template source of truth is gone.
+- [x] Old template source of truth is gone.
 
 ## Slice 8: Inventory, Doctor, And Explain Foundation
 

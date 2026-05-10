@@ -27,6 +27,7 @@
     "examples",
     "test",
     "src/runtime/server",
-    "src/cli/starter-fixtures"
+    "src/cli/starter-fixtures",
+    "src/cli/add-fixtures"
   ]
 }

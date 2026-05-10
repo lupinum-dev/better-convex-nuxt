@@ -17,6 +17,8 @@ type AppStarterFixtureManifest = StarterFixtureManifest & {
   generatedPaths?: readonly string[]
 }
 
+type AddFixture = 'uploads'
+
 const sourceAppNames: Record<FixtureBackedTemplate, string> = {
   public: 'trellis-starter-public',
   personal: 'trellis-starter-personal',
@@ -29,11 +31,26 @@ const fixtureRootCandidates = [
   resolve(dirname(fileURLToPath(import.meta.url)), '../../starter-fixtures'),
 ]
 
+const addFixtureRootCandidates = [
+  resolve(dirname(fileURLToPath(import.meta.url)), '../add-fixtures'),
+  resolve(dirname(fileURLToPath(import.meta.url)), '../../add-fixtures'),
+]
+
 function resolveFixtureRoot(): string {
   const root = fixtureRootCandidates.find((candidate) => existsSync(candidate))
   if (!root) {
     throw new Error(
       `Missing CLI starter fixture directory. Checked: ${fixtureRootCandidates.join(', ')}`,
+    )
+  }
+  return root
+}
+
+function resolveAddFixtureRoot(): string {
+  const root = addFixtureRootCandidates.find((candidate) => existsSync(candidate))
+  if (!root) {
+    throw new Error(
+      `Missing CLI add fixture directory. Checked: ${addFixtureRootCandidates.join(', ')}`,
     )
   }
   return root
@@ -52,6 +69,11 @@ function appPackageName(name: string): string {
 function readManifest(template: FixtureBackedTemplate): AppStarterFixtureManifest {
   const manifestPath = resolve(resolveFixtureRoot(), template, 'starter.manifest.json')
   return JSON.parse(readFileSync(manifestPath, 'utf8')) as AppStarterFixtureManifest
+}
+
+function readAddManifest(fixture: AddFixture): StarterFixtureManifest {
+  const manifestPath = resolve(resolveAddFixtureRoot(), fixture, 'add.manifest.json')
+  return JSON.parse(readFileSync(manifestPath, 'utf8')) as StarterFixtureManifest
 }
 
 function transformFixtureContent(input: {
@@ -108,4 +130,15 @@ export function renderAppStarterFixtureSubset(input: {
     }
     return file
   })
+}
+
+export function renderAddFixture(input: { fixture: AddFixture }): TemplateFile[] {
+  const fixtureRoot = resolve(resolveAddFixtureRoot(), input.fixture)
+  const manifest = readAddManifest(input.fixture)
+
+  return renderStarterFixtureFiles(fixtureRoot, manifest).map((file) => ({
+    path: file.path,
+    content: file.content,
+    ownership: 'authored',
+  }))
 }

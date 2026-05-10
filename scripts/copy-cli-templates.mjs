@@ -7,6 +7,7 @@ const copyPairs = [
   {
     sourceDir: resolve(rootDir, 'src/cli/templates'),
     destDirs: [resolve(rootDir, 'dist/templates'), resolve(rootDir, 'dist/cli/templates')],
+    optional: true,
   },
   {
     sourceDir: resolve(rootDir, 'src/cli/starter-fixtures'),
@@ -15,10 +16,15 @@ const copyPairs = [
       resolve(rootDir, 'dist/cli/starter-fixtures'),
     ],
   },
+  {
+    sourceDir: resolve(rootDir, 'src/cli/add-fixtures'),
+    destDirs: [resolve(rootDir, 'dist/add-fixtures'), resolve(rootDir, 'dist/cli/add-fixtures')],
+  },
 ]
 
-for (const { sourceDir, destDirs } of copyPairs) {
+for (const { sourceDir, destDirs, optional = false } of copyPairs) {
   if (!existsSync(sourceDir)) {
+    if (optional) continue
     throw new Error(`Missing CLI template source directory: ${sourceDir}`)
   }
 

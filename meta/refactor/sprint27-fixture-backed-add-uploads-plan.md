@@ -102,48 +102,48 @@ src/cli/templates/init/
 
 ### 1. Add Uploads Add Fixture
 
-- [ ] Create `src/cli/add-fixtures/uploads/add.manifest.json`.
-- [ ] Move uploads contract content into
+- [x] Create `src/cli/add-fixtures/uploads/add.manifest.json`.
+- [x] Move uploads contract content into
       `src/cli/add-fixtures/uploads/shared/features/files/contract.ts`.
-- [ ] Move uploads domain content into
+- [x] Move uploads domain content into
       `src/cli/add-fixtures/uploads/convex/features/files/domain.ts`.
-- [ ] Move uploads component content into
+- [x] Move uploads component content into
       `src/cli/add-fixtures/uploads/app/features/uploads/components/UploadsStarterPage.vue`.
-- [ ] Add explicit route fixture
+- [x] Add explicit route fixture
       `src/cli/add-fixtures/uploads/app/pages/uploads.vue`.
 
 ### 2. Render Add Fixture From CLI
 
-- [ ] Add the smallest helper needed to render an add fixture by name.
-- [ ] Replace the `feature === 'uploads'` file list with rendered uploads
+- [x] Add the smallest helper needed to render an add fixture by name.
+- [x] Replace the `feature === 'uploads'` file list with rendered uploads
       fixture files.
-- [ ] Preserve the current CLI output paths and authored ownership.
-- [ ] Fail loudly if the uploads add fixture is missing a required file.
+- [x] Preserve the current CLI output paths and authored ownership.
+- [x] Fail loudly if the uploads add fixture is missing a required file.
 
 ### 3. Delete Old Template Path
 
-- [ ] Delete uploads template helper exports.
-- [ ] Delete `routeShellTemplate(...)`.
-- [ ] Delete `src/cli/lib/init-templates.ts` if no imports remain.
-- [ ] Delete `src/cli/templates/init` after the final `.tpl` files are gone.
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Delete uploads template helper exports.
+- [x] Delete `routeShellTemplate(...)`.
+- [x] Delete `src/cli/lib/init-templates.ts` if no imports remain.
+- [x] Delete `src/cli/templates/init` after the final `.tpl` files are gone.
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
 
 ### 4. Update Tests
 
-- [ ] Update `trellis add uploads` tests to compare output against the uploads
+- [x] Update `trellis add uploads` tests to compare output against the uploads
       add fixture.
-- [ ] Keep existing behavior checks for explicit unsafe boundary and upload UI.
-- [ ] Update doctor tests that assert uploads add behavior if needed.
-- [ ] Add or document a search check proving no `.tpl` files remain.
+- [x] Keep existing behavior checks for explicit unsafe boundary and upload UI.
+- [x] Update doctor tests that assert uploads add behavior if needed.
+- [x] Add or document a search check proving no `.tpl` files remain.
 
 ### 5. Update Trackers
 
-- [ ] Mark Slice 7 old `.tpl` source deletion complete if this removes the last
+- [x] Mark Slice 7 old `.tpl` source deletion complete if this removes the last
       template source.
-- [ ] Update the migration/refactor plan notes if add fixtures become the
+- [x] Update the migration/refactor plan notes if add fixtures become the
       canonical source for add slices.
-- [ ] Add exit notes to this sprint plan.
-- [ ] Commit sprint changes after verification.
+- [x] Add exit notes to this sprint plan.
+- [x] Commit sprint changes after verification.
 
 ## Verification
 
@@ -225,15 +225,29 @@ Expected result:
 
 ## Acceptance Criteria
 
-- [ ] `trellis add uploads` derives authored files from an add fixture.
-- [ ] Uploads CLI output paths are unchanged.
-- [ ] Uploads behavior tests still prove the unsafe upload boundary and page
+- [x] `trellis add uploads` derives authored files from an add fixture.
+- [x] Uploads CLI output paths are unchanged.
+- [x] Uploads behavior tests still prove the unsafe upload boundary and page
       shell.
-- [ ] `src/cli/templates/init` and all `.tpl` files are deleted.
-- [ ] `src/cli/lib/init-templates.ts` is deleted.
-- [ ] Retained starters still generate successfully.
-- [ ] Surface inventory is regenerated.
-- [ ] Sprint changes are committed after verification.
+- [x] `src/cli/templates/init` and all `.tpl` files are deleted.
+- [x] `src/cli/lib/init-templates.ts` is deleted.
+- [x] Retained starters still generate successfully.
+- [x] Surface inventory is regenerated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- `trellis add uploads` now renders authored files from
+  `src/cli/add-fixtures/uploads`.
+- The uploads route shell is explicit fixture content, so
+  `routeShellTemplate(...)` was deleted.
+- `src/cli/lib/init-templates.ts`, `src/cli/templates/init`, and all `.tpl`
+  files were deleted.
+- The CLI copy/build path now copies `add-fixtures` assets and treats them like
+  fixture data, not compiled package source.
+- Uploads tests now compare add output against the add fixture and still assert
+  the unsafe upload boundary and UI entrypoint.
+- Slice 7 now records old `.tpl` source deletion as complete.
 
 ## Next Sprint Candidate
 

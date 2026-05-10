@@ -1,14 +1,12 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 
-import {
-  routeShellTemplate,
-  uploadsContractTemplate,
-  uploadsDomainTemplate,
-  uploadsPageTemplate,
-} from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
-import { renderAppStarterFixture, renderAppStarterFixtureSubset } from './starter-fixtures.js'
+import {
+  renderAddFixture,
+  renderAppStarterFixture,
+  renderAppStarterFixtureSubset,
+} from './starter-fixtures.js'
 
 export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
 
@@ -310,31 +308,7 @@ export async function getAddTemplateSet(options: {
     return {
       label: 'add:uploads',
       description: 'Add a canonical upload URL seam and starter page',
-      files: [
-        {
-          path: 'shared/features/files/contract.ts',
-          content: uploadsContractTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/files/domain.ts',
-          content: uploadsDomainTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/uploads/components/UploadsStarterPage.vue',
-          content: uploadsPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/uploads.vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/uploads/components/UploadsStarterPage.vue',
-            componentName: 'UploadsStarterPage',
-          }),
-          ownership: 'authored',
-        },
-      ],
+      files: renderAddFixture({ fixture: 'uploads' }),
     }
   }
 

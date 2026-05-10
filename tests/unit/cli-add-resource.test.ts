@@ -9,7 +9,7 @@ import {
   getAddTemplateSet,
   getCanonicalAppTemplateSet,
 } from '../../src/cli/lib/init'
-import { renderAppStarterFixtureSubset } from '../../src/cli/lib/starter-fixtures'
+import { renderAddFixture, renderAppStarterFixtureSubset } from '../../src/cli/lib/starter-fixtures'
 
 const tempDirs: string[] = []
 
@@ -305,6 +305,8 @@ describe('trellis add uploads', () => {
       cwd,
       appName: 'demo-app',
     })
+
+    expect(template.files).toEqual(renderAddFixture({ fixture: 'uploads' }))
 
     await applyInitTemplateSet(cwd, template, false)
 
