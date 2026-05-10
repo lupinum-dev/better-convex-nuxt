@@ -1,10 +1,6 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { definePermission, open } from '@lupinum/trellis/auth'
-import {
-  defineOperation,
-  executeOperationRef,
-  previewOperationRef,
-} from '@lupinum/trellis/functions'
+import { defineOperation, executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 import {
   defineMcpApp,
   type McpConvexCaller,
@@ -25,7 +21,9 @@ const _schema = defineArgs({
   },
 })
 
-expectTypeOf<ValidateToolArgs<typeof _schema, { id: string }>>().toEqualTypeOf<{ id: string }>()
+expectTypeOf<ValidateToolArgs<typeof _schema, { id: string }>>().toEqualTypeOf<{
+  id: string
+}>()
 
 const publishPermission = definePermission({
   key: 'publishEntry',

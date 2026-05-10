@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
-import { defineTrellis } from '../../src/runtime/functions'
+import { defineTrellis, trellisBackendLaneMetadataKey } from '../../src/runtime/backend'
 import {
   defineOperation,
   transportExecuteOperationRef,
@@ -95,10 +95,61 @@ describe('defineTrellis', () => {
 
     expect(runtime.query).toBeTypeOf('function')
     expect(runtime.mutation).toBeTypeOf('function')
+    expect(runtime.query.public).toBeTypeOf('function')
+    expect(runtime.query.protected).toBeTypeOf('function')
+    expect(runtime.query.unsafe).toBeTypeOf('function')
+    expect(runtime.mutation.public).toBeTypeOf('function')
+    expect(runtime.mutation.protected).toBeTypeOf('function')
+    expect(runtime.mutation.unsafe).toBeTypeOf('function')
     expect(runtime.unsafe.query).toBeTypeOf('function')
     expect(runtime.unsafe.mutation).toBeTypeOf('function')
     expect(runtime).not.toHaveProperty('app')
     expect(runtime).not.toHaveProperty('publicQuery')
+  })
+
+  it('stamps explicit backend lane metadata', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const publicQuery = runtime.query.public({
+      args: {},
+      handler: async () => ({ ok: true }),
+    } as never) as Record<PropertyKey, unknown>
+    const protectedMutation = runtime.mutation.protected({
+      args: {},
+      guard: open,
+      handler: async () => ({ ok: true }),
+    } as never) as Record<PropertyKey, unknown>
+    const unsafeMutation = runtime.mutation.unsafe({
+      args: {},
+      bypass: 'test setup',
+      handler: async () => ({ ok: true }),
+    } as never) as Record<PropertyKey, unknown>
+
+    expect(publicQuery[trellisBackendLaneMetadataKey]).toBe('public')
+    expect(protectedMutation[trellisBackendLaneMetadataKey]).toBe('protected')
+    expect(unsafeMutation[trellisBackendLaneMetadataKey]).toBe('unsafe')
+  })
+
+  it('rejects guard on public backend lane', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.public({
+        args: {},
+        guard: open,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/must not provide `guard`/)
   })
 
   it('rejects signed forwarding envelopes for the wrong function ref on real protected handlers', async () => {

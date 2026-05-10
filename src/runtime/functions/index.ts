@@ -25,7 +25,7 @@ import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
-import { can, deny } from '../auth/index.js'
+import { can, deny, open } from '../auth/index.js'
 import { hashConfirmationValue, verifyConfirmationToken } from '../mcp/confirmation-token.js'
 import {
   buildObservationEnvelopeValidators,
@@ -149,6 +149,10 @@ export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
 type UnsafeDefinition = { bypass: string }
 type EscapeTenantIsolationOptions = { reason: string }
+
+export const trellisBackendLaneMetadataKey = Symbol.for('trellis.backendLane')
+
+export type TrellisBackendLane = 'public' | 'protected' | 'unsafe'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- Declaration-merged registry seam.
 export interface OperationsById {}
@@ -565,7 +569,75 @@ function wrapUnsafeBuilder<TBuilder>(builder: TBuilder, label: string): TBuilder
         : definition
 
     return (builder as (definition: unknown) => unknown)(wrappedDefinition)
-  }) as TBuilder
+  }) as unknown as TBuilder
+}
+
+function stampBackendLane<TResult>(value: TResult, lane: TrellisBackendLane): TResult {
+  if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
+    return value
+  }
+
+  Object.defineProperty(value, trellisBackendLaneMetadataKey, {
+    value: lane,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  })
+  return value
+}
+
+function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+): TBuilder {
+  return ((definition: unknown) => {
+    if (
+      definition &&
+      typeof definition === 'object' &&
+      Object.prototype.hasOwnProperty.call(definition, 'guard')
+    ) {
+      throw new Error(
+        'public backend handlers must not provide `guard`; use protected(...) instead.',
+      )
+    }
+
+    return stampBackendLane(
+      protectedBuilder({
+        ...(definition as object),
+        guard: open,
+      } as never),
+      'public',
+    )
+  }) as unknown as TBuilder
+}
+
+function createProtectedLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+): TBuilder {
+  return ((definition: never) =>
+    stampBackendLane(protectedBuilder(definition), 'protected')) as TBuilder
+}
+
+function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown>(
+  unsafeBuilder: TBuilder,
+): TBuilder {
+  return ((definition: never) => stampBackendLane(unsafeBuilder(definition), 'unsafe')) as TBuilder
+}
+
+function attachBackendQueryLanes<TBuilder extends (definition: never) => unknown>(
+  protectedBuilder: TBuilder,
+  unsafeBuilder?: TBuilder,
+): TBuilder & { public: TBuilder; protected: TBuilder; unsafe?: TBuilder } {
+  const lanes = protectedBuilder as TBuilder & {
+    public: TBuilder
+    protected: TBuilder
+    unsafe?: TBuilder
+  }
+  lanes.public = createPublicLaneBuilder(protectedBuilder)
+  lanes.protected = createProtectedLaneBuilder(protectedBuilder)
+  if (unsafeBuilder) {
+    lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder)
+  }
+  return lanes
 }
 
 function hasTenantId(value: unknown): value is { tenantId?: unknown } {
@@ -1584,12 +1656,12 @@ function omitKeys(
 function createFullArgsCustomBuilder<
   TBuilder extends CustomFunctionBuilder,
   TCtx,
-  TCustomCtx extends Record<string, unknown>,
+  TCustomCtx extends object,
   TCustomArgs extends Record<string, unknown>,
-  TExtra extends Record<string, unknown>,
+  TExtra extends object,
 >(
   builder: TBuilder,
-  customization: Customization<TCtx, PropertyValidators, TCustomCtx, TCustomArgs, TExtra>,
+  customization: Customization<any, PropertyValidators, TCustomCtx, TCustomArgs, TExtra>,
 ): TBuilder {
   const inputArgs = customization.args ?? {}
   const inputKeys = Object.keys(inputArgs)
@@ -1610,13 +1682,13 @@ function createFullArgsCustomBuilder<
         returns,
         handler: async (ctx: unknown, rawArgs: Record<string, unknown>) => {
           const added = await customInput(ctx as TCtx, rawArgs, extra as TExtra)
-          const finalCtx = { ...(ctx as Record<string, unknown>), ...added.ctx }
+          const finalCtx = { ...(ctx as object), ...added.ctx }
           const finalArgs = { ...rawArgs, ...added.args }
           const result = await (
             handler as (ctx: unknown, args: Record<string, unknown>) => unknown
           )(finalCtx, finalArgs)
           if (added.onSuccess) {
-            await added.onSuccess({ ctx, args: rawArgs, result })
+            await added.onSuccess({ ctx: ctx as TCtx, args: rawArgs, result })
           }
           return result
         },
@@ -1624,19 +1696,19 @@ function createFullArgsCustomBuilder<
     }
 
     return builder({
-      args: addFieldsToValidator(args, inputArgs),
+      args: addFieldsToValidator(args, inputArgs) as unknown as PropertyValidators,
       returns,
       handler: async (ctx: unknown, allArgs: Record<string, unknown>) => {
         const added = await customInput(ctx as TCtx, allArgs, extra as TExtra)
         const appArgs = omitKeys(allArgs, inputKeys)
-        const finalCtx = { ...(ctx as Record<string, unknown>), ...added.ctx }
+        const finalCtx = { ...(ctx as object), ...added.ctx }
         const finalArgs = { ...appArgs, ...added.args }
         const result = await (handler as (ctx: unknown, args: Record<string, unknown>) => unknown)(
           finalCtx,
           finalArgs,
         )
         if (added.onSuccess) {
-          await added.onSuccess({ ctx, args: appArgs, result })
+          await added.onSuccess({ ctx: ctx as TCtx, args: appArgs, result })
         }
         return result
       },
@@ -1785,7 +1857,9 @@ function buildStructuredMutationRuntime<
     const transformed = {
       ...definition,
       ...(definition.trustedForwardingFunctionRef
-        ? { trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef }
+        ? {
+            trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef,
+          }
         : projectionMetadata?.functionRef
           ? { trustedForwardingFunctionRef: projectionMetadata.functionRef }
           : {}),
@@ -2321,15 +2395,52 @@ function buildTrellisRuntime<
       : {}),
   }
 
+  const queryWithLanes = attachBackendQueryLanes(
+    structured.query as never,
+    explicitUnsafe.query as never,
+  ) as typeof structured.query & {
+    public: typeof structured.query
+    protected: typeof structured.query
+    unsafe: typeof explicitUnsafe.query
+  }
+  const mutationWithLanes = attachBackendQueryLanes(
+    structured.mutation as never,
+    explicitUnsafe.mutation as never,
+  ) as typeof structured.mutation & {
+    public: typeof structured.mutation
+    protected: typeof structured.mutation
+    unsafe: typeof explicitUnsafe.mutation
+  }
+  const internalQueryWithLanes = structuredInternal?.query
+    ? (attachBackendQueryLanes(
+        structuredInternal.query as never,
+        explicitUnsafe.internalQuery as never,
+      ) as typeof structuredInternal.query & {
+        public: typeof structuredInternal.query
+        protected: typeof structuredInternal.query
+        unsafe: typeof explicitUnsafe.internalQuery
+      })
+    : undefined
+  const internalMutationWithLanes = structuredInternal?.mutation
+    ? (attachBackendQueryLanes(
+        structuredInternal.mutation as never,
+        explicitUnsafe.internalMutation as never,
+      ) as typeof structuredInternal.mutation & {
+        public: typeof structuredInternal.mutation
+        protected: typeof structuredInternal.mutation
+        unsafe: typeof explicitUnsafe.internalMutation
+      })
+    : undefined
+
   return {
-    query: structured.query,
-    mutation: structured.mutation,
+    query: queryWithLanes,
+    mutation: mutationWithLanes,
     transportMutation: structured.transportMutation,
     ...(action ? { action } : {}),
-    ...(structuredInternal
+    ...(structuredInternal && internalQueryWithLanes && internalMutationWithLanes
       ? {
-          internalQuery: structuredInternal.query,
-          internalMutation: structuredInternal.mutation,
+          internalQuery: internalQueryWithLanes,
+          internalMutation: internalMutationWithLanes,
           internalTransportMutation: structuredInternal.transportMutation,
         }
       : {}),

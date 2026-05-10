@@ -24,7 +24,7 @@ export type {
   ValidateOperationId,
   ValidateRegisteredOperationId,
   ValidateOperationProjectionRef,
-} from '../functions/index.js'
+} from '../backend/index.js'
 
 export type {
   RegisteredCapabilityKey,

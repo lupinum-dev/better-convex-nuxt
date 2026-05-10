@@ -391,7 +391,7 @@ export function renderPublicSurfaceCodegenTypes(metadata: PublicSurfaceCodegenMe
 
 ${imports}${imports ? '\n' : ''}
 
-declare module '@lupinum/trellis/functions' {
+declare module '@lupinum/trellis/backend' {
   interface OperationsById {
 ${renderInterfaceBody(operationsById)}
   }

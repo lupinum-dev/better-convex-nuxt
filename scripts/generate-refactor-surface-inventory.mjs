@@ -156,6 +156,7 @@ function packageDecision(exportKey) {
       "keep",
       "schema/args helper subpath unless merged by Slice 1 decision",
     ],
+    "./backend": ["keep", "canonical 1.0 backend builder and operation subpath"],
     "./composables": [
       "keep",
       "client composable subpath unless root-only Nuxt auto-imports replace it",

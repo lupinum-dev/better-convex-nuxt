@@ -23,7 +23,7 @@ describe('public surface codegen', () => {
   it('extracts operations, projections, and MCP tool metadata', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
-        import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
         import { mutation, query } from '../../functions'
 
         export const archiveTaskOp = defineOperation({
@@ -98,7 +98,7 @@ describe('public surface codegen', () => {
   it('renders additive module augmentation types for generated operation and tool maps', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
-        import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
         import { mutation, query } from '../../functions'
 
         export const archiveTaskOp = defineOperation({
@@ -128,7 +128,7 @@ describe('public surface codegen', () => {
     const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
     const types = renderPublicSurfaceCodegenTypes(metadata)
 
-    expect(types).toContain(`declare module '@lupinum/trellis/functions'`)
+    expect(types).toContain(`declare module '@lupinum/trellis/backend'`)
     expect(types).toContain('interface OperationsById')
     expect(types).toContain('"tasks.archive": typeof __trellisOperation0')
     expect(types).toContain('interface OperationExecutionsById')

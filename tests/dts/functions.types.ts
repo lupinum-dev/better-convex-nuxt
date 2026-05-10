@@ -1,15 +1,12 @@
 import { open } from '@lupinum/trellis/auth'
 import {
-  callComponentBridgeRegistrar,
-  type ComponentBridgeMutationRegistrar,
-  type ComponentBridgeQueryRegistrar,
   defineOperation,
   defineOperationMetadata,
   executeOperationRef,
   previewOperationRef,
   type InferOperationResult,
   trellisOperationProjectionMetadataKey,
-} from '@lupinum/trellis/functions'
+} from '@lupinum/trellis/backend'
 import type { FunctionReference } from 'convex/server'
 import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
@@ -72,43 +69,3 @@ const metadataOnlyExecuteRef = executeOperationRef(
 expectTypeOf(
   metadataOnlyExecuteRef[trellisOperationProjectionMetadataKey].operationId,
 ).toEqualTypeOf<'entries.archive-metadata'>()
-
-const componentRef = {} as FunctionReference<'query', 'public', { slug: string }, { ok: true }>
-const componentMutationRef = {} as FunctionReference<
-  'mutation',
-  'public',
-  { id: string },
-  { ok: true }
->
-const componentBridgeQueryRegistrar = ((definition: never) =>
-  definition) as unknown as ComponentBridgeQueryRegistrar<'public'>
-const componentBridgeMutationRegistrar = ((definition: never) =>
-  definition) as unknown as ComponentBridgeMutationRegistrar<'public'>
-expectTypeOf(
-  callComponentBridgeRegistrar(componentBridgeQueryRegistrar, {
-    component: componentRef,
-    args: { slug: v.string() },
-  }),
-).toEqualTypeOf<
-  import('convex/server').RegisteredQuery<'public', { slug: string }, Promise<{ ok: true }>>
->()
-expectTypeOf(
-  callComponentBridgeRegistrar(componentBridgeMutationRegistrar, {
-    component: componentMutationRef,
-    args: { id: v.string() },
-  }),
-).toEqualTypeOf<
-  import('convex/server').RegisteredMutation<'public', { id: string }, Promise<{ ok: true }>>
->()
-
-// @ts-expect-error query registrar must reject mutation refs
-callComponentBridgeRegistrar(componentBridgeQueryRegistrar, {
-  component: componentMutationRef,
-  args: { id: v.string() },
-})
-
-// @ts-expect-error mutation registrar must reject query refs
-callComponentBridgeRegistrar(componentBridgeMutationRegistrar, {
-  component: componentRef,
-  args: { slug: v.string() },
-})

@@ -182,7 +182,7 @@ const file = [
   '',
   '- Vue component or composable: start with Nuxt auto-imports like `useConvexQuery()` and `useConvexMutation()`.',
   '- Nuxt server route, server middleware, or Nitro endpoint: use server auto-imports or `@lupinum/trellis/server`.',
-  '- Convex backend code: use package subpaths such as `@lupinum/trellis/auth`, `@lupinum/trellis/functions`, or `@lupinum/trellis/args`.',
+  '- Convex backend code: use package subpaths such as `@lupinum/trellis/auth`, `@lupinum/trellis/backend`, or `@lupinum/trellis/args`.',
   '- App-local generated Convex schema: use `#trellis/api`.',
   '- Advanced MCP-only app wiring: use `#trellis/mcp` or `@lupinum/trellis/mcp` depending on runtime context.',
   '',

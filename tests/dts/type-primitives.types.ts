@@ -1,10 +1,6 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { definePermission, definePermissionContext, open } from '@lupinum/trellis/auth'
-import {
-  defineOperation,
-  executeOperationRef,
-  previewOperationRef,
-} from '@lupinum/trellis/functions'
+import { defineOperation, executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 import type {
   InferOperationResult,
   InferPermissionContext,
@@ -67,7 +63,9 @@ const _schema = defineArgs({
   },
 })
 
-expectTypeOf<ValidateToolArgs<typeof _schema, { id: string }>>().toEqualTypeOf<{ id: string }>()
+expectTypeOf<ValidateToolArgs<typeof _schema, { id: string }>>().toEqualTypeOf<{
+  id: string
+}>()
 expectTypeOf<
   ValidateSerializable<{
     archived: true
@@ -88,8 +86,10 @@ expectTypeOf<SerializableValue>().toMatchTypeOf<
   | { [key: string]: SerializableValue }
 >()
 
-// @ts-expect-error functions are not transport-serializable
-const _invalidSerializable: ValidateSerializable<{ run: () => void }> = { run: () => {} }
+const _invalidSerializable: ValidateSerializable<{ run: () => void }> = {
+  // @ts-expect-error functions are not transport-serializable
+  run: () => {},
+}
 
 type _toolOptions = ValidateMcpToolOptions<
   typeof _schema,

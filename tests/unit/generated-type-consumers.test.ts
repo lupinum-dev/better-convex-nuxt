@@ -44,7 +44,7 @@ export type RegisteredProjectedPermissionKey = Extract<keyof ProjectedPermission
 
   writeFile(
     rootDir,
-    'node_modules/@lupinum/trellis/functions/index.d.ts',
+    'node_modules/@lupinum/trellis/backend/index.d.ts',
     `
 export interface OperationsById {}
 export interface OperationExecutionsById {}
@@ -105,7 +105,7 @@ export type {
   RegisteredOperationId,
   ValidateOperationProjection,
   ValidateRegisteredOperationId,
-} from '@lupinum/trellis/functions'
+} from '@lupinum/trellis/backend'
 
 export type {
   RegisteredCapabilityKey,

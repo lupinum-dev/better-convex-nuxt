@@ -132,15 +132,15 @@ Goal: decide exactly what survives into 1.0 before moving code.
 
 ## Slice 2: Package And Subpath Shape
 
-Status: pending
+Status: in progress
 
 Goal: make package boundaries match the 1.0 mental model without package
 explosion.
 
 ### Keep
 
-- [ ] Root package remains `@lupinum/trellis`.
-- [ ] Auth, workspace, MCP, server, testing remain product layers/subpaths until
+- [x] Root package remains `@lupinum/trellis`.
+- [x] Auth, workspace, MCP, server, testing remain product layers/subpaths until
       a dependency graph proves separate packages are needed.
 - [ ] ESLint stays separate if runtime package would otherwise pull tooling.
 
@@ -155,7 +155,7 @@ explosion.
 ### Delete
 
 - [ ] Delete bridge exports from root/core.
-- [ ] Delete bridge exports from `@lupinum/trellis/functions`, including
+- [x] Delete bridge exports from `@lupinum/trellis/backend`, including
       component bridge creation, manifest helpers, render helpers, and bridge
       package-author types.
 - [ ] Delete old package-author bridge docs from normal app docs.
@@ -169,7 +169,8 @@ explosion.
 - [ ] Dependency graph check proves root/core does not pull bridge, ESLint,
       evlog delivery, devtools UI, or other layer-specific implementation code
       into public/core runtime bundles.
-- [ ] Publish surface check catches reintroduced bridge exports.
+- [x] Publish surface check catches removed public `functions` and backend
+      export drift.
 
 ### Done Means
 
@@ -178,17 +179,17 @@ explosion.
 
 ## Slice 3: Backend Builder Hard Cut
 
-Status: pending
+Status: in progress
 
 Goal: make public/protected/unsafe trust lanes explicit and delete ambiguous
 builder spellings.
 
 ### Decide API
 
-- [ ] Choose final spelling for public handlers.
-- [ ] Choose final spelling for protected handlers.
-- [ ] Choose final spelling for unsafe handlers.
-- [ ] Choose final import subpath.
+- [x] Choose final spelling for public handlers.
+- [x] Choose final spelling for protected handlers.
+- [x] Choose final spelling for unsafe handlers.
+- [x] Choose final import subpath.
 
 Candidate target:
 
@@ -209,7 +210,7 @@ mutation.unsafe(...)
 ### Replace
 
 - [ ] Convert existing examples and fixtures to explicit lanes.
-- [ ] Convert backend tests to explicit lanes.
+- [x] Convert focused backend tests to explicit lanes.
 - [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
 - [ ] Add audit report for authorization rewrites that cannot be proven safe.
 
@@ -219,7 +220,8 @@ mutation.unsafe(...)
 - [ ] Missing protected principal/actor wiring fails closed.
 - [ ] Public-access handlers do not require principal/actor wiring.
 - [ ] Resolved-null actor is distinct from missing actor resolver wiring.
-- [ ] Unsafe permit metadata appears in doctor/inventory.
+- [x] Explicit lane metadata appears on registered function objects for
+      tests/doctor/inventory to consume.
 
 ### Done Means
 

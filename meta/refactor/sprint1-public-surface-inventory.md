@@ -12,11 +12,11 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | `@lupinum/trellis`                    | keep             | root Nuxt module remains the app entrypoint                             |
 | `@lupinum/trellis/args`               | keep             | schema/args helper subpath unless merged by Slice 1 decision            |
 | `@lupinum/trellis/auth`               | keep             | auth product layer subpath                                              |
+| `@lupinum/trellis/backend`            | keep             | canonical 1.0 backend builder and operation subpath                     |
 | `@lupinum/trellis/bridge`             | move/delete      | bridge APIs leave core for @lupinum/trellis-bridge                      |
 | `@lupinum/trellis/composables`        | keep             | client composable subpath unless root-only Nuxt auto-imports replace it |
 | `@lupinum/trellis/eslint`             | move/delete      | runtime package should not carry tooling unless explicitly retained     |
 | `@lupinum/trellis/feature`            | keep             | feature manifest layer stays in root package                            |
-| `@lupinum/trellis/functions`          | replace          | hard-cut to @lupinum/trellis/backend                                    |
 | `@lupinum/trellis/mcp`                | keep             | MCP product layer subpath                                               |
 | `@lupinum/trellis/server`             | keep             | Nuxt/Nitro server helper subpath                                        |
 | `@lupinum/trellis/testing`            | keep             | testing helpers stay public but must stop emitting raw forwarding       |
@@ -30,10 +30,11 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | -------------------- | --------------------------------------- | ------------------------ |
 | `args`               | src/runtime/args/index.ts               | npm export               |
 | `auth`               | src/runtime/auth/index.ts               | npm export               |
+| `backend`            | src/runtime/backend/index.ts            | npm export               |
 | `bridge`             | src/runtime/bridge/index.ts             | npm export               |
 | `composables`        | src/runtime/composables/index.ts        | npm export               |
 | `feature`            | src/runtime/feature/index.ts            | npm export               |
-| `functions`          | src/runtime/functions/index.ts          | npm export               |
+| `functions`          | src/runtime/functions/index.ts          | internal unless promoted |
 | `mcp`                | src/runtime/mcp/index.ts                | npm export               |
 | `observability`      | src/runtime/observability/index.ts      | internal unless promoted |
 | `schema`             | src/runtime/schema/index.ts             | internal unless promoted |
@@ -161,7 +162,7 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | apps/docs/content/docs/07.server-side/5.component-bridge.md                | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge`                                                                      | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/08.permissions/7.operations.md                      | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/13.api-reference/5.mcp.md                           | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
-| apps/docs/content/docs/13.api-reference/7.api-surface.md                   | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
+| apps/docs/content/docs/13.api-reference/7.api-surface.md                   | `@lupinum/trellis/bridge`                                                                                                                      | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/2.define-tools.md                      | `tool.fromOperation`                                                                                                                           | rewrite/delete before 1.0 docs gate   |
 | apps/docs/content/docs/14.mcp-tools/4.destructive-tools.md                 | `tool.fromOperation`, `@lupinum/trellis/functions`                                                                                             | rewrite/delete before 1.0 docs gate   |
 | src/cli/templates/init/cmsPagesTemplate.tpl                                | `@lupinum/trellis/functions`                                                                                                                   | rewrite/delete before 1.0 docs gate   |

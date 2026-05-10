@@ -34,34 +34,34 @@ the source of truth, and leave the repo ready for the larger conversion slices.
 
 ### 1. Create The Backend Subpath
 
-- [ ] Add `src/runtime/backend/index.ts` as the canonical 1.0 backend barrel.
-- [ ] Move or re-export only backend-owned APIs from the old functions barrel.
-- [ ] Add `./backend` to `package.json` exports.
-- [ ] Remove `./functions` from `package.json` exports.
-- [ ] Update public type surface tests to import backend APIs from
+- [x] Add `src/runtime/backend/index.ts` as the canonical 1.0 backend barrel.
+- [x] Move or re-export only backend-owned APIs from the old functions barrel.
+- [x] Add `./backend` to `package.json` exports.
+- [x] Remove `./functions` from `package.json` exports.
+- [x] Update public type surface tests to import backend APIs from
       `@lupinum/trellis/backend`.
-- [ ] Add a negative type/public-surface test proving
+- [x] Add a negative type/public-surface test proving
       `@lupinum/trellis/functions` is not a public export.
 
 ### 2. Split Bridge From Backend Surface
 
-- [ ] Inventory every export currently leaving through
+- [x] Inventory every export currently leaving through
       `src/runtime/functions/index.ts`.
-- [ ] Move component bridge creation, manifest helpers, render helpers, and
+- [x] Move component bridge creation, manifest helpers, render helpers, and
       bridge package-author types out of the backend barrel.
 - [ ] If the bridge package shell does not exist yet, create only the minimum
       package boundary needed to host those exports.
-- [ ] Add a boundary test proving backend/root exports do not expose bridge
+- [x] Add a boundary test proving backend/root exports do not expose bridge
       APIs.
 - [ ] Leave broader bridge CLI/runtime migration to the bridge extraction slice.
 
 ### 3. Add Explicit Builder Lane API
 
-- [ ] Add `query.public(...)`, `query.protected(...)`, `mutation.public(...)`,
+- [x] Add `query.public(...)`, `query.protected(...)`, `mutation.public(...)`,
       `mutation.protected(...)`, and `mutation.unsafe(...)` entrypoints.
-- [ ] Make the lane metadata visible to tests/doctor/inventory, even if the
+- [x] Make the lane metadata visible to tests/doctor/inventory, even if the
       inventory engine is still simple.
-- [ ] Keep implementation boring: delegate into the existing handler pipeline
+- [x] Keep implementation boring: delegate into the existing handler pipeline
       internally while the old API is being removed.
 - [ ] Do not keep a compatibility story for old builder spelling once converted
       tests pass.
@@ -78,35 +78,35 @@ the source of truth, and leave the repo ready for the larger conversion slices.
 
 ### 5. Update First Consumer Surface
 
-- [ ] Convert the smallest representative backend tests to
+- [x] Convert the smallest representative backend tests to
       `@lupinum/trellis/backend`.
 - [ ] Convert the smallest representative fixture/template imports from
       `@lupinum/trellis/functions` to `@lupinum/trellis/backend`.
 - [ ] Do not bulk-convert all starters yet unless needed to keep tests green.
-- [ ] Record remaining old import hits in the Sprint 2 exit notes.
+- [x] Record remaining old import hits in the Sprint 2 exit notes.
 
 ### 6. Keep The Inventory Honest
 
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
-- [ ] Update the inventory generator if the new `backend` export or removed
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Update the inventory generator if the new `backend` export or removed
       `functions` export changes the public surface.
-- [ ] Update `meta/trellis-1.0-refactor-plan.md` checkboxes for completed Slice
+- [x] Update `meta/trellis-1.0-refactor-plan.md` checkboxes for completed Slice
       2 and Slice 3 items only.
 
 ## Acceptance Criteria
 
-- [ ] `@lupinum/trellis/backend` exists and is the canonical backend import.
-- [ ] `@lupinum/trellis/functions` is not present in package exports.
-- [ ] Backend public-surface/type tests use `backend`, not `functions`.
-- [ ] Bridge helpers are not exported from root/backend.
-- [ ] Explicit builder lane API exists and has focused tests.
+- [x] `@lupinum/trellis/backend` exists and is the canonical backend import.
+- [x] `@lupinum/trellis/functions` is not present in package exports.
+- [x] Backend public-surface/type tests use `backend`, not `functions`.
+- [x] Bridge helpers are not exported from root/backend.
+- [x] Explicit builder lane API exists and has focused tests.
 - [ ] Missing/unclassified backend trust lane fails.
-- [ ] Existing focused backend/function tests pass after conversion.
-- [ ] `pnpm run check:refactor:surface:inventory` passes.
-- [ ] `pnpm run check:docs:api-surface` passes or its generated docs changes are
+- [x] Existing focused backend/function tests pass after conversion.
+- [x] `pnpm run check:refactor:surface:inventory` passes.
+- [x] `pnpm run check:docs:api-surface` passes or its generated docs changes are
       committed intentionally.
-- [ ] `pnpm run check:publish-surface` passes.
-- [ ] `git diff --check` passes.
+- [x] `pnpm run check:publish-surface` passes.
+- [x] `git diff --check` passes.
 
 ## Suggested Verification Commands
 
@@ -121,10 +121,29 @@ git diff --check
 
 ## Exit Notes To Fill At Sprint End
 
-- Commit:
-- Backend export shape:
-- Bridge exports removed from backend/root:
-- Builder lanes implemented:
+- Commit: filled after commit.
+- Backend export shape: `@lupinum/trellis/backend` is the public package export;
+  `src/runtime/functions/index.ts` remains internal implementation during
+  conversion.
+- Bridge exports removed from backend/root: removed from backend; root still has
+  `@lupinum/trellis/bridge` until the bridge extraction slice.
+- Builder lanes implemented: `query.public`, `query.protected`,
+  `mutation.public`, `mutation.protected`, `mutation.unsafe`; old callable
+  builder form remains temporarily for conversion and is not accepted as done.
 - Tests run:
-- Remaining old `@lupinum/trellis/functions` hits:
-- Remaining old builder spelling hits:
+  - `pnpm run check:refactor:surface:inventory`
+  - `pnpm run check:docs:api-surface`
+  - `pnpm run check:publish-surface`
+  - `pnpm run test:types:public`
+  - `pnpm exec vitest run --project=unit tests/unit/package-subpath-exports.test.ts tests/unit/backend-index-exports.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/public-surface-codegen.test.ts tests/unit/generated-type-consumers.test.ts tests/unit/runtime-facade-boundaries.test.ts`
+  - `git diff --check`
+  - `pnpm run test:types:contracts` still fails on existing Nuxt `#app`
+    typing gaps in runtime plugin/client files; not introduced by this sprint.
+  - `pnpm run format:check` still fails on the existing repository formatter
+    baseline; this sprint did not mass-format unrelated files.
+- Remaining old `@lupinum/trellis/functions` hits: 71 non-experiment hits at
+  sprint implementation time, mostly docs, templates, examples, harness, and
+  future migration notes.
+- Remaining old builder spelling hits: 54 focused test/type hits in
+  `tests/unit/functions-defineTrellis.test.ts`, `tests/unit/functions-defineHandler.test.ts`,
+  and `tests/types`; examples/templates still need conversion in later slices.

@@ -48,8 +48,8 @@
       "composables": [
         "./dist/runtime/composables/index.d.ts"
       ],
-      "functions": [
-        "./dist/runtime/functions/index.d.ts"
+      "backend": [
+        "./dist/runtime/backend/index.d.ts"
       ],
       "bridge": [
         "./dist/runtime/bridge/index.d.ts"
@@ -68,6 +68,9 @@
       ],
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
+      ],
+      "type-primitives": [
+        "./dist/runtime/type-primitives/index.d.ts"
       ],
       "server": [
         "./dist/runtime/server/index.d.ts"
@@ -94,9 +97,9 @@
       "types": "./dist/runtime/composables/index.d.ts",
       "import": "./dist/runtime/composables/index.mjs"
     },
-    "./functions": {
-      "types": "./dist/runtime/functions/index.d.ts",
-      "import": "./dist/runtime/functions/index.mjs"
+    "./backend": {
+      "types": "./dist/runtime/backend/index.d.ts",
+      "import": "./dist/runtime/backend/index.mjs"
     },
     "./bridge": {
       "types": "./dist/runtime/bridge/index.d.ts",

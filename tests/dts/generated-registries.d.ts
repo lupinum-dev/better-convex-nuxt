@@ -1,6 +1,6 @@
 import type { FunctionReference } from 'convex/server'
 
-declare module '@lupinum/trellis/functions' {
+declare module '@lupinum/trellis/backend' {
   interface OperationsById {
     'entries.archive': {
       id: 'entries.archive'
