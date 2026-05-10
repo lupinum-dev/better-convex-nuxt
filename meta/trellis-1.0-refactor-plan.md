@@ -962,6 +962,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   `packages/cms/src/server/mcp/runtime.ts` now routes destructive tools through
   `rawMcpRuntime.tool.operation(...)`; focused Ginko MCP/package-boundary tests
   pass and only negative test assertions mention `tool.fromOperation(...)`.
+- Sprint 67 is planned to close the Ginko bridge package-boundary items with
+  evidence: package dependencies, authored bridge imports, CLI bridge ownership,
+  and focused Ginko package-boundary/manifest/module-bridge tests. It should
+  leave raw forwarding and full packed-package validation open.
 
 ### Done Means
 
