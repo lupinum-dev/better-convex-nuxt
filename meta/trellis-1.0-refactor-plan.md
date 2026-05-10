@@ -741,6 +741,9 @@ shims.
   strengthened deleted starter spelling findings, and documented the migration
   coverage map. Raw Convex builders remain out of scope unless they import
   Trellis builders.
+- Sprint 58 is planned to delete the obsolete public compatibility type-check
+  path (`tsconfig.types.public.compat.json` and `test:types:public:compat`) and
+  rely on explicit 1.0 public type verification instead.
 
 ### Build
 
