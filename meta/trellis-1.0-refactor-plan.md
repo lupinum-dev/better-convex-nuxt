@@ -954,6 +954,10 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   on `@lupinum/trellis-bridge`; the first active migration target is
   `packages/cms/src/server/mcp/runtime.ts`
   `rawMcpRuntime.tool.fromOperation(...)`.
+- Sprint 66 is planned to migrate that single active Ginko MCP operation binding
+  from `rawMcpRuntime.tool.fromOperation(...)` to
+  `rawMcpRuntime.tool.operation(...)`, leaving broader Ginko bridge/raw
+  forwarding/package validation open until their own focused sprint.
 
 ### Done Means
 
