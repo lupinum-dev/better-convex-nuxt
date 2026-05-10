@@ -131,47 +131,47 @@ Keep severity conservative:
 
 ### 1. Add Upgrade Command Shell
 
-- [ ] Add `src/cli/commands/upgrade.ts`.
-- [ ] Register `upgrade` in `src/cli/main.ts`.
-- [ ] Support `--check`, `--json`, and `--cwd`.
-- [ ] Refuse non-check execution with a clear message.
-- [ ] Keep command output read-only.
+- [x] Add `src/cli/commands/upgrade.ts`.
+- [x] Register `upgrade` in `src/cli/main.ts`.
+- [x] Support `--check`, `--json`, and `--cwd`.
+- [x] Refuse non-check execution with a clear message.
+- [x] Keep command output read-only.
 
 ### 2. Reuse Inventory
 
-- [ ] Use `inspectProject(...)`, `collectTrellisCliInventoryFacts(...)`, and
+- [x] Use `inspectProject(...)`, `collectTrellisCliInventoryFacts(...)`, and
       `collectTrellisCliInventory(...)`.
-- [ ] Do not add a new repo scanner for facts already present in inventory.
-- [ ] Add only narrowly scoped migration detectors for old paths that inventory
+- [x] Do not add a new repo scanner for facts already present in inventory.
+- [x] Add only narrowly scoped migration detectors for old paths that inventory
       does not yet expose.
-- [ ] Store source locations as path + line only.
+- [x] Store source locations as path + line only.
 
 ### 3. Add Upgrade Findings
 
-- [ ] Add raw forwarding migration finding.
-- [ ] Add `tool.fromOperation` migration finding.
-- [ ] Add `@lupinum/trellis/functions` import migration finding.
-- [ ] Add bridge root/core reference migration finding.
-- [ ] Add MCP destructive/custom-tool migration findings using
+- [x] Add raw forwarding migration finding.
+- [x] Add `tool.fromOperation` migration finding.
+- [x] Add `@lupinum/trellis/functions` import migration finding.
+- [x] Add bridge root/core reference migration finding.
+- [x] Add MCP destructive/custom-tool migration findings using
       `inventory.mcp`.
-- [ ] Add unsafe/typed-permit migration finding using `inventory.backend`.
+- [x] Add unsafe/typed-permit migration finding using `inventory.backend`.
 
 ### 4. Add Tests
 
-- [ ] Test clean generated starter passes upgrade check.
-- [ ] Test raw forwarding exposure fails or warns according to severity policy.
-- [ ] Test `tool.fromOperation(...)` is reported with file/line.
-- [ ] Test `@lupinum/trellis/functions` import is reported with file/line.
-- [ ] Test JSON output includes schema version, inventory, findings, and summary.
-- [ ] Test non-check mode exits non-zero and does not mutate files.
+- [x] Test clean generated starter passes upgrade check.
+- [x] Test raw forwarding exposure fails or warns according to severity policy.
+- [x] Test `tool.fromOperation(...)` is reported with file/line.
+- [x] Test `@lupinum/trellis/functions` import is reported with file/line.
+- [x] Test JSON output includes schema version, inventory, findings, and summary.
+- [x] Test non-check mode exits non-zero and does not mutate files.
 
 ### 5. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Mark `Upgrade --check uses inventory` only if the command reads
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Mark `Upgrade --check uses inventory` only if the command reads
       `TrellisCliInventory` and tests prove it.
-- [ ] Leave public-surface check reuse unchecked.
+- [x] Leave public-surface check reuse unchecked.
 
 ## Verification
 
@@ -216,19 +216,31 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `trellis upgrade --check` exists and is read-only.
-- [ ] `trellis upgrade --check --json` emits versioned, secret-safe JSON.
-- [ ] Upgrade findings are backed by `TrellisCliInventory` wherever inventory
+- [x] `trellis upgrade --check` exists and is read-only.
+- [x] `trellis upgrade --check --json` emits versioned, secret-safe JSON.
+- [x] Upgrade findings are backed by `TrellisCliInventory` wherever inventory
       already has the facts.
-- [ ] Old 1.0 hard-cut paths are reported with file/line locations.
-- [ ] The command does not introduce compatibility aliases or codemods.
-- [ ] Generated starters can run upgrade check cleanly.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Old 1.0 hard-cut paths are reported with file/line locations.
+- [x] The command does not introduce compatibility aliases or codemods.
+- [x] Generated starters can run upgrade check cleanly.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- pending
+- Added read-only `trellis upgrade --check` and `trellis upgrade --check
+--json`.
+- Reused `inspectProject(...)`, `collectTrellisCliInventoryFacts(...)`, and
+  `collectTrellisCliInventory(...)` for the report.
+- Added migration findings for raw forwarding, `tool.fromOperation`, old
+  functions imports, old bridge imports, destructive/custom MCP misuse, unsafe
+  entrypoints, and deleted starter spellings.
+- Kept extra detectors narrow and only for old path strings that inventory does
+  not yet expose.
+- Added focused CLI upgrade tests for clean starters, JSON shape, file/line
+  reporting, and read-only behavior.
+- Updated the generated public-surface inventory so `trellis upgrade` has an
+  explicit owner.
 
 ## Next Sprint Candidate
 

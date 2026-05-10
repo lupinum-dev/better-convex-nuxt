@@ -460,7 +460,7 @@ docs generation, and future explain commands.
 
 - [ ] Doctor reads inventory/finding engine.
 - [ ] Public surface checks reuse inventory where useful.
-- [ ] Upgrade `--check` uses inventory.
+- [x] Upgrade `--check` uses inventory.
 - [ ] `explain operation <id>` uses inventory if included in 1.0.
 
 ### Delete
@@ -496,6 +496,9 @@ docs generation, and future explain commands.
 - Sprint 37 is planned to add `trellis upgrade --check` as the first
   read-only inventory consumer outside doctor, focused on 1.0 hard-cut migration
   findings.
+- Sprint 37 added read-only `trellis upgrade --check` and `--json`, backed by
+  `TrellisCliInventory` for existing forwarding, MCP, and backend facts plus
+  narrow detectors for old hard-cut path strings.
 
 ### Done Means
 
