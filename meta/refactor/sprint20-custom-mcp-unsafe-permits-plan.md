@@ -107,54 +107,53 @@ If a tool needs those, use `tool.mutation(...)` or `tool.operation(...)`.
 
 ### 1. Add Typed Unsafe Permit Primitive
 
-- [ ] Add a small `unsafe` namespace or equivalent focused export.
-- [ ] Implement `unsafe.permit(...)` with runtime validation for non-empty
+- [x] Add a small `unsafe` namespace or equivalent focused export.
+- [x] Implement `unsafe.permit(...)` with runtime validation for non-empty
       `kind`, `reason`, and `scope`.
-- [ ] Add `defineUnsafePermitKinds(...)` only if the existing code has a natural
-      home for it; otherwise plan it for the inventory/doctor sprint.
-- [ ] Keep the permit type reusable by backend unsafe builders later.
-- [ ] Export the permit only from the narrow surface that needs it; avoid broad
+- [x] Leave `defineUnsafePermitKinds(...)` for the inventory/doctor sprint; no natural home exists yet.
+- [x] Keep the permit type reusable by backend unsafe builders later.
+- [x] Export the permit only from the narrow surface that needs it; avoid broad
       barrel creep.
 
 ### 2. Make Standalone Tool Effects Explicit
 
-- [ ] Add required `effect` to `DefineConvexToolOptions`.
-- [ ] Keep `defineTool(...)` read/custom focused.
-- [ ] Make `operation` derived from `effect` where possible instead of a public
+- [x] Add required `effect` to `DefineConvexToolOptions`.
+- [x] Keep `defineTool(...)` read/custom focused.
+- [x] Make `operation` derived from `effect` where possible instead of a public
       source of truth.
-- [ ] Reject `destructive: true` as today.
-- [ ] Reject `effect: "external-service"` without a typed unsafe permit.
+- [x] Reject `destructive: true` as today.
+- [x] Reject `effect: "external-service"` without a typed unsafe permit.
 
 ### 3. Delete Direct Custom App Writes
 
-- [ ] Remove public handler context access to `ctx.mutation(...)` from
+- [x] Remove public handler context access to `ctx.mutation(...)` from
       standalone `defineTool(...)`, or make it throw with a clear 1.0 error if
       the type surface cannot be removed in one step.
-- [ ] Remove public handler context access to `ctx.action(...)`, or make it
+- [x] Remove public handler context access to `ctx.action(...)`, or make it
       unavailable except through a later operation-backed action design.
-- [ ] Keep `ctx.query(...)` for custom read/diagnostic tools.
-- [ ] Update custom examples and harness tools that write app data to
+- [x] Keep `ctx.query(...)` for custom read/diagnostic tools.
+- [x] Update custom examples and harness tools that write app data to
       `defineMcpApp(...).tool.mutation(...)` or operation-backed tools.
 
 ### 4. Update Tests
 
-- [ ] Type tests prove `defineTool(...)` requires `effect`.
-- [ ] Type tests prove standalone custom handlers cannot call `ctx.mutation`.
-- [ ] Type tests prove standalone custom handlers cannot call `ctx.action`.
-- [ ] Unit tests prove `external-service` requires `unsafe.permit(...)`.
-- [ ] Unit tests prove malformed permits fail loudly.
-- [ ] Existing destructive generic tool rejection tests still pass.
+- [x] Type tests prove `defineTool(...)` requires `effect`.
+- [x] Type tests prove standalone custom handlers cannot call `ctx.mutation`.
+- [x] Type tests prove standalone custom handlers cannot call `ctx.action`.
+- [x] Unit tests prove `external-service` requires `unsafe.permit(...)`.
+- [x] Unit tests prove malformed permits fail loudly.
+- [x] Existing destructive generic tool rejection tests still pass.
 
 ### 5. Update Doctor And Docs
 
-- [ ] Doctor flags standalone `defineTool(...)` handlers that call
+- [x] Doctor flags standalone `defineTool(...)` handlers that call
       `ctx.mutation(...)` or `ctx.action(...)`.
-- [ ] Doctor message points to `tool.mutation(...)` or `tool.operation(...)`.
-- [ ] MCP docs explain standalone `defineTool(...)` as custom read/diagnostic
+- [x] Doctor message points to `tool.mutation(...)` or `tool.operation(...)`.
+- [x] MCP docs explain standalone `defineTool(...)` as custom read/diagnostic
       only.
-- [ ] API reference deletes `operation` as the primary custom-tool decision and
+- [x] API reference deletes `operation` as the primary custom-tool decision and
       teaches `effect`.
-- [ ] Main 1.0 tracker marks the relevant Slice 6 items complete.
+- [x] Main 1.0 tracker marks the relevant Slice 6 items complete.
 
 ## Verification
 
@@ -210,20 +209,25 @@ Vue Router package identity drift between Trellis and Ginko workspaces.
 
 ## Acceptance Criteria
 
-- [ ] `defineTool(...)` requires an explicit custom-tool `effect`.
-- [ ] Standalone `defineTool(...)` cannot be used for direct protected Convex
+- [x] `defineTool(...)` requires an explicit custom-tool `effect`.
+- [x] Standalone `defineTool(...)` cannot be used for direct protected Convex
       app writes.
-- [ ] External-service custom tools require `unsafe.permit(...)`.
-- [ ] Typed permits are structured and reusable by later backend unsafe work.
-- [ ] Maintained custom write tools are migrated to app-backed blessed lanes or
+- [x] External-service custom tools require `unsafe.permit(...)`.
+- [x] Typed permits are structured and reusable by later backend unsafe work.
+- [x] Maintained custom write tools are migrated to app-backed blessed lanes or
       operation-backed tools.
-- [ ] Doctor detects custom app-write bypasses.
-- [ ] Docs present `defineTool(...)` as custom read/diagnostic/external-service
+- [x] Doctor detects custom app-write bypasses.
+- [x] Docs present `defineTool(...)` as custom read/diagnostic/external-service
       only.
-- [ ] Slice 6 no longer has a raw app-write escape hatch.
-- [ ] Verification commands above pass except explicitly listed non-gates.
-- [ ] Sprint changes are committed after verification.
+- [x] Slice 6 no longer has a raw app-write escape hatch.
+- [x] Verification commands above pass except explicitly listed non-gates.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- [ ] Fill this in during implementation.
+- Added `unsafe.permit(...)` as the first typed unsafe permit primitive for MCP custom tools.
+- Standalone `defineTool(...)` now requires an explicit `effect` and only exposes `ctx.query(...)`; app writes moved to app-backed blessed lanes.
+- Harness write tools now use `tool.mutation(...)` with backend/ref-owned bounded-write safety.
+- Doctor now reports `mcp-custom-app-write-bypass` when standalone custom tools call `ctx.mutation(...)` or `ctx.action(...)`.
+- Docs now frame `defineTool(...)` as read/diagnostic/external-service only.
+- Search hits for `ctx.mutation(...)` / `ctx.action(...)` are limited to negative type tests, doctor fixture coverage, and docs that describe the removed path.

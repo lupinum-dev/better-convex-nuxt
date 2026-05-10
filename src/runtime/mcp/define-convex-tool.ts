@@ -28,6 +28,7 @@ import type {
   McpAuthIdentity,
   PreviewResult,
 } from './types.js'
+import { assertUnsafePermit } from './unsafe-permit.js'
 
 function assertProductionRateLimitStore(
   toolName: string | undefined,
@@ -363,18 +364,6 @@ function createToolCallFns(
     ): Promise<FunctionReturnType<Query>> => {
       return await getConvex().query(fn, args)
     },
-    mutation: async <Mutation extends FunctionReference<'mutation'>>(
-      fn: Mutation,
-      args?: FunctionArgs<Mutation>,
-    ): Promise<FunctionReturnType<Mutation>> => {
-      return await getConvex().mutation(fn, args)
-    },
-    action: async <Action extends FunctionReference<'action'>>(
-      fn: Action,
-      args?: FunctionArgs<Action>,
-    ): Promise<FunctionReturnType<Action>> => {
-      return await getConvex().action(fn, args)
-    },
   }
 }
 
@@ -425,7 +414,9 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     handler,
     name,
     description = schema.description,
-    operation = 'mutation',
+    effect,
+    permit,
+    operation = effect === 'external-service' ? 'action' : 'query',
     annotations: annotationOverrides,
     auth = 'none',
     check,
@@ -458,6 +449,10 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     throw new Error(
       'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.operation(...).',
     )
+  }
+
+  if (effect === 'external-service') {
+    assertUnsafePermit(permit, 'defineTool')
   }
 
   if (rateLimit && !name) {
@@ -650,14 +645,16 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
  * // Level 1 — just make it work
  * export default defineTool({
  *   schema: defineArgs({ description: 'List all notes', args: {} }),
+ *   effect: 'read',
  *   handler: () => serverConvexQuery(api.notes.list, {}),
  * })
  *
  * // Level 2 — add auth
  * export default defineTool({
  *   schema: createPostSchema,
+ *   effect: 'diagnostic',
  *   auth: 'required',
- *   handler: (args) => serverConvexMutation(api.posts.create, args),
+ *   handler: () => ({ ok: true }),
  * })
  *
  * // Level 3 — destructive tools are operation-backed

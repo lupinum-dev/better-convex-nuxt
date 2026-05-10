@@ -698,6 +698,28 @@ export function findDestructiveMcpToolsWithoutOperationBinding(
   return findings
 }
 
+export function findCustomMcpToolsWithAppWrites(
+  project: ProjectInspection,
+): ProjectSourceLocation[] {
+  const findings: ProjectSourceLocation[] = []
+
+  for (const sourceFile of project.sourceFiles) {
+    if (!/[/\\]server[/\\]mcp[/\\]tools[/\\].+\.(?:[cm]?[jt]s|tsx?)$/.test(sourceFile.path)) {
+      continue
+    }
+    if (!/defineTool\s*\(/.test(sourceFile.text)) continue
+    const match = sourceFile.text.match(/ctx\.(?:mutation|action)\s*\(/)
+    if (!match) continue
+
+    findings.push({
+      path: sourceFile.path,
+      line: sourceFile.text.slice(0, match.index ?? 0).split(/\r?\n/).length,
+    })
+  }
+
+  return findings
+}
+
 export function findUnsafeSurfaceInventory(project: ProjectInspection): ProjectSourceLocation[] {
   const analysis = createAnalysisProject(project)
   const findings: ProjectSourceLocation[] = []

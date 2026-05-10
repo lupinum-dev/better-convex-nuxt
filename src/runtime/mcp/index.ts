@@ -14,6 +14,7 @@ export { defineTool } from './define-convex-tool.js'
 export { defineMcpApp } from './define-mcp-app.js'
 export { stampMcpToolSafety, trellisMcpToolSafetyKey } from './operation-binding.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'
+export { unsafe } from './unsafe-permit.js'
 
 export { useMcpServer } from './use-mcp-server.js'
 
@@ -66,6 +67,7 @@ export type {
   ConvexToolErrorResult,
   ConvexToolMiddleware,
   ConvexToolHandlerCtx,
+  ConvexToolEffect,
 } from './types.js'
 
 export type {
@@ -87,6 +89,7 @@ export type {
 } from './define-mcp-app.js'
 
 export type { TrellisMcpToolSafety } from './operation-binding.js'
+export type { TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type {
   McpPromptExtra,

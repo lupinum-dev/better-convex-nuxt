@@ -1,30 +1,27 @@
-import { defineTool } from '#trellis/mcp'
+import { stampMcpToolSafety } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { createPost } from '../../../shared/schemas/post'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
-import { toHarnessMcpPrincipal } from '../../support/mcp-principal'
+import { tool } from '../runtime'
 
-export default defineTool({
+const harnessApi = api as any
+
+const createPostSafety = {
+  kind: 'bounded-write',
+  reason: 'Creates one draft post explicitly named by args.',
+} as const
+
+export default tool.mutation({
   schema: createPost,
-  name: 'create-post',
-  auth: 'required',
-  check: (actor) => ['owner', 'admin', 'member'].includes(actor.role),
-  scoped: true,
-  enabled: async (event) => {
-    const auth = await resolveHarnessMcpAuth(event)
-    return !!auth?.tenantId
+  call: stampMcpToolSafety(harnessApi.posts.create, createPostSafety),
+  safety: createPostSafety,
+  enabled: async (ctx) => {
+    const auth = await resolveHarnessMcpAuth(ctx.event)
+    return !!auth?.tenantId && ['owner', 'admin', 'member'].includes(auth.role)
   },
-  resolveAuth: resolveHarnessMcpAuth,
-  resolvePrincipal: ({ actor }) =>
-    toHarnessMcpPrincipal({
-      actor,
-    }),
-  resolveDelegation: ({ actor }) => ({
-    subject: `user:${actor.userId}`,
-  }),
-  handler: async (args, ctx) => {
-    const postId = await ctx.mutation(api.posts.create, args)
-    return ctx.ok({ id: postId }, `Created post "${args.title}"`)
+  meta: {
+    name: 'create-post',
   },
+  respond: ({ args, result, ok }) => ok({ id: result }, `Created post "${args.title}"`),
 })

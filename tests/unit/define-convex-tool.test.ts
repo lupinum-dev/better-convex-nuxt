@@ -3,11 +3,7 @@ import type { H3Event } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import {
-  serverConvexAction,
-  serverConvexMutation,
-  serverConvexQuery,
-} from '../../src/runtime/convex/server/convex'
+import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/convex/server/convex'
 import {
   defineOperation,
   defineOperationDescriptor,
@@ -22,6 +18,7 @@ import {
   stampMcpToolSafety,
 } from '../../src/runtime/mcp/operation-binding'
 import { ToolRateLimiter } from '../../src/runtime/mcp/rate-limiter'
+import { unsafe } from '../../src/runtime/mcp/unsafe-permit'
 import { defineArgs } from '../../src/runtime/schema'
 import { createServerConvexCaller } from '../../src/runtime/server'
 
@@ -93,6 +90,7 @@ describe('defineTool MCP input projection', () => {
 
     const tool = defineTool({
       schema,
+      effect: 'read',
       name: 'projected-tool',
       handler: async (args, ctx) => ctx.ok(args),
     })
@@ -143,6 +141,7 @@ describe('defineTool MCP input projection', () => {
     expect(() =>
       defineTool({
         schema,
+        effect: 'read',
         name: 'ambiguous-tool',
         handler: async (args, ctx) => ctx.ok(args),
       }),
@@ -160,6 +159,7 @@ describe('defineTool MCP input projection', () => {
     expect(() =>
       defineTool({
         schema,
+        effect: 'read',
         name: 'unsupported-tool',
         handler: async (args, ctx) => ctx.ok(args),
       }),
@@ -181,6 +181,7 @@ describe('defineTool visibility and auth parity', () => {
   it('hides auth-required tools for anonymous callers', async () => {
     const tool = defineTool({
       schema: emptySchema,
+      effect: 'read',
       name: 'private-tool',
       auth: 'required',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
@@ -192,6 +193,7 @@ describe('defineTool visibility and auth parity', () => {
   it('hides check-denied tools during discovery', async () => {
     const tool = defineTool({
       schema: emptySchema,
+      effect: 'read',
       name: 'member-only-tool',
       auth: 'required',
       check: (actor) => actor.role === 'member',
@@ -209,6 +211,7 @@ describe('defineTool visibility and auth parity', () => {
   it('hides scoped tools when the actor has no tenantId', async () => {
     const tool = defineTool({
       schema: scopedSchema,
+      effect: 'read',
       name: 'scoped-tool',
       auth: 'required',
       scoped: true,
@@ -226,6 +229,7 @@ describe('defineTool visibility and auth parity', () => {
   it('keeps handler-time auth errors aligned when execution bypasses discovery', async () => {
     const tool = defineTool({
       schema: emptySchema,
+      effect: 'read',
       name: 'guarded-tool',
       auth: 'required',
       check: (actor) => actor.role === 'member',
@@ -273,6 +277,7 @@ describe('defineTool error handling', () => {
 
     const tool = defineTool({
       schema: emptySchema,
+      effect: 'read',
       name: 'query-tool',
       auth: 'required',
       handler: async (_args, ctx) => {
@@ -295,123 +300,41 @@ describe('defineTool error handling', () => {
     })
   })
 
-  it('infers categories from cleaned messages when convex metadata is missing', async () => {
-    vi.mocked(serverConvexMutation).mockRejectedValueOnce(
-      new Error('[Request ID: abc-123] Not found'),
-    )
-
-    const tool = defineTool({
-      schema: emptySchema,
-      name: 'mutation-tool',
-      auth: 'required',
-      handler: async (_args, ctx) => {
-        await ctx.mutation('posts:create' as never)
-        return ctx.ok({ ok: true })
-      },
-    })
-
-    const result = await tool.handler({} as never, {} as never)
-
-    expect(result).toMatchObject({
-      isError: true,
-      structuredContent: {
-        ok: false,
-        error: {
-          message: 'Not found',
-          category: 'not_found',
-        },
-      },
-    })
-  })
-
-  it('preserves unknown category when no message heuristic applies', async () => {
-    vi.mocked(serverConvexAction).mockRejectedValueOnce(new Error('Something unexpected happened'))
-
-    const tool = defineTool({
-      schema: emptySchema,
-      name: 'action-tool',
-      auth: 'required',
-      handler: async (_args, ctx) => {
-        await ctx.action('posts:sync' as never)
-        return ctx.ok({ ok: true })
-      },
-    })
-
-    const result = await tool.handler({} as never, {} as never)
-
-    expect(result).toMatchObject({
-      isError: true,
-      structuredContent: {
-        ok: false,
-        error: {
-          message: 'Something unexpected happened',
-          category: 'unknown',
-        },
-      },
-    })
-  })
-})
-
-describe('defineTool trusted principal forwarding', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    useEventMock.mockReturnValue(
-      createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' }),
-    )
-  })
-
-  afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
-  })
-
-  it('builds trusted forwarded calls through resolvePrincipal', async () => {
-    vi.mocked(serverConvexMutation).mockResolvedValueOnce('post-1')
-
-    const tool = defineTool({
-      schema: scopedSchema,
-      name: 'principal-aware-tool',
-      auth: 'required',
-      scoped: true,
-      resolvePrincipal: ({ actor }) => ({
-        kind: 'agent',
-        agentId: actor.userId,
-        subject: `agent:${actor.userId}`,
-        provider: 'mcp',
-        tenantId: actor.tenantId,
+  it('requires a typed unsafe permit for external-service custom tools', () => {
+    expect(() =>
+      defineTool({
+        schema: emptySchema,
+        effect: 'external-service',
+        name: 'external-tool',
+        handler: async (_args, ctx) => ctx.ok({ ok: true }),
       }),
-      handler: async (args, ctx) => {
-        const id = await ctx.mutation('posts:create' as never, args as never)
-        return ctx.ok({ id })
-      },
-    })
+    ).toThrow(/external-service custom MCP tools require unsafe\.permit/)
+  })
 
-    const result = await tool.handler({ title: 'Hello' } as never, {} as never)
+  it('accepts external-service custom tools with a typed unsafe permit', () => {
+    expect(() =>
+      defineTool({
+        schema: emptySchema,
+        effect: 'external-service',
+        permit: unsafe.permit({
+          kind: 'externalService',
+          reason: 'Calls a diagnostic external service without app writes.',
+          scope: ['mcp'],
+        }),
+        name: 'external-tool',
+        handler: async (_args, ctx) => ctx.ok({ ok: true }),
+      }),
+    ).not.toThrow()
+  })
 
-    expect(result).toMatchObject({
-      structuredContent: {
-        ok: true,
-        data: {
-          id: 'post-1',
-        },
-      },
-    })
-    expect(serverConvexMutation).toHaveBeenCalledWith(
-      expect.anything(),
-      'posts:create',
-      {
-        title: 'Hello',
-      },
-      {
-        auth: 'trusted',
-        principal: {
-          kind: 'agent',
-          agentId: 'member-1',
-          subject: 'agent:member-1',
-          provider: 'mcp',
-          tenantId: 'org-1',
-        },
-      },
-    )
+  it('rejects malformed unsafe permits', () => {
+    expect(() =>
+      unsafe.permit({
+        kind: '',
+        reason: 'Missing kind.',
+        scope: ['mcp'],
+      }),
+    ).toThrow(/kind/)
   })
 })
 
@@ -499,6 +422,7 @@ describe('MCP rate-limit integration', () => {
   it('applies shared storage-backed rate limits to defineTool', async () => {
     const tool = defineTool({
       schema: emptySchema,
+      effect: 'read',
       name: 'limited-tool',
       auth: 'required',
       rateLimit: { max: 1, window: '1m' },
@@ -669,6 +593,7 @@ describe('MCP rate-limit integration', () => {
       expect(() =>
         defineTool({
           schema: emptySchema,
+          effect: 'read',
           name: 'production-limited-tool',
           auth: 'required',
           rateLimit: { max: 5, window: '1m' },

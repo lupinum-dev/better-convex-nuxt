@@ -1,22 +1,18 @@
-import { defineTool } from '#trellis/mcp'
-
 import { api } from '../../../convex/_generated/api'
 import { searchNotes } from '../../../shared/schemas/note'
+import { tool } from '../runtime'
 
-export default defineTool({
+const harnessApi = api as any
+
+export default tool.query({
   schema: searchNotes,
-  name: 'search-notes',
-  operation: 'query',
-  auth: 'optional',
-  inputExamples: [{ query: 'meeting' }, { query: 'TODO' }, { query: 'project update' }],
-  handler: async (args, ctx) => {
-    const results = await ctx.query(api.notes.search, { query: args.query })
-
-    return ctx.ok(
-      { results, total: results.length },
-      results.length
-        ? `Found ${results.length} note${results.length === 1 ? '' : 's'} matching "${args.query}"`
-        : `No notes found matching "${args.query}"`,
-    )
+  call: harnessApi.notes.search,
+  meta: {
+    name: 'search-notes',
   },
+  mapResult: ({ result }) => ({ results: result, total: result.length }),
+  summary: ({ args, result }) =>
+    result.length
+      ? `Found ${result.length} note${result.length === 1 ? '' : 's'} matching "${args.query}"`
+      : `No notes found matching "${args.query}"`,
 })

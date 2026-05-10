@@ -1,22 +1,28 @@
-import { defineTool } from '#trellis/mcp'
+import { stampMcpToolSafety } from '#trellis/mcp'
 
 import { api } from '../../../convex/_generated/api'
 import { createComment } from '../../../shared/schemas/comment'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
+import { tool } from '../runtime'
 
-export default defineTool({
+const harnessApi = api as any
+
+const createCommentSafety = {
+  kind: 'bounded-write',
+  reason: 'Creates one comment for one explicitly named post.',
+} as const
+
+export default tool.mutation({
   schema: createComment,
-  name: 'create-comment',
-  auth: 'required',
-  check: (actor) => ['owner', 'admin', 'member', 'viewer'].includes(actor.role),
-  scoped: true,
-  enabled: async (event) => {
-    const auth = await resolveHarnessMcpAuth(event)
+  call: stampMcpToolSafety(harnessApi.comments.create, createCommentSafety),
+  safety: createCommentSafety,
+  enabled: async (ctx) => {
+    const auth = await resolveHarnessMcpAuth(ctx.event)
     return !!auth?.tenantId
   },
-  resolveAuth: resolveHarnessMcpAuth,
-  handler: async (args, ctx) => {
-    const commentId = await ctx.mutation(api.comments.create, args)
-    return ctx.ok({ id: commentId, postId: args.postId }, `Added comment to post ${args.postId}`)
+  meta: {
+    name: 'create-comment',
   },
+  respond: ({ args, result, ok }) =>
+    ok({ id: result, postId: args.postId }, `Added comment to post ${args.postId}`),
 })

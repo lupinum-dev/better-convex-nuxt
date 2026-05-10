@@ -14,6 +14,7 @@ import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { NoInfer, ValidateSerializable } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexErrorIssue, ConvexToolOperation } from '../utils/types.js'
 import type { McpRateLimitStore } from './rate-limiter.js'
+import type { TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type { SerializableValue, ValidateSerializable } from '../types/type-utils.js'
 
@@ -104,14 +105,6 @@ export interface ConvexToolCallFns {
     fn: Query,
     args?: FunctionArgs<Query>,
   ) => Promise<FunctionReturnType<Query>>
-  mutation: <Mutation extends FunctionReference<'mutation'>>(
-    fn: Mutation,
-    args?: FunctionArgs<Mutation>,
-  ) => Promise<FunctionReturnType<Mutation>>
-  action: <Action extends FunctionReference<'action'>>(
-    fn: Action,
-    args?: FunctionArgs<Action>,
-  ) => Promise<FunctionReturnType<Action>>
 }
 
 export interface ConvexToolHandlerCtx<TRole extends string = string> extends ConvexToolCallFns {
@@ -142,6 +135,7 @@ export type ConvexToolMiddleware<S extends AnyConvexSchema, TRole extends string
 // ============================================================================
 
 type ConvexToolAuthMode = 'required' | 'optional' | 'none'
+export type ConvexToolEffect = 'read' | 'diagnostic' | 'external-service'
 
 interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends string = string> {
   /** Shared Convex schema — provides input validation and metadata. */
@@ -158,8 +152,12 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   /** Tool description. Default: schema.meta.description. */
   description?: string
 
-  // ── Operation & annotations ───────────────────────────────
-  /** Convex operation type. Default: 'mutation'. */
+  // ── Effect & annotations ──────────────────────────────────
+  /** Custom tool effect class. App writes must use defineMcpApp(...).tool.mutation/operation. */
+  effect: ConvexToolEffect
+  /** Required for external-service custom tools. */
+  permit?: TrellisUnsafePermit
+  /** Internal transport annotation override. App code should choose `effect`. */
   operation?: ConvexToolOperation
   /** Override auto-derived MCP annotations. */
   annotations?: Partial<McpToolAnnotations>

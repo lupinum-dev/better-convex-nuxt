@@ -461,8 +461,6 @@ function withProjectionCalls<TRole extends string, TPrincipal, TDelegation exten
   return {
     ...ctx,
     query: projectionCtx.convex.query,
-    mutation: projectionCtx.convex.mutation,
-    action: projectionCtx.convex.action,
   }
 }
 
@@ -671,6 +669,7 @@ export function defineMcpApp<
 
     return defineTool({
       schema: definition.schema,
+      effect: operation === 'query' ? 'read' : 'diagnostic',
       auth: 'none',
       operation,
       name: definition.meta?.name,
@@ -936,6 +935,7 @@ export function defineMcpApp<
 
       return defineTool({
         schema,
+        effect: 'diagnostic',
         auth: 'none',
         name: toolName,
         description: options.meta?.description ?? schema.description,

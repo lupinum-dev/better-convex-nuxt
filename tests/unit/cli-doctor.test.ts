@@ -1042,4 +1042,42 @@ export default tool.mutation({
       report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.status,
     ).toBe('fail')
   })
+
+  it('fails doctor when a standalone custom MCP tool calls Convex writes', () => {
+    const cwd = createTempDir('trellis-doctor-mcp-custom-app-write-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
+      `
+import { defineTool } from '@lupinum/trellis/mcp'
+import { api } from '~/convex/_generated/api'
+import { createTodo } from '~/shared/features/todos/contract'
+
+export default defineTool({
+  schema: createTodo,
+  effect: 'diagnostic',
+  handler: async (args, ctx) => {
+    return await ctx.mutation(api.features.todos.domain.create, args)
+  },
+})
+`.trimStart(),
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = JSON.parse(result.stdout) as {
+      findings: Array<{ id: string; status: string; message: string }>
+    }
+
+    expect(result.status, result.stderr).toBe(1)
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-custom-app-write-bypass')?.status,
+    ).toBe('fail')
+  })
 })

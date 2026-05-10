@@ -173,16 +173,30 @@ const _createTaskOperation = defineOperation({
 })
 void _createTaskOperation
 
+// @ts-expect-error standalone MCP tools must declare a custom-tool effect
 defineTool({
   schema: toolSchema,
+  handler: async () => ({ ok: true }),
+})
+
+defineTool({
+  schema: toolSchema,
+  effect: 'read',
   auth: 'required',
   scoped: true,
-  handler: async () => ({ ok: true }),
+  handler: async (_args, ctx) => {
+    // @ts-expect-error standalone custom tools cannot call Convex mutations
+    await ctx.mutation({} as never)
+    // @ts-expect-error standalone custom tools cannot call Convex actions
+    await ctx.action({} as never)
+    return { ok: true }
+  },
 })
 
 // @ts-expect-error scoped tools must require auth
 defineTool({
   schema: toolSchema,
+  effect: 'read',
   auth: 'optional',
   scoped: true,
   handler: async () => ({ ok: true }),
@@ -191,6 +205,7 @@ defineTool({
 // @ts-expect-error scoped tools must require auth explicitly
 defineTool({
   schema: toolSchema,
+  effect: 'read',
   scoped: true,
   handler: async () => ({ ok: true }),
 })

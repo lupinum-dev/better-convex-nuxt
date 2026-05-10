@@ -1,19 +1,19 @@
 import { defineArgs } from '@lupinum/trellis/args'
 
-import { defineTool } from '#trellis/mcp'
-
 import { api } from '../../../convex/_generated/api'
+import { tool } from '../runtime'
+
+const harnessApi = api as any
 
 const schema = defineArgs({
   description: 'List all notes (most recent first)',
   args: {},
 })
 
-export default defineTool({
+export default tool.query({
   schema,
-  name: 'list-notes',
-  operation: 'query',
-  handler: async (_args, ctx) => {
-    return await ctx.query(api.notes.list)
+  call: harnessApi.notes.list,
+  meta: {
+    name: 'list-notes',
   },
 })

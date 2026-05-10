@@ -21,6 +21,7 @@ import {
   findConvexAuthSource,
   findCrossTenantEscapeInventory,
   findConfiguredPermissionQueryPath,
+  findCustomMcpToolsWithAppWrites,
   findDestructiveOperationInventory,
   findDestructiveMcpToolsWithoutOperationBinding,
   findForwardedPrincipalWithoutTrustedAuth,
@@ -90,6 +91,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
   const forwardedPrincipalMisuse = findForwardedPrincipalWithoutTrustedAuth(project)
   const destructiveMcpToolMisuse = findDestructiveMcpToolsWithoutOperationBinding(project)
+  const customMcpAppWriteMisuse = findCustomMcpToolsWithAppWrites(project)
   const usesPermissions = usesPermissionSurfaces(project)
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
@@ -476,6 +478,23 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         destructiveMcpToolMisuse.length > 0
           ? 'Destructive MCP tools must bind through `tool.operation(...)` so preview, confirmation, and execute stay coupled.'
           : 'Keep destructive MCP tools operation-backed.',
+    },
+    {
+      id: 'mcp-custom-app-write-bypass',
+      category: 'advanced',
+      title: 'Custom MCP app-write bypass',
+      status: customMcpAppWriteMisuse.length > 0 ? 'fail' : 'pass',
+      message:
+        customMcpAppWriteMisuse.length > 0
+          ? `Found standalone defineTool(...) handlers calling protected Convex writes in ${customMcpAppWriteMisuse
+              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
+              .slice(0, 3)
+              .join(', ')}${customMcpAppWriteMisuse.length > 3 ? ', ...' : ''}.`
+          : 'No standalone custom MCP tools call Convex mutation/action helpers.',
+      fixHint:
+        customMcpAppWriteMisuse.length > 0
+          ? 'Move app writes to `defineMcpApp(...).tool.mutation(...)` for bounded writes or `tool.operation(...)` for sensitive/destructive/external work.'
+          : 'Keep standalone defineTool(...) read/diagnostic/external-service only.',
     },
     ...collectPermissionMetadataFindings(project),
   ]

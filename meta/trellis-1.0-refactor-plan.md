@@ -369,7 +369,7 @@ Goal: keep MCP as a projection of the backend model, not a second backend.
 
 - [x] Delete public `tool.fromOperation(...)`.
 - [x] Delete generic destructive MCP tool path.
-- [ ] Delete custom tool bypasses that can call protected Convex writes directly.
+- [x] Delete custom tool bypasses that can call protected Convex writes directly.
 - [x] Delete MCP safety labels that exist only in the tool file.
 - [x] Delete runtime/type aliases where `tool.operation` is implemented as
       `tool.fromOperation`.
@@ -379,7 +379,7 @@ Goal: keep MCP as a projection of the backend model, not a second backend.
 - [x] Direct mutation safety comes from backend/generated ref metadata.
 - [x] MCP tool declaration may confirm/narrow safety but cannot down-classify.
 - [x] External side-effect action work becomes operation-backed.
-- [ ] Generic custom tools require typed unsafe permit and non-app-write effect.
+- [x] Generic custom tools require typed unsafe permit and non-app-write effect.
 - [x] Doctor, error messages, safety scanners, codemods, and generated docs all
       teach `mcp.tool.operation(...)`, not `tool.fromOperation(...)`.
 
@@ -395,7 +395,7 @@ Goal: keep MCP as a projection of the backend model, not a second backend.
 
 - [x] MCP docs teach only query/mutation/operation lanes.
 - [x] `tool.fromOperation` is gone.
-- [ ] No raw app-write escape hatch remains.
+- [x] No raw app-write escape hatch remains.
 
 ## Slice 7: Fixture-Backed Starters
 

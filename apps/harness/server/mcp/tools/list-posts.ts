@@ -1,29 +1,28 @@
 import { defineArgs } from '@lupinum/trellis/args'
 
-import { defineTool } from '#trellis/mcp'
-
 import { api } from '../../../convex/_generated/api'
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
+import { tool } from '../runtime'
+
+const harnessApi = api as any
 
 const schema = defineArgs({
   description: 'List all posts in the current organization',
   args: {},
 })
 
-export default defineTool({
+export default tool.query({
   schema,
-  name: 'list-posts',
-  operation: 'query',
-  auth: 'required',
-  scoped: true,
-  enabled: async (event) => {
-    const auth = await resolveHarnessMcpAuth(event)
+  call: harnessApi.posts.list,
+  enabled: async (ctx) => {
+    const auth = await resolveHarnessMcpAuth(ctx.event)
     return !!auth?.tenantId
   },
-  resolveAuth: resolveHarnessMcpAuth,
-  handler: async (_args, ctx) => {
-    const posts = await ctx.query(api.posts.list, {})
-    const items = posts.map((post) => ({
+  meta: {
+    name: 'list-posts',
+  },
+  mapResult: ({ result: posts }) => {
+    const items = posts.map((post: any) => ({
       id: String(post._id),
       title: String(post.title),
       content: String(post.content),
@@ -36,9 +35,7 @@ export default defineTool({
       capabilities: post._can,
     }))
 
-    return ctx.ok(
-      { count: items.length, posts: items },
-      `Found ${posts.length} post${posts.length === 1 ? '' : 's'}`,
-    )
+    return { count: items.length, posts: items }
   },
+  summary: ({ result: posts }) => `Found ${posts.length} post${posts.length === 1 ? '' : 's'}`,
 })

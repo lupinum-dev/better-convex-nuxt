@@ -72,6 +72,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
       export default defineTool({
         schema: schema,
+        effect: 'read',
         scoped: true,
         handler: async () => ({ ok: true }),
       })
