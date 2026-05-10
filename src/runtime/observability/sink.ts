@@ -1,4 +1,3 @@
-import { deliverObservationToEvlog } from './evlog-bridge.js'
 import type { NormalizedTrellisObservabilityConfig, TrellisObservationEvent } from './types.js'
 
 export interface ObservationSink {
@@ -9,9 +8,7 @@ export interface ObservationSink {
 }
 
 const defaultObservationSink: ObservationSink = {
-  emit(event, config) {
-    deliverObservationToEvlog(event, config)
-  },
+  emit() {},
 }
 
 let activeObservationSink: ObservationSink = defaultObservationSink

@@ -39,51 +39,51 @@ is to delete evlog delivery from core.
 
 ### 1. Delete Evlog Delivery From Core
 
-- [ ] Remove `evlog` from root runtime dependencies.
-- [ ] Delete `src/runtime/observability/evlog-bridge.ts`.
-- [ ] Replace the default sink delivery with a bounded no-op sink or direct
+- [x] Remove `evlog` from root runtime dependencies.
+- [x] Delete `src/runtime/observability/evlog-bridge.ts`.
+- [x] Replace the default sink delivery with a bounded no-op sink or direct
       capture-only behavior.
-- [ ] Delete evlog-specific public/internal tests.
-- [ ] Update config and docs wording so observability is semantic events plus
+- [x] Delete evlog-specific public/internal tests.
+- [x] Update config and docs wording so observability is semantic events plus
       capture; log delivery is not a core runtime promise.
 
 ### 2. Replace Wide Summary Coupling
 
-- [ ] Replace runtime observer's evlog-wide-summary usage with a small internal
+- [x] Replace runtime observer's evlog-wide-summary usage with a small internal
       no-op/summary object that never affects request correctness.
-- [ ] Replace MCP runtime's evlog-wide-summary usage the same way.
-- [ ] Keep `RuntimeObserver.debug(...)`, `setSummary(...)`, and
+- [x] Replace MCP runtime's evlog-wide-summary usage the same way.
+- [x] Keep `RuntimeObserver.debug(...)`, `setSummary(...)`, and
       `emitSummary(...)` as safe no-ops or semantic-event helpers, whichever is
       simpler without adding another delivery path.
 
 ### 3. Preserve Semantic Observability
 
-- [ ] Keep `createObservationEmitter(...)` producing normalized/redacted events.
-- [ ] Keep `createObservationCapture()` working through
+- [x] Keep `createObservationEmitter(...)` producing normalized/redacted events.
+- [x] Keep `createObservationCapture()` working through
       `@lupinum/trellis/testing`.
-- [ ] Keep sink failure and slow sink tests, but make them use the internal test
+- [x] Keep sink failure and slow sink tests, but make them use the internal test
       sink instead of evlog mocks.
-- [ ] Ensure no normal runtime file imports `evlog`.
+- [x] Ensure no normal runtime file imports `evlog`.
 
 ### 4. Close Slice 10
 
-- [ ] Mark "Move evlog delivery out of core" complete if root dependency and
+- [x] Mark "Move evlog delivery out of core" complete if root dependency and
       runtime imports are gone.
-- [ ] Mark Slice 10 done if observability remains semantic/capturable and has
+- [x] Mark Slice 10 done if observability remains semantic/capturable and has
       no core delivery dependency.
-- [ ] Leave any future observability package as an explicit later product
+- [x] Leave any future observability package as an explicit later product
       decision, not a 1.0 blocker.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/observability.test.ts tests/unit/query-observability-cache-boundary.test.ts tests/unit/plugin-client-bootstrap.test.ts tests/unit/runtime-config.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/server-convex-utils.test.ts`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `rg -n "from 'evlog'|from \\\"evlog\\\"|evlog-bridge|safeDebugToEvlog|createWideSummary" package.json src tests apps/docs/content/docs`
-- [ ] `pnpm exec oxfmt --check package.json src/runtime/observability src/runtime/mcp/define-mcp-app.ts tests/unit/observability.test.ts meta/refactor/sprint51-observability-evlog-core-delete-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/observability.test.ts tests/unit/query-observability-cache-boundary.test.ts tests/unit/plugin-client-bootstrap.test.ts tests/unit/runtime-config.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/server-convex-utils.test.ts`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `rg -n "from 'evlog'|from \\\"evlog\\\"|evlog-bridge|safeDebugToEvlog|createWideSummary" package.json src tests apps/docs/content/docs`
+- [x] `pnpm exec oxfmt --check package.json src/runtime/observability src/runtime/mcp/define-mcp-app.ts tests/unit/observability.test.ts apps/docs/content/docs/09.observability/1.overview.md meta/refactor/sprint51-observability-evlog-core-delete-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

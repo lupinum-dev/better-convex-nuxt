@@ -641,7 +641,7 @@ Goal: remove packaged integration machinery from the normal app surface.
 
 ## Slice 10: Observability Delivery Cleanup
 
-Status: in progress
+Status: completed
 
 Goal: keep event vocabulary in core while making delivery bounded and optional.
 
@@ -652,6 +652,9 @@ Goal: keep event vocabulary in core while making delivery bounded and optional.
   the normal public observability barrel.
 - Test capture remains delivery-independent and still receives redacted events
   when the delivery sink fails.
+- Sprint 51 removed evlog delivery from core, deleted `evlog-bridge`, removed
+  the root evlog dependency, and replaced runtime/MCP wide-summary coupling with
+  internal core summary state that does not affect request correctness.
 
 ### Keep
 
@@ -661,7 +664,7 @@ Goal: keep event vocabulary in core while making delivery bounded and optional.
 
 ### Move / Delete
 
-- [ ] Move evlog delivery out of core if it creates runtime/package weight.
+- [x] Move evlog delivery out of core if it creates runtime/package weight.
 - [x] Delete any sink API that can redefine schema, redaction, sampling,
       identity semantics, or request behavior.
 
@@ -674,7 +677,7 @@ Goal: keep event vocabulary in core while making delivery bounded and optional.
 
 ### Done Means
 
-- [ ] Observability explains security decisions without becoming request
+- [x] Observability explains security decisions without becoming request
       correctness dependency.
 
 ## Slice 11: Migration, Codemods, And Hard Deletes

@@ -1,9 +1,4 @@
 import {
-  createWideSummary,
-  createWideSummaryContextFromObservation,
-  safeDebugToEvlog,
-} from './evlog-bridge.js'
-import {
   createObservationEmitter,
   type PartialObservationEvent,
   type TrellisObservationContext,
@@ -11,6 +6,7 @@ import {
   type TrellisObservationName,
   type TrellisObservationStatus,
 } from './index.js'
+import { createObservationSummary, createObservationSummaryContext } from './summary.js'
 
 export interface AuthEvent {
   phase: string
@@ -122,12 +118,13 @@ export function createRuntimeObserver(
 ): RuntimeObserver {
   try {
     const emitter = createObservationEmitter(toObservationInput(input), context)
-    const summary = createWideSummary({
+    const summary = createObservationSummary({
       config: emitter.config,
-      method: meta.method,
-      path: meta.path,
-      requestId: context.requestId,
-      initialContext: createWideSummaryContextFromObservation(context, emitter.config),
+      initialContext: {
+        ...createObservationSummaryContext(context, emitter.config),
+        ...(meta.method ? { method: meta.method } : {}),
+        ...(meta.path ? { path: meta.path } : {}),
+      },
     })
 
     const emit = (
@@ -272,16 +269,7 @@ export function createRuntimeObserver(
           },
         )
       },
-      debug(message, data) {
-        safeDebugToEvlog({
-          kind: 'trellis-debug',
-          message,
-          transport: context.transport ?? 'browser',
-          correlationId: context.correlationId,
-          requestId: context.requestId,
-          details: data,
-        })
-      },
+      debug() {},
       time(label) {
         const start = performance.now()
         return () => {

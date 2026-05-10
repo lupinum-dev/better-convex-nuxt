@@ -38,9 +38,6 @@ importers:
       defu:
         specifier: ^6.1.7
         version: 6.1.7
-      evlog:
-        specifier: 2.13.0
-        version: 2.13.0(@nuxt/kit@4.4.2(magicast@0.5.2))(ai@6.0.154(zod@4.3.6))(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(express@5.2.1)(h3@1.15.11)(hono@4.12.15)(nitropack@2.13.3(better-sqlite3@12.8.0)(srvx@0.11.14))(ofetch@1.5.1)(react@19.2.5)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3))
       h3:
         specifier: 1.15.11
         version: 1.15.11
@@ -17973,6 +17970,7 @@ snapshots:
       ofetch: 1.5.1
       react: 19.2.5
       vite: 7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3)
+    optional: true
 
   evp_bytestokey@1.0.3:
     dependencies:

@@ -29,12 +29,12 @@ import {
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../observability/envelope.js'
-import { createWideSummary, type TrellisWideSummary } from '../observability/evlog-bridge.js'
 import {
   createDenialExplanation,
   createObservationEmitter,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
+import { createObservationSummary, type ObservationSummary } from '../observability/summary.js'
 import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
@@ -122,7 +122,7 @@ type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilit
   observe: ReturnType<typeof createObservationEmitter>['emit']
   correlationId: string
   requestId: string
-  wideSummary: TrellisWideSummary
+  wideSummary: ObservationSummary
 }
 
 export interface DefineMcpAppOptions<
@@ -578,17 +578,16 @@ export function defineMcpApp<
           correlationId,
           requestId,
         })
-        const wideSummary = createWideSummary({
+        const wideSummary = createObservationSummary({
           config: observability.config,
-          method: event.method || 'POST',
-          path: event.path || '(mcp)',
-          requestId,
           initialContext: {
             correlationId,
             requestId,
             transport: 'mcp',
             originTransport: 'mcp',
             service: observability.config.service,
+            method: event.method || 'POST',
+            path: event.path || '(mcp)',
           },
         })
         const principal = await options.resolvePrincipal(event)

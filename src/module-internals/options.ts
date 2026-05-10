@@ -166,7 +166,7 @@ export interface ModuleOptions {
   upload?: UploadDefaults
   /**
    * Semantic observability for correlated Trellis runtime events.
-   * Trellis owns the semantic model and delivers it through evlog.
+   * Trellis owns the semantic model; delivery is intentionally outside core.
    */
   observability?: TrellisObservabilityOptions
   /**

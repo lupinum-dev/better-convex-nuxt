@@ -1,4 +1,3 @@
-import * as evlog from 'evlog'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -8,52 +7,14 @@ import {
   stripObservationEnvelope,
   withObservationEnvelope,
 } from '../../src/runtime/observability'
-import { createWideSummary } from '../../src/runtime/observability/evlog-bridge'
 import { createRuntimeObserver } from '../../src/runtime/observability/runtime-observer'
 import { setObservationSinkForTests } from '../../src/runtime/observability/sink'
 import { createObservationCapture } from '../../src/runtime/testing'
-
-const evlogMock = vi.hoisted(() => ({
-  initLogger: vi.fn(),
-  createLogger: vi.fn(),
-  createRequestLogger: vi.fn(),
-  log: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
-}))
-
-function createWideLoggerMock(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
-    set: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    emit: vi.fn(),
-    getContext: vi.fn(() => ({})),
-    ...overrides,
-  }
-}
-
-vi.mock('evlog', () => {
-  return {
-    initLogger: evlogMock.initLogger,
-    createLogger: evlogMock.createLogger,
-    createRequestLogger: evlogMock.createRequestLogger,
-    log: evlogMock.log,
-    __evlogMock: evlogMock,
-  }
-})
 
 describe('observability', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useRealTimers()
-    evlogMock.initLogger.mockImplementation(() => undefined)
-    evlogMock.createLogger.mockImplementation(() => createWideLoggerMock())
-    evlogMock.createRequestLogger.mockImplementation(() => createWideLoggerMock())
   })
 
   afterEach(() => {
@@ -73,8 +34,7 @@ describe('observability', () => {
     expect(observabilityApi).toHaveProperty('createObservationEmitter')
     expect(observabilityApi).toHaveProperty('normalizeObservabilityConfig')
     expect(observabilityApi).not.toHaveProperty('deliverObservationToEvlog')
-    expect(observabilityApi).not.toHaveProperty('safeDebugToEvlog')
-    expect(observabilityApi).not.toHaveProperty('createWideSummary')
+    expect(observabilityApi).not.toHaveProperty('ObservationSink')
   })
 
   it('emits redacted semantic events through capture', async () => {
@@ -164,31 +124,6 @@ describe('observability', () => {
       correlationId: 'corr_origin',
     })
     capture.stop()
-  })
-
-  it('never throws if evlog delivery fails', async () => {
-    ;(
-      evlog as unknown as { __evlogMock: typeof evlogMock }
-    ).__evlogMock.log.info.mockImplementation(() => {
-      throw new Error('evlog down')
-    })
-
-    const emitter = createObservationEmitter(
-      {
-        enabled: true,
-        level: 'verbose',
-      },
-      {
-        transport: 'convex',
-      },
-    )
-
-    await expect(
-      emitter.emit({
-        name: 'db.escape_tenant_isolation.used',
-        status: 'success',
-      }),
-    ).resolves.toBeUndefined()
   })
 
   it('delivers already-redacted events to the sink boundary', async () => {
@@ -315,53 +250,17 @@ describe('observability', () => {
     ).resolves.toBeUndefined()
   })
 
-  it('never throws if evlog wide logger creation or methods fail', () => {
-    const config = normalizeObservabilityConfig({})
-
-    evlogMock.createRequestLogger.mockImplementationOnce(() => {
-      throw new Error('factory failed')
-    })
-
-    expect(() =>
-      createWideSummary({
-        config,
-        method: 'POST',
-        path: '/api/test',
-      }),
-    ).not.toThrow()
-
-    evlogMock.createLogger.mockImplementationOnce(() =>
-      createWideLoggerMock({
-        set: vi.fn(() => {
-          throw new Error('set failed')
-        }),
-        emit: vi.fn(() => {
-          throw new Error('emit failed')
-        }),
-      }),
+  it('keeps runtime summary and debug methods as safe core no-ops', () => {
+    const observer = createRuntimeObserver(
+      { observability: { enabled: true } },
+      { transport: 'nuxt-server', correlationId: 'corr_runtime' },
+      { method: 'POST', path: '/api/query' },
     )
 
-    const summary = createWideSummary({
-      config,
-      initialContext: { correlationId: 'corr_test' },
-    })
-
-    expect(() => summary.set({ handler: 'notes.create' })).not.toThrow()
-    expect(() => summary.emit({ status: 'success' })).not.toThrow()
-  })
-
-  it('never throws if runtime observer setup fails', () => {
-    evlogMock.createRequestLogger.mockImplementationOnce(() => {
-      throw new Error('request logger failed')
-    })
-
-    expect(() =>
-      createRuntimeObserver(
-        { observability: { enabled: true } },
-        { transport: 'nuxt-server', correlationId: 'corr_runtime' },
-        { method: 'POST', path: '/api/query' },
-      ),
-    ).not.toThrow()
+    expect(() => observer.setSummary({ handler: 'notes.create' })).not.toThrow()
+    expect(() => observer.emitSummary({ status: 'success' })).not.toThrow()
+    expect(() => observer.debug('test', { token: 'secret' })).not.toThrow()
+    expect(() => observer.time('handler')()).not.toThrow()
   })
 
   it('recursively redacts nested secrets', async () => {
