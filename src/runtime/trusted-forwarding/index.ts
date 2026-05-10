@@ -24,7 +24,11 @@ export {
   verifyTrustedForwardingEnvelope,
 } from './envelope.js'
 export { type TrustedForwardingEnvelopeContextOptions } from './shared.js'
-export { extractSubject, getTrustedForwardingKeyProductionIssue } from './shared.js'
+export {
+  createTrustedForwardingEnvelopeArgs,
+  extractSubject,
+  getTrustedForwardingKeyProductionIssue,
+} from './shared.js'
 export type {
   CreateTrustedForwardingEnvelopeOptions,
   TrustedForwardingEnvelopePayload,

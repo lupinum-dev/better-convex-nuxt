@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs'
 
 import { createTestContext } from '@lupinum/trellis/testing'
+import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/trusted-forwarding'
 import { describe, expect, it } from 'vitest'
 
 import { api, internal } from '../convex/_generated/api'
@@ -14,11 +15,46 @@ const componentModules = import.meta.glob('../convex/components/miniCms/**/*.ts'
   eager: false,
 })
 const TRUSTED_FORWARDING_KEY = 'component-mini-cms-test-trusted-forwarding-key'
+const bridgePrincipal = {
+  kind: 'agent',
+  agentId: 'bridge-key',
+  subject: 'agent:bridge-key',
+  provider: 'mcp',
+} as const
+const previewPrincipal = {
+  kind: 'agent',
+  agentId: 'preview-key',
+  subject: 'agent:preview-key',
+  provider: 'mcp',
+} as const
 
 function createCtx() {
   const ctx = createTestContext({ schema, modules, trustedForwardingKey: TRUSTED_FORWARDING_KEY })
   ctx.raw.registerComponent('miniCms', componentSchema, componentModules)
   return ctx
+}
+
+function bridgeArgs(
+  appArgs: Record<string, unknown>,
+  options: {
+    principal: typeof bridgePrincipal | typeof previewPrincipal
+    purpose: 'query' | 'mutation'
+    functionRef: string
+  },
+) {
+  const args = {
+    ...appArgs,
+    ...createTrustedForwardingEnvelopeArgs({
+      args: {},
+      principal: options.principal,
+      key: TRUSTED_FORWARDING_KEY,
+      transport: 'bridge',
+      purpose: options.purpose,
+      functionRef: options.functionRef,
+    }),
+  }
+  expect(args).not.toHaveProperty('principal')
+  return args
 }
 
 describe('example 08 component mini cms', () => {
@@ -187,42 +223,83 @@ describe('example 08 component mini cms', () => {
 
   it('forwards principal unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({
-      kind: 'agent',
-      agentId: 'bridge-key',
-      subject: 'agent:bridge-key',
-      provider: 'mcp',
-    })
 
-    const id = await agent.mutation(internal.features.pages.bridge.create, {
-      slug: 'bridge-owned',
-      title: 'Bridge owned',
-      draftBody: 'Bridge draft',
-    })
+    const id = await ctx.raw.mutation(
+      internal.features.pages.bridge.create,
+      bridgeArgs(
+        {
+          slug: 'bridge-owned',
+          title: 'Bridge owned',
+          draftBody: 'Bridge draft',
+        },
+        {
+          principal: bridgePrincipal,
+          purpose: 'mutation',
+          functionRef: 'features/pages/bridge:create',
+        },
+      ),
+    )
 
-    const drafts = await agent.query(internal.features.pages.bridge.listDraft, {})
+    const drafts = await ctx.raw.query(
+      internal.features.pages.bridge.listDraft,
+      bridgeArgs(
+        {},
+        {
+          principal: bridgePrincipal,
+          purpose: 'query',
+          functionRef: 'features/pages/bridge:listDraft',
+        },
+      ),
+    )
     expect(drafts.find((page: { _id: string }) => page._id === id)).toMatchObject({
       authorId: 'agent:bridge-key',
       slug: 'bridge-owned',
     })
   })
 
+  it('rejects raw principal args on internal root bridge wrappers', async () => {
+    const ctx = createCtx()
+
+    await expect(
+      ctx.raw.mutation(internal.features.pages.bridge.create, {
+        slug: 'raw-bridge-principal',
+        title: 'Raw bridge principal',
+        draftBody: 'This must not be trusted',
+        principal: bridgePrincipal,
+      }),
+    ).rejects.toThrow('Unexpected field `principal`')
+  })
+
   it('returns the publish preview from the component operation', async () => {
     const ctx = createCtx()
-    const agent = ctx.asPrincipal({
-      kind: 'agent',
-      agentId: 'preview-key',
-      subject: 'agent:preview-key',
-      provider: 'mcp',
-    })
 
-    const id = await agent.mutation(internal.features.pages.bridge.create, {
-      slug: 'launch-notes',
-      title: 'Launch notes',
-      draftBody: 'Version one',
-    })
+    const id = await ctx.raw.mutation(
+      internal.features.pages.bridge.create,
+      bridgeArgs(
+        {
+          slug: 'launch-notes',
+          title: 'Launch notes',
+          draftBody: 'Version one',
+        },
+        {
+          principal: previewPrincipal,
+          purpose: 'mutation',
+          functionRef: 'features/pages/bridge:create',
+        },
+      ),
+    )
 
-    const preview = await agent.query(internal.features.pages.bridge.previewPublish, { id })
+    const preview = await ctx.raw.query(
+      internal.features.pages.bridge.previewPublish,
+      bridgeArgs(
+        { id },
+        {
+          principal: previewPrincipal,
+          purpose: 'query',
+          functionRef: 'features/pages/bridge:previewPublish',
+        },
+      ),
+    )
     expect(preview).toMatchObject({
       display: {
         summary: 'Publish "Launch notes" at /launch-notes',

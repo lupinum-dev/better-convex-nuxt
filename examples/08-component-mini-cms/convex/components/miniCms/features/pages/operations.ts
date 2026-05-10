@@ -6,6 +6,8 @@ import type { Doc, Id } from '../../_generated/dataModel'
 import { canManagePages, query } from '../../functions'
 
 export const publishPageOp = implementOperation(publishPageDescriptor, {
+  trustedForwardingFunctionRef: 'features/pages/domain:publish',
+  trustedForwardingTransport: 'bridge',
   guard: canManagePages,
   load: async (ctx, args) => {
     const page = await ctx.db.get(args.id as Id<'pages'>)
@@ -43,4 +45,8 @@ export const publishPageOp = implementOperation(publishPageDescriptor, {
   },
 })
 
-export const previewPublish = query.protected(previewOf(publishPageOp))
+export const previewPublish = query.protected({
+  ...previewOf(publishPageOp),
+  trustedForwardingFunctionRef: 'features/pages/operations:previewPublish',
+  trustedForwardingTransport: 'bridge',
+})

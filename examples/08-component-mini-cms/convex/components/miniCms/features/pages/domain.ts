@@ -63,6 +63,8 @@ function toStudioPage(page: {
 export const listPublished = query.public({
   args: listPublishedPages.args,
   returns: v.array(publishedPageValidator),
+  trustedForwardingFunctionRef: 'features/pages/domain:listPublished',
+  trustedForwardingTransport: 'bridge',
   handler: async (ctx) => {
     const pages = await ctx.db
       .query('pages')
@@ -77,6 +79,8 @@ export const listPublished = query.public({
 export const getPublished = query.public({
   args: getPublishedPage.args,
   returns: v.union(publishedPageValidator, v.null()),
+  trustedForwardingFunctionRef: 'features/pages/domain:getPublished',
+  trustedForwardingTransport: 'bridge',
   handler: async (ctx, args) => {
     const page = await ctx.db
       .query('pages')
@@ -91,6 +95,8 @@ export const getPublished = query.public({
 export const listStudio = query.protected({
   args: listStudioPages.args,
   returns: v.array(studioPageValidator),
+  trustedForwardingFunctionRef: 'features/pages/domain:listStudio',
+  trustedForwardingTransport: 'bridge',
   guard: canManagePages,
   handler: async (ctx) => {
     const pages = await ctx.db.query('pages').order('desc').collect()
@@ -101,6 +107,8 @@ export const listStudio = query.protected({
 export const listDraft = query.protected({
   args: listDraftPages.args,
   returns: v.array(studioPageValidator),
+  trustedForwardingFunctionRef: 'features/pages/domain:listDraft',
+  trustedForwardingTransport: 'bridge',
   guard: canManagePages,
   handler: async (ctx) => {
     const pages = await ctx.db
@@ -116,6 +124,8 @@ export const listDraft = query.protected({
 export const create = mutation.protected({
   args: createPage.args,
   returns: v.string(),
+  trustedForwardingFunctionRef: 'features/pages/domain:create',
+  trustedForwardingTransport: 'bridge',
   guard: canManagePages,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
@@ -144,6 +154,8 @@ export const create = mutation.protected({
 export const save = mutation.protected({
   args: saveDraft.args,
   returns: v.null(),
+  trustedForwardingFunctionRef: 'features/pages/domain:save',
+  trustedForwardingTransport: 'bridge',
   guard: canManagePages,
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id as Id<'pages'>, {

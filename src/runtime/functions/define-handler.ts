@@ -44,6 +44,7 @@ type AnyBuilder = (definition: {
   args: PropertyValidators
   returns?: GenericValidator
   trustedForwardingFunctionRef?: string
+  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -170,6 +171,7 @@ type HandlerDefinition<
    * signed trusted-forwarding envelopes against this exact Convex function ref.
    */
   trustedForwardingFunctionRef?: string
+  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
     projection: 'execute' | 'preview'
@@ -382,6 +384,9 @@ function createStructuredBuilder<
       args: definition.args,
       returns: definition.returns,
       ...(functionRef ? { trustedForwardingFunctionRef: functionRef } : {}),
+      ...(definition.trustedForwardingTransport
+        ? { trustedForwardingTransport: definition.trustedForwardingTransport }
+        : {}),
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>

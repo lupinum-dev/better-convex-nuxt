@@ -283,6 +283,7 @@ type ActionCustomizationCtx<
 
 type TrustedForwardingCustomizationExtra = {
   trustedForwardingFunctionRef?: string
+  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
 }
 
 type DestructiveRedemptionReader<DataModel extends GenericDataModel> = {
@@ -544,7 +545,10 @@ type UnsafeMutationBuilder<
   definition: {
     args?: TArgsValidator
     returns?: TReturnsValidator
-    handler: (ctx: GenericMutationCtx<DataModel>, args: UnsafeArgsFor<TArgsValidator>) => TReturnValue
+    handler: (
+      ctx: GenericMutationCtx<DataModel>,
+      args: UnsafeArgsFor<TArgsValidator>,
+    ) => TReturnValue
   } & UnsafeDefinition,
 ) => RegisteredMutation<Visibility, UnsafeArgsFor<TArgsValidator>, TReturnValue>
 
@@ -1366,7 +1370,7 @@ async function createContextWithRuntime<
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
   setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, {
     expectedKeyOverride: options.trustedForwardingKey,
-    expectedTransport: 'server',
+    expectedTransport: extra?.trustedForwardingTransport ?? 'server',
     ...(extra?.trustedForwardingFunctionRef
       ? { expectedFunctionRef: extra.trustedForwardingFunctionRef }
       : {}),
@@ -1993,13 +1997,7 @@ type TrellisBackendRuntime<
   TActor,
 > = {
   query: QueryWithBackendLanes<DataModel, QueryVisibility, TPrincipal, TDelegation, TActor>
-  mutation: MutationWithBackendLanes<
-    DataModel,
-    MutationVisibility,
-    TPrincipal,
-    TDelegation,
-    TActor
-  >
+  mutation: MutationWithBackendLanes<DataModel, MutationVisibility, TPrincipal, TDelegation, TActor>
   transportMutation: StructuredTransportMutationBuilder<
     MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
     MutationVisibility,
@@ -2772,7 +2770,10 @@ function buildTrellisRuntime<
     : undefined
   const actionWithLanes =
     action && explicitUnsafe.action
-      ? (attachBackendQueryLanes(action as never, explicitUnsafe.action as never) as typeof action & {
+      ? (attachBackendQueryLanes(
+          action as never,
+          explicitUnsafe.action as never,
+        ) as typeof action & {
           public: PublicStructuredActionBuilder<
             ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
             ActionVisibility,

@@ -70,58 +70,58 @@ of loosening bridge principal resolution or adding a raw compatibility path.
 
 ### 1. Identify The Root Wrapper Boundary
 
-- [ ] Trace every `bridgeApi.*` call in
+- [x] Trace every `bridgeApi.*` call in
       `examples/08-component-mini-cms/convex/features/pages/domain.ts`.
-- [ ] Classify each call by purpose: query, mutation, or action.
-- [ ] Identify the exact root bridge wrapper function ref expected by the
+- [x] Classify each call by purpose: query, mutation, or action.
+- [x] Identify the exact root bridge wrapper function ref expected by the
       internal wrapper verifier.
-- [ ] Confirm anonymous calls still pass no forwarding envelope and no principal
+- [x] Confirm anonymous calls still pass no forwarding envelope and no principal
       payload.
 
 ### 2. Replace Raw Root Wrapper Principal Args
 
-- [ ] Replace `bridgePrincipalArgs(...)` with a helper that returns either `{}` for
+- [x] Replace `bridgePrincipalArgs(...)` with a helper that returns either `{}` for
       anonymous principal or signed forwarding args for authenticated principals.
-- [ ] Use `createTrustedForwardingEnvelopeArgs(...)` with
+- [x] Use `createTrustedForwardingEnvelopeArgs(...)` with
       `transport: "bridge"`.
-- [ ] Set purpose from the called root wrapper operation:
+- [x] Set purpose from the called root wrapper operation:
       `query`, `mutation`, or `action`.
-- [ ] Set `functionRef` to the exact generated root bridge wrapper ref, not the
+- [x] Set `functionRef` to the exact generated root bridge wrapper ref, not the
       component ref.
-- [ ] Preserve app args and keep `principal` only inside `_trellisForwarding`.
-- [ ] Use the existing `CONVEX_TRUSTED_FORWARDING_KEY` configuration path.
+- [x] Preserve app args and keep `principal` only inside `_trellisForwarding`.
+- [x] Use the existing `CONVEX_TRUSTED_FORWARDING_KEY` configuration path.
 
 ### 3. Preserve Component Bridge Internal Signing
 
-- [ ] Keep `createComponentBridge()` signing the second hop into component refs.
-- [ ] Do not collapse the two hops into one envelope; each verifier should check
+- [x] Keep `createComponentBridge()` signing the second hop into component refs.
+- [x] Do not collapse the two hops into one envelope; each verifier should check
       the function ref for the function it is about to run.
-- [ ] Add or update tests proving both root-wrapper and component-wrapper
+- [x] Add or update tests proving both root-wrapper and component-wrapper
       envelopes use `transport: "bridge"`.
 
 ### 4. Strengthen Mini CMS Tests
 
-- [ ] Make `examples/08-component-mini-cms test` pass.
-- [ ] Add an assertion that raw public `principal` args into the root wrapper are
+- [x] Make `examples/08-component-mini-cms test` pass.
+- [x] Add an assertion that raw public `principal` args into the root wrapper are
       rejected.
-- [ ] Add an assertion that signed root-wrapper forwarding preserves the
+- [x] Add an assertion that signed root-wrapper forwarding preserves the
       principal payload without exposing it as a plain app arg.
-- [ ] Keep the existing descriptor-backed publish operation source assertions.
+- [x] Keep the existing descriptor-backed publish operation source assertions.
 
 ### 5. Add Focused Bridge Regression Coverage
 
-- [ ] Update `tests/unit/create-component-bridge.test.ts` if needed so the root
+- [x] Update `tests/unit/create-component-bridge.test.ts` if needed so the root
       wrapper and component wrapper expectations are clear.
-- [ ] Add a focused regression check if the example test is not enough to prove
+- [x] Add a focused regression check if the example test is not enough to prove
       exact root wrapper `functionRef` validation.
-- [ ] Keep the regression in tests, not runtime source scanning.
+- [x] Keep the regression in tests, not runtime source scanning.
 
 ### 6. Update Trackers
 
-- [ ] Mark only the bridge signed-forwarding items actually completed in
+- [x] Mark only the bridge signed-forwarding items actually completed in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Record any remaining Ginko bridge migration work as pending.
-- [ ] Update this sprint plan with exit notes before committing.
+- [x] Record any remaining Ginko bridge migration work as pending.
+- [x] Update this sprint plan with exit notes before committing.
 
 ## Verification
 
@@ -163,21 +163,32 @@ typing drift, and Convex dependency-version type drift.
 
 ## Acceptance Criteria
 
-- [ ] `examples/08-component-mini-cms test` passes.
-- [ ] Mini CMS root domain no longer passes raw `principal` to `bridgeApi.*`.
-- [ ] Authenticated root-wrapper calls use `_trellisForwarding` with
+- [x] `examples/08-component-mini-cms test` passes.
+- [x] Mini CMS root domain no longer passes raw `principal` to `bridgeApi.*`.
+- [x] Authenticated root-wrapper calls use `_trellisForwarding` with
       `transport: "bridge"`.
-- [ ] Root-wrapper envelopes bind the exact generated root bridge wrapper
+- [x] Root-wrapper envelopes bind the exact generated root bridge wrapper
       function ref.
-- [ ] Component-wrapper envelopes still bind the exact component function ref.
-- [ ] Anonymous bridge calls remain anonymous and do not require forwarding.
-- [ ] Raw principal args into forwarding-protected bridge wrappers fail closed.
-- [ ] No raw forwarding parser, compatibility shim, duplicate bridge registry, or
+- [x] Component-wrapper envelopes still bind the exact component function ref.
+- [x] Anonymous bridge calls remain anonymous and do not require forwarding.
+- [x] Raw principal args into forwarding-protected bridge wrappers fail closed.
+- [x] No raw forwarding parser, compatibility shim, duplicate bridge registry, or
       broad adapter is added.
-- [ ] 1.0 tracker reflects the completed bridge forwarding proof.
-- [ ] Verification commands above pass except explicitly listed non-gates.
-- [ ] Sprint changes are committed after verification.
+- [x] 1.0 tracker reflects the completed bridge forwarding proof.
+- [x] Verification commands above pass except explicitly listed non-gates.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- [ ] Fill this in during implementation.
+- [x] Mini CMS root domain calls now sign authenticated bridge wrapper calls with
+      `_trellisForwarding` and no longer pass raw `principal` args.
+- [x] `createComponentBridge()` internal wrappers now accept signed forwarding
+      transport fields instead of raw principal validators.
+- [x] Structured handlers can opt into `trustedForwardingTransport: "bridge"` so
+      component functions can verify bridge-origin envelopes without weakening
+      the default server transport.
+- [x] Component bridge definitions can provide explicit component function refs
+      when generated component refs are opaque at runtime.
+- [x] Root-wrapper envelopes bind the generated root wrapper ref; the component
+      hop binds the app args and component ref before backend authorization.
+- [x] Full Ginko bridge migration remains pending in the cross-repo gate.

@@ -9,6 +9,7 @@ import {
   extractSubject,
   getTrustedForwardingKeyProductionIssue,
   setTrustedForwardingContext,
+  withTrustedForwarding,
 } from '@lupinum/trellis/trusted-forwarding'
 import {
   customAction,
@@ -104,6 +105,7 @@ type ComponentBridgeDefinition<
   args: TArgs
   returns?: GenericValidator
   component: TRef
+  functionRef?: string
 } & Record<never, never>
 
 type ComponentBridgeQueryDefinition<
@@ -335,7 +337,12 @@ function getRequiredBridgeTrustedForwardingKey(override?: string): string {
   return trustedForwardingKey
 }
 
-function getBridgeFunctionRef(ref: ComponentBridgeFunctionRef): string {
+function getBridgeFunctionRef(
+  ref: ComponentBridgeFunctionRef,
+  explicitFunctionRef?: string,
+): string {
+  if (explicitFunctionRef?.trim()) return explicitFunctionRef.trim()
+
   try {
     const value = ref as unknown
     if (typeof value === 'string') return value
@@ -367,9 +374,10 @@ function createBridgeTrustedForwardingFields(
   trustedForwardingKey: string,
   operation: 'query' | 'mutation' | 'action',
   component: ComponentBridgeFunctionRef,
+  explicitFunctionRef?: string,
 ) {
   const principalSubject = resolveBridgePrincipalSubject(principal)
-  const functionRef = getBridgeFunctionRef(component)
+  const functionRef = getBridgeFunctionRef(component, explicitFunctionRef)
 
   return {
     _trellisForwarding: createTrustedForwardingEnvelope({
@@ -397,6 +405,7 @@ function createBridgeForwardingArgs(
   trustedForwardingKey: string,
   operation: 'query' | 'mutation' | 'action',
   component: ComponentBridgeFunctionRef,
+  explicitFunctionRef?: string,
 ): Record<string, unknown> {
   if (
     typeof principal === 'object' &&
@@ -415,6 +424,7 @@ function createBridgeForwardingArgs(
       trustedForwardingKey,
       operation,
       component,
+      explicitFunctionRef,
     ),
   }
 }
@@ -531,13 +541,11 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
     Record<string, never>
   >
 } {
-  const principalArgs: PropertyValidators = principalDefinition.validator
-    ? { principal: v.optional(principalDefinition.validator) }
-    : {}
+  const forwardingArgs: PropertyValidators = withTrustedForwarding({})
 
   return {
     query: {
-      args: principalArgs,
+      args: forwardingArgs,
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
@@ -568,7 +576,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
       },
     },
     mutation: {
-      args: principalArgs,
+      args: forwardingArgs,
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
@@ -599,7 +607,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
       },
     },
     action: {
-      args: principalArgs,
+      args: forwardingArgs,
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
@@ -706,6 +714,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'query',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },
@@ -730,6 +739,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'mutation',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },
@@ -757,6 +767,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'action',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },
@@ -782,6 +793,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'query',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },
@@ -806,6 +818,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'mutation',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },
@@ -833,6 +846,7 @@ export function createComponentBridge<
             trustedForwardingKey,
             'action',
             definition.component,
+            definition.functionRef,
           ) as never,
         )
       },

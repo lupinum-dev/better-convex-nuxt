@@ -509,10 +509,10 @@ Goal: remove packaged integration machinery from the normal app surface.
 - [ ] Core package does not import bridge.
 - [ ] Bridge package can use forwarding and backend descriptors without core
       depending on bridge.
-- [ ] Ginko-shaped fixture passes.
-- [ ] Bridge callers use signed envelopes with `transport: "bridge"` and exact
+- [x] Ginko-shaped fixture passes.
+- [x] Bridge callers use signed envelopes with `transport: "bridge"` and exact
       component/root function refs.
-- [ ] Ginko-shaped fixture proves no raw bridge forwarding fields remain.
+- [x] Ginko-shaped fixture proves no raw bridge forwarding fields remain.
 
 ### Done Means
 
