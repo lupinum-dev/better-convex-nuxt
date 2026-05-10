@@ -493,6 +493,9 @@ docs generation, and future explain commands.
 - Sprint 36 added `inventory.publicSurface` from the existing public-surface
   extractor and `operation-tool-agreement`, a conservative doctor check for
   destructive operation/MCP tool drift.
+- Sprint 37 is planned to add `trellis upgrade --check` as the first
+  read-only inventory consumer outside doctor, focused on 1.0 hard-cut migration
+  findings.
 
 ### Done Means
 
