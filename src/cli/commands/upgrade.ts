@@ -1,7 +1,8 @@
+import { writeFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
-import { Node, Project, SyntaxKind } from 'ts-morph'
+import { Node, Project, SyntaxKind, type SourceFile } from 'ts-morph'
 
 import type { DoctorFinding, FindingReport, FindingSource } from '../lib/findings.js'
 import {
@@ -22,6 +23,10 @@ import { inspectProject, type ProjectInspection } from '../lib/project.js'
 
 export interface UpgradeCheckReport extends FindingReport {
   schemaVersion: 1
+}
+
+export interface UpgradeWriteReport extends UpgradeCheckReport {
+  changedFiles: string[]
 }
 
 type UpgradeFindingOptions = {
@@ -170,6 +175,106 @@ function findLegacyBackendRootBuilderCalls(
   }
 
   return locations
+}
+
+function sourceHasMcpBinding(sourceFile: SourceFile): boolean {
+  for (const declaration of sourceFile.getImportDeclarations()) {
+    if (declaration.getDefaultImport()?.getText() === 'mcp') return true
+    if (declaration.getNamespaceImport()?.getText() === 'mcp') return true
+    if (
+      declaration
+        .getNamedImports()
+        .some((namedImport) => namedImport.getNameNode().getText() === 'mcp')
+    ) {
+      return true
+    }
+  }
+
+  return sourceFile
+    .getVariableDeclarations()
+    .some((declaration) => declaration.getNameNode().getText() === 'mcp')
+}
+
+function replaceRanges(
+  text: string,
+  replacements: Array<{ start: number; end: number; text: string }>,
+): string {
+  return replacements
+    .sort((left, right) => right.start - left.start)
+    .reduce(
+      (current, replacement) =>
+        `${current.slice(0, replacement.start)}${replacement.text}${current.slice(replacement.end)}`,
+      text,
+    )
+}
+
+function replaceLegacyModuleSpecifiers(text: string): string {
+  return text.replace(
+    /\b(from\s*|import\s*)(["'])(@lupinum\/trellis\/(?:functions|bridge))\2/g,
+    (match: string, prefix: string, quote: string, specifier: string) => {
+      if (specifier === '@lupinum/trellis/functions') {
+        return `${prefix}${quote}@lupinum/trellis/backend${quote}`
+      }
+      if (specifier === '@lupinum/trellis/bridge') {
+        return `${prefix}${quote}@lupinum/trellis-bridge${quote}`
+      }
+      return match
+    },
+  )
+}
+
+function applyToolFromOperationCodemod(path: string, text: string): string {
+  if (!isTsMorphParseablePath(path) || !text.includes('tool.fromOperation')) return text
+
+  const tsProject = new Project({
+    compilerOptions: {
+      allowJs: true,
+      jsx: 1,
+    },
+    useInMemoryFileSystem: true,
+  })
+
+  let sourceFile
+  try {
+    sourceFile = tsProject.createSourceFile(path, text, { overwrite: true })
+  } catch {
+    return text
+  }
+
+  if (!sourceHasMcpBinding(sourceFile)) return text
+
+  const replacements: Array<{ start: number; end: number; text: string }> = []
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const expression = call.getExpression()
+    if (!Node.isPropertyAccessExpression(expression)) continue
+    if (expression.getName() !== 'fromOperation') continue
+
+    const receiver = expression.getExpression()
+    if (!Node.isIdentifier(receiver) || receiver.getText() !== 'tool') continue
+    replacements.push({
+      start: expression.getStart(),
+      end: expression.getEnd(),
+      text: 'mcp.tool.operation',
+    })
+  }
+
+  return replacements.length === 0 ? text : replaceRanges(text, replacements)
+}
+
+function applyMechanicalUpgradeCodemods(cwd: string): string[] {
+  const project = inspectProject(cwd)
+  const changedFiles: string[] = []
+
+  for (const source of project.sourceFiles) {
+    let next = replaceLegacyModuleSpecifiers(source.text)
+    next = applyToolFromOperationCodemod(source.path, next)
+    if (next === source.text) continue
+
+    writeFileSync(source.path, next)
+    changedFiles.push(relative(project.cwd, source.path).replaceAll('\\', '/'))
+  }
+
+  return changedFiles
 }
 
 function createLocationFinding(options: UpgradeFindingOptions): DoctorFinding {
@@ -380,6 +485,16 @@ export async function buildUpgradeCheckReport(cwd: string): Promise<UpgradeCheck
   }
 }
 
+export async function buildUpgradeWriteReport(cwd: string): Promise<UpgradeWriteReport> {
+  const changedFiles = applyMechanicalUpgradeCodemods(cwd)
+  const report = await buildUpgradeCheckReport(cwd)
+
+  return {
+    ...report,
+    changedFiles,
+  }
+}
+
 export const upgradeCommand = defineCommand({
   meta: {
     name: 'upgrade',
@@ -389,6 +504,11 @@ export const upgradeCommand = defineCommand({
     check: {
       type: 'boolean',
       description: 'Run the read-only migration audit',
+      default: false,
+    },
+    write: {
+      type: 'boolean',
+      description: 'Apply safe mechanical migration edits',
       default: false,
     },
     cwd: {
@@ -403,19 +523,40 @@ export const upgradeCommand = defineCommand({
     },
   },
   async run({ args }) {
-    if (!args.check) {
+    if (args.write && args.json) {
+      process.stderr.write('`trellis upgrade --write --json` is not supported yet.\n')
+      process.exitCode = 1
+      return 1
+    }
+
+    if (!args.check && !args.write) {
       process.stderr.write(
-        'Only read-only check mode exists right now. Use `trellis upgrade --check`.\n',
+        'Choose an upgrade mode: `trellis upgrade --check` or `trellis upgrade --write`.\n',
       )
       process.exitCode = 1
       return 1
     }
 
-    const report = await buildUpgradeCheckReport(resolve(args.cwd || process.cwd()))
+    const cwd = resolve(args.cwd || process.cwd())
+    const report = args.write
+      ? await buildUpgradeWriteReport(cwd)
+      : await buildUpgradeCheckReport(cwd)
     renderFindingReport(report, {
       json: Boolean(args.json),
-      title: 'Trellis 1.0 upgrade check',
+      title: args.write ? 'Trellis 1.0 upgrade write' : 'Trellis 1.0 upgrade check',
     })
+
+    if (args.write) {
+      const changedFiles =
+        'changedFiles' in report && Array.isArray(report.changedFiles)
+          ? (report.changedFiles as string[])
+          : []
+      process.stdout.write(
+        changedFiles.length === 0
+          ? '\nChanged files: none\n'
+          : `\nChanged files:\n${changedFiles.map((file) => `- ${file}`).join('\n')}\n`,
+      )
+    }
 
     const exitCode = exitCodeForFindings(report.summary)
     process.exitCode = exitCode

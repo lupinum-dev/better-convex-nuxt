@@ -751,8 +751,8 @@ shims.
 ### Build
 
 - [x] `trellis upgrade --check` or equivalent audit command.
-- [ ] Codemod for mechanical import/path renames.
-- [ ] Codemod for `tool.fromOperation`.
+- [x] Codemod for mechanical import/path renames.
+- [x] Codemod for `tool.fromOperation`.
 - [ ] Audit report for authorize inference.
 - [x] Audit report for unsafe bypasses that cannot be rewritten.
 
@@ -763,7 +763,7 @@ shims.
 
 ### Prove
 
-- [ ] Codemods are tested against fixtures.
+- [x] Codemods are tested against fixtures.
 - [ ] Audit reports point to exact files/lines.
 - [ ] Removed imports fail loudly with useful diagnostics or TypeScript errors.
 - [x] Compatibility test configs/scripts are deleted or renamed to explicit 1.0
@@ -924,11 +924,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   fixture-copy race and updated stale expectations around server auth error
   context, Better Auth 401 categorization, and Convex cross-process observation
   capture.
-- Sprint 62 is planned to add the first write-mode migration tooling for
-  Trellis 1.0. Scope is intentionally narrow: mechanical import/path renames
-  and direct `tool.fromOperation(...)` call spelling. Authorization, raw
-  forwarding, unsafe permits, and backend lane classification remain
-  audit-only.
+- Sprint 62 added the first write-mode migration tooling for Trellis 1.0.
+  `trellis upgrade --write` now applies only mechanical import/path renames and
+  direct `tool.fromOperation(...)` spelling changes when an `mcp` binding is
+  present. Authorization, raw forwarding, unsafe permits, and backend lane
+  classification remain audit-only.
 
 ### Done Means
 

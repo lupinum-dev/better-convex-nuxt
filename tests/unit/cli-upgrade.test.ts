@@ -107,7 +107,17 @@ describe('CLI upgrade', () => {
 
     expect(result.status, output).toBe(1)
     expect(output).toContain('trellis upgrade --check')
+    expect(output).toContain('trellis upgrade --write')
     expect(readAppFile(appRoot, 'convex/features/todos/domain.ts')).toBe(before)
+  })
+
+  it('rejects write mode with json output until write JSON has a stable contract', () => {
+    const appRoot = createPublicApp()
+    const result = runCli(['upgrade', '--write', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).toBe(1)
+    expect(output).toContain('trellis upgrade --write --json')
   })
 
   it('passes a clean generated starter in check mode', () => {
@@ -466,5 +476,123 @@ describe('CLI upgrade', () => {
     expect(existsSync(resolve(appRoot, 'convex/features/legacy/domain.ts'))).toBe(true)
     expect(readAppFile(appRoot, 'convex/features/legacy/domain.ts')).toBe(before)
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
+  })
+
+  it('write mode applies mechanical import path codemods only', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/legacy/domain.ts',
+      [
+        "import { query } from '@lupinum/trellis/functions'",
+        'import "@lupinum/trellis/bridge"',
+        "export { checkBridgeDrift } from '@lupinum/trellis/bridge'",
+        '',
+        "const docsOnly = '@lupinum/trellis/functions'",
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const after = readAppFile(appRoot, 'convex/features/legacy/domain.ts')
+
+    expect(result.status, output).toBe(0)
+    expect(output).toContain('Changed files:')
+    expect(output).toContain('convex/features/legacy/domain.ts')
+    expect(after).toContain("import { query } from '@lupinum/trellis/backend'")
+    expect(after).toContain('import "@lupinum/trellis-bridge"')
+    expect(after).toContain("export { checkBridgeDrift } from '@lupinum/trellis-bridge'")
+    expect(after).toContain("const docsOnly = '@lupinum/trellis/functions'")
+  })
+
+  it('write mode rewrites direct tool.fromOperation only when an mcp binding exists', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/mcp/tools/archive.ts',
+      [
+        "import { mcp, tool } from '../runtime'",
+        '',
+        'export const archive = tool.fromOperation(archiveOperation)',
+        'export const nested = runtime.tool.fromOperation(ignoredOperation)',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const after = readAppFile(appRoot, 'server/mcp/tools/archive.ts')
+
+    expect(result.status, output).toBe(0)
+    expect(after).toContain('export const archive = mcp.tool.operation(archiveOperation)')
+    expect(after).toContain('export const nested = runtime.tool.fromOperation(ignoredOperation)')
+  })
+
+  it('write mode leaves tool.fromOperation untouched when mcp binding is missing', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/mcp/tools/archive.ts',
+      [
+        "import { tool } from '../runtime'",
+        '',
+        'export const archive = tool.fromOperation(archiveOperation)',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const after = readAppFile(appRoot, 'server/mcp/tools/archive.ts')
+
+    expect(result.status, output).toBe(0)
+    expect(after).toContain('tool.fromOperation(archiveOperation)')
+    expect(output).toContain('tool.fromOperation migration')
+  })
+
+  it('write mode is idempotent for mechanical codemods', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/mcp/tools/archive.ts',
+      [
+        "import { mcp, tool } from '../runtime'",
+        "import { query } from '@lupinum/trellis/functions'",
+        '',
+        'export const archive = tool.fromOperation(archiveOperation)',
+      ].join('\n'),
+    )
+
+    const first = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const afterFirst = readAppFile(appRoot, 'server/mcp/tools/archive.ts')
+    const second = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const secondOutput = `${second.stdout ?? ''}\n${second.stderr ?? ''}`
+
+    expect(first.status, `${first.stdout}\n${first.stderr}`).toBe(0)
+    expect(second.status, secondOutput).toBe(0)
+    expect(readAppFile(appRoot, 'server/mcp/tools/archive.ts')).toBe(afterFirst)
+    expect(secondOutput).toContain('Changed files: none')
+  })
+
+  it('write mode keeps security-sensitive migrations as manual findings', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'server/api/legacy.post.ts',
+      [
+        "import { query } from '@lupinum/trellis/functions'",
+        'export default defineEventHandler(async () => {',
+        '  return { _trustedForwardingKey: "legacy", principal: { subject: "user:1" } }',
+        '})',
+      ].join('\n'),
+    )
+
+    const result = runCli(['upgrade', '--write', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const after = readAppFile(appRoot, 'server/api/legacy.post.ts')
+
+    expect(result.status, output).toBe(1)
+    expect(after).toContain("import { query } from '@lupinum/trellis/backend'")
+    expect(after).toContain('_trustedForwardingKey')
+    expect(after).toContain('principal')
+    expect(output).toContain('Raw trusted-forwarding migration')
   })
 })

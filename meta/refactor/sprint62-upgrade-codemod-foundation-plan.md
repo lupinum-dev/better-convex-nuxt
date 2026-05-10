@@ -41,75 +41,87 @@ unsafe permit metadata, or backend builder lane classification.
 
 ### 1. Define Write-Mode Contract
 
-- [ ] Add an explicit `--write` option to `trellis upgrade`.
-- [ ] Keep default and `--check` read-only.
-- [ ] Reject `--write --json` if the output contract would be confusing, or
+- [x] Add an explicit `--write` option to `trellis upgrade`.
+- [x] Keep default and `--check` read-only.
+- [x] Reject `--write --json` if the output contract would be confusing, or
       define a clear JSON result with `changedFiles`.
-- [ ] Print changed file paths and a short summary in human output.
-- [ ] Return non-zero if write mode sees fail-level findings that require manual
+- [x] Print changed file paths and a short summary in human output.
+- [x] Return non-zero if write mode sees fail-level findings that require manual
       security review.
 
 ### 2. Mechanical Import Codemods
 
-- [ ] Rewrite `@lupinum/trellis/functions` imports to
+- [x] Rewrite `@lupinum/trellis/functions` imports to
       `@lupinum/trellis/backend`.
-- [ ] Rewrite `@lupinum/trellis/bridge` imports to
+- [x] Rewrite `@lupinum/trellis/bridge` imports to
       `@lupinum/trellis-bridge`.
-- [ ] Preserve import specifier aliases and formatting as much as the local file
+- [x] Preserve import specifier aliases and formatting as much as the local file
       style allows.
-- [ ] Do not rewrite local app `./functions` imports; those are app-owned
+- [x] Do not rewrite local app `./functions` imports; those are app-owned
       Convex composition files and require project context.
-- [ ] Make the codemod idempotent.
+- [x] Make the codemod idempotent.
 
 ### 3. `tool.fromOperation(...)` Codemod
 
-- [ ] Rewrite direct member calls `tool.fromOperation(...)` to
+- [x] Rewrite direct member calls `tool.fromOperation(...)` to
       `mcp.tool.operation(...)` only when the receiver is exactly `tool`.
-- [ ] If the file does not already have an `mcp` binding, emit an audit finding
+- [x] If the file does not already have an `mcp` binding, emit an audit finding
       instead of guessing imports or runtime variable names.
-- [ ] Do not rewrite nested/dynamic forms such as
+- [x] Do not rewrite nested/dynamic forms such as
       `runtime.tool.fromOperation(...)` or `someTool.fromOperation(...)` unless
       the AST can prove the canonical MCP runtime binding.
-- [ ] Make the codemod idempotent.
+- [x] Make the codemod idempotent.
 
 ### 4. Keep Security Migrations Audit-Only
 
-- [ ] Keep raw trusted-forwarding findings as fail/manual.
-- [ ] Keep authorize arity findings as warn/manual.
-- [ ] Keep unsafe permit migration as warn/manual unless the typed permit can be
+- [x] Keep raw trusted-forwarding findings as fail/manual.
+- [x] Keep authorize arity findings as warn/manual.
+- [x] Keep unsafe permit migration as warn/manual unless the typed permit can be
       proved from existing structured metadata.
-- [ ] Keep backend root builder calls as warn/manual because lane selection is a
+- [x] Keep backend root builder calls as warn/manual because lane selection is a
       security decision.
-- [ ] Ensure write mode reports skipped manual findings with exact file/line
+- [x] Ensure write mode reports skipped manual findings with exact file/line
       evidence.
 
 ### 5. Tests And Fixtures
 
-- [ ] Add tests proving `--check` never writes.
-- [ ] Add tests proving `--write` rewrites only mechanical import paths.
-- [ ] Add tests proving `--write` rewrites direct `tool.fromOperation(...)`
+- [x] Add tests proving `--check` never writes.
+- [x] Add tests proving `--write` rewrites only mechanical import paths.
+- [x] Add tests proving `--write` rewrites direct `tool.fromOperation(...)`
       when an `mcp` binding exists.
-- [ ] Add tests proving write mode leaves manual/security findings untouched.
-- [ ] Add idempotency tests: running `--write` twice has no second diff.
-- [ ] Add fixture cases for mixed old imports and unrelated string literals.
+- [x] Add tests proving write mode leaves manual/security findings untouched.
+- [x] Add idempotency tests: running `--write` twice has no second diff.
+- [x] Add fixture cases for mixed old imports and unrelated string literals.
 
 ### 6. Update Trackers
 
-- [ ] Mark Slice 11 mechanical import/path codemod complete only after tests.
-- [ ] Mark Slice 11 `tool.fromOperation` codemod complete only after tests.
-- [ ] Mark codemods-tested-against-fixtures complete only after the new fixture
+- [x] Mark Slice 11 mechanical import/path codemod complete only after tests.
+- [x] Mark Slice 11 `tool.fromOperation` codemod complete only after tests.
+- [x] Mark codemods-tested-against-fixtures complete only after the new fixture
       cases pass.
-- [ ] Add a Sprint 62 completion note to the 1.0 refactor tracker.
+- [x] Add a Sprint 62 completion note to the 1.0 refactor tracker.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
-- [ ] `pnpm run build:cli && pnpm run check:starter-fixtures`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm run lint`
-- [ ] `pnpm run test:types`
-- [ ] `pnpm exec oxfmt --check src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts meta/refactor/sprint62-upgrade-codemod-foundation-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/cli-upgrade.test.ts`
+- [x] `pnpm run build:cli && pnpm run check:starter-fixtures`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm run lint`
+- [x] `pnpm run test:types`
+- [x] `pnpm exec oxfmt --check src/cli/commands/upgrade.ts tests/unit/cli-upgrade.test.ts meta/refactor/sprint62-upgrade-codemod-foundation-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Result
+
+- `trellis upgrade --write` now applies only tested mechanical codemods.
+- `@lupinum/trellis/functions` imports rewrite to
+  `@lupinum/trellis/backend`.
+- `@lupinum/trellis/bridge` imports rewrite to `@lupinum/trellis-bridge`.
+- Direct `tool.fromOperation(...)` calls rewrite to
+  `mcp.tool.operation(...)` only when the file already has an `mcp` binding.
+- Raw forwarding, authorize arity, unsafe permits, and backend root builder lane
+  selection remain audit-only.
+- Write mode is idempotent and reports changed files.
 
 ## Done Means
 
