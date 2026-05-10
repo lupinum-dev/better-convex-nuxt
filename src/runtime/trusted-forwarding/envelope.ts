@@ -40,6 +40,8 @@ export interface VerifyTrustedForwardingEnvelopeOptions {
   readonly keys: Record<string, string>
   readonly expectedIssuer: string
   readonly expectedAudience: string
+  readonly expectedPurpose?: TrustedForwardingPurpose
+  readonly expectedTransport?: TrustedForwardingTransport
   readonly functionRef?: string
   readonly args: unknown
   readonly now?: number
@@ -58,8 +60,11 @@ export class TrustedForwardingEnvelopeError extends Error {
       | 'invalid-signature'
       | 'issuer'
       | 'audience'
+      | 'purpose'
+      | 'transport'
       | 'function-ref'
       | 'args-hash'
+      | 'ttl'
       | 'expired'
       | 'not-yet-valid'
       | 'too-large'
@@ -72,6 +77,13 @@ export class TrustedForwardingEnvelopeError extends Error {
 
 const headerType = 'trellis-forwarding+jws'
 export const defaultTrustedForwardingMaxEnvelopeBytes = 8_192
+export const trustedForwardingPurposeMaxTtlsMs = {
+  query: 60_000,
+  mutation: 30_000,
+  action: 30_000,
+  'operation-preview': 30_000,
+  'operation-execute': 10_000,
+} satisfies Record<TrustedForwardingPurpose, number>
 const excludedArgsKeys = new Set([
   '_trellisForwarding',
   '_trustedForwardingKey',
@@ -97,30 +109,52 @@ function parseJsonPart<T>(part: string, label: string): T {
   }
 }
 
-function canonicalJson(value: unknown, options: { omitReservedArgsKeys?: boolean } = {}): string {
+function assertSupportedCanonicalObject(value: object): void {
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
+    throw new TrustedForwardingEnvelopeError(
+      'Unsupported binary value in forwarding envelope canonical JSON.',
+      'malformed',
+    )
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TrustedForwardingEnvelopeError(
+      'Unsupported object value in forwarding envelope canonical JSON.',
+      'malformed',
+    )
+  }
+}
+
+function canonicalJson(value: unknown): string {
   if (value === null) return 'null'
 
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => canonicalJson(entry ?? null, options)).join(',')}]`
+    return `[${value.map((entry) => canonicalJson(entry ?? null)).join(',')}]`
   }
 
   switch (typeof value) {
     case 'string':
-    case 'number':
     case 'boolean':
+      return JSON.stringify(value)
+    case 'number':
+      if (!Number.isFinite(value) || Object.is(value, -0)) {
+        throw new TrustedForwardingEnvelopeError(
+          'Unsupported number in forwarding envelope canonical JSON.',
+          'malformed',
+        )
+      }
       return JSON.stringify(value)
     case 'undefined':
       return 'null'
     case 'object': {
+      assertSupportedCanonicalObject(value)
       const entries = Object.entries(value as Record<string, unknown>)
-        .filter(([key, entry]) => {
-          if (entry === undefined) return false
-          return !(options.omitReservedArgsKeys && excludedArgsKeys.has(key))
-        })
+        .filter(([, entry]) => entry !== undefined)
         .sort(([left], [right]) => left.localeCompare(right))
 
       return `{${entries
-        .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry, options)}`)
+        .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
         .join(',')}}`
     }
     default:
@@ -132,7 +166,16 @@ function canonicalJson(value: unknown, options: { omitReservedArgsKeys?: boolean
 }
 
 export function canonicalizeForwardingArgs(args: unknown): string {
-  return canonicalJson(args, { omitReservedArgsKeys: true })
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    return canonicalJson(args)
+  }
+  assertSupportedCanonicalObject(args)
+  const filtered = Object.fromEntries(
+    Object.entries(args as Record<string, unknown>).filter(
+      ([key, entry]) => entry !== undefined && !excludedArgsKeys.has(key),
+    ),
+  )
+  return canonicalJson(filtered)
 }
 
 export function hashForwardingArgs(args: unknown): string {
@@ -235,11 +278,25 @@ export function verifyTrustedForwardingEnvelope(
   if (payload.v !== 1 || payload.kid !== header.kid) {
     throw new TrustedForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
   }
+  if (
+    typeof payload.issuedAt !== 'number' ||
+    !Number.isFinite(payload.issuedAt) ||
+    typeof payload.expiresAt !== 'number' ||
+    !Number.isFinite(payload.expiresAt)
+  ) {
+    throw new TrustedForwardingEnvelopeError('Malformed forwarding envelope payload.', 'malformed')
+  }
   if (payload.iss !== options.expectedIssuer) {
     throw new TrustedForwardingEnvelopeError('Forwarding envelope issuer mismatch.', 'issuer')
   }
   if (payload.aud !== options.expectedAudience) {
     throw new TrustedForwardingEnvelopeError('Forwarding envelope audience mismatch.', 'audience')
+  }
+  if (options.expectedPurpose !== undefined && payload.purpose !== options.expectedPurpose) {
+    throw new TrustedForwardingEnvelopeError('Forwarding envelope purpose mismatch.', 'purpose')
+  }
+  if (options.expectedTransport !== undefined && payload.transport !== options.expectedTransport) {
+    throw new TrustedForwardingEnvelopeError('Forwarding envelope transport mismatch.', 'transport')
   }
   if (options.functionRef !== undefined && payload.functionRef !== options.functionRef) {
     throw new TrustedForwardingEnvelopeError(
@@ -253,6 +310,13 @@ export function verifyTrustedForwardingEnvelope(
 
   const now = options.now ?? Date.now()
   const skew = options.clockSkewMs ?? 0
+  const maxTtlMs = trustedForwardingPurposeMaxTtlsMs[payload.purpose]
+  if (maxTtlMs === undefined || payload.expiresAt - payload.issuedAt > maxTtlMs) {
+    throw new TrustedForwardingEnvelopeError(
+      'Forwarding envelope TTL exceeds purpose maximum.',
+      'ttl',
+    )
+  }
   if (payload.issuedAt > now + skew) {
     throw new TrustedForwardingEnvelopeError(
       'Forwarding envelope is not yet valid.',

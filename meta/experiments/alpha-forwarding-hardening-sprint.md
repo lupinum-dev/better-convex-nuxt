@@ -193,6 +193,11 @@ Current state:
   maximum envelope size;
 - envelope verification now rejects serialized envelopes larger than the alpha
   8192-byte limit before payload verification.
+- reviewer-blocking issues are partly addressed in the alpha spike:
+  top-level-only forwarding metadata exclusion, unsupported value rejection,
+  expected purpose/transport checks, and max-TTL enforcement now have tests.
+  Raw fallback observability/production disablement remains migration-slice
+  work because raw forwarding is intentionally retained in this sprint.
 
 Remaining work:
 

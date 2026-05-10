@@ -1131,6 +1131,7 @@ async function createContextWithRuntime<
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
   setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, {
     expectedKeyOverride: options.trustedForwardingKey,
+    expectedTransport: 'server',
     ...(extra?.trustedForwardingFunctionRef
       ? { expectedFunctionRef: extra.trustedForwardingFunctionRef }
       : {}),

@@ -7,6 +7,7 @@ import type { Delegation } from '../functions/define-delegation.js'
 import type { Subject } from '../functions/define-principal.js'
 import {
   createTrustedForwardingEnvelope,
+  trustedForwardingPurposeMaxTtlsMs,
   TrustedForwardingEnvelopeError,
   verifyTrustedForwardingEnvelope,
   type TrustedForwardingPurpose,
@@ -67,11 +68,7 @@ export const trustedForwardingAlphaAudience = 'trellis://convex'
 export const trustedForwardingDefaultKeyId = 'default'
 
 export const trustedForwardingAlphaTtlsMs = {
-  query: 60_000,
-  mutation: 30_000,
-  action: 30_000,
-  'operation-preview': 30_000,
-  'operation-execute': 10_000,
+  ...trustedForwardingPurposeMaxTtlsMs,
 } satisfies Record<TrustedForwardingPurpose, number>
 
 export type TrustedForwardingEnvelopeContextOptions = {
@@ -79,6 +76,8 @@ export type TrustedForwardingEnvelopeContextOptions = {
   expectedIssuer?: string
   expectedAudience?: string
   expectedFunctionRef?: string
+  expectedPurpose?: TrustedForwardingPurpose
+  expectedTransport?: TrustedForwardingTransport
   now?: number
   maxEnvelopeBytes?: number
   redeemJti?: (jti: string) => boolean
@@ -344,6 +343,8 @@ export function extractTrustedForwardingFromArgs(
         keys,
         expectedIssuer: options.expectedIssuer ?? trustedForwardingAlphaIssuer,
         expectedAudience: options.expectedAudience ?? trustedForwardingAlphaAudience,
+        ...(options.expectedPurpose ? { expectedPurpose: options.expectedPurpose } : {}),
+        ...(options.expectedTransport ? { expectedTransport: options.expectedTransport } : {}),
         ...(options.expectedFunctionRef ? { functionRef: options.expectedFunctionRef } : {}),
         args,
         ...(options.now !== undefined ? { now: options.now } : {}),

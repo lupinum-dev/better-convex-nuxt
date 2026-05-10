@@ -76,6 +76,19 @@ describe('trusted forwarding envelopes', () => {
       },
       {
         args: {
+          z: 1,
+          nested: {
+            principal: 'business',
+            delegation: 'business',
+          },
+          principal: { subject: 'ignored' },
+          delegation: { subject: 'ignored' },
+        },
+        canonical: '{"nested":{"delegation":"business","principal":"business"},"z":1}',
+        hash: 'H5VKtTv0YT5Wt0oijONWtQEr3yeqYFdKyKIj-pCLlpk',
+      },
+      {
+        args: {
           items: [1, undefined, null, { b: 2, a: 1 }],
           optional: undefined,
         },
@@ -164,6 +177,72 @@ describe('trusted forwarding envelopes', () => {
         now: now + 60_000,
       }),
     ).toThrow(/expired/)
+  })
+
+  it('rejects purpose, transport, and max TTL drift', () => {
+    const envelope = createEnvelope()
+    const longTtlEnvelope = createTrustedForwardingEnvelope({
+      key,
+      keyId: '2026-05-a',
+      iss: 'nuxt://app',
+      aud: 'convex://deployment',
+      jti: 'call-long',
+      sub: 'user:123',
+      principal: { subject: 'user:123', kind: 'user' },
+      transport: 'mcp',
+      purpose: 'mutation',
+      functionRef: 'features.projects.create',
+      args: { title: 'Roadmap' },
+      now,
+      ttlMs: 120_000,
+    })
+
+    expect(() =>
+      verifyTrustedForwardingEnvelope(envelope, {
+        keys: { '2026-05-a': key },
+        expectedIssuer: 'nuxt://app',
+        expectedAudience: 'convex://deployment',
+        expectedPurpose: 'query',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+      }),
+    ).toThrow(/purpose/)
+
+    expect(() =>
+      verifyTrustedForwardingEnvelope(envelope, {
+        keys: { '2026-05-a': key },
+        expectedIssuer: 'nuxt://app',
+        expectedAudience: 'convex://deployment',
+        expectedTransport: 'server',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+      }),
+    ).toThrow(/transport/)
+
+    expect(() =>
+      verifyTrustedForwardingEnvelope(longTtlEnvelope, {
+        keys: { '2026-05-a': key },
+        expectedIssuer: 'nuxt://app',
+        expectedAudience: 'convex://deployment',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+      }),
+    ).toThrow(/TTL/)
+  })
+
+  it('rejects unsupported canonical args values instead of hashing them as null or empty objects', () => {
+    expect(() => canonicalizeForwardingArgs({ count: Number.NaN })).toThrow(/number/)
+    expect(() => canonicalizeForwardingArgs({ count: -0 })).toThrow(/number/)
+    expect(() => canonicalizeForwardingArgs({ count: 1n })).toThrow(/bigint/)
+    expect(() => canonicalizeForwardingArgs({ bytes: new Uint8Array([1, 2, 3]) })).toThrow(
+      /binary/,
+    )
+    expect(() => canonicalizeForwardingArgs({ when: new Date('2026-05-09T00:00:00Z') })).toThrow(
+      /object/,
+    )
   })
 
   it('rejects oversized envelopes before payload verification', () => {

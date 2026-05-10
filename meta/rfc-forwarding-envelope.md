@@ -71,10 +71,14 @@ Verification must check:
 - known `kid`;
 - signature;
 - issuer and audience;
-- function ref wherever the transport edge knows the expected Convex function
-  identity;
+- purpose and transport when the verifier knows the expected call class;
+- function ref wherever the verifier knows the expected Convex function identity.
+  Production migration should make exact function-ref validation mandatory for
+  every forwarding-protected handler;
 - args hash;
 - issued/expiry timestamps with bounded skew;
+- `expiresAt - issuedAt` must not exceed the maximum TTL for the envelope
+  `purpose`;
 - purpose-specific replay policy;
 - principal payload validator based on existing canonical subject extraction;
 - delegation payload validator based on existing canonical subject extraction
@@ -92,17 +96,23 @@ load, authorize, or handler execution.
 
 ## Canonical Args Hash
 
-The RFC must define deterministic serialization for Convex values.
+The RFC must define deterministic serialization for Convex values. Phase 0
+intentionally supports only JSON-shaped Convex args plus Convex IDs represented
+as strings. Unsupported values fail closed instead of being coerced into hashes.
 
 The Phase 0 spike currently:
 
 - sorts object keys;
 - omits object properties with `undefined`;
 - serializes array `undefined` as `null`;
-- excludes `_trellisForwarding`;
-- excludes legacy `_trustedForwardingKey` and `_trustedForwarding`;
-- excludes reserved public identity fields `principal` and `delegation`;
-- excludes `__trellis`.
+- excludes `_trellisForwarding` only at the top-level args object;
+- excludes legacy `_trustedForwardingKey` and `_trustedForwarding` only at the
+  top-level args object;
+- excludes reserved public identity fields `principal` and `delegation` only at
+  the top-level args object;
+- excludes `__trellis` only at the top-level args object;
+- rejects non-finite numbers, `-0`, bigint, binary values, Date/Map/Set/class
+  instances, functions, and symbols.
 
 The production RFC must include test vectors for:
 
@@ -118,6 +128,7 @@ Phase 0 vectors:
 | Label             | Canonical Args                                                                | SHA-256 Base64url Hash                        |
 | ----------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
 | metadata excluded | `{"a":{"b":true},"z":1}`                                                      | `EfLFajqAf5JyfYGFIP9-L2OuKX0xG0gC8pMA6gq-NG8` |
+| nested identity keys hashed | `{"nested":{"delegation":"business","principal":"business"},"z":1}`           | `H5VKtTv0YT5Wt0oijONWtQEr3yeqYFdKyKIj-pCLlpk` |
 | nullish array     | `{"items":[1,null,null,{"a":1,"b":2}]}`                                       | `llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q` |
 | ID string         | `{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}` | `0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ` |
 
@@ -146,6 +157,9 @@ During Convex protected handler setup, `operation-execute` envelopes are checked
 against that redemption table before principal, actor, guard, load,
 authorization, or handler execution. The destructive operation handler remains
 the canonical place that redeems/inserts the `jti` during successful execution.
+That insert is the replay claim and must happen before irreversible side
+effects. Production implementations that move destructive execution outside the
+same Convex mutation must provide an equivalent atomic claim/redeem contract.
 Execution also rejects an `operation-execute` envelope whose `jti` does not
 match the destructive confirmation token `jti`; confirmation replay and
 forwarding replay must stay one replay identity.
@@ -223,9 +237,12 @@ this RFC to be reviewed and accepted.
 
 Alpha transport support accepts `_trellisForwarding` first and falls back to the
 legacy raw `_trustedForwardingKey` / `_trustedForwarding` fields so current
-callers keep working during migration. This fallback is explicitly temporary and
-does not change the security rule: a valid envelope authenticates forwarding
-only. It never grants permission.
+callers keep working during migration. This fallback is explicitly temporary,
+must be made observable with redacted counters before production migration, and
+must be disabled or rejected in production/default migration-complete mode.
+Production should reject mixed signed/raw forwarding fields instead of silently
+choosing one. The alpha fallback does not change the security rule: a valid
+envelope authenticates forwarding only. It never grants permission.
 
 ## External Review Packet
 
@@ -242,8 +259,9 @@ The review should answer these finite questions:
    operation-preview `30s`, and operation-execute `10s`?
 3. Is one-time replay redemption only for `operation-execute` sufficient for
    alpha, with query/mutation/action relying on TTL and backend authorization?
-4. Are the canonical args hashing rules complete enough for Convex values, and
-   are the Phase 0 vectors sufficient to prevent drift between Nitro and Convex?
+4. Are the narrowed Phase 0 canonical args hashing rules complete enough for
+   JSON-shaped Convex args and Convex IDs as strings, and are the vectors
+   sufficient to prevent drift between Nitro and Convex?
 5. Does sharing the destructive confirmation token `jti` with the
    `operation-execute` forwarding envelope create one clear replay identity, or
    should confirmation replay and forwarding replay use separate IDs?
@@ -254,7 +272,8 @@ The review should answer these finite questions:
    strict enough, and what payload fields should be rejected before actor
    resolution?
 8. Is the temporary raw forwarding fallback acceptable during alpha migration,
-   provided `_trellisForwarding` wins when both paths are present?
+   provided production migration makes fallback observable and then disables or
+   rejects it?
 9. Are the redaction requirements sufficient to keep invalid envelope,
    principal, delegation, and bearer data out of logs and diagnostics?
 10. Is the alpha maximum serialized envelope size of 8192 bytes appropriate for
