@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 import type { InitTemplateSet, TemplateFile } from './init.js'
 
-type ResourceAppKind = 'personal' | 'workspace' | 'cms'
+type ResourceAppKind = 'personal' | 'workspace' | 'author-owned'
 
 type ResourceGeneratorContext = {
   kind: ResourceAppKind
@@ -72,11 +72,11 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
   const schemaPath = resolve(cwd, 'convex/schema.ts')
   const schemaSource = await readFile(schemaPath, 'utf8')
   const hasWorkspacePrincipal = await exists(resolve(cwd, 'convex/auth/principal.ts'))
-  const hasCmsPages = await exists(resolve(cwd, 'convex/features/pages/domain.ts'))
+  const hasAuthorOwnedPages = await exists(resolve(cwd, 'convex/features/pages/domain.ts'))
   const kind: ResourceAppKind = hasWorkspacePrincipal
     ? 'workspace'
-    : hasCmsPages
-      ? 'cms'
+    : hasAuthorOwnedPages
+      ? 'author-owned'
       : 'personal'
   const hasFeatureManifest = await exists(resolve(cwd, 'convex/features/index.ts'))
   const guardImportPath = '../../auth/guards'
@@ -85,7 +85,8 @@ async function inferResourceContext(cwd: string, name: string): Promise<Resource
   const singularPascal = pascalCase(name)
   const pluralCamel = pluralize(singularCamel)
   const pluralPascal = pascalCase(pluralCamel)
-  const ownerField = kind === 'cms' || /authorId\s*:/.test(schemaSource) ? 'authorId' : 'ownerId'
+  const ownerField =
+    kind === 'author-owned' || /authorId\s*:/.test(schemaSource) ? 'authorId' : 'ownerId'
   const tenantField = kind === 'workspace' ? 'workspaceId' : null
   const hasUpdatedAt = /updatedAt\s*:/.test(schemaSource)
   const hasMcp =

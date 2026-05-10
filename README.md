@@ -44,7 +44,8 @@ Canonical CLI:
 ```bash
 pnpm dlx @lupinum/trellis init my-app --template public
 pnpm dlx @lupinum/trellis init my-app --template personal
-pnpm dlx @lupinum/trellis init my-app --template workspace --mcp
+pnpm dlx @lupinum/trellis init my-app --template workspace
+pnpm dlx @lupinum/trellis init my-app --template workspace-mcp
 pnpm dlx @lupinum/trellis add entity project
 pnpm dlx @lupinum/trellis add uploads
 pnpm dlx @lupinum/trellis add operation publish-entry --kind destructive
@@ -58,9 +59,10 @@ Official starters:
 - `public`
 - `personal`
 - `workspace`
-- `cms`
+- `workspace-mcp`
 
-MCP is a capability added to `workspace`, not a separate starter.
+CMS product setup is Ginko-owned. Trellis keeps `08-component-mini-cms` as an
+advanced package-integration reference, not as a beginner starter.
 
 ## Canonical Shape
 
@@ -141,7 +143,8 @@ Read `01 -> 02 -> 03 -> 04` as the beginner ladder.
 - archived and exploratory material that may inform future example families
 - a set of concept briefs and legacy inputs, not maintained public references
 
-Future starter families are intentionally not promised until they ship. The public Trellis contract today is the current starter set plus optional MCP on `workspace`.
+Future starter families are intentionally not promised until they ship. The
+public Trellis contract today is the current starter set.
 
 ## Contributing
 

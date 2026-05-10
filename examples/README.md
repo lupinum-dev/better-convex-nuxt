@@ -9,8 +9,7 @@ If you want the productized starting points, use:
 - `trellis init my-app --template public`
 - `trellis init my-app --template personal`
 - `trellis init my-app --template workspace`
-- `trellis init my-app --template workspace --mcp`
-- `trellis init my-app --template cms`
+- `trellis init my-app --template workspace-mcp`
 
 Use this folder when you want to learn the stack, inspect a real pattern, or pressure-test an
 architecture before it graduates into a template.

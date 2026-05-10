@@ -30,8 +30,8 @@ async function scaffoldApp(template: 'personal' | 'workspace', mcp = false) {
   return cwd
 }
 
-async function scaffoldCmsShapedResourceApp() {
-  const cwd = await createTempAppRoot('cms-shaped-resource')
+async function scaffoldAuthorOwnedResourceApp() {
+  const cwd = await createTempAppRoot('author-owned-resource')
   await mkdir(resolve(cwd, 'convex/features/pages'), { recursive: true })
   await mkdir(resolve(cwd, 'convex/features/users'), { recursive: true })
 
@@ -267,8 +267,8 @@ describe('trellis add entity', () => {
     )
   })
 
-  it('scaffolds a cms resource slice with the existing author convention', async () => {
-    const cwd = await scaffoldCmsShapedResourceApp()
+  it('scaffolds an author-owned resource slice with the existing author convention', async () => {
+    const cwd = await scaffoldAuthorOwnedResourceApp()
 
     const template = await getAddTemplateSet({
       feature: 'entity',

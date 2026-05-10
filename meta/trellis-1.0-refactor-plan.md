@@ -591,9 +591,12 @@ Goal: remove packaged integration machinery from the normal app surface.
 - Sprint 48 added a repo policy check that fails when `src` imports
   `@lupinum/trellis-bridge` or reaches into `packages/trellis-bridge`,
   preserving the core -> bridge dependency direction.
-- Package-author docs cleanup, full Ginko cross-repo E2E, and remaining generic
-  `cms` naming cleanup stay open because they are not proven by the local bridge
-  package boundary tests.
+- Sprint 49 removed `cms` and `workspace --mcp` from first-reader starter docs,
+  renamed generic resource scaffolding from `cms` to `author-owned`, and added a
+  docs guardrail proving beginner starter docs teach `workspace-mcp` and not the
+  deleted CMS starter.
+- Package-author docs cleanup and full Ginko cross-repo E2E stay open because
+  they are not proven by the local bridge package boundary tests.
 
 ### Move
 
@@ -605,8 +608,8 @@ Goal: remove packaged integration machinery from the normal app surface.
 ### Delete
 
 - [x] Delete bridge exports from core/root/functions package.
-- [ ] Delete bridge concepts from beginner starter docs.
-- [ ] Delete any Ginko-specific naming from generic Trellis APIs.
+- [x] Delete bridge concepts from beginner starter docs.
+- [x] Delete any Ginko-specific naming from generic Trellis APIs.
 
 ### Keep
 

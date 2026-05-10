@@ -38,54 +38,61 @@ CMS-specific language.
 
 ### 1. Beginner Docs Hard Cut
 
-- [ ] Update `README.md` so official starters are `public`, `personal`,
+- [x] Update `README.md` so official starters are `public`, `personal`,
       `workspace`, and `workspace-mcp`.
-- [ ] Replace `workspace --mcp` examples with canonical `workspace-mcp` where
+- [x] Replace `workspace --mcp` examples with canonical `workspace-mcp` where
       the text describes 1.0 starter shape.
-- [ ] Remove `cms` from beginner starter lists.
-- [ ] Keep `08-component-mini-cms` framed as an advanced maintained reference,
+- [x] Remove `cms` from beginner starter lists.
+- [x] Keep `08-component-mini-cms` framed as an advanced maintained reference,
       not a starter.
-- [ ] Update `examples/README.md` so productized starting points no longer
+- [x] Update `examples/README.md` so productized starting points no longer
       mention `cms` or `workspace --mcp`.
 
 ### 2. Generic CLI Naming Cleanup
 
-- [ ] Rename the internal resource app kind from `cms` to an explicit
+- [x] Rename the internal resource app kind from `cms` to an explicit
       non-product term such as `author-owned`.
-- [ ] Keep generated behavior for author-owned schemas with `authorId` intact.
-- [ ] Update unit test names and fixtures that describe this path as `cms`
+- [x] Keep generated behavior for author-owned schemas with `authorId` intact.
+- [x] Update unit test names and fixtures that describe this path as `cms`
       unless the test is intentionally about deleted `cms` starter migration.
-- [ ] Do not change Ginko/package-author bridge terminology in advanced docs or
+- [x] Do not change Ginko/package-author bridge terminology in advanced docs or
       bridge package tests.
 
 ### 3. Guardrails
 
-- [ ] Add or strengthen a focused test/check proving beginner starter surfaces
+- [x] Add or strengthen a focused test/check proving beginner starter surfaces
       do not list `cms`.
-- [ ] Add or strengthen a focused test/check proving starter docs teach
+- [x] Add or strengthen a focused test/check proving starter docs teach
       `workspace-mcp`, not `workspace --mcp`, for the canonical 1.0 path.
-- [ ] Keep allowed bridge/CMS references scoped to advanced component bridge
+- [x] Keep allowed bridge/CMS references scoped to advanced component bridge
       docs, `08-component-mini-cms`, migration checks, and historical planning
       files.
 
 ### 4. Tracker Reconciliation
 
-- [ ] Mark Slice 9 local docs/generic-naming items complete only when the above
+- [x] Mark Slice 9 local docs/generic-naming items complete only when the above
       checks pass.
-- [ ] Leave full Ginko E2E in the cross-repo gate.
-- [ ] Mark Slice 9 done only if normal app authors no longer see bridge/CMS
+- [x] Leave full Ginko E2E in the cross-repo gate.
+- [x] Mark Slice 9 done only if normal app authors no longer see bridge/CMS
       unless they intentionally open advanced package-integration docs.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts tests/unit/examples-gallery-docs.test.ts tests/unit/phase0-starter-manifest.test.ts`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:docs:links`
-- [ ] `pnpm run check:starter-fixtures`
-- [ ] `pnpm run check:refactor:surface:inventory`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check README.md examples/README.md src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts meta/refactor/sprint49-bridge-beginner-surface-cleanup-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/public-surface-inventory-script.test.ts tests/unit/cli-doctor.test.ts tests/unit/cli-add-resource.test.ts tests/unit/examples-gallery-docs.test.ts tests/unit/phase0-starter-manifest.test.ts`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:docs:links`
+- [x] `pnpm run check:starter-fixtures`
+- [x] `pnpm run check:refactor:surface:inventory`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check README.md examples/README.md src/cli/lib/resource.ts tests/unit/cli-add-resource.test.ts meta/refactor/sprint49-bridge-beginner-surface-cleanup-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Notes
+
+- Left `08-component-mini-cms` and package-author bridge docs intact because
+  they are advanced reference surfaces, not beginner starter surfaces.
+- Fixed a broken relative docs link in the start-here page while running the
+  planned docs link check.
 
 ## Done Means
 
