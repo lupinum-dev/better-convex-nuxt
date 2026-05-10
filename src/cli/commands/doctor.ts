@@ -16,6 +16,7 @@ import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
   type TrellisCliInventory,
+  type TrellisCliInventoryUnsafeEntrypoint,
   type TrellisCliInventoryFacts,
   type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
@@ -61,6 +62,12 @@ function formatInventoryLocations(
     .map((entry) => `${entry.path}:${entry.line}`)
     .slice(0, limit)
     .join(', ')}${locations.length > limit ? ', ...' : ''}`
+}
+
+function unsafeEntrypointLocations(
+  entries: TrellisCliInventoryUnsafeEntrypoint[],
+): TrellisCliInventorySourceLocation[] {
+  return entries.map((entry) => entry.source)
 }
 
 function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFinding {
@@ -535,12 +542,17 @@ function createDoctorFindings(
       message:
         unsafeSurfaceInventory.length === 0
           ? 'No `query.unsafe(...)` or `mutation.unsafe(...)` entrypoints were detected.'
-          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(unsafeSurfaceInventory)}.`,
+          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(unsafeEntrypointLocations(unsafeSurfaceInventory))}.`,
       fixHint:
         unsafeSurfaceInventory.length === 0
           ? 'No action needed unless you add intentional escape hatches later.'
           : 'Review each unsafe entrypoint and keep the bypass reason narrow, explicit, and tested.',
-      sources: [findingInventorySource('backend.unsafeEntrypoints', unsafeSurfaceInventory)],
+      sources: [
+        findingInventorySource(
+          'backend.unsafeEntrypoints',
+          unsafeEntrypointLocations(unsafeSurfaceInventory),
+        ),
+      ],
     },
     {
       id: 'cross-tenant-escape-inventory',

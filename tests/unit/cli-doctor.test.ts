@@ -95,7 +95,18 @@ type DoctorInventoryJsonReport = {
       }
     }
     backend: {
-      unsafeEntrypoints: Array<{ path: string; line: number }>
+      unsafeEntrypoints: Array<{
+        exportName: string | null
+        surface: 'query' | 'mutation' | 'action'
+        style: 'string-bypass' | 'typed-permit' | 'missing' | 'unknown'
+        file: string
+        source: { path: string; line: number }
+        permit?: {
+          kind?: string
+          scopeCount?: number
+          hasReviewBy: boolean
+        }
+      }>
       crossTenantEscapes: Array<{ path: string; line: number }>
       destructiveOperations: Array<{ path: string; line: number }>
     }
@@ -1485,6 +1496,17 @@ export const publicCatalog = query.unsafe({
     return await db.query('todos').collect()
   },
 })
+
+export const uploadUrl = mutation.unsafe({
+  permit: unsafe.permit({
+    kind: 'preTenantUpload',
+    reason: 'Generate upload URL before a tenant record exists.',
+    scope: ['assets'],
+    reviewBy: '2026-07-01',
+  }),
+  args: {},
+  handler: async () => null,
+})
 `,
     )
 
@@ -1508,20 +1530,49 @@ export const publicCatalog = query.unsafe({
       expect.objectContaining({
         kind: 'inventory',
         inventoryPath: 'backend.unsafeEntrypoints',
-        locations: [
+        locations: expect.arrayContaining([
           expect.objectContaining({
             path: 'convex/features/todos/domain.ts',
             line: expect.any(Number),
           }),
-        ],
+        ]),
       }),
     ])
-    expect(report.inventory.backend.unsafeEntrypoints).toEqual([
-      expect.objectContaining({
-        path: 'convex/features/todos/domain.ts',
-        line: expect.any(Number),
-      }),
-    ])
+    expect(report.inventory.backend.unsafeEntrypoints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          exportName: 'publicCatalog',
+          surface: 'query',
+          style: 'string-bypass',
+          file: 'convex/features/todos/domain.ts',
+          source: expect.objectContaining({
+            path: 'convex/features/todos/domain.ts',
+            line: expect.any(Number),
+          }),
+        }),
+        expect.objectContaining({
+          exportName: 'uploadUrl',
+          surface: 'mutation',
+          style: 'typed-permit',
+          file: 'convex/features/todos/domain.ts',
+          source: expect.objectContaining({
+            path: 'convex/features/todos/domain.ts',
+            line: expect.any(Number),
+          }),
+          permit: {
+            kind: 'preTenantUpload',
+            scopeCount: 1,
+            hasReviewBy: true,
+          },
+        }),
+      ]),
+    )
+    expect(JSON.stringify(report.inventory.backend.unsafeEntrypoints)).not.toContain(
+      'Intentional public listing',
+    )
+    expect(JSON.stringify(report.inventory.backend.unsafeEntrypoints)).not.toContain(
+      'Generate upload URL',
+    )
     expect(
       report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.status,
     ).toBe('pass')

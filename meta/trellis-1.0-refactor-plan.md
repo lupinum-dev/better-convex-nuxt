@@ -533,6 +533,9 @@ docs generation, and future explain commands.
 - Sprint 43 is planned to replace location-only unsafe backend inventory with
   structured unsafe surface metadata so typed permit migration can use inventory
   instead of another scanner.
+- Sprint 43 replaced location-only unsafe backend inventory with structured
+  entries that record export name, surface kind, permit style, safe source
+  location, and redacted typed-permit summary metadata.
 
 ### Done Means
 

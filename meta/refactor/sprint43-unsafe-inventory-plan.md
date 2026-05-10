@@ -108,47 +108,47 @@ Do not store `bypass`, `reason`, or scope names. For typed permits, storing
 
 ### 1. Extend Inventory Types
 
-- [ ] Add unsafe surface kind/style types.
-- [ ] Add `TrellisCliInventoryUnsafeEntrypoint`.
-- [ ] Change `backend.unsafeEntrypoints` to structured entries.
-- [ ] Update `surfaces.unsafeEntrypoints` to count structured entries.
+- [x] Add unsafe surface kind/style types.
+- [x] Add `TrellisCliInventoryUnsafeEntrypoint`.
+- [x] Change `backend.unsafeEntrypoints` to structured entries.
+- [x] Update `surfaces.unsafeEntrypoints` to count structured entries.
 
 ### 2. Replace Location-Only Unsafe Collection
 
-- [ ] Replace or rename `findUnsafeSurfaceInventory(...)` so inventory owns the
+- [x] Replace or rename `findUnsafeSurfaceInventory(...)` so inventory owns the
       structured unsafe facts.
-- [ ] Extract exported variable name when the unsafe call is assigned to an
+- [x] Extract exported variable name when the unsafe call is assigned to an
       exported const.
-- [ ] Extract unsafe surface kind from the builder call.
-- [ ] Classify string bypass, typed permit, missing permit, and dynamic/unknown
+- [x] Extract unsafe surface kind from the builder call.
+- [x] Classify string bypass, typed permit, missing permit, and dynamic/unknown
       permit shape.
-- [ ] Keep extraction static and snippet-free.
+- [x] Keep extraction static and snippet-free.
 
 ### 3. Update Doctor And Upgrade Consumers
 
-- [ ] Update doctor unsafe finding to derive locations from
+- [x] Update doctor unsafe finding to derive locations from
       `entry.source`.
-- [ ] Update doctor finding source metadata to cite
+- [x] Update doctor finding source metadata to cite
       `backend.unsafeEntrypoints`.
-- [ ] Update upgrade unsafe finding to derive locations from structured entries.
-- [ ] Keep messages, statuses, and exit behavior unchanged.
+- [x] Update upgrade unsafe finding to derive locations from structured entries.
+- [x] Keep messages, statuses, and exit behavior unchanged.
 
 ### 4. Add Tests
 
-- [ ] Doctor JSON includes structured unsafe entries for string-bypass backend
+- [x] Doctor JSON includes structured unsafe entries for string-bypass backend
       unsafe handlers.
-- [ ] Doctor JSON does not include bypass reason text.
-- [ ] Doctor/upgrade findings still cite unsafe locations.
-- [ ] Upgrade JSON still includes source metadata for unsafe findings.
-- [ ] If a typed permit fixture is easy to add without runtime API changes, add
+- [x] Doctor JSON does not include bypass reason text.
+- [x] Doctor/upgrade findings still cite unsafe locations.
+- [x] Upgrade JSON still includes source metadata for unsafe findings.
+- [x] If a typed permit fixture is easy to add without runtime API changes, add
       a parser-only fixture; otherwise leave typed permit classification covered
       by a direct inventory unit test.
 
 ### 5. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 sprint notes.
-- [ ] Leave typed permit migration and runtime API hard cut for a later Sprint 3
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 sprint notes.
+- [x] Leave typed permit migration and runtime API hard cut for a later Sprint 3
       slice item.
 
 ## Verification
@@ -187,12 +187,28 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `backend.unsafeEntrypoints` is structured metadata, not only locations.
-- [ ] Unsafe inventory records export name, surface kind, permit style, and
+- [x] `backend.unsafeEntrypoints` is structured metadata, not only locations.
+- [x] Unsafe inventory records export name, surface kind, permit style, and
       safe source location.
-- [ ] Inventory JSON does not contain bypass reason text, permit reason text,
+- [x] Inventory JSON does not contain bypass reason text, permit reason text,
       snippets, args, or user data.
-- [ ] Doctor and upgrade consume the structured unsafe entries.
-- [ ] Existing doctor/upgrade status behavior remains unchanged.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Doctor and upgrade consume the structured unsafe entries.
+- [x] Existing doctor/upgrade status behavior remains unchanged.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Replaced location-only unsafe inventory with
+  `TrellisCliInventoryUnsafeEntrypoint`.
+- Added static unsafe extraction for `query.unsafe(...)`,
+  `mutation.unsafe(...)`, `action.unsafe(...)`, and legacy
+  `unsafe.query/mutation/action(...)` shapes.
+- Classified unsafe entries as `string-bypass`, `typed-permit`, `missing`, or
+  `unknown`.
+- Stored typed permit summary metadata only: permit kind, scope count, and
+  review-date presence.
+- Updated doctor and upgrade to derive unsafe finding locations from
+  `entry.source`.
+- Added JSON assertions for string-bypass and typed-permit unsafe entries while
+  proving bypass and permit reasons stay out of inventory output.

@@ -13,6 +13,7 @@ import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
   type TrellisCliInventory,
+  type TrellisCliInventoryUnsafeEntrypoint,
   type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
 import { renderFindingReport } from '../lib/output.js'
@@ -38,6 +39,12 @@ function formatLocations(locations: TrellisCliInventorySourceLocation[], limit =
     .map((location) => `${location.path}:${location.line}`)
     .slice(0, limit)
     .join(', ')}${locations.length > limit ? ', ...' : ''}`
+}
+
+function unsafeEntrypointLocations(
+  entries: TrellisCliInventoryUnsafeEntrypoint[],
+): TrellisCliInventorySourceLocation[] {
+  return entries.map((entry) => entry.source)
 }
 
 function toRelativeLocation(
@@ -216,9 +223,12 @@ function createUpgradeFindings(
     createLocationFinding({
       id: 'upgrade-unsafe-permits',
       title: 'Unsafe permit migration',
-      locations: inventory.backend.unsafeEntrypoints,
+      locations: unsafeEntrypointLocations(inventory.backend.unsafeEntrypoints),
       sources: [
-        findingInventorySource('backend.unsafeEntrypoints', inventory.backend.unsafeEntrypoints),
+        findingInventorySource(
+          'backend.unsafeEntrypoints',
+          unsafeEntrypointLocations(inventory.backend.unsafeEntrypoints),
+        ),
       ],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>

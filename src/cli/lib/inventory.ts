@@ -14,12 +14,13 @@ import {
   findForwardedPrincipalWithoutTrustedAuth,
   findMcpRateLimitStoreSupport,
   findTrustedForwardingPublicExposure,
-  findUnsafeSurfaceInventory,
+  findUnsafeSurfaceEntries,
   hasBetterConvexNuxtRegistration,
   hasDependency,
   isAuthExplicitlyDisabled,
   type ProjectInspection,
   type ProjectSourceLocation,
+  type ProjectUnsafeEntrypoint,
   usesMcpRateLimit,
   usesPermissionSurfaces,
   usesTrustedForwardingSurfaces,
@@ -28,7 +29,7 @@ import {
 export interface TrellisCliInventoryFacts {
   trustedForwardingExpected: boolean
   usesPermissions: boolean
-  unsafeSurfaceInventory: ProjectSourceLocation[]
+  unsafeSurfaceInventory: ProjectUnsafeEntrypoint[]
   crossTenantEscapeInventory: ProjectSourceLocation[]
   destructiveOperationInventory: ProjectSourceLocation[]
   destructiveMcpToolMisuse: ProjectSourceLocation[]
@@ -108,6 +109,26 @@ export interface TrellisCliInventoryPermissionInventory {
   unknown: string[]
 }
 
+export type TrellisCliInventoryUnsafeSurfaceKind = 'query' | 'mutation' | 'action'
+export type TrellisCliInventoryUnsafePermitStyle =
+  | 'string-bypass'
+  | 'typed-permit'
+  | 'missing'
+  | 'unknown'
+
+export interface TrellisCliInventoryUnsafeEntrypoint {
+  exportName: string | null
+  surface: TrellisCliInventoryUnsafeSurfaceKind
+  style: TrellisCliInventoryUnsafePermitStyle
+  file: string
+  source: TrellisCliInventorySourceLocation
+  permit?: {
+    kind?: string
+    scopeCount?: number
+    hasReviewBy: boolean
+  }
+}
+
 export interface TrellisCliInventory {
   schemaVersion: 1
   cwd: string
@@ -159,7 +180,7 @@ export interface TrellisCliInventory {
     }
   }
   backend: {
-    unsafeEntrypoints: TrellisCliInventorySourceLocation[]
+    unsafeEntrypoints: TrellisCliInventoryUnsafeEntrypoint[]
     crossTenantEscapes: TrellisCliInventorySourceLocation[]
     destructiveOperations: TrellisCliInventorySourceLocation[]
   }
@@ -372,6 +393,26 @@ function collectPermissions(project: ProjectInspection): TrellisCliInventory['pe
   }
 }
 
+function collectUnsafeEntrypoints(
+  project: ProjectInspection,
+  entries: ProjectUnsafeEntrypoint[],
+): TrellisCliInventoryUnsafeEntrypoint[] {
+  return entries.map((entry) => {
+    const file = toRelative(project, entry.path) ?? entry.path
+    return {
+      exportName: entry.exportName,
+      surface: entry.surface,
+      style: entry.style,
+      file,
+      source: {
+        path: file,
+        line: entry.line,
+      },
+      ...(entry.permit ? { permit: entry.permit } : {}),
+    }
+  })
+}
+
 function unwrapExpression(node: Node | undefined): Node | undefined {
   if (!node) return undefined
 
@@ -529,7 +570,7 @@ export function collectTrellisCliInventoryFacts(
   return {
     trustedForwardingExpected: usesTrustedForwardingSurfaces(project),
     usesPermissions: usesPermissionSurfaces(project),
-    unsafeSurfaceInventory: findUnsafeSurfaceInventory(project),
+    unsafeSurfaceInventory: findUnsafeSurfaceEntries(project),
     crossTenantEscapeInventory: findCrossTenantEscapeInventory(project),
     destructiveOperationInventory: findDestructiveOperationInventory(project),
     destructiveMcpToolMisuse: findDestructiveMcpToolsWithoutOperationBinding(project),
@@ -619,7 +660,7 @@ export function collectTrellisCliInventory(
       },
     },
     backend: {
-      unsafeEntrypoints: toInventoryLocations(project, facts.unsafeSurfaceInventory),
+      unsafeEntrypoints: collectUnsafeEntrypoints(project, facts.unsafeSurfaceInventory),
       crossTenantEscapes: toInventoryLocations(project, facts.crossTenantEscapeInventory),
       destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
     },

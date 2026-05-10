@@ -35,6 +35,22 @@ export interface ProjectSourceLocation {
   line: number
 }
 
+export type ProjectUnsafeSurfaceKind = 'query' | 'mutation' | 'action'
+export type ProjectUnsafePermitStyle = 'string-bypass' | 'typed-permit' | 'missing' | 'unknown'
+
+export interface ProjectUnsafeEntrypoint {
+  exportName: string | null
+  surface: ProjectUnsafeSurfaceKind
+  style: ProjectUnsafePermitStyle
+  path: string
+  line: number
+  permit?: {
+    kind?: string
+    scopeCount?: number
+    hasReviewBy: boolean
+  }
+}
+
 export interface EnvKeySource {
   key: string
   source: string
@@ -720,29 +736,140 @@ export function findCustomMcpToolsWithAppWrites(
   return findings
 }
 
-export function findUnsafeSurfaceInventory(project: ProjectInspection): ProjectSourceLocation[] {
+function getUnsafeCallSurface(
+  call: import('ts-morph').CallExpression,
+): ProjectUnsafeSurfaceKind | null {
+  const callee = unwrapExpression(call.getExpression())
+  if (!callee || !Node.isPropertyAccessExpression(callee)) return null
+
+  const method = callee.getName()
+  const receiver = callee.getExpression()
+
+  if (
+    method === 'unsafe' &&
+    Node.isIdentifier(receiver) &&
+    (receiver.getText() === 'query' ||
+      receiver.getText() === 'mutation' ||
+      receiver.getText() === 'action')
+  ) {
+    return receiver.getText() as ProjectUnsafeSurfaceKind
+  }
+
+  if (
+    Node.isIdentifier(receiver) &&
+    receiver.getText() === 'unsafe' &&
+    (method === 'query' || method === 'mutation' || method === 'action')
+  ) {
+    return method as ProjectUnsafeSurfaceKind
+  }
+
+  return null
+}
+
+function readStaticString(node: Node | undefined): string | undefined {
+  const expression = unwrapExpression(node)
+  if (!expression) return undefined
+  if (Node.isStringLiteral(expression) || Node.isNoSubstitutionTemplateLiteral(expression)) {
+    return expression.getLiteralText()
+  }
+  return undefined
+}
+
+function readStaticStringArrayCount(node: Node | undefined): number | undefined {
+  const expression = unwrapExpression(node)
+  if (!expression || !Node.isArrayLiteralExpression(expression)) return undefined
+
+  let count = 0
+  for (const element of expression.getElements()) {
+    const value = readStaticString(element)
+    if (!value) return undefined
+    count += 1
+  }
+  return count
+}
+
+function getPropertyAssignment(
+  objectLiteral: import('ts-morph').ObjectLiteralExpression,
+  name: string,
+): import('ts-morph').PropertyAssignment | null {
+  const property = objectLiteral.getProperties().find((entry) => getPropertyName(entry) === name)
+  return property && Node.isPropertyAssignment(property) ? property : null
+}
+
+function readUnsafePermit(
+  permitProperty: import('ts-morph').PropertyAssignment,
+): ProjectUnsafeEntrypoint['permit'] | null {
+  const initializer = unwrapExpression(permitProperty.getInitializer())
+  if (!initializer || !Node.isCallExpression(initializer)) return null
+
+  const callee = unwrapExpression(initializer.getExpression())
+  if (!callee || !Node.isPropertyAccessExpression(callee)) return null
+  if (callee.getName() !== 'permit') return null
+  if (!Node.isIdentifier(callee.getExpression()) || callee.getExpression().getText() !== 'unsafe') {
+    return null
+  }
+
+  const permitArg = unwrapExpression(initializer.getArguments()[0])
+  if (!permitArg || !Node.isObjectLiteralExpression(permitArg)) return null
+
+  const kind = readStaticString(getPropertyAssignment(permitArg, 'kind')?.getInitializer())
+  const scopeCount = readStaticStringArrayCount(
+    getPropertyAssignment(permitArg, 'scope')?.getInitializer(),
+  )
+  const hasReviewBy = Boolean(getPropertyAssignment(permitArg, 'reviewBy'))
+
+  return {
+    ...(kind ? { kind } : {}),
+    ...(scopeCount !== undefined ? { scopeCount } : {}),
+    hasReviewBy,
+  }
+}
+
+function classifyUnsafePermit(objectLiteral: import('ts-morph').ObjectLiteralExpression): {
+  style: ProjectUnsafePermitStyle
+  permit?: ProjectUnsafeEntrypoint['permit']
+} {
+  if (getPropertyAssignment(objectLiteral, 'bypass')) {
+    return { style: 'string-bypass' }
+  }
+
+  const permitProperty = getPropertyAssignment(objectLiteral, 'permit')
+  if (!permitProperty) {
+    return { style: 'missing' }
+  }
+
+  const permit = readUnsafePermit(permitProperty)
+  return permit ? { style: 'typed-permit', permit } : { style: 'unknown' }
+}
+
+function getExportedVariableName(call: import('ts-morph').CallExpression): string | null {
+  const declaration = call.getFirstAncestorByKind(SyntaxKind.VariableDeclaration)
+  if (!declaration?.getVariableStatement()?.isExported()) return null
+  return declaration.getName()
+}
+
+export function findUnsafeSurfaceEntries(project: ProjectInspection): ProjectUnsafeEntrypoint[] {
   const analysis = createAnalysisProject(project)
-  const findings: ProjectSourceLocation[] = []
+  const findings: ProjectUnsafeEntrypoint[] = []
 
   for (const sourceFile of analysis.getSourceFiles()) {
     for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      const callee = unwrapExpression(call.getExpression())
-      if (!callee || !Node.isPropertyAccessExpression(callee)) continue
-      const method = callee.getName()
-      const receiver = callee.getExpression()
-      const isLegacyUnsafe =
-        Node.isIdentifier(receiver) &&
-        receiver.getText() === 'unsafe' &&
-        (method === 'query' || method === 'mutation')
-      const isLaneUnsafe =
-        method === 'unsafe' &&
-        Node.isIdentifier(receiver) &&
-        (receiver.getText() === 'query' || receiver.getText() === 'mutation')
-      if (!isLegacyUnsafe && !isLaneUnsafe) continue
+      const surface = getUnsafeCallSurface(call)
+      if (!surface) continue
+
+      const firstArg = unwrapExpression(call.getArguments()[0])
+      const permitInfo =
+        firstArg && Node.isObjectLiteralExpression(firstArg)
+          ? classifyUnsafePermit(firstArg)
+          : { style: 'unknown' as const }
 
       findings.push({
+        exportName: getExportedVariableName(call),
+        surface,
+        style: permitInfo.style,
         path: sourceFile.getFilePath(),
         line: call.getStartLineNumber(),
+        ...(permitInfo.permit ? { permit: permitInfo.permit } : {}),
       })
     }
   }
