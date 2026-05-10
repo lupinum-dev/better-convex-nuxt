@@ -428,7 +428,7 @@ Goal: make tested fixture apps the source of starter generation.
 
 ### Prove
 
-- [ ] Each fixture builds.
+- [x] Each fixture builds.
 - [x] Each fixture typechecks.
 - [x] Each fixture passes doctor.
 - [x] Each `trellis init --template ...` output matches fixture-rendered

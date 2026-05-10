@@ -19,6 +19,8 @@ const cliPath = resolve(repoRoot, 'dist/cli.mjs')
 const fixtureRoot = resolve(repoRoot, 'src/cli/starter-fixtures')
 const templates = ['public', 'personal', 'workspace', 'workspace-mcp']
 const shouldTypecheck = process.argv.includes('--typecheck')
+const shouldBuild = process.argv.includes('--build')
+const shouldInstallGeneratedApps = shouldTypecheck || shouldBuild
 
 if (!existsSync(cliPath)) {
   console.error('Missing dist/cli.mjs. Run `pnpm run build:cli` before starter validation.')
@@ -328,7 +330,7 @@ function rewriteGeneratedPackageDependency(appRoot, trellisTarballPath) {
   writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
 }
 
-function runGeneratedTypecheck(template, appRoot, trellisTarballPath) {
+function runGeneratedValidation(template, appRoot, trellisTarballPath) {
   rewriteGeneratedPackageDependency(appRoot, trellisTarballPath)
 
   const install = runCommand('pnpm', ['install', '--ignore-scripts', '--no-frozen-lockfile'], {
@@ -360,11 +362,15 @@ function runGeneratedTypecheck(template, appRoot, trellisTarballPath) {
   const typecheck = runCommand('pnpm', ['run', 'typecheck'], { cwd: appRoot })
   assert(typecheck.status === 0, formatCommandFailure(`${template} typecheck`, typecheck))
 
+  const build = shouldBuild ? runCommand('pnpm', ['run', 'build'], { cwd: appRoot }) : null
+  if (build) assert(build.status === 0, formatCommandFailure(`${template} build`, build))
+
   return {
     install: 'pass',
     codegen: 'pass',
     prepare: 'pass',
     typecheck: 'pass',
+    build: build ? 'pass' : null,
   }
 }
 
@@ -390,7 +396,7 @@ function patchOfflineComponentCodegen(appRoot) {
 }
 
 const tempRoot = mkdtempSync(resolve(tmpdir(), 'trellis-starter-fixtures-'))
-const trellisTarballPath = shouldTypecheck
+const trellisTarballPath = shouldInstallGeneratedApps
   ? createPackedTrellisPackage(resolve(tempRoot, 'pack'))
   : null
 const summaries = []
@@ -425,34 +431,37 @@ try {
 
     writeDoctorEnv(appRoot, template)
     const doctorSummary = assertDoctorPass(template, appRoot)
-    const typecheckSummary = shouldTypecheck
-      ? runGeneratedTypecheck(template, appRoot, trellisTarballPath)
+    const validationSummary = shouldInstallGeneratedApps
+      ? runGeneratedValidation(template, appRoot, trellisTarballPath)
       : null
     summaries.push({
       template,
       files: expectedFiles.length,
       doctor: doctorSummary,
-      typecheck: typecheckSummary,
+      validation: validationSummary,
     })
   }
 
   console.log(
-    shouldTypecheck
-      ? 'starter fixture typecheck validation passed'
-      : 'starter fixture validation passed',
+    shouldBuild
+      ? 'starter fixture build validation passed'
+      : shouldTypecheck
+        ? 'starter fixture typecheck validation passed'
+        : 'starter fixture validation passed',
   )
   for (const summary of summaries) {
     const details = [
       `${summary.files} files`,
       `doctor ${summary.doctor.pass} pass / ${summary.doctor.warn} warn / ${summary.doctor.fail} fail`,
     ]
-    if (summary.typecheck) {
+    if (summary.validation) {
       details.push(
-        `install ${summary.typecheck.install}`,
-        `codegen ${summary.typecheck.codegen}`,
-        `prepare ${summary.typecheck.prepare}`,
-        `typecheck ${summary.typecheck.typecheck}`,
+        `install ${summary.validation.install}`,
+        `codegen ${summary.validation.codegen}`,
+        `prepare ${summary.validation.prepare}`,
+        `typecheck ${summary.validation.typecheck}`,
       )
+      if (summary.validation.build) details.push(`build ${summary.validation.build}`)
     }
     console.log(`${summary.template}: ${details.join(', ')}`)
   }

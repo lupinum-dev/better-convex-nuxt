@@ -113,36 +113,36 @@ starter source fixtures.
 
 ### 1. Add Build Validation Mode
 
-- [ ] Add a build validation mode to `scripts/check-starter-fixtures.mjs`.
-- [ ] Add `check:starter-fixtures:build` to `package.json`.
-- [ ] Reuse the existing temp app generation and packed Trellis package setup.
-- [ ] Print a concise per-starter summary that names install, codegen, prepare,
+- [x] Add a build validation mode to `scripts/check-starter-fixtures.mjs`.
+- [x] Add `check:starter-fixtures:build` to `package.json`.
+- [x] Reuse the existing temp app generation and packed Trellis package setup.
+- [x] Print a concise per-starter summary that names install, codegen, prepare,
       typecheck if run, and build status.
 
 ### 2. Run Nuxt Build Against Generated Apps
 
-- [ ] Run each generated starter's `build` script or equivalent `nuxi build`
+- [x] Run each generated starter's `build` script or equivalent `nuxi build`
       command.
-- [ ] Keep `.env.local` setup aligned with doctor/typecheck validation.
-- [ ] Ensure generated `_generated`, `.nuxt`, `.output`, and install artifacts
+- [x] Keep `.env.local` setup aligned with doctor/typecheck validation.
+- [x] Ensure generated `_generated`, `.nuxt`, `.output`, and install artifacts
       remain temp-only.
-- [ ] Capture and print failing command output with the starter name.
+- [x] Capture and print failing command output with the starter name.
 
 ### 3. Fix Real Starter Build Defects
 
-- [ ] Fix any generated starter source that fails normal Nuxt build.
-- [ ] Fix any packed Trellis package surface that is missing files needed by
+- [x] Fix any generated starter source that fails normal Nuxt build.
+- [x] Fix any packed Trellis package surface that is missing files needed by
       generated consumers.
-- [ ] Keep fixes in canonical fixture/package source, not in generated temp
+- [x] Keep fixes in canonical fixture/package source, not in generated temp
       output, unless the issue is explicitly validation-only.
-- [ ] Avoid broad build suppressions that would hide runtime import problems.
+- [x] Avoid broad build suppressions that would hide runtime import problems.
 
 ### 4. Update Slice 7
 
-- [ ] Mark `Each fixture builds` in
+- [x] Mark `Each fixture builds` in
       `meta/trellis-1.0-refactor-plan.md` only if all retained starters build.
-- [ ] Add sprint exit notes with the final per-starter build result.
-- [ ] If a starter cannot build hermetically, leave Slice 7 unchecked and record
+- [x] Add sprint exit notes with the final per-starter build result.
+- [x] If a starter cannot build hermetically, leave Slice 7 unchecked and record
       the exact blocker.
 
 ## Verification
@@ -189,22 +189,40 @@ pnpm exec oxfmt --check scripts/check-starter-fixtures.mjs
 
 ## Acceptance Criteria
 
-- [ ] A repo-owned generated-starter build command exists.
-- [ ] The command validates all retained starters, or records a specific
+- [x] A repo-owned generated-starter build command exists.
+- [x] The command validates all retained starters, or records a specific
       hermetic-build blocker without marking Slice 7 complete.
-- [ ] Generated apps install against the current packed local Trellis package.
-- [ ] Convex codegen runs without a live deployment.
-- [ ] Nuxt build passes for every retained starter before Slice 7 is marked
+- [x] Generated apps install against the current packed local Trellis package.
+- [x] Convex codegen runs without a live deployment.
+- [x] Nuxt build passes for every retained starter before Slice 7 is marked
       complete.
-- [ ] No generated `.nuxt`, `.output`, `_generated`, or `node_modules`
+- [x] No generated `.nuxt`, `.output`, `_generated`, or `node_modules`
       artifacts are committed.
-- [ ] No source fixture package files are rewritten for validation-only needs.
-- [ ] Slice 7 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] No source fixture package files are rewritten for validation-only needs.
+- [x] Slice 7 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `pnpm run check:starter-fixtures:build`.
+- Extended `scripts/check-starter-fixtures.mjs` with `--build` instead of adding
+  a parallel starter build harness.
+- Build mode reuses the Sprint 29 generated-app setup: packed local Trellis
+  tarball, temp dependency rewrite, install, offline Convex codegen, Better Auth
+  component metadata patch for temp generated output only, Nuxt prepare, and
+  Nuxt typecheck.
+- Build mode then runs each generated starter's normal `build` script.
+- Current validation result:
+  - `public`: 17 files, doctor 24 pass / 0 warn / 0 fail, install pass,
+    codegen pass, prepare pass, typecheck pass, build pass;
+  - `personal`: 26 files, doctor 24 pass / 0 warn / 0 fail, install pass,
+    codegen pass, prepare pass, typecheck pass, build pass;
+  - `workspace`: 37 files, doctor 24 pass / 0 warn / 0 fail, install pass,
+    codegen pass, prepare pass, typecheck pass, build pass;
+  - `workspace-mcp`: 42 files, doctor 24 pass / 0 warn / 0 fail, install pass,
+    codegen pass, prepare pass, typecheck pass, build pass.
+- No source fixture changes were needed for build validation.
+- Slice 7 fixture-backed starter proof is now complete.
 
 ## Next Sprint Candidate
 

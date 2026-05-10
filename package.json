@@ -180,7 +180,8 @@
     "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:bridge && pnpm run test:types:public && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
     "prepare": "husky",
     "check:starter-fixtures": "node scripts/check-starter-fixtures.mjs",
-    "check:starter-fixtures:typecheck": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --typecheck"
+    "check:starter-fixtures:typecheck": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --typecheck",
+    "check:starter-fixtures:build": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --build"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
