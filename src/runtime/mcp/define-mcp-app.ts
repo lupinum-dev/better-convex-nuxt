@@ -29,11 +29,10 @@ import {
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../observability/envelope.js'
+import { createWideSummary, type TrellisWideSummary } from '../observability/evlog-bridge.js'
 import {
   createDenialExplanation,
   createObservationEmitter,
-  createWideSummary,
-  type TrellisWideSummary,
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js'

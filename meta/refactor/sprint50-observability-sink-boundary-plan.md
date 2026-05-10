@@ -40,50 +40,60 @@ or keep it internal without touching event semantics.
 
 ### 1. Define The Internal Sink Contract
 
-- [ ] Add a small internal `ObservationSink` shape whose only operation is
+- [x] Add a small internal `ObservationSink` shape whose only operation is
       emitting an already-redacted `TrellisObservationEvent`.
-- [ ] Ensure sink delivery cannot mutate schema, redaction, sampling, identity
+- [x] Ensure sink delivery cannot mutate schema, redaction, sampling, identity
       semantics, correlation, or request behavior.
-- [ ] Keep test capture separate from delivery; capture remains available from
+- [x] Keep test capture separate from delivery; capture remains available from
       `@lupinum/trellis/testing`.
 
 ### 2. Route Evlog Through The Sink Boundary
 
-- [ ] Replace the direct emitter call to `deliverObservationToEvlog(...)` with
+- [x] Replace the direct emitter call to `deliverObservationToEvlog(...)` with
       a sink dispatch helper.
-- [ ] Keep evlog as the default internal delivery for now.
-- [ ] Keep delivery failure fail-open.
-- [ ] Add a bounded timeout guard for delivery if it can be implemented without
+- [x] Keep evlog as the default internal delivery for now.
+- [x] Keep delivery failure fail-open.
+- [x] Add a bounded timeout guard for delivery if it can be implemented without
       changing the public config surface.
-- [ ] Update config wording so core owns event semantics and delivery is through
+- [x] Update config wording so core owns event semantics and delivery is through
       an internal sink, not "via evlog" as the core contract.
 
 ### 3. Tighten Public Surface
 
-- [ ] Stop exporting `evlog-bridge` from `src/runtime/observability/index.ts`
+- [x] Stop exporting `evlog-bridge` from `src/runtime/observability/index.ts`
       unless a test proves it is still part of the 1.0 public contract.
-- [ ] Keep event schema/config/emitter/envelope/explanations exports intact.
-- [ ] Update public-surface/API docs if the export removal changes generated
+- [x] Keep event schema/config/emitter/envelope/explanations exports intact.
+- [x] Update public-surface/API docs if the export removal changes generated
       docs.
 
 ### 4. Prove The Boundary
 
-- [ ] Add or update unit tests proving sinks receive redacted events.
-- [ ] Add or update tests proving sink/delivery failure does not throw.
-- [ ] Add or update tests proving capture receives events even if delivery
+- [x] Add or update unit tests proving sinks receive redacted events.
+- [x] Add or update tests proving sink/delivery failure does not throw.
+- [x] Add or update tests proving capture receives events even if delivery
       fails.
-- [ ] Add or update tests proving delivery cannot observe raw sensitive details
+- [x] Add or update tests proving delivery cannot observe raw sensitive details
       before redaction.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/observability.test.ts tests/unit/query-observability-cache-boundary.test.ts tests/unit/plugin-client-bootstrap.test.ts tests/unit/runtime-config.test.ts`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/server-convex-utils.test.ts`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check src/runtime/observability tests/unit/observability.test.ts meta/refactor/sprint50-observability-sink-boundary-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec vitest run --project=unit tests/unit/observability.test.ts tests/unit/query-observability-cache-boundary.test.ts tests/unit/plugin-client-bootstrap.test.ts tests/unit/runtime-config.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/define-convex-tool.test.ts tests/unit/server-convex-utils.test.ts`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check src/runtime/observability tests/unit/observability.test.ts meta/refactor/sprint50-observability-sink-boundary-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
+
+## Notes
+
+- Added `src/runtime/observability/sink.ts` as an internal sink boundary.
+- Kept evlog as the default internal sink for now.
+- Removed `evlog-bridge` from the public observability barrel; internal runtime
+  observer and MCP code import evlog-wide-summary helpers directly.
+- A full `tsconfig.types.json` run still reports unrelated pre-existing
+  Vue-router and trusted-forwarding strictness errors, so this sprint used the
+  focused verification set listed above.
 
 ## Done Means
 

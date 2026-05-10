@@ -637,28 +637,36 @@ Goal: remove packaged integration machinery from the normal app surface.
 
 ## Slice 10: Observability Delivery Cleanup
 
-Status: pending
+Status: in progress
 
 Goal: keep event vocabulary in core while making delivery bounded and optional.
 
+### Progress Notes
+
+- Sprint 50 added an internal `ObservationSink` boundary, routed default evlog
+  delivery through it, bounded async delivery, and removed `evlog-bridge` from
+  the normal public observability barrel.
+- Test capture remains delivery-independent and still receives redacted events
+  when the delivery sink fails.
+
 ### Keep
 
-- [ ] Core owns event schema.
-- [ ] Core emits normalized/redacted events.
-- [ ] Testing capture remains easy.
+- [x] Core owns event schema.
+- [x] Core emits normalized/redacted events.
+- [x] Testing capture remains easy.
 
 ### Move / Delete
 
 - [ ] Move evlog delivery out of core if it creates runtime/package weight.
-- [ ] Delete any sink API that can redefine schema, redaction, sampling,
+- [x] Delete any sink API that can redefine schema, redaction, sampling,
       identity semantics, or request behavior.
 
 ### Prove
 
-- [ ] Sink receives already-redacted event.
-- [ ] Sink failure is fail-open.
-- [ ] Slow sink is bounded by timeout.
-- [ ] Tests can capture observations without delivery dependency.
+- [x] Sink receives already-redacted event.
+- [x] Sink failure is fail-open.
+- [x] Slow sink is bounded by timeout.
+- [x] Tests can capture observations without delivery dependency.
 
 ### Done Means
 

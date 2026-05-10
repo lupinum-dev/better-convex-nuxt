@@ -1,8 +1,10 @@
 import {
-  createObservationEmitter,
-  safeDebugToEvlog,
   createWideSummary,
   createWideSummaryContextFromObservation,
+  safeDebugToEvlog,
+} from './evlog-bridge.js'
+import {
+  createObservationEmitter,
   type PartialObservationEvent,
   type TrellisObservationContext,
   type TrellisObservationEvent,

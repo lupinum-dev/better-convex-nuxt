@@ -1,6 +1,6 @@
 import { emitObservationCapture } from './capture.js'
 import { normalizeObservabilityConfig } from './config.js'
-import { deliverObservationToEvlog } from './evlog-bridge.js'
+import { deliverObservationToSink } from './sink.js'
 import type {
   NormalizedTrellisObservabilityConfig,
   PartialObservationEvent,
@@ -158,9 +158,9 @@ export function createObservationEmitter(
       }
 
       try {
-        deliverObservationToEvlog(redacted, config)
+        await deliverObservationToSink(redacted, config)
       } catch (error) {
-        safeLogInternalFailure('evlog', error, event)
+        safeLogInternalFailure('sink', error, event)
       }
     } catch (error) {
       safeLogInternalFailure('emit', error, event)

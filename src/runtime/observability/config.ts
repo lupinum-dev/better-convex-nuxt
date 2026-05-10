@@ -74,7 +74,7 @@ export function normalizeObservabilityConfig(
   if ('adapter' in raw) {
     throwConfigError(
       'adapter',
-      'is no longer supported; Trellis now delivers observability via evlog',
+      'is no longer supported; Trellis owns observability semantics and delivers through an internal sink',
     )
   }
   if ('redact' in raw) {

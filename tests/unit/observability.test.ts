@@ -1,15 +1,16 @@
 import * as evlog from 'evlog'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createObservationEmitter,
-  createWideSummary,
   getObservationEnvelope,
   normalizeObservabilityConfig,
   stripObservationEnvelope,
   withObservationEnvelope,
 } from '../../src/runtime/observability'
+import { createWideSummary } from '../../src/runtime/observability/evlog-bridge'
 import { createRuntimeObserver } from '../../src/runtime/observability/runtime-observer'
+import { setObservationSinkForTests } from '../../src/runtime/observability/sink'
 import { createObservationCapture } from '../../src/runtime/testing'
 
 const evlogMock = vi.hoisted(() => ({
@@ -49,9 +50,14 @@ vi.mock('evlog', () => {
 describe('observability', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
     evlogMock.initLogger.mockImplementation(() => undefined)
     evlogMock.createLogger.mockImplementation(() => createWideLoggerMock())
     evlogMock.createRequestLogger.mockImplementation(() => createWideLoggerMock())
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('normalizes defaults safely', () => {
@@ -59,6 +65,16 @@ describe('observability', () => {
     expect(typeof config.enabled).toBe('boolean')
     expect(config.correlation.header).toBe('x-trellis-correlation-id')
     expect(config.service.length).toBeGreaterThan(0)
+  })
+
+  it('does not expose evlog delivery from the public observability barrel', async () => {
+    const observabilityApi = await import('../../src/runtime/observability')
+
+    expect(observabilityApi).toHaveProperty('createObservationEmitter')
+    expect(observabilityApi).toHaveProperty('normalizeObservabilityConfig')
+    expect(observabilityApi).not.toHaveProperty('deliverObservationToEvlog')
+    expect(observabilityApi).not.toHaveProperty('safeDebugToEvlog')
+    expect(observabilityApi).not.toHaveProperty('createWideSummary')
   })
 
   it('emits redacted semantic events through capture', async () => {
@@ -173,6 +189,111 @@ describe('observability', () => {
         status: 'success',
       }),
     ).resolves.toBeUndefined()
+  })
+
+  it('delivers already-redacted events to the sink boundary', async () => {
+    const delivered: unknown[] = []
+    const restore = setObservationSinkForTests({
+      emit(event) {
+        delivered.push(event)
+      },
+    })
+
+    try {
+      const emitter = createObservationEmitter(
+        {
+          enabled: true,
+          level: 'verbose',
+        },
+        {
+          transport: 'convex',
+          correlationId: 'corr_sink',
+        },
+      )
+
+      await emitter.emit({
+        name: 'tool.failed',
+        status: 'error',
+        reasonCode: 'tool.execution_failed',
+        details: {
+          token: 'raw-token',
+          Authorization: 'Bearer raw',
+        },
+      })
+
+      expect(delivered).toHaveLength(1)
+      expect(delivered[0]).toMatchObject({
+        correlationId: 'corr_sink',
+        details: {
+          token: '[redacted]',
+          Authorization: '[redacted]',
+        },
+      })
+      expect(JSON.stringify(delivered)).not.toContain('raw-token')
+      expect(JSON.stringify(delivered)).not.toContain('Bearer raw')
+    } finally {
+      restore()
+    }
+  })
+
+  it('captures observations even when the delivery sink fails', async () => {
+    const capture = createObservationCapture()
+    const restore = setObservationSinkForTests({
+      emit() {
+        throw new Error('sink down')
+      },
+    })
+
+    try {
+      const emitter = createObservationEmitter(
+        {
+          enabled: true,
+          level: 'verbose',
+        },
+        {
+          transport: 'convex',
+          correlationId: 'corr_sink_fail',
+        },
+      )
+
+      await expect(
+        emitter.emit({
+          name: 'db.escape_tenant_isolation.used',
+          status: 'success',
+        }),
+      ).resolves.toBeUndefined()
+
+      expect(capture.events).toHaveLength(1)
+      expect(capture.events[0]?.correlationId).toBe('corr_sink_fail')
+    } finally {
+      restore()
+      capture.stop()
+    }
+  })
+
+  it('bounds slow async sink delivery', async () => {
+    vi.useFakeTimers()
+    const restore = setObservationSinkForTests({
+      emit() {
+        return new Promise(() => {})
+      },
+    })
+
+    try {
+      const emitter = createObservationEmitter({
+        enabled: true,
+        level: 'verbose',
+      })
+      const emitted = emitter.emit({
+        name: 'db.escape_tenant_isolation.used',
+        status: 'success',
+      })
+
+      await vi.advanceTimersByTimeAsync(50)
+      await expect(emitted).resolves.toBeUndefined()
+    } finally {
+      restore()
+    }
   })
 
   it('falls back to a disabled emitter when config normalization fails', async () => {
