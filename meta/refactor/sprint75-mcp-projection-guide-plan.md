@@ -39,85 +39,94 @@ mutation, operation. Business rules stay in Convex handlers and operations.
 
 ### 1. Establish The MCP Docs Baseline
 
-- [ ] Scan user-facing MCP docs and MCP API reference for stale or risky
+- [x] Scan user-facing MCP docs and MCP API reference for stale or risky
       projection wording:
 
   ```bash
   rg -n "tool\\.query|tool\\.mutation|tool\\.operation|defineTool|defineMcpApp|permission|workspaceRead|workspaceWrite|fromOperation|tool\\.fromOperation|executeOperationRef|previewOperationRef|transportExecuteOperationRef|confirmationMode|_confirmationToken|ctx\\.mutation|ctx\\.action|convex/features|shared/features|safety|safe-write|bounded-write|external-service|destructive" apps/docs/content/docs/14.mcp-tools apps/docs/content/docs/13.api-reference/5.mcp.md apps/docs/content/docs/08.permissions/7.operations.md apps/docs/content/docs/04.mutations/4.destructive-operations.md -g '*.md'
   ```
 
-- [ ] Classify hits as current 1.0 docs, stale deleted paths, implementation
+- [x] Classify hits as current 1.0 docs, stale deleted paths, implementation
       boundary problems, safety-class wording, or future bridge/forwarding
       scope.
-- [ ] Record the baseline in this plan before editing.
+- [x] Record the baseline in this plan before editing.
+
+Baseline: no `tool.fromOperation(...)` hits remain. The main implementation
+boundary problem was the `tool.query(...)` example importing `workspaceRead`
+from `convex/features`; server/MCP docs should import shared permission keys
+instead. Existing `_confirmationToken`, `executeOperationRef`,
+`previewOperationRef`, `transportExecuteOperationRef`, and `confirmationMode`
+hits are current destructive MCP projection details. `transport` mode mentions
+bridge/component boundaries and stays as a narrow destructive-tool note; the
+bridge package-author guide remains open.
 
 ### 2. Tighten `/docs/mcp-tools/define-tools`
 
-- [ ] Make the three blessed lanes obvious:
+- [x] Make the three blessed lanes obvious:
       `tool.query(...)`, bounded `tool.mutation(...)`, and
       `tool.operation(...)`.
-- [ ] State that MCP tools are allowlisted through explicit declarations or
+- [x] State that MCP tools are allowlisted through explicit declarations or
       generated inventory; Trellis does not expose Convex refs by directory
       convention.
-- [ ] State that direct query/mutation refs must carry Trellis backend metadata
+- [x] State that direct query/mutation refs must carry Trellis backend metadata
       from public/protected backend builders or shared descriptors.
-- [ ] State that `tool.mutation(...)` can only project backend writes whose
+- [x] State that `tool.mutation(...)` can only project backend writes whose
       backend metadata is compatible with bounded/non-destructive safety; the
       tool declaration cannot down-classify a sensitive or destructive backend
       handler.
-- [ ] Fix examples so server/MCP files import shared descriptors and permission
+- [x] Fix examples so server/MCP files import shared descriptors and permission
       keys, not Convex permission implementations.
-- [ ] Keep standalone `defineTool(...)` scoped to read/diagnostic/external
+- [x] Keep standalone `defineTool(...)` scoped to read/diagnostic/external
       service behavior without app writes.
 
 ### 3. Tighten `/docs/mcp-tools/destructive-tools`
 
-- [ ] Keep this page focused on `tool.operation(...)`.
-- [ ] Explain that the accepted fallback is explicit checked binding:
+- [x] Keep this page focused on `tool.operation(...)`.
+- [x] Explain that the accepted fallback is explicit checked binding:
       descriptor plus preview/execute refs.
-- [ ] Clarify that the dream one-liner is only valid when the imported value is a
+- [x] Clarify that the dream one-liner is only valid when the imported value is a
       shared descriptor or generated operation handle, not Convex implementation
       code.
-- [ ] Explain preview/execute metadata drift at the tool boundary:
+- [x] Explain preview/execute metadata drift at the tool boundary:
       operation id, kind, args hash/schema metadata, permission key, preview ref,
       and execute ref must agree.
-- [ ] Preserve `backend` versus `transport` confirmation mode only if the page
+- [x] Preserve `backend` versus `transport` confirmation mode only if the page
       explains why each exists without turning into a bridge guide.
-- [ ] Ensure no wording implies confirmation replaces execute-time guard/load/
+- [x] Ensure no wording implies confirmation replaces execute-time guard/load/
       authorize/tenant/drift checks.
 
 ### 4. Align MCP API Reference Only Where Needed
 
-- [ ] Add or tighten terse reference notes for:
+- [x] Add or tighten terse reference notes for:
       direct mutation safety metadata, standalone custom-tool limits, explicit
       allowlisting, and operation binding invariants.
-- [ ] Keep the reference terse; do not duplicate the full guide.
+- [x] Keep the reference terse; do not duplicate the full guide.
 
 ### 5. Leave Adjacent Docs Open
 
-- [ ] Do not mark trusted forwarding security guide complete.
-- [ ] Do not mark bridge package-author guide complete.
-- [ ] Do not mark public API reference complete.
-- [ ] If stale forwarding or bridge wording is found, record it as future scope
+- [x] Do not mark trusted forwarding security guide complete.
+- [x] Do not mark bridge package-author guide complete.
+- [x] Do not mark public API reference complete.
+- [x] If stale forwarding or bridge wording is found, record it as future scope
       unless a one-line fix is enough.
 
 ### 6. Verify
 
-- [ ] `pnpm run check:docs:links`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] MCP docs scan from step 1 has no stale deleted-path hits, or every
+- [x] `pnpm run check:docs:links`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] MCP docs scan from step 1 has no stale deleted-path hits, or every
       remaining hit is documented here as intentional/future-sprint scope.
-- [ ] `pnpm exec oxfmt --check apps/docs/content/docs/14.mcp-tools apps/docs/content/docs/13.api-reference/5.mcp.md meta/refactor/sprint75-mcp-projection-guide-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check apps/docs/content/docs/14.mcp-tools apps/docs/content/docs/13.api-reference/5.mcp.md meta/refactor/sprint75-mcp-projection-guide-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ### 7. Update The Refactor Tracker
 
-- [ ] Add a Sprint 75 completion note to
+- [x] Add a Sprint 75 completion note to
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Mark MCP projection guide complete only if the define-tools and
+- [x] Mark MCP projection guide complete only if the define-tools and
       destructive-tools pages are aligned and verified.
-- [ ] Leave trusted forwarding, bridge package-author, and full public API
+- [x] Leave trusted forwarding, bridge package-author, and full public API
       reference items open.
 
 ## Done Means

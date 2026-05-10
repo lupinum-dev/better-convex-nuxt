@@ -846,7 +846,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Workspace MCP starter guide.
 - [x] Backend builder guide.
 - [x] Operation/destructive safety guide.
-- [ ] MCP projection guide.
+- [x] MCP projection guide.
 - [ ] Trusted forwarding security guide.
 - [ ] Bridge package-author guide.
 - [ ] Public API reference.
@@ -1079,6 +1079,18 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   direct mutation safety metadata, and operation-backed preview/execute binding.
   Trusted forwarding, bridge package-author, and full public API reference
   rewrites stay open unless this sprint makes only narrow alignment edits.
+- Sprint 75 completed the MCP projection guide cleanup. The define-tools guide
+  now states that MCP tools are explicit allowlisted declarations or generated
+  inventory, direct query/mutation refs need Trellis backend metadata, and
+  `tool.mutation(...)` cannot down-classify sensitive/destructive/audited/bulk/
+  external-side-effect backend writes. The example now imports shared permission
+  keys instead of Convex permission implementations. The destructive-tools guide
+  now names explicit checked binding as the accepted 1.0 shape, warns that the
+  future one-liner must use a shared descriptor or generated handle rather than
+  Convex implementation code, and documents operation metadata drift checks. The
+  MCP API reference has terse allowlisting, direct mutation safety, and
+  confirmation-does-not-replace-authorization notes. Trusted forwarding, bridge
+  package-author, and full public API reference rewrites remain open.
 
 ### Done Means
 
