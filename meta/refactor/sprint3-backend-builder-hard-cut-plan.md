@@ -1,6 +1,6 @@
 # Sprint 3: Backend Builder Hard Cut
 
-Status: planned
+Status: implemented
 Owner: Matthias
 
 Sprint 3 finishes the trust-lane cut started in Sprint 2. The goal is to make
@@ -33,85 +33,85 @@ deleted.
 
 ### 1. Convert Representative Backend Consumers
 
-- [ ] Convert `apps/harness/convex/functions.ts` to
+- [x] Convert `apps/harness/convex/functions.ts` to
       `@lupinum/trellis/backend`.
-- [ ] Convert `apps/harness/convex/functionsProbe.ts` imports to
+- [x] Convert `apps/harness/convex/functionsProbe.ts` imports to
       `@lupinum/trellis/backend`.
-- [ ] Convert `apps/harness/convex/auth/*` type/value imports to backend.
-- [ ] Convert the smallest public example backend import to backend.
-- [ ] Convert the smallest authenticated/workspace example backend import to
+- [x] Convert `apps/harness/convex/auth/*` type/value imports to backend.
+- [x] Convert the smallest public example backend import to backend.
+- [x] Convert the smallest authenticated/workspace example backend import to
       backend.
-- [ ] Avoid bulk doc rewrites unless they are needed for surface checks.
+- [x] Avoid bulk doc rewrites unless they are needed for surface checks.
 
 ### 2. Convert Builder Spellings In Focused Code
 
-- [ ] Convert representative public handlers from `query(...)` /
+- [x] Convert representative public handlers from `query(...)` /
       `mutation(...)` to `query.public(...)` / `mutation.public(...)`.
-- [ ] Convert representative protected handlers from `query(...)` /
+- [x] Convert representative protected handlers from `query(...)` /
       `mutation(...)` to `query.protected(...)` /
       `mutation.protected(...)`.
-- [ ] Convert representative unsafe handlers from `unsafe.query(...)` /
+- [x] Convert representative unsafe handlers from `unsafe.query(...)` /
       `unsafe.mutation(...)` to `query.unsafe(...)` /
       `mutation.unsafe(...)` where the handler is part of the new 1.0 surface.
-- [ ] Leave legacy unsafe permit-string cleanup to the typed-permits sprint.
-- [ ] Record remaining old builder spelling hits with owners.
+- [x] Leave legacy unsafe permit-string cleanup to the typed-permits sprint.
+- [x] Record remaining old builder spelling hits with owners.
 
 ### 3. Make Unclassified Backend Handlers Fail
 
-- [ ] Add a runtime guard that rejects direct calls to the old callable
+- [x] Add a runtime guard that rejects direct calls to the old callable
       `query(...)` / `mutation(...)` builder after explicit lanes are attached.
-- [ ] Preserve the internal implementation path used by explicit lane builders
+- [x] Preserve the internal implementation path used by explicit lane builders
       without exposing it as a public callable route.
-- [ ] Add focused tests proving `runtime.query({...})` and
+- [x] Add focused tests proving `runtime.query({...})` and
       `runtime.mutation({...})` fail with an actionable error.
-- [ ] Add focused tests proving `runtime.query.public({...})` does not allow a
+- [x] Add focused tests proving `runtime.query.public({...})` does not allow a
       `guard` field.
-- [ ] Add focused tests proving protected handlers still require explicit
+- [x] Add focused tests proving protected handlers still require explicit
       `guard` and use the existing protected handler pipeline.
 
 ### 4. Keep Public And Generated Surfaces Honest
 
-- [ ] Update generated registry/module augmentation tests to use backend.
-- [ ] Update dts tests that still teach app-owned imports from functions.
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
-- [ ] Update `meta/trellis-1.0-refactor-plan.md` checkboxes only for completed
+- [x] Update generated registry/module augmentation tests to use backend.
+- [x] Update dts tests that still teach app-owned imports from functions.
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Update `meta/trellis-1.0-refactor-plan.md` checkboxes only for completed
       Slice 3 items.
-- [ ] Add or update a check that `@lupinum/trellis/functions` does not reappear
+- [x] Add or update a check that `@lupinum/trellis/functions` does not reappear
       in package exports, generated public types, or beginner templates.
 
 ### 5. Document Remaining Cleanup
 
-- [ ] Count remaining `@lupinum/trellis/functions` hits outside historical
+- [x] Count remaining `@lupinum/trellis/functions` hits outside historical
       planning/ADR files.
-- [ ] Count remaining old callable builder hits in tests/examples/templates.
-- [ ] Separate remaining hits into:
+- [x] Count remaining old callable builder hits in tests/examples/templates.
+- [x] Separate remaining hits into:
       - docs rewrite;
       - templates/fixtures conversion;
       - bridge extraction;
       - typed unsafe permits;
       - historical/planning references.
-- [ ] Record the next sprint recommendation in the exit notes.
+- [x] Record the next sprint recommendation in the exit notes.
 
 ## Acceptance Criteria
 
-- [ ] Representative harness and example backend imports use
+- [x] Representative harness and example backend imports use
       `@lupinum/trellis/backend`.
-- [ ] Representative app handlers use explicit lane builders.
-- [ ] Direct `runtime.query({...})` and `runtime.mutation({...})` fail with a
+- [x] Representative app handlers use explicit lane builders.
+- [x] Direct `runtime.query({...})` and `runtime.mutation({...})` fail with a
       clear error.
-- [ ] Explicit lane builders continue to delegate through the existing backend
+- [x] Explicit lane builders continue to delegate through the existing backend
       authorization pipeline.
-- [ ] Public handlers cannot provide `guard`.
-- [ ] Protected handlers cannot accidentally become public.
-- [ ] Remaining old import/builder hits are counted and assigned to future
+- [x] Public handlers cannot provide `guard`.
+- [x] Protected handlers cannot accidentally become public.
+- [x] Remaining old import/builder hits are counted and assigned to future
       slices.
-- [ ] `pnpm run check:refactor:surface:inventory` passes.
-- [ ] `pnpm run check:docs:api-surface` passes or generated docs changes are
+- [x] `pnpm run check:refactor:surface:inventory` passes.
+- [x] `pnpm run check:docs:api-surface` passes or generated docs changes are
       committed intentionally.
-- [ ] `pnpm run check:publish-surface` passes.
-- [ ] `pnpm run test:types:public` passes.
-- [ ] Focused backend/unit tests pass.
-- [ ] `git diff --check` passes.
+- [x] `pnpm run check:publish-surface` passes.
+- [x] `pnpm run test:types:public` passes.
+- [x] Focused backend/unit tests pass.
+- [x] `git diff --check` passes.
 
 ## Suggested Verification Commands
 
@@ -126,11 +126,37 @@ git diff --check
 
 ## Exit Notes To Fill At Sprint End
 
-- Commit:
-- Old callable builder status:
-- Harness/example imports converted:
-- Representative explicit-lane handlers converted:
+- Commit: `feat: hard cut backend builder lanes`.
+- Old callable builder status: plain handler objects now fail through
+  `runtime.query({...})` / `runtime.mutation({...})`; operation/projection
+  objects still use that callable path as a tracked temporary shim until the
+  operation projection slice replaces it.
+- Harness/example imports converted: harness backend/auth/MCP server files,
+  `examples/01-public-todo`, `examples/02-auth-todo`, and the representative
+  `examples/03-team-workspace` backend/auth/domain files now use
+  `@lupinum/trellis/backend` or explicit lane builders.
+- Representative explicit-lane handlers converted: harness posts,
+  organizations, comments, tasks, MCP keys, cross-tenant probes,
+  `functionsProbe`, public todo, auth todo, and team workspace todo/workspace
+  paths.
 - Tests run:
-- Remaining old `@lupinum/trellis/functions` hits:
-- Remaining old builder spelling hits:
-- Recommended Sprint 4:
+  - `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/functions-defineHandler.test.ts tests/unit/package-subpath-exports.test.ts tests/unit/backend-index-exports.test.ts tests/unit/module-validation.test.ts tests/unit/cli-doctor.test.ts`
+  - `pnpm run test:types:public`
+  - `pnpm run check:publish-surface`
+  - `pnpm run check:refactor:surface:inventory`
+  - `pnpm run check:docs:api-surface`
+  - `pnpm run dev:prepare`
+  - `git diff --check`
+  - `pnpm run test:types:harness-server` still fails on existing duplicate
+    Convex dependency type drift, operation typing drift, and generated harness
+    API shape drift. The Sprint 3 unsafe lane `bypass` typing errors are fixed.
+- Remaining old `@lupinum/trellis/functions` hits: 48 non-historical import
+  hits remain, owned by docs/templates, bridge extraction, later examples
+  (`04`-`08`), generated resource templates, and test/build alias fixtures.
+- Remaining old builder spelling hits: remaining direct `query(...)` /
+  `mutation(...)` hits in converted scope are raw Convex generated builders or
+  operation projection shims; later examples still need explicit-lane
+  conversion.
+- Recommended Sprint 4: convert starter templates and resource generators to
+  `@lupinum/trellis/backend` plus explicit lanes, then remove beginner docs
+  references to the old functions path.

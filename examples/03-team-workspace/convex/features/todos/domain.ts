@@ -20,7 +20,7 @@ function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null } | 
   return actor.tenantId
 }
 
-export const list = query({
+export const list = query.protected({
   args: listTodos.args,
   guard: todoRead,
   handler: async (ctx) => {
@@ -36,7 +36,7 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = query.protected({
   args: removeTodoOp.args,
   guard: todoRead,
   load: async (ctx, args) => {
@@ -49,7 +49,7 @@ export const get = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createTodo.args,
   guard: todoCreate,
   handler: async (ctx, args) => {
@@ -66,7 +66,7 @@ export const create = mutation({
   },
 })
 
-export const setCompleted = mutation({
+export const setCompleted = mutation.protected({
   args: setTodoCompleted.args,
   guard: todoRead,
   load: async (ctx, args) => {

@@ -539,7 +539,14 @@ async function assertNoOperationExecuteEnvelopeReplay<
   }
 }
 
-function wrapUnsafeBuilder<TBuilder>(builder: TBuilder, label: string): TBuilder {
+type UnsafeBuilder<TBuilder> = TBuilder extends (definition: infer TDefinition) => infer TResult
+  ? (definition: Exclude<TDefinition, (...args: any[]) => unknown> & UnsafeDefinition) => TResult
+  : TBuilder
+
+function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
+  builder: TBuilder,
+  label: string,
+): UnsafeBuilder<TBuilder> {
   if (typeof builder !== 'function') return builder
 
   return ((definition: unknown) => {
@@ -569,7 +576,7 @@ function wrapUnsafeBuilder<TBuilder>(builder: TBuilder, label: string): TBuilder
         : definition
 
     return (builder as (definition: unknown) => unknown)(wrappedDefinition)
-  }) as unknown as TBuilder
+  }) as unknown as UnsafeBuilder<TBuilder>
 }
 
 function stampBackendLane<TResult>(value: TResult, lane: TrellisBackendLane): TResult {
@@ -613,8 +620,19 @@ function createPublicLaneBuilder<TBuilder extends (definition: never) => unknown
 function createProtectedLaneBuilder<TBuilder extends (definition: never) => unknown>(
   protectedBuilder: TBuilder,
 ): TBuilder {
-  return ((definition: never) =>
-    stampBackendLane(protectedBuilder(definition), 'protected')) as TBuilder
+  return ((definition: unknown) => {
+    if (
+      !definition ||
+      typeof definition !== 'object' ||
+      !Object.prototype.hasOwnProperty.call(definition, 'guard')
+    ) {
+      throw new Error(
+        'protected backend handlers require `guard`; use public(...) for unauthenticated access.',
+      )
+    }
+
+    return stampBackendLane(protectedBuilder(definition as never), 'protected')
+  }) as unknown as TBuilder
 }
 
 function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown>(
@@ -623,19 +641,42 @@ function createUnsafeLaneBuilder<TBuilder extends (definition: never) => unknown
   return ((definition: never) => stampBackendLane(unsafeBuilder(definition), 'unsafe')) as TBuilder
 }
 
-function attachBackendQueryLanes<TBuilder extends (definition: never) => unknown>(
+function createUnclassifiedLaneBuilder<TBuilder extends (definition: never) => unknown>(
   protectedBuilder: TBuilder,
-  unsafeBuilder?: TBuilder,
-): TBuilder & { public: TBuilder; protected: TBuilder; unsafe?: TBuilder } {
-  const lanes = protectedBuilder as TBuilder & {
-    public: TBuilder
-    protected: TBuilder
-    unsafe?: TBuilder
+): TBuilder {
+  return ((definition: unknown) => {
+    const operationMetadata = getOperationMetadata(definition as never)
+    const projectionMetadata = getOperationProjectionMetadata(definition as never)
+    if (operationMetadata.id || projectionMetadata) {
+      return stampBackendLane(protectedBuilder(definition as never), 'protected')
+    }
+
+    throw new Error(
+      'Unclassified backend handlers are not allowed. Use query.public(...), query.protected(...), query.unsafe(...), mutation.public(...), mutation.protected(...), or mutation.unsafe(...).',
+    )
+  }) as unknown as TBuilder
+}
+
+function attachBackendQueryLanes<
+  TProtectedBuilder extends (definition: never) => unknown,
+  TUnsafeBuilder extends ((definition: never) => unknown) | undefined,
+>(
+  protectedBuilder: TProtectedBuilder,
+  unsafeBuilder?: TUnsafeBuilder,
+): TProtectedBuilder & {
+  public: (definition: never) => unknown
+  protected: TProtectedBuilder
+  unsafe?: TUnsafeBuilder
+} {
+  const lanes = createUnclassifiedLaneBuilder(protectedBuilder) as TProtectedBuilder & {
+    public: (definition: never) => unknown
+    protected: TProtectedBuilder
+    unsafe?: TUnsafeBuilder
   }
   lanes.public = createPublicLaneBuilder(protectedBuilder)
   lanes.protected = createProtectedLaneBuilder(protectedBuilder)
   if (unsafeBuilder) {
-    lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder)
+    lanes.unsafe = createUnsafeLaneBuilder(unsafeBuilder as never) as TUnsafeBuilder
   }
   return lanes
 }
@@ -1039,6 +1080,33 @@ type StructuredQueryBuilder<
   >,
 ) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
 
+type PublicStructuredQueryBuilder<
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['principal']>>,
+      Awaited<ReturnType<TCtx['delegation']>>,
+      TActor,
+      typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult
+    >,
+    'guard'
+  > & { guard?: never },
+) => RegisteredQuery<Visibility, ObjectType<TArgsValidator>, TResult>
+
 type StructuredMutationBuilder<
   TCtx extends {
     principal: () => Promise<unknown>
@@ -1062,6 +1130,33 @@ type StructuredMutationBuilder<
     TLoaded,
     TResult
   >,
+) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type PublicStructuredMutationBuilder<
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['principal']>>,
+      Awaited<ReturnType<TCtx['delegation']>>,
+      TActor,
+      typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult
+    >,
+    'guard'
+  > & { guard?: never },
 ) => RegisteredMutation<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type StructuredTransportMutationBuilder<
@@ -1643,8 +1738,6 @@ type CustomFunctionDefinition = {
   [key: string]: unknown
 }
 
-type CustomFunctionBuilder = (definition: CustomFunctionDefinition) => unknown
-
 function omitKeys(
   value: Record<string, unknown>,
   keys: readonly string[],
@@ -1654,7 +1747,7 @@ function omitKeys(
 }
 
 function createFullArgsCustomBuilder<
-  TBuilder extends CustomFunctionBuilder,
+  TBuilder extends (definition: any) => unknown,
   TCtx,
   TCustomCtx extends object,
   TCustomArgs extends Record<string, unknown>,
@@ -1750,19 +1843,16 @@ function buildUnsafeFunctions<
   const mutationCustomization = createMutationCustomization(options)
   const actionCustomization = createActionCustomization(options)
 
-  const unsafeQuery = createFullArgsCustomBuilder(builders.query as never, queryCustomization)
-  const unsafeMutation = createFullArgsCustomBuilder(
-    builders.mutation as never,
-    mutationCustomization,
-  )
+  const unsafeQuery = createFullArgsCustomBuilder(builders.query, queryCustomization)
+  const unsafeMutation = createFullArgsCustomBuilder(builders.mutation, mutationCustomization)
   const unsafeAction = builders.action
-    ? createFullArgsCustomBuilder(builders.action as never, actionCustomization)
+    ? createFullArgsCustomBuilder(builders.action, actionCustomization)
     : undefined
   const unsafeInternalQuery = builders.internalQuery
-    ? createFullArgsCustomBuilder(builders.internalQuery as never, queryCustomization)
+    ? createFullArgsCustomBuilder(builders.internalQuery, queryCustomization)
     : undefined
   const unsafeInternalMutation = builders.internalMutation
-    ? createFullArgsCustomBuilder(builders.internalMutation as never, mutationCustomization)
+    ? createFullArgsCustomBuilder(builders.internalMutation, mutationCustomization)
     : undefined
 
   return {
@@ -2399,7 +2489,11 @@ function buildTrellisRuntime<
     structured.query as never,
     explicitUnsafe.query as never,
   ) as typeof structured.query & {
-    public: typeof structured.query
+    public: PublicStructuredQueryBuilder<
+      QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+      QueryVisibility,
+      TActor
+    >
     protected: typeof structured.query
     unsafe: typeof explicitUnsafe.query
   }
@@ -2407,7 +2501,11 @@ function buildTrellisRuntime<
     structured.mutation as never,
     explicitUnsafe.mutation as never,
   ) as typeof structured.mutation & {
-    public: typeof structured.mutation
+    public: PublicStructuredMutationBuilder<
+      MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+      MutationVisibility,
+      TActor
+    >
     protected: typeof structured.mutation
     unsafe: typeof explicitUnsafe.mutation
   }
@@ -2416,7 +2514,11 @@ function buildTrellisRuntime<
         structuredInternal.query as never,
         explicitUnsafe.internalQuery as never,
       ) as typeof structuredInternal.query & {
-        public: typeof structuredInternal.query
+        public: PublicStructuredQueryBuilder<
+          QueryCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+          InternalQueryVisibility,
+          TActor
+        >
         protected: typeof structuredInternal.query
         unsafe: typeof explicitUnsafe.internalQuery
       })
@@ -2426,7 +2528,11 @@ function buildTrellisRuntime<
         structuredInternal.mutation as never,
         explicitUnsafe.internalMutation as never,
       ) as typeof structuredInternal.mutation & {
-        public: typeof structuredInternal.mutation
+        public: PublicStructuredMutationBuilder<
+          MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+          InternalMutationVisibility,
+          TActor
+        >
         protected: typeof structuredInternal.mutation
         unsafe: typeof explicitUnsafe.internalMutation
       })

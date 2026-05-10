@@ -41,7 +41,7 @@ function resolveIncomingKeyHash(input: { key?: string; keyHash?: string }): stri
   throw new Error('Expected key or keyHash.')
 }
 
-export const list = query({
+export const list = query.protected({
   args: {},
   guard: canListMcpKeys,
   handler: async (ctx) => {
@@ -58,7 +58,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: {
     name: v.string(),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
@@ -87,7 +87,7 @@ export const create = mutation({
   },
 })
 
-export const revoke = mutation({
+export const revoke = mutation.protected({
   args: { id: v.id('mcpKeys') },
   guard: canManageMcpKeys,
   handler: async (ctx, args) => {

@@ -1,4 +1,4 @@
-import { can, defineAuth, open } from '@lupinum/trellis/auth'
+import { can, defineAuth } from '@lupinum/trellis/auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { betterAuth } from 'better-auth'
 
@@ -97,9 +97,8 @@ interface DebugInfo {
   context?: Record<string, unknown>
 }
 
-export const getPermissionContext = query({
+export const getPermissionContext = query.public({
   args: {},
-  guard: open,
   handler: async (ctx) => {
     // #region agent log
     const identity = await ctx.auth.getUserIdentity()

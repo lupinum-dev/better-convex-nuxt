@@ -927,7 +927,7 @@ export const publicCatalog = unsafe.query({
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation } from '@lupinum/trellis/functions'
+import { defineOperation } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const purgeTodoOp = defineOperation({

@@ -1,5 +1,5 @@
 import { getAuth, getSubjectValue, type DefaultActor } from '@lupinum/trellis/auth'
-import type { Delegation } from '@lupinum/trellis/functions'
+import type { Delegation } from '@lupinum/trellis/backend'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'

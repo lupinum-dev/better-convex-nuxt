@@ -122,13 +122,12 @@ describe('module validation', () => {
         export const { query, unsafe } = defineTrellis({ query, mutation })
       `,
       'convex/todos.ts': `
-        export const list = query({
+        export const list = query.public({
           args: {},
-          guard: open,
           handler: async () => []
         })
 
-        export const getPermissionContext = unsafe.query({
+        export const getPermissionContext = query.unsafe({
           bypass: 'Expose permission context through the low-level builder in this fixture.',
           args: {},
           handler: async () => null

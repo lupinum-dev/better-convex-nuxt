@@ -1,5 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineGuard, open } from '@lupinum/trellis/auth'
+import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'
@@ -15,15 +15,14 @@ const createOrganizationArgs = defineArgs({
 
 const canCreateOrganization = defineGuard<Actor>('Create organization', (actor) => actor !== null)
 
-export const list = query({
+export const list = query.public({
   args: {},
-  guard: open,
   handler: async (ctx) => {
     return await ctx.db.query('organizations').order('desc').collect()
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createOrganizationArgs.args,
   guard: canCreateOrganization,
   handler: async (ctx, args) => {

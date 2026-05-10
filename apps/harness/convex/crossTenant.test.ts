@@ -10,8 +10,8 @@
  *
  * 1. `ctx.db.escapeTenantIsolation(...)` actually sees across tenants
  * 2. `ctx.db.escapeTenantIsolation(...)` emits `db.escape_tenant_isolation.used`
- * 3. `unsafe.query(...)`                 still respects tenant isolation on plain `ctx.db`
- * 4. `unsafe.query(...)`                 emits `unsafe.handler.used`
+ * 3. `query.unsafe(...)`                 still respects tenant isolation on plain `ctx.db`
+ * 4. `query.unsafe(...)`                 emits `unsafe.handler.used`
  * 5. Tenant denials on the default db emit `rls.denied`
  *
  * Together with posts.test.ts these prove the Spec §14 claim that

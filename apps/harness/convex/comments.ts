@@ -4,14 +4,14 @@ import { createComment } from '../shared/schemas/comment'
 import type { Actor } from './auth/actor'
 import { canCreateComment } from './auth/checks'
 import { loadResource } from './auth/scope'
-import { mutation, query } from './functions'
+import { mutation } from './functions'
 
 const canCreateScopedComment = defineGuard<Actor>(
   'comment.create',
   (actor) => !!actor?.tenantId && canCreateComment(actor),
 )
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createComment.args,
   guard: canCreateScopedComment,
   handler: async (ctx, args) => {

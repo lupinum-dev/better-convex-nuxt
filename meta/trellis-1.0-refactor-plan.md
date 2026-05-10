@@ -202,23 +202,25 @@ mutation.unsafe(...)
 
 ### Delete
 
-- [ ] Delete accidental-public behavior.
-- [ ] Delete builder forms where missing guard can be interpreted as public.
+- [x] Delete accidental-public behavior for plain backend handler objects.
+- [x] Delete builder forms where missing guard can be interpreted as public for
+      plain backend handler objects.
 - [ ] Delete arity-based `authorize` inference.
 - [ ] Delete string-only unsafe bypasses after typed permits cover the surface.
 
 ### Replace
 
-- [ ] Convert existing examples and fixtures to explicit lanes.
+- [x] Convert representative examples and harness fixtures to explicit lanes.
 - [x] Convert focused backend tests to explicit lanes.
 - [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
 - [ ] Add audit report for authorization rewrites that cannot be proven safe.
 
 ### Prove
 
-- [ ] Missing public/protected/unsafe classification fails.
+- [x] Missing public/protected/unsafe classification fails for plain backend
+      handler objects.
 - [ ] Missing protected principal/actor wiring fails closed.
-- [ ] Public-access handlers do not require principal/actor wiring.
+- [x] Public-access handlers do not require caller-supplied guard fields.
 - [ ] Resolved-null actor is distinct from missing actor resolver wiring.
 - [x] Explicit lane metadata appears on registered function objects for
       tests/doctor/inventory to consume.

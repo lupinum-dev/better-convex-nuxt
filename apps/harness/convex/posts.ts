@@ -1,6 +1,6 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
@@ -76,9 +76,8 @@ function denyTenantMismatch(actor: Actor, post: { organizationId: string }): nev
   )
 }
 
-export const list = query({
+export const list = query.public({
   args: listPostsArgs.args,
-  guard: open,
   handler: async (ctx, _args) => {
     const actor = await ctx.actor()
     if (!actor?.tenantId) return []
@@ -95,9 +94,8 @@ export const list = query({
   },
 })
 
-export const get = query({
+export const get = query.public({
   args: getPostArgs.args,
-  guard: open,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()
     if (!actor) return null
@@ -110,7 +108,7 @@ export const get = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createPost.args,
   guard: canCreatePostActor,
   handler: async (ctx, args) => {
@@ -132,7 +130,7 @@ export const create = mutation({
   },
 })
 
-export const update = mutation({
+export const update = mutation.protected({
   args: updatePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
@@ -158,7 +156,7 @@ export const update = mutation({
   },
 })
 
-export const remove = mutation({
+export const remove = mutation.protected({
   args: deletePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
@@ -248,7 +246,7 @@ export const removePostOp = defineOperation({
 export const removeWithConfirmation = mutation(removePostOp)
 export const previewRemove = query(previewOf(removePostOp))
 
-export const publish = mutation({
+export const publish = mutation.protected({
   args: { id: v.id('posts') },
   guard: canManagePosts,
   handler: async (ctx, args) => {

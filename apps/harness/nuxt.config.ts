@@ -16,8 +16,8 @@ const runtimeVisibilityEntry = fileURLToPath(
   new URL('../../src/runtime/visibility/index.ts', import.meta.url),
 )
 const runtimeMcpEntry = fileURLToPath(new URL('../../src/runtime/mcp/index.ts', import.meta.url))
-const runtimeFunctionsEntry = fileURLToPath(
-  new URL('../../src/runtime/functions/index.ts', import.meta.url),
+const runtimeBackendEntry = fileURLToPath(
+  new URL('../../src/runtime/backend/index.ts', import.meta.url),
 )
 const runtimeServerEntry = fileURLToPath(
   new URL('../../src/runtime/server/index.ts', import.meta.url),
@@ -51,7 +51,7 @@ export default defineNuxtConfig({
     '@lupinum/trellis/composables': runtimeComposablesEntry,
     '@lupinum/trellis/auth': runtimeAuthEntry,
     '@lupinum/trellis/args': runtimeArgsEntry,
-    '@lupinum/trellis/functions': runtimeFunctionsEntry,
+    '@lupinum/trellis/backend': runtimeBackendEntry,
     '@lupinum/trellis/mcp': runtimeMcpEntry,
     '@lupinum/trellis/server': runtimeServerEntry,
     '@lupinum/trellis/trusted-forwarding': runtimeTrustedForwardingEntry,

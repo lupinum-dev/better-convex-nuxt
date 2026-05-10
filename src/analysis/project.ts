@@ -194,7 +194,7 @@ export function collectConvexFunctionPaths(projectRoot: string): string[] {
       .replaceAll('\\', '/')
       .replace(/\.[^.]+$/, '')
     for (const match of text.matchAll(
-      /export\s+const\s+(\w+)\s*=\s*(?:(?:[\w$]+\.)?(?:query|mutation|action|internalQuery|internalMutation|internalAction)|[\w$]+Query|[\w$]+Mutation)\s*\(/g,
+      /export\s+const\s+(\w+)\s*=\s*(?:(?:[\w$]+\.)?(?:query|mutation|action|internalQuery|internalMutation|internalAction)(?:\.(?:public|protected|unsafe))?|[\w$]+Query|[\w$]+Mutation)\s*\(/g,
     )) {
       paths.add(`${relativeFile}.${match[1]}`)
     }

@@ -6,7 +6,7 @@ import { ensureNotProcessed, markProcessed } from '../../auth/idempotency'
 import { mutation } from '../../functions'
 import { todoCreate } from './permissions'
 
-export const processTodoSyncWebhookMutation = mutation({
+export const processTodoSyncWebhookMutation = mutation.protected({
   args: processTodoSyncWebhookContract.args,
   guard: todoCreate,
   handler: async (ctx, args) => {

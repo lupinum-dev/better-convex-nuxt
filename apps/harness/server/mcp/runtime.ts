@@ -1,4 +1,4 @@
-import type { Delegation } from '@lupinum/trellis/functions'
+import type { Delegation } from '@lupinum/trellis/backend'
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'

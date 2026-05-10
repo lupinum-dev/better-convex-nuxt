@@ -10,7 +10,7 @@
  *                         — bypasses tenant isolation only. Service rules
  *                           and triggers still apply. Must emit
  *                           `db.escape_tenant_isolation.used` on use.
- * - `unsafe.query(...)`   — bypasses the protected handler pipeline, but plain
+ * - `query.unsafe(...)`   — bypasses the protected handler pipeline, but plain
  *                           `ctx.db` still keeps tenant isolation unless the
  *                           handler explicitly calls
  *                           `ctx.db.escapeTenantIsolation({ reason })`.
@@ -25,7 +25,7 @@ import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'
-import { query, unsafe } from './functions'
+import { query } from './functions'
 
 const authed = defineGuard<Actor>('Authenticated', (actor) => !!actor)
 
@@ -42,7 +42,7 @@ const getPostArgs = defineArgs({
  * `actor.tenantId === post.organizationId`. The runtime's cross-tenant
  * db exposes the post regardless of the actor's tenant.
  */
-export const getAnyPost = query({
+export const getAnyPost = query.protected({
   args: getPostArgs.args,
   guard: authed,
   handler: async (ctx, args) => {
@@ -55,7 +55,7 @@ export const getAnyPost = query({
 /**
  * List all posts across all tenants using `ctx.db.escapeTenantIsolation({ reason })`.
  */
-export const listAllPosts = query({
+export const listAllPosts = query.protected({
   args: {},
   guard: authed,
   handler: async (ctx) => {
@@ -67,13 +67,13 @@ export const listAllPosts = query({
 })
 
 /**
- * Read a post through `unsafe.query(...)` while still using the default
+ * Read a post through `query.unsafe(...)` while still using the default
  * tenant-aware `ctx.db` inside the handler.
  *
  * This exists to prove that `unsafe.*` does not silently become a
  * cross-tenant DB seam on its own.
  */
-export const getAnyPostRaw = unsafe.query({
+export const getAnyPostRaw = query.unsafe({
   bypass: 'Harness full-bypass post lookup.',
   args: getPostArgs.args,
   handler: async (ctx, args) => {

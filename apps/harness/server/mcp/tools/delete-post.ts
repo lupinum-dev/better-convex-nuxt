@@ -1,4 +1,4 @@
-import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/functions'
+import { executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
 
 import { api } from '../../../convex/_generated/api'
 import { postDeletePermission } from '../../../convex/auth/permissions'

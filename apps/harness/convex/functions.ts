@@ -1,4 +1,4 @@
-import { defineTrellis } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/backend'
 
 import { trellisObservability } from '../observability.config'
 import type { DataModel } from './_generated/dataModel'

@@ -1,20 +1,18 @@
-import { open, requireRecord } from '@lupinum/trellis/auth'
+import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import { createTodo } from '../../../shared/features/todos/contract'
 import { mutation, query } from '../../functions'
 
-export const list = query({
+export const list = query.public({
   args: {},
-  guard: open,
   handler: async (ctx) => {
     return await ctx.db.query('todos').order('desc').collect()
   },
 })
 
-export const create = mutation({
+export const create = mutation.public({
   args: createTodo.args,
-  guard: open,
   handler: async (ctx, args) => {
     return await ctx.db.insert('todos', {
       title: args.title,
@@ -24,9 +22,8 @@ export const create = mutation({
   },
 })
 
-export const toggle = mutation({
+export const toggle = mutation.public({
   args: { id: v.id('todos') },
-  guard: open,
   load: async (ctx, args) => {
     const todo = await ctx.db.get(args.id)
     requireRecord(todo, 'Todo')
@@ -39,9 +36,8 @@ export const toggle = mutation({
   },
 })
 
-export const remove = mutation({
+export const remove = mutation.public({
   args: { id: v.id('todos') },
-  guard: open,
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
   },

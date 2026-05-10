@@ -85,7 +85,7 @@ describe('defineTrellis', () => {
     }
   })
 
-  it('exposes direct protected builders and unsafe escape hatches', () => {
+  it('exposes explicit backend lanes and unsafe escape hatches', () => {
     const builder = () => null as never
 
     const runtime = defineTrellis({
@@ -105,6 +105,30 @@ describe('defineTrellis', () => {
     expect(runtime.unsafe.mutation).toBeTypeOf('function')
     expect(runtime).not.toHaveProperty('app')
     expect(runtime).not.toHaveProperty('publicQuery')
+  })
+
+  it('rejects unclassified backend handler definitions', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query({
+        args: {},
+        guard: open,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/Unclassified backend handlers are not allowed/)
+    expect(() =>
+      runtime.mutation({
+        args: {},
+        guard: open,
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/Unclassified backend handlers are not allowed/)
   })
 
   it('stamps explicit backend lane metadata', () => {
@@ -152,6 +176,22 @@ describe('defineTrellis', () => {
     ).toThrow(/must not provide `guard`/)
   })
 
+  it('rejects protected backend handlers without a guard', () => {
+    const builder = ((definition: unknown) => definition) as never
+
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    expect(() =>
+      runtime.query.protected({
+        args: {},
+        handler: async () => ({ ok: true }),
+      } as never),
+    ).toThrow(/protected backend handlers require `guard`/)
+  })
+
   it('rejects signed forwarding envelopes for the wrong function ref on real protected handlers', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
@@ -160,12 +200,11 @@ describe('defineTrellis', () => {
       mutation: builder,
     })
 
-    const definition = runtime.query({
+    const definition = runtime.query.public({
       args: {
         title: v.string(),
       },
       trustedForwardingFunctionRef: 'posts:create',
-      guard: open,
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (
@@ -280,12 +319,11 @@ describe('defineTrellis', () => {
     )
 
     let executed = false
-    const definition = runtime.mutation({
+    const definition = runtime.mutation.public({
       args: {
         id: v.string(),
       },
       trustedForwardingFunctionRef: 'tasks:delete',
-      guard: open,
       handler: async () => {
         executed = true
         return { ok: true }
@@ -334,12 +372,11 @@ describe('defineTrellis', () => {
     })
 
     let executed = false
-    const definition = runtime.mutation({
+    const definition = runtime.mutation.public({
       args: {
         id: v.string(),
       },
       trustedForwardingFunctionRef: 'tasks:delete',
-      guard: open,
       handler: async () => {
         executed = true
         return { ok: true }
@@ -394,12 +431,11 @@ describe('defineTrellis', () => {
     )
 
     let executed = false
-    const definition = runtime.mutation({
+    const definition = runtime.mutation.public({
       args: {
         id: v.string(),
       },
       trustedForwardingFunctionRef: 'tasks:delete',
-      guard: open,
       handler: async () => {
         executed = true
         return { ok: true }
