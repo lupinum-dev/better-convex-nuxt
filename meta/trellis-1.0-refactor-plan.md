@@ -512,6 +512,9 @@ docs generation, and future explain commands.
   `scripts/lib/public-surface-inventory.mjs`, keeping policy decisions in the
   generator while sharing package, generated surface, CLI, starter, and stale
   reference facts.
+- Sprint 40 is planned to move `generate-api-surface.mjs` onto the same
+  script-local public-surface inventory helper so docs generation and refactor
+  surface checks share repo public-surface facts.
 
 ### Done Means
 
