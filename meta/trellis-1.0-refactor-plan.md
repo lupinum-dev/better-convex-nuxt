@@ -499,6 +499,9 @@ docs generation, and future explain commands.
 - Sprint 37 added read-only `trellis upgrade --check` and `--json`, backed by
   `TrellisCliInventory` for existing forwarding, MCP, and backend facts plus
   narrow detectors for old hard-cut path strings.
+- Sprint 38 is planned to share finding report types, rendering, and
+  failure-based exit behavior between doctor and upgrade before adding another
+  inventory consumer.
 
 ### Done Means
 
