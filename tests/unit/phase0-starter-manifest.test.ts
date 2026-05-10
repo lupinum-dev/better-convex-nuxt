@@ -167,4 +167,66 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).not.toContain('workspaceId')
     expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
+
+  it('keeps the workspace starter fixture scoped to workspace without MCP concepts', () => {
+    const root = join(cliStarterRoot, 'workspace')
+    const manifest = JSON.parse(
+      readFileSync(join(root, 'starter.manifest.json'), 'utf8'),
+    ) as StarterManifest
+    const selected = [
+      '.env.example',
+      '.gitignore',
+      'README.md',
+      'app/app.vue',
+      'app/features/workspace/components/WorkspaceStarterPage.vue',
+      'app/pages/index.vue',
+      'convex/auth.config.ts',
+      'convex/auth.ts',
+      'convex/auth/actor.ts',
+      'convex/auth/guards.ts',
+      'convex/auth/principal.ts',
+      'convex/convex.config.ts',
+      'convex/features/index.ts',
+      'convex/features/todos/domain.ts',
+      'convex/features/todos/feature.ts',
+      'convex/features/todos/index.ts',
+      'convex/features/todos/permissions.ts',
+      'convex/features/todos/schema.ts',
+      'convex/features/users/feature.ts',
+      'convex/features/users/index.ts',
+      'convex/features/users/schema.ts',
+      'convex/features/workspaces/domain.ts',
+      'convex/features/workspaces/feature.ts',
+      'convex/features/workspaces/index.ts',
+      'convex/features/workspaces/schema.ts',
+      'convex/functions.ts',
+      'convex/http.ts',
+      'convex/permissions/context.ts',
+      'convex/schema.ts',
+      'convex/test.setup.ts',
+      'nuxt.config.ts',
+      'package.json',
+      'server/api/.gitkeep',
+      'server/mcp/.gitkeep',
+      'shared/features/todos/contract.ts',
+      'shared/features/workspaces/contract.ts',
+    ]
+
+    for (const path of selected) {
+      expect(existsSync(join(root, path)), path).toBe(true)
+      expect(matchesAny(path, manifest.include), path).toBe(true)
+      expect(matchesAny(path, manifest.exclude), path).toBe(false)
+    }
+
+    const fixtureText = selected.map((path) => readFileSync(join(root, path), 'utf8')).join('\n')
+    expect(fixtureText).toContain('@convex-dev/better-auth')
+    expect(fixtureText).toContain('workspaceId')
+    expect(fixtureText).toContain('tenantIsolation')
+    expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
+    expect(fixtureText).not.toContain('defineMcpApp')
+    expect(fixtureText).not.toContain('mcp.tool')
+    expect(fixtureText).not.toContain('ginko')
+    expect(fixtureText).not.toContain('cms')
+    expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
+  })
 })

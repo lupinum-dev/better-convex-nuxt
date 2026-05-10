@@ -115,47 +115,48 @@ suggests. The rule is source-of-truth based, not filename based.
 
 ### 1. Create Workspace Starter Fixture
 
-- [ ] Generate or copy the current `workspace` starter output into
+- [x] Generate or copy the current `workspace` starter output into
       `src/cli/starter-fixtures/workspace`.
-- [ ] Add `starter.manifest.json`.
-- [ ] Keep only files that should ship in a generated workspace app.
-- [ ] Exclude all local/runtime artifacts.
-- [ ] Ensure the fixture includes workspace/tenant concepts but no MCP, bridge,
+- [x] Add `starter.manifest.json`.
+- [x] Keep only files that should ship in a generated workspace app.
+- [x] Exclude all local/runtime artifacts.
+- [x] Ensure the fixture includes workspace/tenant concepts but no MCP, bridge,
       CMS, or operation-tooling concepts.
-- [ ] Ensure the fixture uses the canonical 1.0 backend builder lanes already
+- [x] Ensure the fixture uses the canonical 1.0 backend builder lanes already
       emitted by current starter output.
 
 ### 2. Wire CLI Init To Workspace Fixture
 
-- [ ] Extend `FixtureBackedTemplate` to include `workspace`.
-- [ ] Add `workspace` to the fixture-backed template name set.
-- [ ] Add app-name replacement for `trellis-starter-workspace`.
-- [ ] Convert `buildAppTemplateSet('workspace', appName)` to return
+- [x] Extend `FixtureBackedTemplate` to include `workspace`.
+- [x] Add `workspace` to the fixture-backed template name set.
+- [x] Add app-name replacement for `trellis-starter-workspace`.
+- [x] Convert `buildAppTemplateSet('workspace', appName)` to return
       `renderAppStarterFixture({ appName, template: 'workspace' })`.
-- [ ] Preserve existing write semantics and package/README app-name transforms.
-- [ ] Keep `workspace-mcp` and `cms` on the existing legacy path.
+- [x] Preserve existing write semantics and package/README app-name transforms.
+- [x] Keep `workspace-mcp` and `cms` on the existing legacy path.
 
 ### 3. Delete Replaced Workspace Sources
 
-- [ ] Remove unused workspace imports from `src/cli/lib/init.ts`.
-- [ ] Delete workspace-only template functions from
-      `src/cli/lib/init-templates.ts`.
-- [ ] Delete workspace-only `.tpl` files no longer referenced.
-- [ ] Keep shared auth/workspace template helpers still required by
+- [x] Remove unused workspace imports from `src/cli/lib/init.ts`.
+- [x] Audit workspace template functions in `src/cli/lib/init-templates.ts`;
+      none were workspace-only after the non-MCP branch moved to the fixture.
+- [x] Audit workspace `.tpl` files; none were unreferenced because
+      `workspace-mcp` still uses the shared workspace helpers.
+- [x] Keep shared auth/workspace template helpers still required by
       `workspace-mcp`.
-- [ ] Search proves there is no second workspace starter implementation for the
+- [x] Search proves there is no second workspace starter implementation for the
       non-MCP starter.
 
 ### 4. Tests And Checks
 
-- [ ] Add manifest tests for `src/cli/starter-fixtures/workspace`.
-- [ ] Assert the workspace fixture includes auth/workspace files.
-- [ ] Assert the workspace fixture does not include MCP toolkit, MCP runtime,
+- [x] Add manifest tests for `src/cli/starter-fixtures/workspace`.
+- [x] Assert the workspace fixture includes auth/workspace files.
+- [x] Assert the workspace fixture does not include MCP toolkit, MCP runtime,
       MCP tools, bridge, CMS, or operation projection files.
-- [ ] Smoke-generate `trellis init --template workspace` from the built CLI.
-- [ ] Verify generated output has app-name transforms and no
+- [x] Smoke-generate `trellis init --template workspace` from the built CLI.
+- [x] Verify generated output has app-name transforms and no
       `trellis-starter-workspace` placeholder.
-- [ ] Update refactor surface inventory after deleted template sources.
+- [x] Update refactor surface inventory after deleted template sources.
 
 ## Verification
 
@@ -208,17 +209,17 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `trellis init --template workspace` renders from
+- [x] `trellis init --template workspace` renders from
       `src/cli/starter-fixtures/workspace/starter.manifest.json`.
-- [ ] Workspace fixture exposes workspace/tenant concepts but no MCP, bridge,
+- [x] Workspace fixture exposes workspace/tenant concepts but no MCP, bridge,
       CMS, or operation-tooling concepts.
-- [ ] Replaced workspace-only starter template code is deleted.
-- [ ] `workspace-mcp` still works through its existing path.
-- [ ] Existing starter manifest, doctor, schema-boundary, public-surface, and
+- [x] Replaced workspace-only starter template code is deleted.
+- [x] `workspace-mcp` still works through its existing path.
+- [x] Existing starter manifest, doctor, schema-boundary, public-surface, and
       CLI checks pass.
-- [ ] Slice 7 `workspace` item is checked in
+- [x] Slice 7 `workspace` item is checked in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Sprint changes are committed after verification.
+- [x] Sprint changes are committed after verification.
 
 ## Next Sprint Candidate
 
@@ -227,3 +228,13 @@ fixture-backed starter and delete the remaining legacy starter template path for
 retained Trellis starters. That sprint should also decide whether any leftover
 MCP-specific template helpers become fixture files, generated fixture artifacts,
 or deleted code.
+
+## Exit Notes
+
+- `workspace` now renders from `src/cli/starter-fixtures/workspace`.
+- No workspace-only `.tpl` files were deleted in this sprint because the
+  remaining workspace template files are still used by the legacy
+  `workspace-mcp` starter path.
+- The deleted source of truth is the non-MCP workspace assembly branch in
+  `src/cli/lib/init.ts`.
+- `workspace-mcp` remains on the legacy path and is the next starter cutover.

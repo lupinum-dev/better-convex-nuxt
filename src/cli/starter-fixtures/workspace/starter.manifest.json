@@ -1,0 +1,28 @@
+{
+  "name": "workspace",
+  "description": "Fixture-backed workspace Trellis starter.",
+  "include": [
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "app/**",
+    "convex/**/*.ts",
+    "nuxt.config.ts",
+    "package.json",
+    "server/**",
+    "shared/**/*.ts"
+  ],
+  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**", "coverage/**"],
+  "generatedPaths": [
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "package.json",
+    "server/api/.gitkeep",
+    "server/mcp/.gitkeep",
+    "convex/auth.config.ts",
+    "convex/convex.config.ts",
+    "convex/http.ts",
+    "convex/test.setup.ts"
+  ]
+}

@@ -8,16 +8,17 @@ import {
 } from '../../module-internals/starter-fixture-codegen.js'
 import type { CanonicalAppTemplate, TemplateFile } from './init.js'
 
-type FixtureBackedTemplate = Extract<CanonicalAppTemplate, 'public' | 'personal'>
+type FixtureBackedTemplate = Extract<CanonicalAppTemplate, 'public' | 'personal' | 'workspace'>
 
 type AppStarterFixtureManifest = StarterFixtureManifest & {
   generatedPaths?: readonly string[]
 }
 
-const fixtureTemplateNames = new Set<CanonicalAppTemplate>(['public', 'personal'])
+const fixtureTemplateNames = new Set<CanonicalAppTemplate>(['public', 'personal', 'workspace'])
 const sourceAppNames: Record<FixtureBackedTemplate, string> = {
   public: 'trellis-starter-public',
   personal: 'trellis-starter-personal',
+  workspace: 'trellis-starter-workspace',
 }
 
 const fixtureRootCandidates = [
