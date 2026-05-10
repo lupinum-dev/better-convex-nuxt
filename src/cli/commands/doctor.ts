@@ -15,7 +15,9 @@ import { summarizeFindings } from '../lib/findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
+  type TrellisCliInventory,
   type TrellisCliInventoryFacts,
+  type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
 import { renderDoctorReport } from '../lib/output.js'
 import { collectPermissionMetadataFindings } from '../lib/permission-metadata.js'
@@ -51,8 +53,19 @@ function toDoctorFindingTitle(id: string): string {
   }
 }
 
+function formatInventoryLocations(
+  locations: TrellisCliInventorySourceLocation[],
+  limit = 3,
+): string {
+  return `${locations
+    .map((entry) => `${entry.path}:${entry.line}`)
+    .slice(0, limit)
+    .join(', ')}${locations.length > limit ? ', ...' : ''}`
+}
+
 function createDoctorFindings(
   project: ProjectInspection,
+  inventory: TrellisCliInventory,
   inventoryFacts: TrellisCliInventoryFacts,
 ): DoctorFinding[] {
   const cwd = project.cwd
@@ -72,24 +85,24 @@ function createDoctorFindings(
   const convexAuthSource = findConvexAuthSource(project)
   const expectsSyncedUsers = usesSyncedUsersTable(project)
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
-  const trustedForwardingExpected = inventoryFacts.trustedForwardingExpected
+  const trustedForwardingExpected = inventory.forwarding.expected
   const trustedForwardingKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
   const trustedForwardingKeyIssue = trustedForwardingKeySource
     ? getTrustedForwardingKeyProductionIssue(trustedForwardingKeySource.value, 'production')
     : null
-  const trustedForwardingPublicExposure = inventoryFacts.trustedForwardingPublicExposure
+  const trustedForwardingPublicExposure = inventory.forwarding.publicExposures
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.operation\s*\(/.test(file.text),
   )
   const unsafeSurfaceInventory = inventoryFacts.unsafeSurfaceInventory
   const crossTenantEscapeInventory = inventoryFacts.crossTenantEscapeInventory
   const destructiveOperationInventory = inventoryFacts.destructiveOperationInventory
-  const mcpRateLimitExpected = inventoryFacts.mcpRateLimitExpected
-  const mcpRateLimitStoreSupport = inventoryFacts.mcpRateLimitStoreSupport
+  const mcpRateLimitExpected = inventory.mcp.rateLimit.expected
+  const mcpRateLimitStoreSupport = inventory.mcp.rateLimit.store
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
-  const forwardedPrincipalMisuse = inventoryFacts.forwardedPrincipalMisuse
-  const destructiveMcpToolMisuse = inventoryFacts.destructiveMcpToolMisuse
-  const customMcpAppWriteMisuse = inventoryFacts.customMcpAppWriteMisuse
+  const forwardedPrincipalMisuse = inventory.forwarding.forwardedPrincipalMisuses
+  const destructiveMcpToolMisuse = inventory.mcp.destructiveToolMisuses
+  const customMcpAppWriteMisuse = inventory.mcp.customAppWriteMisuses
   const usesPermissions = inventoryFacts.usesPermissions
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
@@ -344,10 +357,7 @@ function createDoctorFindings(
       status: trustedForwardingPublicExposure.length > 0 ? 'fail' : 'pass',
       message:
         trustedForwardingPublicExposure.length > 0
-          ? `Found trusted-forwarding key exposure in public-facing code or env sources at ${trustedForwardingPublicExposure
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${trustedForwardingPublicExposure.length > 3 ? ', ...' : ''}.`
+          ? `Found trusted-forwarding key exposure in public-facing code or env sources at ${formatInventoryLocations(trustedForwardingPublicExposure)}.`
           : 'No obvious trusted-forwarding key exposure paths were found in public-facing code or env sources.',
       fixHint:
         trustedForwardingPublicExposure.length > 0
@@ -361,10 +371,7 @@ function createDoctorFindings(
       status: forwardedPrincipalMisuse.length > 0 ? 'fail' : 'pass',
       message:
         forwardedPrincipalMisuse.length > 0
-          ? `Found forwarded \`principal\` options outside an \`auth: 'trusted'\` call in ${forwardedPrincipalMisuse
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${forwardedPrincipalMisuse.length > 3 ? ', ...' : ''}.`
+          ? `Found forwarded \`principal\` options outside an \`auth: 'trusted'\` call in ${formatInventoryLocations(forwardedPrincipalMisuse)}.`
           : 'No forwarded principals were found outside verified trusted-forwarding calls.',
       fixHint:
         forwardedPrincipalMisuse.length > 0
@@ -467,10 +474,7 @@ function createDoctorFindings(
       status: destructiveMcpToolMisuse.length > 0 ? 'fail' : 'pass',
       message:
         destructiveMcpToolMisuse.length > 0
-          ? `Found destructive-looking MCP tools that do not use \`tool.operation(...)\` in ${destructiveMcpToolMisuse
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${destructiveMcpToolMisuse.length > 3 ? ', ...' : ''}.`
+          ? `Found destructive-looking MCP tools that do not use \`tool.operation(...)\` in ${formatInventoryLocations(destructiveMcpToolMisuse)}.`
           : 'No destructive MCP tools were found outside operation-backed bindings.',
       fixHint:
         destructiveMcpToolMisuse.length > 0
@@ -484,10 +488,7 @@ function createDoctorFindings(
       status: customMcpAppWriteMisuse.length > 0 ? 'fail' : 'pass',
       message:
         customMcpAppWriteMisuse.length > 0
-          ? `Found standalone defineTool(...) handlers calling protected Convex writes in ${customMcpAppWriteMisuse
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${customMcpAppWriteMisuse.length > 3 ? ', ...' : ''}.`
+          ? `Found standalone defineTool(...) handlers calling protected Convex writes in ${formatInventoryLocations(customMcpAppWriteMisuse)}.`
           : 'No standalone custom MCP tools call Convex mutation/action helpers.',
       fixHint:
         customMcpAppWriteMisuse.length > 0
@@ -522,7 +523,7 @@ export async function buildDoctorReport(cwd: string): Promise<DoctorReport> {
   const project = inspectProject(cwd)
   const inventoryFacts = collectTrellisCliInventoryFacts(project)
   const inventory = collectTrellisCliInventory(project, inventoryFacts)
-  const findings = createDoctorFindings(project, inventoryFacts)
+  const findings = createDoctorFindings(project, inventory, inventoryFacts)
   return {
     cwd,
     inventory,

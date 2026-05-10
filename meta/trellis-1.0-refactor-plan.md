@@ -475,6 +475,12 @@ docs generation, and future explain commands.
 - [ ] Doctor and public-surface checks agree on operations/tools.
 - [ ] Security findings cite the metadata source they came from.
 
+### Sprint Notes
+
+- Sprint 32 moved trusted-forwarding and MCP source-code findings onto
+  `inventory.forwarding` and `inventory.mcp`. Broader doctor, public-surface,
+  upgrade, and explain replacement remain open.
+
 ### Done Means
 
 - [ ] One inventory path explains the app.

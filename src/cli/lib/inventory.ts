@@ -35,6 +35,11 @@ export interface TrellisCliInventoryFacts {
   mcpRateLimitStoreSupport: 'supported' | 'unverified' | 'none'
 }
 
+export interface TrellisCliInventorySourceLocation {
+  path: string
+  line: number
+}
+
 export interface TrellisCliInventory {
   schemaVersion: 1
   cwd: string
@@ -71,12 +76,43 @@ export interface TrellisCliInventory {
     mcpRateLimit: boolean
     mcpRateLimitStore: 'supported' | 'unverified' | 'none'
   }
+  forwarding: {
+    expected: boolean
+    publicExposures: TrellisCliInventorySourceLocation[]
+    forwardedPrincipalMisuses: TrellisCliInventorySourceLocation[]
+  }
+  mcp: {
+    toolCount: number
+    destructiveToolMisuses: TrellisCliInventorySourceLocation[]
+    customAppWriteMisuses: TrellisCliInventorySourceLocation[]
+    rateLimit: {
+      expected: boolean
+      store: 'supported' | 'unverified' | 'none'
+    }
+  }
   findings: []
 }
 
 function toRelative(project: ProjectInspection, path: string | null | undefined): string | null {
   if (!path) return null
   return relative(project.cwd, path).replaceAll('\\', '/')
+}
+
+function toInventoryLocation(
+  project: ProjectInspection,
+  location: ProjectSourceLocation,
+): TrellisCliInventorySourceLocation {
+  return {
+    path: toRelative(project, location.path) ?? location.path,
+    line: location.line,
+  }
+}
+
+function toInventoryLocations(
+  project: ProjectInspection,
+  locations: ProjectSourceLocation[],
+): TrellisCliInventorySourceLocation[] {
+  return locations.map((location) => toInventoryLocation(project, location))
 }
 
 function hasSourcePath(project: ProjectInspection, pattern: RegExp): boolean {
@@ -173,6 +209,20 @@ export function collectTrellisCliInventory(
       destructiveMcpToolMisuses: facts.destructiveMcpToolMisuse.length,
       mcpRateLimit: facts.mcpRateLimitExpected,
       mcpRateLimitStore: facts.mcpRateLimitStoreSupport,
+    },
+    forwarding: {
+      expected: facts.trustedForwardingExpected,
+      publicExposures: toInventoryLocations(project, facts.trustedForwardingPublicExposure),
+      forwardedPrincipalMisuses: toInventoryLocations(project, facts.forwardedPrincipalMisuse),
+    },
+    mcp: {
+      toolCount: countMcpToolFiles(project),
+      destructiveToolMisuses: toInventoryLocations(project, facts.destructiveMcpToolMisuse),
+      customAppWriteMisuses: toInventoryLocations(project, facts.customMcpAppWriteMisuse),
+      rateLimit: {
+        expected: facts.mcpRateLimitExpected,
+        store: facts.mcpRateLimitStoreSupport,
+      },
     },
     findings: [],
   }

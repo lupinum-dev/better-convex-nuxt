@@ -73,6 +73,20 @@ type DoctorInventoryJsonReport = {
       mcpRateLimit: boolean
       mcpRateLimitStore: 'supported' | 'unverified' | 'none'
     }
+    forwarding: {
+      expected: boolean
+      publicExposures: Array<{ path: string; line: number }>
+      forwardedPrincipalMisuses: Array<{ path: string; line: number }>
+    }
+    mcp: {
+      toolCount: number
+      destructiveToolMisuses: Array<{ path: string; line: number }>
+      customAppWriteMisuses: Array<{ path: string; line: number }>
+      rateLimit: {
+        expected: boolean
+        store: 'supported' | 'unverified' | 'none'
+      }
+    }
     findings: []
   }
   findings: Array<{ id: string; status: string }>
@@ -523,6 +537,20 @@ describe('CLI doctor', () => {
       expect(report.inventory.surfaces.trustedForwarding).toBe(starter.mcp)
       expect(report.inventory.surfaces.mcpTools).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.surfaces.mcpRateLimitStore).toBe('none')
+      expect(report.inventory.forwarding).toMatchObject({
+        expected: starter.mcp,
+        publicExposures: [],
+        forwardedPrincipalMisuses: [],
+      })
+      expect(report.inventory.mcp).toMatchObject({
+        toolCount: starter.mcp ? 2 : 0,
+        destructiveToolMisuses: [],
+        customAppWriteMisuses: [],
+        rateLimit: {
+          expected: false,
+          store: 'none',
+        },
+      })
       expect(report.inventory.findings).toEqual([])
     }
   })
@@ -540,6 +568,14 @@ describe('CLI doctor', () => {
       'CONVEX_TRUSTED_FORWARDING_KEY=do-not-leak-this-forwarding-secret-value',
       'TRELLIS_MCP_CONFIRMATION_KEY=do-not-leak-this-confirmation-secret-value',
     ])
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/leaky-principal.ts'),
+      `
+export const fixture = {
+  principal: { subject: 'user:do-not-leak-this-subject-value' },
+}
+`.trimStart(),
+    )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
@@ -549,6 +585,7 @@ describe('CLI doctor', () => {
     expect(serializedInventory).not.toContain('do-not-leak-this-forwarding-secret-value')
     expect(serializedInventory).not.toContain('do-not-leak-this-confirmation-secret-value')
     expect(serializedInventory).not.toContain('test-secret')
+    expect(serializedInventory).not.toContain('do-not-leak-this-subject-value')
     expect(serializedInventory).not.toContain('BETTER_AUTH_SECRET')
     expect(serializedInventory).not.toContain('CONVEX_TRUSTED_FORWARDING_KEY')
     expect(serializedInventory).not.toContain('TRELLIS_MCP_CONFIRMATION_KEY')
@@ -586,7 +623,7 @@ describe('CLI doctor', () => {
     ])
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
       summary: { fail: number }
     }
@@ -631,6 +668,13 @@ describe('CLI doctor', () => {
       report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
         ?.message,
     ).toMatch(/public-facing code or env sources/i)
+    expect(report.inventory.forwarding.publicExposures).toEqual([
+      expect.objectContaining({ path: '.env.local', line: expect.any(Number) }),
+    ])
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+        ?.message,
+    ).toContain('.env.local')
   })
 
   it('fails doctor when MCP rate-limited tools do not configure an explicit external store', () => {
@@ -652,7 +696,7 @@ describe('CLI doctor', () => {
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
       summary: { fail: number; warn: number }
     }
@@ -662,6 +706,10 @@ describe('CLI doctor', () => {
     expect(report.findings.find((entry) => entry.id === 'mcp-rate-limit-store')?.status).toBe(
       'fail',
     )
+    expect(report.inventory.mcp.rateLimit).toEqual({
+      expected: true,
+      store: 'none',
+    })
   })
 
   it('passes doctor when MCP rate-limited tools configure the supported Redis store', () => {
@@ -846,7 +894,7 @@ describe('CLI doctor', () => {
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
     }
 
@@ -1194,6 +1242,15 @@ export default tool.mutation({
     expect(
       report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.status,
     ).toBe('fail')
+    expect(report.inventory.mcp.destructiveToolMisuses).toEqual([
+      expect.objectContaining({
+        path: 'server/mcp/tools/delete-todo.ts',
+        line: expect.any(Number),
+      }),
+    ])
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.message,
+    ).toContain('server/mcp/tools/delete-todo.ts')
   })
 
   it('fails doctor when a standalone custom MCP tool calls Convex writes', () => {
@@ -1224,7 +1281,7 @@ export default defineTool({
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
     }
 
@@ -1232,5 +1289,14 @@ export default defineTool({
     expect(
       report.findings.find((entry) => entry.id === 'mcp-custom-app-write-bypass')?.status,
     ).toBe('fail')
+    expect(report.inventory.mcp.customAppWriteMisuses).toEqual([
+      expect.objectContaining({
+        path: 'server/mcp/tools/create-todo.ts',
+        line: expect.any(Number),
+      }),
+    ])
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-custom-app-write-bypass')?.message,
+    ).toContain('server/mcp/tools/create-todo.ts')
   })
 })

@@ -119,38 +119,38 @@ Prefer a simple safe location type over carrying rich snippets forward.
 
 ### 1. Extend Inventory Shape
 
-- [ ] Add explicit `forwarding` and `mcp` sections to `TrellisCliInventory`.
-- [ ] Include source-backed forwarding/MCP misuse arrays needed by doctor.
-- [ ] Keep existing `surfaces` summary fields stable unless there is a clear
+- [x] Add explicit `forwarding` and `mcp` sections to `TrellisCliInventory`.
+- [x] Include source-backed forwarding/MCP misuse arrays needed by doctor.
+- [x] Keep existing `surfaces` summary fields stable unless there is a clear
       reason to delete or rename them.
-- [ ] Use one safe source-location representation for machine output.
+- [x] Use one safe source-location representation for machine output.
 
 ### 2. Move Doctor Findings Onto Inventory
 
-- [ ] Change forwarding/MCP findings to read code-surface facts from
+- [x] Change forwarding/MCP findings to read code-surface facts from
       `inventory.forwarding` and `inventory.mcp`.
-- [ ] Keep env key presence/quality checks local to doctor so secret values do
+- [x] Keep env key presence/quality checks local to doctor so secret values do
       not enter inventory.
-- [ ] Remove now-unused scanner imports or local variables from doctor.
-- [ ] Keep human doctor output unchanged.
+- [x] Remove now-unused scanner imports or local variables from doctor.
+- [x] Keep human doctor output unchanged.
 
 ### 3. Add Tests
 
-- [ ] Test `doctor --json` includes `inventory.forwarding` and `inventory.mcp`.
-- [ ] Test trusted-forwarding public exposure findings cite inventory source
+- [x] Test `doctor --json` includes `inventory.forwarding` and `inventory.mcp`.
+- [x] Test trusted-forwarding public exposure findings cite inventory source
       locations.
-- [ ] Test destructive/custom MCP misuse findings are driven by inventory
+- [x] Test destructive/custom MCP misuse findings are driven by inventory
       source locations.
-- [ ] Test inventory JSON does not include raw source snippets with known secret
+- [x] Test inventory JSON does not include raw source snippets with known secret
       or identity-like fixture values.
-- [ ] Test generated `workspace-mcp` inventory reports expected forwarding/MCP
+- [x] Test generated `workspace-mcp` inventory reports expected forwarding/MCP
       shape.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 only for items actually completed.
-- [ ] Leave public-surface, upgrade, and explain replacement unchecked.
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 only for items actually completed.
+- [x] Leave public-surface, upgrade, and explain replacement unchecked.
 
 ## Verification
 
@@ -192,19 +192,29 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Inventory JSON has explicit forwarding/MCP sections.
-- [ ] Forwarding/MCP source-code facts have one inventory source.
-- [ ] Doctor forwarding/MCP findings read source-code facts from inventory.
-- [ ] Env secret values remain outside inventory.
-- [ ] Human doctor output remains stable.
-- [ ] Tests prove forwarding/MCP inventory shape and secret safety.
-- [ ] No broad new scanner duplicates an existing doctor scanner.
-- [ ] Slice 8 tracker is updated.
+- [x] Inventory JSON has explicit forwarding/MCP sections.
+- [x] Forwarding/MCP source-code facts have one inventory source.
+- [x] Doctor forwarding/MCP findings read source-code facts from inventory.
+- [x] Env secret values remain outside inventory.
+- [x] Human doctor output remains stable.
+- [x] Tests prove forwarding/MCP inventory shape and secret safety.
+- [x] No broad new scanner duplicates an existing doctor scanner.
+- [x] Slice 8 tracker is updated.
 - [ ] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `inventory.forwarding` with `expected`, `publicExposures`, and
+  `forwardedPrincipalMisuses`.
+- Added `inventory.mcp` with `toolCount`, destructive/custom misuse locations,
+  and rate-limit expected/store facts.
+- Inventory source locations are path + line only and are project-relative.
+- Doctor forwarding/MCP source-code findings now consume `inventory.forwarding`
+  and `inventory.mcp`.
+- Env key presence and key-strength checks remain local to doctor so raw secret
+  values do not enter inventory.
+- Unit coverage now proves inventory-backed forwarding/MCP source locations and
+  that known secret/identity fixture values are not emitted in inventory JSON.
 
 ## Next Sprint Candidate
 
