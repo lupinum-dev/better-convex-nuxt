@@ -1029,6 +1029,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   concepts page states signed forwarding is transport authentication rather than
   authorization, and the backend API reference no longer lists bridge helpers or
   old operation projection wording.
+- Sprint 72 is planned to continue Slice 12 with the four official starter guide
+  paths: `public`, `personal`, `workspace`, and `workspace-mcp`. The sprint
+  should prove or tighten the linked getting-started, permissions, MCP, and
+  examples pages so they read as one progressive fixture-backed starter ladder,
+  and should mark beginner bridge references complete only if bridge concepts
+  are scoped to advanced/package-author material.
 
 ### Done Means
 
