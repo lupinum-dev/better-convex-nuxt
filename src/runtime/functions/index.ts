@@ -26,7 +26,7 @@ import { v } from 'convex/values'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny, open } from '../auth/index.js'
-import { hashConfirmationValue, verifyConfirmationToken } from '../mcp/confirmation-token.js'
+import { hashConfirmationValue, verifyConfirmationToken } from './confirmation-token.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   signConfirmationToken,
   verifyConfirmationToken,
-} from '../../src/runtime/mcp/confirmation-token'
+} from '../../src/runtime/functions/confirmation-token'
 
 describe('mcp confirmation token', () => {
   it('round-trips jti in the signed payload', async () => {

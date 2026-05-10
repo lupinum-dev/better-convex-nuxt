@@ -31,7 +31,9 @@ runtime abstraction.
 - Do not change public exports unless the policy exposes an existing violation
   that must be fixed.
 - Do not make devtools disappear from the Nuxt module; only prevent public/core
-  runtime subpaths from importing devtools UI or tooling code.
+  runtime subpaths from importing devtools UI or tooling code. Lightweight
+  `src/runtime/devtools/{state,runtime,types}` instrumentation stays allowed
+  until a later devtools-specific cleanup replaces it.
 
 ## Boundary Model
 
@@ -72,62 +74,62 @@ These may own their respective advanced code:
 
 ### 1. Add One Runtime Boundary Check
 
-- [ ] Extend `scripts/check-repo-policies.mjs` with a focused runtime boundary
+- [x] Extend `scripts/check-repo-policies.mjs` with a focused runtime boundary
       policy instead of creating a second scanner.
-- [ ] Check import/export specifiers and dynamic imports, not arbitrary text.
-- [ ] Fail when public/core runtime roots import `@lupinum/trellis-bridge`.
-- [ ] Fail when public/core runtime roots import `packages/trellis-bridge`.
-- [ ] Fail when public/core runtime roots import `evlog`.
-- [ ] Fail when public/core runtime roots import `@typescript-eslint/*` or
+- [x] Check import/export specifiers and dynamic imports, not arbitrary text.
+- [x] Fail when public/core runtime roots import `@lupinum/trellis-bridge`.
+- [x] Fail when public/core runtime roots import `packages/trellis-bridge`.
+- [x] Fail when public/core runtime roots import `evlog`.
+- [x] Fail when public/core runtime roots import `@typescript-eslint/*` or
       `eslint`.
-- [ ] Fail when public/core runtime roots import `@nuxt/devtools*`.
-- [ ] Fail when public/core runtime roots import `src/devtools/**` or
-      `src/runtime/devtools/**`.
-- [ ] Fail when public/core runtime roots import `src/runtime/mcp/**` from
+- [x] Fail when public/core runtime roots import `@nuxt/devtools*`.
+- [x] Fail when public/core runtime roots import `src/devtools/**`.
+- [x] Keep lightweight `src/runtime/devtools/{state,runtime,types}` imports
+      allowed as current runtime instrumentation.
+- [x] Fail when public/core runtime roots import `src/runtime/mcp/**` from
       non-MCP roots.
-- [ ] Keep current bridge-boundary check behavior or fold it into the new
+- [x] Keep current bridge-boundary check behavior or fold it into the new
       policy without weakening it.
 
 ### 2. Add Policy Tests With Tiny Fixtures
 
-- [ ] Add focused tests for the policy helper if the check is extracted into a
+- [x] Add focused tests for the policy helper if the check is extracted into a
       helper module.
-- [ ] If keeping the script inline, add fixture files under a repo-policy test
-      fixture and invoke the script/helper against them.
-- [ ] Cover allowed devtools import from module/devtools root.
-- [ ] Cover blocked devtools import from public runtime root.
-- [ ] Cover blocked bridge import from public runtime root.
-- [ ] Cover blocked MCP import from a non-MCP runtime root.
-- [ ] Cover allowed MCP internal import inside `src/runtime/mcp`.
-- [ ] Cover blocked evlog import from any core runtime root.
+- [x] Exercise the extracted policy helper with tiny in-memory fixtures.
+- [x] Cover allowed devtools import from module/devtools root.
+- [x] Cover blocked devtools import from public runtime root.
+- [x] Cover blocked bridge import from public runtime root.
+- [x] Cover blocked MCP import from a non-MCP runtime root.
+- [x] Cover allowed MCP internal import inside `src/runtime/mcp`.
+- [x] Cover blocked evlog import from any core runtime root.
 
 ### 3. Fix Any Real Violations Directly
 
-- [ ] If the policy finds a current root/core violation, fix the import by
+- [x] If the policy finds a current root/core violation, fix the import by
       deleting it or moving the dependency to the owning advanced root.
-- [ ] Do not add allowlist exceptions unless the refactor plan explicitly names
+- [x] Do not add allowlist exceptions unless the refactor plan explicitly names
       the boundary as valid.
-- [ ] If a boundary is genuinely wrong in this plan, update this sprint plan and
+- [x] If a boundary is genuinely wrong in this plan, update this sprint plan and
       `meta/trellis-1.0-refactor-plan.md` with the reason before changing code.
 
 ### 4. Update Slice 2
 
-- [ ] Add a Sprint 52 progress note under Slice 2.
-- [ ] Mark the dependency-graph proof item complete if `check:repo-policies`
+- [x] Add a Sprint 52 progress note under Slice 2.
+- [x] Mark the dependency-graph proof item complete if `check:repo-policies`
       now enforces the boundary.
-- [ ] Keep Slice 2 open unless all remaining bridge/package/doc items are done.
+- [x] Keep Slice 2 open unless all remaining bridge/package/doc items are done.
 
 ## Verification
 
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/repo-policies.test.ts`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec vitest run --project=unit tests/unit/repo-policies.test.ts`
       if policy unit tests exist after implementation.
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `rg -n "from 'evlog'|from \\\"evlog\\\"|@lupinum/trellis-bridge|packages/trellis-bridge|@nuxt/devtools|@typescript-eslint|from ['\\\"]eslint" src/runtime src/module.ts src/devtools.ts src/eslint packages/trellis-bridge`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `rg -n "from 'evlog'|from \\\"evlog\\\"|@lupinum/trellis-bridge|packages/trellis-bridge|@nuxt/devtools|@typescript-eslint|from ['\\\"]eslint" src/runtime src/module.ts src/devtools.ts src/eslint packages/trellis-bridge`
       with reviewed/expected matches only in allowed roots.
-- [ ] `pnpm exec oxfmt --check scripts/check-repo-policies.mjs meta/refactor/sprint52-runtime-boundary-policy-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check scripts/check-repo-policies.mjs scripts/lib/repo-policy-boundaries.mjs tests/unit/repo-policies.test.ts meta/refactor/sprint52-runtime-boundary-policy-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

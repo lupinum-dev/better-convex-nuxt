@@ -10,7 +10,7 @@ import {
 import {
   hashConfirmationValue,
   signConfirmationToken,
-} from '../../src/runtime/mcp/confirmation-token'
+} from '../../src/runtime/functions/confirmation-token'
 import { createObservationCapture } from '../../src/runtime/testing'
 import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 

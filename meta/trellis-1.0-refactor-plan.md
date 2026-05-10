@@ -143,6 +143,11 @@ explosion.
 - [x] Auth, workspace, MCP, server, testing remain product layers/subpaths until
       a dependency graph proves separate packages are needed.
 - [ ] ESLint stays separate if runtime package would otherwise pull tooling.
+- [x] Sprint 52 added an executable runtime boundary policy to prevent
+      public/core runtime roots from importing bridge, evlog delivery, ESLint
+      tooling, devtools UI/tooling, or MCP implementation code by accident.
+      Lightweight runtime devtools instrumentation remains allowed until a
+      later devtools-specific cleanup replaces it.
 
 ### Move
 
@@ -163,10 +168,10 @@ explosion.
 
 ### Prove
 
-- [ ] Core package can build without bridge runtime imports.
-- [ ] Public/core apps do not load MCP, bridge, ESLint, or observability delivery
+- [x] Core package can build without bridge runtime imports.
+- [x] Public/core apps do not load MCP, bridge, ESLint, or observability delivery
       code at runtime.
-- [ ] Dependency graph check proves root/core does not pull bridge, ESLint,
+- [x] Dependency graph check proves root/core does not pull bridge, ESLint,
       evlog delivery, devtools UI, or other layer-specific implementation code
       into public/core runtime bundles.
 - [x] Publish surface check catches removed public `functions` and backend

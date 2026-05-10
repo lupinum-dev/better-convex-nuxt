@@ -13,7 +13,7 @@ import {
   signConfirmationToken,
   verifyConfirmationToken,
   type ToolConfirmationPayload,
-} from './confirmation-token.js'
+} from '../functions/confirmation-token.js'
 
 type MaybePromise<T> = T | Promise<T>
 

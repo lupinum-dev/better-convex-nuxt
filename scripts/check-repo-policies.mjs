@@ -1,6 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
+import {
+  findRuntimeBoundaryViolations,
+  formatRuntimeBoundaryViolation,
+} from './lib/repo-policy-boundaries.mjs'
+
 const checks = [
   {
     name: 'protocol-specific agent kinds',
@@ -71,39 +76,6 @@ function findMatches(check) {
   return matches
 }
 
-function findBridgeBoundaryMatches() {
-  const matches = []
-  const importLike =
-    /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s*)?['"]([^'"]+)['"]|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g
-
-  for (const filePath of collectFiles('src')) {
-    let source
-    try {
-      source = readFileSync(filePath, 'utf8')
-    } catch {
-      continue
-    }
-
-    const lines = source.split('\n')
-    lines.forEach((line, index) => {
-      importLike.lastIndex = 0
-      let match
-      while ((match = importLike.exec(line)) !== null) {
-        const specifier = match[1] ?? match[2] ?? ''
-        if (
-          specifier === '@lupinum/trellis-bridge' ||
-          specifier.startsWith('@lupinum/trellis-bridge/') ||
-          specifier.includes('packages/trellis-bridge')
-        ) {
-          matches.push(`${path.relative(repoRoot, filePath)}:${index + 1}:${line.trim()}`)
-        }
-      }
-    })
-  }
-
-  return matches
-}
-
 for (const check of checks) {
   const matches = findMatches(check)
   if (matches.length === 0) continue
@@ -112,10 +84,17 @@ for (const check of checks) {
   throw new Error(`[trellis] repo policy violated: ${check.name}\n${preview}`)
 }
 
-const bridgeBoundaryMatches = findBridgeBoundaryMatches()
-if (bridgeBoundaryMatches.length > 0) {
-  const preview = bridgeBoundaryMatches.slice(0, 10).join('\n')
+const runtimeBoundaryFiles = collectFiles('src').map((filePath) => ({
+  path: path.relative(repoRoot, filePath),
+  source: readFileSync(filePath, 'utf8'),
+}))
+const runtimeBoundaryViolations = findRuntimeBoundaryViolations(runtimeBoundaryFiles)
+if (runtimeBoundaryViolations.length > 0) {
+  const preview = runtimeBoundaryViolations
+    .slice(0, 10)
+    .map(formatRuntimeBoundaryViolation)
+    .join('\n')
   throw new Error(
-    `[trellis] repo policy violated: core/runtime/CLI must not import @lupinum/trellis-bridge\n${preview}`,
+    `[trellis] repo policy violated: public/core runtime must not import advanced implementation code\n${preview}`,
   )
 }

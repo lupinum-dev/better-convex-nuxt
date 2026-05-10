@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   hashConfirmationValue,
   signConfirmationToken,
-} from '../../src/runtime/mcp/confirmation-token'
+} from '../../src/runtime/functions/confirmation-token'
 import {
   hashArgsForDiagnostics,
   verifyDestructiveConfirmationToken,
