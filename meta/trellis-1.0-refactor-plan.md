@@ -563,6 +563,10 @@ docs generation, and future explain commands.
 - Sprint 47 added `trellis explain operation <id>` with human and versioned JSON
   output from `TrellisCliInventory`. Operation-specific MCP tool bindings are
   reported as not derivable until tool metadata carries operation ids.
+- Sprint 48 is planned to reconcile Slice 9 with the current bridge package
+  state, add or strengthen a directional boundary check proving core/runtime/CLI
+  code does not import `@lupinum/trellis-bridge`, and mark only evidence-backed
+  bridge extraction items complete.
 
 ### Done Means
 
