@@ -549,6 +549,9 @@ docs generation, and future explain commands.
   `collectInventoryDoctorFindings(inventory)`, leaving env/auth/module-validation
   checks in the doctor command and permission usage diagnostics on the existing
   permission metadata helper.
+- Sprint 46 is planned to cut permission definition/inventory drift findings
+  over to `inventory.permissions`, leaving only projected permission usage on a
+  project source scan until usage becomes structured inventory.
 
 ### Done Means
 
