@@ -259,14 +259,14 @@ path.
 - [ ] Review HS256 versus asymmetric production signing.
 - [ ] Review TTL matrix.
 - [ ] Review replay model.
-- [ ] Review canonical args vectors.
-- [ ] Review raw fallback migration plan.
-- [ ] Record accepted changes in `meta/rfc-forwarding-envelope.md`.
+- [x] Review canonical args vectors.
+- [x] Review raw fallback migration plan.
+- [x] Record accepted changes in `meta/rfc-forwarding-envelope.md`.
 
 ### Delete
 
-- [ ] Delete raw `_trustedForwardingKey` validator from production/default path.
-- [ ] Delete raw `_trustedForwarding` parser from production/default path.
+- [x] Delete raw `_trustedForwardingKey` validator from production/default path.
+- [x] Delete raw `_trustedForwarding` parser from production/default path.
 - [ ] Delete raw forwarding tests after signed tests replace them.
 - [ ] Delete raw forwarding fields from default validators and test helpers, not
       only from runtime extraction.
@@ -277,8 +277,8 @@ path.
 - [ ] Server callers always sign `_trellisForwarding`.
 - [ ] MCP callers always sign `_trellisForwarding`.
 - [ ] Bridge callers always sign `_trellisForwarding`.
-- [ ] Mixed signed/raw forwarding is rejected in production/default mode.
-- [ ] Raw fallback is observable before deletion if retained temporarily for
+- [x] Mixed signed/raw forwarding is rejected in production/default mode.
+- [x] Raw fallback is observable before deletion if retained temporarily for
       local migration.
 - [ ] Every forwarding-protected handler has an exact generated
       `trustedForwardingFunctionRef`; missing function-ref metadata fails
@@ -291,20 +291,20 @@ path.
 
 ### Prove
 
-- [ ] Unknown `kid` fails.
-- [ ] Wrong audience fails.
-- [ ] Wrong issuer fails.
-- [ ] Wrong function ref fails.
-- [ ] Wrong purpose fails.
-- [ ] Wrong transport fails.
-- [ ] Args hash drift fails.
-- [ ] Excess TTL fails.
-- [ ] Expired token fails.
-- [ ] Oversized envelope fails.
-- [ ] Replayed operation execute fails.
-- [ ] Valid signed envelope plus raw forwarding fields is rejected in
+- [x] Unknown `kid` fails.
+- [x] Wrong audience fails.
+- [x] Wrong issuer fails.
+- [x] Wrong function ref fails.
+- [x] Wrong purpose fails.
+- [x] Wrong transport fails.
+- [x] Args hash drift fails.
+- [x] Excess TTL fails.
+- [x] Expired token fails.
+- [x] Oversized envelope fails.
+- [x] Replayed operation execute fails.
+- [x] Valid signed envelope plus raw forwarding fields is rejected in
       production/default mode.
-- [ ] Raw fields are rejected in production/default mode.
+- [x] Raw fields are rejected in production/default mode.
 - [ ] Operation preview forwarding uses the expected purpose and is covered by
       production ingress/rate-limit store checks.
 

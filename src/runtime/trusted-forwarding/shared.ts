@@ -28,6 +28,10 @@ export type TrustedForwardingInput = {
   } | null
 }
 
+const rawForwardingFallbackObservation = {
+  count: 0,
+}
+
 export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
   [trustedForwardingContextKey]?: TrustedForwardingIdentity | null
   [trustedForwardingPayloadContextKey]?: TrustedForwardingPayload | null
@@ -161,6 +165,23 @@ function toTrustedForwardingDeny(error: unknown): Error {
     source: 'trusted-forwarding',
     category: 'auth',
   }) as Error
+}
+
+function hasRawTrustedForwardingInput(input: TrustedForwardingInput): boolean {
+  return input._trustedForwardingKey !== undefined || input._trustedForwarding !== undefined
+}
+
+function assertRawForwardingFallbackAllowed(input: TrustedForwardingInput): void {
+  if (!hasRawTrustedForwardingInput(input)) return
+
+  if (process.env.NODE_ENV === 'production') {
+    throw deny('Raw trusted forwarding fields are not accepted in production.', {
+      source: 'trusted-forwarding',
+      category: 'auth',
+    })
+  }
+
+  rawForwardingFallbackObservation.count += 1
 }
 
 export const minimumTrustedForwardingKeyLength = 32
@@ -325,6 +346,13 @@ export function extractTrustedForwardingFromArgs(
       : (expectedKeyOverrideOrOptions ?? {})
 
   if (input._trellisForwarding !== undefined) {
+    if (hasRawTrustedForwardingInput(input) && process.env.NODE_ENV === 'production') {
+      throw deny('Mixed signed and raw trusted forwarding fields are not accepted in production.', {
+        source: 'trusted-forwarding',
+        category: 'auth',
+      })
+    }
+
     if (typeof input._trellisForwarding !== 'string') {
       throw deny('Malformed trusted forwarding envelope.', {
         source: 'trusted-forwarding',
@@ -392,6 +420,8 @@ export function extractTrustedForwardingFromArgs(
     input._trustedForwardingKey !== undefined || input._trustedForwarding !== undefined
   if (!hasTransport) return null
 
+  assertRawForwardingFallbackAllowed(input)
+
   const principalSubject = nonBlankString(input._trustedForwarding?.principalSubject)
   const delegationSubject = nonBlankString(input._trustedForwarding?.delegationSubject)
 
@@ -419,6 +449,10 @@ export function extractTrustedForwardingFromArgs(
     principalSubject: principalSubject as Subject,
     ...(delegationSubject ? { delegationSubject: delegationSubject as Subject } : {}),
   }
+}
+
+export function getRawTrustedForwardingFallbackCount(): number {
+  return rawForwardingFallbackObservation.count
 }
 
 export function createTrustedForwardingContextDelta(

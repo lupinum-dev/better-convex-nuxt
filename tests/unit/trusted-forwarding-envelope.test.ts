@@ -41,6 +41,20 @@ function verify(envelope: string, args: unknown = { title: 'Roadmap' }) {
   })
 }
 
+function decodePart<T>(part: string): T {
+  return JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as T
+}
+
+function encodePart(value: unknown): string {
+  return Buffer.from(JSON.stringify(value)).toString('base64url')
+}
+
+function replaceEnvelopeHeader(envelope: string, patch: Record<string, unknown>): string {
+  const [header, payload, signature] = envelope.split('.') as [string, string, string]
+  const nextHeader = encodePart({ ...decodePart<Record<string, unknown>>(header), ...patch })
+  return `${nextHeader}.${payload}.${signature}`
+}
+
 describe('trusted forwarding envelopes', () => {
   it('canonicalizes args deterministically and excludes forwarding metadata', () => {
     expect(
@@ -54,7 +68,9 @@ describe('trusted forwarding envelopes', () => {
         principal: { subject: 'ignored' },
         delegation: { subject: 'ignored' },
       }),
-    ).toBe('{"a":{"b":true},"z":1}')
+    ).toBe(
+      '{"a":{"b":true},"delegation":{"subject":"ignored"},"principal":{"subject":"ignored"},"z":1}',
+    )
     expect(hashForwardingArgs({ b: 2, a: 1 })).toBe(hashForwardingArgs({ a: 1, b: 2 }))
   })
 
@@ -71,8 +87,9 @@ describe('trusted forwarding envelopes', () => {
           principal: { subject: 'ignored' },
           delegation: { subject: 'ignored' },
         },
-        canonical: '{"a":{"b":true},"z":1}',
-        hash: 'EfLFajqAf5JyfYGFIP9-L2OuKX0xG0gC8pMA6gq-NG8',
+        canonical:
+          '{"a":{"b":true},"delegation":{"subject":"ignored"},"principal":{"subject":"ignored"},"z":1}',
+        hash: 'iLSkFSs_EoAdiRE7_H-ndlsK9-8RIE6_tdcnvvSPAKM',
       },
       {
         args: {
@@ -84,8 +101,22 @@ describe('trusted forwarding envelopes', () => {
           principal: { subject: 'ignored' },
           delegation: { subject: 'ignored' },
         },
-        canonical: '{"nested":{"delegation":"business","principal":"business"},"z":1}',
-        hash: 'H5VKtTv0YT5Wt0oijONWtQEr3yeqYFdKyKIj-pCLlpk',
+        canonical:
+          '{"delegation":{"subject":"ignored"},"nested":{"delegation":"business","principal":"business"},"principal":{"subject":"ignored"},"z":1}',
+        hash: 'MPMtWV7R94A-_2iWrr6sIKZdAitV6matgP3ag5F5AH0',
+      },
+      {
+        args: {
+          nested: {
+            _trellisForwarding: 'business',
+            _trustedForwarding: { principalSubject: 'business' },
+            _trustedForwardingKey: 'business',
+            __trellis: { trace: 'business' },
+          },
+        },
+        canonical:
+          '{"nested":{"__trellis":{"trace":"business"},"_trellisForwarding":"business","_trustedForwarding":{"principalSubject":"business"},"_trustedForwardingKey":"business"}}',
+        hash: '-0htiQFh9WsLXih-k-lOIaYuUN2EClu5SEDRMzAZkGs',
       },
       {
         args: {
@@ -100,7 +131,8 @@ describe('trusted forwarding envelopes', () => {
           id: 'j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p',
           nested: { beta: 'b', alpha: 'a' },
         },
-        canonical: '{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}',
+        canonical:
+          '{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}',
         hash: '0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ',
       },
     ]
@@ -128,8 +160,10 @@ describe('trusted forwarding envelopes', () => {
   })
 
   it('rejects unknown key ids', () => {
+    const envelope = createEnvelope()
+
     expect(() =>
-      verifyTrustedForwardingEnvelope(createEnvelope(), {
+      verifyTrustedForwardingEnvelope(envelope, {
         keys: {},
         expectedIssuer: 'nuxt://app',
         expectedAudience: 'convex://deployment',
@@ -138,10 +172,31 @@ describe('trusted forwarding envelopes', () => {
         now,
       }),
     ).toThrow(TrustedForwardingEnvelopeError)
+    expect(() =>
+      verifyTrustedForwardingEnvelope(envelope, {
+        keys: {},
+        expectedIssuer: 'nuxt://app',
+        expectedAudience: 'convex://deployment',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+      }),
+    ).toThrow(/key id\.$/)
   })
 
   it('rejects audience, function, args, and expiry drift', () => {
     const envelope = createEnvelope()
+
+    expect(() =>
+      verifyTrustedForwardingEnvelope(envelope, {
+        keys: { '2026-05-a': key },
+        expectedIssuer: 'nuxt://other',
+        expectedAudience: 'convex://deployment',
+        functionRef: 'features.projects.create',
+        args: { title: 'Roadmap' },
+        now,
+      }),
+    ).toThrow(/issuer/)
 
     expect(() =>
       verifyTrustedForwardingEnvelope(envelope, {
@@ -166,6 +221,12 @@ describe('trusted forwarding envelopes', () => {
     ).toThrow(/function ref/)
 
     expect(() => verify(envelope, { title: 'Changed' })).toThrow(/args/)
+    expect(() =>
+      verify(envelope, {
+        title: 'Roadmap',
+        principal: { subject: 'user:attacker', kind: 'user' },
+      }),
+    ).toThrow(/args/)
 
     expect(() =>
       verifyTrustedForwardingEnvelope(envelope, {
@@ -231,6 +292,15 @@ describe('trusted forwarding envelopes', () => {
         now,
       }),
     ).toThrow(/TTL/)
+  })
+
+  it('rejects unsupported algorithms and invalid signatures', () => {
+    const envelope = createEnvelope()
+    const invalidAlgorithm = replaceEnvelopeHeader(envelope, { alg: 'none' })
+    const invalidSignature = `${envelope.slice(0, -1)}x`
+
+    expect(() => verify(invalidAlgorithm)).toThrow(/algorithm/)
+    expect(() => verify(invalidSignature)).toThrow(/signature/)
   })
 
   it('rejects unsupported canonical args values instead of hashing them as null or empty objects', () => {

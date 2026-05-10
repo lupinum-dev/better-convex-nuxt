@@ -96,41 +96,51 @@ load, authorize, or handler execution.
 
 ## Canonical Args Hash
 
-The RFC must define deterministic serialization for Convex values. Phase 0
-intentionally supports only JSON-shaped Convex args plus Convex IDs represented
-as strings. Unsupported values fail closed instead of being coerced into hashes.
+Production forwarding uses deterministic serialization for the app args before
+computing `SHA-256(canonicalArgs)` and encoding the digest as base64url.
 
-The Phase 0 spike currently:
+The supported canonical value set is deliberately narrow: JSON-shaped Convex
+args plus Convex IDs represented as strings. Unsupported values fail closed
+instead of being coerced into hashes.
 
-- sorts object keys;
-- omits object properties with `undefined`;
-- serializes array `undefined` as `null`;
-- excludes `_trellisForwarding` only at the top-level args object;
-- excludes legacy `_trustedForwardingKey` and `_trustedForwarding` only at the
-  top-level args object;
-- excludes reserved public identity fields `principal` and `delegation` only at
-  the top-level args object;
-- excludes `__trellis` only at the top-level args object;
-- rejects non-finite numbers, `-0`, bigint, binary values, Date/Map/Set/class
-  instances, functions, and symbols.
+Canonicalization rules:
 
-The production RFC must include test vectors for:
+- object keys are sorted by deterministic JavaScript string comparison
+  (`<` / `>`) at every object level;
+- object properties with `undefined` are omitted;
+- array `undefined` entries serialize as `null`;
+- strings are serialized as JSON strings and hashed as UTF-8 bytes;
+- finite numbers serialize with JSON number syntax;
+- non-finite numbers and `-0` are rejected;
+- booleans and `null` serialize as normal JSON literals;
+- bigint/int64 values are not accepted as JavaScript `bigint`; callers must pass
+  supported Convex integer values through an explicitly supported representation
+  before signing;
+- bytes/binary values are rejected; callers must pass an explicitly encoded
+  string representation before signing;
+- Date, Map, Set, class instances, functions, symbols, and other non-plain
+  objects are rejected;
+- only the top-level forwarding transport metadata keys are excluded before
+  hashing: `_trellisForwarding`, legacy `_trustedForwardingKey`, legacy
+  `_trustedForwarding`, and `__trellis`;
+- nested business args with those names are still authenticated;
+- top-level `principal` and `delegation` are authenticated business args, not
+  excluded metadata. Server/MCP helpers must not put identity payloads in public
+  app args; identity travels inside the signed envelope payload.
 
-- nested objects with different key order;
-- arrays containing nullish values;
-- optional fields omitted versus present;
-- Convex IDs as strings;
-- excluded forwarding metadata;
-- unsupported values.
+This last rule prevents a caller from adding or changing top-level
+identity-shaped public args beside a valid envelope without causing args-hash
+drift.
 
 Phase 0 vectors:
 
-| Label             | Canonical Args                                                                | SHA-256 Base64url Hash                        |
-| ----------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
-| metadata excluded | `{"a":{"b":true},"z":1}`                                                      | `EfLFajqAf5JyfYGFIP9-L2OuKX0xG0gC8pMA6gq-NG8` |
-| nested identity keys hashed | `{"nested":{"delegation":"business","principal":"business"},"z":1}`           | `H5VKtTv0YT5Wt0oijONWtQEr3yeqYFdKyKIj-pCLlpk` |
-| nullish array     | `{"items":[1,null,null,{"a":1,"b":2}]}`                                       | `llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q` |
-| ID string         | `{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}` | `0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ` |
+| Label                           | Canonical Args                                                                                                                                                                    | SHA-256 Base64url Hash                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| top-level metadata excluded     | `{"a":{"b":true},"delegation":{"subject":"ignored"},"principal":{"subject":"ignored"},"z":1}`                                                                                     | `iLSkFSs_EoAdiRE7_H-ndlsK9-8RIE6_tdcnvvSPAKM` |
+| identity keys authenticated     | `{"delegation":{"subject":"ignored"},"nested":{"delegation":"business","principal":"business"},"principal":{"subject":"ignored"},"z":1}`                                          | `MPMtWV7R94A-_2iWrr6sIKZdAitV6matgP3ag5F5AH0` |
+| nested metadata keys hashed     | `{"nested":{"__trellis":{"trace":"business"},"_trellisForwarding":"business","_trustedForwarding":{"principalSubject":"business"},"_trustedForwardingKey":"business"}}`           | `-0htiQFh9WsLXih-k-lOIaYuUN2EClu5SEDRMzAZkGs` |
+| nullish array                   | `{"items":[1,null,null,{"a":1,"b":2}]}`                                                                                                                                           | `llnIMe-pmO8r5f4mT1zediumV9Vqfj9QS-QSjJKUB2Q` |
+| ID string                       | `{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}`                                                                                                     | `0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ` |
 
 ## TTL And Replay Matrix
 
@@ -153,13 +163,15 @@ Backend destructive operation execution already uses the destructive safety
 redemption table as the first-party one-time confirmation redemption path. The
 alpha `operation-execute` forwarding path shares the confirmation token `jti`
 so forwarding replay and confirmation replay stay one source of truth.
-During Convex protected handler setup, `operation-execute` envelopes are checked
-against that redemption table before principal, actor, guard, load,
-authorization, or handler execution. The destructive operation handler remains
-the canonical place that redeems/inserts the `jti` during successful execution.
-That insert is the replay claim and must happen before irreversible side
-effects. Production implementations that move destructive execution outside the
-same Convex mutation must provide an equivalent atomic claim/redeem contract.
+During Convex protected handler setup, `operation-execute` envelopes may be
+prechecked against that redemption table only as an early denial. The
+destructive operation handler remains the canonical place that atomically
+redeems/inserts the `jti` during successful execution. That insert is the replay
+claim and must happen before irreversible side effects or inside the same
+backend transaction as destructive execution. A preflight “not already
+redeemed” check is not sufficient by itself. Production implementations that
+move destructive execution outside the same Convex mutation must provide an
+equivalent atomic claim/redeem contract.
 Execution also rejects an `operation-execute` envelope whose `jti` does not
 match the destructive confirmation token `jti`; confirmation replay and
 forwarding replay must stay one replay identity.
@@ -236,13 +248,12 @@ Production implementation, public API freeze, and migration work must wait for
 this RFC to be reviewed and accepted.
 
 Alpha transport support accepts `_trellisForwarding` first and falls back to the
-legacy raw `_trustedForwardingKey` / `_trustedForwarding` fields so current
-callers keep working during migration. This fallback is explicitly temporary,
-must be made observable with redacted counters before production migration, and
-must be disabled or rejected in production/default migration-complete mode.
-Production should reject mixed signed/raw forwarding fields instead of silently
-choosing one. The alpha fallback does not change the security rule: a valid
-envelope authenticates forwarding only. It never grants permission.
+legacy raw `_trustedForwardingKey` / `_trustedForwarding` fields only outside
+production while local migration is still underway. Raw fallback is temporary
+and observable with redacted counters. Production rejects raw forwarding fields
+and rejects mixed signed/raw forwarding fields instead of silently choosing one.
+The alpha fallback does not change the security rule: a valid envelope
+authenticates forwarding only. It never grants permission.
 
 ## External Review Packet
 

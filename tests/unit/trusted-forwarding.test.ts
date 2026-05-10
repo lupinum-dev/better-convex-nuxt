@@ -11,7 +11,10 @@ import {
   verifyTrustedForwardingKey,
   withTrustedForwarding,
 } from '../../src/runtime/trusted-forwarding'
-import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
+import {
+  createTrustedForwardingEnvelopeArgs,
+  getRawTrustedForwardingFallbackCount,
+} from '../../src/runtime/trusted-forwarding/shared'
 
 const originalNodeEnv = process.env.NODE_ENV
 
@@ -141,7 +144,7 @@ describe('trusted forwarding helpers', () => {
     })
   })
 
-  it('prefers signed forwarding envelopes over legacy raw forwarding fields', () => {
+  it('prefers signed forwarding envelopes over legacy raw forwarding fields outside production', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const ctx: Record<string, unknown> = {}
     const args = createTrustedForwardingEnvelopeArgs({
@@ -157,7 +160,6 @@ describe('trusted forwarding helpers', () => {
       ctx,
       {
         ...args,
-        principal: { kind: 'agent', agentId: 'raw', subject: 'agent:raw' },
         _trustedForwardingKey: 'trusted-key-with-enough-alpha-entropy',
         _trustedForwarding: { principalSubject: 'agent:raw' },
       },
@@ -173,6 +175,34 @@ describe('trusted forwarding helpers', () => {
       agentId: 'signed',
       subject: 'agent:signed',
     })
+  })
+
+  it('rejects mixed signed and raw forwarding fields in production', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'prodforwardingsecret0123456789abcdef'
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Envelope' },
+      principal: { kind: 'agent', agentId: 'signed', subject: 'agent:signed' },
+      functionRef: 'tasks:create',
+      operation: 'mutation',
+      jti: 'call-1',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    expect(() =>
+      setTrustedForwardingContext(
+        {},
+        {
+          ...args,
+          _trustedForwardingKey: 'prodforwardingsecret0123456789abcdef',
+          _trustedForwarding: { principalSubject: 'agent:raw' },
+        },
+        {
+          expectedFunctionRef: 'tasks:create',
+          now: Date.UTC(2026, 4, 9, 12, 0, 1),
+        },
+      ),
+    ).toThrow(/mixed signed and raw/i)
   })
 
   it('fails closed on invalid signed forwarding envelopes', () => {
@@ -308,6 +338,36 @@ describe('trusted forwarding helpers', () => {
     expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'user:u_component' })
   })
 
+  it('rejects raw forwarding fields in production even with a strong key', () => {
+    process.env.NODE_ENV = 'production'
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'prodforwardingsecret0123456789abcdef'
+
+    expect(() =>
+      getTrustedForwarding({
+        _trustedForwardingKey: 'prodforwardingsecret0123456789abcdef',
+        _trustedForwarding: {
+          principalSubject: 'user:u_prod',
+        },
+      }),
+    ).toThrow(/raw trusted forwarding fields/i)
+  })
+
+  it('tracks dev/test raw forwarding fallback use without exposing payloads', () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key'
+    const before = getRawTrustedForwardingFallbackCount()
+
+    expect(
+      getTrustedForwarding({
+        _trustedForwardingKey: 'trusted-key',
+        _trustedForwarding: {
+          principalSubject: 'user:u_1',
+        },
+      }),
+    ).toEqual({ principalSubject: 'user:u_1' })
+
+    expect(getRawTrustedForwardingFallbackCount()).toBe(before + 1)
+  })
+
   it('rejects trusted forwarding payloads when no server-owned key exists', () => {
     expect(() =>
       getTrustedForwarding({
@@ -324,11 +384,11 @@ describe('trusted forwarding helpers', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'short-prod-key'
 
     expect(() =>
-      getTrustedForwarding({
-        _trustedForwardingKey: 'short-prod-key',
-        _trustedForwarding: {
-          principalSubject: 'user:u_prod',
-        },
+      createTrustedForwardingEnvelopeArgs({
+        args: { title: 'Envelope' },
+        principal: { kind: 'user', userId: 'u_prod', subject: 'user:u_prod' },
+        functionRef: 'tasks:create',
+        operation: 'mutation',
       }),
     ).toThrow(/at least 32 characters/i)
   })
@@ -338,11 +398,11 @@ describe('trusted forwarding helpers', () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'replace-me-with-a-long-random-shared-secret'
 
     expect(() =>
-      getTrustedForwarding({
-        _trustedForwardingKey: 'replace-me-with-a-long-random-shared-secret',
-        _trustedForwarding: {
-          principalSubject: 'user:u_prod',
-        },
+      createTrustedForwardingEnvelopeArgs({
+        args: { title: 'Envelope' },
+        principal: { kind: 'user', userId: 'u_prod', subject: 'user:u_prod' },
+        functionRef: 'tasks:create',
+        operation: 'mutation',
       }),
     ).toThrow(/development or placeholder value/i)
   })

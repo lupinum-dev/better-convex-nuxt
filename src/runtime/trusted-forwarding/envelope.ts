@@ -89,8 +89,6 @@ const excludedArgsKeys = new Set([
   '_trustedForwardingKey',
   '_trustedForwarding',
   '__trellis',
-  'principal',
-  'delegation',
 ])
 
 function base64UrlEncode(input: string | Buffer): string {
@@ -151,7 +149,7 @@ function canonicalJson(value: unknown): string {
       assertSupportedCanonicalObject(value)
       const entries = Object.entries(value as Record<string, unknown>)
         .filter(([, entry]) => entry !== undefined)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
 
       return `{${entries
         .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
@@ -261,7 +259,7 @@ export function verifyTrustedForwardingEnvelope(
   const key = options.keys[header.kid]
   if (!key) {
     throw new TrustedForwardingEnvelopeError(
-      `Unknown forwarding envelope key id "${header.kid}".`,
+      'Unknown forwarding envelope key id.',
       'unknown-key',
     )
   }
