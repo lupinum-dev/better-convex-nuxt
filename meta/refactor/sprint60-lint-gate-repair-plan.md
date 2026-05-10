@@ -21,8 +21,8 @@ failures are narrow enough to fix directly.
 
 Current failure groups from `pnpm run lint`:
 
-1. Example tests import confirmation-token helpers through repo-local runtime
-   paths and need a clean test-only/package-safe path or a local test helper.
+1. Example tests had imported confirmation-token helpers through repo-local
+   runtime paths; that path was already repaired before the live lint pass.
 2. `src/cli/add-fixtures/uploads/app/pages/uploads.vue` violates the Vue
    multi-word component rule.
 3. `src/cli/commands/upgrade.ts` has one useless regex non-capturing group.
@@ -47,61 +47,61 @@ Current failure groups from `pnpm run lint`:
 
 ### 1. Reproduce And Classify
 
-- [ ] Run `pnpm run lint` from a clean working tree state.
-- [ ] Record the exact failure groups in this sprint doc if they differ from the
+- [x] Run `pnpm run lint` from a clean working tree state.
+- [x] Record the exact failure groups in this sprint doc if they differ from the
       current list.
-- [ ] Separate sprint-introduced issues from older repo-wide lint debt.
+- [x] Separate sprint-introduced issues from older repo-wide lint debt.
 
 ### 2. Repair Example Confirmation Helpers
 
-- [ ] Decide the cleanest owner for test-only confirmation-token signing used by
+- [x] Decide the cleanest owner for test-only confirmation-token signing used by
       examples.
-- [ ] Prefer a local test helper under each example or a shared test fixture
+- [x] Prefer a local test helper under each example or a shared test fixture
       helper that does not become public package API.
-- [ ] Remove repo-local runtime imports from example app/test code.
-- [ ] Keep destructive confirmation test coverage intact.
+- [x] Remove repo-local runtime imports from example app/test code.
+- [x] Keep destructive confirmation test coverage intact.
 
 ### 3. Fix Fixture And CLI Findings
 
-- [ ] Rename or annotate the uploads fixture page so it satisfies Vue
+- [x] Rename or annotate the uploads fixture page so it satisfies Vue
       multi-word component naming as generated starter code.
-- [ ] Simplify the useless non-capturing group in `src/cli/commands/upgrade.ts`.
-- [ ] Delete unused imports from the workspace starter fixture schema.
-- [ ] Run the relevant fixture/starter checks after touching fixture source.
+- [x] Simplify the useless non-capturing group in `src/cli/commands/upgrade.ts`.
+- [x] Delete unused imports from the workspace starter fixture schema.
+- [x] Run the relevant fixture/starter checks after touching fixture source.
 
 ### 4. Fix Backend Type Lint Findings
 
-- [ ] Combine the permission overload signatures without changing public
+- [x] Combine the permission overload signatures without changing public
       behavior.
-- [ ] Remove the unused `unsafe` import/reference from
+- [x] Remove the unused `unsafe` import/reference from
       `src/runtime/functions/index.ts` if it is genuinely unused.
-- [ ] Replace explicit `any` and `void` union types in
+- [x] Replace explicit `any` and `void` union types in
       `src/runtime/functions/index.ts` with existing local type aliases or
       narrower direct types.
-- [ ] Keep the backend public type tests green.
+- [x] Keep the backend public type tests green.
 
 ### 5. Fix Type Test Lint Finding
 
-- [ ] Replace the unused expression in `tests/types/mcp-runtime.types.ts` with a
+- [x] Replace the unused expression in `tests/types/mcp-runtime.types.ts` with a
       real assignment/assertion pattern that keeps the type assertion meaningful.
 
 ### 6. Update Trackers
 
-- [ ] Add a Sprint 60 note to the 1.0 refactor tracker.
-- [ ] Mark Slice 13 lint/format checks complete only after `pnpm run lint` and
+- [x] Add a Sprint 60 note to the 1.0 refactor tracker.
+- [x] Mark Slice 13 lint/format checks complete only after `pnpm run lint` and
       formatting checks pass.
 
 ## Verification
 
-- [ ] `pnpm run lint`
-- [ ] `pnpm run test:types`
-- [ ] `pnpm run build:cli && pnpm run check:starter-fixtures`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec vitest run --project=unit tests/unit/api-surface-doc.test.ts tests/unit/runtime-facade-boundaries.test.ts`
-- [ ] `pnpm exec oxfmt --check ...touched files...`
-- [ ] `git diff --check`
+- [x] `pnpm run lint`
+- [x] `pnpm run test:types`
+- [x] `pnpm run build:cli && pnpm run check:starter-fixtures`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec vitest run --project=unit tests/unit/api-surface-doc.test.ts tests/unit/runtime-facade-boundaries.test.ts`
+- [x] `pnpm exec oxfmt --check ...touched files...`
+- [x] `git diff --check`
 
 ## Done Means
 

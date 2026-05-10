@@ -93,7 +93,7 @@ runtime.tool.mutation({
 })
 
 // @ts-expect-error Direct action projection is intentionally unavailable; use tool.operation(...)
-runtime.tool.action
+const _actionProjectionUnavailable: never = runtime.tool.action
 
 const archiveEntryOp = defineOperation({
   id: 'entries.archive',

@@ -53,12 +53,6 @@ export type PermissionKeyHandle<TKey extends string = string> =
   | PermissionKeyDefinition<TKey>
   | TKey
 
-export function definePermissionKey<TKey extends string>(key: TKey): PermissionKeyDefinition<TKey>
-export function definePermissionKey<TKey extends string>(options: {
-  key: TKey
-  label?: string
-  description?: string
-}): PermissionKeyDefinition<TKey>
 export function definePermissionKey<TKey extends string>(
   input:
     | TKey

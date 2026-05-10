@@ -20,7 +20,7 @@ import type {
   RegisteredQuery,
   TableNamesInDataModel,
 } from 'convex/server'
-import type { Infer, ObjectType, PropertyValidators, Validator } from 'convex/values'
+import type { GenericValidator, Infer, ObjectType, PropertyValidators } from 'convex/values'
 import { v } from 'convex/values'
 
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
@@ -68,7 +68,7 @@ import {
   type DefaultPrincipal,
   type PrincipalDefinition,
 } from './define-principal.js'
-import { assertUnsafePermit, type TrellisUnsafePermit, unsafe } from './unsafe-permit.js'
+import { assertUnsafePermit, type TrellisUnsafePermit } from './unsafe-permit.js'
 
 export type {
   StructuredGuard,
@@ -128,7 +128,7 @@ type UnsafeDefinition = { permit: TrellisUnsafePermit }
 type EscapeTenantIsolationOptions = { reason: string }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
   ? ObjectType<TArgsValidator>
-  : [TArgsValidator] extends [Validator<any, 'required', any>]
+  : [TArgsValidator] extends [GenericValidator]
     ? Infer<TArgsValidator>
     : Record<string, never>
 
@@ -530,9 +530,9 @@ type UnsafeQueryBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = <
-  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnValue = any,
+  TArgsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnValue = unknown,
 >(
   definition: {
     args?: TArgsValidator
@@ -545,9 +545,9 @@ type UnsafeMutationBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = <
-  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnValue = any,
+  TArgsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnValue = unknown,
 >(
   definition: {
     args?: TArgsValidator
@@ -563,9 +563,9 @@ type UnsafeActionBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = <
-  TArgsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnsValidator extends PropertyValidators | Validator<any, 'required', any> | void,
-  TReturnValue = any,
+  TArgsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnsValidator extends PropertyValidators | GenericValidator | undefined,
+  TReturnValue = unknown,
 >(
   definition: {
     args?: TArgsValidator
@@ -583,7 +583,7 @@ type UnsafeBuilder<TBuilder> =
         ? UnsafeActionBuilder<DataModel, Visibility>
         : TBuilder
 
-function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
+function wrapUnsafeBuilder<TBuilder extends (...args: never[]) => unknown>(
   builder: TBuilder,
   label: string,
 ): UnsafeBuilder<TBuilder> {
@@ -618,7 +618,7 @@ function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
           }
         : definition
 
-    return (builder as (definition: unknown) => unknown)(wrappedDefinition)
+    return (builder as unknown as (definition: unknown) => unknown)(wrappedDefinition)
   }) as unknown as UnsafeBuilder<TBuilder>
 }
 
@@ -1800,9 +1800,39 @@ function createActionCustomization<
 
 type CustomFunctionDefinition = {
   args?: PropertyValidators
-  returns?: unknown
+  returns?: PropertyValidators | GenericValidator
   handler?: (ctx: unknown, args: Record<string, unknown>) => unknown
   [key: string]: unknown
+}
+
+type FullArgsCustomizationResult<
+  TCtx,
+  TCustomCtx extends object,
+  TCustomArgs extends Record<string, unknown>,
+> = {
+  ctx: TCustomCtx
+  args: TCustomArgs
+  onSuccess?: (obj: {
+    ctx: TCtx
+    args: Record<string, unknown>
+    result: unknown
+  }) => void | Promise<void>
+}
+
+type FullArgsCustomization<
+  TCtx,
+  TCustomCtx extends object,
+  TCustomArgs extends Record<string, unknown>,
+  TExtra extends object,
+> = {
+  args?: PropertyValidators
+  input?: (
+    ctx: TCtx,
+    args: Record<string, unknown>,
+    extra: TExtra,
+  ) =>
+    | Promise<FullArgsCustomizationResult<TCtx, TCustomCtx, TCustomArgs>>
+    | FullArgsCustomizationResult<TCtx, TCustomCtx, TCustomArgs>
 }
 
 function omitKeys(
@@ -1814,20 +1844,23 @@ function omitKeys(
 }
 
 function createFullArgsCustomBuilder<
-  TBuilder extends (definition: any) => unknown,
+  TBuilder extends (...args: never[]) => unknown,
   TCtx,
   TCustomCtx extends object,
   TCustomArgs extends Record<string, unknown>,
   TExtra extends object,
 >(
   builder: TBuilder,
-  customization: Customization<any, PropertyValidators, TCustomCtx, TCustomArgs, TExtra>,
+  customization: FullArgsCustomization<TCtx, TCustomCtx, TCustomArgs, TExtra>,
 ): TBuilder {
   const inputArgs = customization.args ?? {}
   const inputKeys = Object.keys(inputArgs)
-  const customInput =
+  const customInput: NonNullable<
+    FullArgsCustomization<TCtx, TCustomCtx, TCustomArgs, TExtra>['input']
+  > =
     customization.input ??
-    (async () => ({ ctx: {}, args: {} }) as { ctx: TCustomCtx; args: TCustomArgs })
+    (async () =>
+      ({ ctx: {}, args: {} }) as FullArgsCustomizationResult<TCtx, TCustomCtx, TCustomArgs>)
 
   return ((definition: CustomFunctionDefinition) => {
     const { args, handler = definition as unknown, returns, ...extra } = definition
@@ -1838,7 +1871,7 @@ function createFullArgsCustomBuilder<
         )
       }
 
-      return builder({
+      return (builder as unknown as (definition: CustomFunctionDefinition) => unknown)({
         returns,
         handler: async (ctx: unknown, rawArgs: Record<string, unknown>) => {
           const added = await customInput(ctx as TCtx, rawArgs, extra as TExtra)
@@ -1855,7 +1888,7 @@ function createFullArgsCustomBuilder<
       })
     }
 
-    return builder({
+    return (builder as unknown as (definition: CustomFunctionDefinition) => unknown)({
       args: addFieldsToValidator(args, inputArgs) as unknown as PropertyValidators,
       returns,
       handler: async (ctx: unknown, allArgs: Record<string, unknown>) => {
@@ -1873,7 +1906,7 @@ function createFullArgsCustomBuilder<
         return result
       },
     })
-  }) as TBuilder
+  }) as unknown as TBuilder
 }
 
 type ExplicitUnsafeRuntime<

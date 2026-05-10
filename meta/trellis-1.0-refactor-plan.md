@@ -888,7 +888,7 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 
 - [ ] Full unit suite.
 - [x] Type checks.
-- [ ] Lint/format checks.
+- [x] Lint/format checks.
 - [x] Docs API surface.
 - [x] Publish surface.
 - [x] Fixture starter generation.
@@ -913,11 +913,11 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   consumed by `type-primitives`, maintained examples share the current Convex
   dependency set, and stale confirmation-token imports in example tests now use
   the canonical functions path.
-- Sprint 60 is planned to repair the full `pnpm run lint` gate. The known
-  failure groups are example test imports of repo-local confirmation-token
-  internals, one fixture page name, one upgrade regex cleanup, unused fixture
-  imports, permission overload consolidation, backend function type lint debt,
-  and one type-test unused expression.
+- Sprint 60 repaired the full `pnpm run lint` gate and the Slice 13
+  lint/format gate. The cleanup kept the fixes narrow: fixture page naming,
+  upgrade regex simplification, unused fixture imports, permission overload
+  consolidation, backend function type lint debt, and one MCP type-test
+  assertion pattern.
 
 ### Done Means
 
@@ -925,4 +925,4 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 - [ ] No old public path remains unless explicitly listed in this plan.
 - [ ] Trellis 1.0 has one coherent architecture.
 
-IMPORTANT: If everything is finsihed, and you are still prompted to create a new sprint plan, make sure everyting is properly reviewed, and fixed, everything in full ooptimal state, no debt, straight forward code,.. 
+IMPORTANT: If everything is finsihed, and you are still prompted to create a new sprint plan, make sure everyting is properly reviewed, and fixed, everything in full ooptimal state, no debt, straight forward code,..

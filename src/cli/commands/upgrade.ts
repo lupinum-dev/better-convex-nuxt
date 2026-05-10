@@ -103,7 +103,7 @@ function findTokenLocations(
 const backendBuilderNames = new Set(['query', 'mutation', 'action'])
 
 function isTsMorphParseablePath(path: string): boolean {
-  return /\.(?:[cm]?[jt]sx?)$/.test(path)
+  return /\.[cm]?[jt]sx?$/.test(path)
 }
 
 function isTrellisBackendImportSpecifier(specifier: string, sourcePath: string): boolean {

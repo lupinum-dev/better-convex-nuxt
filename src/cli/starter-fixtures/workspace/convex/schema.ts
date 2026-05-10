@@ -1,5 +1,4 @@
-import { defineSchema, defineTable } from 'convex/server'
-import { v } from 'convex/values'
+import { defineSchema } from 'convex/server'
 
 import { todosTables } from './features/todos'
 import { userTables } from './features/users'
@@ -9,5 +8,4 @@ export default defineSchema({
   ...workspaceTables,
   ...userTables,
   ...todosTables,
-
 })
