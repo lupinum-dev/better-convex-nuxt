@@ -114,15 +114,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | template source | src/cli/templates/init/personalActorTemplate.tpl            | replace with fixture manifest       |
 | template source | src/cli/templates/init/personalChecksTemplate.tpl           | replace with fixture manifest       |
 | template source | src/cli/templates/init/personalFunctionsTemplate.tpl        | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalPageTemplate.tpl             | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalPermissionQueryTemplate.tpl  | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalPermissionsTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalSchemaTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalTodosTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/publicFunctionsTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/publicPageTemplate.tpl               | replace with fixture manifest       |
-| template source | src/cli/templates/init/publicSchemaTemplate.tpl             | replace with fixture manifest       |
-| template source | src/cli/templates/init/publicTodosTemplate.tpl              | replace with fixture manifest       |
 | template source | src/cli/templates/init/sharedPageSchemaTemplate.tpl         | replace with fixture manifest       |
 | template source | src/cli/templates/init/testSetupTemplate.tpl                | replace with fixture manifest       |
 | template source | src/cli/templates/init/uploadsContractTemplate.tpl          | replace with fixture manifest       |

@@ -49,7 +49,7 @@ describe('schema boundary policy', () => {
         'examples/08-component-mini-cms/server/mcp',
       ),
       'src/cli/lib/resource.ts',
-      'src/cli/templates/init/personalTodosTemplate.tpl',
+      ...listFiles('src/cli/starter-fixtures/personal/convex'),
       'src/cli/templates/init/workspaceTodosTemplate.tpl',
       'src/cli/templates/init/mcpListTodosToolTemplate.tpl',
       'src/cli/templates/init/mcpCreateTodoToolTemplate.tpl',

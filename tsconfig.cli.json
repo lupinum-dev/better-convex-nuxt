@@ -11,5 +11,5 @@
     "types": ["node"]
   },
   "include": ["src/cli.mts", "src/cli/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "src/cli/starter-fixtures"]
 }

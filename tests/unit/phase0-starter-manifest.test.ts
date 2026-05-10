@@ -8,10 +8,12 @@ type StarterManifest = {
   include: string[]
   exclude: string[]
   generated?: { path: string }[]
+  generatedPaths?: string[]
 }
 
 const fixtureRoot = resolve(process.cwd(), 'tests/fixtures/phase0-workspace-mcp')
 const manifestPath = join(fixtureRoot, 'starter.manifest.json')
+const cliStarterRoot = resolve(process.cwd(), 'src/cli/starter-fixtures')
 
 function matchesPattern(path: string, pattern: string): boolean {
   const deepFileMatch = pattern.match(/^(.+)\/\*\*\/\*(\.[^/]+)$/)
@@ -79,5 +81,90 @@ describe('phase0 workspace-mcp starter manifest', () => {
       'generated/mcp-tool-refs.ts',
     ])
     expect(toFixturePath(manifestPath)).toBe('starter.manifest.json')
+  })
+})
+
+describe('fixture-backed beginner starter manifests', () => {
+  it('keeps the public starter fixture scoped to public app concepts', () => {
+    const root = join(cliStarterRoot, 'public')
+    const manifest = JSON.parse(
+      readFileSync(join(root, 'starter.manifest.json'), 'utf8'),
+    ) as StarterManifest
+    const selected = [
+      '.env.example',
+      '.gitignore',
+      'README.md',
+      'app/app.vue',
+      'app/features/public/components/PublicStarterPage.vue',
+      'app/pages/index.vue',
+      'convex/features/todos/domain.ts',
+      'convex/features/todos/index.ts',
+      'convex/features/todos/schema.ts',
+      'convex/functions.ts',
+      'convex/schema.ts',
+      'nuxt.config.ts',
+      'package.json',
+      'server/api/.gitkeep',
+      'server/mcp/.gitkeep',
+      'shared/features/todos/contract.ts',
+    ]
+
+    for (const path of selected) {
+      expect(existsSync(join(root, path)), path).toBe(true)
+      expect(matchesAny(path, manifest.include), path).toBe(true)
+      expect(matchesAny(path, manifest.exclude), path).toBe(false)
+    }
+
+    const fixtureText = selected.map((path) => readFileSync(join(root, path), 'utf8')).join('\n')
+    expect(fixtureText).not.toContain('@convex-dev/better-auth')
+    expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
+    expect(fixtureText).not.toContain('defineMcpApp')
+    expect(fixtureText).not.toContain('workspaceId')
+    expect(manifest.generatedPaths).toContain('package.json')
+  })
+
+  it('keeps the personal starter fixture scoped to auth without workspace or MCP concepts', () => {
+    const root = join(cliStarterRoot, 'personal')
+    const manifest = JSON.parse(
+      readFileSync(join(root, 'starter.manifest.json'), 'utf8'),
+    ) as StarterManifest
+    const selected = [
+      '.env.example',
+      '.gitignore',
+      'README.md',
+      'app/app.vue',
+      'app/features/personal/components/PersonalStarterPage.vue',
+      'app/pages/index.vue',
+      'convex/auth.config.ts',
+      'convex/auth.ts',
+      'convex/auth/actor.ts',
+      'convex/auth/guards.ts',
+      'convex/convex.config.ts',
+      'convex/features/todos/domain.ts',
+      'convex/features/todos/index.ts',
+      'convex/features/todos/schema.ts',
+      'convex/features/users/index.ts',
+      'convex/features/users/schema.ts',
+      'convex/functions.ts',
+      'convex/http.ts',
+      'convex/schema.ts',
+      'convex/test.setup.ts',
+      'nuxt.config.ts',
+      'package.json',
+      'shared/features/todos/contract.ts',
+    ]
+
+    for (const path of selected) {
+      expect(existsSync(join(root, path)), path).toBe(true)
+      expect(matchesAny(path, manifest.include), path).toBe(true)
+      expect(matchesAny(path, manifest.exclude), path).toBe(false)
+    }
+
+    const fixtureText = selected.map((path) => readFileSync(join(root, path), 'utf8')).join('\n')
+    expect(fixtureText).toContain('@convex-dev/better-auth')
+    expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
+    expect(fixtureText).not.toContain('defineMcpApp')
+    expect(fixtureText).not.toContain('workspaceId')
+    expect(manifest.generatedPaths).toContain('convex/auth.config.ts')
   })
 })

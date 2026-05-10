@@ -1,8 +1,8 @@
 import { requireRecord } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import { createTodo } from '../../shared/features/todos/contract'
-import { mutation, query } from '../functions'
+import { createTodo } from '../../../shared/features/todos/contract'
+import { mutation, query } from '../../functions'
 
 export const list = query.public({
   args: {},

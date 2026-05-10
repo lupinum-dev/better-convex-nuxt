@@ -1,0 +1,23 @@
+# trellis-starter-personal
+
+Generated with `trellis init trellis-starter-personal --template personal`.
+
+## Quick start
+
+```bash
+pnpm install
+pnpm convex:dev
+pnpm dev
+```
+
+## Canonical shape
+
+- `convex/features/` for backend feature modules
+- `shared/features/` for runtime-neutral contracts
+- `convex/auth/` for actor and guard logic
+- `convex/permissions/` for permission projection when the starter uses permission context
+- `app/features/` for feature-owned UI and route shells
+
+## Maintained reference
+
+- Start with the maintained reference: [`02-auth-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/02-auth-todo).

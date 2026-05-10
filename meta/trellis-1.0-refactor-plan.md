@@ -413,8 +413,8 @@ Goal: make tested fixture apps the source of starter generation.
 
 ### Convert Starters
 
-- [ ] `public`.
-- [ ] `personal`.
+- [x] `public`.
+- [x] `personal`.
 - [ ] `workspace`.
 - [ ] `workspace-mcp`.
 - [ ] `cms` is either deleted from Trellis 1.0 or replaced by the decided

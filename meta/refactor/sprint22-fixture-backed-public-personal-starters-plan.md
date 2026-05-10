@@ -57,8 +57,8 @@ The smallest useful cut is `public` plus `personal`:
 Add maintained starter fixtures:
 
 ```text
-tests/fixtures/starter-public/
-tests/fixtures/starter-personal/
+src/cli/starter-fixtures/public/
+src/cli/starter-fixtures/personal/
 ```
 
 Each fixture owns:
@@ -103,49 +103,49 @@ path passes tests.
 
 ### 1. Create Public Starter Fixture
 
-- [ ] Add `tests/fixtures/starter-public/starter.manifest.json`.
-- [ ] Move/copy the current public starter output into the fixture as authored
+- [x] Add `src/cli/starter-fixtures/public/starter.manifest.json`.
+- [x] Move/copy the current public starter output into the fixture as authored
       files.
-- [ ] Keep only source files required for a generated starter.
-- [ ] Exclude all generated/local runtime artifacts.
-- [ ] Ensure the fixture does not include auth, workspace, MCP, bridge, or
+- [x] Keep only source files required for a generated starter.
+- [x] Exclude all generated/local runtime artifacts.
+- [x] Ensure the fixture does not include auth, workspace, MCP, bridge, or
       operation concepts.
 
 ### 2. Create Personal Starter Fixture
 
-- [ ] Add `tests/fixtures/starter-personal/starter.manifest.json`.
-- [ ] Move/copy the current personal starter output into the fixture as authored
+- [x] Add `src/cli/starter-fixtures/personal/starter.manifest.json`.
+- [x] Move/copy the current personal starter output into the fixture as authored
       files.
-- [ ] Keep auth + actor files, but no workspace, MCP, bridge, or operation
+- [x] Keep auth + actor files, but no workspace, MCP, bridge, or operation
       concepts.
-- [ ] Exclude all generated/local runtime artifacts.
-- [ ] Keep fixture source readable enough that starter users can learn from it.
+- [x] Exclude all generated/local runtime artifacts.
+- [x] Keep fixture source readable enough that starter users can learn from it.
 
 ### 3. Wire CLI Init To Fixture Rendering
 
-- [ ] Add a small app-starter fixture resolver.
-- [ ] Convert `public` to render from `starter-public`.
-- [ ] Convert `personal` to render from `starter-personal`.
-- [ ] Preserve existing `applyInitTemplateSet(...)` write semantics.
-- [ ] Preserve README/env/package app-name transforms.
-- [ ] Keep `workspace`, `workspace-mcp`, and `cms` on the existing path for now.
+- [x] Add a small app-starter fixture resolver.
+- [x] Convert `public` to render from `src/cli/starter-fixtures/public`.
+- [x] Convert `personal` to render from `src/cli/starter-fixtures/personal`.
+- [x] Preserve existing `applyInitTemplateSet(...)` write semantics.
+- [x] Preserve README/env/package app-name transforms.
+- [x] Keep `workspace`, `workspace-mcp`, and `cms` on the existing path for now.
 
 ### 4. Delete Replaced Template Sources
 
-- [ ] Delete public-only template functions from `src/cli/lib/init-templates.ts`.
-- [ ] Delete personal-only template functions from `src/cli/lib/init-templates.ts`.
-- [ ] Delete public/personal `.tpl` files no longer referenced.
-- [ ] Remove unused imports from `src/cli/lib/init.ts`.
-- [ ] Do not delete shared templates still used by workspace/CMS/auth helpers.
+- [x] Delete public-only template functions from `src/cli/lib/init-templates.ts`.
+- [x] Delete personal-only template functions from `src/cli/lib/init-templates.ts`.
+- [x] Delete public/personal `.tpl` files no longer referenced.
+- [x] Remove unused imports from `src/cli/lib/init.ts`.
+- [x] Do not delete shared templates still used by workspace/CMS/auth helpers.
 
 ### 5. Tests And Checks
 
-- [ ] Add manifest tests for `starter-public` and `starter-personal`.
-- [ ] Add or update init tests proving public/personal output comes from fixture
+- [x] Add manifest tests for `starter-public` and `starter-personal`.
+- [x] Add or update init tests proving public/personal output comes from fixture
       rendering.
-- [ ] Existing public/personal init tests still pass.
-- [ ] Personal doctor smoke still passes.
-- [ ] Search proves deleted public/personal template functions are gone.
+- [x] Existing public/personal init tests still pass.
+- [x] Personal doctor smoke still passes.
+- [x] Search proves deleted public/personal template functions are gone.
 
 ## Verification
 
@@ -168,8 +168,8 @@ pnpm run check:refactor:surface:inventory
 Search checks:
 
 ```bash
-rg -n "publicFunctionsTemplate|publicTodosTemplate|publicPageTemplate|personalFunctionsTemplate|personalTodosTemplate|personalPageTemplate" src/cli
-rg -n "src/cli/templates/init/(public|personal)" src tests meta
+rg -n "publicFunctionsTemplate|publicTodosTemplate|publicPageTemplate|personalTodosTemplate|personalPageTemplate" src/cli
+rg -n "publicFunctionsTemplate|publicTodosTemplate|publicPageTemplate|personalTodosTemplate|personalPageTemplate" src/cli/templates/init src/cli/lib
 ```
 
 Known non-gates unless this sprint touches them directly:
@@ -181,21 +181,28 @@ pnpm run format:check
 
 ## Acceptance Criteria
 
-- [ ] `trellis init --template public` renders from
-      `tests/fixtures/starter-public/starter.manifest.json`.
-- [ ] `trellis init --template personal` renders from
-      `tests/fixtures/starter-personal/starter.manifest.json`.
-- [ ] Public fixture exposes only public-layer concepts.
-- [ ] Personal fixture exposes auth/personal concepts but no workspace/MCP/bridge
+- [x] `trellis init --template public` renders from
+      `src/cli/starter-fixtures/public/starter.manifest.json`.
+- [x] `trellis init --template personal` renders from
+      `src/cli/starter-fixtures/personal/starter.manifest.json`.
+- [x] Public fixture exposes only public-layer concepts.
+- [x] Personal fixture exposes auth/personal concepts but no workspace/MCP/bridge
       concepts.
-- [ ] Replaced public/personal template code is deleted.
-- [ ] Existing init and doctor tests pass for public/personal.
-- [ ] Slice 7 public/personal items are checked in
+- [x] Replaced public/personal template code is deleted.
+- [x] Existing init and doctor tests pass for public/personal.
+- [x] Slice 7 public/personal items are checked in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Sprint changes are committed after verification.
+- [x] Sprint changes are committed after verification.
 
 ## Next Sprint Candidate
 
 If this sprint lands cleanly, Sprint 23 should convert `workspace` and
 `workspace-mcp` to fixture-backed starters using the same path, then delete the
 remaining old beginner `.tpl` starter source.
+
+## Exit Notes
+
+- Public and personal starter fixtures now live under `src/cli/starter-fixtures` so they are copied into `dist` and ship with the CLI.
+- `getCanonicalAppTemplateSet(...)` keeps the same caller API while public/personal render from fixture manifests.
+- The fixture renderer applies app-name transforms for `package.json` and README content.
+- Old public/personal template functions and replaced `.tpl` files were deleted; shared auth templates still used by workspace/CMS remain.

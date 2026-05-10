@@ -32,19 +32,6 @@ import {
   personalActorTemplate,
   personalChecksTemplate,
   personalFunctionsTemplate,
-  personalPageTemplate,
-  personalSchemaTemplate,
-  personalTodosTemplate,
-  personalTodosIndexTemplate,
-  personalTodosSchemaTemplate,
-  personalUsersIndexTemplate,
-  personalUsersSchemaTemplate,
-  publicFunctionsTemplate,
-  publicPageTemplate,
-  publicSchemaTemplate,
-  publicTodosIndexTemplate,
-  publicTodosSchemaTemplate,
-  publicTodosTemplate,
   routeShellTemplate,
   testSetupTemplate,
   todoContractTemplate,
@@ -75,6 +62,7 @@ import {
   workspaceWorkspacesSchemaTemplate,
 } from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
+import { isFixtureBackedAppTemplate, renderAppStarterFixture } from './starter-fixtures.js'
 
 export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
 
@@ -207,66 +195,12 @@ function mergeTemplateSets(...sets: InitTemplateSet[]): TemplateFile[] {
   return [...merged.values()]
 }
 
-function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
+function buildAppTemplateSet(template: AppTemplate, appName: string): InitTemplateSet {
   if (template === 'public') {
     return {
       label: 'app:public',
       description: 'Bootstrap a public Trellis app inside the current workspace',
-      files: [
-        {
-          path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({ authEnabled: false }),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/functions.ts',
-          content: publicFunctionsTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/schema.ts',
-          content: publicSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/schema.ts',
-          content: publicTodosSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/domain.ts',
-          content: publicTodosTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/index.ts',
-          content: publicTodosIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'shared/features/todos/contract.ts',
-          content: todoContractTemplate('public'),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/public/components/PublicStarterPage.vue',
-          content: publicPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/app.vue',
-          content: appShellTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/index.vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/public/components/PublicStarterPage.vue',
-            componentName: 'PublicStarterPage',
-          }),
-          ownership: 'authored',
-        },
-      ],
+      files: renderAppStarterFixture({ appName, template }),
     }
   }
 
@@ -274,69 +208,7 @@ function buildAppTemplateSet(template: AppTemplate): InitTemplateSet {
     return {
       label: 'app:personal',
       description: 'Bootstrap a personal Trellis app inside the current workspace',
-      files: mergeTemplateSets(
-        buildAuthTemplateSet(),
-        buildPersonalPermissionsTemplateSet(),
-      ).concat([
-        {
-          path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({}),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/schema.ts',
-          content: personalSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/schema.ts',
-          content: personalTodosSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/domain.ts',
-          content: personalTodosTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/todos/index.ts',
-          content: personalTodosIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/users/schema.ts',
-          content: personalUsersSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/users/index.ts',
-          content: personalUsersIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'shared/features/todos/contract.ts',
-          content: todoContractTemplate('personal'),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/personal/components/PersonalStarterPage.vue',
-          content: personalPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/app.vue',
-          content: appShellTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/index.vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/personal/components/PersonalStarterPage.vue',
-            componentName: 'PersonalStarterPage',
-          }),
-          ownership: 'authored',
-        },
-      ]),
+      files: renderAppStarterFixture({ appName, template }),
     }
   }
 
@@ -1149,18 +1021,21 @@ export function getCanonicalAppTemplateSet(options: {
   const mcp = options.mcp === true || options.template === 'workspace-mcp'
   const template = options.template === 'workspace' && mcp ? 'workspace-mcp' : options.template
   const scaffoldTemplate = template === 'workspace-mcp' ? 'workspace-mcp' : options.template
+  const appTemplateSet = buildAppTemplateSet(template, options.appName)
 
   return {
     label: `init:${template}`,
     description: `Bootstrap a ${template} Trellis app`,
-    files: mergeTemplateSets(
-      appScaffoldTemplateSet({
-        appName: options.appName,
-        template: scaffoldTemplate,
-        mcp,
-      }),
-      buildAppTemplateSet(template),
-    ),
+    files: isFixtureBackedAppTemplate(template)
+      ? appTemplateSet.files
+      : mergeTemplateSets(
+          appScaffoldTemplateSet({
+            appName: options.appName,
+            template: scaffoldTemplate,
+            mcp,
+          }),
+          appTemplateSet,
+        ),
     afterWrite: mcp
       ? async (cwd) => {
           await enableNuxtMcpConfig(cwd)

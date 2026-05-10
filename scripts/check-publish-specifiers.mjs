@@ -18,6 +18,7 @@ const targetFiles = ['src/devtools.ts', 'src/module.ts', 'src/cli.mts']
 const supportedSourceFiles = new Set(['.ts', '.mts', '.vue'])
 const allowedExplicitExtensions = ['.js', '.mjs', '.cjs', '.json', '.vue']
 const ignoredFiles = new Set(['src/cli/lib/init.ts'])
+const ignoredDirectories = ['src/cli/starter-fixtures/']
 
 function walk(directory) {
   const entries = []
@@ -44,6 +45,7 @@ function collectFiles() {
   return files.filter((filePath) => {
     const normalized = relative(rootPath, filePath).replaceAll('\\', '/')
     if (ignoredFiles.has(normalized)) return false
+    if (ignoredDirectories.some((directory) => normalized.startsWith(directory))) return false
     return [...supportedSourceFiles].some((extension) => normalized.endsWith(extension))
   })
 }

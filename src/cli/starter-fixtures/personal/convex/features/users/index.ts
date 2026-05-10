@@ -1,0 +1,1 @@
+export { userTables } from './schema'

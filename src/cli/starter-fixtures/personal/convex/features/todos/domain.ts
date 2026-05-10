@@ -1,9 +1,9 @@
 import { v } from 'convex/values'
 
 import { deny } from '@lupinum/trellis/auth'
-import { createTodo } from '../../shared/features/todos/contract'
-import { isAuthenticated } from '../auth/guards'
-import { mutation, query } from '../functions'
+import { createTodo } from '../../../shared/features/todos/contract'
+import { isAuthenticated } from '../../auth/guards'
+import { mutation, query } from '../../functions'
 
 export const list = query.protected({
   args: {},

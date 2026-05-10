@@ -1,0 +1,24 @@
+{
+  "name": "public",
+  "description": "Fixture-backed public Trellis starter.",
+  "include": [
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "app/**",
+    "convex/**/*.ts",
+    "nuxt.config.ts",
+    "package.json",
+    "server/**",
+    "shared/**/*.ts"
+  ],
+  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**", "coverage/**"],
+  "generatedPaths": [
+    ".env.example",
+    ".gitignore",
+    "README.md",
+    "package.json",
+    "server/api/.gitkeep",
+    "server/mcp/.gitkeep"
+  ]
+}
