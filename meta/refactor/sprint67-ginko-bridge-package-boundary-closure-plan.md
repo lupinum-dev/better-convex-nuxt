@@ -42,45 +42,56 @@ turns that assumption into a committed proof.
 
 ### 1. Verify Ginko Package Dependencies
 
-- [ ] Confirm root `package.json`, `packages/cms/package.json`, and
+- [x] Confirm root `package.json`, `packages/cms/package.json`, and
       `packages/convex/package.json` declare `@lupinum/trellis-bridge`.
-- [ ] Confirm no Ginko package still imports bridge APIs from
+- [x] Confirm no Ginko package still imports bridge APIs from
       `@lupinum/trellis/functions`.
-- [ ] Confirm no Ginko package still imports from `@lupinum/trellis/bridge`.
+- [x] Confirm no Ginko package still imports from `@lupinum/trellis/bridge`.
 
 ### 2. Verify Authored Bridge Ownership
 
-- [ ] Inspect `packages/cms/src/module/bridge-manifest.ts`,
+- [x] Inspect `packages/cms/src/module/bridge-manifest.ts`,
       `packages/cms/src/module/convex.ts`, and `packages/cms/src/cli/ginko-cms.ts`.
-- [ ] Confirm authored Ginko bridge manifest/check/CLI code imports bridge
+- [x] Confirm authored Ginko bridge manifest/check/CLI code imports bridge
       helpers from `@lupinum/trellis-bridge`.
-- [ ] Confirm Ginko CLI remains the owner of user-facing bridge commands
+- [x] Confirm Ginko CLI remains the owner of user-facing bridge commands
       (`ginko-cms bridge ...`), not Trellis root CLI.
 
 ### 3. Run Focused Ginko Boundary Tests
 
-- [ ] Run `pnpm exec vitest run test/module/package-boundaries.test.ts`.
-- [ ] Run `pnpm exec vitest run test/module/manifest.test.ts test/module/module-bridge.test.ts`.
-- [ ] Run any existing publish-specifier/package-surface check if cheap and
+- [x] Run `pnpm exec vitest run test/module/package-boundaries.test.ts`.
+- [x] Run `pnpm exec vitest run test/module/manifest.test.ts test/module/module-bridge.test.ts`.
+- [x] Run any existing publish-specifier/package-surface check if cheap and
       stable.
-- [ ] Record any failures as blockers instead of weakening tests.
+- [x] Run `pnpm run check:installer-bridge-boundary`.
+- [x] Record any failures as blockers instead of weakening tests.
 
 ### 4. Update Trellis Tracker
 
-- [ ] Mark the Ginko `@lupinum/trellis-bridge` dependency item complete only
+- [x] Mark the Ginko `@lupinum/trellis-bridge` dependency item complete only
       after package dependency evidence passes.
-- [ ] Mark the authored bridge/import migration item complete only after focused
+- [x] Mark the authored bridge/import migration item complete only after focused
       package-boundary tests pass.
-- [ ] Add a Sprint 67 completion note to
+- [x] Add a Sprint 67 completion note to
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Leave raw forwarding, docs wording, packed package install, full
+- [x] Leave raw forwarding, docs wording, packed package install, full
       `pnpm run check`, and full bridge package/e2e gates open.
 
 ### 5. Verify Trellis Plan State
 
-- [ ] `pnpm run check:repo-policies`
-- [ ] `pnpm exec oxfmt --check meta/refactor/sprint67-ginko-bridge-package-boundary-closure-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check` in Trellis and Ginko.
+- [x] `pnpm run check:repo-policies`
+- [x] `pnpm exec oxfmt --check meta/refactor/sprint67-ginko-bridge-package-boundary-closure-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check` in Trellis and Ginko.
+
+## Result
+
+- Ginko root, CMS, and Convex packages already declare
+  `@lupinum/trellis-bridge`.
+- Authored Ginko bridge manifest, module startup validation, and CLI bridge code
+  import bridge helpers from `@lupinum/trellis-bridge`.
+- Focused Ginko boundary tests pass and prove deleted root/core bridge imports
+  stay out of release-facing source.
+- No Ginko source change was needed in this sprint.
 
 ## Done Means
 

@@ -795,9 +795,9 @@ the design, without letting them keep old Trellis paths alive.
 
 ### Ginko CMS Package Cutover
 
-- [ ] Add `@lupinum/trellis-bridge` package dependency where Ginko package
+- [x] Add `@lupinum/trellis-bridge` package dependency where Ginko package
       author code needs bridge APIs.
-- [ ] Migrate Ginko authored bridge manifest code, generated
+- [x] Migrate Ginko authored bridge manifest code, generated
       `convex/manifest.{js,d.ts}`, CLI bridge checks, module startup validation,
       and package dependencies away from `@lupinum/trellis/functions` and
       `@lupinum/trellis/bridge`.
@@ -817,7 +817,7 @@ the design, without letting them keep old Trellis paths alive.
 - [x] Trellis examples/harness validation passes for retained targets.
 - [ ] Packed Trellis packages install into Ginko CMS.
 - [ ] Ginko CMS `pnpm run check` passes against packed Trellis packages.
-- [ ] Ginko CMS package-boundary and no-zombie-path tests pass after import
+- [x] Ginko CMS package-boundary and no-zombie-path tests pass after import
       updates.
 - [x] Ginko destructive MCP confirmation tests pass using only
       `mcp.tool.operation(...)`.
@@ -966,6 +966,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   evidence: package dependencies, authored bridge imports, CLI bridge ownership,
   and focused Ginko package-boundary/manifest/module-bridge tests. It should
   leave raw forwarding and full packed-package validation open.
+- Sprint 67 closed the Ginko bridge package-boundary items by verification.
+  Root, CMS, and Convex packages declare `@lupinum/trellis-bridge`; authored
+  bridge manifest, module validation, and CLI bridge code import from
+  `@lupinum/trellis-bridge`; package-boundary, manifest, module-bridge,
+  publish-specifier, and installer bridge-boundary checks pass. Raw forwarding
+  and full packed-package validation remain open.
 
 ### Done Means
 
