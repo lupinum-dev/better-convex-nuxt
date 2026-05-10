@@ -451,7 +451,7 @@ docs generation, and future explain commands.
 
 - [x] Versioned inventory JSON schema.
 - [x] Inventory reads app inventory first.
-- [ ] Inventory includes layers, features, permissions, operations, tools,
+- [x] Inventory includes layers, features, permissions, operations, tools,
       unsafe permits, forwarding config, public surface, bridge packages.
 - [x] Inventory JSON is safe to share: no secrets, raw envelopes, bearer tokens,
       raw principal/delegation payloads, confirmation payloads, or user data.
@@ -539,6 +539,9 @@ docs generation, and future explain commands.
 - Sprint 44 is planned to add structured bridge package inventory so
   `layers.bridge` has explainable dependency/source evidence without loading
   bridge manifests or executing app code.
+- Sprint 44 added `inventory.bridge` with static dependency/source-reference
+  bridge package evidence and now derives `layers.bridge` from
+  `inventory.bridge.enabled`, completing the broad inventory coverage checklist.
 
 ### Done Means
 

@@ -60,6 +60,19 @@ type DoctorInventoryJsonReport = {
       mcp: boolean
       bridge: boolean
     }
+    bridge: {
+      enabled: boolean
+      packages: Array<{
+        packageName: string
+        source:
+          | 'dependency'
+          | 'devDependency'
+          | 'optionalDependency'
+          | 'peerDependency'
+          | 'source-reference'
+        location: { path: string; line: number } | null
+      }>
+    }
     files: {
       nuxtConfig: string | null
       convexHttp: string | null
@@ -617,6 +630,10 @@ describe('CLI doctor', () => {
         mcp: starter.mcp,
         bridge: false,
       })
+      expect(report.inventory.bridge).toEqual({
+        enabled: false,
+        packages: [],
+      })
       expect(report.inventory.files.nuxtConfig).toBe('nuxt.config.ts')
       expect(report.inventory.files.appInventory).toBe(null)
       expect(report.inventory.surfaces.permissions).toBe(starter.workspace)
@@ -723,6 +740,78 @@ describe('CLI doctor', () => {
       expect(report.inventory.publicSurface.tools.length).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.findings).toEqual([])
     }
+  })
+
+  it('reports bridge dependency inventory without loading bridge packages', () => {
+    const cwd = createTempDir('trellis-doctor-bridge-dependency-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'public', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    const packageJsonPath = resolve(appRoot, 'package.json')
+    const packageJson = JSON.parse(read(packageJsonPath)) as {
+      dependencies?: Record<string, string>
+    }
+    packageJson.dependencies = {
+      ...packageJson.dependencies,
+      '@lupinum/trellis-bridge': 'workspace:*',
+    }
+    writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.inventory.layers.bridge).toBe(true)
+    expect(report.inventory.layers.bridge).toBe(report.inventory.bridge.enabled)
+    expect(report.inventory.bridge.packages).toEqual([
+      {
+        packageName: '@lupinum/trellis-bridge',
+        source: 'dependency',
+        location: null,
+      },
+    ])
+  })
+
+  it('reports bridge source references with safe snippet-free evidence', () => {
+    const cwd = createTempDir('trellis-doctor-bridge-source-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'public', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+
+    mkdirSync(resolve(appRoot, 'server/api'), { recursive: true })
+    writeFileSync(
+      resolve(appRoot, 'server/api/ginko.ts'),
+      "const fixtureOnlySecret = 'do-not-leak-bridge-source-snippet'\nimport '@lupinum/ginko-cms'\n",
+    )
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const serializedInventory = JSON.stringify(report.inventory)
+
+    expect(result.status, result.stderr).toBe(0)
+    expect(report.inventory.layers.bridge).toBe(true)
+    expect(report.inventory.layers.bridge).toBe(report.inventory.bridge.enabled)
+    expect(report.inventory.bridge.packages).toEqual([
+      {
+        packageName: '@lupinum/ginko-cms',
+        source: 'source-reference',
+        location: {
+          path: 'server/api/ginko.ts',
+          line: 2,
+        },
+      },
+    ])
+    expect(serializedInventory).not.toContain('do-not-leak-bridge-source-snippet')
+    expect(serializedInventory).not.toContain("import '@lupinum/ginko-cms'")
   })
 
   it('discovers canonical static app inventory without executing app code', () => {

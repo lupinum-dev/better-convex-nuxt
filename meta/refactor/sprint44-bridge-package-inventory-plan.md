@@ -96,35 +96,35 @@ guessing from arbitrary package names.
 
 ### 1. Extend Inventory Types
 
-- [ ] Add bridge package/source inventory types.
-- [ ] Add `bridge` to `TrellisCliInventory`.
-- [ ] Derive `layers.bridge` from `bridge.enabled`.
-- [ ] Keep `schemaVersion: 1` unless the output contract needs a breaking bump.
+- [x] Add bridge package/source inventory types.
+- [x] Add `bridge` to `TrellisCliInventory`.
+- [x] Derive `layers.bridge` from `bridge.enabled`.
+- [x] Keep `schemaVersion: 1` unless the output contract needs a breaking bump.
 
 ### 2. Collect Bridge Package Facts
 
-- [ ] Read bridge-related dependencies from package metadata.
-- [ ] Find source references to `@lupinum/trellis-bridge` and
+- [x] Read bridge-related dependencies from package metadata.
+- [x] Find source references to `@lupinum/trellis-bridge` and
       `@lupinum/ginko-cms`.
-- [ ] Return safe file/line locations for source references.
-- [ ] Deduplicate repeated package/source pairs.
-- [ ] Do not load manifests or execute package code.
+- [x] Return safe file/line locations for source references.
+- [x] Deduplicate repeated package/source pairs.
+- [x] Do not load manifests or execute package code.
 
 ### 3. Update Tests
 
-- [ ] Generated starter doctor JSON keeps `bridge.enabled: false`.
-- [ ] A fixture app with `@lupinum/trellis-bridge` dependency reports a bridge
+- [x] Generated starter doctor JSON keeps `bridge.enabled: false`.
+- [x] A fixture app with `@lupinum/trellis-bridge` dependency reports a bridge
       dependency package entry.
-- [ ] A fixture app with a source import of `@lupinum/ginko-cms` reports a safe
+- [x] A fixture app with a source import of `@lupinum/ginko-cms` reports a safe
       source-reference package entry.
-- [ ] `layers.bridge` agrees with `bridge.enabled`.
-- [ ] Inventory JSON remains snippet-free.
+- [x] `layers.bridge` agrees with `bridge.enabled`.
+- [x] Inventory JSON remains snippet-free.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 sprint notes.
-- [ ] Mark the broad inventory coverage checkbox complete only if bridge
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 sprint notes.
+- [x] Mark the broad inventory coverage checkbox complete only if bridge
       package inventory makes the listed inventory categories complete.
 
 ## Verification
@@ -159,11 +159,20 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `TrellisCliInventory` exposes structured `bridge` metadata.
-- [ ] `layers.bridge` is derived from `bridge.enabled`.
-- [ ] Bridge package inventory includes dependency and safe source-reference
+- [x] `TrellisCliInventory` exposes structured `bridge` metadata.
+- [x] `layers.bridge` is derived from `bridge.enabled`.
+- [x] Bridge package inventory includes dependency and safe source-reference
       evidence.
-- [ ] Inventory collection does not load bridge manifests or execute app code.
-- [ ] Generated starters still report bridge disabled.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Inventory collection does not load bridge manifests or execute app code.
+- [x] Generated starters still report bridge disabled.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `inventory.bridge` with static package dependency and source-reference
+  evidence for `@lupinum/trellis-bridge` and `@lupinum/ginko-cms`.
+- `layers.bridge` now derives from `inventory.bridge.enabled`, so doctor JSON has
+  one bridge layer source of truth.
+- Source-reference evidence includes only package name plus safe file/line
+  location. It does not include source snippets or manifest content.

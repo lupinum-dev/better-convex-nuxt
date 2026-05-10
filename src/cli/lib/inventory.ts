@@ -129,6 +129,24 @@ export interface TrellisCliInventoryUnsafeEntrypoint {
   }
 }
 
+export type TrellisCliInventoryBridgePackageSource =
+  | 'dependency'
+  | 'devDependency'
+  | 'optionalDependency'
+  | 'peerDependency'
+  | 'source-reference'
+
+export interface TrellisCliInventoryBridgePackage {
+  packageName: string
+  source: TrellisCliInventoryBridgePackageSource
+  location: TrellisCliInventorySourceLocation | null
+}
+
+export interface TrellisCliInventoryBridge {
+  enabled: boolean
+  packages: TrellisCliInventoryBridgePackage[]
+}
+
 export interface TrellisCliInventory {
   schemaVersion: 1
   cwd: string
@@ -145,6 +163,7 @@ export interface TrellisCliInventory {
     mcp: boolean
     bridge: boolean
   }
+  bridge: TrellisCliInventoryBridge
   files: {
     nuxtConfig: string | null
     convexHttp: string | null
@@ -413,6 +432,109 @@ function collectUnsafeEntrypoints(
   })
 }
 
+const bridgePackageNames = ['@lupinum/trellis-bridge', '@lupinum/ginko-cms'] as const
+
+type BridgeDependencyBucket =
+  | 'dependencies'
+  | 'devDependencies'
+  | 'optionalDependencies'
+  | 'peerDependencies'
+
+const bridgeDependencyBuckets = [
+  'dependencies',
+  'devDependencies',
+  'optionalDependencies',
+  'peerDependencies',
+] as const satisfies BridgeDependencyBucket[]
+
+const bridgePackageSourceByBucket: Record<
+  BridgeDependencyBucket,
+  TrellisCliInventoryBridgePackageSource
+> = {
+  dependencies: 'dependency',
+  devDependencies: 'devDependency',
+  optionalDependencies: 'optionalDependency',
+  peerDependencies: 'peerDependency',
+}
+
+function readPackageDependencyNames(
+  project: ProjectInspection,
+  bucket: BridgeDependencyBucket,
+): string[] {
+  const dependencies = project.packageJson?.[bucket]
+  if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) return []
+  return Object.keys(dependencies)
+}
+
+function lineForTextOffset(text: string, offset: number): number {
+  let line = 1
+  for (let index = 0; index < offset; index += 1) {
+    if (text.charCodeAt(index) === 10) line += 1
+  }
+  return line
+}
+
+function collectBridgeInventory(project: ProjectInspection): TrellisCliInventoryBridge {
+  const packages: TrellisCliInventoryBridgePackage[] = []
+  const seen = new Set<string>()
+
+  function addPackage(entry: TrellisCliInventoryBridgePackage) {
+    const key = [
+      entry.packageName,
+      entry.source,
+      entry.location?.path ?? '',
+      entry.location?.line ?? '',
+    ].join('\0')
+
+    if (seen.has(key)) return
+    seen.add(key)
+    packages.push(entry)
+  }
+
+  for (const bucket of bridgeDependencyBuckets) {
+    const dependencyNames = new Set(readPackageDependencyNames(project, bucket))
+
+    for (const packageName of bridgePackageNames) {
+      if (!dependencyNames.has(packageName)) continue
+
+      addPackage({
+        packageName,
+        source: bridgePackageSourceByBucket[bucket],
+        location: null,
+      })
+    }
+  }
+
+  for (const sourceFile of project.sourceFiles) {
+    for (const packageName of bridgePackageNames) {
+      const offset = sourceFile.text.indexOf(packageName)
+      if (offset === -1) continue
+
+      addPackage({
+        packageName,
+        source: 'source-reference',
+        location: toInventoryLocation(project, {
+          path: sourceFile.path,
+          line: lineForTextOffset(sourceFile.text, offset),
+        }),
+      })
+    }
+  }
+
+  packages.sort(
+    (a, b) =>
+      a.packageName.localeCompare(b.packageName) ||
+      a.source.localeCompare(b.source) ||
+      (a.location?.path ?? '').localeCompare(b.location?.path ?? '') ||
+      (a.location?.line ?? 0) - (b.location?.line ?? 0),
+  )
+
+  return {
+    enabled: packages.length > 0,
+    packages,
+  }
+}
+
 function unwrapExpression(node: Node | undefined): Node | undefined {
   if (!node) return undefined
 
@@ -600,6 +722,7 @@ export function collectTrellisCliInventory(
     hasDependency(project, '@nuxtjs/mcp-toolkit') ||
     facts.trustedForwardingExpected ||
     hasSourcePath(project, /[/\\]server[/\\]mcp[/\\]/)
+  const bridge = collectBridgeInventory(project)
 
   return {
     schemaVersion: 1,
@@ -620,11 +743,9 @@ export function collectTrellisCliInventory(
           Boolean(convexHttpSource)),
       workspace: hasWorkspaceLayer,
       mcp: hasMcpLayer,
-      bridge:
-        hasDependency(project, '@lupinum/trellis-bridge') ||
-        hasDependency(project, '@lupinum/ginko-cms') ||
-        hasSourceText(project, /@lupinum\/trellis-bridge|@lupinum\/ginko-cms/),
+      bridge: bridge.enabled,
     },
+    bridge,
     files: {
       nuxtConfig: toRelative(project, project.nuxtConfigPath),
       convexHttp: toRelative(project, convexHttpSource?.path),
