@@ -575,32 +575,44 @@ docs generation, and future explain commands.
 
 ## Slice 9: Bridge Extraction
 
-Status: pending
+Status: in progress
 
 Goal: remove packaged integration machinery from the normal app surface.
 
+### Progress Notes
+
+- Sprint 48 reconciled this slice with earlier bridge package work. The bridge
+  package boundary, manifest/runtime helpers, package tests, and root/backend
+  export removals were already in place.
+- Sprint 48 added a repo policy check that fails when `src` imports
+  `@lupinum/trellis-bridge` or reaches into `packages/trellis-bridge`,
+  preserving the core -> bridge dependency direction.
+- Package-author docs cleanup, full Ginko cross-repo E2E, and remaining generic
+  `cms` naming cleanup stay open because they are not proven by the local bridge
+  package boundary tests.
+
 ### Move
 
-- [ ] Create `@lupinum/trellis-bridge` package boundary.
-- [ ] Move component bridge manifest helpers.
-- [ ] Move bridge install/check/generate/inspect support.
+- [x] Create `@lupinum/trellis-bridge` package boundary.
+- [x] Move component bridge manifest helpers.
+- [x] Move bridge install/check/generate/inspect support.
 - [ ] Move package-author docs.
 
 ### Delete
 
-- [ ] Delete bridge exports from core/root/functions package.
+- [x] Delete bridge exports from core/root/functions package.
 - [ ] Delete bridge concepts from beginner starter docs.
 - [ ] Delete any Ginko-specific naming from generic Trellis APIs.
 
 ### Keep
 
-- [ ] Keep minimal Ginko-shaped fixture in Trellis.
+- [x] Keep minimal Ginko-shaped fixture in Trellis.
 - [ ] Keep full Ginko E2E in Ginko repo.
 
 ### Prove
 
-- [ ] Core package does not import bridge.
-- [ ] Bridge package can use forwarding and backend descriptors without core
+- [x] Core package does not import bridge.
+- [x] Bridge package can use forwarding and backend descriptors without core
       depending on bridge.
 - [x] Ginko-shaped fixture passes.
 - [x] Bridge callers use signed envelopes with `transport: "bridge"` and exact

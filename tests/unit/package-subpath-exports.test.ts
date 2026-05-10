@@ -48,12 +48,12 @@ describe('package subpath exports', () => {
 
     expect(packageJson.exports['./auth'].import).toBe('./dist/runtime/auth/index.mjs')
     expect(packageJson.exports['./args'].import).toBe('./dist/runtime/args/index.mjs')
-    expect(packageJson.exports['./backend'].import).toBe('./dist/runtime/backend/index.mjs')
+    expect(packageJson.exports['./backend'].import).toBe('./dist/runtime/backend/index.js')
     expect(packageJson.exports['./composables'].import).toBe('./dist/runtime/composables/index.mjs')
     expect(packageJson.exports['./feature'].import).toBe('./dist/runtime/feature/index.js')
     expect(packageJson.exports['./mcp'].import).toBe('./dist/runtime/mcp/index.mjs')
     expect(packageJson.exports['./trusted-forwarding'].import).toBe(
-      './dist/runtime/trusted-forwarding/index.mjs',
+      './dist/runtime/trusted-forwarding/index.js',
     )
     expect(packageJson.exports['./visibility'].import).toBe('./dist/runtime/visibility/index.mjs')
     expect(packageJson.exports['./server'].import).toBe('./dist/runtime/server/index.mjs')
