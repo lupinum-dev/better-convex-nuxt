@@ -65,6 +65,7 @@ export type {
   InferPermissionContext,
   PermissionContextBase,
   PermissionContextDefinition,
+  PermissionFlags,
   PermissionKey,
   ValidatePermissionKey,
 } from './define-permission-context.js'

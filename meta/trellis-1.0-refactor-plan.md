@@ -991,6 +991,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   fix that with one clean type boundary, not broad per-handler annotations, and
   should leave packed-package validation and docs/setup wording open unless
   those gates actually pass.
+- Sprint 69 completed the Ginko Convex declaration portability gate. Ginko's
+  Convex package now preserves workspace symlink package boundaries during
+  declaration emit, Trellis exports the `PermissionFlags` type needed by public
+  permission-context definitions, and stale Ginko bridge-module call sites were
+  cut over to explicit `functionRefModule` inputs. Focused Ginko bridge tests,
+  Ginko Convex package typecheck, full Ginko `pnpm run typecheck`, Trellis
+  focused backend/forwarding/bridge tests, and Trellis repo-policy checks pass.
+  Full `pnpm run check`, packed Trellis install validation, and Ginko docs/setup
+  wording remain open.
 
 ### Done Means
 
