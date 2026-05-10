@@ -1,5 +1,5 @@
 import { defineGuard } from '@lupinum/trellis/auth'
-import { definePrincipal, defineTrellis } from '@lupinum/trellis/functions'
+import { definePrincipal, defineTrellis } from '@lupinum/trellis/backend'
 import { getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
 
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/principal'

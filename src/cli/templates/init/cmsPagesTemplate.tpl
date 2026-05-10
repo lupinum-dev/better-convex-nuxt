@@ -1,4 +1,4 @@
-import { open, requireRecord } from '@lupinum/trellis/auth'
+import { requireRecord } from '@lupinum/trellis/auth'
 import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
@@ -16,10 +16,9 @@ import {
 import { canEditPage, canPublishPage, isAuthenticated } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 
-export const listPublished = query({
+export const listPublished = query.public({
   args: listPublishedPagesSchema.args,
   returns: v.array(publishedPageValidator),
-  guard: open,
   handler: async (ctx) =>
     await ctx.db
       .query('pages')
@@ -40,10 +39,9 @@ export const listPublished = query({
       ),
 })
 
-export const getPublished = query({
+export const getPublished = query.public({
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
-  guard: open,
   handler: async (ctx, args) => {
     const page = await ctx.db
       .query('pages')
@@ -67,7 +65,7 @@ export const getPublished = query({
   },
 })
 
-export const listStudio = query({
+export const listStudio = query.protected({
   args: listStudioPagesSchema.args,
   returns: v.array(studioPageValidator),
   guard: isAuthenticated,
@@ -95,7 +93,7 @@ export const listStudio = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createPageSchema.args,
   returns: v.id('pages'),
   guard: isAuthenticated,
@@ -116,7 +114,7 @@ export const create = mutation({
   },
 })
 
-export const save = mutation({
+export const save = mutation.protected({
   args: saveDraftSchema.args,
   returns: v.null(),
   guard: isAuthenticated,
@@ -195,5 +193,5 @@ const publishPageOp = defineOperation({
   },
 })
 
-export const publish = mutation(publishPageOp)
-export const previewPublish = query(previewOf(publishPageOp))
+export const publish = mutation.protected(publishPageOp)
+export const previewPublish = query.protected(previewOf(publishPageOp))

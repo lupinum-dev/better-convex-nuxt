@@ -1,4 +1,4 @@
-import { previewOperationRef, transportExecuteOperationRef } from '@lupinum/trellis/functions'
+import { previewOperationRef, transportExecuteOperationRef } from '@lupinum/trellis/backend'
 
 import { publishPageOp } from '../../../convex/components/miniCms/features/pages/operations'
 import { previewPublish, publishAction } from '../../../convex/features/pages/domain'

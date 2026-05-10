@@ -1,5 +1,5 @@
 import { requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { publishPage, publishPreviewValidator } from '../../../../../shared/features/pages/contract'
@@ -62,4 +62,4 @@ export const publishPageOp = defineOperation({
   },
 })
 
-export const previewPublish = query(previewOf(publishPageOp))
+export const previewPublish = query.protected(previewOf(publishPageOp))

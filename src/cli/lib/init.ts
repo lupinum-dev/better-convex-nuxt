@@ -1118,8 +1118,8 @@ export const ${exportName}Op = defineOperation({
   },
 })
 
-export const preview${exportName} = query(previewOf(${exportName}Op))
-export const execute${exportName} = mutation(${exportName}Op)
+export const preview${exportName} = query.protected(previewOf(${exportName}Op))
+export const execute${exportName} = mutation.protected(${exportName}Op)
 `.trimStart()
   }
 

@@ -26,85 +26,85 @@ extraction as a later, explicit sprint.
 
 ### 1. Root Mini CMS App
 
-- [ ] Replace root app imports from `@lupinum/trellis/functions` with
+- [x] Replace root app imports from `@lupinum/trellis/functions` with
       `@lupinum/trellis/backend` where the 1.0 backend surface owns the export.
-- [ ] Convert root page wrappers from old callable builders to explicit lanes:
-  - [ ] `listPublished`
-  - [ ] `getPublished`
-  - [ ] `listStudio`
-  - [ ] `listDraft`
-  - [ ] `create`
-  - [ ] `save`
-  - [ ] `publish`
-  - [ ] `publishAction`
-  - [ ] `previewPublish`
-- [ ] Keep forwarded identity rejection on public root wrappers intact.
-- [ ] Keep the bridge principal forwarding behavior intact.
+- [x] Convert root page wrappers from old callable builders to explicit lanes:
+  - [x] `listPublished`
+  - [x] `getPublished`
+  - [x] `listStudio`
+  - [x] `listDraft`
+  - [x] `create`
+  - [x] `save`
+  - [x] `publish`
+  - [x] `publishAction`
+  - [x] `previewPublish`
+- [x] Keep forwarded identity rejection on public root wrappers intact.
+- [x] Keep the bridge principal forwarding behavior intact.
 
 ### 2. Component Mini CMS Backend
 
-- [ ] Replace component backend imports from `@lupinum/trellis/functions` with
+- [x] Replace component backend imports from `@lupinum/trellis/functions` with
       `@lupinum/trellis/backend` where possible.
-- [ ] Convert component page handlers from old callable builders to explicit
+- [x] Convert component page handlers from old callable builders to explicit
       lanes:
-  - [ ] `listPublished`
-  - [ ] `getPublished`
-  - [ ] `listStudio`
-  - [ ] `listDraft`
-  - [ ] `create`
-  - [ ] `save`
-- [ ] Convert publish operation preview to explicit protected lane.
-- [ ] Preserve `transportMutation(publishPageOp)` for the internal bridge
+  - [x] `listPublished`
+  - [x] `getPublished`
+  - [x] `listStudio`
+  - [x] `listDraft`
+  - [x] `create`
+  - [x] `save`
+- [x] Convert publish operation preview to explicit protected lane.
+- [x] Preserve `transportMutation(publishPageOp)` for the internal bridge
       execute path until the bridge extraction sprint owns that boundary.
-- [ ] Preserve operation metadata and destructive confirmation semantics.
+- [x] Preserve operation metadata and destructive confirmation semantics.
 
 ### 3. Bridge Helper Imports
 
-- [ ] Move bridge helper imports used by example 08 to the narrowest current
+- [x] Move bridge helper imports used by example 08 to the narrowest current
       1.0-compatible surface.
-- [ ] If a helper is not yet exported from `@lupinum/trellis/backend`, either:
+- [x] If a helper is not yet exported from `@lupinum/trellis/backend`, either:
   - [ ] add it there only if it belongs to the backend source of truth; or
-  - [ ] leave the old import documented as the bridge-extraction blocker.
-- [ ] Do not add a broad public barrel or duplicate bridge helper surface.
+  - [x] leave the old import documented as the bridge-extraction blocker.
+- [x] Do not add a broad public barrel or duplicate bridge helper surface.
 
 ### 4. MCP Publish Tool
 
-- [ ] Move operation-ref helper imports away from `@lupinum/trellis/functions`
+- [x] Move operation-ref helper imports away from `@lupinum/trellis/functions`
       if the backend surface already owns them.
-- [ ] Preserve the explicit action-backed operation binding:
-  - [ ] `previewOperationRef(...)`
-  - [ ] `transportExecuteOperationRef(...)`
-  - [ ] `executeOperation: 'action'`
-- [ ] Keep MCP/server files from importing Convex-only implementation modules
+- [x] Preserve the explicit action-backed operation binding:
+  - [x] `previewOperationRef(...)`
+  - [x] `transportExecuteOperationRef(...)`
+  - [x] `executeOperation: 'action'`
+- [x] Keep MCP/server files from importing Convex-only implementation modules
       beyond the existing example fixture boundary; note any remaining boundary
       issue in exit notes.
 
 ### 5. CMS Starter Template
 
-- [ ] Update `src/cli/templates/init/cmsPagesTemplate.tpl` to generate explicit
+- [x] Update `src/cli/templates/init/cmsPagesTemplate.tpl` to generate explicit
       backend lanes instead of old callable builders.
-- [ ] Update `src/cli/templates/init/cmsPermissionQueryTemplate.tpl` to generate
+- [x] Update `src/cli/templates/init/cmsPermissionQueryTemplate.tpl` to generate
       explicit protected lane syntax.
-- [ ] Update `src/cli/lib/init.ts` generated operation snippets if they still
+- [x] Update `src/cli/lib/init.ts` generated operation snippets if they still
       emit `query(previewOf(...))` / `mutation(op)` for CMS starter output.
-- [ ] Do not expand the starter into a Ginko product setup.
+- [x] Do not expand the starter into a Ginko product setup.
 
 ### 6. Test/Alias Updates
 
-- [ ] Add `@lupinum/trellis/backend` alias to the example 08 Vitest config if
+- [x] Add `@lupinum/trellis/backend` alias to the example 08 Vitest config if
       needed.
-- [ ] Update source-string assertions that still expect old imports or builder
+- [x] Update source-string assertions that still expect old imports or builder
       syntax.
-- [ ] Keep generated and dependency directories out of scans.
+- [x] Keep generated and dependency directories out of scans.
 
 ### 7. Verification
 
-- [ ] Run the component mini CMS example test suite.
-- [ ] Run maintained examples doctor check.
-- [ ] Run focused grep over example 08 and CMS templates.
-- [ ] Run public type surface and publish surface checks.
-- [ ] Run refactor inventory check.
-- [ ] Run `git diff --check`.
+- [x] Run the component mini CMS example test suite.
+- [x] Run maintained examples doctor check.
+- [x] Run focused grep over example 08 and CMS templates.
+- [x] Run public type surface and publish surface checks.
+- [x] Run refactor inventory check.
+- [x] Run `git diff --check`.
 
 Suggested commands:
 
@@ -120,23 +120,42 @@ git diff --check
 
 ## Acceptance Criteria
 
-- [ ] Example `08` no longer imports public runtime backend APIs from
+- [x] Example `08` no longer imports public runtime backend APIs from
       `@lupinum/trellis/functions` except for explicitly recorded bridge
       extraction blockers.
-- [ ] Example `08` no longer contains old unclassified backend handler
+- [x] Example `08` no longer contains old unclassified backend handler
       declarations in maintained source files.
-- [ ] Example `08` operation projections use explicit lanes.
-- [ ] CMS starter templates no longer generate old callable backend handlers.
-- [ ] Existing component mini CMS behavior and tests pass.
-- [ ] No new compatibility shim, duplicate public backend path, or bridge
+- [x] Example `08` operation projections use explicit lanes.
+- [x] CMS starter templates no longer generate old callable backend handlers.
+- [x] Existing component mini CMS behavior and tests pass.
+- [x] No new compatibility shim, duplicate public backend path, or bridge
       package facade is added.
 
 ## Exit Notes To Capture
 
-- [ ] Any remaining old `functions` imports and whether they are true
+- [x] Any remaining old `functions` imports and whether they are true
       bridge-extraction blockers.
-- [ ] Whether `createComponentBridge` belongs on the backend surface, a future
+- [x] Whether `createComponentBridge` belongs on the backend surface, a future
       bridge package, or only the current internal functions runtime until
       extraction.
-- [ ] Whether Sprint 10 should tackle bridge package extraction, direct MCP
+- [x] Whether Sprint 10 should tackle bridge package extraction, direct MCP
       mutation safety metadata, or the remaining historical docs/meta cleanup.
+
+## Exit Notes
+
+- The focused grep over example `08` and CMS generator sources has one remaining
+  `@lupinum/trellis/functions` hit:
+  `examples/08-component-mini-cms/convex/features/pages/bridge.ts` imports
+  `createComponentBridge`.
+- `createComponentBridge` is a true bridge-extraction blocker, not a backend
+  source-of-truth export. I did not add it to `@lupinum/trellis/backend` or a
+  duplicate public barrel.
+- Example `08` Vitest aliases `@lupinum/trellis/functions` only for this bridge
+  blocker so the fixture can keep proving bridge behavior while package exports
+  remain hard-cut.
+- `action.public(...)` / `action.protected(...)` / `action.unsafe(...)` lanes
+  were added because the CMS publish action would otherwise be the last old
+  unclassified backend builder in maintained source.
+- Sprint 10 should tackle bridge package extraction before direct MCP mutation
+  safety metadata if we want to remove the final old `functions` import from
+  maintained example source.

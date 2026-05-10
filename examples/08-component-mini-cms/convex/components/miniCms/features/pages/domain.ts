@@ -1,4 +1,3 @@
-import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import {
@@ -61,10 +60,9 @@ function toStudioPage(page: {
   }
 }
 
-export const listPublished = query({
+export const listPublished = query.public({
   args: listPublishedPages.args,
   returns: v.array(publishedPageValidator),
-  guard: open,
   handler: async (ctx) => {
     const pages = await ctx.db
       .query('pages')
@@ -76,10 +74,9 @@ export const listPublished = query({
   },
 })
 
-export const getPublished = query({
+export const getPublished = query.public({
   args: getPublishedPage.args,
   returns: v.union(publishedPageValidator, v.null()),
-  guard: open,
   handler: async (ctx, args) => {
     const page = await ctx.db
       .query('pages')
@@ -91,7 +88,7 @@ export const getPublished = query({
   },
 })
 
-export const listStudio = query({
+export const listStudio = query.protected({
   args: listStudioPages.args,
   returns: v.array(studioPageValidator),
   guard: canManagePages,
@@ -101,7 +98,7 @@ export const listStudio = query({
   },
 })
 
-export const listDraft = query({
+export const listDraft = query.protected({
   args: listDraftPages.args,
   returns: v.array(studioPageValidator),
   guard: canManagePages,
@@ -116,7 +113,7 @@ export const listDraft = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createPage.args,
   returns: v.string(),
   guard: canManagePages,
@@ -144,7 +141,7 @@ export const create = mutation({
   },
 })
 
-export const save = mutation({
+export const save = mutation.protected({
   args: saveDraft.args,
   returns: v.null(),
   guard: canManagePages,

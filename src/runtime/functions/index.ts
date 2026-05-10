@@ -652,7 +652,7 @@ function createUnclassifiedLaneBuilder<TBuilder extends (definition: never) => u
     }
 
     throw new Error(
-      'Unclassified backend handlers are not allowed. Use query.public(...), query.protected(...), query.unsafe(...), mutation.public(...), mutation.protected(...), or mutation.unsafe(...).',
+      'Unclassified backend handlers are not allowed. Use query.public(...), query.protected(...), query.unsafe(...), mutation.public(...), mutation.protected(...), mutation.unsafe(...), action.public(...), action.protected(...), or action.unsafe(...).',
     )
   }) as unknown as TBuilder
 }
@@ -1207,6 +1207,33 @@ type StructuredActionBuilder<
     TLoaded,
     TResult
   >,
+) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
+
+type PublicStructuredActionBuilder<
+  TCtx extends {
+    principal: () => Promise<unknown>
+    delegation: () => Promise<unknown | null>
+  },
+  Visibility extends FunctionVisibility,
+  TActor,
+> = <
+  TArgsValidator extends PropertyValidators,
+  TLoaded extends StructuredLoadedValue = undefined,
+  TResult = unknown,
+>(
+  definition: Omit<
+    StructuredHandlerDefinition<
+      TCtx,
+      Awaited<ReturnType<TCtx['principal']>>,
+      Awaited<ReturnType<TCtx['delegation']>>,
+      TActor,
+      typeof open,
+      TArgsValidator,
+      TLoaded,
+      TResult
+    >,
+    'guard'
+  > & { guard?: never },
 ) => RegisteredAction<Visibility, ObjectType<TArgsValidator>, TResult>
 
 type RuntimeBundle<
@@ -2537,12 +2564,24 @@ function buildTrellisRuntime<
         unsafe: typeof explicitUnsafe.internalMutation
       })
     : undefined
+  const actionWithLanes =
+    action && explicitUnsafe.action
+      ? (attachBackendQueryLanes(action as never, explicitUnsafe.action as never) as typeof action & {
+          public: PublicStructuredActionBuilder<
+            ActionCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
+            ActionVisibility,
+            TActor
+          >
+          protected: typeof action
+          unsafe: typeof explicitUnsafe.action
+        })
+      : undefined
 
   return {
     query: queryWithLanes,
     mutation: mutationWithLanes,
     transportMutation: structured.transportMutation,
-    ...(action ? { action } : {}),
+    ...(actionWithLanes ? { action: actionWithLanes } : {}),
     ...(structuredInternal && internalQueryWithLanes && internalMutationWithLanes
       ? {
           internalQuery: internalQueryWithLanes,
@@ -2562,6 +2601,7 @@ function buildTrellisRuntime<
         },
         {
           principal: resolvePrincipal(options.principal),
+          trustedForwardingKey: options.trustedForwardingKey,
         },
       ),
   }

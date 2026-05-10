@@ -1,4 +1,4 @@
-import { defineTrellis } from '@lupinum/trellis/functions'
+import { defineTrellis } from '@lupinum/trellis/backend'
 
 import {
   action as generatedAction,
@@ -10,18 +10,25 @@ import {
 } from './_generated/server'
 import { getActorFromPrincipal, principal } from './auth/principal'
 
-export const { action, internalAction, internalMutation, internalQuery, mutation, query, unsafe } =
-  defineTrellis(
-    {
-      action: generatedAction,
-      internalAction: generatedInternalAction,
-      query: generatedQuery,
-      mutation: generatedMutation,
-      internalQuery: generatedInternalQuery,
-      internalMutation: generatedInternalMutation,
-    },
-    {
-      principal,
-      actor: getActorFromPrincipal,
-    },
-  )
+export const {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  unsafe,
+} = defineTrellis(
+  {
+    action: generatedAction,
+    internalAction: generatedInternalAction,
+    query: generatedQuery,
+    mutation: generatedMutation,
+    internalQuery: generatedInternalQuery,
+    internalMutation: generatedInternalMutation,
+  },
+  {
+    principal,
+    actor: getActorFromPrincipal,
+  },
+)

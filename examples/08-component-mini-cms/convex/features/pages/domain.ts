@@ -1,4 +1,3 @@
-import { open } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
 import {
@@ -42,18 +41,16 @@ async function bridgePrincipalArgs(ctx: {
 
 const bridgeApi: typeof internal.features.pages.bridge = internal.features.pages.bridge
 
-export const listPublished = query({
+export const listPublished = query.public({
   args: listPublishedPagesSchema.args,
   returns: publishedPageListValidator,
-  guard: open,
   handler: async (ctx) =>
     await ctx.runQuery(bridgeApi.listPublished, await bridgePrincipalArgs(ctx)),
 })
 
-export const getPublished = query({
+export const getPublished = query.public({
   args: getPublishedPageSchema.args,
   returns: v.union(publishedPageValidator, v.null()),
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runQuery(bridgeApi.getPublished, {
       ...args,
@@ -61,24 +58,21 @@ export const getPublished = query({
     }),
 })
 
-export const listStudio = query({
+export const listStudio = query.public({
   args: listStudioPagesSchema.args,
   returns: studioPageListValidator,
-  guard: open,
   handler: async (ctx) => await ctx.runQuery(bridgeApi.listStudio, await bridgePrincipalArgs(ctx)),
 })
 
-export const listDraft = query({
+export const listDraft = query.public({
   args: listDraftPagesSchema.args,
   returns: studioPageListValidator,
-  guard: open,
   handler: async (ctx) => await ctx.runQuery(bridgeApi.listDraft, await bridgePrincipalArgs(ctx)),
 })
 
-export const create = mutation({
+export const create = mutation.public({
   args: createPageSchema.args,
   returns: v.string(),
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runMutation(bridgeApi.create, {
       ...args,
@@ -86,10 +80,9 @@ export const create = mutation({
     }),
 })
 
-export const save = mutation({
+export const save = mutation.public({
   args: saveDraftSchema.args,
   returns: v.null(),
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runMutation(bridgeApi.save, {
       ...args,
@@ -97,10 +90,9 @@ export const save = mutation({
     }),
 })
 
-export const publish = mutation({
+export const publish = mutation.public({
   args: publishPageSchema.args,
   returns: publishResultValidator,
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runMutation(bridgeApi.publish, {
       ...args,
@@ -108,10 +100,9 @@ export const publish = mutation({
     }),
 })
 
-export const publishAction = action({
+export const publishAction = action.public({
   args: publishPageSchema.args,
   returns: publishResultValidator,
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runMutation(bridgeApi.publish, {
       ...args,
@@ -119,10 +110,9 @@ export const publishAction = action({
     }),
 })
 
-export const previewPublish = query({
+export const previewPublish = query.public({
   args: publishPageSchema.args,
   returns: publishPreviewResultValidator,
-  guard: open,
   handler: async (ctx, args) =>
     await ctx.runQuery(bridgeApi.previewPublish, {
       ...args,
