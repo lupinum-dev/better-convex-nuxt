@@ -518,6 +518,9 @@ docs generation, and future explain commands.
 - Sprint 40 moved `generate-api-surface.mjs` onto
   `collectRepoPublicSurfaceInventory(...)`, removing duplicate docs-surface
   scanners while keeping generated API surface output stable.
+- Sprint 41 is planned to add structured source metadata to doctor and upgrade
+  findings so security findings can cite inventory paths and safe file/line
+  evidence without parsing human-readable messages.
 
 ### Done Means
 
