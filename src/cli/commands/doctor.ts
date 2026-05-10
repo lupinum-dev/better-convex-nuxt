@@ -94,9 +94,9 @@ function createDoctorFindings(
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.operation\s*\(/.test(file.text),
   )
-  const unsafeSurfaceInventory = inventoryFacts.unsafeSurfaceInventory
-  const crossTenantEscapeInventory = inventoryFacts.crossTenantEscapeInventory
-  const destructiveOperationInventory = inventoryFacts.destructiveOperationInventory
+  const unsafeSurfaceInventory = inventory.backend.unsafeEntrypoints
+  const crossTenantEscapeInventory = inventory.backend.crossTenantEscapes
+  const destructiveOperationInventory = inventory.backend.destructiveOperations
   const mcpRateLimitExpected = inventory.mcp.rateLimit.expected
   const mcpRateLimitStoreSupport = inventory.mcp.rateLimit.store
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
@@ -386,10 +386,7 @@ function createDoctorFindings(
       message:
         unsafeSurfaceInventory.length === 0
           ? 'No `query.unsafe(...)` or `mutation.unsafe(...)` entrypoints were detected.'
-          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${unsafeSurfaceInventory
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${unsafeSurfaceInventory.length > 3 ? ', ...' : ''}.`,
+          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(unsafeSurfaceInventory)}.`,
       fixHint:
         unsafeSurfaceInventory.length === 0
           ? 'No action needed unless you add intentional escape hatches later.'
@@ -403,10 +400,7 @@ function createDoctorFindings(
       message:
         crossTenantEscapeInventory.length === 0
           ? 'No `ctx.db.escapeTenantIsolation(...)` sites were detected.'
-          : `Found ${crossTenantEscapeInventory.length} tenant-isolation escape${crossTenantEscapeInventory.length === 1 ? '' : 's'} in ${crossTenantEscapeInventory
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${crossTenantEscapeInventory.length > 3 ? ', ...' : ''}.`,
+          : `Found ${crossTenantEscapeInventory.length} tenant-isolation escape${crossTenantEscapeInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(crossTenantEscapeInventory)}.`,
       fixHint:
         crossTenantEscapeInventory.length === 0
           ? 'No action needed unless the app adds cross-tenant workflows later.'
@@ -420,10 +414,7 @@ function createDoctorFindings(
       message:
         destructiveOperationInventory.length === 0
           ? 'No `kind: "destructive"` operations were detected.'
-          : `Found ${destructiveOperationInventory.length} destructive operation${destructiveOperationInventory.length === 1 ? '' : 's'} in ${destructiveOperationInventory
-              .map((entry) => `${entry.path.replace(`${project.cwd}/`, '')}:${entry.line}`)
-              .slice(0, 3)
-              .join(', ')}${destructiveOperationInventory.length > 3 ? ', ...' : ''}.`,
+          : `Found ${destructiveOperationInventory.length} destructive operation${destructiveOperationInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(destructiveOperationInventory)}.`,
       fixHint:
         destructiveOperationInventory.length === 0
           ? 'No action needed unless the app adds destructive preview/confirm flows later.'

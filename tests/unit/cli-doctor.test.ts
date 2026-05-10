@@ -87,6 +87,11 @@ type DoctorInventoryJsonReport = {
         store: 'supported' | 'unverified' | 'none'
       }
     }
+    backend: {
+      unsafeEntrypoints: Array<{ path: string; line: number }>
+      crossTenantEscapes: Array<{ path: string; line: number }>
+      destructiveOperations: Array<{ path: string; line: number }>
+    }
     findings: []
   }
   findings: Array<{ id: string; status: string }>
@@ -551,6 +556,11 @@ describe('CLI doctor', () => {
           store: 'none',
         },
       })
+      expect(report.inventory.backend).toMatchObject({
+        unsafeEntrypoints: [],
+        crossTenantEscapes: [],
+        destructiveOperations: [],
+      })
       expect(report.inventory.findings).toEqual([])
     }
   })
@@ -653,7 +663,7 @@ export const fixture = {
     ])
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
       summary: { fail: number }
     }
@@ -1159,12 +1169,24 @@ export const publicCatalog = query.unsafe({
     expect(
       report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.message,
     ).toContain('convex/features/todos/domain.ts')
+    expect(report.inventory.backend.unsafeEntrypoints).toEqual([
+      expect.objectContaining({
+        path: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+      }),
+    ])
     expect(
       report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.status,
     ).toBe('pass')
     expect(
       report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.message,
     ).toContain('convex/features/todos/domain.ts')
+    expect(report.inventory.backend.crossTenantEscapes).toEqual([
+      expect.objectContaining({
+        path: 'convex/features/todos/domain.ts',
+        line: expect.any(Number),
+      }),
+    ])
   })
 
   it('surfaces destructive operation inventory without turning it into a failure', () => {
@@ -1194,7 +1216,7 @@ export const purgeTodoOp = defineOperation({
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = JSON.parse(result.stdout) as {
+    const report = JSON.parse(result.stdout) as DoctorInventoryJsonReport & {
       findings: Array<{ id: string; status: string; message: string }>
       summary: { fail: number }
     }
@@ -1207,6 +1229,12 @@ export const purgeTodoOp = defineOperation({
     expect(
       report.findings.find((entry) => entry.id === 'destructive-operation-inventory')?.message,
     ).toContain('convex/features/todos/operations.ts')
+    expect(report.inventory.backend.destructiveOperations).toEqual([
+      expect.objectContaining({
+        path: 'convex/features/todos/operations.ts',
+        line: expect.any(Number),
+      }),
+    ])
   })
 
   it('fails doctor when a destructive MCP tool skips tool.operation', () => {

@@ -480,6 +480,9 @@ docs generation, and future explain commands.
 - Sprint 32 moved trusted-forwarding and MCP source-code findings onto
   `inventory.forwarding` and `inventory.mcp`. Broader doctor, public-surface,
   upgrade, and explain replacement remain open.
+- Sprint 33 moved unsafe backend entrypoints, cross-tenant escapes, and
+  destructive operation source-code findings onto `inventory.backend`. Structured
+  app inventory, public-surface, upgrade, and explain replacement remain open.
 
 ### Done Means
 

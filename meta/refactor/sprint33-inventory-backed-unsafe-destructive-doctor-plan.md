@@ -96,37 +96,37 @@ should not fake that structure.
 
 ### 1. Extend Inventory Shape
 
-- [ ] Add an explicit backend risk section to `TrellisCliInventory`.
-- [ ] Include unsafe entrypoints, cross-tenant escapes, and destructive
+- [x] Add an explicit backend risk section to `TrellisCliInventory`.
+- [x] Include unsafe entrypoints, cross-tenant escapes, and destructive
       operations as safe source locations.
-- [ ] Preserve existing `surfaces` summary counts.
-- [ ] Reuse the existing safe source-location mapper.
+- [x] Preserve existing `surfaces` summary counts.
+- [x] Reuse the existing safe source-location mapper.
 
 ### 2. Move Doctor Findings Onto Inventory
 
-- [ ] Change unsafe/destructive findings to read locations from inventory.
-- [ ] Remove now-unused local variables or direct facts reads from doctor.
-- [ ] Keep finding status and message behavior stable.
-- [ ] Keep human doctor output unchanged except for relative path formatting if
+- [x] Change unsafe/destructive findings to read locations from inventory.
+- [x] Remove now-unused local variables or direct facts reads from doctor.
+- [x] Keep finding status and message behavior stable.
+- [x] Keep human doctor output unchanged except for relative path formatting if
       inventory now supplies relative paths.
 
 ### 3. Add Tests
 
-- [ ] Test `doctor --json` includes the backend risk inventory section.
-- [ ] Test unsafe entrypoints appear in inventory and in the corresponding
+- [x] Test `doctor --json` includes the backend risk inventory section.
+- [x] Test unsafe entrypoints appear in inventory and in the corresponding
       doctor finding.
-- [ ] Test cross-tenant escapes appear in inventory and in the corresponding
+- [x] Test cross-tenant escapes appear in inventory and in the corresponding
       doctor finding.
-- [ ] Test destructive operations appear in inventory and in the corresponding
+- [x] Test destructive operations appear in inventory and in the corresponding
       doctor finding.
-- [ ] Test inventory does not include source snippets or known secret/identity
+- [x] Test inventory does not include source snippets or known secret/identity
       fixture strings.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes for the backend-risk inventory cutover.
-- [ ] Leave app inventory, public-surface, upgrade, and explain replacement
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes for the backend-risk inventory cutover.
+- [x] Leave app inventory, public-surface, upgrade, and explain replacement
       unchecked.
 
 ## Verification
@@ -169,19 +169,29 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Inventory JSON has an explicit backend risk section.
-- [ ] Unsafe/destructive source-code facts have one inventory source.
-- [ ] Doctor unsafe/destructive findings read source-code facts from inventory.
-- [ ] Existing human doctor behavior remains stable.
-- [ ] Tests prove backend risk inventory shape and source-location reporting.
-- [ ] Inventory JSON remains snippet-free and secret-safe.
-- [ ] No broad new scanner duplicates existing doctor scanners.
-- [ ] Slice 8 tracker is updated.
+- [x] Inventory JSON has an explicit backend risk section.
+- [x] Unsafe/destructive source-code facts have one inventory source.
+- [x] Doctor unsafe/destructive findings read source-code facts from inventory.
+- [x] Existing human doctor behavior remains stable.
+- [x] Tests prove backend risk inventory shape and source-location reporting.
+- [x] Inventory JSON remains snippet-free and secret-safe.
+- [x] No broad new scanner duplicates existing doctor scanners.
+- [x] Slice 8 tracker is updated.
 - [ ] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `inventory.backend` with unsafe entrypoints, cross-tenant escapes, and
+  destructive operations.
+- Backend risk source locations reuse the existing project-relative path + line
+  inventory location shape.
+- Doctor findings `unsafe-surface-inventory`,
+  `cross-tenant-escape-inventory`, and `destructive-operation-inventory` now
+  read source locations from `inventory.backend`.
+- Existing summary counts remain in `inventory.surfaces`.
+- Unit coverage now proves backend risk inventory shape and corresponding doctor
+  messages for unsafe entrypoints, cross-tenant escapes, and destructive
+  operations.
 
 ## Next Sprint Candidate
 

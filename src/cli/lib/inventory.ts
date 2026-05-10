@@ -90,6 +90,11 @@ export interface TrellisCliInventory {
       store: 'supported' | 'unverified' | 'none'
     }
   }
+  backend: {
+    unsafeEntrypoints: TrellisCliInventorySourceLocation[]
+    crossTenantEscapes: TrellisCliInventorySourceLocation[]
+    destructiveOperations: TrellisCliInventorySourceLocation[]
+  }
   findings: []
 }
 
@@ -223,6 +228,11 @@ export function collectTrellisCliInventory(
         expected: facts.mcpRateLimitExpected,
         store: facts.mcpRateLimitStoreSupport,
       },
+    },
+    backend: {
+      unsafeEntrypoints: toInventoryLocations(project, facts.unsafeSurfaceInventory),
+      crossTenantEscapes: toInventoryLocations(project, facts.crossTenantEscapeInventory),
+      destructiveOperations: toInventoryLocations(project, facts.destructiveOperationInventory),
     },
     findings: [],
   }
