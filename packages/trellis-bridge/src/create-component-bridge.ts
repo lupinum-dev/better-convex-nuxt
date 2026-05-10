@@ -23,18 +23,16 @@ import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/va
 import { v } from 'convex/values'
 
 import {
-  clearTrustedForwardingContext,
-  setTrustedForwardingContext,
-} from '../trusted-forwarding/index.js'
-import {
-  extractSubject,
-  getTrustedForwardingKeyProductionIssue,
-} from '../trusted-forwarding/shared.js'
-import {
   definePrincipal,
   type DefaultPrincipal,
   type PrincipalDefinition,
-} from './define-principal.js'
+} from '@lupinum/trellis/backend'
+import {
+  clearTrustedForwardingContext,
+  extractSubject,
+  getTrustedForwardingKeyProductionIssue,
+  setTrustedForwardingContext,
+} from '@lupinum/trellis/trusted-forwarding'
 
 type AnyCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>

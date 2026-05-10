@@ -1,5 +1,5 @@
 import { subject } from '@lupinum/trellis/auth'
-import type { Delegation } from '@lupinum/trellis/functions'
+import type { Delegation } from '@lupinum/trellis/backend'
 import type { H3Event } from 'h3'
 
 import { api } from '#trellis/api'

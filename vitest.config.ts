@@ -34,6 +34,9 @@ export default defineConfig({
             '@lupinum/trellis/auth': fileURLToPath(
               new URL('./src/runtime/auth/index.ts', import.meta.url),
             ),
+            '@lupinum/trellis/backend': fileURLToPath(
+              new URL('./src/runtime/backend/index.ts', import.meta.url),
+            ),
             '@lupinum/trellis/trusted-forwarding': fileURLToPath(
               new URL('./src/runtime/trusted-forwarding/index.ts', import.meta.url),
             ),
@@ -46,6 +49,15 @@ export default defineConfig({
             '@lupinum/trellis/functions': fileURLToPath(
               new URL('./src/runtime/functions/index.ts', import.meta.url),
             ),
+            '@lupinum/trellis-bridge': fileURLToPath(
+              new URL('./packages/trellis-bridge/src/index.ts', import.meta.url),
+            ),
+            'convex-helpers/server/customFunctions': fileURLToPath(
+              new URL('./tests/support/convex-custom-functions-mock.ts', import.meta.url),
+            ),
+            'convex-helpers/server/customFunctions.js': fileURLToPath(
+              new URL('./tests/support/convex-custom-functions-mock.ts', import.meta.url),
+            ),
           },
         },
         test: {
@@ -53,6 +65,7 @@ export default defineConfig({
           include: ['tests/unit/**/*.test.ts'],
           environment: 'node',
           testTimeout: 15000,
+          server: { deps: { inline: [/convex-helpers/] } },
         },
       },
 

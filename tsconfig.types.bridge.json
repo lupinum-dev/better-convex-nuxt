@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@lupinum/trellis/backend": ["./src/runtime/backend/index.ts"],
+      "@lupinum/trellis/trusted-forwarding": ["./src/runtime/trusted-forwarding/index.ts"],
+      "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"]
+    }
+  },
+  "include": ["packages/trellis-bridge/src/**/*.ts", "tests/types/component-bridge.types.ts"],
+  "exclude": ["dist", "node_modules", "apps/harness", "tests/fixtures", "examples"]
+}

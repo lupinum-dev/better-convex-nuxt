@@ -1,7 +1,6 @@
 import { renderUsage, runCommand, defineCommand } from 'citty'
 
 import { addCommand } from './commands/add.js'
-import { bridgeCommand } from './commands/bridge.js'
 import { doctorCommand } from './commands/doctor.js'
 import { initCommand } from './commands/init.js'
 
@@ -18,7 +17,6 @@ export function createCliCommand() {
     },
     subCommands: {
       add: addCommand,
-      bridge: bridgeCommand,
       doctor: doctorCommand,
       init: initCommand,
     },
