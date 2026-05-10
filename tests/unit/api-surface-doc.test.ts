@@ -11,6 +11,7 @@ describe('generated API surface docs', () => {
     )
 
     expect(apiSurface).toContain('## Which Surface Do I Use?')
+    expect(apiSurface).toContain('| `@lupinum/trellis/backend`')
     expect(apiSurface).toContain('| `useConvexQuery`')
     expect(apiSurface).toContain('| `useConvexUpload`')
     expect(apiSurface).toContain('| `useConvexAuth`')
@@ -19,6 +20,8 @@ describe('generated API surface docs', () => {
     expect(apiSurface).toContain('| `#trellis/api`')
     expect(apiSurface).toContain('| `#trellis/server`')
     expect(apiSurface).toContain('| `#trellis/mcp`')
+    expect(apiSurface).toContain('| `<ConvexAuthenticated>`')
+    expect(apiSurface).not.toContain('defineNuxtConfig')
   })
 
   it('documents functions without public custom RLS authoring', () => {

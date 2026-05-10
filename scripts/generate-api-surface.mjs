@@ -1,80 +1,13 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+
+import { collectRepoPublicSurfaceInventory } from './lib/public-surface-inventory.mjs'
 
 const rootDir = process.cwd()
 const checkMode = process.argv.includes('--check')
-
-const packageJsonPath = resolve(rootDir, 'package.json')
-const installerPaths = {
-  core: resolve(rootDir, 'src/installers/core.ts'),
-  auth: resolve(rootDir, 'src/installers/auth.ts'),
-  permissions: resolve(rootDir, 'src/installers/permissions.ts'),
-  advanced: resolve(rootDir, 'src/installers/advanced.ts'),
-}
-const componentsDir = resolve(rootDir, 'src/runtime/auth/ui')
 const outputPath = resolve(rootDir, 'apps/docs/content/docs/13.api-reference/7.api-surface.md')
-
-const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
-const installerSources = Object.fromEntries(
-  Object.entries(installerPaths).map(([key, path]) => [key, readFileSync(path, 'utf8')]),
-)
-
-function extractNames(block) {
-  const names = new Set()
-  for (const match of block.matchAll(/name:\s*'([^']+)'/g)) {
-    if (match[1]) names.add(match[1])
-  }
-  return [...names].sort((a, b) => a.localeCompare(b))
-}
-
-function extractAliases(source) {
-  const aliases = new Set()
-  for (const match of source.matchAll(/nuxt\.options\.alias\['([^']+)'\]/g)) {
-    if (match[1]) aliases.add(match[1])
-  }
-  return [...aliases].sort((a, b) => a.localeCompare(b))
-}
-
-function extractCallBlock(source, callName) {
-  const start = source.indexOf(`${callName}([`)
-  if (start === -1) return ''
-
-  let depth = 0
-  let inString = false
-  let stringQuote = ''
-  let escaped = false
-
-  for (let index = start; index < source.length; index++) {
-    const char = source[index]
-    if (inString) {
-      if (escaped) {
-        escaped = false
-      } else if (char === '\\') {
-        escaped = true
-      } else if (char === stringQuote) {
-        inString = false
-        stringQuote = ''
-      }
-      continue
-    }
-
-    if (char === "'" || char === '"' || char === '`') {
-      inString = true
-      stringQuote = char
-      continue
-    }
-
-    if (char === '(' || char === '[' || char === '{') depth++
-    if (char === ')' || char === ']' || char === '}') depth--
-
-    if (depth === 0 && char === ')') {
-      return source.slice(start, index + 1)
-    }
-  }
-
-  return ''
-}
+const inventory = collectRepoPublicSurfaceInventory(rootDir)
 
 function toImportPath(key) {
   return key === '.' ? '@lupinum/trellis' : `@lupinum/trellis/${key.replace(/^\.\//, '')}`
@@ -102,18 +35,20 @@ function makeTable(headers, rows) {
   ].join('\n')
 }
 
-const alwaysAutoImports = extractNames(extractCallBlock(installerSources.core, 'addImports'))
-const authAutoImports = extractNames(extractCallBlock(installerSources.auth, 'addImports'))
-const permissionAutoImports = extractNames(
-  extractCallBlock(installerSources.permissions, 'addImports'),
-)
-const serverAutoImports = extractNames(extractCallBlock(installerSources.core, 'addServerImports'))
-const aliases = extractAliases(`${installerSources.core}\n${installerSources.advanced}`)
-const components = readdirSync(componentsDir)
-  .filter((name) => name.endsWith('.vue'))
-  .map((name) => name.replace(/\.vue$/, ''))
-  .sort((a, b) => a.localeCompare(b))
-const packageSubpaths = Object.keys(packageJson.exports).sort((a, b) => a.localeCompare(b))
+function autoImportsFor(layer) {
+  return inventory.generatedNuxtSurface.autoImports
+    .filter((autoImport) => autoImport.layer === layer)
+    .map((autoImport) => autoImport.name)
+    .sort((a, b) => a.localeCompare(b))
+}
+
+const alwaysAutoImports = autoImportsFor('core')
+const authAutoImports = autoImportsFor('auth')
+const permissionAutoImports = autoImportsFor('permissions')
+const serverAutoImports = inventory.generatedNuxtSurface.serverImports
+const aliases = inventory.generatedNuxtSurface.aliases
+const components = inventory.generatedNuxtSurface.authComponents
+const packageSubpaths = inventory.packageExports
 
 const clientDetails = {
   appendTo: 'Optimistic update helper',

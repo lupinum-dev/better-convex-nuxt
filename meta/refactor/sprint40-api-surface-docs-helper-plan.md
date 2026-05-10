@@ -94,33 +94,33 @@ Extend or add tests so the helper/docs contract is visible:
 
 ### 1. Reuse Helper In API Docs Generator
 
-- [ ] Import `collectRepoPublicSurfaceInventory(...)`.
-- [ ] Delete local package/installer/component scanners from
+- [x] Import `collectRepoPublicSurfaceInventory(...)`.
+- [x] Delete local package/installer/component scanners from
       `generate-api-surface.mjs`.
-- [ ] Keep docs prose and details maps in `generate-api-surface.mjs`.
-- [ ] Preserve section ordering and generated markdown output.
+- [x] Keep docs prose and details maps in `generate-api-surface.mjs`.
+- [x] Preserve section ordering and generated markdown output.
 
 ### 2. Regenerate And Check Docs
 
-- [ ] Run `pnpm run docs:api-surface`.
-- [ ] Confirm `apps/docs/content/docs/13.api-reference/7.api-surface.md` is
+- [x] Run `pnpm run docs:api-surface`.
+- [x] Confirm `apps/docs/content/docs/13.api-reference/7.api-surface.md` is
       unchanged or only changed for a real current-state correction.
-- [ ] Run `pnpm run check:docs:api-surface`.
+- [x] Run `pnpm run check:docs:api-surface`.
 
 ### 3. Add/Adjust Tests
 
-- [ ] Extend API surface docs tests to cover a package subpath from helper facts.
-- [ ] Ensure core/auth/permissions auto-import sections still contain expected
+- [x] Extend API surface docs tests to cover a package subpath from helper facts.
+- [x] Ensure core/auth/permissions auto-import sections still contain expected
       rows.
-- [ ] Ensure alias and auth component rows still contain expected rows.
-- [ ] Ensure generated docs do not include source snippets.
+- [x] Ensure alias and auth component rows still contain expected rows.
+- [x] Ensure generated docs do not include source snippets.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Keep `explain operation <id>` unchecked.
-- [ ] Keep `Doctor reads inventory/finding engine` unchanged unless this sprint
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Keep `explain operation <id>` unchecked.
+- [x] Keep `Doctor reads inventory/finding engine` unchanged unless this sprint
       actually touches it.
 
 ## Verification
@@ -164,19 +164,27 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `generate-api-surface.mjs` consumes
+- [x] `generate-api-surface.mjs` consumes
       `collectRepoPublicSurfaceInventory(...)`.
-- [ ] Local duplicate scanners are removed from `generate-api-surface.mjs`.
-- [ ] Generated API surface docs remain stable or only change for a documented
+- [x] Local duplicate scanners are removed from `generate-api-surface.mjs`.
+- [x] Generated API surface docs remain stable or only change for a documented
       current-state correction.
-- [ ] API surface docs tests cover the helper-fed sections.
-- [ ] Public-surface checks pass.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] API surface docs tests cover the helper-fed sections.
+- [x] Public-surface checks pass.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- pending
+- `generate-api-surface.mjs` now consumes
+  `collectRepoPublicSurfaceInventory(...)`.
+- Removed duplicate package export, installer call-block, alias, auto-import,
+  server import, and auth component scanners from the API docs generator.
+- Kept docs prose and detail maps in `generate-api-surface.mjs`.
+- Regenerated `apps/docs/content/docs/13.api-reference/7.api-surface.md`; output
+  stayed stable.
+- Extended API surface docs tests to cover the backend package subpath and auth
+  component rows from helper-fed sections.
 
 ## Next Sprint Candidate
 

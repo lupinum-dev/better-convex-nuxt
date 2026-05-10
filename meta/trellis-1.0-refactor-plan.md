@@ -515,6 +515,9 @@ docs generation, and future explain commands.
 - Sprint 40 is planned to move `generate-api-surface.mjs` onto the same
   script-local public-surface inventory helper so docs generation and refactor
   surface checks share repo public-surface facts.
+- Sprint 40 moved `generate-api-surface.mjs` onto
+  `collectRepoPublicSurfaceInventory(...)`, removing duplicate docs-surface
+  scanners while keeping generated API surface output stable.
 
 ### Done Means
 
