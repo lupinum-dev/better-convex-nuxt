@@ -524,6 +524,9 @@ docs generation, and future explain commands.
 - Sprint 41 added `DoctorFinding.sources` plus shared source helpers, then
   annotated inventory-backed doctor/upgrade security findings with safe
   inventory/project-scan source metadata in JSON output.
+- Sprint 42 is planned to add static feature and permission metadata to
+  `TrellisCliInventory`, reusing existing permission extraction and avoiding a
+  second operation/tool source of truth.
 
 ### Done Means
 
