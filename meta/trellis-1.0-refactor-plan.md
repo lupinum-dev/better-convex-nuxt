@@ -189,6 +189,14 @@ Status: in progress
 Goal: make public/protected/unsafe trust lanes explicit and delete ambiguous
 builder spellings.
 
+### Progress Notes
+
+- Sprint 53 deleted arity-based `authorize` inference. Function authorize
+  values are now treated as full actor/loaded/args/context checks, docs teach
+  explicit object form for loaded-resource authorization, and
+  `trellis upgrade --check` reports likely one-argument authorize callbacks
+  without rewriting them.
+
 ### Decide API
 
 - [x] Choose final spelling for public handlers.
@@ -210,7 +218,7 @@ mutation.unsafe(...)
 - [x] Delete accidental-public behavior for plain backend handler objects.
 - [x] Delete builder forms where missing guard can be interpreted as public for
       plain backend handler objects.
-- [ ] Delete arity-based `authorize` inference.
+- [x] Delete arity-based `authorize` inference.
 - [ ] Delete string-only unsafe bypasses after typed permits cover the surface.
 
 ### Replace
@@ -219,7 +227,7 @@ mutation.unsafe(...)
 - [x] Convert beginner starter and resource generators to explicit lanes.
 - [x] Convert focused backend tests to explicit lanes.
 - [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
-- [ ] Add audit report for authorization rewrites that cannot be proven safe.
+- [x] Add audit report for authorization rewrites that cannot be proven safe.
 
 ### Prove
 

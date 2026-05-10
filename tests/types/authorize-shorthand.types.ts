@@ -27,8 +27,14 @@ handlers.mutation({
   args: {},
   guard,
   load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
-  authorize: (loaded: { todo: { ownerId: string; title: string } }) =>
-    defineGuard<NonNullable<Actor>>('todo.update', (actor) => actor.userId === loaded.todo.ownerId),
+  authorize: {
+    label: 'todo.update',
+    check: (_actor, loaded: { todo: { ownerId: string; title: string } }) =>
+      defineGuard<NonNullable<Actor>>(
+        'todo.update',
+        (actor) => actor.userId === loaded.todo.ownerId,
+      ),
+  },
   handler: async () => null,
 })
 

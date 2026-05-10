@@ -25,7 +25,7 @@ export interface ObservationSummary {
 }
 
 export function createObservationSummary(options: ObservationSummaryOptions): ObservationSummary {
-  let context = {
+  let context: Record<string, unknown> = {
     service: options.config.service,
     ...(options.initialContext ?? {}),
   }

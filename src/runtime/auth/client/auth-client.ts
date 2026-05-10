@@ -23,7 +23,7 @@ import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { Ref } from 'vue'
-import type { Router } from 'vue-router'
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../convex/shared/convex-shared.js'
 import type { RuntimeObserver } from '../../observability/runtime-observer.js'
@@ -39,6 +39,10 @@ import type { AuthTransport, AuthTrigger, ClientAuthStateResult } from './auth-e
 
 interface MinimalNuxtApp {
   payload?: { serverRendered?: boolean }
+}
+
+interface MinimalRouter {
+  currentRoute: Ref<RouteLocationNormalizedLoaded>
 }
 
 interface TokenResponse {
@@ -58,7 +62,7 @@ interface AuthClientOptions {
   convexUser: Ref<ConvexUser | null>
   logger: RuntimeObserver
   nuxtApp: MinimalNuxtApp
-  router: Router
+  router: MinimalRouter
   traceId: string
 }
 

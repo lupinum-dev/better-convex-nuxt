@@ -242,6 +242,48 @@ describe('CLI upgrade', () => {
     expect(finding.message).toContain('convex/features/legacy/domain.ts:1')
   })
 
+  it('warns for one-argument authorize callbacks without rewriting files', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/todos/domain.ts',
+      [
+        "import { mutation } from '@lupinum/trellis/backend'",
+        '',
+        'export const update = mutation.protected({',
+        '  args: {},',
+        '  guard: todoRead,',
+        '  load: async () => ({ todo: { ownerId: "user-1" } }),',
+        `  ${'author'}ize: ({ todo }) => todo.ownerId === "user-1",`,
+        '  handler: async () => null,',
+        '})',
+      ].join('\n'),
+    )
+    const before = readAppFile(appRoot, 'convex/features/todos/domain.ts')
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-authorize-arity')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('warn')
+    expect(finding.message).toContain('convex/features/todos/domain.ts:7')
+    expect(finding.sources).toEqual([
+      expect.objectContaining({
+        kind: 'project-scan',
+        label: 'one-argument authorize callbacks',
+        locations: [
+          expect.objectContaining({
+            path: 'convex/features/todos/domain.ts',
+            line: 7,
+          }),
+        ],
+      }),
+    ])
+    expect(readAppFile(appRoot, 'convex/features/todos/domain.ts')).toBe(before)
+  })
+
   it('reports JSON with inventory, findings, and summary', () => {
     const appRoot = createPublicApp()
     const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)

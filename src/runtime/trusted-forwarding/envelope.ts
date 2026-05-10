@@ -252,7 +252,7 @@ function verifySignature(input: string, signature: string, key: string): boolean
   if (provided.length !== expected.length) return false
   let mismatch = 0
   for (let index = 0; index < expected.length; index += 1) {
-    mismatch |= expected[index] ^ provided[index]
+    mismatch |= expected[index]! ^ provided[index]!
   }
   return mismatch === 0
 }

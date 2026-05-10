@@ -135,6 +135,9 @@ function createUpgradeFindings(
     /\b--template\s+cms\b/,
     /\btemplate\s*:\s*['"]cms['"]/,
   ])
+  const authorizeArityInference = findTokenLocations(project, [
+    /authorize\s*:\s*(?:async\s*)?\(\s*(?:\{[^)]*\}|[A-Za-z_$][\w$]*\s*:\s*\{[^)]*\})\s*\)\s*=>/,
+  ])
 
   return [
     createLocationFinding({
@@ -235,6 +238,20 @@ function createUpgradeFindings(
         `Found unsafe backend entrypoints that need typed permit review at ${formatLocations(locations)}.`,
       cleanMessage: 'No unsafe backend entrypoints were found.',
       fixHint: 'Use typed `unsafe.permit(...)` metadata for every unsafe backend entrypoint.',
+    }),
+    createLocationFinding({
+      id: 'upgrade-authorize-arity',
+      title: 'Authorize arity migration',
+      locations: authorizeArityInference,
+      sources: [
+        findingProjectScanSource('one-argument authorize callbacks', authorizeArityInference),
+      ],
+      statusWhenFound: 'warn',
+      foundMessage: (locations) =>
+        `Found likely one-argument \`authorize\` callbacks at ${formatLocations(locations)}.`,
+      cleanMessage: 'No one-argument authorize callbacks were found.',
+      fixHint:
+        'Rewrite loaded-resource authorize factories to explicit `{ label, check }` object form. Do not rely on function arity.',
     }),
     createLocationFinding({
       id: 'upgrade-starter-surface',

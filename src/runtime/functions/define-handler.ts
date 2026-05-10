@@ -113,20 +113,6 @@ type AuthorizeConfig<
   ) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
 }
 
-type AuthorizeLoadedFactory<
-  TCtx,
-  TPrincipal,
-  TDelegation,
-  TActor,
-  TGuard,
-  TArgsValidator extends PropertyValidators,
-  TLoaded,
-> = (
-  loaded: TLoaded,
-  args: HandlerArgs<TArgsValidator>,
-  ctx: NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
-) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
-
 type AuthorizeShorthand<
   TCtx,
   TPrincipal,
@@ -138,7 +124,6 @@ type AuthorizeShorthand<
 > =
   | Guard<ActorForGuard<TActor, TGuard>>
   | boolean
-  | AuthorizeLoadedFactory<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
   | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>['check']
 
 type HandlerDefinition<
@@ -309,21 +294,6 @@ function normalizeAuthorize<
   }
 
   if (typeof authorize === 'function') {
-    if (authorize.length <= 1) {
-      const factory = authorize as AuthorizeLoadedFactory<
-        TCtx,
-        TPrincipal,
-        TDelegation,
-        TActor,
-        TGuard,
-        TArgsValidator,
-        TLoaded
-      >
-      return {
-        check: async (_actor, loaded, args, ctx) => await factory(loaded, args, ctx),
-      }
-    }
-
     return {
       check: authorize as AuthorizeConfig<
         TCtx,

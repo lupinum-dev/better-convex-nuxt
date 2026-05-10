@@ -42,59 +42,59 @@ authorize: {
 
 ### 1. Delete Runtime Arity Inference
 
-- [ ] Remove the `authorize.length <= 1` branch from
+- [x] Remove the `authorize.length <= 1` branch from
       `src/runtime/functions/define-handler.ts`.
-- [ ] Treat function authorize values as full checks only.
-- [ ] Keep boolean, guard, and object authorize forms unchanged.
-- [ ] Add or update a test proving one-argument function authorize no longer
+- [x] Treat function authorize values as full checks only.
+- [x] Keep boolean, guard, and object authorize forms unchanged.
+- [x] Add or update a test proving one-argument function authorize no longer
       receives loaded data as a factory.
 
 ### 2. Convert Tests And Type Fixtures
 
-- [ ] Replace one-argument loaded-resource factory tests with explicit
+- [x] Replace one-argument loaded-resource factory tests with explicit
       `{ label, check }` authorize object tests.
-- [ ] Keep actor-aware inline function authorize tests.
-- [ ] Update `tests/types/authorize-shorthand.types.ts` so it no longer asserts
+- [x] Keep actor-aware inline function authorize tests.
+- [x] Update `tests/types/authorize-shorthand.types.ts` so it no longer asserts
       one-argument factory support.
-- [ ] Add a negative type/runtime expectation if there is a clean local pattern
+- [x] Add a negative type/runtime expectation if there is a clean local pattern
       for proving the shorthand is gone.
 
 ### 3. Update Docs And Migration Notes
 
-- [ ] Update `apps/docs/content/docs/08.permissions/4.authorization-and-can.md`
+- [x] Update `apps/docs/content/docs/08.permissions/4.authorization-and-can.md`
       so docs teach explicit object form for loaded authorization.
-- [ ] Remove language that recommends one-argument loaded-resource factories.
-- [ ] Add a short migration note in the doc or upgrade audit text explaining
+- [x] Remove language that recommends one-argument loaded-resource factories.
+- [x] Add a short migration note in the doc or upgrade audit text explaining
       that one-argument `authorize` must become object form.
 
 ### 4. Add Audit Visibility
 
-- [ ] Ensure `trellis upgrade --check` or existing upgrade findings still detect
+- [x] Ensure `trellis upgrade --check` or existing upgrade findings still detect
       likely one-argument authorize callbacks.
-- [ ] If detection exists, add focused test coverage for the audit finding.
-- [ ] If detection does not exist, add the narrowest scanner needed to report
+- [x] If detection exists, add focused test coverage for the audit finding.
+- [x] If detection does not exist, add the narrowest scanner needed to report
       files/lines without trying to auto-rewrite authorization.
 
 ### 5. Update Slice 3
 
-- [ ] Add a Sprint 53 progress note under Slice 3.
-- [ ] Mark "Delete arity-based `authorize` inference" complete.
-- [ ] Mark "Add audit report for authorization rewrites that cannot be proven
+- [x] Add a Sprint 53 progress note under Slice 3.
+- [x] Mark "Delete arity-based `authorize` inference" complete.
+- [x] Mark "Add audit report for authorization rewrites that cannot be proven
       safe" complete if upgrade/check now reports likely shorthand call sites.
-- [ ] Keep Slice 3 open for unsafe permit cleanup and actor wiring proof if
+- [x] Keep Slice 3 open for unsafe permit cleanup and actor wiring proof if
       those remain.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineHandler.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/cli-upgrade.test.ts`
-- [ ] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `rg -n "authorize:\\s*\\(\\{[^)]*\\}\\)\\s*=>|authorize:\\s*\\([^,)]*:\\s*\\{[^)]*\\}\\)\\s*=>" src tests examples apps apps/docs/content/docs`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineHandler.test.ts tests/unit/functions-defineTrellis.test.ts tests/unit/cli-upgrade.test.ts`
+- [x] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `rg -n "authorize:\\s*\\(\\{[^)]*\\}\\)\\s*=>|authorize:\\s*\\([^,)]*:\\s*\\{[^)]*\\}\\)\\s*=>" src tests examples apps apps/docs/content/docs`
       returns no supported one-argument loaded-resource authorize examples.
-- [ ] `pnpm exec oxfmt --check src/runtime/functions/define-handler.ts tests/unit/functions-defineHandler.test.ts tests/types/authorize-shorthand.types.ts apps/docs/content/docs/08.permissions/4.authorization-and-can.md meta/refactor/sprint53-authorize-arity-hard-cut-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check src/runtime/functions/define-handler.ts src/runtime/auth/client/auth-client.ts src/runtime/trusted-forwarding/envelope.ts src/runtime/observability/summary.ts src/cli/commands/upgrade.ts tests/unit/functions-defineHandler.test.ts tests/unit/cli-upgrade.test.ts tests/types/authorize-shorthand.types.ts apps/docs/content/docs/08.permissions/4.authorization-and-can.md meta/refactor/sprint53-authorize-arity-hard-cut-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 
