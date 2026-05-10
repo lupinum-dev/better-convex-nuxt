@@ -1052,6 +1052,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   `@lupinum/trellis/functions` user-facing hits; legitimate `query(...)` /
   `mutation(...)` hits are client/server/test/MCP/Convex DB call syntax or
   operation registration examples.
+- Sprint 74 is planned to continue Slice 12 with the operation/destructive
+  safety guide. The sprint should tighten `/docs/permissions/operations` and
+  `/docs/mutations/destructive-operations` around the 1.0 invariants:
+  operations are not the default write shape, preview is side-effect-free,
+  execute re-runs guard/load/authorize/tenant/drift checks, browser confirmation
+  is product UX, and MCP destructive confirmation is the stricter token-backed
+  path. MCP projection, trusted forwarding, bridge package-author, and full
+  public API reference rewrites stay open unless this sprint makes only narrow
+  alignment edits.
 
 ### Done Means
 
