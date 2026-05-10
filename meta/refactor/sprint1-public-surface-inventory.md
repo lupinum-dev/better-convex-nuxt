@@ -83,40 +83,23 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## CLI And Starter Surface
 
-| Kind            | Name                                                  | Sprint 1 Action                     |
-| --------------- | ----------------------------------------------------- | ----------------------------------- |
-| command         | `trellis add`                                         | keep; fixture/inventory-backed only |
-| command         | `trellis doctor`                                      | keep; inventory-backed              |
-| command         | `trellis init`                                        | keep; fixture-backed only           |
-| init template   | `cms`                                                 | delete from Trellis starter surface |
-| init template   | `personal`                                            | keep; fixture-backed                |
-| init template   | `public`                                              | keep; fixture-backed                |
-| init template   | `workspace`                                           | keep; fixture-backed                |
-| init template   | `workspace-mcp`                                       | keep; canonical MCP starter         |
-| template source | src/cli/templates/init/authConfigTemplate.tpl         | replace with fixture manifest       |
-| template source | src/cli/templates/init/authTsTemplate.tpl             | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsChecksTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPagesTemplate.tpl           | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPermissionQueryTemplate.tpl | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPermissionsTemplate.tpl     | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsPublicPageTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsSchemaTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsSlugPageTemplate.tpl        | replace with fixture manifest       |
-| template source | src/cli/templates/init/cmsStudioPageTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/convexConfigTemplate.tpl       | replace with fixture manifest       |
-| template source | src/cli/templates/init/httpTemplate.tpl               | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpCreateTodoToolTemplate.tpl  | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpKeysTemplate.tpl            | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpListTodosToolTemplate.tpl   | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpMiddlewareTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/mcpRuntimeTemplate.tpl         | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalActorTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/personalFunctionsTemplate.tpl  | replace with fixture manifest       |
-| template source | src/cli/templates/init/sharedPageSchemaTemplate.tpl   | replace with fixture manifest       |
-| template source | src/cli/templates/init/testSetupTemplate.tpl          | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsContractTemplate.tpl    | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsDomainTemplate.tpl      | replace with fixture manifest       |
-| template source | src/cli/templates/init/uploadsPageTemplate.tpl        | replace with fixture manifest       |
+| Kind            | Name                                                 | Sprint 1 Action                     |
+| --------------- | ---------------------------------------------------- | ----------------------------------- |
+| command         | `trellis add`                                        | keep; fixture/inventory-backed only |
+| command         | `trellis doctor`                                     | keep; inventory-backed              |
+| command         | `trellis init`                                       | keep; fixture-backed only           |
+| init template   | `personal`                                           | keep; fixture-backed                |
+| init template   | `public`                                             | keep; fixture-backed                |
+| init template   | `workspace`                                          | keep; fixture-backed                |
+| init template   | `workspace-mcp`                                      | keep; canonical MCP starter         |
+| template source | src/cli/templates/init/mcpCreateTodoToolTemplate.tpl | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpKeysTemplate.tpl           | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpListTodosToolTemplate.tpl  | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpMiddlewareTemplate.tpl     | replace with fixture manifest       |
+| template source | src/cli/templates/init/mcpRuntimeTemplate.tpl        | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsContractTemplate.tpl   | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsDomainTemplate.tpl     | replace with fixture manifest       |
+| template source | src/cli/templates/init/uploadsPageTemplate.tpl       | replace with fixture manifest       |
 
 ## Docs/Templates That Still Teach Old Paths
 
@@ -129,7 +112,6 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | meta/experiments/phase0-next-major.md                        | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`                                                                            | historical/planning reference allowed |
 | meta/experiments/phase0-pre-alpha-decisions.md               | `@lupinum/trellis/functions`                                                                                                                   | historical/planning reference allowed |
 | meta/rfc-forwarding-envelope.md                              | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | historical/planning reference allowed |
-| meta/skill/references/config-cli.md                          | `--template cms`                                                                                                                               | rewrite/delete before 1.0 docs gate   |
 | meta/skill/references/public-surface.md                      | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
 | meta/trellis-1.0-refactor-plan.md                            | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
 

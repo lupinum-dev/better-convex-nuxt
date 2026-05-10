@@ -2,46 +2,20 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, resolve } from 'node:path'
 
 import {
-  appShellTemplate,
-  authConfigTemplate,
-  authTsTemplate,
-  cmsChecksTemplate,
-  cmsFeaturesIndexTemplate,
-  cmsPagesTemplate,
-  cmsPagesFeatureTemplate,
-  cmsPagesIndexTemplate,
-  cmsPagesSchemaTemplate,
-  cmsPermissionQueryTemplate,
-  cmsPermissionsTemplate,
-  cmsPublicPageTemplate,
-  cmsSchemaTemplate,
-  cmsSlugPageTemplate,
-  cmsStudioPageTemplate,
-  cmsUsersFeatureTemplate,
-  cmsUsersIndexTemplate,
-  cmsUsersSchemaTemplate,
-  convexConfigTemplate,
-  httpTemplate,
   mcpCreateTodoToolTemplate,
   mcpKeysTemplate,
   mcpListTodosToolTemplate,
   mcpMiddlewareTemplate,
   mcpRuntimeTemplate,
-  pageContractTemplate,
-  nuxtConfigTemplate,
-  personalActorTemplate,
-  personalFunctionsTemplate,
   routeShellTemplate,
-  testSetupTemplate,
-  todoContractTemplate,
   uploadsContractTemplate,
   uploadsDomainTemplate,
   uploadsPageTemplate,
 } from './init-templates.js'
 import { buildResourceTemplateSet } from './resource.js'
-import { isFixtureBackedAppTemplate, renderAppStarterFixture } from './starter-fixtures.js'
+import { renderAppStarterFixture } from './starter-fixtures.js'
 
-export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
+export type AppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
 
 export interface TemplateFile {
   path: string
@@ -56,26 +30,8 @@ export interface InitTemplateSet {
   afterWrite?: (cwd: string) => Promise<void>
 }
 
-export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp' | 'cms'
+export type CanonicalAppTemplate = 'public' | 'personal' | 'workspace' | 'workspace-mcp'
 export type AddFeature = 'mcp' | 'uploads' | 'operation' | 'entity'
-
-function buildAuthTemplateSet(): InitTemplateSet {
-  return {
-    label: 'auth',
-    description: 'Scaffold Better Auth + Convex bridge files',
-    files: [
-      { path: 'convex/auth.ts', content: authTsTemplate(), ownership: 'authored' },
-      { path: 'convex/auth.config.ts', content: authConfigTemplate(), ownership: 'generated' },
-      { path: 'convex/http.ts', content: httpTemplate(), ownership: 'generated' },
-      {
-        path: 'convex/convex.config.ts',
-        content: convexConfigTemplate(),
-        ownership: 'generated',
-      },
-      { path: 'convex/test.setup.ts', content: testSetupTemplate(), ownership: 'generated' },
-    ],
-  }
-}
 
 function buildMcpTemplateSet(): InitTemplateSet {
   return {
@@ -109,168 +65,9 @@ function mergeTemplateSets(...sets: InitTemplateSet[]): TemplateFile[] {
 }
 
 function buildAppTemplateSet(template: AppTemplate, appName: string): InitTemplateSet {
-  if (template === 'public') {
-    return {
-      label: 'app:public',
-      description: 'Bootstrap a public Trellis app inside the current workspace',
-      files: renderAppStarterFixture({ appName, template }),
-    }
-  }
-
-  if (template === 'personal') {
-    return {
-      label: 'app:personal',
-      description: 'Bootstrap a personal Trellis app inside the current workspace',
-      files: renderAppStarterFixture({ appName, template }),
-    }
-  }
-
-  if (template === 'workspace') {
-    return {
-      label: 'app:workspace',
-      description: 'Bootstrap a workspace Trellis app inside the current workspace',
-      files: renderAppStarterFixture({ appName, template }),
-    }
-  }
-
-  if (template === 'cms') {
-    return {
-      label: 'app:cms',
-      description: 'Bootstrap a CMS Trellis app with public pages and a signed-in studio',
-      files: mergeTemplateSets(buildAuthTemplateSet()).concat([
-        {
-          path: 'convex/auth/actor.ts',
-          content: personalActorTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/functions.ts',
-          content: personalFunctionsTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/auth/guards.ts',
-          content: cmsChecksTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/permissions/context.ts',
-          content: cmsPermissionQueryTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'nuxt.config.ts',
-          content: nuxtConfigTemplate({
-            permissionsQuery: 'permissions/context.getPermissionContext',
-          }),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/schema.ts',
-          content: cmsSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/index.ts',
-          content: cmsFeaturesIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/pages/schema.ts',
-          content: cmsPagesSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/pages/permissions.ts',
-          content: cmsPermissionsTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/pages/domain.ts',
-          content: cmsPagesTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/pages/feature.ts',
-          content: cmsPagesFeatureTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/pages/index.ts',
-          content: cmsPagesIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/users/schema.ts',
-          content: cmsUsersSchemaTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/users/feature.ts',
-          content: cmsUsersFeatureTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'convex/features/users/index.ts',
-          content: cmsUsersIndexTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'shared/features/pages/contract.ts',
-          content: pageContractTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/cms/components/CmsHomePage.vue',
-          content: cmsPublicPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/cms/components/CmsPublishedPage.vue',
-          content: cmsSlugPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/features/cms/components/CmsStudioPage.vue',
-          content: cmsStudioPageTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/app.vue',
-          content: appShellTemplate(),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/index.vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/cms/components/CmsHomePage.vue',
-            componentName: 'CmsHomePage',
-          }),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/studio.vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/cms/components/CmsStudioPage.vue',
-            componentName: 'CmsStudioPage',
-          }),
-          ownership: 'authored',
-        },
-        {
-          path: 'app/pages/[slug].vue',
-          content: routeShellTemplate({
-            importPath: '~~/app/features/cms/components/CmsPublishedPage.vue',
-            componentName: 'CmsPublishedPage',
-          }),
-          ownership: 'authored',
-        },
-      ]),
-    }
-  }
-
   return {
-    label: 'app:workspace-mcp',
-    description: 'Bootstrap a workspace + MCP Trellis app inside the current workspace',
+    label: `app:${template}`,
+    description: `Bootstrap a ${template} Trellis app inside the current workspace`,
     files: renderAppStarterFixture({ appName, template }),
   }
 }
@@ -341,187 +138,6 @@ function appPackageName(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'trellis-app'
   )
-}
-
-function appPackageTemplate(options: {
-  appName: string
-  template: CanonicalAppTemplate
-  mcp: boolean
-}) {
-  const dependencies = [
-    ['@lupinum/trellis', 'workspace:*'],
-    ['convex', '^1.34.1'],
-    ['nuxt', '^4.4.2'],
-  ]
-
-  if (options.template !== 'public') {
-    dependencies.unshift(['better-auth', '^1.5.6'])
-    dependencies.unshift(['@convex-dev/better-auth', '^0.11.4'])
-  }
-
-  if (options.mcp) {
-    dependencies.splice(2, 0, ['@nuxtjs/mcp-toolkit', '^0.13.4'])
-  }
-
-  return `${JSON.stringify(
-    {
-      name: appPackageName(options.appName),
-      private: true,
-      type: 'module',
-      scripts: {
-        dev: 'nuxi dev --dotenv .env.local',
-        build: 'nuxi build --dotenv .env.local',
-        typecheck: 'nuxi typecheck --dotenv .env.local',
-        test: 'vitest run',
-        'convex:dev': 'convex dev',
-        'convex:codegen': 'convex codegen',
-      },
-      dependencies: Object.fromEntries(dependencies),
-      devDependencies: {
-        typescript: '^5.9.3',
-        vitest: '^4.1.2',
-        'vue-tsc': '^3.2.6',
-      },
-    },
-    null,
-    2,
-  )}\n`
-}
-
-function envExampleTemplate(options: { template: CanonicalAppTemplate; mcp: boolean }) {
-  const lines = ['CONVEX_URL=https://your-app.convex.cloud']
-
-  if (options.template !== 'public') {
-    lines.push('CONVEX_SITE_URL=https://your-app.convex.site')
-    lines.push('SITE_URL=http://localhost:3000')
-    lines.push('BETTER_AUTH_SECRET=replace-me')
-  }
-
-  if (options.mcp) {
-    lines.push('CONVEX_TRUSTED_FORWARDING_KEY=replace-me')
-    lines.push('TRELLIS_MCP_CONFIRMATION_KEY=replace-me')
-  }
-
-  return `${lines.join('\n')}\n`
-}
-
-function readmeTemplate(options: {
-  appName: string
-  template: CanonicalAppTemplate
-  mcp: boolean
-}) {
-  const baseTemplate = options.template === 'workspace-mcp' ? 'workspace' : options.template
-  const maintainedReferenceLines =
-    baseTemplate === 'public'
-      ? [
-          '- Start with the maintained reference: [`01-public-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/01-public-todo).',
-        ]
-      : baseTemplate === 'personal'
-        ? [
-            '- Start with the maintained reference: [`02-auth-todo`](https://github.com/lupinum-dev/trellis/tree/main/examples/02-auth-todo).',
-          ]
-        : baseTemplate === 'workspace' && options.mcp
-          ? [
-              '- Start with the protected-app baseline: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
-              '- Then study the MCP branch: [`07-mcp-reference`](https://github.com/lupinum-dev/trellis/tree/main/examples/07-mcp-reference).',
-            ]
-          : baseTemplate === 'workspace'
-            ? [
-                '- Start with the maintained reference: [`03-team-workspace`](https://github.com/lupinum-dev/trellis/tree/main/examples/03-team-workspace).',
-              ]
-            : [
-                '- This starter is the simple public-site + signed-in studio baseline.',
-                '- Use [`08-component-mini-cms`](https://github.com/lupinum-dev/trellis/tree/main/examples/08-component-mini-cms) only when you need the advanced component-boundary architecture on top of that baseline.',
-              ]
-
-  const lines = [
-    `# ${options.appName}`,
-    '',
-    `Generated with \`trellis init ${options.appName} --template ${options.template}${options.mcp && options.template !== 'workspace-mcp' ? ' --mcp' : ''}\`.`,
-    '',
-    '## Quick start',
-    '',
-    '```bash',
-    'pnpm install',
-    'pnpm convex:dev',
-    'pnpm dev',
-    '```',
-    '',
-    '## Canonical shape',
-    '',
-    '- `convex/features/` for backend feature modules',
-    '- `shared/features/` for runtime-neutral contracts',
-    `- \`convex/auth/\` for actor and guard logic${baseTemplate === 'public' ? ' (not used in the public starter)' : ''}`,
-    '- `convex/permissions/` for permission projection when the starter uses permission context',
-    '- `app/features/` for feature-owned UI and route shells',
-  ]
-
-  if (options.mcp) {
-    lines.push('- server/mcp/ for MCP runtime and tools')
-  }
-
-  lines.push('', '## Maintained reference', '', ...maintainedReferenceLines, '')
-
-  return `${lines.join('\n')}`
-}
-
-function gitignoreTemplate() {
-  return `
-.env.local
-.nuxt
-.output
-node_modules
-coverage
-dist
-`.trimStart()
-}
-
-function appScaffoldTemplateSet(options: {
-  appName: string
-  template: CanonicalAppTemplate
-  mcp: boolean
-}): InitTemplateSet {
-  const files: TemplateFile[] = [
-    {
-      path: 'package.json',
-      content: appPackageTemplate(options),
-      ownership: 'generated',
-    },
-    {
-      path: '.env.example',
-      content: envExampleTemplate(options),
-      ownership: 'generated',
-    },
-    {
-      path: '.gitignore',
-      content: gitignoreTemplate(),
-      ownership: 'generated',
-    },
-    {
-      path: 'README.md',
-      content: readmeTemplate(options),
-      ownership: 'generated',
-    },
-    {
-      path: 'server/api/.gitkeep',
-      content: '',
-      ownership: 'generated',
-    },
-  ]
-
-  if (!options.mcp) {
-    files.push({
-      path: 'server/mcp/.gitkeep',
-      content: '',
-      ownership: 'generated',
-    })
-  }
-
-  return {
-    label: `scaffold:${options.template}`,
-    description: 'Scaffold app-root package and canonical shell + features layout',
-    files,
-  }
 }
 
 function mcpEndpointTemplate(appName: string) {
@@ -691,31 +307,14 @@ export function getCanonicalAppTemplateSet(options: {
   template: CanonicalAppTemplate
   mcp?: boolean
 }): InitTemplateSet {
-  const mcp = options.mcp === true || options.template === 'workspace-mcp'
-  const template = options.template === 'workspace' && mcp ? 'workspace-mcp' : options.template
-  const scaffoldTemplate = template === 'workspace-mcp' ? 'workspace-mcp' : options.template
+  const template =
+    options.template === 'workspace' && options.mcp === true ? 'workspace-mcp' : options.template
   const appTemplateSet = buildAppTemplateSet(template, options.appName)
-  const fixtureBacked = isFixtureBackedAppTemplate(template)
 
   return {
     label: `init:${template}`,
     description: `Bootstrap a ${template} Trellis app`,
-    files: fixtureBacked
-      ? appTemplateSet.files
-      : mergeTemplateSets(
-          appScaffoldTemplateSet({
-            appName: options.appName,
-            template: scaffoldTemplate,
-            mcp,
-          }),
-          appTemplateSet,
-        ),
-    afterWrite:
-      mcp && !fixtureBacked
-        ? async (cwd) => {
-            await enableNuxtMcpConfig(cwd)
-          }
-        : undefined,
+    files: appTemplateSet.files,
   }
 }
 

@@ -54,7 +54,6 @@ describe('schema boundary policy', () => {
       ...listFiles('src/cli/starter-fixtures/workspace-mcp/convex'),
       'src/cli/templates/init/mcpListTodosToolTemplate.tpl',
       'src/cli/templates/init/mcpCreateTodoToolTemplate.tpl',
-      'src/cli/templates/init/cmsPagesTemplate.tpl',
     ]
 
     const offenders = targets.filter((path) => /from ['"][^'"]*shared\/schemas\//.test(read(path)))

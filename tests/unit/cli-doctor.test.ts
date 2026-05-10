@@ -137,6 +137,17 @@ describe('CLI doctor', () => {
     expectNoOldBackendSurface(todos, 'public todos domain')
   })
 
+  it('rejects the deleted cms starter', () => {
+    const cwd = createTempDir('trellis-init-cms-deleted-')
+    const result = runCli(['init', 'demo-cms', '--template', 'cms', '--cwd', cwd], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).not.toBe(0)
+    expect(output).toContain(
+      'Invalid template. Use one of: public, personal, workspace, workspace-mcp.',
+    )
+  })
+
   it('returns a machine-readable JSON summary for init', () => {
     const cwd = createTempDir('trellis-init-json-')
     const result = runCli(

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 
@@ -18,7 +18,7 @@ async function createTempAppRoot(prefix: string) {
   return cwd
 }
 
-async function scaffoldApp(template: 'personal' | 'workspace' | 'cms', mcp = false) {
+async function scaffoldApp(template: 'personal' | 'workspace', mcp = false) {
   const cwd = await createTempAppRoot(`${template}${mcp ? '-mcp' : ''}`)
   const initTemplate = getCanonicalAppTemplateSet({
     appName: 'demo-app',
@@ -26,6 +26,112 @@ async function scaffoldApp(template: 'personal' | 'workspace' | 'cms', mcp = fal
     mcp,
   })
   await applyInitTemplateSet(cwd, initTemplate, false)
+  return cwd
+}
+
+async function scaffoldCmsShapedResourceApp() {
+  const cwd = await createTempAppRoot('cms-shaped-resource')
+  await mkdir(resolve(cwd, 'convex/features/pages'), { recursive: true })
+  await mkdir(resolve(cwd, 'convex/features/users'), { recursive: true })
+
+  await writeFile(
+    resolve(cwd, 'convex/schema.ts'),
+    `
+import { defineSchema } from 'convex/server'
+
+import { pagesTables } from './features/pages'
+import { userTables } from './features/users'
+
+export default defineSchema({
+  ...userTables,
+  ...pagesTables,
+})
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/index.ts'),
+    `
+import { composeFeatures } from '@lupinum/trellis/feature'
+
+import { pagesFeature } from './pages/feature'
+import { usersFeature } from './users/feature'
+
+const manifest = composeFeatures([usersFeature, pagesFeature])
+
+export const schema = manifest.schema
+export const permissions = manifest.permissions
+export const tenantTables = manifest.tenantTables
+export const globalTables = manifest.globalTables
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/pages/domain.ts'),
+    `
+import { query } from '../../functions'
+
+export const listPublished = query.public({
+  args: {},
+  handler: async () => [],
+})
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/pages/feature.ts'),
+    `
+export const pagesFeature = {
+  name: 'pages',
+}
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/pages/index.ts'),
+    `
+export { pagesFeature } from './feature'
+export { pagesTables } from './schema'
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/pages/schema.ts'),
+    `
+import { defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export const pagesTables = {
+  pages: defineTable({
+    authorId: v.string(),
+  }).index('by_author', ['authorId']),
+}
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/users/feature.ts'),
+    `
+export const usersFeature = {
+  name: 'users',
+}
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/users/index.ts'),
+    `
+export { usersFeature } from './feature'
+export { userTables } from './schema'
+`.trimStart(),
+  )
+  await writeFile(
+    resolve(cwd, 'convex/features/users/schema.ts'),
+    `
+import { defineTable } from 'convex/server'
+import { v } from 'convex/values'
+
+export const userTables = {
+  users: defineTable({
+    authId: v.string(),
+  }).index('by_auth_id', ['authId']),
+}
+`.trimStart(),
+  )
+
   return cwd
 }
 
@@ -161,17 +267,7 @@ describe('trellis add entity', () => {
   })
 
   it('scaffolds a cms resource slice with the existing author convention', async () => {
-    const cwd = await scaffoldApp('cms')
-
-    await expect(
-      readFile(resolve(cwd, 'convex/features/pages/domain.ts'), 'utf8'),
-    ).resolves.toContain('export const listPublished = query.public({')
-    await expect(
-      readFile(resolve(cwd, 'convex/features/pages/permissions.ts'), 'utf8'),
-    ).resolves.toContain('export const pageCreate = definePermission')
-    await expect(
-      readFile(resolve(cwd, 'app/features/cms/components/CmsStudioPage.vue'), 'utf8'),
-    ).resolves.toContain('api.features.pages.domain.create')
+    const cwd = await scaffoldCmsShapedResourceApp()
 
     const template = await getAddTemplateSet({
       feature: 'entity',
@@ -197,19 +293,6 @@ describe('trellis add entity', () => {
     await expect(
       readFile(resolve(cwd, 'convex/features/entries/schema.ts'), 'utf8'),
     ).resolves.toContain('authorId: v.string()')
-  })
-})
-
-describe('trellis init cms', () => {
-  it('describes the cms starter as the simple public+studio baseline, not the component-boundary example', async () => {
-    const cwd = await scaffoldApp('cms')
-
-    await expect(readFile(resolve(cwd, 'README.md'), 'utf8')).resolves.toContain(
-      'This starter is the simple public-site + signed-in studio baseline.',
-    )
-    await expect(readFile(resolve(cwd, 'README.md'), 'utf8')).resolves.toContain(
-      'Use [`08-component-mini-cms`]',
-    )
   })
 })
 

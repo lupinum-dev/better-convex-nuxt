@@ -167,7 +167,7 @@ function createDoctorFindings(cwd: string): DoctorFinding[] {
         ? 'Run doctor inside a generated Trellis app root.'
         : missingCanonicalLayoutPaths.length === 0
           ? 'Keep the generated Trellis layout intact.'
-          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|cms`.',
+          : 'Restore the missing canonical paths or recreate the app with `trellis init <name> --template public|personal|workspace|workspace-mcp`.',
     },
     {
       id: 'convex-installed',

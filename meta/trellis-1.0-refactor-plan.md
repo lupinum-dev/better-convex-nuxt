@@ -417,7 +417,7 @@ Goal: make tested fixture apps the source of starter generation.
 - [x] `personal`.
 - [x] `workspace`.
 - [x] `workspace-mcp`.
-- [ ] `cms` is either deleted from Trellis 1.0 or replaced by the decided
+- [x] `cms` is either deleted from Trellis 1.0 or replaced by the decided
       Ginko-owned/bridge-consumer path.
 
 ### Delete

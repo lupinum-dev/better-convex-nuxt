@@ -106,37 +106,37 @@ reintroduce a Trellis CMS starter just to keep tests convenient.
 
 ### 1. Delete CMS From Init Surface
 
-- [ ] Remove `cms` from `AppTemplate`.
-- [ ] Remove `cms` from `CanonicalAppTemplate`.
-- [ ] Remove `cms` from CLI init template choices/help text.
-- [ ] Delete the `template === 'cms'` branch from `buildAppTemplateSet(...)`.
-- [ ] Ensure invalid `--template cms` fails through existing CLI validation.
+- [x] Remove `cms` from `AppTemplate`.
+- [x] Remove `cms` from `CanonicalAppTemplate`.
+- [x] Remove `cms` from CLI init template choices/help text.
+- [x] Delete the `template === 'cms'` branch from `buildAppTemplateSet(...)`.
+- [x] Ensure invalid `--template cms` fails through existing CLI validation.
 
 ### 2. Delete CMS Starter Sources
 
-- [ ] Remove CMS-only imports from `src/cli/lib/init.ts`.
-- [ ] Delete CMS-only functions from `src/cli/lib/init-templates.ts`.
-- [ ] Delete CMS-only `.tpl` files from `src/cli/templates/init`.
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
-- [ ] Search proves no `cms` app starter source remains in the CLI.
+- [x] Remove CMS-only imports from `src/cli/lib/init.ts`.
+- [x] Delete CMS-only functions from `src/cli/lib/init-templates.ts`.
+- [x] Delete CMS-only `.tpl` files from `src/cli/templates/init`.
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Search proves no `cms` app starter source remains in the CLI.
 
 ### 3. Update Tests
 
-- [ ] Update CLI init tests to expect `cms` is not a valid starter.
-- [ ] Update resource-generator tests that currently scaffold `cms`.
-- [ ] If CMS-shaped resource tests remain valuable, move them to an explicit
+- [x] Update CLI init tests to expect `cms` is not a valid starter.
+- [x] Update resource-generator tests that currently scaffold `cms`.
+- [x] If CMS-shaped resource tests remain valuable, move them to an explicit
       test fixture or example-derived temp app.
-- [ ] Keep `examples/08-component-mini-cms` tests intact.
-- [ ] Update schema-boundary test targets away from deleted CMS template files.
+- [x] Keep `examples/08-component-mini-cms` tests intact.
+- [x] Update schema-boundary test targets away from deleted CMS template files.
 
 ### 4. Update Docs And Trackers
 
-- [ ] Remove beginner/front-door docs references to `--template cms`.
-- [ ] Update skill/reference docs that still teach `--template cms`.
-- [ ] Mark Slice 7 `cms` decision complete in
+- [x] Remove beginner/front-door docs references to `--template cms`.
+- [x] Update skill/reference docs that still teach `--template cms`.
+- [x] Mark Slice 7 `cms` decision complete in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Update the migration table/tracker if needed.
-- [ ] Add exit notes to this sprint plan.
+- [x] Update the migration table/tracker if needed.
+- [x] Add exit notes to this sprint plan.
 
 ## Verification
 
@@ -207,15 +207,30 @@ Expected remaining CMS references:
 
 ## Acceptance Criteria
 
-- [ ] `cms` is not a valid Trellis app starter.
-- [ ] Retained starters remain fixture-backed and still generate successfully.
-- [ ] CMS-only starter template code is deleted.
-- [ ] No beginner/front-door docs teach `trellis init --template cms`.
-- [ ] Tests that need CMS-shaped context no longer depend on a CMS starter.
-- [ ] `examples/08-component-mini-cms` remains intact.
-- [ ] Slice 7 `cms` item is checked in
+- [x] `cms` is not a valid Trellis app starter.
+- [x] Retained starters remain fixture-backed and still generate successfully.
+- [x] CMS-only starter template code is deleted.
+- [x] No beginner/front-door docs teach `trellis init --template cms`.
+- [x] Tests that need CMS-shaped context no longer depend on a CMS starter.
+- [x] `examples/08-component-mini-cms` remains intact.
+- [x] Slice 7 `cms` item is checked in
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Sprint changes are committed after verification.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- `trellis init --template cms` is deleted from the Trellis app-starter
+  surface and now fails through the invalid-template path.
+- Retained app starters are `public`, `personal`, `workspace`, and
+  `workspace-mcp`; all are rendered from fixture-backed starters.
+- CMS-only starter assembly code and CMS-only `.tpl` starter files were
+  deleted.
+- Resource-generator coverage that still needs CMS-shaped context now builds a
+  narrow test app directly instead of depending on a Trellis CMS starter.
+- Beginner docs and skill references no longer teach CMS as a Trellis starter.
+- `examples/08-component-mini-cms` remains intact as an advanced example.
+- The remaining files under `src/cli/templates/init` are `trellis add`
+  templates for MCP and uploads, not app-starter sources.
 
 ## Next Sprint Candidate
 

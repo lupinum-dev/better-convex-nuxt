@@ -70,7 +70,6 @@ pnpm dlx @lupinum/trellis init my-app --template public
 pnpm dlx @lupinum/trellis init my-app --template personal
 pnpm dlx @lupinum/trellis init my-app --template workspace
 pnpm dlx @lupinum/trellis init my-app --template workspace-mcp
-pnpm dlx @lupinum/trellis init my-app --template cms
 ```
 
 Supported templates are only:
@@ -79,10 +78,11 @@ Supported templates are only:
 - `personal`
 - `workspace`
 - `workspace-mcp`
-- `cms`
 
 `workspace-mcp` is the first-class template name for the agent-enabled workspace
 starter. `--mcp` remains an accepted alias with `--template workspace`.
+
+CMS product setup is owned by Ginko, not the Trellis init surface.
 
 Legacy `trellis init app|auth|permissions|mcp` flows are removed. Do not revive
 them as compatibility paths unless explicitly requested.

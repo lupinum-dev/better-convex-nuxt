@@ -17,12 +17,6 @@ type AppStarterFixtureManifest = StarterFixtureManifest & {
   generatedPaths?: readonly string[]
 }
 
-const fixtureTemplateNames = new Set<CanonicalAppTemplate>([
-  'public',
-  'personal',
-  'workspace',
-  'workspace-mcp',
-])
 const sourceAppNames: Record<FixtureBackedTemplate, string> = {
   public: 'trellis-starter-public',
   personal: 'trellis-starter-personal',
@@ -55,12 +49,6 @@ function appPackageName(name: string): string {
   )
 }
 
-function isFixtureBackedTemplate(
-  template: CanonicalAppTemplate,
-): template is FixtureBackedTemplate {
-  return fixtureTemplateNames.has(template)
-}
-
 function readManifest(template: FixtureBackedTemplate): AppStarterFixtureManifest {
   const manifestPath = resolve(resolveFixtureRoot(), template, 'starter.manifest.json')
   return JSON.parse(readFileSync(manifestPath, 'utf8')) as AppStarterFixtureManifest
@@ -78,12 +66,6 @@ function transformFixtureContent(input: {
   }
 
   return input.content.replaceAll(input.sourceAppName, input.appName)
-}
-
-export function isFixtureBackedAppTemplate(
-  template: CanonicalAppTemplate,
-): template is FixtureBackedTemplate {
-  return isFixtureBackedTemplate(template)
 }
 
 export function renderAppStarterFixture(input: {
