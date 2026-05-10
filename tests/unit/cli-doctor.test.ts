@@ -502,6 +502,9 @@ describe('CLI doctor', () => {
     expect(report.summary.fail).toBe(0)
     expect(report.summary.warn).toBe(0)
     expect(report.findings.find((entry) => entry.id === 'canonical-layout')?.status).toBe('pass')
+    expect(report.findings.find((entry) => entry.id === 'app-inventory-source')?.status).toBe(
+      'pass',
+    )
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
   })
 
@@ -587,7 +590,11 @@ describe('CLI doctor', () => {
   it('discovers canonical static app inventory without executing app code', () => {
     const fixtureRoot = resolve(repoRoot, 'tests/fixtures/phase0-workspace-mcp')
     const result = runCli(['doctor', '--json', '--cwd', fixtureRoot], repoRoot)
-    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const report = parseJsonOutput<
+      DoctorInventoryJsonReport & {
+        findings: Array<{ id: string; status: string; message: string }>
+      }
+    >(result.stdout)
 
     expect(report.inventory.files.appInventory).toBe('shared/app-inventory.ts')
     expect(report.inventory.appInventory).toEqual({
@@ -604,6 +611,10 @@ describe('CLI doctor', () => {
         },
       ],
       warnings: [],
+    })
+    expect(report.findings.find((entry) => entry.id === 'app-inventory-source')).toMatchObject({
+      status: 'pass',
+      message: expect.stringContaining('1 static feature binding'),
     })
   })
 
@@ -630,9 +641,14 @@ export const appInventory = defineAppInventory({
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const report = parseJsonOutput<
+      DoctorInventoryJsonReport & {
+        findings: Array<{ id: string; status: string; message: string }>
+      }
+    >(result.stdout)
 
     expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.warn).toBe(1)
     expect(report.inventory.files.appInventory).toBe('shared/app-inventory.ts')
     expect(report.inventory.appInventory).toMatchObject({
       file: 'shared/app-inventory.ts',
@@ -647,6 +663,10 @@ export const appInventory = defineAppInventory({
           },
         },
       ],
+    })
+    expect(report.findings.find((entry) => entry.id === 'app-inventory-source')).toMatchObject({
+      status: 'warn',
+      message: expect.stringContaining('dynamic-features at shared/app-inventory.ts'),
     })
   })
 
@@ -669,10 +689,15 @@ export const appInventory = {
     )
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
-    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+    const report = parseJsonOutput<
+      DoctorInventoryJsonReport & {
+        findings: Array<{ id: string; status: string; message: string }>
+      }
+    >(result.stdout)
     const serializedInventory = JSON.stringify(report.inventory)
 
     expect(result.status, result.stderr).toBe(0)
+    expect(report.summary.warn).toBe(1)
     expect(report.inventory.appInventory).toMatchObject({
       file: 'shared/app-inventory.ts',
       detected: true,
@@ -686,6 +711,10 @@ export const appInventory = {
           },
         },
       ],
+    })
+    expect(report.findings.find((entry) => entry.id === 'app-inventory-source')).toMatchObject({
+      status: 'warn',
+      message: expect.stringContaining('missing-define-app-inventory at shared/app-inventory.ts:1'),
     })
     expect(serializedInventory).not.toContain('do-not-leak-this-feature-string')
   })
@@ -753,6 +782,7 @@ export const appInventory = defineAppInventory({
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0)
     expect(result.stdout).toContain('doctor target')
+    expect(result.stdout).toContain('App inventory source')
     expect(result.stdout).not.toContain('schemaVersion')
     expect(result.stdout).not.toContain('"inventory"')
   })

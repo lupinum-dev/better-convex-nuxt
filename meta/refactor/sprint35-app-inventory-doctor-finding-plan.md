@@ -88,27 +88,27 @@ do not include it, and that remains intentional for now.
 
 ### 1. Add Doctor Finding
 
-- [ ] Add a core doctor finding backed by `inventory.appInventory`.
-- [ ] Keep missing app inventory as `pass`.
-- [ ] Mark malformed/dynamic app inventory warnings as `warn`.
-- [ ] Format source locations with the existing inventory location formatter.
+- [x] Add a core doctor finding backed by `inventory.appInventory`.
+- [x] Keep missing app inventory as `pass`.
+- [x] Mark malformed/dynamic app inventory warnings as `warn`.
+- [x] Format source locations with the existing inventory location formatter.
 
 ### 2. Add Tests
 
-- [ ] Test generated starters still pass doctor with no app inventory.
-- [ ] Test canonical static app inventory produces a pass finding.
-- [ ] Test dynamic app inventory produces a warning finding.
-- [ ] Test malformed app inventory produces a warning finding.
-- [ ] Test human output includes the app-inventory finding without printing JSON
+- [x] Test generated starters still pass doctor with no app inventory.
+- [x] Test canonical static app inventory produces a pass finding.
+- [x] Test dynamic app inventory produces a warning finding.
+- [x] Test malformed app inventory produces a warning finding.
+- [x] Test human output includes the app-inventory finding without printing JSON
       inventory internals.
 
 ### 3. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes that doctor now consumes `inventory.appInventory`.
-- [ ] Mark `Inventory reads app inventory first` only if the finding is enough
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes that doctor now consumes `inventory.appInventory`.
+- [x] Mark `Inventory reads app inventory first` only if the finding is enough
       to count as the first app-owned inventory consumer.
-- [ ] Leave public-surface, upgrade, and explain replacement unchecked.
+- [x] Leave public-surface, upgrade, and explain replacement unchecked.
 
 ## Verification
 
@@ -150,18 +150,27 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Doctor has an app-inventory finding backed by `inventory.appInventory`.
-- [ ] Missing app inventory remains valid and passing for generated starters.
-- [ ] Canonical static app inventory passes with feature-binding count.
-- [ ] Dynamic or malformed app inventory warns with safe source location.
-- [ ] Human doctor output remains finding-focused and does not print raw JSON.
-- [ ] No app source is executed or imported.
-- [ ] Slice 8 tracker is updated.
+- [x] Doctor has an app-inventory finding backed by `inventory.appInventory`.
+- [x] Missing app inventory remains valid and passing for generated starters.
+- [x] Canonical static app inventory passes with feature-binding count.
+- [x] Dynamic or malformed app inventory warns with safe source location.
+- [x] Human doctor output remains finding-focused and does not print raw JSON.
+- [x] No app source is executed or imported.
+- [x] Slice 8 tracker is updated.
 - [ ] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-Pending.
+- Added `app-inventory-source` as a core doctor finding backed only by
+  `inventory.appInventory`.
+- Missing `shared/app-inventory.ts` remains a passing state so generated starters
+  stay valid.
+- Canonical static app inventory passes and reports the number of static feature
+  bindings.
+- Dynamic or malformed app inventory warns with a safe path + line source
+  location.
+- Human doctor output now includes the app-inventory finding but still does not
+  print raw inventory JSON.
 
 ## Next Sprint Candidate
 

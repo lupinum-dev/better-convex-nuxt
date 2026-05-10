@@ -450,7 +450,7 @@ docs generation, and future explain commands.
 ### Build
 
 - [x] Versioned inventory JSON schema.
-- [ ] Inventory reads app inventory first.
+- [x] Inventory reads app inventory first.
 - [ ] Inventory includes layers, features, permissions, operations, tools,
       unsafe permits, forwarding config, public surface, bridge packages.
 - [x] Inventory JSON is safe to share: no secrets, raw envelopes, bearer tokens,
@@ -487,6 +487,9 @@ docs generation, and future explain commands.
   `inventory.appInventory` without executing app source. The broad "reads app
   inventory first" item remains open until app-owned metadata feeds the wider
   inventory/finding source.
+- Sprint 35 added `app-inventory-source`, the first doctor finding backed by
+  `inventory.appInventory`; malformed/dynamic app inventory now warns from the
+  app-owned inventory source.
 
 ### Done Means
 

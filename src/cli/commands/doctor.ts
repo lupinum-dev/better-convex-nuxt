@@ -63,6 +63,46 @@ function formatInventoryLocations(
     .join(', ')}${locations.length > limit ? ', ...' : ''}`
 }
 
+function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const appInventory = inventory.appInventory
+  const warning = appInventory.warnings[0]
+
+  if (!appInventory.detected) {
+    return {
+      id: 'app-inventory-source',
+      category: 'core',
+      title: 'App inventory source',
+      status: 'pass',
+      message:
+        'No shared/app-inventory.ts file was found. Generated apps may add app inventory when they need feature-owned inventory.',
+      fixHint:
+        'Add shared/app-inventory.ts with defineAppInventory({ features: [...] }) when app-owned feature inventory becomes useful.',
+    }
+  }
+
+  if (warning) {
+    return {
+      id: 'app-inventory-source',
+      category: 'core',
+      title: 'App inventory source',
+      status: 'warn',
+      message: `Found ${appInventory.file}, but app inventory could not be statically read: ${warning.code} at ${formatInventoryLocations([warning.source])}.`,
+      fixHint:
+        'Use a static defineAppInventory({ features: [feature] as const }) feature list so doctor, upgrade, and future explain commands can read app-owned inventory.',
+    }
+  }
+
+  return {
+    id: 'app-inventory-source',
+    category: 'core',
+    title: 'App inventory source',
+    status: 'pass',
+    message: `Found ${appInventory.file} with ${appInventory.featureBindings.length} static feature binding${appInventory.featureBindings.length === 1 ? '' : 's'}.`,
+    fixHint:
+      'Keep shared/app-inventory.ts static so doctor, upgrade, and future explain commands can read app-owned inventory.',
+  }
+}
+
 function createDoctorFindings(
   project: ProjectInspection,
   inventory: TrellisCliInventory,
@@ -204,6 +244,7 @@ function createDoctorFindings(
         ? 'Keep the Convex URL available in the environment or env files.'
         : 'Add CONVEX_URL or NUXT_PUBLIC_CONVEX_URL to .env.local, .env, or the process environment.',
     },
+    createAppInventoryFinding(inventory),
     {
       id: 'site-url-configured',
       category: 'auth',
