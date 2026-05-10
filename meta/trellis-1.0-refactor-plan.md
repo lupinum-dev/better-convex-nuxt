@@ -567,6 +567,10 @@ docs generation, and future explain commands.
   state, add or strengthen a directional boundary check proving core/runtime/CLI
   code does not import `@lupinum/trellis-bridge`, and mark only evidence-backed
   bridge extraction items complete.
+- Sprint 49 is planned to close the local Slice 9 beginner-surface gaps by
+  removing `cms` and `workspace --mcp` from first-reader starter docs, renaming
+  generic resource scaffolding away from CMS-specific language, and keeping
+  bridge/CMS references scoped to advanced package-integration material.
 
 ### Done Means
 
