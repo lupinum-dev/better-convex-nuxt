@@ -505,6 +505,9 @@ docs generation, and future explain commands.
 - Sprint 38 added shared `FindingReport`, `renderFindingReport(...)`, and
   `exitCodeForFindings(...)` so doctor and upgrade use one report/summary/exit
   path while keeping their existing finding semantics.
+- Sprint 39 is planned to move the refactor public-surface generator onto a
+  shared script-local public-surface inventory helper without making scripts
+  depend on built CLI internals.
 
 ### Done Means
 
