@@ -801,7 +801,7 @@ the design, without letting them keep old Trellis paths alive.
       `convex/manifest.{js,d.ts}`, CLI bridge checks, module startup validation,
       and package dependencies away from `@lupinum/trellis/functions` and
       `@lupinum/trellis/bridge`.
-- [ ] Migrate Ginko component bridge factories, generated host refs, and test
+- [x] Migrate Ginko component bridge factories, generated host refs, and test
       helpers from raw `_trustedForwardingKey` / `_trustedForwarding` fields to
       signed `_trellisForwarding` envelopes.
 - [x] Migrate Ginko destructive MCP wrapper code from
@@ -821,7 +821,7 @@ the design, without letting them keep old Trellis paths alive.
       updates.
 - [x] Ginko destructive MCP confirmation tests pass using only
       `mcp.tool.operation(...)`.
-- [ ] Ginko bridge package/e2e validation proves no raw forwarding fields remain
+- [x] Ginko bridge package/e2e validation proves no raw forwarding fields remain
       in generated or authored bridge paths.
 
 ### Done Means
@@ -977,6 +977,13 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   remaining raw `_trustedForwardingKey` / `_trustedForwarding` hits are in
   generated component refs and should be removed through the maintained
   generator/regeneration path plus a no-raw-forwarding guardrail.
+- Sprint 68 completed the Ginko generated forwarding cutover. Ginko bridge
+  factories now sign explicit `module:function` refs, bridge-exposed handlers
+  carry matching signed-forwarding metadata, Convex component codegen
+  regenerated `packages/convex/src/_generated/component.ts` with
+  `_trellisForwarding?: string`, and package-boundary guardrails reject live raw
+  forwarding fields. Focused Ginko bridge/backup/workflow/package-boundary tests
+  pass. Full packed-package validation and Ginko docs/setup wording remain open.
 
 ### Done Means
 

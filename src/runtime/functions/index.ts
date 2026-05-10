@@ -124,7 +124,11 @@ export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type DelegationAccessor<TDelegation> = () => Promise<TDelegation | null>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
-type UnsafeDefinition = { permit: TrellisUnsafePermit }
+type UnsafeDefinition = {
+  permit: TrellisUnsafePermit
+  trustedForwardingFunctionRef?: string
+  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
+}
 type EscapeTenantIsolationOptions = { reason: string }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
   ? ObjectType<TArgsValidator>
@@ -2200,6 +2204,9 @@ function buildStructuredMutationRuntime<
         : projectionMetadata?.functionRef
           ? { trustedForwardingFunctionRef: projectionMetadata.functionRef }
           : {}),
+      ...(definition.trustedForwardingTransport
+        ? { trustedForwardingTransport: definition.trustedForwardingTransport }
+        : {}),
       args: {
         ...definition.args,
         _confirmationToken: v.optional(v.string()),
@@ -2549,6 +2556,14 @@ function buildStructuredTransportMutationRuntime<
 
     const transformed = {
       ...definition,
+      ...(definition.trustedForwardingFunctionRef
+        ? {
+            trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef,
+          }
+        : {}),
+      ...(definition.trustedForwardingTransport
+        ? { trustedForwardingTransport: definition.trustedForwardingTransport }
+        : {}),
       load: originalLoad
         ? async (
             ctx: MutationCtxWithRuntime<DataModel, TPrincipal, TDelegation, TActor>,
