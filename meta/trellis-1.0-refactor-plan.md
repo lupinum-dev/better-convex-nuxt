@@ -847,7 +847,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Backend builder guide.
 - [x] Operation/destructive safety guide.
 - [x] MCP projection guide.
-- [ ] Trusted forwarding security guide.
+- [x] Trusted forwarding security guide.
 - [ ] Bridge package-author guide.
 - [ ] Public API reference.
 
@@ -1100,6 +1100,18 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   that a valid envelope authenticates transport only and never grants business
   permission. Bridge package-author and full public API reference rewrites stay
   open unless this sprint makes only narrow alignment edits.
+- Sprint 76 completed the trusted-forwarding security guide cleanup. The
+  webhooks/trusted-forwarding guide now names `_trellisForwarding` as the only
+  live transport, states raw forwarding fields are not supported app authoring
+  surfaces, explains the signed envelope contents, says helpers create envelopes
+  for `auth: 'trusted'`, documents fail-closed verification, and lists safe
+  logging exclusions. The server API reference no longer presents
+  `trustedForwardingKey?` as a normal per-call option and now says trusted
+  helpers sign `_trellisForwarding` rather than sending identity-shaped public
+  args. Deployment and troubleshooting notes now point at the signed path. The
+  only remaining `trustedForwardingKey` user-facing hit is the testing harness
+  signing-secret example, explicitly documented as test-only envelope signing.
+  Bridge package-author and full public API reference rewrites remain open.
 
 ### Done Means
 

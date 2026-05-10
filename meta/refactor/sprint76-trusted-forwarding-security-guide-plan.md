@@ -43,82 +43,91 @@ This sprint should leave one clear story:
 
 ### 1. Establish The Forwarding Docs Baseline
 
-- [ ] Scan active user-facing docs and API references:
+- [x] Scan active user-facing docs and API references:
 
   ```bash
   rg -n "_trellisForwarding|_trustedForwardingKey|_trustedForwarding\\b|trustedForwardingKey|trusted forwarding|trusted-forwarding|forwarded principal|forwarded delegation|CONVEX_TRUSTED_FORWARDING|auth: 'trusted'|auth: \"trusted\"|signed envelope|envelope|principal|delegation" apps/docs/content/docs README.md examples -g '*.md'
   ```
 
-- [ ] Classify hits as current signed forwarding docs, stale raw forwarding
+- [x] Classify hits as current signed forwarding docs, stale raw forwarding
       surface, env/deployment checklist, MCP/bridge adjacent docs, or false
       positives.
-- [ ] Record the baseline in this plan before editing.
+- [x] Record the baseline in this plan before editing.
+
+Baseline: active docs already teach signed `_trellisForwarding` in the main
+webhooks guide and concept page. The server API reference still presented
+`trustedForwardingKey?` as a normal per-call option, which made the public
+authoring surface look broader than the signed-helper path. Testing docs also
+used `trustedForwardingKey` for the harness; that remains valid only as a
+test-only envelope signing secret and is now documented that way. No active docs
+teach `_trustedForwardingKey` or `_trustedForwarding` as supported transport
+args.
 
 ### 2. Tighten `/docs/server-side/webhooks-and-trusted-forwarding`
 
-- [ ] Treat this page as the canonical task guide for trusted forwarding.
-- [ ] State that `_trellisForwarding` is the only supported live forwarding
+- [x] Treat this page as the canonical task guide for trusted forwarding.
+- [x] State that `_trellisForwarding` is the only supported live forwarding
       transport.
-- [ ] State that raw `_trustedForwardingKey` / `_trustedForwarding` fields are
+- [x] State that raw `_trustedForwardingKey` / `_trustedForwarding` fields are
       deleted from app authoring surfaces and must not appear in public args.
-- [ ] Explain the signed envelope in junior-readable terms:
+- [x] Explain the signed envelope in junior-readable terms:
       function ref, args hash, principal/delegation, purpose, expiry, replay id,
       and key id are signed together.
-- [ ] Explain that server helpers create the envelope when using
+- [x] Explain that server helpers create the envelope when using
       `auth: 'trusted'`; most apps should not manually build it.
-- [ ] Explain fail-closed behavior for malformed, wrong function ref, args hash
+- [x] Explain fail-closed behavior for malformed, wrong function ref, args hash
       drift, expiry, unknown key id, wrong audience/purpose, and replay.
-- [ ] Explain safe logging: no raw envelopes, raw keys, bearer tokens,
+- [x] Explain safe logging: no raw envelopes, raw keys, bearer tokens,
       principal/delegation payloads, subjects, JTIs, tenant keys, or confirmation
       payloads.
-- [ ] Keep the core rule loud: valid envelope authenticates transport only; it
+- [x] Keep the core rule loud: valid envelope authenticates transport only; it
       never grants business permission.
 
 ### 3. Align Server API Reference
 
-- [ ] Remove or reframe `trustedForwardingKey?` if it appears as a normal
+- [x] Remove or reframe `trustedForwardingKey?` if it appears as a normal
       per-call option.
-- [ ] Keep `auth: 'trusted'`, `principal`, and `delegation` documented as the
+- [x] Keep `auth: 'trusted'`, `principal`, and `delegation` documented as the
       server helper shape.
-- [ ] Add a terse note that helpers sign `_trellisForwarding` and do not send
+- [x] Add a terse note that helpers sign `_trellisForwarding` and do not send
       identity-shaped public args.
-- [ ] Keep the API reference terse; link back to the task guide for the security
+- [x] Keep the API reference terse; link back to the task guide for the security
       explanation.
 
 ### 4. Align Deployment And Troubleshooting Notes
 
-- [ ] Ensure deployment overview/checklist mention only the server-owned
+- [x] Ensure deployment overview/checklist mention only the server-owned
       forwarding secret and signed path.
-- [ ] Ensure auth troubleshooting does not imply browser auth and trusted
+- [x] Ensure auth troubleshooting does not imply browser auth and trusted
       forwarding share a trust path.
-- [ ] Add or preserve `trellis doctor --security` guidance only if already
+- [x] Add or preserve `trellis doctor --security` guidance only if already
       accurate.
 
 ### 5. Leave Adjacent Docs Open
 
-- [ ] Do not mark bridge package-author guide complete.
-- [ ] Do not mark public API reference complete.
-- [ ] If bridge docs still need package-author signed forwarding details, record
+- [x] Do not mark bridge package-author guide complete.
+- [x] Do not mark public API reference complete.
+- [x] If bridge docs still need package-author signed forwarding details, record
       them as future scope.
 
 ### 6. Verify
 
-- [ ] `pnpm run check:docs:links`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] Forwarding docs scan from step 1 has no active raw-forwarding docs, or
+- [x] `pnpm run check:docs:links`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] Forwarding docs scan from step 1 has no active raw-forwarding docs, or
       every remaining hit is documented here as historical/migration/future
       scope.
-- [ ] `pnpm exec oxfmt --check apps/docs/content/docs/07.server-side/3.webhooks-and-trusted-forwarding.md apps/docs/content/docs/13.api-reference/4.server.md apps/docs/content/docs/11.deployment apps/docs/content/docs/05.auth-security/4.auth-troubleshooting.md meta/refactor/sprint76-trusted-forwarding-security-guide-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check apps/docs/content/docs/07.server-side/3.webhooks-and-trusted-forwarding.md apps/docs/content/docs/13.api-reference/4.server.md apps/docs/content/docs/11.deployment apps/docs/content/docs/05.auth-security/4.auth-troubleshooting.md meta/refactor/sprint76-trusted-forwarding-security-guide-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ### 7. Update The Refactor Tracker
 
-- [ ] Add a Sprint 76 completion note to
+- [x] Add a Sprint 76 completion note to
       `meta/trellis-1.0-refactor-plan.md`.
-- [ ] Mark Trusted forwarding security guide complete only if the task guide and
+- [x] Mark Trusted forwarding security guide complete only if the task guide and
       server API reference are aligned and verified.
-- [ ] Leave bridge package-author and full public API reference items open.
+- [x] Leave bridge package-author and full public API reference items open.
 
 ## Done Means
 
