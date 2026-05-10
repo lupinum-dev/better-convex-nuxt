@@ -1112,6 +1112,14 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   only remaining `trustedForwardingKey` user-facing hit is the testing harness
   signing-secret example, explicitly documented as test-only envelope signing.
   Bridge package-author and full public API reference rewrites remain open.
+- Sprint 77 is planned to continue Slice 12 with the bridge package-author
+  guide. The sprint should make the component bridge guide explicitly
+  package-author material, teach `@lupinum/trellis-bridge` as the bridge-owned
+  import and tooling boundary, keep Ginko/CMS setup product-owned or advanced
+  reference material, and make clear that normal app authors should use root
+  handlers, server helpers, operations, and MCP projection rather than bridge
+  internals. Full public API reference remains open unless this sprint makes only
+  narrow alignment edits.
 
 ### Done Means
 
