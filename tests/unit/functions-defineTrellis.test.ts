@@ -2,15 +2,15 @@ import { v } from 'convex/values'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { open } from '../../src/runtime/auth'
-import { defineTrellis, trellisBackendLaneMetadataKey } from '../../src/runtime/backend'
-import {
-  defineOperation,
-  transportExecuteOperationRef,
-} from '../../src/runtime/functions/define-operation'
+import { defineTrellis, trellisBackendLaneMetadataKey, unsafe } from '../../src/runtime/backend'
 import {
   hashConfirmationValue,
   signConfirmationToken,
 } from '../../src/runtime/functions/confirmation-token'
+import {
+  defineOperation,
+  transportExecuteOperationRef,
+} from '../../src/runtime/functions/define-operation'
 import { createObservationCapture } from '../../src/runtime/testing'
 import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
@@ -150,7 +150,11 @@ describe('defineTrellis', () => {
     } as never) as Record<PropertyKey, unknown>
     const unsafeMutation = runtime.mutation.unsafe({
       args: {},
-      bypass: 'test setup',
+      permit: unsafe.permit({
+        kind: 'testSetup',
+        reason: 'test setup',
+        scope: ['tests'],
+      }),
       handler: async () => ({ ok: true }),
     } as never) as Record<PropertyKey, unknown>
 
@@ -547,7 +551,7 @@ describe('defineTrellis', () => {
     expect(runtime.unsafe.action).toBeTypeOf('function')
   })
 
-  it('requires a bypass reason for unsafe builders', () => {
+  it('requires a typed permit for unsafe builders', () => {
     const builder = ((definition: unknown) => definition) as never
 
     const runtime = defineTrellis({
@@ -560,10 +564,10 @@ describe('defineTrellis', () => {
         args: {},
         handler: async () => null,
       } as never),
-    ).toThrow(/unsafe\.query\(\{ bypass \}\) requires a non-empty reason string/i)
+    ).toThrow(/unsafe\.query\(\{ permit \}\): unsafe handlers require unsafe\.permit\(\.\.\.\)/i)
   })
 
-  it('emits an unsafe handler event with the bypass reason', async () => {
+  it('emits an unsafe handler event with typed permit metadata', async () => {
     const builder = ((definition: unknown) => definition) as never
     const capture = createObservationCapture()
 
@@ -573,7 +577,12 @@ describe('defineTrellis', () => {
     })
 
     const definition = runtime.unsafe.query({
-      bypass: 'Public catalog listing is intentionally unauthenticated.',
+      permit: unsafe.permit({
+        kind: 'publicCatalog',
+        reason: 'Public catalog listing is intentionally unauthenticated.',
+        scope: ['runbooks'],
+        reviewBy: '2026-07-01',
+      }),
       args: {},
       handler: async () => ['ok'],
     } as never) as {
@@ -603,7 +612,10 @@ describe('defineTrellis', () => {
         name: 'unsafe.handler.used',
         status: 'success',
         details: {
+          kind: 'publicCatalog',
           reason: 'Public catalog listing is intentionally unauthenticated.',
+          reviewBy: '2026-07-01',
+          scope: ['runbooks'],
           surface: 'unsafe.query',
         },
       }),

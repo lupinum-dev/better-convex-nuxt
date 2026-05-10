@@ -5,7 +5,7 @@
  * later when comments attach the returned storage id.
  */
 import { requireAuth } from '@lupinum/trellis/auth'
-import type { ActorAccessor } from '@lupinum/trellis/backend'
+import { unsafe as unsafePermit, type ActorAccessor } from '@lupinum/trellis/backend'
 import type { GenericMutationCtx } from 'convex/server'
 
 import { generateUploadUrl } from '../../../shared/features/files/contract'
@@ -16,7 +16,11 @@ import { mutation } from '../../functions'
 type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
 
 export const generateUploadUrlMutation = mutation.unsafe({
-  bypass: 'Generate upload URLs before a concrete tenant-scoped record exists.',
+  permit: unsafePermit.permit({
+    kind: 'preTenantUpload',
+    reason: 'Generate upload URLs before a concrete tenant-scoped record exists.',
+    scope: ['files'],
+  }),
   args: generateUploadUrl.args,
   handler: async (ctx: Ctx) => {
     const actor = await ctx.actor()

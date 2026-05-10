@@ -128,7 +128,11 @@ describe('module validation', () => {
         })
 
         export const getPermissionContext = query.unsafe({
-          bypass: 'Expose permission context through the low-level builder in this fixture.',
+          permit: unsafe.permit({
+            kind: 'fixturePermissionContext',
+            reason: 'Expose permission context through the low-level builder in this fixture.',
+            scope: ['tests'],
+          }),
           args: {},
           handler: async () => null
         })

@@ -196,6 +196,10 @@ builder spellings.
   explicit object form for loaded-resource authorization, and
   `trellis upgrade --check` reports likely one-argument authorize callbacks
   without rewriting them.
+- Sprint 54 replaced backend unsafe string bypasses with the shared typed
+  `unsafe.permit(...)` primitive used by MCP custom tools. Runtime unsafe
+  handlers now require `permit`, emit structured permit metadata, and upgrade
+  audits only flag legacy/missing/non-typed unsafe entrypoints.
 
 ### Decide API
 
@@ -219,14 +223,14 @@ mutation.unsafe(...)
 - [x] Delete builder forms where missing guard can be interpreted as public for
       plain backend handler objects.
 - [x] Delete arity-based `authorize` inference.
-- [ ] Delete string-only unsafe bypasses after typed permits cover the surface.
+- [x] Delete string-only unsafe bypasses after typed permits cover the surface.
 
 ### Replace
 
 - [x] Convert representative examples and harness fixtures to explicit lanes.
 - [x] Convert beginner starter and resource generators to explicit lanes.
 - [x] Convert focused backend tests to explicit lanes.
-- [ ] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
+- [x] Replace unsafe bypass strings with typed `unsafe.permit(...)`.
 - [x] Add audit report for authorization rewrites that cannot be proven safe.
 
 ### Prove
@@ -722,7 +726,7 @@ shims.
 - [ ] Codemod for mechanical import/path renames.
 - [ ] Codemod for `tool.fromOperation`.
 - [ ] Audit report for authorize inference.
-- [ ] Audit report for unsafe bypasses that cannot be rewritten.
+- [x] Audit report for unsafe bypasses that cannot be rewritten.
 
 ### Delete
 

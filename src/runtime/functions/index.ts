@@ -26,7 +26,6 @@ import { v } from 'convex/values'
 import { defineActor, type DefaultActor } from '../auth/define-actor.js'
 import type { ServiceDefinitions } from '../auth/define-services.js'
 import { can, deny, open } from '../auth/index.js'
-import { hashConfirmationValue, verifyConfirmationToken } from './confirmation-token.js'
 import {
   buildObservationEnvelopeValidators,
   createObservationEmitter,
@@ -47,6 +46,7 @@ import {
 } from '../trusted-forwarding/shared.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
+import { hashConfirmationValue, verifyConfirmationToken } from './confirmation-token.js'
 import {
   defineDelegation,
   type Delegation,
@@ -68,6 +68,7 @@ import {
   type DefaultPrincipal,
   type PrincipalDefinition,
 } from './define-principal.js'
+import { assertUnsafePermit, type TrellisUnsafePermit, unsafe } from './unsafe-permit.js'
 
 export type {
   StructuredGuard,
@@ -110,6 +111,8 @@ export { defineDelegation } from './define-delegation.js'
 export type { Delegation, DelegationDefinition } from './define-delegation.js'
 export { definePrincipal } from './define-principal.js'
 export type { DefaultPrincipal, PrincipalDefinition } from './define-principal.js'
+export { unsafe } from './unsafe-permit.js'
+export type { TrellisUnsafePermit } from './unsafe-permit.js'
 
 type DataCtx<DataModel extends GenericDataModel> =
   | GenericQueryCtx<DataModel>
@@ -121,7 +124,7 @@ export type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
 export type DelegationAccessor<TDelegation> = () => Promise<TDelegation | null>
 export type ActorAccessor<TActor> = () => Promise<TActor | null>
 type ObserveFn = (event: ObservationEventInput) => Promise<void>
-type UnsafeDefinition = { bypass: string }
+type UnsafeDefinition = { permit: TrellisUnsafePermit }
 type EscapeTenantIsolationOptions = { reason: string }
 type UnsafeArgsFor<TArgsValidator> = [TArgsValidator] extends [PropertyValidators]
   ? ObjectType<TArgsValidator>
@@ -408,16 +411,20 @@ function rejectRemovedCustomRlsOption(options: unknown): void {
   }
 }
 
-function requireNonEmptyUnsafeReason(value: unknown, surface: string): string {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`${surface} requires a non-empty reason string.`)
-  }
-
-  return value.trim()
+function requireUnsafePermit(
+  definition: UnsafeDefinition | undefined,
+  surface: string,
+): TrellisUnsafePermit {
+  const permit = definition?.permit
+  assertUnsafePermit(permit, `${surface}({ permit })`)
+  return permit
 }
 
-function requireUnsafeBypass(definition: UnsafeDefinition | undefined, surface: string): string {
-  return requireNonEmptyUnsafeReason(definition?.bypass, `${surface}({ bypass })`)
+function requireNonEmptyReason(value: unknown, context: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${context} requires a non-empty reason.`)
+  }
+  return value.trim()
 }
 
 function getInternalUnsafeDb<TDb extends object>(db: TDb): TDb {
@@ -583,7 +590,7 @@ function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
   if (typeof builder !== 'function') return builder
 
   return ((definition: unknown) => {
-    const bypass = requireUnsafeBypass(definition as UnsafeDefinition | undefined, label)
+    const permit = requireUnsafePermit(definition as UnsafeDefinition | undefined, label)
     const maybeDefinition =
       definition && typeof definition === 'object'
         ? (definition as Record<string, unknown>)
@@ -599,7 +606,10 @@ function wrapUnsafeBuilder<TBuilder extends (definition: any) => unknown>(
                 name: 'unsafe.handler.used',
                 status: 'success',
                 details: {
-                  reason: bypass,
+                  kind: permit.kind,
+                  reason: permit.reason,
+                  reviewBy: permit.reviewBy,
+                  scope: permit.scope,
                   surface: label,
                 },
               })
@@ -1529,7 +1539,7 @@ function decorateDb<TDb extends object>(
       instrument(
         crossTenantDb,
         'db.escape_tenant_isolation.used',
-        requireNonEmptyUnsafeReason(reason, 'ctx.db.escapeTenantIsolation'),
+        requireNonEmptyReason(reason, 'ctx.db.escapeTenantIsolation'),
       ),
   }) as TDb & {
     escapeTenantIsolation: (options: EscapeTenantIsolationOptions) => TDb

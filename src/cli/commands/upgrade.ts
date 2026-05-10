@@ -47,6 +47,12 @@ function unsafeEntrypointLocations(
   return entries.map((entry) => entry.source)
 }
 
+function unsafeEntrypointsNeedingPermitMigration(
+  inventory: TrellisCliInventory,
+): TrellisCliInventoryUnsafeEntrypoint[] {
+  return inventory.backend.unsafeEntrypoints.filter((entry) => entry.style !== 'typed-permit')
+}
+
 function toRelativeLocation(
   project: ProjectInspection,
   path: string,
@@ -138,6 +144,8 @@ function createUpgradeFindings(
   const authorizeArityInference = findTokenLocations(project, [
     /authorize\s*:\s*(?:async\s*)?\(\s*(?:\{[^)]*\}|[A-Za-z_$][\w$]*\s*:\s*\{[^)]*\})\s*\)\s*=>/,
   ])
+  const unsafePermitMigrationEntrypoints = unsafeEntrypointsNeedingPermitMigration(inventory)
+  const unsafePermitMigrationLocations = unsafeEntrypointLocations(unsafePermitMigrationEntrypoints)
 
   return [
     createLocationFinding({
@@ -226,17 +234,14 @@ function createUpgradeFindings(
     createLocationFinding({
       id: 'upgrade-unsafe-permits',
       title: 'Unsafe permit migration',
-      locations: unsafeEntrypointLocations(inventory.backend.unsafeEntrypoints),
+      locations: unsafePermitMigrationLocations,
       sources: [
-        findingInventorySource(
-          'backend.unsafeEntrypoints',
-          unsafeEntrypointLocations(inventory.backend.unsafeEntrypoints),
-        ),
+        findingInventorySource('backend.unsafeEntrypoints', unsafePermitMigrationLocations),
       ],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
-        `Found unsafe backend entrypoints that need typed permit review at ${formatLocations(locations)}.`,
-      cleanMessage: 'No unsafe backend entrypoints were found.',
+        `Found unsafe backend entrypoints without typed permits at ${formatLocations(locations)}.`,
+      cleanMessage: 'All unsafe backend entrypoints use typed permits.',
       fixHint: 'Use typed `unsafe.permit(...)` metadata for every unsafe backend entrypoint.',
     }),
     createLocationFinding({

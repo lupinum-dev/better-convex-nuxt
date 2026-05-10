@@ -310,7 +310,7 @@ describe('defineTool error handling', () => {
         name: 'external-tool',
         handler: async (_args, ctx) => ctx.ok({ ok: true }),
       }),
-    ).toThrow(/external-service custom MCP tools require unsafe\.permit/)
+    ).toThrow(/external-service custom MCP tools: unsafe handlers require unsafe\.permit/)
   })
 
   it('accepts external-service custom tools with a typed unsafe permit', () => {

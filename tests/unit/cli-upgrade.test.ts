@@ -284,6 +284,47 @@ describe('CLI upgrade', () => {
     expect(readAppFile(appRoot, 'convex/features/todos/domain.ts')).toBe(before)
   })
 
+  it('warns for string-only unsafe backend entrypoints without rewriting files', () => {
+    const appRoot = createPublicApp()
+    writeAppFile(
+      appRoot,
+      'convex/features/legacy/domain.ts',
+      [
+        "import { query } from '@lupinum/trellis/backend'",
+        '',
+        'export const listPublic = query.unsafe({',
+        `  ${'bypass'}: 'Legacy unsafe reason that must become a typed permit.',`,
+        '  args: {},',
+        '  handler: async () => [],',
+        '})',
+      ].join('\n'),
+    )
+    const before = readAppFile(appRoot, 'convex/features/legacy/domain.ts')
+
+    const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const report = parseJsonOutput<UpgradeCheckReport>(result.stdout)
+    const finding = findFinding(report, 'upgrade-unsafe-permits')
+
+    expect(result.status, output).toBe(0)
+    expect(finding.status).toBe('warn')
+    expect(finding.message).toContain('convex/features/legacy/domain.ts:3')
+    expect(finding.sources).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'backend.unsafeEntrypoints',
+        locations: [
+          expect.objectContaining({
+            path: 'convex/features/legacy/domain.ts',
+            line: 3,
+          }),
+        ],
+      }),
+    ])
+    expect(JSON.stringify(finding.sources)).not.toContain('Legacy unsafe reason')
+    expect(readAppFile(appRoot, 'convex/features/legacy/domain.ts')).toBe(before)
+  })
+
   it('reports JSON with inventory, findings, and summary', () => {
     const appRoot = createPublicApp()
     const result = runCli(['upgrade', '--check', '--json', '--cwd', appRoot], repoRoot)

@@ -15,6 +15,7 @@ export {
   trellisBackendLaneMetadataKey,
   trellisOperationMetadataKey,
   trellisOperationProjectionMetadataKey,
+  unsafe,
 } from '../functions/index.js'
 
 export type {
@@ -49,6 +50,7 @@ export type {
   TrellisOperationMetadata,
   TrellisOperationProjectionMetadata,
   TrellisBackendLane,
+  TrellisUnsafePermit,
   ValidateOperationDefinition,
   ValidateOperationId,
   ValidateOperationProjection,

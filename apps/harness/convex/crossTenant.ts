@@ -22,6 +22,7 @@
  */
 import { defineArgs } from '@lupinum/trellis/args'
 import { defineGuard } from '@lupinum/trellis/auth'
+import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Actor } from './auth/actor'
@@ -74,7 +75,11 @@ export const listAllPosts = query.protected({
  * cross-tenant DB seam on its own.
  */
 export const getAnyPostRaw = query.unsafe({
-  bypass: 'Harness full-bypass post lookup.',
+  permit: unsafePermit.permit({
+    kind: 'harnessProbe',
+    reason: 'Harness full-bypass post lookup.',
+    scope: ['harness'],
+  }),
   args: getPostArgs.args,
   handler: async (ctx, args) => {
     return await ctx.db.get(args.id)

@@ -1,4 +1,5 @@
 import { deny } from '@lupinum/trellis/auth'
+import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { listAgencyPortfolio } from '../../../shared/features/dashboard/contract'
 import type { Doc } from '../../_generated/dataModel'
@@ -15,7 +16,11 @@ function escapeTenantIsolation<TDb extends object>(db: TDb, reason: string): TDb
 }
 
 export const portfolio = query.unsafe({
-  bypass: 'Show the agency portfolio across assigned workspaces.',
+  permit: unsafePermit.permit({
+    kind: 'agencyPortfolio',
+    reason: 'Show the agency portfolio across assigned workspaces.',
+    scope: ['dashboard', 'workspaces'],
+  }),
   args: listAgencyPortfolio.args,
   handler: async (ctx) => {
     const actor = await getAgencyActor(ctx)

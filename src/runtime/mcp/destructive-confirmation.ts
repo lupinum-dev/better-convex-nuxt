@@ -1,3 +1,9 @@
+import {
+  hashConfirmationValue,
+  signConfirmationToken,
+  verifyConfirmationToken,
+  type ToolConfirmationPayload,
+} from '../functions/confirmation-token.js'
 /**
  * Owns destructive MCP confirmation mechanics.
  *
@@ -8,12 +14,6 @@
 import { createDenialExplanation, type TrellisDenialExplanation } from '../observability/index.js'
 import type { SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory } from '../utils/types.js'
-import {
-  hashConfirmationValue,
-  signConfirmationToken,
-  verifyConfirmationToken,
-  type ToolConfirmationPayload,
-} from '../functions/confirmation-token.js'
 
 type MaybePromise<T> = T | Promise<T>
 

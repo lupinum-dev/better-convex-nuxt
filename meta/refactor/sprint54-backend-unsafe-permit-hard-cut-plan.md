@@ -50,62 +50,63 @@ mutation.unsafe({
 
 ### 1. Move/Expose The Shared Permit Primitive
 
-- [ ] Move the typed permit primitive to a shared runtime location if importing
+- [x] Move the typed permit primitive to a shared runtime location if importing
       from `runtime/mcp` would violate the new boundary policy.
-- [ ] Keep `@lupinum/trellis/mcp` exporting `unsafe.permit(...)` for MCP users.
-- [ ] Export the same `unsafe.permit(...)` from the backend/core surface that
+- [x] Keep `@lupinum/trellis/mcp` exporting `unsafe.permit(...)` for MCP users.
+- [x] Export the same `unsafe.permit(...)` from the backend/core surface that
       backend unsafe handlers already use.
-- [ ] Avoid broad public barrels beyond the chosen 1.0 backend surface.
+- [x] Avoid broad public barrels beyond the chosen 1.0 backend surface.
 
 ### 2. Replace Backend Unsafe Definition Shape
 
-- [ ] Change backend unsafe definitions from `{ bypass: string }` to
+- [x] Change backend unsafe definitions from `{ bypass: string }` to
       `{ permit: TrellisUnsafePermit }`.
-- [ ] Replace `requireUnsafeBypass(...)` with `requireUnsafePermit(...)`.
-- [ ] Preserve `unsafe.handler.used` emission, but include structured permit
+- [x] Replace `requireUnsafeBypass(...)` with `requireUnsafePermit(...)`.
+- [x] Preserve `unsafe.handler.used` emission, but include structured permit
       metadata (`kind`, `reason`, `scope`, optional `reviewBy`) instead of only
       `reason`.
-- [ ] Update runtime errors to require `unsafe.permit(...)`, not `bypass`.
+- [x] Update runtime errors to require `unsafe.permit(...)`, not `bypass`.
 
 ### 3. Convert Local Call Sites
 
-- [ ] Convert focused unit tests.
-- [ ] Convert retained examples and harness unsafe handlers.
-- [ ] Convert CLI add fixtures.
-- [ ] Convert docs examples and API reference text.
-- [ ] Update ESLint rule naming/message from unsafe-requires-bypass to
+- [x] Convert focused unit tests.
+- [x] Convert retained examples and harness unsafe handlers.
+- [x] Convert CLI add fixtures.
+- [x] Convert docs examples and API reference text.
+- [x] Update ESLint rule naming/message from unsafe-requires-bypass to
       unsafe-requires-permit if the rule still applies.
 
 ### 4. Keep Migration Audit Useful
 
-- [ ] Ensure `trellis upgrade --check` still reports old `bypass` usage as an
+- [x] Ensure `trellis upgrade --check` still reports old `bypass` usage as an
       unsafe permit migration warning.
-- [ ] Add or update a focused upgrade test for string-only unsafe bypasses if
+- [x] Add or update a focused upgrade test for string-only unsafe bypasses if
       current coverage is insufficient.
-- [ ] Do not auto-rewrite bypass strings unless a future codemod explicitly
+- [x] Do not auto-rewrite bypass strings unless a future codemod explicitly
       proves the target permit kind/scope.
 
 ### 5. Update Slice 3
 
-- [ ] Add a Sprint 54 progress note under Slice 3.
-- [ ] Mark "Delete string-only unsafe bypasses" complete.
-- [ ] Mark "Replace unsafe bypass strings with typed `unsafe.permit(...)`"
+- [x] Add a Sprint 54 progress note under Slice 3.
+- [x] Mark "Delete string-only unsafe bypasses" complete.
+- [x] Mark "Replace unsafe bypass strings with typed `unsafe.permit(...)`"
       complete.
-- [ ] Keep Slice 3 open for missing actor wiring proof if still unresolved.
+- [x] Keep Slice 3 open for missing actor wiring proof if still unresolved.
 
 ## Verification
 
-- [ ] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/define-convex-tool.test.ts`
-- [ ] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
-- [ ] `pnpm run check:docs:api-surface`
-- [ ] `pnpm run check:publish-surface`
-- [ ] `pnpm run check:repo-policies`
-- [ ] `rg -n "bypass:" src tests examples apps apps/docs/content/docs`
+- [x] `pnpm exec vitest run --project=unit tests/unit/functions-defineTrellis.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/define-convex-tool.test.ts`
+- [x] `pnpm exec vitest run --project=unit tests/unit/cli-doctor.test.ts tests/unit/module-validation.test.ts tests/unit/backend-index-exports.test.ts tests/unit/mcp-index-exports.test.ts`
+- [x] `pnpm exec vue-tsc -p tsconfig.types.json --noEmit`
+- [x] `pnpm run check:docs:api-surface`
+- [x] `pnpm run check:publish-surface`
+- [x] `pnpm run check:repo-policies`
+- [x] `rg -n "bypass:" src tests examples apps apps/docs/content/docs`
       returns only migration/audit text or unrelated non-backend uses.
-- [ ] `rg -n "unsafe\\.permit" src tests examples apps apps/docs/content/docs`
+- [x] `rg -n "unsafe\\.permit" src tests examples apps apps/docs/content/docs`
       shows backend unsafe handlers and MCP custom tools using the same helper.
-- [ ] `pnpm exec oxfmt --check src/runtime/functions src/runtime/mcp src/eslint tests/unit/functions-defineTrellis.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/define-convex-tool.test.ts apps/docs/content/docs meta/refactor/sprint54-backend-unsafe-permit-hard-cut-plan.md meta/trellis-1.0-refactor-plan.md`
-- [ ] `git diff --check`
+- [x] `pnpm exec oxfmt --check src/runtime/functions src/runtime/mcp src/runtime/backend src/eslint src/cli/commands/upgrade.ts src/cli/lib/inventory-findings.ts tests/unit/functions-defineTrellis.test.ts tests/unit/eslint-plugin.test.ts tests/unit/cli-upgrade.test.ts tests/unit/cli-doctor.test.ts tests/unit/module-validation.test.ts tests/unit/define-convex-tool.test.ts apps/docs/content/docs/08.permissions/6.cross-tenant-and-raw-access.md apps/docs/content/docs/13.api-reference/3.functions.md meta/refactor/sprint54-backend-unsafe-permit-hard-cut-plan.md meta/trellis-1.0-refactor-plan.md`
+- [x] `git diff --check`
 
 ## Done Means
 

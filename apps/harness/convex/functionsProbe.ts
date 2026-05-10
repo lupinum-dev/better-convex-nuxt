@@ -1,5 +1,10 @@
 import { defineGuard } from '@lupinum/trellis/auth'
-import { defineDelegation, definePrincipal, defineTrellis } from '@lupinum/trellis/backend'
+import {
+  defineDelegation,
+  definePrincipal,
+  defineTrellis,
+  unsafe as unsafePermit,
+} from '@lupinum/trellis/backend'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/backend'
 import { getForwardedPrincipal, getTrustedForwarding } from '@lupinum/trellis/trusted-forwarding'
 import { Triggers } from 'convex-helpers/server/triggers'
@@ -97,9 +102,15 @@ const unsafeArgPrincipalRuntime = defineTrellis<
 const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
 const canEditStructuredPost = (ownerId: string) =>
   defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)
+const harnessPermit = (reason: string) =>
+  unsafePermit.permit({
+    kind: 'harnessProbe',
+    reason,
+    scope: ['harness'],
+  })
 
 export const publicWithoutActor = query.unsafe({
-  bypass: 'Harness probe bypass without actor resolution.',
+  permit: harnessPermit('Harness probe bypass without actor resolution.'),
   args: {},
   handler: async () => ({
     actorResolverCalls,
@@ -166,7 +177,7 @@ export const structuredDelegationProbe = query.public({
 })
 
 export const resetActorResolverCalls = mutation.unsafe({
-  bypass: 'Harness probe reset for actor memoization state.',
+  permit: harnessPermit('Harness probe reset for actor memoization state.'),
   args: {},
   handler: async () => {
     actorResolverCalls = 0
@@ -179,7 +190,7 @@ export const resetActorResolverCalls = mutation.unsafe({
 })
 
 export const actorMemoization = query.unsafe({
-  bypass: 'Harness probe for actor memoization.',
+  permit: harnessPermit('Harness probe for actor memoization.'),
   args: {},
   trustedForwardingFunctionRef: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
@@ -197,7 +208,7 @@ export const actorMemoization = query.unsafe({
 })
 
 export const trustedForwardingStateProbe = query.unsafe({
-  bypass: 'Harness probe for signed forwarding context state.',
+  permit: harnessPermit('Harness probe for signed forwarding context state.'),
   args: {},
   trustedForwardingFunctionRef: 'functionsProbe:trustedForwardingStateProbe',
   handler: async (ctx) => ({
@@ -207,7 +218,7 @@ export const trustedForwardingStateProbe = query.unsafe({
 })
 
 export const echoedArgs = query.unsafe({
-  bypass: 'Harness probe for unsafe query arg echo.',
+  permit: harnessPermit('Harness probe for unsafe query arg echo.'),
   args: {
     title: v.string(),
   },
@@ -216,7 +227,7 @@ export const echoedArgs = query.unsafe({
 })
 
 export const onSuccessEnvelopeProbe = query.unsafe({
-  bypass: 'Harness probe for onSuccess envelope capture.',
+  permit: harnessPermit('Harness probe for onSuccess envelope capture.'),
   args: {
     marker: v.string(),
   },
@@ -227,7 +238,7 @@ export const onSuccessEnvelopeProbe = query.unsafe({
 })
 
 export const getEnvelopeProbeState = query.unsafe({
-  bypass: 'Harness probe for structured envelope state.',
+  permit: harnessPermit('Harness probe for structured envelope state.'),
   args: {},
   handler: async () => ({
     structuredLoadArgs,
@@ -246,7 +257,7 @@ export const unsafeForwardedPrincipalProbe = unsafeArgPrincipalRuntime.query.pub
 })
 
 export const unsafeListPosts = query.unsafe({
-  bypass: 'Harness probe for unsafe post listing.',
+  permit: harnessPermit('Harness probe for unsafe post listing.'),
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('posts').order('desc').collect()
@@ -254,7 +265,7 @@ export const unsafeListPosts = query.unsafe({
 })
 
 export const unsafeRenamePost = mutation.unsafe({
-  bypass: 'Harness probe for unsafe post rename.',
+  permit: harnessPermit('Harness probe for unsafe post rename.'),
   args: {
     id: v.id('posts'),
     title: v.string(),
@@ -270,7 +281,7 @@ export const unsafeRenamePost = mutation.unsafe({
 })
 
 export const unsafeListMcpKeys = query.unsafe({
-  bypass: 'Harness probe for unsafe MCP key listing.',
+  permit: harnessPermit('Harness probe for unsafe MCP key listing.'),
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query('mcpKeys').order('desc').collect()
@@ -278,7 +289,7 @@ export const unsafeListMcpKeys = query.unsafe({
 })
 
 export const createTriggeredNote = mutation.unsafe({
-  bypass: 'Harness probe for trigger execution under unsafe mutation.',
+  permit: harnessPermit('Harness probe for trigger execution under unsafe mutation.'),
   args: {
     content: v.string(),
   },
@@ -291,7 +302,7 @@ export const createTriggeredNote = mutation.unsafe({
 })
 
 export const getNote = query.unsafe({
-  bypass: 'Harness probe for note lookup.',
+  permit: harnessPermit('Harness probe for note lookup.'),
   args: {
     id: v.id('notes'),
   },

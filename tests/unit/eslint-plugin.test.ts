@@ -140,7 +140,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [badResult] = await eslint.lintText(
       `
       export const list = unsafe.query({
-        bypass: 'Fixture-only unsafe query for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixtureUnsafeQuery',
+          reason: 'Fixture-only unsafe query for lint coverage.',
+          scope: ['tests'],
+        }),
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('tasks').collect()
@@ -230,7 +234,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [result] = await eslint.lintText(
       `
       export const getArticle = unsafe.query({
-        bypass: 'Fixture-only public article access for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixturePublicArticleAccess',
+          reason: 'Fixture-only public article access for lint coverage.',
+          scope: ['tests'],
+        }),
         args: { shareToken: v.optional(v.string()), id: v.id('articles') },
         handler: async (ctx, args) => {
           if (args.shareToken) {
@@ -260,7 +268,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [result] = await eslint.lintText(
       `
       export const updateTodo = unsafe.mutation({
-        bypass: 'Fixture-only mutation for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixtureUnsafeMutation',
+          reason: 'Fixture-only mutation for lint coverage.',
+          scope: ['tests'],
+        }),
         args: { id: v.id('todos') },
         handler: async (ctx, args) => {
           const actor = await ctx.actor()
@@ -281,7 +293,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('requires explicit reasons on unsafe builders and tenant-isolation escapes', async () => {
+  it('requires typed permits on unsafe builders and reasons on tenant-isolation escapes', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -300,7 +312,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [missingEscapeReason] = await eslint.lintText(
       `
       export const listPublic = unsafe.query({
-        bypass: 'Fixture-only unsafe query for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixtureUnsafeQuery',
+          reason: 'Fixture-only unsafe query for lint coverage.',
+          scope: ['tests'],
+        }),
         args: {},
         handler: async (ctx) => {
           return await ctx.db.escapeTenantIsolation({}).query('runbooks').collect()
@@ -311,7 +327,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
 
     expect(missingUnsafeBypass!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/unsafe-requires-bypass',
+      '@lupinum/trellis/unsafe-requires-permit',
     )
     expect(missingEscapeReason!.messages.map((message) => message.ruleId)).toContain(
       '@lupinum/trellis/escape-tenant-isolation-requires-reason',
@@ -325,7 +341,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [badResult] = await eslint.lintText(
       `
       export const listPublic = unsafe.query({
-        bypass: 'Fixture-only public read for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixturePublicRead',
+          reason: 'Fixture-only public read for lint coverage.',
+          scope: ['tests'],
+        }),
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('runbooks').collect()
@@ -338,7 +358,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     const [goodResult] = await eslint.lintText(
       `
       export const listPublic = unsafe.query({
-        bypass: 'Fixture-only public read for lint coverage.',
+        permit: unsafe.permit({
+          kind: 'fixturePublicRead',
+          reason: 'Fixture-only public read for lint coverage.',
+          scope: ['tests'],
+        }),
         args: {},
         handler: async (ctx) => {
           return await ctx.db.query('runbooks').withIndex('by_visibility', (q) => q.eq('visibility', 'public')).collect()

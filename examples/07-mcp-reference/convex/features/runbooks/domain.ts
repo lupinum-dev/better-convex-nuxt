@@ -1,4 +1,5 @@
 import { can, deny, loadTenantResource as loadResource, requireRecord } from '@lupinum/trellis/auth'
+import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import {
   createRunbook,
@@ -64,7 +65,11 @@ function matchesTerm(
 }
 
 export const listPublic = query.unsafe({
-  bypass: 'Expose the public runbook catalog without a workspace actor.',
+  permit: unsafePermit.permit({
+    kind: 'publicCatalog',
+    reason: 'Expose the public runbook catalog without a workspace actor.',
+    scope: ['runbooks'],
+  }),
   args: listRunbooks.args,
   handler: async (ctx) => {
     // Public by design, but still bounded to already-public records and a capped catalog read.
@@ -82,7 +87,11 @@ export const listPublic = query.unsafe({
 })
 
 export const searchPublic = query.unsafe({
-  bypass: 'Search the public runbook catalog across workspaces.',
+  permit: unsafePermit.permit({
+    kind: 'publicCatalogSearch',
+    reason: 'Search the public runbook catalog across workspaces.',
+    scope: ['runbooks'],
+  }),
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
@@ -119,7 +128,11 @@ export const listWorkspace = query.protected({
 })
 
 export const get = query.unsafe({
-  bypass: 'Read public runbooks before the caller resolves to a workspace actor.',
+  permit: unsafePermit.permit({
+    kind: 'publicRunbookRead',
+    reason: 'Read public runbooks before the caller resolves to a workspace actor.',
+    scope: ['runbooks'],
+  }),
   args: getRunbook.args,
   handler: async (ctx, args) => {
     // This query may cross tenants, but only to read one public runbook before a workspace actor is

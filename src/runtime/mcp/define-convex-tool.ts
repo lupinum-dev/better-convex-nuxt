@@ -459,7 +459,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
   }
 
   if (effect === 'external-service') {
-    assertUnsafePermit(permit, 'defineTool')
+    assertUnsafePermit(permit, 'external-service custom MCP tools')
   }
 
   if (rateLimit && !name) {

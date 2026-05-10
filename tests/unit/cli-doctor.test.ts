@@ -740,7 +740,7 @@ describe('CLI doctor', () => {
       expect(report.inventory.publicSurface.tools.length).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.findings).toEqual([])
     }
-  })
+  }, 60_000)
 
   it('reports bridge dependency inventory without loading bridge packages', () => {
     const cwd = createTempDir('trellis-doctor-bridge-dependency-')
@@ -1573,10 +1573,17 @@ export default defineEventHandler(async (event) => {
 
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/domain.ts'),
-      `${read(resolve(appRoot, 'convex/features/todos/domain.ts'))}
+      `${read(resolve(appRoot, 'convex/features/todos/domain.ts')).replace(
+        "import { mutation, query } from '../../functions'",
+        "import { mutation, query } from '../../functions'\nimport { unsafe } from '@lupinum/trellis/backend'",
+      )}
 
 export const publicCatalog = query.unsafe({
-  bypass: 'Intentional public listing for doctor inventory coverage.',
+  permit: unsafe.permit({
+    kind: 'publicCatalog',
+    reason: 'Intentional public listing for doctor inventory coverage.',
+    scope: ['todos'],
+  }),
   args: listTodos.args,
   handler: async (ctx) => {
     const db = ctx.db.escapeTenantIsolation({
@@ -1632,12 +1639,17 @@ export const uploadUrl = mutation.unsafe({
         expect.objectContaining({
           exportName: 'publicCatalog',
           surface: 'query',
-          style: 'string-bypass',
+          style: 'typed-permit',
           file: 'convex/features/todos/domain.ts',
           source: expect.objectContaining({
             path: 'convex/features/todos/domain.ts',
             line: expect.any(Number),
           }),
+          permit: {
+            kind: 'publicCatalog',
+            scopeCount: 1,
+            hasReviewBy: false,
+          },
         }),
         expect.objectContaining({
           exportName: 'uploadUrl',

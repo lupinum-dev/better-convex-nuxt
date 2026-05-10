@@ -60,7 +60,7 @@ App-owned env vars:
   If each user still belongs to exactly one workspace, staying on the single-workspace model is the
   safer and simpler design.
 - The agency dashboard is a bounded operator view, not a general cross-tenant query pattern. Keep
-  the membership gate and explicit bypass reasons if you adapt it for production.
+  the membership gate and explicit unsafe permits if you adapt it for production.
 
 ## Test
 

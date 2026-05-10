@@ -17,6 +17,7 @@ import {
   type FunctionLikeReturnType,
 } from '../convex/shared/convex-shared.js'
 import { defineArgs } from '../convex/shared/define-convex-schema.js'
+import { hashConfirmationValue } from '../functions/confirmation-token.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import {
   getOperationMetadata,
@@ -39,7 +40,6 @@ import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
-import { hashConfirmationValue } from '../functions/confirmation-token.js'
 import { defineToolInternal as defineTool } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,

@@ -14,7 +14,6 @@ import {
   hasTenantCollectionMethod,
   isBuilderCall,
   isCallNamed,
-  isIdentifier,
   isNullishBooleanLiteral,
   traverse,
   unwindCallChain,
@@ -231,13 +230,13 @@ export const boundaryRules = {
       },
     }),
   ),
-  'unsafe-requires-bypass': createRule(
+  'unsafe-requires-permit': createRule(
     {
       type: 'problem',
       schema: [],
       messages: {
-        bypass:
-          'Unsafe handlers must declare a non-empty `bypass` reason so the escape hatch is explicit in review.',
+        permit:
+          'Unsafe handlers must declare `permit: unsafe.permit(...)` so the escape hatch is explicit in review.',
       },
     },
     (context) => ({
@@ -260,31 +259,17 @@ export const boundaryRules = {
         if (options?.type !== 'ObjectExpression') {
           context.report({
             node,
-            messageId: 'bypass',
+            messageId: 'permit',
           })
           return
         }
 
-        const bypass = getObjectProperty(options, 'bypass')?.value
-        if (
-          bypass?.type === 'Literal' &&
-          typeof bypass.value === 'string' &&
-          bypass.value.trim().length > 0
-        ) {
-          return
-        }
-
-        if (
-          isIdentifier(bypass) ||
-          bypass?.type === 'TemplateLiteral' ||
-          bypass?.type === 'BinaryExpression'
-        ) {
-          return
-        }
+        const permit = getObjectProperty(options, 'permit')?.value
+        if (permit) return
 
         context.report({
-          node: bypass ?? options,
-          messageId: 'bypass',
+          node: options,
+          messageId: 'permit',
         })
       },
     }),

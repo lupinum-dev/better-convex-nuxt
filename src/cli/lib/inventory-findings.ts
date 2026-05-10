@@ -128,7 +128,7 @@ function createUnsafeSurfaceFinding(inventory: TrellisCliInventory): DoctorFindi
     fixHint:
       entries.length === 0
         ? 'No action needed unless you add intentional escape hatches later.'
-        : 'Review each unsafe entrypoint and keep the bypass reason narrow, explicit, and tested.',
+        : 'Review each unsafe entrypoint and keep the typed permit narrow, explicit, and tested.',
     sources: [findingInventorySource('backend.unsafeEntrypoints', locations)],
   }
 }
