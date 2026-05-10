@@ -459,7 +459,7 @@ docs generation, and future explain commands.
 ### Replace
 
 - [ ] Doctor reads inventory/finding engine.
-- [ ] Public surface checks reuse inventory where useful.
+- [x] Public surface checks reuse inventory where useful.
 - [x] Upgrade `--check` uses inventory.
 - [ ] `explain operation <id>` uses inventory if included in 1.0.
 
@@ -508,6 +508,10 @@ docs generation, and future explain commands.
 - Sprint 39 is planned to move the refactor public-surface generator onto a
   shared script-local public-surface inventory helper without making scripts
   depend on built CLI internals.
+- Sprint 39 moved the refactor public-surface generator onto
+  `scripts/lib/public-surface-inventory.mjs`, keeping policy decisions in the
+  generator while sharing package, generated surface, CLI, starter, and stale
+  reference facts.
 
 ### Done Means
 

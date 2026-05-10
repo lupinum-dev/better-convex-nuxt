@@ -129,35 +129,35 @@ runs the helper and asserts the key surfaces:
 
 ### 1. Extract Helper
 
-- [ ] Add `scripts/lib/public-surface-inventory.mjs`.
-- [ ] Move walking, call-block extraction, alias extraction, CLI command
+- [x] Add `scripts/lib/public-surface-inventory.mjs`.
+- [x] Move walking, call-block extraction, alias extraction, CLI command
       extraction, template extraction, and stale-reference collection into the
       helper.
-- [ ] Keep the helper pure and root-dir based.
-- [ ] Keep the helper JSON-friendly and secret-free.
+- [x] Keep the helper pure and root-dir based.
+- [x] Keep the helper JSON-friendly and secret-free.
 
 ### 2. Use Helper In Refactor Surface Generator
 
-- [ ] Replace inline collector code in
+- [x] Replace inline collector code in
       `scripts/generate-refactor-surface-inventory.mjs`.
-- [ ] Keep decision mapping and markdown rendering in the generator.
-- [ ] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
-- [ ] Keep generated output stable unless the helper reveals a real current
+- [x] Keep decision mapping and markdown rendering in the generator.
+- [x] Regenerate `meta/refactor/sprint1-public-surface-inventory.md`.
+- [x] Keep generated output stable unless the helper reveals a real current
       state difference.
 
 ### 3. Add Regression Coverage
 
-- [ ] Add a focused test or script check for the helper.
-- [ ] Assert package export, CLI command, starter, and stale-reference facts.
-- [ ] Ensure helper output does not contain file contents or source snippets.
+- [x] Add a focused test or script check for the helper.
+- [x] Assert package export, CLI command, starter, and stale-reference facts.
+- [x] Ensure helper output does not contain file contents or source snippets.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Mark `Public surface checks reuse inventory where useful` only if the
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Mark `Public surface checks reuse inventory where useful` only if the
       generator now consumes the shared helper and tests prove it.
-- [ ] Leave `explain operation <id>` unchecked.
+- [x] Leave `explain operation <id>` unchecked.
 
 ## Verification
 
@@ -197,20 +197,30 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Refactor public-surface generator uses one shared public-surface inventory
+- [x] Refactor public-surface generator uses one shared public-surface inventory
       helper.
-- [ ] Helper output is JSON-friendly and secret/snippet-free.
-- [ ] Existing public-surface decisions stay in the generator, not hidden in the
+- [x] Helper output is JSON-friendly and secret/snippet-free.
+- [x] Existing public-surface decisions stay in the generator, not hidden in the
       helper.
-- [ ] Generated `sprint1-public-surface-inventory.md` is current.
-- [ ] Script/helper regression coverage exists.
-- [ ] Public-surface checks still pass.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Generated `sprint1-public-surface-inventory.md` is current.
+- [x] Script/helper regression coverage exists.
+- [x] Public-surface checks still pass.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
 
 ## Exit Notes
 
-- pending
+- Added `scripts/lib/public-surface-inventory.mjs`, a root-dir based helper for
+  repo public-surface facts.
+- Moved package export, runtime barrel, Nuxt generated surface, CLI command,
+  starter template, and stale docs/token collection out of
+  `generate-refactor-surface-inventory.mjs`.
+- Kept public-surface policy decisions and markdown rendering in
+  `generate-refactor-surface-inventory.mjs`.
+- Regenerated `meta/refactor/sprint1-public-surface-inventory.md`; generated
+  content stayed stable.
+- Added `tests/unit/public-surface-inventory-script.test.ts` covering key facts
+  and snippet/secret safety.
 
 ## Next Sprint Candidate
 
