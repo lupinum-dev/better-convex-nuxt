@@ -84,32 +84,32 @@ in exit notes.
 
 ### 1. Extract Inventory Finding Helpers
 
-- [ ] Create a focused helper module for inventory-backed doctor findings.
-- [ ] Move shared location formatting and unsafe-entrypoint location helpers if
+- [x] Create a focused helper module for inventory-backed doctor findings.
+- [x] Move shared location formatting and unsafe-entrypoint location helpers if
       they become inventory-finding concerns.
-- [ ] Keep helper input narrow: `TrellisCliInventory`, not `ProjectInspection`.
-- [ ] Keep messages, statuses, and finding IDs stable.
+- [x] Keep helper input narrow: `TrellisCliInventory`, not `ProjectInspection`.
+- [x] Keep messages, statuses, and finding IDs stable.
 
 ### 2. Replace Doctor Inline Inventory Findings
 
-- [ ] Remove inventory-backed finding construction from `doctor.ts`.
-- [ ] Call the inventory finding helper from doctor.
-- [ ] Keep env/auth/module-validation findings in doctor for now.
-- [ ] Keep permission metadata findings as-is unless they can cleanly consume
+- [x] Remove inventory-backed finding construction from `doctor.ts`.
+- [x] Call the inventory finding helper from doctor.
+- [x] Keep env/auth/module-validation findings in doctor for now.
+- [x] Keep permission metadata findings as-is unless they can cleanly consume
       `inventory.permissions`.
 
 ### 3. Prove Output Stability
 
-- [ ] Existing doctor JSON snapshots/assertions still pass.
-- [ ] Existing source metadata assertions still point to inventory paths.
-- [ ] Human doctor output remains stable enough for current tests.
-- [ ] No new scanner is introduced.
+- [x] Existing doctor JSON snapshots/assertions still pass.
+- [x] Existing source metadata assertions still point to inventory paths.
+- [x] Human doctor output remains stable enough for current tests.
+- [x] No new scanner is introduced.
 
 ### 4. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 notes.
-- [ ] Mark "Doctor reads inventory/finding engine" complete only if doctor's
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 notes.
+- [x] Mark "Doctor reads inventory/finding engine" complete only if doctor's
       inventory-backed findings are no longer assembled inline.
 
 ## Verification
@@ -151,10 +151,24 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] Inventory-backed doctor findings live in one inventory finding helper.
-- [ ] Doctor still owns non-inventory setup/env findings.
-- [ ] No finding ID/status regression for existing doctor tests.
-- [ ] Inventory-backed finding sources remain machine-readable and safe.
-- [ ] No new source scanner is added.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Inventory-backed doctor findings live in one inventory finding helper.
+- [x] Doctor still owns non-inventory setup/env findings.
+- [x] No finding ID/status regression for existing doctor tests.
+- [x] Inventory-backed finding sources remain machine-readable and safe.
+- [x] No new source scanner is added.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `src/cli/lib/inventory-findings.ts` as the focused helper for
+  inventory-backed doctor findings.
+- `doctor.ts` now delegates app inventory, forwarding exposure/misuse, unsafe
+  surfaces, tenant escapes, destructive operations, MCP rate-limit store,
+  destructive MCP binding, operation/tool agreement, and custom MCP app-write
+  findings to `collectInventoryDoctorFindings(inventory)`.
+- Env/auth/module-validation checks remain in `doctor.ts` because they still
+  depend on project/env inspection outside `TrellisCliInventory`.
+- Permission metadata findings stay on the existing metadata helper for now; a
+  later sprint can move them only if it can use `inventory.permissions` without
+  losing usage diagnostics.

@@ -458,7 +458,7 @@ docs generation, and future explain commands.
 
 ### Replace
 
-- [ ] Doctor reads inventory/finding engine.
+- [x] Doctor reads inventory/finding engine.
 - [x] Public surface checks reuse inventory where useful.
 - [x] Upgrade `--check` uses inventory.
 - [ ] `explain operation <id>` uses inventory if included in 1.0.
@@ -545,6 +545,10 @@ docs generation, and future explain commands.
 - Sprint 45 is planned to extract doctor's inventory-backed security findings
   into a focused inventory finding engine while keeping env/auth setup checks in
   the doctor command.
+- Sprint 45 extracted inventory-backed doctor findings into
+  `collectInventoryDoctorFindings(inventory)`, leaving env/auth/module-validation
+  checks in the doctor command and permission usage diagnostics on the existing
+  permission metadata helper.
 
 ### Done Means
 

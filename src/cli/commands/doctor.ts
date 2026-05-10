@@ -11,14 +11,13 @@ import {
   minimumTrustedForwardingKeyLength,
 } from '../../runtime/trusted-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
-import { exitCodeForFindings, findingInventorySource, summarizeFindings } from '../lib/findings.js'
+import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
+import { collectInventoryDoctorFindings } from '../lib/inventory-findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
   type TrellisCliInventory,
-  type TrellisCliInventoryUnsafeEntrypoint,
   type TrellisCliInventoryFacts,
-  type TrellisCliInventorySourceLocation,
 } from '../lib/inventory.js'
 import { renderDoctorReport } from '../lib/output.js'
 import { collectPermissionMetadataFindings } from '../lib/permission-metadata.js'
@@ -54,164 +53,6 @@ function toDoctorFindingTitle(id: string): string {
   }
 }
 
-function formatInventoryLocations(
-  locations: TrellisCliInventorySourceLocation[],
-  limit = 3,
-): string {
-  return `${locations
-    .map((entry) => `${entry.path}:${entry.line}`)
-    .slice(0, limit)
-    .join(', ')}${locations.length > limit ? ', ...' : ''}`
-}
-
-function unsafeEntrypointLocations(
-  entries: TrellisCliInventoryUnsafeEntrypoint[],
-): TrellisCliInventorySourceLocation[] {
-  return entries.map((entry) => entry.source)
-}
-
-function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFinding {
-  const appInventory = inventory.appInventory
-  const warning = appInventory.warnings[0]
-  const sourceLocations = [
-    ...appInventory.featureBindings.map((binding) => binding.source),
-    ...appInventory.warnings.map((entry) => entry.source),
-  ]
-  const sources = [findingInventorySource('appInventory', sourceLocations)]
-
-  if (!appInventory.detected) {
-    return {
-      id: 'app-inventory-source',
-      category: 'core',
-      title: 'App inventory source',
-      status: 'pass',
-      message:
-        'No shared/app-inventory.ts file was found. Generated apps may add app inventory when they need feature-owned inventory.',
-      fixHint:
-        'Add shared/app-inventory.ts with defineAppInventory({ features: [...] }) when app-owned feature inventory becomes useful.',
-      sources,
-    }
-  }
-
-  if (warning) {
-    return {
-      id: 'app-inventory-source',
-      category: 'core',
-      title: 'App inventory source',
-      status: 'warn',
-      message: `Found ${appInventory.file}, but app inventory could not be statically read: ${warning.code} at ${formatInventoryLocations([warning.source])}.`,
-      fixHint:
-        'Use a static defineAppInventory({ features: [feature] as const }) feature list so doctor, upgrade, and future explain commands can read app-owned inventory.',
-      sources,
-    }
-  }
-
-  return {
-    id: 'app-inventory-source',
-    category: 'core',
-    title: 'App inventory source',
-    status: 'pass',
-    message: `Found ${appInventory.file} with ${appInventory.featureBindings.length} static feature binding${appInventory.featureBindings.length === 1 ? '' : 's'}.`,
-    fixHint:
-      'Keep shared/app-inventory.ts static so doctor, upgrade, and future explain commands can read app-owned inventory.',
-    sources,
-  }
-}
-
-function createOperationToolAgreementFinding(inventory: TrellisCliInventory): DoctorFinding {
-  const destructiveOperations = inventory.publicSurface.operations.filter(
-    (operation) => operation.kind === 'destructive',
-  )
-  const operationBackedTools = inventory.publicSurface.tools.filter(
-    (tool) => tool.source === 'operation',
-  )
-
-  if (destructiveOperations.length === 0) {
-    return {
-      id: 'operation-tool-agreement',
-      category: 'advanced',
-      title: 'Operation/tool agreement',
-      status: 'pass',
-      message: 'No destructive operations were found in public-surface metadata.',
-      fixHint: 'No action needed unless you add destructive operation-backed MCP tools later.',
-      sources: [
-        findingInventorySource(
-          'publicSurface.operations',
-          inventory.publicSurface.operations.map((operation) => operation.source),
-        ),
-        findingInventorySource(
-          'publicSurface.tools',
-          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
-        ),
-      ],
-    }
-  }
-
-  if (!inventory.layers.mcp) {
-    return {
-      id: 'operation-tool-agreement',
-      category: 'advanced',
-      title: 'Operation/tool agreement',
-      status: 'pass',
-      message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and no MCP layer. Backend-only destructive operations are valid.`,
-      fixHint:
-        'Expose destructive operations to MCP only when the app intentionally needs agent access.',
-      sources: [
-        findingInventorySource(
-          'publicSurface.operations',
-          destructiveOperations.map((operation) => operation.source),
-        ),
-        findingInventorySource(
-          'publicSurface.tools',
-          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
-        ),
-      ],
-    }
-  }
-
-  if (operationBackedTools.length === 0) {
-    return {
-      id: 'operation-tool-agreement',
-      category: 'advanced',
-      title: 'Operation/tool agreement',
-      status: 'warn',
-      message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} but no operation-backed MCP tools in public-surface metadata. First operation: ${formatInventoryLocations([destructiveOperations[0]!.source])}.`,
-      fixHint:
-        'Bind destructive MCP tools with `tool.operation(...)`, or keep the operation backend-only if MCP exposure is not intended.',
-      sources: [
-        findingInventorySource(
-          'publicSurface.operations',
-          destructiveOperations.map((operation) => operation.source),
-        ),
-        findingInventorySource(
-          'publicSurface.tools',
-          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
-        ),
-      ],
-    }
-  }
-
-  return {
-    id: 'operation-tool-agreement',
-    category: 'advanced',
-    title: 'Operation/tool agreement',
-    status: 'pass',
-    message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} in public-surface metadata.`,
-    fixHint:
-      'Keep destructive MCP tools operation-backed so preview, confirmation, and execute stay coupled.',
-    sources: [
-      findingInventorySource(
-        'publicSurface.operations',
-        destructiveOperations.map((operation) => operation.source),
-      ),
-      findingInventorySource(
-        'publicSurface.tools',
-        operationBackedTools.map((tool) => tool.sourceLocation),
-      ),
-    ],
-  }
-}
-
 function createDoctorFindings(
   project: ProjectInspection,
   inventory: TrellisCliInventory,
@@ -239,19 +80,10 @@ function createDoctorFindings(
   const trustedForwardingKeyIssue = trustedForwardingKeySource
     ? getTrustedForwardingKeyProductionIssue(trustedForwardingKeySource.value, 'production')
     : null
-  const trustedForwardingPublicExposure = inventory.forwarding.publicExposures
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.operation\s*\(/.test(file.text),
   )
-  const unsafeSurfaceInventory = inventory.backend.unsafeEntrypoints
-  const crossTenantEscapeInventory = inventory.backend.crossTenantEscapes
-  const destructiveOperationInventory = inventory.backend.destructiveOperations
-  const mcpRateLimitExpected = inventory.mcp.rateLimit.expected
-  const mcpRateLimitStoreSupport = inventory.mcp.rateLimit.store
   const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
-  const forwardedPrincipalMisuse = inventory.forwarding.forwardedPrincipalMisuses
-  const destructiveMcpToolMisuse = inventory.mcp.destructiveToolMisuses
-  const customMcpAppWriteMisuse = inventory.mcp.customAppWriteMisuses
   const usesPermissions = inventoryFacts.usesPermissions
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
@@ -353,7 +185,6 @@ function createDoctorFindings(
         ? 'Keep the Convex URL available in the environment or env files.'
         : 'Add CONVEX_URL or NUXT_PUBLIC_CONVEX_URL to .env.local, .env, or the process environment.',
     },
-    createAppInventoryFinding(inventory),
     {
       id: 'site-url-configured',
       category: 'auth',
@@ -500,92 +331,7 @@ function createDoctorFindings(
         ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
         : `Use a long random CONVEX_TRUSTED_FORWARDING_KEY (${minimumTrustedForwardingKeyLength}+ characters) and avoid placeholder or development values.`,
     },
-    {
-      id: 'trusted-forwarding-key-public-exposure',
-      category: 'advanced',
-      title: 'Trusted forwarding public exposure',
-      status: trustedForwardingPublicExposure.length > 0 ? 'fail' : 'pass',
-      message:
-        trustedForwardingPublicExposure.length > 0
-          ? `Found trusted-forwarding key exposure in public-facing code or env sources at ${formatInventoryLocations(trustedForwardingPublicExposure)}.`
-          : 'No obvious trusted-forwarding key exposure paths were found in public-facing code or env sources.',
-      fixHint:
-        trustedForwardingPublicExposure.length > 0
-          ? 'Keep CONVEX_TRUSTED_FORWARDING_KEY server-only. Remove any NUXT_PUBLIC exposure or public runtime-config mapping.'
-          : 'Keep the trusted-forwarding key confined to server-only env and runtime paths.',
-      sources: [
-        findingInventorySource('forwarding.publicExposures', trustedForwardingPublicExposure),
-      ],
-    },
-    {
-      id: 'forwarded-principal-trusted-path',
-      category: 'advanced',
-      title: 'Forwarded principal path',
-      status: forwardedPrincipalMisuse.length > 0 ? 'fail' : 'pass',
-      message:
-        forwardedPrincipalMisuse.length > 0
-          ? `Found forwarded \`principal\` options outside an \`auth: 'trusted'\` call in ${formatInventoryLocations(forwardedPrincipalMisuse)}.`
-          : 'No forwarded principals were found outside verified trusted-forwarding calls.',
-      fixHint:
-        forwardedPrincipalMisuse.length > 0
-          ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'`."
-          : 'Keep forwarded principals confined to verified trusted-forwarding lanes.',
-      sources: [
-        findingInventorySource('forwarding.forwardedPrincipalMisuses', forwardedPrincipalMisuse),
-      ],
-    },
-    {
-      id: 'unsafe-surface-inventory',
-      category: 'advanced',
-      title: 'Unsafe surface inventory',
-      status: 'pass',
-      message:
-        unsafeSurfaceInventory.length === 0
-          ? 'No `query.unsafe(...)` or `mutation.unsafe(...)` entrypoints were detected.'
-          : `Found ${unsafeSurfaceInventory.length} unsafe entrypoint${unsafeSurfaceInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(unsafeEntrypointLocations(unsafeSurfaceInventory))}.`,
-      fixHint:
-        unsafeSurfaceInventory.length === 0
-          ? 'No action needed unless you add intentional escape hatches later.'
-          : 'Review each unsafe entrypoint and keep the bypass reason narrow, explicit, and tested.',
-      sources: [
-        findingInventorySource(
-          'backend.unsafeEntrypoints',
-          unsafeEntrypointLocations(unsafeSurfaceInventory),
-        ),
-      ],
-    },
-    {
-      id: 'cross-tenant-escape-inventory',
-      category: 'advanced',
-      title: 'Cross-tenant escape inventory',
-      status: 'pass',
-      message:
-        crossTenantEscapeInventory.length === 0
-          ? 'No `ctx.db.escapeTenantIsolation(...)` sites were detected.'
-          : `Found ${crossTenantEscapeInventory.length} tenant-isolation escape${crossTenantEscapeInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(crossTenantEscapeInventory)}.`,
-      fixHint:
-        crossTenantEscapeInventory.length === 0
-          ? 'No action needed unless the app adds cross-tenant workflows later.'
-          : 'Review each tenant-isolation escape and keep the reason, caller boundary, and data scope explicit.',
-      sources: [findingInventorySource('backend.crossTenantEscapes', crossTenantEscapeInventory)],
-    },
-    {
-      id: 'destructive-operation-inventory',
-      category: 'advanced',
-      title: 'Destructive operation inventory',
-      status: 'pass',
-      message:
-        destructiveOperationInventory.length === 0
-          ? 'No `kind: "destructive"` operations were detected.'
-          : `Found ${destructiveOperationInventory.length} destructive operation${destructiveOperationInventory.length === 1 ? '' : 's'} in ${formatInventoryLocations(destructiveOperationInventory)}.`,
-      fixHint:
-        destructiveOperationInventory.length === 0
-          ? 'No action needed unless the app adds destructive preview/confirm flows later.'
-          : 'Review each destructive operation and keep preview, confirmation, and audit expectations explicit.',
-      sources: [
-        findingInventorySource('backend.destructiveOperations', destructiveOperationInventory),
-      ],
-    },
+    ...collectInventoryDoctorFindings(inventory),
     {
       id: 'mcp-confirmation-key-configured',
       category: 'advanced',
@@ -603,57 +349,6 @@ function createDoctorFindings(
       fixHint: !destructiveMcpConfirmationExpected
         ? 'No action needed unless you add destructive MCP tools later.'
         : 'Set TRELLIS_MCP_CONFIRMATION_KEY in the local environment and the deployment serving destructive MCP traffic.',
-    },
-    {
-      id: 'mcp-rate-limit-store',
-      category: 'advanced',
-      title: 'MCP rate-limit store',
-      status: !mcpRateLimitExpected
-        ? 'pass'
-        : mcpRateLimitStoreSupport === 'supported'
-          ? 'pass'
-          : 'fail',
-      message: !mcpRateLimitExpected
-        ? 'No MCP rate-limited tools were detected in the app source.'
-        : mcpRateLimitStoreSupport === 'supported'
-          ? 'Found the first-party Redis MCP rate-limit store in app source.'
-          : mcpRateLimitStoreSupport === 'unverified'
-            ? 'Found an explicit MCP rate-limit store, but doctor cannot verify that it is a supported atomic distributed store.'
-            : 'MCP rate-limited tools were detected, but no supported distributed rate-limit store was found.',
-      fixHint: !mcpRateLimitExpected
-        ? 'No action needed unless you add MCP rate-limited tools later.'
-        : 'Use `rateLimitStore: createRedisMcpRateLimitStore(...)` for distributed MCP enforcement. The built-in fallback is process-local memory only, and custom stores remain unverified by doctor.',
-    },
-    {
-      id: 'mcp-destructive-operation-binding',
-      category: 'advanced',
-      title: 'Destructive MCP operation binding',
-      status: destructiveMcpToolMisuse.length > 0 ? 'fail' : 'pass',
-      message:
-        destructiveMcpToolMisuse.length > 0
-          ? `Found destructive-looking MCP tools that do not use \`tool.operation(...)\` in ${formatInventoryLocations(destructiveMcpToolMisuse)}.`
-          : 'No destructive MCP tools were found outside operation-backed bindings.',
-      fixHint:
-        destructiveMcpToolMisuse.length > 0
-          ? 'Destructive MCP tools must bind through `tool.operation(...)` so preview, confirmation, and execute stay coupled.'
-          : 'Keep destructive MCP tools operation-backed.',
-      sources: [findingInventorySource('mcp.destructiveToolMisuses', destructiveMcpToolMisuse)],
-    },
-    createOperationToolAgreementFinding(inventory),
-    {
-      id: 'mcp-custom-app-write-bypass',
-      category: 'advanced',
-      title: 'Custom MCP app-write bypass',
-      status: customMcpAppWriteMisuse.length > 0 ? 'fail' : 'pass',
-      message:
-        customMcpAppWriteMisuse.length > 0
-          ? `Found standalone defineTool(...) handlers calling protected Convex writes in ${formatInventoryLocations(customMcpAppWriteMisuse)}.`
-          : 'No standalone custom MCP tools call Convex mutation/action helpers.',
-      fixHint:
-        customMcpAppWriteMisuse.length > 0
-          ? 'Move app writes to `defineMcpApp(...).tool.mutation(...)` for bounded writes or `tool.operation(...)` for sensitive/destructive/external work.'
-          : 'Keep standalone defineTool(...) read/diagnostic/external-service only.',
-      sources: [findingInventorySource('mcp.customAppWriteMisuses', customMcpAppWriteMisuse)],
     },
     ...collectPermissionMetadataFindings(project),
   ]
