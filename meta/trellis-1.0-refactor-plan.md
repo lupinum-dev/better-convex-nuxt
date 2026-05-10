@@ -542,6 +542,9 @@ docs generation, and future explain commands.
 - Sprint 44 added `inventory.bridge` with static dependency/source-reference
   bridge package evidence and now derives `layers.bridge` from
   `inventory.bridge.enabled`, completing the broad inventory coverage checklist.
+- Sprint 45 is planned to extract doctor's inventory-backed security findings
+  into a focused inventory finding engine while keeping env/auth setup checks in
+  the doctor command.
 
 ### Done Means
 
