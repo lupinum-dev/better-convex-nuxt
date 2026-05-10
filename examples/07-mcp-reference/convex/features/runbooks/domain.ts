@@ -165,6 +165,7 @@ export const getWorkspace = query.protected({
 
 export const create = mutation.protected({
   args: createRunbook.args,
+  trustedForwardingFunctionRef: 'features/runbooks/domain:create',
   guard: runbookCreate,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()

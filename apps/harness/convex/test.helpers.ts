@@ -5,6 +5,7 @@
  */
 
 import { convexTest } from 'convex-test'
+import { getFunctionName, type FunctionReference } from 'convex/server'
 
 import { createTrustedForwardingEnvelopeArgs } from '../../../src/runtime/trusted-forwarding/shared'
 import type { Id } from './_generated/dataModel'
@@ -18,7 +19,12 @@ export function withTrustedPrincipal<TArgs extends Record<string, unknown> | und
   args: TArgs,
   principal: Record<string, unknown>,
   delegation?: Record<string, unknown> | null,
+  functionRef?: FunctionReference<'query' | 'mutation' | 'action', 'public' | 'internal'> | string,
 ) {
+  if (!functionRef) {
+    throw new Error('withTrustedPrincipal requires the exact Convex function ref for signing.')
+  }
+
   const principalSubject =
     typeof principal.subject === 'string' && principal.subject.length > 0
       ? principal.subject
@@ -36,7 +42,7 @@ export function withTrustedPrincipal<TArgs extends Record<string, unknown> | und
     ...(delegation
       ? { delegation: delegation as { subject: string } & Record<string, unknown> }
       : {}),
-    functionRef: 'harness:test',
+    functionRef: typeof functionRef === 'string' ? functionRef : getFunctionName(functionRef),
     operation: 'mutation',
     key: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
   }) as TArgs & { _trellisForwarding: string }

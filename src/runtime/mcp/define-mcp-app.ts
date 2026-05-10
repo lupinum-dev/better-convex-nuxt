@@ -1298,18 +1298,20 @@ export function defineMcpApp<
             tool: options.meta?.name ?? metadata.name ?? operationId,
           })
 
-          const redemption = await toolConfirmationStore.redeem({
-            payload,
-            operationId,
-            principalKey,
-            tenantKey,
-            argsHash,
-            previewHash,
-            executePath,
-            previewPath,
-          })
-          if (redemption === 'replayed') {
-            return await returnConfirmationFailure(replayedConfirmationFailure())
+          if (confirmationMode === 'transport') {
+            const redemption = await toolConfirmationStore.redeem({
+              payload,
+              operationId,
+              principalKey,
+              tenantKey,
+              argsHash,
+              previewHash,
+              executePath,
+              previewPath,
+            })
+            if (redemption === 'replayed') {
+              return await returnConfirmationFailure(replayedConfirmationFailure())
+            }
           }
         }
 

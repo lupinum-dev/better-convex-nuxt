@@ -1183,6 +1183,9 @@ describe('Destructive confirmation payload validation', () => {
     const delegation = {
       subject: 'user:user_1',
     }
+    const confirmationStore = {
+      redeem: vi.fn(async () => 'replayed' as const),
+    }
 
     const mcp = defineMcpApp({
       resolvePrincipal: async () => principal,
@@ -1193,6 +1196,7 @@ describe('Destructive confirmation payload validation', () => {
           principal: caller.principal,
           ...(caller.delegation ? { delegation: caller.delegation } : {}),
         }),
+      confirmationStore,
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1246,5 +1250,6 @@ describe('Destructive confirmation payload validation', () => {
         },
       },
     )
+    expect(confirmationStore.redeem).not.toHaveBeenCalled()
   })
 })

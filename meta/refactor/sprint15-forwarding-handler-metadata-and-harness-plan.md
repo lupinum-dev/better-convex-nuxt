@@ -38,37 +38,37 @@ Starting the operation descriptor model before closing these gaps would build ne
 
 ### 1. Map Forwarding Handler Metadata
 
-- Inventory every path that injects or accepts trusted-forwarding validators.
-- Cover public, protected, unsafe, internal, action, and test helper surfaces.
-- Identify whether each path has exact `trustedForwardingFunctionRef` metadata, derives it from generated metadata, or currently lacks it.
-- Add or update a small test matrix so this does not depend on source scanning or memory.
+- [x] Inventory every path that injects or accepts trusted-forwarding validators.
+- [x] Cover public, protected, unsafe, internal, action, and test helper surfaces.
+- [x] Identify whether each path has exact `trustedForwardingFunctionRef` metadata, derives it from generated metadata, or currently lacks it.
+- [x] Add or update a small test matrix so this does not depend on source scanning or memory.
 
 ### 2. Enforce Exact Function Ref For Forwarding-Protected Handlers
 
-- Forwarding-protected handlers must verify the envelope `functionRef` against exact builder/generated metadata.
-- A handler that accepts `_trellisForwarding` without exact expected function-ref metadata must fail closed or be explicitly marked as non-forwarding.
-- Keep enforcement in the backend/trusted-forwarding boundary, not in MCP or frontend orchestration.
-- Add unit tests for success and failure across the relevant handler surfaces.
+- [x] Forwarding-protected handlers must verify the envelope `functionRef` against exact builder/generated metadata.
+- [x] A handler that accepts `_trellisForwarding` without exact expected function-ref metadata must fail closed or be explicitly marked as non-forwarding.
+- [x] Keep enforcement in the backend/trusted-forwarding boundary, not in MCP or frontend orchestration.
+- [x] Add unit tests for success and failure across the relevant handler surfaces.
 
 ### 3. Fix Harness Signed Forwarding Proof
 
-- Replace placeholder `functionRef: 'harness:test'` signing in `apps/harness/convex/test.helpers.ts`.
-- Sign each test call with the actual generated Convex ref, such as the functions probe and organization mutation refs.
-- Preserve app args exactly and keep principal/delegation only inside `_trellisForwarding`.
-- Make the focused harness Convex tests pass without loosening verifier behavior.
+- [x] Replace placeholder `functionRef: 'harness:test'` signing in `apps/harness/convex/test.helpers.ts`.
+- [x] Sign each test call with the actual generated Convex ref, such as the functions probe and organization mutation refs.
+- [x] Preserve app args exactly and keep principal/delegation only inside `_trellisForwarding`.
+- [x] Make the focused harness Convex tests pass without loosening verifier behavior.
 
 ### 4. Audit Operation Execute Replay Source Of Truth
 
-- Inspect the MCP backend-mode destructive path and Convex destructive execution path.
-- Confirm there is one authoritative redemption point for `operation-execute`.
-- If replay redemption is split between a preflight check and later execution, move the invariant to the backend/destructive execution boundary or add a failing test plus a follow-up blocker.
-- Do not add a second replay table or store.
+- [x] Inspect the MCP backend-mode destructive path and Convex destructive execution path.
+- [x] Confirm there is one authoritative redemption point for `operation-execute`.
+- [x] If replay redemption is split between a preflight check and later execution, move the invariant to the backend/destructive execution boundary or add a failing test plus a follow-up blocker.
+- [x] Do not add a second replay table or store.
 
 ### 5. Document Remaining Generated-Code Follow-Up
 
-- If generated Ginko Convex files still include old raw forwarding validator types, document regeneration as the fix.
-- Do not manually patch generated files.
-- Ensure source/templates/tests remain raw-free except for negative tests and canonical args hash metadata-exclusion cases.
+- [x] If generated Ginko Convex files still include old raw forwarding validator types, document regeneration as the fix.
+- [x] Do not manually patch generated files.
+- [x] Ensure source/templates/tests remain raw-free except for negative tests and canonical args hash metadata-exclusion cases.
 
 ## Verification
 
@@ -124,10 +124,19 @@ Current unrelated failures include starter fixture codegen optional string drift
 
 ## Acceptance Criteria
 
-- Every handler accepting `_trellisForwarding` verifies an exact expected function ref or fails closed.
-- Harness signed forwarding actor/delegation tests pass with exact function refs.
-- No active runtime source supports raw `_trustedForwardingKey` or raw `_trustedForwarding` fallback.
-- Operation-execute replay has one documented source of truth, backed by a test or an explicit blocker.
-- Ginko source/templates/tests remain compatible with signed-only forwarding.
-- Verification commands above pass, except explicitly listed unrelated type drift.
-- Sprint changes are committed after verification.
+- [x] Every handler accepting `_trellisForwarding` verifies an exact expected function ref or fails closed.
+- [x] Harness signed forwarding actor/delegation tests pass with exact function refs.
+- [x] No active runtime source supports raw `_trustedForwardingKey` or raw `_trustedForwarding` fallback.
+- [x] Operation-execute replay has one documented source of truth, backed by a test or an explicit blocker.
+- [x] Ginko source/templates/tests remain compatible with signed-only forwarding.
+- [x] Verification commands above pass, except explicitly listed unrelated type drift.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- [x] The harness exposed module-instance drift between package subpath imports and backend internals. Trusted-forwarding context keys now use `Symbol.for(...)` so verified context is readable across package subpath/runtime duplication.
+- [x] Backend-mode MCP destructive execution no longer redeems in the MCP confirmation store. Transport mode still redeems in MCP; backend mode leaves redemption to Convex destructive execution.
+- [x] `pnpm --dir ../ginko-cms run test:types` passes.
+- [x] `pnpm --dir ../ginko-cms run test:types:examples` is not available in the Ginko workspace; the workspace currently exposes `test:types` and `typecheck`.
+- [x] `pnpm --dir examples/07-mcp-reference test` passes.
+- [x] `pnpm --dir examples/07-mcp-reference typecheck` remains non-gate because the example still has existing Nuxt alias/generated API and Convex dependency-version type drift.

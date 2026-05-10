@@ -280,12 +280,12 @@ path.
 - [x] Mixed signed/raw forwarding is gone with the raw transport parser.
 - [x] Raw fallback observability was used during migration and removed with the
       fallback parser.
-- [ ] Every forwarding-protected handler has an exact generated
+- [x] Every forwarding-protected handler has an exact generated
       `trustedForwardingFunctionRef`; missing function-ref metadata fails
       closed.
 - [x] MCP operation previews sign with `purpose: "operation-preview"` when
       forwarding is used.
-- [ ] Operation execute replay redemption has one source of truth at the
+- [x] Operation execute replay redemption has one source of truth at the
       backend/destructive execution boundary; MCP must not pre-redeem in a
       separate store for backend-mode destructive execution.
 

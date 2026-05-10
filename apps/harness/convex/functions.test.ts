@@ -44,7 +44,12 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' }),
+        withTrustedPrincipal(
+          {},
+          { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
+          null,
+          api.functionsProbe.actorMemoization,
+        ),
       ),
     ).resolves.toMatchObject({
       before: 0,
@@ -60,7 +65,12 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal({}, { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' }),
+        withTrustedPrincipal(
+          {},
+          { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
+          null,
+          api.functionsProbe.actorMemoization,
+        ),
       ),
     ).resolves.toMatchObject({
       before: 1,
@@ -75,10 +85,33 @@ describe('defineTrellis', () => {
 
     await expect(
       t.query(
+        api.functionsProbe.trustedForwardingStateProbe,
+        withTrustedPrincipal(
+          {},
+          { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
+          null,
+          api.functionsProbe.trustedForwardingStateProbe,
+        ),
+      ),
+    ).resolves.toMatchObject({
+      trustedForwarding: {
+        principalSubject: 'user:echo_user',
+      },
+      forwardedPrincipal: {
+        kind: 'user',
+        userId: 'echo_user',
+        subject: 'user:echo_user',
+      },
+    })
+
+    await expect(
+      t.query(
         api.functionsProbe.echoedArgs,
         withTrustedPrincipal(
           { title: 'hello' },
           { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
+          null,
+          api.functionsProbe.echoedArgs,
         ),
       ),
     ).resolves.toEqual({
@@ -149,6 +182,7 @@ describe('defineTrellis', () => {
           {},
           { kind: 'agent', agentId: 'agent_1', subject: 'agent:agent_1', role: 'member' },
           { subject: 'user:delegated_user', reason: 'approved' },
+          api.functionsProbe.structuredDelegationProbe,
         ),
       ),
     ).resolves.toEqual({

@@ -1,6 +1,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 import { defineDelegation, definePrincipal, defineTrellis } from '@lupinum/trellis/backend'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/backend'
+import { getForwardedPrincipal, getTrustedForwarding } from '@lupinum/trellis/trusted-forwarding'
 import { Triggers } from 'convex-helpers/server/triggers'
 import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'
@@ -158,6 +159,7 @@ export const structuredEnvelopeProbe = query.protected({
 
 export const structuredDelegationProbe = query.public({
   args: {},
+  trustedForwardingFunctionRef: 'functionsProbe:structuredDelegationProbe',
   handler: async (ctx) => ({
     delegation: await ctx.delegation(),
   }),
@@ -179,6 +181,7 @@ export const resetActorResolverCalls = mutation.unsafe({
 export const actorMemoization = query.unsafe({
   bypass: 'Harness probe for actor memoization.',
   args: {},
+  trustedForwardingFunctionRef: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
     const before = actorResolverCalls
     const first = await ctx.actor()
@@ -193,11 +196,22 @@ export const actorMemoization = query.unsafe({
   },
 })
 
+export const trustedForwardingStateProbe = query.unsafe({
+  bypass: 'Harness probe for signed forwarding context state.',
+  args: {},
+  trustedForwardingFunctionRef: 'functionsProbe:trustedForwardingStateProbe',
+  handler: async (ctx) => ({
+    trustedForwarding: getTrustedForwarding(ctx),
+    forwardedPrincipal: getForwardedPrincipal(ctx),
+  }),
+})
+
 export const echoedArgs = query.unsafe({
   bypass: 'Harness probe for unsafe query arg echo.',
   args: {
     title: v.string(),
   },
+  trustedForwardingFunctionRef: 'functionsProbe:echoedArgs',
   handler: async (_ctx, args) => args,
 })
 

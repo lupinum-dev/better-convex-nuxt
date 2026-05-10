@@ -24,6 +24,7 @@ export const list = query.public({
 
 export const create = mutation.protected({
   args: createOrganizationArgs.args,
+  trustedForwardingFunctionRef: 'organizations:create',
   guard: canCreateOrganization,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()

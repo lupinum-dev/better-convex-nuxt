@@ -110,6 +110,7 @@ export const get = query.public({
 
 export const create = mutation.protected({
   args: createPost.args,
+  trustedForwardingFunctionRef: 'posts:create',
   guard: canCreatePostActor,
   handler: async (ctx, args) => {
     const actor = await ctx.actor()

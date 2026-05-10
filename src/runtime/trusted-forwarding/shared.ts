@@ -29,9 +29,9 @@ export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
   [trustedForwardingEnvelopeContextKey]?: TrustedForwardingEnvelopeState | null
 }
 
-export const trustedForwardingContextKey = Symbol('trellis.trustedForwarding')
-export const trustedForwardingPayloadContextKey = Symbol('trellis.trustedForwardingPayload')
-export const trustedForwardingEnvelopeContextKey = Symbol('trellis.trustedForwardingEnvelope')
+export const trustedForwardingContextKey = Symbol.for('trellis.trustedForwarding')
+export const trustedForwardingPayloadContextKey = Symbol.for('trellis.trustedForwardingPayload')
+export const trustedForwardingEnvelopeContextKey = Symbol.for('trellis.trustedForwardingEnvelope')
 
 export type TrustedForwardingPayload = {
   principal?: unknown

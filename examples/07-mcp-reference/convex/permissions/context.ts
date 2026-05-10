@@ -4,8 +4,8 @@ import { getPermissionActor } from '../auth/actor'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getPermissionContext = query.protected(
-  definePermissionContext({
+export const getPermissionContext = query.protected({
+  ...definePermissionContext({
     resolve: getPermissionActor,
     permissions,
     extend: async (ctx, actor) => {
@@ -20,4 +20,5 @@ export const getPermissionContext = query.protected(
       }
     },
   }),
-)
+  trustedForwardingFunctionRef: 'permissions/context:getPermissionContext',
+})

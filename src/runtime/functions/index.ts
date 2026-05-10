@@ -1351,6 +1351,18 @@ async function createContextWithRuntime<
 ): Promise<RuntimeBundle<DataModel, TCtx, TPrincipal, TDelegation, TActor>> {
   const rawAppArgs = stripObservationEnvelope(args)
   const observationEnvelope = getObservationEnvelope(args)
+  if (
+    Object.prototype.hasOwnProperty.call(rawAppArgs, '_trellisForwarding') &&
+    !extra?.trustedForwardingFunctionRef
+  ) {
+    throw deny(
+      'Signed trusted forwarding requires exact trustedForwardingFunctionRef metadata on the target handler.',
+      {
+        source: 'trusted-forwarding',
+        category: 'auth',
+      },
+    )
+  }
   const ctxWithTrustedForwarding = { ...ctx } as TCtx & Record<PropertyKey, unknown>
   setTrustedForwardingContext(ctxWithTrustedForwarding, rawAppArgs, {
     expectedKeyOverride: options.trustedForwardingKey,

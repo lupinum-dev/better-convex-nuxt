@@ -68,6 +68,8 @@ describe('organizations', () => {
           userId: 'service_user',
           subject: 'user:service_user',
         },
+        null,
+        api.organizations.create,
       ),
     )
 
@@ -100,6 +102,8 @@ describe('organizations', () => {
             userId: 'missing_user',
             subject: 'user:missing_user',
           },
+          null,
+          api.organizations.create,
         ),
       ),
     ).rejects.toThrow('Forbidden: Create organization')

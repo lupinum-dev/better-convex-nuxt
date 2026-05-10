@@ -238,6 +238,51 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/function-ref/)
   })
 
+  it('rejects signed forwarding envelopes when handler metadata does not name the expected function ref', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis({
+      query: builder,
+      mutation: builder,
+    })
+
+    const definition = runtime.query.public({
+      args: {
+        title: v.string(),
+      },
+      handler: async () => ({ ok: true }),
+    } as never) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: Record<string, never>
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+      ) => Promise<unknown>
+    }
+
+    const args = createTrustedForwardingEnvelopeArgs({
+      args: { title: 'Hello' },
+      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      functionRef: 'posts:create',
+      operation: 'query',
+      jti: 'missing-function-ref-metadata',
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+    })
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: {},
+          observe: async () => {},
+        },
+        args,
+      ),
+    ).rejects.toThrow(/trustedForwardingFunctionRef metadata/)
+  })
+
   it('uses projected operation function-ref metadata for trusted forwarding verification', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
