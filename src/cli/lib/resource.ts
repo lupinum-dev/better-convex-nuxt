@@ -252,7 +252,7 @@ export const remove${ctx.singularPascal}Op = defineOperation({
   },
 })
 
-export const previewRemove${ctx.singularPascal} = query(previewOf(remove${ctx.singularPascal}Op))
+export const previewRemove${ctx.singularPascal} = query.protected(previewOf(remove${ctx.singularPascal}Op))
 `.trimStart()
 }
 
@@ -277,7 +277,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
     ...(ctx.hasUpdatedAt ? ['updatedAt: Date.now()'] : []),
   ].join(',\n      ')
   const removeExport = ctx.hasMcp
-    ? `export const remove = mutation(remove${ctx.singularPascal}Op)\n`
+    ? `export const remove = mutation.protected(remove${ctx.singularPascal}Op)\n`
     : `export const remove = mutation.protected({
   args: delete${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}DeletePermission,

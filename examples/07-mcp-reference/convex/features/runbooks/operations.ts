@@ -1,5 +1,5 @@
 import { can } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/functions'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { bulkDeleteRunbooks, deleteRunbook } from '../../../shared/features/runbooks/contract'
@@ -199,5 +199,5 @@ export const bulkRemoveRunbooksOp = defineOperation({
   },
 })
 
-export const previewRemove = query(previewOf(removeRunbookOp))
-export const previewBulkRemove = query(previewOf(bulkRemoveRunbooksOp))
+export const previewRemove = query.protected(previewOf(removeRunbookOp))
+export const previewBulkRemove = query.protected(previewOf(bulkRemoveRunbooksOp))

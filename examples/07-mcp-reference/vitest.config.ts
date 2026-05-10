@@ -14,6 +14,9 @@ export default defineConfig(
         '@lupinum/trellis/auth': fileURLToPath(
           new URL('../../src/runtime/auth/index.ts', import.meta.url),
         ),
+        '@lupinum/trellis/backend': fileURLToPath(
+          new URL('../../src/runtime/backend/index.ts', import.meta.url),
+        ),
         '@lupinum/trellis/functions': fileURLToPath(
           new URL('../../src/runtime/functions/index.ts', import.meta.url),
         ),

@@ -9,7 +9,7 @@ import {
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { getActor } from '../../auth/actor'
-import { mutation, query, unsafe } from '../../functions'
+import { mutation, query } from '../../functions'
 import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './capabilities'
 import { canUpdateRunbook } from './checks'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
@@ -63,7 +63,7 @@ function matchesTerm(
   return haystack.includes(term)
 }
 
-export const listPublic = unsafe.query({
+export const listPublic = query.unsafe({
   bypass: 'Expose the public runbook catalog without a workspace actor.',
   args: listRunbooks.args,
   handler: async (ctx) => {
@@ -81,7 +81,7 @@ export const listPublic = unsafe.query({
   },
 })
 
-export const searchPublic = unsafe.query({
+export const searchPublic = query.unsafe({
   bypass: 'Search the public runbook catalog across workspaces.',
   args: searchRunbooks.args,
   handler: async (ctx, args) => {
@@ -103,7 +103,7 @@ export const searchPublic = unsafe.query({
   },
 })
 
-export const listWorkspace = query({
+export const listWorkspace = query.protected({
   args: listRunbooks.args,
   guard: runbookRead,
   handler: async (ctx) => {
@@ -118,7 +118,7 @@ export const listWorkspace = query({
   },
 })
 
-export const get = unsafe.query({
+export const get = query.unsafe({
   bypass: 'Read public runbooks before the caller resolves to a workspace actor.',
   args: getRunbook.args,
   handler: async (ctx, args) => {
@@ -151,7 +151,7 @@ export const get = unsafe.query({
   },
 })
 
-export const getWorkspace = query({
+export const getWorkspace = query.protected({
   args: getRunbook.args,
   guard: runbookRead,
   handler: async (ctx, args) => {
@@ -163,7 +163,7 @@ export const getWorkspace = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   args: createRunbook.args,
   guard: runbookCreate,
   handler: async (ctx, args) => {
@@ -190,7 +190,7 @@ export const create = mutation({
   },
 })
 
-export const update = mutation({
+export const update = mutation.protected({
   args: updateRunbook.args,
   guard: runbookRead,
   load: async (ctx, args) => {
@@ -222,10 +222,10 @@ export const update = mutation({
   },
 })
 
-export const remove = mutation(removeRunbookOp)
-export const bulkRemove = mutation(bulkRemoveRunbooksOp)
+export const remove = mutation.protected(removeRunbookOp)
+export const bulkRemove = mutation.protected(bulkRemoveRunbooksOp)
 
-export const workspaceOverview = query({
+export const workspaceOverview = query.protected({
   args: listRunbooks.args,
   guard: runbookRead,
   handler: async (ctx) => {

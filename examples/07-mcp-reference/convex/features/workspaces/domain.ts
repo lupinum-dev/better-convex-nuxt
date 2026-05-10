@@ -1,10 +1,9 @@
-import { open, requireAuth } from '@lupinum/trellis/auth'
+import { requireAuth } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
 import { mutation } from '../../functions'
 
-export const createWorkspaceMutation = mutation({
-  guard: open,
+export const createWorkspaceMutation = mutation.public({
   args: createWorkspace.args,
   handler: async (ctx, args) => {
     const principal = await ctx.principal()

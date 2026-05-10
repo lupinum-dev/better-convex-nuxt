@@ -24,74 +24,74 @@ resource generator where it still emits old operation projection builders.
 
 ### 1. MCP Reference Runtime Imports
 
-- [ ] Update `examples/07-mcp-reference/convex/functions.ts` and related
+- [x] Update `examples/07-mcp-reference/convex/functions.ts` and related
       imports to use `@lupinum/trellis/backend` where needed.
-- [ ] Remove remaining imports of old `unsafe` builder objects from the example
+- [x] Remove remaining imports of old `unsafe` builder objects from the example
       once unsafe lanes are expressed as `query.unsafe(...)` /
       `mutation.unsafe(...)`.
 
 ### 2. Permission Context And Workspace Onboarding
 
-- [ ] Convert `convex/permissions/context.ts` to `query.protected(...)`.
-- [ ] Convert `convex/features/workspaces/domain.ts` onboarding mutation to the
+- [x] Convert `convex/permissions/context.ts` to `query.protected(...)`.
+- [x] Convert `convex/features/workspaces/domain.ts` onboarding mutation to the
       correct explicit lane.
-  - [ ] Prefer `mutation.public(...)` only if the handler stays principal-gated
+  - [x] Prefer `mutation.public(...)` only if the handler stays principal-gated
         through `requireAuth(...)`.
-  - [ ] Use `mutation.unsafe(...)` only if the handler truly must bypass the
+  - [x] Use `mutation.unsafe(...)` only if the handler truly must bypass the
         normal public/protected lanes.
 
 ### 3. Runbook Domain
 
-- [ ] Convert public catalog reads:
-  - [ ] `listPublic`
-  - [ ] `searchPublic`
-  - [ ] `get`
-- [ ] Convert workspace reads/writes:
-  - [ ] `listWorkspace`
-  - [ ] `getWorkspace`
-  - [ ] `create`
-  - [ ] `update`
-  - [ ] `workspaceOverview`
-- [ ] Convert operation projections:
-  - [ ] `remove`
-  - [ ] `bulkRemove`
-  - [ ] `previewRemove`
-  - [ ] `previewBulkRemove`
-- [ ] Preserve the same guard/load/authorize semantics and test expectations.
+- [x] Convert public catalog reads:
+  - [x] `listPublic`
+  - [x] `searchPublic`
+  - [x] `get`
+- [x] Convert workspace reads/writes:
+  - [x] `listWorkspace`
+  - [x] `getWorkspace`
+  - [x] `create`
+  - [x] `update`
+  - [x] `workspaceOverview`
+- [x] Convert operation projections:
+  - [x] `remove`
+  - [x] `bulkRemove`
+  - [x] `previewRemove`
+  - [x] `previewBulkRemove`
+- [x] Preserve the same guard/load/authorize semantics and test expectations.
 
 ### 4. MCP Key Domain
 
-- [ ] Convert manager-facing handlers:
-  - [ ] `list`
-  - [ ] `create`
-  - [ ] `revoke`
-- [ ] Convert MCP runtime validation/touch handlers:
-  - [ ] `validate`
-  - [ ] `touch`
-- [ ] Preserve hash-only key storage and last-used debounce behavior.
+- [x] Convert manager-facing handlers:
+  - [x] `list`
+  - [x] `create`
+  - [x] `revoke`
+- [x] Convert MCP runtime validation/touch handlers:
+  - [x] `validate`
+  - [x] `touch`
+- [x] Preserve hash-only key storage and last-used debounce behavior.
 
 ### 5. Users Domain
 
-- [ ] Convert `getCurrentUser`.
-- [ ] Convert `listWorkspaceUsersForMcpKeys`.
-- [ ] Preserve role/workspace visibility behavior.
+- [x] Convert `getCurrentUser`.
+- [x] Convert `listWorkspaceUsersForMcpKeys`.
+- [x] Preserve role/workspace visibility behavior.
 
 ### 6. Resource Generator Operation Projection Cleanup
 
-- [ ] Update `src/cli/lib/resource.ts` so operation execute and preview
+- [x] Update `src/cli/lib/resource.ts` so operation execute and preview
       projections use explicit operation lanes instead of callable
       `mutation(operation)` / `query(previewOf(operation))`.
-- [ ] Update `tests/unit/cli-add-resource.test.ts` expectations.
-- [ ] Keep generated destructive MCP tools on `tool.operation(...)`.
+- [x] Update `tests/unit/cli-add-resource.test.ts` expectations.
+- [x] Keep generated destructive MCP tools on `tool.operation(...)`.
 
 ### 7. Verification
 
-- [ ] Run the MCP reference example tests.
-- [ ] Run resource generator tests.
-- [ ] Run focused grep over the MCP reference example and generator.
-- [ ] Run public type surface and publish surface checks if generator changes
+- [x] Run the MCP reference example tests.
+- [x] Run resource generator tests.
+- [x] Run focused grep over the MCP reference example and generator.
+- [x] Run public type surface and publish surface checks if generator changes
       affect public typing.
-- [ ] Run refactor inventory check.
+- [x] Run refactor inventory check.
 
 Suggested commands:
 
@@ -106,20 +106,32 @@ pnpm run check:refactor:surface:inventory
 
 ## Acceptance Criteria
 
-- [ ] `examples/07-mcp-reference` no longer contains old unclassified backend
+- [x] `examples/07-mcp-reference` no longer contains old unclassified backend
       handler declarations.
-- [ ] `examples/07-mcp-reference` no longer uses `unsafe.query(...)` /
+- [x] `examples/07-mcp-reference` no longer uses `unsafe.query(...)` /
       `unsafe.mutation(...)`.
-- [ ] Operation projections in the example and generated resource code use
+- [x] Operation projections in the example and generated resource code use
       explicit operation lanes.
-- [ ] `pnpm --dir examples/07-mcp-reference test` passes.
-- [ ] Resource generator tests pass.
-- [ ] No compatibility shim or old callable backend path is added.
+- [x] `pnpm --dir examples/07-mcp-reference test` passes.
+- [x] Resource generator tests pass.
+- [x] No compatibility shim or old callable backend path is added.
 
 ## Exit Notes To Capture
 
-- [ ] Whether any old builder hits remain in generated resource tests because of
+- [x] Whether any old builder hits remain in generated resource tests because of
       intentionally deferred CMS/bridge code.
-- [ ] Whether Sprint 8 should migrate examples `04`-`06` or tackle direct MCP
+- [x] Whether Sprint 8 should migrate examples `04`-`06` or tackle direct MCP
       mutation safety metadata first.
-- [ ] Any broader type-check blockers that remain unrelated to this sprint.
+- [x] Any broader type-check blockers that remain unrelated to this sprint.
+
+Exit notes:
+
+- The only focused grep hit left in the Sprint 7 command is
+  `tests/unit/cli-add-resource.test.ts` asserting `listPublished = query({` for
+  the deferred CMS/bridge path. That stays for the bridge/CMS sprint.
+- Sprint 8 should migrate the remaining maintained examples `04`-`06` before
+  direct MCP mutation safety metadata, because example checks still carry old
+  backend builder shapes.
+- Broader `pnpm run test:types` blockers from Sprint 6 remain outside this
+  sprint: starter fixture codegen typing, local Ginko/vue-router version skew,
+  and type-primitives operation map exports.

@@ -50,7 +50,7 @@ describe('trellis add entity', () => {
     ).resolves.toContain('export const createProject = defineArgs')
     await expect(
       readFile(resolve(cwd, 'convex/features/projects/domain.ts'), 'utf8'),
-    ).resolves.toContain('export const update = mutation({')
+    ).resolves.toContain('export const update = mutation.protected({')
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       "import { projectsTables } from './features/projects'",
     )

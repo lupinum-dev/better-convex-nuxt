@@ -1,4 +1,4 @@
-import { defineDelegation, type Delegation } from '@lupinum/trellis/functions'
+import { defineDelegation, type Delegation } from '@lupinum/trellis/backend'
 import { getForwardedDelegation } from '@lupinum/trellis/trusted-forwarding'
 import { v } from 'convex/values'
 

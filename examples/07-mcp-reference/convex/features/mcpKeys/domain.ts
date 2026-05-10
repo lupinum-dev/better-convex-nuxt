@@ -1,4 +1,4 @@
-import { deny, open } from '@lupinum/trellis/auth'
+import { deny } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
@@ -57,7 +57,7 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
   }
 }
 
-export const list = query({
+export const list = query.protected({
   guard: mcpManage,
   args: {},
   handler: async (ctx) => {
@@ -75,7 +75,7 @@ export const list = query({
   },
 })
 
-export const create = mutation({
+export const create = mutation.protected({
   guard: mcpManage,
   args: createMcpKey.args,
   handler: async (ctx, args) => {
@@ -102,7 +102,7 @@ export const create = mutation({
   },
 })
 
-export const revoke = mutation({
+export const revoke = mutation.protected({
   guard: mcpManage,
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
@@ -129,8 +129,7 @@ export const revoke = mutation({
   },
 })
 
-export const validate = query({
-  guard: open,
+export const validate = query.public({
   args: {
     hash: createMcpKey.args.hash,
   },
@@ -154,8 +153,7 @@ export const validate = query({
   },
 })
 
-export const touch = mutation({
-  guard: open,
+export const touch = mutation.public({
   args: {
     id: v.id('mcpKeys'),
     seenAt: v.number(),
