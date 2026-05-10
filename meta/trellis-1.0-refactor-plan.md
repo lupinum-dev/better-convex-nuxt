@@ -1014,6 +1014,12 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   passes, including the packed package-consumer validation. The deleted-path scan
   found only intentional package-boundary/no-zombie-path tests; current Ginko
   docs/setup output does not teach deleted Trellis APIs.
+- Sprint 71 is planned to start Slice 12 with the current user-facing docs front
+  door. The sprint should establish a stale-surface baseline, rewrite only
+  `README.md`, the docs index, and first-reader getting-started/concepts pages
+  as needed, and add or reuse a repeatable docs guardrail for deleted 1.0
+  surfaces. Deeper guide/API-reference rewrites stay open unless this sprint
+  edits and verifies them.
 
 ### Done Means
 
