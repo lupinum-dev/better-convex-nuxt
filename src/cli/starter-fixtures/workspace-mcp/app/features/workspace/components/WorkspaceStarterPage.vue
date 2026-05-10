@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { api } from '#trellis/api'
 import { todoCreate } from '~~/convex/features/todos'
 import { createTodo } from '~~/shared/features/todos/contract'
+
+import { api } from '#trellis/api'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
@@ -31,7 +32,7 @@ async function handleSignUp() {
   await signUp({
     email: email.value,
     password: password.value,
-    name: email.value.split('@')[0],
+    name: email.value.split('@')[0] ?? email.value,
   })
 }
 
@@ -49,20 +50,16 @@ async function handleCreateTodo() {
 </script>
 
 <template>
-  <main style="max-width: 760px; margin: 0 auto; padding: 40px 16px;">
+  <main style="max-width: 760px; margin: 0 auto; padding: 40px 16px">
     <h1>Workspace MCP Starter</h1>
-    <p>
-      Workspace starter with tenant-aware backend handlers and MCP wiring.
-    </p>
+    <p>Workspace starter with tenant-aware backend handlers and MCP wiring.</p>
 
-    <div v-if="isPending">
-      Loading auth...
-    </div>
+    <div v-if="isPending">Loading auth...</div>
 
-    <div v-else-if="!isAuthenticated" style="display: grid; gap: 12px; max-width: 320px;">
+    <div v-else-if="!isAuthenticated" style="display: grid; gap: 12px; max-width: 320px">
       <input v-model="email" type="email" placeholder="Email" />
       <input v-model="password" type="password" placeholder="Password" />
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 8px">
         <button :disabled="signInPending" @click="handleSignIn">Sign in</button>
         <button :disabled="signUpPending" @click="handleSignUp">Sign up</button>
       </div>
@@ -70,7 +67,7 @@ async function handleCreateTodo() {
       <p v-if="signUpError">{{ signUpError.message }}</p>
     </div>
 
-    <div v-else-if="!ready" style="display: grid; gap: 12px; max-width: 320px;">
+    <div v-else-if="!ready" style="display: grid; gap: 12px; max-width: 320px">
       <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}. Create your first workspace.</p>
       <input v-model="workspaceName" type="text" placeholder="Workspace name" />
       <button :disabled="createWorkspace.pending.value" @click="handleCreateWorkspace">
@@ -78,17 +75,20 @@ async function handleCreateTodo() {
       </button>
     </div>
 
-    <div v-else style="display: grid; gap: 16px;">
-      <p>
-        Workspace: {{ tenantId }} | Role: {{ role }}
-      </p>
-      <div style="display: flex; gap: 8px;">
+    <div v-else style="display: grid; gap: 16px">
+      <p>Workspace: {{ tenantId }} | Role: {{ role }}</p>
+      <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a workspace todo" />
-        <button :disabled="createTodoMutation.pending.value || !canCreate" @click="handleCreateTodo">Add</button>
+        <button
+          :disabled="createTodoMutation.pending.value || !canCreate"
+          @click="handleCreateTodo"
+        >
+          Add
+        </button>
         <button @click="signOut()">Sign out</button>
       </div>
 
-      <ul style="display: grid; gap: 8px; padding-left: 20px;">
+      <ul style="display: grid; gap: 8px; padding-left: 20px">
         <li v-for="todo in todos ?? []" :key="todo._id">
           {{ todo.title }}
         </li>

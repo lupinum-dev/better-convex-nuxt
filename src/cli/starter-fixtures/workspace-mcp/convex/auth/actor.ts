@@ -1,10 +1,13 @@
 import { getAuth, getSubjectValue, type DefaultActor } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
 import type { Role, WorkspacePrincipal } from './principal'
 
-type WorkspaceCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type WorkspaceCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type Actor = DefaultActor & {
   role: Role
@@ -16,7 +19,12 @@ export type PermissionActor = DefaultActor & {
   tenantId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(ctx: WorkspaceCtx, authId: string): Promise<PermissionActor | null> {
+async function loadActorByAuthId(
+  ctx: WorkspaceCtx,
+  authId: string,
+): Promise<PermissionActor | null> {
+  if (!('db' in ctx)) return null
+
   const user = await ctx.db
     .query('users')
     .withIndex('by_auth_id', (q) => q.eq('authId', authId))
@@ -40,10 +48,7 @@ function missingUserRowMessage(authId: string): string {
   ].join(' ')
 }
 
-function requirePermissionActor(
-  authId: string,
-  actor: PermissionActor | null,
-): PermissionActor {
+function requirePermissionActor(authId: string, actor: PermissionActor | null): PermissionActor {
   if (actor) return actor
   throw new Error(missingUserRowMessage(authId))
 }

@@ -1,9 +1,12 @@
 import { getAuth, type DefaultActor } from '@lupinum/trellis/auth'
-import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
+import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
 
-type PersonalCtx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
+type PersonalCtx =
+  | GenericQueryCtx<DataModel>
+  | GenericMutationCtx<DataModel>
+  | GenericActionCtx<DataModel>
 
 export type Actor = DefaultActor | null
 
@@ -18,6 +21,7 @@ function missingUserRowMessage(authId: string): string {
 export async function getActor(ctx: PersonalCtx): Promise<Actor> {
   const auth = await getAuth(ctx)
   if (!auth) return null
+  if (!('db' in ctx)) return null
 
   const user = await ctx.db
     .query('users')

@@ -9,15 +9,24 @@
     "convex/**/*.ts",
     "nuxt.config.ts",
     "package.json",
+    "tsconfig.json",
     "server/**",
     "shared/**/*.ts"
   ],
-  "exclude": [".convex/**", ".env.local", ".nuxt/**", ".output/**", "node_modules/**", "coverage/**"],
+  "exclude": [
+    ".convex/**",
+    ".env.local",
+    ".nuxt/**",
+    ".output/**",
+    "node_modules/**",
+    "coverage/**"
+  ],
   "generatedPaths": [
     ".env.example",
     ".gitignore",
     "README.md",
     "package.json",
+    "tsconfig.json",
     "server/api/.gitkeep",
     "server/mcp/.gitkeep",
     "convex/auth.config.ts",

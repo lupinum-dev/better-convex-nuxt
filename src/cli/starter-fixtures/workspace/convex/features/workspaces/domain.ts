@@ -8,6 +8,10 @@ export const createWorkspaceMutation = mutation.protected({
   args: createWorkspace.args,
   handler: async (ctx, args) => {
     const principal = await ctx.principal()
+    if (principal.kind !== 'user') {
+      throw new Error('Workspace creation requires a user principal.')
+    }
+
     const user = await ctx.db
       .query('users')
       .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))

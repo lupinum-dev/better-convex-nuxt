@@ -14,6 +14,9 @@ importers:
       '@convex-dev/better-auth':
         specifier: ^0.12.2
         version: 0.12.2(@standard-schema/spec@1.1.0)(better-auth@1.6.9(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(vitest@4.1.4)(vue@3.5.33(typescript@6.0.2)))(convex@1.37.0(react@19.2.5))(hono@4.12.15)(react@19.2.5)(typescript@6.0.2)
+      '@noble/hashes':
+        specifier: ^2.0.1
+        version: 2.0.1
       '@nuxt/devtools-kit':
         specifier: ^3.2.4
         version: 3.2.4(magicast@0.5.2)(vite@7.3.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.2)(yaml@2.8.3))

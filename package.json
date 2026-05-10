@@ -179,11 +179,13 @@
     "test:types:harness-server": "tsc -p apps/harness/server/tsconfig.json --noEmit",
     "test:types": "vue-tsc -p tsconfig.nuxt.json --noEmit && pnpm run test:types:contracts && pnpm run test:types:bridge && pnpm run test:types:public && pnpm run test:types:harness-server && pnpm run test:types:examples:canonical",
     "prepare": "husky",
-    "check:starter-fixtures": "node scripts/check-starter-fixtures.mjs"
+    "check:starter-fixtures": "node scripts/check-starter-fixtures.mjs",
+    "check:starter-fixtures:typecheck": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --typecheck"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
     "@convex-dev/better-auth": "^0.12.2",
+    "@noble/hashes": "^2.0.1",
     "@nuxt/devtools-kit": "^3.2.4",
     "@nuxt/kit": "^4.4.2",
     "@typescript-eslint/utils": "^8.58.0",

@@ -3,6 +3,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const deletedLegacyDirs = [
+  resolve(rootDir, 'dist/templates'),
+  resolve(rootDir, 'dist/cli/templates'),
+]
 const copyPairs = [
   {
     sourceDir: resolve(rootDir, 'src/cli/starter-fixtures'),
@@ -16,6 +20,10 @@ const copyPairs = [
     destDirs: [resolve(rootDir, 'dist/add-fixtures'), resolve(rootDir, 'dist/cli/add-fixtures')],
   },
 ]
+
+for (const legacyDir of deletedLegacyDirs) {
+  rmSync(legacyDir, { force: true, recursive: true })
+}
 
 for (const { sourceDir, destDirs } of copyPairs) {
   if (!existsSync(sourceDir)) {

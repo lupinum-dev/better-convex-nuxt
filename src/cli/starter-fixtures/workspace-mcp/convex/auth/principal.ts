@@ -1,14 +1,11 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { defineDelegation, definePrincipal } from '@lupinum/trellis/backend'
-import {
-  getForwardedDelegation,
-  getForwardedPrincipal,
-} from '@lupinum/trellis/trusted-forwarding'
+import { getForwardedDelegation, getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel'
 
-export type Role = Doc<'users'>['role']
+export type Role = NonNullable<Doc<'users'>['role']>
 
 export type WorkspacePrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
@@ -44,7 +41,7 @@ export const principal = definePrincipal({
     const forwarded = getForwardedPrincipal<WorkspacePrincipal>(ctx, args)
     if (forwarded) return forwarded
 
-    const auth = await getAuth(ctx)
+    const auth = await getAuth(ctx as never)
     if (!auth) {
       return { kind: 'anonymous', subject: 'system:anonymous' }
     }

@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdtempSync,
+  mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -17,6 +18,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const cliPath = resolve(repoRoot, 'dist/cli.mjs')
 const fixtureRoot = resolve(repoRoot, 'src/cli/starter-fixtures')
 const templates = ['public', 'personal', 'workspace', 'workspace-mcp']
+const shouldTypecheck = process.argv.includes('--typecheck')
 
 if (!existsSync(cliPath)) {
   console.error('Missing dist/cli.mjs. Run `pnpm run build:cli` before starter validation.')
@@ -107,13 +109,25 @@ function expectedFixturePaths(template) {
 }
 
 function runCli(args, options = {}) {
-  const result = spawnSync(process.execPath, [cliPath, ...args], {
+  return runCommand(process.execPath, [cliPath, ...args], {
     cwd: repoRoot,
+    env: {
+      ...process.env,
+      NO_COLOR: '1',
+      NUXT_TELEMETRY_DISABLED: '1',
+    },
+    ...options,
+  })
+}
+
+function runCommand(command, args, options = {}) {
+  const result = spawnSync(command, args, {
     encoding: 'utf8',
     env: {
       ...process.env,
       NO_COLOR: '1',
       NUXT_TELEMETRY_DISABLED: '1',
+      CI: '1',
     },
     ...options,
   })
@@ -122,6 +136,16 @@ function runCli(args, options = {}) {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   }
+}
+
+function formatCommandFailure(label, result) {
+  return [
+    `${label} failed with status ${result.status}.`,
+    result.stdout ? `stdout:\n${result.stdout}` : '',
+    result.stderr ? `stderr:\n${result.stderr}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function parseJson(output, context) {
@@ -253,7 +277,122 @@ function assertDoctorPass(template, appRoot) {
   return report.summary
 }
 
+function requirePackageArtifacts() {
+  const requiredFiles = [
+    'dist/module.mjs',
+    'dist/types.d.mts',
+    'dist/runtime/backend/index.d.ts',
+    'dist/runtime/backend/index.js',
+    'dist/runtime/trusted-forwarding/index.d.ts',
+    'dist/runtime/trusted-forwarding/index.js',
+  ]
+  const missing = requiredFiles.filter((path) => !existsSync(resolve(repoRoot, path)))
+  assert(
+    missing.length === 0,
+    `Missing package artifacts for typecheck validation: ${missing.join(
+      ', ',
+    )}. Run \`pnpm run build:module && pnpm run build:cli\` first.`,
+  )
+}
+
+function createPackedTrellisPackage(packRoot) {
+  requirePackageArtifacts()
+  mkdirSync(packRoot, { recursive: true })
+  const result = runCommand('npm', ['pack', '--ignore-scripts', '--pack-destination', packRoot], {
+    cwd: repoRoot,
+  })
+  assert(result.status === 0, formatCommandFailure('npm pack', result))
+  const tarballName = result.stdout
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .at(-1)
+  assert(tarballName, `npm pack did not report a tarball name.\n${result.stdout}\n${result.stderr}`)
+  return resolve(packRoot, tarballName)
+}
+
+function rewriteGeneratedPackageDependency(appRoot, trellisTarballPath) {
+  const packageJsonPath = resolve(appRoot, 'package.json')
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+  const dependencies = packageJson.dependencies
+  assert(
+    dependencies && typeof dependencies === 'object',
+    `${appRoot} package.json is missing dependencies.`,
+  )
+  assert(
+    dependencies['@lupinum/trellis'] === 'workspace:*',
+    `${appRoot} package.json must use @lupinum/trellis workspace:* before validation rewrite.`,
+  )
+  dependencies['@lupinum/trellis'] = `file:${trellisTarballPath}`
+  writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
+}
+
+function runGeneratedTypecheck(template, appRoot, trellisTarballPath) {
+  rewriteGeneratedPackageDependency(appRoot, trellisTarballPath)
+
+  const install = runCommand('pnpm', ['install', '--ignore-scripts', '--no-frozen-lockfile'], {
+    cwd: appRoot,
+  })
+  assert(install.status === 0, formatCommandFailure(`${template} install`, install))
+
+  const codegen = runCommand(
+    'pnpm',
+    ['exec', 'convex', 'codegen', '--system-udfs', '--typecheck=disable'],
+    { cwd: appRoot },
+  )
+  assert(codegen.status === 0, formatCommandFailure(`${template} convex codegen`, codegen))
+  patchOfflineComponentCodegen(appRoot)
+  assert(
+    existsSync(resolve(appRoot, 'convex/_generated/server.d.ts')),
+    `${template} convex codegen did not create convex/_generated/server.d.ts.`,
+  )
+  assert(
+    existsSync(resolve(appRoot, 'convex/_generated/api.d.ts')),
+    `${template} convex codegen did not create convex/_generated/api.d.ts.`,
+  )
+
+  const prepare = runCommand('pnpm', ['exec', 'nuxi', 'prepare', '--dotenv', '.env.local'], {
+    cwd: appRoot,
+  })
+  assert(prepare.status === 0, formatCommandFailure(`${template} nuxt prepare`, prepare))
+
+  const typecheck = runCommand('pnpm', ['run', 'typecheck'], { cwd: appRoot })
+  assert(typecheck.status === 0, formatCommandFailure(`${template} typecheck`, typecheck))
+
+  return {
+    install: 'pass',
+    codegen: 'pass',
+    prepare: 'pass',
+    typecheck: 'pass',
+  }
+}
+
+function patchOfflineComponentCodegen(appRoot) {
+  const convexConfigPath = resolve(appRoot, 'convex/convex.config.ts')
+  const apiTypesPath = resolve(appRoot, 'convex/_generated/api.d.ts')
+  if (!existsSync(convexConfigPath) || !existsSync(apiTypesPath)) return
+  const convexConfig = readFileSync(convexConfigPath, 'utf8')
+  if (!convexConfig.includes('@convex-dev/better-auth/convex.config')) return
+
+  const apiTypes = readFileSync(apiTypesPath, 'utf8')
+  if (!apiTypes.includes('export declare const components')) {
+    writeFileSync(apiTypesPath, `${apiTypes}\nexport declare const components: any;\n`)
+    return
+  }
+  writeFileSync(
+    apiTypesPath,
+    apiTypes.replace(
+      'export declare const components: {};',
+      'export declare const components: any;',
+    ),
+  )
+}
+
 const tempRoot = mkdtempSync(resolve(tmpdir(), 'trellis-starter-fixtures-'))
+const trellisTarballPath = shouldTypecheck
+  ? createPackedTrellisPackage(resolve(tempRoot, 'pack'))
+  : null
 const summaries = []
 
 try {
@@ -286,18 +425,36 @@ try {
 
     writeDoctorEnv(appRoot, template)
     const doctorSummary = assertDoctorPass(template, appRoot)
+    const typecheckSummary = shouldTypecheck
+      ? runGeneratedTypecheck(template, appRoot, trellisTarballPath)
+      : null
     summaries.push({
       template,
       files: expectedFiles.length,
       doctor: doctorSummary,
+      typecheck: typecheckSummary,
     })
   }
 
-  console.log('starter fixture validation passed')
+  console.log(
+    shouldTypecheck
+      ? 'starter fixture typecheck validation passed'
+      : 'starter fixture validation passed',
+  )
   for (const summary of summaries) {
-    console.log(
-      `${summary.template}: ${summary.files} files, doctor ${summary.doctor.pass} pass / ${summary.doctor.warn} warn / ${summary.doctor.fail} fail`,
-    )
+    const details = [
+      `${summary.files} files`,
+      `doctor ${summary.doctor.pass} pass / ${summary.doctor.warn} warn / ${summary.doctor.fail} fail`,
+    ]
+    if (summary.typecheck) {
+      details.push(
+        `install ${summary.typecheck.install}`,
+        `codegen ${summary.typecheck.codegen}`,
+        `prepare ${summary.typecheck.prepare}`,
+        `typecheck ${summary.typecheck.typecheck}`,
+      )
+    }
+    console.log(`${summary.template}: ${details.join(', ')}`)
   }
 } finally {
   rmSync(tempRoot, { force: true, recursive: true })

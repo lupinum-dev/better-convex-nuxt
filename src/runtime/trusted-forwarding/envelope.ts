@@ -1,4 +1,5 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { hmac } from '@noble/hashes/hmac.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 
 export type TrustedForwardingTransport = 'server' | 'webhook' | 'mcp' | 'bridge'
 export type TrustedForwardingPurpose =
@@ -91,17 +92,73 @@ const excludedArgsKeys = new Set([
   '__trellis',
 ])
 
-function base64UrlEncode(input: string | Buffer): string {
-  return Buffer.from(input).toString('base64url')
+const textEncoder = new TextEncoder()
+const textDecoder = new TextDecoder()
+const base64UrlAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+const base64UrlLookup = new Map([...base64UrlAlphabet].map((char, index) => [char, index]))
+
+function utf8Bytes(input: string): Uint8Array {
+  return textEncoder.encode(input)
 }
 
-function base64UrlDecode(input: string): Buffer {
-  return Buffer.from(input, 'base64url')
+function base64UrlEncodeBytes(input: Uint8Array): string {
+  let output = ''
+  for (let index = 0; index < input.length; index += 3) {
+    const first = input[index] ?? 0
+    const second = input[index + 1] ?? 0
+    const third = input[index + 2] ?? 0
+    const value = (first << 16) | (second << 8) | third
+
+    output += base64UrlAlphabet[(value >> 18) & 63]
+    output += base64UrlAlphabet[(value >> 12) & 63]
+    if (index + 1 < input.length) output += base64UrlAlphabet[(value >> 6) & 63]
+    if (index + 2 < input.length) output += base64UrlAlphabet[value & 63]
+  }
+  return output
+}
+
+function base64UrlEncode(input: string): string {
+  return base64UrlEncodeBytes(utf8Bytes(input))
+}
+
+function base64UrlDecode(input: string): Uint8Array {
+  if (input.length % 4 === 1) {
+    throw new TrustedForwardingEnvelopeError(
+      'Invalid forwarding envelope base64url part.',
+      'malformed',
+    )
+  }
+
+  const bytes: number[] = []
+  for (let index = 0; index < input.length; index += 4) {
+    const remaining = input.length - index
+    const first = base64UrlLookup.get(input[index] ?? '')
+    const second = base64UrlLookup.get(input[index + 1] ?? '')
+    const third = remaining > 2 ? base64UrlLookup.get(input[index + 2] ?? '') : 0
+    const fourth = remaining > 3 ? base64UrlLookup.get(input[index + 3] ?? '') : 0
+    if (
+      first === undefined ||
+      second === undefined ||
+      third === undefined ||
+      fourth === undefined
+    ) {
+      throw new TrustedForwardingEnvelopeError(
+        'Invalid forwarding envelope base64url part.',
+        'malformed',
+      )
+    }
+
+    const value = (first << 18) | (second << 12) | (third << 6) | fourth
+    bytes.push((value >> 16) & 255)
+    if (remaining > 2) bytes.push((value >> 8) & 255)
+    if (remaining > 3) bytes.push(value & 255)
+  }
+  return new Uint8Array(bytes)
 }
 
 function parseJsonPart<T>(part: string, label: string): T {
   try {
-    return JSON.parse(base64UrlDecode(part).toString('utf8')) as T
+    return JSON.parse(textDecoder.decode(base64UrlDecode(part))) as T
   } catch {
     throw new TrustedForwardingEnvelopeError(`Invalid forwarding envelope ${label}.`, 'malformed')
   }
@@ -177,18 +234,27 @@ export function canonicalizeForwardingArgs(args: unknown): string {
 }
 
 export function hashForwardingArgs(args: unknown): string {
-  return createHash('sha256').update(canonicalizeForwardingArgs(args)).digest('base64url')
+  return base64UrlEncodeBytes(sha256(utf8Bytes(canonicalizeForwardingArgs(args))))
 }
 
 function sign(input: string, key: string): string {
-  return createHmac('sha256', key).update(input).digest('base64url')
+  return base64UrlEncodeBytes(hmac(sha256, utf8Bytes(key), utf8Bytes(input)))
 }
 
 function verifySignature(input: string, signature: string, key: string): boolean {
-  const expected = sign(input, key)
-  const left = Buffer.from(signature)
-  const right = Buffer.from(expected)
-  return left.length === right.length && timingSafeEqual(left, right)
+  let provided: Uint8Array
+  try {
+    provided = base64UrlDecode(signature)
+  } catch {
+    return false
+  }
+  const expected = hmac(sha256, utf8Bytes(key), utf8Bytes(input))
+  if (provided.length !== expected.length) return false
+  let mismatch = 0
+  for (let index = 0; index < expected.length; index += 1) {
+    mismatch |= expected[index] ^ provided[index]
+  }
+  return mismatch === 0
 }
 
 export function createTrustedForwardingEnvelope(
@@ -258,10 +324,7 @@ export function verifyTrustedForwardingEnvelope(
 
   const key = options.keys[header.kid]
   if (!key) {
-    throw new TrustedForwardingEnvelopeError(
-      'Unknown forwarding envelope key id.',
-      'unknown-key',
-    )
+    throw new TrustedForwardingEnvelopeError('Unknown forwarding envelope key id.', 'unknown-key')
   }
 
   const signingInput = `${encodedHeader}.${encodedPayload}`
