@@ -19,6 +19,12 @@ type UpgradeCheckReport = {
     id: string
     status: 'pass' | 'warn' | 'fail'
     message: string
+    sources?: Array<{
+      kind: 'inventory' | 'project-scan'
+      inventoryPath?: string
+      label?: string
+      locations?: Array<{ path: string; line: number }>
+    }>
   }>
   summary: {
     pass: number
@@ -150,6 +156,31 @@ describe('CLI upgrade', () => {
     expect(result.status, output).toBe(1)
     expect(finding.status).toBe('fail')
     expect(finding.message).toContain('server/api/legacy.post.ts:2')
+    expect(finding.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'project-scan',
+          label: 'legacy raw forwarding tokens',
+          locations: [
+            expect.objectContaining({
+              path: 'server/api/legacy.post.ts',
+              line: 2,
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          kind: 'inventory',
+          inventoryPath: 'forwarding.publicExposures',
+        }),
+        expect.objectContaining({
+          kind: 'inventory',
+          inventoryPath: 'forwarding.forwardedPrincipalMisuses',
+        }),
+      ]),
+    )
+    expect(JSON.stringify(finding.sources)).not.toContain('user:1')
+    expect(JSON.stringify(finding.sources)).not.toContain('_trustedForwardingKey')
+    expect(JSON.stringify(finding.sources)).not.toContain('subject')
   })
 
   it('warns for tool.fromOperation with file locations', () => {
@@ -172,6 +203,18 @@ describe('CLI upgrade', () => {
     expect(result.status, output).toBe(0)
     expect(finding.status).toBe('warn')
     expect(finding.message).toContain('server/mcp/tools/delete-todo.ts:3')
+    expect(finding.sources).toEqual([
+      expect.objectContaining({
+        kind: 'project-scan',
+        label: 'tool.fromOperation tokens',
+        locations: [
+          expect.objectContaining({
+            path: 'server/mcp/tools/delete-todo.ts',
+            line: 3,
+          }),
+        ],
+      }),
+    ])
   })
 
   it('warns for old functions imports with file locations', () => {

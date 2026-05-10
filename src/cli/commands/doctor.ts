@@ -11,7 +11,7 @@ import {
   minimumTrustedForwardingKeyLength,
 } from '../../runtime/trusted-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
-import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
+import { exitCodeForFindings, findingInventorySource, summarizeFindings } from '../lib/findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
@@ -66,6 +66,11 @@ function formatInventoryLocations(
 function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFinding {
   const appInventory = inventory.appInventory
   const warning = appInventory.warnings[0]
+  const sourceLocations = [
+    ...appInventory.featureBindings.map((binding) => binding.source),
+    ...appInventory.warnings.map((entry) => entry.source),
+  ]
+  const sources = [findingInventorySource('appInventory', sourceLocations)]
 
   if (!appInventory.detected) {
     return {
@@ -77,6 +82,7 @@ function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFindin
         'No shared/app-inventory.ts file was found. Generated apps may add app inventory when they need feature-owned inventory.',
       fixHint:
         'Add shared/app-inventory.ts with defineAppInventory({ features: [...] }) when app-owned feature inventory becomes useful.',
+      sources,
     }
   }
 
@@ -89,6 +95,7 @@ function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFindin
       message: `Found ${appInventory.file}, but app inventory could not be statically read: ${warning.code} at ${formatInventoryLocations([warning.source])}.`,
       fixHint:
         'Use a static defineAppInventory({ features: [feature] as const }) feature list so doctor, upgrade, and future explain commands can read app-owned inventory.',
+      sources,
     }
   }
 
@@ -100,6 +107,7 @@ function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFindin
     message: `Found ${appInventory.file} with ${appInventory.featureBindings.length} static feature binding${appInventory.featureBindings.length === 1 ? '' : 's'}.`,
     fixHint:
       'Keep shared/app-inventory.ts static so doctor, upgrade, and future explain commands can read app-owned inventory.',
+    sources,
   }
 }
 
@@ -119,6 +127,16 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
       status: 'pass',
       message: 'No destructive operations were found in public-surface metadata.',
       fixHint: 'No action needed unless you add destructive operation-backed MCP tools later.',
+      sources: [
+        findingInventorySource(
+          'publicSurface.operations',
+          inventory.publicSurface.operations.map((operation) => operation.source),
+        ),
+        findingInventorySource(
+          'publicSurface.tools',
+          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
+        ),
+      ],
     }
   }
 
@@ -131,6 +149,16 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
       message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and no MCP layer. Backend-only destructive operations are valid.`,
       fixHint:
         'Expose destructive operations to MCP only when the app intentionally needs agent access.',
+      sources: [
+        findingInventorySource(
+          'publicSurface.operations',
+          destructiveOperations.map((operation) => operation.source),
+        ),
+        findingInventorySource(
+          'publicSurface.tools',
+          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
+        ),
+      ],
     }
   }
 
@@ -143,6 +171,16 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
       message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} but no operation-backed MCP tools in public-surface metadata. First operation: ${formatInventoryLocations([destructiveOperations[0]!.source])}.`,
       fixHint:
         'Bind destructive MCP tools with `tool.operation(...)`, or keep the operation backend-only if MCP exposure is not intended.',
+      sources: [
+        findingInventorySource(
+          'publicSurface.operations',
+          destructiveOperations.map((operation) => operation.source),
+        ),
+        findingInventorySource(
+          'publicSurface.tools',
+          inventory.publicSurface.tools.map((tool) => tool.sourceLocation),
+        ),
+      ],
     }
   }
 
@@ -154,6 +192,16 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
     message: `Found ${destructiveOperations.length} destructive operation${destructiveOperations.length === 1 ? '' : 's'} and ${operationBackedTools.length} operation-backed MCP tool${operationBackedTools.length === 1 ? '' : 's'} in public-surface metadata.`,
     fixHint:
       'Keep destructive MCP tools operation-backed so preview, confirmation, and execute stay coupled.',
+    sources: [
+      findingInventorySource(
+        'publicSurface.operations',
+        destructiveOperations.map((operation) => operation.source),
+      ),
+      findingInventorySource(
+        'publicSurface.tools',
+        operationBackedTools.map((tool) => tool.sourceLocation),
+      ),
+    ],
   }
 }
 
@@ -458,6 +506,9 @@ function createDoctorFindings(
         trustedForwardingPublicExposure.length > 0
           ? 'Keep CONVEX_TRUSTED_FORWARDING_KEY server-only. Remove any NUXT_PUBLIC exposure or public runtime-config mapping.'
           : 'Keep the trusted-forwarding key confined to server-only env and runtime paths.',
+      sources: [
+        findingInventorySource('forwarding.publicExposures', trustedForwardingPublicExposure),
+      ],
     },
     {
       id: 'forwarded-principal-trusted-path',
@@ -472,6 +523,9 @@ function createDoctorFindings(
         forwardedPrincipalMisuse.length > 0
           ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'`."
           : 'Keep forwarded principals confined to verified trusted-forwarding lanes.',
+      sources: [
+        findingInventorySource('forwarding.forwardedPrincipalMisuses', forwardedPrincipalMisuse),
+      ],
     },
     {
       id: 'unsafe-surface-inventory',
@@ -486,6 +540,7 @@ function createDoctorFindings(
         unsafeSurfaceInventory.length === 0
           ? 'No action needed unless you add intentional escape hatches later.'
           : 'Review each unsafe entrypoint and keep the bypass reason narrow, explicit, and tested.',
+      sources: [findingInventorySource('backend.unsafeEntrypoints', unsafeSurfaceInventory)],
     },
     {
       id: 'cross-tenant-escape-inventory',
@@ -500,6 +555,7 @@ function createDoctorFindings(
         crossTenantEscapeInventory.length === 0
           ? 'No action needed unless the app adds cross-tenant workflows later.'
           : 'Review each tenant-isolation escape and keep the reason, caller boundary, and data scope explicit.',
+      sources: [findingInventorySource('backend.crossTenantEscapes', crossTenantEscapeInventory)],
     },
     {
       id: 'destructive-operation-inventory',
@@ -514,6 +570,9 @@ function createDoctorFindings(
         destructiveOperationInventory.length === 0
           ? 'No action needed unless the app adds destructive preview/confirm flows later.'
           : 'Review each destructive operation and keep preview, confirmation, and audit expectations explicit.',
+      sources: [
+        findingInventorySource('backend.destructiveOperations', destructiveOperationInventory),
+      ],
     },
     {
       id: 'mcp-confirmation-key-configured',
@@ -566,6 +625,7 @@ function createDoctorFindings(
         destructiveMcpToolMisuse.length > 0
           ? 'Destructive MCP tools must bind through `tool.operation(...)` so preview, confirmation, and execute stay coupled.'
           : 'Keep destructive MCP tools operation-backed.',
+      sources: [findingInventorySource('mcp.destructiveToolMisuses', destructiveMcpToolMisuse)],
     },
     createOperationToolAgreementFinding(inventory),
     {
@@ -581,6 +641,7 @@ function createDoctorFindings(
         customMcpAppWriteMisuse.length > 0
           ? 'Move app writes to `defineMcpApp(...).tool.mutation(...)` for bounded writes or `tool.operation(...)` for sensitive/destructive/external work.'
           : 'Keep standalone defineTool(...) read/diagnostic/external-service only.',
+      sources: [findingInventorySource('mcp.customAppWriteMisuses', customMcpAppWriteMisuse)],
     },
     ...collectPermissionMetadataFindings(project),
   ]

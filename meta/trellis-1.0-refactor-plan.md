@@ -473,7 +473,7 @@ docs generation, and future explain commands.
 
 - [x] Inventory schema is versioned.
 - [x] Doctor and public-surface checks agree on operations/tools.
-- [ ] Security findings cite the metadata source they came from.
+- [x] Security findings cite the metadata source they came from.
 
 ### Sprint Notes
 
@@ -521,6 +521,9 @@ docs generation, and future explain commands.
 - Sprint 41 is planned to add structured source metadata to doctor and upgrade
   findings so security findings can cite inventory paths and safe file/line
   evidence without parsing human-readable messages.
+- Sprint 41 added `DoctorFinding.sources` plus shared source helpers, then
+  annotated inventory-backed doctor/upgrade security findings with safe
+  inventory/project-scan source metadata in JSON output.
 
 ### Done Means
 

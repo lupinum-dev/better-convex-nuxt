@@ -133,49 +133,49 @@ long location lists.
 
 ### 1. Extend Shared Finding Types
 
-- [ ] Add `FindingSource` and `FindingSourceKind`.
-- [ ] Add optional `sources?: FindingSource[]` to `DoctorFinding`.
-- [ ] Keep `FindingReport.schemaVersion` at `1` unless the output contract
+- [x] Add `FindingSource` and `FindingSourceKind`.
+- [x] Add optional `sources?: FindingSource[]` to `DoctorFinding`.
+- [x] Keep `FindingReport.schemaVersion` at `1` unless the output contract
       needs a breaking schema bump.
-- [ ] Ensure source metadata is safe to share.
+- [x] Ensure source metadata is safe to share.
 
 ### 2. Add Small Source Helpers
 
-- [ ] Add a helper for inventory sources, e.g.
+- [x] Add a helper for inventory sources, e.g.
       `findingInventorySource(path, locations)`.
-- [ ] Add a helper for local project-scan sources if upgrade needs it.
-- [ ] Keep helpers in the shared CLI finding layer, not in separate doctor and
+- [x] Add a helper for local project-scan sources if upgrade needs it.
+- [x] Keep helpers in the shared CLI finding layer, not in separate doctor and
       upgrade implementations.
 
 ### 3. Annotate Doctor Findings
 
-- [ ] Add inventory sources to the doctor findings listed above.
-- [ ] Reuse existing inventory arrays; do not add scanner reads.
-- [ ] Keep existing messages and fix hints stable where possible.
+- [x] Add inventory sources to the doctor findings listed above.
+- [x] Reuse existing inventory arrays; do not add scanner reads.
+- [x] Keep existing messages and fix hints stable where possible.
 
 ### 4. Annotate Upgrade Findings
 
-- [ ] Add inventory sources to inventory-backed upgrade findings.
-- [ ] Add project-scan sources to narrow hard-cut migration detectors when the
+- [x] Add inventory sources to inventory-backed upgrade findings.
+- [x] Add project-scan sources to narrow hard-cut migration detectors when the
       detector already has file/line evidence.
-- [ ] Keep `upgrade --check` behavior and exit codes unchanged.
+- [x] Keep `upgrade --check` behavior and exit codes unchanged.
 
 ### 5. Test JSON And Secret Safety
 
-- [ ] Doctor JSON includes structured `sources` for at least one forwarding,
+- [x] Doctor JSON includes structured `sources` for at least one forwarding,
       backend, MCP, and public-surface finding.
-- [ ] Upgrade JSON includes structured `sources` for at least one
+- [x] Upgrade JSON includes structured `sources` for at least one
       inventory-backed finding and one local project-scan finding.
-- [ ] Tests assert source metadata contains paths/lines, not snippets or raw
+- [x] Tests assert source metadata contains paths/lines, not snippets or raw
       values.
-- [ ] Human output tests stay stable or are updated for intentionally minimal
+- [x] Human output tests stay stable or are updated for intentionally minimal
       output changes.
 
 ### 6. Update Trackers
 
-- [ ] Update this sprint plan with exit notes.
-- [ ] Update Slice 8 sprint notes.
-- [ ] Mark `Security findings cite the metadata source they came from` complete
+- [x] Update this sprint plan with exit notes.
+- [x] Update Slice 8 sprint notes.
+- [x] Mark `Security findings cite the metadata source they came from` complete
       only if doctor and upgrade JSON both expose structured sources for the
       covered security findings.
 
@@ -215,14 +215,29 @@ pnpm exec oxfmt --check \
 
 ## Acceptance Criteria
 
-- [ ] `DoctorFinding` supports safe structured source metadata.
-- [ ] Inventory-backed doctor security findings include `sources`.
-- [ ] Upgrade migration findings include `sources` where evidence already
+- [x] `DoctorFinding` supports safe structured source metadata.
+- [x] Inventory-backed doctor security findings include `sources`.
+- [x] Upgrade migration findings include `sources` where evidence already
       exists.
-- [ ] JSON consumers no longer need to parse messages to find evidence
+- [x] JSON consumers no longer need to parse messages to find evidence
       locations for covered findings.
-- [ ] No source metadata contains snippets, raw envelopes, bearer tokens,
+- [x] No source metadata contains snippets, raw envelopes, bearer tokens,
       identity payloads, confirmation payloads, or user data.
-- [ ] Finding semantics, exit behavior, and scanner coverage remain unchanged.
-- [ ] Slice 8 tracker is updated.
-- [ ] Sprint changes are committed after verification.
+- [x] Finding semantics, exit behavior, and scanner coverage remain unchanged.
+- [x] Slice 8 tracker is updated.
+- [x] Sprint changes are committed after verification.
+
+## Exit Notes
+
+- Added `FindingSource` metadata to shared doctor/upgrade findings.
+- Added `findingInventorySource(...)` and `findingProjectScanSource(...)` in
+  the shared CLI finding layer.
+- Annotated inventory-backed doctor findings for forwarding, backend unsafe
+  surfaces, cross-tenant escapes, destructive operations, MCP misuse, app
+  inventory, and operation/tool agreement.
+- Annotated upgrade findings with inventory-backed sources and existing local
+  project-scan evidence.
+- Kept human output, finding semantics, exit behavior, and scanner coverage
+  unchanged.
+- Added JSON assertions that source metadata contains safe path/line evidence
+  and does not expose raw forwarding or identity payload values.

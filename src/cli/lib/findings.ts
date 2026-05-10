@@ -1,7 +1,15 @@
-import type { TrellisCliInventory } from './inventory.js'
+import type { TrellisCliInventory, TrellisCliInventorySourceLocation } from './inventory.js'
 
 export type DoctorFindingStatus = 'pass' | 'warn' | 'fail'
 export type DoctorFindingCategory = 'core' | 'auth' | 'advanced'
+export type FindingSourceKind = 'inventory' | 'project-scan'
+
+export interface FindingSource {
+  kind: FindingSourceKind
+  inventoryPath?: string
+  label?: string
+  locations?: TrellisCliInventorySourceLocation[]
+}
 
 export interface DoctorFinding {
   id: string
@@ -10,6 +18,7 @@ export interface DoctorFinding {
   status: DoctorFindingStatus
   message: string
   fixHint: string
+  sources?: FindingSource[]
 }
 
 export interface DoctorSummary {
@@ -27,6 +36,28 @@ export interface FindingReport {
 }
 
 export type DoctorReport = FindingReport
+
+function withLocations(
+  source: Omit<FindingSource, 'locations'>,
+  locations: TrellisCliInventorySourceLocation[],
+): FindingSource {
+  return locations.length > 0 ? { ...source, locations } : source
+}
+
+export function findingInventorySource(
+  inventoryPath: string,
+  locations: TrellisCliInventorySourceLocation[] = [],
+  label?: string,
+): FindingSource {
+  return withLocations({ kind: 'inventory', inventoryPath, label }, locations)
+}
+
+export function findingProjectScanSource(
+  label: string,
+  locations: TrellisCliInventorySourceLocation[] = [],
+): FindingSource {
+  return withLocations({ kind: 'project-scan', label }, locations)
+}
 
 export function summarizeFindings(findings: DoctorFinding[]): DoctorSummary {
   return findings.reduce<DoctorSummary>(

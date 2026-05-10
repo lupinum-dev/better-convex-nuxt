@@ -2,8 +2,13 @@ import { relative, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
 
-import type { DoctorFinding, FindingReport } from '../lib/findings.js'
-import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
+import type { DoctorFinding, FindingReport, FindingSource } from '../lib/findings.js'
+import {
+  exitCodeForFindings,
+  findingInventorySource,
+  findingProjectScanSource,
+  summarizeFindings,
+} from '../lib/findings.js'
 import {
   collectTrellisCliInventory,
   collectTrellisCliInventoryFacts,
@@ -21,6 +26,7 @@ type UpgradeFindingOptions = {
   id: string
   title: string
   locations: TrellisCliInventorySourceLocation[]
+  sources?: FindingSource[]
   statusWhenFound: 'warn' | 'fail'
   foundMessage: (locations: TrellisCliInventorySourceLocation[]) => string
   cleanMessage: string
@@ -99,6 +105,7 @@ function createLocationFinding(options: UpgradeFindingOptions): DoctorFinding {
     status: options.statusWhenFound,
     message: options.foundMessage(options.locations),
     fixHint: options.fixHint,
+    sources: options.sources,
   }
 }
 
@@ -131,6 +138,14 @@ function createUpgradeFindings(
         ...inventory.forwarding.publicExposures,
         ...inventory.forwarding.forwardedPrincipalMisuses,
       ],
+      sources: [
+        findingProjectScanSource('legacy raw forwarding tokens', legacyRawForwarding),
+        findingInventorySource('forwarding.publicExposures', inventory.forwarding.publicExposures),
+        findingInventorySource(
+          'forwarding.forwardedPrincipalMisuses',
+          inventory.forwarding.forwardedPrincipalMisuses,
+        ),
+      ],
       statusWhenFound: 'fail',
       foundMessage: (locations) =>
         `Found raw or public trusted-forwarding usage at ${formatLocations(locations)}.`,
@@ -142,6 +157,7 @@ function createUpgradeFindings(
       id: 'upgrade-tool-from-operation',
       title: 'tool.fromOperation migration',
       locations: toolFromOperation,
+      sources: [findingProjectScanSource('tool.fromOperation tokens', toolFromOperation)],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
         `Found deleted \`tool.fromOperation(...)\` usage at ${formatLocations(locations)}.`,
@@ -152,6 +168,7 @@ function createUpgradeFindings(
       id: 'upgrade-functions-import',
       title: 'Functions import migration',
       locations: legacyFunctionsImport,
+      sources: [findingProjectScanSource('legacy functions imports', legacyFunctionsImport)],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
         `Found old \`@lupinum/trellis/functions\` imports at ${formatLocations(locations)}.`,
@@ -162,6 +179,7 @@ function createUpgradeFindings(
       id: 'upgrade-bridge-import',
       title: 'Bridge import migration',
       locations: legacyBridgeImport,
+      sources: [findingProjectScanSource('legacy bridge imports', legacyBridgeImport)],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
         `Found old core bridge imports at ${formatLocations(locations)}.`,
@@ -172,6 +190,9 @@ function createUpgradeFindings(
       id: 'upgrade-mcp-destructive-binding',
       title: 'MCP destructive binding migration',
       locations: inventory.mcp.destructiveToolMisuses,
+      sources: [
+        findingInventorySource('mcp.destructiveToolMisuses', inventory.mcp.destructiveToolMisuses),
+      ],
       statusWhenFound: 'fail',
       foundMessage: (locations) =>
         `Found destructive-looking MCP tools outside operation bindings at ${formatLocations(locations)}.`,
@@ -182,6 +203,9 @@ function createUpgradeFindings(
       id: 'upgrade-mcp-custom-app-write',
       title: 'Custom MCP app-write migration',
       locations: inventory.mcp.customAppWriteMisuses,
+      sources: [
+        findingInventorySource('mcp.customAppWriteMisuses', inventory.mcp.customAppWriteMisuses),
+      ],
       statusWhenFound: 'fail',
       foundMessage: (locations) =>
         `Found custom MCP tools calling app writes at ${formatLocations(locations)}.`,
@@ -193,6 +217,9 @@ function createUpgradeFindings(
       id: 'upgrade-unsafe-permits',
       title: 'Unsafe permit migration',
       locations: inventory.backend.unsafeEntrypoints,
+      sources: [
+        findingInventorySource('backend.unsafeEntrypoints', inventory.backend.unsafeEntrypoints),
+      ],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
         `Found unsafe backend entrypoints that need typed permit review at ${formatLocations(locations)}.`,
@@ -203,6 +230,7 @@ function createUpgradeFindings(
       id: 'upgrade-starter-surface',
       title: 'Starter surface migration',
       locations: legacyStarterReferences,
+      sources: [findingProjectScanSource('legacy starter references', legacyStarterReferences)],
       statusWhenFound: 'warn',
       foundMessage: (locations) =>
         `Found deleted starter spelling references at ${formatLocations(locations)}.`,

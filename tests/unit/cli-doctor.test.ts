@@ -13,6 +13,13 @@ type CanonicalLayoutOptions = {
   permissions: boolean
 }
 
+type FindingSourceJson = {
+  kind: 'inventory' | 'project-scan'
+  inventoryPath?: string
+  label?: string
+  locations?: Array<{ path: string; line: number }>
+}
+
 function runCli(args: string[], cwd: string) {
   return spawnSync(process.execPath, [cliEntry, ...args], {
     cwd,
@@ -126,7 +133,7 @@ type DoctorInventoryJsonReport = {
     }
     findings: []
   }
-  findings: Array<{ id: string; status: string }>
+  findings: Array<{ id: string; status: string; sources?: FindingSourceJson[] }>
   summary: { fail: number; warn: number }
 }
 
@@ -889,6 +896,27 @@ export const appInventory = defineAppInventory({
       report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
         ?.message,
     ).toContain('.env.local')
+    expect(
+      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+        ?.sources,
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'forwarding.publicExposures',
+        locations: [
+          expect.objectContaining({
+            path: '.env.local',
+            line: expect.any(Number),
+          }),
+        ],
+      }),
+    ])
+    expect(
+      JSON.stringify(
+        report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+          ?.sources,
+      ),
+    ).not.toContain('this-should-not-be-public')
   })
 
   it('fails doctor when MCP rate-limited tools do not configure an explicit external store', () => {
@@ -1074,7 +1102,12 @@ export const appInventory = defineAppInventory({
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = JSON.parse(result.stdout) as {
-      findings: Array<{ id: string; status: string; message: string }>
+      findings: Array<{
+        id: string
+        status: string
+        message: string
+        sources?: FindingSourceJson[]
+      }>
       summary: { fail: number }
     }
     const finding = report.findings.find((entry) => entry.id === 'canonical-layout')
@@ -1373,6 +1406,20 @@ export const publicCatalog = query.unsafe({
     expect(
       report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.message,
     ).toContain('convex/features/todos/domain.ts')
+    expect(
+      report.findings.find((entry) => entry.id === 'unsafe-surface-inventory')?.sources,
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'backend.unsafeEntrypoints',
+        locations: [
+          expect.objectContaining({
+            path: 'convex/features/todos/domain.ts',
+            line: expect.any(Number),
+          }),
+        ],
+      }),
+    ])
     expect(report.inventory.backend.unsafeEntrypoints).toEqual([
       expect.objectContaining({
         path: 'convex/features/todos/domain.ts',
@@ -1385,6 +1432,20 @@ export const publicCatalog = query.unsafe({
     expect(
       report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.message,
     ).toContain('convex/features/todos/domain.ts')
+    expect(
+      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.sources,
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'backend.crossTenantEscapes',
+        locations: [
+          expect.objectContaining({
+            path: 'convex/features/todos/domain.ts',
+            line: expect.any(Number),
+          }),
+        ],
+      }),
+    ])
     expect(report.inventory.backend.crossTenantEscapes).toEqual([
       expect.objectContaining({
         path: 'convex/features/todos/domain.ts',
@@ -1496,6 +1557,22 @@ export const purgeTodoOp = defineOperation({
     expect(report.findings.find((entry) => entry.id === 'operation-tool-agreement')).toMatchObject({
       status: 'warn',
       message: expect.stringContaining('no operation-backed MCP tools'),
+      sources: expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'inventory',
+          inventoryPath: 'publicSurface.operations',
+          locations: [
+            expect.objectContaining({
+              path: 'convex/features/todos/operations.ts',
+              line: expect.any(Number),
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          kind: 'inventory',
+          inventoryPath: 'publicSurface.tools',
+        }),
+      ]),
     })
   })
 
@@ -1592,7 +1669,12 @@ export default tool.mutation({
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const report = JSON.parse(result.stdout) as {
-      findings: Array<{ id: string; status: string; message: string }>
+      findings: Array<{
+        id: string
+        status: string
+        message: string
+        sources?: FindingSourceJson[]
+      }>
     }
 
     expect(result.status, result.stderr).toBe(1)
@@ -1608,6 +1690,20 @@ export default tool.mutation({
     expect(
       report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.message,
     ).toContain('server/mcp/tools/delete-todo.ts')
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-destructive-operation-binding')?.sources,
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'mcp.destructiveToolMisuses',
+        locations: [
+          expect.objectContaining({
+            path: 'server/mcp/tools/delete-todo.ts',
+            line: expect.any(Number),
+          }),
+        ],
+      }),
+    ])
   })
 
   it('fails doctor when a standalone custom MCP tool calls Convex writes', () => {
@@ -1655,5 +1751,19 @@ export default defineTool({
     expect(
       report.findings.find((entry) => entry.id === 'mcp-custom-app-write-bypass')?.message,
     ).toContain('server/mcp/tools/create-todo.ts')
+    expect(
+      report.findings.find((entry) => entry.id === 'mcp-custom-app-write-bypass')?.sources,
+    ).toEqual([
+      expect.objectContaining({
+        kind: 'inventory',
+        inventoryPath: 'mcp.customAppWriteMisuses',
+        locations: [
+          expect.objectContaining({
+            path: 'server/mcp/tools/create-todo.ts',
+            line: expect.any(Number),
+          }),
+        ],
+      }),
+    ])
   })
 })
