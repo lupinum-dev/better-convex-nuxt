@@ -844,7 +844,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] Personal starter guide.
 - [x] Workspace starter guide.
 - [x] Workspace MCP starter guide.
-- [ ] Backend builder guide.
+- [x] Backend builder guide.
 - [ ] Operation/destructive safety guide.
 - [ ] MCP projection guide.
 - [ ] Trusted forwarding security guide.
@@ -1043,6 +1043,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   the workspace-MCP branch and `08-component-mini-cms` as advanced
   package-integration material, keeping bridge concepts out of beginner starter
   setup.
+- Sprint 73 completed the backend builder guide cleanup. Added
+  `/docs/permissions/backend-builders` as the task guide for
+  `@lupinum/trellis/backend`, explicit public/protected/unsafe lanes, the
+  protected pipeline, typed unsafe permits, and operation escalation. Linked it
+  from permissions setup and the functions reference. Backend docs scans found
+  no stale old-root builder, `guard: open`, string `bypass`, or
+  `@lupinum/trellis/functions` user-facing hits; legitimate `query(...)` /
+  `mutation(...)` hits are client/server/test/MCP/Convex DB call syntax or
+  operation registration examples.
 
 ### Done Means
 
