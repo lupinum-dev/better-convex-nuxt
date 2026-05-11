@@ -15,6 +15,7 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | `@lupinum/trellis/backend`         | keep            | canonical 1.0 backend builder and operation subpath                     |
 | `@lupinum/trellis/composables`     | keep            | client composable subpath unless root-only Nuxt auto-imports replace it |
 | `@lupinum/trellis/mcp`             | keep            | MCP product layer subpath                                               |
+| `@lupinum/trellis/mcp/advanced`    | decide          | unclassified export                                                     |
 | `@lupinum/trellis/server`          | keep            | Nuxt/Nitro server helper subpath                                        |
 | `@lupinum/trellis/testing`         | keep            | testing helpers stay public but must stop emitting raw forwarding       |
 | `@lupinum/trellis/type-primitives` | keep            | type-only helper surface unless folded into functions/backend           |
@@ -47,6 +48,7 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | alias          | `#trellis`                   | keep in 1.0 generated contract |
 | alias          | `#trellis/api`               | keep in 1.0 generated contract |
 | alias          | `#trellis/mcp`               | keep in 1.0 generated contract |
+| alias          | `#trellis/mcp/advanced`      | keep in 1.0 generated contract |
 | alias          | `#trellis/server`            | keep in 1.0 generated contract |
 | auto-import    | `useConvexAuth`              | auth                           |
 | auto-import    | `useConvexAuthActions`       | auth                           |
@@ -104,6 +106,7 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | meta/rfc-forwarding-envelope.md                       | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | historical/planning reference allowed |
 | meta/skill/references/public-surface.md               | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
 | meta/trellis-1.0-refactor-plan.md                     | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
+| meta/trellis-ginko-1.0-oss-action-list.md             | `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `--template cms`                       | rewrite/delete before 1.0 docs gate   |
 
 ## Docs Front Door Old Builder Hits
 
