@@ -148,22 +148,33 @@ Confirmed risk:
 
 Action:
 
-- [ ] Write a failing component test: publish an entry with shared fields and
+- [x] Write a failing component test: publish an entry with shared fields and
       localized fields, then verify Studio draft view exposes correct
       `publishedData` for shared fields.
-- [ ] Decide the canonical source for published shared state:
-      `entryRevisions.snapshot.shared` is the likely source because public
-      projection rows are locale-focused and unpublish deletes public rows.
-- [ ] Implement reconstruction from the latest relevant revision snapshot, not
+      New tests in `test/component/entries/draft.test.ts` under
+      `describe('studio published shared-field reconstruction')`.
+- [x] Decide the canonical source for published shared state.
+      Decided: `entryRevisions.snapshot.shared`. Public rows reference the
+      `revisionId` they were projected from, and that revision's snapshot is
+      the authoritative published shared state.
+- [x] Implement reconstruction from the latest relevant revision snapshot, not
       an empty object placeholder.
-- [ ] Add a regression test for partial locale publish and unpublish.
+      `latestPublishedShared(ctx, publicRows)` now reads each public row's
+      backing `entryRevisions` document, picks the most recently created one,
+      and returns its `snapshot.shared`.
+- [x] Add a regression test for partial locale publish and unpublish.
+      Tests cover: shared field round-trip through publish, full unpublish
+      drops published shared state, and partial-locale publish does not
+      fabricate published data for the unpublished locale.
 
 Acceptance:
 
-- [ ] Studio diff/read state shows published shared fields correctly after
+- [x] Studio diff/read state shows published shared fields correctly after
       publish.
-- [ ] Unpublished locales do not fabricate published shared data.
-- [ ] Public projections remain derived output, not historical source of truth.
+- [x] Unpublished locales do not fabricate published shared data.
+- [x] Public projections remain derived output, not historical source of truth.
+      `publicEntries` is still locale-scoped; reconstruction reads the
+      append-only `entryRevisions` table directly.
 
 ### 4. Delete Preview Blocking Must Match Execute
 
@@ -175,21 +186,31 @@ Confirmed:
 
 Action:
 
-- [ ] Decide intended product behavior: - Option A: deletion is blocked while any public route exists; user must
-      unpublish/archive first. - Option B: deletion with backup may remove public routes; preview must
-      not mark it blocked.
-- [ ] Prefer Option A for safety unless there is a concrete CMS workflow that
+- [x] Decide intended product behavior. Chosen: Option A — permanent delete is
+      blocked while any public route exists. User must unpublish/archive first.
+      Backup is still required but does not override the block.
+- [x] Prefer Option A for safety unless there is a concrete CMS workflow that
       needs direct deletion of published content.
-- [ ] Enforce the same rule in handler and direct mutation fallback while the
+- [x] Enforce the same rule in handler and direct mutation fallback while the
       fallback still exists.
-- [ ] Add tests for preview blocked and execute rejected.
+      `assertNoPublicRoutesForDelete` in
+      `packages/convex/src/entries/tree.ts` is invoked from both
+      `deleteEntryOperation.handler` and the direct `deleteEntry` mutation.
+      The error code `ENTRY_HAS_PUBLIC_ROUTES` carries the offending routes
+      and the next action (`unpublish-or-archive`).
+- [x] Add tests for preview blocked and execute rejected.
+      `tree.test.ts > blocks permanent delete while public routes exist...`
+      asserts: preview blocked, direct mutation rejected with
+      `ENTRY_HAS_PUBLIC_ROUTES`, and that unblocking via `unpublishEntry`
+      reopens both preview and execute.
 
 Acceptance:
 
-- [ ] Preview and execute cannot disagree on whether public routes block
+- [x] Preview and execute cannot disagree on whether public routes block
       permanent deletion.
-- [ ] The error tells the user the next action: unpublish/archive or export
-      backup, depending on the chosen rule.
+- [x] The error tells the user the next action: unpublish/archive (per the
+      chosen rule). Backup-required is still surfaced separately when
+      `exportArtifactId` is missing.
 
 ### 5. Destructive Workflow Hard Cut
 
