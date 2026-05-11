@@ -88,10 +88,18 @@ describe('defineTrellis', () => {
   it('exposes explicit backend lanes and unsafe escape hatches', () => {
     const builder = () => null as never
 
-    const runtime = defineTrellis({
-      query: builder,
-      mutation: builder,
-    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
 
     expect(runtime.query).toBeTypeOf('object')
     expect(runtime.mutation).toBeTypeOf('object')
@@ -110,10 +118,18 @@ describe('defineTrellis', () => {
   it('does not expose callable root backend builders', () => {
     const builder = ((definition: unknown) => definition) as never
 
-    const runtime = defineTrellis({
-      query: builder,
-      mutation: builder,
-    })
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
 
     expect(runtime.query).not.toBeTypeOf('function')
     expect(runtime.mutation).not.toBeTypeOf('function')
@@ -343,6 +359,87 @@ describe('defineTrellis', () => {
         args,
       ),
     ).rejects.toThrow(/function-ref/)
+  })
+
+  it('requires trusted operation-execute forwarding for destructive transport mutations', async () => {
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveSafety: {
+          redemptionTable: 'destructiveRedemptions' as never,
+          auditTable: 'destructiveAuditLog' as never,
+        },
+      },
+    )
+
+    let executed = false
+    const operation = defineOperation({
+      id: 'tasks.delete.transport',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: open,
+      preview: async (_ctx, args) => ({
+        display: { summary: `Delete ${args.id}` },
+        confirm: { id: args.id },
+      }),
+      handler: async () => {
+        executed = true
+        return { deleted: true }
+      },
+    })
+
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const definition = runtime.transportMutation(
+      transportExecuteOperationRef(operation, operation, {
+        functionRef: 'tasks:delete',
+      }) as never,
+    ) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: Record<string, unknown>,
+        loaded?: unknown,
+      ) => Promise<unknown>
+    }
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        { id: 'task_1' },
+      ),
+    ).rejects.toThrow(/operation-execute forwarding envelope/)
+    expect(executed).toBe(false)
+
+    await expect(
+      definition.handler(
+        {
+          auth: { getUserIdentity: async () => null },
+          db: createMemoryDb().db,
+          observe: async () => {},
+        },
+        createTrustedForwardingEnvelopeArgs({
+          args: { id: 'task_1' },
+          principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+          functionRef: 'tasks:delete',
+          operation: 'mutation',
+          purpose: 'operation-execute',
+          jti: 'execute-1',
+        }),
+      ),
+    ).resolves.toEqual({ deleted: true })
   })
 
   it('rejects replayed operation-execute forwarding envelopes before handler execution', async () => {

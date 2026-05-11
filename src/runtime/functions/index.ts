@@ -2505,6 +2505,7 @@ function buildStructuredTransportMutationRuntime<
 
   return ((definition) => {
     const metadata = getOperationMetadata(definition as never)
+    const projectionMetadata = getOperationProjectionMetadata(definition as never)
     if (metadata.kind !== 'destructive') {
       return structured(definition as never)
     }
@@ -2542,7 +2543,9 @@ function buildStructuredTransportMutationRuntime<
         ? {
             trustedForwardingFunctionRef: definition.trustedForwardingFunctionRef,
           }
-        : {}),
+        : projectionMetadata?.functionRef
+          ? { trustedForwardingFunctionRef: projectionMetadata.functionRef }
+          : {}),
       ...(definition.trustedForwardingTransport
         ? { trustedForwardingTransport: definition.trustedForwardingTransport }
         : {}),
@@ -2568,13 +2571,18 @@ function buildStructuredTransportMutationRuntime<
         rawArgs: Record<string, unknown>,
         loaded: unknown,
       ) => {
+        const forwardingEnvelope = getTrustedForwardingEnvelopeState(ctx)
+        if (
+          forwardingEnvelope?.purpose !== 'operation-execute' ||
+          typeof forwardingEnvelope.jti !== 'string' ||
+          forwardingEnvelope.jti.length === 0
+        ) {
+          throw new Error(
+            'Destructive transport mutation requires a trusted operation-execute forwarding envelope.',
+          )
+        }
+
         const executeArgs = stripConfirmationToken(rawArgs)
-        await ctx.observe({
-          name: 'operation.confirm.validated',
-          status: 'success',
-          operation: metadata.id,
-          transport: 'mcp',
-        })
 
         try {
           const result = await originalHandler(ctx, executeArgs, loaded)
