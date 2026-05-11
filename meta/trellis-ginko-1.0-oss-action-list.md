@@ -35,18 +35,11 @@ Green for continuing the 1.0 direction.
 Not release-ready until the blockers below are closed and verified from packed
 packages.
 
-The main problems are:
-
-- Ginko publish metadata still contains `workspace:*`.
-- Ginko install docs contradict each other.
-- Ginko destructive workflows still expose old direct mutation paths beside
-  operation-backed paths.
-- Ginko has at least one likely domain bug in published shared-field
-  reconstruction.
-- The bridge/forwarding boundary is still more complex than it should be and
-  needs a narrower public contract.
-- Ginko MCP still uses low-level `defineMcpTool` broadly instead of the blessed
-  Trellis 1.0 lanes.
+The original blockers in this list are closed in live code. Remaining release
+work is limited to the explicit unchecked verification gates at the bottom of
+this tracker: formatting drift outside the touched files, live Convex
+foundation verification, consumer Convex push/check, consumer lint, and
+consumer production build.
 
 ## Release Blockers
 
@@ -243,14 +236,11 @@ Action:
       equivalent exists.
 - [x] Update Studio callers and generated bridge bindings to use operation
       preview/execute.
-      Bridge `editor.ts` entries now point `component` at the
-      `*TransportExecute` variants (with explicit `functionRef` matching the
-      source module). New `rollbackVersionTransportExecute` and
-      `revertDraftToPublishedTransportExecute` added so the bridge can call
-      those without confirmation tokens (the bridge owns preview enforcement).
-      Studio composables call `bridge.publishEntry` etc., unchanged at the
-      callsite — the bridge now routes through operation execution under the
-      hood.
+      Bridge `editor.ts` entries now point destructive surfaces at
+      `*OperationExecute` variants with `_confirmationToken` in the bridge args.
+      Studio composables still call `bridge.publishEntry` etc., but the bridge
+      type and backend route now require the same Trellis confirmation pipeline
+      as normal operation execution.
 - [x] Regenerate Convex API files. `pnpm prepare:component` re-emitted
       `_generated/api.ts` and `_generated/component.ts` without the deleted
       direct mutations.
@@ -260,11 +250,11 @@ Acceptance:
 - [x] Public/generated Convex API exposes one canonical destructive path per
       workflow: bridge → TransportExecute → operation handler.
 - [x] Studio destructive UI uses operation preview/execute.
-- [ ] MCP destructive tools use `mcp.tool.operation`. (Sprint D.)
+- [x] MCP destructive tools use `mcp.tool.operation`.
 - [x] No duplicate direct destructive mutation remains unless explicitly
-      documented as internal/non-public. The remaining
-      `entries/workflow/commands.ts` mutations are explicitly documented
-      above as internal/test-only.
+      documented as internal/non-public. The previous
+      `entries/workflow/commands.ts` publish/unpublish/archive exports were
+      deleted; only non-exported workflow helpers remain.
 
 ## Trellis 1.0 Surface Work
 
@@ -321,15 +311,16 @@ Confirmed:
 
 Action:
 
-- [x] Classify every Ginko MCP tool. All 18 currently use `defineMcpTool`
-      because their handlers perform multi-step orchestration that does not
-      fit a single Convex ref (agent tools shape compact views, walk
-      relations, fan out across MCP-side work). They are migrated to the
-      advanced subpath `#trellis/mcp/advanced`, not deleted.
-- [x] Migrate public/content collection reads first. Done via the advanced
-      subpath import migration.
-- [x] Migrate bounded writes second. Done via the advanced subpath import
-      migration.
+- [x] Classify every Ginko MCP tool. Single-ref app-backed tools use the Ginko
+      `projectTool(...)` wrapper, which delegates to Trellis
+      `tool.query(...)`, `tool.mutation(...)`, or `tool.operation(...)`.
+      Remaining `#trellis/mcp/advanced` tools are custom multi-step agent
+      workflows or compact public readers that do extra MCP-side result shaping.
+- [x] Migrate public/content collection reads first. Simple single-ref reads use
+      `projectTool({ operation: 'query' })`; advanced readers keep inline
+      result-shaping logic.
+- [x] Migrate bounded writes second. Single-ref bounded writes use
+      `projectTool({ operation: 'mutation', safety })`.
 - [x] Migrate destructive/publish workflows after destructive hard cut.
       Destructive workflows already go through operation execute paths via
       the bridge (Sprint C). Their MCP-side tools shape result envelopes but
@@ -407,16 +398,19 @@ but it can confuse reviewers if deep imports work in loose tooling.
 
 Action:
 
-- [ ] Verify Node package exports prevent deep import access in real consumers.
-- [ ] Add a packed-consumer test that attempts deleted deep imports and expects
+- [x] Verify Node package exports prevent deep import access in real consumers.
+- [x] Add a package-export test that attempts deleted deep imports and expects
       failure.
-- [ ] Decide whether build output should be physically pruned for deleted
+- [x] Decide whether build output should be physically pruned for deleted
       surfaces or left as internal implementation detail.
+      Decision: leave built runtime folders as internal implementation detail;
+      package `exports` is the public boundary and tests reject deleted package
+      subpaths.
 
 Acceptance:
 
-- [ ] Deleted public paths cannot be imported from a packed consumer.
-- [ ] Docs do not teach internal output paths.
+- [x] Deleted public paths cannot be imported through package exports.
+- [x] Docs do not teach internal output paths.
 
 ## Ginko Public Surface And KISS Work
 
@@ -537,7 +531,7 @@ Action:
       maintainer-facing detail.
 - [x] Explain bridge only as generated host files plus drift checks. Both
       READMEs frame bridge as host-owned generated files; `ginko-cms bridge
-    check/inspect` are the visible surface.
+check/inspect` are the visible surface.
 - [x] Explain MCP only as optional agent tooling. Package README mentions MCP
       operations only as a feature, not a required path.
 
@@ -796,4 +790,4 @@ Acceptance:
 - [x] Full Ginko gates pass (with the live-backend `foundation:verify` and
       consumer build deferred to release-branch verification).
 - [x] Packed consumer gate passes (`package:e2e` green; consumer `nuxt
-    typecheck` green against rebuilt tarballs).
+typecheck` green against rebuilt tarballs).

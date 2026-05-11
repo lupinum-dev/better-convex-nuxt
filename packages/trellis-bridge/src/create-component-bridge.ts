@@ -388,9 +388,7 @@ export function createBridgeForwardingEnvelope(
   options: CreateBridgeForwardingEnvelopeOptions,
 ): string {
   const subject = resolveBridgePrincipalSubject(options.principal)
-  const jti = options.jtiPrefix
-    ? `${options.jtiPrefix}-${createBridgeJti()}`
-    : createBridgeJti()
+  const jti = options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti()
   return createTrustedForwardingEnvelope({
     key: options.trustedForwardingKey,
     keyId:
@@ -417,25 +415,15 @@ function createBridgeTrustedForwardingFields(
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ) {
-  const principalSubject = resolveBridgePrincipalSubject(principal)
   const functionRef = getBridgeFunctionRef(component, explicitFunctionRef)
 
   return {
-    _trellisForwarding: createTrustedForwardingEnvelope({
-      key: trustedForwardingKey,
-      keyId:
-        (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY_ID : '') ||
-        bridgeForwardingKeyId,
-      iss: bridgeForwardingIssuer,
-      aud: bridgeForwardingAudience,
-      jti: createBridgeJti(),
-      sub: principalSubject,
+    _trellisForwarding: createBridgeForwardingEnvelope({
+      trustedForwardingKey,
       principal,
-      transport: 'bridge',
-      purpose: operation,
-      functionRef,
       args,
-      ttlMs: bridgeForwardingTtlsMs[operation],
+      operation,
+      functionRef,
     }),
   }
 }

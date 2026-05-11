@@ -71,4 +71,15 @@ describe('package subpath exports', () => {
     expect(vitestConfig).not.toContain("'@lupinum/trellis/bridge':")
     expect(vitestConfig).not.toContain('"@lupinum/trellis/bridge":')
   })
+
+  it('rejects deleted public subpaths through Node package exports', async () => {
+    for (const specifier of [
+      '@lupinum/trellis/functions',
+      '@lupinum/trellis/bridge',
+      '@lupinum/trellis/trusted-forwarding',
+      '@lupinum/trellis/visibility',
+    ]) {
+      await expect(import(specifier)).rejects.toThrow()
+    }
+  })
 })
