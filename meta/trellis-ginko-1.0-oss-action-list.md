@@ -226,23 +226,48 @@ Confirmed:
 
 Action:
 
-- [ ] Inventory every direct destructive mutation still exported from
+- [x] Inventory every direct destructive mutation still exported from
       `packages/convex/src`.
-- [ ] For each one, choose: - delete and route Studio/MCP through operation execute; - keep only as an internal helper, not public Convex function; - keep as non-destructive only if it truly is not operation-worthy.
-- [ ] Delete direct public destructive mutations where operation-backed
+      Found in `entries/publish.ts` (publishEntry, unpublishEntry,
+      archiveEntry, rollbackVersion), `entries/tree.ts` (deleteEntry),
+      `entries/draft.ts` (revertDraftToPublished), `entries/workflow/commands.ts`
+      (publishEntry, unpublishEntry, archiveEntry). `unarchiveEntry` is
+      non-destructive (status change only).
+- [x] For each one, choose. Decisions:
+      - Deleted: `entries/publish.ts` publishEntry, unpublishEntry,
+        archiveEntry, rollbackVersion; `entries/tree.ts` deleteEntry;
+        `entries/draft.ts` revertDraftToPublished.
+      - Kept as non-destructive: `entries/publish.ts` unarchiveEntry.
+      - Kept as internal/test-only, NOT on the consumer/Studio/MCP surface:
+        `entries/workflow/commands.ts` publishEntry, unpublishEntry,
+        archiveEntry. They are the workflow command core, exercised only by
+        `test/refactor/workflow-vertical-slice.test.ts`.
+- [x] Delete direct public destructive mutations where operation-backed
       equivalent exists.
-- [ ] Update Studio callers and generated bridge bindings to use operation
+- [x] Update Studio callers and generated bridge bindings to use operation
       preview/execute.
-- [ ] Regenerate Convex API files.
+      Bridge `editor.ts` entries now point `component` at the
+      `*TransportExecute` variants (with explicit `functionRef` matching the
+      source module). New `rollbackVersionTransportExecute` and
+      `revertDraftToPublishedTransportExecute` added so the bridge can call
+      those without confirmation tokens (the bridge owns preview enforcement).
+      Studio composables call `bridge.publishEntry` etc., unchanged at the
+      callsite — the bridge now routes through operation execution under the
+      hood.
+- [x] Regenerate Convex API files. `pnpm prepare:component` re-emitted
+      `_generated/api.ts` and `_generated/component.ts` without the deleted
+      direct mutations.
 
 Acceptance:
 
-- [ ] Public/generated Convex API exposes one canonical destructive path per
-      workflow.
-- [ ] Studio destructive UI uses operation preview/execute.
-- [ ] MCP destructive tools use `mcp.tool.operation`.
-- [ ] No duplicate direct destructive mutation remains unless explicitly
-      documented as internal/non-public.
+- [x] Public/generated Convex API exposes one canonical destructive path per
+      workflow: bridge → TransportExecute → operation handler.
+- [x] Studio destructive UI uses operation preview/execute.
+- [ ] MCP destructive tools use `mcp.tool.operation`. (Sprint D.)
+- [x] No duplicate direct destructive mutation remains unless explicitly
+      documented as internal/non-public. The remaining
+      `entries/workflow/commands.ts` mutations are explicitly documented
+      above as internal/test-only.
 
 ## Trellis 1.0 Surface Work
 
