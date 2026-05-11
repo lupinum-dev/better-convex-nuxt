@@ -501,6 +501,41 @@ describe('MCP rate-limit integration', () => {
     })
   })
 
+  it('requires meta.name for rate-limited defineMcpApp direct tools', () => {
+    const mcp = defineMcpApp({
+      rateLimitStore,
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+        tenantId: 'org-1',
+      }),
+      callConvex: async () => ({
+        query: async () => ({ ok: true }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+      tenantKey: () => 'global',
+    })
+
+    const createPostDescriptor = defineMcpToolRefDescriptor({
+      name: 'create-post',
+      safety: {
+        kind: 'bounded-write',
+        reason: 'Creates one post explicitly named by args.',
+      },
+    })
+
+    expect(() =>
+      mcp.tool.mutation({
+        schema: emptySchema,
+        call: projectMcpToolRef(createPostDescriptor, {} as never),
+        safety: createPostDescriptor.safety,
+        rateLimit: { max: 1, window: '1m' },
+      }),
+    ).toThrow(/rateLimit.*meta\.name/)
+  })
+
   it('accepts direct mutation safety projected from a shared tool ref descriptor', () => {
     const createPostDescriptor = defineMcpToolRefDescriptor({
       name: 'create-post',

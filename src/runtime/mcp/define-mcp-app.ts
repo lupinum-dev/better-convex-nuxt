@@ -194,6 +194,13 @@ function assertProductionRateLimitStore(
   )
 }
 
+function assertNamedRateLimitedTool(toolName: string | undefined, rateLimit: unknown): void {
+  if (!rateLimit || toolName) return
+  throw new Error(
+    'defineMcpApp: "rateLimit" requires meta.name so direct tools have distinct rate-limit buckets.',
+  )
+}
+
 export interface ToolOptions<
   S extends AnyConvexSchema,
   TPrincipal,
@@ -655,25 +662,23 @@ export function defineMcpApp<
       )
     }
 
+    assertNamedRateLimitedTool(definition.meta?.name, definition.rateLimit)
+    const toolName = definition.meta?.name ?? 'project-tool'
+
     assertProductionRateLimitStore(
-      definition.meta?.name ?? 'project-tool',
+      toolName,
       definition.rateLimit,
       definition.rateLimitStore ?? appRateLimitStore,
     )
 
-    assertDirectToolSafety(
-      definition.meta?.name ?? 'project-tool',
-      operation,
-      definition.call,
-      definition.safety,
-    )
+    assertDirectToolSafety(toolName, operation, definition.call, definition.safety)
     const middleware: ConvexToolMiddleware<S> | undefined =
       definition.rateLimit || definition.middleware
         ? async (args, ctx, next) => {
             if (definition.rateLimit) {
               const projectionCtx = await resolve(ctx.event)
               const bucket = [
-                definition.meta?.name ?? 'project-tool',
+                toolName,
                 (options.principalKey ?? defaultPrincipalKey)(projectionCtx.principal),
               ].join(':')
 
