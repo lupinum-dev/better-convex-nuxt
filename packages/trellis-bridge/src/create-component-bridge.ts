@@ -368,6 +368,47 @@ function createBridgeJti(): string {
   return `bridge-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+export interface CreateBridgeForwardingEnvelopeOptions {
+  trustedForwardingKey: string
+  principal: unknown
+  operation: 'query' | 'mutation' | 'action'
+  functionRef: string
+  args: Record<string, unknown>
+  jtiPrefix?: string
+}
+
+/**
+ * Sign a trusted-forwarding envelope using the bridge-standard issuer,
+ * audience, key id, and TTLs. Bridge consumers (e.g. CLI tools that call
+ * the Convex component with a deploy-key principal) should use this
+ * instead of constructing envelopes themselves so the signing parameters
+ * stay single-sourced.
+ */
+export function createBridgeForwardingEnvelope(
+  options: CreateBridgeForwardingEnvelopeOptions,
+): string {
+  const subject = resolveBridgePrincipalSubject(options.principal)
+  const jti = options.jtiPrefix
+    ? `${options.jtiPrefix}-${createBridgeJti()}`
+    : createBridgeJti()
+  return createTrustedForwardingEnvelope({
+    key: options.trustedForwardingKey,
+    keyId:
+      (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY_ID : '') ||
+      bridgeForwardingKeyId,
+    iss: bridgeForwardingIssuer,
+    aud: bridgeForwardingAudience,
+    jti,
+    sub: subject,
+    principal: options.principal,
+    transport: 'bridge',
+    purpose: options.operation,
+    functionRef: options.functionRef,
+    args: options.args,
+    ttlMs: bridgeForwardingTtlsMs[options.operation],
+  })
+}
+
 function createBridgeTrustedForwardingFields(
   args: Record<string, unknown>,
   principal: unknown,

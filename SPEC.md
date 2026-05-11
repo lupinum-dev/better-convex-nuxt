@@ -820,16 +820,19 @@ import { createComponentBridge } from '@lupinum/trellis-bridge/convex'
 import { defineBridgeManifest } from '@lupinum/trellis-bridge/manifest'
 ```
 
-Bridge CLI:
+Bridge CLI (post-1.0):
 
-```bash
-trellis-bridge install @lupinum/ginko-cms
-trellis-bridge check @lupinum/ginko-cms
-trellis-bridge inspect @lupinum/ginko-cms
-```
+A generic `trellis-bridge` CLI is deferred to post-1.0. For 1.0 the bridge
+package boundary is real but its surface stays runtime-only: manifest
+rendering, drift checks, and the signed-forwarding helpers are exposed as
+library APIs that the bridge consumer's own CLI uses. Ginko CMS ships
+`ginko-cms bridge check/inspect/init/setup`; introducing a separate generic
+CLI only pays off once a second bridge consumer needs it.
 
-The Trellis CLI may delegate to this package for convenience, but the package
-boundary must be real.
+When 1.0 + 1 needs a generic CLI, the commands described in earlier drafts
+(`trellis-bridge install/check/inspect <package>`) are a starting point —
+read the manifest, render generated host files, check drift, inspect planned
+edits — and should sit on the same library APIs Ginko's CLI uses today.
 
 ### 2. Ginko CMS Becomes The Reference Bridge Consumer
 
@@ -1358,12 +1361,13 @@ Trellis already knows a lot about the app. Expose that as a developer tool.
 Examples:
 
 ```bash
-trellis explain
-trellis explain feature projects
 trellis explain operation projects.delete
-trellis explain mcp delete-project
-trellis explain file convex/features/projects/domain.ts
 ```
+
+For 1.0, only `trellis explain operation <id>` ships. Broader scopes
+(`explain feature`, `explain mcp`, `explain file`) are deferred to a
+future version. They will read the same versioned inventory rather than
+introducing a second analyzer.
 
 Desired output:
 

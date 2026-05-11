@@ -357,15 +357,19 @@ Current state:
 
 Action:
 
-- [ ] Re-read `SPEC.md` acceptance text and choose one: - keep only `explain operation <id>` for 1.0; - implement `explain feature`, `explain mcp`, and `explain file`.
-- [ ] If deferred, update `SPEC.md`, docs, and release criteria consistently.
-- [ ] If kept, implement against the same versioned inventory source, not a new
-      scanner.
+- [x] Re-read `SPEC.md` acceptance text and choose one. Decided: keep only
+      `explain operation <id>` for 1.0. Broader scopes are deferred.
+- [x] If deferred, update `SPEC.md`, docs, and release criteria consistently.
+      SPEC.md "Explain" examples now show only `explain operation <id>` and
+      explicitly note `feature` / `mcp` / `file` scopes are post-1.0 and will
+      read the same inventory rather than introducing a second analyzer.
+- [x] If kept, implement against the same versioned inventory source, not a new
+      scanner. (N/A for 1.0; reserved for the deferred work.)
 
 Acceptance:
 
-- [ ] `SPEC.md`, docs, tests, and CLI behavior agree.
-- [ ] `explain` does not create another source of truth.
+- [x] `SPEC.md`, docs, tests, and CLI behavior agree on 1.0 scope.
+- [x] `explain` does not create another source of truth.
 
 ### 9. Trellis Bridge CLI Scope
 
@@ -377,19 +381,23 @@ Current state:
 
 Action:
 
-- [ ] Decide if Trellis bridge CLI commands are truly 1.0 or if Ginko-owned CLI
-      commands are sufficient for the first OSS release.
-- [ ] Prefer amending `SPEC.md` unless there is a second bridge consumer that
-      needs a generic CLI now.
-- [ ] If implemented, keep the CLI tiny: read manifest, render files, check
-      drift, inspect planned edits.
+- [x] Decide if Trellis bridge CLI commands are truly 1.0 or if Ginko-owned CLI
+      commands are sufficient for the first OSS release. Decided: post-1.0.
+      Ginko's `ginko-cms bridge check/inspect/init/setup` is enough for the
+      single bridge consumer that exists.
+- [x] Prefer amending `SPEC.md` unless there is a second bridge consumer that
+      needs a generic CLI now. SPEC.md "Bridge CLI" section now states the
+      generic CLI is deferred and describes what it would look like when a
+      second consumer needs it.
+- [x] If implemented, keep the CLI tiny: read manifest, render files, check
+      drift, inspect planned edits. (Captured in SPEC.md as the post-1.0
+      starting point.)
 
 Acceptance:
 
-- [ ] Either `SPEC.md` says generic bridge CLI is post-1.0, or the package
-      ships and tests the promised commands.
-- [ ] Ginko does not copy generic bridge rendering logic if Trellis bridge owns
-      it.
+- [x] `SPEC.md` says generic bridge CLI is post-1.0.
+- [x] Ginko does not copy generic bridge rendering logic; it uses the bridge
+      manifest helpers from `@lupinum/trellis-bridge` directly.
 
 ### 10. Hidden Built Surfaces
 
@@ -424,18 +432,25 @@ public semver promise.
 
 Action:
 
-- [ ] List which generated host files truly need direct bridge factory imports.
-- [ ] Replace broad wildcard bridge exports with the smallest stable entrypoint
-      set possible.
-- [ ] Prefer one generated-host entrypoint or a small set of explicit bridge
+- [x] List which generated host files truly need direct bridge factory imports.
+      Survey of the packed consumer's `convex/ginkoCms/*.ts` and the test
+      fixture shows 13 bridge entrypoints in use: `assets`, `backup`,
+      `collections`, `diagnostics`, `editor`, `imports`, `mcp`, `mcpKeys`,
+      `members`, `public`, `revalidation`, `settings`, `siteData`. The
+      internal helpers `create` and `registry` are not imported by any
+      generated host.
+- [x] Replace broad wildcard bridge exports with the smallest stable entrypoint
+      set possible. `packages/cms/package.json` no longer ships `./bridge/*`
+      or `./bridge/*.js`; only the 13 explicit subpaths are public.
+- [x] Prefer one generated-host entrypoint or a small set of explicit bridge
       modules over wildcard export.
-- [ ] Update package-boundary tests.
+- [x] Update package-boundary tests. `test/module/package-boundaries.test.ts`
+      now asserts the 13 explicit subpaths and rejects the wildcard pattern.
 
 Acceptance:
 
-- [ ] No wildcard bridge export unless it is intentionally part of the public
-      contract.
-- [ ] Generated host files import only documented public subpaths.
+- [x] No wildcard bridge export.
+- [x] Generated host files import only documented public subpaths.
 
 ### 12. Bridge Forwarding Ownership
 
@@ -447,25 +462,36 @@ Confirmed concern:
 
 Action:
 
-- [ ] Identify the exact duplicated forwarding logic between
+- [x] Identify the exact duplicated forwarding logic between
       `@lupinum/trellis-bridge` and Ginko Convex bridge code.
-- [ ] Move generic bridge forwarding construction/verification to
-      `@lupinum/trellis-bridge`, or decide Ginko owns a simpler explicit
-      principal bridge and delete the generic Trellis path.
-- [ ] Do not keep two security-boundary implementations.
+      Trellis bridge's `createBridgeTrustedForwardingFields` and Ginko CLI's
+      `withDeployKeyForwarding` (in `packages/cms/src/cli/ginko-cms.ts`) both
+      assembled identical envelope parameters (issuer, audience, key id,
+      transport, per-purpose TTL).
+- [x] Move generic bridge forwarding construction/verification to
+      `@lupinum/trellis-bridge`. New public helper
+      `createBridgeForwardingEnvelope` is exported from
+      `@lupinum/trellis-bridge/component`. Ginko CLI now calls it with a
+      principal + functionRef + args; the bridge owns issuer, audience, key
+      id, and TTL.
+- [x] Do not keep two security-boundary implementations.
 
 KISS decision point:
 
-The bridge is justified only if it avoids duplicated Ginko policy and lets
-component internals reuse the same protected operation model. If explicit
-principal/actor arguments at the component boundary would be simpler and not
-duplicate policy, choose explicit arguments.
+Default path chosen: consolidate into Trellis bridge. The helper is a thin
+parameterized wrapper around `createTrustedForwardingEnvelope` — no new
+abstractions — so the bridge's complexity budget stays the same. Explicit
+principal arguments are still in play at Ginko's call site; only the
+envelope construction is centralized.
 
 Acceptance:
 
-- [ ] One source of truth signs bridge forwarding envelopes.
-- [ ] One source of truth validates bridge forwarding metadata.
-- [ ] Ginko package tests prove bridge consumption through package boundary.
+- [x] One source of truth signs bridge forwarding envelopes.
+- [x] One source of truth validates bridge forwarding metadata (the existing
+      runtime in `@lupinum/trellis/backend`).
+- [x] Ginko package tests prove bridge consumption through package boundary.
+      `pnpm test` covers Studio-through-bridge calls; `package:e2e` will
+      exercise the packed CLI flow.
 
 ### 13. Remove Ginko Legacy Live Paths
 
