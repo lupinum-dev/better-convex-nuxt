@@ -9,28 +9,9 @@ import {
   type ComponentBridgeManifest,
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
-  renderComponentBridgeModule,
   renderComponentBridgeManagedEdits,
 } from './component-bridge-manifest.js'
-export {
-  defineComponentBridgeManifest,
-  ensureBridgeImport,
-  renderComponentBridgeFile,
-  renderComponentBridgeFiles,
-  renderComponentBridgeModule,
-  renderComponentBridgeManagedEdits,
-  resolveConvexAppBinding,
-  stripBridgeManagedBlock,
-  stripComponentBridgeMetadata,
-  upsertBridgeManagedBlock,
-} from './component-bridge-manifest.js'
-export type {
-  ComponentBridgeGeneratedFile,
-  ComponentBridgeManagedEdit,
-  ComponentBridgeManifest,
-  ComponentBridgeModule,
-  ComponentBridgeModuleImport,
-} from './component-bridge-manifest.js'
+export type { ComponentBridgeManifest } from './component-bridge-manifest.js'
 
 function isComponentBridgeManifest(value: unknown): value is ComponentBridgeManifest {
   if (typeof value !== 'object' || value === null) return false

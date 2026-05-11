@@ -2,16 +2,17 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 
-import { describe, expect, it } from 'vitest'
-
 import {
   checkBridgeDrift,
   discoverInstalledBridgeComponents,
   loadManifestFromPackage,
+} from '@lupinum/trellis-bridge'
+import {
   renderComponentBridgeFile,
   renderComponentBridgeFiles,
   renderComponentBridgeManagedEdits,
-} from '@lupinum/trellis-bridge'
+} from '@lupinum/trellis-bridge/manifest'
+import { describe, expect, it } from 'vitest'
 
 function createTempDir(prefix: string): string {
   return mkdtempSync(resolve(tmpdir(), prefix))
@@ -188,7 +189,12 @@ export default {
     )
     expect(read(resolve(appRoot, 'convex/convex.config.ts'))).toContain('// fixture managed')
 
-    await expect(checkBridgeDrift(await loadManifestFromPackage('@fixture/bridge-component', appRoot), appRoot)).resolves.toEqual([])
+    await expect(
+      checkBridgeDrift(
+        await loadManifestFromPackage('@fixture/bridge-component', appRoot),
+        appRoot,
+      ),
+    ).resolves.toEqual([])
     await expect(discoverInstalledBridgeComponents(appRoot)).resolves.toMatchObject([
       { packageName: '@fixture/bridge-component' },
     ])
@@ -196,7 +202,10 @@ export default {
     write(resolve(appRoot, 'convex/fixture/generated.ts'), 'drift\n')
     write(resolve(appRoot, 'convex/convex.config.ts'), 'const app = {}\n')
     await expect(
-      checkBridgeDrift(await loadManifestFromPackage('@fixture/bridge-component', appRoot), appRoot),
+      checkBridgeDrift(
+        await loadManifestFromPackage('@fixture/bridge-component', appRoot),
+        appRoot,
+      ),
     ).resolves.toMatchObject([
       { relativePath: 'convex/fixture/generated.ts', reason: 'out-of-date' },
       { relativePath: 'convex/convex.config.ts', reason: 'out-of-date' },
@@ -204,7 +213,10 @@ export default {
 
     await applyBridge('@fixture/bridge-component', appRoot)
     await expect(
-      checkBridgeDrift(await loadManifestFromPackage('@fixture/bridge-component', appRoot), appRoot),
+      checkBridgeDrift(
+        await loadManifestFromPackage('@fixture/bridge-component', appRoot),
+        appRoot,
+      ),
     ).resolves.toEqual([])
   })
 

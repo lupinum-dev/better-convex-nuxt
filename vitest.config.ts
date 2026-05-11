@@ -46,6 +46,9 @@ export default defineConfig({
             '@lupinum/trellis-bridge/component': fileURLToPath(
               new URL('./packages/trellis-bridge/src/component.ts', import.meta.url),
             ),
+            '@lupinum/trellis-bridge/manifest': fileURLToPath(
+              new URL('./packages/trellis-bridge/src/manifest.ts', import.meta.url),
+            ),
             '@lupinum/trellis-bridge': fileURLToPath(
               new URL('./packages/trellis-bridge/src/index.ts', import.meta.url),
             ),

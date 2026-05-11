@@ -359,6 +359,62 @@ describe('createComponentBridge', () => {
     })
   })
 
+  it('keeps anonymous public bridge calls unsigned', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
+    const { definePrincipal } = await import('../../src/runtime/functions')
+
+    const principal = { kind: 'anonymous' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({ kind: v.literal('anonymous') }),
+          resolve: async () => principal,
+        }),
+      },
+    )
+
+    const registered = bridge.query({
+      component: 'component.publicQuery' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runQuery: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
+    }
+
+    const runQuery = vi.fn(async () => ({ ok: true }))
+    const customized = await registered.customization.input({ runQuery }, {})
+
+    await registered.definition.handler(
+      {
+        ...customized.ctx,
+        runQuery,
+      },
+      { slug: 'docs' },
+    )
+
+    expect(runQuery).toHaveBeenCalledWith('component.publicQuery', { slug: 'docs' })
+  })
+
   it('fails closed when no trusted forwarding key is configured', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
     const { definePrincipal } = await import('../../src/runtime/functions')
