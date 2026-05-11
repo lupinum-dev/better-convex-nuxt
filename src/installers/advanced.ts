@@ -32,4 +32,17 @@ export * from '${mcpEntryPath}'
   })
 
   nuxt.options.alias['#trellis/mcp'] = mcpAliasTemplate.dst
+
+  const mcpAdvancedAliasTemplate = addTemplate({
+    filename: 'trellis/mcp-advanced.ts',
+    write: true,
+    getContents: () => {
+      const advancedEntryPath = resolver.resolve('./runtime/mcp/advanced')
+      return `
+export * from '${advancedEntryPath}'
+`
+    },
+  })
+
+  nuxt.options.alias['#trellis/mcp/advanced'] = mcpAdvancedAliasTemplate.dst
 }

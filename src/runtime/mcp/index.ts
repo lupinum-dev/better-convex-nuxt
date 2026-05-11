@@ -1,16 +1,23 @@
 import type { NoInfer } from '../types/type-utils.js'
 
+// Blessed first-reader Trellis 1.0 MCP surface.
+//
+// `defineMcpApp` returns `{ tool: { query, mutation, operation } }` factories
+// that own auth, preview, confirmation, tenant binding, and result envelopes.
+// First-reader docs and examples should use these only.
+//
+// Low-level helpers `defineMcpTool` / `defineTool` are exposed under
+// `@lupinum/trellis/mcp/advanced` for tools that genuinely need handler
+// control outside a single Convex ref.
 export {
   completable,
   defineMcpHandler,
   defineMcpPrompt,
   defineMcpResource,
-  defineMcpTool,
   extractToolNames,
   imageResult,
 } from '@nuxtjs/mcp-toolkit/server'
 
-export { defineTool } from './define-convex-tool.js'
 export { defineMcpApp } from './define-mcp-app.js'
 export { stampMcpToolSafety, trellisMcpToolSafetyKey } from './operation-binding.js'
 export { createRedisMcpRateLimitStore, RateLimitInfrastructureError } from './rate-limiter.js'

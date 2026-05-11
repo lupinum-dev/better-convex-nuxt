@@ -1,4 +1,4 @@
-import { defineTool } from '../../../../../../src/runtime/mcp'
+import { defineTool } from '../../../../../../src/runtime/mcp/advanced'
 import { createTask } from '../../../shared/task'
 
 export default defineTool({

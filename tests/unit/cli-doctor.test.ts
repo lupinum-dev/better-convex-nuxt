@@ -1967,7 +1967,7 @@ export default tool.mutation({
     writeFileSync(
       resolve(appRoot, 'server/mcp/tools/create-todo.ts'),
       `
-import { defineTool } from '@lupinum/trellis/mcp'
+import { defineTool } from '@lupinum/trellis/mcp/advanced'
 import { api } from '~/convex/_generated/api'
 import { createTodo } from '~/shared/features/todos/contract'
 

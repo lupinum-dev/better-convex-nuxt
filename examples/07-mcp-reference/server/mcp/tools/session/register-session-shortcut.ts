@@ -2,8 +2,8 @@ import { createError } from 'h3'
 import { useEvent } from 'nitropack/runtime'
 import { z } from 'zod'
 
-import { defineMcpTool, useMcpServer, useMcpSession } from '#trellis/mcp'
-
+import { useMcpServer, useMcpSession } from '#trellis/mcp'
+import { defineMcpTool } from '#trellis/mcp/advanced'
 interface ReferenceSessionData {
   preferredFocus?: string
   registeredShortcuts?: string[]

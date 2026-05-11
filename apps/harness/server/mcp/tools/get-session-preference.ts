@@ -1,5 +1,5 @@
-import { defineMcpTool, useMcpSession } from '#trellis/mcp'
-
+import { useMcpSession } from '#trellis/mcp'
+import { defineMcpTool } from '#trellis/mcp/advanced'
 interface InternalHarnessSessionData {
   preferredSearch?: string
   registeredShortcuts?: string[]

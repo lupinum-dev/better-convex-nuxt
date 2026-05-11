@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { defineMcpTool, useMcpSession } from '#trellis/mcp'
-
+import { useMcpSession } from '#trellis/mcp'
+import { defineMcpTool } from '#trellis/mcp/advanced'
 interface ReferenceSessionData {
   preferredFocus?: string
   registeredShortcuts?: string[]

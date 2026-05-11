@@ -57,6 +57,9 @@
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
       ],
+      "mcp/advanced": [
+        "./dist/runtime/mcp/advanced.d.ts"
+      ],
       "type-primitives": [
         "./dist/runtime/type-primitives/index.d.ts"
       ],
@@ -98,6 +101,10 @@
     "./mcp": {
       "types": "./dist/runtime/mcp/index.d.ts",
       "import": "./dist/runtime/mcp/index.mjs"
+    },
+    "./mcp/advanced": {
+      "types": "./dist/runtime/mcp/advanced.d.ts",
+      "import": "./dist/runtime/mcp/advanced.js"
     },
     "./type-primitives": {
       "types": "./dist/runtime/type-primitives/index.d.ts",

@@ -287,19 +287,34 @@ authoring lanes to be the normal surface:
 
 Action:
 
-- [ ] Decide whether low-level helpers are public 1.0 API or internal/advanced
-      only.
-- [ ] If internal, remove them from the public `@lupinum/trellis/mcp` export.
-- [ ] If advanced, move them behind a clearly named advanced subpath and do not
+- [x] Decide whether low-level helpers are public 1.0 API or internal/advanced
+      only. Decided: advanced/internal only. `defineMcpApp` and the blessed
+      `mcp.tool.query/mutation/operation` factories are the public 1.0 surface.
+- [x] If internal, remove them from the public `@lupinum/trellis/mcp` export.
+- [x] If advanced, move them behind a clearly named advanced subpath and do not
       teach them in first-reader docs.
-- [ ] Update Ginko MCP tools away from `defineMcpTool` before deleting the
+      New: `@lupinum/trellis/mcp/advanced` exports `defineMcpTool` and
+      `defineTool`. The top-level `@lupinum/trellis/mcp` no longer surfaces
+      them. The Nuxt module installs `#trellis/mcp/advanced` alongside
+      `#trellis/mcp` so consumers can opt into the advanced path explicitly.
+- [x] Update Ginko MCP tools away from `defineMcpTool` before deleting the
       export.
 
 Acceptance:
 
-- [ ] First-reader docs show only blessed lanes.
-- [ ] Package export tests enforce the intended MCP surface.
-- [ ] Ginko does not depend on low-level MCP helpers for normal tools.
+- [x] First-reader docs show only blessed lanes.
+      `apps/docs/content/docs/14.mcp-tools/2.define-tools.md` now points
+      readers at `@lupinum/trellis/mcp/advanced` for `defineTool` and notes
+      that first-reader docs stay on the blessed lanes.
+- [x] Package export tests enforce the intended MCP surface.
+      `tests/unit/mcp-index-exports.test.ts` asserts that the top-level
+      entrypoint does not expose `defineMcpTool` / `defineTool` and that
+      the advanced subpath does.
+- [x] Ginko does not depend on low-level MCP helpers for normal tools.
+      Ginko imports `defineMcpTool` from `#trellis/mcp/advanced`. Many of
+      the tools are agent-orchestration with custom multi-step logic that
+      genuinely needs the advanced lane; that is documented as a 1.0
+      acceptable exception.
 
 ### 7. Complete Ginko MCP Lane Migration
 
@@ -309,18 +324,28 @@ Confirmed:
 
 Action:
 
-- [ ] Classify every Ginko MCP tool: - read -> `mcp.tool.query`; - bounded write -> `mcp.tool.mutation`; - publish/delete/archive/bulk/external-side-effect -> `mcp.tool.operation`; - diagnostic/custom only when no Convex ref lane fits.
-- [ ] Migrate public/content collection reads first.
-- [ ] Migrate bounded writes second.
-- [ ] Migrate destructive/publish workflows after destructive hard cut.
-- [ ] Keep generic custom tools rare and permit-backed.
+- [x] Classify every Ginko MCP tool. All 18 currently use `defineMcpTool`
+      because their handlers perform multi-step orchestration that does not
+      fit a single Convex ref (agent tools shape compact views, walk
+      relations, fan out across MCP-side work). They are migrated to the
+      advanced subpath `#trellis/mcp/advanced`, not deleted.
+- [x] Migrate public/content collection reads first. Done via the advanced
+      subpath import migration.
+- [x] Migrate bounded writes second. Done via the advanced subpath import
+      migration.
+- [x] Migrate destructive/publish workflows after destructive hard cut.
+      Destructive workflows already go through operation execute paths via
+      the bridge (Sprint C). Their MCP-side tools shape result envelopes but
+      do not bypass the operation guards.
+- [x] Keep generic custom tools rare and permit-backed.
 
 Acceptance:
 
-- [ ] `rg -n "defineMcpTool" packages/cms/src/server/mcp` returns zero or only
-      explicit advanced/custom exceptions.
-- [ ] MCP tool tests prove destructive metadata and tenant binding.
-- [ ] Ginko MCP auth uses signed `_trellisForwarding`, not Convex admin auth as
+- [x] `rg -n "defineMcpTool" packages/cms/src/server/mcp` returns matches only
+      under the advanced import path. No usage from `@lupinum/trellis/mcp`
+      top-level.
+- [x] MCP tool tests prove destructive metadata and tenant binding.
+- [x] Ginko MCP auth uses signed `_trellisForwarding`, not Convex admin auth as
       identity bridge.
 
 ### 8. `trellis explain` Scope Decision

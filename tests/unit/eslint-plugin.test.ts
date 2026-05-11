@@ -68,8 +68,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
 
     const [result] = await eslint.lintText(
       `
-      import { defineTool } from '#trellis/mcp'
-
+      import { defineTool } from '#trellis/mcp/advanced'
       export default defineTool({
         schema: schema,
         effect: 'read',

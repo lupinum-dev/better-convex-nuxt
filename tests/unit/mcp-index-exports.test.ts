@@ -26,20 +26,21 @@ vi.mock('../../src/runtime/mcp/use-mcp-server', () => ({
 
 describe('mcp entrypoint exports', () => {
   let mcpApi: typeof import('../../src/runtime/mcp/index')
+  let advancedApi: typeof import('../../src/runtime/mcp/advanced')
 
   beforeAll(async () => {
     mcpApi = await import('../../src/runtime/mcp/index')
+    advancedApi = await import('../../src/runtime/mcp/advanced')
   })
 
-  it('exports the MCP API surface', () => {
+  it('exports the blessed MCP API surface', () => {
     expect(Object.keys(mcpApi).sort()).toEqual(
       expect.arrayContaining([
         'completable',
+        'defineMcpApp',
         'defineMcpHandler',
         'defineMcpPrompt',
         'defineMcpResource',
-        'defineMcpTool',
-        'defineTool',
         'extractToolNames',
         'imageResult',
         'useMcpServer',
@@ -52,8 +53,17 @@ describe('mcp entrypoint exports', () => {
     )
   })
 
+  it('does not surface low-level helpers from the top-level entrypoint', () => {
+    expect(mcpApi).not.toHaveProperty('defineMcpTool')
+    expect(mcpApi).not.toHaveProperty('defineTool')
+  })
+
+  it('exposes low-level helpers under the advanced subpath', () => {
+    expect(advancedApi).toHaveProperty('defineMcpTool')
+    expect(advancedApi).toHaveProperty('defineTool')
+  })
+
   it('exports toolkit primitives and envelope helpers', () => {
-    expect(mcpApi).toHaveProperty('defineMcpTool')
     expect(mcpApi).toHaveProperty('defineMcpResource')
     expect(mcpApi).toHaveProperty('defineMcpPrompt')
     expect(mcpApi).toHaveProperty('defineMcpHandler')
