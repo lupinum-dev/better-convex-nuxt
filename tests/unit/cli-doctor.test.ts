@@ -869,7 +869,7 @@ describe('CLI doctor', () => {
     writeFileSync(
       resolve(appRoot, 'shared/app-inventory.ts'),
       `
-import { defineAppInventory } from '@lupinum/trellis/feature'
+import { defineAppInventory } from '@lupinum/trellis/workspace'
 
 const features = []
 
@@ -982,7 +982,7 @@ export const fixture = {
     writeFileSync(
       resolve(appRoot, 'shared/app-inventory.ts'),
       `
-import { defineAppInventory } from '@lupinum/trellis/feature'
+import { defineAppInventory } from '@lupinum/trellis/workspace'
 
 const localSecret = 'do-not-leak-this-app-inventory-secret'
 

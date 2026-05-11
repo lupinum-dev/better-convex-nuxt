@@ -84,12 +84,7 @@ deleted.
 - [x] Count remaining `@lupinum/trellis/functions` hits outside historical
       planning/ADR files.
 - [x] Count remaining old callable builder hits in tests/examples/templates.
-- [x] Separate remaining hits into:
-      - docs rewrite;
-      - templates/fixtures conversion;
-      - bridge extraction;
-      - typed unsafe permits;
-      - historical/planning references.
+- [x] Separate remaining hits into: - docs rewrite; - templates/fixtures conversion; - bridge extraction; - typed unsafe permits; - historical/planning references.
 - [x] Record the next sprint recommendation in the exit notes.
 
 ## Acceptance Criteria

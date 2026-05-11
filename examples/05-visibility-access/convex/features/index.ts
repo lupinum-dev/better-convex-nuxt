@@ -1,4 +1,4 @@
-import { composeFeatures } from '@lupinum/trellis/feature'
+import { composeFeatures } from '@lupinum/trellis/workspace'
 
 import { articlesFeature } from './articles/feature'
 import { knowledgeBasesFeature } from './knowledgeBases/feature'

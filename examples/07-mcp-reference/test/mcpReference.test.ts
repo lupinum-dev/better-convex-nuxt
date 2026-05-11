@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { createTrustedForwardingEnvelope } from '@lupinum/trellis/trusted-forwarding'
+import { createTrustedForwardingEnvelope } from '@lupinum/trellis/backend'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 

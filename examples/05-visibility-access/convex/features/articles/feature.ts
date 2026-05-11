@@ -1,4 +1,4 @@
-import { defineFeature } from '@lupinum/trellis/feature'
+import { defineFeature } from '@lupinum/trellis/workspace'
 
 import { articlePermissions } from './permissions'
 import { articleTables } from './schema'

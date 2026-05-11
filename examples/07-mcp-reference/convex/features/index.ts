@@ -1,4 +1,4 @@
-import { composeFeatures } from '@lupinum/trellis/feature'
+import { composeFeatures } from '@lupinum/trellis/workspace'
 
 import { mcpKeysFeature } from './mcpKeys/feature'
 import { runbooksFeature } from './runbooks/feature'

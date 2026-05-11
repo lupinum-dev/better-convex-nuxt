@@ -1,0 +1,29 @@
+{
+  "name": "@lupinum/trellis-eslint",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Optional ESLint rules for Trellis apps",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/eslint/index.d.ts",
+      "import": "./dist/eslint/index.js",
+      "default": "./dist/eslint/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  },
+  "devDependencies": {
+    "@typescript-eslint/utils": "^8.58.0",
+    "typescript": "6.0.2"
+  }
+}

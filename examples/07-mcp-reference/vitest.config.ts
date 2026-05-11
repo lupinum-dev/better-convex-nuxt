@@ -26,10 +26,10 @@ export default defineConfig(
         '@lupinum/trellis/testing': fileURLToPath(
           new URL('../../src/runtime/testing/index.ts', import.meta.url),
         ),
-        '@lupinum/trellis/trusted-forwarding': fileURLToPath(
+        '@lupinum/trellis/backend': fileURLToPath(
           new URL('../../src/runtime/trusted-forwarding/index.ts', import.meta.url),
         ),
-        '@lupinum/trellis/visibility': fileURLToPath(
+        '@lupinum/trellis/workspace': fileURLToPath(
           new URL('../../src/runtime/visibility/index.ts', import.meta.url),
         ),
       },

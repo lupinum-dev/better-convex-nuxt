@@ -1,5 +1,5 @@
 import { can } from '@lupinum/trellis/auth'
-import { defineCapabilities } from '@lupinum/trellis/visibility'
+import { defineCapabilities } from '@lupinum/trellis/workspace'
 
 import type { Doc } from '../../_generated/dataModel'
 import type { Actor } from '../../auth/actor'

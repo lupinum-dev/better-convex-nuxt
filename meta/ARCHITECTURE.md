@@ -37,14 +37,11 @@ Maintained public subpaths include:
 - `@lupinum/trellis/args`
 - `@lupinum/trellis/backend`
 - `@lupinum/trellis/composables`
-- `@lupinum/trellis/eslint`
-- `@lupinum/trellis/feature`
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
-- `@lupinum/trellis/trusted-forwarding`
 - `@lupinum/trellis/type-primitives`
-- `@lupinum/trellis/visibility`
+- `@lupinum/trellis/workspace`
 
 Packaged integration bridge APIs live in `@lupinum/trellis-bridge`, not in the
 core Trellis package.

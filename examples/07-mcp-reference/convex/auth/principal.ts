@@ -1,6 +1,6 @@
 import { getAuth } from '@lupinum/trellis/auth'
 import { definePrincipal } from '@lupinum/trellis/backend'
-import { getForwardedPrincipal } from '@lupinum/trellis/trusted-forwarding'
+import { getForwardedPrincipal } from '@lupinum/trellis/backend'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 

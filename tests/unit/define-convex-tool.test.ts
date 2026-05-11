@@ -464,6 +464,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const createPostDescriptor = defineMcpToolRefDescriptor({
@@ -520,6 +521,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     expect(() =>
@@ -543,6 +545,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     expect(() =>
@@ -573,6 +576,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     expect(() =>
@@ -615,6 +619,7 @@ describe('MCP rate-limit integration', () => {
         },
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     try {
@@ -725,6 +730,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -733,6 +739,7 @@ describe('Destructive confirmation payload validation', () => {
     })
 
     expect(tool.name).toBe('delete-post')
+    expect(tool.annotations?.destructiveHint).toBe(true)
   })
 
   it('binds operation-first MCP tools from shared descriptors and projected refs', () => {
@@ -762,6 +769,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(descriptor, {
@@ -770,6 +778,47 @@ describe('Destructive confirmation payload validation', () => {
     })
 
     expect(tool.name).toBe('delete-post')
+    expect(tool.annotations?.destructiveHint).toBe(true)
+  })
+
+  it('requires explicit tenant binding for destructive MCP confirmations', () => {
+    const operation = defineOperation({
+      id: 'delete-post',
+      name: 'DeletePost',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      guard: { label: 'open', check: () => true } as never,
+      preview: async () => ({
+        display: { summary: 'Delete post' },
+        confirm: { id: 'post-1' },
+      }),
+      handler: async () => ({ ok: true }),
+    })
+    const preview = previewOf(operation)
+    const mcp = defineMcpApp({
+      resolvePrincipal: async () => ({
+        kind: 'agent' as const,
+        agentId: 'assistant-bot',
+        subject: 'agent:assistant-bot',
+      }),
+      callConvex: async () => ({
+        query: async () => ({
+          display: { summary: 'Delete post' },
+          confirm: { id: 'post-1' },
+        }),
+        mutation: async () => ({ ok: true }),
+        action: async () => ({ ok: true }),
+      }),
+    })
+
+    expect(() =>
+      mcp.tool.operation(operation, {
+        execute: operation as never,
+        preview: preview as never,
+      }),
+    ).toThrow(/explicit tenantKey resolver/)
   })
 
   it('returns backend denial and emits drift when operation visibility is stale', async () => {
@@ -804,6 +853,7 @@ describe('Destructive confirmation payload validation', () => {
         },
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     try {
@@ -873,6 +923,7 @@ describe('Destructive confirmation payload validation', () => {
           mutation: async () => ({ ok: true }),
           action: async () => ({ ok: true }),
         }),
+        tenantKey: () => 'global',
       })
 
       expect(() =>
@@ -920,6 +971,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -975,6 +1027,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1043,6 +1096,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1121,6 +1175,7 @@ describe('Destructive confirmation payload validation', () => {
         },
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1179,6 +1234,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1257,6 +1313,7 @@ describe('Destructive confirmation payload validation', () => {
           ...(caller.delegation ? { delegation: caller.delegation } : {}),
         }),
       confirmationStore,
+      tenantKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {

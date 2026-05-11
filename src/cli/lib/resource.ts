@@ -588,7 +588,7 @@ function resourceFeatureTemplate(ctx: ResourceGeneratorContext): string {
     : ''
 
   return `
-import { defineFeature } from '@lupinum/trellis/feature'
+import { defineFeature } from '@lupinum/trellis/workspace'
 
 ${operationsImport}
 import { ${ctx.singularCamel}Permissions } from './permissions'

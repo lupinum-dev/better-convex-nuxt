@@ -1,4 +1,4 @@
-import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/trusted-forwarding'
+import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import {

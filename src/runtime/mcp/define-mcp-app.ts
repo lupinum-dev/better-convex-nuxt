@@ -155,6 +155,13 @@ export interface DefineMcpAppOptions<
     convex: McpConvexCaller
   }) => MaybePromise<TRuntime>
   principalKey?: (principal: TPrincipal) => string
+  tenantKey?: (ctx: {
+    principal: TPrincipal
+    delegation: TDelegation | null
+    capabilities: TCapabilities
+    runtime: TRuntime
+    args: Record<string, unknown>
+  }) => MaybePromise<string>
   rateLimitStore?: McpRateLimitStore
   confirmationStore?: McpConfirmationStore
   observability?: TrellisObservabilityOptions
@@ -314,6 +321,13 @@ export interface ToolOperationOptions<
   }) => string | PreviewResult
   confirmationMode?: McpDestructiveConfirmationMode
   confirmationStore?: McpConfirmationStore
+  tenantKey?: (ctx: {
+    principal: TPrincipal
+    delegation: TDelegation | null
+    capabilities: TCapabilities
+    runtime: TRuntime
+    args: Record<string, unknown>
+  }) => MaybePromise<string>
   schema?: AnyConvexSchema
   maxItems?: { field: string; limit: number }
 }
@@ -383,19 +397,6 @@ function defaultPrincipalKey(principal: unknown): string {
   } catch {
     return 'principal'
   }
-}
-
-function defaultTenantKey(principal: unknown): string {
-  if (
-    typeof principal === 'object' &&
-    principal !== null &&
-    'tenantId' in principal &&
-    typeof (principal as { tenantId?: unknown }).tenantId === 'string'
-  ) {
-    return (principal as { tenantId: string }).tenantId
-  }
-
-  return 'global'
 }
 
 function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
@@ -542,6 +543,7 @@ export function defineMcpApp<
   TRuntime = Record<string, never>,
 >(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
   const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
+  const appTenantKeyResolver = options.tenantKey
   const appRateLimitStore = options.rateLimitStore
   const appConfirmationStore = options.confirmationStore
   const confirmationStore = appConfirmationStore ?? createMemoryConfirmationStore()
@@ -941,6 +943,12 @@ export function defineMcpApp<
           `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
         )
       }
+      const tenantKeyResolver = options.tenantKey ?? appTenantKeyResolver
+      if (isDestructive && !tenantKeyResolver) {
+        throw new Error(
+          `tool.operation(${metadata.name ?? metadata.id}) requires an explicit tenantKey resolver for destructive confirmations. Use tenantKey: () => 'global' when no tenant applies.`,
+        )
+      }
 
       assertOperationBinding(operation, options.execute, options.preview)
 
@@ -982,7 +990,8 @@ export function defineMcpApp<
         name: toolName,
         description: options.meta?.description ?? schema.description,
         operation: options.executeOperation ?? 'mutation',
-        destructive: false,
+        destructive: isDestructive,
+        operationBackedDestructive: isDestructive,
         preview: undefined,
         maxItems: options.maxItems,
         outputSchema: options.outputSchema,
@@ -1124,7 +1133,20 @@ export function defineMcpApp<
           const executePath = getFunctionName(options.execute)
           const previewPath = options.preview ? getFunctionName(options.preview) : executePath
           const principalKey = principalKeyResolver(projectionCtx.principal)
-          const tenantKey = defaultTenantKey(projectionCtx.principal)
+          const tenantKey = tenantKeyResolver
+            ? await tenantKeyResolver({
+                principal: projectionCtx.principal,
+                delegation: projectionCtx.delegation,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+                args: executeArgs,
+              })
+            : 'global'
+          if (isDestructive && tenantKey.trim().length === 0) {
+            throw new Error(
+              `tool.operation(${metadata.name ?? metadata.id}) tenantKey resolver returned an empty tenant key.`,
+            )
+          }
           const argsHash = await hashConfirmationValue(executeArgs)
           const argsFieldHashes = await hashArgsForDiagnostics(executeArgs)
           const confirmationBinding = {

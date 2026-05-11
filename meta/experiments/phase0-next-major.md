@@ -67,7 +67,7 @@ generated text as canonical.
 Remaining proof:
 
 - wire the fixture-backed renderer into the actual `trellis init --template
-  workspace-mcp` path during the starter cutover sprint.
+workspace-mcp` path during the starter cutover sprint.
 
 MCP import decision:
 

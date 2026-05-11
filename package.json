@@ -51,17 +51,8 @@
       "backend": [
         "./dist/runtime/backend/index.d.ts"
       ],
-      "feature": [
-        "./dist/runtime/feature/index.d.ts"
-      ],
-      "eslint": [
-        "./dist/eslint/index.d.mts"
-      ],
-      "trusted-forwarding": [
-        "./dist/runtime/trusted-forwarding/index.d.ts"
-      ],
-      "visibility": [
-        "./dist/runtime/visibility/index.d.ts"
+      "workspace": [
+        "./dist/runtime/workspace/index.d.ts"
       ],
       "mcp": [
         "./dist/runtime/mcp/index.d.ts"
@@ -99,22 +90,10 @@
       "import": "./dist/runtime/backend/index.js",
       "default": "./dist/runtime/backend/index.js"
     },
-    "./feature": {
-      "types": "./dist/runtime/feature/index.d.ts",
-      "import": "./dist/runtime/feature/index.js"
-    },
-    "./eslint": {
-      "types": "./dist/eslint/index.d.mts",
-      "import": "./dist/eslint/index.mjs"
-    },
-    "./trusted-forwarding": {
-      "types": "./dist/runtime/trusted-forwarding/index.d.ts",
-      "import": "./dist/runtime/trusted-forwarding/index.js",
-      "default": "./dist/runtime/trusted-forwarding/index.js"
-    },
-    "./visibility": {
-      "types": "./dist/runtime/visibility/index.d.ts",
-      "import": "./dist/runtime/visibility/index.mjs"
+    "./workspace": {
+      "types": "./dist/runtime/workspace/index.d.ts",
+      "import": "./dist/runtime/workspace/index.js",
+      "default": "./dist/runtime/workspace/index.js"
     },
     "./mcp": {
       "types": "./dist/runtime/mcp/index.d.ts",

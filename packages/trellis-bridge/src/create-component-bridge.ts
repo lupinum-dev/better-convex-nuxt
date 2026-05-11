@@ -10,7 +10,7 @@ import {
   getTrustedForwardingKeyProductionIssue,
   setTrustedForwardingContext,
   withTrustedForwarding,
-} from '@lupinum/trellis/trusted-forwarding'
+} from '@lupinum/trellis/backend'
 import {
   customAction,
   customMutation,

@@ -17,7 +17,7 @@ export default defineConfig(
         '@lupinum/trellis/backend': fileURLToPath(
           new URL('../../src/runtime/backend/index.ts', import.meta.url),
         ),
-        '@lupinum/trellis/trusted-forwarding': fileURLToPath(
+        '@lupinum/trellis/backend': fileURLToPath(
           new URL('../../src/runtime/trusted-forwarding/index.ts', import.meta.url),
         ),
         '@lupinum/trellis-bridge': fileURLToPath(

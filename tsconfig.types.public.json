@@ -9,14 +9,12 @@
       "@lupinum/trellis/auth": ["./src/runtime/auth/index.ts"],
       "@lupinum/trellis/args": ["./src/runtime/args/index.ts"],
       "@lupinum/trellis/backend": ["./src/runtime/backend/index.ts"],
+      "@lupinum/trellis/workspace": ["./src/runtime/workspace/index.ts"],
       "@lupinum/trellis/composables": ["./src/runtime/composables/index.ts"],
-      "@lupinum/trellis/feature": ["./src/runtime/feature/index.ts"],
       "@lupinum/trellis/mcp": ["./src/runtime/mcp/index.ts"],
       "@lupinum/trellis/type-primitives": ["./src/runtime/type-primitives/index.ts"],
       "@lupinum/trellis/server": ["./src/runtime/server/index.ts"],
       "@lupinum/trellis/testing": ["./src/runtime/testing/index.ts"],
-      "@lupinum/trellis/trusted-forwarding": ["./src/runtime/trusted-forwarding/index.ts"],
-      "@lupinum/trellis/visibility": ["./src/runtime/visibility/index.ts"],
       "@lupinum/trellis-bridge": ["./packages/trellis-bridge/src/index.ts"]
     }
   },

@@ -97,13 +97,7 @@ can be converted after the generated app path is clean.
 
 - [x] Recount remaining `@lupinum/trellis/functions` hits outside historical
       planning/ADR files.
-- [x] Separate remaining hits into:
-      - later examples `04`-`08`;
-      - bridge/CMS extraction;
-      - docs rewrite;
-      - operation projection shim;
-      - typed unsafe permits;
-      - test-only legacy diagnostics.
+- [x] Separate remaining hits into: - later examples `04`-`08`; - bridge/CMS extraction; - docs rewrite; - operation projection shim; - typed unsafe permits; - test-only legacy diagnostics.
 - [x] Update `meta/trellis-1.0-refactor-plan.md` checkboxes only for completed
       Slice 3/package-surface items.
 - [x] Record the next sprint recommendation in the exit notes.

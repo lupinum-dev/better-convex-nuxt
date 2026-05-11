@@ -18,6 +18,24 @@ export {
   unsafe,
 } from '../functions/index.js'
 
+export {
+  canonicalizeForwardingArgs,
+  createTrustedForwardingEnvelope,
+  hashForwardingArgs,
+  TrustedForwardingEnvelopeError,
+  verifyTrustedForwardingEnvelope,
+} from '../trusted-forwarding/envelope.js'
+export {
+  clearTrustedForwardingContext,
+  createTrustedForwardingEnvelopeArgs,
+  extractSubject,
+  getForwardedDelegation,
+  getForwardedPrincipal,
+  getTrustedForwardingKeyProductionIssue,
+  setTrustedForwardingContext,
+  withTrustedForwarding,
+} from '../trusted-forwarding/index.js'
+
 export type {
   ActorAccessor,
   DefaultPrincipal,
@@ -60,3 +78,11 @@ export type {
   ValidateOperationProjectionRef,
   ValidateRegisteredOperationId,
 } from '../functions/index.js'
+
+export type {
+  CreateTrustedForwardingEnvelopeOptions,
+  TrustedForwardingEnvelopePayload,
+  TrustedForwardingPurpose,
+  TrustedForwardingTransport,
+  VerifyTrustedForwardingEnvelopeOptions,
+} from '../trusted-forwarding/envelope.js'

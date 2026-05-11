@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs'
 
 import { createTestContext } from '@lupinum/trellis/testing'
-import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/trusted-forwarding'
+import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { describe, expect, it } from 'vitest'
 
 import { api, internal } from '../convex/_generated/api'

@@ -1,4 +1,4 @@
-import { defineFeature } from '@lupinum/trellis/feature'
+import { defineFeature } from '@lupinum/trellis/workspace'
 
 import { miniCmsPagesPermissions } from './permissions'
 

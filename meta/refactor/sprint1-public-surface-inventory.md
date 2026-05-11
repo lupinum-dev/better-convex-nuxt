@@ -7,21 +7,18 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## Package Exports
 
-| Import                                | Sprint 1 Action  | Reason                                                                  |
-| ------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
-| `@lupinum/trellis`                    | keep             | root Nuxt module remains the app entrypoint                             |
-| `@lupinum/trellis/args`               | keep             | schema/args helper subpath unless merged by Slice 1 decision            |
-| `@lupinum/trellis/auth`               | keep             | auth product layer subpath                                              |
-| `@lupinum/trellis/backend`            | keep             | canonical 1.0 backend builder and operation subpath                     |
-| `@lupinum/trellis/composables`        | keep             | client composable subpath unless root-only Nuxt auto-imports replace it |
-| `@lupinum/trellis/eslint`             | move/delete      | runtime package should not carry tooling unless explicitly retained     |
-| `@lupinum/trellis/feature`            | keep             | feature manifest layer stays in root package                            |
-| `@lupinum/trellis/mcp`                | keep             | MCP product layer subpath                                               |
-| `@lupinum/trellis/server`             | keep             | Nuxt/Nitro server helper subpath                                        |
-| `@lupinum/trellis/testing`            | keep             | testing helpers stay public but must stop emitting raw forwarding       |
-| `@lupinum/trellis/trusted-forwarding` | replace/restrict | signed helpers only; raw forwarding must not remain broad public API    |
-| `@lupinum/trellis/type-primitives`    | keep             | type-only helper surface unless folded into functions/backend           |
-| `@lupinum/trellis/visibility`         | keep             | visibility/capability helpers remain app-facing                         |
+| Import                             | Sprint 1 Action | Reason                                                                  |
+| ---------------------------------- | --------------- | ----------------------------------------------------------------------- |
+| `@lupinum/trellis`                 | keep            | root Nuxt module remains the app entrypoint                             |
+| `@lupinum/trellis/args`            | keep            | schema/args helper subpath unless merged by Slice 1 decision            |
+| `@lupinum/trellis/auth`            | keep            | auth product layer subpath                                              |
+| `@lupinum/trellis/backend`         | keep            | canonical 1.0 backend builder and operation subpath                     |
+| `@lupinum/trellis/composables`     | keep            | client composable subpath unless root-only Nuxt auto-imports replace it |
+| `@lupinum/trellis/mcp`             | keep            | MCP product layer subpath                                               |
+| `@lupinum/trellis/server`          | keep            | Nuxt/Nitro server helper subpath                                        |
+| `@lupinum/trellis/testing`         | keep            | testing helpers stay public but must stop emitting raw forwarding       |
+| `@lupinum/trellis/type-primitives` | keep            | type-only helper surface unless folded into functions/backend           |
+| `@lupinum/trellis/workspace`       | keep            | workspace, tenant isolation, feature inventory, and visibility helpers  |
 
 ## Runtime Barrels
 
@@ -31,16 +28,17 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 | `auth`               | src/runtime/auth/index.ts               | npm export               |
 | `backend`            | src/runtime/backend/index.ts            | npm export               |
 | `composables`        | src/runtime/composables/index.ts        | npm export               |
-| `feature`            | src/runtime/feature/index.ts            | npm export               |
+| `feature`            | src/runtime/feature/index.ts            | internal unless promoted |
 | `functions`          | src/runtime/functions/index.ts          | internal unless promoted |
 | `mcp`                | src/runtime/mcp/index.ts                | npm export               |
 | `observability`      | src/runtime/observability/index.ts      | internal unless promoted |
 | `schema`             | src/runtime/schema/index.ts             | internal unless promoted |
 | `server`             | src/runtime/server/index.ts             | npm export               |
 | `testing`            | src/runtime/testing/index.ts            | npm export               |
-| `trusted-forwarding` | src/runtime/trusted-forwarding/index.ts | npm export               |
+| `trusted-forwarding` | src/runtime/trusted-forwarding/index.ts | internal unless promoted |
 | `type-primitives`    | src/runtime/type-primitives/index.ts    | npm export               |
-| `visibility`         | src/runtime/visibility/index.ts         | npm export               |
+| `visibility`         | src/runtime/visibility/index.ts         | internal unless promoted |
+| `workspace`          | src/runtime/workspace/index.ts          | npm export               |
 
 ## Generated Nuxt Surface
 

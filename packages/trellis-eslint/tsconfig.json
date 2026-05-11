@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "../../src",
+    "outDir": "dist",
+    "declaration": true,
+    "emitDeclarationOnly": false,
+    "noEmitOnError": true,
+    "sourceMap": false
+  },
+  "include": ["../../src/eslint/**/*.ts", "../../src/analysis/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

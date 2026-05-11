@@ -52,7 +52,7 @@ export default defineSchema({
   await writeFile(
     resolve(cwd, 'convex/features/index.ts'),
     `
-import { composeFeatures } from '@lupinum/trellis/feature'
+import { composeFeatures } from '@lupinum/trellis/workspace'
 
 import { pagesFeature } from './pages/feature'
 import { usersFeature } from './users/feature'

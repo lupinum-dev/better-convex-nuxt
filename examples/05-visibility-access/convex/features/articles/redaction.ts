@@ -1,4 +1,4 @@
-import { defineRedaction } from '@lupinum/trellis/visibility'
+import { defineRedaction } from '@lupinum/trellis/workspace'
 
 import type { Actor } from '../../auth/actor'
 import { hasRole } from '../../auth/guards'

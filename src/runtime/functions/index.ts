@@ -1607,12 +1607,6 @@ function createQueryCustomization<
   const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator
-      ? { principal: v.optional(principalDefinition.validator) }
-      : {}),
-    ...(delegationDefinition.validator
-      ? { delegation: v.optional(delegationDefinition.validator) }
-      : {}),
     ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }
@@ -1672,12 +1666,6 @@ function createMutationCustomization<
   const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator
-      ? { principal: v.optional(principalDefinition.validator) }
-      : {}),
-    ...(delegationDefinition.validator
-      ? { delegation: v.optional(delegationDefinition.validator) }
-      : {}),
     ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }
@@ -1764,12 +1752,6 @@ function createActionCustomization<
   const delegationDefinition = resolveDelegation(options.delegation)
   const actorResolver = resolveActor(options.actor)
   const principalArgs: PropertyValidators = {
-    ...(principalDefinition.validator
-      ? { principal: v.optional(principalDefinition.validator) }
-      : {}),
-    ...(delegationDefinition.validator
-      ? { delegation: v.optional(delegationDefinition.validator) }
-      : {}),
     ...trustedForwardingValidators,
     ...buildObservationEnvelopeValidators(),
   }

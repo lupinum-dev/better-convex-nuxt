@@ -1,4 +1,4 @@
-import { defineFeature } from '@lupinum/trellis/feature'
+import { defineFeature } from '@lupinum/trellis/workspace'
 
 import { mcpKeyPermissions } from './permissions'
 import { mcpKeyTables } from './schema'

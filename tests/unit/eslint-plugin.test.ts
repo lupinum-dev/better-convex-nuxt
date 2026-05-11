@@ -425,10 +425,10 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
 
     expect(badResult!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
     expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
   })
 
@@ -469,13 +469,13 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
 
     expect(badResult!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
     expect(goodBarrelResult!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
     expect(goodTestResult!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
   })
 
@@ -506,10 +506,10 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
 
     expect(badShellResult!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
     expect(goodFeatureResult!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/feature-boundaries',
+      '@lupinum/trellis/workspace-boundaries',
     )
   })
 

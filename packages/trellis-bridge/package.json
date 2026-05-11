@@ -1,7 +1,7 @@
 {
   "name": "@lupinum/trellis-bridge",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "description": "Bridge package boundary for Trellis-aware Convex component integrations",
   "files": [
     "dist",
@@ -18,6 +18,16 @@
       "types": "./dist/component.d.ts",
       "import": "./dist/component.js",
       "default": "./dist/component.js"
+    },
+    "./convex": {
+      "types": "./dist/convex.d.ts",
+      "import": "./dist/convex.js",
+      "default": "./dist/convex.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest.d.ts",
+      "import": "./dist/manifest.js",
+      "default": "./dist/manifest.js"
     }
   },
   "scripts": {

@@ -67,6 +67,7 @@ type DefineConvexToolInternalOptions<
   TRole extends string = string,
 > = DefineConvexToolOptions<S, TRole> & {
   operation?: ConvexToolOperation
+  operationBackedDestructive?: boolean
 }
 
 interface NormalizedToolArgs<S extends AnyConvexSchema> {
@@ -428,6 +429,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     auth = 'none',
     check,
     destructive = false,
+    operationBackedDestructive = false,
     maxItems,
     rateLimit,
     rateLimitStore,
@@ -452,7 +454,7 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     throw new Error(`defineTool: "check" needs auth. Set auth to "required" or "optional".`)
   }
 
-  if (destructive) {
+  if (destructive && !operationBackedDestructive) {
     throw new Error(
       'defineTool: destructive tools must be operation-backed. Use defineMcpApp(...).tool.operation(...).',
     )

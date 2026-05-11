@@ -24,14 +24,11 @@ Current package exports are:
 - `@lupinum/trellis/auth`
 - `@lupinum/trellis/backend`
 - `@lupinum/trellis/composables`
-- `@lupinum/trellis/eslint`
-- `@lupinum/trellis/feature`
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
-- `@lupinum/trellis/trusted-forwarding`
 - `@lupinum/trellis/type-primitives`
-- `@lupinum/trellis/visibility`
+- `@lupinum/trellis/workspace`
 
 If a proposed import is not in `package.json`, treat it as unavailable until the
 public surface is deliberately changed and tested.
@@ -44,10 +41,14 @@ Known rejected legacy/nonexistent subpaths include:
 - `@lupinum/trellis/actor`
 - `@lupinum/trellis/bridge`
 - `@lupinum/trellis/convex`
+- `@lupinum/trellis/eslint`
+- `@lupinum/trellis/feature`
 - `@lupinum/trellis/functions`
 - `@lupinum/trellis/schema`
 - `@lupinum/trellis/scoping`
 - `@lupinum/trellis/service`
+- `@lupinum/trellis/trusted-forwarding`
+- `@lupinum/trellis/visibility`
 
 Verify this list in `tests/unit/package-subpath-exports.test.ts` before
 mentioning it in user-facing docs.

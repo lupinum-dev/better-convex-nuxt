@@ -1,4 +1,4 @@
-import { defineFeature } from '@lupinum/trellis/feature'
+import { defineFeature } from '@lupinum/trellis/workspace'
 
 import { publishPageDescriptor } from '../../../../../shared/features/pages/contract'
 import { pagesTables } from './schema'

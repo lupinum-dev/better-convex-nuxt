@@ -2299,15 +2299,15 @@ rewrite is safe. Silent authorization rewrites are not acceptable.
 | Old path or pattern          | New path or pattern                        | Migration                         |
 | ---------------------------- | ------------------------------------------ | --------------------------------- |
 | `@lupinum/trellis/bridge`    | `@lupinum/trellis-bridge`                  | codemod                           |
-| `@lupinum/trellis/functions` | `@lupinum/trellis/backend` or keep as-is   | open question                     |
+| `@lupinum/trellis/functions` | `@lupinum/trellis/backend`                 | codemod                           |
 | `tool.fromOperation(...)`    | `mcp.tool.operation(...)`                  | codemod                           |
 | raw trusted forwarding args  | `_trellisForwarding` signed envelope       | codemod plus manual audit         |
 | `unsafe.*({ bypass })`       | `unsafe.*({ permit: unsafe.permit(...) })` | codemod when shape is obvious     |
 | arity-inferred `authorize`   | explicit `authorize` object or helper      | audit report unless provably safe |
-| `workspace --mcp`            | `workspace-mcp` or transitional alias      | CLI alias decision                |
+| `workspace --mcp`            | `workspace-mcp`                            | CLI migration                     |
 
-This table is intentionally incomplete until Phase 0 finishes. It exists so
-public API impact stays visible while the remaining naming decisions are made.
+This table is intentionally narrow. It exists so public API impact stays visible
+without preserving deleted paths as compatibility aliases.
 
 Release gates:
 
@@ -2686,16 +2686,16 @@ The full dream version is ready when:
 
 1. How much of operation projection can be derived without Convex codegen
    ordering problems?
-2. Does `workspace-mcp` fully replace `workspace --mcp`, or should the old flag
-   exist as a transitional alias?
+2. Resolved: `workspace-mcp` fully replaces `workspace --mcp`; no 1.0 flag alias
+   is kept.
 3. Is `cms` a Ginko-owned setup path, an advanced bridge-author fixture, or both
    in separate places? Decide before Phase 0 sign-off.
-4. Should the public backend import become `@lupinum/trellis/backend`, or should
-   Trellis keep `@lupinum/trellis/functions` for Convex backend builders?
+4. Resolved: the public backend import is `@lupinum/trellis/backend`;
+   `@lupinum/trellis/functions` is deleted.
 5. Should public-access handlers use `query.public(...)`, `guard: open`, or a
    clearer guard such as `publicAccess`?
-6. Which old public paths get hard deletion, and which get a one-release hidden
-   alias by explicit team decision?
+6. Resolved: old public paths are hard-deleted unless this spec explicitly lists
+   them as retained.
 
 Resolved for 1.0 unless the team explicitly reopens it:
 

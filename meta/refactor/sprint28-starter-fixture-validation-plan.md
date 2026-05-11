@@ -245,7 +245,7 @@ Expected result:
 ## Exit Notes
 
 - Added `scripts/check-starter-fixtures.mjs` and `pnpm run
-  check:starter-fixtures`.
+check:starter-fixtures`.
 - The harness builds generated apps from `dist/cli.mjs` for `public`,
   `personal`, `workspace`, and `workspace-mcp`.
 - It compares generated file sets against the source fixture manifests.
@@ -259,7 +259,7 @@ Expected result:
   - `workspace`: 36 files, doctor 24 pass / 0 warn / 0 fail;
   - `workspace-mcp`: 41 files, doctor 24 pass / 0 warn / 0 fail.
 - Typecheck/build probe result: `pnpm --dir <generated-app> exec nuxi
-  typecheck` cannot start because `nuxi` is not installed in the generated temp
+typecheck` cannot start because `nuxi` is not installed in the generated temp
   app. `pnpm install --lockfile-only` then fails because generated apps depend
   on `@lupinum/trellis: workspace:*` outside a workspace containing Trellis.
 - Next proof work should decide whether generated starter validation happens
