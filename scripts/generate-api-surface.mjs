@@ -120,6 +120,7 @@ const file = [
   '- Convex backend code: use package subpaths such as `@lupinum/trellis/auth`, `@lupinum/trellis/backend`, or `@lupinum/trellis/args`.',
   '- App-local generated Convex schema: use `#trellis/api`.',
   '- Advanced MCP-only app wiring: use `#trellis/mcp` or `@lupinum/trellis/mcp` depending on runtime context.',
+  '- Bridge package-author code: use `@lupinum/trellis-bridge`; bridge helpers are not exported from the core Trellis package.',
   '',
   '## Package Subpaths',
   '',
@@ -174,6 +175,8 @@ const file = [
   '- `serverConvexClearAuthCache` and `validateConvexArgs` are **Nuxt server auto-imports**, not package subpath exports.',
   '- `#trellis/mcp` and `#trellis/server` are **generated Nuxt aliases**, not bare npm specifiers.',
   '- `usePermissions()` and `useAuthGuard()` are **config-driven auto-imports**, not package subpath exports.',
+  '- `@lupinum/trellis-bridge` is a separate package for packaged integration authors, not a root/core Trellis export.',
+  '- Trusted forwarding uses signed `_trellisForwarding` envelopes; raw forwarding fields are not supported public args.',
   '',
 ].join('\n')
 

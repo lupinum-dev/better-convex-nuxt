@@ -9,10 +9,12 @@ The implementation is the source of truth. Root foundation docs describe the mai
 ```text
 src/                  package source
   module.ts           Nuxt module entry
-  cli/                trellis init/add/doctor/bridge
+  cli/                trellis init/add/doctor/upgrade/explain
   eslint/             framework-specific lint rules
   module-internals/   setup, options, and codegen internals
   runtime/            published runtime surfaces
+packages/
+  trellis-bridge/     package-author bridge tooling and component bridge runtime
 apps/
   docs/               hosted user-facing documentation
   harness/            maintainer integration harness and e2e target
@@ -33,17 +35,19 @@ Maintained public subpaths include:
 - `@lupinum/trellis`
 - `@lupinum/trellis/auth`
 - `@lupinum/trellis/args`
-- `@lupinum/trellis/bridge`
+- `@lupinum/trellis/backend`
 - `@lupinum/trellis/composables`
+- `@lupinum/trellis/eslint`
 - `@lupinum/trellis/feature`
-- `@lupinum/trellis/functions`
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
 - `@lupinum/trellis/trusted-forwarding`
 - `@lupinum/trellis/type-primitives`
 - `@lupinum/trellis/visibility`
-- `@lupinum/trellis/eslint`
+
+Packaged integration bridge APIs live in `@lupinum/trellis-bridge`, not in the
+core Trellis package.
 
 Nuxt aliases and auto-imports are separate from package exports. Do not treat generated aliases such as `#trellis/mcp` or server auto-imports as package subpaths.
 
@@ -67,6 +71,8 @@ trellis add entity <name>
 trellis add uploads
 trellis add operation <name> --kind safe|destructive
 trellis doctor
+trellis upgrade --check
+trellis explain operation <id>
 ```
 
 ## Canonical App Shape
@@ -150,7 +156,7 @@ Trellis owns the semantic event vocabulary and delivers events through evlog. Ap
 
 Most apps do not need a component bridge.
 
-The bridge is for packaged Trellis-aware integrations that need stable host refs and managed host files while keeping internal component refs private. `trellis bridge` installs, regenerates, inspects, and checks bridge manifests. `createComponentBridge(...)` forwards explicit principals into component refs, but guards and app-owned actor logic still run.
+The bridge is for packaged Trellis-aware integrations that need stable host refs and managed host files while keeping internal component refs private. Bridge-owned tooling in `@lupinum/trellis-bridge` installs, regenerates, inspects, and checks bridge manifests. `createComponentBridge(...)` signs forwarding envelopes into component refs, but guards and app-owned actor logic still run.
 
 ## Maintained Examples
 

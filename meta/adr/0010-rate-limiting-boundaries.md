@@ -22,3 +22,7 @@ Consumer apps own business quotas, usually inside Convex where the relevant stat
 Do not present Trellis MCP rate limiting as a generic limiter for every Convex function.
 
 If Trellis later adds broader rate-limiting support, it must be justified by real app pressure and fit the trust/tenant model.
+
+For Trellis 1.0, production MCP rate-limit stores must be explicit and
+externally shared when a deployment has more than one process. Process-local
+stores are development conveniences, not production safety.

@@ -220,7 +220,7 @@ export async function assertBridgeInstalled(packageName: string, rootDir: string
     const verb = violation.reason === 'missing' ? 'is missing' : 'is out of date'
     return `${violation.relativePath} ${verb}.`
   })
-  lines.push(`Run \`pnpm exec trellis bridge generate ${packageName}\` and commit the result.`)
+  lines.push(`Run \`pnpm exec trellis-bridge install ${packageName}\` and commit the result.`)
   throw new Error(lines.join('\n'))
 }
 

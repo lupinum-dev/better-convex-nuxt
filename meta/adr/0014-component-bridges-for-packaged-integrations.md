@@ -13,7 +13,7 @@ Calling internal component refs directly from host apps creates unstable consume
 
 Trellis uses component bridges for packaged integrations.
 
-Bridge-aware packages publish a manifest. The `trellis bridge` CLI installs, regenerates, inspects, and checks generated host files and managed edits. Runtime helpers such as `createComponentBridge(...)` forward explicit principals into component refs without bypassing guards or app-owned actor logic.
+Bridge-aware packages publish a manifest. Bridge-owned tooling in `@lupinum/trellis-bridge` installs, regenerates, inspects, and checks generated host files and managed edits. Runtime helpers such as `createComponentBridge(...)` sign forwarding envelopes into component refs without bypassing guards or app-owned actor logic.
 
 ## Consequences
 

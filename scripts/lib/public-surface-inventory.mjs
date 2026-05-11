@@ -189,7 +189,13 @@ export function collectRepoPublicSurfaceInventory(rootDir) {
           'apps/docs/content/docs/08.permissions',
           'apps/docs/content/docs/13.api-reference/3.functions.md',
         ],
-        ['@lupinum/trellis/functions', 'query({', 'mutation({', 'unsafe.query', 'unsafe.mutation'],
+        [
+          '@lupinum/trellis/functions',
+          ' = query({',
+          ' = mutation({',
+          'unsafe.query',
+          'unsafe.mutation',
+        ],
       ),
     },
   }

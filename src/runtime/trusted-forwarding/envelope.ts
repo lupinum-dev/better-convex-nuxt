@@ -295,7 +295,7 @@ export function verifyTrustedForwardingEnvelope(
   options: VerifyTrustedForwardingEnvelopeOptions,
 ): TrustedForwardingEnvelopePayload {
   const maxEnvelopeBytes = options.maxEnvelopeBytes ?? defaultTrustedForwardingMaxEnvelopeBytes
-  if (Buffer.byteLength(envelope, 'utf8') > maxEnvelopeBytes) {
+  if (utf8Bytes(envelope).length > maxEnvelopeBytes) {
     throw new TrustedForwardingEnvelopeError('Forwarding envelope is too large.', 'too-large')
   }
 

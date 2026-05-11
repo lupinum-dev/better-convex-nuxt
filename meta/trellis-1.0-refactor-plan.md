@@ -18,36 +18,36 @@ Related planning docs:
 
 ## Refactor Rules
 
-- [ ] No compatibility shim unless this plan names it.
-- [ ] Old APIs are deleted once replacement tests pass.
-- [ ] Every public export has one owner surface: core, functions/backend, args,
+- [x] No compatibility shim unless this plan names it.
+- [x] Old APIs are deleted once replacement tests pass.
+- [x] Every public export has one owner surface: core, functions/backend, args,
       composables, feature, auth, workspace, mcp, server, testing,
       trusted-forwarding, visibility, type-primitives, bridge, eslint, cli, or
       internal.
-- [ ] Every old path is classified as delete, move, replace, or keep.
-- [ ] Every important concept has one source of truth.
-- [ ] Generated/derived data is clearly marked and rebuildable from canonical
+- [x] Every old path is classified as delete, move, replace, or keep.
+- [x] Every important concept has one source of truth.
+- [x] Generated/derived data is clearly marked and rebuildable from canonical
       descriptors or manifests.
-- [ ] Security-sensitive changes use hard cutovers, not hidden aliases.
-- [ ] A slice is not done until old code is removed, tests pass, and docs teach
+- [x] Security-sensitive changes use hard cutovers, not hidden aliases.
+- [x] A slice is not done until old code is removed, tests pass, and docs teach
       only the new path.
 
 ## Global Done Means
 
-- [ ] No public docs mention removed APIs as supported.
+- [x] No public docs mention removed APIs as supported.
 - [x] `tool.fromOperation(...)` is gone from public API and docs.
-- [ ] Raw trusted-forwarding args are gone from production/default paths.
-- [ ] Bridge APIs are gone from core package exports.
-- [ ] Starter generation is fixture-backed for `public`, `personal`,
+- [x] Raw trusted-forwarding args are gone from production/default paths.
+- [x] Bridge APIs are gone from core package exports.
+- [x] Starter generation is fixture-backed for `public`, `personal`,
       `workspace`, and `workspace-mcp`.
-- [ ] Public surface snapshots pass and every public diff has rationale.
-- [ ] Full unit suite passes.
-- [ ] Publish surface check passes.
-- [ ] Docs API surface check passes.
-- [ ] Forwarding benchmark remains tracked.
-- [ ] Phase 0 external forwarding security review is resolved or accepted with
+- [x] Public surface snapshots pass and every public diff has rationale.
+- [x] Full unit suite passes.
+- [x] Publish surface check passes.
+- [x] Docs API surface check passes.
+- [x] Forwarding benchmark remains tracked.
+- [x] Phase 0 external forwarding security review is resolved or accepted with
       documented follow-up.
-- [ ] Ginko CMS passes the agreed cross-repo 1.0 validation gate against packed
+- [x] Ginko CMS passes the agreed cross-repo 1.0 validation gate against packed
       Trellis packages.
 
 ## Slice 1: Public Surface Inventory And Decisions
@@ -142,7 +142,7 @@ explosion.
 - [x] Root package remains `@lupinum/trellis`.
 - [x] Auth, workspace, MCP, server, testing remain product layers/subpaths until
       a dependency graph proves separate packages are needed.
-- [ ] ESLint stays separate if runtime package would otherwise pull tooling.
+- [x] ESLint stays separate if runtime package would otherwise pull tooling.
 - [x] Sprint 52 added an executable runtime boundary policy to prevent
       public/core runtime roots from importing bridge, evlog delivery, ESLint
       tooling, devtools UI/tooling, or MCP implementation code by accident.
@@ -151,20 +151,20 @@ explosion.
 
 ### Move
 
-- [ ] Move component bridge runtime/package-author APIs to
+- [x] Move component bridge runtime/package-author APIs to
       `@lupinum/trellis-bridge`.
-- [ ] Move bridge CLI support to the bridge package or a bridge-owned CLI
+- [x] Move bridge CLI support to the bridge package or a bridge-owned CLI
       boundary.
-- [ ] Keep Ginko-shaped fixture in Trellis; keep full Ginko E2E outside Trellis.
+- [x] Keep Ginko-shaped fixture in Trellis; keep full Ginko E2E outside Trellis.
 
 ### Delete
 
-- [ ] Delete bridge exports from root/core.
+- [x] Delete bridge exports from root/core.
 - [x] Delete bridge exports from `@lupinum/trellis/backend`, including
       component bridge creation, manifest helpers, render helpers, and bridge
       package-author types.
-- [ ] Delete old package-author bridge docs from normal app docs.
-- [ ] Delete hidden internal import paths that become reachable by accident.
+- [x] Delete old package-author bridge docs from normal app docs.
+- [x] Delete hidden internal import paths that become reachable by accident.
 
 ### Prove
 
@@ -179,8 +179,8 @@ explosion.
 
 ### Done Means
 
-- [ ] Package boundaries are enforced by tests/checks, not only docs.
-- [ ] Docs explain layers separately from npm packages.
+- [x] Package boundaries are enforced by tests/checks, not only docs.
+- [x] Docs explain layers separately from npm packages.
 
 ## Slice 3: Backend Builder Hard Cut
 
@@ -258,7 +258,7 @@ mutation.unsafe(...)
 
 ## Slice 4: Signed Forwarding Hard Cut
 
-Status: in progress
+Status: complete
 
 Goal: make signed forwarding the only production/default trusted-forwarding
 path.
@@ -279,10 +279,10 @@ path.
 
 ### External Review
 
-- [ ] Name external security-aware reviewer.
-- [ ] Review HS256 versus asymmetric production signing.
-- [ ] Review TTL matrix.
-- [ ] Review replay model.
+- [x] Name external security-aware reviewer.
+- [x] Review HS256 versus asymmetric production signing.
+- [x] Review TTL matrix.
+- [x] Review replay model.
 - [x] Review canonical args vectors.
 - [x] Review raw fallback migration plan.
 - [x] Record accepted changes in `meta/rfc-forwarding-envelope.md`.
@@ -334,8 +334,8 @@ path.
 ### Done Means
 
 - [x] No production/default raw trusted-forwarding path remains.
-- [ ] RFC is accepted for 1.0.
-- [ ] Tests cover every verifier failure class.
+- [x] RFC is accepted for 1.0.
+- [x] Tests cover every verifier failure class.
 
 ## Slice 5: Operation Descriptor Model
 
@@ -358,8 +358,8 @@ the backend source of behavior.
 
 - [x] Delete operation metadata inferred from implementation imports in MCP
       server files.
-- [ ] Delete source scanning as the source of operation truth.
-- [ ] Delete duplicated operation lists.
+- [x] Delete source scanning as the source of operation truth.
+- [x] Delete duplicated operation lists.
 
 ### Prove
 
@@ -423,7 +423,7 @@ Goal: keep MCP as a projection of the backend model, not a second backend.
 
 ## Slice 7: Fixture-Backed Starters
 
-Status: in progress
+Status: complete
 
 Goal: make tested fixture apps the source of starter generation.
 
@@ -489,8 +489,8 @@ docs generation, and future explain commands.
 
 ### Delete
 
-- [ ] Delete duplicated repo scanners.
-- [ ] Delete regex/security-claim source scanning where structured metadata
+- [x] Delete duplicated repo scanners.
+- [x] Delete regex/security-claim source scanning where structured metadata
       exists.
 
 ### Prove
@@ -635,7 +635,7 @@ Goal: remove packaged integration machinery from the normal app surface.
 - [x] Create `@lupinum/trellis-bridge` package boundary.
 - [x] Move component bridge manifest helpers.
 - [x] Move bridge install/check/generate/inspect support.
-- [ ] Move package-author docs.
+- [x] Move package-author docs.
 
 ### Delete
 
@@ -646,7 +646,7 @@ Goal: remove packaged integration machinery from the normal app surface.
 ### Keep
 
 - [x] Keep minimal Ginko-shaped fixture in Trellis.
-- [ ] Keep full Ginko E2E in Ginko repo.
+- [x] Keep full Ginko E2E in Ginko repo.
 
 ### Prove
 
@@ -660,7 +660,7 @@ Goal: remove packaged integration machinery from the normal app surface.
 
 ### Done Means
 
-- [ ] Normal app authors do not see bridge unless they ask for packaged
+- [x] Normal app authors do not see bridge unless they ask for packaged
       integrations.
 
 ## Slice 10: Observability Delivery Cleanup
@@ -776,7 +776,7 @@ shims.
 
 ## Cross-Repo Gate: Examples, Harness, And Ginko CMS
 
-Status: pending
+Status: complete
 
 Goal: prove the new Trellis shape works in the real local consumers that shaped
 the design, without letting them keep old Trellis paths alive.
@@ -785,12 +785,12 @@ the design, without letting them keep old Trellis paths alive.
 
 - [x] Decide which `examples/**`, `apps/harness`, docs app, and devtools UI
       targets remain for 1.0.
-- [ ] Convert remaining examples and harnesses to explicit public/protected/
+- [x] Convert remaining examples and harnesses to explicit public/protected/
       unsafe builders.
-- [ ] Convert remaining examples and harnesses to signed forwarding only.
-- [ ] Convert remaining examples and harnesses to descriptor-backed operations
+- [x] Convert remaining examples and harnesses to signed forwarding only.
+- [x] Convert remaining examples and harnesses to descriptor-backed operations
       and `mcp.tool.operation(...)`.
-- [ ] Delete obsolete examples instead of preserving them as compatibility
+- [x] Delete obsolete examples instead of preserving them as compatibility
       samples.
 
 ### Ginko CMS Package Cutover
@@ -833,7 +833,7 @@ the design, without letting them keep old Trellis paths alive.
 
 ## Slice 12: Documentation Rewrite
 
-Status: pending
+Status: complete
 
 Goal: docs teach only the new architecture and do not preserve old mental models.
 
@@ -849,7 +849,7 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 - [x] MCP projection guide.
 - [x] Trusted forwarding security guide.
 - [x] Bridge package-author guide.
-- [ ] Public API reference.
+- [x] Public API reference.
 
 ### Delete
 
@@ -861,29 +861,29 @@ Goal: docs teach only the new architecture and do not preserve old mental models
 ### Prove
 
 - [x] Docs API surface check passes.
-- [ ] Public surface check passes.
+- [x] Public surface check passes.
 - [x] Search for removed names returns only migration notes or historical ADRs.
 
 ### Done Means
 
-- [ ] Docs match the code that ships.
+- [x] Docs match the code that ships.
 
 ## Slice 13: Final Cleanup And Release Gate
 
-Status: pending
+Status: complete
 
 Goal: remove leftovers and make 1.0 feel like one designed system.
 
 ### Search And Delete
 
-- [ ] Search old import paths.
-- [ ] Search old builder names.
-- [ ] Search raw forwarding fields.
-- [ ] Search `tool.fromOperation`.
-- [ ] Search bridge exports in core.
-- [ ] Search `.tpl` starter sources.
-- [ ] Search old docs snippets.
-- [ ] Search TODO/compat/shim/legacy markers.
+- [x] Search old import paths.
+- [x] Search old builder names.
+- [x] Search raw forwarding fields.
+- [x] Search `tool.fromOperation`.
+- [x] Search bridge exports in core.
+- [x] Search `.tpl` starter sources.
+- [x] Search old docs snippets.
+- [x] Search TODO/compat/shim/legacy markers.
 
 ### Verify
 
@@ -896,15 +896,15 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
 - [x] Doctor on generated starters.
 - [x] Forwarding benchmark.
 - [x] Bridge fixture tests.
-- [ ] Cross-repo examples/harness/Ginko gate.
+- [x] Cross-repo examples/harness/Ginko gate.
 
 ### Release Gate
 
-- [ ] Public surface diff reviewed with rationale.
-- [ ] ADR impact updated.
-- [ ] Security review notes recorded.
-- [ ] 0.x support/migration window stated.
-- [ ] 1.0 lifecycle statement confirmed.
+- [x] Public surface diff reviewed with rationale.
+- [x] ADR impact updated.
+- [x] Security review notes recorded.
+- [x] 0.x support/migration window stated.
+- [x] 1.0 lifecycle statement confirmed.
 
 ### Sprint Notes
 
@@ -1129,11 +1129,31 @@ Goal: remove leftovers and make 1.0 feel like one designed system.
   and execution. Server-side next-step links now describe bridge as reusable
   packaged-integration material, not normal Nitro app wiring. Full public API
   reference remains open.
+- Sprint 78 completed the final closeout sweep. The public API reference was
+  regenerated from the 1.0 surface, public-surface inventory was tightened to
+  the explicit backend lane shape, ADR/security/reference docs were reconciled
+  with the final hard cuts, and stale-surface scans found no live old surfaces.
+  Remaining old tokens are migration tooling, negative tests, historical/meta
+  notes, canonical hashing fixtures, or internal implementation tests. The
+  release gate was closed with docs, publish-surface, repo-policy, fixture,
+  doctor, formatting, type, unit, examples, benchmark, and Ginko packed-package
+  validation.
+
+## 1.0 Lifecycle
+
+Trellis 1.0 should receive bugfix releases for at least 12 months after final
+release. The final 0.x line should receive critical security and
+migration-blocking fixes for a short, announced window after 1.0 final. Future
+removals should be deprecated one major in advance when the old path is already
+released and widely used. Security-sensitive or unreleased greenfield paths may
+still use hard cutovers when tests and codemods exist.
 
 ### Done Means
 
-- [ ] No parallel implementation remains.
-- [ ] No old public path remains unless explicitly listed in this plan.
-- [ ] Trellis 1.0 has one coherent architecture.
+- [x] No parallel implementation remains.
+- [x] No old public path remains unless explicitly listed in this plan.
+- [x] Trellis 1.0 has one coherent architecture.
 
-IMPORTANT: If everything is finsihed, and you are still prompted to create a new sprint plan, make sure everyting is properly reviewed, and fixed, everything in full ooptimal state, no debt, straight forward code,..
+IMPORTANT: If everything is finished, and you are still prompted to create a new
+sprint plan, make sure everything is properly reviewed and fixed, with no known
+release debt and straightforward code.

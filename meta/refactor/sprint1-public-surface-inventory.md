@@ -97,23 +97,20 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 
 ## Docs/Templates That Still Teach Old Paths
 
-| File                                                         | Matched Tokens                                                                                                                                 | Action                                |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| meta/adr/0014-component-bridges-for-packaged-integrations.md | `trellis bridge`                                                                                                                               | historical ADR reference allowed      |
-| meta/ARCHITECTURE.md                                         | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge`                                                                      | rewrite/delete before 1.0 docs gate   |
-| meta/experiments/alpha-forwarding-hardening-sprint.md        | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/functions`                                              | historical/planning reference allowed |
-| meta/experiments/phase0-go-no-go.md                          | `tool.fromOperation`, `@lupinum/trellis/functions`                                                                                             | historical/planning reference allowed |
-| meta/experiments/phase0-next-major.md                        | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`                                                                            | historical/planning reference allowed |
-| meta/experiments/phase0-pre-alpha-decisions.md               | `@lupinum/trellis/functions`                                                                                                                   | historical/planning reference allowed |
-| meta/rfc-forwarding-envelope.md                              | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | historical/planning reference allowed |
-| meta/skill/references/public-surface.md                      | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
-| meta/trellis-1.0-refactor-plan.md                            | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
+| File                                                  | Matched Tokens                                                                                                                                 | Action                                |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| meta/experiments/alpha-forwarding-hardening-sprint.md | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/functions`                                              | historical/planning reference allowed |
+| meta/experiments/phase0-go-no-go.md                   | `tool.fromOperation`, `@lupinum/trellis/functions`                                                                                             | historical/planning reference allowed |
+| meta/experiments/phase0-next-major.md                 | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`                                                                            | historical/planning reference allowed |
+| meta/experiments/phase0-pre-alpha-decisions.md        | `@lupinum/trellis/functions`                                                                                                                   | historical/planning reference allowed |
+| meta/rfc-forwarding-envelope.md                       | `_trustedForwardingKey`, `_trustedForwarding`                                                                                                  | historical/planning reference allowed |
+| meta/skill/references/public-surface.md               | `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`                                                                                        | rewrite/delete before 1.0 docs gate   |
+| meta/trellis-1.0-refactor-plan.md                     | `tool.fromOperation`, `_trustedForwardingKey`, `_trustedForwarding`, `@lupinum/trellis/bridge`, `@lupinum/trellis/functions`, `trellis bridge` | historical/planning reference allowed |
 
 ## Docs Front Door Old Builder Hits
 
-| File                                                         | Matched Tokens | Action                              |
-| ------------------------------------------------------------ | -------------- | ----------------------------------- |
-| apps/docs/content/docs/02.concepts/3.rate-limiting-layers.md | `query({`      | rewrite before docs front-door gate |
+| File | Matched Tokens | Action |
+| ---- | -------------- | ------ |
 
 ## Sprint 1 Decisions
 
@@ -122,7 +119,7 @@ Edit the source script or the 1.0 refactor plan, not this generated output.
 - `cms` is removed from Trellis beginner starters; Ginko owns CMS setup and Trellis keeps only bridge fixtures/docs for package authors.
 - `trellis bridge` leaves the root Trellis CLI and moves to bridge-owned tooling with `@lupinum/trellis-bridge`.
 - `workspace-mcp` is the only 1.0 CLI starter spelling; `workspace --mcp` is deleted rather than kept as an alias.
-- `tsconfig.types.public.compat.json` and `test:types:public:compat` are deleted or replaced by explicit 1.0 public-surface/migration checks.
+- `test:types:public` is the 1.0 public type verification path; the old `public.compat` check is deleted.
 - `trellis add` remains, but only as a fixture/inventory-backed feature command; old template-backed add slices are replaced with the same fixture discipline as starters.
 
 ## Required Proof Rows For Slice 1

@@ -1,8 +1,8 @@
 # RFC: Trusted Forwarding Envelope
 
-Status: alpha decision baseline
+Status: 1.0 production-candidate baseline
 Owner: Matthias
-Reviewer: TBD security-aware reviewer outside the implementation author
+Reviewer: team-provided security-aware reviewer outside the implementation author
 
 ## Purpose
 
@@ -254,9 +254,9 @@ only. It never grants permission.
 
 ## External Review Packet
 
-Reviewer assignment is still blocked on naming one security-aware reviewer
-outside the implementation author. Phase 0 can finish the local spike work, but
-production forwarding implementation and public API freeze wait for review.
+External security review feedback has been received through the team review
+process. The reviewer identity is tracked outside the repo; this RFC records the
+accepted technical feedback and remaining production follow-up.
 
 The review should answer these finite questions:
 
@@ -286,3 +286,16 @@ The review should answer these finite questions:
    principal, delegation, and bearer data out of logs and diagnostics?
 10. Is the alpha maximum serialized envelope size of 8192 bytes appropriate for
     expected principal/delegation payloads?
+
+## External Review Outcome For 1.0
+
+The 1.0 production-candidate baseline accepts compact JWS-like `HS256` with a
+high-entropy server-only key, strict algorithm allowlisting, exact issuer /
+audience / function-ref / purpose checks, bounded TTL by purpose, deterministic
+top-level-only args hashing, atomic `operation-execute` replay redemption,
+principal/delegation validation, safe redaction, and no raw forwarding fallback.
+
+Production follow-up remains explicit: revisit asymmetric signing once Trellis
+has real multi-deployment or package-author pressure that justifies public-key
+verification over the operational simplicity of the shared Convex/Nitro HMAC
+secret.

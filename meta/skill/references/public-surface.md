@@ -22,11 +22,10 @@ Current package exports are:
 - `@lupinum/trellis`
 - `@lupinum/trellis/args`
 - `@lupinum/trellis/auth`
-- `@lupinum/trellis/bridge`
+- `@lupinum/trellis/backend`
 - `@lupinum/trellis/composables`
 - `@lupinum/trellis/eslint`
 - `@lupinum/trellis/feature`
-- `@lupinum/trellis/functions`
 - `@lupinum/trellis/mcp`
 - `@lupinum/trellis/server`
 - `@lupinum/trellis/testing`
@@ -37,10 +36,15 @@ Current package exports are:
 If a proposed import is not in `package.json`, treat it as unavailable until the
 public surface is deliberately changed and tested.
 
+Package-author bridge APIs are owned by the separate `@lupinum/trellis-bridge`
+package. They are not re-exported from the core Trellis package.
+
 Known rejected legacy/nonexistent subpaths include:
 
 - `@lupinum/trellis/actor`
+- `@lupinum/trellis/bridge`
 - `@lupinum/trellis/convex`
+- `@lupinum/trellis/functions`
 - `@lupinum/trellis/schema`
 - `@lupinum/trellis/scoping`
 - `@lupinum/trellis/service`

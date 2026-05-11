@@ -16,7 +16,7 @@ MCP tools project the same app-owned backend model used by browser and server su
 ## Consequences
 
 `workspace-mcp` is the canonical starter template for agent-enabled workspace
-apps. `workspace --mcp` remains an accepted CLI alias while the next-major
-starter surface is being shaped.
+apps. The old `workspace --mcp` flag alias is deleted for 1.0 so the starter
+surface has one source of truth.
 
 MCP examples should emphasize principal forwarding, actor resolution, permission-aware discovery, scoped tools, and operation-backed destructive work.
