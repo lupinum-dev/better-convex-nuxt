@@ -1,6 +1,10 @@
 import { getAuth } from '@lupinum/trellis/auth'
-import { defineDelegation, definePrincipal } from '@lupinum/trellis/backend'
-import { getForwardedDelegation, getForwardedPrincipal } from '@lupinum/trellis/backend'
+import {
+  defineDelegation,
+  definePrincipal,
+  getForwardedDelegation,
+  getForwardedPrincipal,
+} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import type { Doc } from '../_generated/dataModel'

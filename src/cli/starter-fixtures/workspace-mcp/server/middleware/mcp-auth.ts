@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 
+import { serverConvexQuery } from '@lupinum/trellis/server'
 import { defineEventHandler, getHeader, createError } from 'h3'
 
 import { api } from '#trellis/api'
-import { serverConvexQuery } from '@lupinum/trellis/server'
 
 export default defineEventHandler(async (event) => {
   const header = getHeader(event, 'authorization')
@@ -17,7 +17,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const hash = createHash('sha256').update(token).digest('hex')
-  const key = await serverConvexQuery(event, api.features.mcpKeys.domain.validate, { hash }, { auth: 'none' })
+  const key = await serverConvexQuery(
+    event,
+    api.features.mcpKeys.domain.validate,
+    { hash },
+    { auth: 'none' },
+  )
   if (!key) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }

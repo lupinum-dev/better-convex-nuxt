@@ -2,7 +2,7 @@
 
 Concept brief only. Not runnable yet.
 
-Inspired by: **ginko-cms + consumer-site**
+Inspired by: **ginko-cms**
 
 ## Why this example exists
 
@@ -46,4 +46,4 @@ Agents should be able to:
 
 ## Existing work to draw from
 
-If this concept is implemented, it should harvest patterns from the current `ginko-cms` and `consumer-site` worktrees rather than reinvent the domain from scratch.
+If this concept is implemented, it should harvest patterns from the current `ginko-cms` worktree rather than reinvent the domain from scratch.

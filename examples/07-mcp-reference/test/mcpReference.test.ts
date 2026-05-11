@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
-import { createTestContext } from '@lupinum/trellis/testing'
 import { createTrustedForwardingEnvelope } from '@lupinum/trellis/backend'
+import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
@@ -9,7 +9,6 @@ import { mcpManage } from '../convex/features/mcpKeys/permissions'
 import {
   runbookBulkDelete,
   runbookCreate,
-  runbookDelete,
   runbookRead,
 } from '../convex/features/runbooks/permissions'
 import schema from '../convex/schema'
@@ -116,7 +115,6 @@ describe('mcp reference example', () => {
       can: {
         [runbookRead.key]: true,
         [runbookCreate.key]: true,
-        [runbookDelete.key]: true,
         [runbookBulkDelete.key]: true,
         [mcpManage.key]: true,
       },
@@ -153,7 +151,6 @@ describe('mcp reference example', () => {
         [runbookRead.key]: false,
         [runbookCreate.key]: false,
         [mcpManage.key]: false,
-        [runbookDelete.key]: false,
         [runbookBulkDelete.key]: false,
       },
     })
@@ -195,7 +192,6 @@ describe('mcp reference example', () => {
       can: {
         [runbookRead.key]: true,
         [runbookCreate.key]: true,
-        [runbookDelete.key]: true,
         [runbookBulkDelete.key]: false,
         [mcpManage.key]: false,
       },

@@ -1,7 +1,7 @@
-import type { TableNames } from './_generated/dataModel'
-import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { defineTrellis } from '@lupinum/trellis/backend'
 
+import type { TableNames } from './_generated/dataModel'
+import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
 import { getActorFromPrincipal } from './auth/actor'
 import { principal } from './auth/principal'
 import { globalTables, tenantTables } from './features'

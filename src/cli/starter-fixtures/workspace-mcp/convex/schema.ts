@@ -27,5 +27,4 @@ export default defineSchema({
   })
     .index('by_hash', ['hash'])
     .index('by_bound_workspace', ['boundWorkspaceId']),
-
 })

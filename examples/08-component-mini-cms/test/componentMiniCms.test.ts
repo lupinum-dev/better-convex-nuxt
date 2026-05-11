@@ -2,8 +2,8 @@
 
 import { readFileSync } from 'node:fs'
 
-import { createTestContext } from '@lupinum/trellis/testing'
 import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
+import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
 import { api, internal } from '../convex/_generated/api'
@@ -216,9 +216,7 @@ describe('example 08 component mini cms', () => {
           provider: 'mcp',
         },
       }),
-    ).rejects.toThrow(
-      'Forwarded identity fields are only allowed on verified trusted forwarding paths.',
-    )
+    ).rejects.toThrow('Unexpected field `principal`')
   })
 
   it('forwards principal unchanged through the internal component bridge', async () => {

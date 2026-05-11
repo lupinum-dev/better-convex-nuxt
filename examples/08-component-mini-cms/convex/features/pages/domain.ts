@@ -47,7 +47,7 @@ function getRequiredTrustedForwardingKey(): string {
 async function bridgeForwardingArgs(
   ctx: { principal: () => Promise<MiniCmsPrincipal> },
   args: Record<string, unknown>,
-  operation: 'query' | 'mutation' | 'action',
+  operation: 'query' | 'mutation' | 'action' | 'operation-execute',
   functionRef: string,
 ): Promise<Record<string, unknown>> {
   const principal = await ctx.principal()

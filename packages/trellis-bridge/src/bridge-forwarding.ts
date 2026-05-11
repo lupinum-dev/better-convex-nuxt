@@ -30,7 +30,10 @@ const bridgeForwardingTtlsMs = {
   query: 60_000,
   mutation: 30_000,
   action: 30_000,
-} satisfies Record<'query' | 'mutation' | 'action', number>
+  'operation-execute': 10_000,
+} satisfies Record<BridgeForwardingPurpose, number>
+
+type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 
 function resolveBridgePrincipalSubject(principal: unknown): string {
   if (
@@ -101,7 +104,7 @@ function createBridgeJti(): string {
 export interface CreateBridgeForwardingEnvelopeOptions {
   trustedForwardingKey: string
   principal: unknown
-  operation: 'query' | 'mutation' | 'action'
+  operation: BridgeForwardingPurpose
   functionRef: string
   args: Record<string, unknown>
   jtiPrefix?: string
@@ -141,7 +144,7 @@ function createBridgeTrustedForwardingFields(
   args: Record<string, unknown>,
   principal: unknown,
   trustedForwardingKey: string,
-  operation: 'query' | 'mutation' | 'action',
+  operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ) {
@@ -162,7 +165,7 @@ export function createBridgeForwardingArgs(
   args: Record<string, unknown>,
   principal: unknown,
   trustedForwardingKey: string,
-  operation: 'query' | 'mutation' | 'action',
+  operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ): Record<string, unknown> {

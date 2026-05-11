@@ -14,7 +14,7 @@ import {
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { defineOperation } from '../../src/runtime/functions'
-import { defineTool } from '../../src/runtime/mcp'
+import { defineTool } from '../../src/runtime/mcp/advanced'
 import { createTestContext } from '../../src/runtime/testing'
 import { createTrustedForwardingEnvelope } from '../../src/runtime/trusted-forwarding'
 

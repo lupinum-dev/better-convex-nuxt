@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { api } from '#trellis/api'
 import { createTodo } from '~~/shared/features/todos/contract'
+
+import { api } from '#trellis/api'
 
 const title = ref('')
 
@@ -19,19 +20,19 @@ async function handleCreateTodo() {
 </script>
 
 <template>
-  <main style="max-width: 720px; margin: 0 auto; padding: 40px 16px;">
+  <main style="max-width: 720px; margin: 0 auto; padding: 40px 16px">
     <h1>Public Starter</h1>
     <p>Trellis app starter: live query plus public mutations, no auth required.</p>
 
-    <div style="display: grid; gap: 16px;">
-      <div style="display: flex; gap: 8px;">
+    <div style="display: grid; gap: 16px">
+      <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a todo" />
         <button :disabled="createTodoMutation.pending.value" @click="handleCreateTodo">Add</button>
       </div>
 
-      <ul style="display: grid; gap: 8px; padding-left: 20px;">
+      <ul style="display: grid; gap: 8px; padding-left: 20px">
         <li v-for="todo in todos ?? []" :key="todo._id">
-          <label style="display: flex; gap: 8px; align-items: center;">
+          <label style="display: flex; gap: 8px; align-items: center">
             <input
               type="checkbox"
               :checked="todo.completed"

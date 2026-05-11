@@ -19,10 +19,7 @@ describe('operation ref codegen', () => {
     ) as StarterFixtureManifest
     const rendered = renderStarterGeneratedFiles(manifest)
 
-    const fixture = readFileSync(
-      resolve(fixtureRoot, 'generated/operation-refs.ts'),
-      'utf8',
-    )
+    const fixture = readFileSync(resolve(fixtureRoot, 'generated/operation-refs.ts'), 'utf8')
     const mcpToolRefsFixture = readFileSync(
       resolve(fixtureRoot, 'generated/mcp-tool-refs.ts'),
       'utf8',

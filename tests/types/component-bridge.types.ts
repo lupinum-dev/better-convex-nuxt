@@ -1,3 +1,5 @@
+import { createComponentBridge } from '@lupinum/trellis-bridge/component'
+import { definePrincipal } from '@lupinum/trellis/backend'
 import type {
   ActionBuilder,
   FunctionReference,
@@ -9,9 +11,6 @@ import type {
   RegisteredQuery,
 } from 'convex/server'
 import { v } from 'convex/values'
-
-import { definePrincipal } from '@lupinum/trellis/backend'
-import { createComponentBridge } from '@lupinum/trellis-bridge/component'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =

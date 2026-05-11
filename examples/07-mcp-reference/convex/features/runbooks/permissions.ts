@@ -20,6 +20,7 @@ export const runbookDelete = definePermission({
   key: 'runbook.delete',
   label: 'Delete own runbook',
   roles: ['owner', 'admin', 'member'],
+  project: false,
   check: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
 })
 

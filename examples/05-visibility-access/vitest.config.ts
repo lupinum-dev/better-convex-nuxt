@@ -1,5 +1,6 @@
-import { convexTestConfig } from '@lupinum/trellis/testing'
 import { fileURLToPath } from 'node:url'
+
+import { convexTestConfig } from '@lupinum/trellis/testing'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(

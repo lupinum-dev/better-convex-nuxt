@@ -131,8 +131,7 @@ describe('trusted forwarding envelopes', () => {
           id: 'j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p',
           nested: { beta: 'b', alpha: 'a' },
         },
-        canonical:
-          '{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}',
+        canonical: '{"id":"j97f8x2v6k1c9e3w4q5r6t7y8h9m0n1p","nested":{"alpha":"a","beta":"b"}}',
         hash: '0Y9VM_pkQA_MgpEd_79yEjt1iTnJlGcEa24ihRm19eQ',
       },
     ]
@@ -307,9 +306,7 @@ describe('trusted forwarding envelopes', () => {
     expect(() => canonicalizeForwardingArgs({ count: Number.NaN })).toThrow(/number/)
     expect(() => canonicalizeForwardingArgs({ count: -0 })).toThrow(/number/)
     expect(() => canonicalizeForwardingArgs({ count: 1n })).toThrow(/bigint/)
-    expect(() => canonicalizeForwardingArgs({ bytes: new Uint8Array([1, 2, 3]) })).toThrow(
-      /binary/,
-    )
+    expect(() => canonicalizeForwardingArgs({ bytes: new Uint8Array([1, 2, 3]) })).toThrow(/binary/)
     expect(() => canonicalizeForwardingArgs({ when: new Date('2026-05-09T00:00:00Z') })).toThrow(
       /object/,
     )

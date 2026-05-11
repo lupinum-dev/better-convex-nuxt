@@ -32,6 +32,7 @@ export const saveDraftPermission = definePermission({
 export const publishPagePermission = definePermission({
   key: 'publishPage',
   label: 'Publish page',
+  project: false,
   check: isEditor,
 })
 

@@ -74,9 +74,7 @@ export const initCommand = defineCommand({
       template !== 'workspace' &&
       template !== 'workspace-mcp'
     ) {
-      throw new Error(
-        'Invalid template. Use one of: public, personal, workspace, workspace-mcp.',
-      )
+      throw new Error('Invalid template. Use one of: public, personal, workspace, workspace-mcp.')
     }
 
     if (mcp && template !== 'workspace' && template !== 'workspace-mcp') {

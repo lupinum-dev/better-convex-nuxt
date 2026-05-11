@@ -101,7 +101,6 @@ function grepFiles(rootDir, directories, patterns) {
   const rows = []
   const files = directories.flatMap((directory) => walk(rootDir, directory))
   for (const file of files) {
-    if (file.startsWith('meta/refactor/')) continue
     if (!textExtensions.has(extname(file))) continue
     const source = read(rootDir, file)
     const matched = patterns.filter((pattern) => source.includes(pattern))

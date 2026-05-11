@@ -4,6 +4,5 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     auth: true,
     permissions: 'permissions/context.getPermissionContext',
-
   },
 })

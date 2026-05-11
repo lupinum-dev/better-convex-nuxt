@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { useMcpServer, useMcpSession } from '#trellis/mcp'
 import { defineMcpTool } from '#trellis/mcp/advanced'
+
 import { resolveHarnessMcpAuth } from '../../support/mcp-auth-helpers'
 
 interface InternalHarnessSessionData {

@@ -88,6 +88,7 @@ type ComponentBridgeFunctionRef = FunctionReference<
   'query' | 'mutation' | 'action',
   'public' | 'internal'
 >
+type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 type ComponentBridgeQueryRef = FunctionReference<'query', 'public' | 'internal'>
 type ComponentBridgeMutationRef = FunctionReference<'mutation', 'public' | 'internal'>
 type ComponentBridgeActionRef = FunctionReference<'action', 'public' | 'internal'>
@@ -100,6 +101,7 @@ type ComponentBridgeDefinition<
   returns?: GenericValidator
   component: TRef
   functionRef?: string
+  forwardingPurpose?: BridgeForwardingPurpose
 } & Record<never, never>
 
 type ComponentBridgeQueryDefinition<
@@ -405,6 +407,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
       args: forwardingArgs,
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
+        let forwardingPurpose: 'mutation' | 'operation-execute' = 'mutation'
         const principal = async () => {
           if (!principalPromise) {
             const ctxWithTrustedForwarding = { ...ctx }
@@ -594,7 +597,7 @@ export function createComponentBridge<
             args as Record<string, unknown>,
             principal,
             trustedForwardingKey,
-            'mutation',
+            definition.forwardingPurpose ?? 'mutation',
             definition.component,
             definition.functionRef,
           ) as never,
@@ -673,7 +676,7 @@ export function createComponentBridge<
             args as Record<string, unknown>,
             principal,
             trustedForwardingKey,
-            'mutation',
+            definition.forwardingPurpose ?? 'mutation',
             definition.component,
             definition.functionRef,
           ) as never,

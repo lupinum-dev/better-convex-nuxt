@@ -1,10 +1,10 @@
-import { api } from '#trellis/api'
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
-
-import { todoCreate, workspaceRead } from '~~/convex/features/todos'
 import type { WorkspacePrincipal } from '~~/convex/auth/principal'
+import { todoCreate, workspaceRead } from '~~/convex/features/todos'
+
+import { api } from '#trellis/api'
 
 type McpAuthContext = {
   id?: string

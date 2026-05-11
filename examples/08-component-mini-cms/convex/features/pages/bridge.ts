@@ -87,6 +87,7 @@ const miniCmsBridge = bridge.from({
     operation: 'internalMutation',
     component: miniCmsComponents.domain.publish,
     functionRef: 'features/pages/domain:publish',
+    forwardingPurpose: 'operation-execute',
     args: publishPage.args,
     returns: v.object({
       pageId: v.string(),
