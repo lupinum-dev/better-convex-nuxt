@@ -35,10 +35,14 @@ import { v } from 'convex/values'
 import {
   createBridgeForwardingArgs,
   getRequiredBridgeTrustedForwardingKey,
+  type TrustedForwardingKeyInput,
 } from './bridge-forwarding.js'
 export {
+  createBridgeForwardingArgs,
   createBridgeForwardingEnvelope,
+  getBridgeTrustedForwardingKeyFromArgs,
   type CreateBridgeForwardingEnvelopeOptions,
+  type TrustedForwardingKeyInput,
 } from './bridge-forwarding.js'
 
 type AnyCtx<DataModel extends GenericDataModel> =
@@ -379,7 +383,7 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
 
 function createInternalBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
-  trustedForwardingKeyOverride?: string,
+  trustedForwardingKeyOverride?: TrustedForwardingKeyInput,
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
@@ -407,7 +411,6 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
       args: forwardingArgs,
       input: async (ctx, args) => {
         let principalPromise: Promise<TPrincipal> | null = null
-        let forwardingPurpose: 'mutation' | 'operation-execute' = 'mutation'
         const principal = async () => {
           if (!principalPromise) {
             const ctxWithTrustedForwarding = { ...ctx }
@@ -530,7 +533,7 @@ export function createComponentBridge<
   >,
   options: {
     principal?: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
-    trustedForwardingKey?: string
+    trustedForwardingKey?: TrustedForwardingKeyInput
   } = {},
 ) {
   const principalDefinition =
@@ -563,15 +566,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'query',
             definition.component,
             definition.functionRef,
@@ -588,15 +588,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             definition.functionRef,
@@ -616,15 +613,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'action',
             definition.component,
             definition.functionRef,
@@ -642,15 +636,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'query',
             definition.component,
             definition.functionRef,
@@ -667,15 +658,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             definition.functionRef,
@@ -695,15 +683,12 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const principal = await ctx.principal()
-        const trustedForwardingKey = getRequiredBridgeTrustedForwardingKey(
-          options.trustedForwardingKey,
-        )
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
             principal,
-            trustedForwardingKey,
+            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'action',
             definition.component,
             definition.functionRef,

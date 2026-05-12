@@ -21,6 +21,7 @@ export type TrustedForwardingIdentity = {
 
 export type TrustedForwardingInput = {
   _trellisForwarding?: unknown
+  _trellisForwardingKey?: unknown
 }
 
 export type TrustedForwardingContextCarrier = Record<PropertyKey, unknown> & {
@@ -49,6 +50,7 @@ const envelopeStateByArgs = new WeakMap<object, TrustedForwardingEnvelopeState>(
 
 export const trustedForwardingValidators = {
   _trellisForwarding: v.optional(v.string()),
+  _trellisForwardingKey: v.optional(v.string()),
 } satisfies PropertyValidators
 
 export const trustedForwardingAlphaIssuer = 'trellis://server'
@@ -59,8 +61,10 @@ export const trustedForwardingAlphaTtlsMs = {
   ...trustedForwardingPurposeMaxTtlsMs,
 } satisfies Record<TrustedForwardingPurpose, number>
 
+export type TrustedForwardingKeyInput = string | ((args?: unknown) => string)
+
 export type TrustedForwardingEnvelopeContextOptions = {
-  expectedKeyOverride?: string
+  expectedKeyOverride?: TrustedForwardingKeyInput
   expectedIssuer?: string
   expectedAudience?: string
   expectedFunctionRef?: string
@@ -102,8 +106,13 @@ function nonBlankString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
-function getRequiredTrustedForwardingKey(override?: string): string {
-  const key = nonBlankString(override) ?? nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
+function getRequiredTrustedForwardingKey(
+  override?: TrustedForwardingKeyInput,
+  args?: unknown,
+): string {
+  const overrideValue = typeof override === 'function' ? override(args) : override
+  const key =
+    nonBlankString(overrideValue) ?? nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY)
 
   if (!key) {
     throw deny('Trusted forwarding auth is not configured. Set CONVEX_TRUSTED_FORWARDING_KEY.', {
@@ -290,13 +299,16 @@ export function assertForwardableDelegation(
 
 export function extractTrustedForwardingFromArgs(
   args: unknown,
-  expectedKeyOverrideOrOptions?: string | TrustedForwardingEnvelopeContextOptions,
+  expectedKeyOverrideOrOptions?:
+    | TrustedForwardingKeyInput
+    | TrustedForwardingEnvelopeContextOptions,
 ): TrustedForwardingIdentity | null {
   if (!isObject(args)) return null
 
   const input = args as TrustedForwardingInput
   const options =
-    typeof expectedKeyOverrideOrOptions === 'string'
+    typeof expectedKeyOverrideOrOptions === 'string' ||
+    typeof expectedKeyOverrideOrOptions === 'function'
       ? { expectedKeyOverride: expectedKeyOverrideOrOptions }
       : (expectedKeyOverrideOrOptions ?? {})
 
@@ -308,7 +320,7 @@ export function extractTrustedForwardingFromArgs(
       })
     }
 
-    const key = getRequiredTrustedForwardingKey(options.expectedKeyOverride)
+    const key = getRequiredTrustedForwardingKey(options.expectedKeyOverride, args)
     const keyId = nonBlankString(process.env.CONVEX_TRUSTED_FORWARDING_KEY_ID)
     const keys = keyId
       ? { [trustedForwardingDefaultKeyId]: key, [keyId]: key }
@@ -465,7 +477,8 @@ export function hasForwardedIdentityFields(args: unknown): boolean {
   return (
     Object.prototype.hasOwnProperty.call(args, 'principal') ||
     Object.prototype.hasOwnProperty.call(args, 'delegation') ||
-    Object.prototype.hasOwnProperty.call(args, '_trellisForwarding')
+    Object.prototype.hasOwnProperty.call(args, '_trellisForwarding') ||
+    Object.prototype.hasOwnProperty.call(args, '_trellisForwardingKey')
   )
 }
 
@@ -476,6 +489,7 @@ export function stripForwardedIdentityFields<TArgs>(args: TArgs): TArgs {
     principal: _principal,
     delegation: _delegation,
     _trellisForwarding: _trellisForwarding,
+    _trellisForwardingKey: _trellisForwardingKey,
     ...rest
   } = args as Record<string, unknown>
 

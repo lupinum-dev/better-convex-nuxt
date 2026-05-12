@@ -81,6 +81,7 @@ describe('trusted forwarding envelopes', () => {
           z: 1,
           a: { b: true },
           _trellisForwarding: 'ignored',
+          _trellisForwardingKey: 'ignored',
           _trustedForwardingKey: 'ignored',
           _trustedForwarding: { principalSubject: 'ignored' },
           __trellis: { trace: 'ignored' },

@@ -14,6 +14,7 @@ import {
   trustedForwardingValidators,
   type TrustedForwardingEnvelopeContextOptions,
   type TrustedForwardingIdentity,
+  type TrustedForwardingKeyInput,
 } from './shared.js'
 
 export {
@@ -23,7 +24,10 @@ export {
   TrustedForwardingEnvelopeError,
   verifyTrustedForwardingEnvelope,
 } from './envelope.js'
-export { type TrustedForwardingEnvelopeContextOptions } from './shared.js'
+export {
+  type TrustedForwardingEnvelopeContextOptions,
+  type TrustedForwardingKeyInput,
+} from './shared.js'
 export {
   createTrustedForwardingEnvelopeArgs,
   extractSubject,
@@ -49,7 +53,7 @@ export function withTrustedForwarding<V extends PropertyValidators>(args: V): V 
 export function setTrustedForwardingContext(
   ctx: unknown,
   args: unknown,
-  expectedKeyOverride?: string | TrustedForwardingEnvelopeContextOptions,
+  expectedKeyOverride?: TrustedForwardingKeyInput | TrustedForwardingEnvelopeContextOptions,
 ): void {
   if (!isTrustedForwardingContextCarrier(ctx)) return
   const trustedForwarding = extractTrustedForwardingFromArgs(args, expectedKeyOverride)

@@ -60,7 +60,7 @@ describe('trusted forwarding helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual(['title', '_trellisForwarding'])
+    expect(Object.keys(args)).toEqual(['title', '_trellisForwarding', '_trellisForwardingKey'])
   })
 
   it('returns the trusted forwarding identity from a signed envelope', () => {
@@ -79,6 +79,34 @@ describe('trusted forwarding helpers', () => {
 
     expect(getTrustedForwarding(ctx)).toEqual({
       principalSubject: 'user:u_1',
+    })
+  })
+
+  it('can verify component-boundary forwarding with the key carried as a reserved arg', () => {
+    const ctx: Record<string, unknown> = {}
+    const args = signedArgs({
+      args: { title: 'Hello' },
+      principal: { kind: 'user', userId: 'u_component', subject: 'user:u_component' },
+    })
+    const key = process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+
+    setTrustedForwardingContext(
+      ctx,
+      {
+        ...args,
+        _trellisForwardingKey: key,
+      },
+      {
+        expectedKeyOverride: (input) =>
+          (input as { _trellisForwardingKey?: string })._trellisForwardingKey!,
+        expectedFunctionRef: 'tasks:create',
+        now: Date.UTC(2026, 4, 9, 12, 0, 1),
+      },
+    )
+
+    expect(getTrustedForwarding(ctx)).toEqual({
+      principalSubject: 'user:u_component',
     })
   })
 
@@ -363,6 +391,43 @@ describe('trusted forwarding helpers', () => {
     })
 
     expect(getTrustedForwarding(ctx)).toEqual({ principalSubject: 'user:u_component' })
+  })
+
+  it('does not trust a key carried in args unless the runtime explicitly opts into it', () => {
+    const ctx: Record<string, unknown> = {}
+    const args = { title: 'Forged component call' }
+    const callerChosenKey = 'caller-chosen-forwarding-key-with-enough-entropy'
+    const envelope = createTrustedForwardingEnvelope({
+      key: callerChosenKey,
+      keyId: 'default',
+      iss: 'trellis://server',
+      aud: 'trellis://convex',
+      jti: 'forged-key-in-args',
+      sub: 'user:u_forged',
+      principal: { kind: 'user', userId: 'u_forged', subject: 'user:u_forged' },
+      transport: 'bridge',
+      purpose: 'mutation',
+      functionRef: 'tasks:create',
+      args,
+      now: Date.UTC(2026, 4, 9, 12, 0, 0),
+      ttlMs: 30_000,
+    })
+
+    expect(() =>
+      setTrustedForwardingContext(
+        ctx,
+        {
+          ...args,
+          _trellisForwarding: envelope,
+          _trellisForwardingKey: callerChosenKey,
+        },
+        {
+          expectedFunctionRef: 'tasks:create',
+          expectedTransport: 'bridge',
+          now: Date.UTC(2026, 4, 9, 12, 0, 1),
+        },
+      ),
+    ).toThrow(/Trusted forwarding auth is not configured/)
   })
 
   it('rejects short trusted forwarding keys in production', () => {

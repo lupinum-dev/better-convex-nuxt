@@ -19,6 +19,7 @@ async function expectSignedBridgeArgs(
   expect(args).toMatchObject({
     ...options.appArgs,
     _trellisForwarding: expect.any(String),
+    _trellisForwardingKey: options.key,
   })
   expect(args).not.toHaveProperty('_trustedForwardingKey')
   expect(args).not.toHaveProperty('_trustedForwarding')
@@ -132,6 +133,7 @@ describe('createComponentBridge', () => {
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
+      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -205,6 +207,7 @@ describe('createComponentBridge', () => {
     expect(runAction).toHaveBeenCalledWith('component.action', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
+      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runAction.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -349,6 +352,7 @@ describe('createComponentBridge', () => {
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
+      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -359,8 +363,7 @@ describe('createComponentBridge', () => {
     })
   })
 
-  it('keeps anonymous public bridge calls unsigned', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('keeps anonymous public bridge calls unsigned without requiring a forwarding key', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
     const { definePrincipal } = await import('../../src/runtime/functions')
 
@@ -526,9 +529,86 @@ describe('createComponentBridge', () => {
     expect(runMutation).toHaveBeenCalledWith('component.mutation', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
+      _trellisForwardingKey: 'explicit-component-boundary-key',
     })
     await expectSignedBridgeArgs(runMutation.mock.calls[0]![1], {
       key: 'explicit-component-boundary-key',
+      purpose: 'mutation',
+      functionRef: 'component.mutation',
+      appArgs: { slug: 'docs' },
+      principal,
+    })
+  })
+
+  it('passes bridge call args into trusted forwarding key callbacks before signing', async () => {
+    const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
+    const { definePrincipal } = await import('../../src/runtime/functions')
+
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const trustedForwardingKey = vi.fn((args?: unknown) => {
+      expect(args).toEqual({ slug: 'docs' })
+      return 'args-aware-component-boundary-key'
+    })
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async () => principal,
+        }),
+        trustedForwardingKey,
+      },
+    )
+
+    const registered = bridge.internalMutation({
+      component: 'component.mutation' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+      definition: {
+        handler: (
+          ctx: {
+            principal: () => Promise<typeof principal>
+            runMutation: (component: string, args: unknown) => Promise<unknown>
+          },
+          args: { slug: string },
+        ) => Promise<unknown>
+      }
+    }
+
+    const runMutation = vi.fn(async () => ({ ok: true }))
+    const customized = await registered.customization.input({ runMutation }, {})
+
+    await registered.definition.handler(
+      {
+        ...customized.ctx,
+        runMutation,
+      },
+      { slug: 'docs' },
+    )
+
+    expect(trustedForwardingKey).toHaveBeenCalledTimes(1)
+    expect(runMutation).toHaveBeenCalledWith('component.mutation', {
+      slug: 'docs',
+      _trellisForwarding: expect.any(String),
+      _trellisForwardingKey: 'args-aware-component-boundary-key',
+    })
+    await expectSignedBridgeArgs(runMutation.mock.calls[0]![1], {
+      key: 'args-aware-component-boundary-key',
       purpose: 'mutation',
       functionRef: 'component.mutation',
       appArgs: { slug: 'docs' },

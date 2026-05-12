@@ -87,6 +87,7 @@ export const trustedForwardingPurposeMaxTtlsMs = {
 } satisfies Record<TrustedForwardingPurpose, number>
 const excludedArgsKeys = new Set([
   '_trellisForwarding',
+  '_trellisForwardingKey',
   '_trustedForwardingKey',
   '_trustedForwarding',
   '__trellis',

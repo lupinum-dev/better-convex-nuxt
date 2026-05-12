@@ -37,7 +37,11 @@ import {
   stripObservationEnvelope,
   toObservationContext,
 } from '../observability/index.js'
-import { getTrustedForwarding, setTrustedForwardingContext } from '../trusted-forwarding/index.js'
+import {
+  getTrustedForwarding,
+  setTrustedForwardingContext,
+  type TrustedForwardingKeyInput,
+} from '../trusted-forwarding/index.js'
 import {
   getTrustedForwardingEnvelopeState,
   hasForwardedIdentityFields,
@@ -340,7 +344,7 @@ export interface DefineTrellisOptions<
   tenantIsolation?: TenantIsolationOptions<DataModel>
   services?: ServiceAccessDefinition<DataModel, TPrincipal>
   observability?: TrellisObservabilityOptions
-  trustedForwardingKey?: string
+  trustedForwardingKey?: TrustedForwardingKeyInput
   destructiveSafety?: {
     redemptionTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
