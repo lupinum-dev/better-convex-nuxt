@@ -155,6 +155,10 @@ Most apps do not need a component bridge.
 
 The bridge is for packaged Trellis-aware integrations that need stable host refs and managed host files while keeping internal component refs private. Bridge-owned tooling in `@lupinum/trellis-bridge` installs, regenerates, inspects, and checks bridge manifests. `createComponentBridge(...)` signs forwarding envelopes into component refs, but guards and app-owned actor logic still run.
 
+Product packages own their public setup flow. For Ginko CMS specifically,
+Trellis bridge mechanics remain internal infrastructure; consumer setup belongs
+to `ginko-cms init`, `ginko-cms doctor`, and package-owned docs.
+
 ## Maintained Examples
 
 `examples/01` through `08` are maintained framework references.

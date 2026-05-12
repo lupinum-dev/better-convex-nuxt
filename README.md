@@ -61,8 +61,10 @@ Official starters:
 - `workspace`
 - `workspace-mcp`
 
-CMS product setup is Ginko-owned. Trellis keeps `08-component-mini-cms` as an
-advanced package-integration reference, not as a beginner starter.
+CMS product setup is Ginko-owned. Do not install Ginko CMS through Trellis
+commands, Trellis bridge exports, or starter variants. Trellis keeps
+`08-component-mini-cms` as an advanced package-integration reference, not as a
+beginner starter.
 
 ## Canonical Shape
 
