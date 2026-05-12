@@ -144,6 +144,73 @@ describe('createComponentBridge', () => {
     })
   })
 
+  it('rejects bridge envelopes signed for a different component function', async () => {
+    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    const { createComponentBridge, createBridgeForwardingArgs } = await import(
+      '../../packages/trellis-bridge/src/component'
+    )
+    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
+
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (ctx, args) =>
+            getForwardedPrincipal<typeof principal>(ctx as never, args as never) ?? principal,
+        }),
+      },
+    )
+
+    const bridgeA = bridge.internalQuery({
+      component: 'component.a' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+    }
+    const bridgeB = bridge.internalQuery({
+      component: 'component.b' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+    }
+
+    const signedForA = createBridgeForwardingArgs(
+      { slug: 'docs' },
+      principal,
+      'bridge-secret',
+      'query',
+      'component.a' as never,
+    )
+
+    const customizedA = await bridgeA.customization.input({}, signedForA)
+    await expect(customizedA.ctx.principal()).resolves.toEqual(principal)
+
+    const customizedB = await bridgeB.customization.input({}, signedForA)
+    await expect(customizedB.ctx.principal()).rejects.toThrow(/function-ref/i)
+  })
+
   it('forwards the resolved principal unchanged for internal action bridges', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')

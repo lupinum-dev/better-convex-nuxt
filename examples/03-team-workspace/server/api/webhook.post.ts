@@ -12,7 +12,7 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
 
-import { delegateToUser, readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
+import { delegateToUser, readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
   workspaceId?: string
@@ -48,7 +48,7 @@ function getWebhookActorAuthId(): string {
 
 export default defineEventHandler(async (event) => {
   const authId = getWebhookActorAuthId()
-  const body = await readVerifiedWebhookBody({
+  const body = await readSharedSecretWebhookBody({
     // Demo route boundary: one shared secret header. Production integrations usually add a
     // timestamped HMAC scheme and replay window on top of this before forwarding inward.
     signature: event.node.req.headers['x-example-signature'],

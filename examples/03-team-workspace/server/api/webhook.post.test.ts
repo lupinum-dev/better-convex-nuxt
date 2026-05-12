@@ -16,7 +16,7 @@ vi.mock('h3', () => ({
 }))
 
 vi.mock('#trellis/server', () => ({
-  readVerifiedWebhookBody: async ({
+  readSharedSecretWebhookBody: async ({
     signature,
     secret,
     readBody,

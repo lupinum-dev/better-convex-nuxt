@@ -34,6 +34,7 @@ import { v } from 'convex/values'
 
 import {
   createBridgeForwardingArgs,
+  getBridgeFunctionRef,
   getRequiredBridgeTrustedForwardingKey,
   type TrustedForwardingKeyInput,
 } from './bridge-forwarding.js'
@@ -294,6 +295,7 @@ type BridgeBatchResult<
 
 function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  expectedFunctionRef: string,
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
@@ -321,7 +323,17 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+            const ctxWithTrustedForwarding = { ...ctx }
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedPurpose: 'query',
+              expectedTransport: 'bridge',
+              expectedFunctionRef,
+            })
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
+            ).finally(() => {
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
+            })
           }
 
           return await principalPromise
@@ -342,7 +354,17 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+            const ctxWithTrustedForwarding = { ...ctx }
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedPurpose: 'mutation',
+              expectedTransport: 'bridge',
+              expectedFunctionRef,
+            })
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
+            ).finally(() => {
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
+            })
           }
 
           return await principalPromise
@@ -363,7 +385,17 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
         let principalPromise: Promise<TPrincipal> | null = null
         const principal = async () => {
           if (!principalPromise) {
-            principalPromise = Promise.resolve(principalDefinition.resolve(ctx, args))
+            const ctxWithTrustedForwarding = { ...ctx }
+            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+              expectedPurpose: 'action',
+              expectedTransport: 'bridge',
+              expectedFunctionRef,
+            })
+            principalPromise = Promise.resolve(
+              principalDefinition.resolve(ctxWithTrustedForwarding, args),
+            ).finally(() => {
+              clearTrustedForwardingContext(ctxWithTrustedForwarding)
+            })
           }
 
           return await principalPromise
@@ -383,6 +415,7 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
 
 function createInternalBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
   principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  expectedFunctionRef: string,
   trustedForwardingKeyOverride?: TrustedForwardingKeyInput,
 ): {
   query: Customization<
@@ -418,6 +451,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
               expectedKeyOverride: trustedForwardingKeyOverride,
               expectedPurpose: 'query',
               expectedTransport: 'bridge',
+              expectedFunctionRef,
             })
             principalPromise = Promise.resolve(
               principalDefinition.resolve(ctxWithTrustedForwarding, args),
@@ -449,6 +483,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
               expectedKeyOverride: trustedForwardingKeyOverride,
               expectedPurpose: 'mutation',
               expectedTransport: 'bridge',
+              expectedFunctionRef,
             })
             principalPromise = Promise.resolve(
               principalDefinition.resolve(ctxWithTrustedForwarding, args),
@@ -480,6 +515,7 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
               expectedKeyOverride: trustedForwardingKeyOverride,
               expectedPurpose: 'action',
               expectedTransport: 'bridge',
+              expectedFunctionRef,
             })
             principalPromise = Promise.resolve(
               principalDefinition.resolve(ctxWithTrustedForwarding, args),
@@ -539,29 +575,17 @@ export function createComponentBridge<
   const principalDefinition =
     options.principal ??
     (definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>)
-  const publicCustomization = createPublicBridgeCustomization<DataModel, TPrincipal>(
-    principalDefinition,
-  )
-  const internalCustomization = createInternalBridgeCustomization<DataModel, TPrincipal>(
-    principalDefinition,
-    options.trustedForwardingKey,
-  )
-
-  const query = customQuery(builders.query, publicCustomization.query)
-  const mutation = customMutation(builders.mutation, publicCustomization.mutation)
-  const action = builders.action
-    ? customAction(builders.action, publicCustomization.action)
-    : undefined
-  const internalQuery = customQuery(builders.internalQuery, internalCustomization.query)
-  const internalMutation = customMutation(builders.internalMutation, internalCustomization.mutation)
-  const internalAction = builders.internalAction
-    ? customAction(builders.internalAction, internalCustomization.action)
-    : undefined
 
   const registerQuery = <TRef extends ComponentBridgeQueryRef>(
     definition: ComponentBridgeDefinition<TRef>,
-  ) =>
-    query({
+  ) => {
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+    )
+    const query = customQuery(builders.query, customization.query)
+    return query({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
@@ -574,16 +598,23 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'query',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
     })
+  }
 
   const registerMutation = <TRef extends ComponentBridgeMutationRef>(
     definition: ComponentBridgeDefinition<TRef>,
-  ) =>
-    mutation({
+  ) => {
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+    )
+    const mutation = customMutation(builders.mutation, customization.mutation)
+    return mutation({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
@@ -596,18 +627,25 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
     })
+  }
 
   const registerAction = <TRef extends ComponentBridgeActionRef>(
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
-    if (!action) {
+    if (!builders.action) {
       throw new Error('createComponentBridge() was not configured with an action builder.')
     }
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+    )
+    const action = customAction(builders.action, customization.action)
     return action({
       args: definition.args,
       returns: definition.returns,
@@ -621,7 +659,7 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'action',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
@@ -630,8 +668,15 @@ export function createComponentBridge<
 
   const registerInternalQuery = <TRef extends ComponentBridgeQueryRef>(
     definition: ComponentBridgeDefinition<TRef>,
-  ) =>
-    internalQuery({
+  ) => {
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+      options.trustedForwardingKey,
+    )
+    const internalQuery = customQuery(builders.internalQuery, customization.query)
+    return internalQuery({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
@@ -644,16 +689,24 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'query',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
     })
+  }
 
   const registerInternalMutation = <TRef extends ComponentBridgeMutationRef>(
     definition: ComponentBridgeDefinition<TRef>,
-  ) =>
-    internalMutation({
+  ) => {
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+      options.trustedForwardingKey,
+    )
+    const internalMutation = customMutation(builders.internalMutation, customization.mutation)
+    return internalMutation({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
@@ -666,18 +719,26 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
     })
+  }
 
   const registerInternalAction = <TRef extends ComponentBridgeActionRef>(
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
-    if (!internalAction) {
+    if (!builders.internalAction) {
       throw new Error('createComponentBridge() was not configured with an internalAction builder.')
     }
+    const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
+    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
+      principalDefinition,
+      functionRef,
+      options.trustedForwardingKey,
+    )
+    const internalAction = customAction(builders.internalAction, customization.action)
     return internalAction({
       args: definition.args,
       returns: definition.returns,
@@ -691,7 +752,7 @@ export function createComponentBridge<
             (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
             'action',
             definition.component,
-            definition.functionRef,
+            functionRef,
           ) as never,
         )
       },
@@ -707,7 +768,7 @@ export function createComponentBridge<
       return registerMutation(definition)
     },
 
-    ...(action
+    ...(builders.action
       ? {
           action<TRef extends ComponentBridgeActionRef>(
             definition: ComponentBridgeDefinition<TRef>,
@@ -729,7 +790,7 @@ export function createComponentBridge<
       return registerInternalMutation(definition)
     },
 
-    ...(internalAction
+    ...(builders.internalAction
       ? {
           internalAction<TRef extends ComponentBridgeActionRef>(
             definition: ComponentBridgeDefinition<TRef>,

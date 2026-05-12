@@ -2,7 +2,7 @@ import { subject } from '@lupinum/trellis/auth'
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { api } from '#trellis/api'
-import { delegateToUser, readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
+import { delegateToUser, readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
 
 type WebhookBody = {
   title?: string
@@ -62,7 +62,7 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 
 export default defineEventHandler(async (event) => {
   const authId = getWebhookActorAuthId()
-  const body = await readVerifiedWebhookBody({
+  const body = await readSharedSecretWebhookBody({
     // Keep the transport check small so the service-principal + delegation path is the thing being
     // demonstrated. Production senders should usually add timestamped HMAC verification too.
     signature: event.node.req.headers['x-example-signature'],

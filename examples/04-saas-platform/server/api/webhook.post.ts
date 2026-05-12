@@ -9,7 +9,7 @@
  */
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { readVerifiedWebhookBody, serverConvexMutation } from '#trellis/server'
+import { readSharedSecretWebhookBody, serverConvexMutation } from '#trellis/server'
 
 import { internal } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -32,7 +32,7 @@ function getWebhookSecret(): string {
   return secret
 }
 export default defineEventHandler(async (event) => {
-  const body = await readVerifiedWebhookBody({
+  const body = await readSharedSecretWebhookBody({
     // Demo transport boundary: shared route secret only. Add timestamped HMAC verification and a
     // replay window in production if the sender supports it.
     signature: event.node.req.headers['x-example-signature'],

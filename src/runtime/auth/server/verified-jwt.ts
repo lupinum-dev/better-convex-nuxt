@@ -94,8 +94,17 @@ export async function verifyServerJwt(
   try {
     const keySet = await loadServerJwks(siteUrl)
     const verified = await jwtVerify(token, keySet, {
+      algorithms: ['EdDSA', 'RS256'],
+      audience: 'convex',
       clockTolerance: 5,
+      issuer: siteUrl,
     })
+    if (typeof verified.payload.sub !== 'string' || !verified.payload.sub.trim()) {
+      throw new Error('Verified auth token is missing required subject.')
+    }
+    if (typeof verified.payload.exp !== 'number') {
+      throw new Error('Verified auth token is missing required expiration.')
+    }
     const user = decodeUserFromJwt(token)
     if (!user) {
       throw new Error('Verified auth token is missing required user claims.')

@@ -15,7 +15,7 @@ describe('example webhook security posture', () => {
     const helper = readFileSync(resolve(repoRoot, 'src/runtime/server/webhooks.ts'), 'utf8')
 
     for (const source of sources) {
-      expect(source).toContain('readVerifiedWebhookBody')
+      expect(source).toContain('readSharedSecretWebhookBody')
       expect(source).not.toContain('signature !== getWebhookSecret()')
     }
     expect(helper).toContain('timingSafeEqual')

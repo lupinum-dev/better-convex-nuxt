@@ -165,7 +165,8 @@
     "prepare": "husky",
     "check:starter-fixtures": "node scripts/check-starter-fixtures.mjs",
     "check:starter-fixtures:typecheck": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --typecheck",
-    "check:starter-fixtures:build": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --build"
+    "check:starter-fixtures:build": "pnpm run build:module && pnpm run build:cli && node scripts/check-starter-fixtures.mjs --build",
+    "audit:prod": "pnpm audit --prod --audit-level moderate"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
@@ -217,7 +218,6 @@
     "playwright-core": "^1.59.1",
     "react": "19.2.5",
     "react-dom": "19.2.5",
-    "secure-exec": "^0.2.1",
     "typescript": "~6.0.2",
     "vitest": "^4.1.4",
     "vitest-browser-vue": "^2.1.0",

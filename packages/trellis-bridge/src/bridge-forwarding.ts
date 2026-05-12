@@ -96,7 +96,7 @@ export function getBridgeTrustedForwardingKeyFromArgs(args?: unknown): string {
   throw new Error('createComponentBridge() component forwarding args are missing a key.')
 }
 
-function getBridgeFunctionRef(
+export function getBridgeFunctionRef(
   ref: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ): string {

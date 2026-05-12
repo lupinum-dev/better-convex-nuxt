@@ -26,15 +26,20 @@ async function getServerJwtMaterial(): Promise<ServerJwtMaterial> {
   return await serverJwtMaterialPromise
 }
 
-export async function mintServerJwt(payload: JwtPayload): Promise<string> {
+export async function mintServerJwt(
+  payload: JwtPayload,
+  options: { expiresInSeconds?: number | null } = {},
+): Promise<string> {
   const { privateKey } = await getServerJwtMaterial()
   const now = Math.floor(Date.now() / 1000)
 
-  return await new SignJWT(payload)
+  let jwt = new SignJWT(payload)
     .setProtectedHeader({ alg: 'RS256', kid: 'trellis-test-key', typ: 'JWT' })
     .setIssuedAt(now)
-    .setExpirationTime(now + 3600)
-    .sign(privateKey)
+  if (options.expiresInSeconds !== null) {
+    jwt = jwt.setExpirationTime(now + (options.expiresInSeconds ?? 3600))
+  }
+  return await jwt.sign(privateKey)
 }
 
 export async function createServerJwksResponse(): Promise<Response> {
