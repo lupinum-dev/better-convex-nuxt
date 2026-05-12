@@ -236,8 +236,14 @@ export const update = mutation.protected({
   },
 })
 
-export const remove = mutation.protected(removeRunbookOp)
-export const bulkRemove = mutation.protected(bulkRemoveRunbooksOp)
+export const remove = mutation.protected({
+  ...removeRunbookOp,
+  trustedForwardingFunctionRef: 'features/runbooks/domain:remove',
+})
+export const bulkRemove = mutation.protected({
+  ...bulkRemoveRunbooksOp,
+  trustedForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
+})
 
 export const workspaceOverview = query.protected({
   args: listRunbooks.args,

@@ -7,7 +7,7 @@ import {
   operationPreview,
   previewOf,
 } from '@lupinum/trellis/backend'
-import { defineCapabilities } from '@lupinum/trellis/visibility'
+import { defineCapabilities } from '@lupinum/trellis/workspace'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, removePostDescriptor, updatePost } from '../shared/schemas/post'
@@ -227,8 +227,14 @@ export const removePostOp = implementOperation(removePostDescriptor, {
   },
 })
 
-export const removeWithConfirmation = mutation.protected(removePostOp)
-export const previewRemove = query.protected(previewOf(removePostOp))
+export const removeWithConfirmation = mutation.protected({
+  ...removePostOp,
+  trustedForwardingFunctionRef: 'posts:removeWithConfirmation',
+})
+export const previewRemove = query.protected({
+  ...previewOf(removePostOp),
+  trustedForwardingFunctionRef: 'posts:previewRemove',
+})
 
 export const publish = mutation.protected({
   args: { id: v.id('posts') },

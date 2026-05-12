@@ -43,6 +43,7 @@ export const search = query.public({
 
 export const add = mutation.protected({
   args: createNote.args,
+  trustedForwardingFunctionRef: 'notes:add',
   guard: open,
   handler: async (ctx, args) => {
     return await ctx.db.insert('notes', {

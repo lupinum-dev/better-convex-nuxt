@@ -39,6 +39,7 @@ export {
   extractSubject,
   getForwardedDelegation,
   getForwardedPrincipal,
+  getTrustedForwarding,
   getTrustedForwardingKeyProductionIssue,
   setTrustedForwardingContext,
   withTrustedForwarding,

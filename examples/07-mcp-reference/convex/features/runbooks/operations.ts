@@ -157,5 +157,11 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
   },
 })
 
-export const previewRemove = query.protected(previewOf(removeRunbookOp))
-export const previewBulkRemove = query.protected(previewOf(bulkRemoveRunbooksOp))
+export const previewRemove = query.protected({
+  ...previewOf(removeRunbookOp),
+  trustedForwardingFunctionRef: 'features/runbooks/operations:previewRemove',
+})
+export const previewBulkRemove = query.protected({
+  ...previewOf(bulkRemoveRunbooksOp),
+  trustedForwardingFunctionRef: 'features/runbooks/operations:previewBulkRemove',
+})

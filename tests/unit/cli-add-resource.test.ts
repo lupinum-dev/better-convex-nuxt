@@ -249,16 +249,7 @@ describe('trellis add entity', () => {
     ).resolves.toContain('api.features.projects.operations.previewRemoveProject')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain("functionRef: 'features/projects/domain:remove'")
-    await expect(
-      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain("functionRef: 'features/projects/operations:previewRemoveProject'")
-    await expect(
-      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain("functionRef: 'features/projects/domain:remove'")
-    await expect(
-      readFile(resolve(cwd, 'server/mcp/tools/delete-project.ts'), 'utf8'),
-    ).resolves.toContain("functionRef: 'features/projects/operations:previewRemoveProject'")
+    ).not.resolves.toContain('functionRef:')
     await expect(
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
     ).resolves.toContain('~~/shared/features/projects/contract')
@@ -364,7 +355,7 @@ describe('trellis add mcp', () => {
       "mcp: { name: 'trellis-workspace-",
     )
     await expect(readFile(resolve(cwd, 'package.json'), 'utf8')).resolves.toContain(
-      '"@nuxtjs/mcp-toolkit": "^0.13.4"',
+      '"@nuxtjs/mcp-toolkit": "^0.14.0"',
     )
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       'mcpKeys: defineTable',

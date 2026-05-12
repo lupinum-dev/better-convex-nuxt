@@ -48,11 +48,11 @@ export const removeTodoOp = implementOperation(removeTodoDescriptor, {
       summary: `Will permanently delete "${todo.title}"`,
       warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone.' })],
       effects: [operationEffect({ kind: 'todos', summary: 'Todos deleted', count: 1 })],
-    confirm: {
-      operation: 'todos.remove',
-      targetId: todo._id,
-      affectedCounts: { todos: 1 },
-    },
+      confirm: {
+        operation: 'todos.remove',
+        targetId: todo._id,
+        affectedCounts: { todos: 1 },
+      },
     }),
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)

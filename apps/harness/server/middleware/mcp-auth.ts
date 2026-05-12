@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const auth = {
+      keyId: String(result.id),
       role: result.role,
       userId: result.userId,
       ...(result.tenantId && { tenantId: result.tenantId }),

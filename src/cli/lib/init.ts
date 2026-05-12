@@ -154,10 +154,7 @@ async function enableNuxtMcpConfig(cwd: string): Promise<void> {
     }
 
     let next = source
-    if (
-      next.includes("modules: ['@lupinum/trellis']") &&
-      !next.includes('@nuxtjs/mcp-toolkit')
-    ) {
+    if (next.includes("modules: ['@lupinum/trellis']") && !next.includes('@nuxtjs/mcp-toolkit')) {
       next = next.replace(
         "modules: ['@lupinum/trellis']",
         "modules: ['@lupinum/trellis', '@nuxtjs/mcp-toolkit']",

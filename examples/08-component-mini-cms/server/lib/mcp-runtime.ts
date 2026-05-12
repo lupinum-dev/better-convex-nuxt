@@ -34,6 +34,7 @@ export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, CapabilitySnapshot>({
 
     throw new Error('Unsupported MCP principal.')
   },
+  tenantKey: () => 'global',
 })
 
 export const tool = mcpRuntime.tool

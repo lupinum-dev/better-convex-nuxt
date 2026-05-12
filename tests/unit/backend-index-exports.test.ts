@@ -11,6 +11,7 @@ describe('backend entrypoint exports', () => {
     expect(backendApi).toHaveProperty('defineTrellis')
     expect(backendApi).toHaveProperty('defineOperation')
     expect(backendApi).toHaveProperty('definePrincipal')
+    expect(backendApi).toHaveProperty('getTrustedForwarding')
     expect(backendApi).toHaveProperty('trellisBackendLaneMetadataKey')
   })
 

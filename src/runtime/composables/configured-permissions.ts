@@ -72,7 +72,7 @@ export interface UseAuthGuardOptions<
   TContext extends AuthContext = AuthContext,
   TPermissions extends string = ConfiguredPermissionKey<TContext>,
 > {
-  permission?: PermissionHandle<TPermissions>
+  permission?: PermissionKeyHandle<TPermissions>
   check?: (ctx: TContext) => boolean
   redirectTo?: RouteLocationRaw
   loginPath?: RouteLocationRaw

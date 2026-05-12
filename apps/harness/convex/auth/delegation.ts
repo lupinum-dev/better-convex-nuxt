@@ -1,5 +1,4 @@
-import { defineDelegation, type Delegation } from '@lupinum/trellis/backend'
-import { getForwardedDelegation } from '@lupinum/trellis/trusted-forwarding'
+import { defineDelegation, getForwardedDelegation, type Delegation } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export type HarnessDelegation = Delegation

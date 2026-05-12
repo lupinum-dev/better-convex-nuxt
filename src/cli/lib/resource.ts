@@ -529,12 +529,14 @@ import { remove${ctx.singularPascal}Descriptor } from '~~/shared/features/${ctx.
 import { tool } from '../runtime'
 
 export default tool.operation(remove${ctx.singularPascal}Descriptor, {
-  execute: executeOperationRef(remove${ctx.singularPascal}Descriptor, api.features.${ctx.tableName}.domain.remove, {
-    functionRef: 'features/${ctx.tableName}/domain:remove',
-  }),
-  preview: previewOperationRef(remove${ctx.singularPascal}Descriptor, api.features.${ctx.tableName}.operations.previewRemove${ctx.singularPascal}, {
-    functionRef: 'features/${ctx.tableName}/operations:previewRemove${ctx.singularPascal}',
-  }),
+  execute: executeOperationRef(
+    remove${ctx.singularPascal}Descriptor,
+    api.features.${ctx.tableName}.domain.remove,
+  ),
+  preview: previewOperationRef(
+    remove${ctx.singularPascal}Descriptor,
+    api.features.${ctx.tableName}.operations.previewRemove${ctx.singularPascal},
+  ),
   meta: {
     name: 'delete-${ctx.fileStem}',
   },

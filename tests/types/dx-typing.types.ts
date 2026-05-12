@@ -4,6 +4,7 @@ import { defineArgs } from '../../src/runtime/args'
 import {
   definePermission,
   type PermissionHandle,
+  type PermissionKeyHandle,
   type AuthIdentity,
   enforce,
   can,
@@ -108,13 +109,13 @@ type _ctxUsageCurrent = Assert<
 type _allowsParameter = Assert<
   IsEqual<
     Parameters<UsePermissionsApi['allows']>[0],
-    PermissionHandle<'task.create' | 'workspace.members'>
+    PermissionKeyHandle<'task.create' | 'workspace.members'>
   >
 >
 type _guardPermissionKey = Assert<
   IsEqual<
     GuardOptions['permission'],
-    PermissionHandle<'task.create' | 'workspace.members'> | undefined
+    PermissionKeyHandle<'task.create' | 'workspace.members'> | undefined
   >
 >
 type _guardCheck = Assert<
@@ -154,10 +155,10 @@ type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]
 type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionContext>, string>>
 type _genericAllowsParameter = Assert<
-  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionHandle<string>>
+  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionKeyHandle<string>>
 >
 type _genericGuardPermissionKey = Assert<
-  IsEqual<GenericGuardOptions['permission'], PermissionHandle<string> | undefined>
+  IsEqual<GenericGuardOptions['permission'], PermissionKeyHandle<string> | undefined>
 >
 
 const _identity = {} as AuthIdentity | null

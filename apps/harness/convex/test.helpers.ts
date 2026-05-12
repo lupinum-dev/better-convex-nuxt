@@ -4,10 +4,10 @@
  * DRY setup functions for integration tests with convex-test.
  */
 
+import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { convexTest } from 'convex-test'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 
-import { createTrustedForwardingEnvelopeArgs } from '../../../src/runtime/trusted-forwarding/shared'
 import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'

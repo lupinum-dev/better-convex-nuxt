@@ -20,6 +20,7 @@ import { mcpRateLimitStore } from './rate-limit-store'
 
 type McpAuthContext = {
   keyId?: string
+  tenantId?: string
   userId?: string
 }
 
@@ -50,7 +51,16 @@ async function getMcpDelegation(event: H3Event): Promise<Delegation | null> {
   })
 }
 
-export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot, Delegation>({
+type McpRuntimeContext = {
+  tenantId: string
+}
+
+export const mcpRuntime = defineMcpApp<
+  McpReferencePrincipal,
+  CapabilitySnapshot,
+  Delegation,
+  McpRuntimeContext
+>({
   rateLimitStore: mcpRateLimitStore,
   callConvex: async (event, { principal, delegation }) => {
     if (principal.kind !== 'agent') {
@@ -94,8 +104,16 @@ export const mcpRuntime = defineMcpApp<McpReferencePrincipal, CapabilitySnapshot
       }
     )
   },
+  runtime: ({ event }) => {
+    const auth = event.context.mcpAuth as McpAuthContext | undefined
+
+    return {
+      tenantId: auth?.tenantId ?? 'global',
+    }
+  },
   principalKey: (principal) =>
     principal.kind === 'agent' ? subject.agent(principal.agentId) : principal.kind,
+  tenantKey: ({ runtime }) => runtime.tenantId,
 })
 
 export const tool = mcpRuntime.tool

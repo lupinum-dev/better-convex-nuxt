@@ -82,6 +82,8 @@ export const mcpRuntime = defineMcpApp<
   }),
   principalKey: (principal) =>
     principal.kind === 'agent' ? `agent:${principal.agentId}:${principal.role}` : principal.kind,
+  tenantKey: ({ principal }) =>
+    principal.kind === 'agent' && principal.tenantId ? principal.tenantId : 'global',
   observability: trellisObservability,
 })
 

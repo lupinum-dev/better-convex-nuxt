@@ -8,9 +8,10 @@
  */
 import { createHash } from 'node:crypto'
 
+import { createError, defineEventHandler, getRequestHeader } from 'h3'
+
 import { api } from '#trellis/api'
 import { serverConvexMutation, serverConvexQuery } from '#trellis/server'
-import { createError, defineEventHandler, getRequestHeader } from 'h3'
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
   event.context.mcpAuth = {
     keyId: validated.id,
     userId: validated.userId,
+    tenantId: validated.tenantId,
   }
 
   serverConvexMutation(

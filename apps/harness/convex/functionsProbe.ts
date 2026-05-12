@@ -3,10 +3,11 @@ import {
   defineDelegation,
   definePrincipal,
   defineTrellis,
+  getForwardedPrincipal,
+  getTrustedForwarding,
   unsafe as unsafePermit,
 } from '@lupinum/trellis/backend'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/backend'
-import { getForwardedPrincipal, getTrustedForwarding } from '@lupinum/trellis/trusted-forwarding'
 import { Triggers } from 'convex-helpers/server/triggers'
 import type { GenericMutationCtx } from 'convex/server'
 import { v } from 'convex/values'

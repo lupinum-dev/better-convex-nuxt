@@ -1,6 +1,12 @@
 import type { PropertyValidators } from 'convex/values'
 
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
+import {
+  getFunctionName,
+  type AnyActionFunction,
+  type AnyMutationFunction,
+  type AnyQueryFunction,
+} from '../convex/shared/convex-shared.js'
 
 export type OperationKind = 'safe' | 'destructive'
 
@@ -191,6 +197,7 @@ export type OperationProjectionRef<
   readonly [trellisOperationProjectionMetadataKey]: {
     operationId: TOperationId
     projection: TProjection
+    functionRef?: string
   }
 }
 
@@ -252,6 +259,17 @@ export function stampOperationProjection<T>(
   return value
 }
 
+type ConvexFunctionRefLike = AnyQueryFunction | AnyMutationFunction | AnyActionFunction
+
+function inferFunctionRef(value: unknown): string | undefined {
+  if ((typeof value !== 'object' || value === null) && typeof value !== 'function') {
+    return undefined
+  }
+
+  const functionRef = getFunctionName(value as ConvexFunctionRefLike)
+  return functionRef && functionRef !== 'unknown' ? functionRef : undefined
+}
+
 export function projectOperationRef<
   TOperation extends OperationMetadataCarrier,
   TProjection extends OperationProjectionKind,
@@ -267,10 +285,12 @@ export function projectOperationRef<
     throw new Error('Operation projection refs require an operation with an `id`.')
   }
 
+  const functionRef = options.functionRef ?? inferFunctionRef(ref)
+
   return stampOperationProjection(ref, {
     operationId: metadata.id,
     projection,
-    ...(options.functionRef ? { functionRef: options.functionRef } : {}),
+    ...(functionRef ? { functionRef } : {}),
   }) as ValidateOperationProjectionRef<TOperation, TProjection, TRef>
 }
 
