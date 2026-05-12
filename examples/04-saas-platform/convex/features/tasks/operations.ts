@@ -1,5 +1,12 @@
 import { enforce, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { requireWorkspaceTenant } from '../../auth/guards'
@@ -13,15 +20,7 @@ export const removeTaskOp = defineOperation({
   kind: 'destructive',
   args: { id: v.id('tasks') },
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        tasks: v.number(),
-        comments: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('tasks.remove'),
       targetId: v.id('tasks'),
@@ -41,18 +40,25 @@ export const removeTaskOp = defineOperation({
       .collect()
     return { task, comments }
   },
-  preview: async (_ctx, _args, { task, comments }) => ({
-    display: {
+  preview: async (_ctx, _args, { task, comments }) =>
+    operationPreview({
       summary: `Will permanently delete "${task.title}".`,
-      warn: 'This also removes all comments on the task.',
-      affects: { tasks: 1, comments: comments.length },
-    },
-    confirm: {
-      operation: 'tasks.remove',
-      targetId: task._id,
-      affectedCounts: { tasks: 1, comments: comments.length },
-    },
-  }),
+      warnings: [
+        operationIssue({
+          code: 'delete-comments',
+          message: 'This also removes all comments on the task.',
+        }),
+      ],
+      effects: [
+        operationEffect({ kind: 'tasks', summary: 'Tasks deleted', count: 1 }),
+        operationEffect({ kind: 'comments', summary: 'Comments deleted', count: comments.length }),
+      ],
+      confirm: {
+        operation: 'tasks.remove',
+        targetId: task._id,
+        affectedCounts: { tasks: 1, comments: comments.length },
+      },
+    }),
   handler: async (ctx, args, { task, comments }) => {
     const actor = await ctx.actor()
     enforce(actor, 'Delete task', canDeleteTask(task))

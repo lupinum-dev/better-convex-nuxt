@@ -216,6 +216,14 @@ describe('generated type consumer verification', () => {
       'convex/features/tasks/operations.ts': `
         declare function defineOperation<T>(value: T): T
         declare function previewOf<T>(value: T): T
+        declare function operationPreview<TConfirm extends Record<string, unknown>>(value: { summary: string; confirm: TConfirm }): {
+          allowed: boolean
+          summary: string
+          blockers: []
+          warnings: []
+          effects: []
+          confirm: TConfirm
+        }
 
         const open = true as const
 
@@ -233,18 +241,12 @@ describe('generated type consumer verification', () => {
           kind: 'destructive',
           args: {},
           guard: open,
-          preview: async () => ({
-            display: { summary: 'Archive task' },
-            confirm: { id: 'task_1' },
-          }),
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => ({ archived: true as const }),
         })
 
         export const archiveTask = mutation<{ archived: true }>(archiveTaskOp)
-        export const previewArchiveTask = query<{
-          display: { summary: string }
-          confirm: { id: string }
-        }>(previewOf(archiveTaskOp))
+        export const previewArchiveTask = query<ReturnType<typeof operationPreview<{ id: string }>>>(previewOf(archiveTaskOp))
       `,
       'server/mcp/tools/tasks/archive-task.ts': `
         import { archiveTaskOp, archiveTask, previewArchiveTask } from '../../../../convex/features/tasks/operations'

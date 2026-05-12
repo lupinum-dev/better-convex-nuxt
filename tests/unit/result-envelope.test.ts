@@ -207,15 +207,33 @@ describe('wrapError', () => {
 describe('wrapPreview', () => {
   it('wraps preview with awaitingConfirmation', () => {
     const result = wrapPreview({
+      operationId: 'posts.delete',
+      allowed: true,
       summary: 'Will delete "My Post"',
-      affects: { posts: 1 },
+      blockers: [],
+      warnings: [],
+      effects: [{ kind: 'posts', summary: 'Posts deleted', count: 1 }],
+      confirmation: {
+        token: 'token',
+        expiresAt: 123,
+        operationId: 'posts.delete',
+      },
     })
 
     expect(result.structuredContent).toEqual({
       ok: true,
       preview: {
+        operationId: 'posts.delete',
+        allowed: true,
         summary: 'Will delete "My Post"',
-        affects: { posts: 1 },
+        blockers: [],
+        warnings: [],
+        effects: [{ kind: 'posts', summary: 'Posts deleted', count: 1 }],
+        confirmation: {
+          token: 'token',
+          expiresAt: 123,
+          operationId: 'posts.delete',
+        },
       },
       awaitingConfirmation: true,
       executed: false,
@@ -225,15 +243,18 @@ describe('wrapPreview', () => {
     expect(result.isError).toBeUndefined()
   })
 
-  it('includes warn and blocked fields', () => {
+  it('returns blocked previews without awaiting confirmation', () => {
     const result = wrapPreview({
+      operationId: 'posts.delete',
+      allowed: false,
       summary: 'Cannot delete',
-      warn: 'Permission denied',
-      blocked: true,
+      blockers: [{ code: 'permission-denied', message: 'Permission denied' }],
+      warnings: [],
+      effects: [],
     })
 
-    expect(getPreviewResult(result).preview.warn).toBe('Permission denied')
-    expect(getPreviewResult(result).preview.blocked).toBe(true)
+    expect(getPreviewResult(result).preview.blockers[0]?.message).toBe('Permission denied')
+    expect(getPreviewResult(result).preview.allowed).toBe(false)
     expect(getPreviewResult(result).awaitingConfirmation).toBe(false)
   })
 })

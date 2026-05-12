@@ -89,7 +89,7 @@ function addOperationFixture(appRoot: string): void {
     appRoot,
     'convex/features/tasks/operations.ts',
     `
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { mutation, query } from '../../functions'
 
 export const archiveTaskOp = defineOperation({
@@ -98,7 +98,7 @@ export const archiveTaskOp = defineOperation({
   kind: 'destructive',
   args: {},
   guard: true,
-  preview: async () => ({ display: { summary: 'Archive task' }, confirm: { id: 'task_1' } }),
+  preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
   handler: async () => null,
 })
 

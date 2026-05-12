@@ -269,7 +269,7 @@ describe('MCP route smoke', async () => {
           ok?: boolean
           awaitingConfirmation?: boolean
           preview?: {
-            confirmationToken?: string
+            confirmation?: { token?: string }
           }
         }
       }
@@ -277,7 +277,7 @@ describe('MCP route smoke', async () => {
 
     expect(previewPayload.result?.structuredContent?.ok).toBe(true)
     expect(previewPayload.result?.structuredContent?.awaitingConfirmation).toBe(true)
-    expect(previewPayload.result?.structuredContent?.preview?.confirmationToken).toEqual(
+    expect(previewPayload.result?.structuredContent?.preview?.confirmation?.token).toEqual(
       expect.any(String),
     )
 
@@ -291,7 +291,7 @@ describe('MCP route smoke', async () => {
           arguments: {
             id: bootstrap.resources.postId,
             _confirmationToken:
-              previewPayload.result?.structuredContent?.preview?.confirmationToken,
+              previewPayload.result?.structuredContent?.preview?.confirmation?.token,
           },
         },
       },
@@ -336,7 +336,7 @@ describe('MCP route smoke', async () => {
           arguments: {
             id: bootstrap.resources.postId,
             _confirmationToken:
-              previewPayload.result?.structuredContent?.preview?.confirmationToken,
+              previewPayload.result?.structuredContent?.preview?.confirmation?.token,
           },
         },
       },
@@ -409,14 +409,14 @@ describe('MCP route smoke', async () => {
 
     const driftTokenA = (
       driftPreviewA._data as {
-        result?: { structuredContent?: { preview?: { confirmationToken?: string } } }
+        result?: { structuredContent?: { preview?: { confirmation?: { token?: string } } } }
       }
-    ).result?.structuredContent?.preview?.confirmationToken
+    ).result?.structuredContent?.preview?.confirmation?.token
     const driftTokenB = (
       driftPreviewB._data as {
-        result?: { structuredContent?: { preview?: { confirmationToken?: string } } }
+        result?: { structuredContent?: { preview?: { confirmation?: { token?: string } } } }
       }
-    ).result?.structuredContent?.preview?.confirmationToken
+    ).result?.structuredContent?.preview?.confirmation?.token
 
     expect(driftTokenA).toEqual(expect.any(String))
     expect(driftTokenB).toEqual(expect.any(String))

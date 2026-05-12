@@ -230,10 +230,6 @@ function resolveDefaultAuth<TRole extends string = string>(event: {
   }
 }
 
-function normalizePreview(raw: string | PreviewResult): PreviewResult {
-  return typeof raw === 'string' ? { summary: raw } : raw
-}
-
 interface ToolAccessResolution<TRole extends string = string> {
   actor: McpAuthIdentity<TRole> | null
   deniedReason: string | null
@@ -390,12 +386,8 @@ function createToolContext<TRole extends string>(
     ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
     error: (category, message, issues, explanation, details, code) =>
       wrapError(category, message, issues, explanation, details, code),
-    preview: (preview) => wrapPreview(normalizePreview(preview)),
-    blocked: (preview) =>
-      wrapPreview({
-        ...normalizePreview(preview),
-        blocked: true,
-      }),
+    preview: (preview) => wrapPreview(preview),
+    blocked: (preview) => wrapPreview({ ...preview, allowed: false, confirmation: undefined }),
   }
 }
 

@@ -121,7 +121,7 @@ function resourceContractTemplate(ctx: ResourceGeneratorContext): string {
 
   return `
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const ${createName} = defineArgs({
@@ -154,14 +154,7 @@ export const remove${ctx.singularPascal}Descriptor = defineOperationDescriptor({
   permission: '${ctx.permissionPrefix}.delete',
   safety: 'destructive-write',
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        ${ctx.tableName}: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('${ctx.tableName}.remove'),
       targetId: v.id('${ctx.tableName}'),
@@ -227,7 +220,7 @@ export const ${ctx.singularCamel}Permissions = [
 function resourceOperationTemplate(ctx: ResourceGeneratorContext): string {
   return `
 import { requireRecord } from '@lupinum/trellis/auth'
-import { implementOperation, previewOf } from '@lupinum/trellis/backend'
+import { implementOperation, operationEffect, operationIssue, operationPreview, previewOf } from '@lupinum/trellis/backend'
 
 import { remove${ctx.singularPascal}Descriptor } from '../../../shared/features/${ctx.tableName}/contract'
 import { ${ctx.singularCamel}DeletePermission } from './permissions'
@@ -240,12 +233,10 @@ export const remove${ctx.singularPascal}Op = implementOperation(remove${ctx.sing
     requireRecord(${ctx.singularCamel}, '${ctx.singularPascal}')
     return { ${ctx.singularCamel} }
   },
-  preview: async (_ctx, _args, { ${ctx.singularCamel} }) => ({
-    display: {
-      summary: \`Will permanently delete "\${${ctx.singularCamel}.name}"\`,
-      warn: 'This cannot be undone',
-      affects: { ${ctx.tableName}: 1 },
-    },
+  preview: async (_ctx, _args, { ${ctx.singularCamel} }) => operationPreview({
+    summary: \`Will permanently delete "\${${ctx.singularCamel}.name}"\`,
+    warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone' })],
+    effects: [operationEffect({ kind: '${ctx.tableName}', summary: '${ctx.singularPascal} records deleted', count: 1 })],
     confirm: {
       operation: '${ctx.tableName}.remove',
       targetId: ${ctx.singularCamel}._id,

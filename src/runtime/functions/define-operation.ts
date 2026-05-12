@@ -2,12 +2,7 @@
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
 import { resolvePermissionKey, type PermissionKeyHandle } from '../auth/define-permission.js'
-import type {
-  AwaitedValue,
-  FallbackIfUnknownOrNever,
-  SerializableValue,
-  ValidateSerializable,
-} from '../types/type-utils.js'
+import type { AwaitedValue, FallbackIfUnknownOrNever } from '../types/type-utils.js'
 import type {
   StructuredGuard,
   StructuredHandlerDefinition,
@@ -23,6 +18,21 @@ import {
   type TrellisOperationMetadata,
   type TrellisOperationProjectionMetadata,
 } from './operation-metadata.js'
+export {
+  blockedOperationPreview,
+  isOperationPreviewEnvelope,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewEffectValidator,
+  operationPreviewIssueValidator,
+  operationPreviewValidator,
+} from './operation-preview.js'
+export type {
+  OperationPreviewEffect,
+  OperationPreviewEnvelope,
+  OperationPreviewIssue,
+} from './operation-preview.js'
 
 export {
   defineOperationDescriptor,
@@ -59,16 +69,6 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
   [TCtx, HandlerArgs<TArgsValidator>, TLoaded],
   MaybePromise<TPreview>
 >
-
-export type DestructiveOperationPreview<
-  TDisplay = SerializableValue,
-  TConfirm extends Record<string, unknown> = Record<string, SerializableValue>,
-  TVersion = SerializableValue,
-> = {
-  display: ValidateSerializable<TDisplay>
-  confirm: ValidateSerializable<TConfirm>
-  version?: ValidateSerializable<TVersion>
-}
 
 export type OperationDefinition<
   TCtx,

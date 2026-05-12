@@ -7,8 +7,9 @@ import { definePermission, open } from '../../src/runtime/auth'
 import {
   defineOperation,
   executeOperationRef,
+  operationPreview,
   previewOperationRef,
-  type DestructiveOperationPreview,
+  type OperationPreviewEnvelope,
 } from '../../src/runtime/functions'
 import { defineMcpApp, stampMcpToolSafety, type McpConvexCaller } from '../../src/runtime/mcp'
 
@@ -104,18 +105,21 @@ const archiveEntryOp = defineOperation({
   },
   guard: open,
   preview: async (): Promise<
-    DestructiveOperationPreview<
-      { summary: string; affects: { entries: number } },
-      { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
-    >
-  > => ({
-    display: { summary: 'Archive entry', affects: { entries: 1 } },
-    confirm: {
-      operation: 'entries.archive',
-      targetId: 'entry_1',
-      affectedCounts: { entries: 1 },
-    },
-  }),
+    OperationPreviewEnvelope<{
+      operation: 'entries.archive'
+      targetId: string
+      affectedCounts: { entries: number }
+    }>
+  > =>
+    operationPreview({
+      summary: 'Archive entry',
+      effects: [{ kind: 'entries', summary: 'Entries archived', count: 1 }],
+      confirm: {
+        operation: 'entries.archive',
+        targetId: 'entry_1',
+        affectedCounts: { entries: 1 },
+      },
+    }),
   handler: async () => ({ archived: true as const }),
 })
 
@@ -135,10 +139,11 @@ runtime.tool.operation(archiveEntryOp, {
       'query',
       'internal',
       { principal: Principal; id: string },
-      DestructiveOperationPreview<
-        { summary: string; affects: { entries: number } },
-        { operation: 'entries.archive'; targetId: string; affectedCounts: { entries: number } }
-      >
+      OperationPreviewEnvelope<{
+        operation: 'entries.archive'
+        targetId: string
+        affectedCounts: { entries: number }
+      }>
     >,
   ),
   permission: publishEntryPermission,

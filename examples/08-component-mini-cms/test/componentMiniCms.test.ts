@@ -233,7 +233,7 @@ describe('example 08 component mini cms', () => {
         {
           principal: bridgePrincipal,
           purpose: 'mutation',
-          functionRef: 'features/pages/bridge:create',
+          functionRef: 'features/pages/domain:create',
         },
       ),
     )
@@ -245,7 +245,7 @@ describe('example 08 component mini cms', () => {
         {
           principal: bridgePrincipal,
           purpose: 'query',
-          functionRef: 'features/pages/bridge:listDraft',
+          functionRef: 'features/pages/domain:listDraft',
         },
       ),
     )
@@ -282,7 +282,7 @@ describe('example 08 component mini cms', () => {
         {
           principal: previewPrincipal,
           purpose: 'mutation',
-          functionRef: 'features/pages/bridge:create',
+          functionRef: 'features/pages/domain:create',
         },
       ),
     )
@@ -294,12 +294,12 @@ describe('example 08 component mini cms', () => {
         {
           principal: previewPrincipal,
           purpose: 'query',
-          functionRef: 'features/pages/bridge:previewPublish',
+          functionRef: 'features/pages/operations:previewPublish',
         },
       ),
     )
     expect(preview).toMatchObject({
-      display: {
+      details: {
         summary: 'Publish "Launch notes" at /launch-notes',
         affects: { pages: 1 },
       },

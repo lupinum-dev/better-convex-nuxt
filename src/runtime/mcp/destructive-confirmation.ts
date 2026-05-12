@@ -32,6 +32,8 @@ export interface McpConfirmationStore {
   redeem(input: McpConfirmationRedemptionInput): MaybePromise<'redeemed' | 'replayed'>
 }
 
+export const DEFAULT_MCP_CONFIRMATION_TTL_MS = 5 * 60 * 1000
+
 export type DestructiveConfirmationBinding = {
   operationId: string
   executePath: string
@@ -113,20 +115,24 @@ export async function signDestructivePreviewToken(input: {
   binding: DestructiveConfirmationBinding
   previewHash: string
   versionHash: string | null
+  ttlMs?: number
 }): Promise<string> {
-  return await signConfirmationToken({
-    v: 1,
-    operationId: input.binding.operationId,
-    executePath: input.binding.executePath,
-    previewPath: input.binding.previewPath,
-    jti: crypto.randomUUID(),
-    principalKey: input.binding.principalKey,
-    tenantKey: input.binding.tenantKey,
-    argsHash: input.binding.argsHash,
-    argsFieldHashes: input.binding.argsFieldHashes,
-    previewHash: input.previewHash,
-    ...(input.versionHash ? { versionHash: input.versionHash } : {}),
-  })
+  return await signConfirmationToken(
+    {
+      v: 1,
+      operationId: input.binding.operationId,
+      executePath: input.binding.executePath,
+      previewPath: input.binding.previewPath,
+      jti: crypto.randomUUID(),
+      principalKey: input.binding.principalKey,
+      tenantKey: input.binding.tenantKey,
+      argsHash: input.binding.argsHash,
+      argsFieldHashes: input.binding.argsFieldHashes,
+      previewHash: input.previewHash,
+      ...(input.versionHash ? { versionHash: input.versionHash } : {}),
+    },
+    Math.ceil((input.ttlMs ?? DEFAULT_MCP_CONFIRMATION_TTL_MS) / 1000),
+  )
 }
 
 function confirmationExplanation(message: string): TrellisDenialExplanation {

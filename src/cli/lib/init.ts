@@ -215,7 +215,7 @@ function operationTemplate(name: string, kind: 'safe' | 'destructive') {
   if (kind === 'destructive') {
     return `
 import { authRequired } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { mutation, query } from '../functions'
@@ -228,14 +228,13 @@ export const ${exportName}Op = defineOperation({
     id: v.string(),
   },
   guard: authRequired,
-  preview: async (_ctx, args) => ({
-    display: {
+  preview: async (_ctx, args) =>
+    operationPreview({
       summary: \`Confirm ${opId} for \${args.id}\`,
-    },
-    confirm: {
-      id: args.id,
-    },
-  }),
+      confirm: {
+        id: args.id,
+      },
+    }),
   handler: async (_ctx, args) => {
     throw new Error(\`Implement ${opId} for \${args.id}.\`)
   },

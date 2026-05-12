@@ -146,9 +146,8 @@ describe('createComponentBridge', () => {
 
   it('rejects bridge envelopes signed for a different component function', async () => {
     process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
-    const { createComponentBridge, createBridgeForwardingArgs } = await import(
-      '../../packages/trellis-bridge/src/component'
-    )
+    const { createComponentBridge, createBridgeForwardingArgs } =
+      await import('../../packages/trellis-bridge/src/component')
     const { definePrincipal } = await import('../../src/runtime/functions')
     const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
 

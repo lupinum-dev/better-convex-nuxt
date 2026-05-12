@@ -1,5 +1,12 @@
 import { deny, loadTenantResource as loadResource } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { revokeArticleShareToken } from '../../../shared/features/articles/contract'
@@ -12,14 +19,7 @@ export const revokeShareTokenOp = defineOperation({
   kind: 'destructive',
   args: revokeArticleShareToken.args,
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        shareTokens: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('shareTokens.revoke'),
       targetId: v.id('shareTokens'),
@@ -34,18 +34,24 @@ export const revokeShareTokenOp = defineOperation({
     const token = loadResource(actor, await ctx.db.get(args.tokenId), 'Share token')
     return { token }
   },
-  preview: async (_ctx, _args, { token }) => ({
-    display: {
+  preview: async (_ctx, _args, { token }) =>
+    operationPreview({
       summary: `Will revoke ${token.prefix}.`,
-      warn: 'Existing shared links using this token will stop working immediately.',
-      affects: { shareTokens: 1 },
-    },
-    confirm: {
-      operation: 'shareTokens.revoke',
-      targetId: token._id,
-      affectedCounts: { shareTokens: 1 },
-    },
-  }),
+      warnings: [
+        operationIssue({
+          code: 'shared-links-stop-working',
+          message: 'Existing shared links using this token will stop working immediately.',
+        }),
+      ],
+      effects: [
+        operationEffect({ kind: 'shareTokens', summary: 'Share tokens revoked', count: 1 }),
+      ],
+      confirm: {
+        operation: 'shareTokens.revoke',
+        targetId: token._id,
+        affectedCounts: { shareTokens: 1 },
+      },
+    }),
   handler: async (ctx, args, { token }) => {
     if (token.revokedAt) throw deny('Already revoked.')
     await ctx.db.patch(args.tokenId, { revokedAt: Date.now() })

@@ -9,6 +9,7 @@ import {
 } from '../../src/runtime/functions/confirmation-token'
 import {
   defineOperation,
+  operationPreview,
   transportExecuteOperationRef,
 } from '../../src/runtime/functions/define-operation'
 import { createObservationCapture } from '../../src/runtime/testing'
@@ -320,10 +321,8 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Delete ${args.id}` },
-        confirm: { id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: `Delete ${args.id}`, confirm: { id: args.id } }),
       handler: async () => ({ deleted: true }),
     })
     const definition = runtime.mutation.protected(
@@ -384,10 +383,8 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Delete ${args.id}` },
-        confirm: { id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: `Delete ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
         executed = true
         return { deleted: true }
@@ -732,10 +729,11 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async () => ({
-        display: { summary: 'Destroy test record' },
-        confirm: { operation: 'tests.destroy' },
-      }),
+      preview: async () =>
+        operationPreview({
+          summary: 'Destroy test record',
+          confirm: { operation: 'tests.destroy' },
+        }),
       handler: async () => null,
     })
 
@@ -764,10 +762,11 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async () => ({
-        display: { summary: 'Destroy test record' },
-        confirm: { operation: 'tests.destroy' },
-      }),
+      preview: async () =>
+        operationPreview({
+          summary: 'Destroy test record',
+          confirm: { operation: 'tests.destroy' },
+        }),
       handler: async () => 'destroyed',
     })
 
@@ -828,10 +827,11 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Destroy ${args.id}` },
-        confirm: { operation: 'tests.destroy', id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({
+          summary: `Destroy ${args.id}`,
+          confirm: { operation: 'tests.destroy', id: args.id },
+        }),
       handler: async () => {
         executions += 1
         return 'destroyed'
@@ -900,10 +900,8 @@ describe('defineTrellis', () => {
       },
       trustedForwardingFunctionRef: 'tasks:delete',
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Destroy ${args.id}` },
-        confirm: { id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
         executed = true
         return 'destroyed'
@@ -977,10 +975,8 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Destroy ${args.id}` },
-        confirm: { id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),
       handler: async () => {
         executed = true
         return 'destroyed'
@@ -1050,10 +1046,8 @@ describe('defineTrellis', () => {
         label: 'tests.destroy',
         check: async () => authorized,
       },
-      preview: async (_ctx, args) => ({
-        display: { summary: 'Destroy test record' },
-        confirm: { id: args.id },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({ summary: 'Destroy test record', confirm: { id: args.id } }),
       handler: async () => {
         executed = true
         return 'destroyed'
@@ -1122,11 +1116,12 @@ describe('defineTrellis', () => {
         id: v.string(),
       },
       guard: open,
-      preview: async (_ctx, args) => ({
-        display: { summary: `Destroy ${args.id}` },
-        confirm: { operation: 'tests.destroy', id: args.id, state },
-        version: { state },
-      }),
+      preview: async (_ctx, args) =>
+        operationPreview({
+          summary: `Destroy ${args.id}`,
+          confirm: { operation: 'tests.destroy', id: args.id, state },
+          version: { state },
+        }),
       handler: async () => {
         executions += 1
         return 'destroyed'

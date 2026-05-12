@@ -20,9 +20,11 @@ import { defineArgs } from '../convex/shared/define-convex-schema.js'
 import { hashConfirmationValue } from '../functions/confirmation-token.js'
 import type { Delegation } from '../functions/define-delegation.js'
 import {
+  isOperationPreviewEnvelope,
   getOperationMetadata,
   type OperationIdOf,
   type OperationKind,
+  type OperationPreviewEnvelope,
   type OperationProjectionRef,
 } from '../functions/define-operation.js'
 import {
@@ -39,11 +41,11 @@ import { createObservationSummary, type ObservationSummary } from '../observabil
 import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
-import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { defineToolInternal as defineTool } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,
   createMemoryConfirmationStore,
+  DEFAULT_MCP_CONFIRMATION_TTL_MS,
   hashArgsForDiagnostics,
   hashPreviewVersion,
   replayedConfirmationFailure,
@@ -164,6 +166,7 @@ export interface DefineMcpAppOptions<
   }) => MaybePromise<string>
   rateLimitStore?: McpRateLimitStore
   confirmationStore?: McpConfirmationStore
+  confirmationTtlMs?: number
   observability?: TrellisObservabilityOptions
 }
 
@@ -271,9 +274,7 @@ type AnyOperationDefinition = {
 }
 
 type OperationPreviewPayload = {
-  display: string | PreviewResult
-  confirm: SerializableValue
-  version?: SerializableValue
+  [K in keyof OperationPreviewEnvelope]: OperationPreviewEnvelope[K]
 }
 
 type OperationProjectionId<TOperation extends AnyOperationDefinition> = Extract<
@@ -325,7 +326,7 @@ export interface ToolOperationOptions<
     principal: TPrincipal
     capabilities: TCapabilities
     runtime: TRuntime
-  }) => string | PreviewResult
+  }) => OperationPreviewEnvelope
   confirmationMode?: McpDestructiveConfirmationMode
   confirmationStore?: McpConfirmationStore
   tenantKey?: (ctx: {
@@ -406,18 +407,33 @@ function defaultPrincipalKey(principal: unknown): string {
   }
 }
 
-function normalizePreviewDisplay(raw: string | PreviewResult): PreviewResult {
-  return typeof raw === 'string' ? { summary: raw } : raw
+function isBlockedPreview(preview: OperationPreviewPayload): boolean {
+  return preview.allowed === false || preview.blockers.length > 0
 }
 
-function isOperationPreviewPayload(value: unknown): value is OperationPreviewPayload {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'display' in value &&
-    'confirm' in value &&
-    isNonEmptyPlainObject((value as OperationPreviewPayload).confirm)
-  )
+function toMcpPreviewResult(input: {
+  operationId: string
+  preview: OperationPreviewPayload
+  confirmation?: { token: string; expiresAt: number }
+}): PreviewResult {
+  return {
+    operationId: input.operationId,
+    allowed: !isBlockedPreview(input.preview),
+    summary: input.preview.summary,
+    blockers: input.preview.blockers,
+    warnings: input.preview.warnings,
+    effects: input.preview.effects,
+    ...(input.preview.details === undefined ? {} : { details: input.preview.details }),
+    ...(input.confirmation
+      ? {
+          confirmation: {
+            token: input.confirmation.token,
+            expiresAt: input.confirmation.expiresAt,
+            operationId: input.operationId,
+          },
+        }
+      : {}),
+  }
 }
 
 function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
@@ -554,6 +570,7 @@ export function defineMcpApp<
   const appRateLimitStore = options.rateLimitStore
   const appConfirmationStore = options.confirmationStore
   const confirmationStore = appConfirmationStore ?? createMemoryConfirmationStore()
+  const confirmationTtlMs = options.confirmationTtlMs ?? DEFAULT_MCP_CONFIRMATION_TTL_MS
   const requestCache = new WeakMap<
     H3Event,
     Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
@@ -1213,23 +1230,20 @@ export function defineMcpApp<
 
           const normalizeOperationPreview = (previewResult: unknown): OperationPreviewPayload => {
             if (options.previewResult) {
-              return {
-                display: options.previewResult({
-                  args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
-                  result: previewResult as TPreview extends AnyFunctionRef
-                    ? FunctionLikeReturnType<TPreview>
-                    : unknown,
-                  principal: projectionCtx.principal,
-                  capabilities: projectionCtx.capabilities,
-                  runtime: projectionCtx.runtime,
-                }),
-                confirm: executeArgs as SerializableValue,
-              }
+              return options.previewResult({
+                args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
+                result: previewResult as TPreview extends AnyFunctionRef
+                  ? FunctionLikeReturnType<TPreview>
+                  : unknown,
+                principal: projectionCtx.principal,
+                capabilities: projectionCtx.capabilities,
+                runtime: projectionCtx.runtime,
+              })
             }
 
-            if (!isOperationPreviewPayload(previewResult)) {
+            if (!isOperationPreviewEnvelope(previewResult)) {
               throw new Error(
-                `tool.operation(${metadata.name ?? metadata.id}) preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
+                `tool.operation(${metadata.name ?? metadata.id}) preview must return an OperationPreviewEnvelope with allowed, summary, blockers, warnings, effects, and a non-empty plain-object confirm payload.`,
               )
             }
 
@@ -1332,7 +1346,6 @@ export function defineMcpApp<
               }
 
               const previewPayload = normalizeOperationPreview(previewResult)
-              const display = normalizePreviewDisplay(previewPayload.display)
               const previewHash = await hashConfirmationValue(previewPayload.confirm)
               const versionHash = await hashPreviewVersion(previewPayload.version)
               await projectionCtx.observe({
@@ -1343,14 +1356,21 @@ export function defineMcpApp<
                 tool: options.meta?.name ?? metadata.name ?? operationId,
               })
 
-              if (display.blocked) {
-                return ctx.blocked(display)
+              if (isBlockedPreview(previewPayload)) {
+                return ctx.preview(
+                  toMcpPreviewResult({
+                    operationId,
+                    preview: previewPayload,
+                  }),
+                )
               }
 
+              const expiresAt = Date.now() + confirmationTtlMs
               const signedToken = await signDestructivePreviewToken({
                 binding: confirmationBinding,
                 previewHash,
                 versionHash,
+                ttlMs: confirmationTtlMs,
               })
 
               await projectionCtx.observe({
@@ -1365,8 +1385,14 @@ export function defineMcpApp<
                 details: { awaitingConfirmation: true },
               })
               return ctx.preview({
-                ...display,
-                confirmationToken: signedToken,
+                ...toMcpPreviewResult({
+                  operationId,
+                  preview: previewPayload,
+                  confirmation: {
+                    token: signedToken,
+                    expiresAt,
+                  },
+                }),
               })
             }
 
@@ -1400,13 +1426,12 @@ export function defineMcpApp<
             }
 
             const previewPayload = normalizeOperationPreview(previewResult)
-            const display = normalizePreviewDisplay(previewPayload.display)
 
             const previewHash = await hashConfirmationValue(previewPayload.confirm)
             const versionHash = await hashPreviewVersion(previewPayload.version)
             const previewFailure = validateDestructivePreviewState({
               payload,
-              blocked: display.blocked === true,
+              blocked: isBlockedPreview(previewPayload),
               previewHash,
               versionHash,
             })

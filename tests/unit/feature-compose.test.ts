@@ -13,6 +13,7 @@ import {
   defineOperation,
   defineOperationDescriptor,
   getOperationMetadata,
+  operationPreview,
 } from '../../src/runtime/functions'
 
 describe('feature composition', () => {
@@ -216,10 +217,7 @@ describe('feature composition', () => {
       kind: 'destructive',
       args: { id: v.string() },
       guard: definePermission({ key: 'task.archive', check: true }),
-      preview: async () => ({
-        display: { summary: 'Archive task' },
-        confirm: { id: 'task-1' },
-      }),
+      preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task-1' } }),
       handler: async () => null,
     })
 

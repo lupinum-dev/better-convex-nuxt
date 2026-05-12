@@ -368,6 +368,10 @@ function createUpgradeFindings(
     /\btemplate\s*:\s*['"]cms['"]/,
   ])
   const legacyBackendRootBuilders = findLegacyBackendRootBuilderCalls(project)
+  const legacyOperationPreviewShape = findTokenLocations(project, [
+    /previewReturns\s*:\s*v\.object\s*\(\s*\{[\s\S]{0,500}\bdisplay\s*:/,
+    /preview\s*:\s*async[\s\S]{0,500}\bdisplay\s*:[\s\S]{0,500}\bconfirm\s*:/,
+  ])
   const authorizeArityInference = findAuthorizeArityInference(project)
   const unsafePermitMigrationEntrypoints = unsafeEntrypointsNeedingPermitMigration(inventory)
   const unsafePermitMigrationLocations = unsafeEntrypointLocations(unsafePermitMigrationEntrypoints)
@@ -458,6 +462,23 @@ function createUpgradeFindings(
         `Found destructive-looking MCP tools outside operation bindings at ${formatLocations(locations)}.`,
       cleanMessage: 'No destructive MCP tools were found outside operation bindings.',
       fixHint: 'Expose destructive MCP work through `tool.operation(...)` only.',
+    }),
+    createLocationFinding({
+      id: 'upgrade-operation-preview-envelope',
+      title: 'Operation preview envelope migration',
+      locations: legacyOperationPreviewShape,
+      sources: [
+        findingProjectScanSource(
+          'old destructive preview display shape',
+          legacyOperationPreviewShape,
+        ),
+      ],
+      statusWhenFound: 'fail',
+      foundMessage: (locations) =>
+        `Found old destructive preview display shapes at ${formatLocations(locations)}.`,
+      cleanMessage: 'No old destructive preview display shapes were found.',
+      fixHint:
+        'Return `operationPreview(...)` or `blockedOperationPreview(...)` and validate with `operationPreviewValidator(...)` instead of `{ display, confirm }`.',
     }),
     createLocationFinding({
       id: 'upgrade-mcp-custom-app-write',

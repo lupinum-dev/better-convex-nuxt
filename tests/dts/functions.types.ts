@@ -3,8 +3,10 @@ import {
   defineOperation,
   defineOperationMetadata,
   executeOperationRef,
+  operationPreview,
   previewOperationRef,
   type InferOperationResult,
+  type OperationPreviewEnvelope,
   trellisOperationProjectionMetadataKey,
 } from '@lupinum/trellis/backend'
 import type { FunctionReference } from 'convex/server'
@@ -21,10 +23,11 @@ const operation = defineOperation.withContext<{
     id: v.string(),
   },
   guard: open,
-  preview: async () => ({
-    display: { summary: 'Archive entry' },
-    confirm: { operation: 'entries.archive', id: 'entry_1' },
-  }),
+  preview: async () =>
+    operationPreview({
+      summary: 'Archive entry',
+      confirm: { operation: 'entries.archive', id: 'entry_1' },
+    }),
   handler: async () => ({ archived: true as const }),
 })
 
@@ -42,10 +45,7 @@ const previewRef = previewOperationRef(
     'query',
     'internal',
     { id: string },
-    {
-      display: { summary: string }
-      confirm: { operation: string; id: string }
-    }
+    OperationPreviewEnvelope<{ operation: string; id: string }>
   >,
 )
 

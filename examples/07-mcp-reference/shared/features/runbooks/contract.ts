@@ -1,5 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
-import { defineOperationDescriptor } from '@lupinum/trellis/backend'
+import { defineOperationDescriptor, operationPreviewValidator } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 export const runbookVisibilityValidator = v.union(
@@ -74,14 +74,7 @@ export const removeRunbookDescriptor = defineOperationDescriptor({
   permission: 'runbook.delete',
   safety: 'destructive-write',
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        runbooks: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('runbooks.remove'),
       targetId: v.id('runbooks'),
@@ -116,17 +109,7 @@ export const bulkRemoveRunbooksDescriptor = defineOperationDescriptor({
     ),
     total: v.number(),
   }),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.optional(v.string()),
-      affects: v.optional(
-        v.object({
-          runbooks: v.number(),
-        }),
-      ),
-      blocked: v.optional(v.boolean()),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('runbooks.bulkRemove'),
       targetIds: v.array(v.id('runbooks')),

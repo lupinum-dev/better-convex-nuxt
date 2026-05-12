@@ -1,3 +1,4 @@
+import { operationPreview } from '../../../../../src/runtime/functions/define-operation'
 import { defineMcpApp } from '../../../../../src/runtime/mcp/define-mcp-app'
 
 export const convexCalls: Array<{
@@ -11,6 +12,7 @@ export const mcpRuntime = defineMcpApp({
     kind: 'agent' as const,
     subject: 'agent:phase0',
   }),
+  tenantKey: () => 'global',
   resolveCapabilities: async () => ({
     'projects.create': true,
     'projects.delete': true,
@@ -18,10 +20,7 @@ export const mcpRuntime = defineMcpApp({
   callConvex: async () => ({
     query: async (_ref, args, options) => {
       convexCalls.push({ operation: 'query', args, options })
-      return {
-        display: { summary: 'Delete project' },
-        confirm: { id: 'project-1' },
-      }
+      return operationPreview({ summary: 'Delete project', confirm: { id: 'project-1' } })
     },
     mutation: async (_ref, args, options) => {
       convexCalls.push({ operation: 'mutation', args, options })

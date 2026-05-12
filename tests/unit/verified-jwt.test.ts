@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  clearServerJwksCache,
-  verifyServerJwt,
-} from '../../src/runtime/auth/server/verified-jwt'
+import { clearServerJwksCache, verifyServerJwt } from '../../src/runtime/auth/server/verified-jwt'
 import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 const siteUrl = 'https://app.example'
@@ -74,8 +71,6 @@ describe('verifyServerJwt', () => {
   })
 
   it('rejects expired tokens', async () => {
-    await expect(verifyServerJwt(await token({}, -60), siteUrl)).rejects.toThrow(
-      /exp|expired/i,
-    )
+    await expect(verifyServerJwt(await token({}, -60), siteUrl)).rejects.toThrow(/exp|expired/i)
   })
 })

@@ -8,6 +8,7 @@ import { serverConvexMutation, serverConvexQuery } from '../../src/runtime/conve
 import {
   defineOperation,
   defineOperationDescriptor,
+  operationPreview,
   previewOf,
   projectOperationRef,
 } from '../../src/runtime/functions/define-operation'
@@ -37,6 +38,14 @@ vi.mock('../../src/runtime/convex/server/convex', () => ({
   serverConvexMutation: vi.fn(),
   serverConvexAction: vi.fn(),
 }))
+
+function deletePostPreview(extra?: { version?: unknown }) {
+  return operationPreview({
+    summary: 'Delete post',
+    confirm: { id: 'post-1' },
+    ...(extra?.version === undefined ? {} : { version: extra.version }),
+  })
+}
 
 function createEvent(auth?: { role?: string; userId?: string; tenantId?: string }): H3Event {
   return {
@@ -744,10 +753,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -758,10 +764,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -797,10 +800,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -825,10 +825,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -839,10 +836,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -935,10 +929,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -951,10 +942,7 @@ describe('Destructive confirmation payload validation', () => {
           subject: 'agent:assistant-bot',
         }),
         callConvex: async () => ({
-          query: async () => ({
-            display: { summary: 'Delete post' },
-            confirm: { id: 'post-1' },
-          }),
+          query: async () => deletePostPreview(),
           mutation: async () => ({ ok: true }),
           action: async () => ({ ok: true }),
         }),
@@ -1038,11 +1026,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-        version: { rev: previewVersion },
-      }),
+      preview: async () => deletePostPreview({ version: { rev: previewVersion } }),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -1054,11 +1038,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-          version: { rev: previewVersion },
-        }),
+        query: async () => deletePostPreview({ version: { rev: previewVersion } }),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -1073,7 +1053,7 @@ describe('Destructive confirmation payload validation', () => {
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
@@ -1083,7 +1063,7 @@ describe('Destructive confirmation payload validation', () => {
     const confirmed = await tool.handler(
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       } as never,
       {} as never,
     )
@@ -1109,10 +1089,7 @@ describe('Destructive confirmation payload validation', () => {
         message: v.optional(v.string()),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -1124,10 +1101,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -1145,7 +1119,7 @@ describe('Destructive confirmation payload validation', () => {
     )) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
@@ -1154,7 +1128,7 @@ describe('Destructive confirmation payload validation', () => {
       {
         id: 'post-1',
         message: 'changed',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       } as never,
       {} as never,
     )
@@ -1185,10 +1159,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -1200,10 +1171,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async (_ref, args) => {
           executedArgs = args as Record<string, unknown>
           return { ok: true }
@@ -1222,7 +1190,7 @@ describe('Destructive confirmation payload validation', () => {
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
@@ -1230,7 +1198,7 @@ describe('Destructive confirmation payload validation', () => {
     await tool.handler(
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       } as never,
       {} as never,
     )
@@ -1247,10 +1215,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -1262,10 +1227,7 @@ describe('Destructive confirmation payload validation', () => {
         subject: 'agent:assistant-bot',
       }),
       callConvex: async () => ({
-        query: async () => ({
-          display: { summary: 'Delete post' },
-          confirm: { id: 'post-1' },
-        }),
+        query: async () => deletePostPreview(),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
@@ -1281,13 +1243,13 @@ describe('Destructive confirmation payload validation', () => {
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
     const args = {
       id: 'post-1',
-      _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+      _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
     }
 
     await tool.handler(args as never, {} as never)
@@ -1305,10 +1267,7 @@ describe('Destructive confirmation payload validation', () => {
   })
 
   it('routes destructive operation execute through trusted server forwarding without raw identity args', async () => {
-    vi.mocked(serverConvexQuery).mockResolvedValue({
-      display: { summary: 'Delete post' },
-      confirm: { id: 'post-1' },
-    })
+    vi.mocked(serverConvexQuery).mockResolvedValue(deletePostPreview())
     vi.mocked(serverConvexMutation).mockResolvedValue({ ok: true })
 
     const operation = defineOperation({
@@ -1319,10 +1278,7 @@ describe('Destructive confirmation payload validation', () => {
         id: v.string(),
       },
       guard: { label: 'open', check: () => true } as never,
-      preview: async () => ({
-        display: { summary: 'Delete post' },
-        confirm: { id: 'post-1' },
-      }),
+      preview: async () => deletePostPreview(),
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
@@ -1359,7 +1315,7 @@ describe('Destructive confirmation payload validation', () => {
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
@@ -1367,7 +1323,7 @@ describe('Destructive confirmation payload validation', () => {
     await tool.handler(
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       } as never,
       {} as never,
     )
@@ -1390,7 +1346,7 @@ describe('Destructive confirmation payload validation', () => {
       operation,
       {
         id: 'post-1',
-        _confirmationToken: previewResult.structuredContent?.preview?.confirmationToken,
+        _confirmationToken: previewResult.structuredContent?.preview?.confirmation?.token,
       },
       {
         auth: 'trusted',

@@ -10,6 +10,10 @@ import type { ZodRawShape } from 'zod'
 
 import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
 import type { Delegation } from '../functions/define-delegation.js'
+import type {
+  OperationPreviewEffect,
+  OperationPreviewIssue,
+} from '../functions/operation-preview.js'
 import type { TrellisDenialExplanation } from '../observability/index.js'
 import type { NoInfer, ValidateSerializable } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexErrorIssue } from '../utils/types.js'
@@ -78,12 +82,18 @@ export type ConvexToolResult<T = unknown> =
 // ============================================================================
 
 export interface PreviewResult {
+  operationId: string
+  allowed: boolean
   summary: string
-  warn?: string
-  affects?: Record<string, number>
-  blocked?: boolean
-  confirmationToken?: string
-  version?: ValidateSerializable<unknown>
+  blockers: OperationPreviewIssue[]
+  warnings: OperationPreviewIssue[]
+  effects: OperationPreviewEffect[]
+  details?: ValidateSerializable<unknown>
+  confirmation?: {
+    token: string
+    expiresAt: number
+    operationId: string
+  }
 }
 
 // ============================================================================
@@ -120,8 +130,8 @@ export interface ConvexToolHandlerCtx<TRole extends string = string> extends Con
     details?: Record<string, unknown>,
     code?: string,
   ) => McpToolCallbackResult
-  preview: (preview: string | PreviewResult) => McpToolCallbackResult
-  blocked: (preview: string | PreviewResult) => McpToolCallbackResult
+  preview: (preview: PreviewResult) => McpToolCallbackResult
+  blocked: (preview: PreviewResult) => McpToolCallbackResult
 }
 
 export type ConvexToolMiddleware<S extends AnyConvexSchema, TRole extends string = string> = (

@@ -65,7 +65,8 @@ import type {
 import {
   getOperationMetadata,
   getOperationProjectionMetadata,
-  type DestructiveOperationPreview,
+  isOperationPreviewEnvelope,
+  type OperationPreviewEnvelope,
 } from './define-operation.js'
 import {
   definePrincipal,
@@ -83,8 +84,16 @@ export {
   defineOperationDescriptor,
   defineOperationMetadata,
   defineOperation,
+  blockedOperationPreview,
   executeOperationRef,
   getOperationMetadata,
+  isOperationPreviewEnvelope,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewEffectValidator,
+  operationPreviewIssueValidator,
+  operationPreviewValidator,
   previewOperationRef,
   projectOperationRef,
   transportExecuteOperationRef,
@@ -94,7 +103,6 @@ export {
   trellisOperationProjectionMetadataKey,
 } from './define-operation.js'
 export type {
-  DestructiveOperationPreview,
   InferOperationLoaded,
   InferOperationResult,
   InferOperationPreview,
@@ -102,6 +110,9 @@ export type {
   OperationDescriptor,
   OperationDefinition,
   OperationMetadataDefinition,
+  OperationPreviewEffect,
+  OperationPreviewEnvelope,
+  OperationPreviewIssue,
   OperationIdOf,
   OperationKind,
   OperationProjectionRef,
@@ -1550,23 +1561,10 @@ function getConfirmationToken(args: Record<string, unknown>): string | undefined
   return typeof args._confirmationToken === 'string' ? args._confirmationToken : undefined
 }
 
-function isDestructivePreviewPayload(value: unknown): value is DestructiveOperationPreview<
-  | string
-  | {
-      blocked?: boolean
-      summary?: string
-      warn?: string
-      affects?: Record<string, number>
-    },
-  { [key: string]: SerializableValue }
-> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'display' in value &&
-    'confirm' in value &&
-    isNonEmptyPlainObject((value as { confirm?: unknown }).confirm)
-  )
+function isDestructivePreviewPayload(value: unknown): value is OperationPreviewEnvelope<{
+  [key: string]: SerializableValue
+}> {
+  return isOperationPreviewEnvelope(value)
 }
 
 async function hashPreviewVersion(version: SerializableValue | undefined): Promise<string | null> {
@@ -2336,7 +2334,7 @@ function buildStructuredMutationRuntime<
         const previewResult = await preview(ctx, executeArgs, freshLoaded)
         if (!isDestructivePreviewPayload(previewResult)) {
           throw new Error(
-            `Destructive operation "${metadata.id}" preview must return { display, confirm } with a non-empty plain-object confirm payload.`,
+            `Destructive operation "${metadata.id}" preview must return an OperationPreviewEnvelope with allowed, summary, blockers, warnings, effects, and a non-empty plain-object confirm payload.`,
           )
         }
         await ctx.observe({
@@ -2345,12 +2343,7 @@ function buildStructuredMutationRuntime<
           operation: metadata.id,
         })
 
-        const display =
-          typeof previewResult.display === 'string'
-            ? { summary: previewResult.display }
-            : previewResult.display
-
-        if (display.blocked) {
+        if (previewResult.allowed === false || previewResult.blockers.length > 0) {
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',

@@ -1,4 +1,5 @@
 import { createComponentBridge } from '@lupinum/trellis-bridge/component'
+import { operationPreviewValidator } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import {
@@ -99,8 +100,8 @@ const miniCmsBridge = bridge.from({
     component: miniCmsComponents.operations.previewPublish,
     functionRef: 'features/pages/operations:previewPublish',
     args: publishPage.args,
-    returns: v.object({
-      display: publishPreviewValidator,
+    returns: operationPreviewValidator({
+      details: publishPreviewValidator,
       confirm: v.object({
         operation: v.literal('pages.publish'),
         targetId: v.string(),

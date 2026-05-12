@@ -1,6 +1,9 @@
 import { v } from 'convex/values'
 
-import { defineOperationDescriptor } from '../../../../../../src/runtime/functions/define-operation'
+import {
+  defineOperationDescriptor,
+  operationPreviewValidator,
+} from '../../../../../../src/runtime/functions/define-operation'
 import { projectDeleteKey } from './permissions'
 
 export const deleteProjectDescriptor = defineOperationDescriptor({
@@ -12,10 +15,7 @@ export const deleteProjectDescriptor = defineOperationDescriptor({
   },
   permission: projectDeleteKey,
   safety: 'destructive-write',
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       id: v.string(),
     }),

@@ -23,7 +23,7 @@ describe('public surface codegen', () => {
   it('extracts operations, projections, and MCP tool metadata', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
-        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+        import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
         import { mutation, query } from '../../functions'
 
         export const archiveTaskOp = defineOperation({
@@ -32,7 +32,7 @@ describe('public surface codegen', () => {
           kind: 'destructive',
           args: {},
           guard: true,
-          preview: async () => ({ display: { summary: 'Archive task' }, confirm: { id: 'task_1' } }),
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => null,
         })
 
@@ -98,7 +98,7 @@ describe('public surface codegen', () => {
   it('renders additive module augmentation types for generated operation and tool maps', () => {
     const rootDir = createFixture({
       'convex/features/tasks/operations.ts': `
-        import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+        import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
         import { mutation, query } from '../../functions'
 
         export const archiveTaskOp = defineOperation({
@@ -106,7 +106,7 @@ describe('public surface codegen', () => {
           kind: 'destructive',
           args: {},
           guard: true,
-          preview: async () => ({ display: { summary: 'Archive task' }, confirm: { id: 'task_1' } }),
+          preview: async () => operationPreview({ summary: 'Archive task', confirm: { id: 'task_1' } }),
           handler: async () => null,
         })
 

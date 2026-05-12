@@ -1,6 +1,12 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { definePermission, open } from '@lupinum/trellis/auth'
-import { defineOperation, executeOperationRef, previewOperationRef } from '@lupinum/trellis/backend'
+import {
+  defineOperation,
+  executeOperationRef,
+  operationPreview,
+  previewOperationRef,
+  type OperationPreviewEnvelope,
+} from '@lupinum/trellis/backend'
 import {
   defineMcpApp,
   type McpConvexCaller,
@@ -60,10 +66,7 @@ const operation = defineOperation({
     id: v.string(),
   },
   guard: open,
-  preview: async () => ({
-    display: { summary: 'Archive entry' },
-    confirm: { id: 'entry_1' },
-  }),
+  preview: async () => operationPreview({ summary: 'Archive entry', confirm: { id: 'entry_1' } }),
   handler: async () => ({ archived: true as const }),
 })
 
@@ -77,10 +80,7 @@ const previewRef = previewOperationRef(
     'query',
     'internal',
     { id: string },
-    {
-      display: { summary: string }
-      confirm: { id: string }
-    }
+    OperationPreviewEnvelope<{ id: string }>
   >,
 )
 

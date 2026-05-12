@@ -125,11 +125,11 @@ describe('phase0 workspace-mcp fixture', () => {
     )) as {
       structuredContent?: {
         preview?: {
-          confirmationToken?: string
+          confirmation?: { token?: string }
         }
       }
     }
-    const confirmationToken = previewResult.structuredContent?.preview?.confirmationToken
+    const confirmationToken = previewResult.structuredContent?.preview?.confirmation?.token
     expect(confirmationToken).toEqual(expect.any(String))
 
     await deleteProjectTool.handler(

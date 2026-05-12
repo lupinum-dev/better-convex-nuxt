@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 
+import { operationPreview } from '../../../../../../src/runtime/functions/define-operation'
 import { deleteProjectDescriptor } from '../../../shared/features/projects/operations'
 import { createProjectArgs } from '../../../shared/features/projects/tools'
 import { mutation, query } from '../../_generated/server'
@@ -7,14 +8,13 @@ import { mutation, query } from '../../_generated/server'
 export const previewDeleteProject = query({
   args: deleteProjectDescriptor.args,
   returns: deleteProjectDescriptor.previewReturns,
-  handler: async (_ctx, args) => ({
-    display: {
+  handler: async (_ctx, args) =>
+    operationPreview({
       summary: `Delete project ${args.id}`,
-    },
-    confirm: {
-      id: args.id,
-    },
-  }),
+      confirm: {
+        id: args.id,
+      },
+    }),
 })
 
 export const deleteProject = mutation({

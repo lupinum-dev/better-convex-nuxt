@@ -1,5 +1,12 @@
 import { deny, requireRecord } from '@lupinum/trellis/auth'
-import { defineOperation, previewOf } from '@lupinum/trellis/backend'
+import {
+  defineOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+  previewOf,
+} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { archiveProject } from '../../../shared/features/projects/contract'
@@ -13,14 +20,7 @@ export const archiveProjectOp = defineOperation({
   kind: 'destructive',
   args: archiveProject.args,
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        projects: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('projects.archive'),
       targetId: v.id('projects'),
@@ -35,18 +35,22 @@ export const archiveProjectOp = defineOperation({
     requireRecord(project, 'Project')
     return { project }
   },
-  preview: async (_ctx, _args, { project }) => ({
-    display: {
+  preview: async (_ctx, _args, { project }) =>
+    operationPreview({
       summary: `Will archive "${project.name}".`,
-      warn: 'Archived projects stop accepting new tasks.',
-      affects: { projects: 1 },
-    },
-    confirm: {
-      operation: 'projects.archive',
-      targetId: project._id,
-      affectedCounts: { projects: 1 },
-    },
-  }),
+      warnings: [
+        operationIssue({
+          code: 'archive-project',
+          message: 'Archived projects stop accepting new tasks.',
+        }),
+      ],
+      effects: [operationEffect({ kind: 'projects', summary: 'Projects archived', count: 1 })],
+      confirm: {
+        operation: 'projects.archive',
+        targetId: project._id,
+        affectedCounts: { projects: 1 },
+      },
+    }),
   handler: async (ctx, args, { project }) => {
     const actor = await ctx.actor()
     const workspaceId = requireWorkspaceTenant(actor)

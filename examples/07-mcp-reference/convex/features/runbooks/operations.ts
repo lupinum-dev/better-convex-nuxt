@@ -1,5 +1,12 @@
 import { can } from '@lupinum/trellis/auth'
-import { implementOperation, previewOf } from '@lupinum/trellis/backend'
+import {
+  blockedOperationPreview,
+  implementOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  previewOf,
+} from '@lupinum/trellis/backend'
 
 import {
   bulkRemoveRunbooksDescriptor,
@@ -40,22 +47,17 @@ export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
     }
     return { runbook }
   },
-  preview: async (
-    _ctx: RunbookMutationCtx,
-    _args: DeleteRunbookArgs,
-    { runbook }: LoadedRunbook,
-  ) => ({
-    display: {
+  preview: async (_ctx: RunbookMutationCtx, _args: DeleteRunbookArgs, { runbook }: LoadedRunbook) =>
+    operationPreview({
       summary: `Will permanently delete "${runbook.title}".`,
-      warn: 'This cannot be undone.',
-      affects: { runbooks: 1 },
-    },
-    confirm: {
-      operation: 'runbooks.remove',
-      targetId: runbook._id,
-      affectedCounts: { runbooks: 1 },
-    },
-  }),
+      warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone.' })],
+      effects: [operationEffect({ kind: 'runbooks', summary: 'Runbooks deleted', count: 1 })],
+      confirm: {
+        operation: 'runbooks.remove',
+        targetId: runbook._id,
+        affectedCounts: { runbooks: 1 },
+      },
+    }),
   handler: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs) => {
     await ctx.db.delete(args.id)
     return null
@@ -85,34 +87,42 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
     { found }: LoadedBulkRunbooks,
   ) => {
     if (found.length === 0) {
-      return {
-        display: {
-          summary: 'None of the selected runbooks can be deleted.',
-          blocked: true,
-        },
+      return blockedOperationPreview({
+        summary: 'None of the selected runbooks can be deleted.',
+        blockers: [
+          operationIssue({
+            code: 'no-deletable-runbooks',
+            message: 'None of the selected runbooks can be deleted.',
+          }),
+        ],
         confirm: {
           operation: 'runbooks.bulkRemove',
           targetIds: [],
           affectedCounts: { runbooks: 0 },
         },
-      }
+      })
     }
 
-    return {
-      display: {
-        summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook: Doc<'runbooks'>) => `"${runbook.title}"`).join(', ')}`,
-        warn:
-          found.length !== args.ids.length
-            ? 'Some ids were missing and will be skipped.'
-            : undefined,
-        affects: { runbooks: found.length },
-      },
+    return operationPreview({
+      summary: `Will delete ${found.length} runbook${found.length === 1 ? '' : 's'}: ${found.map((runbook: Doc<'runbooks'>) => `"${runbook.title}"`).join(', ')}`,
+      warnings:
+        found.length !== args.ids.length
+          ? [
+              operationIssue({
+                code: 'some-runbooks-skipped',
+                message: 'Some ids were missing and will be skipped.',
+              }),
+            ]
+          : [],
+      effects: [
+        operationEffect({ kind: 'runbooks', summary: 'Runbooks deleted', count: found.length }),
+      ],
       confirm: {
         operation: 'runbooks.bulkRemove',
         targetIds: found.map((runbook: Doc<'runbooks'>) => runbook._id).sort(),
         affectedCounts: { runbooks: found.length },
       },
-    }
+    })
   },
   handler: async (ctx: RunbookMutationCtx, args: BulkDeleteRunbooksArgs) => {
     const actor = await ctx.actor()

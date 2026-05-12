@@ -1,3 +1,4 @@
+import type { OperationPreviewEnvelope } from '@lupinum/trellis/backend'
 import type { FunctionReference } from 'convex/server'
 
 declare module '@lupinum/trellis/backend' {
@@ -17,10 +18,7 @@ declare module '@lupinum/trellis/backend' {
       'query',
       'internal',
       { id: string },
-      {
-        display: { summary: string }
-        confirm: { id: string }
-      }
+      OperationPreviewEnvelope<{ id: string }>
     >
   }
 }

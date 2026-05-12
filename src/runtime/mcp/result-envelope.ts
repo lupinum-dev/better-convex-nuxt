@@ -190,13 +190,14 @@ export function wrapError(
  * Wrap a preview result into a structured CallToolResult awaiting confirmation.
  */
 export function wrapPreview(preview: PreviewResult): CallToolResult {
+  const awaitingConfirmation = preview.confirmation !== undefined
   return {
     content: [{ type: 'text', text: preview.summary }],
     structuredContent: {
       ok: true,
       preview,
-      awaitingConfirmation: preview.blocked === true ? false : true,
-      requiresConfirmation: preview.blocked === true ? false : true,
+      awaitingConfirmation,
+      requiresConfirmation: awaitingConfirmation,
       executed: false,
     },
   }

@@ -6,6 +6,7 @@ import {
   defineOperationDescriptor,
   getOperationMetadata,
   implementOperation,
+  operationPreview,
   trellisOperationProjectionMetadataKey,
 } from '../../src/runtime/functions'
 
@@ -29,10 +30,8 @@ describe('operation descriptors', () => {
     const operation = implementOperation(descriptor, {
       guard: projectDelete,
       permission: projectDelete,
-      preview: async () => ({
-        display: { summary: 'Delete project' },
-        confirm: { id: 'project-1' },
-      }),
+      preview: async () =>
+        operationPreview({ summary: 'Delete project', confirm: { id: 'project-1' } }),
       handler: async () => ({ ok: true }),
     })
 
@@ -85,10 +84,8 @@ describe('operation descriptors', () => {
       implementOperation(descriptor, {
         returns: v.null(),
         guard: definePermission({ key: 'projects.archive', check: true }),
-        preview: async () => ({
-          display: { summary: 'Archive project' },
-          confirm: { id: 'project-1' },
-        }),
+        preview: async () =>
+          operationPreview({ summary: 'Archive project', confirm: { id: 'project-1' } }),
         handler: async () => null,
       } as never),
     ).toThrow('implementOperation(projects.archive) received returns')
@@ -97,10 +94,8 @@ describe('operation descriptors', () => {
       implementOperation(descriptor, {
         previewReturns: v.null(),
         guard: definePermission({ key: 'projects.archive', check: true }),
-        preview: async () => ({
-          display: { summary: 'Archive project' },
-          confirm: { id: 'project-1' },
-        }),
+        preview: async () =>
+          operationPreview({ summary: 'Archive project', confirm: { id: 'project-1' } }),
         handler: async () => ({ ok: true }),
       } as never),
     ).toThrow('implementOperation(projects.archive) received previewReturns')

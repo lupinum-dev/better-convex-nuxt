@@ -106,7 +106,9 @@ function hmacPayload(options: {
   rawBody: string | Uint8Array
 }): Buffer {
   const body =
-    typeof options.rawBody === 'string' ? toUtf8Buffer(options.rawBody) : Buffer.from(options.rawBody)
+    typeof options.rawBody === 'string'
+      ? toUtf8Buffer(options.rawBody)
+      : Buffer.from(options.rawBody)
   return Buffer.concat([
     toUtf8Buffer(options.timestamp),
     toUtf8Buffer('.'),
