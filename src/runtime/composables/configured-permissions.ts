@@ -7,7 +7,7 @@ import { useNuxtApp, useRouter } from '#imports'
 import { useConvexAuth } from '../auth/composables/useConvexAuth.js'
 import type { PermissionContextBase } from '../auth/define-permission-context.js'
 import type {
-  PermissionHandle,
+  PermissionKeyHandle,
   RegisteredProjectedPermissionKey,
 } from '../auth/define-permission.js'
 import { resolvePermissionKey } from '../auth/define-permission.js'
@@ -65,7 +65,7 @@ export interface UsePermissionsReturn<
   tenantId: ComputedRef<TContext['tenantId'] | null>
   ready: ComputedRef<boolean>
   pending: ComputedRef<boolean>
-  allows: (permission: PermissionHandle<TPermissions>) => ComputedRef<boolean>
+  allows: (permission: PermissionKeyHandle<TPermissions>) => ComputedRef<boolean>
 }
 
 export interface UseAuthGuardOptions<
@@ -200,7 +200,7 @@ export function createConfiguredPermissionsComposables<
   function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
     const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
 
-    function allows(permission: PermissionHandle<TPermissions>): ComputedRef<boolean> {
+    function allows(permission: PermissionKeyHandle<TPermissions>): ComputedRef<boolean> {
       const key = resolvePermissionKey(permission)
       return computed<boolean>(() => ctx.value?.can?.[key] === true)
     }

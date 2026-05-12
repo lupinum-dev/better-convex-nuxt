@@ -1,5 +1,11 @@
 import type { createResolver } from '@nuxt/kit'
-import { addComponentsDir, addImports, addRouteMiddleware, addServerHandler } from '@nuxt/kit'
+import {
+  addComponentsDir,
+  addImports,
+  addRouteMiddleware,
+  addServerHandler,
+  addTemplate,
+} from '@nuxt/kit'
 
 interface InstallAuthOptions {
   resolver: ReturnType<typeof createResolver>
@@ -22,6 +28,29 @@ export function installAuthTrellis(options: InstallAuthOptions): void {
   addServerHandler({
     route: `${authRoute}/**`,
     handler: resolver.resolve('./runtime/auth/server/api/auth/[...]'),
+  })
+
+  addTemplate({
+    filename: 'types/trellis-auth.d.ts',
+    getContents: () => `
+import type { createAuthClient } from 'better-auth/vue'
+
+type AuthClient = ReturnType<typeof createAuthClient>
+
+declare module '#app' {
+  interface NuxtApp {
+    $auth?: AuthClient
+  }
+}
+
+declare module 'vue' {
+  interface ComponentCustomProperties {
+    $auth?: AuthClient
+  }
+}
+
+export {}
+`,
   })
 
   addImports([

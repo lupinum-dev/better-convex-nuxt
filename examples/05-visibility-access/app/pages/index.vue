@@ -303,11 +303,11 @@
 import { computed, reactive } from 'vue'
 
 import { api } from '#trellis/api'
-import { articlePermissionMatrix } from '~/convex/features/articles/permissions'
 import {
+  articlePermissionMatrix,
   kbCreate,
   knowledgeBasePermissionMatrix,
-} from '~/convex/features/knowledgeBases/permissions'
+} from '#trellis/permissions'
 
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()

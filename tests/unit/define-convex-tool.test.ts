@@ -973,7 +973,11 @@ describe('Destructive confirmation payload validation', () => {
       args: {},
       guard: { label: 'open', check: () => true } as never,
       preview: async () => ({
-        display: { summary: 'Delete post' },
+        allowed: true,
+        summary: 'Delete post',
+        blockers: [],
+        warnings: [],
+        effects: [],
         confirm: 'post-1',
       }),
       handler: async () => ({ ok: true }),
@@ -988,7 +992,11 @@ describe('Destructive confirmation payload validation', () => {
       }),
       callConvex: async () => ({
         query: async () => ({
-          display: { summary: 'Delete post' },
+          allowed: true,
+          summary: 'Delete post',
+          blockers: [],
+          warnings: [],
+          effects: [],
           confirm: 'post-1',
         }),
         mutation: async () => ({ ok: true }),

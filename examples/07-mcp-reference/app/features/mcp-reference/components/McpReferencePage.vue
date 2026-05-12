@@ -619,9 +619,8 @@ import { computed, reactive, ref } from 'vue'
 import * as z from 'zod'
 
 import { api } from '#trellis/api'
+import { mcpManage, runbookCreate } from '#trellis/permissions'
 import type { Id } from '~/convex/_generated/dataModel'
-import { mcpManage } from '~/convex/features/mcpKeys/permissions'
-import { runbookCreate } from '~/convex/features/runbooks/permissions'
 import { selectMcpBoundUser } from '~/shared/features/mcpKeys/bound-user'
 
 const { client, user, signOut } = useConvexAuth()

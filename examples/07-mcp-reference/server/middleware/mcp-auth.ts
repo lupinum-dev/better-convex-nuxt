@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto'
 
 import { api } from '#trellis/api'
 import { serverConvexMutation, serverConvexQuery } from '#trellis/server'
+import { createError, defineEventHandler, getRequestHeader } from 'h3'
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -22,16 +23,22 @@ export default defineEventHandler(async (event) => {
   if (!header?.startsWith('Bearer ')) return
 
   const token = header.slice('Bearer '.length).trim()
-  if (!token.startsWith('mcp_')) return
+  if (!token.startsWith('mcp_')) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
+  }
+
+  const hash = hashToken(token)
 
   const validated = await serverConvexQuery(
     event,
     api.features.mcpKeys.domain.validate,
-    { hash: hashToken(token) },
+    { hash },
     { auth: 'none' },
   )
 
-  if (!validated) return
+  if (!validated) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
+  }
 
   event.context.mcpAuth = {
     keyId: validated.id,
@@ -41,7 +48,7 @@ export default defineEventHandler(async (event) => {
   serverConvexMutation(
     event,
     api.features.mcpKeys.domain.touch,
-    { id: validated.id, seenAt: Date.now() },
+    { hash, seenAt: Date.now() },
     { auth: 'none' },
   ).catch(() => {})
 })

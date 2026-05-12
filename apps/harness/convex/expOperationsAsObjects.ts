@@ -1,10 +1,11 @@
+import { operationEffect, operationPreview } from '@lupinum/trellis/backend'
+import type { OperationPreviewEnvelope } from '@lupinum/trellis/backend'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { v } from 'convex/values'
 import type { Validator } from 'convex/values'
 import { SignJWT, jwtVerify } from 'jose'
 
-import { internal } from './_generated/api'
 /**
  * Experiment 15: Operations as imported objects (no manifest)
  *
@@ -57,16 +58,12 @@ function canonicalHash(value: unknown): string {
   return btoa(unescape(encodeURIComponent(JSON.stringify(sortKeys(value)))))
 }
 
-interface OperationConfig<Args, Loaded, Confirm> {
+interface OperationConfig<Args, Loaded, Confirm extends Record<string, unknown>> {
   name: string
   kind: 'destructive' | 'safe'
   args: Record<string, Validator<any, 'required' | 'optional', any>>
   load: (ctx: any, args: Args) => Promise<Loaded>
-  preview?: (
-    ctx: any,
-    args: Args,
-    loaded: Loaded,
-  ) => Promise<{ display: unknown; confirm: Confirm }>
+  preview?: (ctx: any, args: Args, loaded: Loaded) => Promise<OperationPreviewEnvelope<Confirm>>
   handler: (ctx: any, args: Args, loaded: Loaded) => Promise<unknown>
 }
 
@@ -77,7 +74,9 @@ interface OperationConfig<Args, Loaded, Confirm> {
  * expects). Both are built once at module-load time. No codegen, no
  * manifest, no AST walker.
  */
-function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loaded, Confirm>) {
+function defineOperation<Args, Loaded, Confirm extends Record<string, unknown>>(
+  cfg: OperationConfig<Args, Loaded, Confirm>,
+) {
   const purpose = 'trellis:mcp-confirmation:v1'
   const previewArgs = cfg.args
   // Execute needs two optional framework fields.
@@ -102,9 +101,9 @@ function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loade
         if (!cfg.preview) {
           throw new Error(`Operation '${cfg.name}' has no preview defined`)
         }
-        const { display, confirm } = await cfg.preview(ctx, args, loaded)
+        const preview = await cfg.preview(ctx, args, loaded)
         const argsHash = canonicalHash(args)
-        const previewHash = canonicalHash(confirm)
+        const previewHash = canonicalHash(preview.confirm)
         const token = await new SignJWT({
           v: 1,
           aud: purpose,
@@ -117,7 +116,7 @@ function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loade
           .setExpirationTime('5m')
           .setJti(crypto.randomUUID())
           .sign(deriveKey(purpose))
-        return { display, confirm, confirmationToken: token }
+        return { preview, confirmationToken: token }
       },
     },
 
@@ -134,9 +133,9 @@ function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loade
           // Same flow as preview projection.
           const loaded = await cfg.load(ctx, handlerArgs)
           if (!cfg.preview) throw new Error('no preview')
-          const { display, confirm } = await cfg.preview(ctx, handlerArgs, loaded)
+          const preview = await cfg.preview(ctx, handlerArgs, loaded)
           const argsHash = canonicalHash(handlerArgs)
-          const previewHash = canonicalHash(confirm)
+          const previewHash = canonicalHash(preview.confirm)
           const token = await new SignJWT({
             v: 1,
             aud: purpose,
@@ -149,7 +148,7 @@ function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loade
             .setExpirationTime('5m')
             .setJti(crypto.randomUUID())
             .sign(deriveKey(purpose))
-          return { preview: { display, confirm }, confirmationToken: token }
+          return { preview, confirmationToken: token }
         }
 
         // Destructive path.
@@ -171,8 +170,8 @@ function defineOperation<Args, Loaded, Confirm>(cfg: OperationConfig<Args, Loade
           // Re-run load + preview, compare preview hash (drift detection).
           const loaded = await cfg.load(ctx, handlerArgs)
           if (!cfg.preview) throw new Error('no preview')
-          const { confirm } = await cfg.preview(ctx, handlerArgs, loaded)
-          const previewHash = canonicalHash(confirm)
+          const preview = await cfg.preview(ctx, handlerArgs, loaded)
+          const previewHash = canonicalHash(preview.confirm)
           if (payload.previewHash !== previewHash) {
             throw new Error('preview hash mismatch — data drifted')
           }
@@ -202,16 +201,16 @@ export const archiveRunbookOp = defineOperation({
     const runbook = await ctx.db.get(args.id)
     return { runbook }
   },
-  preview: async (_ctx, _args, loaded: { runbook: any }) => ({
-    display: {
+  preview: async (_ctx, _args, loaded: { runbook: any }) =>
+    operationPreview({
       summary: `Archive "${loaded.runbook?.title}"`,
-    },
-    confirm: {
-      operation: 'archiveRunbook',
-      targetId: loaded.runbook?._id,
-      currentTitle: loaded.runbook?.title,
-    },
-  }),
+      effects: [operationEffect({ kind: 'update', summary: 'Archive one runbook', count: 1 })],
+      confirm: {
+        operation: 'archiveRunbook',
+        targetId: loaded.runbook?._id,
+        currentTitle: loaded.runbook?.title,
+      },
+    }),
   handler: async (ctx, _args, loaded: { runbook: any }) => {
     await ctx.db.patch(loaded.runbook._id, { archived: true })
     return { archivedId: loaded.runbook._id }

@@ -34,19 +34,32 @@ export const DEFAULT_CONVEX_AUTH_CONFIG: ConvexAuthConfig = {
   },
 }
 
+export const DISABLED_CONVEX_AUTH_CONFIG: ConvexAuthConfig = {
+  ...DEFAULT_CONVEX_AUTH_CONFIG,
+  enabled: false,
+}
+
 /**
  * Runtime-safe normalization for auth config.
  * Public API is object-based.
  */
 export function normalizeConvexAuthConfig(input: unknown): ConvexAuthConfig {
-  if (!input || typeof input !== 'object') {
+  if (input === true) {
     return { ...DEFAULT_CONVEX_AUTH_CONFIG }
+  }
+
+  if (input === false || input === undefined || input === null) {
+    return { ...DISABLED_CONVEX_AUTH_CONFIG }
+  }
+
+  if (typeof input !== 'object') {
+    return { ...DISABLED_CONVEX_AUTH_CONFIG }
   }
 
   const auth = input as ConvexAuthConfigInput
 
   return {
-    enabled: auth.enabled ?? DEFAULT_CONVEX_AUTH_CONFIG.enabled,
+    enabled: auth.enabled ?? true,
     routeProtection: {
       redirectTo:
         auth.routeProtection?.redirectTo ?? DEFAULT_CONVEX_AUTH_CONFIG.routeProtection.redirectTo,

@@ -103,10 +103,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { projectArchive, projectRead } from '~~/convex/features/projects/permissions'
-import { taskCreate } from '~~/convex/features/tasks/permissions'
 
 import { api } from '#trellis/api'
+import { projectArchive, projectRead, taskCreate } from '#trellis/permissions'
 
 import BoardColumn from './BoardColumn.vue'
 import BulkActions from './BulkActions.vue'

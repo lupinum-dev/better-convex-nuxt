@@ -226,9 +226,9 @@ while current-workspace project actions stay behind their own feature API.
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { projectPermissionMatrix } from '~~/convex/features/projects/permissions'
 
 import { api } from '#trellis/api'
+import { projectPermissionMatrix } from '#trellis/permissions'
 
 import AgencyPortfolio from './AgencyPortfolio.vue'
 import MemberList from './MemberList.vue'

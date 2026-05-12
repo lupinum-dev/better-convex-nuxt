@@ -7,6 +7,7 @@ import {
   getOperationMetadata,
   implementOperation,
   operationPreview,
+  operationPreviewValidator,
   trellisOperationProjectionMetadataKey,
 } from '../../src/runtime/functions'
 
@@ -68,8 +69,7 @@ describe('operation descriptors', () => {
 
   it('rejects descriptor and implementation result schema drift', () => {
     const returns = v.object({ ok: v.boolean() })
-    const previewReturns = v.object({
-      display: v.object({ summary: v.string() }),
+    const previewReturns = operationPreviewValidator({
       confirm: v.object({ id: v.string() }),
     })
     const descriptor = defineOperationDescriptor({

@@ -50,8 +50,10 @@ export async function resolveHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
   const header = getRequestHeader(event, 'authorization')
   if (!header?.startsWith('Bearer ')) return null
 
-  const token = header.slice(7)
-  if (!token.startsWith('mcp_')) return null
+  const token = header.slice(7).trim()
+  if (!token.startsWith('mcp_')) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
+  }
 
   const resolved = await serverConvexQuery(
     event,
@@ -59,7 +61,9 @@ export async function resolveHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
     { key: token },
     { auth: 'none' },
   )
-  if (!resolved) return null
+  if (!resolved) {
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
+  }
 
   const auth: HarnessMcpAuth = {
     keyId: String(resolved.id),

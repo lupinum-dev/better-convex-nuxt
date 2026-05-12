@@ -50,7 +50,7 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
     auth: {
-      enabled: true,
+      enabled: false,
       route: '/api/auth',
       trustedOrigins: [],
       skipAuthTokenFetchRoutes: [],

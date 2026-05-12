@@ -1,3 +1,5 @@
+import { createError, defineEventHandler, getRequestHeader } from 'h3'
+
 import {
   serverConvexQuery,
   serverConvexMutation,
@@ -10,9 +12,9 @@ export default defineEventHandler(async (event) => {
   const header = getRequestHeader(event, 'authorization')
   if (!header?.startsWith('Bearer ')) return
 
-  const token = header.slice(7)
+  const token = header.slice(7).trim()
   if (!token.startsWith('mcp_')) {
-    return
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }
 
   try {
@@ -22,7 +24,9 @@ export default defineEventHandler(async (event) => {
       { key: token },
       { auth: 'none' },
     )
-    if (!result) return
+    if (!result) {
+      throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
+    }
 
     const auth = {
       role: result.role,
@@ -33,6 +37,10 @@ export default defineEventHandler(async (event) => {
     event.context.__trellisMcpAuth = auth
     await serverConvexMutation(event, api.mcpKeys.touch, { key: token }, { auth: 'none' })
   } catch (error) {
+    if (error && typeof error === 'object' && 'statusCode' in error) {
+      throw error
+    }
     console.error('[mcp-auth] Key validation failed:', error)
+    throw createError({ statusCode: 401, statusMessage: 'Invalid MCP bearer token.' })
   }
 })

@@ -24,7 +24,6 @@ export function installCoreTrellis(options: InstallCoreOptions): void {
     filename: 'types/trellis.d.ts',
     getContents: () => `
 import type { ConvexClient } from 'convex/browser'
-import type { createAuthClient } from 'better-auth/vue'
 import type { RouteLocationRaw } from 'vue-router'
 import type {
   ConvexAuthChangedPayload,
@@ -34,12 +33,9 @@ import type {
   ConvexUnauthorizedPayload,
 } from '${resolver.resolve('./runtime/utils/types')}'
 
-type AuthClient = ReturnType<typeof createAuthClient>
-
 declare module '#app' {
   interface NuxtApp {
     $convex?: ConvexClient
-    $auth?: AuthClient
   }
 
   interface RuntimeNuxtHooks {
@@ -63,7 +59,6 @@ declare module '#app' {
 declare module 'vue' {
   interface ComponentCustomProperties {
     $convex?: ConvexClient
-    $auth?: AuthClient
   }
 }
 

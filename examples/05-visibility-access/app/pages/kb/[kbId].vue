@@ -146,9 +146,8 @@ import { computed, reactive } from 'vue'
 import ArticleCard from '~~/app/features/visibility-access/components/ArticleCard.vue'
 
 import { api } from '#trellis/api'
+import { articleCreate, enrollmentManage } from '#trellis/permissions'
 import type { Id } from '~/convex/_generated/dataModel'
-import { articleCreate } from '~/convex/features/articles/permissions'
-import { enrollmentManage } from '~/convex/features/knowledgeBases/permissions'
 
 const route = useRoute()
 const toast = useToast()

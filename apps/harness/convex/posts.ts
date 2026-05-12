@@ -1,6 +1,12 @@
 import { defineArgs } from '@lupinum/trellis/args'
 import { can, defineGuard, open } from '@lupinum/trellis/auth'
-import { implementOperation, previewOf } from '@lupinum/trellis/backend'
+import {
+  implementOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  previewOf,
+} from '@lupinum/trellis/backend'
 import { defineCapabilities } from '@lupinum/trellis/visibility'
 import { v } from 'convex/values'
 
@@ -201,18 +207,17 @@ export const removePostOp = implementOperation(removePostDescriptor, {
     _ctx: PostOperationCtx,
     _args: { id: Id<'posts'> },
     { post }: { post: Doc<'posts'> },
-  ) => ({
-    display: {
+  ) =>
+    operationPreview({
       summary: `Will permanently delete "${post.title}"`,
-      warn: 'This cannot be undone',
-      affects: { posts: 1 },
-    },
-    confirm: {
-      operation: 'posts.remove',
-      targetId: post._id,
-      affectedCounts: { posts: 1 },
-    },
-  }),
+      warnings: [operationIssue({ code: 'irreversible', message: 'This cannot be undone' })],
+      effects: [operationEffect({ kind: 'delete', summary: 'Delete one post', count: 1 })],
+      confirm: {
+        operation: 'posts.remove',
+        targetId: post._id,
+        affectedCounts: { posts: 1 },
+      },
+    }),
   handler: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     if (!ctx.db.delete) {
       throw new Error('Post removal requires a mutation context.')

@@ -172,7 +172,7 @@ describe('OWASP A03: Injection', () => {
 })
 
 describe('OWASP A05: Security Misconfiguration', () => {
-  it('keeps the default auth posture enabled and return-path preserving', () => {
+  it('keeps the explicit auth posture return-path preserving', () => {
     expect(DEFAULT_CONVEX_AUTH_CONFIG.enabled).toBe(true)
     expect(DEFAULT_CONVEX_AUTH_CONFIG.routeProtection.preserveReturnTo).toBe(true)
     expect(DEFAULT_CONVEX_AUTH_CONFIG.unauthorized.enabled).toBe(false)

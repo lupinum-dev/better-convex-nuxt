@@ -28,17 +28,20 @@ export const validate = query.public({
 
 export const touch = mutation.public({
   args: {
-    id: v.id('mcpKeys'),
+    hash: v.string(),
     seenAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const key = await ctx.db.get(args.id)
+    const key = await ctx.db
+      .query('mcpKeys')
+      .withIndex('by_hash', (q) => q.eq('hash', args.hash))
+      .first()
     if (!key || key.status !== 'active') return
 
     const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
     if (args.seenAt - lastUsedAt < TOUCH_DEBOUNCE_MS) return
 
-    await ctx.db.patch(args.id, {
+    await ctx.db.patch(key._id, {
       lastUsedAt: args.seenAt,
     })
   },

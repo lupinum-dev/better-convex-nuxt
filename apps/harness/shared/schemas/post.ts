@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 
 import { defineOperationDescriptor } from '../../../../src/runtime/functions/define-operation'
+import { operationPreviewValidator } from '../../../../src/runtime/functions/operation-preview'
 import { defineArgs } from '../../../../src/runtime/schema'
 
 export const createPost = defineArgs({
@@ -47,15 +48,7 @@ export const removePostDescriptor = defineOperationDescriptor({
   permission: 'post.delete',
   safety: 'destructive-write',
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        posts: v.number(),
-      }),
-      blocked: v.optional(v.boolean()),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('posts.remove'),
       targetId: v.id('posts'),

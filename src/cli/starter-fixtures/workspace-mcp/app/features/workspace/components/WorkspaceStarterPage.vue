@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { todoCreate } from '~~/convex/features/todos'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { todoCreate } from '#trellis/permissions'
 
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()

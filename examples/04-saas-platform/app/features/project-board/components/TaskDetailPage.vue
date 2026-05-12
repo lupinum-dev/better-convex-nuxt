@@ -69,9 +69,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { taskAssign } from '~~/convex/features/tasks/permissions'
 
 import { api } from '#trellis/api'
+import { taskAssign } from '#trellis/permissions'
 
 import CommentThread from './CommentThread.vue'
 

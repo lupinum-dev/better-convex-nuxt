@@ -33,7 +33,7 @@ import {
   hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
-  isAuthExplicitlyDisabled,
+  isAuthExplicitlyEnabled,
   usesSyncedUsersTable,
   type ProjectInspection,
 } from '../lib/project.js'
@@ -62,8 +62,7 @@ function createDoctorFindings(
   const isNuxtApp = Boolean(project.packageJsonPath && project.nuxtConfigPath)
   const missingCanonicalLayoutPaths = isNuxtApp ? findMissingCanonicalLayoutPaths(project) : []
   const convexUrlSource = findConvexUrlSource(project)
-  const authDisabled = isAuthExplicitlyDisabled(project)
-  const authExpected = isNuxtApp && !authDisabled
+  const authExpected = isNuxtApp && isAuthExplicitlyEnabled(project)
   const siteUrlSource = findEnvKeySource(project, ['SITE_URL', 'NUXT_PUBLIC_SITE_URL'])
   const convexSiteUrlSource = findEnvKeySource(project, [
     'CONVEX_SITE_URL',
@@ -374,11 +373,37 @@ function createDoctorFindings(
   return [...baseFindings, ...moduleValidationFindings]
 }
 
-export async function buildDoctorReport(cwd: string): Promise<DoctorReport> {
+const productionRequiredFindingIds = new Set([
+  'trusted-forwarding-key-configured',
+  'trusted-forwarding-key-strength',
+  'mcp-confirmation-key-configured',
+  'mcp-rate-limit-store',
+  'operation-tool-agreement',
+])
+
+function applyProductionProfile(findings: DoctorFinding[]): DoctorFinding[] {
+  return findings.map((finding) => {
+    if (finding.status !== 'warn' || !productionRequiredFindingIds.has(finding.id)) {
+      return finding
+    }
+
+    return {
+      ...finding,
+      status: 'fail',
+      message: `${finding.message} Production doctor treats this warning as a failure.`,
+    }
+  })
+}
+
+export async function buildDoctorReport(
+  cwd: string,
+  options: { production?: boolean } = {},
+): Promise<DoctorReport> {
   const project = inspectProject(cwd)
   const inventoryFacts = collectTrellisCliInventoryFacts(project)
   const inventory = collectTrellisCliInventory(project, inventoryFacts)
-  const findings = createDoctorFindings(project, inventory, inventoryFacts)
+  const baseFindings = createDoctorFindings(project, inventory, inventoryFacts)
+  const findings = options.production ? applyProductionProfile(baseFindings) : baseFindings
   return {
     cwd,
     inventory,
@@ -414,6 +439,11 @@ export const doctorCommand = defineCommand({
       description: 'Enable colored output',
       default: true,
     },
+    production: {
+      type: 'boolean',
+      description: 'Treat deploy-time safety warnings as failures',
+      default: false,
+    },
   },
   async run({ args }) {
     const cwd = resolve(args.cwd || process.cwd())
@@ -429,7 +459,7 @@ export const doctorCommand = defineCommand({
     logger?.debug(`Inspecting ${cwd}`)
     loadingSpinner?.start(`Inspecting ${cwd}`)
 
-    const report = await buildDoctorReport(cwd)
+    const report = await buildDoctorReport(cwd, { production: Boolean(args.production) })
 
     loadingSpinner?.stop('Inspection complete')
     logger?.debug(`Found ${report.summary.fail} failures and ${report.summary.warn} warnings`)

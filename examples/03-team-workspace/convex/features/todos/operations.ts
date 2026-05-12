@@ -1,5 +1,12 @@
 import { requireRecord } from '@lupinum/trellis/auth'
-import { defineOperationDescriptor, implementOperation } from '@lupinum/trellis/backend'
+import {
+  defineOperationDescriptor,
+  implementOperation,
+  operationEffect,
+  operationIssue,
+  operationPreview,
+  operationPreviewValidator,
+} from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
 import { deleteTodo } from '../../../shared/features/todos/contract'
@@ -12,14 +19,7 @@ export const removeTodoDescriptor = defineOperationDescriptor({
   kind: 'destructive',
   args: deleteTodo.args,
   returns: v.null(),
-  previewReturns: v.object({
-    display: v.object({
-      summary: v.string(),
-      warn: v.string(),
-      affects: v.object({
-        todos: v.number(),
-      }),
-    }),
+  previewReturns: operationPreviewValidator({
     confirm: v.object({
       operation: v.literal('todos.remove'),
       targetId: v.id('todos'),
@@ -43,18 +43,17 @@ export const removeTodoOp = implementOperation(removeTodoDescriptor, {
   authorize: {
     check: (_actor, { todo }) => canDeleteTodo(todo),
   },
-  preview: async (_ctx, _args, { todo }) => ({
-    display: {
+  preview: async (_ctx, _args, { todo }) =>
+    operationPreview({
       summary: `Will permanently delete "${todo.title}"`,
-      warn: 'This cannot be undone',
-      affects: { todos: 1 },
-    },
+      warnings: [operationIssue({ code: 'permanent-delete', message: 'This cannot be undone.' })],
+      effects: [operationEffect({ kind: 'todos', summary: 'Todos deleted', count: 1 })],
     confirm: {
       operation: 'todos.remove',
       targetId: todo._id,
       affectedCounts: { todos: 1 },
     },
-  }),
+    }),
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
     return null

@@ -34,11 +34,21 @@ export interface PermissionInventoryMetadata {
   unknown: string[]
 }
 
+export interface PermissionMatrixMetadata {
+  exportName: string
+  sourceInventory: string
+  file: string
+  line: number
+  permissions: string[]
+  unknown: string[]
+}
+
 export interface PermissionCodegenMetadata {
   generatedAt: string
   include: string[]
   permissions: PermissionDefinitionMetadata[]
   inventories: PermissionInventoryMetadata[]
+  matrices: PermissionMatrixMetadata[]
 }
 
 function toPosixPath(value: string): string {
@@ -159,6 +169,21 @@ function collectInventoryArrays(sourceFile: SourceFile): Map<string, PermissionI
   return arrays
 }
 
+function extractPermissionMatrixDeclaration(
+  declaration: VariableDeclaration,
+): { exportName: string; sourceInventory: string } | null {
+  if (!declaration.getVariableStatement()?.isExported()) return null
+  const initializer = declaration.getInitializer()
+  if (!initializer || !Node.isCallExpression(initializer)) return null
+  if (initializer.getExpression().getText() !== 'derivePermissionMatrix') return null
+  const [firstArg] = initializer.getArguments()
+  if (!firstArg || !Node.isIdentifier(firstArg)) return null
+  return {
+    exportName: declaration.getName(),
+    sourceInventory: firstArg.getText(),
+  }
+}
+
 function resolveInventoryEntries(
   name: string,
   arrays: Map<string, PermissionInventoryEntry[]>,
@@ -215,6 +240,7 @@ export function extractPermissionCodegenMetadata(
   const project = createProject(rootDir, include)
   const permissions: PermissionDefinitionMetadata[] = []
   const inventories: PermissionInventoryMetadata[] = []
+  const matrices: PermissionMatrixMetadata[] = []
 
   for (const sourceFile of project.getSourceFiles()) {
     const filePermissions = sourceFile
@@ -226,6 +252,7 @@ export function extractPermissionCodegenMetadata(
 
     const definitions = new Set(filePermissions.map((entry) => entry.exportName))
     const arrays = collectInventoryArrays(sourceFile)
+    const fileInventories: PermissionInventoryMetadata[] = []
 
     for (const declaration of sourceFile.getVariableDeclarations()) {
       if (!declaration.getVariableStatement()?.isExported()) continue
@@ -236,25 +263,44 @@ export function extractPermissionCodegenMetadata(
       const entries = extractArrayEntries(initializer)
       const resolved = resolveInventoryEntries(declaration.getName(), arrays, definitions)
 
-      inventories.push({
+      const inventory = {
         exportName: declaration.getName(),
         file: toPosixPath(relative(rootDir, sourceFile.getFilePath())),
         line: declaration.getNameNode().getStartLineNumber(),
         entries,
         permissions: resolved.permissions,
         unknown: resolved.unknown,
+      }
+      inventories.push(inventory)
+      fileInventories.push(inventory)
+    }
+
+    const inventoriesByName = new Map(fileInventories.map((entry) => [entry.exportName, entry]))
+    for (const declaration of sourceFile.getVariableDeclarations()) {
+      const matrix = extractPermissionMatrixDeclaration(declaration)
+      if (!matrix) continue
+      const sourceInventory = inventoriesByName.get(matrix.sourceInventory)
+      matrices.push({
+        exportName: matrix.exportName,
+        sourceInventory: matrix.sourceInventory,
+        file: toPosixPath(relative(rootDir, sourceFile.getFilePath())),
+        line: declaration.getNameNode().getStartLineNumber(),
+        permissions: sourceInventory?.permissions ?? [],
+        unknown: sourceInventory?.unknown ?? [matrix.sourceInventory],
       })
     }
   }
 
   permissions.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
   inventories.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
+  matrices.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
 
   return {
     generatedAt: new Date().toISOString(),
     include,
     permissions,
     inventories,
+    matrices,
   }
 }
 
@@ -278,6 +324,9 @@ export function renderPermissionCodegenTypes(metadata: PermissionCodegenMetadata
   return `// AUTO-GENERATED. Do not edit.
 // Source: ${metadata.include.join(', ')}
 
+import '@lupinum/trellis/auth'
+import '@lupinum/trellis/mcp'
+
 export type TrellisPermissionKey = ${toTypeUnion(keys)}
 export type TrellisProjectedPermissionKey = ${toTypeUnion(projectedKeys)}
 
@@ -296,6 +345,49 @@ declare module '@lupinum/trellis/mcp' {
 ${toInterfaceBody(projectedKeys)}
   }
 }
+`
+}
+
+function findPermissionByExport(
+  metadata: PermissionCodegenMetadata,
+  exportName: string,
+): PermissionDefinitionMetadata | undefined {
+  return metadata.permissions.find((permission) => permission.exportName === exportName)
+}
+
+export function renderPermissionRuntimeExports(metadata: PermissionCodegenMetadata): string {
+  const projectedPermissions = metadata.permissions.filter((permission) => permission.projected)
+  const permissionExports = projectedPermissions.map(
+    (permission) =>
+      `export const ${permission.exportName} = ${JSON.stringify(permission.key)} as const`,
+  )
+  const permissionsObject = `export const permissions = {
+${projectedPermissions
+  .map((permission) => `  ${JSON.stringify(permission.exportName)}: ${permission.exportName},`)
+  .join('\n')}
+} as const`
+
+  const matrixExports = metadata.matrices.map((matrix) => {
+    const rows = matrix.permissions
+      .map((permissionExportName) => findPermissionByExport(metadata, permissionExportName))
+      .filter((permission): permission is PermissionDefinitionMetadata => Boolean(permission))
+      .filter((permission) => permission.projected)
+      .map((permission) => ({
+        key: permission.key,
+        label: permission.label ?? permission.key,
+        roles: permission.roles,
+      }))
+    return `export const ${matrix.exportName} = ${JSON.stringify(rows, null, 2)} as const`
+  })
+
+  return `// AUTO-GENERATED. Do not edit.
+// Source: ${metadata.include.join(', ')}
+
+${permissionExports.join('\n')}
+
+${permissionsObject}
+
+${matrixExports.join('\n\n')}
 `
 }
 

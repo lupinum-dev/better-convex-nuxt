@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
-import { commentCreate } from '~~/convex/features/comments/permissions'
 
 import { api } from '#trellis/api'
+import { commentCreate } from '#trellis/permissions'
 
 import FileAttachment from './FileAttachment.vue'
 

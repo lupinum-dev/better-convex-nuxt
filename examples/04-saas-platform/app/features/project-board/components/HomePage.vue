@@ -324,11 +324,14 @@
 
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
-import { commentPermissionMatrix } from '~~/convex/features/comments/permissions'
-import { projectCreate, projectPermissionMatrix } from '~~/convex/features/projects/permissions'
-import { taskPermissionMatrix } from '~~/convex/features/tasks/permissions'
 
 import { api } from '#trellis/api'
+import {
+  commentPermissionMatrix,
+  projectCreate,
+  projectPermissionMatrix,
+  taskPermissionMatrix,
+} from '#trellis/permissions'
 
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()

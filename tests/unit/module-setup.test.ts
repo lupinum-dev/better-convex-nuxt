@@ -41,7 +41,10 @@ describe('module-setup', () => {
     expect(setup.authRoute).toBe('/api/auth')
     expect(setup.resolvedSiteUrl).toBe('https://demo.convex.site')
     expect(setup.permissionCodegenEnabled).toBe(true)
-    expect(setup.permissionCodegenInclude).toEqual(['convex/auth/permissions.ts'])
+    expect(setup.permissionCodegenInclude).toEqual([
+      'convex/auth/permissions.ts',
+      'convex/features/**/permissions.ts',
+    ])
 
     const config = buildPublicConvexRuntimeConfig(
       {

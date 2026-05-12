@@ -282,10 +282,10 @@ import type { AuthFormField, FormSubmitEvent } from '@nuxt/ui'
 import { computed, reactive, ref } from 'vue'
 import * as z from 'zod'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { todoCreate, todoPermissionMatrix } from '~~/convex/features/todos/permissions'
 import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
+import { todoCreate, todoPermissionMatrix } from '#trellis/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()

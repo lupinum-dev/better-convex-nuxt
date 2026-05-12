@@ -5,10 +5,16 @@ import { normalizeConvexAuthConfig } from '../../src/runtime/auth/shared/auth-co
 describe('auth config normalization', () => {
   it('normalizes defaults from undefined', () => {
     const auth = normalizeConvexAuthConfig(undefined)
-    expect(auth.enabled).toBe(true)
+    expect(auth.enabled).toBe(false)
     expect(auth.routeProtection.redirectTo).toBe('/auth/signin')
     expect(auth.unauthorized.enabled).toBe(false)
     expect(auth.unauthorized.includeQueries).toBe(false)
+  })
+
+  it('keeps explicit true on the auth-enabled path', () => {
+    const auth = normalizeConvexAuthConfig(true)
+    expect(auth.enabled).toBe(true)
+    expect(auth.routeProtection.redirectTo).toBe('/auth/signin')
   })
 
   it('accepts nested overrides', () => {

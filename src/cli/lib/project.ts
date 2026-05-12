@@ -195,7 +195,7 @@ export function inspectProject(cwd: string): ProjectInspection {
 }
 
 export function findMissingCanonicalLayoutPaths(project: ProjectInspection): string[] {
-  const authDisabled = isAuthExplicitlyDisabled(project)
+  const authEnabled = isAuthExplicitlyEnabled(project)
   const usesPermissions = usesPermissionSurfaces(project)
   const hasAppDirectory = existsSync(resolve(project.cwd, 'app'))
   const usesMcpToolkit =
@@ -211,15 +211,15 @@ export function findMissingCanonicalLayoutPaths(project: ProjectInspection): str
     'app/app.vue',
     'app/pages',
     ...(hasAppDirectory ? ['app/features'] : []),
-    ...(authDisabled
-      ? []
-      : [
+    ...(authEnabled
+      ? [
           'convex/auth.ts',
           'convex/auth.config.ts',
           'convex/convex.config.ts',
           'convex/http.ts',
           'convex/auth',
-        ]),
+        ]
+      : []),
     ...(usesPermissions ? ['convex/permissions'] : []),
     ...(usesMcpToolkit ? ['server/mcp'] : []),
   ]
@@ -397,7 +397,17 @@ export function findTrustedForwardingPublicExposure(
 }
 
 export function isAuthExplicitlyDisabled(project: ProjectInspection): boolean {
-  return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*false\b/.test(project.nuxtConfigText)
+  return (
+    /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*false\b/.test(project.nuxtConfigText) ||
+    /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*\{[\s\S]*?\benabled\s*:\s*false\b/.test(
+      project.nuxtConfigText,
+    )
+  )
+}
+
+export function isAuthExplicitlyEnabled(project: ProjectInspection): boolean {
+  if (isAuthExplicitlyDisabled(project)) return false
+  return /trellis\s*:\s*\{[\s\S]*?\bauth\s*:\s*(?:true|\{)/.test(project.nuxtConfigText)
 }
 
 export function findConvexHttpSource(

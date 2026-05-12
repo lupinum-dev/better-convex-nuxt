@@ -311,6 +311,49 @@ function createOperationToolAgreementFinding(inventory: TrellisCliInventory): Do
   }
 }
 
+function createDestructiveOperationPreviewProjectionFinding(
+  inventory: TrellisCliInventory,
+): DoctorFinding {
+  const destructiveOperations = inventory.publicSurface.operations.filter(
+    (operation) => operation.kind === 'destructive',
+  )
+  const previewOperationIds = new Set(
+    inventory.publicSurface.projections
+      .filter((projection) => projection.projection === 'preview')
+      .map((projection) => projection.operationId),
+  )
+  const missingPreview = destructiveOperations.filter(
+    (operation) => !previewOperationIds.has(operation.id),
+  )
+
+  return {
+    id: 'destructive-operation-preview-projection',
+    category: 'advanced',
+    title: 'Destructive operation preview projection',
+    status: missingPreview.length > 0 ? 'fail' : 'pass',
+    message:
+      missingPreview.length > 0
+        ? `Found destructive operations without exported preview projections at ${formatInventoryLocations(missingPreview.map((operation) => operation.source))}.`
+        : 'Every destructive operation in public-surface metadata has an exported preview projection.',
+    fixHint:
+      missingPreview.length > 0
+        ? 'Export a protected preview with `query.protected(previewOf(operation))` for every destructive operation.'
+        : 'Keep destructive operation previews exported so UI, MCP, and doctor can share one preview contract.',
+    sources: [
+      findingInventorySource(
+        'publicSurface.operations',
+        missingPreview.length > 0
+          ? missingPreview.map((operation) => operation.source)
+          : destructiveOperations.map((operation) => operation.source),
+      ),
+      findingInventorySource(
+        'publicSurface.projections',
+        inventory.publicSurface.projections.map((projection) => projection.source),
+      ),
+    ],
+  }
+}
+
 function createMcpCustomAppWriteBypassFinding(inventory: TrellisCliInventory): DoctorFinding {
   const locations = inventory.mcp.customAppWriteMisuses
 
@@ -339,6 +382,7 @@ export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): 
     createUnsafeSurfaceFinding(inventory),
     createCrossTenantEscapeFinding(inventory),
     createDestructiveOperationFinding(inventory),
+    createDestructiveOperationPreviewProjectionFinding(inventory),
     createMcpRateLimitStoreFinding(inventory),
     createMcpDestructiveOperationBindingFinding(inventory),
     createOperationToolAgreementFinding(inventory),

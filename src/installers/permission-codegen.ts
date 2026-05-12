@@ -5,6 +5,7 @@ import {
   extractPermissionCodegenMetadata,
   renderPermissionCodegenMetadata,
   renderPermissionCodegenTypes,
+  renderPermissionRuntimeExports,
   shouldRefreshPermissionCodegen,
 } from '../module-internals/permissions-codegen.js'
 import {
@@ -36,6 +37,13 @@ export function installPermissionCodegen(options: InstallPermissionCodegenOption
     write: true,
     getContents: () => renderPermissionCodegenMetadata(readMetadata()),
   })
+
+  const permissionRuntimeTemplate = addTemplate({
+    filename: 'trellis/permissions.ts',
+    write: true,
+    getContents: () => renderPermissionRuntimeExports(readMetadata()),
+  })
+  nuxt.options.alias['#trellis/permissions'] = permissionRuntimeTemplate.dst
 
   addTypeTemplate({
     filename: 'types/trellis-public-surface.d.ts',

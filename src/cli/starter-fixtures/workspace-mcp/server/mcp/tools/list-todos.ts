@@ -5,10 +5,9 @@ import { api } from '#trellis/api'
 
 import { tool } from '../runtime'
 
-export default tool({
+export default tool.query({
   schema: listTodos,
   call: api.features.todos.domain.list,
-  operation: 'query',
   permission: workspaceRead,
   meta: {
     name: 'list-todos',

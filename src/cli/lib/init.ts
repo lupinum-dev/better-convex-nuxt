@@ -153,21 +153,36 @@ async function enableNuxtMcpConfig(cwd: string): Promise<void> {
       return source.replace(/mcp:\s*\{[^}]+\}/, namedConfig)
     }
 
-    if (source.includes("permissions: '")) {
-      return source.replace(/(permissions:\s*'[^']+',\n)/, `$1    ${namedConfig},\n`)
+    let next = source
+    if (
+      next.includes("modules: ['@lupinum/trellis']") &&
+      !next.includes('@nuxtjs/mcp-toolkit')
+    ) {
+      next = next.replace(
+        "modules: ['@lupinum/trellis']",
+        "modules: ['@lupinum/trellis', '@nuxtjs/mcp-toolkit']",
+      )
     }
 
-    const trellisStart = source.indexOf('trellis: {')
+    if (/modules:\s*\[[\s\S]*?@lupinum\/trellis[\s\S]*?\],/.test(next)) {
+      return next.replace(/(modules:\s*\[[\s\S]*?\],\n)/, `$1  ${namedConfig},\n`)
+    }
+
+    if (next.includes("permissions: '")) {
+      return next.replace(/(permissions:\s*'[^']+',\n)/, `$1    ${namedConfig},\n`)
+    }
+
+    const trellisStart = next.indexOf('trellis: {')
     if (trellisStart === -1) {
-      return source
+      return next
     }
 
-    const trellisClose = source.indexOf('\n  },', trellisStart)
+    const trellisClose = next.indexOf('\n  },', trellisStart)
     if (trellisClose === -1) {
-      return source
+      return next
     }
 
-    return `${source.slice(0, trellisClose)}\n    ${namedConfig},${source.slice(trellisClose)}`
+    return `${next.slice(0, trellisClose)}\n    ${namedConfig},${next.slice(trellisClose)}`
   })
 }
 
@@ -178,7 +193,7 @@ async function addMcpDependency(cwd: string): Promise<void> {
     dependencies?: Record<string, string>
   }
   parsed.dependencies ??= {}
-  parsed.dependencies['@nuxtjs/mcp-toolkit'] = '^0.13.4'
+  parsed.dependencies['@nuxtjs/mcp-toolkit'] = '^0.14.0'
   await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
 }
 

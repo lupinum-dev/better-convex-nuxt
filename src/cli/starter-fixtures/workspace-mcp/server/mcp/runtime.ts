@@ -30,11 +30,16 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
     createServerConvexCaller(
       event,
       principal.kind === 'agent'
-        ? {
-            auth: 'trusted',
-            principal,
-            delegation,
-          }
+        ? delegation
+          ? {
+              auth: 'trusted',
+              principal,
+              delegation,
+            }
+          : {
+              auth: 'trusted',
+              principal,
+            }
         : { auth: 'none' },
     ),
   resolvePrincipal: async (event) => getMcpPrincipal(event),

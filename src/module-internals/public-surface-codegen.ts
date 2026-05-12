@@ -252,10 +252,15 @@ function readToolMetadata(
     const unwrappedArg = unwrapExpression(firstArg)
     options = unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null
   } else if (Node.isPropertyAccessExpression(callee)) {
-    if (callee.getName() !== 'operation') return null
-    source = 'operation'
-    const [, secondArg] = expression.getArguments()
-    const unwrappedArg = unwrapExpression(secondArg)
+    if (callee.getName() === 'operation') {
+      source = 'operation'
+    } else if (['query', 'mutation', 'action'].includes(callee.getName())) {
+      source = 'tool'
+    } else {
+      return null
+    }
+    const optionsArgIndex = callee.getName() === 'operation' ? 1 : 0
+    const unwrappedArg = unwrapExpression(expression.getArguments()[optionsArgIndex])
     options = unwrappedArg && Node.isObjectLiteralExpression(unwrappedArg) ? unwrappedArg : null
   } else {
     return null
@@ -389,6 +394,8 @@ export function renderPublicSurfaceCodegenTypes(metadata: PublicSurfaceCodegenMe
 // Source operations: ${metadata.include.operations.join(', ')}
 // Source tools: ${metadata.include.tools.join(', ')}
 
+import '@lupinum/trellis/backend'
+import '@lupinum/trellis/mcp'
 ${imports}${imports ? '\n' : ''}
 
 declare module '@lupinum/trellis/backend' {

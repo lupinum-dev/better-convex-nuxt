@@ -587,6 +587,88 @@ describe('CLI doctor', () => {
     expect(result.stdout).toBe(stripVTControlCharacters(result.stdout))
   })
 
+  it('treats an unset auth option as no-auth for doctor layout and env checks', () => {
+    const appRoot = createTempDir('trellis-doctor-no-auth-default-')
+    writeFileSync(
+      resolve(appRoot, 'package.json'),
+      JSON.stringify(
+        {
+          dependencies: {
+            '@lupinum/trellis': 'workspace:*',
+            convex: '1.37.0',
+            nuxt: '^4.4.2',
+          },
+        },
+        null,
+        2,
+      ),
+    )
+    writeFileSync(
+      resolve(appRoot, 'nuxt.config.ts'),
+      `export default defineNuxtConfig({ modules: ['@lupinum/trellis'], trellis: { url: process.env.CONVEX_URL } })`,
+    )
+    for (const path of [
+      'convex/features',
+      'shared/features',
+      'app/features',
+      'app/pages',
+      'server/api',
+      'server/mcp',
+    ]) {
+      mkdirSync(resolve(appRoot, path), { recursive: true })
+    }
+    writeFileSync(resolve(appRoot, 'convex/functions.ts'), '')
+    writeFileSync(resolve(appRoot, 'convex/schema.ts'), '')
+    writeFileSync(resolve(appRoot, 'app/app.vue'), '<template><NuxtPage /></template>')
+    writeFileSync(resolve(appRoot, '.env.local'), 'CONVEX_URL=https://doctor.convex.cloud\n')
+
+    const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const report = parseJsonOutput<DoctorInventoryJsonReport>(result.stdout)
+
+    expect(report.findings.find((entry) => entry.id === 'canonical-layout')?.status).toBe('pass')
+    expect(report.findings.find((entry) => entry.id === 'site-url-configured')?.status).toBe('pass')
+    expect(
+      report.findings.find((entry) => entry.id === 'better-auth-secret-configured')?.status,
+    ).toBe('pass')
+  })
+
+  it('promotes deploy-time MCP warnings to failures with doctor --production', () => {
+    const cwd = createTempDir('trellis-doctor-production-profile-')
+    const initResult = runCli(
+      ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
+      repoRoot,
+    )
+    const appRoot = resolve(cwd, 'doctor-app')
+    expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
+    writeDoctorEnv(appRoot)
+    writeFileSync(
+      resolve(appRoot, 'server/mcp/tools/delete-todo.ts'),
+      `export default tool.operation(deleteTodoOp, { name: 'delete-todo' })\n`,
+    )
+
+    const normalResult = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
+    const normalReport = parseJsonOutput<DoctorInventoryJsonReport>(normalResult.stdout)
+    expect(
+      normalReport.findings.find((entry) => entry.id === 'mcp-confirmation-key-configured')?.status,
+    ).toBe('warn')
+
+    const productionResult = runCli(
+      ['doctor', '--production', '--json', '--cwd', appRoot],
+      repoRoot,
+    )
+    const productionReport = parseJsonOutput<DoctorInventoryJsonReport>(productionResult.stdout)
+
+    expect(productionResult.status).toBe(1)
+    expect(
+      productionReport.findings.find((entry) => entry.id === 'mcp-confirmation-key-configured')
+        ?.status,
+    ).toBe('fail')
+    expect(
+      productionReport.findings.find((entry) => entry.id === 'trusted-forwarding-key-configured')
+        ?.status,
+    ).toBe('fail')
+  })
+
   it('includes versioned inventory in doctor JSON for generated starters', () => {
     const cases = [
       { template: 'public', auth: false, workspace: false, mcp: false },
@@ -1716,8 +1798,9 @@ export const uploadUrl = mutation.unsafe({
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation } from '@lupinum/trellis/backend'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
+import { query } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
@@ -1726,6 +1809,8 @@ export const purgeTodoOp = defineOperation({
   guard: open,
   handler: async () => null,
 })
+
+export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
 `.trimStart(),
     )
 
@@ -1782,8 +1867,9 @@ export const purgeTodoOp = defineOperation({
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation } from '@lupinum/trellis/backend'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
+import { query } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
@@ -1792,6 +1878,8 @@ export const purgeTodoOp = defineOperation({
   guard: open,
   handler: async () => null,
 })
+
+export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
 `.trimStart(),
     )
 
@@ -1842,8 +1930,9 @@ export const purgeTodoOp = defineOperation({
     writeFileSync(
       resolve(appRoot, 'convex/features/todos/operations.ts'),
       `
-import { defineOperation } from '@lupinum/trellis/backend'
+import { defineOperation, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
+import { query } from '../../functions'
 
 export const purgeTodoOp = defineOperation({
   id: 'todos.purge',
@@ -1852,6 +1941,8 @@ export const purgeTodoOp = defineOperation({
   guard: open,
   handler: async () => null,
 })
+
+export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
 `.trimStart(),
     )
     writeFileSync(

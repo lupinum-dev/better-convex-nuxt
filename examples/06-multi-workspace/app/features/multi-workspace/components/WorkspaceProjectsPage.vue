@@ -30,9 +30,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { projectCreate } from '~~/convex/features/projects/permissions'
 
 import { api } from '#trellis/api'
+import { projectCreate } from '#trellis/permissions'
 
 import ProjectList from './ProjectList.vue'
 

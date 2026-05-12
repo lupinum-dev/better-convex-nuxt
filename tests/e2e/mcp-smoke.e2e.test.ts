@@ -65,6 +65,19 @@ describe('MCP route smoke', async () => {
     expect(toolNames).not.toContain('list-posts')
   })
 
+  it('rejects bad bearer credentials instead of falling back to anonymous tools', async () => {
+    const response = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 21,
+        method: 'tools/list',
+      },
+      { key: 'mcp_invalid_test_key_0000000000000000' },
+    )
+
+    expect(response.status).toBe(401)
+  })
+
   it('exposes authenticated tools and round-trips public tool calls', async () => {
     const memberSession = await initializeMcpSession(bootstrap.keys.member.key)
     expect(memberSession).toEqual(expect.any(String))
@@ -484,15 +497,7 @@ describe('MCP route smoke', async () => {
       { sessionId: revokedSession, key: bootstrap.keys.revoked.key },
     )
 
-    const revokedPayload = revokedCall._data as {
-      result?: {
-        isError?: boolean
-        content?: Array<{ text?: string }>
-      }
-    }
-
-    expect(revokedPayload.result?.isError).toBe(true)
-    expect(revokedPayload.result?.content?.[0]?.text).toContain('Tool list-posts not found')
+    expect(revokedCall.status).toBe(401)
 
     let touchedKey: { lastUsedAt?: number } | undefined
     for (let attempt = 0; attempt < 20; attempt += 1) {

@@ -128,6 +128,8 @@ describe('public surface codegen', () => {
     const metadata = extractPublicSurfaceCodegenMetadata(rootDir)
     const types = renderPublicSurfaceCodegenTypes(metadata)
 
+    expect(types).toContain(`import '@lupinum/trellis/backend'`)
+    expect(types).toContain(`import '@lupinum/trellis/mcp'`)
     expect(types).toContain(`declare module '@lupinum/trellis/backend'`)
     expect(types).toContain('interface OperationsById')
     expect(types).toContain('"tasks.archive": typeof __trellisOperation0')

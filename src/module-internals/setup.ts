@@ -71,18 +71,24 @@ export function deriveModuleSetupState(
     typeof options.permissions === 'string' ? options.permissions : options.permissions?.query,
   )
   const rawPermissionCodegen =
-    typeof options.permissions === 'string' ? false : (options.permissions?.codegen ?? false)
+    typeof options.permissions === 'string' ? true : (options.permissions?.codegen ?? true)
   const normalizedPermissionCodegen =
     rawPermissionCodegen === true
-      ? { enabled: true, include: ['convex/auth/permissions.ts'] }
+      ? {
+          enabled: true,
+          include: ['convex/auth/permissions.ts', 'convex/features/**/permissions.ts'],
+        }
       : rawPermissionCodegen === false
-        ? { enabled: false, include: ['convex/auth/permissions.ts'] }
+        ? {
+            enabled: false,
+            include: ['convex/auth/permissions.ts', 'convex/features/**/permissions.ts'],
+          }
         : {
             enabled: true,
             include:
               Array.isArray(rawPermissionCodegen.include) && rawPermissionCodegen.include.length > 0
                 ? rawPermissionCodegen.include
-                : ['convex/auth/permissions.ts'],
+                : ['convex/auth/permissions.ts', 'convex/features/**/permissions.ts'],
           }
 
   return {

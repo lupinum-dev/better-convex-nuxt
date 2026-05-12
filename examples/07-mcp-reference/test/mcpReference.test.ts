@@ -360,13 +360,13 @@ describe('mcp reference example', () => {
     expect(validated?.userId).toBe(team.users.member.authId)
     expect(validated?.role).toBe('member')
 
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 100_000 })
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 120_000 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 100_000 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 120_000 })
 
     const keysAfterFastTouch = await team.users.owner.query(api.features.mcpKeys.domain.list, {})
     expect(keysAfterFastTouch[0]?.lastUsedAt).toBe(100_000)
 
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { id: keyId, seenAt: 170_001 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 170_001 })
 
     const keysAfterDebouncedTouch = await team.users.owner.query(
       api.features.mcpKeys.domain.list,
