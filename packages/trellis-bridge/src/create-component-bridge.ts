@@ -99,6 +99,7 @@ type ComponentBridgeDefinition<
   returns?: GenericValidator
   component: TRef
   functionRef?: string
+  forwardIdentity?: boolean
   forwardingPurpose?: BridgeForwardingPurpose
 } & Record<never, never>
 
@@ -490,6 +491,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runQuery(definition.component, args as never)
+        }
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
@@ -519,6 +523,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runMutation(definition.component, args as never)
+        }
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
@@ -551,6 +558,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runAction(definition.component, args as never)
+        }
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
@@ -581,6 +591,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runQuery(definition.component, args as never)
+        }
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
@@ -611,6 +624,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runMutation(definition.component, args as never)
+        }
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
@@ -644,6 +660,9 @@ export function createComponentBridge<
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
         const caller = await ctx.caller()
+        if (definition.forwardIdentity === false) {
+          return await ctx.runAction(definition.component, args as never)
+        }
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
