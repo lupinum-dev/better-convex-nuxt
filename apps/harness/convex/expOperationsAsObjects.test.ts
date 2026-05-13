@@ -34,8 +34,8 @@ describe('Experiment 15: operations as imported objects', () => {
     const preview = await t.query(internal.expOperationsAsObjects.previewArchiveRunbook, {
       id: rbId,
     })
-    expect(preview.display).toEqual({ summary: 'Archive "Runbook One"' })
-    expect(preview.confirm).toMatchObject({
+    expect(preview.preview.summary).toBe('Archive "Runbook One"')
+    expect(preview.preview.confirm).toMatchObject({
       operation: 'archiveRunbook',
       targetId: rbId,
       currentTitle: 'Runbook One',

@@ -221,7 +221,10 @@ describe('server auth helpers', () => {
   })
 
   it('forwards host, proto, and client ip during SSR token exchange', async () => {
-    const token = await mintServerJwt({ sub: 'user-forwarded', name: 'Forwarded User' })
+    const token = await mintServerJwt(
+      { sub: 'user-forwarded', name: 'Forwarded User' },
+      { issuer: 'https://demo.convex.site' },
+    )
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {

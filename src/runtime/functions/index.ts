@@ -49,7 +49,6 @@ import {
   trustedForwardingValidators,
 } from '../trusted-forwarding/shared.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
-import { isNonEmptyPlainObject } from '../utils/value-helpers.js'
 import { hashConfirmationValue, verifyConfirmationToken } from './confirmation-token.js'
 import {
   defineDelegation,

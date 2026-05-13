@@ -26,7 +26,6 @@ import type {
   DefineConvexToolOptions,
   InferSchemaData,
   McpAuthIdentity,
-  PreviewResult,
 } from './types.js'
 import { assertUnsafePermit } from './unsafe-permit.js'
 

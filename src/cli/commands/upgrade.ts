@@ -369,8 +369,8 @@ function createUpgradeFindings(
   ])
   const legacyBackendRootBuilders = findLegacyBackendRootBuilderCalls(project)
   const legacyOperationPreviewShape = findTokenLocations(project, [
-    /previewReturns\s*:\s*v\.object\s*\(\s*\{[\s\S]{0,500}\bdisplay\s*:/,
-    /preview\s*:\s*async[\s\S]{0,500}\bdisplay\s*:[\s\S]{0,500}\bconfirm\s*:/,
+    /previewReturns\s*:\s*v\.object\s*\(\s*\{[\s\S]{1,500}\bdisplay\s*:/,
+    /preview\s*:\s*async[\s\S]{1,500}\bdisplay\s*:[\s\S]{1,500}\bconfirm\s*:/,
   ])
   const authorizeArityInference = findAuthorizeArityInference(project)
   const unsafePermitMigrationEntrypoints = unsafeEntrypointsNeedingPermitMigration(inventory)

@@ -61,8 +61,57 @@ describe('MCP route smoke', async () => {
     expect(toolNames).toContain('list-notes')
     expect(toolNames).toContain('create-note')
     expect(toolNames).toContain('search-notes')
+    expect(toolNames).toContain('get-session-preference')
     expect(toolNames).not.toContain('add-task')
     expect(toolNames).not.toContain('list-posts')
+    expect(toolNames).not.toContain('set-session-preference')
+    expect(toolNames).not.toContain('register-session-shortcut')
+    expect(toolNames).not.toContain('unregister-session-shortcut')
+
+    const blockedSessionWrite = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 22,
+        method: 'tools/call',
+        params: {
+          name: 'set-session-preference',
+          arguments: {
+            preferredSearch: 'anonymous write',
+          },
+        },
+      },
+      { sessionId },
+    )
+    const blockedPayload = blockedSessionWrite._data as {
+      error?: { message?: string }
+      result?: {
+        content?: Array<{ text?: string }>
+        isError?: boolean
+      }
+    }
+
+    expect(blockedPayload.result?.isError ?? false).toBe(true)
+    expect(
+      blockedPayload.error?.message ?? blockedPayload.result?.content?.[0]?.text ?? '',
+    ).toMatch(/auth|disabled|not found/i)
+
+    const publicSessionRead = await rpc(
+      {
+        jsonrpc: '2.0',
+        id: 23,
+        method: 'tools/call',
+        params: {
+          name: 'get-session-preference',
+          arguments: {},
+        },
+      },
+      { sessionId },
+    )
+    const publicReadPayload = publicSessionRead._data as {
+      result?: { structuredContent?: { preferredSearch?: string } }
+    }
+
+    expect(publicReadPayload.result?.structuredContent?.preferredSearch ?? null).toBeNull()
   })
 
   it('rejects bad bearer credentials instead of falling back to anonymous tools', async () => {

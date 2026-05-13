@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -165,6 +166,54 @@ function parseLocalPort(urlString: string): number | null {
   }
 }
 
+async function listFilesRecursive(root: string, current = root): Promise<string[]> {
+  const entries = await readdir(current, { withFileTypes: true })
+  const files: string[] = []
+
+  for (const entry of entries) {
+    const fullPath = path.join(current, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...(await listFilesRecursive(root, fullPath)))
+      continue
+    }
+
+    if (entry.isFile()) {
+      files.push(path.relative(root, fullPath))
+    }
+  }
+
+  return files.sort()
+}
+
+export async function snapshotGeneratedDir(cwd: string): Promise<() => Promise<void>> {
+  const generatedDir = path.join(cwd, 'convex/_generated')
+  const snapshot = new Map<string, Buffer>()
+
+  for (const relativePath of await listFilesRecursive(generatedDir)) {
+    snapshot.set(relativePath, await readFile(path.join(generatedDir, relativePath)))
+  }
+
+  return async () => {
+    await mkdir(generatedDir, { recursive: true })
+    const currentFiles = new Set(await listFilesRecursive(generatedDir))
+
+    for (const relativePath of currentFiles) {
+      if (!snapshot.has(relativePath)) {
+        await rm(path.join(generatedDir, relativePath), { force: true })
+      }
+    }
+
+    for (const [relativePath, contents] of snapshot) {
+      const target = path.join(generatedDir, relativePath)
+      const current = currentFiles.has(relativePath) ? await readFile(target) : null
+      if (current && Buffer.compare(current, contents) === 0) continue
+
+      await mkdir(path.dirname(target), { recursive: true })
+      await writeFile(target, contents)
+    }
+  }
+}
+
 export async function ensureManagedLocalConvex(
   options: EnsureManagedLocalConvexOptions = {},
 ): Promise<ManagedLocalConvexResult> {
@@ -185,6 +234,7 @@ export async function ensureManagedLocalConvex(
     process.env.TRELLIS_MCP_CONFIRMATION_KEY ?? 'mcp-confirmation-key-1234567890'
 
   if (!activeHandle) {
+    const restoreGenerated = await snapshotGeneratedDir(cwd)
     const managedPorts = new Set<number>([resolved.port, resolved.port + 1])
     for (const candidate of [resolved.url, initialSiteUrl]) {
       try {
@@ -222,7 +272,11 @@ export async function ensureManagedLocalConvex(
     activeHandle = {
       port: resolved.port,
       release: async () => {
-        await managedProcess.stop()
+        try {
+          await managedProcess.stop()
+        } finally {
+          await restoreGenerated()
+        }
       },
       url: resolved.url,
     }
@@ -284,7 +338,11 @@ export async function ensureManagedLocalConvex(
       ])
     } catch (error) {
       activeHandle = null
-      await managedProcess.stop()
+      try {
+        await managedProcess.stop()
+      } finally {
+        await restoreGenerated()
+      }
       throw managedProcess.createFailure('Managed local Convex failed to become ready.', error)
     }
   }

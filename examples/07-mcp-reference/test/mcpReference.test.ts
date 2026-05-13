@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+import { readFileSync } from 'node:fs'
+
 import { createTrustedForwardingEnvelope } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
@@ -74,6 +76,39 @@ function withSignedForwarding(
 }
 
 describe('mcp reference example', () => {
+  it('keeps anonymous MCP tools read-only and gates session writes', () => {
+    const readServerFile = (relativePath: string) =>
+      readFileSync(new URL(`../server/${relativePath}`, import.meta.url), 'utf8')
+
+    const publicReadTools = [
+      'mcp/tools/runbooks/list-public.ts',
+      'mcp/tools/runbooks/search-public.ts',
+      'mcp/tools/session/get-session-focus.ts',
+    ]
+    const gatedWriteTools = [
+      'mcp/tools/session/set-session-focus.ts',
+      'mcp/tools/session/register-session-shortcut.ts',
+      'mcp/tools/session/unregister-session-shortcut.ts',
+    ]
+
+    for (const relativePath of publicReadTools) {
+      const source = readServerFile(relativePath)
+      expect(source).not.toContain('session.set(')
+      expect(source).not.toContain('tool.mutation(')
+      expect(source).not.toContain('tool.operation(')
+    }
+
+    for (const relativePath of gatedWriteTools) {
+      const source = readServerFile(relativePath)
+      expect(source).toContain('enabled: (event) => !!event.context.mcpAuth')
+      expect(source).toContain('Authentication required.')
+    }
+
+    const middleware = readServerFile('middleware/mcp-auth.ts')
+    expect(middleware).toContain("event.path?.startsWith('/mcp')")
+    expect(middleware).toContain("event.path.startsWith('/mcp/runbook-agent')")
+  })
+
   it('lets a signed-in user without a workspace create their first workspace', async () => {
     const ctx = createCtx()
     const authId = 'first_workspace_owner'

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased 1.0
+
+Trellis 1.0 hardens the production boundary and intentionally removes soft fallback paths.
+
+### ⚠️ Breaking / Security Notes
+
+- Permission metadata generation is opt-in. Keep `permissions: 'path.to.query'` for composables only, or use `permissions: { query: 'path.to.query', codegen: true }` when you need generated permission metadata.
+- Component bridge trusted forwarding now requires a component-side `CONVEX_TRUSTED_FORWARDING_KEY` or explicit bridge key option. Signing secrets are not transported in Convex args.
+- MCP write, scoped, destructive, and code-mode routes require bearer authentication. Anonymous MCP is reserved for deliberately public read-only tools.
+
 ## v0.4.1
 
 [compare changes](https://github.com/lupinum-dev/trellis/compare/v0.4.0...v0.4.1)

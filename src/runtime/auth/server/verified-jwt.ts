@@ -100,10 +100,10 @@ export async function verifyServerJwt(
       issuer: siteUrl,
     })
     if (typeof verified.payload.sub !== 'string' || !verified.payload.sub.trim()) {
-      throw new Error('Verified auth token is missing required subject.')
+      throw new TypeError('Verified auth token is missing required subject.')
     }
     if (typeof verified.payload.exp !== 'number') {
-      throw new Error('Verified auth token is missing required expiration.')
+      throw new TypeError('Verified auth token is missing required expiration.')
     }
     const user = decodeUserFromJwt(token)
     if (!user) {

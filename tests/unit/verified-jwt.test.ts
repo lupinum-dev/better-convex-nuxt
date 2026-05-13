@@ -55,11 +55,9 @@ describe('verifyServerJwt', () => {
   it('rejects wrong issuer and wrong audience tokens', async () => {
     await expect(
       verifyServerJwt(await token({ iss: 'https://other.example' }), siteUrl),
-    ).rejects.toThrow(/iss|issuer/i)
+    ).rejects.toThrow(/iss/i)
 
-    await expect(verifyServerJwt(await token({ aud: 'other' }), siteUrl)).rejects.toThrow(
-      /aud|audience/i,
-    )
+    await expect(verifyServerJwt(await token({ aud: 'other' }), siteUrl)).rejects.toThrow(/aud/i)
   })
 
   it('rejects missing subject and missing expiry tokens', async () => {
@@ -71,6 +69,6 @@ describe('verifyServerJwt', () => {
   })
 
   it('rejects expired tokens', async () => {
-    await expect(verifyServerJwt(await token({}, -60), siteUrl)).rejects.toThrow(/exp|expired/i)
+    await expect(verifyServerJwt(await token({}, -60), siteUrl)).rejects.toThrow(/exp/i)
   })
 })

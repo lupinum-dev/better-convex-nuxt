@@ -3,7 +3,6 @@ import type { FunctionReference } from 'convex/server'
 import { defineArgs } from '../../src/runtime/args'
 import {
   definePermission,
-  type PermissionHandle,
   type PermissionKeyHandle,
   type AuthIdentity,
   enforce,

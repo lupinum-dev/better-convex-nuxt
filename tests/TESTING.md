@@ -151,6 +151,8 @@ pnpm test:e2e
 
 `release:verify` is the 1.0 production gate. It runs formatting, lint, publish-surface checks, type checks, contract tests, the full repo/example test lane, managed e2e, starter fixture typecheck/build checks, package workspace-reference checks, production audit, and build.
 
+Tracked Convex `_generated` artifacts are also checked for drift before release. If a test or codegen command mutates committed generated output, regenerate and commit the artifact or remove it from source control.
+
 Example-specific Playwright flows, such as `examples/04-saas-platform/test:e2e`, are not part of the root 1.0 confidence gate because they are manual app-local flows rather than managed root infrastructure.
 
 - For ad hoc test discovery, use `rg --files tests` directly instead of maintaining root-level listing scripts.

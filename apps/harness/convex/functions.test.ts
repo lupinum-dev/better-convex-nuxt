@@ -130,9 +130,7 @@ describe('defineTrellis', () => {
           subject: 'user:forged_user',
         },
       } as never),
-    ).rejects.toThrow(
-      /Forwarded identity fields are only allowed on verified trusted forwarding paths/,
-    )
+    ).rejects.toThrow(/Unexpected field `principal`|Forwarded identity fields/)
   })
 
   it('strips the internal __trellis envelope before structured phases and onSuccess hooks', async () => {

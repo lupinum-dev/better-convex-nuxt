@@ -384,7 +384,10 @@ describe('server Convex fetch helpers', () => {
   })
 
   it('auth:auto exchanges cookie for token and attaches bearer header', async () => {
-    const token = await mintServerJwt({ sub: 'user-auto', name: 'Auto User' })
+    const token = await mintServerJwt(
+      { sub: 'user-auto', name: 'Auto User' },
+      { issuer: 'http://127.0.0.1:3220' },
+    )
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith('/api/auth/convex/token')) {
