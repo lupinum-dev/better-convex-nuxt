@@ -5,13 +5,13 @@ import { createHash, randomBytes } from 'node:crypto'
 import {
   existsSync,
   lstatSync,
+  mkdtempSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs'
 import net from 'node:net'
@@ -696,8 +696,12 @@ async function runCheckedCommand({ label, spawnFn, cwd, env, command, args, stdo
 }
 
 async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
-  const tmpPath = path.join(tmpdir(), `convex-env-${process.pid}.env`)
-  writeFileSync(tmpPath, `${serializeEnvFileContents(vars)}\n`, 'utf8')
+  const tmpDir = mkdtempSync(path.join(tmpdir(), 'trellis-convex-env-'))
+  const tmpPath = path.join(tmpDir, 'env')
+  writeFileSync(tmpPath, `${serializeEnvFileContents(vars)}\n`, {
+    encoding: 'utf8',
+    mode: 0o600,
+  })
 
   try {
     await runCheckedCommand({
@@ -720,7 +724,7 @@ async function pushConvexEnvVars({ vars, cwd, spawnFn, env, stdout, stderr }) {
     })
   } finally {
     try {
-      unlinkSync(tmpPath)
+      rmSync(tmpDir, { recursive: true, force: true })
     } catch {
       // Ignore temp-file cleanup races.
     }

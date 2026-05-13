@@ -28,8 +28,9 @@
               then the root app forwards that principal into the component wrapper.
             </p>
             <p class="text-sm text-[var(--mini-muted)]">
-              MCP is secondary in this example. When you do use it, the demo header is:
-              <span class="mini-code">Authorization: Bearer {{ demoMcpToken }}</span>
+              MCP is secondary in this example. Agent access requires a server-only
+              <span class="mini-code">DEMO_MCP_TOKEN</span>; anonymous MCP callers can only read
+              published pages.
             </p>
           </div>
 
@@ -284,9 +285,6 @@ import * as z from 'zod'
 import { createPage, saveDraft } from '~~/shared/features/pages/contract'
 
 import { api } from '#trellis/api'
-
-const runtimeConfig = useRuntimeConfig()
-const demoMcpToken = runtimeConfig.public.demoMcpToken
 
 const { client, isAuthenticated, isPending, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()

@@ -148,6 +148,11 @@ pnpm test:e2e
 - PR-safe default gate: `pnpm test:types && pnpm lint && pnpm test:contracts`
 - broader integration gate: `pnpm test`
 - release gate: `pnpm run release:verify`
+
+`release:verify` is the 1.0 production gate. It runs formatting, lint, publish-surface checks, type checks, contract tests, the full repo/example test lane, managed e2e, starter fixture typecheck/build checks, package workspace-reference checks, production audit, and build.
+
+Example-specific Playwright flows, such as `examples/04-saas-platform/test:e2e`, are not part of the root 1.0 confidence gate because they are manual app-local flows rather than managed root infrastructure.
+
 - For ad hoc test discovery, use `rg --files tests` directly instead of maintaining root-level listing scripts.
 
 ## Fixture classification

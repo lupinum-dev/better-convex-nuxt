@@ -156,7 +156,6 @@ export const validate = query.public({
 export const touch = mutation.public({
   args: {
     hash: v.string(),
-    seenAt: v.number(),
   },
   handler: async (ctx, args) => {
     const key = await ctx.db
@@ -165,11 +164,12 @@ export const touch = mutation.public({
       .first()
     if (!key || key.status !== 'active') return
 
+    const now = Date.now()
     const lastUsedAt = typeof key.lastUsedAt === 'number' ? key.lastUsedAt : 0
-    if (args.seenAt - lastUsedAt < TOUCH_DEBOUNCE_MS) return
+    if (now - lastUsedAt < TOUCH_DEBOUNCE_MS) return
 
     await ctx.db.patch(key._id, {
-      lastUsedAt: args.seenAt,
+      lastUsedAt: now,
     })
   },
 })

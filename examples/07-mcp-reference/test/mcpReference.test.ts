@@ -360,19 +360,26 @@ describe('mcp reference example', () => {
     expect(validated?.userId).toBe(team.users.member.authId)
     expect(validated?.role).toBe('member')
 
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 100_000 })
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 120_000 })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123' })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123' })
 
     const keysAfterFastTouch = await team.users.owner.query(api.features.mcpKeys.domain.list, {})
-    expect(keysAfterFastTouch[0]?.lastUsedAt).toBe(100_000)
+    const firstLastUsedAt = keysAfterFastTouch[0]?.lastUsedAt
+    expect(firstLastUsedAt).toEqual(expect.any(Number))
 
-    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123', seenAt: 170_001 })
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(keyId as never, {
+        lastUsedAt: 0,
+      })
+    })
+    await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123' })
 
     const keysAfterDebouncedTouch = await team.users.owner.query(
       api.features.mcpKeys.domain.list,
       {},
     )
-    expect(keysAfterDebouncedTouch[0]?.lastUsedAt).toBe(170_001)
+    expect(keysAfterDebouncedTouch[0]?.lastUsedAt).toEqual(expect.any(Number))
+    expect(keysAfterDebouncedTouch[0]?.lastUsedAt).not.toBe(0)
     expect('hash' in (keysAfterDebouncedTouch[0] ?? {})).toBe(false)
     expect(keysAfterDebouncedTouch[0]?.boundUser?.authId).toBe(team.users.member.authId)
     expect(keysAfterDebouncedTouch[0]?.effectiveRole).toBe('member')

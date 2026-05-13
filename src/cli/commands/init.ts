@@ -1,4 +1,4 @@
-import { resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 
 import { defineCommand } from 'citty'
 
@@ -21,6 +21,16 @@ function assertAppName(value: string | undefined): string {
     throw new Error(
       `Legacy init flow removed. Use \`trellis init <name> --template ...\` or \`trellis add ...\` instead of \`trellis init ${appName}\`.`,
     )
+  }
+
+  if (
+    appName === '.' ||
+    appName === '..' ||
+    appName.includes('/') ||
+    appName.includes('\\') ||
+    isAbsolute(appName)
+  ) {
+    throw new Error('Invalid app name. Use a single directory name, not a path.')
   }
 
   return appName

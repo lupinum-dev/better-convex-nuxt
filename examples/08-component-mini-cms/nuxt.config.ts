@@ -24,10 +24,7 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    demoMcpToken: process.env.DEMO_MCP_TOKEN ?? 'demo-mini-cms-token',
-    public: {
-      demoMcpToken: process.env.DEMO_MCP_TOKEN ?? 'demo-mini-cms-token',
-    },
+    demoMcpToken: process.env.DEMO_MCP_TOKEN,
   },
 
   mcp: {

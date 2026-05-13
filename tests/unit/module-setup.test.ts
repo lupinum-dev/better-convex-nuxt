@@ -119,6 +119,40 @@ describe('module-setup', () => {
     })
   })
 
+  it('keeps permission codegen disabled unless explicitly enabled', () => {
+    expect(
+      deriveModuleSetupState(
+        {
+          permissions: 'permissions/context.getPermissionContext',
+        },
+        {},
+      ).permissionCodegenEnabled,
+    ).toBe(false)
+
+    expect(
+      deriveModuleSetupState(
+        {
+          permissions: {
+            query: 'permissions/context.getPermissionContext',
+          },
+        },
+        {},
+      ).permissionCodegenEnabled,
+    ).toBe(false)
+
+    expect(
+      deriveModuleSetupState(
+        {
+          permissions: {
+            query: 'permissions/context.getPermissionContext',
+            codegen: true,
+          },
+        },
+        {},
+      ).permissionCodegenEnabled,
+    ).toBe(true)
+  })
+
   it('collects startup warnings for invalid URLs and clamped cache TTL values', () => {
     const options = {
       url: 'notaurl',

@@ -41,7 +41,6 @@ import {
 export {
   createBridgeForwardingArgs,
   createBridgeForwardingEnvelope,
-  getBridgeTrustedForwardingKeyFromArgs,
   type CreateBridgeForwardingEnvelopeOptions,
   type TrustedForwardingKeyInput,
 } from './bridge-forwarding.js'
@@ -319,97 +318,73 @@ function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPr
   return {
     query: {
       args: {},
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedPurpose: 'query',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericQueryCtx<DataModel>,
+        QueryCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'query'),
     },
     mutation: {
       args: {},
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedPurpose: 'mutation',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericMutationCtx<DataModel>,
+        MutationCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'mutation'),
     },
     action: {
       args: {},
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedPurpose: 'action',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericActionCtx<DataModel>,
+        ActionCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'action'),
     },
+  }
+}
+
+function createBridgePrincipalInput<
+  DataModel extends GenericDataModel,
+  TPrincipal,
+  TCtx extends AnyCtx<DataModel>,
+  TOutputCtx extends TCtx & BridgeCtxExtension<TPrincipal>,
+>(
+  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  expectedFunctionRef: string,
+  expectedPurpose: 'query' | 'mutation' | 'action',
+  trustedForwardingKeyOverride?: TrustedForwardingKeyInput,
+) {
+  return async (ctx: TCtx, args: Record<string, unknown>) => {
+    let principalPromise: Promise<TPrincipal> | null = null
+    const principal = async () => {
+      if (!principalPromise) {
+        const ctxWithTrustedForwarding = { ...ctx } as TCtx
+        setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
+          expectedKeyOverride: trustedForwardingKeyOverride,
+          expectedPurpose,
+          expectedTransport: 'bridge',
+          expectedFunctionRef,
+        })
+        principalPromise = Promise.resolve(
+          principalDefinition.resolve(ctxWithTrustedForwarding, args),
+        ).finally(() => {
+          clearTrustedForwardingContext(ctxWithTrustedForwarding)
+        })
+      }
+
+      return await principalPromise
+    }
+
+    return {
+      ctx: {
+        ...ctx,
+        principal,
+      } as TOutputCtx,
+      args: {} as Record<string, never>,
+    }
   }
 }
 
@@ -442,99 +417,30 @@ function createInternalBridgeCustomization<DataModel extends GenericDataModel, T
   return {
     query: {
       args: forwardingArgs,
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedKeyOverride: trustedForwardingKeyOverride,
-              expectedPurpose: 'query',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericQueryCtx<DataModel>,
+        QueryCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'query', trustedForwardingKeyOverride),
     },
     mutation: {
       args: forwardingArgs,
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedKeyOverride: trustedForwardingKeyOverride,
-              expectedPurpose: 'mutation',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericMutationCtx<DataModel>,
+        MutationCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'mutation', trustedForwardingKeyOverride),
     },
     action: {
       args: forwardingArgs,
-      input: async (ctx, args) => {
-        let principalPromise: Promise<TPrincipal> | null = null
-        const principal = async () => {
-          if (!principalPromise) {
-            const ctxWithTrustedForwarding = { ...ctx }
-            setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-              expectedKeyOverride: trustedForwardingKeyOverride,
-              expectedPurpose: 'action',
-              expectedTransport: 'bridge',
-              expectedFunctionRef,
-            })
-            principalPromise = Promise.resolve(
-              principalDefinition.resolve(ctxWithTrustedForwarding, args),
-            ).finally(() => {
-              clearTrustedForwardingContext(ctxWithTrustedForwarding)
-            })
-          }
-
-          return await principalPromise
-        }
-
-        return {
-          ctx: {
-            ...ctx,
-            principal,
-          },
-          args: {},
-        }
-      },
+      input: createBridgePrincipalInput<
+        DataModel,
+        TPrincipal,
+        GenericActionCtx<DataModel>,
+        ActionCtxWithPrincipal<DataModel, TPrincipal>
+      >(principalDefinition, expectedFunctionRef, 'action', trustedForwardingKeyOverride),
     },
   }
 }

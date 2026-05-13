@@ -17,7 +17,7 @@ export function installPermissionTrellis(options: InstallPermissionsOptions): vo
     .join(', ')
 
   const permissionsTemplate = addTemplate({
-    filename: 'trellis/permissions.ts',
+    filename: 'trellis/configured-permissions.ts',
     write: true,
     getContents: () => `
 import { api } from '#trellis/api'

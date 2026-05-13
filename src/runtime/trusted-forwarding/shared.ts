@@ -50,7 +50,6 @@ const envelopeStateByArgs = new WeakMap<object, TrustedForwardingEnvelopeState>(
 
 export const trustedForwardingValidators = {
   _trellisForwarding: v.optional(v.string()),
-  _trellisForwardingKey: v.optional(v.string()),
 } satisfies PropertyValidators
 
 export const trustedForwardingAlphaIssuer = 'trellis://server'

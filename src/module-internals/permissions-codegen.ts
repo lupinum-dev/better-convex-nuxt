@@ -44,7 +44,6 @@ export interface PermissionMatrixMetadata {
 }
 
 export interface PermissionCodegenMetadata {
-  generatedAt: string
   include: string[]
   permissions: PermissionDefinitionMetadata[]
   inventories: PermissionInventoryMetadata[]
@@ -296,7 +295,6 @@ export function extractPermissionCodegenMetadata(
   matrices.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
 
   return {
-    generatedAt: new Date().toISOString(),
     include,
     permissions,
     inventories,

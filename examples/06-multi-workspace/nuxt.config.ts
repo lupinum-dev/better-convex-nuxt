@@ -16,6 +16,7 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     permissions: {
       query: 'permissions/context.getPermissionContext',
+      codegen: true,
     },
   },
 })

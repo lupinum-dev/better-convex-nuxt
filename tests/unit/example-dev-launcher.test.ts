@@ -815,6 +815,15 @@ describe('example dev launcher', () => {
     expect(processExit).toHaveBeenCalledWith(1)
   })
 
+  it('writes temporary Convex env files in a private temp directory with restrictive mode', () => {
+    const source = readFileSync(resolve(process.cwd(), 'scripts/example-dev.mjs'), 'utf8')
+
+    expect(source).toContain("mkdtempSync(path.join(tmpdir(), 'trellis-convex-env-'))")
+    expect(source).toContain('mode: 0o600')
+    expect(source).toContain('rmSync(tmpDir, { recursive: true, force: true })')
+    expect(source).not.toContain('convex-env-${process.pid}.env')
+  })
+
   it('bootstraps auth examples with a dynamic JWKS sentinel before local startup', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'trellis-auth-example-'))
     mkdirSync(join(cwd, 'convex'), { recursive: true })

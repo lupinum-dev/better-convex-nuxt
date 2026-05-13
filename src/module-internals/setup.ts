@@ -71,7 +71,7 @@ export function deriveModuleSetupState(
     typeof options.permissions === 'string' ? options.permissions : options.permissions?.query,
   )
   const rawPermissionCodegen =
-    typeof options.permissions === 'string' ? true : (options.permissions?.codegen ?? true)
+    typeof options.permissions === 'string' ? false : (options.permissions?.codegen ?? false)
   const normalizedPermissionCodegen =
     rawPermissionCodegen === true
       ? {

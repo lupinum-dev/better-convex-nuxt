@@ -22,8 +22,10 @@ function readBearerToken(event: H3Event): string | null {
 export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
   const runtimeConfig = useRuntimeConfig(event)
   const token = readBearerToken(event)
+  const configuredToken =
+    typeof runtimeConfig.demoMcpToken === 'string' ? runtimeConfig.demoMcpToken.trim() : ''
 
-  if (!token || token !== runtimeConfig.demoMcpToken) {
+  if (!configuredToken || !token || token !== configuredToken) {
     return { kind: 'anonymous', subject: subject.anonymous() }
   }
 

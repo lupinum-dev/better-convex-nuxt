@@ -38,7 +38,6 @@ export interface ToolDefinitionMetadata {
 }
 
 export interface PublicSurfaceCodegenMetadata {
-  generatedAt: string
   include: {
     operations: string[]
     tools: string[]
@@ -354,7 +353,6 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
   tools.sort((a, b) => a.name.localeCompare(b.name) || a.file.localeCompare(b.file))
 
   return {
-    generatedAt: new Date().toISOString(),
     include: {
       operations: operationInclude,
       tools: toolInclude,

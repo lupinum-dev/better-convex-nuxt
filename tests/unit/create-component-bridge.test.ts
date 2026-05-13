@@ -19,8 +19,8 @@ async function expectSignedBridgeArgs(
   expect(args).toMatchObject({
     ...options.appArgs,
     _trellisForwarding: expect.any(String),
-    _trellisForwardingKey: options.key,
   })
+  expect(args).not.toHaveProperty('_trellisForwardingKey')
   expect(args).not.toHaveProperty('_trustedForwardingKey')
   expect(args).not.toHaveProperty('_trustedForwarding')
   expect(args).not.toHaveProperty('principal')
@@ -133,7 +133,6 @@ describe('createComponentBridge', () => {
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
-      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -273,7 +272,6 @@ describe('createComponentBridge', () => {
     expect(runAction).toHaveBeenCalledWith('component.action', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
-      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runAction.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -418,7 +416,6 @@ describe('createComponentBridge', () => {
     expect(runQuery).toHaveBeenCalledWith('component.query', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
-      _trellisForwardingKey: 'bridge-secret',
     })
     await expectSignedBridgeArgs(runQuery.mock.calls[0]![1], {
       key: 'bridge-secret',
@@ -534,6 +531,57 @@ describe('createComponentBridge', () => {
     ).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
   })
 
+  it('fails closed at component verification when the component side has no key', async () => {
+    const { createBridgeForwardingArgs, createComponentBridge } =
+      await import('../../packages/trellis-bridge/src/component')
+    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
+
+    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const signedArgs = createBridgeForwardingArgs(
+      { slug: 'docs' },
+      principal,
+      'explicit-component-boundary-key',
+      'query',
+      'component.query' as never,
+    )
+
+    const bridge = createComponentBridge(
+      {
+        query: (() => null as never) as never,
+        mutation: (() => null as never) as never,
+        internalQuery: (() => null as never) as never,
+        internalMutation: (() => null as never) as never,
+      },
+      {
+        principal: definePrincipal({
+          validator: v.object({
+            kind: v.literal('service'),
+            serviceId: v.string(),
+            subject: v.string(),
+          }),
+          resolve: async (ctx, args) =>
+            getForwardedPrincipal<typeof principal>(ctx as never, args as never) ?? principal,
+        }),
+      },
+    )
+
+    const registered = bridge.internalQuery({
+      component: 'component.query' as never,
+      args: { slug: v.string() },
+    }) as {
+      customization: {
+        input: (
+          ctx: unknown,
+          args: unknown,
+        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+      }
+    }
+
+    const customized = await registered.customization.input({}, signedArgs)
+    await expect(customized.ctx.principal()).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
+  })
+
   it('uses an explicit trusted forwarding key without reading process env', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
     const { definePrincipal } = await import('../../src/runtime/functions')
@@ -595,7 +643,6 @@ describe('createComponentBridge', () => {
     expect(runMutation).toHaveBeenCalledWith('component.mutation', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
-      _trellisForwardingKey: 'explicit-component-boundary-key',
     })
     await expectSignedBridgeArgs(runMutation.mock.calls[0]![1], {
       key: 'explicit-component-boundary-key',
@@ -671,7 +718,6 @@ describe('createComponentBridge', () => {
     expect(runMutation).toHaveBeenCalledWith('component.mutation', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
-      _trellisForwardingKey: 'args-aware-component-boundary-key',
     })
     await expectSignedBridgeArgs(runMutation.mock.calls[0]![1], {
       key: 'args-aware-component-boundary-key',

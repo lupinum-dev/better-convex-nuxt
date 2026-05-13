@@ -44,17 +44,6 @@ type ForwardedPrincipalOptions = {
 
 type ServerConvexCallOptions = Pick<ServerConvexOptions, 'trustedForwardingEnvelope'>
 
-function withForwardedPrincipal<TArgs extends Record<string, unknown> | undefined>(
-  args: TArgs,
-  options?: ForwardedPrincipalOptions,
-): TArgs {
-  if (options?.principal === undefined && options?.delegation === undefined) {
-    return args
-  }
-
-  return args
-}
-
 /**
  * Server-side convenience wrapper over the `serverConvex*` helpers.
  *
@@ -103,33 +92,27 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
       args?: FunctionLikeArgs<Query>,
       perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Query>> =>
-      await serverConvexQuery(
-        event,
-        fn,
-        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Query>), options),
-        { ...callOptions, ...perCallOptions },
-      ),
+      await serverConvexQuery(event, fn, args ?? ({} as FunctionLikeArgs<Query>), {
+        ...callOptions,
+        ...perCallOptions,
+      }),
     mutation: async <Mutation extends AnyMutationFunction>(
       fn: Mutation,
       args?: FunctionLikeArgs<Mutation>,
       perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Mutation>> =>
-      await serverConvexMutation(
-        event,
-        fn,
-        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Mutation>), options),
-        { ...callOptions, ...perCallOptions },
-      ),
+      await serverConvexMutation(event, fn, args ?? ({} as FunctionLikeArgs<Mutation>), {
+        ...callOptions,
+        ...perCallOptions,
+      }),
     action: async <Action extends AnyActionFunction>(
       fn: Action,
       args?: FunctionLikeArgs<Action>,
       perCallOptions?: ServerConvexCallOptions,
     ): Promise<FunctionLikeReturnType<Action>> =>
-      await serverConvexAction(
-        event,
-        fn,
-        withForwardedPrincipal(args ?? ({} as FunctionLikeArgs<Action>), options),
-        { ...callOptions, ...perCallOptions },
-      ),
+      await serverConvexAction(event, fn, args ?? ({} as FunctionLikeArgs<Action>), {
+        ...callOptions,
+        ...perCallOptions,
+      }),
   }
 }

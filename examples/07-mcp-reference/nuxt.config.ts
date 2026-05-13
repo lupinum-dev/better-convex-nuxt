@@ -33,6 +33,7 @@ export default defineNuxtConfig({
     auth: {},
     permissions: {
       query: 'permissions/context.getPermissionContext',
+      codegen: true,
     },
   },
 })

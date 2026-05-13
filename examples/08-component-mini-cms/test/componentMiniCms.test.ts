@@ -58,6 +58,20 @@ function bridgeArgs(
 }
 
 describe('example 08 component mini cms', () => {
+  it('does not ship a public demo MCP bearer token', () => {
+    const config = readFileSync(new URL('../nuxt.config.ts', import.meta.url), 'utf8')
+    const studio = readFileSync(
+      new URL('../app/features/pages/components/MiniCmsStudioPage.vue', import.meta.url),
+      'utf8',
+    )
+
+    expect(config).toContain('demoMcpToken: process.env.DEMO_MCP_TOKEN')
+    expect(config).not.toContain('demo-mini-cms-token')
+    expect(config).not.toContain('public: {')
+    expect(studio).not.toContain('runtimeConfig.public.demoMcpToken')
+    expect(studio).not.toContain('Authorization: Bearer')
+  })
+
   it('lets anonymous callers read published pages only', async () => {
     const ctx = createCtx()
 

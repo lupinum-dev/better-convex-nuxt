@@ -35,7 +35,6 @@ const bridgeForwardingTtlsMs = {
 
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
 export type TrustedForwardingKeyInput = string | ((args?: unknown) => string)
-const bridgeForwardingKeyArg = '_trellisForwardingKey'
 
 function resolveBridgePrincipalSubject(principal: unknown): string {
   if (
@@ -74,26 +73,6 @@ export function getRequiredBridgeTrustedForwardingKey(
   }
 
   return trustedForwardingKey
-}
-
-export function getBridgeTrustedForwardingKeyFromArgs(args?: unknown): string {
-  // Component-boundary verification only: this accepts the key carried by a host-to-component
-  // bridge call. General Trellis trusted forwarding must use its normal trusted key source.
-  const keyFromArgs =
-    typeof args === 'object' && args !== null
-      ? (args as Record<string, unknown>)[bridgeForwardingKeyArg]
-      : undefined
-  if (typeof keyFromArgs === 'string' && keyFromArgs.trim().length > 0) {
-    return keyFromArgs
-  }
-
-  const keyFromEnv =
-    typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY : undefined
-  if (typeof keyFromEnv === 'string' && keyFromEnv.trim().length > 0) {
-    return keyFromEnv
-  }
-
-  throw new Error('createComponentBridge() component forwarding args are missing a key.')
 }
 
 export function getBridgeFunctionRef(
@@ -179,7 +158,6 @@ function createBridgeTrustedForwardingFields(
     typeof trustedForwardingKey === 'function' ? trustedForwardingKey(args) : trustedForwardingKey
 
   return {
-    [bridgeForwardingKeyArg]: key,
     _trellisForwarding: createBridgeForwardingEnvelope({
       trustedForwardingKey: key,
       principal,

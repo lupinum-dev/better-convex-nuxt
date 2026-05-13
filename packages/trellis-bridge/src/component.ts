@@ -3,7 +3,6 @@ export {
   createBridgeForwardingArgs,
   createBridgeForwardingEnvelope,
   createComponentBridge,
-  getBridgeTrustedForwardingKeyFromArgs,
 } from './create-component-bridge.js'
 export type {
   ComponentBridgeActionRegistrar,

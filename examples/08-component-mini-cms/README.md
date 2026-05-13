@@ -55,7 +55,7 @@ App-owned env vars:
 - `CONVEX_TRUSTED_FORWARDING_KEY`: trusted principal forwarding into the component boundary
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `JWKS`: local auth bootstrap for the example
-- `DEMO_MCP_TOKEN`: demo MCP caller token shown in the studio UI
+- `DEMO_MCP_TOKEN`: server-only MCP caller token required for agent write/publish capability
 
 ## Test
 

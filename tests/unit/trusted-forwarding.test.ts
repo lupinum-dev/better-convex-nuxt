@@ -60,7 +60,7 @@ describe('trusted forwarding helpers', () => {
       title: v.string(),
     })
 
-    expect(Object.keys(args)).toEqual(['title', '_trellisForwarding', '_trellisForwardingKey'])
+    expect(Object.keys(args)).toEqual(['title', '_trellisForwarding'])
   })
 
   it('returns the trusted forwarding identity from a signed envelope', () => {
@@ -82,7 +82,7 @@ describe('trusted forwarding helpers', () => {
     })
   })
 
-  it('can verify component-boundary forwarding with the key carried as a reserved arg', () => {
+  it('can verify component-boundary forwarding with an explicit component-side key', () => {
     const ctx: Record<string, unknown> = {}
     const args = signedArgs({
       args: { title: 'Hello' },
@@ -91,19 +91,11 @@ describe('trusted forwarding helpers', () => {
     const key = process.env.CONVEX_TRUSTED_FORWARDING_KEY
     delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
 
-    setTrustedForwardingContext(
-      ctx,
-      {
-        ...args,
-        _trellisForwardingKey: key,
-      },
-      {
-        expectedKeyOverride: (input) =>
-          (input as { _trellisForwardingKey?: string })._trellisForwardingKey!,
-        expectedFunctionRef: 'tasks:create',
-        now: Date.UTC(2026, 4, 9, 12, 0, 1),
-      },
-    )
+    setTrustedForwardingContext(ctx, args, {
+      expectedKeyOverride: key,
+      expectedFunctionRef: 'tasks:create',
+      now: Date.UTC(2026, 4, 9, 12, 0, 1),
+    })
 
     expect(getTrustedForwarding(ctx)).toEqual({
       principalSubject: 'user:u_component',

@@ -126,6 +126,16 @@ describe('installer auto-import surface', () => {
         global: true,
       }),
     )
+    expect(nuxtKitMocks.addTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'trellis/configured-permissions.ts',
+      }),
+    )
+    expect(nuxtKitMocks.addTemplate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'trellis/permissions.ts',
+      }),
+    )
     expect(nuxt.options.alias).toMatchObject({
       '#trellis': '/virtual/trellis/index.ts',
       '#trellis/api': '/virtual/trellis/api.ts',

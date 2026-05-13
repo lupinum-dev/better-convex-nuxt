@@ -301,6 +301,18 @@ describe('CLI doctor', () => {
     )
   })
 
+  it('rejects init app names that escape the requested cwd', () => {
+    const cwd = createTempDir('trellis-init-cwd-escape-')
+    const result = runCli(
+      ['init', '../target', '--template', 'public', '--cwd', cwd, '--force'],
+      repoRoot,
+    )
+    const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+
+    expect(result.status, output).not.toBe(0)
+    expect(output).toContain('Invalid app name. Use a single directory name, not a path.')
+  })
+
   it('returns a machine-readable JSON summary for init', () => {
     const cwd = createTempDir('trellis-init-json-')
     const result = runCli(
@@ -392,6 +404,8 @@ describe('CLI doctor', () => {
     expect(actor).toContain("getSubjectValue(delegation?.subject, 'user')")
     expect(actor).not.toContain("delegation.subject.startsWith('user:')")
     const mcpAuthMiddleware = read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))
+    expect(mcpAuthMiddleware).toContain("event.path?.startsWith('/mcp')")
+    expect(mcpAuthMiddleware).toContain('MCP bearer token required.')
     expect(mcpAuthMiddleware).toContain('serverConvexQuery(')
     expect(mcpAuthMiddleware).toContain('api.features.mcpKeys.domain.validate')
     expect(mcpAuthMiddleware).toContain("{ auth: 'none' }")
@@ -401,6 +415,9 @@ describe('CLI doctor', () => {
     expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('query.protected({')
     expect(todos).toContain('mutation.protected({')
+    expect(mcpKeys).toContain("query('users')")
+    expect(mcpKeys).not.toContain('boundRole')
+    expect(mcpKeys).not.toContain('seenAt')
     expect(mcpKeys).toContain('query.public({')
     expect(mcpKeys).toContain('mutation.public({')
     expectNoOldBackendSurface(functions, 'workspace convex/functions.ts')

@@ -14,26 +14,16 @@ vi.mock('h3', () => ({
   readBody: readBodyMock,
 }))
 
-vi.mock('#trellis/server', () => ({
-  readSharedSecretWebhookBody: async ({
-    signature,
-    secret,
-    readBody,
-    parse,
-  }: {
-    signature: string | string[] | undefined
-    secret: string
-    readBody: () => Promise<unknown>
-    parse?: (body: unknown) => unknown | Promise<unknown>
-  }) => {
-    if (signature !== secret) {
-      throw createErrorMock({ statusCode: 401, message: 'Invalid signature' })
-    }
-    const body = await readBody()
-    return parse ? await parse(body) : body
-  },
-  serverConvexMutation: serverConvexMutationMock,
-}))
+vi.mock('#trellis/server', async () => {
+  const webhooks = await vi.importActual<typeof import('../../../../src/runtime/server/webhooks')>(
+    '../../../../src/runtime/server/webhooks',
+  )
+
+  return {
+    readSharedSecretWebhookBody: webhooks.readSharedSecretWebhookBody,
+    serverConvexMutation: serverConvexMutationMock,
+  }
+})
 
 vi.mock('../../convex/_generated/api', () => ({
   internal: {
@@ -109,6 +99,19 @@ describe('example 04 webhook handler', () => {
       statusCode: 400,
       message: 'projectId and title are required.',
     })
+  })
+
+  it('rejects invalid webhook signatures through the shared helper', async () => {
+    readBodyMock.mockResolvedValue({
+      projectId: 'project_123',
+      title: 'Webhook task',
+    })
+
+    await expect(handler(createEvent('wrong-secret') as never)).rejects.toMatchObject({
+      statusCode: 401,
+      message: 'Invalid signature',
+    })
+    expect(serverConvexMutationMock).not.toHaveBeenCalled()
   })
 
   it('fails closed when the webhook route secret is not configured', async () => {
