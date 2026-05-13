@@ -47,7 +47,7 @@ function deletePostPreview(extra?: { version?: unknown }) {
   })
 }
 
-function createEvent(auth?: { role?: string; userId?: string; tenantId?: string }): H3Event {
+function createEvent(auth?: { role?: string; userId?: string; workspaceId?: string }): H3Event {
   return {
     __is_event__: true,
     method: 'POST',
@@ -186,7 +186,7 @@ describe('defineTool visibility and auth parity', () => {
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
   })
 
   it('hides auth-required tools for anonymous callers', async () => {
@@ -207,19 +207,19 @@ describe('defineTool visibility and auth parity', () => {
       effect: 'read',
       name: 'member-only-tool',
       auth: 'required',
-      check: (actor) => actor.role === 'member',
+      check: (appIdentity) => appIdentity.role === 'member',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
 
     await expect(
-      tool.enabled?.(createEvent({ role: 'viewer', userId: 'viewer-1', tenantId: 'org-1' })),
+      tool.enabled?.(createEvent({ role: 'viewer', userId: 'viewer-1', workspaceId: 'org-1' })),
     ).resolves.toBe(false)
     await expect(
-      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' })),
+      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', workspaceId: 'org-1' })),
     ).resolves.toBe(true)
   })
 
-  it('hides scoped tools when the actor has no tenantId', async () => {
+  it('hides scoped tools when the appIdentity has no workspaceId', async () => {
     const tool = defineTool({
       schema: scopedSchema,
       effect: 'read',
@@ -233,7 +233,7 @@ describe('defineTool visibility and auth parity', () => {
       false,
     )
     await expect(
-      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' })),
+      tool.enabled?.(createEvent({ role: 'member', userId: 'member-1', workspaceId: 'org-1' })),
     ).resolves.toBe(true)
   })
 
@@ -243,12 +243,12 @@ describe('defineTool visibility and auth parity', () => {
       effect: 'read',
       name: 'guarded-tool',
       auth: 'required',
-      check: (actor) => actor.role === 'member',
+      check: (appIdentity) => appIdentity.role === 'member',
       handler: async (_args, ctx) => ctx.ok({ ok: true }),
     })
 
     useEventMock.mockReturnValue(
-      createEvent({ role: 'viewer', userId: 'viewer-1', tenantId: 'org-1' }),
+      createEvent({ role: 'viewer', userId: 'viewer-1', workspaceId: 'org-1' }),
     )
 
     const result = await tool.handler({} as never, {} as never)
@@ -271,11 +271,11 @@ describe('defineTool error handling', () => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent({ role: 'member', userId: 'member-1' }))
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'test-identity-forwarding-key'
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
   })
 
   it('cleans internal transport noise from convex errors', async () => {
@@ -354,30 +354,30 @@ describe('defineMcpApp middleware forwarding', () => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent())
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'test-trusted-forwarding-key'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'test-identity-forwarding-key'
   })
 
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
   })
 
   it('uses the projected trusted caller inside middleware query helpers', async () => {
     vi.mocked(serverConvexQuery).mockResolvedValueOnce({ ok: true })
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
-      resolveDelegation: async () => ({
+      resolveActingFor: async () => ({
         subject: 'user:user_1',
       }),
       callConvex: async (event, caller) =>
         createServerConvexCaller(event, {
           auth: 'trusted',
-          principal: caller.principal,
-          ...(caller.delegation ? { delegation: caller.delegation } : {}),
+          caller: caller.caller,
+          ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
         }),
     })
 
@@ -408,12 +408,12 @@ describe('defineMcpApp middleware forwarding', () => {
       },
       {
         auth: 'trusted',
-        principal: {
+        caller: {
           kind: 'agent',
           agentId: 'assistant-bot',
           subject: 'agent:assistant-bot',
         },
-        delegation: {
+        actingFor: {
           subject: 'user:user_1',
         },
       },
@@ -426,7 +426,7 @@ describe('MCP rate-limit integration', () => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(
-      createEvent({ role: 'member', userId: 'member-1', tenantId: 'org-1' }),
+      createEvent({ role: 'member', userId: 'member-1', workspaceId: 'org-1' }),
     )
   })
 
@@ -462,18 +462,18 @@ describe('MCP rate-limit integration', () => {
   it('applies shared storage-backed rate limits to defineMcpApp tools', async () => {
     const mcp = defineMcpApp({
       rateLimitStore,
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
-        tenantId: 'org-1',
+        workspaceId: 'org-1',
       }),
       callConvex: async () => ({
         query: async () => ({ ok: true }),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const createPostDescriptor = defineMcpToolRefDescriptor({
@@ -513,18 +513,18 @@ describe('MCP rate-limit integration', () => {
   it('requires meta.name for rate-limited defineMcpApp direct tools', () => {
     const mcp = defineMcpApp({
       rateLimitStore,
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
-        tenantId: 'org-1',
+        workspaceId: 'org-1',
       }),
       callConvex: async () => ({
         query: async () => ({ ok: true }),
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const createPostDescriptor = defineMcpToolRefDescriptor({
@@ -555,7 +555,7 @@ describe('MCP rate-limit integration', () => {
     })
     const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -565,7 +565,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     expect(() =>
@@ -579,7 +579,7 @@ describe('MCP rate-limit integration', () => {
 
   it('rejects direct mutation tools when safety only exists on the MCP declaration', () => {
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -589,7 +589,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     expect(() =>
@@ -610,7 +610,7 @@ describe('MCP rate-limit integration', () => {
       reason: 'Publishes content.',
     })
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -620,7 +620,7 @@ describe('MCP rate-limit integration', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     expect(() =>
@@ -648,12 +648,12 @@ describe('MCP rate-limit integration', () => {
     const createPost = projectMcpToolRef(createPostDescriptor, {} as never)
     const mcp = defineMcpApp({
       observability: { enabled: true, level: 'verbose' },
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
-      resolveCapabilities: async () => ({
+      resolveAccess: async () => ({
         [permission.key]: true,
       }),
       callConvex: async () => ({
@@ -663,7 +663,7 @@ describe('MCP rate-limit integration', () => {
         },
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     try {
@@ -690,12 +690,12 @@ describe('MCP rate-limit integration', () => {
         expect.arrayContaining([
           expect.objectContaining({
             tool: 'create-post',
-            reasonCode: 'tool.capability_backend_drift',
+            reasonCode: 'tool.recordAccess_backend_drift',
             status: 'deny',
             details: expect.objectContaining({
               category: 'auth',
               explanation: expect.objectContaining({
-                reasonCode: 'tool.capability_backend_drift',
+                reasonCode: 'tool.recordAccess_backend_drift',
               }),
             }),
           }),
@@ -758,7 +758,7 @@ describe('Destructive confirmation payload validation', () => {
     })
     const preview = previewOf(operation)
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -768,7 +768,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -794,7 +794,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = projectOperationRef(descriptor, 'preview', {} as never)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -804,7 +804,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(descriptor, {
@@ -830,7 +830,7 @@ describe('Destructive confirmation payload validation', () => {
     })
     const preview = previewOf(operation)
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -847,7 +847,7 @@ describe('Destructive confirmation payload validation', () => {
         execute: operation as never,
         preview: preview as never,
       }),
-    ).toThrow(/explicit tenantKey resolver/)
+    ).toThrow(/explicit scopeKey resolver/)
   })
 
   it('returns backend denial and emits drift when operation visibility is stale', async () => {
@@ -867,12 +867,12 @@ describe('Destructive confirmation payload validation', () => {
     })
     const mcp = defineMcpApp({
       observability: { enabled: true, level: 'verbose' },
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
       }),
-      resolveCapabilities: async () => ({
+      resolveAccess: async () => ({
         [permission.key]: true,
       }),
       callConvex: async () => ({
@@ -882,7 +882,7 @@ describe('Destructive confirmation payload validation', () => {
         },
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     try {
@@ -907,7 +907,7 @@ describe('Destructive confirmation payload validation', () => {
           expect.objectContaining({
             tool: 'archive-post',
             operation: 'posts.archive',
-            reasonCode: 'tool.capability_backend_drift',
+            reasonCode: 'tool.recordAccess_backend_drift',
             status: 'deny',
           }),
         ]),
@@ -936,7 +936,7 @@ describe('Destructive confirmation payload validation', () => {
 
     try {
       const mcp = defineMcpApp({
-        resolvePrincipal: async () => ({
+        resolveCaller: async () => ({
           kind: 'agent' as const,
           agentId: 'assistant-bot',
           subject: 'agent:assistant-bot',
@@ -946,7 +946,7 @@ describe('Destructive confirmation payload validation', () => {
           mutation: async () => ({ ok: true }),
           action: async () => ({ ok: true }),
         }),
-        tenantKey: () => 'global',
+        scopeKey: () => 'global',
       })
 
       expect(() =>
@@ -985,7 +985,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = previewOf(operation)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -1002,7 +1002,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1040,7 +1040,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = previewOf(operation)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -1050,7 +1050,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1103,7 +1103,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = previewOf(operation)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -1113,7 +1113,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1173,7 +1173,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = previewOf(operation)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -1186,7 +1186,7 @@ describe('Destructive confirmation payload validation', () => {
         },
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1229,7 +1229,7 @@ describe('Destructive confirmation payload validation', () => {
     const preview = previewOf(operation)
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => ({
+      resolveCaller: async () => ({
         kind: 'agent' as const,
         agentId: 'assistant-bot',
         subject: 'agent:assistant-bot',
@@ -1239,7 +1239,7 @@ describe('Destructive confirmation payload validation', () => {
         mutation: async () => ({ ok: true }),
         action: async () => ({ ok: true }),
       }),
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1290,12 +1290,12 @@ describe('Destructive confirmation payload validation', () => {
       handler: async () => ({ ok: true }),
     })
     const preview = previewOf(operation)
-    const principal = {
+    const caller = {
       kind: 'agent' as const,
       agentId: 'assistant-bot',
       subject: 'agent:assistant-bot',
     }
-    const delegation = {
+    const actingFor = {
       subject: 'user:user_1',
     }
     const confirmationStore = {
@@ -1303,16 +1303,16 @@ describe('Destructive confirmation payload validation', () => {
     }
 
     const mcp = defineMcpApp({
-      resolvePrincipal: async () => principal,
-      resolveDelegation: async () => delegation,
+      resolveCaller: async () => caller,
+      resolveActingFor: async () => actingFor,
       callConvex: async (event, caller) =>
         createServerConvexCaller(event, {
           auth: 'trusted',
-          principal: caller.principal,
-          ...(caller.delegation ? { delegation: caller.delegation } : {}),
+          caller: caller.caller,
+          ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
         }),
       confirmationStore,
-      tenantKey: () => 'global',
+      scopeKey: () => 'global',
     })
 
     const tool = mcp.tool.operation(operation, {
@@ -1342,9 +1342,9 @@ describe('Destructive confirmation payload validation', () => {
       { id: 'post-1' },
       {
         auth: 'trusted',
-        principal,
-        delegation,
-        trustedForwardingEnvelope: {
+        caller,
+        actingFor,
+        identityForwardingEnvelope: {
           purpose: 'operation-preview',
         },
       },
@@ -1358,9 +1358,9 @@ describe('Destructive confirmation payload validation', () => {
       },
       {
         auth: 'trusted',
-        principal,
-        delegation,
-        trustedForwardingEnvelope: {
+        caller,
+        actingFor,
+        identityForwardingEnvelope: {
           purpose: 'operation-execute',
           jti: expect.any(String),
         },

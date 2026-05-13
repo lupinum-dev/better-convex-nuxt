@@ -77,11 +77,11 @@ import CommentThread from './CommentThread.vue'
 
 const route = useRoute()
 const toast = useToast()
-const { allows } = usePermissions()
+const { can } = useAccess()
 
 const taskId = computed(() => route.params.id as Id<'tasks'>)
 const projectId = route.query.projectId as Id<'projects'>
-const canAssign = allows(taskAssign)
+const canAssign = can(taskAssign)
 
 const { data: task } = await useCachedQuery(
   api.features.tasks.domain.get,

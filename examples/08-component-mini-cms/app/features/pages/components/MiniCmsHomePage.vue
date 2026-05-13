@@ -56,7 +56,7 @@
                 Anonymous callers only see this public read surface.
               </p>
             </div>
-            <span class="mini-code">principal: anonymous | user</span>
+            <span class="mini-code">caller: anonymous | user</span>
           </div>
 
           <div v-if="pending" class="mt-6 space-y-3">

@@ -12,8 +12,8 @@ export const list = query.protected({
   args: { paginationOpts: paginationOptsValidator },
   guard: projectRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     return ctx.db
       .query('projects')
@@ -27,8 +27,8 @@ export const get = query.protected({
   args: { id: v.id('projects') },
   guard: projectRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    return loadResource(actor, await ctx.db.get(args.id), 'Project')
+    const appIdentity = await ctx.appIdentity()
+    return loadResource(appIdentity, await ctx.db.get(args.id), 'Project')
   },
 })
 
@@ -36,15 +36,15 @@ export const create = mutation.protected({
   args: createProject.args,
   guard: projectCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const now = Date.now()
     const projectId = await ctx.db.insert('projects', {
       name: args.name,
       summary: args.summary,
       status: 'active',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       workspaceId,
       createdAt: now,
       updatedAt: now,
@@ -52,7 +52,7 @@ export const create = mutation.protected({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'project',
       entityId: projectId,
       action: 'project.created',
@@ -72,8 +72,8 @@ export const exportProjects = query.protected({
   args: {},
   guard: projectExport,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const projects = await ctx.db
       .query('projects')

@@ -15,7 +15,7 @@ describe('Experiment 10: Envelope callee-binding', () => {
     expect(result.signed).toBe(true)
     expect(result.verified).toBe(true)
     expect(result.callee).toBe('posts:deletePost')
-    expect(result.principal).toEqual({ kind: 'mcp', mcpKeyId: 'k1', userId: 'u1' })
+    expect(result.caller).toEqual({ kind: 'mcp', mcpKeyId: 'k1', userId: 'u1' })
   })
 
   it('rejects envelope bound to a different callee', async () => {

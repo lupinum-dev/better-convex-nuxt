@@ -1,9 +1,10 @@
 import {
-  createTrustedForwardingEnvelopeArgs,
+  createIdentityForwardingEnvelopeArgs,
   operationPreviewValidator,
 } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
+import type { MiniCmsPrincipal } from '../../../shared/caller'
 import {
   createPage as createPageSchema,
   getPublishedPage as getPublishedPageSchema,
@@ -16,7 +17,6 @@ import {
   saveDraft as saveDraftSchema,
   studioPageValidator,
 } from '../../../shared/features/pages/contract'
-import type { MiniCmsPrincipal } from '../../../shared/principal'
 import { internal } from '../../_generated/api'
 import { action, mutation, query } from '../../functions'
 
@@ -39,27 +39,27 @@ const publishPreviewResultValidator = operationPreviewValidator({
     }),
   }),
 })
-function getRequiredTrustedForwardingKey(): string {
-  const key = process.env.CONVEX_TRUSTED_FORWARDING_KEY?.trim()
+function getRequiredIdentityForwardingKey(): string {
+  const key = process.env.CONVEX_IDENTITY_FORWARDING_KEY?.trim()
   if (!key) {
-    throw new Error('Component mini CMS bridge calls require CONVEX_TRUSTED_FORWARDING_KEY.')
+    throw new Error('Component mini CMS bridge calls require CONVEX_IDENTITY_FORWARDING_KEY.')
   }
   return key
 }
 
 async function bridgeForwardingArgs(
-  ctx: { principal: () => Promise<MiniCmsPrincipal> },
+  ctx: { caller: () => Promise<MiniCmsPrincipal> },
   args: Record<string, unknown>,
   operation: 'query' | 'mutation' | 'action' | 'operation-execute',
   functionRef: string,
 ): Promise<Record<string, unknown>> {
-  const principal = await ctx.principal()
-  if (principal.kind === 'anonymous') return args
+  const caller = await ctx.caller()
+  if (caller.kind === 'anonymous') return args
 
-  const forwarding = createTrustedForwardingEnvelopeArgs({
+  const forwarding = createIdentityForwardingEnvelopeArgs({
     args: {},
-    principal,
-    key: getRequiredTrustedForwardingKey(),
+    caller,
+    key: getRequiredIdentityForwardingKey(),
     issuer: bridgeForwardingIssuer,
     audience: bridgeForwardingAudience,
     transport: 'bridge',

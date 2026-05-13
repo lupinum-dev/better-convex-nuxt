@@ -3,36 +3,38 @@ import { requireRecord } from '@lupinum/trellis/auth'
 import { createTodo, listTodos, setTodoCompleted } from '../../../shared/features/todos/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import { mutation, query } from '../../functions'
-import { todoCapabilities } from './capabilities'
 import { canUpdateTodo } from './checks'
 import { removeTodoOp } from './operations'
 import { todoCreate, todoRead } from './permissions'
+import { todoCapabilities } from './record-access'
 
 function requireWorkspaceActor<
-  TActor extends { userId: string; tenantId?: Id<'workspaces'> | null },
->(actor: TActor | null): TActor {
-  if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
-  return actor
+  TActor extends { userId: string; workspaceId?: Id<'workspaces'> | null },
+>(appIdentity: TActor | null): TActor {
+  if (!appIdentity?.workspaceId)
+    throw new Error('Current appIdentity is not assigned to a workspace.')
+  return appIdentity
 }
 
-function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null } | null) {
-  if (!actor?.tenantId) throw new Error('Current actor is not assigned to a workspace.')
-  return actor.tenantId
+function requireWorkspaceTenant(appIdentity: { workspaceId?: Id<'workspaces'> | null } | null) {
+  if (!appIdentity?.workspaceId)
+    throw new Error('Current appIdentity is not assigned to a workspace.')
+  return appIdentity.workspaceId
 }
 
 export const list = query.protected({
   args: listTodos.args,
   guard: todoRead,
   handler: async (ctx) => {
-    const actor = requireWorkspaceActor(await ctx.actor())
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = requireWorkspaceActor(await ctx.appIdentity())
+    const workspaceId = requireWorkspaceTenant(appIdentity)
     const todos = await ctx.db
       .query('todos')
       .withIndex('by_workspace', (q) => q.eq('workspaceId', workspaceId))
       .order('desc')
       .collect()
 
-    return todoCapabilities.attach(actor, todos)
+    return todoCapabilities.attach(appIdentity, todos)
   },
 })
 
@@ -45,7 +47,7 @@ export const get = query.protected({
     return { todo: todo as Doc<'todos'> }
   },
   handler: async (ctx, _args, { todo }) => {
-    return todoCapabilities.attach(await ctx.actor(), todo)
+    return todoCapabilities.attach(await ctx.appIdentity(), todo)
   },
 })
 
@@ -53,13 +55,13 @@ export const create = mutation.protected({
   args: createTodo.args,
   guard: todoCreate,
   handler: async (ctx, args) => {
-    const actor = requireWorkspaceActor(await ctx.actor())
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = requireWorkspaceActor(await ctx.appIdentity())
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     return ctx.db.insert('todos', {
       title: args.title,
       completed: false,
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       workspaceId,
       createdAt: Date.now(),
     })

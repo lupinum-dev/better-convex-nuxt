@@ -16,7 +16,7 @@ boundary.
 - uploads and attachment authorization
 - nested resource guards in a still-familiar workspace app
 
-Canonical v1 server-to-server identity in Trellis is trusted forwarding plus optional delegation. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full trusted-forwarding + delegation shape.
+Canonical v1 server-to-server identity in Trellis is identity forwarding plus optional actingFor. This example keeps one narrow verified-route-to-internal-mutation boundary so the board and upload flows stay readable; see `examples/07-mcp-reference` for the full identity-forwarding + actingFor shape.
 
 It is no longer the “big month-two SaaS showcase.” Its job is to show how protected server surfaces
 fit into the canonical workspace model.
@@ -57,9 +57,9 @@ App-owned env vars:
 
 ## Production notes
 
-- The webhook route here is intentionally narrower than the full Trellis trusted-forwarding model.
+- The webhook route here is intentionally narrower than the full Trellis identity-forwarding model.
   It verifies one route-owned secret and hands work to an internal mutation instead of forwarding a
-  service principal through the whole protected app.
+  service caller through the whole protected app.
 - That keeps the server-integration example readable, but it is not the full production identity
   story for complex integrations. Use [`07-mcp-reference`](../07-mcp-reference/README.md) when you
   need explicit service principals plus delegated users on the protected root refs themselves.

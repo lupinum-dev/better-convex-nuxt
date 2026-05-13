@@ -10,7 +10,7 @@ and no tenant model yet.
 ## What it teaches
 
 - Better Auth wiring through Convex
-- app-owned actor resolution
+- app-owned appIdentity resolution
 - signed-in / signed-out UI states
 - personal ownership checks in handlers
 - feature layout with `shared/features/*`, `convex/features/*`, and `app/features/*`
@@ -23,7 +23,7 @@ You understand the public data flow from [`01-public-todo`](../01-public-todo/RE
 ## Files to read first
 
 1. `convex/auth.ts`
-2. `convex/auth/actor.ts`
+2. `convex/auth/app-identity.ts`
 3. `shared/features/todos/contract.ts`
 4. `convex/features/todos/domain.ts`
 5. `app/features/auth-todo/components/AuthTodoPage.vue`
@@ -60,4 +60,4 @@ This example includes a small Convex test harness as the personal-auth starter r
 Stop here if your app is personal and ownership-based.
 
 Move to [`03-team-workspace`](../03-team-workspace/README.md) when you need the canonical protected
-team app with tenants, roles, and permission context.
+team app with tenants, roles, and access context.

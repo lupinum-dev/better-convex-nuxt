@@ -24,7 +24,7 @@ declare module '@lupinum/trellis/backend' {
 }
 
 declare module '@lupinum/trellis/mcp' {
-  interface CapabilityKeysByKey {
+  interface AccessKeysByKey {
     publishEntry: true
   }
 

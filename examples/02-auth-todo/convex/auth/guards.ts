@@ -1,11 +1,14 @@
 /**
  * Check style:
- * This auth-only example only needs direct actor predicates.
+ * This auth-only example only needs direct appIdentity predicates.
  * Using defineGuard gives each check a readable label that
  * shows up in Forbidden errors — helpful for debugging.
  */
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { Actor } from './actor'
+import type { AppIdentity } from './app-identity'
 
-export const isAuthenticated = defineGuard<Actor>('Authenticated', (actor) => actor !== null)
+export const isAuthenticated = defineGuard<AppIdentity>(
+  'Authenticated',
+  (appIdentity) => appIdentity !== null,
+)

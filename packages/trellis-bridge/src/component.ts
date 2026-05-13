@@ -10,5 +10,5 @@ export type {
   ComponentBridgeMutationRegistrar,
   ComponentBridgeQueryRegistrar,
   CreateBridgeForwardingEnvelopeOptions,
-  TrustedForwardingKeyInput,
+  IdentityForwardingKeyInput,
 } from './create-component-bridge.js'

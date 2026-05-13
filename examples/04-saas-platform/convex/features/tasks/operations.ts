@@ -32,8 +32,8 @@ export const removeTaskOp = defineOperation({
   }),
   guard: taskRead,
   load: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const task = loadResource(actor, await ctx.db.get(args.id), 'Task')
+    const appIdentity = await ctx.appIdentity()
+    const task = loadResource(appIdentity, await ctx.db.get(args.id), 'Task')
     const comments = await ctx.db
       .query('comments')
       .withIndex('by_task', (q: any) => q.eq('taskId', args.id))
@@ -60,9 +60,9 @@ export const removeTaskOp = defineOperation({
       },
     }),
   handler: async (ctx, args, { task, comments }) => {
-    const actor = await ctx.actor()
-    enforce(actor, 'Delete task', canDeleteTask(task))
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    enforce(appIdentity, 'Delete task', canDeleteTask(task))
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     for (const comment of comments) {
       await ctx.db.delete(comment._id)
@@ -71,7 +71,7 @@ export const removeTaskOp = defineOperation({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.deleted',

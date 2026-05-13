@@ -14,38 +14,40 @@ import {
 import type { PermissionKey } from '../../src/runtime/composables/configured-permissions'
 import { createConfiguredPermissionsComposables } from '../../src/runtime/composables/configured-permissions'
 import { defineOperation } from '../../src/runtime/functions'
+import { createIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { defineTool } from '../../src/runtime/mcp/advanced'
 import { createTestContext } from '../../src/runtime/testing'
-import { createTrustedForwardingEnvelope } from '../../src/runtime/trusted-forwarding'
 
 type Assert<T extends true> = T
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
-type Actor = { role: 'owner' | 'member'; userId: string; tenantId: string } | null
-type ActorCheck = (actor: Actor) => boolean
+type AppIdentity = { role: 'owner' | 'member'; userId: string; workspaceId: string } | null
+type AppIdentityCheck = (appIdentity: AppIdentity) => boolean
 
-const isOwner: ActorCheck = (actor: Actor) => !!actor && actor.role === 'owner'
-const isMember: ActorCheck = (actor: Actor) => !!actor && actor.role === 'member'
+const isOwner: AppIdentityCheck = (appIdentity: AppIdentity) =>
+  !!appIdentity && appIdentity.role === 'owner'
+const isMember: AppIdentityCheck = (appIdentity: AppIdentity) =>
+  !!appIdentity && appIdentity.role === 'member'
 
 const composed = and(isOwner, isMember)
-const allowed = can({ role: 'owner', userId: 'u1', tenantId: 't1' }, composed)
+const allowed = can({ role: 'owner', userId: 'u1', workspaceId: 't1' }, composed)
 void allowed
 
-const requiredActor = {} as Actor
-requireAuth(requiredActor)
-type _requiredActor = Assert<IsEqual<typeof requiredActor, NonNullable<Actor>>>
+const requiredAppIdentity = {} as AppIdentity
+requireAuth(requiredAppIdentity)
+type _requiredAppIdentity = Assert<IsEqual<typeof requiredAppIdentity, NonNullable<AppIdentity>>>
 
 deny('Blocked', { source: 'dx-typing' })
 enforce(null, 'Admin page', false)
-createTrustedForwardingEnvelope({
-  key: 'trusted-forwarding-key-with-enough-entropy',
+createIdentityForwardingEnvelope({
+  key: 'identity-forwarding-key-with-enough-entropy',
   keyId: 'default',
   iss: 'trellis://server',
   aud: 'trellis://convex',
   jti: 'typed-call',
   sub: 'user:u1',
-  principal: { subject: 'user:u1' },
+  caller: { subject: 'user:u1' },
   transport: 'server',
   purpose: 'query',
   functionRef: 'tasks:list',
@@ -53,11 +55,11 @@ createTrustedForwardingEnvelope({
   ttlMs: 60_000,
 })
 
-type PermissionContext = {
+type AccessContext = {
   role: 'owner' | 'member'
   plan: 'free' | 'pro'
   userId: string
-  tenantId: string
+  workspaceId: string
   displayName: string | null
   usage: { projects: { current: number } }
   can: Record<'task.create' | 'workspace.members', boolean>
@@ -67,13 +69,10 @@ const permissionQuery = {} as FunctionReference<
   'query',
   'public',
   Record<string, never>,
-  PermissionContext | null
+  AccessContext | null
 >
 
-const _auth = createConfiguredPermissionsComposables(
-  permissionQuery,
-  'workspaces.getPermissionContext',
-)
+const _auth = createConfiguredPermissionsComposables(permissionQuery, 'workspaces.getAccessContext')
 
 const createTaskPermission = definePermission({
   key: 'task.create',
@@ -85,29 +84,27 @@ const deleteTaskPermission = definePermission({
   check: true,
 })
 
-type UsePermissionsApi = ReturnType<typeof _auth.usePermissions>
+type UseAccessApi = ReturnType<typeof _auth.useAccess>
 type GuardOptions = Parameters<typeof _auth.useAuthGuard>[0]
 type _permissionKey = Assert<
-  IsEqual<PermissionKey<PermissionContext>, 'task.create' | 'workspace.members'>
+  IsEqual<PermissionKey<AccessContext>, 'task.create' | 'workspace.members'>
 >
-type _ctxFromComposable = Assert<
-  IsEqual<UsePermissionsApi['ctx']['value'], PermissionContext | null>
->
+type _ctxFromComposable = Assert<IsEqual<UseAccessApi['ctx']['value'], AccessContext | null>>
 type _roleFromComposable = Assert<
-  IsEqual<UsePermissionsApi['role']['value'], PermissionContext['role'] | null>
+  IsEqual<UseAccessApi['role']['value'], AccessContext['role'] | null>
 >
 type _planFromComposable = Assert<
-  IsEqual<UsePermissionsApi['plan']['value'], PermissionContext['plan'] | null>
+  IsEqual<UseAccessApi['plan']['value'], AccessContext['plan'] | null>
 >
 type _ctxDisplayName = Assert<
-  IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['displayName'], string | null>
+  IsEqual<NonNullable<UseAccessApi['ctx']['value']>['displayName'], string | null>
 >
 type _ctxUsageCurrent = Assert<
-  IsEqual<NonNullable<UsePermissionsApi['ctx']['value']>['usage']['projects']['current'], number>
+  IsEqual<NonNullable<UseAccessApi['ctx']['value']>['usage']['projects']['current'], number>
 >
-type _allowsParameter = Assert<
+type _canParameter = Assert<
   IsEqual<
-    Parameters<UsePermissionsApi['allows']>[0],
+    Parameters<UseAccessApi['can']>[0],
     PermissionKeyHandle<'task.create' | 'workspace.members'>
   >
 >
@@ -118,7 +115,7 @@ type _guardPermissionKey = Assert<
   >
 >
 type _guardCheck = Assert<
-  IsEqual<GuardOptions['check'], ((ctx: PermissionContext) => boolean) | undefined>
+  IsEqual<GuardOptions['check'], ((ctx: AccessContext) => boolean) | undefined>
 >
 
 const _validGuardOptions: GuardOptions = {
@@ -127,13 +124,13 @@ const _validGuardOptions: GuardOptions = {
 }
 void _validGuardOptions
 
-// @ts-expect-error invalid capability should not type-check
+// @ts-expect-error invalid recordAccess should not type-check
 const _invalidGuardOptions: GuardOptions = { permission: deleteTaskPermission }
 void _invalidGuardOptions
 
-type GenericPermissionContext = {
+type GenericAccessContext = {
   userId: string | null
-  tenantId: string | null
+  workspaceId: string | null
   role: string | null
   can: Record<string, boolean>
 }
@@ -142,19 +139,19 @@ const genericPermissionQuery = {} as FunctionReference<
   'query',
   'public',
   Record<string, never>,
-  GenericPermissionContext | null
+  GenericAccessContext | null
 >
 
 const _genericAuth = createConfiguredPermissionsComposables(
   genericPermissionQuery,
-  'auth.getPermissionContext',
+  'auth.getAccessContext',
 )
 
-type GenericUsePermissionsApi = ReturnType<typeof _genericAuth.usePermissions>
+type GenericUseAccessApi = ReturnType<typeof _genericAuth.useAccess>
 type GenericGuardOptions = Parameters<typeof _genericAuth.useAuthGuard>[0]
-type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericPermissionContext>, string>>
-type _genericAllowsParameter = Assert<
-  IsEqual<Parameters<GenericUsePermissionsApi['allows']>[0], PermissionKeyHandle<string>>
+type _genericPermissionKey = Assert<IsEqual<PermissionKey<GenericAccessContext>, string>>
+type _genericCanParameter = Assert<
+  IsEqual<Parameters<GenericUseAccessApi['can']>[0], PermissionKeyHandle<string>>
 >
 type _genericGuardPermissionKey = Assert<
   IsEqual<GenericGuardOptions['permission'], PermissionKeyHandle<string> | undefined>

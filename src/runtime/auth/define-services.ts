@@ -2,7 +2,7 @@ type MaybePromise<T> = T | Promise<T>
 
 export type ServiceTenantMode = 'global' | 'derived'
 
-export type RestrictedServiceAccess<TTableName extends string = string, TPrincipal = unknown> = {
+export type RestrictedServiceAccess<TTableName extends string = string, TCaller = unknown> = {
   tables: TTableName[]
 } & (
   | {
@@ -11,31 +11,31 @@ export type RestrictedServiceAccess<TTableName extends string = string, TPrincip
   | {
       tenant: 'derived'
       deriveTenant: (ctx: {
-        principal: TPrincipal
+        caller: TCaller
         args: Record<string, unknown>
       }) => MaybePromise<string | null | undefined>
     }
 )
 
-export type ServiceDefinition<TTableName extends string = string, TPrincipal = unknown> =
+export type ServiceDefinition<TTableName extends string = string, TCaller = unknown> =
   | {
       access: 'unrestricted'
     }
   | {
-      access: RestrictedServiceAccess<TTableName, TPrincipal>
+      access: RestrictedServiceAccess<TTableName, TCaller>
     }
 
-export type ServiceDefinitions<TTableName extends string = string, TPrincipal = unknown> = Record<
+export type ServiceDefinitions<TTableName extends string = string, TCaller = unknown> = Record<
   string,
-  ServiceDefinition<TTableName, TPrincipal>
+  ServiceDefinition<TTableName, TCaller>
 >
 
 export function defineServices<
   TTableName extends string = string,
-  TPrincipal = unknown,
-  TServices extends ServiceDefinitions<TTableName, TPrincipal> = ServiceDefinitions<
+  TCaller = unknown,
+  TServices extends ServiceDefinitions<TTableName, TCaller> = ServiceDefinitions<
     TTableName,
-    TPrincipal
+    TCaller
   >,
 >(services: TServices): TServices {
   return services

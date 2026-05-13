@@ -7,8 +7,8 @@ import {
   serverConvexMutation,
   serverConvexQuery,
 } from '../../src/runtime/convex/server/convex'
+import { verifyIdentityForwardingEnvelope } from '../../src/runtime/identity-forwarding'
 import { createObservationCapture } from '../../src/runtime/testing'
-import { verifyTrustedForwardingEnvelope } from '../../src/runtime/trusted-forwarding'
 import { createServerJwksResponse, mintServerJwt } from '../support/auth/server-jwt'
 
 const originalNodeEnv = process.env.NODE_ENV
@@ -432,7 +432,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted injects a signed trusted forwarding envelope instead of bearer auth', async () => {
+  it('auth:trusted injects a signed identity forwarding envelope instead of bearer auth', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -440,7 +440,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-with-enough-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
 
     await serverConvexMutation(
       createEvent(),
@@ -448,7 +448,7 @@ describe('server Convex fetch helpers', () => {
       { title: 'From webhook' } as never,
       {
         auth: 'trusted',
-        principal: {
+        caller: {
           kind: 'user',
           userId: 'user_admin',
           subject: 'user:user_admin',
@@ -468,14 +468,14 @@ describe('server Convex fetch helpers', () => {
     expect(body.args).toMatchObject({
       title: 'From webhook',
     })
-    expect(body.args).not.toHaveProperty('principal')
-    expect(body.args).not.toHaveProperty('_trustedForwardingKey')
-    expect(body.args).not.toHaveProperty('_trustedForwarding')
+    expect(body.args).not.toHaveProperty('caller')
+    expect(body.args).not.toHaveProperty('_identityForwardingKey')
+    expect(body.args).not.toHaveProperty('_identityForwarding')
     expect(typeof body.args._trellisForwarding).toBe('string')
 
     expect(
-      verifyTrustedForwardingEnvelope(body.args._trellisForwarding, {
-        keys: { default: 'trusted-forwarding-key-with-enough-entropy' },
+      verifyIdentityForwardingEnvelope(body.args._trellisForwarding, {
+        keys: { default: 'identity-forwarding-key-with-enough-entropy' },
         expectedIssuer: 'trellis://server',
         expectedAudience: 'trellis://convex',
         functionRef: 'tasks:create',
@@ -483,7 +483,7 @@ describe('server Convex fetch helpers', () => {
       }),
     ).toMatchObject({
       sub: 'user:user_admin',
-      principal: {
+      caller: {
         kind: 'user',
         userId: 'user_admin',
         subject: 'user:user_admin',
@@ -499,7 +499,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-with-enough-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-with-enough-entropy'
 
     await serverConvexMutation(
       createEvent(),
@@ -507,12 +507,12 @@ describe('server Convex fetch helpers', () => {
       { id: 'task_1' } as never,
       {
         auth: 'trusted',
-        principal: {
+        caller: {
           kind: 'agent',
           agentId: 'assistant',
           subject: 'agent:assistant',
         },
-        trustedForwardingEnvelope: {
+        identityForwardingEnvelope: {
           purpose: 'operation-execute',
           jti: 'confirmation-jti-1',
         },
@@ -521,8 +521,8 @@ describe('server Convex fetch helpers', () => {
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(String(init.body))
-    const payload = verifyTrustedForwardingEnvelope(body.args._trellisForwarding, {
-      keys: { default: 'trusted-forwarding-key-with-enough-entropy' },
+    const payload = verifyIdentityForwardingEnvelope(body.args._trellisForwarding, {
+      keys: { default: 'identity-forwarding-key-with-enough-entropy' },
       expectedIssuer: 'trellis://server',
       expectedAudience: 'trellis://convex',
       functionRef: 'tasks:delete',
@@ -536,7 +536,7 @@ describe('server Convex fetch helpers', () => {
     })
   })
 
-  it('auth:trusted requires an explicit principal', async () => {
+  it('auth:trusted requires an explicit caller', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -544,7 +544,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-123'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-123'
 
     await expect(
       serverConvexMutation(
@@ -553,14 +553,14 @@ describe('server Convex fetch helpers', () => {
         { title: 'From webhook' } as never,
         { auth: 'trusted' },
       ),
-    ).rejects.toThrow('requires `options.principal`')
+    ).rejects.toThrow('requires `options.caller`')
   })
 
-  it('auth:trusted rejects weak trusted forwarding keys in production', async () => {
+  it('auth:trusted rejects weak identity forwarding keys in production', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
     process.env.NODE_ENV = 'production'
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-123'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-123'
 
     await expect(
       serverConvexMutation(
@@ -569,7 +569,7 @@ describe('server Convex fetch helpers', () => {
         { title: 'From webhook' } as never,
         {
           auth: 'trusted',
-          principal: {
+          caller: {
             kind: 'user',
             userId: 'user_admin',
             subject: 'user:user_admin',
@@ -584,7 +584,7 @@ describe('server Convex fetch helpers', () => {
   it('auth:trusted rejects anonymous or subject-less forwarded principals', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-forwarding-key-123'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'identity-forwarding-key-123'
 
     await expect(
       serverConvexMutation(
@@ -593,10 +593,10 @@ describe('server Convex fetch helpers', () => {
         { title: 'From webhook' } as never,
         {
           auth: 'trusted',
-          principal: { kind: 'anonymous', subject: 'system:anonymous' } as never,
+          caller: { kind: 'anonymous', subject: 'system:anonymous' } as never,
         },
       ),
-    ).rejects.toThrow(/non-anonymous forwarded `principal`/i)
+    ).rejects.toThrow(/non-anonymous forwarded `caller`/i)
 
     await expect(
       serverConvexMutation(
@@ -605,10 +605,10 @@ describe('server Convex fetch helpers', () => {
         { title: 'From webhook' } as never,
         {
           auth: 'trusted',
-          principal: { kind: 'agent' } as never,
+          caller: { kind: 'agent' } as never,
         },
       ),
-    ).rejects.toThrow(/forwarded `principal\.subject`/i)
+    ).rejects.toThrow(/forwarded `caller\.subject`/i)
 
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -623,7 +623,7 @@ describe('server Convex fetch helpers', () => {
         { _path: 'tasks:create' } as never,
         {
           title: 'From webhook',
-          principal: {
+          caller: {
             kind: 'user',
             userId: 'user_admin',
             subject: 'user:user_admin',

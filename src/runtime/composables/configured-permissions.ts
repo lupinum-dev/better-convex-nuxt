@@ -5,7 +5,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import { useNuxtApp, useRouter } from '#imports'
 
 import { useConvexAuth } from '../auth/composables/useConvexAuth.js'
-import type { PermissionContextBase } from '../auth/define-permission-context.js'
+import type { AccessContextBase } from '../auth/define-access-context.js'
 import type {
   PermissionKeyHandle,
   RegisteredProjectedPermissionKey,
@@ -16,7 +16,7 @@ import { createConvexQueryState } from '../convex/query/query-runtime.js'
 import { useAuthBootstrapDevtoolsState, usePermissionDevtoolsState } from '../devtools/state.js'
 import type { NoInfer } from '../types/type-utils.js'
 
-export type AuthContext = PermissionContextBase<Record<string, boolean>> & {
+export type AuthContext = AccessContextBase<Record<string, boolean>> & {
   plan?: string | null
   [key: string]: unknown
 }
@@ -28,7 +28,7 @@ export type InferredAuthContext<
     ? NonNullable<FunctionReturnType<Query>>
     : AuthContext
 
-export type InferPermissionContext<
+export type InferAccessContext<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
 > = InferredAuthContext<Query>
 
@@ -54,7 +54,7 @@ type ConfiguredPermissionKey<TContext extends AuthContext> =
       : RegisteredProjectedPermissionKey
     : PermissionKey<TContext>
 
-export interface UsePermissionsReturn<
+export interface UseAccessReturn<
   TContext extends AuthContext = AuthContext,
   TPermissions extends string = ConfiguredPermissionKey<TContext>,
 > {
@@ -62,10 +62,10 @@ export interface UsePermissionsReturn<
   role: ComputedRef<TContext['role'] | null>
   plan: ComputedRef<TContext['plan'] | null>
   userId: ComputedRef<TContext['userId'] | null>
-  tenantId: ComputedRef<TContext['tenantId'] | null>
+  workspaceId: ComputedRef<TContext['workspaceId'] | null>
   ready: ComputedRef<boolean>
   pending: ComputedRef<boolean>
-  allows: (permission: PermissionKeyHandle<TPermissions>) => ComputedRef<boolean>
+  can: (permission: PermissionKeyHandle<TPermissions>) => ComputedRef<boolean>
 }
 
 export interface UseAuthGuardOptions<
@@ -82,7 +82,7 @@ function shouldEmitDevWarning(): boolean {
   return import.meta.dev || process.env.NODE_ENV !== 'production'
 }
 
-function usePermissionContextState<
+function useAccessContextState<
   Query extends FunctionReference<'query'> = FunctionReference<'query'>,
   TContext extends AuthContext = InferredAuthContext<Query>,
 >(query: Query, configuredQueryName: string) {
@@ -172,7 +172,7 @@ function usePermissionContextState<
         }
         warnedAboutNullCtx = true
         console.warn(
-          `[trellis] usePermissions("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and actor bootstrap flow.`,
+          `[trellis] useAccess("${configuredQueryName}") stayed null for more than 2 seconds after auth became ready. Check \`trellis.permissions.query\` and appIdentity bootstrap flow.`,
         )
       }, 2000)
 
@@ -197,10 +197,10 @@ export function createConfiguredPermissionsComposables<
   TContext extends AuthContext = InferredAuthContext<Query>,
   TPermissions extends string = ConfiguredPermissionKey<TContext>,
 >(query: Query, configuredQueryName: string) {
-  function usePermissions(): UsePermissionsReturn<TContext, TPermissions> {
-    const { ctx, pending } = usePermissionContextState<Query, TContext>(query, configuredQueryName)
+  function useAccess(): UseAccessReturn<TContext, TPermissions> {
+    const { ctx, pending } = useAccessContextState<Query, TContext>(query, configuredQueryName)
 
-    function allows(permission: PermissionKeyHandle<TPermissions>): ComputedRef<boolean> {
+    function can(permission: PermissionKeyHandle<TPermissions>): ComputedRef<boolean> {
       const key = resolvePermissionKey(permission)
       return computed<boolean>(() => ctx.value?.can?.[key] === true)
     }
@@ -210,17 +210,17 @@ export function createConfiguredPermissionsComposables<
       role: computed<TContext['role'] | null>(() => ctx.value?.role ?? null),
       plan: computed<TContext['plan'] | null>(() => ctx.value?.plan ?? null),
       userId: computed<TContext['userId'] | null>(() => ctx.value?.userId ?? null),
-      tenantId: computed<TContext['tenantId'] | null>(() => ctx.value?.tenantId ?? null),
+      workspaceId: computed<TContext['workspaceId'] | null>(() => ctx.value?.workspaceId ?? null),
       ready: computed<boolean>(() => !!ctx.value),
       pending,
-      allows,
+      can,
     }
   }
 
   function useAuthGuard(options: UseAuthGuardOptions<TContext, TPermissions>): void {
     const { permission, check, redirectTo = '/', loginPath = '/auth/signin' } = options
     const router = useRouter()
-    const { data, ctx, pending } = usePermissionContextState<Query, TContext>(
+    const { data, ctx, pending } = useAccessContextState<Query, TContext>(
       query,
       configuredQueryName,
     )
@@ -254,7 +254,7 @@ export function createConfiguredPermissionsComposables<
   }
 
   return {
-    usePermissions,
+    useAccess,
     useAuthGuard,
   }
 }

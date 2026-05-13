@@ -18,7 +18,7 @@ export default tool.mutation({
   safety: createPostSafety,
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
-    return !!auth?.tenantId && ['owner', 'admin', 'member'].includes(auth.role)
+    return !!auth?.workspaceId && ['owner', 'admin', 'member'].includes(auth.role)
   },
   meta: {
     name: 'create-post',

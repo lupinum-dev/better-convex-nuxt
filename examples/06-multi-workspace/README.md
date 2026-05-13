@@ -28,7 +28,7 @@ You already understand the canonical protected workspace model from
 1. `convex/features/index.ts`
 2. `convex/features/workspaces/domain.ts`
 3. `convex/features/dashboard/domain.ts`
-4. `convex/auth/actor.ts`
+4. `convex/auth/app-identity.ts`
 5. `shared/features/workspaces/contract.ts`
 6. `app/features/multi-workspace/components/AgencyPortalPage.vue`
 7. `convex/agency.test.ts`
@@ -53,13 +53,13 @@ App-owned env vars:
 
 ## Production notes
 
-- The cross-tenant seams here are intentional and membership-bounded. Trellis escapes tenant
+- The cross-scope seams here are intentional and membership-bounded. Trellis escapes tenant
   isolation only to resolve memberships, switch the active workspace, or aggregate the agency
   portfolio across workspaces the caller already belongs to.
 - That makes this example an architectural fork from `03-team-workspace`, not a permission shortcut.
   If each user still belongs to exactly one workspace, staying on the single-workspace model is the
   safer and simpler design.
-- The agency dashboard is a bounded operator view, not a general cross-tenant query pattern. Keep
+- The agency dashboard is a bounded operator view, not a general cross-scope query pattern. Keep
   the membership gate and explicit unsafe permits if you adapt it for production.
 
 ## Test

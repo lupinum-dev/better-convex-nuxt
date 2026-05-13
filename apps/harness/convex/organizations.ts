@@ -2,7 +2,7 @@ import { defineArgs } from '@lupinum/trellis/args'
 import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import type { Actor } from './auth/actor'
+import type { AppIdentity } from './auth/app-identity'
 import { mutation, query } from './functions'
 import { getUserRowFromActor } from './lib/user_row'
 
@@ -13,7 +13,10 @@ const createOrganizationArgs = defineArgs({
   },
 })
 
-const canCreateOrganization = defineGuard<Actor>('Create organization', (actor) => actor !== null)
+const canCreateOrganization = defineGuard<AppIdentity>(
+  'Create organization',
+  (appIdentity) => appIdentity !== null,
+)
 
 export const list = query.public({
   args: {},
@@ -24,12 +27,12 @@ export const list = query.public({
 
 export const create = mutation.protected({
   args: createOrganizationArgs.args,
-  trustedForwardingFunctionRef: 'organizations:create',
+  identityForwardingFunctionRef: 'organizations:create',
   guard: canCreateOrganization,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
-    const user = await getUserRowFromActor(ctx.db, actor)
+    const user = await getUserRowFromActor(ctx.db, appIdentity)
     if (!user) throw new Error('User not found')
 
     const existing = await ctx.db
@@ -42,7 +45,7 @@ export const create = mutation.protected({
     const orgId = await ctx.db.insert('organizations', {
       name: args.name,
       slug: args.slug,
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })

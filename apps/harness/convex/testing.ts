@@ -12,7 +12,7 @@ const ALL_TABLES = [
   'tasks',
   'notes',
   'mcpKeys',
-  'destructiveRedemptions',
+  'destructiveConfirmations',
   'destructiveAuditLog',
 ] as const
 
@@ -282,8 +282,8 @@ export const getMcpVerificationState = query({
     )
 
     const keys = await ctx.db.query('mcpKeys').collect()
-    const redemptions = await ctx.db.query('destructiveRedemptions' as never).collect()
+    const confirmations = await ctx.db.query('destructiveConfirmations' as never).collect()
     const audit = await ctx.db.query('destructiveAuditLog' as never).collect()
-    return { keys, redemptions, audit }
+    return { keys, confirmations, audit }
   },
 })

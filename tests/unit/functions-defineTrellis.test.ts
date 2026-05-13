@@ -12,8 +12,8 @@ import {
   operationPreview,
   transportExecuteOperationRef,
 } from '../../src/runtime/functions/define-operation'
+import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
 import { createObservationCapture } from '../../src/runtime/testing'
-import { createTrustedForwardingEnvelopeArgs } from '../../src/runtime/trusted-forwarding/shared'
 
 type MemoryRow = Record<string, unknown>
 
@@ -65,8 +65,8 @@ async function confirmationToken(args: {
     executePath: 'execute',
     previewPath: 'preview',
     jti: args.jti,
-    principalKey: 'principal:test',
-    tenantKey: 'tenant:test',
+    callerKey: 'caller:test',
+    scopeKey: 'tenant:test',
     argsHash: await hashConfirmationValue(args.executeArgs),
     previewHash: await hashConfirmationValue(args.confirm),
     ...(args.version === undefined
@@ -76,13 +76,13 @@ async function confirmationToken(args: {
 }
 
 describe('defineTrellis', () => {
-  const originalTrustedForwardingKey = process.env.CONVEX_TRUSTED_FORWARDING_KEY
+  const originalIdentityForwardingKey = process.env.CONVEX_IDENTITY_FORWARDING_KEY
 
   afterEach(() => {
-    if (originalTrustedForwardingKey === undefined) {
-      delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    if (originalIdentityForwardingKey === undefined) {
+      delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
     } else {
-      process.env.CONVEX_TRUSTED_FORWARDING_KEY = originalTrustedForwardingKey
+      process.env.CONVEX_IDENTITY_FORWARDING_KEY = originalIdentityForwardingKey
     }
   })
 
@@ -95,8 +95,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -125,8 +125,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -208,7 +208,7 @@ describe('defineTrellis', () => {
   })
 
   it('rejects signed forwarding envelopes for the wrong function ref on real protected handlers', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
       query: builder,
@@ -219,7 +219,7 @@ describe('defineTrellis', () => {
       args: {
         title: v.string(),
       },
-      trustedForwardingFunctionRef: 'posts:create',
+      identityForwardingFunctionRef: 'posts:create',
       handler: async () => ({ ok: true }),
     } as never) as {
       handler: (
@@ -232,9 +232,9 @@ describe('defineTrellis', () => {
       ) => Promise<unknown>
     }
 
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { title: 'Hello' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'posts:delete',
       operation: 'query',
       jti: 'wrong-function-ref',
@@ -254,7 +254,7 @@ describe('defineTrellis', () => {
   })
 
   it('rejects signed forwarding envelopes when handler metadata does not name the expected function ref', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
       query: builder,
@@ -277,9 +277,9 @@ describe('defineTrellis', () => {
       ) => Promise<unknown>
     }
 
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { title: 'Hello' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'posts:create',
       operation: 'query',
       jti: 'missing-function-ref-metadata',
@@ -295,11 +295,11 @@ describe('defineTrellis', () => {
         },
         args,
       ),
-    ).rejects.toThrow(/trustedForwardingFunctionRef metadata/)
+    ).rejects.toThrow(/identityForwardingFunctionRef metadata/)
   })
 
-  it('uses projected operation function-ref metadata for trusted forwarding verification', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+  it('uses projected operation function-ref metadata for identity forwarding verification', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -307,8 +307,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -339,9 +339,9 @@ describe('defineTrellis', () => {
         args: Record<string, unknown>,
       ) => Promise<unknown>
     }
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { id: 'task_1' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'tasks:wrong',
       operation: 'mutation',
       purpose: 'operation-execute',
@@ -368,8 +368,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -391,7 +391,7 @@ describe('defineTrellis', () => {
       },
     })
 
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const definition = runtime.transportMutation(
       transportExecuteOperationRef(operation, operation, {
         functionRef: 'tasks:delete',
@@ -427,9 +427,9 @@ describe('defineTrellis', () => {
           db: createMemoryDb().db,
           observe: async () => {},
         },
-        createTrustedForwardingEnvelopeArgs({
+        createIdentityForwardingEnvelopeArgs({
           args: { id: 'task_1' },
-          principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+          caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
           functionRef: 'tasks:delete',
           operation: 'mutation',
           purpose: 'operation-execute',
@@ -440,7 +440,7 @@ describe('defineTrellis', () => {
   })
 
   it('rejects replayed operation-execute forwarding envelopes before handler execution', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -448,8 +448,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -460,7 +460,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      trustedForwardingFunctionRef: 'tasks:delete',
+      identityForwardingFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -477,10 +477,10 @@ describe('defineTrellis', () => {
     }
 
     const memory = createMemoryDb()
-    memory.tables.destructiveRedemptions = [{ jti: 'execute-1' }]
-    const args = createTrustedForwardingEnvelopeArgs({
+    memory.tables.destructiveConfirmations = [{ jti: 'execute-1' }]
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { id: 'task_1' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'tasks:delete',
       operation: 'mutation',
       purpose: 'operation-execute',
@@ -501,7 +501,7 @@ describe('defineTrellis', () => {
   })
 
   it('fails closed for operation-execute forwarding envelopes without destructive safety', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis({
       query: builder,
@@ -513,7 +513,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      trustedForwardingFunctionRef: 'tasks:delete',
+      identityForwardingFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -529,9 +529,9 @@ describe('defineTrellis', () => {
       ) => Promise<unknown>
     }
 
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { id: 'task_1' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'tasks:delete',
       operation: 'mutation',
       purpose: 'operation-execute',
@@ -547,12 +547,12 @@ describe('defineTrellis', () => {
         },
         args,
       ),
-    ).rejects.toThrow(/operation-execute envelopes require destructive safety redemption/i)
+    ).rejects.toThrow(/operation-execute envelopes require destructive safety confirmation/i)
     expect(executed).toBe(false)
   })
 
   it('reports destructive safety misconfiguration for operation-execute envelope replay checks', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -560,8 +560,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -572,7 +572,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      trustedForwardingFunctionRef: 'tasks:delete',
+      identityForwardingFunctionRef: 'tasks:delete',
       handler: async () => {
         executed = true
         return { ok: true }
@@ -588,9 +588,9 @@ describe('defineTrellis', () => {
       ) => Promise<unknown>
     }
 
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { id: 'task_1' },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'tasks:delete',
       operation: 'mutation',
       purpose: 'operation-execute',
@@ -607,7 +607,7 @@ describe('defineTrellis', () => {
         args,
       ),
     ).rejects.toThrow(
-      /Destructive safety for operation "tasks:delete" is misconfigured.*destructiveRedemptions.*by_jti.*destructiveAuditLog/i,
+      /Destructive safety for operation "tasks:delete" is misconfigured.*destructiveConfirmations.*by_jti.*destructiveAuditLog/i,
     )
     expect(executed).toBe(false)
   })
@@ -714,7 +714,7 @@ describe('defineTrellis', () => {
     capture.stop()
   })
 
-  it('rejects destructive operation registration when destructiveSafety is missing', () => {
+  it('rejects destructive operation registration when destructiveOperations is missing', () => {
     const builder = ((definition: unknown) => definition) as never
 
     const runtime = defineTrellis({
@@ -737,7 +737,7 @@ describe('defineTrellis', () => {
       handler: async () => null,
     })
 
-    expect(() => runtime.mutation.protected(destructiveOp)).toThrow(/destructiveSafety/)
+    expect(() => runtime.mutation.protected(destructiveOp)).toThrow(/destructiveOperations/)
   })
 
   it('requires confirmation before executing destructive operation mutations', async () => {
@@ -748,8 +748,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -812,8 +812,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -870,12 +870,12 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/already been redeemed/i)
 
     expect(executions).toBe(1)
-    expect(memory.tables.destructiveRedemptions).toHaveLength(1)
+    expect(memory.tables.destructiveConfirmations).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog).toHaveLength(1)
   })
 
   it('requires operation-execute forwarding and confirmation tokens to share the same jti', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
@@ -884,8 +884,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -898,7 +898,7 @@ describe('defineTrellis', () => {
       args: {
         id: v.string(),
       },
-      trustedForwardingFunctionRef: 'tasks:delete',
+      identityForwardingFunctionRef: 'tasks:delete',
       guard: open,
       preview: async (_ctx, args) =>
         operationPreview({ summary: `Destroy ${args.id}`, confirm: { id: args.id } }),
@@ -926,9 +926,9 @@ describe('defineTrellis', () => {
       confirm: { id: 'record-1' },
       jti: 'confirmation-jti',
     })
-    const args = createTrustedForwardingEnvelopeArgs({
+    const args = createIdentityForwardingEnvelopeArgs({
       args: { ...executeArgs, _confirmationToken: token },
-      principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+      caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       functionRef: 'tasks:delete',
       operation: 'mutation',
       purpose: 'operation-execute',
@@ -947,7 +947,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/operation-execute envelope does not match the confirmation token/i)
 
     expect(executed).toBe(false)
-    expect(memory.tables.destructiveRedemptions ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 
@@ -960,8 +960,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -1011,7 +1011,7 @@ describe('defineTrellis', () => {
         { ...executeArgs, _confirmationToken: token },
       ),
     ).rejects.toThrow(
-      /Destructive safety for operation "tests.destroy" is misconfigured.*destructiveRedemptions.*by_jti.*destructiveAuditLog/i,
+      /Destructive safety for operation "tests.destroy" is misconfigured.*destructiveConfirmations.*by_jti.*destructiveAuditLog/i,
     )
 
     expect(executed).toBe(false)
@@ -1026,8 +1026,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -1087,7 +1087,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/tests\.destroy|Access denied|Forbidden/i)
 
     expect(executed).toBe(false)
-    expect(memory.tables.destructiveRedemptions ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 
@@ -1100,8 +1100,8 @@ describe('defineTrellis', () => {
         mutation: builder,
       },
       {
-        destructiveSafety: {
-          redemptionTable: 'destructiveRedemptions' as never,
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
         },
       },
@@ -1162,7 +1162,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/changed before confirmation/i)
 
     expect(executions).toBe(0)
-    expect(memory.tables.destructiveRedemptions ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 })

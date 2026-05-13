@@ -30,7 +30,7 @@ describe('generated API surface docs', () => {
       'utf8',
     )
 
-    expect(functionsReference).toContain('| `tenantIsolation`')
+    expect(functionsReference).toContain('| `isolation`')
     expect(functionsReference).toContain('| `services`')
     expect(functionsReference).not.toContain('| `rls`')
     expect(functionsReference).toContain('Trellis has one public authorization model')

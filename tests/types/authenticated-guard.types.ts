@@ -5,12 +5,12 @@ type Assert<T extends true> = T
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
-type Principal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
-type Actor = { userId: string; role: 'admin' | 'member' } | null
+type Caller = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+type AppIdentity = { userId: string; role: 'admin' | 'member' } | null
 
 type Ctx = {
-  principal: () => Promise<Principal>
-  actor: () => Promise<Actor>
+  caller: () => Promise<Caller>
+  appIdentity: () => Promise<AppIdentity>
 }
 
 function createBuilder() {
@@ -20,7 +20,7 @@ function createBuilder() {
   }) => definition
 }
 
-const handlers = buildStructuredFunctions<Ctx, Ctx, Principal, Actor>(
+const handlers = buildStructuredFunctions<Ctx, Ctx, Caller, AppIdentity>(
   createBuilder(),
   createBuilder(),
 )
@@ -29,10 +29,12 @@ handlers.query({
   args: {},
   guard: open,
   handler: async (_ctx) => {
-    type PrincipalCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, Principal>>
-    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, Actor>>
-    void ({} as PrincipalCheck)
-    void ({} as ActorCheck)
+    type CallerCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.caller>>, Caller>>
+    type AppIdentityCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.appIdentity>>, AppIdentity>
+    >
+    void ({} as CallerCheck)
+    void ({} as AppIdentityCheck)
     return null
   },
 })
@@ -41,28 +43,32 @@ handlers.query({
   args: {},
   guard: authRequired,
   handler: async (_ctx) => {
-    type PrincipalCheck = Assert<
-      IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>
+    type CallerCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.caller>>, { kind: 'user'; userId: string }>
     >
-    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, NonNullable<Actor>>>
-    void ({} as PrincipalCheck)
-    void ({} as ActorCheck)
+    type AppIdentityCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.appIdentity>>, NonNullable<AppIdentity>>
+    >
+    void ({} as CallerCheck)
+    void ({} as AppIdentityCheck)
     return null
   },
 })
 
-const canRead = defineGuard<Actor>('read', (actor) => !!actor)
+const canRead = defineGuard<AppIdentity>('read', (appIdentity) => !!appIdentity)
 
 handlers.query({
   args: {},
   guard: canRead,
   handler: async (_ctx) => {
-    type PrincipalCheck = Assert<
-      IsEqual<Awaited<ReturnType<typeof _ctx.principal>>, { kind: 'user'; userId: string }>
+    type CallerCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.caller>>, { kind: 'user'; userId: string }>
     >
-    type ActorCheck = Assert<IsEqual<Awaited<ReturnType<typeof _ctx.actor>>, NonNullable<Actor>>>
-    void ({} as PrincipalCheck)
-    void ({} as ActorCheck)
+    type AppIdentityCheck = Assert<
+      IsEqual<Awaited<ReturnType<typeof _ctx.appIdentity>>, NonNullable<AppIdentity>>
+    >
+    void ({} as CallerCheck)
+    void ({} as AppIdentityCheck)
     return null
   },
 })

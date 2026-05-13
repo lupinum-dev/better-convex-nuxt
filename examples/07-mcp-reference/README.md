@@ -8,7 +8,7 @@ This is not an onboarding example. Open it when you already understand the prote
 you want the complete Trellis MCP surface in one place.
 
 The runbook domain is intentionally small. If you find yourself reading business logic instead of
-transport, session, confirmation, key-auth behavior, and trusted-forwarding flows, you are looking
+transport, session, confirmation, key-auth behavior, and identity-forwarding flows, you are looking
 at the wrong thing.
 
 ## What it teaches
@@ -33,9 +33,9 @@ You already understand the canonical protected workspace model from
 
 1. `convex/features/runbooks/domain.ts`
 2. `convex/features/mcpKeys/domain.ts`
-3. `convex/auth/principal.ts`
-4. `convex/auth/delegation.ts`
-5. `convex/auth/actor.ts`
+3. `convex/auth/caller.ts`
+4. `convex/auth/actingFor.ts`
+5. `convex/auth/app-identity.ts`
    This is where the three caller shapes converge into one permission model: direct browser user,
    MCP agent acting for a user, and verified webhook/service traffic acting for a user.
 6. `convex/auth/services.ts`
@@ -54,7 +54,7 @@ You already understand the canonical protected workspace model from
 4. Issue an MCP key from the UI.
 5. Call the default MCP endpoint and confirm scoped tools appear.
 6. POST to `/api/runbook-webhook` with `x-example-signature` and watch the same protected
-   `domain.runbooks.create` mutation accept a service principal plus delegated user.
+   `domain.runbooks.create` mutation accept a service caller plus delegated user.
 7. Call the code-mode endpoint and compare the smaller surface.
 8. Use the session tools to store a focus and register a temporary shortcut.
 
@@ -68,7 +68,7 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_FORWARDING_KEY`: trusted server-to-Convex lane
+- `CONVEX_IDENTITY_FORWARDING_KEY`: identity-forwarded server-to-Convex lane
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `MCP_RATE_LIMIT_REDIS_URL`: Redis connection string for distributed MCP rate limiting
 - `MCP_REFERENCE_WEBHOOK_SECRET`: route secret for the verified webhook example
@@ -81,15 +81,15 @@ Redis instance such as `docker run --rm -p 6379:6379 redis:7-alpine` and keep
 ## Production notes
 
 - This is the full Trellis server-owned identity example: the MCP key or webhook service is the real
-  caller, and delegation is how that caller is allowed to act for one bound workspace user.
+  caller, and actingFor is how that caller is allowed to act for one bound workspace user.
 - Rate-limited MCP tools are wired to a distributed Redis-backed store here on purpose. Treat that as
   part of the deployment contract, not as optional demo polish.
-- The public runbook catalog is also intentional and bounded. Those handlers escape tenant isolation
+- The public runbook catalog is also intentional and bounded. Those handlers escape isolation
   only for records whose visibility is already `public`, and the search path caps the candidate set
   instead of pretending public access means unbounded scans are acceptable.
-- The verified webhook route still keeps the transport boundary intentionally simple so the principal
-  and delegation flow stay readable. For production integrations, add timestamped HMAC verification,
-  replay windows, and provider event ids on top of the trusted-forwarding lane shown here.
+- The verified webhook route still keeps the transport boundary intentionally simple so the caller
+  and actingFor flow stay readable. For production integrations, add timestamped HMAC verification,
+  replay windows, and provider event ids on top of the identity-forwarding lane shown here.
 
 ## Test
 

@@ -7,9 +7,9 @@ export const createWorkspaceMutation = mutation.protected({
   guard: authRequired,
   args: createWorkspace.args,
   handler: async (ctx, args) => {
-    const principal = await ctx.principal()
-    if (principal.kind !== 'user' && principal.kind !== 'agent') {
-      throw new Error('Workspace creation requires a signed-in user principal.')
+    const caller = await ctx.caller()
+    if (caller.kind !== 'user' && caller.kind !== 'agent') {
+      throw new Error('Workspace creation requires a signed-in user caller.')
     }
 
     const existing = await ctx.db
@@ -21,26 +21,26 @@ export const createWorkspaceMutation = mutation.protected({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
+      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
-    const tenantId = await ctx.db.insert('workspaces', {
+    const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: principal.userId,
+      ownerId: caller.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.patch(user._id, {
-      workspaceId: tenantId,
+      workspaceId: workspaceId,
       role: 'owner',
       updatedAt: now,
     })
 
-    return tenantId
+    return workspaceId
   },
 })

@@ -14,20 +14,20 @@ export interface McpStateResponse {
     status: string
     lastUsedAt?: number
   }>
-  redemptions: Array<{
+  confirmations: Array<{
     _id: string
     jti: string
     operationId: string
-    principalKey: string
-    tenantKey: string
+    callerKey: string
+    scopeKey: string
     redeemedAt: number
   }>
   audit: Array<{
     _id: string
     operationId: string
     jti: string
-    principalKey: string
-    tenantKey: string
+    callerKey: string
+    scopeKey: string
     argsHash: string
     previewHash: string
     executedAt: number

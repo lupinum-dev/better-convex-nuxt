@@ -57,15 +57,15 @@ function inventory(cwd: string): TrellisCliInventory {
       appInventory: null,
     },
     surfaces: {
-      trustedForwarding: false,
+      identityForwarding: false,
       permissions: true,
       destructiveOperations: 0,
       unsafeEntrypoints: 0,
       crossTenantEscapes: 0,
       mcpTools: 0,
       customMcpToolsWithAppWrites: 0,
-      forwardedPrincipalMisuses: 0,
-      trustedForwardingPublicExposures: 0,
+      forwardedCallerMisuses: 0,
+      identityForwardingPublicExposures: 0,
       destructiveMcpToolMisuses: 0,
       mcpRateLimit: false,
       mcpRateLimitStore: 'none',
@@ -73,7 +73,7 @@ function inventory(cwd: string): TrellisCliInventory {
     forwarding: {
       expected: false,
       publicExposures: [],
-      forwardedPrincipalMisuses: [],
+      forwardedCallerMisuses: [],
     },
     mcp: {
       toolCount: 0,
@@ -152,7 +152,7 @@ describe('permission metadata doctor findings', () => {
       projectInspection(cwd, [
         {
           path: resolve(cwd, 'pages/index.vue'),
-          text: '<script setup lang="ts">const canRead = allows(taskRead)</script>',
+          text: '<script setup lang="ts">const canRead = can(taskRead)</script>',
         },
       ]),
     )

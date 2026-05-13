@@ -4,7 +4,7 @@
 
 The architecture branch.
 
-Open this when you want to understand a local component boundary, root-app wrappers, principal
+Open this when you want to understand a local component boundary, root-app wrappers, caller
 forwarding, and MCP projected over bridge-backed operations. This is intentionally niche and comes
 after the main app and MCP examples.
 
@@ -15,7 +15,7 @@ is already clear.
 ## What it teaches
 
 - local Convex component boundaries
-- principal forwarding across browser, root app, and component
+- caller forwarding across browser, root app, and component
 - app-owned bridge inventory with `createComponentBridge(...)`
 - MCP over internal bridge refs and action-backed bridge operations
 - why a component/host architecture differs from ordinary root-app handlers
@@ -39,7 +39,7 @@ You already understand the canonical protected workspace model from
 
 1. Start the example and sign in to the studio.
 2. Create or edit a draft through the root-app wrappers.
-3. Inspect how the root app forwards the principal into the component.
+3. Inspect how the root app forwards the caller into the component.
 4. Use the demo MCP caller to exercise the action-backed publish operation over the same bridge.
 
 ## Run
@@ -52,10 +52,10 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_FORWARDING_KEY`: trusted principal forwarding into the component boundary
+- `CONVEX_IDENTITY_FORWARDING_KEY`: identity forwarding into the component boundary
 - `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `JWKS`: local auth bootstrap for the example
-- `DEMO_MCP_TOKEN`: server-only MCP caller token required for agent write/publish capability
+- `DEMO_MCP_TOKEN`: server-only MCP caller token required for agent write/publish recordAccess
 
 ## Test
 

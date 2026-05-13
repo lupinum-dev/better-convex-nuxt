@@ -7,9 +7,9 @@ import consola from 'consola'
 import { collectModuleValidationFindings } from '../../analysis/validation.js'
 import { resolvePermissionQuerySetup } from '../../module-internals/setup.js'
 import {
-  getTrustedForwardingKeyProductionIssue,
-  minimumTrustedForwardingKeyLength,
-} from '../../runtime/trusted-forwarding/shared.js'
+  getIdentityForwardingKeyProductionIssue,
+  minimumIdentityForwardingKeyLength,
+} from '../../runtime/identity-forwarding/shared.js'
 import type { DoctorFinding, DoctorReport } from '../lib/findings.js'
 import { exitCodeForFindings, summarizeFindings } from '../lib/findings.js'
 import { collectInventoryDoctorFindings } from '../lib/inventory-findings.js'
@@ -40,9 +40,9 @@ import {
 
 function toDoctorFindingTitle(id: string): string {
   switch (id) {
-    case 'tenant-isolation-valid':
+    case 'isolation-valid':
       return 'Tenant classification validity'
-    case 'tenant-isolation-table-coverage':
+    case 'isolation-table-coverage':
       return 'Tenant classification coverage'
     case 'destructive-safety-schema':
       return 'Destructive safety schema'
@@ -74,10 +74,10 @@ function createDoctorFindings(
   const convexAuthSource = findConvexAuthSource(project)
   const expectsSyncedUsers = usesSyncedUsersTable(project)
   const hasAuthTriggers = hasBetterAuthTriggerExports(project)
-  const trustedForwardingExpected = inventory.forwarding.expected
-  const trustedForwardingKeySource = findEnvKeySource(project, ['CONVEX_TRUSTED_FORWARDING_KEY'])
-  const trustedForwardingKeyIssue = trustedForwardingKeySource
-    ? getTrustedForwardingKeyProductionIssue(trustedForwardingKeySource.value, 'production')
+  const identityForwardingExpected = inventory.forwarding.expected
+  const identityForwardingKeySource = findEnvKeySource(project, ['CONVEX_IDENTITY_FORWARDING_KEY'])
+  const identityForwardingKeyIssue = identityForwardingKeySource
+    ? getIdentityForwardingKeyProductionIssue(identityForwardingKeySource.value, 'production')
     : null
   const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
     /tool\.operation\s*\(/.test(file.text),
@@ -287,48 +287,48 @@ function createDoctorFindings(
               : 'No permission-context query is configured, and no permission composables were detected.',
       fixHint:
         usesPermissions && !configuredPermissionQueryPath
-          ? 'Set trellis.permissions to your backend permission-context query, for example `permissions/context.getPermissionContext`.'
+          ? 'Set trellis.permissions to your backend permission-context query, for example `permissions/context.getAccessContext`.'
           : permissionQueryResolutionError
             ? 'Point trellis.permissions.query at a real exported Convex query in `convex/permissions/context.ts`.'
             : configuredPermissionQueryPath
               ? 'Keep trellis.permissions.query aligned with the exported backend permission-context query.'
-              : 'No action needed unless you add usePermissions() or useAuthGuard() later.',
+              : 'No action needed unless you add useAccess() or useAuthGuard() later.',
     },
     {
-      id: 'trusted-forwarding-key-configured',
+      id: 'identity-forwarding-key-configured',
       category: 'advanced',
-      title: 'Trusted forwarding key source',
-      status: trustedForwardingExpected ? (trustedForwardingKeySource ? 'pass' : 'warn') : 'pass',
-      message: !trustedForwardingExpected
-        ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
-        : trustedForwardingKeySource
-          ? `Found CONVEX_TRUSTED_FORWARDING_KEY in ${trustedForwardingKeySource.source}.`
-          : 'Trusted-forwarding or MCP surfaces were detected, but no CONVEX_TRUSTED_FORWARDING_KEY source was found.',
-      fixHint: !trustedForwardingExpected
-        ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
-        : 'Set CONVEX_TRUSTED_FORWARDING_KEY in the local environment and the Convex deployment that serves trusted-forwarding traffic.',
+      title: 'Identity forwarding key source',
+      status: identityForwardingExpected ? (identityForwardingKeySource ? 'pass' : 'warn') : 'pass',
+      message: !identityForwardingExpected
+        ? 'No identity-forwarding or MCP surfaces were detected in the app source.'
+        : identityForwardingKeySource
+          ? `Found CONVEX_IDENTITY_FORWARDING_KEY in ${identityForwardingKeySource.source}.`
+          : 'Trusted-forwarding or MCP surfaces were detected, but no CONVEX_IDENTITY_FORWARDING_KEY source was found.',
+      fixHint: !identityForwardingExpected
+        ? 'No action needed unless you add MCP or identity-forwarding flows later.'
+        : 'Set CONVEX_IDENTITY_FORWARDING_KEY in the local environment and the Convex deployment that serves identity-forwarding traffic.',
     },
     {
-      id: 'trusted-forwarding-key-strength',
+      id: 'identity-forwarding-key-strength',
       category: 'advanced',
-      title: 'Trusted forwarding key quality',
-      status: !trustedForwardingExpected
+      title: 'Identity forwarding key quality',
+      status: !identityForwardingExpected
         ? 'pass'
-        : !trustedForwardingKeySource
+        : !identityForwardingKeySource
           ? 'warn'
-          : trustedForwardingKeyIssue
+          : identityForwardingKeyIssue
             ? 'fail'
             : 'pass',
-      message: !trustedForwardingExpected
-        ? 'No trusted-forwarding or MCP surfaces were detected in the app source.'
-        : !trustedForwardingKeySource
-          ? 'Cannot evaluate trusted-forwarding key quality because no key source was found.'
-          : trustedForwardingKeyIssue
-            ? `${trustedForwardingKeyIssue} Source: ${trustedForwardingKeySource.source}.`
-            : `Trusted forwarding key in ${trustedForwardingKeySource.source} clears the production hardening checks.`,
-      fixHint: !trustedForwardingExpected
-        ? 'No action needed unless you add MCP or trusted-forwarding flows later.'
-        : `Use a long random CONVEX_TRUSTED_FORWARDING_KEY (${minimumTrustedForwardingKeyLength}+ characters) and avoid placeholder or development values.`,
+      message: !identityForwardingExpected
+        ? 'No identity-forwarding or MCP surfaces were detected in the app source.'
+        : !identityForwardingKeySource
+          ? 'Cannot evaluate identity-forwarding key quality because no key source was found.'
+          : identityForwardingKeyIssue
+            ? `${identityForwardingKeyIssue} Source: ${identityForwardingKeySource.source}.`
+            : `Identity forwarding key in ${identityForwardingKeySource.source} clears the production hardening checks.`,
+      fixHint: !identityForwardingExpected
+        ? 'No action needed unless you add MCP or identity-forwarding flows later.'
+        : `Use a long random CONVEX_IDENTITY_FORWARDING_KEY (${minimumIdentityForwardingKeyLength}+ characters) and avoid placeholder or development values.`,
     },
     ...collectInventoryDoctorFindings(inventory),
     {
@@ -362,10 +362,10 @@ function createDoctorFindings(
       status: 'fail' as const,
       message: finding.message,
       fixHint:
-        finding.id === 'tenant-isolation-table-coverage' || finding.id === 'tenant-isolation-valid'
+        finding.id === 'isolation-table-coverage' || finding.id === 'isolation-valid'
           ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
           : finding.id === 'destructive-safety-schema'
-            ? 'Restore the destructive-safety tables in convex/schema.ts, including the redemption fields, audit fields, and `by_jti` index.'
+            ? 'Restore the destructive-safety tables in convex/schema.ts, including the confirmation fields, audit fields, and `by_jti` index.'
             : 'Align the project source with the canonical Trellis contract.',
     }),
   )
@@ -374,8 +374,8 @@ function createDoctorFindings(
 }
 
 const productionRequiredFindingIds = new Set([
-  'trusted-forwarding-key-configured',
-  'trusted-forwarding-key-strength',
+  'identity-forwarding-key-configured',
+  'identity-forwarding-key-strength',
   'mcp-confirmation-key-configured',
   'mcp-rate-limit-store',
   'operation-tool-agreement',

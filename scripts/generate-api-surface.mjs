@@ -73,7 +73,7 @@ const clientDetails = {
 
 const permissionDetails = {
   useAuthGuard: 'Available only when `trellis.permissions.query` is configured',
-  usePermissions: 'Available only when `trellis.permissions.query` is configured',
+  useAccess: 'Available only when `trellis.permissions.query` is configured',
 }
 
 const serverDetails = {
@@ -174,9 +174,9 @@ const file = [
   '- `@lupinum/trellis/server` is a **package export**.',
   '- `serverConvexClearAuthCache` and `validateConvexArgs` are **Nuxt server auto-imports**, not package subpath exports.',
   '- `#trellis/mcp` and `#trellis/server` are **generated Nuxt aliases**, not bare npm specifiers.',
-  '- `usePermissions()` and `useAuthGuard()` are **config-driven auto-imports**, not package subpath exports.',
+  '- `useAccess()` and `useAuthGuard()` are **config-driven auto-imports**, not package subpath exports.',
   '- `@lupinum/trellis-bridge` is a separate package for packaged integration authors, not a root/core Trellis export.',
-  '- Trusted forwarding uses signed `_trellisForwarding` envelopes; raw forwarding fields are not supported public args.',
+  '- Identity forwarding uses signed `_trellisForwarding` envelopes; raw forwarding fields are not supported public args.',
   '',
 ].join('\n')
 

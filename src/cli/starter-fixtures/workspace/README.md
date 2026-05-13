@@ -14,8 +14,8 @@ pnpm dev
 
 - `convex/features/` for backend feature modules
 - `shared/features/` for runtime-neutral contracts
-- `convex/auth/` for actor and guard logic
-- `convex/permissions/` for permission projection when the starter uses permission context
+- `convex/auth/` for appIdentity and guard logic
+- `convex/permissions/` for permission projection when the starter uses access context
 - `app/features/` for feature-owned UI and route shells
 
 ## Maintained reference

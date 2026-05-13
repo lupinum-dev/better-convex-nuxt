@@ -31,7 +31,7 @@ const configuredQuery = configuredModule?.['${exportName}']
 
 export const configuredPermissionsQuery = configuredQuery
 
-export const { usePermissions, useAuthGuard } = createConfiguredPermissionsComposables(
+export const { useAccess, useAuthGuard } = createConfiguredPermissionsComposables(
   configuredQuery,
   '${permissionQueryPath}',
 )
@@ -39,7 +39,7 @@ export const { usePermissions, useAuthGuard } = createConfiguredPermissionsCompo
   })
 
   addImports([
-    { name: 'usePermissions', from: permissionsTemplate.dst },
+    { name: 'useAccess', from: permissionsTemplate.dst },
     { name: 'useAuthGuard', from: permissionsTemplate.dst },
   ])
 }

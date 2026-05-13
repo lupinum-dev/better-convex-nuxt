@@ -2,17 +2,17 @@ import { deny } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { DatabaseReader } from '../../_generated/server'
-import type { Actor } from '../../auth/actor'
+import type { AppIdentity } from '../../auth/app-identity'
 
 export async function requireEnrollment(
   db: DatabaseReader,
-  actor: Actor,
+  appIdentity: AppIdentity,
   knowledgeBaseId: Id<'knowledgeBases'>,
 ): Promise<Doc<'enrollments'>> {
   const enrollment = await db
     .query('enrollments')
     .withIndex('by_user_kb', (q) =>
-      q.eq('userId', actor.userId).eq('knowledgeBaseId', knowledgeBaseId),
+      q.eq('userId', appIdentity.userId).eq('knowledgeBaseId', knowledgeBaseId),
     )
     .first()
 

@@ -10,12 +10,12 @@ It is the default single-workspace reference for the repo.
 ## What it teaches
 
 - the canonical `workspaceId` / `by_workspace` tenant model
-- roles, guards, and permission context
-- `_can`-driven frontend capability checks
+- roles, guards, and access context
+- `_can`-driven frontend recordAccess checks
 - root shell plus `convex/features/*` and `app/features/*`
 - protected handler shape for a normal team app
 - the canonical `guard -> load -> authorize -> handler` split when a decision depends on a record
-- one small server-boundary proof: webhook idempotency with a route-owned signature plus trusted forwarding delegation
+- one small server-boundary proof: webhook idempotency with a route-owned signature plus identity forwarding actingFor
 
 ## What this example assumes
 
@@ -23,7 +23,7 @@ You understand auth + ownership from [`02-auth-todo`](../02-auth-todo/README.md)
 
 ## Files to read first
 
-1. `convex/auth/actor.ts`
+1. `convex/auth/app-identity.ts`
 2. `convex/auth/guards.ts`
 3. `convex/features/index.ts`
 4. `convex/permissions/context.ts`
@@ -54,14 +54,14 @@ App-owned env vars:
 
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
-- `CONVEX_TRUSTED_FORWARDING_KEY`: shared secret for trusted forwarding from the webhook route into Convex
+- `CONVEX_IDENTITY_FORWARDING_KEY`: shared secret for identity forwarding from the webhook route into Convex
 - `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
 - `TEAM_WORKSPACE_WEBHOOK_AUTH_ID`: existing workspace user that verified webhook calls act for
 
 ## Production notes
 
 - This example keeps the route boundary intentionally small: one verified shared-secret header plus a
-  delegated trusted-forwarding call into the protected mutation.
+  delegated identity-forwarding call into the protected mutation.
 - Replay protection is demonstrated in the app layer, not just at the route edge. The webhook
   mutation stores processed event ids so external retries stay safe.
 - If you need timestamped HMAC verification, signature rotation, or several service principals, use

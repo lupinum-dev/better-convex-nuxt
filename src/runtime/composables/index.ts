@@ -77,7 +77,7 @@ export { useConvexStorageUrl } from '../convex/composables/useConvexStorageUrl.j
 export {
   createConfiguredPermissionsComposables,
   type AuthContext,
-  type InferPermissionContext,
+  type InferAccessContext,
   type PermissionKey,
   type ValidatePermissionKey,
 } from './configured-permissions.js'

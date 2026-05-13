@@ -1,10 +1,10 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 import {
-  defineDelegation,
-  definePrincipal,
+  defineActingFor,
+  defineCaller,
   defineTrellis,
-  getForwardedPrincipal,
-  getTrustedForwarding,
+  getForwardedCaller,
+  getIdentityForwarding,
   unsafe as unsafePermit,
 } from '@lupinum/trellis/backend'
 import type { FunctionsCtxExtension } from '@lupinum/trellis/backend'
@@ -14,12 +14,12 @@ import { v } from 'convex/values'
 
 import type { DataModel } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import type { Actor } from './auth/actor'
-import { getActorFromPrincipal } from './auth/actor'
-import type { HarnessDelegation } from './auth/delegation'
-import { delegation } from './auth/delegation'
-import type { InternalHarnessPrincipal } from './auth/principal'
-import { principal } from './auth/principal'
+import type { HarnessDelegation } from './auth/acting-for'
+import { actingFor } from './auth/acting-for'
+import type { AppIdentity } from './auth/app-identity'
+import { getAppIdentityFromCaller } from './auth/app-identity'
+import type { InternalHarnessCaller } from './auth/caller'
+import { caller } from './auth/caller'
 
 let actorResolverCalls = 0
 let structuredLoadArgs: Record<string, unknown> | null = null
@@ -30,7 +30,7 @@ let onSuccessArgs: Record<string, unknown> | null = null
 const triggers = new Triggers<
   DataModel,
   GenericMutationCtx<DataModel> &
-    FunctionsCtxExtension<InternalHarnessPrincipal, HarnessDelegation, Actor>
+    FunctionsCtxExtension<InternalHarnessCaller, HarnessDelegation, AppIdentity>
 >()
 
 triggers.register('notes', async (ctx, change) => {
@@ -44,19 +44,19 @@ const { mutation, query } = defineTrellis<
   'public',
   'internal',
   'internal',
-  InternalHarnessPrincipal,
+  InternalHarnessCaller,
   HarnessDelegation,
-  Actor
+  AppIdentity
 >(
   { query: generatedQuery, mutation: generatedMutation },
   {
-    principal,
-    delegation,
-    actor: async (ctx, args, resolvedPrincipal, resolvedDelegation) => {
+    caller,
+    actingFor,
+    appIdentity: async (ctx, args, resolvedCaller, resolvedActingFor) => {
       actorResolverCalls += 1
-      return await getActorFromPrincipal(ctx, args, resolvedPrincipal, resolvedDelegation)
+      return await getAppIdentityFromCaller(ctx, args, resolvedCaller, resolvedActingFor)
     },
-    tenantIsolation: {
+    isolation: {
       tables: ['posts', 'comments', 'mcpKeys'],
       field: 'organizationId',
     },
@@ -77,32 +77,38 @@ const unsafeArgPrincipalRuntime = defineTrellis<
   'public',
   'internal',
   'internal',
-  InternalHarnessPrincipal,
+  InternalHarnessCaller,
   HarnessDelegation,
-  Actor
+  AppIdentity
 >(
   { query: generatedQuery, mutation: generatedMutation },
   {
-    principal: definePrincipal({
-      validator: principal.validator,
-      resolve: async (_ctx, args): Promise<InternalHarnessPrincipal> =>
-        (args.principal as InternalHarnessPrincipal | undefined) ?? {
+    caller: defineCaller({
+      validator: caller.validator,
+      resolve: async (_ctx, args): Promise<InternalHarnessCaller> =>
+        (args.caller as InternalHarnessCaller | undefined) ?? {
           kind: 'anonymous',
           subject: 'system:anonymous',
         },
     }),
-    delegation: defineDelegation({
-      validator: delegation.validator,
+    actingFor: defineActingFor({
+      validator: actingFor.validator,
       resolve: async (_ctx, args): Promise<HarnessDelegation | null> =>
-        (args.delegation as HarnessDelegation | undefined) ?? null,
+        (args.actingFor as HarnessDelegation | undefined) ?? null,
     }),
-    actor: async (ctx, args, resolvedPrincipal, resolvedDelegation) =>
-      await getActorFromPrincipal(ctx, args, resolvedPrincipal, resolvedDelegation),
+    appIdentity: async (ctx, args, resolvedCaller, resolvedActingFor) =>
+      await getAppIdentityFromCaller(ctx, args, resolvedCaller, resolvedActingFor),
   },
 )
-const canReadStructuredProbe = defineGuard<Actor>('probe.read', (actor) => !!actor)
+const canReadStructuredProbe = defineGuard<AppIdentity>(
+  'probe.read',
+  (appIdentity) => !!appIdentity,
+)
 const canEditStructuredPost = (ownerId: string) =>
-  defineGuard<NonNullable<Actor>>('probe.update', (actor) => actor.userId === ownerId)
+  defineGuard<NonNullable<AppIdentity>>(
+    'probe.update',
+    (appIdentity) => appIdentity.userId === ownerId,
+  )
 const harnessPermit = (reason: string) =>
   unsafePermit.permit({
     kind: 'harnessProbe',
@@ -111,7 +117,7 @@ const harnessPermit = (reason: string) =>
   })
 
 export const publicWithoutActor = query.unsafe({
-  permit: harnessPermit('Harness probe bypass without actor resolution.'),
+  permit: harnessPermit('Harness probe bypass without appIdentity resolution.'),
   args: {},
   handler: async () => ({
     actorResolverCalls,
@@ -121,7 +127,7 @@ export const publicWithoutActor = query.unsafe({
 export const structuredPublicActorEcho = query.public({
   args: {},
   handler: async (ctx) => ({
-    actor: await ctx.actor(),
+    appIdentity: await ctx.appIdentity(),
   }),
 })
 
@@ -171,14 +177,14 @@ export const structuredEnvelopeProbe = query.protected({
 
 export const structuredDelegationProbe = query.public({
   args: {},
-  trustedForwardingFunctionRef: 'functionsProbe:structuredDelegationProbe',
+  identityForwardingFunctionRef: 'functionsProbe:structuredDelegationProbe',
   handler: async (ctx) => ({
-    delegation: await ctx.delegation(),
+    actingFor: await ctx.actingFor(),
   }),
 })
 
 export const resetActorResolverCalls = mutation.unsafe({
-  permit: harnessPermit('Harness probe reset for actor memoization state.'),
+  permit: harnessPermit('Harness probe reset for appIdentity memoization state.'),
   args: {},
   handler: async () => {
     actorResolverCalls = 0
@@ -192,27 +198,27 @@ export const resetActorResolverCalls = mutation.unsafe({
 
 export const actorMemoization = query.public({
   args: {},
-  trustedForwardingFunctionRef: 'functionsProbe:actorMemoization',
+  identityForwardingFunctionRef: 'functionsProbe:actorMemoization',
   handler: async (ctx) => {
     const before = actorResolverCalls
-    const first = await ctx.actor()
-    const second = await ctx.actor()
+    const first = await ctx.appIdentity()
+    const second = await ctx.appIdentity()
 
     return {
       before,
       after: actorResolverCalls,
       sameReference: first === second,
-      actor: first,
+      appIdentity: first,
     }
   },
 })
 
-export const trustedForwardingStateProbe = query.public({
+export const identityForwardingStateProbe = query.public({
   args: {},
-  trustedForwardingFunctionRef: 'functionsProbe:trustedForwardingStateProbe',
+  identityForwardingFunctionRef: 'functionsProbe:identityForwardingStateProbe',
   handler: async (ctx) => ({
-    trustedForwarding: getTrustedForwarding(ctx),
-    forwardedPrincipal: getForwardedPrincipal(ctx),
+    identityForwarding: getIdentityForwarding(ctx),
+    forwardedCaller: getForwardedCaller(ctx),
   }),
 })
 
@@ -220,7 +226,7 @@ export const echoedArgs = query.public({
   args: {
     title: v.string(),
   },
-  trustedForwardingFunctionRef: 'functionsProbe:echoedArgs',
+  identityForwardingFunctionRef: 'functionsProbe:echoedArgs',
   handler: async (_ctx, args) => args,
 })
 
@@ -246,11 +252,11 @@ export const getEnvelopeProbeState = query.unsafe({
   }),
 })
 
-export const unsafeForwardedPrincipalProbe = unsafeArgPrincipalRuntime.query.public({
+export const unsafeForwardedCallerProbe = unsafeArgPrincipalRuntime.query.public({
   args: {},
   handler: async (ctx) => ({
-    principal: await ctx.principal(),
-    delegation: await ctx.delegation(),
+    caller: await ctx.caller(),
+    actingFor: await ctx.actingFor(),
   }),
 })
 

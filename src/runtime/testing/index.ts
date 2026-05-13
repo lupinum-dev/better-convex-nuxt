@@ -17,9 +17,9 @@ import type { Subject } from '../auth/index.js'
 import { subject } from '../auth/subject.js'
 import { getFunctionName } from '../convex/shared/convex-shared.js'
 import type { AnyConvexFunction } from '../convex/shared/convex-shared.js'
+import { createIdentityForwardingEnvelopeArgs } from '../identity-forwarding/shared.js'
 import { registerObservationCaptureListener } from '../observability/capture.js'
 import type { TrellisObservationEvent } from '../observability/index.js'
-import { createTrustedForwardingEnvelopeArgs } from '../trusted-forwarding/shared.js'
 
 const defaultModules =
   typeof import.meta.glob === 'function' ? import.meta.glob('/convex/**/*.*s') : {}
@@ -186,7 +186,7 @@ export interface CreateTestContextOptions<
 > {
   schema: TSchema
   modules?: ConvexTestModules
-  trustedForwardingKey?: string
+  identityForwardingKey?: string
   /** Advanced override for non-canonical tenant schemas. Omit for the default `workspaces.workspaceId` model. */
   tenant?: {
     table?: TTenantTable
@@ -223,7 +223,7 @@ export interface TestContext<
     id: DocumentFor<TSchema, TTenantTable>['_id']
     users: SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
   }>
-  asPrincipal: (principal: Record<string, unknown>) => TestClient<TSchema>
+  asCaller: (caller: Record<string, unknown>) => TestClient<TSchema>
 }
 
 const DEFAULT_CONVEX_TEST_TSCONFIG = {
@@ -301,19 +301,19 @@ function slugify(value: string): string {
 
 function createPrincipalClient<TSchema extends AnySchemaDefinition>(
   raw: TestConvex<TSchema>,
-  principal: Record<string, unknown>,
-  trustedForwardingKey?: string,
+  caller: Record<string, unknown>,
+  identityForwardingKey?: string,
 ): TestClient<TSchema> {
-  const effectiveTrustedForwardingKey =
-    trustedForwardingKey?.trim() || process.env.CONVEX_TRUSTED_FORWARDING_KEY
+  const effectiveIdentityForwardingKey =
+    identityForwardingKey?.trim() || process.env.CONVEX_IDENTITY_FORWARDING_KEY
 
-  if (!effectiveTrustedForwardingKey) {
+  if (!effectiveIdentityForwardingKey) {
     throw new Error(
-      'ctx.asPrincipal(...) requires createTestContext({ trustedForwardingKey }) or CONVEX_TRUSTED_FORWARDING_KEY.',
+      'ctx.asCaller(...) requires createTestContext({ identityForwardingKey }) or CONVEX_IDENTITY_FORWARDING_KEY.',
     )
   }
 
-  const principalSubject = resolveTrustedForwardingSubject(principal)
+  const principalSubject = resolveIdentityForwardingSubject(caller)
 
   function withPrincipalArgs<TKind extends 'query' | 'mutation' | 'action'>(
     kind: TKind,
@@ -322,22 +322,22 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     principalMode: 'plain' | 'trusted',
   ) {
     if (principalMode === 'trusted') {
-      return createTrustedForwardingEnvelopeArgs({
+      return createIdentityForwardingEnvelopeArgs({
         args,
-        principal: {
-          ...principal,
+        caller: {
+          ...caller,
           subject: principalSubject,
         },
         functionRef: getFunctionName(fn as unknown as AnyConvexFunction),
         operation: kind,
-        key: effectiveTrustedForwardingKey,
+        key: effectiveIdentityForwardingKey,
         transport: 'server',
       })
     }
 
     return {
       ...(args ?? {}),
-      principal,
+      caller,
     }
   }
 
@@ -347,7 +347,7 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
     return error.message.includes('Unexpected field `_trellisForwarding` in object')
   }
 
-  async function callWithPrincipal<
+  async function callWithCaller<
     TKind extends 'query' | 'mutation' | 'action',
     TFn extends FunctionReference<TKind>,
   >(kind: TKind, fn: TFn, args: OptionalRestArgs<TFn>[0]): Promise<FunctionReturnType<TFn>> {
@@ -385,47 +385,47 @@ function createPrincipalClient<TSchema extends AnySchemaDefinition>(
       fn: Query,
       ...args: OptionalRestArgs<Query>
     ): Promise<FunctionReturnType<Query>> => {
-      return await callWithPrincipal('query', fn, args[0])
+      return await callWithCaller('query', fn, args[0])
     },
     mutation: async <Mutation extends FunctionReference<'mutation'>>(
       fn: Mutation,
       ...args: OptionalRestArgs<Mutation>
     ): Promise<FunctionReturnType<Mutation>> => {
-      return await callWithPrincipal('mutation', fn, args[0])
+      return await callWithCaller('mutation', fn, args[0])
     },
     action: async <Action extends FunctionReference<'action'>>(
       fn: Action,
       ...args: OptionalRestArgs<Action>
     ): Promise<FunctionReturnType<Action>> => {
-      return await callWithPrincipal('action', fn, args[0])
+      return await callWithCaller('action', fn, args[0])
     },
   }
 
   return client as unknown as TestClient<TSchema>
 }
 
-function resolveTrustedForwardingSubject(principal: Record<string, unknown>): Subject {
-  if (typeof principal.subject === 'string' && principal.subject) {
-    return principal.subject as Subject
+function resolveIdentityForwardingSubject(caller: Record<string, unknown>): Subject {
+  if (typeof caller.subject === 'string' && caller.subject) {
+    return caller.subject as Subject
   }
 
-  if (typeof principal.userId === 'string' && principal.userId) {
-    return subject.user(principal.userId)
+  if (typeof caller.userId === 'string' && caller.userId) {
+    return subject.user(caller.userId)
   }
 
-  if (typeof principal.agentId === 'string' && principal.agentId) {
-    return subject.agent(principal.agentId)
+  if (typeof caller.agentId === 'string' && caller.agentId) {
+    return subject.agent(caller.agentId)
   }
 
-  if (typeof principal.serviceId === 'string' && principal.serviceId) {
-    return subject.service(principal.serviceId)
+  if (typeof caller.serviceId === 'string' && caller.serviceId) {
+    return subject.service(caller.serviceId)
   }
 
-  if (typeof principal.kind === 'string' && principal.kind) {
-    return subject.agent(principal.kind)
+  if (typeof caller.kind === 'string' && caller.kind) {
+    return subject.agent(caller.kind)
   }
 
-  return subject.agent('trusted-forwarding-test')
+  return subject.agent('identity-forwarding-test')
 }
 
 export function convexTestConfig(options: ConvexTestConfigOptions = {}): UserConfig {
@@ -460,11 +460,11 @@ export function createTestContext<
 ): TestContext<TSchema, TRole, TTenantTable, TUserTable> {
   const modules = withGeneratedModuleHint(options.modules ?? defaultModules)
   const raw = convexTest(options.schema, modules) as unknown as TestConvex<TSchema>
-  if (options.trustedForwardingKey) {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = options.trustedForwardingKey
+  if (options.identityForwardingKey) {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = options.identityForwardingKey
   }
-  const trustedForwardingKey =
-    options.trustedForwardingKey ?? process.env.CONVEX_TRUSTED_FORWARDING_KEY
+  const identityForwardingKey =
+    options.identityForwardingKey ?? process.env.CONVEX_IDENTITY_FORWARDING_KEY
 
   const tenantTable = (options.tenant?.table ?? 'workspaces') as TTenantTable
   const tenantField = options.tenant?.field ?? 'workspaceId'
@@ -554,8 +554,8 @@ export function createTestContext<
     }
   }
 
-  function asPrincipal(principal: Record<string, unknown>): TestClient<TSchema> {
-    return createPrincipalClient(raw, principal, trustedForwardingKey)
+  function asCaller(caller: Record<string, unknown>): TestClient<TSchema> {
+    return createPrincipalClient(raw, caller, identityForwardingKey)
   }
 
   return {
@@ -563,7 +563,7 @@ export function createTestContext<
     seed,
     readAll,
     seedTenant,
-    asPrincipal,
+    asCaller,
   }
 }
 

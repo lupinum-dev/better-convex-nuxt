@@ -12,7 +12,7 @@ export const publicCoreRuntimeRoots = [
   'src/runtime/schema',
   'src/runtime/server',
   'src/runtime/testing',
-  'src/runtime/trusted-forwarding',
+  'src/runtime/identity-forwarding',
   'src/runtime/type-primitives',
   'src/runtime/types',
   'src/runtime/utils',

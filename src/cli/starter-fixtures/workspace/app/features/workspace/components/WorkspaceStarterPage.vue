@@ -7,7 +7,7 @@ import { todoCreate } from '#trellis/permissions'
 const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
 const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
 const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
-const { allows, ready, tenantId, role } = usePermissions()
+const { can, ready, workspaceId, role } = useAccess()
 
 const email = ref('owner@example.com')
 const password = ref('password1234')
@@ -19,7 +19,7 @@ const { data: todos } = await useConvexQuery(api.features.todos.domain.list, tod
 
 const createWorkspace = useConvexMutation(api.features.workspaces.domain.createWorkspaceMutation)
 const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
-const canCreate = allows(todoCreate)
+const canCreate = can(todoCreate)
 
 async function handleSignIn() {
   await signIn({
@@ -76,7 +76,7 @@ async function handleCreateTodo() {
     </div>
 
     <div v-else style="display: grid; gap: 16px">
-      <p>Workspace: {{ tenantId }} | Role: {{ role }}</p>
+      <p>Workspace: {{ workspaceId }} | Role: {{ role }}</p>
       <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a workspace todo" />
         <button

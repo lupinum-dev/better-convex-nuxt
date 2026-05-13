@@ -9,7 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as auth_actor from "../auth/actor.js";
+import type * as auth_actor from "../auth/appIdentity.js";
 import type * as auth_guards from "../auth/guards.js";
 import type * as features_articles_access from "../features/articles/access.js";
 import type * as features_articles_domain from "../features/articles/domain.js";
@@ -43,7 +43,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  "auth/actor": typeof auth_actor;
+  "auth/appIdentity": typeof auth_actor;
   "auth/guards": typeof auth_guards;
   "features/articles/access": typeof features_articles_access;
   "features/articles/domain": typeof features_articles_domain;

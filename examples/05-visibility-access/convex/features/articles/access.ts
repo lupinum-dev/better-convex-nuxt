@@ -2,7 +2,7 @@ import { deny, requireRecord } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { DatabaseReader } from '../../_generated/server'
-import type { Actor } from '../../auth/actor'
+import type { AppIdentity } from '../../auth/app-identity'
 import { requireEnrollment } from '../knowledgeBases'
 import type { AccessLevel } from './shareTokens'
 
@@ -12,8 +12,10 @@ const hierarchy: Record<AccessLevel, number> = {
   edit: 2,
 }
 
-function isStaffActor(actor: Actor): boolean {
-  return actor.role === 'owner' || actor.role === 'admin' || actor.role === 'editor'
+function isStaffActor(appIdentity: AppIdentity): boolean {
+  return (
+    appIdentity.role === 'owner' || appIdentity.role === 'admin' || appIdentity.role === 'editor'
+  )
 }
 
 async function ensurePrerequisites(
@@ -36,24 +38,28 @@ async function ensurePrerequisites(
 
 async function getAccessLevel(
   db: DatabaseReader,
-  actor: Actor,
+  appIdentity: AppIdentity,
   articleId: Id<'articles'>,
 ): Promise<AccessLevel | null> {
-  if (actor.kind !== 'user') return null
-  if (actor.role === 'owner' || actor.role === 'admin') return 'edit'
+  if (appIdentity.kind !== 'user') return null
+  if (appIdentity.role === 'owner' || appIdentity.role === 'admin') return 'edit'
 
   const article = await db.get(articleId)
   if (!article) return null
-  if (article.ownerId === actor.userId) return 'edit'
+  if (article.ownerId === appIdentity.userId) return 'edit'
 
   const share = await db
     .query('articleShares')
-    .withIndex('by_user_article', (q) => q.eq('userId', actor.userId).eq('articleId', articleId))
+    .withIndex('by_user_article', (q) =>
+      q.eq('userId', appIdentity.userId).eq('articleId', articleId),
+    )
     .first()
   if (share) return share.level as AccessLevel
 
   if (
-    (actor.role === 'editor' || actor.role === 'contributor' || actor.role === 'viewer') &&
+    (appIdentity.role === 'editor' ||
+      appIdentity.role === 'contributor' ||
+      appIdentity.role === 'viewer') &&
     article.visibility === 'workspace'
   ) {
     return 'view'
@@ -64,18 +70,18 @@ async function getAccessLevel(
 
 export async function getInheritedAccessLevel(
   db: DatabaseReader,
-  actor: Actor,
+  appIdentity: AppIdentity,
   articleId: Id<'articles'>,
   maxDepth = 10,
 ): Promise<AccessLevel | null> {
-  let best = await getAccessLevel(db, actor, articleId)
+  let best = await getAccessLevel(db, appIdentity, articleId)
 
   let currentId = articleId
   for (let depth = 0; depth < maxDepth; depth++) {
     const article = await db.get(currentId)
     if (!article?.parentArticleId) break
 
-    const parentAccess = await getAccessLevel(db, actor, article.parentArticleId)
+    const parentAccess = await getAccessLevel(db, appIdentity, article.parentArticleId)
     if (parentAccess && (!best || hierarchy[parentAccess] > hierarchy[best])) {
       best = parentAccess
     }
@@ -88,21 +94,21 @@ export async function getInheritedAccessLevel(
 
 export async function requireArticleAccess(
   db: DatabaseReader,
-  actor: Exclude<Actor, null>,
+  appIdentity: Exclude<AppIdentity, null>,
   article: Doc<'articles'>,
 ): Promise<void> {
   const knowledgeBase = await db.get(article.knowledgeBaseId)
   requireRecord(knowledgeBase, 'Knowledge base')
 
-  if (isStaffActor(actor)) {
+  if (isStaffActor(appIdentity)) {
     return
   }
 
   if (knowledgeBase.status !== 'published') throw deny('Knowledge base not available.')
   if (article.status !== 'published') throw deny('Article not available.')
 
-  await requireEnrollment(db, actor, knowledgeBase._id)
-  await ensurePrerequisites(db, actor.userId, article)
+  await requireEnrollment(db, appIdentity, knowledgeBase._id)
+  await ensurePrerequisites(db, appIdentity.userId, article)
 
   if (article.availableAfter && article.availableAfter > Date.now()) {
     throw deny('This article is not available yet.')

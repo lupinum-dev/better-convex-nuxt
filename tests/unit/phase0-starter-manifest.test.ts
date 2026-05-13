@@ -137,7 +137,7 @@ describe('fixture-backed beginner starter manifests', () => {
       'app/pages/index.vue',
       'convex/auth.config.ts',
       'convex/auth.ts',
-      'convex/auth/actor.ts',
+      'convex/auth/app-identity.ts',
       'convex/auth/guards.ts',
       'convex/convex.config.ts',
       'convex/features/todos/domain.ts',
@@ -182,9 +182,9 @@ describe('fixture-backed beginner starter manifests', () => {
       'app/pages/index.vue',
       'convex/auth.config.ts',
       'convex/auth.ts',
-      'convex/auth/actor.ts',
+      'convex/auth/app-identity.ts',
       'convex/auth/guards.ts',
-      'convex/auth/principal.ts',
+      'convex/auth/caller.ts',
       'convex/convex.config.ts',
       'convex/features/index.ts',
       'convex/features/todos/domain.ts',
@@ -221,7 +221,7 @@ describe('fixture-backed beginner starter manifests', () => {
     const fixtureText = selected.map((path) => readFileSync(join(root, path), 'utf8')).join('\n')
     expect(fixtureText).toContain('@convex-dev/better-auth')
     expect(fixtureText).toContain('workspaceId')
-    expect(fixtureText).toContain('tenantIsolation')
+    expect(fixtureText).toContain('isolation')
     expect(fixtureText).not.toContain('@nuxtjs/mcp-toolkit')
     expect(fixtureText).not.toContain('defineMcpApp')
     expect(fixtureText).not.toContain('mcp.tool')
@@ -244,9 +244,9 @@ describe('fixture-backed beginner starter manifests', () => {
       'app/pages/index.vue',
       'convex/auth.config.ts',
       'convex/auth.ts',
-      'convex/auth/actor.ts',
+      'convex/auth/app-identity.ts',
       'convex/auth/guards.ts',
-      'convex/auth/principal.ts',
+      'convex/auth/caller.ts',
       'convex/convex.config.ts',
       'convex/features/index.ts',
       'convex/features/mcpKeys/domain.ts',
@@ -289,9 +289,9 @@ describe('fixture-backed beginner starter manifests', () => {
     expect(fixtureText).toContain('@convex-dev/better-auth')
     expect(fixtureText).toContain('@nuxtjs/mcp-toolkit')
     expect(fixtureText).toContain('defineMcpApp')
-    expect(fixtureText).toContain('CONVEX_TRUSTED_FORWARDING_KEY')
+    expect(fixtureText).toContain('CONVEX_IDENTITY_FORWARDING_KEY')
     expect(fixtureText).toContain('workspaceId')
-    expect(fixtureText).toContain('tenantIsolation')
+    expect(fixtureText).toContain('isolation')
     expect(fixtureText).not.toContain('ginko')
     expect(fixtureText).not.toContain('cms')
     expect(fixtureText).not.toContain('bridge-author')

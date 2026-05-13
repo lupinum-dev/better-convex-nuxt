@@ -17,7 +17,7 @@ import type {
   EnhancedAuthState,
   DevtoolsConnectionState,
   AuthWaterfall,
-  PermissionContextState,
+  AccessContextState,
   AuthBootstrapState,
   ConvexDevtoolsSnapshot,
   DevtoolsConvexUser,
@@ -90,7 +90,7 @@ export class ConvexDevtoolsStore {
 
   authWaterfall: AuthWaterfall | null = null
 
-  permissionContextState: PermissionContextState = {
+  accessContextState: AccessContextState = {
     queryName: null,
     pending: false,
     ready: false,
@@ -278,12 +278,12 @@ export class ConvexDevtoolsStore {
     this._notifyDevtools()
   }
 
-  setPermissionContextState(state: PermissionContextState): void {
+  setAccessContextState(state: AccessContextState): void {
     const nextState = clonePayload(toRaw(state))
-    if (areSerializedValuesEqual(this.permissionContextState, nextState)) {
+    if (areSerializedValuesEqual(this.accessContextState, nextState)) {
       return
     }
-    this.permissionContextState = nextState
+    this.accessContextState = nextState
     this._notifyDevtools()
   }
 
@@ -315,7 +315,7 @@ export class ConvexDevtoolsStore {
       authState: this.authState,
       connectionState: this.connectionState,
       authWaterfall: this.authWaterfall,
-      permissionContextState: this.permissionContextState,
+      accessContextState: this.accessContextState,
       authBootstrapState: this.authBootstrapState,
       decisionTrace: this._buildDecisionTrace(),
     })
@@ -369,7 +369,7 @@ export class ConvexDevtoolsStore {
       tool: terminal.tool ?? latest.tool ?? null,
       principalKind: terminal.principalKind ?? latest.principalKind ?? null,
       actorKind: terminal.actorKind ?? latest.actorKind ?? null,
-      tenantId: terminal.tenantId ?? latest.tenantId ?? null,
+      workspaceId: terminal.workspaceId ?? latest.workspaceId ?? null,
       lastEventName: terminal.name,
       lastEventStatus: terminal.status,
       denialExplanation: explanation,

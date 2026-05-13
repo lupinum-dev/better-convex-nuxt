@@ -145,7 +145,7 @@ describe('phase0 workspace-mcp fixture', () => {
         operation: 'query',
         args: { id: 'project-1' },
         options: {
-          trustedForwardingEnvelope: {
+          identityForwardingEnvelope: {
             purpose: 'operation-preview',
           },
         },
@@ -154,7 +154,7 @@ describe('phase0 workspace-mcp fixture', () => {
         operation: 'query',
         args: { id: 'project-1' },
         options: {
-          trustedForwardingEnvelope: {
+          identityForwardingEnvelope: {
             purpose: 'operation-preview',
           },
         },
@@ -166,7 +166,7 @@ describe('phase0 workspace-mcp fixture', () => {
           _confirmationToken: confirmationToken,
         },
         options: {
-          trustedForwardingEnvelope: {
+          identityForwardingEnvelope: {
             purpose: 'operation-execute',
             jti: expect.any(String),
           },

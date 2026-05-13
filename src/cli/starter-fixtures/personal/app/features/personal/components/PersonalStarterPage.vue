@@ -43,7 +43,7 @@ async function handleCreateTodo() {
 <template>
   <main style="max-width: 720px; margin: 0 auto; padding: 40px 16px">
     <h1>Personal Starter</h1>
-    <p>Trellis app starter: Better Auth + Convex + app-owned actor resolution.</p>
+    <p>Trellis app starter: Better Auth + Convex + app-owned appIdentity resolution.</p>
 
     <div v-if="isPending">Loading auth...</div>
 

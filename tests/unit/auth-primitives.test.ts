@@ -16,7 +16,7 @@ import {
   ensureTenant,
   loadTenantResource,
 } from '../../src/runtime/auth'
-import { isAnonymousPrincipal } from '../../src/runtime/auth/principal-state'
+import { isAnonymousCaller } from '../../src/runtime/auth/caller-state'
 
 type ConvexErrorData = {
   category?: string
@@ -32,27 +32,27 @@ function expectConvexErrorData(error: unknown): ConvexErrorData {
 
 describe('auth primitives', () => {
   it('evaluates boolean composition helpers', () => {
-    const actor = { role: 'member', userId: 'alice' }
+    const appIdentity = { role: 'member', userId: 'alice' }
     const hasRole =
       (...roles: string[]) =>
-      (value: typeof actor | null) =>
+      (value: typeof appIdentity | null) =>
         !!value && roles.includes(value.role)
-    const owns = (resource: { ownerId: string }) => (value: typeof actor | null) =>
+    const owns = (resource: { ownerId: string }) => (value: typeof appIdentity | null) =>
       !!value && value.userId === resource.ownerId
 
-    expect(can(actor, and(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
-    expect(can(actor, or(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
-    expect(can(actor, or(hasRole('admin'), false))).toBe(false)
+    expect(can(appIdentity, and(hasRole('member'), owns({ ownerId: 'alice' })))).toBe(true)
+    expect(can(appIdentity, or(hasRole('admin'), owns({ ownerId: 'alice' })))).toBe(true)
+    expect(can(appIdentity, or(hasRole('admin'), false))).toBe(false)
   })
 
   it('creates labeled guards that compose structurally', () => {
-    const actor = { role: 'member', userId: 'alice' }
+    const appIdentity = { role: 'member', userId: 'alice' }
 
-    const isMember = defineGuard<typeof actor | null>(
+    const isMember = defineGuard<typeof appIdentity | null>(
       'role:member',
       (value) => value?.role === 'member',
     )
-    const ownsResource = defineGuard<typeof actor | null>(
+    const ownsResource = defineGuard<typeof appIdentity | null>(
       'owner',
       (value) => value?.userId === 'alice',
     )
@@ -63,9 +63,9 @@ describe('auth primitives', () => {
     expect(isMember.label).toBe('role:member')
     expect(canEdit.kind).toBe('and')
     expect(canEdit.label).toBe('role:member && owner')
-    expect(can(actor, canEdit)).toBe(true)
+    expect(can(appIdentity, canEdit)).toBe(true)
     expect(can(null, canEdit)).toBe(false)
-    expect(can(actor, cannotEdit)).toBe(false)
+    expect(can(appIdentity, cannotEdit)).toBe(false)
   })
 
   it('exports an explicit open guard for public flows', () => {
@@ -82,13 +82,13 @@ describe('auth primitives', () => {
   it('throws forbidden errors from enforce() and narrows the type', () => {
     expect(() => enforce(null, 'Read dashboard', false)).toThrow(/Forbidden: Read dashboard/)
 
-    const actor: { role: string } | null = { role: 'admin' }
-    enforce(actor, 'Read dashboard', (a) => a.role === 'admin')
-    // After enforce, actor is narrowed to non-null — this access is type-safe
-    expect(actor.role).toBe('admin')
+    const appIdentity: { role: string } | null = { role: 'admin' }
+    enforce(appIdentity, 'Read dashboard', (a) => a.role === 'admin')
+    // After enforce, appIdentity is narrowed to non-null — this access is type-safe
+    expect(appIdentity.role).toBe('admin')
   })
 
-  it('enforce() includes auth category when actor is null', () => {
+  it('enforce() includes auth category when appIdentity is null', () => {
     try {
       enforce(null, 'Read dashboard', true)
     } catch (error) {
@@ -121,23 +121,23 @@ describe('auth primitives', () => {
   })
 
   it('narrows actors with requireAuth()', () => {
-    const actor: { userId: string } | null = { userId: 'alice' }
+    const appIdentity: { userId: string } | null = { userId: 'alice' }
 
-    expect(() => requireAuth(actor)).not.toThrow()
-    requireAuth(actor)
-    expect(actor.userId).toBe('alice')
+    expect(() => requireAuth(appIdentity)).not.toThrow()
+    requireAuth(appIdentity)
+    expect(appIdentity.userId).toBe('alice')
     expect(() => requireAuth(null)).toThrow(/Not authenticated\./)
     expect(() => requireAuth({ kind: 'anonymous' as const })).toThrow(/Not authenticated\./)
   })
 
-  it('identifies anonymous principal states directly', () => {
-    expect(isAnonymousPrincipal(undefined)).toBe(true)
-    expect(isAnonymousPrincipal(null)).toBe(true)
-    expect(isAnonymousPrincipal({ kind: 'anonymous' })).toBe(true)
-    expect(isAnonymousPrincipal({ kind: 'user', userId: 'alice' })).toBe(false)
-    expect(isAnonymousPrincipal({ userId: 'alice' })).toBe(false)
-    expect(isAnonymousPrincipal('user')).toBe(false)
-    expect(isAnonymousPrincipal(123)).toBe(false)
+  it('identifies anonymous caller states directly', () => {
+    expect(isAnonymousCaller(undefined)).toBe(true)
+    expect(isAnonymousCaller(null)).toBe(true)
+    expect(isAnonymousCaller({ kind: 'anonymous' })).toBe(true)
+    expect(isAnonymousCaller({ kind: 'user', userId: 'alice' })).toBe(false)
+    expect(isAnonymousCaller({ userId: 'alice' })).toBe(false)
+    expect(isAnonymousCaller('user')).toBe(false)
+    expect(isAnonymousCaller(123)).toBe(false)
   })
 
   it('fails closed in can() for ConvexError but rethrows programming bugs', () => {
@@ -175,25 +175,25 @@ describe('auth primitives', () => {
     expect(doc.name).toBe('test')
   })
 
-  it('ensureTenant rejects cross-tenant resources and returns matching resources', () => {
-    const actor = { tenantId: 'workspace-1' }
+  it('ensureTenant rejects cross-scope resources and returns matching resources', () => {
+    const appIdentity = { workspaceId: 'workspace-1' }
     const resource = { workspaceId: 'workspace-1', title: 'Project' }
 
-    expect(ensureTenant(actor, resource)).toBe(resource)
-    expect(() => ensureTenant(actor, { workspaceId: 'workspace-2' }, 'Project')).toThrow(
+    expect(ensureTenant(appIdentity, resource)).toBe(resource)
+    expect(() => ensureTenant(appIdentity, { workspaceId: 'workspace-2' }, 'Project')).toThrow(
       /Project not found/,
     )
   })
 
   it('loadTenantResource requires the record before checking tenant', () => {
-    const actor = { tenantId: 'org-1' }
+    const appIdentity = { workspaceId: 'org-1' }
 
-    expect(() => loadTenantResource(actor, null, 'Organization', 'organizationId')).toThrow(
+    expect(() => loadTenantResource(appIdentity, null, 'Organization', 'organizationId')).toThrow(
       /Organization not found/,
     )
     expect(
       loadTenantResource(
-        actor,
+        appIdentity,
         { organizationId: 'org-1', name: 'Acme' },
         'Organization',
         'organizationId',

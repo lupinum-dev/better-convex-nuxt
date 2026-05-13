@@ -15,12 +15,12 @@ export const list = query.protected({
   guard: kbRead,
   args: listKnowledgeBases.args,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) throw deny('Not available.')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) throw deny('Not available.')
 
     return ctx.db
       .query('knowledgeBases')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
       .order('desc')
       .collect()
   },
@@ -30,7 +30,11 @@ export const get = query.protected({
   guard: kbRead,
   args: getKnowledgeBase.args,
   load: async (ctx, args) => ({
-    knowledgeBase: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Knowledge base'),
+    knowledgeBase: loadResource(
+      await ctx.appIdentity(),
+      await ctx.db.get(args.id),
+      'Knowledge base',
+    ),
   }),
   handler: async (_ctx, _args, { knowledgeBase }) => knowledgeBase,
 })
@@ -39,15 +43,15 @@ export const create = mutation.protected({
   guard: kbCreate,
   args: createKnowledgeBase.args,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!actor) throw deny('Not available.')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) throw deny('Not available.')
 
     const now = Date.now()
     return ctx.db.insert('knowledgeBases', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       title: args.title,
       status: 'draft',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       createdAt: now,
       updatedAt: now,
     })
@@ -58,7 +62,11 @@ export const publish = mutation.protected({
   guard: kbCreate,
   args: publishKnowledgeBase.args,
   load: async (ctx, args) => ({
-    knowledgeBase: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Knowledge base'),
+    knowledgeBase: loadResource(
+      await ctx.appIdentity(),
+      await ctx.db.get(args.id),
+      'Knowledge base',
+    ),
   }),
   handler: async (ctx, args, { knowledgeBase }) => {
     if (knowledgeBase.status === 'published') throw deny('Already published.')
@@ -71,14 +79,14 @@ export const enroll = mutation.protected({
   args: enrollKnowledgeBaseUser.args,
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
-      await ctx.actor(),
+      await ctx.appIdentity(),
       await ctx.db.get(args.knowledgeBaseId),
       'Knowledge base',
     ),
   }),
   handler: async (ctx, args, { knowledgeBase }) => {
-    const actor = await ctx.actor()
-    if (!actor) throw deny('Not available.')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) throw deny('Not available.')
 
     const existing = await ctx.db
       .query('enrollments')
@@ -95,7 +103,7 @@ export const enroll = mutation.protected({
     }
 
     return ctx.db.insert('enrollments', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       userId: args.userId,
       knowledgeBaseId: knowledgeBase._id,
       status: 'active',
@@ -109,14 +117,14 @@ export const enrollByEmail = mutation.protected({
   args: enrollKnowledgeBaseUserByEmail.args,
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
-      await ctx.actor(),
+      await ctx.appIdentity(),
       await ctx.db.get(args.knowledgeBaseId),
       'Knowledge base',
     ),
   }),
   handler: async (ctx, args, { knowledgeBase }) => {
-    const actor = await ctx.actor()
-    if (!actor) throw deny('Not available.')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) throw deny('Not available.')
 
     const user = await ctx.db
       .query('users')
@@ -139,7 +147,7 @@ export const enrollByEmail = mutation.protected({
     }
 
     return ctx.db.insert('enrollments', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       userId: user.authId,
       knowledgeBaseId: knowledgeBase._id,
       status: 'active',

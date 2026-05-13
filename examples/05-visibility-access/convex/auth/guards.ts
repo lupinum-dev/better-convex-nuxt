@@ -3,22 +3,29 @@ import type { Infer } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel'
 import type { roleValidator } from '../features/users'
-import type { Actor } from './actor'
+import type { AppIdentity } from './app-identity'
 
 type UserRole = Infer<typeof roleValidator>
 
-export function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
-  if (!actor.tenantId) throw new Error('Current actor is not assigned to a workspace.')
-  return actor.tenantId
+export function requireWorkspaceTenant(appIdentity: { workspaceId?: Id<'workspaces'> | null }) {
+  if (!appIdentity.workspaceId)
+    throw new Error('Current appIdentity is not assigned to a workspace.')
+  return appIdentity.workspaceId
 }
 
-export const hasWorkspace = defineGuard<Actor>('Workspace member', (actor) => !!actor?.tenantId)
+export const hasWorkspace = defineGuard<AppIdentity>(
+  'Workspace member',
+  (appIdentity) => !!appIdentity?.workspaceId,
+)
 
 export const hasRole = (...roles: UserRole[]) =>
-  defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => !!actor && roles.includes(actor.role))
+  defineGuard<AppIdentity>(
+    `role:${roles.join('|')}`,
+    (appIdentity) => !!appIdentity && roles.includes(appIdentity.role),
+  )
 
 export const isOwnerOf = (resource: { ownerId: string }) =>
-  defineGuard<Actor>(
+  defineGuard<AppIdentity>(
     `owner:${resource.ownerId}`,
-    (actor) => !!actor && actor.userId === resource.ownerId,
+    (appIdentity) => !!appIdentity && appIdentity.userId === resource.ownerId,
   )

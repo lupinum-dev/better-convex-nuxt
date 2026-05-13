@@ -8,28 +8,28 @@ import { internal } from './_generated/api'
  * Experiment 14: ctx.runAsUser() roundtrip
  *
  * Spec update: symmetric to ctx.runAsService but forwards the CURRENT
- * user principal into an internal mutation. Used when an action (or
+ * user caller into an internal mutation. Used when an action (or
  * scheduler callback) needs to invoke an internal function and preserve
  * the user's identity — without relying on implicit propagation.
  *
- * Envelope purpose: 'trellis:trusted-forwarding:v1' (same key as service).
- * Only the principal payload shape differs: { kind: 'user', userId }.
+ * Envelope purpose: 'trellis:identity-forwarding:v1' (same key as service).
+ * Only the caller payload shape differs: { kind: 'user', userId }.
  *
  * Cases:
- *   14a  happy path: signed user envelope → resolver populates ctx.principal
+ *   14a  happy path: signed user envelope → resolver populates ctx.caller
  *        as { kind: 'user', userId }.
  *   14b  tampered envelope fails verification.
  *   14c  envelope bound to function X cannot call function Y.
- *   14d  no envelope on an internal mutation → systemPrincipal fallback
+ *   14d  no envelope on an internal mutation → systemCaller fallback
  *        (not the caller's user identity; explicit call required).
  *   14e  a service envelope cannot be replayed as a user envelope
- *        (the principal shape is checked after verification).
+ *        (the caller shape is checked after verification).
  */
 import { action, internalMutation } from './_generated/server'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
-const PURPOSE = 'trellis:trusted-forwarding:v1'
+const PURPOSE = 'trellis:identity-forwarding:v1'
 
 function deriveKey(): Uint8Array {
   return hkdf(sha256, ROOT_SECRET, SALT, new TextEncoder().encode(PURPOSE), 32)
@@ -40,7 +40,7 @@ async function signUserEnvelope(callee: string, userId: string): Promise<string>
     v: 1,
     aud: PURPOSE,
     callee,
-    principal: { kind: 'user', userId },
+    caller: { kind: 'user', userId },
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -53,7 +53,7 @@ async function signServiceEnvelope(callee: string, service: string): Promise<str
     v: 1,
     aud: PURPOSE,
     callee,
-    principal: { kind: 'service', service },
+    caller: { kind: 'service', service },
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -61,7 +61,7 @@ async function signServiceEnvelope(callee: string, service: string): Promise<str
     .sign(deriveKey())
 }
 
-type Principal =
+type Caller =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
   | { kind: 'service'; service: string }
@@ -74,7 +74,7 @@ type Principal =
 async function resolveWithEnvelope(
   envelope: string | undefined,
   expectedCallee: string,
-): Promise<Principal> {
+): Promise<Caller> {
   if (!envelope) {
     // Non-request context default.
     return { kind: 'service', service: 'system' }
@@ -86,11 +86,11 @@ async function resolveWithEnvelope(
         `expected "${expectedCallee}"`,
     )
   }
-  return payload.principal as Principal
+  return payload.caller as Caller
 }
 
 /**
- * The internal mutation under test. Uses the user principal to write
+ * The internal mutation under test. Uses the user caller to write
  * audit metadata, then returns what it resolved to.
  */
 export const generateReport = internalMutation({
@@ -105,26 +105,26 @@ export const generateReport = internalMutation({
     auditedId: v.string(),
   }),
   handler: async (ctx, args) => {
-    const principal = await resolveWithEnvelope(args.__principal, 'expRunAsUser:generateReport')
+    const caller = await resolveWithEnvelope(args.__principal, 'expRunAsUser:generateReport')
 
-    const principalKey =
-      principal.kind === 'user'
-        ? `user:${principal.userId}`
-        : principal.kind === 'service'
-          ? `service:${principal.service}`
+    const callerKey =
+      caller.kind === 'user'
+        ? `user:${caller.userId}`
+        : caller.kind === 'service'
+          ? `service:${caller.service}`
           : 'anonymous'
 
     const id = await ctx.db.insert('expAuditLog', {
       operation: 'generateReport',
-      principalKey,
+      callerKey,
       argsHash: args.reportId.slice(0, 40),
       timestamp: Date.now(),
     })
 
     return {
-      principalKind: principal.kind,
-      userId: principal.kind === 'user' ? principal.userId : undefined,
-      service: principal.kind === 'service' ? principal.service : undefined,
+      principalKind: caller.kind,
+      userId: caller.kind === 'user' ? caller.userId : undefined,
+      service: caller.kind === 'service' ? caller.service : undefined,
       auditedId: id,
     }
   },
@@ -218,8 +218,8 @@ export const testServiceIsNotUser = action({
     userId: string | undefined
   }> => {
     // A service-shaped envelope verified against the same purpose key.
-    // Our resolver returns the principal as-is — the user-assertion
-    // happens at the handler / actor-resolver layer, not the envelope
+    // Our resolver returns the caller as-is — the user-assertion
+    // happens at the handler / appIdentity-resolver layer, not the envelope
     // layer. This test confirms we don't silently coerce kinds.
     const envelope = await signServiceEnvelope('expRunAsUser:generateReport', 'cron')
     const result = await ctx.runMutation(internal.expRunAsUser.generateReport, {

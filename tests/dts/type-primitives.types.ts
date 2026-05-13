@@ -1,5 +1,5 @@
 import { defineArgs } from '@lupinum/trellis/args'
-import { definePermission, definePermissionContext, open } from '@lupinum/trellis/auth'
+import { definePermission, defineAccessContext, open } from '@lupinum/trellis/auth'
 import {
   defineOperation,
   executeOperationRef,
@@ -9,7 +9,7 @@ import {
 } from '@lupinum/trellis/backend'
 import type {
   InferOperationResult,
-  InferPermissionContext,
+  InferAccessContext,
   SerializableValue,
   ValidateSerializable,
   ValidateMcpToolOptions,
@@ -26,11 +26,11 @@ const permission = definePermission({
   check: true,
 })
 
-const _permissionContext = definePermissionContext({
+const _accessContext = defineAccessContext({
   permissions: [permission] as const,
   resolve: async () => ({
     userId: 'user_1',
-    tenantId: 'workspace_1',
+    workspaceId: 'workspace_1',
     role: 'owner' as const,
   }),
   extend: () => ({
@@ -38,9 +38,9 @@ const _permissionContext = definePermissionContext({
   }),
 })
 
-type PermissionContext = InferPermissionContext<typeof _permissionContext>
+type AccessContext = InferAccessContext<typeof _accessContext>
 
-expectTypeOf<ValidatePermissionKey<PermissionContext, 'task.read'>>().toEqualTypeOf<'task.read'>()
+expectTypeOf<ValidatePermissionKey<AccessContext, 'task.read'>>().toEqualTypeOf<'task.read'>()
 
 const operation = defineOperation({
   id: 'entries.archive',

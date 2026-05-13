@@ -171,7 +171,7 @@ describe('agency example', () => {
     ).toEqual(['Client A', 'Client B'])
   })
 
-  it('returns permission context booleans for owners and viewers inside a workspace', async () => {
+  it('returns access context booleans for owners and viewers inside a workspace', async () => {
     const ctx = createCtx()
     const team = await seedWorkspace(ctx, {
       name: 'Alpha',
@@ -181,11 +181,8 @@ describe('agency example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(
-      api.permissions.context.getPermissionContext,
-      {},
-    )
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getAccessContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getAccessContext, {})
 
     expect(ownerCtx?.can[projectCreate.key]).toBe(true)
     expect(viewerCtx?.can[projectCreate.key]).toBe(false)
@@ -194,9 +191,7 @@ describe('agency example', () => {
   it('returns null context and denies the agency dashboard for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(
-      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
-    ).resolves.toBeNull()
+    await expect(ctx.raw.query(api.permissions.context.getAccessContext, {})).resolves.toBeNull()
     await expect(ctx.raw.query(api.features.dashboard.domain.portfolio, {})).rejects.toThrow(
       'Not authenticated.',
     )

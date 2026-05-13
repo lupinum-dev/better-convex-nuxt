@@ -18,7 +18,7 @@ export default tool.mutation({
   safety: addTaskSafety,
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
-    return !!auth?.tenantId
+    return !!auth?.workspaceId
   },
   meta: {
     name: 'add-task',

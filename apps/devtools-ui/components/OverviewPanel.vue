@@ -135,7 +135,7 @@ defineProps<{
         <div class="rounded bg-gray/5 border border-base px-3 py-2">
           <div class="op-50 uppercase tracking-wide mb-1">Identity</div>
           <div>Principal: {{ decisionTrace.principalKind || '-' }}</div>
-          <div>Actor: {{ decisionTrace.actorKind || '-' }}</div>
+          <div>AppIdentity: {{ decisionTrace.actorKind || '-' }}</div>
           <div>Tenant: {{ decisionTrace.tenantId || '-' }}</div>
         </div>
         <div class="rounded bg-gray/5 border border-base px-3 py-2 md:col-span-2">

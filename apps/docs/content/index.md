@@ -138,12 +138,12 @@ import { api } from '#trellis/api'
 import { postDelete, postPublish, postUpdate } from '~/convex/auth/permissions'
 
 const props = defineProps<{ id: string }>()
-const { allows } = usePermissions()
+const { can } = useAccess()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 
-const canUpdatePost = allows(postUpdate)
-const canDeletePost = allows(postDelete)
-const canPublishPost = allows(postPublish)
+const canUpdatePost = can(postUpdate)
+const canDeletePost = can(postDelete)
+const canPublishPost = can(postPublish)
 </script>
 
 <template>

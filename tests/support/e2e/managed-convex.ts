@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
-import { INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY } from '../../../apps/harness/shared/dev-trusted-forwarding-key'
+import { INTERNAL_HARNESS_LOCAL_IDENTITY_FORWARDING_KEY } from '../../../apps/harness/shared/dev-identity-forwarding-key'
 import {
   assertLocalAuthReady,
   deriveSiteUrlFromConvexUrl,
@@ -228,8 +228,8 @@ export async function ensureManagedLocalConvex(
     envFile.siteUrl ??
     deriveSiteUrlFromConvexUrl(resolved.url) ??
     `http://127.0.0.1:${resolved.port + 1}`
-  const trustedForwardingKey =
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY ?? INTERNAL_HARNESS_LOCAL_TRUSTED_FORWARDING_KEY
+  const identityForwardingKey =
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY ?? INTERNAL_HARNESS_LOCAL_IDENTITY_FORWARDING_KEY
   const mcpConfirmationKey =
     process.env.TRELLIS_MCP_CONFIRMATION_KEY ?? 'mcp-confirmation-key-1234567890'
 
@@ -263,7 +263,7 @@ export async function ensureManagedLocalConvex(
         SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
         BETTER_AUTH_SECRET:
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
-        CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
+        CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
         TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
         CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
@@ -301,14 +301,14 @@ export async function ensureManagedLocalConvex(
             SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
             BETTER_AUTH_SECRET:
               process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
-            CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
+            CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
             TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
           },
           {
             ...process.env,
             CONVEX_URL: managedEnv.url,
             CONVEX_SITE_URL: managedEnv.siteUrl,
-            CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
+            CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
           },
         ),
         managedProcess.unexpectedExit,
@@ -331,7 +331,7 @@ export async function ensureManagedLocalConvex(
             ...process.env,
             CONVEX_URL: managedEnv.url,
             CONVEX_SITE_URL: managedEnv.siteUrl,
-            CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
+            CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
           },
         }),
         managedProcess.unexpectedExit,
@@ -365,7 +365,7 @@ export async function ensureManagedLocalConvex(
   return {
     env: {
       ALLOW_TEST_RESET: 'true',
-      CONVEX_TRUSTED_FORWARDING_KEY: trustedForwardingKey,
+      CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
       TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
       CONVEX_URL: activeHandle.url,
       CONVEX_SITE_URL: finalSiteUrl,

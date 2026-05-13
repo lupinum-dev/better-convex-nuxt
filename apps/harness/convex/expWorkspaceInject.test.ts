@@ -54,7 +54,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     expect(result.resolvedWorkspaceIdFromInput).toBe(orgId)
   })
 
-  it('12b: resolver scopes actor to the provided workspaceId', async () => {
+  it('12b: resolver scopes appIdentity to the provided workspaceId', async () => {
     const t = convexTest(schema, modules)
     const { orgId } = await seedUserInOrg(t, 'user_b')
 
@@ -78,7 +78,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     expect(result.resolvedWorkspaceIdFromInput).toBeNull()
   })
 
-  it('12d: mismatched workspace → actor null', async () => {
+  it('12d: mismatched workspace → appIdentity null', async () => {
     const t = convexTest(schema, modules)
     await seedUserInOrg(t, 'user_d')
 

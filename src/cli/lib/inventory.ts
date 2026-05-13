@@ -11,9 +11,9 @@ import {
   findCustomMcpToolsWithAppWrites,
   findDestructiveOperationInventory,
   findDestructiveMcpToolsWithoutOperationBinding,
-  findForwardedPrincipalWithoutTrustedAuth,
+  findForwardedCallerWithoutTrustedAuth,
   findMcpRateLimitStoreSupport,
-  findTrustedForwardingPublicExposure,
+  findIdentityForwardingPublicExposure,
   findUnsafeSurfaceEntries,
   hasBetterConvexNuxtRegistration,
   hasDependency,
@@ -23,19 +23,19 @@ import {
   type ProjectUnsafeEntrypoint,
   usesMcpRateLimit,
   usesPermissionSurfaces,
-  usesTrustedForwardingSurfaces,
+  usesIdentityForwardingSurfaces,
 } from './project.js'
 
 export interface TrellisCliInventoryFacts {
-  trustedForwardingExpected: boolean
+  identityForwardingExpected: boolean
   usesPermissions: boolean
   unsafeSurfaceInventory: ProjectUnsafeEntrypoint[]
   crossTenantEscapeInventory: ProjectSourceLocation[]
   destructiveOperationInventory: ProjectSourceLocation[]
   destructiveMcpToolMisuse: ProjectSourceLocation[]
   customMcpAppWriteMisuse: ProjectSourceLocation[]
-  forwardedPrincipalMisuse: ProjectSourceLocation[]
-  trustedForwardingPublicExposure: ProjectSourceLocation[]
+  forwardedCallerMisuse: ProjectSourceLocation[]
+  identityForwardingPublicExposure: ProjectSourceLocation[]
   mcpRateLimitExpected: boolean
   mcpRateLimitStoreSupport: 'supported' | 'unverified' | 'none'
 }
@@ -86,7 +86,7 @@ export interface TrellisCliInventoryFeature {
   file: string
   source: TrellisCliInventorySourceLocation
   tenantTables: string[]
-  globalTables: string[]
+  sharedTables: string[]
   permissionRefs: string[]
   operationRefs: string[]
 }
@@ -171,15 +171,15 @@ export interface TrellisCliInventory {
     appInventory: string | null
   }
   surfaces: {
-    trustedForwarding: boolean
+    identityForwarding: boolean
     permissions: boolean
     destructiveOperations: number
     unsafeEntrypoints: number
     crossTenantEscapes: number
     mcpTools: number
     customMcpToolsWithAppWrites: number
-    forwardedPrincipalMisuses: number
-    trustedForwardingPublicExposures: number
+    forwardedCallerMisuses: number
+    identityForwardingPublicExposures: number
     destructiveMcpToolMisuses: number
     mcpRateLimit: boolean
     mcpRateLimitStore: 'supported' | 'unverified' | 'none'
@@ -187,7 +187,7 @@ export interface TrellisCliInventory {
   forwarding: {
     expected: boolean
     publicExposures: TrellisCliInventorySourceLocation[]
-    forwardedPrincipalMisuses: TrellisCliInventorySourceLocation[]
+    forwardedCallerMisuses: TrellisCliInventorySourceLocation[]
   }
   mcp: {
     toolCount: number
@@ -376,7 +376,7 @@ function collectFeatures(project: ProjectInspection): TrellisCliInventoryFeature
           line: declaration.getNameNode().getStartLineNumber(),
         },
         tenantTables: readStringArrayProperty(definition, 'tenantTables'),
-        globalTables: readStringArrayProperty(definition, 'globalTables'),
+        sharedTables: readStringArrayProperty(definition, 'sharedTables'),
         permissionRefs: readIdentifierRefsProperty(definition, 'permissions'),
         operationRefs: readIdentifierRefsProperty(definition, 'operations'),
       })
@@ -690,15 +690,15 @@ export function collectTrellisCliInventoryFacts(
   project: ProjectInspection,
 ): TrellisCliInventoryFacts {
   return {
-    trustedForwardingExpected: usesTrustedForwardingSurfaces(project),
+    identityForwardingExpected: usesIdentityForwardingSurfaces(project),
     usesPermissions: usesPermissionSurfaces(project),
     unsafeSurfaceInventory: findUnsafeSurfaceEntries(project),
     crossTenantEscapeInventory: findCrossTenantEscapeInventory(project),
     destructiveOperationInventory: findDestructiveOperationInventory(project),
     destructiveMcpToolMisuse: findDestructiveMcpToolsWithoutOperationBinding(project),
     customMcpAppWriteMisuse: findCustomMcpToolsWithAppWrites(project),
-    forwardedPrincipalMisuse: findForwardedPrincipalWithoutTrustedAuth(project),
-    trustedForwardingPublicExposure: findTrustedForwardingPublicExposure(project),
+    forwardedCallerMisuse: findForwardedCallerWithoutTrustedAuth(project),
+    identityForwardingPublicExposure: findIdentityForwardingPublicExposure(project),
     mcpRateLimitExpected: usesMcpRateLimit(project),
     mcpRateLimitStoreSupport: findMcpRateLimitStoreSupport(project),
   }
@@ -720,7 +720,7 @@ export function collectTrellisCliInventory(
     hasSourcePath(project, /[/\\](?:features[/\\]workspace|workspaces|workspace)[/\\]/)
   const hasMcpLayer =
     hasDependency(project, '@nuxtjs/mcp-toolkit') ||
-    facts.trustedForwardingExpected ||
+    facts.identityForwardingExpected ||
     hasSourcePath(project, /[/\\]server[/\\]mcp[/\\]/)
   const bridge = collectBridgeInventory(project)
 
@@ -753,23 +753,23 @@ export function collectTrellisCliInventory(
       appInventory: toRelative(project, appInventorySource?.path),
     },
     surfaces: {
-      trustedForwarding: facts.trustedForwardingExpected,
+      identityForwarding: facts.identityForwardingExpected,
       permissions: facts.usesPermissions,
       destructiveOperations: facts.destructiveOperationInventory.length,
       unsafeEntrypoints: facts.unsafeSurfaceInventory.length,
       crossTenantEscapes: facts.crossTenantEscapeInventory.length,
       mcpTools: countMcpToolFiles(project),
       customMcpToolsWithAppWrites: facts.customMcpAppWriteMisuse.length,
-      forwardedPrincipalMisuses: facts.forwardedPrincipalMisuse.length,
-      trustedForwardingPublicExposures: facts.trustedForwardingPublicExposure.length,
+      forwardedCallerMisuses: facts.forwardedCallerMisuse.length,
+      identityForwardingPublicExposures: facts.identityForwardingPublicExposure.length,
       destructiveMcpToolMisuses: facts.destructiveMcpToolMisuse.length,
       mcpRateLimit: facts.mcpRateLimitExpected,
       mcpRateLimitStore: facts.mcpRateLimitStoreSupport,
     },
     forwarding: {
-      expected: facts.trustedForwardingExpected,
-      publicExposures: toInventoryLocations(project, facts.trustedForwardingPublicExposure),
-      forwardedPrincipalMisuses: toInventoryLocations(project, facts.forwardedPrincipalMisuse),
+      expected: facts.identityForwardingExpected,
+      publicExposures: toInventoryLocations(project, facts.identityForwardingPublicExposure),
+      forwardedCallerMisuses: toInventoryLocations(project, facts.forwardedCallerMisuse),
     },
     mcp: {
       toolCount: countMcpToolFiles(project),

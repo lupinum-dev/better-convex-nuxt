@@ -9,8 +9,8 @@ export type ToolConfirmationPayload = {
   executePath: string
   previewPath: string
   jti: string
-  principalKey: string
-  tenantKey: string
+  callerKey: string
+  scopeKey: string
   argsHash: string
   argsFieldHashes?: Record<string, string>
   previewHash: string
@@ -72,8 +72,8 @@ export async function verifyConfirmationToken(token: string): Promise<ToolConfir
     executePath: String(payload.executePath),
     previewPath: String(payload.previewPath),
     jti: String(payload.jti),
-    principalKey: String(payload.principalKey),
-    tenantKey: String(payload.tenantKey),
+    callerKey: String(payload.callerKey),
+    scopeKey: String(payload.scopeKey),
     argsHash: String(payload.argsHash),
     ...(payload.argsFieldHashes &&
     typeof payload.argsFieldHashes === 'object' &&

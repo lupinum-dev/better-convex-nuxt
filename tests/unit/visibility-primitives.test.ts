@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import { defineCapabilities, defineRedaction } from '../../src/runtime/visibility'
+import { defineRecordAccess, defineRedaction } from '../../src/runtime/visibility'
 
 describe('visibility primitives', () => {
-  it('attaches explicit capabilities to a single resource and arrays', () => {
-    const capabilities = defineCapabilities<{ ownerId: string; title: string }>()({
-      update: (actor: { userId: string; role: string } | null, resource) =>
-        !!actor && actor.userId === resource.ownerId,
-      delete: (actor: { userId: string; role: string } | null, _resource) =>
-        !!actor && actor.role === 'admin',
+  it('attaches explicit recordAccess to a single resource and arrays', () => {
+    const recordAccess = defineRecordAccess<{ ownerId: string; title: string }>()({
+      update: (appIdentity: { userId: string; role: string } | null, resource) =>
+        !!appIdentity && appIdentity.userId === resource.ownerId,
+      delete: (appIdentity: { userId: string; role: string } | null, _resource) =>
+        !!appIdentity && appIdentity.role === 'admin',
     })
 
     expect(
-      capabilities.attach(
+      recordAccess.attach(
         { userId: 'alice', role: 'member' },
         { ownerId: 'alice', title: 'Hello' },
       ),
@@ -26,7 +26,7 @@ describe('visibility primitives', () => {
     })
 
     expect(
-      capabilities.attach({ userId: 'alice', role: 'admin' }, [
+      recordAccess.attach({ userId: 'alice', role: 'admin' }, [
         { ownerId: 'alice', title: 'One' },
         { ownerId: 'bob', title: 'Two' },
       ]),
@@ -52,11 +52,11 @@ describe('visibility primitives', () => {
       rules: [
         {
           fields: ['internalNotes'],
-          visibleTo: (actor) => actor.role === 'editor',
+          visibleTo: (appIdentity) => appIdentity.role === 'editor',
         },
         {
           fields: ['salary'],
-          visibleTo: (actor) => actor.role === 'owner',
+          visibleTo: (appIdentity) => appIdentity.role === 'owner',
         },
       ],
     })
@@ -97,7 +97,7 @@ describe('visibility primitives', () => {
       rules: [
         {
           fields: ['internalNotes', 'salary'],
-          visibleTo: (actor) => actor.role === 'owner',
+          visibleTo: (appIdentity) => appIdentity.role === 'owner',
         },
       ],
     })

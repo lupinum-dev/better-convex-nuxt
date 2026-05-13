@@ -1,12 +1,12 @@
-import { definePermissionContext } from '@lupinum/trellis/auth'
+import { defineAccessContext } from '@lupinum/trellis/auth'
 
-import { getPermissionActor } from '../auth/actor'
+import { getAccessIdentity } from '../auth/app-identity'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getPermissionContext = query.protected(
-  definePermissionContext({
-    resolve: getPermissionActor,
+export const getAccessContext = query.protected(
+  defineAccessContext({
+    resolve: getAccessIdentity,
     permissions,
   }),
 )

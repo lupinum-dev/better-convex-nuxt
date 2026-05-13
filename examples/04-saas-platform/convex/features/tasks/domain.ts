@@ -11,18 +11,18 @@ import {
 import type { Doc } from '../../_generated/dataModel'
 import { hasRole, hasWorkspace, requireWorkspaceTenant } from '../../auth/guards'
 import { mutation, query } from '../../functions'
-import { taskCapabilities } from './capabilities'
 import { canUpdateTask } from './checks'
 import { removeTaskOp } from './operations'
 import { taskAssign, taskCreate, taskRead } from './permissions'
+import { taskCapabilities } from './record-access'
 
 export const listByProject = query.protected({
   args: { projectId: v.id('projects') },
   guard: taskRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
-    loadResource(actor, await ctx.db.get(args.projectId), 'Project')
+    loadResource(appIdentity, await ctx.db.get(args.projectId), 'Project')
 
     const tasks = await ctx.db
       .query('tasks')
@@ -30,7 +30,7 @@ export const listByProject = query.protected({
       .order('desc')
       .collect()
 
-    return taskCapabilities.attach(actor, tasks)
+    return taskCapabilities.attach(appIdentity, tasks)
   },
 })
 
@@ -38,9 +38,13 @@ export const get = query.protected({
   args: { id: v.id('tasks') },
   guard: taskRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const task = loadResource(actor, (await ctx.db.get(args.id)) as Doc<'tasks'> | null, 'Task')
-    return taskCapabilities.attach(actor, task)
+    const appIdentity = await ctx.appIdentity()
+    const task = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.id)) as Doc<'tasks'> | null,
+      'Task',
+    )
+    return taskCapabilities.attach(appIdentity, task)
   },
 })
 
@@ -48,11 +52,11 @@ export const create = mutation.protected({
   args: createTask.args,
   guard: taskCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const project = loadResource(
-      actor,
+      appIdentity,
       (await ctx.db.get(args.projectId)) as Doc<'projects'> | null,
       'Project',
     )
@@ -67,7 +71,7 @@ export const create = mutation.protected({
       title: args.title,
       status: 'backlog',
       priority: args.priority ?? 'medium',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       workspaceId,
       createdAt: now,
       updatedAt: now,
@@ -75,7 +79,7 @@ export const create = mutation.protected({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'task',
       entityId: taskId,
       action: 'task.created',
@@ -91,17 +95,21 @@ export const moveToColumn = mutation.protected({
   args: moveTask.args,
   guard: taskRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const task = loadResource(actor, (await ctx.db.get(args.id)) as Doc<'tasks'> | null, 'Task')
-    enforce(actor, 'Update task', canUpdateTask(task))
+    const appIdentity = await ctx.appIdentity()
+    const task = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.id)) as Doc<'tasks'> | null,
+      'Task',
+    )
+    enforce(appIdentity, 'Update task', canUpdateTask(task))
 
-    const workspaceId = requireWorkspaceTenant(actor)
+    const workspaceId = requireWorkspaceTenant(appIdentity)
     const now = Date.now()
     await ctx.db.patch(args.id, { status: args.status, updatedAt: now })
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.moved',
@@ -115,10 +123,14 @@ export const assign = mutation.protected({
   args: assignTask.args,
   guard: taskAssign,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
-    const task = loadResource(actor, (await ctx.db.get(args.id)) as Doc<'tasks'> | null, 'Task')
+    const task = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.id)) as Doc<'tasks'> | null,
+      'Task',
+    )
 
     if (args.assigneeId) {
       const assignee = await ctx.db
@@ -135,7 +147,7 @@ export const assign = mutation.protected({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'task',
       entityId: args.id,
       action: 'task.assigned',
@@ -152,8 +164,8 @@ export const bulkUpdateStatus = mutation.protected({
   },
   guard: hasWorkspace.and(hasRole('owner', 'admin', 'member')),
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const now = Date.now()
     const updates = await asyncMap(args.ids, async (id) => {
@@ -163,7 +175,7 @@ export const bulkUpdateStatus = mutation.protected({
         return { id, updated: false as const }
       }
 
-      if (!can(actor, canUpdateTask(typedTask))) {
+      if (!can(appIdentity, canUpdateTask(typedTask))) {
         return { id, updated: false as const }
       }
 
@@ -178,7 +190,7 @@ export const bulkUpdateStatus = mutation.protected({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'task',
       entityId: results.skipped.join(',') || 'bulk',
       action: 'task.bulk_status',
@@ -198,9 +210,9 @@ export const listForExport = query.protected({
   args: { projectId: v.id('projects') },
   guard: taskRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
-    loadResource(actor, await ctx.db.get(args.projectId), 'Project')
+    loadResource(appIdentity, await ctx.db.get(args.projectId), 'Project')
 
     return ctx.db
       .query('tasks')

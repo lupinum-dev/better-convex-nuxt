@@ -16,7 +16,7 @@ const events = computed(() => snapshot.value?.events ?? [])
 const authState = computed(() => snapshot.value?.authState ?? null)
 const connectionState = computed(() => snapshot.value?.connectionState ?? null)
 const authWaterfall = computed(() => snapshot.value?.authWaterfall ?? null)
-const permissionState = computed(() => snapshot.value?.permissionContextState ?? null)
+const accessState = computed(() => snapshot.value?.accessContextState ?? null)
 const authBootstrapState = computed(() => snapshot.value?.authBootstrapState ?? null)
 const observations = computed(() => snapshot.value?.observations ?? [])
 const decisionTrace = computed(() => snapshot.value?.decisionTrace ?? null)
@@ -127,7 +127,7 @@ function onTabAuth() {
           v-show="activeTab === 'auth'"
           :auth-state="authState"
           :waterfall="authWaterfall"
-          :permission-state="permissionState"
+          :access-state="accessState"
           :auth-bootstrap-state="authBootstrapState"
           :decision-trace="decisionTrace"
           :observations="observations"

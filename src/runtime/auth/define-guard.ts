@@ -1,4 +1,4 @@
-export type Check<P = unknown> = (principal: P) => boolean
+export type Check<P = unknown> = (caller: P) => boolean
 export type AnyCheck<P = unknown> = Check<P> | boolean
 
 export type GuardKind = 'base' | 'and' | 'or' | 'not' | 'auth_required'
@@ -24,8 +24,8 @@ export type AuthRequiredGuard = Guard<unknown> & {
   not: () => never
 }
 
-export function runCheck<P>(principal: P, check: AnyCheck<P>): boolean {
-  return typeof check === 'function' ? (check as Check<P>)(principal) : check
+export function runCheck<P>(caller: P, check: AnyCheck<P>): boolean {
+  return typeof check === 'function' ? (check as Check<P>)(caller) : check
 }
 
 export function isGuard<P = unknown>(value: unknown): value is Guard<P> {
@@ -56,7 +56,7 @@ function createGuard<P>(
   kind: GuardKind,
   checks: ReadonlyArray<AnyCheck<P>>,
 ): Guard<P> {
-  const guard = ((principal: P) => evaluate(principal)) as Guard<P>
+  const guard = ((caller: P) => evaluate(caller)) as Guard<P>
 
   guard._type = 'guard'
   guard.kind = kind
@@ -65,27 +65,25 @@ function createGuard<P>(
   guard.and = (...nextChecks) =>
     createGuard(
       [label, ...nextChecks.map(describeCheck)].join(' && '),
-      (principal) =>
-        runCheck(principal, guard) && nextChecks.every((check) => runCheck(principal, check)),
+      (caller) => runCheck(caller, guard) && nextChecks.every((check) => runCheck(caller, check)),
       'and',
       [guard, ...nextChecks],
     )
   guard.or = (...nextChecks) =>
     createGuard(
       [label, ...nextChecks.map(describeCheck)].join(' || '),
-      (principal) =>
-        runCheck(principal, guard) || nextChecks.some((check) => runCheck(principal, check)),
+      (caller) => runCheck(caller, guard) || nextChecks.some((check) => runCheck(caller, check)),
       'or',
       [guard, ...nextChecks],
     )
   guard.not = () =>
-    createGuard(`not ${label}`, (principal) => !runCheck(principal, guard), 'not', [guard])
+    createGuard(`not ${label}`, (caller) => !runCheck(caller, guard), 'not', [guard])
 
   return guard
 }
 
 export function defineGuard<P>(label: string, check: AnyCheck<P>): Guard<P> {
-  return createGuard(label, (principal) => runCheck(principal, check), 'base', [check])
+  return createGuard(label, (caller) => runCheck(caller, check), 'base', [check])
 }
 
 export const open = Object.assign(defineGuard<unknown>('open', true), {
@@ -93,7 +91,7 @@ export const open = Object.assign(defineGuard<unknown>('open', true), {
 }) as OpenGuard
 
 /**
- * Sentinel guard for pre-actor authenticated flows.
+ * Sentinel guard for pre-appIdentity authenticated flows.
  *
  * The boolean check here is intentionally inert. Enforcement happens in the
  * structured handler runtime via `requireAuth(...)`, not through `runCheck(...)`.
@@ -102,12 +100,12 @@ export const authRequired = Object.assign(defineGuard<unknown>('authRequired', t
   _authRequired: true as const,
   kind: 'auth_required' as const,
   and: () => {
-    throw new Error('authRequired is a principal gate and cannot be composed with and().')
+    throw new Error('authRequired is a caller gate and cannot be composed with and().')
   },
   or: () => {
-    throw new Error('authRequired is a principal gate and cannot be composed with or().')
+    throw new Error('authRequired is a caller gate and cannot be composed with or().')
   },
   not: () => {
-    throw new Error('authRequired is a principal gate and cannot be negated.')
+    throw new Error('authRequired is a caller gate and cannot be negated.')
   },
 }) as AuthRequiredGuard

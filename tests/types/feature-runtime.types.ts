@@ -13,15 +13,15 @@ const tasks = defineFeature({
   },
   permissions: [taskRead] as const,
   tenantTables: ['tasks'] as const,
-  globalTables: ['workspaces'] as const,
+  sharedTables: ['workspaces'] as const,
 })
 
 const manifest = composeFeatures([tasks] as const)
-const { schema, permissions, tenantTables, globalTables } = manifest
+const { schema, permissions, tenantTables, sharedTables } = manifest
 
 const schemaTableName: 'tasks' = schema.tasks.table
 const tenantTable: 'tasks' = tenantTables[0]!
-const globalTable: 'workspaces' = globalTables[0]!
+const globalTable: 'workspaces' = sharedTables[0]!
 const permissionKey: 'task.read' = permissions[0]!.key
 
 void schemaTableName

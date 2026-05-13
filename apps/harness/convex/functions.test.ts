@@ -7,17 +7,17 @@ import { withObservationEnvelope } from '../../../src/runtime/observability'
 import { api } from './_generated/api'
 import schema from './schema'
 import {
-  INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
+  INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY,
   setupTestWithMultipleUsers,
   setupTestWithTwoOrgs,
-  withTrustedPrincipal,
+  withTrustedCaller,
 } from './test.helpers'
 import { modules } from './test.setup'
 
 describe('defineTrellis', () => {
-  process.env.CONVEX_TRUSTED_FORWARDING_KEY = INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY
+  process.env.CONVEX_IDENTITY_FORWARDING_KEY = INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY
 
-  it('does not resolve the actor when a handler never calls ctx.actor()', async () => {
+  it('does not resolve the appIdentity when a handler never calls ctx.appIdentity()', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
@@ -26,7 +26,7 @@ describe('defineTrellis', () => {
     })
   })
 
-  it('memoizes ctx.actor() within one invocation but not across separate calls', async () => {
+  it('memoizes ctx.appIdentity() within one invocation but not across separate calls', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
@@ -44,7 +44,7 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal(
+        withTrustedCaller(
           {},
           { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
           null,
@@ -55,7 +55,7 @@ describe('defineTrellis', () => {
       before: 0,
       after: 1,
       sameReference: true,
-      actor: {
+      appIdentity: {
         kind: 'user',
         userId: 'memo_user',
         role: 'member',
@@ -65,7 +65,7 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.actorMemoization,
-        withTrustedPrincipal(
+        withTrustedCaller(
           {},
           { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
           null,
@@ -79,25 +79,25 @@ describe('defineTrellis', () => {
     })
   })
 
-  it('strips hidden principal args before the handler sees args', async () => {
+  it('strips hidden caller args before the handler sees args', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
     await expect(
       t.query(
-        api.functionsProbe.trustedForwardingStateProbe,
-        withTrustedPrincipal(
+        api.functionsProbe.identityForwardingStateProbe,
+        withTrustedCaller(
           {},
           { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
           null,
-          api.functionsProbe.trustedForwardingStateProbe,
+          api.functionsProbe.identityForwardingStateProbe,
         ),
       ),
     ).resolves.toMatchObject({
-      trustedForwarding: {
+      identityForwarding: {
         principalSubject: 'user:echo_user',
       },
-      forwardedPrincipal: {
+      forwardedCaller: {
         kind: 'user',
         userId: 'echo_user',
         subject: 'user:echo_user',
@@ -107,7 +107,7 @@ describe('defineTrellis', () => {
     await expect(
       t.query(
         api.functionsProbe.echoedArgs,
-        withTrustedPrincipal(
+        withTrustedCaller(
           { title: 'hello' },
           { kind: 'user', userId: 'echo_user', subject: 'user:echo_user' },
           null,
@@ -123,14 +123,14 @@ describe('defineTrellis', () => {
     const t = convexTest(schema, modules)
 
     await expect(
-      t.query(api.functionsProbe.unsafeForwardedPrincipalProbe, {
-        principal: {
+      t.query(api.functionsProbe.unsafeForwardedCallerProbe, {
+        caller: {
           kind: 'user',
           userId: 'forged_user',
           subject: 'user:forged_user',
         },
       } as never),
-    ).rejects.toThrow(/Unexpected field `principal`|Forwarded identity fields/)
+    ).rejects.toThrow(/Unexpected field `caller`|Forwarded identity fields/)
   })
 
   it('strips the internal __trellis envelope before structured phases and onSuccess hooks', async () => {
@@ -170,13 +170,13 @@ describe('defineTrellis', () => {
     })
   })
 
-  it('exposes validated delegation through ctx.delegation()', async () => {
+  it('exposes validated actingFor through ctx.actingFor()', async () => {
     const t = convexTest(schema, modules)
 
     await expect(
       t.query(
         api.functionsProbe.structuredDelegationProbe,
-        withTrustedPrincipal(
+        withTrustedCaller(
           {},
           { kind: 'agent', agentId: 'agent_1', subject: 'agent:agent_1', role: 'member' },
           { subject: 'user:delegated_user', reason: 'approved' },
@@ -184,14 +184,14 @@ describe('defineTrellis', () => {
         ),
       ),
     ).resolves.toEqual({
-      delegation: {
+      actingFor: {
         subject: 'user:delegated_user',
         reason: 'approved',
       },
     })
   })
 
-  it('uses tenant isolation as defense in depth for unsafe reads and writes', async () => {
+  it('uses isolation as defense in depth for unsafe reads and writes', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
     const postId = await asUser1.mutation(api.posts.create, {
@@ -200,7 +200,7 @@ describe('defineTrellis', () => {
     })
 
     await expect(asUser2.query(api.functionsProbe.unsafeListPosts, {})).rejects.toThrow(
-      'Document belongs to a different tenant.',
+      'Document belongs to a different isolation scope.',
     )
 
     await expect(
@@ -208,10 +208,10 @@ describe('defineTrellis', () => {
         id: postId,
         title: 'hijacked',
       }),
-    ).rejects.toThrow('Document belongs to a different tenant.')
+    ).rejects.toThrow('Document belongs to a different isolation scope.')
   })
 
-  it('fails closed when the actor and document both lack a tenant id', async () => {
+  it('fails closed when the appIdentity and document both lack a tenant id', async () => {
     const t = convexTest(schema, modules)
 
     await t.run(async (ctx) => {
@@ -238,7 +238,7 @@ describe('defineTrellis', () => {
     const asNoOrgUser = t.withIdentity({ subject: 'no_org_user' })
 
     await expect(asNoOrgUser.query(api.functionsProbe.unsafeListMcpKeys, {})).rejects.toThrow(
-      'Document belongs to a different tenant.',
+      'Document belongs to a different isolation scope.',
     )
   })
 
@@ -260,7 +260,7 @@ describe('defineTrellis', () => {
     const t = convexTest(schema, modules)
 
     await expect(t.query(api.functionsProbe.structuredPublicActorEcho, {})).resolves.toEqual({
-      actor: null,
+      appIdentity: null,
     })
   })
 
@@ -283,7 +283,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow('Forbidden: probe.update')
   })
 
-  it('runs tenant isolation before structured authorize on cross-tenant loads', async () => {
+  it('runs isolation before structured authorize on cross-scope loads', async () => {
     const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
     const postId = await asUser1.mutation(api.posts.create, {
@@ -293,6 +293,6 @@ describe('defineTrellis', () => {
 
     await expect(
       asUser2.query(api.functionsProbe.structuredPostOwner, { id: postId }),
-    ).rejects.toThrow('Document belongs to a different tenant.')
+    ).rejects.toThrow('Document belongs to a different isolation scope.')
   })
 })

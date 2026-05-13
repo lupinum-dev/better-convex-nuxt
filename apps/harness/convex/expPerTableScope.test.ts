@@ -66,7 +66,7 @@ describe('Experiment 13: per-table scope config', () => {
     const ctx = await setup(t)
     const result = await t.mutation(internal.expPerTableScope.tryWrongScopeInsert, {
       actorOrgId: ctx.org1Id,
-      actorWorkspaceId: ctx.ws1A,
+      appIdentityWorkspaceId: ctx.ws1A,
       wrongOrgId: ctx.org2Id,
       wrongWorkspaceId: ctx.ws2A,
     })

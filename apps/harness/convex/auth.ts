@@ -91,13 +91,13 @@ interface DebugInfo {
   identitySubject?: string
   hasUser?: boolean
   userId?: string
-  tenantId?: string
+  workspaceId?: string
   role?: string
   reason?: string
   context?: Record<string, unknown>
 }
 
-export const getPermissionContext = query.public({
+export const getAccessContext = query.public({
   args: {},
   handler: async (ctx) => {
     // #region agent log
@@ -118,7 +118,7 @@ export const getPermissionContext = query.public({
     // #region agent log
     debugInfo.hasUser = !!user
     debugInfo.userId = user?._id
-    debugInfo.tenantId = user?.organizationId
+    debugInfo.workspaceId = user?.organizationId
     debugInfo.role = user?.role
     // #endregion
 
@@ -131,9 +131,9 @@ export const getPermissionContext = query.public({
       // #endregion
     }
 
-    const actor = await ctx.actor()
-    if (!actor) {
-      return { _debug: { ...debugInfo, reason: 'actor resolution failed' } } as {
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) {
+      return { _debug: { ...debugInfo, reason: 'appIdentity resolution failed' } } as {
         _debug: DebugInfo
       }
     }
@@ -144,7 +144,7 @@ export const getPermissionContext = query.public({
       userId: string
       displayName?: string
       email?: string
-      tenantId?: string
+      workspaceId?: string
       can: Record<string, boolean>
     } = {
       role: user.role,
@@ -152,21 +152,21 @@ export const getPermissionContext = query.public({
       displayName: user.displayName,
       email: user.email,
       can: {
-        'org.settings': can(actor, canManageOrgSettings),
-        'org.billing': can(actor, canViewBilling),
-        'org.invite': can(actor, canInviteMembers),
-        'org.members': can(actor, canManageMembers),
-        'post.create': can(actor, canCreatePost),
-        'post.read': can(actor, canReadPost),
-        'post.publish': can(actor, canPublishPost),
-        'comment.create': can(actor, canCreateComment),
-        'comment.read': can(actor, canReadComment),
+        'org.settings': can(appIdentity, canManageOrgSettings),
+        'org.billing': can(appIdentity, canViewBilling),
+        'org.invite': can(appIdentity, canInviteMembers),
+        'org.members': can(appIdentity, canManageMembers),
+        'post.create': can(appIdentity, canCreatePost),
+        'post.read': can(appIdentity, canReadPost),
+        'post.publish': can(appIdentity, canPublishPost),
+        'comment.create': can(appIdentity, canCreateComment),
+        'comment.read': can(appIdentity, canReadComment),
       },
     }
 
-    // Only include tenantId if user has one
+    // Only include workspaceId if user has one
     if (user.organizationId) {
-      context.tenantId = user.organizationId
+      context.workspaceId = user.organizationId
     }
 
     // #region agent log

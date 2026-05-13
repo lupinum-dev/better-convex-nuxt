@@ -15,7 +15,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports).toHaveProperty('./mcp')
     expect(packageJson.exports).toHaveProperty('./testing')
     expect(packageJson.exports).toHaveProperty('./type-primitives')
-    expect(packageJson.exports).not.toHaveProperty('./actor')
+    expect(packageJson.exports).not.toHaveProperty('./app-identity')
     expect(packageJson.exports).not.toHaveProperty('./convex')
     expect(packageJson.exports).not.toHaveProperty('./eslint')
     expect(packageJson.exports).not.toHaveProperty('./feature')
@@ -24,7 +24,7 @@ describe('package subpath exports', () => {
     expect(packageJson.exports).not.toHaveProperty('./service')
     expect(packageJson.exports).not.toHaveProperty('./scoping')
     expect(packageJson.exports).not.toHaveProperty('./schema')
-    expect(packageJson.exports).not.toHaveProperty('./trusted-forwarding')
+    expect(packageJson.exports).not.toHaveProperty('./identity-forwarding')
     expect(packageJson.exports).not.toHaveProperty('./visibility')
     expect(packageJson.typesVersions['*']).toHaveProperty('args')
     expect(packageJson.typesVersions['*']).toHaveProperty('auth')
@@ -34,7 +34,7 @@ describe('package subpath exports', () => {
     expect(packageJson.typesVersions['*']).toHaveProperty('mcp')
     expect(packageJson.typesVersions['*']).toHaveProperty('testing')
     expect(packageJson.typesVersions['*']).toHaveProperty('type-primitives')
-    expect(packageJson.typesVersions['*']).not.toHaveProperty('actor')
+    expect(packageJson.typesVersions['*']).not.toHaveProperty('appIdentity')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('convex')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('eslint')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('feature')
@@ -43,7 +43,7 @@ describe('package subpath exports', () => {
     expect(packageJson.typesVersions['*']).not.toHaveProperty('service')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('scoping')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('schema')
-    expect(packageJson.typesVersions['*']).not.toHaveProperty('trusted-forwarding')
+    expect(packageJson.typesVersions['*']).not.toHaveProperty('identity-forwarding')
     expect(packageJson.typesVersions['*']).not.toHaveProperty('visibility')
   })
 
@@ -76,7 +76,7 @@ describe('package subpath exports', () => {
     for (const specifier of [
       '@lupinum/trellis/functions',
       '@lupinum/trellis/bridge',
-      '@lupinum/trellis/trusted-forwarding',
+      '@lupinum/trellis/identity-forwarding',
       '@lupinum/trellis/visibility',
     ]) {
       await expect(import(specifier)).rejects.toThrow()

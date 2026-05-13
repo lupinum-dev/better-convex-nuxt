@@ -1,4 +1,4 @@
-export { taskCapabilities } from './capabilities'
+export { taskCapabilities } from './record-access'
 export { canDeleteTask, canUpdateTask } from './checks'
 export { tasksFeature } from './feature'
 export { previewRemoveTask, removeTaskOp } from './operations'

@@ -22,8 +22,8 @@ export type TrellisObservationReasonCode =
   | 'authorize.denied'
   | 'rls.denied'
   | 'service.access.denied'
-  | 'tool.capability_denied'
-  | 'tool.capability_backend_drift'
+  | 'tool.recordAccess_denied'
+  | 'tool.recordAccess_backend_drift'
   | 'tool.disabled'
   | 'tool.confirmation_mismatch'
   | 'tool.execution_failed'
@@ -36,7 +36,7 @@ export type TrellisObservationReasonCode =
 export type TrellisSuggestedAction =
   | 'sign_in'
   | 'invite_to_workspace'
-  | 'grant_capability'
+  | 'grant_recordAccess'
   | 'switch_tenant'
   | 'retry_with_confirmation'
   | 'contact_admin'
@@ -54,7 +54,7 @@ export interface TrellisDenialExplanation {
   decision: TrellisDenialDecision
   message: string
   policy?: string
-  tenantId?: string
+  workspaceId?: string
   suggestedAction?: TrellisSuggestedAction
 }
 
@@ -74,7 +74,7 @@ type ObservationBase = {
   tool?: string
   principalKind?: string
   actorKind?: string
-  tenantId?: string
+  workspaceId?: string
   service?: string
   serviceId?: string
   durationMs?: number
@@ -82,16 +82,16 @@ type ObservationBase = {
 }
 
 type ObservationDefinitionMap = {
-  'principal.resolved': { status: 'success'; reasonCode?: never }
-  'actor.resolved': { status: 'success'; reasonCode?: never }
-  'actor.missing': { status: 'skip'; reasonCode?: never }
+  'caller.resolved': { status: 'success'; reasonCode?: never }
+  'appIdentity.resolved': { status: 'success'; reasonCode?: never }
+  'appIdentity.missing': { status: 'skip'; reasonCode?: never }
   'guard.allowed': { status: 'success'; reasonCode?: never }
   'guard.denied': { status: 'deny'; reasonCode: 'guard.auth_required' | 'guard.denied' }
   'authorize.allowed': { status: 'success'; reasonCode?: never }
   'authorize.denied': { status: 'deny'; reasonCode: 'authorize.denied' }
   'rls.denied': { status: 'deny'; reasonCode: 'rls.denied' | 'service.access.denied' }
   'unsafe.handler.used': { status: 'success'; reasonCode?: never }
-  'db.escape_tenant_isolation.used': { status: 'success'; reasonCode?: never }
+  'db.escape_isolation.used': { status: 'success'; reasonCode?: never }
   'service.access.checked': { status: 'success'; reasonCode?: never }
   'service.access.denied': { status: 'deny'; reasonCode: 'service.access.denied' }
   'operation.preview.started': { status: 'success'; reasonCode?: never }
@@ -105,8 +105,8 @@ type ObservationDefinitionMap = {
   'tool.denied': {
     status: 'deny'
     reasonCode:
-      | 'tool.capability_denied'
-      | 'tool.capability_backend_drift'
+      | 'tool.recordAccess_denied'
+      | 'tool.recordAccess_backend_drift'
       | 'tool.disabled'
       | 'tool.confirmation_mismatch'
   }
@@ -184,7 +184,7 @@ export type TrellisObservationContext = {
   tool?: string
   principalKind?: string
   actorKind?: string
-  tenantId?: string
+  workspaceId?: string
   service?: string
   serviceId?: string
 }
@@ -208,7 +208,7 @@ export const alwaysOnEvents: ReadonlySet<TrellisObservationName> = new Set<Trell
   'authorize.denied',
   'rls.denied',
   'unsafe.handler.used',
-  'db.escape_tenant_isolation.used',
+  'db.escape_isolation.used',
   'service.access.denied',
   'operation.confirm.drifted',
   'operation.execute.failed',
@@ -225,16 +225,16 @@ export const criticalEvents: ReadonlySet<TrellisObservationName> = new Set<Trell
 
 export const nonVerboseEvents: ReadonlySet<TrellisObservationName> =
   new Set<TrellisObservationName>([
-    'principal.resolved',
-    'actor.resolved',
-    'actor.missing',
+    'caller.resolved',
+    'appIdentity.resolved',
+    'appIdentity.missing',
     'guard.allowed',
     'guard.denied',
     'authorize.allowed',
     'authorize.denied',
     'rls.denied',
     'unsafe.handler.used',
-    'db.escape_tenant_isolation.used',
+    'db.escape_isolation.used',
     'service.access.checked',
     'service.access.denied',
     'operation.preview.started',
@@ -264,7 +264,7 @@ export const nonVerboseEvents: ReadonlySet<TrellisObservationName> =
   ])
 
 export function getObservationFamily(name: TrellisObservationName): TrellisObservationFamily {
-  if (name.startsWith('principal.') || name.startsWith('actor.')) return 'identity'
+  if (name.startsWith('caller.') || name.startsWith('appIdentity.')) return 'identity'
   if (name.startsWith('guard.') || name.startsWith('authorize.') || name === 'rls.denied') {
     return 'authorization'
   }

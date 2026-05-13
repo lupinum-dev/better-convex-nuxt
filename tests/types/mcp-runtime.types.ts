@@ -17,8 +17,8 @@ type Assert<T extends true> = T
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
-type Principal = { kind: 'agent'; id: string }
-type Capabilities = { publishEntry: boolean; readEntry: boolean }
+type Caller = { kind: 'agent'; id: string }
+type RecordAccess = { publishEntry: boolean; readEntry: boolean }
 
 const readEntryPermission = definePermission({
   key: 'readEntry',
@@ -37,14 +37,14 @@ const schema = defineArgs({
 const queryRef = {} as FunctionReference<
   'query',
   'internal',
-  { principal: Principal },
+  { caller: Caller },
   { title: string; count: number }
 >
 
 const mutationRef = {} as FunctionReference<
   'mutation',
   'internal',
-  { principal: Principal },
+  { caller: Caller },
   { published: true }
 >
 const mutationToolSafety = {
@@ -53,15 +53,15 @@ const mutationToolSafety = {
 } as const
 const safeMutationRef = stampMcpToolSafety(mutationRef, mutationToolSafety)
 
-const runtime = defineMcpApp<Principal, Capabilities>({
-  callConvex: async (_event: H3Event, { principal: _principal, delegation: _delegation }) =>
+const runtime = defineMcpApp<Caller, RecordAccess>({
+  callConvex: async (_event: H3Event, { caller: _principal, actingFor: _delegation }) =>
     ({
       query: async () => ({ title: 'Draft', count: 2 }),
       mutation: async () => ({ published: true }),
       action: async () => ({ executed: true }),
     }) as unknown as McpConvexCaller,
-  resolvePrincipal: async () => ({ kind: 'agent', id: 'run-1' }),
-  resolveCapabilities: async () => ({ publishEntry: true, readEntry: true }),
+  resolveCaller: async () => ({ kind: 'agent', id: 'run-1' }),
+  resolveAccess: async () => ({ publishEntry: true, readEntry: true }),
 })
 
 runtime.tool.query({
@@ -129,7 +129,7 @@ runtime.tool.operation(archiveEntryOp, {
     {} as FunctionReference<
       'mutation',
       'internal',
-      { principal: Principal; id: string },
+      { caller: Caller; id: string },
       { archived: true }
     >,
   ),
@@ -138,7 +138,7 @@ runtime.tool.operation(archiveEntryOp, {
     {} as FunctionReference<
       'query',
       'internal',
-      { principal: Principal; id: string },
+      { caller: Caller; id: string },
       OperationPreviewEnvelope<{
         operation: 'entries.archive'
         targetId: string

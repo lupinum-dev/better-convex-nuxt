@@ -9,7 +9,7 @@
             <h1 class="text-5xl font-semibold">Drafts live inside the component</h1>
             <p class="text-lg text-[var(--mini-muted)]">
               The architecture branch: the browser hits root app wrappers, those wrappers resolve
-              the principal from Better Auth, then forward it into the local component.
+              the caller from Better Auth, then forward it into the local component.
             </p>
           </div>
 
@@ -25,7 +25,7 @@
             <h2 class="text-2xl font-semibold">Boundary flow</h2>
             <p class="text-sm text-[var(--mini-muted)]">
               Browser users become <span class="mini-code">user</span> principals via Better Auth,
-              then the root app forwards that principal into the component wrapper.
+              then the root app forwards that caller into the component wrapper.
             </p>
             <p class="text-sm text-[var(--mini-muted)]">
               MCP is secondary in this example. Agent access requires a server-only
@@ -46,7 +46,7 @@
           <div class="rounded-2xl border border-default p-4">
             <p class="mini-kicker">Browser auth</p>
             <p class="mt-2 text-sm text-[var(--mini-muted)]">
-              Better Auth resolves the browser caller into a root-app principal.
+              Better Auth resolves the browser caller into a root-app caller.
             </p>
           </div>
           <div class="rounded-2xl border border-default p-4">
@@ -56,10 +56,10 @@
             </p>
           </div>
           <div class="rounded-2xl border border-default p-4">
-            <p class="mini-kicker">Component actor</p>
+            <p class="mini-kicker">Component appIdentity</p>
             <p class="mt-2 text-sm text-[var(--mini-muted)]">
-              The component receives the forwarded principal and decides whether that becomes
-              viewer, editor, or agent behavior.
+              The component receives the forwarded caller and decides whether that becomes viewer,
+              editor, or agent behavior.
             </p>
           </div>
           <div class="rounded-2xl border border-default p-4">
@@ -81,7 +81,7 @@
           <UAuthForm
             :schema="signUpSchema"
             title="Create editor account"
-            description="This is the browser side of the principal-first flow."
+            description="This is the browser side of the caller-first flow."
             icon="i-lucide-user-plus"
             :fields="signUpFields"
             :submit="{ label: 'Sign up', block: true }"
@@ -105,7 +105,7 @@
           <UAuthForm
             :schema="signInSchema"
             title="Sign in"
-            description="Once signed in, the root wrapper forwards your principal into the component."
+            description="Once signed in, the root wrapper forwards your caller into the component."
             icon="i-lucide-log-in"
             :fields="signInFields"
             :submit="{ label: 'Sign in', block: true, color: 'neutral', variant: 'soft' }"

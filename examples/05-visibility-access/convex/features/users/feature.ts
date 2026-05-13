@@ -5,5 +5,5 @@ import { userTables } from './schema'
 export const usersFeature = defineFeature({
   name: 'users',
   schema: userTables,
-  globalTables: ['users'],
+  sharedTables: ['users'],
 })

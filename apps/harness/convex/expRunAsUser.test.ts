@@ -9,7 +9,7 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 describe('Experiment 14: runAsUser roundtrip', () => {
-  it('14a: signed user envelope resolves to user principal with userId', async () => {
+  it('14a: signed user envelope resolves to user caller with userId', async () => {
     const t = convexTest(schema, modules)
     const result = await t.action(internal.expRunAsUser.testHappyPath, {
       userId: 'user_alice',
@@ -31,14 +31,14 @@ describe('Experiment 14: runAsUser roundtrip', () => {
     expect(result.error).toContain('Callee mismatch')
   })
 
-  it('14d: no envelope falls back to systemPrincipal, not the caller', async () => {
+  it('14d: no envelope falls back to systemCaller, not the caller', async () => {
     const t = convexTest(schema, modules)
     const result = await t.action(internal.expRunAsUser.testNoEnvelope, {})
     expect(result.principalKind).toBe('service')
     expect(result.service).toBe('system')
   })
 
-  it('14e: service envelope stays a service principal — not silently coerced to user', async () => {
+  it('14e: service envelope stays a service caller — not silently coerced to user', async () => {
     const t = convexTest(schema, modules)
     const result = await t.action(internal.expRunAsUser.testServiceIsNotUser, {})
     expect(result.principalKind).toBe('service')

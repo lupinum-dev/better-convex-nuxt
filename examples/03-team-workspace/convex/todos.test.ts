@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * Example 03 is meant to prove the safety model, not just describe it.
- * These tests exercise tenant isolation, ownership rules, and the small webhook boundary.
+ * These tests exercise isolation, ownership rules, and the small webhook boundary.
  */
 /// <reference types="vite/client" />
 
@@ -100,7 +100,7 @@ describe('team todo example', () => {
     expect(betaTodos[0]?.title).toBe('Beta only')
   })
 
-  it('returns permission context booleans for contrasting roles', async () => {
+  it('returns access context booleans for contrasting roles', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -110,11 +110,8 @@ describe('team todo example', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(
-      api.permissions.context.getPermissionContext,
-      {},
-    )
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getAccessContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getAccessContext, {})
 
     expect(ownerCtx?.can[todoCreate.key]).toBe(true)
     expect(viewerCtx?.can[todoCreate.key]).toBe(false)
@@ -124,15 +121,13 @@ describe('team todo example', () => {
   it('returns null context and denies protected todo queries for anonymous callers', async () => {
     const ctx = createCtx()
 
-    await expect(
-      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
-    ).resolves.toBeNull()
+    await expect(ctx.raw.query(api.permissions.context.getAccessContext, {})).resolves.toBeNull()
     await expect(ctx.raw.query(api.features.todos.domain.list, {})).rejects.toThrow(
       'Forbidden: Read todos',
     )
   })
 
-  it('returns onboarding permission context for signed-in users without a workspace', async () => {
+  it('returns onboarding access context for signed-in users without a workspace', async () => {
     const ctx = createCtx()
     const now = Date.now()
     const authId = 'onboarding-user'
@@ -149,15 +144,12 @@ describe('team todo example', () => {
     })
 
     const onboardingUser = ctx.raw.withIdentity({ subject: authId })
-    const permissionCtx = await onboardingUser.query(
-      api.permissions.context.getPermissionContext,
-      {},
-    )
+    const permissionCtx = await onboardingUser.query(api.permissions.context.getAccessContext, {})
 
     expect(permissionCtx).toMatchObject({
       userId: authId,
       role: 'member',
-      tenantId: null,
+      workspaceId: null,
       email: 'onboarding@example.test',
       displayName: 'Onboarding User',
     })

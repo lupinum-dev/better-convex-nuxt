@@ -9,7 +9,7 @@ import schema from './schema'
 import { modules } from './test.setup'
 
 describe('Experiment 11: runAsService roundtrip', () => {
-  it('11a: signed service envelope resolves to service principal', async () => {
+  it('11a: signed service envelope resolves to service caller', async () => {
     const t = convexTest(schema, modules)
     const result = await t.action(internal.expRunAsService.testHappyPath, {})
     expect(result.principalKind).toBe('service')
@@ -30,7 +30,7 @@ describe('Experiment 11: runAsService roundtrip', () => {
     expect(result.error).toContain('Callee mismatch')
   })
 
-  it('11d: no envelope falls back to systemPrincipal default', async () => {
+  it('11d: no envelope falls back to systemCaller default', async () => {
     const t = convexTest(schema, modules)
     const result = await t.action(internal.expRunAsService.testNoEnvelope, {})
     expect(result.principalKind).toBe('service')

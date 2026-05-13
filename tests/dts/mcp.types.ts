@@ -18,8 +18,8 @@ import { v } from 'convex/values'
 import type { H3Event } from 'h3'
 import { expectTypeOf } from 'vitest'
 
-type Principal = { kind: 'agent'; id: string }
-type Capabilities = { publishEntry: boolean }
+type Caller = { kind: 'agent'; id: string }
+type RecordAccess = { publishEntry: boolean }
 
 const _schema = defineArgs({
   args: {
@@ -36,22 +36,22 @@ const publishPermission = definePermission({
   check: true,
 })
 
-const runtime = defineMcpApp<Principal, Capabilities>({
+const runtime = defineMcpApp<Caller, RecordAccess>({
   callConvex: async (_event: H3Event) =>
     ({
       query: async () => ({ ok: true }),
       mutation: async () => ({ archived: true as const }),
       action: async () => ({ ok: true }),
     }) as unknown as McpConvexCaller,
-  resolvePrincipal: async () => ({ kind: 'agent', id: 'run-1' }),
-  resolveCapabilities: async () => ({ publishEntry: true }),
+  resolveCaller: async () => ({ kind: 'agent', id: 'run-1' }),
+  resolveAccess: async () => ({ publishEntry: true }),
 })
 
 type _toolOptions = ValidateMcpToolOptions<
   typeof _schema,
-  Principal,
+  Caller,
   never,
-  Capabilities,
+  RecordAccess,
   Record<string, never>,
   {
     schema: typeof _schema

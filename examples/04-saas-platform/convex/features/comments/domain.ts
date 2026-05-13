@@ -11,9 +11,9 @@ export const listByTask = query.protected({
   args: { taskId: v.id('tasks') },
   guard: commentCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
-    loadResource(actor, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
+    loadResource(appIdentity, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
 
     return ctx.db
       .query('comments')
@@ -27,13 +27,17 @@ export const create = mutation.protected({
   args: createComment.args,
   guard: commentCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
-    const task = loadResource(actor, (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null, 'Task')
+    const task = loadResource(
+      appIdentity,
+      (await ctx.db.get(args.taskId)) as Doc<'tasks'> | null,
+      'Task',
+    )
 
     const project = loadResource(
-      actor,
+      appIdentity,
       (await ctx.db.get(task.projectId)) as Doc<'projects'> | null,
       'Project',
     )
@@ -46,7 +50,7 @@ export const create = mutation.protected({
       taskId: args.taskId,
       body: args.body,
       attachmentStorageId: args.attachmentStorageId,
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       workspaceId,
       createdAt: now,
       updatedAt: now,
@@ -54,7 +58,7 @@ export const create = mutation.protected({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'comment',
       entityId: commentId,
       action: 'comment.created',

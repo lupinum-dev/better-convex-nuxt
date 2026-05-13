@@ -6,8 +6,8 @@ import type {
 } from 'convex/server'
 import { ConvexError } from 'convex/values'
 
+import { isAnonymousCaller, type AuthenticatedCaller } from './caller-state.js'
 import { runCheck, type AnyCheck, type Check } from './define-guard.js'
-import { isAnonymousPrincipal, type AuthenticatedPrincipal } from './principal-state.js'
 
 export { defineAuth } from './define-auth.js'
 export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth.js'
@@ -27,8 +27,8 @@ export type {
   GuardKind,
   OpenGuard,
 } from './define-guard.js'
-export { defineActor } from './define-actor.js'
-export type { ActorBuilder, DefaultActor } from './define-actor.js'
+export { defineAppIdentity } from './define-app-identity.js'
+export type { AppIdentityBuilder, DefaultAppIdentity } from './define-app-identity.js'
 export {
   createSubject,
   getSubjectKind,
@@ -37,8 +37,8 @@ export {
   subject,
 } from './subject.js'
 export type { CanonicalSubject, Subject, SubjectKind } from './subject.js'
-export { derivePermissionMatrix } from './derive-permission-matrix.js'
-export type { PermissionMatrixRow } from './derive-permission-matrix.js'
+export { buildPermissionMatrix } from './build-permission-matrix.js'
+export type { PermissionMatrixRow } from './build-permission-matrix.js'
 export {
   definePermissionKey,
   definePermission,
@@ -60,15 +60,15 @@ export type {
   RegisteredPermissions,
   RegisteredProjectedPermissionKey,
 } from './define-permission.js'
-export { definePermissionContext } from './define-permission-context.js'
+export { defineAccessContext } from './define-access-context.js'
 export type {
-  InferPermissionContext,
-  PermissionContextBase,
-  PermissionContextDefinition,
+  InferAccessContext,
+  AccessContextBase,
+  AccessContextDefinition,
   PermissionFlags,
   PermissionKey,
   ValidatePermissionKey,
-} from './define-permission-context.js'
+} from './define-access-context.js'
 export { defineServices } from './define-services.js'
 export type {
   RestrictedServiceAccess,
@@ -109,12 +109,12 @@ function toForbiddenError(
 }
 
 export function and<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => checks.every((check) => runCheck(principal, check))
+  return (caller: P) => checks.every((check) => runCheck(caller, check))
 }
 
 /** Combine multiple checks and allow access when any check passes. */
 export function or<P = unknown>(...checks: Array<AnyCheck<P>>): Check<P> {
-  return (principal: P) => checks.some((check) => runCheck(principal, check))
+  return (caller: P) => checks.some((check) => runCheck(caller, check))
 }
 
 /**
@@ -125,22 +125,20 @@ export function deny(reason: string, options?: { source?: string; category?: str
   throw toForbiddenError(reason, options?.source, options?.category)
 }
 
-/** Assert that a principal exists and passes the given check. */
+/** Assert that a caller exists and passes the given check. */
 export function enforce<P>(
-  principal: P,
+  caller: P,
   label: string,
   check: AnyCheck<NonNullable<P>>,
   category?: string,
-): asserts principal is NonNullable<P> {
-  if (principal == null)
-    throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
-  if (!runCheck(principal, check))
-    throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
+): asserts caller is NonNullable<P> {
+  if (caller == null) throw toForbiddenError(`Forbidden: ${label}`, undefined, category ?? 'auth')
+  if (!runCheck(caller, check)) throw toForbiddenError(`Forbidden: ${label}`, undefined, category)
 }
 
-export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
+export function can<P = unknown>(caller: P, check: AnyCheck<P>): boolean {
   try {
-    return !!runCheck(principal, check)
+    return !!runCheck(caller, check)
   } catch (error) {
     if (error instanceof ConvexError) return false
     throw error
@@ -149,10 +147,10 @@ export function can<P = unknown>(principal: P, check: AnyCheck<P>): boolean {
 
 /** Assert that the caller is authenticated before continuing. */
 export function requireAuth<P>(
-  principal: P,
+  caller: P,
   reason = 'Not authenticated.',
-): asserts principal is AuthenticatedPrincipal<P> & NonNullable<P> {
-  if (principal == null || isAnonymousPrincipal(principal)) {
+): asserts caller is AuthenticatedCaller<P> & NonNullable<P> {
+  if (caller == null || isAnonymousCaller(caller)) {
     throw toForbiddenError(reason)
   }
 }
@@ -179,17 +177,17 @@ export async function getAuth<DataModel extends GenericDataModel>(
   }
 }
 
-/** Assert that a loaded resource belongs to the actor's tenant and return it. */
+/** Assert that a loaded resource belongs to the appIdentity's tenant and return it. */
 export function ensureTenant<T extends Record<string, unknown>>(
-  actor: { tenantId?: string | null },
+  appIdentity: { workspaceId?: string | null },
   resource: T,
   label = 'Resource',
   tenantField = 'workspaceId',
 ): T {
-  if (!actor.tenantId) {
-    throw toForbiddenError('Actor has no tenant assignment.')
+  if (!appIdentity.workspaceId) {
+    throw toForbiddenError('AppIdentity has no tenant assignment.')
   }
-  if ((resource as Record<string, unknown>)[tenantField] !== actor.tenantId) {
+  if ((resource as Record<string, unknown>)[tenantField] !== appIdentity.workspaceId) {
     throw toForbiddenError(`${label} not found.`)
   }
   return resource
@@ -197,11 +195,11 @@ export function ensureTenant<T extends Record<string, unknown>>(
 
 /** Load a tenant-owned resource and fail with the correct error semantics when missing or foreign. */
 export function loadTenantResource<T extends Record<string, unknown>>(
-  actor: { tenantId?: string | null },
+  appIdentity: { workspaceId?: string | null },
   doc: T | null | undefined,
   label = 'Resource',
   tenantField = 'workspaceId',
 ): T {
   requireRecord(doc, label)
-  return ensureTenant(actor, doc, label, tenantField)
+  return ensureTenant(appIdentity, doc, label, tenantField)
 }

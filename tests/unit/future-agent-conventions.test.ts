@@ -16,11 +16,11 @@ function file(relativePath: string) {
 describe('future agent conventions', () => {
   it('keeps transport-neutral agent principals in canonical docs and examples', () => {
     const files = [
-      'apps/docs/content/docs/08.permissions/2.principal-and-actor.md',
+      'apps/docs/content/docs/08.permissions/2.caller-and-app-identity.md',
       'apps/docs/content/docs/08.permissions/8.advanced-caller-models.md',
-      'examples/03-team-workspace/convex/auth/principal.ts',
-      'examples/07-mcp-reference/convex/auth/principal.ts',
-      'examples/08-component-mini-cms/shared/principal.ts',
+      'examples/03-team-workspace/convex/auth/caller.ts',
+      'examples/07-mcp-reference/convex/auth/caller.ts',
+      'examples/08-component-mini-cms/shared/caller.ts',
     ]
 
     for (const file of files) {
@@ -32,7 +32,7 @@ describe('future agent conventions', () => {
   })
 
   it('states that transport visibility does not replace Convex business authorization', () => {
-    const principalDocs = read('apps/docs/content/docs/08.permissions/2.principal-and-actor.md')
+    const principalDocs = read('apps/docs/content/docs/08.permissions/2.caller-and-app-identity.md')
     const mcpTools = read('apps/docs/content/docs/14.mcp-tools/2.define-tools.md')
 
     expect(principalDocs).toContain("They still don't replace Convex business authorization")
@@ -77,7 +77,7 @@ describe('future agent conventions', () => {
 
       const nuxtConfig = read(`${example}/nuxt.config.ts`)
       if (nuxtConfig.includes('trellis.permissions')) {
-        expect(nuxtConfig).toContain("query: 'permissions/context.getPermissionContext'")
+        expect(nuxtConfig).toContain("query: 'permissions/context.getAccessContext'")
       }
 
       for (const forbiddenFile of forbiddenFlatModules) {

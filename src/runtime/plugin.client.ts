@@ -59,9 +59,9 @@ export function setupClientDevtools(
 
   const permissionState = usePermissionDevtoolsState()
   const authBootstrapState = useAuthBootstrapDevtoolsState()
-  store.setPermissionContextState(permissionState.value)
+  store.setAccessContextState(permissionState.value)
   store.setAuthBootstrapState(authBootstrapState.value)
-  watch(permissionState, (s: typeof permissionState.value) => store.setPermissionContextState(s), {
+  watch(permissionState, (s: typeof permissionState.value) => store.setAccessContextState(s), {
     deep: true,
   })
   watch(

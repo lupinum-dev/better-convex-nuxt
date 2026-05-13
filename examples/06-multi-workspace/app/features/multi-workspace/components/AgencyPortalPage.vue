@@ -102,7 +102,7 @@ while current-workspace project actions stay behind their own feature API.
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 class="text-xl font-semibold">{{ displayName }}</h2>
-                <template v-if="tenantId">
+                <template v-if="workspaceId">
                   <p class="text-sm text-muted">
                     Role:
                     <span class="font-semibold text-highlighted">{{ role }}</span>
@@ -199,12 +199,12 @@ while current-workspace project actions stay behind their own feature API.
               </div>
             </UCard>
 
-            <WorkspaceOnboarding v-if="!tenantId" />
+            <WorkspaceOnboarding v-if="!workspaceId" />
 
             <template v-else>
               <WorkspaceSwitcher
                 :workspaces="accessibleWorkspaces"
-                :current-tenant-id="tenantId"
+                :current-tenant-id="workspaceId"
                 :seed-loading="seedAgencyPortfolio.pending.value"
                 @switch="handleSwitchWorkspace"
                 @seed="handleSeed"
@@ -239,7 +239,7 @@ import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const toast = useToast()
-const { ctx, role, tenantId } = usePermissions()
+const { ctx, role, workspaceId } = useAccess()
 const canDashboard = computed(() => ctx.value?.agencyDashboard === true)
 
 const allRoles = ['owner', 'member', 'viewer', 'agency_admin', 'agency_manager'] as const
@@ -270,7 +270,7 @@ const seedAgencyPortfolio = useConvexMutation(
   },
 )
 
-const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
+const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: accessibleWorkspaces } = await useConvexQuery(
   api.features.workspaces.domain.listAccessibleWorkspaces,
   computed(() => (user.value ? {} : undefined)),
@@ -289,11 +289,11 @@ const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
 const currentWorkspaceName = computed(() => {
-  if (!tenantId.value || !accessibleWorkspaces.value) return null
+  if (!workspaceId.value || !accessibleWorkspaces.value) return null
   return (
     accessibleWorkspaces.value.find(
       (workspace: { workspaceId: string; name: string }) =>
-        workspace.workspaceId === tenantId.value,
+        workspace.workspaceId === workspaceId.value,
     )?.name ?? null
   )
 })

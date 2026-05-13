@@ -3,14 +3,12 @@ import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { listAgencyPortfolio } from '../../../shared/features/dashboard/contract'
 import type { Doc } from '../../_generated/dataModel'
-import { getActor } from '../../auth/actor'
 import { getAgencyActor, getMemberships, requireAnyAgencyRole } from '../../auth/agency'
+import { getAppIdentity } from '../../auth/app-identity'
 import { query } from '../../functions'
 
-function escapeTenantIsolation<TDb extends object>(db: TDb, reason: string): TDb {
-  return (
-    db as TDb & { escapeTenantIsolation: (options: { reason: string }) => TDb }
-  ).escapeTenantIsolation({
+function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
+  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
     reason,
   })
 }
@@ -23,22 +21,19 @@ export const portfolio = query.unsafe({
   }),
   args: listAgencyPortfolio.args,
   handler: async (ctx) => {
-    const actor = await getAgencyActor(ctx)
-    if (!actor) throw deny('Not authenticated.')
+    const appIdentity = await getAgencyActor(ctx)
+    if (!appIdentity) throw deny('Not authenticated.')
 
-    const scopedActor = await getActor(ctx)
+    const scopedActor = await getAppIdentity(ctx)
     if (!scopedActor) throw deny('Not authenticated.')
 
-    // Cross-tenant by design, but still membership-bounded: the portfolio only spans workspaces
-    // where this actor already has an agency role.
-    const db = escapeTenantIsolation(
-      ctx.db,
-      'Agency portfolio intentionally spans multiple workspaces.',
-    )
+    // Cross-scope by design, but still membership-bounded: the portfolio only spans workspaces
+    // where this appIdentity already has an agency role.
+    const db = escapeIsolation(ctx.db, 'Agency portfolio intentionally spans multiple workspaces.')
 
-    await requireAnyAgencyRole(db, actor.userId, 'agency_admin', 'agency_manager')
+    await requireAnyAgencyRole(db, appIdentity.userId, 'agency_admin', 'agency_manager')
 
-    const memberships = await getMemberships(db, actor.userId)
+    const memberships = await getMemberships(db, appIdentity.userId)
     const agencyMemberships = memberships.filter((membership) =>
       ['agency_admin', 'agency_manager'].includes(membership.role),
     )

@@ -35,7 +35,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     return { orgId }
   }
 
-  it('3a: principal and actor appear as plain values on ctx', async () => {
+  it('3a: caller and appIdentity appear as plain values on ctx', async () => {
     const t = convexTest(schema, modules)
     const { orgId } = await setupOrgWithUser(t)
 
@@ -47,7 +47,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     expect(result.actorIsValue).toBe(true)
     expect(result.principalKind).toBe('user')
     expect(result.actorUserId).toBe('user_owner')
-    expect(result.actorTenantId).toBe(orgId)
+    expect(result.appIdentityWorkspaceId).toBe(orgId)
     expect(result.actorRole).toBe('admin')
   })
 
@@ -96,10 +96,10 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     expect(result.count).toBe(1)
     expect(result.titles).toContain('My Org Post')
     expect(result.titles).not.toContain('Other Org Post')
-    expect(result.actorTenantId).toBe(orgId)
+    expect(result.appIdentityWorkspaceId).toBe(orgId)
   })
 
-  it('3c: public query — anonymous gets null actor', async () => {
+  it('3c: public query — anonymous gets null appIdentity', async () => {
     const t = convexTest(schema, modules)
 
     // No identity — anonymous access
@@ -109,15 +109,15 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     expect(result.actorIsNull).toBe(true)
   })
 
-  it('3d: required-actor query throws without auth', async () => {
+  it('3d: required-appIdentity query throws without auth', async () => {
     const t = convexTest(schema, modules)
 
     await expect(t.query(api.expValueCtx.requiresAuth, {})).rejects.toThrow(
-      'Unauthorized: actor required',
+      'Unauthorized: appIdentity required',
     )
   })
 
-  it('3e: mutation with actor writes via RLS-wrapped db', async () => {
+  it('3e: mutation with appIdentity writes via RLS-wrapped db', async () => {
     const t = convexTest(schema, modules)
     const { orgId } = await setupOrgWithUser(t)
 

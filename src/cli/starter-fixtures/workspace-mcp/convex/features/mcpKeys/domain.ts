@@ -27,7 +27,7 @@ export const validate = query.public({
       id: key._id,
       role: boundUser.role,
       userId: boundUser.authId,
-      tenantId: boundUser.workspaceId,
+      workspaceId: boundUser.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }
   },

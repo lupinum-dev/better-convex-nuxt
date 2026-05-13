@@ -15,7 +15,7 @@ function matchesAuthUsage(text: string): boolean {
 }
 
 function tenantClassificationLabel(source: 'manifest' | 'functions'): string {
-  return source === 'manifest' ? 'the composed feature manifest' : '`tenantIsolation`'
+  return source === 'manifest' ? 'the composed feature manifest' : '`isolation`'
 }
 
 export function collectModuleValidationFindings(options: {
@@ -38,21 +38,21 @@ export function collectModuleValidationFindings(options: {
     }
   }
 
-  if (analysis.tenantIsolation) {
-    const classificationLabel = tenantClassificationLabel(analysis.tenantIsolation.source)
+  if (analysis.isolation) {
+    const classificationLabel = tenantClassificationLabel(analysis.isolation.source)
     const seen = new Set<string>()
     const seenGlobal = new Set<string>()
-    if (analysis.tenantIsolation.tables.length === 0) {
+    if (analysis.isolation.tables.length === 0) {
       findings.push({
-        id: 'tenant-isolation-valid',
-        message: `${classificationLabel} should classify at least one tenant-scoped table when tenant isolation is configured.`,
+        id: 'isolation-valid',
+        message: `${classificationLabel} should classify at least one tenant-scoped table when isolation is configured.`,
       })
     }
 
-    for (const tableName of analysis.tenantIsolation.tables) {
+    for (const tableName of analysis.isolation.tables) {
       if (seen.has(tableName)) {
         findings.push({
-          id: 'tenant-isolation-valid',
+          id: 'isolation-valid',
           message: `${classificationLabel} contains a duplicate tenant-scoped table: "${tableName}".`,
         })
         continue
@@ -62,29 +62,29 @@ export function collectModuleValidationFindings(options: {
       const table = findSchemaTable(analysis, tableName)
       if (!table) {
         findings.push({
-          id: 'tenant-isolation-valid',
+          id: 'isolation-valid',
           message: `Tenant-isolated table "${tableName}" does not exist in \`convex/schema.ts\`.`,
         })
         continue
       }
-      if (!table.fields.includes(analysis.tenantIsolation.field)) {
+      if (!table.fields.includes(analysis.isolation.field)) {
         findings.push({
-          id: 'tenant-isolation-valid',
-          message: `Tenant-isolated table "${tableName}" is missing the "${analysis.tenantIsolation.field}" field.`,
+          id: 'isolation-valid',
+          message: `Tenant-isolated table "${tableName}" is missing the "${analysis.isolation.field}" field.`,
         })
       }
-      if (!table.indexes.includes(analysis.tenantIsolation.indexName)) {
+      if (!table.indexes.includes(analysis.isolation.indexName)) {
         findings.push({
           id: 'tenant-table-requires-tenant-index',
-          message: `Tenant-isolated table "${tableName}" is missing the "${analysis.tenantIsolation.indexName}" index.`,
+          message: `Tenant-isolated table "${tableName}" is missing the "${analysis.isolation.indexName}" index.`,
         })
       }
     }
 
-    for (const tableName of analysis.tenantIsolation.globalTables) {
+    for (const tableName of analysis.isolation.sharedTables) {
       if (seenGlobal.has(tableName)) {
         findings.push({
-          id: 'tenant-isolation-valid',
+          id: 'isolation-valid',
           message: `${classificationLabel} contains a duplicate global table: "${tableName}".`,
         })
         continue
@@ -93,7 +93,7 @@ export function collectModuleValidationFindings(options: {
 
       if (seen.has(tableName)) {
         findings.push({
-          id: 'tenant-isolation-valid',
+          id: 'isolation-valid',
           message: `${classificationLabel} cannot classify table "${tableName}" as both tenant-scoped and global.`,
         })
         continue
@@ -102,70 +102,67 @@ export function collectModuleValidationFindings(options: {
       const table = findSchemaTable(analysis, tableName)
       if (!table) {
         findings.push({
-          id: 'tenant-isolation-valid',
-          message: `Global tenant-isolation table "${tableName}" does not exist in \`convex/schema.ts\`.`,
+          id: 'isolation-valid',
+          message: `Shared isolation table "${tableName}" does not exist in \`convex/schema.ts\`.`,
         })
       }
     }
 
     for (const table of analysis.schemaTables) {
       const hasTenantShape =
-        table.fields.includes(analysis.tenantIsolation.field) &&
-        table.indexes.includes(analysis.tenantIsolation.indexName)
+        table.fields.includes(analysis.isolation.field) &&
+        table.indexes.includes(analysis.isolation.indexName)
       if (!hasTenantShape) continue
-      if (analysis.tenantIsolation.tables.includes(table.name)) continue
-      if (analysis.tenantIsolation.globalTables.includes(table.name)) continue
+      if (analysis.isolation.tables.includes(table.name)) continue
+      if (analysis.isolation.sharedTables.includes(table.name)) continue
       findings.push({
-        id: 'tenant-isolation-table-coverage',
+        id: 'isolation-table-coverage',
         message:
-          `Table "${table.name}" has the tenant field "${analysis.tenantIsolation.field}" and index ` +
-          `"${analysis.tenantIsolation.indexName}" but is not classified as tenant-scoped by ${classificationLabel}.`,
+          `Table "${table.name}" has the tenant field "${analysis.isolation.field}" and index ` +
+          `"${analysis.isolation.indexName}" but is not classified as tenant-scoped by ${classificationLabel}.`,
       })
     }
   }
 
-  if (analysis.destructiveSafety) {
-    const redemptionTable = findSchemaTable(analysis, analysis.destructiveSafety.redemptionTable)
-    const auditTable = findSchemaTable(analysis, analysis.destructiveSafety.auditTable)
-    const requiredRedemptionFields = [
-      'jti',
-      'operationId',
-      'principalKey',
-      'tenantKey',
-      'redeemedAt',
-    ]
+  if (analysis.destructiveOperations) {
+    const confirmationTable = findSchemaTable(
+      analysis,
+      analysis.destructiveOperations.confirmationTable,
+    )
+    const auditTable = findSchemaTable(analysis, analysis.destructiveOperations.auditTable)
+    const requiredConfirmationFields = ['jti', 'operationId', 'callerKey', 'scopeKey', 'redeemedAt']
     const requiredAuditFields = [
       'operationId',
       'jti',
-      'principalKey',
-      'tenantKey',
+      'callerKey',
+      'scopeKey',
       'argsHash',
       'previewHash',
       'executedAt',
       'executePath',
     ]
 
-    if (!redemptionTable) {
+    if (!confirmationTable) {
       findings.push({
         id: 'destructive-safety-schema',
         message:
-          `Destructive-safety redemption table "${analysis.destructiveSafety.redemptionTable}" does not exist in ` +
+          `Destructive-safety confirmation table "${analysis.destructiveOperations.confirmationTable}" does not exist in ` +
           '`convex/schema.ts`.',
       })
     } else {
-      for (const field of requiredRedemptionFields) {
-        if (!redemptionTable.fields.includes(field)) {
+      for (const field of requiredConfirmationFields) {
+        if (!confirmationTable.fields.includes(field)) {
           findings.push({
             id: 'destructive-safety-schema',
-            message: `Destructive-safety redemption table "${analysis.destructiveSafety.redemptionTable}" is missing the "${field}" field.`,
+            message: `Destructive-safety confirmation table "${analysis.destructiveOperations.confirmationTable}" is missing the "${field}" field.`,
           })
         }
       }
 
-      if (!redemptionTable.indexes.includes('by_jti')) {
+      if (!confirmationTable.indexes.includes('by_jti')) {
         findings.push({
           id: 'destructive-safety-schema',
-          message: `Destructive-safety redemption table "${analysis.destructiveSafety.redemptionTable}" is missing the "by_jti" index.`,
+          message: `Destructive-safety confirmation table "${analysis.destructiveOperations.confirmationTable}" is missing the "by_jti" index.`,
         })
       }
     }
@@ -174,7 +171,7 @@ export function collectModuleValidationFindings(options: {
       findings.push({
         id: 'destructive-safety-schema',
         message:
-          `Destructive-safety audit table "${analysis.destructiveSafety.auditTable}" does not exist in ` +
+          `Destructive-safety audit table "${analysis.destructiveOperations.auditTable}" does not exist in ` +
           '`convex/schema.ts`.',
       })
     } else {
@@ -182,7 +179,7 @@ export function collectModuleValidationFindings(options: {
         if (!auditTable.fields.includes(field)) {
           findings.push({
             id: 'destructive-safety-schema',
-            message: `Destructive-safety audit table "${analysis.destructiveSafety.auditTable}" is missing the "${field}" field.`,
+            message: `Destructive-safety audit table "${analysis.destructiveOperations.auditTable}" is missing the "${field}" field.`,
           })
         }
       }

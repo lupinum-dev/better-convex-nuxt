@@ -6,15 +6,21 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../_generated/dataModel'
-import type { Actor } from './actor'
+import type { AppIdentity } from './app-identity'
 
-export function requireWorkspaceTenant(actor: { tenantId?: Id<'workspaces'> | null }) {
-  if (!actor.tenantId) throw new Error('Current actor is not assigned to a workspace.')
-  return actor.tenantId
+export function requireWorkspaceTenant(appIdentity: { workspaceId?: Id<'workspaces'> | null }) {
+  if (!appIdentity.workspaceId)
+    throw new Error('Current appIdentity is not assigned to a workspace.')
+  return appIdentity.workspaceId
 }
 
-export const hasWorkspace = defineGuard<Actor>('Workspace member', (actor) => !!actor?.tenantId)
+export const hasWorkspace = defineGuard<AppIdentity>(
+  'Workspace member',
+  (appIdentity) => !!appIdentity?.workspaceId,
+)
 export const hasRole = (...roles: Doc<'users'>['role'][]) =>
-  defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => roles.includes(actor.role))
-export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
-  actor.userId === resource.ownerId
+  defineGuard<AppIdentity>(`role:${roles.join('|')}`, (appIdentity) =>
+    roles.includes(appIdentity.role),
+  )
+export const isOwnerOf = (resource: { ownerId: string }) => (appIdentity: AppIdentity) =>
+  appIdentity.userId === resource.ownerId

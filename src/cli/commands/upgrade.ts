@@ -352,9 +352,9 @@ function createUpgradeFindings(
   inventory: TrellisCliInventory,
 ): DoctorFinding[] {
   const legacyRawForwarding = findTokenLocations(project, [
-    /\b_trustedForwardingKey\b/,
-    /\b_trustedForwarding\b/,
-    /\btrustedForwardingKey\b/,
+    /\b_identityForwardingKey\b/,
+    /\b_identityForwarding\b/,
+    /\bidentityForwardingKey\b/,
   ])
   const toolFromOperation = findTokenLocations(project, [/\btool\.fromOperation\s*\(/])
   const legacyFunctionsImport = findTokenLocations(project, [
@@ -379,24 +379,24 @@ function createUpgradeFindings(
   return [
     createLocationFinding({
       id: 'upgrade-raw-forwarding',
-      title: 'Raw trusted-forwarding migration',
+      title: 'Raw identity-forwarding migration',
       locations: [
         ...legacyRawForwarding,
         ...inventory.forwarding.publicExposures,
-        ...inventory.forwarding.forwardedPrincipalMisuses,
+        ...inventory.forwarding.forwardedCallerMisuses,
       ],
       sources: [
         findingProjectScanSource('legacy raw forwarding tokens', legacyRawForwarding),
         findingInventorySource('forwarding.publicExposures', inventory.forwarding.publicExposures),
         findingInventorySource(
-          'forwarding.forwardedPrincipalMisuses',
-          inventory.forwarding.forwardedPrincipalMisuses,
+          'forwarding.forwardedCallerMisuses',
+          inventory.forwarding.forwardedCallerMisuses,
         ),
       ],
       statusWhenFound: 'fail',
       foundMessage: (locations) =>
-        `Found raw or public trusted-forwarding usage at ${formatLocations(locations)}.`,
-      cleanMessage: 'No raw trusted-forwarding usage was found.',
+        `Found raw or public identity-forwarding usage at ${formatLocations(locations)}.`,
+      cleanMessage: 'No raw identity-forwarding usage was found.',
       fixHint:
         'Use signed `_trellisForwarding` envelopes and keep forwarded identity out of public args.',
     }),

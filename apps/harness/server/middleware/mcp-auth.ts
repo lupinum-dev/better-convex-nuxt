@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
       keyId: String(result.id),
       role: result.role,
       userId: result.userId,
-      ...(result.tenantId && { tenantId: result.tenantId }),
+      ...(result.workspaceId && { workspaceId: result.workspaceId }),
     }
     event.context.mcpAuth = auth
     event.context.__trellisMcpAuth = auth

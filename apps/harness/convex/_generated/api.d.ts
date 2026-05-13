@@ -9,11 +9,11 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as auth_actor from "../auth/actor.js";
+import type * as auth_actor from "../auth/app-identity.js";
 import type * as auth_checks from "../auth/checks.js";
-import type * as auth_delegation from "../auth/delegation.js";
+import type * as auth_delegation from "../auth/acting-for.js";
 import type * as auth_permissions from "../auth/permissions.js";
-import type * as auth_principal from "../auth/principal.js";
+import type * as auth_principal from "../auth/caller.js";
 import type * as auth_resource from "../auth/resource.js";
 import type * as auth_scope from "../auth/scope.js";
 import type * as comments from "../comments.js";
@@ -51,11 +51,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  "auth/actor": typeof auth_actor;
+  "auth/appIdentity": typeof auth_actor;
   "auth/checks": typeof auth_checks;
-  "auth/delegation": typeof auth_delegation;
+  "auth/actingFor": typeof auth_delegation;
   "auth/permissions": typeof auth_permissions;
-  "auth/principal": typeof auth_principal;
+  "auth/caller": typeof auth_principal;
   "auth/resource": typeof auth_resource;
   "auth/scope": typeof auth_scope;
   comments: typeof comments;

@@ -9,7 +9,7 @@ import type { H3Event } from 'h3'
 import type { ZodRawShape } from 'zod'
 
 import type { SchemaDefinition } from '../convex/shared/define-convex-schema.js'
-import type { Delegation } from '../functions/define-delegation.js'
+import type { ActingFor } from '../functions/define-acting-for.js'
 import type {
   OperationPreviewEffect,
   OperationPreviewIssue,
@@ -103,7 +103,7 @@ export interface PreviewResult {
 export interface McpAuthIdentity<TRole extends string = string> {
   readonly role: TRole
   readonly userId: string
-  readonly tenantId?: string
+  readonly workspaceId?: string
 }
 
 // ============================================================================
@@ -119,8 +119,8 @@ export interface ConvexToolCallFns {
 
 export interface ConvexToolHandlerCtx<TRole extends string = string> extends ConvexToolCallFns {
   event: H3Event
-  /** Resolved actor, or null if auth is 'none' or no credentials were provided. */
-  actor: McpAuthIdentity<TRole> | null
+  /** Resolved appIdentity, or null if auth is 'none' or no credentials were provided. */
+  appIdentity: McpAuthIdentity<TRole> | null
   ok: <T>(data: ValidateSerializable<T>, summary?: string) => McpToolCallbackResult
   error: (
     category: ConvexErrorCategory,
@@ -173,29 +173,29 @@ interface DefineConvexToolBaseOptions<S extends AnyConvexSchema, TRole extends s
   // ── Auth ──────────────────────────────────────────────────
   /** Auth requirement. Default: 'none'. */
   auth?: ConvexToolAuthMode
-  /** Optional actor check evaluated for both visibility and execution. */
-  check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
-  /** Enable trusted-forwarding injection for Convex calls using the resolved actor. Tools are hidden unless actor.tenantId exists. */
+  /** Optional appIdentity check evaluated for both visibility and execution. */
+  check?: (appIdentity: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
+  /** Enable identity-forwarding injection for Convex calls using the resolved appIdentity. Tools are hidden unless appIdentity.workspaceId exists. */
   scoped?: boolean
   /** Custom auth resolver for this tool. Default: reads event.context.mcpAuth. */
   resolveAuth?: (
     event: H3Event,
   ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
   /**
-   * Optional app-specific principal resolver for trusted forwarded calls.
+   * Optional app-specific caller resolver for trusted forwarded calls.
    *
-   * Use this when the target Convex handlers expect a richer business principal
-   * than the transport-level MCP actor alone can express.
+   * Use this when the target Convex handlers expect a richer business caller
+   * than the transport-level MCP appIdentity alone can express.
    */
-  resolvePrincipal?: (ctx: {
+  resolveCaller?: (ctx: {
     event: H3Event
-    actor: McpAuthIdentity<TRole>
+    appIdentity: McpAuthIdentity<TRole>
   }) => unknown | Promise<unknown>
   /** Optional represented identity for trusted forwarded calls. */
-  resolveDelegation?: (ctx: {
+  resolveActingFor?: (ctx: {
     event: H3Event
-    actor: McpAuthIdentity<TRole>
-  }) => Delegation | null | Promise<Delegation | null>
+    appIdentity: McpAuthIdentity<TRole>
+  }) => ActingFor | null | Promise<ActingFor | null>
 
   // ── Safety ────────────────────────────────────────────────
   /**

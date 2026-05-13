@@ -57,12 +57,12 @@ Nothing else at the bottom. No "Summary." No "Recap."
 
 ## Jargon & the glossary
 
-The glossary lives at [`2.concepts/2.glossary.md`](content/docs/2.concepts/2.glossary.md). Every Trellis-specific term — _principal, actor, guard, check, operation, tenant, projection, App Runtime, Nuxt Runtime, Agent Runtime, transport, business layer_ — has a stable anchor there.
+The glossary lives at [`2.concepts/2.glossary.md`](content/docs/2.concepts/2.glossary.md). Every Trellis-specific term — _principal, appIdentity, guard, check, operation, tenant, projection, App Runtime, Nuxt Runtime, Agent Runtime, transport, business layer_ — has a stable anchor there.
 
 **Rule:** the first appearance of each of these terms on any page links to its glossary anchor.
 
 ```md
-Every call flows through a [principal](/docs/concepts/glossary#principal), then an [actor](/docs/concepts/glossary#actor).
+Every call flows through a [caller](/docs/concepts/glossary#caller), then an [appIdentity](/docs/concepts/glossary#appIdentity).
 ```
 
 Subsequent uses on the same page are plain text. Never redefine a term inline — link to the glossary.

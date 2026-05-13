@@ -5,15 +5,15 @@
  * later when another record attaches the returned storage id.
  */
 import { requireAuth } from '@lupinum/trellis/auth'
-import { unsafe as unsafePermit, type ActorAccessor } from '@lupinum/trellis/backend'
+import { unsafe as unsafePermit, type AppIdentityAccessor } from '@lupinum/trellis/backend'
 import type { GenericMutationCtx } from 'convex/server'
 
 import { generateUploadUrl as generateUploadUrlContract } from '../../../shared/features/files/contract'
 import type { DataModel } from '../../_generated/dataModel'
-import type { Actor } from '../../auth/actor'
+import type { AppIdentity } from '../../auth/app-identity'
 import { mutation } from '../../functions'
 
-type Ctx = GenericMutationCtx<DataModel> & { actor: ActorAccessor<Actor> }
+type Ctx = GenericMutationCtx<DataModel> & { appIdentity: AppIdentityAccessor<AppIdentity> }
 
 export const generateUploadUrlMutation = mutation.unsafe({
   permit: unsafePermit.permit({
@@ -23,8 +23,8 @@ export const generateUploadUrlMutation = mutation.unsafe({
   }),
   args: generateUploadUrlContract.args,
   handler: async (ctx: Ctx) => {
-    const actor = await ctx.actor()
-    requireAuth(actor)
+    const appIdentity = await ctx.appIdentity()
+    requireAuth(appIdentity)
     return await (
       ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }
     ).storage.generateUploadUrl()

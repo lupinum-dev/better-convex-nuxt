@@ -84,11 +84,11 @@ describe('module validation', () => {
     expect(String(loggerWarnMock.mock.calls[0]?.[0] ?? '')).toContain('auth.enabled')
   }, 15_000)
 
-  it('throws in strict mode for tenant isolation schema mismatches', async () => {
+  it('throws in strict mode for isolation schema mismatches', async () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
         export const { query } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: ['tasks'],
           },
         })
@@ -127,10 +127,10 @@ describe('module validation', () => {
           handler: async () => []
         })
 
-        export const getPermissionContext = query.unsafe({
+        export const getAccessContext = query.unsafe({
           permit: unsafe.permit({
-            kind: 'fixturePermissionContext',
-            reason: 'Expose permission context through the low-level builder in this fixture.',
+            kind: 'fixtureAccessContext',
+            reason: 'Expose access context through the low-level builder in this fixture.',
             scope: ['tests'],
           }),
           args: {},
@@ -139,9 +139,6 @@ describe('module validation', () => {
       `,
     })
 
-    expect(collectConvexFunctionPaths(rootDir)).toEqual([
-      'todos.getPermissionContext',
-      'todos.list',
-    ])
+    expect(collectConvexFunctionPaths(rootDir)).toEqual(['todos.getAccessContext', 'todos.list'])
   })
 })

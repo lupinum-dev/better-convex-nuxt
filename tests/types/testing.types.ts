@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-import { definePermissionContext } from '../../src/runtime/auth/define-permission-context'
+import { defineAccessContext } from '../../src/runtime/auth/define-access-context'
 import { defineGuard, definePermission } from '../../src/runtime/auth/index'
 import { createTestContext } from '../../src/runtime/testing'
 
@@ -41,7 +41,9 @@ const schema = defineSchema({
 
 const defaultCtx = createTestContext({ schema })
 type DefaultTenant = Awaited<ReturnType<typeof defaultCtx.seedTenant>>
-type _defaultTenantId = Assert<IsEqual<DefaultTenant['id'], { __tableName: 'workspaces' } & string>>
+type _defaultWorkspaceId = Assert<
+  IsEqual<DefaultTenant['id'], { __tableName: 'workspaces' } & string>
+>
 type _defaultUserId = Assert<
   IsEqual<DefaultTenant['users'][string]['id'], { __tableName: 'users' } & string>
 >
@@ -55,7 +57,7 @@ const _keyedTenant = defaultCtx.seedTenant({
 type KeyedTenant = Awaited<typeof _keyedTenant>
 type _keyedOwnerRole = Assert<IsEqual<KeyedTenant['users']['owner']['role'], 'owner'>>
 type _keyedMemberRole = Assert<IsEqual<KeyedTenant['users']['member']['role'], 'member'>>
-const _forwardedClient = defaultCtx.asPrincipal({ kind: 'user', userId: 'owner-1' })
+const _forwardedClient = defaultCtx.asCaller({ kind: 'user', userId: 'owner-1' })
 type _forwardedClientSurface = Assert<
   IsEqual<keyof typeof _forwardedClient, 'action' | 'mutation' | 'query'>
 >
@@ -71,16 +73,16 @@ const _organizationCtx = createTestContext({
   },
 })
 type OrganizationTenant = Awaited<ReturnType<typeof _organizationCtx.seedTenant>>
-type _organizationTenantId = Assert<
+type _organizationWorkspaceId = Assert<
   IsEqual<OrganizationTenant['id'], { __tableName: 'organizations' } & string>
 >
 type _organizationUserId = Assert<
   IsEqual<OrganizationTenant['users'][string]['id'], { __tableName: 'members' } & string>
 >
 
-const canExport = defineGuard<{ role: 'owner' | 'member'; userId: string; tenantId: string }>(
+const canExport = defineGuard<{ role: 'owner' | 'member'; userId: string; workspaceId: string }>(
   'workspace.exports',
-  (actor) => actor.role === 'owner',
+  (appIdentity) => appIdentity.role === 'owner',
 )
 
 const exportsPermission = definePermission({
@@ -88,11 +90,11 @@ const exportsPermission = definePermission({
   check: canExport,
 })
 
-const _permissionContext = definePermissionContext({
+const _accessContext = defineAccessContext({
   resolve: async () => ({
     role: 'owner' as const,
     userId: 'owner-1',
-    tenantId: 'workspace-1',
+    workspaceId: 'workspace-1',
     plan: 'pro' as const,
   }),
   permissions: [exportsPermission],
@@ -105,8 +107,8 @@ const _permissionContext = definePermissionContext({
     },
   }),
 })
-type PermissionContextResult = Awaited<ReturnType<typeof _permissionContext.handler>>
-type _permissionContextPlan = Assert<IsEqual<NonNullable<PermissionContextResult>['plan'], 'pro'>>
-type _permissionContextUsage = Assert<
-  IsEqual<NonNullable<PermissionContextResult>['usage']['projects']['current'], number>
+type AccessContextResult = Awaited<ReturnType<typeof _accessContext.handler>>
+type _accessContextPlan = Assert<IsEqual<NonNullable<AccessContextResult>['plan'], 'pro'>>
+type _accessContextUsage = Assert<
+  IsEqual<NonNullable<AccessContextResult>['usage']['projects']['current'], number>
 >

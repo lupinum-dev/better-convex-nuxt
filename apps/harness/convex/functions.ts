@@ -3,12 +3,12 @@ import { defineTrellis } from '@lupinum/trellis/backend'
 import { trellisObservability } from '../observability.config'
 import type { DataModel } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import type { Actor } from './auth/actor'
-import { getActorFromPrincipal } from './auth/actor'
-import type { HarnessDelegation } from './auth/delegation'
-import { delegation } from './auth/delegation'
-import type { InternalHarnessPrincipal } from './auth/principal'
-import { principal } from './auth/principal'
+import type { HarnessDelegation } from './auth/acting-for'
+import { actingFor } from './auth/acting-for'
+import type { AppIdentity } from './auth/app-identity'
+import { getAppIdentityFromCaller } from './auth/app-identity'
+import type { InternalHarnessCaller } from './auth/caller'
+import { caller } from './auth/caller'
 
 export const { mutation, query, unsafe } = defineTrellis<
   DataModel,
@@ -16,21 +16,21 @@ export const { mutation, query, unsafe } = defineTrellis<
   'public',
   'internal',
   'internal',
-  InternalHarnessPrincipal,
+  InternalHarnessCaller,
   HarnessDelegation,
-  Actor
+  AppIdentity
 >(
   { query: generatedQuery, mutation: generatedMutation },
   {
-    principal,
-    delegation,
-    actor: getActorFromPrincipal,
-    tenantIsolation: {
+    caller,
+    actingFor,
+    appIdentity: getAppIdentityFromCaller,
+    isolation: {
       tables: ['posts', 'comments', 'mcpKeys'],
       field: 'organizationId',
     },
-    destructiveSafety: {
-      redemptionTable: 'destructiveRedemptions' as never,
+    destructiveOperations: {
+      confirmationTable: 'destructiveConfirmations' as never,
       auditTable: 'destructiveAuditLog' as never,
     },
     observability: trellisObservability,

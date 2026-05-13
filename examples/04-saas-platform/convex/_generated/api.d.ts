@@ -9,9 +9,9 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as auth_actor from "../auth/actor.js";
+import type * as auth_actor from "../auth/appIdentity.js";
 import type * as auth_guards from "../auth/guards.js";
-import type * as auth_principal from "../auth/principal.js";
+import type * as auth_principal from "../auth/caller.js";
 import type * as features_comments_domain from "../features/comments/domain.js";
 import type * as features_comments_feature from "../features/comments/feature.js";
 import type * as features_comments_index from "../features/comments/index.js";
@@ -53,9 +53,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  "auth/actor": typeof auth_actor;
+  "auth/appIdentity": typeof auth_actor;
   "auth/guards": typeof auth_guards;
-  "auth/principal": typeof auth_principal;
+  "auth/caller": typeof auth_principal;
   "features/comments/domain": typeof features_comments_domain;
   "features/comments/feature": typeof features_comments_feature;
   "features/comments/index": typeof features_comments_index;

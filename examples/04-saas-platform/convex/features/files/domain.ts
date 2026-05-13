@@ -8,7 +8,7 @@ import { requireAuth } from '@lupinum/trellis/auth'
 import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { generateUploadUrl } from '../../../shared/features/files/contract'
-import { getActor } from '../../auth/actor'
+import { getAppIdentity } from '../../auth/app-identity'
 import { mutation } from '../../functions'
 
 export const generateUploadUrlMutation = mutation.unsafe({
@@ -19,8 +19,8 @@ export const generateUploadUrlMutation = mutation.unsafe({
   }),
   args: generateUploadUrl.args,
   handler: async (ctx) => {
-    const actor = await getActor(ctx)
-    requireAuth(actor)
+    const appIdentity = await getAppIdentity(ctx)
+    requireAuth(appIdentity)
     return await (
       ctx as unknown as { storage: { generateUploadUrl(): Promise<string> } }
     ).storage.generateUploadUrl()

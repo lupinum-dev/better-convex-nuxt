@@ -7,8 +7,8 @@ describe('visibility entrypoint exports', () => {
     visibilityApi = await import('../../src/runtime/visibility/index')
   })
 
-  it('exports capabilities and redaction primitives', () => {
-    expect(visibilityApi).toHaveProperty('defineCapabilities')
+  it('exports recordAccess and redaction primitives', () => {
+    expect(visibilityApi).toHaveProperty('defineRecordAccess')
     expect(visibilityApi).toHaveProperty('defineRedaction')
   })
 })

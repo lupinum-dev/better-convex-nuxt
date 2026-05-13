@@ -4,4 +4,4 @@ import { expectTypeOf } from 'vitest'
 const testContext = createTestContext({ schema: {} as never })
 
 expectTypeOf(testContext).toHaveProperty('seed')
-expectTypeOf(testContext).toHaveProperty('asPrincipal')
+expectTypeOf(testContext).toHaveProperty('asCaller')

@@ -28,7 +28,7 @@ export default tool.query({
   call: harnessApi.posts.list,
   enabled: async (ctx) => {
     const auth = await resolveHarnessMcpAuth(ctx.event)
-    return !!auth?.tenantId
+    return !!auth?.workspaceId
   },
   meta: {
     name: 'list-posts',
@@ -45,7 +45,7 @@ export default tool.query({
       publishedAt: typeof post.publishedAt === 'number' ? post.publishedAt : null,
       createdAt: Number(post.createdAt),
       updatedAt: Number(post.updatedAt),
-      capabilities: post._can,
+      recordAccess: post._can,
     }))
 
     return { count: items.length, posts: items }

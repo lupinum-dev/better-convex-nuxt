@@ -7,4 +7,4 @@ const manifest = composeFeatures([pagesFeature])
 export const schema = manifest.schema
 export const permissions = manifest.permissions
 export const tenantTables = manifest.tenantTables
-export const globalTables = manifest.globalTables
+export const sharedTables = manifest.sharedTables

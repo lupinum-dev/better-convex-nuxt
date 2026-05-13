@@ -6,12 +6,12 @@ export const listMembers = query.protected({
   args: listMembersArgs.args,
   guard: membershipRead,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor) throw new Error('Current actor is not assigned to a workspace.')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) throw new Error('Current appIdentity is not assigned to a workspace.')
 
     const memberships = await ctx.db
       .query('memberships')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
       .collect()
 
     return Promise.all(

@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { authRequired, defineGuard, open } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
-type Principal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
-type Actor = { userId: string; role: string } | null
+type Caller = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+type AppIdentity = { userId: string; role: string } | null
 
 type TestCtx = {
-  principal: () => Promise<Principal>
-  actor: () => Promise<Actor>
+  caller: () => Promise<Caller>
+  appIdentity: () => Promise<AppIdentity>
   marker: string
 }
 
@@ -26,19 +26,22 @@ describe('buildStructuredFunctions', () => {
     vi.unstubAllEnvs()
   })
 
-  it('requires a guard and narrows actor for protected handlers at runtime', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('requires a guard and narrows appIdentity for protected handlers at runtime', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+    const guard = defineGuard<AppIdentity>(
+      'dashboard.read',
+      (appIdentity) => !!appIdentity && appIdentity.role === 'admin',
+    )
 
     const query = handlers.query({
       args: {},
       guard,
       handler: async (ctx) => {
         return {
-          actor: await ctx.actor(),
+          appIdentity: await ctx.appIdentity(),
           marker: ctx.marker,
         }
       },
@@ -46,25 +49,28 @@ describe('buildStructuredFunctions', () => {
 
     const result = await query.handler(
       {
-        principal: async () => ({ kind: 'user', userId: 'alice' }),
-        actor: async () => ({ userId: 'alice', role: 'admin' }),
+        caller: async () => ({ kind: 'user', userId: 'alice' }),
+        appIdentity: async () => ({ userId: 'alice', role: 'admin' }),
         marker: 'ok',
       },
       {},
     )
 
     expect(result).toEqual({
-      actor: { userId: 'alice', role: 'admin' },
+      appIdentity: { userId: 'alice', role: 'admin' },
       marker: 'ok',
     })
   })
 
   it('rejects protected handlers before business logic runs', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+    const guard = defineGuard<AppIdentity>(
+      'dashboard.read',
+      (appIdentity) => !!appIdentity && appIdentity.role === 'admin',
+    )
     let called = false
 
     const query = handlers.query({
@@ -79,8 +85,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'nope',
         },
         {},
@@ -91,7 +97,7 @@ describe('buildStructuredFunctions', () => {
   })
 
   it('supports public handlers via open', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
@@ -99,14 +105,14 @@ describe('buildStructuredFunctions', () => {
     const query = handlers.query({
       args: {},
       guard: open,
-      handler: async (ctx) => await ctx.actor(),
+      handler: async (ctx) => await ctx.appIdentity(),
     }) as BuiltHandler
 
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'anonymous' }),
-          actor: async () => null,
+          caller: async () => ({ kind: 'anonymous' }),
+          appIdentity: async () => null,
           marker: 'public',
         },
         {},
@@ -114,40 +120,40 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBeNull()
   })
 
-  it('does not resolve actor eagerly for open handlers that never touch actor()', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('does not resolve appIdentity eagerly for open handlers that never touch appIdentity()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const actor = vi.fn(async () => {
-      throw new Error('actor should stay lazy')
+    const appIdentity = vi.fn(async () => {
+      throw new Error('appIdentity should stay lazy')
     })
 
     const query = handlers.query({
       args: {},
       guard: open,
-      handler: async (ctx) => ({ principal: await ctx.principal(), marker: ctx.marker }),
+      handler: async (ctx) => ({ caller: await ctx.caller(), marker: ctx.marker }),
     }) as BuiltHandler
 
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'anonymous' }),
-          actor,
+          caller: async () => ({ kind: 'anonymous' }),
+          appIdentity,
           marker: 'public',
         },
         {},
       ),
     ).resolves.toEqual({
-      principal: { kind: 'anonymous' },
+      caller: { kind: 'anonymous' },
       marker: 'public',
     })
 
-    expect(actor).not.toHaveBeenCalled()
+    expect(appIdentity).not.toHaveBeenCalled()
   })
 
-  it('does not require actor wiring for open handlers that never touch actor()', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('does not require appIdentity wiring for open handlers that never touch appIdentity()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
@@ -155,29 +161,29 @@ describe('buildStructuredFunctions', () => {
     const query = handlers.query({
       args: {},
       guard: open,
-      handler: async (ctx) => ({ principal: await ctx.principal(), marker: ctx.marker }),
+      handler: async (ctx) => ({ caller: await ctx.caller(), marker: ctx.marker }),
     }) as BuiltHandler
 
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'anonymous' }),
+          caller: async () => ({ kind: 'anonymous' }),
           marker: 'public',
         } as unknown as TestCtx,
         {},
       ),
     ).resolves.toEqual({
-      principal: { kind: 'anonymous' },
+      caller: { kind: 'anonymous' },
       marker: 'public',
     })
   })
 
   it('supports separate load and authorize phases', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+    const guard = defineGuard<AppIdentity>('todo.read', (appIdentity) => !!appIdentity)
 
     const mutation = handlers.mutation({
       args: {},
@@ -185,7 +191,7 @@ describe('buildStructuredFunctions', () => {
       load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
       authorize: {
         label: 'todo.update',
-        check: (actor, loaded) => actor.userId === loaded.todo.ownerId,
+        check: (appIdentity, loaded) => appIdentity.userId === loaded.todo.ownerId,
       },
       handler: async (_ctx, _args, loaded) => loaded.todo.title,
     }) as BuiltHandler
@@ -193,8 +199,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'bob' }),
-          actor: async () => ({ userId: 'bob', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'bob' }),
+          appIdentity: async () => ({ userId: 'bob', role: 'member' }),
           marker: 'blocked',
         },
         {},
@@ -204,8 +210,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'allowed',
         },
         {},
@@ -214,19 +220,19 @@ describe('buildStructuredFunctions', () => {
   })
 
   it('does not infer one-argument authorize functions as loaded-resource factories', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+    const guard = defineGuard<AppIdentity>('todo.read', (appIdentity) => !!appIdentity)
 
     const mutation = handlers.mutation({
       args: {},
       guard,
       load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
-      authorize: ((actor: Actor) =>
-        Boolean((actor as { todo?: { ownerId: string } } | null)?.todo)) as unknown as (
-        actor: Actor,
+      authorize: ((appIdentity: AppIdentity) =>
+        Boolean((appIdentity as { todo?: { ownerId: string } } | null)?.todo)) as unknown as (
+        appIdentity: AppIdentity,
       ) => boolean,
       handler: async (_ctx, _args, loaded) => loaded.todo.title,
     }) as BuiltHandler
@@ -234,8 +240,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'bob' }),
-          actor: async () => ({ userId: 'bob', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'bob' }),
+          appIdentity: async () => ({ userId: 'bob', role: 'member' }),
           marker: 'blocked',
         },
         {},
@@ -245,8 +251,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'allowed',
         },
         {},
@@ -255,11 +261,11 @@ describe('buildStructuredFunctions', () => {
   })
 
   it('supports explicit authorize objects for loaded-resource checks', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+    const guard = defineGuard<AppIdentity>('todo.read', (appIdentity) => !!appIdentity)
 
     const mutation = handlers.mutation({
       args: {},
@@ -268,7 +274,10 @@ describe('buildStructuredFunctions', () => {
       authorize: {
         label: 'todo.update',
         check: (_actor, { todo }) =>
-          defineGuard<NonNullable<Actor>>('todo.update', (actor) => actor.userId === todo.ownerId),
+          defineGuard<NonNullable<AppIdentity>>(
+            'todo.update',
+            (appIdentity) => appIdentity.userId === todo.ownerId,
+          ),
       },
       handler: async (_ctx, _args, loaded) => loaded.todo.title,
     }) as BuiltHandler
@@ -276,8 +285,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'bob' }),
-          actor: async () => ({ userId: 'bob', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'bob' }),
+          appIdentity: async () => ({ userId: 'bob', role: 'member' }),
           marker: 'blocked',
         },
         {},
@@ -287,8 +296,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'allowed',
         },
         {},
@@ -296,26 +305,26 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('supports inline actor-and-loaded authorize checks', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('supports inline appIdentity-and-loaded authorize checks', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+    const guard = defineGuard<AppIdentity>('todo.read', (appIdentity) => !!appIdentity)
 
     const mutation = handlers.mutation({
       args: {},
       guard,
       load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
-      authorize: (actor, { todo }) => actor.userId === todo.ownerId,
+      authorize: (appIdentity, { todo }) => appIdentity.userId === todo.ownerId,
       handler: async (_ctx, _args, loaded) => loaded.todo.title,
     }) as BuiltHandler
 
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'bob' }),
-          actor: async () => ({ userId: 'bob', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'bob' }),
+          appIdentity: async () => ({ userId: 'bob', role: 'member' }),
           marker: 'blocked',
         },
         {},
@@ -325,8 +334,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'allowed',
         },
         {},
@@ -334,8 +343,8 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('requires a resolved actor for authRequired handlers', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('requires a resolved appIdentity for authRequired handlers', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
@@ -344,16 +353,16 @@ describe('buildStructuredFunctions', () => {
       args: {},
       guard: authRequired,
       handler: async (ctx) => ({
-        principal: await ctx.principal(),
-        actor: await ctx.actor(),
+        caller: await ctx.caller(),
+        appIdentity: await ctx.appIdentity(),
       }),
     }) as BuiltHandler
 
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => null,
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => null,
           marker: 'auth-only',
         },
         {},
@@ -363,22 +372,22 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'auth-only',
         },
         {},
       ),
     ).resolves.toEqual({
-      principal: { kind: 'user', userId: 'alice' },
-      actor: { userId: 'alice', role: 'member' },
+      caller: { kind: 'user', userId: 'alice' },
+      appIdentity: { userId: 'alice', role: 'member' },
     })
 
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'anonymous' }),
-          actor: async () => null,
+          caller: async () => ({ kind: 'anonymous' }),
+          appIdentity: async () => null,
           marker: 'anon',
         },
         {},
@@ -386,13 +395,13 @@ describe('buildStructuredFunctions', () => {
     ).rejects.toThrow(/Forbidden: authRequired/)
   })
 
-  it('rejects anonymous authRequired handlers before actor resolution runs', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('rejects anonymous authRequired handlers before appIdentity resolution runs', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const actor = vi.fn(async () => {
-      throw new Error('actor should not resolve for anonymous authRequired guard')
+    const appIdentity = vi.fn(async () => {
+      throw new Error('appIdentity should not resolve for anonymous authRequired guard')
     })
 
     const query = handlers.query({
@@ -404,19 +413,19 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'anonymous' }),
-          actor,
+          caller: async () => ({ kind: 'anonymous' }),
+          appIdentity,
           marker: 'anon',
         },
         {},
       ),
     ).rejects.toThrow(/Forbidden: authRequired/)
 
-    expect(actor).not.toHaveBeenCalled()
+    expect(appIdentity).not.toHaveBeenCalled()
   })
 
-  it('runs authRequired before load and authorize when actor is missing', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('runs authRequired before load and authorize when appIdentity is missing', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
@@ -427,9 +436,9 @@ describe('buildStructuredFunctions', () => {
       load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
       authorize: {
         label: 'todo.preview',
-        check: (actor, loaded, _args, ctx) => {
+        check: (appIdentity, loaded, _args, ctx) => {
           void ctx
-          return actor?.userId === loaded.todo.ownerId
+          return appIdentity?.userId === loaded.todo.ownerId
         },
       },
       handler: async (_ctx, _args, loaded) => loaded.todo.title,
@@ -438,8 +447,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => null,
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => null,
           marker: 'blocked',
         },
         {},
@@ -449,8 +458,8 @@ describe('buildStructuredFunctions', () => {
     await expect(
       mutation.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
-          actor: async () => ({ userId: 'alice', role: 'member' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
+          appIdentity: async () => ({ userId: 'alice', role: 'member' }),
           marker: 'allowed',
         },
         {},
@@ -458,12 +467,15 @@ describe('buildStructuredFunctions', () => {
     ).resolves.toBe('Hello')
   })
 
-  it('throws clearly when protected handlers need actor wiring but context is missing actor()', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('throws clearly when protected handlers need appIdentity wiring but context is missing appIdentity()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+    const guard = defineGuard<AppIdentity>(
+      'dashboard.read',
+      (appIdentity) => !!appIdentity && appIdentity.role === 'admin',
+    )
 
     const query = handlers.query({
       args: {},
@@ -474,22 +486,25 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
           marker: 'broken',
         } as unknown as TestCtx,
         {},
       ),
-    ).rejects.toThrow(/missing actor\(\) accessor/)
+    ).rejects.toThrow(/missing appIdentity\(\) accessor/)
   })
 
-  it('treats missing actor wiring as fail-closed denial in production', async () => {
+  it('treats missing appIdentity wiring as fail-closed denial in production', async () => {
     vi.stubEnv('NODE_ENV', 'production')
 
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
-    const guard = defineGuard<Actor>('dashboard.read', (actor) => !!actor && actor.role === 'admin')
+    const guard = defineGuard<AppIdentity>(
+      'dashboard.read',
+      (appIdentity) => !!appIdentity && appIdentity.role === 'admin',
+    )
 
     const query = handlers.query({
       args: {},
@@ -500,7 +515,7 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          principal: async () => ({ kind: 'user', userId: 'alice' }),
+          caller: async () => ({ kind: 'user', userId: 'alice' }),
           marker: 'broken',
         } as unknown as TestCtx,
         {},
@@ -508,8 +523,8 @@ describe('buildStructuredFunctions', () => {
     ).rejects.toThrow(/Forbidden: dashboard\.read/)
   })
 
-  it('throws clearly when context is missing principal()', async () => {
-    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+  it('throws clearly when context is missing caller()', async () => {
+    const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
       createBuilder(),
       createBuilder(),
     )
@@ -523,11 +538,11 @@ describe('buildStructuredFunctions', () => {
     await expect(
       query.handler(
         {
-          actor: async () => null,
+          appIdentity: async () => null,
           marker: 'broken',
         } as unknown as TestCtx,
         {},
       ),
-    ).rejects.toThrow(/missing principal\(\) accessor/)
+    ).rejects.toThrow(/missing caller\(\) accessor/)
   })
 })

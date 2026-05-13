@@ -112,11 +112,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('uses tenant metadata from convex/functions.ts and flags bare collection reads only', async () => {
+  it('uses isolation metadata from convex/functions.ts and flags bare collection reads only', async () => {
     const rootDir = createProjectFixture({
       'convex/functions.ts': `
         export const { query, unsafe } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: ['tasks'],
             field: 'workspaceId',
           },
@@ -169,10 +169,10 @@ describe('@lupinum/trellis ESLint plugin', () => {
     expect(badResult).toBeDefined()
     expect(goodResult).toBeDefined()
     expect(badResult!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/tenant-scoped-query-requires-index',
+      '@lupinum/trellis/isolation-query-requires-index',
     )
     expect(goodResult!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/tenant-scoped-query-requires-index',
+      '@lupinum/trellis/isolation-query-requires-index',
     )
   })
 
@@ -199,7 +199,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('does not flag guarded app handlers for missing enforce() or actor narrowing', async () => {
+  it('does not flag guarded app handlers for missing enforce() or appIdentity narrowing', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -209,8 +209,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
         guard: canReadWorkspaceRunbook,
         args: {},
         handler: async (ctx) => {
-          const actor = await ctx.actor()
-          return await ctx.db.query('runbooks').withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId)).collect()
+          const appIdentity = await ctx.appIdentity()
+          return await ctx.db.query('runbooks').withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId)).collect()
         },
       })
       `,
@@ -222,11 +222,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
       '@lupinum/trellis/enforce-required-in-handler',
     )
     expect(result!.messages.map((message) => message.ruleId)).not.toContain(
-      '@lupinum/trellis/actor-access-after-enforce',
+      '@lupinum/trellis/appIdentity-access-after-enforce',
     )
   })
 
-  it('does not flag db access in public branches that happen before ctx.actor() is resolved', async () => {
+  it('does not flag db access in public branches that happen before ctx.appIdentity() is resolved', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -245,8 +245,8 @@ describe('@lupinum/trellis ESLint plugin', () => {
             return article
           }
 
-          const actor = await ctx.actor()
-          enforce(actor, 'Read article', canReadArticle)
+          const appIdentity = await ctx.appIdentity()
+          enforce(appIdentity, 'Read article', canReadArticle)
           return await ctx.db.get(args.id)
         },
       })
@@ -260,7 +260,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('does not flag handlers that validate tenant resources after ctx.db.get()', async () => {
+  it('does not flag handlers that validate isolation resources after ctx.db.get()', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -274,11 +274,11 @@ describe('@lupinum/trellis ESLint plugin', () => {
         }),
         args: { id: v.id('todos') },
         handler: async (ctx, args) => {
-          const actor = await ctx.actor()
+          const appIdentity = await ctx.appIdentity()
           const todo = await ctx.db.get(args.id)
           requireRecord(todo, 'Todo')
-          ensureTenant(actor, todo)
-          enforce(actor, 'Update todo', canUpdateTodo(todo))
+          ensureTenant(appIdentity, todo)
+          enforce(appIdentity, 'Update todo', canUpdateTodo(todo))
           await ctx.db.patch(args.id, { completed: true })
         },
       })
@@ -292,7 +292,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
     )
   })
 
-  it('requires typed permits on unsafe builders and reasons on tenant-isolation escapes', async () => {
+  it('requires typed permits on unsafe builders and reasons on isolation escapes', async () => {
     const rootDir = createProjectFixture({})
     const eslint = await createEslint(rootDir)
 
@@ -318,7 +318,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
         }),
         args: {},
         handler: async (ctx) => {
-          return await ctx.db.escapeTenantIsolation({}).query('runbooks').collect()
+          return await ctx.db.escapeIsolation({}).query('runbooks').collect()
         },
       })
       `,
@@ -329,7 +329,7 @@ describe('@lupinum/trellis ESLint plugin', () => {
       '@lupinum/trellis/unsafe-requires-permit',
     )
     expect(missingEscapeReason!.messages.map((message) => message.ruleId)).toContain(
-      '@lupinum/trellis/escape-tenant-isolation-requires-reason',
+      '@lupinum/trellis/escape-isolation-requires-reason',
     )
   })
 

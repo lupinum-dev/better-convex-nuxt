@@ -156,7 +156,7 @@ function isCtxActorAwait(node: any): boolean {
     node.argument?.type === AST_NODE_TYPES.CallExpression &&
     node.argument.callee?.type === AST_NODE_TYPES.MemberExpression &&
     isIdentifier(node.argument.callee.object, 'ctx') &&
-    isIdentifier(node.argument.callee.property, 'actor')
+    isIdentifier(node.argument.callee.property, 'appIdentity')
   )
 }
 
@@ -311,7 +311,9 @@ export function statementContainsProtectedActorAccess(
       node.type === AST_NODE_TYPES.MemberExpression &&
       !node.optional &&
       isIdentifier(node.object, actorName) &&
-      ['userId', 'role', 'tenantId'].includes(getCallName(node.property) ?? node.property?.name) &&
+      ['userId', 'role', 'workspaceId'].includes(
+        getCallName(node.property) ?? node.property?.name,
+      ) &&
       !isGuardedActorAccess(node, actorName)
     ) {
       match = node
@@ -420,7 +422,7 @@ export function unwindCallChain(node: any): Array<{ name: string; node: any }> {
   return chain.reverse()
 }
 
-export function hasUnsafeActorCheck(functionNode: any, context: RuleContext): boolean {
+export function hasUnsafeAppIdentityCheck(functionNode: any, context: RuleContext): boolean {
   const param = functionNode.params?.[0]
   if (!isIdentifier(param)) return false
   const paramName = param.name

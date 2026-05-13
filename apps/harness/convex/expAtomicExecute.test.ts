@@ -72,7 +72,7 @@ describe('Exp 4: Atomic Execute Mutation', () => {
     })
     expect(auditEntries).toHaveLength(1)
     expect(auditEntries[0].operation).toBe('deletePost')
-    expect(auditEntries[0].principalKey).toBe('mcp-test-principal')
+    expect(auditEntries[0].callerKey).toBe('mcp-test-caller')
 
     // Verify jti was redeemed
     const jtiEntries = await t.run(async (ctx) => {

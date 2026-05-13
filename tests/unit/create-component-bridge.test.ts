@@ -12,21 +12,21 @@ async function expectSignedBridgeArgs(
     purpose: 'query' | 'mutation' | 'action'
     functionRef: string
     appArgs: Record<string, unknown>
-    principal: Record<string, unknown>
+    caller: Record<string, unknown>
   },
 ) {
-  const { verifyTrustedForwardingEnvelope } = await import('../../src/runtime/trusted-forwarding')
+  const { verifyIdentityForwardingEnvelope } = await import('../../src/runtime/identity-forwarding')
   expect(args).toMatchObject({
     ...options.appArgs,
     _trellisForwarding: expect.any(String),
   })
   expect(args).not.toHaveProperty('_trellisForwardingKey')
-  expect(args).not.toHaveProperty('_trustedForwardingKey')
-  expect(args).not.toHaveProperty('_trustedForwarding')
-  expect(args).not.toHaveProperty('principal')
+  expect(args).not.toHaveProperty('_identityForwardingKey')
+  expect(args).not.toHaveProperty('_identityForwarding')
+  expect(args).not.toHaveProperty('caller')
 
   const envelope = (args as { _trellisForwarding: string })._trellisForwarding
-  const payload = verifyTrustedForwardingEnvelope(envelope, {
+  const payload = verifyIdentityForwardingEnvelope(envelope, {
     keys: { default: options.key },
     expectedIssuer: bridgeIssuer,
     expectedAudience: bridgeAudience,
@@ -35,9 +35,9 @@ async function expectSignedBridgeArgs(
     functionRef: options.functionRef,
     args: options.appArgs,
   })
-  expect(payload.principal).toEqual(options.principal)
+  expect(payload.caller).toEqual(options.caller)
   expect(() =>
-    verifyTrustedForwardingEnvelope(envelope, {
+    verifyIdentityForwardingEnvelope(envelope, {
       keys: { default: options.key },
       expectedIssuer: bridgeIssuer,
       expectedAudience: bridgeAudience,
@@ -48,7 +48,7 @@ async function expectSignedBridgeArgs(
     }),
   ).toThrow(/function ref/)
   expect(() =>
-    verifyTrustedForwardingEnvelope(envelope, {
+    verifyIdentityForwardingEnvelope(envelope, {
       keys: { default: options.key },
       expectedIssuer: bridgeIssuer,
       expectedAudience: bridgeAudience,
@@ -62,7 +62,7 @@ async function expectSignedBridgeArgs(
 
 describe('createComponentBridge', () => {
   afterEach(() => {
-    delete process.env.CONVEX_TRUSTED_FORWARDING_KEY
+    delete process.env.CONVEX_IDENTITY_FORWARDING_KEY
     if (originalNodeEnv === undefined) {
       delete process.env.NODE_ENV
     } else {
@@ -72,12 +72,12 @@ describe('createComponentBridge', () => {
     vi.clearAllMocks()
   })
 
-  it('forwards the resolved principal unchanged for internal query bridges', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('forwards the resolved caller unchanged for internal query bridges', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -86,14 +86,13 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: async (_ctx, args) =>
-            (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) => (args as { caller?: typeof caller }).caller ?? caller,
         }),
       },
     )
@@ -106,12 +105,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runQuery: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -120,7 +119,7 @@ describe('createComponentBridge', () => {
     }
 
     const runQuery = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input({ runQuery }, { principal })
+    const customized = await registered.customization.input({ runQuery }, { caller })
 
     await registered.definition.handler(
       {
@@ -139,18 +138,18 @@ describe('createComponentBridge', () => {
       purpose: 'query',
       functionRef: 'component.query',
       appArgs: { slug: 'docs' },
-      principal,
+      caller,
     })
   })
 
   it('rejects bridge envelopes signed for a different component function', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge, createBridgeForwardingArgs } =
       await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
-    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
+    const { defineCaller } = await import('../../src/runtime/functions')
+    const { getForwardedCaller } = await import('../../src/runtime/identity-forwarding')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -159,14 +158,14 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
           resolve: async (ctx, args) =>
-            getForwardedPrincipal<typeof principal>(ctx as never, args as never) ?? principal,
+            getForwardedCaller<typeof caller>(ctx as never, args as never) ?? caller,
         }),
       },
     )
@@ -179,7 +178,7 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
     }
     const bridgeB = bridge.internalQuery({
@@ -190,31 +189,31 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
     }
 
     const signedForA = createBridgeForwardingArgs(
       { slug: 'docs' },
-      principal,
+      caller,
       'bridge-secret',
       'query',
       'component.a' as never,
     )
 
     const customizedA = await bridgeA.customization.input({}, signedForA)
-    await expect(customizedA.ctx.principal()).resolves.toEqual(principal)
+    await expect(customizedA.ctx.caller()).resolves.toEqual(caller)
 
     const customizedB = await bridgeB.customization.input({}, signedForA)
-    await expect(customizedB.ctx.principal()).rejects.toThrow(/function-ref/i)
+    await expect(customizedB.ctx.caller()).rejects.toThrow(/function-ref/i)
   })
 
-  it('forwards the resolved principal unchanged for internal action bridges', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('forwards the resolved caller unchanged for internal action bridges', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -225,14 +224,13 @@ describe('createComponentBridge', () => {
         internalAction: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: async (_ctx, args) =>
-            (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) => (args as { caller?: typeof caller }).caller ?? caller,
         }),
       },
     )
@@ -245,12 +243,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runAction: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -259,7 +257,7 @@ describe('createComponentBridge', () => {
     }
 
     const runAction = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input({ runAction }, { principal })
+    const customized = await registered.customization.input({ runAction }, { caller })
 
     await registered.definition.handler(
       {
@@ -278,15 +276,15 @@ describe('createComponentBridge', () => {
       purpose: 'action',
       functionRef: 'component.action',
       appArgs: { slug: 'docs' },
-      principal,
+      caller,
     })
   })
 
-  it('rejects caller-supplied principal on public query bridges', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('rejects caller-supplied caller on public query bridges', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
-    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
+    const { defineCaller } = await import('../../src/runtime/functions')
+    const { getForwardedCaller } = await import('../../src/runtime/identity-forwarding')
 
     const trustedPrincipal = {
       kind: 'service',
@@ -298,10 +296,9 @@ describe('createComponentBridge', () => {
       serviceId: 'attacker',
       subject: 'service:attacker',
     } as const
-    const resolvePrincipal = vi.fn(async (ctx, args) => {
+    const resolveCaller = vi.fn(async (ctx, args) => {
       return (
-        getForwardedPrincipal<typeof trustedPrincipal>(ctx as never, args as never) ??
-        trustedPrincipal
+        getForwardedCaller<typeof trustedPrincipal>(ctx as never, args as never) ?? trustedPrincipal
       )
     })
 
@@ -313,13 +310,13 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: resolvePrincipal,
+          resolve: resolveCaller,
         }),
       },
     )
@@ -333,7 +330,7 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof trustedPrincipal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof trustedPrincipal> } }>
       }
     }
 
@@ -342,22 +339,22 @@ describe('createComponentBridge', () => {
     const customized = await registered.customization.input(
       { runQuery: vi.fn() },
       {
-        principal: attackerPrincipal,
+        caller: attackerPrincipal,
       },
     )
 
-    await expect(customized.ctx.principal()).rejects.toThrow(
-      /Forwarded `principal` is only allowed on verified trusted forwarding paths/,
+    await expect(customized.ctx.caller()).rejects.toThrow(
+      /Forwarded `caller` is only allowed on verified identity forwarding paths/,
     )
-    expect(resolvePrincipal).toHaveBeenCalled()
+    expect(resolveCaller).toHaveBeenCalled()
   })
 
-  it('forwards the resolved principal unchanged when bridge entries are declared in batch', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('forwards the resolved caller unchanged when bridge entries are declared in batch', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -366,14 +363,13 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: async (_ctx, args) =>
-            (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) => (args as { caller?: typeof caller }).caller ?? caller,
         }),
       },
     )
@@ -389,12 +385,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runQuery: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -403,7 +399,7 @@ describe('createComponentBridge', () => {
     }
 
     const runQuery = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input({ runQuery }, { principal })
+    const customized = await registered.customization.input({ runQuery }, { caller })
 
     await registered.definition.handler(
       {
@@ -422,15 +418,15 @@ describe('createComponentBridge', () => {
       purpose: 'query',
       functionRef: 'component.query',
       appArgs: { slug: 'docs' },
-      principal,
+      caller,
     })
   })
 
   it('keeps anonymous public bridge calls unsigned without requiring a forwarding key', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'anonymous' } as const
+    const caller = { kind: 'anonymous' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -439,9 +435,9 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({ kind: v.literal('anonymous') }),
-          resolve: async () => principal,
+          resolve: async () => caller,
         }),
       },
     )
@@ -454,12 +450,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runQuery: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -481,9 +477,9 @@ describe('createComponentBridge', () => {
     expect(runQuery).toHaveBeenCalledWith('component.publicQuery', { slug: 'docs' })
   })
 
-  it('fails closed when no trusted forwarding key is configured', async () => {
+  it('fails closed when no identity forwarding key is configured', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {
@@ -493,15 +489,14 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
           resolve: async (_ctx, args) =>
-            (args as { principal?: { kind: 'service'; serviceId: string; subject: string } })
-              .principal!,
+            (args as { caller?: { kind: 'service'; serviceId: string; subject: string } }).caller!,
         }),
       },
     )
@@ -521,26 +516,26 @@ describe('createComponentBridge', () => {
           ...(
             await registered.customization.input(
               { runQuery: vi.fn() },
-              { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
+              { caller: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
             )
           ).ctx,
           runQuery: vi.fn(),
         },
         { slug: 'docs' },
       ),
-    ).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
+    ).rejects.toThrow(/CONVEX_IDENTITY_FORWARDING_KEY/)
   })
 
   it('fails closed at component verification when the component side has no key', async () => {
     const { createBridgeForwardingArgs, createComponentBridge } =
       await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
-    const { getForwardedPrincipal } = await import('../../src/runtime/trusted-forwarding')
+    const { defineCaller } = await import('../../src/runtime/functions')
+    const { getForwardedCaller } = await import('../../src/runtime/identity-forwarding')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const signedArgs = createBridgeForwardingArgs(
       { slug: 'docs' },
-      principal,
+      caller,
       'explicit-component-boundary-key',
       'query',
       'component.query' as never,
@@ -554,14 +549,14 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
           resolve: async (ctx, args) =>
-            getForwardedPrincipal<typeof principal>(ctx as never, args as never) ?? principal,
+            getForwardedCaller<typeof caller>(ctx as never, args as never) ?? caller,
         }),
       },
     )
@@ -574,19 +569,19 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
     }
 
     const customized = await registered.customization.input({}, signedArgs)
-    await expect(customized.ctx.principal()).rejects.toThrow(/CONVEX_TRUSTED_FORWARDING_KEY/)
+    await expect(customized.ctx.caller()).rejects.toThrow(/CONVEX_IDENTITY_FORWARDING_KEY/)
   })
 
-  it('uses an explicit trusted forwarding key without reading process env', async () => {
+  it('uses an explicit identity forwarding key without reading process env', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
     const bridge = createComponentBridge(
       {
         query: (() => null as never) as never,
@@ -595,16 +590,15 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: async (_ctx, args) =>
-            (args as { principal?: typeof principal }).principal ?? principal,
+          resolve: async (_ctx, args) => (args as { caller?: typeof caller }).caller ?? caller,
         }),
-        trustedForwardingKey: 'explicit-component-boundary-key',
+        identityForwardingKey: 'explicit-component-boundary-key',
       },
     )
 
@@ -616,12 +610,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runMutation: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -630,7 +624,7 @@ describe('createComponentBridge', () => {
     }
 
     const runMutation = vi.fn(async () => ({ ok: true }))
-    const customized = await registered.customization.input({ runMutation }, { principal })
+    const customized = await registered.customization.input({ runMutation }, { caller })
 
     await registered.definition.handler(
       {
@@ -649,16 +643,16 @@ describe('createComponentBridge', () => {
       purpose: 'mutation',
       functionRef: 'component.mutation',
       appArgs: { slug: 'docs' },
-      principal,
+      caller,
     })
   })
 
-  it('passes bridge call args into trusted forwarding key callbacks before signing', async () => {
+  it('passes bridge call args into identity forwarding key callbacks before signing', async () => {
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
-    const principal = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
-    const trustedForwardingKey = vi.fn((args?: unknown) => {
+    const caller = { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } as const
+    const identityForwardingKey = vi.fn((args?: unknown) => {
       expect(args).toEqual({ slug: 'docs' })
       return 'args-aware-component-boundary-key'
     })
@@ -670,15 +664,15 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
-          resolve: async () => principal,
+          resolve: async () => caller,
         }),
-        trustedForwardingKey,
+        identityForwardingKey,
       },
     )
 
@@ -690,12 +684,12 @@ describe('createComponentBridge', () => {
         input: (
           ctx: unknown,
           args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<typeof principal> } }>
+        ) => Promise<{ ctx: { caller: () => Promise<typeof caller> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<typeof principal>
+            caller: () => Promise<typeof caller>
             runMutation: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -714,7 +708,7 @@ describe('createComponentBridge', () => {
       { slug: 'docs' },
     )
 
-    expect(trustedForwardingKey).toHaveBeenCalledTimes(1)
+    expect(identityForwardingKey).toHaveBeenCalledTimes(1)
     expect(runMutation).toHaveBeenCalledWith('component.mutation', {
       slug: 'docs',
       _trellisForwarding: expect.any(String),
@@ -724,15 +718,15 @@ describe('createComponentBridge', () => {
       purpose: 'mutation',
       functionRef: 'component.mutation',
       appArgs: { slug: 'docs' },
-      principal,
+      caller,
     })
   })
 
-  it('rejects weak trusted forwarding keys in production', async () => {
+  it('rejects weak identity forwarding keys in production', async () => {
     process.env.NODE_ENV = 'production'
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {
@@ -742,15 +736,14 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
             subject: v.string(),
           }),
           resolve: async (_ctx, args) =>
-            (args as { principal?: { kind: 'service'; serviceId: string; subject: string } })
-              .principal!,
+            (args as { caller?: { kind: 'service'; serviceId: string; subject: string } }).caller!,
         }),
       },
     )
@@ -760,15 +753,12 @@ describe('createComponentBridge', () => {
       args: { slug: v.string() },
     }) as {
       customization: {
-        input: (
-          ctx: unknown,
-          args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<unknown> } }>
+        input: (ctx: unknown, args: unknown) => Promise<{ ctx: { caller: () => Promise<unknown> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<unknown>
+            caller: () => Promise<unknown>
             runQuery: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -778,7 +768,7 @@ describe('createComponentBridge', () => {
 
     const customized = await registered.customization.input(
       { runQuery: vi.fn() },
-      { principal: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
+      { caller: { kind: 'service', serviceId: 'mcp', subject: 'service:mcp' } },
     )
 
     await expect(
@@ -792,10 +782,10 @@ describe('createComponentBridge', () => {
     ).rejects.toThrow(/at least 32 characters/i)
   })
 
-  it('rejects non-canonical forwarded principal subjects on internal bridge paths', async () => {
-    process.env.CONVEX_TRUSTED_FORWARDING_KEY = 'bridge-secret'
+  it('rejects non-canonical forwarded caller subjects on internal bridge paths', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'bridge-secret'
     const { createComponentBridge } = await import('../../packages/trellis-bridge/src/component')
-    const { definePrincipal } = await import('../../src/runtime/functions')
+    const { defineCaller } = await import('../../src/runtime/functions')
 
     const bridge = createComponentBridge(
       {
@@ -805,7 +795,7 @@ describe('createComponentBridge', () => {
         internalMutation: (() => null as never) as never,
       },
       {
-        principal: definePrincipal({
+        caller: defineCaller({
           validator: v.object({
             kind: v.literal('service'),
             serviceId: v.string(),
@@ -814,9 +804,9 @@ describe('createComponentBridge', () => {
           resolve: async (_ctx, args) =>
             (
               args as {
-                principal?: { kind: 'service'; serviceId: string; subject: string }
+                caller?: { kind: 'service'; serviceId: string; subject: string }
               }
-            ).principal!,
+            ).caller!,
         }),
       },
     )
@@ -826,15 +816,12 @@ describe('createComponentBridge', () => {
       args: { slug: v.string() },
     }) as {
       customization: {
-        input: (
-          ctx: unknown,
-          args: unknown,
-        ) => Promise<{ ctx: { principal: () => Promise<unknown> } }>
+        input: (ctx: unknown, args: unknown) => Promise<{ ctx: { caller: () => Promise<unknown> } }>
       }
       definition: {
         handler: (
           ctx: {
-            principal: () => Promise<unknown>
+            caller: () => Promise<unknown>
             runQuery: (component: string, args: unknown) => Promise<unknown>
           },
           args: { slug: string },
@@ -844,7 +831,7 @@ describe('createComponentBridge', () => {
 
     const customized = await registered.customization.input(
       { runQuery: vi.fn() },
-      { principal: { kind: 'service', serviceId: 'mcp', subject: 'not-a-subject' } },
+      { caller: { kind: 'service', serviceId: 'mcp', subject: 'not-a-subject' } },
     )
 
     await expect(

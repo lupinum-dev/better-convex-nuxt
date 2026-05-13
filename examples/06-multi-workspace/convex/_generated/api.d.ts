@@ -9,7 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
-import type * as auth_actor from "../auth/actor.js";
+import type * as auth_actor from "../auth/appIdentity.js";
 import type * as auth_agency from "../auth/agency.js";
 import type * as auth_guards from "../auth/guards.js";
 import type * as features_dashboard_domain from "../features/dashboard/domain.js";
@@ -41,7 +41,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
-  "auth/actor": typeof auth_actor;
+  "auth/appIdentity": typeof auth_actor;
   "auth/agency": typeof auth_agency;
   "auth/guards": typeof auth_guards;
   "features/dashboard/domain": typeof features_dashboard_domain;

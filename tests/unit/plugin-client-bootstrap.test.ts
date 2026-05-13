@@ -193,7 +193,7 @@ describe('plugin.client bootstrap', () => {
       handler: 'runbooks.remove',
       principalKind: 'user',
       actorKind: 'viewer',
-      tenantId: 'ws_1',
+      workspaceId: 'ws_1',
       reasonCode: 'authorize.denied',
       details: {
         explanation: {

@@ -1,5 +1,5 @@
 /**
- * Experiment 6: Service Principal Structural Detection — Tests
+ * Experiment 6: Service Caller Structural Detection — Tests
  *
  * Proves the builder type (public vs internal) determines how no-auth
  * resolves — this is structural, not a runtime heuristic.
@@ -11,7 +11,7 @@ import { api, internal } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
-describe('Exp 6: Service Principal Structural Detection', () => {
+describe('Exp 6: Service Caller Structural Detection', () => {
   // ---- Public query ----
 
   it('6a: public query, no auth → anonymous', async () => {

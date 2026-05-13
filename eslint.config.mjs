@@ -160,7 +160,7 @@ export default createConfigForNuxt({
           },
           {
             selector:
-              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:devtools|functions|mcp|observability|trusted-forwarding|visibility)\\//]',
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:devtools|functions|identity-forwarding|mcp|observability|visibility)\\//]',
             message:
               'The composables barrel is a narrow public facade and must not re-export other runtime verticals.',
           },
@@ -188,7 +188,7 @@ export default createConfigForNuxt({
           'error',
           {
             selector:
-              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:auth|composables|convex|devtools|mcp|observability|server|trusted-forwarding|visibility)\\//]',
+              'ExportNamedDeclaration[source.value=/^\\.\\.\\/(?:auth|composables|convex|devtools|identity-forwarding|mcp|observability|server|visibility)\\//]',
             message:
               'The functions barrel must not re-export other runtime verticals or private plumbing.',
           },

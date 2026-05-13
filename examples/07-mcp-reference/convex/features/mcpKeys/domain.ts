@@ -61,11 +61,11 @@ export const list = query.protected({
   guard: mcpManage,
   args: {},
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const keys = await ctx.db
       .query('mcpKeys')
-      .withIndex('by_bound_workspace', (q) => q.eq('boundWorkspaceId', actor.tenantId))
+      .withIndex('by_bound_workspace', (q) => q.eq('boundWorkspaceId', appIdentity.workspaceId))
       .order('desc')
       .collect()
 
@@ -79,13 +79,13 @@ export const create = mutation.protected({
   guard: mcpManage,
   args: createMcpKey.args,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const boundUser = await getBoundUser(ctx, args.boundAuthId)
-    if (!boundUser?.workspaceId || boundUser.workspaceId !== actor.tenantId) {
+    if (!boundUser?.workspaceId || boundUser.workspaceId !== appIdentity.workspaceId) {
       throw deny('You can only issue MCP keys for users in your workspace.')
     }
-    if (!canIssueKeyRole(actor, boundUser.role)) {
+    if (!canIssueKeyRole(appIdentity, boundUser.role)) {
       throw deny('You cannot issue an MCP key for that user.')
     }
 
@@ -94,8 +94,8 @@ export const create = mutation.protected({
       prefix: args.prefix,
       hash: args.hash,
       boundAuthId: boundUser.authId,
-      boundWorkspaceId: actor.tenantId,
-      issuedByAuthId: actor.userId,
+      boundWorkspaceId: appIdentity.workspaceId,
+      issuedByAuthId: appIdentity.userId,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -106,10 +106,10 @@ export const revoke = mutation.protected({
   guard: mcpManage,
   args: revokeMcpKey.args,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const rawKey = await ctx.db.get(args.id)
-    if (!rawKey || rawKey.boundWorkspaceId !== actor.tenantId) {
+    if (!rawKey || rawKey.boundWorkspaceId !== appIdentity.workspaceId) {
       throw deny('MCP key not found.')
     }
 
@@ -117,7 +117,7 @@ export const revoke = mutation.protected({
     if (
       boundUser?.workspaceId &&
       boundUser.workspaceId === rawKey.boundWorkspaceId &&
-      !canIssueKeyRole(actor, boundUser.role)
+      !canIssueKeyRole(appIdentity, boundUser.role)
     ) {
       throw deny('You cannot revoke an MCP key for that user.')
     }
@@ -147,7 +147,7 @@ export const validate = query.public({
       id: key._id,
       role: boundUser.role,
       userId: boundUser.authId,
-      tenantId: boundUser.workspaceId,
+      workspaceId: boundUser.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }
   },

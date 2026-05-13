@@ -147,14 +147,14 @@ describe('CLI upgrade', () => {
     expect(output).toContain('Summary:')
   })
 
-  it('fails raw trusted-forwarding migration findings with file locations', () => {
+  it('fails raw identity-forwarding migration findings with file locations', () => {
     const appRoot = createPublicApp()
     writeAppFile(
       appRoot,
       'server/api/legacy.post.ts',
       [
         'export default defineEventHandler(async () => {',
-        '  return { _trustedForwardingKey: "legacy", principal: { subject: "user:1" } }',
+        '  return { _identityForwardingKey: "legacy", caller: { subject: "user:1" } }',
         '})',
       ].join('\n'),
     )
@@ -185,12 +185,12 @@ describe('CLI upgrade', () => {
         }),
         expect.objectContaining({
           kind: 'inventory',
-          inventoryPath: 'forwarding.forwardedPrincipalMisuses',
+          inventoryPath: 'forwarding.forwardedCallerMisuses',
         }),
       ]),
     )
     expect(JSON.stringify(finding.sources)).not.toContain('user:1')
-    expect(JSON.stringify(finding.sources)).not.toContain('_trustedForwardingKey')
+    expect(JSON.stringify(finding.sources)).not.toContain('_identityForwardingKey')
     expect(JSON.stringify(finding.sources)).not.toContain('subject')
   })
 
@@ -201,8 +201,8 @@ describe('CLI upgrade', () => {
       'server/api/legacy.post.ts',
       [
         'export default defineEventHandler(async () => {',
-        '  const readArgs = { _trustedForwardingKey: "legacy-read" }',
-        '  const writeArgs = { trustedForwardingKey: "legacy-write" }',
+        '  const readArgs = { _identityForwardingKey: "legacy-read" }',
+        '  const writeArgs = { identityForwardingKey: "legacy-write" }',
         '  return { readArgs, writeArgs }',
         '})',
       ].join('\n'),
@@ -687,7 +687,7 @@ describe('CLI upgrade', () => {
       [
         "import { query } from '@lupinum/trellis/functions'",
         'export default defineEventHandler(async () => {',
-        '  return { _trustedForwardingKey: "legacy", principal: { subject: "user:1" } }',
+        '  return { _identityForwardingKey: "legacy", caller: { subject: "user:1" } }',
         '})',
       ].join('\n'),
     )
@@ -698,9 +698,9 @@ describe('CLI upgrade', () => {
 
     expect(result.status, output).toBe(1)
     expect(after).toContain("import { query } from '@lupinum/trellis/backend'")
-    expect(after).toContain('_trustedForwardingKey')
-    expect(after).toContain('principal')
-    expect(output).toContain('Raw trusted-forwarding migration')
+    expect(after).toContain('_identityForwardingKey')
+    expect(after).toContain('caller')
+    expect(output).toContain('Raw identity-forwarding migration')
   })
 
   it('write mode does not rewrite authorize callbacks or backend lane decisions', () => {

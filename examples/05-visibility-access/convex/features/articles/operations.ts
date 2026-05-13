@@ -30,8 +30,8 @@ export const revokeShareTokenOp = defineOperation({
   }),
   guard: shareCreate,
   load: async (ctx, args) => {
-    const actor = await ctx.actor()
-    const token = loadResource(actor, await ctx.db.get(args.tokenId), 'Share token')
+    const appIdentity = await ctx.appIdentity()
+    const token = loadResource(appIdentity, await ctx.db.get(args.tokenId), 'Share token')
     return { token }
   },
   preview: async (_ctx, _args, { token }) =>

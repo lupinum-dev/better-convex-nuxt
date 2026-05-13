@@ -4,15 +4,18 @@ import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import type { Actor } from './auth/actor'
+import type { AppIdentity } from './auth/app-identity'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
 import { mutation, query } from './functions'
 
-const canListMcpKeys = defineGuard<Actor>('mcp-key.list', (actor) => actor !== null)
-const canManageMcpKeys = defineGuard<Actor>(
+const canListMcpKeys = defineGuard<AppIdentity>(
+  'mcp-key.list',
+  (appIdentity) => appIdentity !== null,
+)
+const canManageMcpKeys = defineGuard<AppIdentity>(
   'mcp-key.manage',
-  (actor) => !!actor?.tenantId && canInviteMembers(actor),
+  (appIdentity) => !!appIdentity?.workspaceId && canInviteMembers(appIdentity),
 )
 
 function hashKey(key: string): string {
@@ -45,13 +48,13 @@ export const list = query.protected({
   args: {},
   guard: canListMcpKeys,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
-    if (!actor?.tenantId) return []
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity?.workspaceId) return []
 
     return await ctx.db
       .query('mcpKeys')
       .withIndex('by_organization', (q) =>
-        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+        q.eq('organizationId', appIdentity.workspaceId as Id<'organizations'>),
       )
       .order('desc')
       .collect()
@@ -65,8 +68,8 @@ export const create = mutation.protected({
   },
   guard: canManageMcpKeys,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!actor.tenantId) throw new Error('No organization selected')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity.workspaceId) throw new Error('No organization selected')
 
     const key = generateKey()
     const keyHash = hashKey(key)
@@ -77,8 +80,8 @@ export const create = mutation.protected({
       keyHash,
       prefix,
       role: args.role,
-      userId: actor.userId,
-      organizationId: actor.tenantId as Id<'organizations'>,
+      userId: appIdentity.userId,
+      organizationId: appIdentity.workspaceId as Id<'organizations'>,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -91,9 +94,9 @@ export const revoke = mutation.protected({
   args: { id: v.id('mcpKeys') },
   guard: canManageMcpKeys,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!actor.tenantId) throw new Error('No organization selected')
-    loadResource(actor, await ctx.db.get(args.id), 'MCP key')
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity.workspaceId) throw new Error('No organization selected')
+    loadResource(appIdentity, await ctx.db.get(args.id), 'MCP key')
 
     await ctx.db.patch(args.id, {
       status: 'revoked',
@@ -120,7 +123,7 @@ export const validate = generatedQuery({
       id: mcpKey._id,
       role: mcpKey.role,
       userId: mcpKey.userId,
-      tenantId: mcpKey.organizationId ?? null,
+      workspaceId: mcpKey.organizationId ?? null,
     }
   },
 })

@@ -72,18 +72,18 @@ type PreviewFn<TCtx, TArgsValidator extends PropertyValidators, TLoaded, TPrevie
 
 export type OperationDefinition<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
-  TGuard extends StructuredGuard<TPrincipal, TActor>,
+  TGuard extends StructuredGuard<TCaller, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
   TPreview = unknown,
 > = StructuredHandlerDefinition<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator,
@@ -127,20 +127,20 @@ export type InferOperationCtx<TDefinition extends OperationShape> = TDefinition[
 
 type InferOperationPrincipal<TDefinition extends OperationShape> =
   InferOperationCtx<TDefinition> extends {
-    principal: () => Promise<infer TPrincipal>
+    caller: () => Promise<infer TCaller>
   }
-    ? TPrincipal
+    ? TCaller
     : never
 
 type InferOperationDelegation<TDefinition extends OperationShape> =
   InferOperationCtx<TDefinition> extends {
-    delegation: () => Promise<(infer TDelegation) | null>
+    actingFor: () => Promise<(infer TActingFor) | null>
   }
-    ? TDelegation
+    ? TActingFor
     : unknown
 
 type InferActorFromCtx<TCtx> = TCtx extends {
-  actor: () => Promise<infer TActor>
+  appIdentity: () => Promise<infer TActor>
 }
   ? TActor
   : never
@@ -364,10 +364,10 @@ export function implementOperation<
  */
 export function previewOf<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
-  TGuard extends StructuredGuard<TPrincipal, TActor>,
+  TGuard extends StructuredGuard<TCaller, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded extends StructuredLoadedValue = undefined,
   TResult = unknown,
@@ -375,8 +375,8 @@ export function previewOf<
 >(
   operation: OperationDefinition<
     TCtx,
-    TPrincipal,
-    TDelegation,
+    TCaller,
+    TActingFor,
     TActor,
     TGuard,
     TArgsValidator,
@@ -386,8 +386,8 @@ export function previewOf<
   >,
 ): StructuredHandlerDefinition<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator,

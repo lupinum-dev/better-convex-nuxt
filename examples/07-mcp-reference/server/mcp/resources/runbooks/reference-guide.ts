@@ -3,7 +3,7 @@ import { defineMcpResource } from '#trellis/mcp'
 export default defineMcpResource({
   name: 'mcp-reference-guide',
   title: 'MCP Reference Guide',
-  description: 'Overview of the MCP capabilities exposed by Example 07.',
+  description: 'Overview of the MCP recordAccess exposed by Example 07.',
   uri: 'app://mcp-reference/guide',
   handler: async (uri: URL) => ({
     contents: [

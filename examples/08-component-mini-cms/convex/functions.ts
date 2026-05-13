@@ -8,7 +8,7 @@ import {
   mutation as generatedMutation,
   query as generatedQuery,
 } from './_generated/server'
-import { getActorFromPrincipal, principal } from './auth/principal'
+import { getAppIdentityFromCaller, caller } from './auth/caller'
 
 export const { action, internalAction, internalMutation, internalQuery, mutation, query, unsafe } =
   defineTrellis(
@@ -21,7 +21,7 @@ export const { action, internalAction, internalMutation, internalQuery, mutation
       internalMutation: generatedInternalMutation,
     },
     {
-      principal,
-      actor: getActorFromPrincipal,
+      caller,
+      appIdentity: getAppIdentityFromCaller,
     },
   )

@@ -18,8 +18,8 @@ export default defineBuildConfig({
     { builder: 'mkdist', input: 'src/runtime/schema', outDir: 'dist/runtime/schema' },
     {
       builder: 'mkdist',
-      input: 'src/runtime/trusted-forwarding',
-      outDir: 'dist/runtime/trusted-forwarding',
+      input: 'src/runtime/identity-forwarding',
+      outDir: 'dist/runtime/identity-forwarding',
     },
     { builder: 'mkdist', input: 'src/runtime/mcp', outDir: 'dist/runtime/mcp' },
     { builder: 'mkdist', input: 'src/runtime/server', outDir: 'dist/runtime/server' },

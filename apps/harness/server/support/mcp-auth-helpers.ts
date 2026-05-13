@@ -9,7 +9,7 @@ export interface HarnessMcpAuth {
   keyId: string
   role: 'owner' | 'admin' | 'member' | 'viewer'
   userId: string
-  tenantId?: string
+  workspaceId?: string
 }
 
 function normalizeHarnessMcpAuth(value: unknown): HarnessMcpAuth | null {
@@ -19,7 +19,7 @@ function normalizeHarnessMcpAuth(value: unknown): HarnessMcpAuth | null {
     keyId?: unknown
     role?: unknown
     userId?: unknown
-    tenantId?: unknown
+    workspaceId?: unknown
   }
 
   if (
@@ -37,7 +37,7 @@ function normalizeHarnessMcpAuth(value: unknown): HarnessMcpAuth | null {
     keyId: auth.keyId,
     role: auth.role,
     userId: auth.userId,
-    ...(typeof auth.tenantId === 'string' ? { tenantId: auth.tenantId } : {}),
+    ...(typeof auth.workspaceId === 'string' ? { workspaceId: auth.workspaceId } : {}),
   }
 }
 
@@ -69,7 +69,7 @@ export async function resolveHarnessMcpAuth(event: H3Event): Promise<HarnessMcpA
     keyId: String(resolved.id),
     role: resolved.role,
     userId: resolved.userId,
-    ...(resolved.tenantId ? { tenantId: resolved.tenantId } : {}),
+    ...(resolved.workspaceId ? { workspaceId: resolved.workspaceId } : {}),
   }
 
   event.context.mcpAuth = auth

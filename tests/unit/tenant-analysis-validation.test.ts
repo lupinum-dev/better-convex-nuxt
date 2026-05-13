@@ -22,9 +22,9 @@ describe('tenant analysis validation', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
         export const { query } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: ['tasks'],
-            globalTables: ['auditEvents'],
+            sharedTables: ['auditEvents'],
           },
         })
       `,
@@ -47,16 +47,16 @@ describe('tenant analysis validation', () => {
       authEnabled: true,
     })
 
-    expect(findings.map((finding) => finding.id)).not.toContain('tenant-isolation-table-coverage')
+    expect(findings.map((finding) => finding.id)).not.toContain('isolation-table-coverage')
   })
 
-  it('flags missing global tables declared in tenant isolation config', () => {
+  it('flags missing global tables declared in isolation config', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
         export const { query } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: ['tasks'],
-            globalTables: ['auditEvents'],
+            sharedTables: ['auditEvents'],
           },
         })
       `,
@@ -76,7 +76,7 @@ describe('tenant analysis validation', () => {
     })
 
     expect(findings.map((finding) => finding.message)).toContain(
-      'Global tenant-isolation table "auditEvents" does not exist in `convex/schema.ts`.',
+      'Shared isolation table "auditEvents" does not exist in `convex/schema.ts`.',
     )
   })
 
@@ -84,9 +84,9 @@ describe('tenant analysis validation', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
         export const { query } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: tenantTables,
-            globalTables,
+            sharedTables,
           },
         })
       `,
@@ -126,17 +126,17 @@ describe('tenant analysis validation', () => {
         export const auditEventsFeature = defineFeature({
           name: 'auditEvents',
           schema: auditEventsTables,
-          globalTables: ['auditEvents'],
+          sharedTables: ['auditEvents'],
         })
       `,
     })
 
     const analysis = analyzeProject(rootDir)
 
-    expect(analysis.tenantIsolation).toMatchObject({
+    expect(analysis.isolation).toMatchObject({
       source: 'manifest',
       tables: ['tasks'],
-      globalTables: ['auditEvents'],
+      sharedTables: ['auditEvents'],
     })
     expect(analysis.schemaTables.map((table) => table.name).sort()).toEqual([
       'auditEvents',
@@ -148,9 +148,9 @@ describe('tenant analysis validation', () => {
     const rootDir = createFixture({
       'convex/functions.ts': `
         export const { query } = defineTrellis({ query, mutation }, {
-          tenantIsolation: {
+          isolation: {
             tables: tenantTables,
-            globalTables,
+            sharedTables,
           },
         })
       `,
@@ -196,8 +196,8 @@ describe('tenant analysis validation', () => {
 
     const analysis = analyzeProject(rootDir)
 
-    expect(analysis.tenantIsolation?.source).toBe('manifest')
-    expect(analysis.tenantIsolation?.globalTables).toEqual([])
-    expect(analysis.tenantIsolation?.tables).toEqual(expect.arrayContaining(['tasks', 'comments']))
+    expect(analysis.isolation?.source).toBe('manifest')
+    expect(analysis.isolation?.sharedTables).toEqual([])
+    expect(analysis.isolation?.tables).toEqual(expect.arrayContaining(['tasks', 'comments']))
   })
 })

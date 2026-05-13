@@ -63,7 +63,7 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 export default defineEventHandler(async (event) => {
   const authId = getWebhookActorAuthId()
   const body = await readSharedSecretWebhookBody({
-    // Keep the transport check small so the service-principal + delegation path is the thing being
+    // Keep the transport check small so the service-caller + actingFor path is the thing being
     // demonstrated. Production senders should usually add timestamped HMAC verification too.
     signature: event.node.req.headers['x-example-signature'],
     secret: getWebhookSecret(),
@@ -105,12 +105,12 @@ export default defineEventHandler(async (event) => {
     },
     {
       auth: 'trusted',
-      principal: {
+      caller: {
         kind: 'service',
         serviceId: 'runbook-webhook',
         subject: subject.service('runbook-webhook'),
       },
-      delegation: await delegateToUser({
+      actingFor: await delegateToUser({
         userId: authId,
         allow: true,
         reason: 'verified runbook webhook',

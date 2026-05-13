@@ -15,7 +15,7 @@ export default defineNuxtConfig({
   trellis: {
     url: process.env.CONVEX_URL,
     permissions: {
-      query: 'permissions/context.getPermissionContext',
+      query: 'permissions/context.getAccessContext',
       codegen: true,
     },
   },

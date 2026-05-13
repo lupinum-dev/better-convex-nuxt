@@ -89,7 +89,7 @@ Use this shortened maintainer summary only:
 - `mcp`
 - `server`
 - `testing`
-- `trusted-forwarding`
+- `identity-forwarding`
 - `type-primitives`
 - `visibility`
 - `eslint`
@@ -161,14 +161,14 @@ See [examples/README.md](./examples/README.md) for the full list and what each o
 src/
   module.ts              # Nuxt module entry point
   runtime/
-    auth/                # defineActor, defineGuard, definePermissionContext
+    auth/                # defineAppIdentity, defineGuard, defineAccessContext
     functions/           # defineTrellis, handler pipeline
     composables/         # useConvexQuery, useMutation, useAuth, etc.
     mcp/                 # defineMcpApp, tool, MCP helpers
-    visibility/          # defineCapabilities, defineRedaction
+    visibility/          # defineRecordAccess, defineRedaction
     server/              # Nitro server utilities
     testing/             # Test context and helpers
-    trusted-forwarding/  # Server-to-server auth
+    identity-forwarding/ # Server-to-server auth
 
 examples/                # Progressive public examples
 tests/                   # Root test suites, fixtures, and support
@@ -191,7 +191,7 @@ The project uses ESLint with the Nuxt preset. Run `pnpm run lint` to check. Key 
 - No floating promises (always `await` or return them).
 - No `useConvexQuery` in middleware or plugins (scope violation).
 - Handlers must declare a `guard` — omitting it is a type error.
-- Public docs and examples must not regress on trusted-forwarding, protocol, or middleware-boundary rules enforced by the root grep checks.
+- Public docs and examples must not regress on identity-forwarding, protocol, or middleware-boundary rules enforced by the root grep checks.
 
 ## License
 

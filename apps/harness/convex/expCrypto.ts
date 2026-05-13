@@ -22,7 +22,7 @@ export const testHkdf = mutation({
   handler: async (_ctx) => {
     const rootSecret = new TextEncoder().encode('test-deployment-secret-32bytes!!')
     const salt = new TextEncoder().encode('trellis-v1')
-    const info = new TextEncoder().encode('trellis:component-principal:v1')
+    const info = new TextEncoder().encode('trellis:component-caller:v1')
 
     const derivedKey = hkdf(sha256, rootSecret, salt, info, 32)
 

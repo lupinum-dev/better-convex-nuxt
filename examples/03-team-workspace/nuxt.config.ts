@@ -20,7 +20,7 @@ export default defineNuxtConfig({
     url: process.env.CONVEX_URL,
     auth: {},
     permissions: {
-      query: 'permissions/context.getPermissionContext',
+      query: 'permissions/context.getAccessContext',
       codegen: true,
     },
   },

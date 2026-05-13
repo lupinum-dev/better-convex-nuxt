@@ -9,17 +9,15 @@ import {
   updateRunbook,
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { getActor } from '../../auth/actor'
+import { getAppIdentity } from '../../auth/app-identity'
 import { mutation, query } from '../../functions'
-import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './capabilities'
 import { canUpdateRunbook } from './checks'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
 import { runbookCreate, runbookPublish, runbookRead } from './permissions'
+import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './record-access'
 
-function escapeTenantIsolation<TDb extends object>(db: TDb, reason: string): TDb {
-  return (
-    db as TDb & { escapeTenantIsolation: (options: { reason: string }) => TDb }
-  ).escapeTenantIsolation({
+function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
+  return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({
     reason,
   })
 }
@@ -67,16 +65,13 @@ function matchesTerm(
 export const listPublic = query.unsafe({
   permit: unsafePermit.permit({
     kind: 'publicCatalog',
-    reason: 'Expose the public runbook catalog without a workspace actor.',
+    reason: 'Expose the public runbook catalog without a workspace appIdentity.',
     scope: ['runbooks'],
   }),
   args: listRunbooks.args,
   handler: async (ctx) => {
     // Public by design, but still bounded to already-public records and a capped catalog read.
-    const db = escapeTenantIsolation(
-      ctx.db,
-      'Public runbook catalog intentionally spans all workspaces.',
-    )
+    const db = escapeIsolation(ctx.db, 'Public runbook catalog intentionally spans all workspaces.')
     const runbooks = await db
       .query('runbooks')
       .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
@@ -96,10 +91,7 @@ export const searchPublic = query.unsafe({
   handler: async (ctx, args) => {
     const term = normalizeTerm(args.term)
     // Search the same public catalog, but keep the candidate set bounded before local filtering.
-    const db = escapeTenantIsolation(
-      ctx.db,
-      'Public runbook search intentionally spans all workspaces.',
-    )
+    const db = escapeIsolation(ctx.db, 'Public runbook search intentionally spans all workspaces.')
     const candidates = await db
       .query('runbooks')
       .withIndex('by_visibility', (q: any) => q.eq('visibility', 'public'))
@@ -116,38 +108,35 @@ export const listWorkspace = query.protected({
   args: listRunbooks.args,
   guard: runbookRead,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
       .order('desc')
       .collect()
 
-    return workspaceRunbookCapabilities.attach(actor, runbooks)
+    return workspaceRunbookCapabilities.attach(appIdentity, runbooks)
   },
 })
 
 export const get = query.unsafe({
   permit: unsafePermit.permit({
     kind: 'publicRunbookRead',
-    reason: 'Read public runbooks before the caller resolves to a workspace actor.',
+    reason: 'Read public runbooks before the caller resolves to a workspace appIdentity.',
     scope: ['runbooks'],
   }),
   args: getRunbook.args,
   handler: async (ctx, args) => {
-    // This query may cross tenants, but only to read one public runbook before a workspace actor is
-    // available. Workspace-only records still fall back to the normal actor checks below.
-    const db = escapeTenantIsolation(
-      ctx.db,
-      'Reading a public runbook may cross tenant boundaries.',
-    )
+    // This query may cross-scopes, but only to read one public runbook before a workspace appIdentity is
+    // available. Workspace-only records still fall back to the normal appIdentity checks below.
+    const db = escapeIsolation(ctx.db, 'Reading a public runbook may cross-scope boundaries.')
     const runbook = await db.get(args.id as Id<'runbooks'>)
     if (!runbook) return null
 
-    const actor = await getActor(ctx)
+    const appIdentity = await getAppIdentity(ctx)
 
     if (runbook.visibility === 'public') {
-      const withCapabilities = publicRunbookCapabilities.attach(actor, {
+      const withCapabilities = publicRunbookCapabilities.attach(appIdentity, {
         ...toPublicRunbook(runbook),
         ownerId: runbook.ownerId,
       })
@@ -156,11 +145,18 @@ export const get = query.unsafe({
       return publicRunbook
     }
 
-    if (!actor || actor.tenantId !== runbook.workspaceId || !can(actor, runbookRead.check)) {
+    if (
+      !appIdentity ||
+      appIdentity.workspaceId !== runbook.workspaceId ||
+      !can(appIdentity, runbookRead.check)
+    ) {
       deny('Forbidden: Read runbooks')
     }
 
-    return workspaceRunbookCapabilities.attach(actor, loadResource(actor, runbook, 'Runbook'))
+    return workspaceRunbookCapabilities.attach(
+      appIdentity,
+      loadResource(appIdentity, runbook, 'Runbook'),
+    )
   },
 })
 
@@ -168,23 +164,26 @@ export const getWorkspace = query.protected({
   args: getRunbook.args,
   guard: runbookRead,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const runbook = await ctx.db.get(args.id)
     if (!runbook) return null
 
-    return workspaceRunbookCapabilities.attach(actor, loadResource(actor, runbook, 'Runbook'))
+    return workspaceRunbookCapabilities.attach(
+      appIdentity,
+      loadResource(appIdentity, runbook, 'Runbook'),
+    )
   },
 })
 
 export const create = mutation.protected({
   args: createRunbook.args,
-  trustedForwardingFunctionRef: 'features/runbooks/domain:create',
+  identityForwardingFunctionRef: 'features/runbooks/domain:create',
   guard: runbookCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const visibility = args.visibility ?? 'draft'
-    if (visibility === 'public' && !can(actor, runbookPublish.check)) {
+    if (visibility === 'public' && !can(appIdentity, runbookPublish.check)) {
       throw deny('Only owners and admins can create public runbooks.')
     }
 
@@ -195,8 +194,8 @@ export const create = mutation.protected({
       content: args.content,
       visibility,
       tags: args.tags ?? [],
-      ownerId: actor.userId,
-      workspaceId: actor.tenantId,
+      ownerId: appIdentity.userId,
+      workspaceId: appIdentity.workspaceId,
       createdAt: now,
       updatedAt: now,
       ...(visibility === 'public' ? { publishedAt: now } : {}),
@@ -216,9 +215,9 @@ export const update = mutation.protected({
     check: (_actor, { runbook }) => canUpdateRunbook(runbook),
   },
   handler: async (ctx, args, { runbook }) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const nextVisibility = args.visibility ?? runbook.visibility
-    if (nextVisibility === 'public' && !can(actor, runbookPublish.check)) {
+    if (nextVisibility === 'public' && !can(appIdentity, runbookPublish.check)) {
       throw deny('Only owners and admins can publish runbooks.')
     }
 
@@ -238,21 +237,21 @@ export const update = mutation.protected({
 
 export const remove = mutation.protected({
   ...removeRunbookOp,
-  trustedForwardingFunctionRef: 'features/runbooks/domain:remove',
+  identityForwardingFunctionRef: 'features/runbooks/domain:remove',
 })
 export const bulkRemove = mutation.protected({
   ...bulkRemoveRunbooksOp,
-  trustedForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
+  identityForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
 })
 
 export const workspaceOverview = query.protected({
   args: listRunbooks.args,
   guard: runbookRead,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const runbooks = await ctx.db
       .query('runbooks')
-      .withIndex('by_workspace', (q) => q.eq('workspaceId', actor.tenantId))
+      .withIndex('by_workspace', (q) => q.eq('workspaceId', appIdentity.workspaceId))
       .order('desc')
       .collect()
 

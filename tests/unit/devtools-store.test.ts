@@ -57,7 +57,7 @@ describe('ConvexDevtoolsStore', () => {
     const store = new ConvexDevtoolsStore()
 
     store.appendObservation({
-      name: 'principal.resolved',
+      name: 'caller.resolved',
       status: 'success',
       ts: '2026-04-19T00:00:00.000Z',
       transport: 'browser',
@@ -72,7 +72,7 @@ describe('ConvexDevtoolsStore', () => {
       correlationId: 'corr_1',
       principalKind: 'user',
       actorKind: 'member',
-      tenantId: 'ws_1',
+      workspaceId: 'ws_1',
       handler: 'tasks.remove',
       reasonCode: 'guard.denied',
       details: {
@@ -81,7 +81,7 @@ describe('ConvexDevtoolsStore', () => {
           decision: 'guard',
           message: 'Members cannot remove tasks.',
           policy: 'task.delete',
-          tenantId: 'ws_1',
+          workspaceId: 'ws_1',
           suggestedAction: 'contact_admin',
         },
       },
@@ -96,7 +96,7 @@ describe('ConvexDevtoolsStore', () => {
         handler: 'tasks.remove',
         principalKind: 'user',
         actorKind: 'member',
-        tenantId: 'ws_1',
+        workspaceId: 'ws_1',
         lastEventName: 'guard.denied',
         lastEventStatus: 'deny',
         denialExplanation: expect.objectContaining({

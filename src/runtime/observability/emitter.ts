@@ -131,7 +131,7 @@ export function createObservationEmitter(
           tool: event.tool ?? baseContext.tool,
           principalKind: event.principalKind ?? baseContext.principalKind,
           actorKind: event.actorKind ?? baseContext.actorKind,
-          tenantId: event.tenantId ?? baseContext.tenantId,
+          workspaceId: event.workspaceId ?? baseContext.workspaceId,
           service: event.service ?? baseContext.service ?? config.service,
           serviceId: event.serviceId ?? baseContext.serviceId,
           reasonCode: event.reasonCode,

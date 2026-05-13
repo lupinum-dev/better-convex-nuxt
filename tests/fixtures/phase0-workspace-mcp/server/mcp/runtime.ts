@@ -8,12 +8,12 @@ export const convexCalls: Array<{
 }> = []
 
 export const mcpRuntime = defineMcpApp({
-  resolvePrincipal: async () => ({
+  resolveCaller: async () => ({
     kind: 'agent' as const,
     subject: 'agent:phase0',
   }),
-  tenantKey: () => 'global',
-  resolveCapabilities: async () => ({
+  scopeKey: () => 'global',
+  resolveAccess: async () => ({
     'projects.create': true,
     'projects.delete': true,
   }),

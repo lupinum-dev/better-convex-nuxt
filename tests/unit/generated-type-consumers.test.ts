@@ -73,22 +73,22 @@ export type ValidateOperationProjection<
     rootDir,
     'node_modules/@lupinum/trellis/mcp/index.d.ts',
     `
-export interface CapabilityKeysByKey {}
+export interface AccessKeysByKey {}
 
 export interface ToolsByName {}
 
-export interface RegisteredCapabilities {
-  byKey: CapabilityKeysByKey
+export interface RegisteredAccess {
+  byKey: AccessKeysByKey
 }
 
 export interface RegisteredTools {
   byName: ToolsByName
 }
 
-export type RegisteredCapabilityKey = Extract<keyof CapabilityKeysByKey, string>
+export type RegisteredAccessKey = Extract<keyof AccessKeysByKey, string>
 export type RegisteredToolName = Extract<keyof RegisteredTools['byName'], string>
-export type ValidateCapabilityKey<TKey extends string = string> =
-  TKey extends RegisteredCapabilityKey ? TKey : never
+export type ValidateAccessKey<TKey extends string = string> =
+  TKey extends RegisteredAccessKey ? TKey : never
 export type ValidateToolName<TName extends string = string> =
   TName extends RegisteredToolName ? TName : never
 `,
@@ -108,10 +108,10 @@ export type {
 } from '@lupinum/trellis/backend'
 
 export type {
-  RegisteredCapabilityKey,
+  RegisteredAccessKey,
   RegisteredToolName,
   ToolsByName,
-  ValidateCapabilityKey,
+  ValidateAccessKey,
   ValidateToolName,
 } from '@lupinum/trellis/mcp'
 `,
@@ -173,7 +173,7 @@ function expectProjectToTypecheck(rootDir: string) {
 }
 
 describe('generated type consumer verification', () => {
-  it('consumer-compiles generated permission capabilities', () => {
+  it('consumer-compiles generated permission recordAccess', () => {
     const rootDir = createFixture({
       'convex/auth/permissions.ts': `
         declare function definePermission<T>(value: T): T
@@ -185,18 +185,18 @@ describe('generated type consumer verification', () => {
       `,
       'consumer.ts': `
         import type { RegisteredProjectedPermissionKey } from '@lupinum/trellis/auth'
-        import type { RegisteredCapabilityKey, ValidateCapabilityKey } from '@lupinum/trellis/mcp'
+        import type { RegisteredAccessKey, ValidateAccessKey } from '@lupinum/trellis/mcp'
 
         type _Projected = RegisteredProjectedPermissionKey
-        type _Capability = RegisteredCapabilityKey
-        type _Validated = ValidateCapabilityKey<'task.read'>
+        type _RecordAccess = RegisteredAccessKey
+        type _Validated = ValidateAccessKey<'task.read'>
 
         const projected: _Projected = 'task.read'
-        const capability: _Capability = 'task.read'
+        const recordAccess: _RecordAccess = 'task.read'
         const validated: _Validated = 'task.read'
 
         void projected
-        void capability
+        void recordAccess
         void validated
       `,
     })

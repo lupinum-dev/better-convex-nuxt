@@ -71,8 +71,8 @@ export interface AuthOptions extends ConvexAuthConfigInput {
 
 export interface PermissionsOptions {
   /**
-   * App-owned query that returns the frontend permission context.
-   * Format: `<modulePath>.<exportName>` like `permissions/context.getPermissionContext`.
+   * App-owned query that returns the frontend access context.
+   * Format: `<modulePath>.<exportName>` like `permissions/context.getAccessContext`.
    */
   query: string
   /**
@@ -146,9 +146,9 @@ export interface ModuleOptions {
    */
   auth?: AuthOptions | boolean
   /**
-   * Config-driven permission context wiring for built-in usePermissions/useAuthGuard.
-   * String shorthand: `'permissions/context.getPermissionContext'` is equivalent to
-   * `{ query: 'permissions/context.getPermissionContext' }`.
+   * Config-driven access context wiring for built-in useAccess/useAuthGuard.
+   * String shorthand: `'permissions/context.getAccessContext'` is equivalent to
+   * `{ query: 'permissions/context.getAccessContext' }`.
    */
   permissions?: string | PermissionsOptions
   /** MCP (Model Context Protocol) configuration. Enabled when @nuxtjs/mcp-toolkit is installed. */

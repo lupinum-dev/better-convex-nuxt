@@ -1,6 +1,6 @@
 import { and, or } from '@lupinum/trellis/auth'
 
-import type { Actor, Role } from './actor'
+import type { AppIdentity, Role } from './app-identity'
 
 export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const satisfies readonly Role[]
 
@@ -34,13 +34,13 @@ export const ROLE_INFO: Record<
   },
 }
 
-export const isAuthenticated = (actor: Actor) => actor !== null
+export const isAuthenticated = (appIdentity: AppIdentity) => appIdentity !== null
 export const hasRole =
   (...roles: Role[]) =>
-  (actor: Actor) =>
-    !!actor && roles.includes(actor.role)
-export const isOwnerOf = (resource: { ownerId: string }) => (actor: Actor) =>
-  !!actor && actor.kind === 'user' && resource.ownerId === actor.userId
+  (appIdentity: AppIdentity) =>
+    !!appIdentity && roles.includes(appIdentity.role)
+export const isOwnerOf = (resource: { ownerId: string }) => (appIdentity: AppIdentity) =>
+  !!appIdentity && appIdentity.kind === 'user' && resource.ownerId === appIdentity.userId
 
 export const canManageOrgSettings = hasRole('owner')
 export const canViewBilling = hasRole('owner')

@@ -48,7 +48,7 @@ describe('permission codegen', () => {
           missingPermission,
         ] as const
 
-        export const appPermissionMatrix = derivePermissionMatrix(appPermissions)
+        export const appPermissionMatrix = buildPermissionMatrix(appPermissions)
       `,
     })
 
@@ -121,13 +121,13 @@ describe('permission codegen', () => {
     expect(types).toContain(`export type TrellisProjectedPermissionKey = "task.read"`)
     expect(types).toContain(`interface PermissionKeysByKey`)
     expect(types).toContain(`interface ProjectedPermissionKeysByKey`)
-    expect(types).toContain(`interface CapabilityKeysByKey`)
+    expect(types).toContain(`interface AccessKeysByKey`)
   })
 
   it('renders client-safe projected permission exports and matrix rows', () => {
     const rootDir = createFixture({
       'convex/auth/permissions.ts': `
-        import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+        import { definePermission, buildPermissionMatrix } from '@lupinum/trellis/auth'
 
         export const taskRead = definePermission({
           key: 'task.read',
@@ -142,7 +142,7 @@ describe('permission codegen', () => {
           check: true,
         })
         export const appPermissions = [taskRead, taskCreate] as const
-        export const appPermissionMatrix = derivePermissionMatrix(appPermissions)
+        export const appPermissionMatrix = buildPermissionMatrix(appPermissions)
       `,
     })
 

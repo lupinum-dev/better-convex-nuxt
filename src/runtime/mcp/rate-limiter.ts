@@ -111,7 +111,7 @@ function redisKey(prefix: string, bucketKey: string, windowStartedAt: number): s
 }
 
 /**
- * Fixed-window in-memory limiter keyed by tool/principal bucket.
+ * Fixed-window in-memory limiter keyed by tool/caller bucket.
  */
 export class ToolRateLimiter implements McpRateLimitStore {
   private windows = new Map<string, RateLimitState>()

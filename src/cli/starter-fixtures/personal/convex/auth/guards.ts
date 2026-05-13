@@ -1,11 +1,15 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { Actor } from './actor'
+import type { AppIdentity } from './app-identity'
 
-export const isAuthenticated = defineGuard<Actor>('authenticated', (actor) => actor !== null)
+export const isAuthenticated = defineGuard<AppIdentity>(
+  'authenticated',
+  (appIdentity) => appIdentity !== null,
+)
 
 export const isOwnerOf = (resource: { ownerId: string }) =>
-  defineGuard<Actor>(
+  defineGuard<AppIdentity>(
     `owner:${resource.ownerId}`,
-    (actor) => !!actor && actor.kind === 'user' && actor.userId === resource.ownerId,
+    (appIdentity) =>
+      !!appIdentity && appIdentity.kind === 'user' && appIdentity.userId === resource.ownerId,
   )

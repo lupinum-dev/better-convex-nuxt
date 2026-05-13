@@ -52,7 +52,7 @@ describe('observability', () => {
     )
 
     await emitter.emit({
-      name: 'db.escape_tenant_isolation.used',
+      name: 'db.escape_isolation.used',
       status: 'success',
       details: {
         token: 'secret',
@@ -84,7 +84,7 @@ describe('observability', () => {
     )
 
     await emitter.emit({
-      name: 'db.escape_tenant_isolation.used',
+      name: 'db.escape_isolation.used',
       status: 'success',
     })
     await emitter.child({ transport: 'mcp' }).emit({
@@ -193,7 +193,7 @@ describe('observability', () => {
 
       await expect(
         emitter.emit({
-          name: 'db.escape_tenant_isolation.used',
+          name: 'db.escape_isolation.used',
           status: 'success',
         }),
       ).resolves.toBeUndefined()
@@ -220,7 +220,7 @@ describe('observability', () => {
         level: 'verbose',
       })
       const emitted = emitter.emit({
-        name: 'db.escape_tenant_isolation.used',
+        name: 'db.escape_isolation.used',
         status: 'success',
       })
 
@@ -244,7 +244,7 @@ describe('observability', () => {
 
     await expect(
       emitter.emit({
-        name: 'db.escape_tenant_isolation.used',
+        name: 'db.escape_isolation.used',
         status: 'success',
       }),
     ).resolves.toBeUndefined()

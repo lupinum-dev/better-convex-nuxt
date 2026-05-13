@@ -2,7 +2,7 @@
  * Why this file exists:
  * The full example needs four tables:
  * - workspaces: the tenant boundary
- * - users: the source of actor role + tenant membership
+ * - users: the source of appIdentity role + tenant membership
  * - todos: the tenant-scoped resource protected by permissions
  * - processedEvents: replay protection for webhook idempotency
  */
@@ -18,19 +18,19 @@ export default defineSchema({
   ...userTables,
   ...todosTables,
 
-  destructiveRedemptions: defineTable({
+  destructiveConfirmations: defineTable({
     jti: v.string(),
     operationId: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     redeemedAt: v.number(),
   }).index('by_jti', ['jti']),
 
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     argsHash: v.string(),
     previewHash: v.string(),
     executedAt: v.number(),

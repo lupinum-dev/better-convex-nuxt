@@ -29,7 +29,7 @@ describe('module-setup', () => {
         url: 'https://demo.convex.cloud',
         auth: true,
         permissions: {
-          query: 'permissions/context.getPermissionContext',
+          query: 'permissions/context.getAccessContext',
           codegen: true,
         },
         upload: { maxConcurrent: 7 },
@@ -51,7 +51,7 @@ describe('module-setup', () => {
         url: 'https://demo.convex.cloud',
         auth: true,
         permissions: {
-          query: 'permissions/context.getPermissionContext',
+          query: 'permissions/context.getAccessContext',
           codegen: true,
         },
         upload: { maxConcurrent: 7 },
@@ -69,7 +69,7 @@ describe('module-setup', () => {
       existingKey: 'keep-me',
       siteUrl: 'https://demo.convex.site',
       permissions: {
-        query: 'permissions/context.getPermissionContext',
+        query: 'permissions/context.getAccessContext',
         codegen: true,
       },
       upload: {
@@ -123,7 +123,7 @@ describe('module-setup', () => {
     expect(
       deriveModuleSetupState(
         {
-          permissions: 'permissions/context.getPermissionContext',
+          permissions: 'permissions/context.getAccessContext',
         },
         {},
       ).permissionCodegenEnabled,
@@ -133,7 +133,7 @@ describe('module-setup', () => {
       deriveModuleSetupState(
         {
           permissions: {
-            query: 'permissions/context.getPermissionContext',
+            query: 'permissions/context.getAccessContext',
           },
         },
         {},
@@ -144,7 +144,7 @@ describe('module-setup', () => {
       deriveModuleSetupState(
         {
           permissions: {
-            query: 'permissions/context.getPermissionContext',
+            query: 'permissions/context.getAccessContext',
             codegen: true,
           },
         },

@@ -1,4 +1,4 @@
-export { todoCapabilities } from './capabilities'
+export { todoCapabilities } from './record-access'
 export { canDeleteTodo, canUpdateTodo } from './checks'
 export { todosFeature } from './feature'
 export { removeTodoDescriptor, removeTodoOp } from './operations'

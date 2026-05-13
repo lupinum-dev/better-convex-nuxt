@@ -8,7 +8,7 @@ import { SignJWT, jwtVerify } from 'jose'
  *
  * Validates that the spec's destructive MCP flow (10-step) works
  * in one Convex mutation transaction: JWT verification + hash checks
- * + jti redemption + handler execution + audit write — all atomic.
+ * + jti confirmation + handler execution + audit write — all atomic.
  */
 import { internalMutation } from './_generated/server'
 
@@ -138,7 +138,7 @@ export const execute = internalMutation({
     // Step 10: Write audit log entry
     await ctx.db.insert('expAuditLog', {
       operation: 'deletePost',
-      principalKey: 'mcp-test-principal',
+      callerKey: 'mcp-test-caller',
       argsHash: currentArgsHash,
       previewHash: currentPreviewHash,
       timestamp: Date.now(),

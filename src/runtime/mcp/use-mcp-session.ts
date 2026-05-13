@@ -22,12 +22,12 @@ function isValidSessionId(value: string): boolean {
   return UUID_V4_RE.test(value)
 }
 
-function resolveSessionPrincipalKey(event: { context?: Record<string, unknown> }): string {
+function resolveSessionCallerKey(event: { context?: Record<string, unknown> }): string {
   const auth = (event.context?.__trellisMcpAuth ?? event.context?.mcpAuth) as
     | {
         role?: string
         userId?: string
-        tenantId?: string
+        workspaceId?: string
       }
     | undefined
 
@@ -37,7 +37,7 @@ function resolveSessionPrincipalKey(event: { context?: Record<string, unknown> }
 
   return hash({
     role: auth.role ?? null,
-    tenantId: auth.tenantId ?? null,
+    workspaceId: auth.workspaceId ?? null,
     userId: auth.userId,
   })
 }
@@ -55,8 +55,8 @@ export function useMcpSession<T = Record<string, unknown>>(): McpSessionStore<T>
     throw new Error('Invalid MCP session ID format')
   }
 
-  const principalKey = resolveSessionPrincipalKey(event as { context?: Record<string, unknown> })
-  const storage = useStorage(`mcp:sessions:${principalKey}:${sessionId}`)
+  const callerKey = resolveSessionCallerKey(event as { context?: Record<string, unknown> })
+  const storage = useStorage(`mcp:sessions:${callerKey}:${sessionId}`)
 
   return {
     sessionId,

@@ -87,8 +87,8 @@
                 {{ user?.name || user?.email || 'Signed in user' }}
               </h2>
               <p class="text-sm text-muted mt-1">
-                SSR can already know who you are, but app actor readiness is separate. The todo
-                query starts only after the client ensures a matching row exists in the app's
+                SSR can already know who you are, but app appIdentity readiness is separate. The
+                todo query starts only after the client ensures a matching row exists in the app's
                 <code>users</code> table.
               </p>
             </div>

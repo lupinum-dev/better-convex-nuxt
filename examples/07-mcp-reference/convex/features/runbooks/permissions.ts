@@ -1,4 +1,4 @@
-import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+import { definePermission, buildPermissionMatrix } from '@lupinum/trellis/auth'
 
 import { hasRole, hasWorkspace } from '../../auth/guards'
 
@@ -49,4 +49,4 @@ export const runbookPermissions = [
 
 export type RunbookPermissionKey = (typeof runbookPermissions)[number]['key']
 
-export const runbookPermissionMatrix = derivePermissionMatrix(runbookPermissions)
+export const runbookPermissionMatrix = buildPermissionMatrix(runbookPermissions)

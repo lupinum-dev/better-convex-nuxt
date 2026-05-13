@@ -23,7 +23,7 @@ import {
   mutation,
   query,
 } from '../../_generated/server'
-import { principal } from '../../auth/principal'
+import { caller } from '../../auth/caller'
 
 const miniCmsComponents = components.miniCms.features.pages
 
@@ -37,7 +37,7 @@ const bridge = createComponentBridge(
     internalMutation,
   },
   {
-    principal,
+    caller,
   },
 )
 

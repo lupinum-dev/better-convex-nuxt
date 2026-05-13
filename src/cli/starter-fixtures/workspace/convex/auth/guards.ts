@@ -1,21 +1,21 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { PermissionActor } from './actor'
-import type { Role } from './principal'
+import type { AccessIdentity } from './app-identity'
+import type { Role } from './caller'
 
-export const isAuthenticated = defineGuard<PermissionActor>(
+export const isAuthenticated = defineGuard<AccessIdentity>(
   'authenticated',
-  (actor) => actor !== null,
+  (appIdentity) => appIdentity !== null,
 )
 
-export const hasWorkspace = defineGuard<PermissionActor>(
+export const hasWorkspace = defineGuard<AccessIdentity>(
   'workspace-member',
-  (actor) => !!actor?.tenantId,
+  (appIdentity) => !!appIdentity?.workspaceId,
 )
 
 export const hasMinimumRole = (minimum: Role) =>
-  defineGuard<PermissionActor>(`role>=${minimum}`, (actor) => {
-    if (!actor?.tenantId) return false
+  defineGuard<AccessIdentity>(`role>=${minimum}`, (appIdentity) => {
+    if (!appIdentity?.workspaceId) return false
 
     const ranks: Record<Role, number> = {
       owner: 4,
@@ -24,16 +24,16 @@ export const hasMinimumRole = (minimum: Role) =>
       viewer: 1,
     }
 
-    return ranks[actor.role] >= ranks[minimum]
+    return ranks[appIdentity.role] >= ranks[minimum]
   })
 
-export const isWorkspaceMember = (tenantId: string) =>
-  defineGuard<PermissionActor>(
-    `workspace:${tenantId}`,
-    (actor) => !!actor?.tenantId && actor.tenantId === tenantId,
+export const isWorkspaceMember = (workspaceId: string) =>
+  defineGuard<AccessIdentity>(
+    `workspace:${workspaceId}`,
+    (appIdentity) => !!appIdentity?.workspaceId && appIdentity.workspaceId === workspaceId,
   )
 
-export const canManageWorkspace = defineGuard<PermissionActor>(
+export const canManageWorkspace = defineGuard<AccessIdentity>(
   'manage-workspace',
   hasWorkspace.and(hasMinimumRole('admin')),
 )

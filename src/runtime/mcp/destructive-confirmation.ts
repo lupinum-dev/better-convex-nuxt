@@ -17,11 +17,11 @@ import type { ConvexErrorCategory } from '../utils/types.js'
 
 type MaybePromise<T> = T | Promise<T>
 
-export type McpConfirmationRedemptionInput = {
+export type McpConfirmationConfirmationInput = {
   payload: ToolConfirmationPayload
   operationId: string
-  principalKey: string
-  tenantKey: string
+  callerKey: string
+  scopeKey: string
   argsHash: string
   previewHash: string
   executePath: string
@@ -29,7 +29,7 @@ export type McpConfirmationRedemptionInput = {
 }
 
 export interface McpConfirmationStore {
-  redeem(input: McpConfirmationRedemptionInput): MaybePromise<'redeemed' | 'replayed'>
+  redeem(input: McpConfirmationConfirmationInput): MaybePromise<'redeemed' | 'replayed'>
 }
 
 export const DEFAULT_MCP_CONFIRMATION_TTL_MS = 5 * 60 * 1000
@@ -38,8 +38,8 @@ export type DestructiveConfirmationBinding = {
   operationId: string
   executePath: string
   previewPath: string
-  principalKey: string
-  tenantKey: string
+  callerKey: string
+  scopeKey: string
   argsHash: string
   argsFieldHashes: Record<string, string>
 }
@@ -56,7 +56,7 @@ export function createMemoryConfirmationStore(): McpConfirmationStore {
   const redeemed = new Set<string>()
   return {
     redeem(input) {
-      const key = `${input.tenantKey}:${input.principalKey}:${input.operationId}:${input.payload.jti}`
+      const key = `${input.scopeKey}:${input.callerKey}:${input.operationId}:${input.payload.jti}`
       if (redeemed.has(key)) return 'replayed'
       redeemed.add(key)
       return 'redeemed'
@@ -124,8 +124,8 @@ export async function signDestructivePreviewToken(input: {
       executePath: input.binding.executePath,
       previewPath: input.binding.previewPath,
       jti: crypto.randomUUID(),
-      principalKey: input.binding.principalKey,
-      tenantKey: input.binding.tenantKey,
+      callerKey: input.binding.callerKey,
+      scopeKey: input.binding.scopeKey,
       argsHash: input.binding.argsHash,
       argsFieldHashes: input.binding.argsFieldHashes,
       previewHash: input.previewHash,
@@ -189,8 +189,8 @@ export async function verifyDestructiveConfirmationToken(
     payload.operationId !== binding.operationId ||
     payload.executePath !== binding.executePath ||
     payload.previewPath !== binding.previewPath ||
-    payload.principalKey !== binding.principalKey ||
-    payload.tenantKey !== binding.tenantKey ||
+    payload.callerKey !== binding.callerKey ||
+    payload.scopeKey !== binding.scopeKey ||
     payload.argsHash !== binding.argsHash
 
   if (drifted) {

@@ -164,7 +164,7 @@
               </div>
             </UCard>
 
-            <template v-if="ready && !tenantId">
+            <template v-if="ready && !workspaceId">
               <UCard>
                 <template #header>
                   <h3 class="text-lg font-semibold">Create workspace</h3>
@@ -204,7 +204,7 @@
               </UCard>
             </template>
 
-            <template v-if="tenantId">
+            <template v-if="workspaceId">
               <UCard>
                 <template #header>
                   <div>
@@ -336,7 +336,7 @@ import {
 const toast = useToast()
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { allows, ready, role, tenantId, ctx } = usePermissions()
+const { can, ready, role, workspaceId, ctx } = useAccess()
 
 const signUpForm = reactive({
   name: '',
@@ -375,7 +375,7 @@ const createProject = useConvexMutation(api.features.projects.domain.create, {
       color: 'error',
     }),
 })
-const projectArgs = computed(() => (tenantId.value ? {} : undefined))
+const projectArgs = computed(() => (workspaceId.value ? {} : undefined))
 const {
   results: projects,
   status: projectStatus,
@@ -389,7 +389,7 @@ const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
 const currentWorkspace = computed(() => ctx.value?.workspace ?? null)
-const canCreateProject = allows(projectCreate)
+const canCreateProject = can(projectCreate)
 const allRoles = ['owner', 'admin', 'member', 'viewer'] as const
 const recordRuleRows = [
   { label: 'Update own task', roles: ['owner', 'admin', 'member'] },

@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 
-import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
+import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { describe, expect, it } from 'vitest'
 
@@ -14,7 +14,7 @@ import { getCapabilitiesForPrincipal } from '../server/lib/mcp-auth'
 const componentModules = import.meta.glob('../convex/components/miniCms/**/*.ts', {
   eager: false,
 })
-const TRUSTED_FORWARDING_KEY = 'component-mini-cms-test-trusted-forwarding-key'
+const IDENTITY_FORWARDING_KEY = 'component-mini-cms-test-identity-forwarding-key'
 const bridgePrincipal = {
   kind: 'agent',
   agentId: 'bridge-key',
@@ -29,7 +29,7 @@ const previewPrincipal = {
 } as const
 
 function createCtx() {
-  const ctx = createTestContext({ schema, modules, trustedForwardingKey: TRUSTED_FORWARDING_KEY })
+  const ctx = createTestContext({ schema, modules, identityForwardingKey: IDENTITY_FORWARDING_KEY })
   ctx.raw.registerComponent('miniCms', componentSchema, componentModules)
   return ctx
 }
@@ -37,23 +37,23 @@ function createCtx() {
 function bridgeArgs(
   appArgs: Record<string, unknown>,
   options: {
-    principal: typeof bridgePrincipal | typeof previewPrincipal
+    caller: typeof bridgePrincipal | typeof previewPrincipal
     purpose: 'query' | 'mutation'
     functionRef: string
   },
 ) {
   const args = {
     ...appArgs,
-    ...createTrustedForwardingEnvelopeArgs({
+    ...createIdentityForwardingEnvelopeArgs({
       args: {},
-      principal: options.principal,
-      key: TRUSTED_FORWARDING_KEY,
+      caller: options.caller,
+      key: IDENTITY_FORWARDING_KEY,
       transport: 'bridge',
       purpose: options.purpose,
       functionRef: options.functionRef,
     }),
   }
-  expect(args).not.toHaveProperty('principal')
+  expect(args).not.toHaveProperty('caller')
   return args
 }
 
@@ -222,18 +222,18 @@ describe('example 08 component mini cms', () => {
       ).mutation(api.features.pages.domain.create, {
         slug: 'forwarded-agent',
         title: 'Forwarded agent page',
-        draftBody: 'Created by the forwarded principal',
-        principal: {
+        draftBody: 'Created by the forwarded caller',
+        caller: {
           kind: 'agent',
           agentId: 'demo-key',
           subject: 'agent:demo-key',
           provider: 'mcp',
         },
       }),
-    ).rejects.toThrow('Unexpected field `principal`')
+    ).rejects.toThrow('Unexpected field `caller`')
   })
 
-  it('forwards principal unchanged through the internal component bridge', async () => {
+  it('forwards caller unchanged through the internal component bridge', async () => {
     const ctx = createCtx()
 
     const id = await ctx.raw.mutation(
@@ -245,7 +245,7 @@ describe('example 08 component mini cms', () => {
           draftBody: 'Bridge draft',
         },
         {
-          principal: bridgePrincipal,
+          caller: bridgePrincipal,
           purpose: 'mutation',
           functionRef: 'features/pages/domain:create',
         },
@@ -257,7 +257,7 @@ describe('example 08 component mini cms', () => {
       bridgeArgs(
         {},
         {
-          principal: bridgePrincipal,
+          caller: bridgePrincipal,
           purpose: 'query',
           functionRef: 'features/pages/domain:listDraft',
         },
@@ -269,17 +269,17 @@ describe('example 08 component mini cms', () => {
     })
   })
 
-  it('rejects raw principal args on internal root bridge wrappers', async () => {
+  it('rejects raw caller args on internal root bridge wrappers', async () => {
     const ctx = createCtx()
 
     await expect(
       ctx.raw.mutation(internal.features.pages.bridge.create, {
-        slug: 'raw-bridge-principal',
-        title: 'Raw bridge principal',
+        slug: 'raw-bridge-caller',
+        title: 'Raw bridge caller',
         draftBody: 'This must not be trusted',
-        principal: bridgePrincipal,
+        caller: bridgePrincipal,
       }),
-    ).rejects.toThrow('Unexpected field `principal`')
+    ).rejects.toThrow('Unexpected field `caller`')
   })
 
   it('returns the publish preview from the component operation', async () => {
@@ -294,7 +294,7 @@ describe('example 08 component mini cms', () => {
           draftBody: 'Version one',
         },
         {
-          principal: previewPrincipal,
+          caller: previewPrincipal,
           purpose: 'mutation',
           functionRef: 'features/pages/domain:create',
         },
@@ -306,7 +306,7 @@ describe('example 08 component mini cms', () => {
       bridgeArgs(
         { id },
         {
-          principal: previewPrincipal,
+          caller: previewPrincipal,
           purpose: 'query',
           functionRef: 'features/pages/operations:previewPublish',
         },
@@ -324,7 +324,7 @@ describe('example 08 component mini cms', () => {
     })
   })
 
-  it('uses a smaller anonymous MCP capability snapshot than the MCP-authenticated snapshot', () => {
+  it('uses a smaller anonymous MCP recordAccess snapshot than the MCP-authenticated snapshot', () => {
     expect(getCapabilitiesForPrincipal({ kind: 'anonymous', subject: 'system:anonymous' })).toEqual(
       {
         listPublishedPages: true,

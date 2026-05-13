@@ -1,7 +1,7 @@
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
-import type { WorkspacePrincipal } from '~~/convex/auth/principal'
+import type { WorkspaceCaller } from '~~/convex/auth/caller'
 import { todoCreate, workspaceRead } from '~~/convex/features/todos'
 
 import { api } from '#trellis/api'
@@ -11,7 +11,7 @@ type McpAuthContext = {
   userId?: string
 }
 
-function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
+function getMcpCaller(event: H3Event): WorkspaceCaller {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.id || !auth.userId) {
     return { kind: 'anonymous', subject: 'system:anonymous' }
@@ -25,27 +25,27 @@ function getMcpPrincipal(event: H3Event): WorkspacePrincipal {
   }
 }
 
-export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
-  callConvex: async (event, { principal, delegation }) =>
+export const mcpRuntime = defineMcpApp<WorkspaceCaller>({
+  callConvex: async (event, { caller, actingFor }) =>
     createServerConvexCaller(
       event,
-      principal.kind === 'agent'
-        ? delegation
+      caller.kind === 'agent'
+        ? actingFor
           ? {
               auth: 'trusted',
-              principal,
-              delegation,
+              caller,
+              actingFor,
             }
           : {
               auth: 'trusted',
-              principal,
+              caller,
             }
         : { auth: 'none' },
     ),
-  resolvePrincipal: async (event) => getMcpPrincipal(event),
-  resolveCapabilities: async ({ principal, convex }) =>
-    principal.kind === 'agent'
-      ? ((await convex.query(api.permissions.context.getPermissionContext, {}))?.can ?? {
+  resolveCaller: async (event) => getMcpCaller(event),
+  resolveAccess: async ({ caller, convex }) =>
+    caller.kind === 'agent'
+      ? ((await convex.query(api.permissions.context.getAccessContext, {}))?.can ?? {
           [workspaceRead.key]: false,
           [todoCreate.key]: false,
         })
@@ -53,8 +53,7 @@ export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({
           [workspaceRead.key]: false,
           [todoCreate.key]: false,
         },
-  principalKey: (principal) =>
-    principal.kind === 'agent' ? `agent:${principal.agentId}` : principal.kind,
+  callerKey: (caller) => (caller.kind === 'agent' ? `agent:${caller.agentId}` : caller.kind),
 })
 
 // Project root refs for tool files.

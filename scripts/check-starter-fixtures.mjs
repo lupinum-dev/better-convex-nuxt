@@ -253,7 +253,7 @@ function writeDoctorEnv(appRoot, template) {
 
   if (template === 'workspace-mcp') {
     lines.push(
-      'CONVEX_TRUSTED_FORWARDING_KEY=starter-fixture-validation-trusted-forwarding-key-0123456789',
+      'CONVEX_IDENTITY_FORWARDING_KEY=starter-fixture-validation-identity-forwarding-key-0123456789',
       'TRELLIS_MCP_CONFIRMATION_KEY=starter-fixture-validation-confirmation-key-0123456789',
     )
   }
@@ -285,8 +285,8 @@ function requirePackageArtifacts() {
     'dist/types.d.mts',
     'dist/runtime/backend/index.d.ts',
     'dist/runtime/backend/index.js',
-    'dist/runtime/trusted-forwarding/index.d.ts',
-    'dist/runtime/trusted-forwarding/index.js',
+    'dist/runtime/identity-forwarding/index.d.ts',
+    'dist/runtime/identity-forwarding/index.js',
   ]
   const missing = requiredFiles.filter((path) => !existsSync(resolve(repoRoot, path)))
   assert(

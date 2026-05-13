@@ -14,7 +14,7 @@ import { v } from 'convex/values'
 import { expectTypeOf } from 'vitest'
 
 const operation = defineOperation.withContext<{
-  principal: () => Promise<{ id: string }>
+  caller: () => Promise<{ id: string }>
 }>()({
   id: 'entries.archive',
   name: 'archiveEntry',

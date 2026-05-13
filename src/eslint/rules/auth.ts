@@ -7,7 +7,7 @@ import {
   getHandlerOptionsObject,
   getObjectProperty,
   hasProtectedStructuredGuard,
-  hasUnsafeActorCheck,
+  hasUnsafeAppIdentityCheck,
   isBuilderCall,
   isCtxDbGetCall,
   isNullGuardStatement,
@@ -17,13 +17,13 @@ import {
 } from '../shared.js'
 
 export const authRules = {
-  'actor-access-after-enforce': createRule(
+  'appIdentity-access-after-enforce': createRule(
     {
       type: 'problem',
       schema: [],
       messages: {
         access:
-          'Do not access actor fields before `enforce()` / `requireAuth()` narrows the actor.',
+          'Do not access appIdentity fields before `enforce()` / `requireAuth()` narrows the appIdentity.',
       },
     },
     (context) => ({
@@ -58,12 +58,13 @@ export const authRules = {
       },
     }),
   ),
-  'check-handles-null-actor': createRule(
+  'check-handles-null-appIdentity': createRule(
     {
       type: 'problem',
       schema: [],
       messages: {
-        unsafe: 'Actor check functions should handle `null` actors before reading actor fields.',
+        unsafe:
+          'AppIdentity check functions should handle `null` actors before reading appIdentity fields.',
       },
     },
     (context) => ({
@@ -73,7 +74,7 @@ export const authRules = {
         if (
           (node.value?.type === 'ArrowFunctionExpression' ||
             node.value?.type === 'FunctionExpression') &&
-          hasUnsafeActorCheck(node.value, context)
+          hasUnsafeAppIdentityCheck(node.value, context)
         ) {
           context.report({
             node: node.value,
@@ -93,7 +94,7 @@ export const authRules = {
           if (
             (checkArg?.type === 'ArrowFunctionExpression' ||
               checkArg?.type === 'FunctionExpression') &&
-            hasUnsafeActorCheck(checkArg, context)
+            hasUnsafeAppIdentityCheck(checkArg, context)
           ) {
             context.report({
               node: checkArg,

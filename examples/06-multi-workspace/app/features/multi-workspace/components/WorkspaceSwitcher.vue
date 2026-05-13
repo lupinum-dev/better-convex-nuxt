@@ -11,9 +11,9 @@
       <UButton
         v-for="workspace in workspaces"
         :key="workspace.workspaceId"
-        :color="workspace.workspaceId === currentTenantId ? 'primary' : 'neutral'"
-        :variant="workspace.workspaceId === currentTenantId ? 'solid' : 'soft'"
-        :leading-icon="workspace.workspaceId === currentTenantId ? 'i-lucide-check' : undefined"
+        :color="workspace.workspaceId === currentWorkspaceId ? 'primary' : 'neutral'"
+        :variant="workspace.workspaceId === currentWorkspaceId ? 'solid' : 'soft'"
+        :leading-icon="workspace.workspaceId === currentWorkspaceId ? 'i-lucide-check' : undefined"
         @click="$emit('switch', workspace.workspaceId)"
       >
         {{ workspace.name }}
@@ -47,7 +47,7 @@ import type { Id } from '~~/convex/_generated/dataModel'
 
 defineProps<{
   workspaces: Array<{ workspaceId: Id<'workspaces'>; name: string; role: string }> | null
-  currentTenantId: string | null
+  currentWorkspaceId: string | null
   seedLoading?: boolean
 }>()
 

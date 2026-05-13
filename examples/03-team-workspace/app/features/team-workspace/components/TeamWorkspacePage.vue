@@ -82,7 +82,7 @@
                 <p class="text-sm text-muted mt-1">
                   Role:
                   <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
-                  <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
+                  <span v-if="workspaceId"> · Workspace ID: {{ workspaceId }}</span>
                 </p>
               </div>
 
@@ -151,7 +151,7 @@
               </div>
             </UCard>
 
-            <template v-if="ready && !tenantId">
+            <template v-if="ready && !workspaceId">
               <UCard>
                 <template #header>
                   <h3 class="text-lg font-semibold">Create workspace</h3>
@@ -179,7 +179,7 @@
               </UCard>
             </template>
 
-            <template v-if="tenantId">
+            <template v-if="workspaceId">
               <UCard>
                 <template #header>
                   <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -289,7 +289,7 @@ import { todoCreate, todoPermissionMatrix } from '#trellis/permissions'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { allows, ready, role, tenantId, ctx } = usePermissions()
+const { can, ready, role, workspaceId, ctx } = useAccess()
 
 const signUpFields: AuthFormField[] = [
   {
@@ -358,7 +358,7 @@ const createTodoMutation = useConvexMutation(api.features.todos.domain.create)
 const updateTodo = useConvexMutation(api.features.todos.domain.setCompleted)
 const removeTodo = useConvexMutation(api.features.todos.domain.remove)
 
-const todoArgs = computed(() => (tenantId.value ? {} : undefined))
+const todoArgs = computed(() => (workspaceId.value ? {} : undefined))
 const {
   data: todos,
   pending: todosPending,
@@ -374,7 +374,7 @@ const displayName = computed(
     'Signed in user',
 )
 
-const canCreate = allows(todoCreate)
+const canCreate = can(todoCreate)
 const allRoles = ['owner', 'admin', 'member', 'viewer']
 const recordRuleRows = [
   { label: 'Update own todo', roles: ['owner', 'admin', 'member'] },

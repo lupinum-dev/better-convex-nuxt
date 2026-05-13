@@ -10,7 +10,7 @@ export function createDenialExplanation(input: {
   decision: TrellisDenialDecision
   message: string
   policy?: string
-  tenantId?: string
+  workspaceId?: string
   suggestedAction?: TrellisSuggestedAction
 }): TrellisDenialExplanation {
   return input

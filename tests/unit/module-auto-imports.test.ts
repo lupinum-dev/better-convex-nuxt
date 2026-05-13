@@ -64,7 +64,7 @@ describe('installer auto-import surface', () => {
     })
     installPermissionTrellis({
       resolver: resolver as never,
-      permissionQueryPath: 'permissions/context.getPermissionContext',
+      permissionQueryPath: 'permissions/context.getAccessContext',
     })
     installAdvancedTrellis({
       nuxt: nuxt as never,
@@ -90,7 +90,7 @@ describe('installer auto-import surface', () => {
         'useConvexSignIn',
         'useConvexSignUp',
         'useConvexPasswordReset',
-        'usePermissions',
+        'useAccess',
         'useAuthGuard',
       ]),
     )

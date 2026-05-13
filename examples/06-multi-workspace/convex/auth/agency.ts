@@ -1,7 +1,7 @@
 /**
  * Why this file exists:
  * Agency dashboards are the controlled exception to normal tenant scoping, so they get a
- * distinct actor type and explicit membership helpers.
+ * distinct appIdentity type and explicit membership helpers.
  */
 import { deny, getAuth } from '@lupinum/trellis/auth'
 import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'

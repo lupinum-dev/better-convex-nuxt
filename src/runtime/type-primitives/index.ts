@@ -1,7 +1,7 @@
 export type {
-  InferPermissionContext,
-  PermissionContextBase,
-  PermissionContextDefinition,
+  InferAccessContext,
+  AccessContextBase,
+  AccessContextDefinition,
   PermissionKey,
   ValidatePermissionKey,
 } from '../auth/index.js'
@@ -27,13 +27,13 @@ export type {
 } from '../backend/index.js'
 
 export type {
-  RegisteredCapabilityKey,
+  RegisteredAccessKey,
   RegisteredToolByName,
   RegisteredToolName,
   SerializableValue,
   ToolsByName,
   ValidateSerializable,
-  ValidateCapabilityKey,
+  ValidateAccessKey,
   ValidateMcpToolOptions,
   ValidateToolArgs,
   ValidateToolName,

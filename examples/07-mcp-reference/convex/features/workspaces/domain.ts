@@ -6,12 +6,12 @@ import { mutation } from '../../functions'
 export const createWorkspaceMutation = mutation.public({
   args: createWorkspace.args,
   handler: async (ctx, args) => {
-    const principal = await ctx.principal()
-    // This onboarding path is intentionally principal-gated instead of actor-gated:
-    // a signed-in user may exist before they have any workspace-bound actor row.
-    requireAuth(principal, 'Forbidden: authRequired')
-    if (principal.kind !== 'user') {
-      throw new Error('Workspace creation requires a signed-in user principal.')
+    const caller = await ctx.caller()
+    // This onboarding path is intentionally caller-gated instead of appIdentity-gated:
+    // a signed-in user may exist before they have any workspace-bound appIdentity row.
+    requireAuth(caller, 'Forbidden: authRequired')
+    if (caller.kind !== 'user') {
+      throw new Error('Workspace creation requires a signed-in user caller.')
     }
 
     const existing = await ctx.db
@@ -23,32 +23,32 @@ export const createWorkspaceMutation = mutation.public({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', principal.userId))
+      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
 
     const now = Date.now()
-    const crossTenantDb = ctx.db.escapeTenantIsolation({
-      reason: 'Seed onboarding runbooks before the new workspace is actor-scoped.',
+    const crossTenantDb = ctx.db.escapeIsolation({
+      reason: 'Seed onboarding runbooks before the new workspace is appIdentity-scoped.',
     })
-    const tenantId = await ctx.db.insert('workspaces', {
+    const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: principal.userId,
+      ownerId: caller.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     // Once the workspace exists, attach the user to it and promote them to owner.
     await ctx.db.patch(user._id, {
-      workspaceId: tenantId,
+      workspaceId: workspaceId,
       role: 'owner',
       updatedAt: now,
     })
 
-    // On first-workspace creation there is no tenant-bound actor yet, so seed
-    // content must bypass tenant isolation explicitly.
+    // On first-workspace creation there is no tenant-bound appIdentity yet, so seed
+    // content must bypass isolation explicitly.
     await crossTenantDb.insert('runbooks', {
       title: 'Public onboarding guide',
       summary: 'A public runbook that demonstrates the unauthenticated MCP surface.',
@@ -61,8 +61,8 @@ export const createWorkspaceMutation = mutation.public({
       ].join('\n'),
       visibility: 'public',
       tags: ['public', 'onboarding'],
-      ownerId: principal.userId,
-      workspaceId: tenantId,
+      ownerId: caller.userId,
+      workspaceId: workspaceId,
       createdAt: now,
       updatedAt: now,
       publishedAt: now,
@@ -80,12 +80,12 @@ export const createWorkspaceMutation = mutation.public({
       ].join('\n'),
       visibility: 'workspace',
       tags: ['incident', 'ops'],
-      ownerId: principal.userId,
-      workspaceId: tenantId,
+      ownerId: caller.userId,
+      workspaceId: workspaceId,
       createdAt: now,
       updatedAt: now,
     })
 
-    return tenantId
+    return workspaceId
   },
 })

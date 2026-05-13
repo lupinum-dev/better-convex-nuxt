@@ -62,7 +62,7 @@ const manifest = composeFeatures([usersFeature, pagesFeature])
 export const schema = manifest.schema
 export const permissions = manifest.permissions
 export const tenantTables = manifest.tenantTables
-export const globalTables = manifest.globalTables
+export const sharedTables = manifest.sharedTables
 `.trimStart(),
   )
   await writeFile(
@@ -141,7 +141,7 @@ afterEach(async () => {
 })
 
 describe('trellis add entity', () => {
-  it('scaffolds a personal resource slice and patches the schema + permission context', async () => {
+  it('scaffolds a personal resource slice and patches the schema + access context', async () => {
     const cwd = await scaffoldApp('personal')
     const template = await getAddTemplateSet({
       feature: 'entity',
@@ -206,7 +206,7 @@ describe('trellis add entity', () => {
     ).resolves.toContain("id: v.id('projects')")
   })
 
-  it('adds MCP-facing resource files and runtime capabilities when MCP is enabled', async () => {
+  it('adds MCP-facing resource files and runtime recordAccess when MCP is enabled', async () => {
     const cwd = await scaffoldApp('workspace', true)
     const template = await getAddTemplateSet({
       feature: 'entity',
@@ -254,7 +254,7 @@ describe('trellis add entity', () => {
       readFile(resolve(cwd, 'server/mcp/tools/create-project.ts'), 'utf8'),
     ).resolves.toContain('~~/shared/features/projects/contract')
     await expect(readFile(resolve(cwd, 'server/mcp/runtime.ts'), 'utf8')).resolves.toContain(
-      'api.permissions.context.getPermissionContext',
+      'api.permissions.context.getAccessContext',
     )
   })
 
@@ -275,7 +275,7 @@ describe('trellis add entity', () => {
     )
     await expect(
       readFile(resolve(cwd, 'convex/features/entries/domain.ts'), 'utf8'),
-    ).resolves.toContain('loaded.authorId === actor.userId')
+    ).resolves.toContain('loaded.authorId === appIdentity.userId')
     await expect(readFile(resolve(cwd, 'convex/features/index.ts'), 'utf8')).resolves.toContain(
       "import { entriesFeature } from './entries/feature'",
     )

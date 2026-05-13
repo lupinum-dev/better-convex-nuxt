@@ -1,26 +1,26 @@
 import type { DatabaseReader } from '../../_generated/server'
-import type { Actor } from '../../auth/actor'
+import type { AppIdentity } from '../../auth/app-identity'
 
 type ArticleOwnerScope = 'all' | Set<string>
 
 export async function getArticleOwnerScope(
   db: DatabaseReader,
-  actor: Exclude<Actor, null>,
+  appIdentity: Exclude<AppIdentity, null>,
 ): Promise<ArticleOwnerScope> {
-  if (actor.role === 'owner' || actor.role === 'admin') {
+  if (appIdentity.role === 'owner' || appIdentity.role === 'admin') {
     return 'all'
   }
 
-  if (actor.role === 'editor') {
+  if (appIdentity.role === 'editor') {
     const team = await db
       .query('users')
-      .withIndex('by_manager', (q) => q.eq('managerId', actor.userId))
+      .withIndex('by_manager', (q) => q.eq('managerId', appIdentity.userId))
       .collect()
 
-    return new Set([actor.userId, ...team.map((user) => user.authId)])
+    return new Set([appIdentity.userId, ...team.map((user) => user.authId)])
   }
 
-  return new Set([actor.userId])
+  return new Set([appIdentity.userId])
 }
 
 export function canAccessArticleOwner(scope: ArticleOwnerScope, ownerId: string): boolean {

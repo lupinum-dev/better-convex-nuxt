@@ -89,20 +89,20 @@ describe('server entrypoint exports', () => {
     )
   })
 
-  it('forwards trusted auth, principal, and delegation options to each request-scoped call', async () => {
+  it('forwards trusted auth, caller, and actingFor options to each request-scoped call', async () => {
     serverConvexQueryMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
-    const principal = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
-    const delegation = { subject: 'user:u1', reason: 'approved' }
-    const caller = serverApi.createServerConvexCaller(event, {
+    const caller = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
+    const actingFor = { subject: 'user:u1', reason: 'approved' }
+    const convex = serverApi.createServerConvexCaller(event, {
       auth: 'trusted',
-      principal,
-      delegation,
+      caller,
+      actingFor,
     })
 
     await expect(
-      caller.query({ _path: 'notes:list' } as never, { limit: 2 } as never),
+      convex.query({ _path: 'notes:list' } as never, { limit: 2 } as never),
     ).resolves.toEqual({
       ok: true,
     })
@@ -111,7 +111,7 @@ describe('server entrypoint exports', () => {
       event,
       { _path: 'notes:list' },
       { limit: 2 },
-      { auth: 'trusted', principal, delegation },
+      { auth: 'trusted', caller, actingFor },
     )
   })
 
@@ -119,14 +119,14 @@ describe('server entrypoint exports', () => {
     serverConvexMutationMock.mockResolvedValueOnce({ ok: true })
 
     const event = { __is_event__: true } as never
-    const principal = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
-    const caller = serverApi.createServerConvexCaller(event, {
+    const caller = { kind: 'agent', agentId: 'a1', subject: 'agent:a1' }
+    const convex = serverApi.createServerConvexCaller(event, {
       auth: 'trusted',
-      principal,
+      caller,
     })
 
-    await caller.mutation({ _path: 'notes:delete' } as never, { id: 'n1' } as never, {
-      trustedForwardingEnvelope: {
+    await convex.mutation({ _path: 'notes:delete' } as never, { id: 'n1' } as never, {
+      identityForwardingEnvelope: {
         purpose: 'operation-execute',
         jti: 'confirm-1',
       },
@@ -138,8 +138,8 @@ describe('server entrypoint exports', () => {
       { id: 'n1' },
       {
         auth: 'trusted',
-        principal,
-        trustedForwardingEnvelope: {
+        caller,
+        identityForwardingEnvelope: {
           purpose: 'operation-execute',
           jti: 'confirm-1',
         },
@@ -147,34 +147,34 @@ describe('server entrypoint exports', () => {
     )
   })
 
-  it('rejects forwarded principals outside the trusted forwarding path', () => {
+  it('rejects forwarded principals outside the identity forwarding path', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
         auth: 'auto',
-        principal: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
+        caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
       }),
     ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
   })
 
-  it('requires principal when using trusted forwarding', () => {
+  it('requires caller when using identity forwarding', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
         auth: 'trusted',
       }),
-    ).toThrow(/requires `principal` on trusted forwarding calls/)
+    ).toThrow(/requires `caller` on identity forwarding calls/)
   })
 
-  it('rejects forwarded delegation outside the trusted forwarding path', () => {
+  it('rejects forwarded actingFor outside the identity forwarding path', () => {
     const event = { __is_event__: true } as never
 
     expect(() =>
       serverApi.createServerConvexCaller(event, {
         auth: 'auto',
-        delegation: { subject: 'user:u1', reason: 'approved' },
+        actingFor: { subject: 'user:u1', reason: 'approved' },
       }),
     ).toThrow(/only allows forwarded identity on `auth: 'trusted'` calls/)
   })

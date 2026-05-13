@@ -51,7 +51,7 @@ export async function initializeMcpSession(key?: string): Promise<string | undef
       method: 'initialize',
       params: {
         protocolVersion: '2025-03-26',
-        capabilities: {},
+        recordAccess: {},
         clientInfo: { name: 'vitest', version: '1.0.0' },
       },
     },

@@ -1,4 +1,4 @@
-import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+import { definePermission, buildPermissionMatrix } from '@lupinum/trellis/auth'
 
 import { hasRole, hasWorkspace } from '../../auth/guards'
 
@@ -26,4 +26,4 @@ export const taskAssign = definePermission({
 
 export const taskPermissions = [taskCreate, taskRead, taskAssign] as const
 
-export const taskPermissionMatrix = derivePermissionMatrix(taskPermissions)
+export const taskPermissionMatrix = buildPermissionMatrix(taskPermissions)

@@ -1,21 +1,21 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { PermissionActor } from './actor'
-import type { Role } from './principal'
+import type { AccessIdentity } from './app-identity'
+import type { Role } from './caller'
 
 export const hasRole = (...roles: Role[]) =>
-  defineGuard<PermissionActor>(
+  defineGuard<AccessIdentity>(
     `role:${roles.join('|')}`,
-    (actor) => !!actor && roles.includes(actor.role),
+    (appIdentity) => !!appIdentity && roles.includes(appIdentity.role),
   )
 
-export const hasWorkspace = defineGuard<PermissionActor>(
+export const hasWorkspace = defineGuard<AccessIdentity>(
   'Workspace member',
-  (actor) => !!actor?.tenantId,
+  (appIdentity) => !!appIdentity?.workspaceId,
 )
 
 export const isOwnerOf = (resource: { ownerId: string }) =>
-  defineGuard<PermissionActor>(
+  defineGuard<AccessIdentity>(
     `owner:${resource.ownerId}`,
-    (actor) => !!actor && actor.userId === resource.ownerId,
+    (appIdentity) => !!appIdentity && appIdentity.userId === resource.ownerId,
   )

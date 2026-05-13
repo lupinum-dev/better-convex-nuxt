@@ -9,7 +9,7 @@ Use it for:
 - repository-level Convex/runtime integration tests
 - the root `pnpm dev` maintainer app
 - managed e2e target coverage
-- auth, trusted-forwarding, and MCP verification work
+- auth, identity-forwarding, and MCP verification work
 - focused spikes before a change graduates into the public runtime
 
 Do not use it as the source of truth for:

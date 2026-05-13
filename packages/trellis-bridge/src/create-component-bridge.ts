@@ -1,12 +1,8 @@
+import { defineCaller, type DefaultCaller, type CallerDefinition } from '@lupinum/trellis/backend'
 import {
-  definePrincipal,
-  type DefaultPrincipal,
-  type PrincipalDefinition,
-} from '@lupinum/trellis/backend'
-import {
-  clearTrustedForwardingContext,
-  setTrustedForwardingContext,
-  withTrustedForwarding,
+  clearIdentityForwardingContext,
+  setIdentityForwardingContext,
+  withIdentityForwarding,
 } from '@lupinum/trellis/backend'
 import {
   customAction,
@@ -35,14 +31,14 @@ import { v } from 'convex/values'
 import {
   createBridgeForwardingArgs,
   getBridgeFunctionRef,
-  getRequiredBridgeTrustedForwardingKey,
-  type TrustedForwardingKeyInput,
+  getRequiredBridgeIdentityForwardingKey,
+  type IdentityForwardingKeyInput,
 } from './bridge-forwarding.js'
 export {
   createBridgeForwardingArgs,
   createBridgeForwardingEnvelope,
   type CreateBridgeForwardingEnvelopeOptions,
-  type TrustedForwardingKeyInput,
+  type IdentityForwardingKeyInput,
 } from './bridge-forwarding.js'
 
 type AnyCtx<DataModel extends GenericDataModel> =
@@ -50,26 +46,24 @@ type AnyCtx<DataModel extends GenericDataModel> =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-type PrincipalAccessor<TPrincipal> = () => Promise<TPrincipal>
+type CallerAccessor<TCaller> = () => Promise<TCaller>
 
-type BridgeCtxExtension<TPrincipal> = {
-  principal: PrincipalAccessor<TPrincipal>
+type BridgeCtxExtension<TCaller> = {
+  caller: CallerAccessor<TCaller>
 }
 
-type QueryCtxWithPrincipal<
-  DataModel extends GenericDataModel,
-  TPrincipal,
-> = GenericQueryCtx<DataModel> & BridgeCtxExtension<TPrincipal>
+type QueryCtxWithCaller<DataModel extends GenericDataModel, TCaller> = GenericQueryCtx<DataModel> &
+  BridgeCtxExtension<TCaller>
 
-type MutationCtxWithPrincipal<
+type MutationCtxWithCaller<
   DataModel extends GenericDataModel,
-  TPrincipal,
-> = GenericMutationCtx<DataModel> & BridgeCtxExtension<TPrincipal>
+  TCaller,
+> = GenericMutationCtx<DataModel> & BridgeCtxExtension<TCaller>
 
-type ActionCtxWithPrincipal<
+type ActionCtxWithCaller<
   DataModel extends GenericDataModel,
-  TPrincipal,
-> = GenericActionCtx<DataModel> & BridgeCtxExtension<TPrincipal>
+  TCaller,
+> = GenericActionCtx<DataModel> & BridgeCtxExtension<TCaller>
 
 type CreateComponentBridgeBuilders<
   DataModel extends GenericDataModel,
@@ -292,155 +286,155 @@ type BridgeBatchResult<
               : never
 }
 
-function createPublicBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
-  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+function createPublicBridgeCustomization<DataModel extends GenericDataModel, TCaller>(
+  callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
     PropertyValidators,
-    QueryCtxWithPrincipal<DataModel, TPrincipal>,
+    QueryCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
   mutation: Customization<
     GenericMutationCtx<DataModel>,
     PropertyValidators,
-    MutationCtxWithPrincipal<DataModel, TPrincipal>,
+    MutationCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
   action: Customization<
     GenericActionCtx<DataModel>,
     PropertyValidators,
-    ActionCtxWithPrincipal<DataModel, TPrincipal>,
+    ActionCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
 } {
   return {
     query: {
       args: {},
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericQueryCtx<DataModel>,
-        QueryCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'query'),
+        QueryCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'query'),
     },
     mutation: {
       args: {},
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericMutationCtx<DataModel>,
-        MutationCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'mutation'),
+        MutationCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'mutation'),
     },
     action: {
       args: {},
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericActionCtx<DataModel>,
-        ActionCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'action'),
+        ActionCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'action'),
     },
   }
 }
 
-function createBridgePrincipalInput<
+function createBridgeCallerInput<
   DataModel extends GenericDataModel,
-  TPrincipal,
+  TCaller,
   TCtx extends AnyCtx<DataModel>,
-  TOutputCtx extends TCtx & BridgeCtxExtension<TPrincipal>,
+  TOutputCtx extends TCtx & BridgeCtxExtension<TCaller>,
 >(
-  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+  callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
   expectedPurpose: 'query' | 'mutation' | 'action',
-  trustedForwardingKeyOverride?: TrustedForwardingKeyInput,
+  identityForwardingKeyOverride?: IdentityForwardingKeyInput,
 ) {
   return async (ctx: TCtx, args: Record<string, unknown>) => {
-    let principalPromise: Promise<TPrincipal> | null = null
-    const principal = async () => {
-      if (!principalPromise) {
-        const ctxWithTrustedForwarding = { ...ctx } as TCtx
-        setTrustedForwardingContext(ctxWithTrustedForwarding, args, {
-          expectedKeyOverride: trustedForwardingKeyOverride,
+    let callerPromise: Promise<TCaller> | null = null
+    const caller = async () => {
+      if (!callerPromise) {
+        const ctxWithIdentityForwarding = { ...ctx } as TCtx
+        setIdentityForwardingContext(ctxWithIdentityForwarding, args, {
+          expectedKeyOverride: identityForwardingKeyOverride,
           expectedPurpose,
           expectedTransport: 'bridge',
           expectedFunctionRef,
         })
-        principalPromise = Promise.resolve(
-          principalDefinition.resolve(ctxWithTrustedForwarding, args),
+        callerPromise = Promise.resolve(
+          callerDefinition.resolve(ctxWithIdentityForwarding, args),
         ).finally(() => {
-          clearTrustedForwardingContext(ctxWithTrustedForwarding)
+          clearIdentityForwardingContext(ctxWithIdentityForwarding)
         })
       }
 
-      return await principalPromise
+      return await callerPromise
     }
 
     return {
       ctx: {
         ...ctx,
-        principal,
+        caller,
       } as TOutputCtx,
       args: {} as Record<string, never>,
     }
   }
 }
 
-function createInternalBridgeCustomization<DataModel extends GenericDataModel, TPrincipal>(
-  principalDefinition: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>,
+function createInternalBridgeCustomization<DataModel extends GenericDataModel, TCaller>(
+  callerDefinition: CallerDefinition<AnyCtx<DataModel>, TCaller>,
   expectedFunctionRef: string,
-  trustedForwardingKeyOverride?: TrustedForwardingKeyInput,
+  identityForwardingKeyOverride?: IdentityForwardingKeyInput,
 ): {
   query: Customization<
     GenericQueryCtx<DataModel>,
     PropertyValidators,
-    QueryCtxWithPrincipal<DataModel, TPrincipal>,
+    QueryCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
   mutation: Customization<
     GenericMutationCtx<DataModel>,
     PropertyValidators,
-    MutationCtxWithPrincipal<DataModel, TPrincipal>,
+    MutationCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
   action: Customization<
     GenericActionCtx<DataModel>,
     PropertyValidators,
-    ActionCtxWithPrincipal<DataModel, TPrincipal>,
+    ActionCtxWithCaller<DataModel, TCaller>,
     Record<string, never>
   >
 } {
-  const forwardingArgs: PropertyValidators = withTrustedForwarding({})
+  const forwardingArgs: PropertyValidators = withIdentityForwarding({})
 
   return {
     query: {
       args: forwardingArgs,
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericQueryCtx<DataModel>,
-        QueryCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'query', trustedForwardingKeyOverride),
+        QueryCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'query', identityForwardingKeyOverride),
     },
     mutation: {
       args: forwardingArgs,
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericMutationCtx<DataModel>,
-        MutationCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'mutation', trustedForwardingKeyOverride),
+        MutationCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'mutation', identityForwardingKeyOverride),
     },
     action: {
       args: forwardingArgs,
-      input: createBridgePrincipalInput<
+      input: createBridgeCallerInput<
         DataModel,
-        TPrincipal,
+        TCaller,
         GenericActionCtx<DataModel>,
-        ActionCtxWithPrincipal<DataModel, TPrincipal>
-      >(principalDefinition, expectedFunctionRef, 'action', trustedForwardingKeyOverride),
+        ActionCtxWithCaller<DataModel, TCaller>
+      >(callerDefinition, expectedFunctionRef, 'action', identityForwardingKeyOverride),
     },
   }
 }
@@ -462,7 +456,7 @@ export function createComponentBridge<
   InternalMutationVisibility extends FunctionVisibility,
   ActionVisibility extends FunctionVisibility = FunctionVisibility,
   InternalActionVisibility extends FunctionVisibility = FunctionVisibility,
-  TPrincipal = DefaultPrincipal,
+  TCaller = DefaultCaller,
 >(
   builders: CreateComponentBridgeBuilders<
     DataModel,
@@ -474,20 +468,20 @@ export function createComponentBridge<
     InternalActionVisibility
   >,
   options: {
-    principal?: PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>
-    trustedForwardingKey?: TrustedForwardingKeyInput
+    caller?: CallerDefinition<AnyCtx<DataModel>, TCaller>
+    identityForwardingKey?: IdentityForwardingKeyInput
   } = {},
 ) {
-  const principalDefinition =
-    options.principal ??
-    (definePrincipal.fromAuth<DataModel>() as PrincipalDefinition<AnyCtx<DataModel>, TPrincipal>)
+  const callerDefinition =
+    options.caller ??
+    (defineCaller.fromAuth<DataModel>() as CallerDefinition<AnyCtx<DataModel>, TCaller>)
 
   const registerQuery = <TRef extends ComponentBridgeQueryRef>(
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createPublicBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
     )
     const query = customQuery(builders.query, customization.query)
@@ -495,13 +489,13 @@ export function createComponentBridge<
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             'query',
             definition.component,
             functionRef,
@@ -515,8 +509,8 @@ export function createComponentBridge<
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createPublicBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
     )
     const mutation = customMutation(builders.mutation, customization.mutation)
@@ -524,13 +518,13 @@ export function createComponentBridge<
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             functionRef,
@@ -547,8 +541,8 @@ export function createComponentBridge<
       throw new Error('createComponentBridge() was not configured with an action builder.')
     }
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createPublicBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createPublicBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
     )
     const action = customAction(builders.action, customization.action)
@@ -556,13 +550,13 @@ export function createComponentBridge<
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             'action',
             definition.component,
             functionRef,
@@ -576,23 +570,23 @@ export function createComponentBridge<
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createInternalBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
-      options.trustedForwardingKey,
+      options.identityForwardingKey,
     )
     const internalQuery = customQuery(builders.internalQuery, customization.query)
     return internalQuery({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runQuery(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             'query',
             definition.component,
             functionRef,
@@ -606,23 +600,23 @@ export function createComponentBridge<
     definition: ComponentBridgeDefinition<TRef>,
   ) => {
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createInternalBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
-      options.trustedForwardingKey,
+      options.identityForwardingKey,
     )
     const internalMutation = customMutation(builders.internalMutation, customization.mutation)
     return internalMutation({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runMutation(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             definition.forwardingPurpose ?? 'mutation',
             definition.component,
             functionRef,
@@ -639,23 +633,23 @@ export function createComponentBridge<
       throw new Error('createComponentBridge() was not configured with an internalAction builder.')
     }
     const functionRef = getBridgeFunctionRef(definition.component, definition.functionRef)
-    const customization = createInternalBridgeCustomization<DataModel, TPrincipal>(
-      principalDefinition,
+    const customization = createInternalBridgeCustomization<DataModel, TCaller>(
+      callerDefinition,
       functionRef,
-      options.trustedForwardingKey,
+      options.identityForwardingKey,
     )
     const internalAction = customAction(builders.internalAction, customization.action)
     return internalAction({
       args: definition.args,
       returns: definition.returns,
       handler: async (ctx, args: ObjectType<typeof definition.args>) => {
-        const principal = await ctx.principal()
+        const caller = await ctx.caller()
         return await ctx.runAction(
           definition.component,
           createBridgeForwardingArgs(
             args as Record<string, unknown>,
-            principal,
-            (input) => getRequiredBridgeTrustedForwardingKey(options.trustedForwardingKey, input),
+            caller,
+            (input) => getRequiredBridgeIdentityForwardingKey(options.identityForwardingKey, input),
             'action',
             definition.component,
             functionRef,

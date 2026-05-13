@@ -90,9 +90,9 @@ const kbId = route.query.kbId as string | undefined
 
 const backLink = computed(() => (kbId ? `/kb/${kbId}` : '/'))
 
-const { allows } = usePermissions()
-const canShare = allows(shareCreate)
-const canPublish = allows(articleCreate)
+const { can } = useAccess()
+const canShare = can(shareCreate)
+const canPublish = can(articleCreate)
 
 const { data: article, error } = await useConvexQuery(
   api.features.articles.domain.view,

@@ -1,12 +1,12 @@
 import { defineGuard } from '../../src/runtime/auth'
 import { buildStructuredFunctions } from '../../src/runtime/functions/define-handler'
 
-type Principal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
-type Actor = { userId: string; role: string } | null
+type Caller = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+type AppIdentity = { userId: string; role: string } | null
 
 type TestCtx = {
-  principal: () => Promise<Principal>
-  actor: () => Promise<Actor>
+  caller: () => Promise<Caller>
+  appIdentity: () => Promise<AppIdentity>
 }
 
 function createBuilder() {
@@ -16,12 +16,12 @@ function createBuilder() {
   }) => definition
 }
 
-const handlers = buildStructuredFunctions<TestCtx, TestCtx, Principal, Actor>(
+const handlers = buildStructuredFunctions<TestCtx, TestCtx, Caller, AppIdentity>(
   createBuilder(),
   createBuilder(),
 )
 
-const guard = defineGuard<Actor>('todo.read', (actor) => !!actor)
+const guard = defineGuard<AppIdentity>('todo.read', (appIdentity) => !!appIdentity)
 
 handlers.mutation({
   args: {},
@@ -30,9 +30,9 @@ handlers.mutation({
   authorize: {
     label: 'todo.update',
     check: (_actor, loaded: { todo: { ownerId: string; title: string } }) =>
-      defineGuard<NonNullable<Actor>>(
+      defineGuard<NonNullable<AppIdentity>>(
         'todo.update',
-        (actor) => actor.userId === loaded.todo.ownerId,
+        (appIdentity) => appIdentity.userId === loaded.todo.ownerId,
       ),
   },
   handler: async () => null,
@@ -42,8 +42,10 @@ handlers.mutation({
   args: {},
   guard,
   load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
-  authorize: (actor: NonNullable<Actor>, loaded: { todo: { ownerId: string; title: string } }) =>
-    actor.userId === loaded.todo.ownerId,
+  authorize: (
+    appIdentity: NonNullable<AppIdentity>,
+    loaded: { todo: { ownerId: string; title: string } },
+  ) => appIdentity.userId === loaded.todo.ownerId,
   handler: async () => null,
 })
 
@@ -53,7 +55,7 @@ handlers.mutation({
   load: async () => ({ todo: { ownerId: 'alice', title: 'Hello' } }),
   authorize: {
     label: 'todo.update',
-    check: (actor, { todo }) => actor.userId === todo.ownerId,
+    check: (appIdentity, { todo }) => appIdentity.userId === todo.ownerId,
   },
   handler: async () => null,
 })

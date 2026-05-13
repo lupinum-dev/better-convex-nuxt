@@ -124,7 +124,7 @@ export interface EnhancedAuthState extends AuthState {
   expiresInSeconds?: number
 }
 
-export interface PermissionContextState {
+export interface AccessContextState {
   queryName: string | null
   pending: boolean
   ready: boolean
@@ -148,7 +148,7 @@ export interface DecisionTraceState {
   tool: string | null
   principalKind: string | null
   actorKind: string | null
-  tenantId: string | null
+  workspaceId: string | null
   lastEventName: TrellisObservationEvent['name'] | null
   lastEventStatus: TrellisObservationEvent['status'] | null
   denialExplanation: TrellisDenialExplanation | null
@@ -201,7 +201,7 @@ export interface ConvexDevtoolsSnapshot {
   authState: EnhancedAuthState
   connectionState: DevtoolsConnectionState
   authWaterfall: AuthWaterfall | null
-  permissionContextState: PermissionContextState
+  accessContextState: AccessContextState
   authBootstrapState: AuthBootstrapState
   decisionTrace: DecisionTraceState | null
 }

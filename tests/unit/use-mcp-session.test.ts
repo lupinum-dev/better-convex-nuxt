@@ -46,7 +46,7 @@ describe('useMcpSession', () => {
         mcpAuth: {
           role: 'member',
           userId: 'user-1',
-          tenantId: 'org-1',
+          workspaceId: 'org-1',
         },
       },
       node: {

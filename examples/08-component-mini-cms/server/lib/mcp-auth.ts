@@ -9,9 +9,9 @@ import {
   saveDraftPermission,
   type MiniCmsPermissionKey,
 } from '../../convex/features/pages/permissions'
-import type { MiniCmsPrincipal } from '../../shared/principal'
+import type { MiniCmsPrincipal } from '../../shared/caller'
 
-export type CapabilitySnapshot = Record<MiniCmsPermissionKey, boolean>
+export type RecordAccessSnapshot = Record<MiniCmsPermissionKey, boolean>
 
 function readBearerToken(event: H3Event): string | null {
   const auth = getHeader(event, 'authorization')
@@ -19,7 +19,7 @@ function readBearerToken(event: H3Event): string | null {
   return auth.slice('Bearer '.length).trim() || null
 }
 
-export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
+export function getMcpCaller(event: H3Event): MiniCmsPrincipal {
   const runtimeConfig = useRuntimeConfig(event)
   const token = readBearerToken(event)
   const configuredToken =
@@ -37,12 +37,12 @@ export function getMcpPrincipal(event: H3Event): MiniCmsPrincipal {
   }
 }
 
-export function getCapabilitiesForPrincipal(principal: MiniCmsPrincipal): CapabilitySnapshot {
+export function getCapabilitiesForPrincipal(caller: MiniCmsPrincipal): RecordAccessSnapshot {
   return {
     [listPublishedPagesPermission.key]: true,
-    [listDraftPagesPermission.key]: principal.kind === 'agent',
-    [createPagePermission.key]: principal.kind === 'agent',
-    [saveDraftPermission.key]: principal.kind === 'agent',
-    [publishPagePermission.key]: principal.kind === 'agent',
+    [listDraftPagesPermission.key]: caller.kind === 'agent',
+    [createPagePermission.key]: caller.kind === 'agent',
+    [saveDraftPermission.key]: caller.kind === 'agent',
+    [publishPagePermission.key]: caller.kind === 'agent',
   }
 }

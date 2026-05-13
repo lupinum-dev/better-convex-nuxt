@@ -19,7 +19,7 @@ import {
   seedDemoArticles,
   viewArticle,
 } from '../../../shared/features/articles/contract'
-import { getActor } from '../../auth/actor'
+import { getAppIdentity } from '../../auth/app-identity'
 import { hasRole } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { getInheritedAccessLevel, requireArticleAccess } from './access'
@@ -34,8 +34,10 @@ import {
 } from './shareTokens'
 import { canAccessArticleOwner, getArticleOwnerScope } from './visibility'
 
-function isStaffActor(actor: NonNullable<Awaited<ReturnType<typeof getActor>>>): boolean {
-  return hasRole('owner', 'admin', 'editor')(actor)
+function isStaffActor(
+  appIdentity: NonNullable<Awaited<ReturnType<typeof getAppIdentity>>>,
+): boolean {
+  return hasRole('owner', 'admin', 'editor')(appIdentity)
 }
 
 export const list = query.protected({
@@ -43,13 +45,13 @@ export const list = query.protected({
   args: listArticles.args,
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
-      await ctx.actor(),
+      await ctx.appIdentity(),
       await ctx.db.get(args.knowledgeBaseId),
       'Knowledge base',
     ),
   }),
   handler: async (ctx, _args, { knowledgeBase }) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const allArticles = await ctx.db
       .query('articles')
@@ -57,28 +59,29 @@ export const list = query.protected({
       .order('desc')
       .collect()
 
-    const ownerScope = await getArticleOwnerScope(ctx.db, actor)
+    const ownerScope = await getArticleOwnerScope(ctx.db, appIdentity)
 
     return allArticles
       .filter((article) => {
-        if (isStaffActor(actor) && canAccessArticleOwner(ownerScope, article.ownerId)) return true
+        if (isStaffActor(appIdentity) && canAccessArticleOwner(ownerScope, article.ownerId))
+          return true
         if (article.status !== 'published') return false
         if (article.visibility === 'workspace') return true
         if (article.visibility === 'team') return canAccessArticleOwner(ownerScope, article.ownerId)
-        if (article.visibility === 'private') return article.ownerId === actor.userId
+        if (article.visibility === 'private') return article.ownerId === appIdentity.userId
         return false
       })
-      .map((article) => redactArticle(actor, article))
+      .map((article) => redactArticle(appIdentity, article))
   },
 })
 
 export const view = query.public({
   args: viewArticle.args,
   handler: async (ctx, args) => {
-    // Keep the cross-tenant seam narrow: this is only for one hashed share token resolving one
-    // article before a workspace actor exists.
-    const crossTenantDb = ctx.db.escapeTenantIsolation({
-      reason: 'Resolve share-token reads across tenant boundaries.',
+    // Keep the cross-scope seam narrow: this is only for one hashed share token resolving one
+    // article before a workspace appIdentity exists.
+    const crossTenantDb = ctx.db.escapeIsolation({
+      reason: 'Resolve share-token reads across-scope boundaries.',
     })
 
     if (args.shareToken) {
@@ -92,14 +95,14 @@ export const view = query.public({
       }))
     }
 
-    const actor = await getActor(ctx)
-    enforce(actor, 'Read articles', articleRead.check)
+    const appIdentity = await getAppIdentity(ctx)
+    enforce(appIdentity, 'Read articles', articleRead.check)
 
-    const article = loadResource(actor, await ctx.db.get(args.id), 'Article')
-    await requireArticleAccess(ctx.db, actor, article)
+    const article = loadResource(appIdentity, await ctx.db.get(args.id), 'Article')
+    await requireArticleAccess(ctx.db, appIdentity, article)
 
-    const accessLevel = await getInheritedAccessLevel(ctx.db, actor, article._id)
-    return projectArticle(actor, article, (safeArticle) => ({
+    const accessLevel = await getInheritedAccessLevel(ctx.db, appIdentity, article._id)
+    return projectArticle(appIdentity, article, (safeArticle) => ({
       ...safeArticle,
       _access: accessLevel,
     }))
@@ -111,24 +114,24 @@ export const create = mutation.protected({
   args: createArticle.args,
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
-      await ctx.actor(),
+      await ctx.appIdentity(),
       await ctx.db.get(args.knowledgeBaseId),
       'Knowledge base',
     ),
   }),
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const now = Date.now()
     return ctx.db.insert('articles', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: args.title,
       body: args.body,
       status: 'draft',
       visibility: args.visibility,
       parentArticleId: args.parentArticleId,
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       internalNotes: args.internalNotes,
       prerequisiteIds: args.prerequisiteIds,
       availableAfter: args.availableAfter,
@@ -142,7 +145,7 @@ export const publish = mutation.protected({
   guard: articleCreate,
   args: publishArticle.args,
   load: async (ctx, args) => ({
-    article: loadResource(await ctx.actor(), await ctx.db.get(args.id), 'Article'),
+    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.id), 'Article'),
   }),
   handler: async (ctx, args, { article }) => {
     if (article.status === 'published') throw deny('Already published.')
@@ -154,15 +157,15 @@ export const markCompleted = mutation.protected({
   guard: articleRead,
   args: markArticleCompleted.args,
   load: async (ctx, args) => ({
-    article: loadResource(await ctx.actor(), await ctx.db.get(args.articleId), 'Article'),
+    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.articleId), 'Article'),
   }),
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const existing = await ctx.db
       .query('articleProgress')
       .withIndex('by_user_article', (q) =>
-        q.eq('userId', actor.userId).eq('articleId', args.articleId),
+        q.eq('userId', appIdentity.userId).eq('articleId', args.articleId),
       )
       .first()
 
@@ -174,8 +177,8 @@ export const markCompleted = mutation.protected({
     }
 
     return ctx.db.insert('articleProgress', {
-      workspaceId: actor.tenantId,
-      userId: actor.userId,
+      workspaceId: appIdentity.workspaceId,
+      userId: appIdentity.userId,
       articleId: args.articleId,
       completedAt: Date.now(),
       createdAt: Date.now(),
@@ -187,16 +190,16 @@ export const createShareToken = mutation.protected({
   guard: shareCreate,
   args: createArticleShareToken.args,
   load: async (ctx, args) => ({
-    article: loadResource(await ctx.actor(), await ctx.db.get(args.articleId), 'Article'),
+    article: loadResource(await ctx.appIdentity(), await ctx.db.get(args.articleId), 'Article'),
   }),
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const token = createShareTokenValue()
     const hash = await hashShareToken(token)
 
     await ctx.db.insert('shareTokens', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       articleId: args.articleId,
       prefix: shareTokenPrefix(token),
       hash,
@@ -218,48 +221,48 @@ export const seed = mutation.protected({
   args: seedDemoArticles.args,
   load: async (ctx, args) => ({
     knowledgeBase: loadResource(
-      await ctx.actor(),
+      await ctx.appIdentity(),
       await ctx.db.get(args.knowledgeBaseId),
       'Knowledge base',
     ),
   }),
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     const now = Date.now()
     const introId = await ctx.db.insert('articles', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Getting Started',
       body: 'Welcome to the knowledge base. This is the intro article.',
       status: 'published',
       visibility: 'workspace',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('articles', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Advanced Topics',
       body: 'Deep dive into advanced patterns. Requires completing the intro first.',
       status: 'published',
       visibility: 'workspace',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       prerequisiteIds: [introId],
       createdAt: now,
       updatedAt: now,
     })
 
     await ctx.db.insert('articles', {
-      workspaceId: actor.tenantId,
+      workspaceId: appIdentity.workspaceId,
       knowledgeBaseId: args.knowledgeBaseId,
       title: 'Internal Review Notes',
       body: 'Sensitive review content for editors only.',
       status: 'published',
       visibility: 'team',
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       internalNotes: 'Needs legal review before Q3.',
       draftFeedback: 'Consider restructuring section 2.',
       createdAt: now,

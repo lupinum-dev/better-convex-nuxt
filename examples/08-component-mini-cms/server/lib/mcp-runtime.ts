@@ -1,40 +1,40 @@
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 
-import type { MiniCmsPrincipal } from '../../shared/principal'
-import { getCapabilitiesForPrincipal, getMcpPrincipal, type CapabilitySnapshot } from './mcp-auth'
+import type { MiniCmsPrincipal } from '../../shared/caller'
+import { getCapabilitiesForPrincipal, getMcpCaller, type RecordAccessSnapshot } from './mcp-auth'
 
-export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, CapabilitySnapshot>({
-  callConvex: async (event, { principal }) =>
+export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, RecordAccessSnapshot>({
+  callConvex: async (event, { caller }) =>
     createServerConvexCaller(
       event,
-      principal.kind === 'anonymous'
+      caller.kind === 'anonymous'
         ? { auth: 'none' }
-        : principal.kind === 'user'
+        : caller.kind === 'user'
           ? {
               auth: 'trusted',
-              principal,
+              caller,
             }
           : {
               auth: 'trusted',
-              principal,
+              caller,
             },
     ),
-  resolvePrincipal: async (event) => getMcpPrincipal(event),
-  resolveCapabilities: async ({ principal }) => getCapabilitiesForPrincipal(principal),
-  principalKey: (principal) => {
-    switch (principal.kind) {
+  resolveCaller: async (event) => getMcpCaller(event),
+  resolveAccess: async ({ caller }) => getCapabilitiesForPrincipal(caller),
+  callerKey: (caller) => {
+    switch (caller.kind) {
       case 'anonymous':
         return 'anonymous'
       case 'user':
-        return `user:${principal.userId}`
+        return `user:${caller.userId}`
       case 'agent':
-        return `agent:${principal.agentId}`
+        return `agent:${caller.agentId}`
     }
 
-    throw new Error('Unsupported MCP principal.')
+    throw new Error('Unsupported MCP caller.')
   },
-  tenantKey: () => 'global',
+  scopeKey: () => 'global',
 })
 
 export const tool = mcpRuntime.tool

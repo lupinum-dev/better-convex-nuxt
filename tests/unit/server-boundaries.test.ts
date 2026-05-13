@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { delegateToUser } from '../../src/runtime/server/delegation'
+import { delegateToUser } from '../../src/runtime/server/acting-for'
 import {
   createWebhookHmacSignature,
   isWebhookHmacSignatureValid,
@@ -8,8 +8,8 @@ import {
   readSharedSecretWebhookBody,
 } from '../../src/runtime/server/webhooks'
 
-describe('server delegation helper', () => {
-  it('creates a represented-user delegation after explicit validation', async () => {
+describe('server actingFor helper', () => {
+  it('creates a represented-user actingFor after explicit validation', async () => {
     await expect(
       delegateToUser({
         userId: 'user_123',
@@ -22,18 +22,18 @@ describe('server delegation helper', () => {
     })
   })
 
-  it('rejects cross-tenant represented-user delegation', async () => {
+  it('rejects cross-scope represented-user actingFor', async () => {
     await expect(
       delegateToUser({
         userId: 'user_123',
         allow: true,
-        expectedTenantId: 'workspace_alpha',
-        targetTenantId: 'workspace_beta',
+        expectedWorkspaceId: 'workspace_alpha',
+        targetWorkspaceId: 'workspace_beta',
       }),
     ).rejects.toThrow(/outside the expected tenant boundary/i)
   })
 
-  it('rejects delegation when caller validation fails', async () => {
+  it('rejects actingFor when caller validation fails', async () => {
     await expect(
       delegateToUser({
         userId: 'user_123',

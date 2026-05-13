@@ -55,8 +55,8 @@ App-owned env vars:
 
 ## Production notes
 
-- The share-token path is the only intentional cross-tenant read in this example. It exists so one
-  hashed token can resolve one article without first resolving a workspace actor.
+- The share-token path is the only intentional cross-scope read in this example. It exists so one
+  hashed token can resolve one article without first resolving a workspace appIdentity.
 - That escape hatch stays narrow on purpose: the token lookup is hashed at rest, matched back to the
   requested article id, and covered by revoke and expiry behavior in the example tests.
 - Treat this as a bounded external-access seam, not as a generic public-content pattern. If most of

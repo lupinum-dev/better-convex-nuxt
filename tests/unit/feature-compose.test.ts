@@ -44,7 +44,7 @@ describe('feature composition', () => {
       },
       permissions: [projectRead] as const,
       tenantTables: ['projects'] as const,
-      globalTables: ['workspaces'] as const,
+      sharedTables: ['workspaces'] as const,
     })
 
     const manifest = composeFeatures([tasks, projects] as const)
@@ -55,7 +55,7 @@ describe('feature composition', () => {
     })
     expect(manifest.permissions).toEqual([taskRead, projectRead])
     expect(manifest.tenantTables).toEqual(['tasks', 'projects'])
-    expect(manifest.globalTables).toEqual(['workspaces'])
+    expect(manifest.sharedTables).toEqual(['workspaces'])
   })
 
   it('throws on duplicate feature names', () => {
@@ -113,7 +113,7 @@ describe('feature composition', () => {
     })
     const two = defineFeature({
       name: 'shared',
-      globalTables: ['tasks'] as const,
+      sharedTables: ['tasks'] as const,
     })
 
     expect(() => composeFeatures([one, two] as const)).toThrow(
@@ -125,18 +125,18 @@ describe('feature composition', () => {
     const one = defineFeature({
       name: 'tasks',
       tenantTables: ['tasks', 'projects'] as const,
-      globalTables: ['workspaces'] as const,
+      sharedTables: ['workspaces'] as const,
     })
     const two = defineFeature({
       name: 'projects',
       tenantTables: ['projects', 'comments'] as const,
-      globalTables: ['workspaces', 'users'] as const,
+      sharedTables: ['workspaces', 'users'] as const,
     })
 
     const manifest = composeFeatures([one, two] as const)
 
     expect(manifest.tenantTables).toEqual(['tasks', 'projects', 'comments'])
-    expect(manifest.globalTables).toEqual(['workspaces', 'users'])
+    expect(manifest.sharedTables).toEqual(['workspaces', 'users'])
   })
 
   it('derives tenant-scoped tables from schema shape and lets global overrides remove them', () => {
@@ -160,13 +160,13 @@ describe('feature composition', () => {
           action: v.string(),
         }).index('by_workspace', ['workspaceId']),
       },
-      globalTables: ['auditEvents'] as const,
+      sharedTables: ['auditEvents'] as const,
     })
 
     const manifest = composeFeatures([tasks, workspaces] as const)
 
     expect(manifest.tenantTables).toEqual(['tasks'])
-    expect(manifest.globalTables).toEqual(['auditEvents'])
+    expect(manifest.sharedTables).toEqual(['auditEvents'])
   })
 
   it('composes operation descriptors into app inventory', () => {

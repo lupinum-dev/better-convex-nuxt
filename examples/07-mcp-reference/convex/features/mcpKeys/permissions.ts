@@ -1,4 +1,4 @@
-import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+import { definePermission, buildPermissionMatrix } from '@lupinum/trellis/auth'
 
 import { hasRole, hasWorkspace } from '../../auth/guards'
 
@@ -13,4 +13,4 @@ export const mcpKeyPermissions = [mcpManage] as const
 
 export type McpKeyPermissionKey = (typeof mcpKeyPermissions)[number]['key']
 
-export const mcpKeyPermissionMatrix = derivePermissionMatrix(mcpKeyPermissions)
+export const mcpKeyPermissionMatrix = buildPermissionMatrix(mcpKeyPermissions)

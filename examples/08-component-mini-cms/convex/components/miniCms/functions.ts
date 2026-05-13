@@ -1,7 +1,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
-import { definePrincipal, defineTrellis, getForwardedPrincipal } from '@lupinum/trellis/backend'
+import { defineCaller, defineTrellis, getForwardedCaller } from '@lupinum/trellis/backend'
 
-import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/principal'
+import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../../shared/caller'
 import {
   action as generatedAction,
   mutation as generatedMutation,
@@ -13,14 +13,14 @@ export type MiniCmsActor =
   | { kind: 'editor'; userId: string }
   | { kind: 'agent'; agentId: string }
 
-export const principal = definePrincipal({
+export const caller = defineCaller({
   validator: miniCmsPrincipalValidator,
   resolve: async (_ctx, args): Promise<MiniCmsPrincipal> =>
-    getForwardedPrincipal<MiniCmsPrincipal>(_ctx, args) ??
+    getForwardedCaller<MiniCmsPrincipal>(_ctx, args) ??
     ({ kind: 'anonymous', subject: 'system:anonymous' } satisfies MiniCmsPrincipal),
 })
 
-export async function getActorFromPrincipal(
+export async function getAppIdentityFromCaller(
   _ctx: unknown,
   _args: Record<string, unknown>,
   resolved: MiniCmsPrincipal,
@@ -37,7 +37,7 @@ export async function getActorFromPrincipal(
 
 export const canManagePages = defineGuard<MiniCmsActor>(
   'Manage pages',
-  (actor) => actor.kind !== 'viewer',
+  (appIdentity) => appIdentity.kind !== 'viewer',
 )
 
 export const { action, mutation, query, transportMutation } = defineTrellis(
@@ -47,11 +47,11 @@ export const { action, mutation, query, transportMutation } = defineTrellis(
     mutation: generatedMutation,
   },
   {
-    principal,
-    actor: getActorFromPrincipal,
-    trustedForwardingKey: process.env.CONVEX_TRUSTED_FORWARDING_KEY,
-    destructiveSafety: {
-      redemptionTable: 'destructiveRedemptions',
+    caller,
+    appIdentity: getAppIdentityFromCaller,
+    identityForwardingKey: process.env.CONVEX_IDENTITY_FORWARDING_KEY,
+    destructiveOperations: {
+      confirmationTable: 'destructiveConfirmations',
       auditTable: 'destructiveAuditLog',
     },
   },

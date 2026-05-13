@@ -1,10 +1,10 @@
 export {
   blockedOperationPreview,
-  defineDelegation,
+  defineActingFor,
   defineOperation,
   defineOperationDescriptor,
   defineOperationMetadata,
-  definePrincipal,
+  defineCaller,
   defineTrellis,
   executeOperationRef,
   getOperationMetadata,
@@ -28,29 +28,29 @@ export {
 
 export {
   canonicalizeForwardingArgs,
-  createTrustedForwardingEnvelope,
+  createIdentityForwardingEnvelope,
   hashForwardingArgs,
-  TrustedForwardingEnvelopeError,
-  verifyTrustedForwardingEnvelope,
-} from '../trusted-forwarding/envelope.js'
+  IdentityForwardingEnvelopeError,
+  verifyIdentityForwardingEnvelope,
+} from '../identity-forwarding/envelope.js'
 export {
-  clearTrustedForwardingContext,
-  createTrustedForwardingEnvelopeArgs,
+  clearIdentityForwardingContext,
+  createIdentityForwardingEnvelopeArgs,
   extractSubject,
-  getForwardedDelegation,
-  getForwardedPrincipal,
-  getTrustedForwarding,
-  getTrustedForwardingKeyProductionIssue,
-  setTrustedForwardingContext,
-  withTrustedForwarding,
-} from '../trusted-forwarding/index.js'
+  getForwardedActingFor,
+  getForwardedCaller,
+  getIdentityForwarding,
+  getIdentityForwardingKeyProductionIssue,
+  setIdentityForwardingContext,
+  withIdentityForwarding,
+} from '../identity-forwarding/index.js'
 
 export type {
-  ActorAccessor,
-  DefaultPrincipal,
-  Delegation,
-  DelegationAccessor,
-  DelegationDefinition,
+  AppIdentityAccessor,
+  DefaultCaller,
+  ActingFor,
+  ActingForAccessor,
+  ActingForDefinition,
   FunctionsCtxExtension,
   InferOperationLoaded,
   InferOperationPreview,
@@ -68,8 +68,8 @@ export type {
   OperationProjectionRef,
   OperationPreviewsById,
   OperationsById,
-  PrincipalAccessor,
-  PrincipalDefinition,
+  CallerAccessor,
+  CallerDefinition,
   RegisteredOperationDefinition,
   RegisteredOperationExecution,
   RegisteredOperationId,
@@ -91,9 +91,9 @@ export type {
 } from '../functions/index.js'
 
 export type {
-  CreateTrustedForwardingEnvelopeOptions,
-  TrustedForwardingEnvelopePayload,
-  TrustedForwardingPurpose,
-  TrustedForwardingTransport,
-  VerifyTrustedForwardingEnvelopeOptions,
-} from '../trusted-forwarding/envelope.js'
+  CreateIdentityForwardingEnvelopeOptions,
+  IdentityForwardingEnvelopePayload,
+  IdentityForwardingPurpose,
+  IdentityForwardingTransport,
+  VerifyIdentityForwardingEnvelopeOptions,
+} from '../identity-forwarding/envelope.js'

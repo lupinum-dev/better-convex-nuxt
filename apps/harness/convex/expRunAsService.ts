@@ -8,25 +8,25 @@ import { internal } from './_generated/api'
  * Experiment 11: ctx.runAsService() roundtrip
  *
  * Spec §10.3, §26: HTTP actions verify a webhook, then invoke an
- * internalMutation with a signed trusted-forwarding envelope. The internal
- * mutation's principal resolver recognizes the envelope, verifies it,
- * and populates ctx.principal with the service principal.
+ * internalMutation with a signed identity-forwarding envelope. The internal
+ * mutation's caller resolver recognizes the envelope, verifies it,
+ * and populates ctx.caller with the service caller.
  *
  * This experiment simulates the full chain in one mutation because
  * convex-test doesn't run real httpActions — the key thing to prove
  * is that the envelope + verifier + resolver compose correctly.
  *
  * Cases covered:
- *   11a  happy path: signed service envelope → resolver populates ctx.principal
+ *   11a  happy path: signed service envelope → resolver populates ctx.caller
  *   11b  tampered envelope fails verification
  *   11c  envelope bound to function X cannot call function Y
- *   11d  anonymous call with no envelope falls back to systemPrincipal default
+ *   11d  anonymous call with no envelope falls back to systemCaller default
  */
 import { action, internalMutation } from './_generated/server'
 
 const ROOT_SECRET = new TextEncoder().encode('test-deployment-secret-32bytes!!')
 const SALT = new TextEncoder().encode('trellis-v1')
-const PURPOSE = 'trellis:trusted-forwarding:v1'
+const PURPOSE = 'trellis:identity-forwarding:v1'
 
 function deriveKey(): Uint8Array {
   return hkdf(sha256, ROOT_SECRET, SALT, new TextEncoder().encode(PURPOSE), 32)
@@ -37,7 +37,7 @@ async function signServiceEnvelope(callee: string, service: string): Promise<str
     v: 1,
     aud: PURPOSE,
     callee,
-    principal: { kind: 'service', service },
+    caller: { kind: 'service', service },
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -50,17 +50,17 @@ async function signServiceEnvelope(callee: string, service: string): Promise<str
 // Real trellis: this lives in defineFunctions for internalQuery / internalMutation.
 // It consumes the __principal arg before user code sees it.
 
-type Principal =
+type Caller =
   | { kind: 'anonymous' }
   | { kind: 'user'; userId: string }
   | { kind: 'service'; service: string }
 
-async function resolvePrincipalWithEnvelope(
+async function resolveCallerWithEnvelope(
   envelope: string | undefined,
   expectedCallee: string,
-): Promise<Principal> {
+): Promise<Caller> {
   if (!envelope) {
-    // Non-request context default — the spec's systemPrincipal fallback.
+    // Non-request context default — the spec's systemCaller fallback.
     return { kind: 'service', service: 'system' }
   }
   const { payload } = await jwtVerify(envelope, deriveKey(), {
@@ -72,7 +72,7 @@ async function resolvePrincipalWithEnvelope(
         `expected "${expectedCallee}"`,
     )
   }
-  return payload.principal as Principal
+  return payload.caller as Caller
 }
 
 // ---- The "recordPayment" internal mutation from spec §10.3 ----
@@ -86,7 +86,7 @@ export const recordPayment = internalMutation({
   }),
   handler: async (ctx, args) => {
     // This is what defineFunctions would do in the 'input' step:
-    const principal = await resolvePrincipalWithEnvelope(
+    const caller = await resolveCallerWithEnvelope(
       args.__principal,
       // The spec's callee form: "module:exportName"
       'expRunAsService:recordPayment',
@@ -94,14 +94,14 @@ export const recordPayment = internalMutation({
 
     const id = await ctx.db.insert('expAuditLog', {
       operation: 'recordPayment',
-      principalKey: principal.kind === 'service' ? `service:${principal.service}` : principal.kind,
+      callerKey: caller.kind === 'service' ? `service:${caller.service}` : caller.kind,
       argsHash: JSON.stringify(args.event).slice(0, 40),
       timestamp: Date.now(),
     })
 
     return {
-      principalKind: principal.kind,
-      service: principal.kind === 'service' ? principal.service : undefined,
+      principalKind: caller.kind,
+      service: caller.kind === 'service' ? caller.service : undefined,
       auditedId: id,
     }
   },
@@ -181,7 +181,7 @@ export const testWrongCallee = action({
   },
 })
 
-// ---- Test 11d: no envelope → systemPrincipal fallback ----
+// ---- Test 11d: no envelope → systemCaller fallback ----
 
 export const testNoEnvelope = action({
   args: {},

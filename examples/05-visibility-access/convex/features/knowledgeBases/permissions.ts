@@ -1,4 +1,4 @@
-import { definePermission, derivePermissionMatrix } from '@lupinum/trellis/auth'
+import { definePermission, buildPermissionMatrix } from '@lupinum/trellis/auth'
 
 import { hasRole, hasWorkspace } from '../../auth/guards'
 
@@ -25,4 +25,4 @@ export const enrollmentManage = definePermission({
 
 export const knowledgeBasePermissions = [kbCreate, kbRead, enrollmentManage] as const
 
-export const knowledgeBasePermissionMatrix = derivePermissionMatrix(knowledgeBasePermissions)
+export const knowledgeBasePermissionMatrix = buildPermissionMatrix(knowledgeBasePermissions)

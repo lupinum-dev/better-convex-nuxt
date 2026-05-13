@@ -9,11 +9,11 @@ export const list = query.protected({
   args: {},
   guard: isAuthenticated,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     return await ctx.db
       .query('todos')
-      .withIndex('by_owner', (q) => q.eq('ownerId', actor.userId))
+      .withIndex('by_owner', (q) => q.eq('ownerId', appIdentity.userId))
       .order('desc')
       .collect()
   },
@@ -23,10 +23,10 @@ export const create = mutation.protected({
   args: createTodo.args,
   guard: isAuthenticated,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
 
     return await ctx.db.insert('todos', {
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       title: args.title,
       completed: false,
       createdAt: Date.now(),
@@ -38,9 +38,9 @@ export const toggle = mutation.protected({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const todo = await ctx.db.get(args.id)
-    if (!todo || todo.ownerId !== actor.userId) {
+    if (!todo || todo.ownerId !== appIdentity.userId) {
       throw deny('Todo not found.')
     }
     return { todo }
@@ -56,9 +56,9 @@ export const remove = mutation.protected({
   args: { id: v.id('todos') },
   guard: isAuthenticated,
   load: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const todo = await ctx.db.get(args.id)
-    if (!todo || todo.ownerId !== actor.userId) {
+    if (!todo || todo.ownerId !== appIdentity.userId) {
       throw deny('Todo not found.')
     }
     return { todo }

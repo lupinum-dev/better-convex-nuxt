@@ -4,7 +4,7 @@
  * DRY setup functions for integration tests with convex-test.
  */
 
-import { createTrustedForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
+import { createIdentityForwardingEnvelopeArgs } from '@lupinum/trellis/backend'
 import { convexTest } from 'convex-test'
 import { getFunctionName, type FunctionReference } from 'convex/server'
 
@@ -12,39 +12,37 @@ import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules, fixtures } from './test.setup'
 
-export const INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY =
-  'internal-harness-test-trusted-forwarding-key'
+export const INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY =
+  'internal-harness-test-identity-forwarding-key'
 
-export function withTrustedPrincipal<TArgs extends Record<string, unknown> | undefined>(
+export function withTrustedCaller<TArgs extends Record<string, unknown> | undefined>(
   args: TArgs,
-  principal: Record<string, unknown>,
-  delegation?: Record<string, unknown> | null,
+  caller: Record<string, unknown>,
+  actingFor?: Record<string, unknown> | null,
   functionRef?: FunctionReference<'query' | 'mutation' | 'action', 'public' | 'internal'> | string,
 ) {
   if (!functionRef) {
-    throw new Error('withTrustedPrincipal requires the exact Convex function ref for signing.')
+    throw new Error('withTrustedCaller requires the exact Convex function ref for signing.')
   }
 
   const principalSubject =
-    typeof principal.subject === 'string' && principal.subject.length > 0
-      ? principal.subject
-      : typeof principal.userId === 'string' && principal.userId.length > 0
-        ? `user:${principal.userId}`
-        : typeof principal.agentId === 'string' && principal.agentId.length > 0
-          ? `agent:${principal.agentId}`
-          : 'agent:trusted-forwarding-test'
-  return createTrustedForwardingEnvelopeArgs({
+    typeof caller.subject === 'string' && caller.subject.length > 0
+      ? caller.subject
+      : typeof caller.userId === 'string' && caller.userId.length > 0
+        ? `user:${caller.userId}`
+        : typeof caller.agentId === 'string' && caller.agentId.length > 0
+          ? `agent:${caller.agentId}`
+          : 'agent:identity-forwarding-test'
+  return createIdentityForwardingEnvelopeArgs({
     args: args ?? {},
-    principal: {
-      ...principal,
+    caller: {
+      ...caller,
       subject: principalSubject,
     },
-    ...(delegation
-      ? { delegation: delegation as { subject: string } & Record<string, unknown> }
-      : {}),
+    ...(actingFor ? { actingFor: actingFor as { subject: string } & Record<string, unknown> } : {}),
     functionRef: typeof functionRef === 'string' ? functionRef : getFunctionName(functionRef),
     operation: 'mutation',
-    key: INTERNAL_HARNESS_TEST_TRUSTED_FORWARDING_KEY,
+    key: INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY,
   }) as TArgs & { _trellisForwarding: string }
 }
 

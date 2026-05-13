@@ -75,13 +75,13 @@ test('AuthPanel renders projected permission inventory and latest decision trace
         user: { id: 'u1', name: 'Owner User', email: 'owner@example.com' },
         expiresInSeconds: 120,
       },
-      permissionState: {
-        queryName: 'permissions/context.getPermissionContext',
+      accessState: {
+        queryName: 'permissions/context.getAccessContext',
         pending: false,
         ready: true,
         ctx: {
           userId: 'u1',
-          tenantId: 'workspace-1',
+          workspaceId: 'workspace-1',
           role: 'owner',
           can: {
             'todo.read': true,
@@ -98,7 +98,7 @@ test('AuthPanel renders projected permission inventory and latest decision trace
         tool: null,
         principalKind: 'user',
         actorKind: 'workspace_user',
-        tenantId: 'workspace-1',
+        workspaceId: 'workspace-1',
         lastEventName: 'authorize.denied',
         lastEventStatus: 'deny',
         denialExplanation: {
@@ -108,7 +108,7 @@ test('AuthPanel renders projected permission inventory and latest decision trace
         },
         events: [
           {
-            name: 'principal.resolved',
+            name: 'caller.resolved',
             status: 'ok',
             timestamp: 1,
             correlationId: 'corr-1',
@@ -167,7 +167,7 @@ test('OverviewPanel renders a latest decision summary card', async () => {
         tool: 'delete-runbook',
         principalKind: 'agent',
         actorKind: 'workspace_user',
-        tenantId: 'workspace-1',
+        workspaceId: 'workspace-1',
         lastEventName: 'operation.confirm.validated',
         lastEventStatus: 'allow',
         denialExplanation: null,

@@ -80,15 +80,15 @@ type DoctorInventoryJsonReport = {
       appInventory: string | null
     }
     surfaces: {
-      trustedForwarding: boolean
+      identityForwarding: boolean
       permissions: boolean
       destructiveOperations: number
       unsafeEntrypoints: number
       crossTenantEscapes: number
       mcpTools: number
       customMcpToolsWithAppWrites: number
-      forwardedPrincipalMisuses: number
-      trustedForwardingPublicExposures: number
+      forwardedCallerMisuses: number
+      identityForwardingPublicExposures: number
       destructiveMcpToolMisuses: number
       mcpRateLimit: boolean
       mcpRateLimitStore: 'supported' | 'unverified' | 'none'
@@ -96,7 +96,7 @@ type DoctorInventoryJsonReport = {
     forwarding: {
       expected: boolean
       publicExposures: Array<{ path: string; line: number }>
-      forwardedPrincipalMisuses: Array<{ path: string; line: number }>
+      forwardedCallerMisuses: Array<{ path: string; line: number }>
     }
     mcp: {
       toolCount: number
@@ -142,7 +142,7 @@ type DoctorInventoryJsonReport = {
       file: string
       source: { path: string; line: number }
       tenantTables: string[]
-      globalTables: string[]
+      sharedTables: string[]
       permissionRefs: string[]
       operationRefs: string[]
     }>
@@ -396,13 +396,13 @@ describe('CLI doctor', () => {
     expect(read(resolve(appRoot, 'server/mcp/index.ts'))).toContain('defineMcpHandler')
     const runtime = read(resolve(appRoot, 'server/mcp/runtime.ts'))
     expect(runtime).toContain("auth: 'trusted'")
-    expect(runtime).not.toContain('resolveDelegation')
-    expect(runtime).not.toContain('actor: { userId: principal.userId }')
-    expect(runtime).not.toContain('principal.userId')
-    const actor = read(resolve(appRoot, 'convex/auth/actor.ts'))
-    expect(actor).toContain('getSubjectValue')
-    expect(actor).toContain("getSubjectValue(delegation?.subject, 'user')")
-    expect(actor).not.toContain("delegation.subject.startsWith('user:')")
+    expect(runtime).not.toContain('resolveActingFor')
+    expect(runtime).not.toContain('appIdentity: { userId: caller.userId }')
+    expect(runtime).not.toContain('caller.userId')
+    const appIdentity = read(resolve(appRoot, 'convex/auth/app-identity.ts'))
+    expect(appIdentity).toContain('getSubjectValue')
+    expect(appIdentity).toContain("getSubjectValue(actingFor?.subject, 'user')")
+    expect(appIdentity).not.toContain("actingFor.subject.startsWith('user:')")
     const mcpAuthMiddleware = read(resolve(appRoot, 'server/middleware/mcp-auth.ts'))
     expect(mcpAuthMiddleware).toContain("event.path?.startsWith('/mcp')")
     expect(mcpAuthMiddleware).toContain('MCP bearer token required.')
@@ -681,7 +681,7 @@ describe('CLI doctor', () => {
         ?.status,
     ).toBe('fail')
     expect(
-      productionReport.findings.find((entry) => entry.id === 'trusted-forwarding-key-configured')
+      productionReport.findings.find((entry) => entry.id === 'identity-forwarding-key-configured')
         ?.status,
     ).toBe('fail')
   })
@@ -706,7 +706,7 @@ describe('CLI doctor', () => {
 
       if (starter.mcp) {
         appendDoctorEnv(appRoot, [
-          'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+          'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
           'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
         ])
       }
@@ -737,13 +737,13 @@ describe('CLI doctor', () => {
       expect(report.inventory.files.nuxtConfig).toBe('nuxt.config.ts')
       expect(report.inventory.files.appInventory).toBe(null)
       expect(report.inventory.surfaces.permissions).toBe(starter.workspace)
-      expect(report.inventory.surfaces.trustedForwarding).toBe(starter.mcp)
+      expect(report.inventory.surfaces.identityForwarding).toBe(starter.mcp)
       expect(report.inventory.surfaces.mcpTools).toBe(starter.mcp ? 2 : 0)
       expect(report.inventory.surfaces.mcpRateLimitStore).toBe('none')
       expect(report.inventory.forwarding).toMatchObject({
         expected: starter.mcp,
         publicExposures: [],
-        forwardedPrincipalMisuses: [],
+        forwardedCallerMisuses: [],
       })
       expect(report.inventory.mcp).toMatchObject({
         toolCount: starter.mcp ? 2 : 0,
@@ -781,12 +781,12 @@ describe('CLI doctor', () => {
             expect.objectContaining({
               exportName: 'usersFeature',
               name: 'users',
-              globalTables: ['users'],
+              sharedTables: ['users'],
             }),
             expect.objectContaining({
               exportName: 'workspacesFeature',
               name: 'workspaces',
-              globalTables: ['workspaces'],
+              sharedTables: ['workspaces'],
             }),
           ]),
         )
@@ -1068,14 +1068,14 @@ export const appInventory = {
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
-      'CONVEX_TRUSTED_FORWARDING_KEY=do-not-leak-this-forwarding-secret-value',
+      'CONVEX_IDENTITY_FORWARDING_KEY=do-not-leak-this-forwarding-secret-value',
       'TRELLIS_MCP_CONFIRMATION_KEY=do-not-leak-this-confirmation-secret-value',
     ])
     writeFileSync(
-      resolve(appRoot, 'server/mcp/tools/leaky-principal.ts'),
+      resolve(appRoot, 'server/mcp/tools/leaky-caller.ts'),
       `
 export const fixture = {
-  principal: { subject: 'user:do-not-leak-this-subject-value' },
+  caller: { subject: 'user:do-not-leak-this-subject-value' },
 }
 `.trimStart(),
     )
@@ -1103,7 +1103,7 @@ export const appInventory = defineAppInventory({
     expect(serializedInventory).not.toContain('do-not-leak-this-subject-value')
     expect(serializedInventory).not.toContain('do-not-leak-this-app-inventory-secret')
     expect(serializedInventory).not.toContain('BETTER_AUTH_SECRET')
-    expect(serializedInventory).not.toContain('CONVEX_TRUSTED_FORWARDING_KEY')
+    expect(serializedInventory).not.toContain('CONVEX_IDENTITY_FORWARDING_KEY')
     expect(serializedInventory).not.toContain('TRELLIS_MCP_CONFIRMATION_KEY')
   })
 
@@ -1126,8 +1126,8 @@ export const appInventory = defineAppInventory({
     expect(result.stdout).not.toContain('"inventory"')
   })
 
-  it('fails doctor when trusted-forwarding surfaces use a placeholder key', () => {
-    const cwd = createTempDir('trellis-doctor-trusted-forwarding-placeholder-')
+  it('fails doctor when identity-forwarding surfaces use a placeholder key', () => {
+    const cwd = createTempDir('trellis-doctor-identity-forwarding-placeholder-')
     const initResult = runCli(
       ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
       repoRoot,
@@ -1136,7 +1136,7 @@ export const appInventory = defineAppInventory({
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
-      'CONVEX_TRUSTED_FORWARDING_KEY=replace-me-with-a-long-random-shared-secret',
+      'CONVEX_IDENTITY_FORWARDING_KEY=replace-me-with-a-long-random-shared-secret',
     ])
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
@@ -1148,15 +1148,15 @@ export const appInventory = defineAppInventory({
     expect(result.status, result.stderr).toBe(1)
     expect(report.summary.fail).toBeGreaterThan(0)
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-strength')?.status,
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-strength')?.status,
     ).toBe('fail')
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-strength')?.message,
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-strength')?.message,
     ).toMatch(/placeholder value/i)
   })
 
-  it('fails doctor when the trusted-forwarding key is exposed through a public env name', () => {
-    const cwd = createTempDir('trellis-doctor-trusted-forwarding-public-exposure-')
+  it('fails doctor when the identity-forwarding key is exposed through a public env name', () => {
+    const cwd = createTempDir('trellis-doctor-identity-forwarding-public-exposure-')
     const initResult = runCli(
       ['init', 'doctor-trusted-app', '--template', 'workspace', '--mcp', '--cwd', cwd],
       repoRoot,
@@ -1165,8 +1165,8 @@ export const appInventory = defineAppInventory({
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
-      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
-      'NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY=this-should-not-be-public',
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
+      'NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY=this-should-not-be-public',
     ])
 
     const result = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
@@ -1178,22 +1178,22 @@ export const appInventory = defineAppInventory({
     expect(result.status, result.stderr).toBe(1)
     expect(report.summary.fail).toBeGreaterThan(0)
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-public-exposure')
         ?.status,
     ).toBe('fail')
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-public-exposure')
         ?.message,
     ).toMatch(/public-facing code or env sources/i)
     expect(report.inventory.forwarding.publicExposures).toEqual([
       expect.objectContaining({ path: '.env.local', line: expect.any(Number) }),
     ])
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-public-exposure')
         ?.message,
     ).toContain('.env.local')
     expect(
-      report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+      report.findings.find((entry) => entry.id === 'identity-forwarding-key-public-exposure')
         ?.sources,
     ).toEqual([
       expect.objectContaining({
@@ -1209,7 +1209,7 @@ export const appInventory = defineAppInventory({
     ])
     expect(
       JSON.stringify(
-        report.findings.find((entry) => entry.id === 'trusted-forwarding-key-public-exposure')
+        report.findings.find((entry) => entry.id === 'identity-forwarding-key-public-exposure')
           ?.sources,
       ),
     ).not.toContain('this-should-not-be-public')
@@ -1275,8 +1275,8 @@ export const appInventory = defineAppInventory({
           "import { createRedisMcpRateLimitStore, defineMcpApp } from '@lupinum/trellis/mcp'",
         )
         .replace(
-          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
-          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: createRedisMcpRateLimitStore({ client: { eval: async () => 1 } as never }),',
+          'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({',
+          'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({\n  rateLimitStore: createRedisMcpRateLimitStore({ client: { eval: async () => 1 } as never }),',
         ),
     )
 
@@ -1329,8 +1329,8 @@ export const appInventory = defineAppInventory({
           "import { defineMcpApp } from '@lupinum/trellis/mcp'\nimport { rateLimitStore } from './rate-limit-store'",
         )
         .replace(
-          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
-          'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore,',
+          'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({',
+          'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({\n  rateLimitStore,',
         ),
     )
 
@@ -1367,8 +1367,8 @@ export const appInventory = defineAppInventory({
     writeFileSync(
       resolve(appRoot, 'server/mcp/runtime.ts'),
       read(resolve(appRoot, 'server/mcp/runtime.ts')).replace(
-        'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({',
-        'export const mcpRuntime = defineMcpApp<WorkspacePrincipal>({\n  rateLimitStore: {} as never,',
+        'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({',
+        'export const mcpRuntime = defineMcpApp<WorkspaceCaller>({\n  rateLimitStore: {} as never,',
       ),
     )
 
@@ -1442,11 +1442,11 @@ export const appInventory = defineAppInventory({
     }
 
     expect(result.status, result.stderr).toBe(1)
+    expect(report.findings.find((entry) => entry.id === 'isolation-table-coverage')?.status).toBe(
+      'fail',
+    )
     expect(
-      report.findings.find((entry) => entry.id === 'tenant-isolation-table-coverage')?.status,
-    ).toBe('fail')
-    expect(
-      report.findings.find((entry) => entry.id === 'tenant-isolation-table-coverage')?.message,
+      report.findings.find((entry) => entry.id === 'isolation-table-coverage')?.message,
     ).toContain('comments')
   })
 
@@ -1463,14 +1463,14 @@ export const appInventory = defineAppInventory({
     writeFileSync(
       resolve(appRoot, 'convex/functions.ts'),
       read(resolve(appRoot, 'convex/functions.ts')).replace(
-        '    tenantIsolation: {\n      tables: isolatedTables,\n      globalTables: explicitlyGlobalTables,\n    },',
+        '    isolation: {\n      tables: isolatedTables,\n      sharedTables: explicitlySharedTables,\n    },',
         [
-          '    tenantIsolation: {',
+          '    isolation: {',
           '      tables: isolatedTables,',
-          '      globalTables: explicitlyGlobalTables,',
+          '      sharedTables: explicitlySharedTables,',
           '    },',
-          '    destructiveSafety: {',
-          "      redemptionTable: 'destructiveRedemptions' as never,",
+          '    destructiveOperations: {',
+          "      confirmationTable: 'destructiveConfirmations' as never,",
           "      auditTable: 'destructiveAuditLog' as never,",
           '    },',
         ].join('\n'),
@@ -1481,18 +1481,18 @@ export const appInventory = defineAppInventory({
       `${read(resolve(appRoot, 'convex/schema.ts'))
         .trimEnd()
         .replace(/\}\)\s*$/, '')},
-  destructiveRedemptions: defineTable({
+  destructiveConfirmations: defineTable({
     jti: v.string(),
     operationId: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     redeemedAt: v.number(),
   }),
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     argsHash: v.string(),
     previewHash: v.string(),
     executedAt: v.number(),
@@ -1528,14 +1528,14 @@ export const appInventory = defineAppInventory({
     writeFileSync(
       resolve(appRoot, 'convex/functions.ts'),
       read(resolve(appRoot, 'convex/functions.ts')).replace(
-        '    tenantIsolation: {\n      tables: isolatedTables,\n      globalTables: explicitlyGlobalTables,\n    },',
+        '    isolation: {\n      tables: isolatedTables,\n      sharedTables: explicitlySharedTables,\n    },',
         [
-          '    tenantIsolation: {',
+          '    isolation: {',
           '      tables: isolatedTables,',
-          '      globalTables: explicitlyGlobalTables,',
+          '      sharedTables: explicitlySharedTables,',
           '    },',
-          '    destructiveSafety: {',
-          "      redemptionTable: 'destructiveRedemptions' as never,",
+          '    destructiveOperations: {',
+          "      confirmationTable: 'destructiveConfirmations' as never,",
           "      auditTable: 'destructiveAuditLog' as never,",
           '    },',
         ].join('\n'),
@@ -1546,18 +1546,18 @@ export const appInventory = defineAppInventory({
       `${read(resolve(appRoot, 'convex/schema.ts'))
         .trimEnd()
         .replace(/\}\)\s*$/, '')},
-  destructiveRedemptions: defineTable({
+  destructiveConfirmations: defineTable({
     jti: v.string(),
     operationId: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     redeemedAt: v.number(),
   }).index('by_jti', ['jti']),
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     argsHash: v.string(),
     previewHash: v.string(),
     executedAt: v.number(),
@@ -1613,7 +1613,7 @@ export const appInventory = defineAppInventory({
     mkdirSync(resolve(cwd, 'app/pages'), { recursive: true })
     writeFileSync(
       resolve(cwd, 'app/pages/index.vue'),
-      '<script setup lang="ts">\nconst { allows } = usePermissions()\n</script>\n',
+      '<script setup lang="ts">\nconst { can } = useAccess()\n</script>\n',
     )
 
     const result = runCli(['doctor', '--json', '--cwd', cwd], repoRoot)
@@ -1627,8 +1627,8 @@ export const appInventory = defineAppInventory({
     ).toBe('fail')
   })
 
-  it('fails doctor when a server call forwards principal without auth trusted', () => {
-    const cwd = createTempDir('trellis-doctor-forwarded-principal-')
+  it('fails doctor when a server call forwards caller without auth trusted', () => {
+    const cwd = createTempDir('trellis-doctor-forwarded-caller-')
     const initResult = runCli(
       ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
       repoRoot,
@@ -1638,14 +1638,14 @@ export const appInventory = defineAppInventory({
     writeDoctorEnv(appRoot)
 
     writeFileSync(
-      resolve(appRoot, 'server/api/bad-forwarded-principal.post.ts'),
+      resolve(appRoot, 'server/api/bad-forwarded-caller.post.ts'),
       `
 import { serverMutation } from '@lupinum/trellis/server'
 import { api } from '~/convex/_generated/api'
 
 export default defineEventHandler(async (event) => {
-  const principal = { kind: 'agent', userId: 'agent_1' }
-  return await serverMutation(event, api.features.todos.domain.create, { title: 'Bad' }, { principal })
+  const caller = { kind: 'agent', userId: 'agent_1' }
+  return await serverMutation(event, api.features.todos.domain.create, { title: 'Bad' }, { caller })
 })
 `.trimStart(),
     )
@@ -1657,11 +1657,11 @@ export default defineEventHandler(async (event) => {
 
     expect(result.status, result.stderr).toBe(1)
     expect(
-      report.findings.find((entry) => entry.id === 'forwarded-principal-trusted-path')?.status,
+      report.findings.find((entry) => entry.id === 'forwarded-caller-trusted-path')?.status,
     ).toBe('fail')
   })
 
-  it('surfaces unsafe and cross-tenant escape inventories without turning them into failures', () => {
+  it('surfaces unsafe and cross-scope escape inventories without turning them into failures', () => {
     const cwd = createTempDir('trellis-doctor-inventory-')
     const initResult = runCli(
       ['init', 'doctor-app', '--template', 'workspace', '--cwd', cwd],
@@ -1686,8 +1686,8 @@ export const publicCatalog = query.unsafe({
   }),
   args: listTodos.args,
   handler: async (ctx) => {
-    const db = ctx.db.escapeTenantIsolation({
-      reason: 'Intentional cross-tenant escape for doctor inventory coverage.',
+    const db = ctx.db.escapeIsolation({
+      reason: 'Intentional cross-scope escape for doctor inventory coverage.',
     })
     return await db.query('todos').collect()
   },
@@ -1775,13 +1775,13 @@ export const uploadUrl = mutation.unsafe({
       'Generate upload URL',
     )
     expect(
-      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.status,
+      report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.status,
     ).toBe('pass')
     expect(
-      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.message,
+      report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.message,
     ).toContain('convex/features/todos/domain.ts')
     expect(
-      report.findings.find((entry) => entry.id === 'cross-tenant-escape-inventory')?.sources,
+      report.findings.find((entry) => entry.id === 'cross-scope-escape-inventory')?.sources,
     ).toEqual([
       expect.objectContaining({
         kind: 'inventory',
@@ -1877,7 +1877,7 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
-      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
       'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
     ])
 
@@ -1940,7 +1940,7 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     expect(initResult.status, `${initResult.stdout}\n${initResult.stderr}`).toBe(0)
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
-      'CONVEX_TRUSTED_FORWARDING_KEY=this-is-a-long-random-trusted-forwarding-key',
+      'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
       'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
     ])
 

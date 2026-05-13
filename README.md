@@ -1,8 +1,8 @@
 # Trellis
 
-Trellis is an opinionated app framework for building reliable `Nuxt + Convex` apps with strong identity, permissions, tenant isolation, and agent-friendly structure.
+Trellis is an opinionated app framework for building reliable `Nuxt + Convex` apps with strong identity, permissions, isolation, and agent-friendly structure.
 
-It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, trusted forwarding, and MCP tools without re-solving auth, permissions, tenancy, and destructive-work safety in every app.
+It is not a neutral helper layer. It is the hard-default path when you want the same runtime model reused across browser UI, Nitro routes, identity forwarding, and MCP tools without re-solving auth, permissions, isolation scope, and destructive-work safety in every app.
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
@@ -25,7 +25,7 @@ Use Trellis when:
 
 - the app is on Nuxt + Convex + Better Auth already
 - you need one protected backend model reused across browser UI, Nitro routes, and MCP
-- tenant isolation, roles, permission projection, or destructive-work safety are real product requirements
+- isolation, roles, permission projection, or destructive-work safety are real product requirements
 - you want starters, generators, examples, lint rules, and `doctor` to reinforce one framework shape
 
 ## Not Ideal
@@ -100,8 +100,8 @@ Treat each top-level feature component as a mini-Trellis boundary: routes stay t
 
 Trellis keeps one protected backend decision path:
 
-1. principal
-2. actor
+1. caller
+2. appIdentity
 3. guard
 4. load
 5. authorize
@@ -113,8 +113,8 @@ Observation is emitted around guard, authorization, destructive-operation, MCP, 
 
 Key invariants:
 
-- Tenant-aware apps use runtime-enforced isolation, not naming convention alone.
-- Forwarded `principal` values are only accepted on verified trusted-forwarding paths.
+- Isolation-aware apps use runtime-enforced isolation, not naming convention alone.
+- Forwarded `caller` values are only accepted on verified identity-forwarding paths.
 - Observability metadata does not participate in client query cache identity.
 - Destructive first-party handlers are allowed.
 - Cross-surface destructive flows, especially MCP, must use operation-backed preview/confirm/execute.
@@ -136,7 +136,7 @@ Read `01 -> 02 -> 03 -> 04` as the beginner ladder.
 
 - `03-team-workspace` is the canonical protected workspace reference.
 - `04-saas-platform` is the server-integration branch of that ladder.
-- `05–06` are maintained pattern catalogs for deeper authorization and tenant boundaries.
+- `05–06` are maintained pattern catalogs for deeper authorization and isolation boundaries.
 - `07-mcp-reference` is the maintained agent/MCP reference.
 - `08-component-mini-cms` is a maintained boundary/reference app, not a general starter.
 

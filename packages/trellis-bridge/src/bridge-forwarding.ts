@@ -1,7 +1,7 @@
 import {
-  createTrustedForwardingEnvelope,
+  createIdentityForwardingEnvelope,
   extractSubject,
-  getTrustedForwardingKeyProductionIssue,
+  getIdentityForwardingKeyProductionIssue,
 } from '@lupinum/trellis/backend'
 import type { FunctionReference } from 'convex/server'
 
@@ -34,45 +34,45 @@ const bridgeForwardingTtlsMs = {
 } satisfies Record<BridgeForwardingPurpose, number>
 
 type BridgeForwardingPurpose = 'query' | 'mutation' | 'action' | 'operation-execute'
-export type TrustedForwardingKeyInput = string | ((args?: unknown) => string)
+export type IdentityForwardingKeyInput = string | ((args?: unknown) => string)
 
-function resolveBridgePrincipalSubject(principal: unknown): string {
+function resolveBridgeCallerSubject(caller: unknown): string {
   if (
-    typeof principal === 'object' &&
-    principal !== null &&
-    'kind' in principal &&
-    (principal as { kind?: unknown }).kind === 'anonymous'
+    typeof caller === 'object' &&
+    caller !== null &&
+    'kind' in caller &&
+    (caller as { kind?: unknown }).kind === 'anonymous'
   ) {
-    throw new Error('createComponentBridge() cannot forward an anonymous principal.')
+    throw new Error('createComponentBridge() cannot forward an anonymous caller.')
   }
 
-  const subject = extractSubject(principal)
+  const subject = extractSubject(caller)
   if (!subject) {
     throw new Error(
-      'createComponentBridge() requires the resolved principal to include a canonical subject.',
+      'createComponentBridge() requires the resolved caller to include a canonical subject.',
     )
   }
 
   return subject
 }
 
-export function getRequiredBridgeTrustedForwardingKey(
-  override?: TrustedForwardingKeyInput,
+export function getRequiredBridgeIdentityForwardingKey(
+  override?: IdentityForwardingKeyInput,
   args?: unknown,
 ): string {
   const overrideValue = typeof override === 'function' ? override(args) : override
-  const trustedForwardingKey =
+  const identityForwardingKey =
     overrideValue?.trim() ||
-    (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY?.trim() : '')
-  if (!trustedForwardingKey) {
-    throw new Error('createComponentBridge() requires CONVEX_TRUSTED_FORWARDING_KEY to be set.')
+    (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY?.trim() : '')
+  if (!identityForwardingKey) {
+    throw new Error('createComponentBridge() requires CONVEX_IDENTITY_FORWARDING_KEY to be set.')
   }
-  const trustedForwardingKeyIssue = getTrustedForwardingKeyProductionIssue(trustedForwardingKey)
-  if (trustedForwardingKeyIssue) {
-    throw new Error(trustedForwardingKeyIssue)
+  const identityForwardingKeyIssue = getIdentityForwardingKeyProductionIssue(identityForwardingKey)
+  if (identityForwardingKeyIssue) {
+    throw new Error(identityForwardingKeyIssue)
   }
 
-  return trustedForwardingKey
+  return identityForwardingKey
 }
 
 export function getBridgeFunctionRef(
@@ -107,8 +107,8 @@ function createBridgeJti(): string {
 }
 
 export interface CreateBridgeForwardingEnvelopeOptions {
-  trustedForwardingKey: string
-  principal: unknown
+  identityForwardingKey: string
+  caller: unknown
   operation: BridgeForwardingPurpose
   functionRef: string
   args: Record<string, unknown>
@@ -116,27 +116,27 @@ export interface CreateBridgeForwardingEnvelopeOptions {
 }
 
 /**
- * Sign a trusted-forwarding envelope using the bridge-standard issuer,
+ * Sign a identity-forwarding envelope using the bridge-standard issuer,
  * audience, key id, and TTLs. Bridge consumers (e.g. CLI tools that call
- * the Convex component with a deploy-key principal) should use this
+ * the Convex component with a deploy-key caller) should use this
  * instead of constructing envelopes themselves so the signing parameters
  * stay single-sourced.
  */
 export function createBridgeForwardingEnvelope(
   options: CreateBridgeForwardingEnvelopeOptions,
 ): string {
-  const subject = resolveBridgePrincipalSubject(options.principal)
+  const subject = resolveBridgeCallerSubject(options.caller)
   const jti = options.jtiPrefix ? `${options.jtiPrefix}-${createBridgeJti()}` : createBridgeJti()
-  return createTrustedForwardingEnvelope({
-    key: options.trustedForwardingKey,
+  return createIdentityForwardingEnvelope({
+    key: options.identityForwardingKey,
     keyId:
-      (typeof process !== 'undefined' ? process.env?.CONVEX_TRUSTED_FORWARDING_KEY_ID : '') ||
+      (typeof process !== 'undefined' ? process.env?.CONVEX_IDENTITY_FORWARDING_KEY_ID : '') ||
       bridgeForwardingKeyId,
     iss: bridgeForwardingIssuer,
     aud: bridgeForwardingAudience,
     jti,
     sub: subject,
-    principal: options.principal,
+    caller: options.caller,
     transport: 'bridge',
     purpose: options.operation,
     functionRef: options.functionRef,
@@ -145,22 +145,24 @@ export function createBridgeForwardingEnvelope(
   })
 }
 
-function createBridgeTrustedForwardingFields(
+function createBridgeIdentityForwardingFields(
   args: Record<string, unknown>,
-  principal: unknown,
-  trustedForwardingKey: TrustedForwardingKeyInput,
+  caller: unknown,
+  identityForwardingKey: IdentityForwardingKeyInput,
   operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ) {
   const functionRef = getBridgeFunctionRef(component, explicitFunctionRef)
   const key =
-    typeof trustedForwardingKey === 'function' ? trustedForwardingKey(args) : trustedForwardingKey
+    typeof identityForwardingKey === 'function'
+      ? identityForwardingKey(args)
+      : identityForwardingKey
 
   return {
     _trellisForwarding: createBridgeForwardingEnvelope({
-      trustedForwardingKey: key,
-      principal,
+      identityForwardingKey: key,
+      caller,
       args,
       operation,
       functionRef,
@@ -170,27 +172,27 @@ function createBridgeTrustedForwardingFields(
 
 export function createBridgeForwardingArgs(
   args: Record<string, unknown>,
-  principal: unknown,
-  trustedForwardingKey: TrustedForwardingKeyInput,
+  caller: unknown,
+  identityForwardingKey: IdentityForwardingKeyInput,
   operation: BridgeForwardingPurpose,
   component: ComponentBridgeFunctionRef,
   explicitFunctionRef?: string,
 ): Record<string, unknown> {
   if (
-    typeof principal === 'object' &&
-    principal !== null &&
-    'kind' in principal &&
-    (principal as { kind?: unknown }).kind === 'anonymous'
+    typeof caller === 'object' &&
+    caller !== null &&
+    'kind' in caller &&
+    (caller as { kind?: unknown }).kind === 'anonymous'
   ) {
     return args
   }
 
   return {
     ...args,
-    ...createBridgeTrustedForwardingFields(
+    ...createBridgeIdentityForwardingFields(
       args,
-      principal,
-      trustedForwardingKey,
+      caller,
+      identityForwardingKey,
       operation,
       component,
       explicitFunctionRef,

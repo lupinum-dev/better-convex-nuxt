@@ -18,7 +18,7 @@ import type { Id } from './_generated/dataModel'
  *   13c  Insert/patch/delete checks use each table's own scope field.
  *   13d  Non-compound index on a scoped table throws with the right
  *        message per table.
- *   13e  An actor can see documents from workspace A without seeing
+ *   13e  An appIdentity can see documents from workspace A without seeing
  *        documents from workspace B, even within the same org.
  */
 import { internalMutation, internalQuery } from './_generated/server'
@@ -272,7 +272,7 @@ export const readDocsByStatus = internalQuery({
 export const tryWrongScopeInsert = internalMutation({
   args: {
     actorOrgId: v.id('organizations'),
-    actorWorkspaceId: v.id('expWorkspaces'),
+    appIdentityWorkspaceId: v.id('expWorkspaces'),
     wrongOrgId: v.id('organizations'),
     wrongWorkspaceId: v.id('expWorkspaces'),
   },
@@ -291,7 +291,7 @@ export const tryWrongScopeInsert = internalMutation({
       expDocuments: {
         scopeField: 'workspaceId',
         scopeIndex: 'by_workspace',
-        scopeValue: args.actorWorkspaceId,
+        scopeValue: args.appIdentityWorkspaceId,
         compoundIndexes: ['by_workspace_status'],
       },
     }

@@ -1,25 +1,25 @@
-import { definePermissionContext } from '@lupinum/trellis/auth'
+import { defineAccessContext } from '@lupinum/trellis/auth'
 
-import { getActor } from '../auth/actor'
 import { getMemberships } from '../auth/agency'
+import { getAppIdentity } from '../auth/app-identity'
 import { permissions } from '../features'
 import { query } from '../functions'
 
-export const getPermissionContext = query.protected(
-  definePermissionContext({
-    resolve: getActor,
+export const getAccessContext = query.protected(
+  defineAccessContext({
+    resolve: getAppIdentity,
     permissions,
-    extend: async (ctx, actor) => {
+    extend: async (ctx, appIdentity) => {
       const user = await ctx.db
         .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', actor.userId))
+        .withIndex('by_auth_id', (q: any) => q.eq('authId', appIdentity.userId))
         .first()
 
       const memberships = await getMemberships(
-        ctx.db.escapeTenantIsolation({
+        ctx.db.escapeIsolation({
           reason: 'Agency dashboard context aggregates memberships across workspaces.',
         }),
-        actor.userId,
+        appIdentity.userId,
       )
 
       return {

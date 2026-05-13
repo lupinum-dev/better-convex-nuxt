@@ -2,9 +2,9 @@ import type { Ref } from 'vue'
 
 import { useState } from '#app'
 
-import type { AuthBootstrapState, PermissionContextState } from './types.js'
+import type { AuthBootstrapState, AccessContextState } from './types.js'
 
-export type PermissionDevtoolsState = PermissionContextState
+export type PermissionDevtoolsState = AccessContextState
 export type AuthBootstrapDevtoolsState = AuthBootstrapState
 
 const PERMISSIONS_STATE_KEY = 'trellis:devtools:permissions'

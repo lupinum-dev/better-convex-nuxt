@@ -7,8 +7,8 @@ export interface FeatureDefinition<
   TPermissions extends readonly ErasedPermissionDefinition[] =
     readonly ErasedPermissionDefinition[],
   TTenantTables extends readonly string[] = readonly string[],
-  TGlobalTables extends readonly string[] = readonly string[],
-  TCapabilities = unknown,
+  TSharedTables extends readonly string[] = readonly string[],
+  TAccess = unknown,
   TOperations extends readonly OperationDescriptor[] = readonly OperationDescriptor[],
 > {
   readonly _type: 'feature'
@@ -16,8 +16,8 @@ export interface FeatureDefinition<
   readonly schema: TSchema
   readonly permissions: TPermissions
   readonly tenantTables: TTenantTables
-  readonly globalTables: TGlobalTables
-  readonly capabilities?: TCapabilities
+  readonly sharedTables: TSharedTables
+  readonly recordAccess?: TAccess
   readonly operations?: TOperations
 }
 
@@ -26,24 +26,24 @@ export function defineFeature<
   TSchema extends Record<string, unknown> = Record<string, never>,
   TPermissions extends readonly ErasedPermissionDefinition[] = readonly [],
   TTenantTables extends readonly string[] = readonly [],
-  TGlobalTables extends readonly string[] = readonly [],
-  TCapabilities = unknown,
+  TSharedTables extends readonly string[] = readonly [],
+  TAccess = unknown,
   TOperations extends readonly OperationDescriptor[] = readonly [],
 >(definition: {
   name: TName
   schema?: TSchema
   permissions?: TPermissions
   tenantTables?: TTenantTables
-  globalTables?: TGlobalTables
-  capabilities?: TCapabilities
+  sharedTables?: TSharedTables
+  recordAccess?: TAccess
   operations?: TOperations
 }): FeatureDefinition<
   TName,
   TSchema,
   TPermissions,
   TTenantTables,
-  TGlobalTables,
-  TCapabilities,
+  TSharedTables,
+  TAccess,
   TOperations
 > {
   if (definition.name.trim().length === 0) {
@@ -63,8 +63,8 @@ export function defineFeature<
     schema: (definition.schema ?? {}) as TSchema,
     permissions: (definition.permissions ?? []) as TPermissions,
     tenantTables: (definition.tenantTables ?? []) as TTenantTables,
-    globalTables: (definition.globalTables ?? []) as TGlobalTables,
-    ...(definition.capabilities !== undefined ? { capabilities: definition.capabilities } : {}),
+    sharedTables: (definition.sharedTables ?? []) as TSharedTables,
+    ...(definition.recordAccess !== undefined ? { recordAccess: definition.recordAccess } : {}),
     ...(definition.operations !== undefined ? { operations: definition.operations } : {}),
   }
 }

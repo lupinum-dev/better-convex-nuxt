@@ -71,9 +71,9 @@ function pluralize(value: string): string {
 async function inferResourceContext(cwd: string, name: string): Promise<ResourceGeneratorContext> {
   const schemaPath = resolve(cwd, 'convex/schema.ts')
   const schemaSource = await readFile(schemaPath, 'utf8')
-  const hasWorkspacePrincipal = await exists(resolve(cwd, 'convex/auth/principal.ts'))
+  const hasWorkspaceCaller = await exists(resolve(cwd, 'convex/auth/caller.ts'))
   const hasAuthorOwnedPages = await exists(resolve(cwd, 'convex/features/pages/domain.ts'))
-  const kind: ResourceAppKind = hasWorkspacePrincipal
+  const kind: ResourceAppKind = hasWorkspaceCaller
     ? 'workspace'
     : hasAuthorOwnedPages
       ? 'author-owned'
@@ -257,15 +257,15 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
   const contractImport = `../../../shared/features/${ctx.tableName}/contract`
   const updateOwnerCheck =
     ctx.kind === 'workspace'
-      ? "actor.role === 'owner' || actor.role === 'admin' || actor.userId === loaded.ownerId"
-      : `actor.userId === loaded.${ctx.ownerField}`
+      ? "appIdentity.role === 'owner' || appIdentity.role === 'admin' || appIdentity.userId === loaded.ownerId"
+      : `appIdentity.userId === loaded.${ctx.ownerField}`
   const listQuery = ctx.tenantField
-    ? `.withIndex('by_workspace', (q) => q.eq('${ctx.tenantField}', actor.tenantId!))`
-    : `.withIndex('by_${ctx.ownerField === 'authorId' ? 'author' : 'owner'}', (q) => q.eq('${ctx.ownerField}', actor.userId))`
+    ? `.withIndex('by_workspace', (q) => q.eq('${ctx.tenantField}', appIdentity.workspaceId!))`
+    : `.withIndex('by_${ctx.ownerField === 'authorId' ? 'author' : 'owner'}', (q) => q.eq('${ctx.ownerField}', appIdentity.userId))`
   const createFields = [
-    `${ctx.ownerField}: actor.userId`,
+    `${ctx.ownerField}: appIdentity.userId`,
     `name: args.name`,
-    ...(ctx.tenantField ? [`${ctx.tenantField}: actor.tenantId!`] : []),
+    ...(ctx.tenantField ? [`${ctx.tenantField}: appIdentity.workspaceId!`] : []),
     'createdAt: now',
     ...(ctx.hasUpdatedAt ? ['updatedAt: now'] : []),
   ].join(',\n      ')
@@ -284,7 +284,7 @@ function resourceDomainTemplate(ctx: ResourceGeneratorContext): string {
     return ${ctx.singularCamel}
   },
   authorize: {
-    check: async (actor, loaded) => ${updateOwnerCheck},
+    check: async (appIdentity, loaded) => ${updateOwnerCheck},
   },
   handler: async (ctx, args) => {
     await ctx.db.delete(args.id)
@@ -313,7 +313,7 @@ export const list = query.protected({
   args: list${ctx.pluralPascal}.args,
   guard: ${ctx.singularCamel}ReadPermission,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     return await ctx.db
       .query('${ctx.tableName}')
       ${listQuery}
@@ -331,7 +331,7 @@ export const get = query.protected({
     return loaded
   },
   authorize: {
-    check: async (actor, loaded) => ${ctx.tenantField ? `loaded.${ctx.tenantField} === actor.tenantId` : `loaded.${ctx.ownerField} === actor.userId`},
+    check: async (appIdentity, loaded) => ${ctx.tenantField ? `loaded.${ctx.tenantField} === appIdentity.workspaceId` : `loaded.${ctx.ownerField} === appIdentity.userId`},
   },
   handler: async (_ctx, _args, loaded) => loaded,
 })
@@ -340,7 +340,7 @@ export const create = mutation.protected({
   args: create${ctx.singularPascal}.args,
   guard: ${ctx.singularCamel}CreatePermission,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const now = Date.now()
     return await ctx.db.insert('${ctx.tableName}', {
       ${createFields}
@@ -357,7 +357,7 @@ export const update = mutation.protected({
     return loaded
   },
   authorize: {
-    check: async (actor, loaded) => ${updateOwnerCheck},
+    check: async (appIdentity, loaded) => ${updateOwnerCheck},
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, {
@@ -676,7 +676,7 @@ async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Prom
 
   const path = resolve(cwd, 'server/mcp/runtime.ts')
   const source = await readFile(path, 'utf8')
-  if (source.includes('api.permissions.context.getPermissionContext')) {
+  if (source.includes('api.permissions.context.getAccessContext')) {
     return
   }
   if (source.includes(`'${ctx.permissionPrefix}.read'`)) {
@@ -685,12 +685,12 @@ async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Prom
 
   const canWriteExpr =
     ctx.kind === 'workspace'
-      ? `principal.kind === 'agent' && !!principal.tenantId && canWrite(principal.role)`
-      : "principal.kind !== 'anonymous'"
+      ? `caller.kind === 'agent' && !!caller.workspaceId && canWrite(caller.role)`
+      : "caller.kind !== 'anonymous'"
   const readExpr =
     ctx.kind === 'workspace'
-      ? `principal.kind === 'agent' && !!principal.tenantId`
-      : "principal.kind !== 'anonymous'"
+      ? `caller.kind === 'agent' && !!caller.workspaceId`
+      : "caller.kind !== 'anonymous'"
 
   const insertion = [
     `    '${ctx.permissionPrefix}.read': ${readExpr},`,
@@ -698,24 +698,24 @@ async function patchMcpRuntime(cwd: string, ctx: ResourceGeneratorContext): Prom
     `    '${ctx.permissionPrefix}.delete': ${canWriteExpr},`,
   ].join('\n')
 
-  const blockStart = source.indexOf('resolveCapabilities: async ({')
+  const blockStart = source.indexOf('resolveAccess: async ({')
   if (blockStart === -1) {
     throw new Error(
-      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveCapabilities block.',
+      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveAccess block.',
     )
   }
   const returnStart = source.indexOf('=> ({', blockStart)
   const blockEnd = source.indexOf('\n  }),', returnStart)
   if (returnStart === -1 || blockEnd === -1) {
     throw new Error(
-      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveCapabilities block.',
+      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveAccess block.',
     )
   }
   const next = `${source.slice(0, blockEnd)}\n${insertion}${source.slice(blockEnd)}`
 
   if (next === source) {
     throw new Error(
-      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveCapabilities block.',
+      '[trellis] Could not patch server/mcp/runtime.ts. Expected a canonical resolveAccess block.',
     )
   }
 

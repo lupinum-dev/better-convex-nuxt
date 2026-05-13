@@ -97,7 +97,7 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <h2 class="text-xl font-semibold">{{ displayName }}</h2>
-                <template v-if="tenantId">
+                <template v-if="workspaceId">
                   <p class="text-sm text-muted">
                     Role:
                     <span class="font-semibold text-highlighted">{{ role || 'loading...' }}</span>
@@ -205,7 +205,7 @@
             </UCard>
 
             <!-- Workspace onboarding -->
-            <template v-if="!tenantId">
+            <template v-if="!workspaceId">
               <UCard>
                 <template #header>
                   <h3 class="text-lg font-semibold">Create workspace</h3>
@@ -229,7 +229,7 @@
             </template>
 
             <!-- Knowledge bases -->
-            <template v-if="tenantId">
+            <template v-if="workspaceId">
               <UCard>
                 <template #header>
                   <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -312,7 +312,7 @@ import {
 const { client, signOut, user } = useConvexAuth()
 const authAction = useConvexAuthActions()
 const toast = useToast()
-const { allows, ctx, ready, role, tenantId } = usePermissions()
+const { can, ctx, ready, role, workspaceId } = useAccess()
 
 const signUpForm = reactive({ name: '', email: '', password: '' })
 const signInForm = reactive({ email: '', password: '' })
@@ -333,7 +333,7 @@ const createKB = useConvexMutation(api.features.knowledgeBases.domain.create, {
       color: 'error',
     }),
 })
-const kbArgs = computed(() => (tenantId.value ? {} : undefined))
+const kbArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: knowledgeBases } = await useConvexQuery(
   api.features.knowledgeBases.domain.list,
   kbArgs,
@@ -343,7 +343,7 @@ const displayName = computed(
   () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
 )
 const currentWorkspaceName = computed(() => ctx.value?.workspace?.name ?? null)
-const canCreate = allows(kbCreate)
+const canCreate = can(kbCreate)
 const allRoles = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const
 const recordRuleRows = [
   { label: 'Update any article', roles: ['owner', 'admin'] },

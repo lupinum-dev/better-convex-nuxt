@@ -148,19 +148,19 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_organization', ['organizationId']),
 
-  destructiveRedemptions: defineTable({
+  destructiveConfirmations: defineTable({
     jti: v.string(),
     operationId: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     redeemedAt: v.number(),
   }).index('by_jti', ['jti']),
 
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
-    principalKey: v.string(),
-    tenantKey: v.string(),
+    callerKey: v.string(),
+    scopeKey: v.string(),
     argsHash: v.string(),
     previewHash: v.string(),
     executedAt: v.number(),
@@ -185,7 +185,7 @@ export default defineSchema({
 
   expAuditLog: defineTable({
     operation: v.string(),
-    principalKey: v.string(),
+    callerKey: v.string(),
     argsHash: v.string(),
     previewHash: v.optional(v.string()),
     timestamp: v.number(),

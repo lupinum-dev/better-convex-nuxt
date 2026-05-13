@@ -1,11 +1,11 @@
 import { subject } from '@lupinum/trellis/auth'
-import type { Delegation } from '@lupinum/trellis/backend'
+import type { ActingFor } from '@lupinum/trellis/backend'
 import type { H3Event } from 'h3'
 
 import { api } from '#trellis/api'
 import { defineMcpApp } from '#trellis/mcp'
 import { createServerConvexCaller, delegateToUser } from '#trellis/server'
-import type { McpReferencePrincipal } from '~/convex/auth/principal'
+import type { McpReferencePrincipal } from '~/convex/auth/caller'
 import type { McpReferencePermissionKey } from '~/convex/features'
 import { mcpManage as mcpManagePermission } from '~/convex/features/mcpKeys/permissions'
 import {
@@ -20,13 +20,13 @@ import { mcpRateLimitStore } from './rate-limit-store'
 
 type McpAuthContext = {
   keyId?: string
-  tenantId?: string
+  workspaceId?: string
   userId?: string
 }
 
-type CapabilitySnapshot = Record<McpReferencePermissionKey, boolean>
+type RecordAccessSnapshot = Record<McpReferencePermissionKey, boolean>
 
-function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
+function getMcpCaller(event: H3Event): McpReferencePrincipal {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.keyId || !auth.userId) {
     return { kind: 'anonymous', subject: 'system:anonymous' }
@@ -41,7 +41,7 @@ function getMcpPrincipal(event: H3Event): McpReferencePrincipal {
   }
 }
 
-async function getMcpDelegation(event: H3Event): Promise<Delegation | null> {
+async function getMcpDelegation(event: H3Event): Promise<ActingFor | null> {
   const auth = event.context.mcpAuth as McpAuthContext | undefined
   if (!auth?.userId) return null
 
@@ -52,34 +52,34 @@ async function getMcpDelegation(event: H3Event): Promise<Delegation | null> {
 }
 
 type McpRuntimeContext = {
-  tenantId: string
+  workspaceId: string
 }
 
 export const mcpRuntime = defineMcpApp<
   McpReferencePrincipal,
-  CapabilitySnapshot,
-  Delegation,
+  RecordAccessSnapshot,
+  ActingFor,
   McpRuntimeContext
 >({
   rateLimitStore: mcpRateLimitStore,
-  callConvex: async (event, { principal, delegation }) => {
-    if (principal.kind !== 'agent') {
+  callConvex: async (event, { caller, actingFor }) => {
+    if (caller.kind !== 'agent') {
       return createServerConvexCaller(event, { auth: 'none' })
     }
 
     // Forward both who is calling and who they are acting for. Trellis binds
     // these on `subject`, not on ad hoc fields like `userId`.
-    const trustedOptions = delegation
-      ? { auth: 'trusted' as const, principal, delegation }
-      : { auth: 'trusted' as const, principal }
+    const trustedOptions = actingFor
+      ? { auth: 'trusted' as const, caller, actingFor }
+      : { auth: 'trusted' as const, caller }
 
     return createServerConvexCaller(event, trustedOptions)
   },
-  resolvePrincipal: async (event) => getMcpPrincipal(event),
-  resolveDelegation: async ({ event }) => getMcpDelegation(event),
-  resolveCapabilities: async ({ principal, convex }) => {
-    if (principal.kind !== 'agent') {
-      // Keep anonymous and non-agent callers on an empty capability baseline.
+  resolveCaller: async (event) => getMcpCaller(event),
+  resolveActingFor: async ({ event }) => getMcpDelegation(event),
+  resolveAccess: async ({ caller, convex }) => {
+    if (caller.kind !== 'agent') {
+      // Keep anonymous and non-agent callers on an empty recordAccess baseline.
       return {
         [runbookRead.key]: false,
         [runbookCreate.key]: false,
@@ -90,9 +90,9 @@ export const mcpRuntime = defineMcpApp<
       }
     }
 
-    const permissions = await convex.query(api.permissions.context.getPermissionContext, {})
+    const permissions = await convex.query(api.permissions.context.getAccessContext, {})
 
-    // Capabilities come from the delegated user context, not from the MCP key itself.
+    // RecordAccess come from the delegated user context, not from the MCP key itself.
     return (
       permissions?.can ?? {
         [runbookRead.key]: false,
@@ -108,12 +108,11 @@ export const mcpRuntime = defineMcpApp<
     const auth = event.context.mcpAuth as McpAuthContext | undefined
 
     return {
-      tenantId: auth?.tenantId ?? 'global',
+      workspaceId: auth?.workspaceId ?? 'global',
     }
   },
-  principalKey: (principal) =>
-    principal.kind === 'agent' ? subject.agent(principal.agentId) : principal.kind,
-  tenantKey: ({ runtime }) => runtime.tenantId,
+  callerKey: (caller) => (caller.kind === 'agent' ? subject.agent(caller.agentId) : caller.kind),
+  scopeKey: ({ runtime }) => runtime.workspaceId,
 })
 
 export const tool = mcpRuntime.tool

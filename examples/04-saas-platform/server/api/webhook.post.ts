@@ -4,7 +4,7 @@
  * hand work to a narrow internal Convex entrypoint.
  *
  * This example intentionally stops at the route-owned boundary. Example 07 shows the fuller
- * trusted-forwarding model where a service principal and delegated user flow through the protected
+ * identity-forwarding model where a service caller and delegated user flow through the protected
  * root refs themselves.
  */
 import { createError, defineEventHandler, readBody } from 'h3'

@@ -5,5 +5,5 @@ import { workspaceTables } from './schema'
 export const workspacesFeature = defineFeature({
   name: 'workspaces',
   schema: workspaceTables,
-  globalTables: ['workspaces'],
+  sharedTables: ['workspaces'],
 })

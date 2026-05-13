@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import type {
   EnhancedAuthState,
   AuthWaterfall,
-  PermissionContextState,
+  AccessContextState,
   AuthBootstrapState,
   AuthProxyStats,
   AuthProxyRequest,
@@ -15,7 +15,7 @@ import type { TrellisObservationEvent } from '../../../src/runtime/observability
 const props = defineProps<{
   authState: EnhancedAuthState | null
   waterfall?: AuthWaterfall | null
-  permissionState?: PermissionContextState | null
+  accessState?: AccessContextState | null
   authBootstrapState?: AuthBootstrapState | null
   decisionTrace?: DecisionTraceState | null
   observations?: TrellisObservationEvent[]
@@ -77,8 +77,8 @@ function formatMs(ms: number): string {
 }
 
 const permissionEntries = computed(() => {
-  const inventory = props.permissionState?.inventory ?? []
-  const ctx = props.permissionState?.ctx
+  const inventory = props.accessState?.inventory ?? []
+  const ctx = props.accessState?.ctx
   const can =
     ctx && typeof ctx === 'object' && 'can' in ctx && typeof ctx.can === 'object' && ctx.can
       ? (ctx.can as Record<string, boolean | undefined>)
@@ -91,7 +91,7 @@ const permissionEntries = computed(() => {
 })
 
 const permissionContextJson = computed(() =>
-  props.permissionState ? JSON.stringify(props.permissionState, null, 2) : '',
+  props.accessState ? JSON.stringify(props.accessState, null, 2) : '',
 )
 const authBootstrapJson = computed(() =>
   props.authBootstrapState ? JSON.stringify(props.authBootstrapState, null, 2) : '',
@@ -209,18 +209,18 @@ function getDecisionReason(trace: DecisionTraceState): string {
       </div>
     </SectionBlock>
 
-    <!-- Permission Context -->
-    <SectionBlock v-if="permissionState" text="Permission Context" icon="i-carbon-security">
+    <!-- Access Context -->
+    <SectionBlock v-if="accessState" text="Access Context" icon="i-carbon-security">
       <div class="flex gap-4 text-xs mb-2">
         <div>
           <span class="op-50">Status: </span>
           <span class="font-medium">
-            {{ permissionState.pending ? 'Loading' : permissionState.ready ? 'Ready' : 'Idle' }}
+            {{ accessState.pending ? 'Loading' : accessState.ready ? 'Ready' : 'Idle' }}
           </span>
         </div>
         <div>
           <span class="op-50">Query: </span>
-          <span class="font-mono">{{ permissionState.queryName || '-' }}</span>
+          <span class="font-mono">{{ accessState.queryName || '-' }}</span>
         </div>
       </div>
 
@@ -270,7 +270,7 @@ function getDecisionReason(trace: DecisionTraceState): string {
           <div class="rounded border border-base bg-gray/5 px-3 py-2">
             <div class="op-50 uppercase tracking-wide mb-1">Identity</div>
             <div>Principal: {{ decisionTrace.principalKind || '-' }}</div>
-            <div>Actor: {{ decisionTrace.actorKind || '-' }}</div>
+            <div>AppIdentity: {{ decisionTrace.actorKind || '-' }}</div>
             <div>Tenant: {{ decisionTrace.tenantId || '-' }}</div>
           </div>
 

@@ -72,7 +72,7 @@ describe('example 07 webhook handler', () => {
     process.env.MCP_REFERENCE_WEBHOOK_AUTH_ID = 'user_bot'
   })
 
-  it('verifies the route secret and forwards a service principal plus delegated user', async () => {
+  it('verifies the route secret and forwards a service caller plus delegated user', async () => {
     readBodyMock.mockResolvedValue({
       title: 'Webhook runbook',
       visibility: 'workspace',
@@ -102,12 +102,12 @@ describe('example 07 webhook handler', () => {
       },
       {
         auth: 'trusted',
-        principal: {
+        caller: {
           kind: 'service',
           serviceId: 'runbook-webhook',
           subject: 'service:runbook-webhook',
         },
-        delegation: {
+        actingFor: {
           subject: 'user:user_bot',
           reason: 'verified runbook webhook',
         },
@@ -150,7 +150,7 @@ describe('example 07 webhook handler', () => {
     })
   })
 
-  it('fails closed when the delegated webhook actor is not configured', async () => {
+  it('fails closed when the delegated webhook appIdentity is not configured', async () => {
     delete process.env.MCP_REFERENCE_WEBHOOK_AUTH_ID
     readBodyMock.mockResolvedValue({
       title: 'Webhook runbook',

@@ -1,5 +1,6 @@
 import type { GenericValidator, ObjectType, PropertyValidators } from 'convex/values'
 
+import { isAnonymousCaller, type AuthenticatedCaller } from '../auth/caller-state.js'
 import {
   isAuthRequiredGuard,
   isGuard,
@@ -16,7 +17,6 @@ import {
   type ErasedPermissionDefinition,
 } from '../auth/define-permission.js'
 import { can, deny, enforce, requireAuth } from '../auth/index.js'
-import { isAnonymousPrincipal, type AuthenticatedPrincipal } from '../auth/principal-state.js'
 import { createDenialExplanation, type TrellisObservationEvent } from '../observability/index.js'
 import {
   getOperationProjectionMetadata,
@@ -27,10 +27,10 @@ import {
 type MaybePromise<T> = T | Promise<T>
 type Callback<TArgs extends unknown[], TResult> = (...args: TArgs) => TResult
 
-type RuntimeContext<TPrincipal, TDelegation, TActor> = {
-  principal: () => Promise<TPrincipal>
-  delegation?: () => Promise<TDelegation | null>
-  actor?: () => Promise<TActor | null>
+type RuntimeContext<TCaller, TActingFor, TActor> = {
+  caller: () => Promise<TCaller>
+  actingFor?: () => Promise<TActingFor | null>
+  appIdentity?: () => Promise<TActor | null>
   observe?: (event: {
     name: 'guard.allowed' | 'guard.denied' | 'authorize.allowed' | 'authorize.denied'
     status: 'success' | 'deny'
@@ -43,8 +43,8 @@ type RuntimeContext<TPrincipal, TDelegation, TActor> = {
 type AnyBuilder = (definition: {
   args: PropertyValidators
   returns?: GenericValidator
-  trustedForwardingFunctionRef?: string
-  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingFunctionRef?: string
+  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
   handler: (ctx: unknown, args: Record<string, unknown>) => unknown
 }) => unknown
 
@@ -52,45 +52,47 @@ export type StructuredLoadedValue = Record<string, unknown> | undefined
 
 type HandlerArgs<TArgsValidator extends PropertyValidators> = ObjectType<TArgsValidator>
 
-export type StructuredGuard<_TPrincipal, TActor> =
+export type StructuredGuard<_TCaller, TActor> =
   | Guard<NonNullable<TActor>>
   | Guard<TActor | null>
   | ErasedPermissionDefinition<string>
   | AuthRequiredGuard
   | OpenGuard
 
-type PrincipalForGuard<TPrincipal, TGuard> = TGuard extends OpenGuard
-  ? TPrincipal
-  : AuthenticatedPrincipal<TPrincipal>
+type CallerForGuard<TCaller, TGuard> = TGuard extends OpenGuard
+  ? TCaller
+  : AuthenticatedCaller<TCaller>
 
-type ActorForGuard<TActor, TGuard> = TGuard extends OpenGuard ? TActor | null : NonNullable<TActor>
+type AppIdentityForGuard<TActor, TGuard> = TGuard extends OpenGuard
+  ? TActor | null
+  : NonNullable<TActor>
 
-type NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard> = Omit<
+type NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard> = Omit<
   TCtx,
-  'actor' | 'principal' | 'delegation'
+  'appIdentity' | 'caller' | 'actingFor'
 > & {
-  principal: () => Promise<PrincipalForGuard<TPrincipal, TGuard>>
-  delegation: () => Promise<TDelegation | null>
-  actor: () => Promise<ActorForGuard<TActor, TGuard>>
+  caller: () => Promise<CallerForGuard<TCaller, TGuard>>
+  actingFor: () => Promise<TActingFor | null>
+  appIdentity: () => Promise<AppIdentityForGuard<TActor, TGuard>>
 }
 
 type LoadFn<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
 > = Callback<
-  [NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>, HandlerArgs<TArgsValidator>],
+  [NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>, HandlerArgs<TArgsValidator>],
   MaybePromise<TLoaded>
 >
 
 type AuthorizeConfig<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
@@ -101,37 +103,37 @@ type AuthorizeConfig<
    * Resource-level authorization check, evaluated after `load`.
    *
    * Return one of:
-   * - `boolean` — inline one-off check: `(actor, { todo }) => actor.userId === todo.ownerId`
+   * - `boolean` — inline one-off check: `(appIdentity, { todo }) => appIdentity.userId === todo.ownerId`
    * - `Guard` — from a factory for labeled, composable checks: `(_actor, { todo }) => canUpdateTodo(todo)`
    * - `Check` function — a reusable predicate without a label
    */
   check: (
-    actor: ActorForGuard<TActor, TGuard>,
+    appIdentity: AppIdentityForGuard<TActor, TGuard>,
     loaded: TLoaded,
     args: HandlerArgs<TArgsValidator>,
-    ctx: NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
-  ) => MaybePromise<AnyCheck<ActorForGuard<TActor, TGuard>>>
+    ctx: NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>,
+  ) => MaybePromise<AnyCheck<AppIdentityForGuard<TActor, TGuard>>>
 }
 
 type AuthorizeShorthand<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
   TLoaded,
 > =
-  | Guard<ActorForGuard<TActor, TGuard>>
+  | Guard<AppIdentityForGuard<TActor, TGuard>>
   | boolean
-  | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>['check']
+  | AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>['check']
 
 type HandlerDefinition<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
-  TGuard extends StructuredGuard<TPrincipal, TActor>,
+  TGuard extends StructuredGuard<TCaller, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
@@ -139,24 +141,20 @@ type HandlerDefinition<
   args: TArgsValidator
   returns?: GenericValidator
   guard: TGuard
-  load?: LoadFn<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+  load?: LoadFn<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
   authorize?:
-    | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
-    | AuthorizeShorthand<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
+    | AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
+    | AuthorizeShorthand<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded>
   handler: Callback<
-    [
-      NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>,
-      HandlerArgs<TArgsValidator>,
-      TLoaded,
-    ],
+    [NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>, HandlerArgs<TArgsValidator>, TLoaded],
     MaybePromise<TResult>
   >
   /**
    * Internal alpha metadata. When present, protected handler setup verifies
-   * signed trusted-forwarding envelopes against this exact Convex function ref.
+   * signed identity-forwarding envelopes against this exact Convex function ref.
    */
-  trustedForwardingFunctionRef?: string
-  trustedForwardingTransport?: 'server' | 'mcp' | 'bridge'
+  identityForwardingFunctionRef?: string
+  identityForwardingTransport?: 'server' | 'mcp' | 'bridge'
   [trellisOperationProjectionMetadataKey]?: {
     operationId: string
     projection: 'execute' | 'preview'
@@ -165,51 +163,40 @@ type HandlerDefinition<
 
 export type StructuredHandlerDefinition<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
-  TGuard extends StructuredGuard<TPrincipal, TActor>,
+  TGuard extends StructuredGuard<TCaller, TActor>,
   TArgsValidator extends PropertyValidators,
   TLoaded,
   TResult,
-> = HandlerDefinition<
-  TCtx,
-  TPrincipal,
-  TDelegation,
-  TActor,
-  TGuard,
-  TArgsValidator,
-  TLoaded,
-  TResult
->
+> = HandlerDefinition<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded, TResult>
 
-function resolvePrincipalAccessor<TCtx extends object, TPrincipal>(
-  ctx: TCtx,
-): () => Promise<TPrincipal> {
-  if ('principal' in ctx && typeof ctx.principal === 'function') {
-    return ctx.principal as () => Promise<TPrincipal>
+function resolveCallerAccessor<TCtx extends object, TCaller>(ctx: TCtx): () => Promise<TCaller> {
+  if ('caller' in ctx && typeof ctx.caller === 'function') {
+    return ctx.caller as () => Promise<TCaller>
   }
 
   if (process.env.NODE_ENV !== 'production') {
     throw new Error(
-      'Context is missing principal() accessor. Use defineTrellis(...) or provide principal() in tests.',
+      'Context is missing caller() accessor. Use defineTrellis(...) or provide caller() in tests.',
     )
   }
 
-  return async () => null as TPrincipal
+  return async () => null as TCaller
 }
 
-function resolveActorAccessor<TCtx extends object, TActor>(
+function resolveAppIdentityAccessor<TCtx extends object, TActor>(
   ctx: TCtx,
 ): () => Promise<TActor | null> {
-  if ('actor' in ctx && typeof ctx.actor === 'function') {
-    return ctx.actor as () => Promise<TActor | null>
+  if ('appIdentity' in ctx && typeof ctx.appIdentity === 'function') {
+    return ctx.appIdentity as () => Promise<TActor | null>
   }
 
   if (process.env.NODE_ENV !== 'production') {
     return async () => {
       throw new Error(
-        'Context is missing actor() accessor. Use defineTrellis(...) or provide actor() in tests.',
+        'Context is missing appIdentity() accessor. Use defineTrellis(...) or provide appIdentity() in tests.',
       )
     }
   }
@@ -217,36 +204,36 @@ function resolveActorAccessor<TCtx extends object, TActor>(
   return async () => null
 }
 
-function resolveDelegationAccessor<TCtx extends object, TDelegation>(
+function resolveActingForAccessor<TCtx extends object, TActingFor>(
   ctx: TCtx,
-): () => Promise<TDelegation | null> {
-  if ('delegation' in ctx && typeof ctx.delegation === 'function') {
-    return ctx.delegation as () => Promise<TDelegation | null>
+): () => Promise<TActingFor | null> {
+  if ('actingFor' in ctx && typeof ctx.actingFor === 'function') {
+    return ctx.actingFor as () => Promise<TActingFor | null>
   }
 
   return async () => null
 }
 
-function createHandlerContext<TCtx extends object, TPrincipal, TDelegation, TActor, TGuard>(
+function createHandlerContext<TCtx extends object, TCaller, TActingFor, TActor, TGuard>(
   ctx: TCtx,
-  principal: PrincipalForGuard<TPrincipal, TGuard>,
-  delegation: () => Promise<TDelegation | null>,
-  actor: () => Promise<ActorForGuard<TActor, TGuard>>,
-): NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard> {
+  caller: CallerForGuard<TCaller, TGuard>,
+  actingFor: () => Promise<TActingFor | null>,
+  appIdentity: () => Promise<AppIdentityForGuard<TActor, TGuard>>,
+): NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard> {
   return {
     ...ctx,
-    principal: async () => principal,
-    delegation,
-    actor,
-  } as NarrowedCtx<TCtx, TPrincipal, TDelegation, TActor, TGuard>
+    caller: async () => caller,
+    actingFor,
+    appIdentity,
+  } as NarrowedCtx<TCtx, TCaller, TActingFor, TActor, TGuard>
 }
 
 function getAuthorizationLabel<P>(check: AnyCheck<P>, fallback: string): string {
   return isGuard(check) ? check.label : fallback
 }
 
-function getGuardCheck<TPrincipal, TActor>(
-  guard: StructuredGuard<TPrincipal, TActor>,
+function getGuardCheck<TCaller, TActor>(
+  guard: StructuredGuard<TCaller, TActor>,
 ): AnyCheck<unknown> {
   if (isPermissionDefinition(guard)) {
     return resolvePermissionCheck(guard)
@@ -255,7 +242,7 @@ function getGuardCheck<TPrincipal, TActor>(
   return guard as AnyCheck<unknown>
 }
 
-function getGuardLabel<TPrincipal, TActor>(guard: StructuredGuard<TPrincipal, TActor>): string {
+function getGuardLabel<TCaller, TActor>(guard: StructuredGuard<TCaller, TActor>): string {
   if (isPermissionDefinition(guard)) {
     return resolvePermissionLabel(guard)
   }
@@ -271,8 +258,8 @@ function getObserve(ctx: object): RuntimeContext<unknown, unknown, unknown>['obs
 
 function normalizeAuthorize<
   TCtx,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TGuard,
   TArgsValidator extends PropertyValidators,
@@ -281,18 +268,16 @@ function normalizeAuthorize<
   authorize:
     | HandlerDefinition<
         TCtx,
-        TPrincipal,
-        TDelegation,
+        TCaller,
+        TActingFor,
         TActor,
-        TGuard extends StructuredGuard<TPrincipal, TActor> ? TGuard : never,
+        TGuard extends StructuredGuard<TCaller, TActor> ? TGuard : never,
         TArgsValidator,
         TLoaded,
         unknown
       >['authorize']
     | undefined,
-):
-  | AuthorizeConfig<TCtx, TPrincipal, TDelegation, TActor, TGuard, TArgsValidator, TLoaded>
-  | undefined {
+): AuthorizeConfig<TCtx, TCaller, TActingFor, TActor, TGuard, TArgsValidator, TLoaded> | undefined {
   if (!authorize) return undefined
 
   if (typeof authorize === 'boolean' || isGuard(authorize)) {
@@ -305,8 +290,8 @@ function normalizeAuthorize<
     return {
       check: authorize as AuthorizeConfig<
         TCtx,
-        TPrincipal,
-        TDelegation,
+        TCaller,
+        TActingFor,
         TActor,
         TGuard,
         TArgsValidator,
@@ -318,36 +303,36 @@ function normalizeAuthorize<
   return authorize
 }
 
-function describePrincipalState(principal: unknown): string {
-  return isAnonymousPrincipal(principal) ? 'anonymous' : 'authenticated'
+function describePrincipalState(caller: unknown): string {
+  return isAnonymousCaller(caller) ? 'anonymous' : 'authenticated'
 }
 
-function describeActorState(actor: unknown): string {
-  return actor == null ? 'missing' : 'resolved'
+function describeActorState(appIdentity: unknown): string {
+  return appIdentity == null ? 'missing' : 'resolved'
 }
 
-function formatGuardFailure(label: string, principal: unknown, actor: unknown): string {
+function formatGuardFailure(label: string, caller: unknown, appIdentity: unknown): string {
   if (process.env.NODE_ENV === 'production') return label
-  return `${label} [principal:${describePrincipalState(principal)} actor:${describeActorState(actor)}]`
+  return `${label} [caller:${describePrincipalState(caller)} appIdentity:${describeActorState(appIdentity)}]`
 }
 
 function createStructuredBuilder<
   TCtx extends object,
-  TPrincipal,
-  TDelegation,
+  TCaller,
+  TActingFor,
   TActor,
   TBuilder extends AnyBuilder,
 >(builder: TBuilder) {
   return function structuredBuilder<
-    TGuard extends StructuredGuard<TPrincipal, TActor>,
+    TGuard extends StructuredGuard<TCaller, TActor>,
     TArgsValidator extends PropertyValidators,
     TLoaded extends StructuredLoadedValue = undefined,
     TResult = unknown,
   >(
     definition: HandlerDefinition<
       TCtx,
-      TPrincipal,
-      TDelegation,
+      TCaller,
+      TActingFor,
       TActor,
       TGuard,
       TArgsValidator,
@@ -356,31 +341,31 @@ function createStructuredBuilder<
     >,
   ): ReturnType<TBuilder> {
     const functionRef =
-      definition.trustedForwardingFunctionRef ??
+      definition.identityForwardingFunctionRef ??
       getOperationProjectionMetadata(definition)?.functionRef
     const built = builder({
       args: definition.args,
       returns: definition.returns,
-      ...(functionRef ? { trustedForwardingFunctionRef: functionRef } : {}),
-      ...(definition.trustedForwardingTransport
-        ? { trustedForwardingTransport: definition.trustedForwardingTransport }
+      ...(functionRef ? { identityForwardingFunctionRef: functionRef } : {}),
+      ...(definition.identityForwardingTransport
+        ? { identityForwardingTransport: definition.identityForwardingTransport }
         : {}),
       handler: async (rawCtx, rawArgs) => {
         const ctx = rawCtx as TCtx
         const args = rawArgs as HandlerArgs<TArgsValidator>
-        const principal = await resolvePrincipalAccessor<TCtx, TPrincipal>(ctx)()
-        const delegationAccessor = resolveDelegationAccessor<TCtx, TDelegation>(ctx)
-        const rawActorAccessor = resolveActorAccessor<TCtx, TActor>(ctx)
+        const caller = await resolveCallerAccessor<TCtx, TCaller>(ctx)()
+        const delegationAccessor = resolveActingForAccessor<TCtx, TActingFor>(ctx)
+        const rawAppIdentityAccessor = resolveAppIdentityAccessor<TCtx, TActor>(ctx)
         let actorPromise: Promise<TActor | null> | null = null
         const actorAccessor = async () => {
-          actorPromise ??= rawActorAccessor()
+          actorPromise ??= rawAppIdentityAccessor()
           return await actorPromise
         }
         const observe = getObserve(ctx)
 
         if (isAuthRequiredGuard(definition.guard)) {
           const authRequiredGuard = definition.guard as AuthRequiredGuard
-          if (isAnonymousPrincipal(principal)) {
+          if (isAnonymousCaller(caller)) {
             await observe?.({
               name: 'guard.denied',
               status: 'deny',
@@ -395,13 +380,13 @@ function createStructuredBuilder<
               },
             })
             requireAuth(
-              principal,
-              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, null)}`,
+              caller,
+              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, caller, null)}`,
             )
           }
 
-          const actor = await actorAccessor()
-          const allowed = actor != null
+          const appIdentity = await actorAccessor()
+          const allowed = appIdentity != null
           await observe?.({
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
@@ -415,20 +400,20 @@ function createStructuredBuilder<
                     decision: 'guard',
                     message: authRequiredGuard.label,
                     policy: authRequiredGuard.label,
-                    suggestedAction: 'grant_capability',
+                    suggestedAction: 'grant_recordAccess',
                   }),
                 },
           })
           if (!allowed) {
             throw deny(
-              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, principal, actor)}`,
+              `Forbidden: ${formatGuardFailure(authRequiredGuard.label, caller, appIdentity)}`,
             )
           }
         } else if (!isOpenGuard(definition.guard)) {
-          const actor = await actorAccessor()
-          const guardCheck = getGuardCheck<TPrincipal, TActor>(definition.guard)
-          const guardLabel = getGuardLabel<TPrincipal, TActor>(definition.guard)
-          const allowed = actor != null && can(actor as NonNullable<TActor>, guardCheck)
+          const appIdentity = await actorAccessor()
+          const guardCheck = getGuardCheck<TCaller, TActor>(definition.guard)
+          const guardLabel = getGuardLabel<TCaller, TActor>(definition.guard)
+          const allowed = appIdentity != null && can(appIdentity as NonNullable<TActor>, guardCheck)
           await observe?.({
             name: allowed ? 'guard.allowed' : 'guard.denied',
             status: allowed ? 'success' : 'deny',
@@ -442,22 +427,22 @@ function createStructuredBuilder<
                     decision: 'guard',
                     message: guardLabel,
                     policy: guardLabel,
-                    suggestedAction: 'grant_capability',
+                    suggestedAction: 'grant_recordAccess',
                   }),
                 },
           })
           enforce<TActor | null>(
-            actor,
-            formatGuardFailure(guardLabel, principal, actor),
+            appIdentity,
+            formatGuardFailure(guardLabel, caller, appIdentity),
             guardCheck as AnyCheck<NonNullable<TActor | null>>,
           )
         }
 
-        const handlerCtx = createHandlerContext<TCtx, TPrincipal, TDelegation, TActor, TGuard>(
+        const handlerCtx = createHandlerContext<TCtx, TCaller, TActingFor, TActor, TGuard>(
           ctx,
-          principal as PrincipalForGuard<TPrincipal, TGuard>,
+          caller as CallerForGuard<TCaller, TGuard>,
           delegationAccessor,
-          actorAccessor as () => Promise<ActorForGuard<TActor, TGuard>>,
+          actorAccessor as () => Promise<AppIdentityForGuard<TActor, TGuard>>,
         )
 
         const loaded = (
@@ -468,12 +453,12 @@ function createStructuredBuilder<
 
         if (authorize) {
           const authorization = await authorize.check(
-            await handlerCtx.actor(),
+            await handlerCtx.appIdentity(),
             loaded,
             args,
             handlerCtx,
           )
-          const allowed = can(await handlerCtx.actor(), authorization)
+          const allowed = can(await handlerCtx.appIdentity(), authorization)
           await getObserve(handlerCtx)?.({
             name: allowed ? 'authorize.allowed' : 'authorize.denied',
             status: allowed ? 'success' : 'deny',
@@ -490,7 +475,7 @@ function createStructuredBuilder<
                       authorize.label ?? 'Access denied',
                     ),
                     policy: authorize.label ?? 'Access denied',
-                    suggestedAction: 'grant_capability',
+                    suggestedAction: 'grant_recordAccess',
                   }),
                 },
           })
@@ -499,8 +484,8 @@ function createStructuredBuilder<
             deny(
               `Forbidden: ${formatGuardFailure(
                 getAuthorizationLabel(authorization, authorize.label ?? 'Access denied'),
-                await handlerCtx.principal(),
-                await handlerCtx.actor(),
+                await handlerCtx.caller(),
+                await handlerCtx.appIdentity(),
               )}`,
             )
           }
@@ -518,21 +503,21 @@ function createStructuredBuilder<
 }
 
 export function buildStructuredBuilder<
-  TCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
-  TPrincipal,
-  TDelegation,
+  TCtx extends RuntimeContext<TCaller, TActingFor, TActor>,
+  TCaller,
+  TActingFor,
   TActor,
   TBuilder extends AnyBuilder,
 >(builder: TBuilder) {
-  return createStructuredBuilder<TCtx, TPrincipal, TDelegation, TActor, TBuilder>(builder)
+  return createStructuredBuilder<TCtx, TCaller, TActingFor, TActor, TBuilder>(builder)
 }
 
 export function buildStructuredFunctions<
-  TQueryCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
-  TMutationCtx extends RuntimeContext<TPrincipal, TDelegation, TActor>,
-  TPrincipal,
+  TQueryCtx extends RuntimeContext<TCaller, TActingFor, TActor>,
+  TMutationCtx extends RuntimeContext<TCaller, TActingFor, TActor>,
+  TCaller,
   TActor,
-  TDelegation = never,
+  TActingFor = never,
   TQueryBuilder extends AnyBuilder = AnyBuilder,
   TMutationBuilder extends AnyBuilder = AnyBuilder,
 >(
@@ -540,19 +525,19 @@ export function buildStructuredFunctions<
   mutation: TMutationBuilder,
 ): {
   query: ReturnType<
-    typeof createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>
+    typeof createStructuredBuilder<TQueryCtx, TCaller, TActingFor, TActor, TQueryBuilder>
   >
   mutation: ReturnType<
-    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TDelegation, TActor, TMutationBuilder>
+    typeof createStructuredBuilder<TMutationCtx, TCaller, TActingFor, TActor, TMutationBuilder>
   >
 }
 
 export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
-  TPrincipal = never,
+  TCaller = never,
   TActor = never,
-  TDelegation = never,
+  TActingFor = never,
   TQueryBuilder extends AnyBuilder = AnyBuilder,
   TMutationBuilder extends AnyBuilder = AnyBuilder,
 >(
@@ -560,32 +545,26 @@ export function buildStructuredFunctions<
   mutation: TMutationBuilder,
 ): {
   query: ReturnType<
-    typeof createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>
+    typeof createStructuredBuilder<TQueryCtx, TCaller, TActingFor, TActor, TQueryBuilder>
   >
   mutation: ReturnType<
-    typeof createStructuredBuilder<TMutationCtx, TPrincipal, TDelegation, TActor, TMutationBuilder>
+    typeof createStructuredBuilder<TMutationCtx, TCaller, TActingFor, TActor, TMutationBuilder>
   >
 }
 
 export function buildStructuredFunctions<
   TQueryCtx extends object = Record<string, unknown>,
   TMutationCtx extends object = Record<string, unknown>,
-  TPrincipal = never,
+  TCaller = never,
   TActor = never,
-  TDelegation = never,
+  TActingFor = never,
   TQueryBuilder extends AnyBuilder = AnyBuilder,
   TMutationBuilder extends AnyBuilder = AnyBuilder,
 >(query: TQueryBuilder, mutation: TMutationBuilder) {
   return {
-    query: createStructuredBuilder<TQueryCtx, TPrincipal, TDelegation, TActor, TQueryBuilder>(
-      query,
+    query: createStructuredBuilder<TQueryCtx, TCaller, TActingFor, TActor, TQueryBuilder>(query),
+    mutation: createStructuredBuilder<TMutationCtx, TCaller, TActingFor, TActor, TMutationBuilder>(
+      mutation,
     ),
-    mutation: createStructuredBuilder<
-      TMutationCtx,
-      TPrincipal,
-      TDelegation,
-      TActor,
-      TMutationBuilder
-    >(mutation),
   }
 }

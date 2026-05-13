@@ -188,7 +188,7 @@
                           <span class="font-semibold text-slate-900">{{
                             permissionsPending ? 'loading…' : role || 'no workspace yet'
                           }}</span>
-                          <span v-if="tenantId"> · Workspace ID: {{ tenantId }}</span>
+                          <span v-if="workspaceId"> · Workspace ID: {{ workspaceId }}</span>
                         </p>
                       </div>
 
@@ -222,7 +222,7 @@
                     description="Your browser session is active, but the example could not load your workspace context yet. Sign out and sign back in once to rebuild the app user row."
                   />
 
-                  <template v-if="ready && !tenantId">
+                  <template v-if="ready && !workspaceId">
                     <UCard>
                       <template #header>
                         <h3 class="text-lg font-semibold">Create workspace</h3>
@@ -251,7 +251,7 @@
                     </UCard>
                   </template>
 
-                  <template v-if="tenantId">
+                  <template v-if="workspaceId">
                     <div class="grid gap-6 2xl:grid-cols-[1.1fr_0.9fr]">
                       <div class="space-y-6">
                         <UCard>
@@ -546,7 +546,7 @@ curl {{ endpointBase }}/mcp \
 
                         <UCard>
                           <template #header>
-                            <h3 class="text-lg font-semibold">Capability map</h3>
+                            <h3 class="text-lg font-semibold">RecordAccess map</h3>
                           </template>
 
                           <ul class="space-y-3 text-sm text-slate-600">
@@ -598,11 +598,12 @@ curl {{ endpointBase }}/mcp \
                 <p>
                   Example 03 is the minimal MCP story. Example 07 is the full reference: one compact
                   business domain, one real MCP auth story, and one place to read every major
-                  capability.
+                  recordAccess.
                 </p>
                 <p>
                   The app UI uses browser auth. MCP clients use bearer tokens stored as hashes in
-                  Convex. Both paths converge on the same `ctx.actor()` permission flow in Convex.
+                  Convex. Both paths converge on the same `ctx.appIdentity()` permission flow in
+                  Convex.
                 </p>
               </div>
             </UCard>
@@ -625,7 +626,7 @@ import { selectMcpBoundUser } from '~/shared/features/mcpKeys/bound-user'
 
 const { client, user, signOut } = useConvexAuth()
 const authAction = useConvexAuthActions()
-const { allows, ready, role, tenantId, ctx, pending: permissionsPending } = usePermissions()
+const { can, ready, role, workspaceId, ctx, pending: permissionsPending } = useAccess()
 
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Enter your name', required: true },
@@ -704,11 +705,11 @@ const { data: publicRunbooks, pending: publicPending } = await useConvexQuery(
   {},
 )
 
-const canCreateRunbook = allows(runbookCreate)
-const canManageMcp = allows(mcpManage)
+const canCreateRunbook = can(runbookCreate)
+const canManageMcp = can(mcpManage)
 
-const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
-const mcpKeyArgs = computed(() => (tenantId.value && canManageMcp.value ? {} : undefined))
+const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
+const mcpKeyArgs = computed(() => (workspaceId.value && canManageMcp.value ? {} : undefined))
 
 const {
   data: workspaceRunbooks,
@@ -892,7 +893,7 @@ async function handleVerifyKey() {
     }
 
     verifyVariant.value = 'success'
-    verifyMessage.value = `Valid key for role ${result.role} in workspace ${result.tenantId}.`
+    verifyMessage.value = `Valid key for role ${result.role} in workspace ${result.workspaceId}.`
   } finally {
     verifyingKey.value = false
   }

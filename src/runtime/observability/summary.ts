@@ -68,7 +68,7 @@ export function createObservationSummaryContext(
     serviceId: context.serviceId,
     principalKind: context.principalKind,
     actorKind: context.actorKind,
-    tenantId: context.tenantId,
+    workspaceId: context.workspaceId,
     operation: context.operation,
     tool: context.tool,
   }

@@ -2,23 +2,23 @@ import type { H3Event } from 'h3'
 import { useEvent, useRuntimeConfig } from 'nitropack/runtime'
 
 import { resolveRequestAuthToken } from '../../auth/server/auth-resolver.js'
-import type { Delegation } from '../../functions/define-delegation.js'
-import type { Subject } from '../../functions/define-principal.js'
+import type { ActingFor } from '../../functions/define-acting-for.js'
+import type { Subject } from '../../functions/define-caller.js'
+import type { IdentityForwardingPurpose } from '../../identity-forwarding/envelope.js'
+import {
+  createIdentityForwardingEnvelopeArgs,
+  extractSubject,
+  getIdentityForwardingKeyProductionIssue,
+  hasForwardedIdentityFields,
+  isAnonymousCallerLike,
+  stripForwardedIdentityFields,
+} from '../../identity-forwarding/shared.js'
 import {
   getEventObservationState,
   sanitizeCorrelationId,
   type EventObservationState,
 } from '../../observability/envelope.js'
 import { createRuntimeObserver } from '../../observability/runtime-observer.js'
-import type { TrustedForwardingPurpose } from '../../trusted-forwarding/envelope.js'
-import {
-  createTrustedForwardingEnvelopeArgs,
-  extractSubject,
-  getTrustedForwardingKeyProductionIssue,
-  hasForwardedIdentityFields,
-  isAnonymousPrincipalLike,
-  stripForwardedIdentityFields,
-} from '../../trusted-forwarding/shared.js'
 import { ConvexCallError, toConvexError } from '../../utils/call-result.js'
 import type { ConvexServerAuthMode } from '../../utils/types.js'
 import {
@@ -64,7 +64,7 @@ export interface ServerConvexOptions {
    * - 'auto': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
-   * - 'trusted': inject trusted forwarding args for server-to-server scoped/authed calls
+   * - 'trusted': inject identity forwarding args for server-to-server scoped/authed calls
    */
   auth?: ConvexServerAuthMode
   /**
@@ -72,22 +72,22 @@ export interface ServerConvexOptions {
    */
   authToken?: string
   /**
-   * Explicit principal to inject when auth='trusted'.
+   * Explicit caller to inject when auth='trusted'.
    */
-  principal?: { subject: Subject } & Record<string, unknown>
+  caller?: { subject: Subject } & Record<string, unknown>
   /**
    * Optional represented identity for trusted forwarded calls.
    */
-  delegation?: Delegation
+  actingFor?: ActingFor
   /**
-   * Explicit trusted forwarding key override. Defaults to CONVEX_TRUSTED_FORWARDING_KEY.
+   * Explicit identity forwarding key override. Defaults to CONVEX_IDENTITY_FORWARDING_KEY.
    */
-  trustedForwardingKey?: string
+  identityForwardingKey?: string
   /**
-   * Internal alpha override for operation-backed trusted forwarding envelopes.
+   * Internal alpha override for operation-backed identity forwarding envelopes.
    */
-  trustedForwardingEnvelope?: {
-    purpose?: TrustedForwardingPurpose
+  identityForwardingEnvelope?: {
+    purpose?: IdentityForwardingPurpose
     jti?: string
   }
 }
@@ -125,23 +125,23 @@ function createServerConvexError(
   return new ConvexCallError(`[${context.helper}] ${message}`, context)
 }
 
-function validateForwardedPrincipal(principal: unknown): Subject {
-  if (!principal || typeof principal !== 'object' || isAnonymousPrincipalLike(principal)) {
-    throw new Error('Trusted forwarding requires a non-anonymous forwarded `principal`.')
+function validateForwardedCaller(caller: unknown): Subject {
+  if (!caller || typeof caller !== 'object' || isAnonymousCallerLike(caller)) {
+    throw new Error('Identity forwarding requires a non-anonymous forwarded `caller`.')
   }
 
-  const subject = extractSubject(principal)
+  const subject = extractSubject(caller)
   if (!subject) {
-    throw new Error('Trusted forwarding requires forwarded `principal.subject`.')
+    throw new Error('Identity forwarding requires forwarded `caller.subject`.')
   }
 
   return subject
 }
 
-function validateForwardedDelegation(delegation: unknown): Subject {
-  const subject = extractSubject(delegation)
+function validateForwardedActingFor(actingFor: unknown): Subject {
+  const subject = extractSubject(actingFor)
   if (!subject) {
-    throw new Error('Trusted forwarding requires forwarded `delegation.subject`.')
+    throw new Error('Identity forwarding requires forwarded `actingFor.subject`.')
   }
 
   return subject
@@ -247,44 +247,45 @@ async function executeConvexOperation<Fn extends AnyConvexFunction>(
   }
   let authToken: string | undefined
   if (authMode === 'trusted') {
-    const principal = options?.principal
-    if (!principal) {
+    const caller = options?.caller
+    if (!caller) {
       throw createServerConvexError(
-        `Trusted forwarding auth for ${functionPath} requires \`options.principal\`.`,
+        `Identity forwarding auth for ${functionPath} requires \`options.caller\`.`,
         errorContext,
       )
     }
 
-    validateForwardedPrincipal(principal)
-    if (options?.delegation) validateForwardedDelegation(options.delegation)
+    validateForwardedCaller(caller)
+    if (options?.actingFor) validateForwardedActingFor(options.actingFor)
 
-    const trustedForwardingKey =
-      options?.trustedForwardingKey ?? process.env.CONVEX_TRUSTED_FORWARDING_KEY
-    if (!trustedForwardingKey) {
+    const identityForwardingKey =
+      options?.identityForwardingKey ?? process.env.CONVEX_IDENTITY_FORWARDING_KEY
+    if (!identityForwardingKey) {
       throw createServerConvexError(
-        `Trusted forwarding auth for ${functionPath} requires \`CONVEX_TRUSTED_FORWARDING_KEY\` or \`options.trustedForwardingKey\`.`,
+        `Identity forwarding auth for ${functionPath} requires \`CONVEX_IDENTITY_FORWARDING_KEY\` or \`options.identityForwardingKey\`.`,
         errorContext,
       )
     }
-    const trustedForwardingKeyIssue = getTrustedForwardingKeyProductionIssue(trustedForwardingKey)
-    if (trustedForwardingKeyIssue) {
-      throw createServerConvexError(trustedForwardingKeyIssue, errorContext)
+    const identityForwardingKeyIssue =
+      getIdentityForwardingKeyProductionIssue(identityForwardingKey)
+    if (identityForwardingKeyIssue) {
+      throw createServerConvexError(identityForwardingKeyIssue, errorContext)
     }
 
     const trustedAppArgs = stripForwardedIdentityFields(requestArgs as Record<string, unknown>)
-    requestArgs = createTrustedForwardingEnvelopeArgs({
+    requestArgs = createIdentityForwardingEnvelopeArgs({
       args: trustedAppArgs,
-      principal,
-      ...(options.delegation ? { delegation: options.delegation } : {}),
+      caller,
+      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
       functionRef: functionPath,
       operation: operationType,
-      ...(options?.trustedForwardingEnvelope?.purpose
-        ? { purpose: options.trustedForwardingEnvelope.purpose }
+      ...(options?.identityForwardingEnvelope?.purpose
+        ? { purpose: options.identityForwardingEnvelope.purpose }
         : {}),
-      ...(options?.trustedForwardingEnvelope?.jti
-        ? { jti: options.trustedForwardingEnvelope.jti }
+      ...(options?.identityForwardingEnvelope?.jti
+        ? { jti: options.identityForwardingEnvelope.jti }
         : {}),
-      key: trustedForwardingKey,
+      key: identityForwardingKey,
       transport: 'server',
     }) as FunctionLikeArgs<Fn>
   } else {

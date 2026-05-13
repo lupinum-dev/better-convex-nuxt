@@ -25,7 +25,7 @@ describe('repo public-surface inventory script helper', () => {
     const serialized = JSON.stringify(inventory)
 
     expect(() => JSON.parse(serialized)).not.toThrow()
-    expect(serialized).not.toContain('CONVEX_TRUSTED_FORWARDING_KEY=')
+    expect(serialized).not.toContain('CONVEX_IDENTITY_FORWARDING_KEY=')
     expect(serialized).not.toContain('export default')
     expect(serialized).not.toContain('defineNuxtConfig')
   })

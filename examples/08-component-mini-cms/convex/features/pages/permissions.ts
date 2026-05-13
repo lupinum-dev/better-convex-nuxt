@@ -1,9 +1,12 @@
 import { defineGuard, definePermission, open } from '@lupinum/trellis/auth'
 
-import type { RootActor } from '../../auth/principal'
+import type { RootActor } from '../../auth/caller'
 
-const isEditor = defineGuard<RootActor | null>('editor', (actor) => actor !== null)
-const isAgent = defineGuard<RootActor | null>('agent', (actor) => actor?.kind === 'agent')
+const isEditor = defineGuard<RootActor | null>('editor', (appIdentity) => appIdentity !== null)
+const isAgent = defineGuard<RootActor | null>(
+  'agent',
+  (appIdentity) => appIdentity?.kind === 'agent',
+)
 
 export const listPublishedPagesPermission = definePermission({
   key: 'listPublishedPages',

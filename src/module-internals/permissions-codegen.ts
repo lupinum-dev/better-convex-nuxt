@@ -174,7 +174,7 @@ function extractPermissionMatrixDeclaration(
   if (!declaration.getVariableStatement()?.isExported()) return null
   const initializer = declaration.getInitializer()
   if (!initializer || !Node.isCallExpression(initializer)) return null
-  if (initializer.getExpression().getText() !== 'derivePermissionMatrix') return null
+  if (initializer.getExpression().getText() !== 'buildPermissionMatrix') return null
   const [firstArg] = initializer.getArguments()
   if (!firstArg || !Node.isIdentifier(firstArg)) return null
   return {
@@ -339,7 +339,7 @@ ${toInterfaceBody(projectedKeys)}
 }
 
 declare module '@lupinum/trellis/mcp' {
-  interface CapabilityKeysByKey {
+  interface AccessKeysByKey {
 ${toInterfaceBody(projectedKeys)}
   }
 }

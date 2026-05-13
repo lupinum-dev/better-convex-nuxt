@@ -2,7 +2,7 @@
  * Why this file exists:
  * Tests every access pattern in the knowledge base domain: visibility filtering,
  * field redaction, enrollment, prerequisites, share tokens, inherited access,
- * and cross-tenant isolation.
+ * and cross-isolation.
  */
 /// <reference types="vite/client" />
 
@@ -46,19 +46,17 @@ async function destructiveConfirmationToken(args: {
     executePath: 'execute',
     previewPath: 'preview',
     jti: crypto.randomUUID(),
-    principalKey: 'example-principal',
-    tenantKey: 'example-tenant',
+    callerKey: 'example-caller',
+    scopeKey: 'example-tenant',
     argsHash: await hashConfirmationValue(args.executeArgs),
     previewHash: await hashConfirmationValue(args.confirm),
   })
 }
 
 describe('workspace onboarding', () => {
-  it('returns null permission context for anonymous callers', async () => {
+  it('returns null access context for anonymous callers', async () => {
     const ctx = createCtx()
-    await expect(
-      ctx.raw.query(api.permissions.context.getPermissionContext, {}),
-    ).resolves.toBeNull()
+    await expect(ctx.raw.query(api.permissions.context.getAccessContext, {})).resolves.toBeNull()
   })
 
   it('returns permission booleans for different roles', async () => {
@@ -71,11 +69,8 @@ describe('workspace onboarding', () => {
       },
     })
 
-    const ownerCtx = await team.users.owner.query(api.permissions.context.getPermissionContext, {})
-    const viewerCtx = await team.users.viewer.query(
-      api.permissions.context.getPermissionContext,
-      {},
-    )
+    const ownerCtx = await team.users.owner.query(api.permissions.context.getAccessContext, {})
+    const viewerCtx = await team.users.viewer.query(api.permissions.context.getAccessContext, {})
 
     expect(ownerCtx?.can[kbCreate.key]).toBe(true)
     expect(ownerCtx?.can[shareCreate.key]).toBe(true)
@@ -647,7 +642,7 @@ describe('inherited access levels', () => {
   })
 })
 
-describe('cross-tenant isolation', () => {
+describe('cross-isolation', () => {
   it('keeps knowledge bases isolated between workspaces', async () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
@@ -675,7 +670,7 @@ describe('cross-tenant isolation', () => {
     expect(betaKBs[0]?.title).toBe('Beta Docs')
   })
 
-  it('blocks cross-tenant resource access by ID', async () => {
+  it('blocks cross-scope resource access by ID', async () => {
     const ctx = createCtx()
     const alpha = await ctx.seedTenant({
       name: 'Alpha',
@@ -692,7 +687,7 @@ describe('cross-tenant isolation', () => {
 
     await expect(
       beta.users.owner.query(api.features.knowledgeBases.domain.get, { id: alphaKB }),
-    ).rejects.toThrow('Document belongs to a different tenant.')
+    ).rejects.toThrow('Document belongs to a different isolation scope.')
   })
 })
 

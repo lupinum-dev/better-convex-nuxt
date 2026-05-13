@@ -1,7 +1,9 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { MembershipRole } from '../features/memberships'
-import type { Actor } from './actor'
+import type { AppIdentity } from './app-identity'
 
 export const hasRole = (...roles: MembershipRole[]) =>
-  defineGuard<Actor>(`role:${roles.join('|')}`, (actor) => roles.includes(actor.role))
+  defineGuard<AppIdentity>(`role:${roles.join('|')}`, (appIdentity) =>
+    roles.includes(appIdentity.role),
+  )

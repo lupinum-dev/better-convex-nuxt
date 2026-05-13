@@ -29,9 +29,9 @@ const SOURCE_EXTENSIONS = new Set([
   '.md',
 ])
 
-export interface TenantIsolationMetadata {
+export interface IsolationMetadata {
   tables: string[]
-  globalTables: string[]
+  sharedTables: string[]
   field: string
   indexName: string
   source: 'manifest' | 'functions'
@@ -45,17 +45,17 @@ export interface SchemaTableMetadata {
 
 export interface ProjectAnalysis {
   rootDir: string
-  tenantIsolation: TenantIsolationMetadata | null
-  destructiveSafety: {
-    redemptionTable: string
+  isolation: IsolationMetadata | null
+  destructiveOperations: {
+    confirmationTable: string
     auditTable: string
   } | null
   schemaTables: SchemaTableMetadata[]
 }
 
-export interface AnalyzerTenantIsolationOverride {
+export interface AnalyzerIsolationOverride {
   tables?: string[]
-  globalTables?: string[]
+  sharedTables?: string[]
   field?: string
   indexName?: string
 }
@@ -208,10 +208,10 @@ export function collectConvexFunctionPaths(projectRoot: string): string[] {
   return [...paths].sort()
 }
 
-function parseTenantIsolationFromFunctions(
+function parseIsolationFromFunctions(
   source: string,
-): Omit<TenantIsolationMetadata, 'indexName' | 'source'> | null {
-  const marker = source.indexOf('tenantIsolation')
+): Omit<IsolationMetadata, 'indexName' | 'source'> | null {
+  const marker = source.indexOf('isolation')
   if (marker === -1) return null
 
   const objectStart = source.indexOf('{', marker)
@@ -221,18 +221,20 @@ function parseTenantIsolationFromFunctions(
 
   const objectText = source.slice(objectStart + 1, objectEnd)
   const tablesMatch = objectText.match(/tables\s*:\s*\[([\s\S]*?)\]/)
-  const globalTablesMatch = objectText.match(/globalTables\s*:\s*\[([\s\S]*?)\]/)
+  const sharedTablesMatch = objectText.match(/sharedTables\s*:\s*\[([\s\S]*?)\]/)
   const fieldMatch = objectText.match(/field\s*:\s*['"]([^'"]+)['"]/)
 
   return {
     tables: parseStringArray(tablesMatch?.[1]),
-    globalTables: parseStringArray(globalTablesMatch?.[1]),
+    sharedTables: parseStringArray(sharedTablesMatch?.[1]),
     field: fieldMatch?.[1] ?? 'workspaceId',
   }
 }
 
-function parseDestructiveSafetyFromFunctions(source: string): ProjectAnalysis['destructiveSafety'] {
-  const marker = source.indexOf('destructiveSafety')
+function parseDestructiveOperationsFromFunctions(
+  source: string,
+): ProjectAnalysis['destructiveOperations'] {
+  const marker = source.indexOf('destructiveOperations')
   if (marker === -1) return null
 
   const objectStart = source.indexOf('{', marker)
@@ -241,12 +243,12 @@ function parseDestructiveSafetyFromFunctions(source: string): ProjectAnalysis['d
   if (objectEnd === -1) return null
 
   const objectText = source.slice(objectStart + 1, objectEnd)
-  const redemptionMatch = objectText.match(/redemptionTable\s*:\s*['"]([^'"]+)['"]/)
+  const confirmationMatch = objectText.match(/confirmationTable\s*:\s*['"]([^'"]+)['"]/)
   const auditMatch = objectText.match(/auditTable\s*:\s*['"]([^'"]+)['"]/)
-  if (!redemptionMatch || !auditMatch) return null
+  if (!confirmationMatch || !auditMatch) return null
 
   return {
-    redemptionTable: redemptionMatch[1]!,
+    confirmationTable: confirmationMatch[1]!,
     auditTable: auditMatch[1]!,
   }
 }
@@ -322,22 +324,22 @@ function collectFeatureFiles(
 
 function parseFeatureClassification(
   source: string,
-): Pick<TenantIsolationMetadata, 'tables' | 'globalTables'> {
+): Pick<IsolationMetadata, 'tables' | 'sharedTables'> {
   const marker = source.indexOf('defineFeature')
-  if (marker === -1) return { tables: [], globalTables: [] }
+  if (marker === -1) return { tables: [], sharedTables: [] }
 
   const objectStart = source.indexOf('{', marker)
-  if (objectStart === -1) return { tables: [], globalTables: [] }
+  if (objectStart === -1) return { tables: [], sharedTables: [] }
   const objectEnd = findMatchingToken(source, objectStart, '{', '}')
-  if (objectEnd === -1) return { tables: [], globalTables: [] }
+  if (objectEnd === -1) return { tables: [], sharedTables: [] }
 
   const objectText = source.slice(objectStart + 1, objectEnd)
   const tablesMatch = objectText.match(/tenantTables\s*:\s*\[([\s\S]*?)\]/)
-  const globalTablesMatch = objectText.match(/globalTables\s*:\s*\[([\s\S]*?)\]/)
+  const sharedTablesMatch = objectText.match(/sharedTables\s*:\s*\[([\s\S]*?)\]/)
 
   return {
     tables: parseStringArray(tablesMatch?.[1]),
-    globalTables: parseStringArray(globalTablesMatch?.[1]),
+    sharedTables: parseStringArray(sharedTablesMatch?.[1]),
   }
 }
 
@@ -349,7 +351,7 @@ const analysisCache = new Map<string, ProjectAnalysis>()
 
 export function analyzeProject(
   rootDir: string,
-  override?: AnalyzerTenantIsolationOverride,
+  override?: AnalyzerIsolationOverride,
 ): ProjectAnalysis {
   const normalizedRoot = resolve(rootDir)
   const cacheKey = JSON.stringify({
@@ -367,16 +369,16 @@ export function analyzeProject(
   const featureClassifications = collectFeatureFiles(normalizedRoot, 'feature').map((file) =>
     parseFeatureClassification(file.text),
   )
-  const manifestGlobalTables = dedupePreservingStrings(
-    featureClassifications.flatMap((entry) => entry.globalTables),
+  const manifestSharedTables = dedupePreservingStrings(
+    featureClassifications.flatMap((entry) => entry.sharedTables),
   )
   const manifestTenantOverrides = dedupePreservingStrings(
     featureClassifications.flatMap((entry) => entry.tables),
   )
 
-  const discoveredTenantIsolation = parseTenantIsolationFromFunctions(functionsSource)
-  const destructiveSafety = parseDestructiveSafetyFromFunctions(functionsSource)
-  const resolvedField = override?.field ?? discoveredTenantIsolation?.field ?? 'workspaceId'
+  const discoveredIsolation = parseIsolationFromFunctions(functionsSource)
+  const destructiveOperations = parseDestructiveOperationsFromFunctions(functionsSource)
+  const resolvedField = override?.field ?? discoveredIsolation?.field ?? 'workspaceId'
   const resolvedIndexName = override?.indexName ?? normalizeTenantIndexName(resolvedField)
   const schemaTables = dedupeSchemaTables([
     ...(schemaSource ? parseSchemaTables(schemaSource) : []),
@@ -390,37 +392,35 @@ export function analyzeProject(
   const manifestTenantTables = dedupePreservingStrings([
     ...derivedManifestTenantTables,
     ...manifestTenantOverrides,
-  ]).filter((table) => !manifestGlobalTables.includes(table))
-  const tenantIsolationTables =
+  ]).filter((table) => !manifestSharedTables.includes(table))
+  const isolationTables =
     override?.tables ??
-    (manifestTenantTables.length > 0 ? manifestTenantTables : discoveredTenantIsolation?.tables) ??
+    (manifestTenantTables.length > 0 ? manifestTenantTables : discoveredIsolation?.tables) ??
     []
-  const tenantIsolationGlobalTables =
-    override?.globalTables ??
-    (manifestGlobalTables.length > 0
-      ? manifestGlobalTables
-      : discoveredTenantIsolation?.globalTables) ??
+  const isolationSharedTables =
+    override?.sharedTables ??
+    (manifestSharedTables.length > 0 ? manifestSharedTables : discoveredIsolation?.sharedTables) ??
     []
-  const tenantIsolationSource: TenantIsolationMetadata['source'] =
+  const isolationSource: IsolationMetadata['source'] =
     featureSchemaTables.length > 0 ||
-    manifestGlobalTables.length > 0 ||
+    manifestSharedTables.length > 0 ||
     manifestTenantOverrides.length > 0
       ? 'manifest'
       : 'functions'
 
   const analysis: ProjectAnalysis = {
     rootDir: normalizedRoot,
-    tenantIsolation:
-      tenantIsolationTables.length > 0 || tenantIsolationGlobalTables.length > 0
+    isolation:
+      isolationTables.length > 0 || isolationSharedTables.length > 0
         ? {
-            tables: [...tenantIsolationTables],
-            globalTables: [...tenantIsolationGlobalTables],
+            tables: [...isolationTables],
+            sharedTables: [...isolationSharedTables],
             field: resolvedField,
             indexName: resolvedIndexName,
-            source: tenantIsolationSource,
+            source: isolationSource,
           }
         : null,
-    destructiveSafety,
+    destructiveOperations,
     schemaTables,
   }
 
@@ -476,9 +476,9 @@ export function collectProjectSourceFiles(rootDir: string): Array<{ path: string
 }
 
 export function resolveAnalyzerTenantOverride(
-  settings: { tenantIsolation?: unknown } | undefined,
-): AnalyzerTenantIsolationOverride | undefined {
-  const raw = settings?.tenantIsolation
+  settings: { isolation?: unknown } | undefined,
+): AnalyzerIsolationOverride | undefined {
+  const raw = settings?.isolation
   if (!raw || typeof raw !== 'object') return undefined
 
   const record = raw as Record<string, unknown>
@@ -486,8 +486,8 @@ export function resolveAnalyzerTenantOverride(
     tables: Array.isArray(record.tables)
       ? record.tables.filter((value): value is string => typeof value === 'string')
       : undefined,
-    globalTables: Array.isArray(record.globalTables)
-      ? record.globalTables.filter((value): value is string => typeof value === 'string')
+    sharedTables: Array.isArray(record.sharedTables)
+      ? record.sharedTables.filter((value): value is string => typeof value === 'string')
       : undefined,
     field: typeof record.field === 'string' ? record.field : undefined,
     indexName: typeof record.indexName === 'string' ? record.indexName : undefined,

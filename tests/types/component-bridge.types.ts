@@ -1,5 +1,5 @@
 import { createComponentBridge } from '@lupinum/trellis-bridge/component'
-import { definePrincipal } from '@lupinum/trellis/backend'
+import { defineCaller } from '@lupinum/trellis/backend'
 import type {
   ActionBuilder,
   FunctionReference,
@@ -17,7 +17,7 @@ type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
 type DataModel = GenericDataModel
-type Principal = { kind: 'service'; service: string }
+type Caller = { kind: 'service'; service: string }
 
 const builders = {
   query: (() => null as never) as QueryBuilder<DataModel, 'public'>,
@@ -28,9 +28,9 @@ const builders = {
   internalAction: (() => null as never) as ActionBuilder<DataModel, 'internal'>,
 }
 
-const principal = definePrincipal({
+const caller = defineCaller({
   validator: v.object({ kind: v.literal('service'), service: v.string() }),
-  resolve: async (): Promise<Principal> => ({ kind: 'service', service: 'mcp' }),
+  resolve: async (): Promise<Caller> => ({ kind: 'service', service: 'mcp' }),
 })
 
 const bridge = createComponentBridge<
@@ -41,48 +41,48 @@ const bridge = createComponentBridge<
   'internal',
   'public',
   'internal',
-  Principal
->(builders, { principal })
+  Caller
+>(builders, { caller })
 
 const queryRef = {} as FunctionReference<
   'query',
   'internal',
-  { slug: string; principal: Principal },
+  { slug: string; caller: Caller },
   { ok: true }
 >
 
 const publicQueryRef = {} as FunctionReference<
   'query',
   'public',
-  { slug: string; principal: Principal },
+  { slug: string; caller: Caller },
   { slug: string }
 >
 
 const mutationRef = {} as FunctionReference<
   'mutation',
   'internal',
-  { id: string; principal: Principal },
+  { id: string; caller: Caller },
   { ok: true }
 >
 
 const publicMutationRef = {} as FunctionReference<
   'mutation',
   'public',
-  { id: string; principal: Principal },
+  { id: string; caller: Caller },
   { id: string }
 >
 
 const actionRef = {} as FunctionReference<
   'action',
   'internal',
-  { id: string; principal: Principal },
+  { id: string; caller: Caller },
   { ok: true }
 >
 
 const publicActionRef = {} as FunctionReference<
   'action',
   'public',
-  { id: string; principal: Principal },
+  { id: string; caller: Caller },
   { id: string }
 >
 

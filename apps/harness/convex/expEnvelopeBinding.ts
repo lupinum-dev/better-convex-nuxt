@@ -27,7 +27,7 @@ function deriveKey(purpose: string): Uint8Array {
 async function signEnvelope(args: {
   purpose: string
   callee: string
-  principal: unknown
+  caller: unknown
   ttlSeconds?: number
 }): Promise<string> {
   const key = deriveKey(args.purpose)
@@ -35,7 +35,7 @@ async function signEnvelope(args: {
     v: 1,
     aud: args.purpose,
     callee: args.callee,
-    principal: args.principal,
+    caller: args.caller,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -47,7 +47,7 @@ async function verifyEnvelope(args: {
   token: string
   expectedPurpose: string
   expectedCallee: string
-}): Promise<{ principal: unknown }> {
+}): Promise<{ caller: unknown }> {
   const key = deriveKey(args.expectedPurpose)
   const { payload } = await jwtVerify(args.token, key, {
     audience: args.expectedPurpose,
@@ -58,7 +58,7 @@ async function verifyEnvelope(args: {
         `expected "${args.expectedCallee}"`,
     )
   }
-  return { principal: payload.principal }
+  return { caller: payload.caller }
 }
 
 /**
@@ -80,14 +80,14 @@ export const testValidEnvelope = internalMutation({
     signed: v.boolean(),
     verified: v.boolean(),
     callee: v.string(),
-    principal: v.any(),
+    caller: v.any(),
   }),
   handler: async () => {
     const callee = calleeString('posts', 'deletePost')
     const token = await signEnvelope({
       purpose: 'trellis:mcp-forwarded:v1',
       callee,
-      principal: { kind: 'mcp', mcpKeyId: 'k1', userId: 'u1' },
+      caller: { kind: 'mcp', mcpKeyId: 'k1', userId: 'u1' },
     })
     const result = await verifyEnvelope({
       token,
@@ -98,7 +98,7 @@ export const testValidEnvelope = internalMutation({
       signed: token.length > 0,
       verified: true,
       callee,
-      principal: result.principal,
+      caller: result.caller,
     }
   },
 })
@@ -112,7 +112,7 @@ export const testCalleeMismatch = internalMutation({
     const token = await signEnvelope({
       purpose: 'trellis:mcp-forwarded:v1',
       callee: 'posts:deletePost',
-      principal: { kind: 'user', userId: 'u1' },
+      caller: { kind: 'user', userId: 'u1' },
     })
     try {
       await verifyEnvelope({
@@ -136,13 +136,13 @@ export const testPurposeMismatch = internalMutation({
     const token = await signEnvelope({
       purpose: 'trellis:mcp-forwarded:v1',
       callee: 'posts:deletePost',
-      principal: { kind: 'user', userId: 'u1' },
+      caller: { kind: 'user', userId: 'u1' },
     })
     try {
-      // Try to verify as a component-principal envelope instead
+      // Try to verify as a component-caller envelope instead
       await verifyEnvelope({
         token,
-        expectedPurpose: 'trellis:component-principal:v1',
+        expectedPurpose: 'trellis:component-caller:v1',
         expectedCallee: 'posts:deletePost',
       })
       return { rejected: false }

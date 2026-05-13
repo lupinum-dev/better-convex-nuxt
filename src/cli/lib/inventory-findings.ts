@@ -70,45 +70,45 @@ function createAppInventoryFinding(inventory: TrellisCliInventory): DoctorFindin
   }
 }
 
-function createTrustedForwardingPublicExposureFinding(
+function createIdentityForwardingPublicExposureFinding(
   inventory: TrellisCliInventory,
 ): DoctorFinding {
   const locations = inventory.forwarding.publicExposures
 
   return {
-    id: 'trusted-forwarding-key-public-exposure',
+    id: 'identity-forwarding-key-public-exposure',
     category: 'advanced',
-    title: 'Trusted forwarding public exposure',
+    title: 'Identity forwarding public exposure',
     status: locations.length > 0 ? 'fail' : 'pass',
     message:
       locations.length > 0
-        ? `Found trusted-forwarding key exposure in public-facing code or env sources at ${formatInventoryLocations(locations)}.`
-        : 'No obvious trusted-forwarding key exposure paths were found in public-facing code or env sources.',
+        ? `Found identity-forwarding key exposure in public-facing code or env sources at ${formatInventoryLocations(locations)}.`
+        : 'No obvious identity-forwarding key exposure paths were found in public-facing code or env sources.',
     fixHint:
       locations.length > 0
-        ? 'Keep CONVEX_TRUSTED_FORWARDING_KEY server-only. Remove any NUXT_PUBLIC exposure or public runtime-config mapping.'
-        : 'Keep the trusted-forwarding key confined to server-only env and runtime paths.',
+        ? 'Keep CONVEX_IDENTITY_FORWARDING_KEY server-only. Remove any NUXT_PUBLIC exposure or public runtime-config mapping.'
+        : 'Keep the identity-forwarding key confined to server-only env and runtime paths.',
     sources: [findingInventorySource('forwarding.publicExposures', locations)],
   }
 }
 
-function createForwardedPrincipalFinding(inventory: TrellisCliInventory): DoctorFinding {
-  const locations = inventory.forwarding.forwardedPrincipalMisuses
+function createForwardedCallerFinding(inventory: TrellisCliInventory): DoctorFinding {
+  const locations = inventory.forwarding.forwardedCallerMisuses
 
   return {
-    id: 'forwarded-principal-trusted-path',
+    id: 'forwarded-caller-trusted-path',
     category: 'advanced',
-    title: 'Forwarded principal path',
+    title: 'Forwarded caller path',
     status: locations.length > 0 ? 'fail' : 'pass',
     message:
       locations.length > 0
-        ? `Found forwarded \`principal\` options outside an \`auth: 'trusted'\` call in ${formatInventoryLocations(locations)}.`
-        : 'No forwarded principals were found outside verified trusted-forwarding calls.',
+        ? `Found forwarded \`caller\` options outside an \`auth: 'trusted'\` call in ${formatInventoryLocations(locations)}.`
+        : 'No forwarded principals were found outside verified identity-forwarding calls.',
     fixHint:
       locations.length > 0
-        ? "Only pass `principal` on verified server calls that also set `auth: 'trusted'`."
-        : 'Keep forwarded principals confined to verified trusted-forwarding lanes.',
-    sources: [findingInventorySource('forwarding.forwardedPrincipalMisuses', locations)],
+        ? "Only pass `caller` on verified server calls that also set `auth: 'trusted'`."
+        : 'Keep forwarded principals confined to verified identity-forwarding lanes.',
+    sources: [findingInventorySource('forwarding.forwardedCallerMisuses', locations)],
   }
 }
 
@@ -137,18 +137,18 @@ function createCrossTenantEscapeFinding(inventory: TrellisCliInventory): DoctorF
   const locations = inventory.backend.crossTenantEscapes
 
   return {
-    id: 'cross-tenant-escape-inventory',
+    id: 'cross-scope-escape-inventory',
     category: 'advanced',
-    title: 'Cross-tenant escape inventory',
+    title: 'Cross-scope escape inventory',
     status: 'pass',
     message:
       locations.length === 0
-        ? 'No `ctx.db.escapeTenantIsolation(...)` sites were detected.'
-        : `Found ${locations.length} tenant-isolation escape${locations.length === 1 ? '' : 's'} in ${formatInventoryLocations(locations)}.`,
+        ? 'No `ctx.db.escapeIsolation(...)` sites were detected.'
+        : `Found ${locations.length} isolation escape${locations.length === 1 ? '' : 's'} in ${formatInventoryLocations(locations)}.`,
     fixHint:
       locations.length === 0
-        ? 'No action needed unless the app adds cross-tenant workflows later.'
-        : 'Review each tenant-isolation escape and keep the reason, caller boundary, and data scope explicit.',
+        ? 'No action needed unless the app adds cross-scope workflows later.'
+        : 'Review each isolation escape and keep the reason, caller boundary, and data scope explicit.',
     sources: [findingInventorySource('backend.crossTenantEscapes', locations)],
   }
 }
@@ -377,8 +377,8 @@ function createMcpCustomAppWriteBypassFinding(inventory: TrellisCliInventory): D
 export function collectInventoryDoctorFindings(inventory: TrellisCliInventory): DoctorFinding[] {
   return [
     createAppInventoryFinding(inventory),
-    createTrustedForwardingPublicExposureFinding(inventory),
-    createForwardedPrincipalFinding(inventory),
+    createIdentityForwardingPublicExposureFinding(inventory),
+    createForwardedCallerFinding(inventory),
     createUnsafeSurfaceFinding(inventory),
     createCrossTenantEscapeFinding(inventory),
     createDestructiveOperationFinding(inventory),

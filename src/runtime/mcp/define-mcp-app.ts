@@ -18,7 +18,7 @@ import {
 } from '../convex/shared/convex-shared.js'
 import { defineArgs } from '../convex/shared/define-convex-schema.js'
 import { hashConfirmationValue } from '../functions/confirmation-token.js'
-import type { Delegation } from '../functions/define-delegation.js'
+import type { ActingFor } from '../functions/define-acting-for.js'
 import {
   isOperationPreviewEnvelope,
   getOperationMetadata,
@@ -27,6 +27,7 @@ import {
   type OperationPreviewEnvelope,
   type OperationProjectionRef,
 } from '../functions/define-operation.js'
+import type { IdentityForwardingPurpose } from '../identity-forwarding/envelope.js'
 import {
   getEventObservationState,
   sanitizeCorrelationId,
@@ -38,7 +39,6 @@ import {
   type TrellisObservabilityOptions,
 } from '../observability/index.js'
 import { createObservationSummary, type ObservationSummary } from '../observability/summary.js'
-import type { TrustedForwardingPurpose } from '../trusted-forwarding/envelope.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import type { ConvexErrorCategory, ConvexToolOperation } from '../utils/types.js'
 import { defineToolInternal as defineTool } from './define-convex-tool.js'
@@ -75,7 +75,7 @@ import type {
 type MaybePromise<T> = T | Promise<T>
 
 export type {
-  McpConfirmationRedemptionInput,
+  McpConfirmationConfirmationInput,
   McpConfirmationStore,
 } from './destructive-confirmation.js'
 
@@ -102,23 +102,23 @@ export interface McpConvexCaller {
 }
 
 export type McpConvexCallOptions = {
-  trustedForwardingEnvelope?: {
-    purpose?: TrustedForwardingPurpose
+  identityForwardingEnvelope?: {
+    purpose?: IdentityForwardingPurpose
     jti?: string
   }
 }
 
-type ProjectionCapabilitySnapshot = Record<string, boolean>
+type ProjectionAccessSnapshot = Record<string, boolean>
 
 // Architecture: this file wires MCP app execution. Error parsing, destructive
 // confirmation, and result envelope semantics live in focused MCP runtime
 // modules so app orchestration does not become a second source of truth.
 
-type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilities, TRuntime> = {
+type ProjectionRuntimeCtx<TCaller, TActingFor extends ActingFor, TAccess, TRuntime> = {
   event: H3Event
-  principal: TPrincipal
-  delegation: TDelegation | null
-  capabilities: TCapabilities
+  caller: TCaller
+  actingFor: TActingFor | null
+  recordAccess: TAccess
   runtime: TRuntime
   convex: McpConvexCaller
   observe: ReturnType<typeof createObservationEmitter>['emit']
@@ -128,39 +128,39 @@ type ProjectionRuntimeCtx<TPrincipal, TDelegation extends Delegation, TCapabilit
 }
 
 export interface DefineMcpAppOptions<
-  TPrincipal,
-  TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
-  TDelegation extends Delegation = Delegation,
+  TCaller,
+  TAccess extends ProjectionAccessSnapshot | null = ProjectionAccessSnapshot | null,
+  TActingFor extends ActingFor = ActingFor,
   TRuntime = Record<string, never>,
 > {
   callConvex: (
     event: H3Event,
-    caller: { principal: TPrincipal; delegation: TDelegation | null },
+    caller: { caller: TCaller; actingFor: TActingFor | null },
   ) => MaybePromise<McpConvexCaller>
-  resolvePrincipal: (event: H3Event) => MaybePromise<TPrincipal>
-  resolveDelegation?: (ctx: {
+  resolveCaller: (event: H3Event) => MaybePromise<TCaller>
+  resolveActingFor?: (ctx: {
     event: H3Event
-    principal: TPrincipal
+    caller: TCaller
     convex: McpConvexCaller
-  }) => MaybePromise<TDelegation | null>
-  resolveCapabilities?: (ctx: {
+  }) => MaybePromise<TActingFor | null>
+  resolveAccess?: (ctx: {
     event: H3Event
-    principal: TPrincipal
-    delegation: TDelegation | null
+    caller: TCaller
+    actingFor: TActingFor | null
     convex: McpConvexCaller
-  }) => MaybePromise<TCapabilities>
+  }) => MaybePromise<TAccess>
   runtime?: (ctx: {
     event: H3Event
-    principal: TPrincipal
-    delegation: TDelegation | null
-    capabilities: TCapabilities
+    caller: TCaller
+    actingFor: TActingFor | null
+    recordAccess: TAccess
     convex: McpConvexCaller
   }) => MaybePromise<TRuntime>
-  principalKey?: (principal: TPrincipal) => string
-  tenantKey?: (ctx: {
-    principal: TPrincipal
-    delegation: TDelegation | null
-    capabilities: TCapabilities
+  callerKey?: (caller: TCaller) => string
+  scopeKey?: (ctx: {
+    caller: TCaller
+    actingFor: TActingFor | null
+    recordAccess: TAccess
     runtime: TRuntime
     args: Record<string, unknown>
   }) => MaybePromise<string>
@@ -170,11 +170,11 @@ export interface DefineMcpAppOptions<
   observability?: TrellisObservabilityOptions
 }
 
-type CapabilityKey<TCapabilities> =
-  TCapabilities extends Record<string, boolean>
-    ? string extends keyof TCapabilities
+type AccessKey<TAccess> =
+  TAccess extends Record<string, boolean>
+    ? string extends keyof TAccess
       ? RegisteredPermissionKey
-      : keyof TCapabilities & string
+      : keyof TAccess & string
     : RegisteredPermissionKey
 
 type ProjectToolMeta = {
@@ -206,9 +206,9 @@ function assertNamedRateLimitedTool(toolName: string | undefined, rateLimit: unk
 
 export interface ToolOptions<
   S extends AnyConvexSchema,
-  TPrincipal,
-  TDelegation extends Delegation,
-  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TCaller,
+  TActingFor extends ActingFor,
+  TAccess extends ProjectionAccessSnapshot | null,
   TRuntime,
   TCall extends AnyFunctionRef = AnyMutationRef,
   _TPreview extends AnyFunctionRef | undefined = undefined,
@@ -218,9 +218,9 @@ export interface ToolOptions<
   preview?: never
   previewOperation?: never
   previewResult?: never
-  permission?: PermissionKeyHandle<CapabilityKey<TCapabilities>>
+  permission?: PermissionKeyHandle<AccessKey<TAccess>>
   enabled?: (
-    ctx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
+    ctx: ProjectionRuntimeCtx<TCaller, TActingFor, TAccess, TRuntime>,
   ) => MaybePromise<boolean>
   meta?: ProjectToolMeta
   safety?: TrellisMcpToolSafety
@@ -234,22 +234,22 @@ export interface ToolOptions<
   mapResult?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
     result: FunctionLikeReturnType<TCall>
-    principal: TPrincipal
-    capabilities: TCapabilities
+    caller: TCaller
+    recordAccess: TAccess
     runtime: TRuntime
   }) => unknown
   summary?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
     result: FunctionLikeReturnType<TCall>
-    principal: TPrincipal
-    capabilities: TCapabilities
+    caller: TCaller
+    recordAccess: TAccess
     runtime: TRuntime
   }) => string | undefined
   respond?: (ctx: {
     args: import('./types.js').InferSchemaData<S>
     result: FunctionLikeReturnType<TCall>
-    principal: TPrincipal
-    capabilities: TCapabilities
+    caller: TCaller
+    recordAccess: TAccess
     runtime: TRuntime
     ok: (data: unknown, summary?: string) => unknown
     error: (
@@ -298,22 +298,14 @@ export type McpDestructiveConfirmationMode = 'backend' | 'transport'
 
 export interface ToolOperationOptions<
   TOperation extends AnyOperationDefinition,
-  TPrincipal,
-  TDelegation extends Delegation,
-  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TCaller,
+  TActingFor extends ActingFor,
+  TAccess extends ProjectionAccessSnapshot | null,
   TRuntime,
   TExecute extends AnyFunctionRef = AnyMutationRef,
   TPreview extends AnyFunctionRef | undefined = undefined,
 > extends Omit<
-  ToolOptions<
-    AnyConvexSchema,
-    TPrincipal,
-    TDelegation,
-    TCapabilities,
-    TRuntime,
-    TExecute,
-    TPreview
-  >,
+  ToolOptions<AnyConvexSchema, TCaller, TActingFor, TAccess, TRuntime, TExecute, TPreview>,
   'schema' | 'call' | 'preview' | 'operation' | 'previewOperation' | 'previewResult' | 'maxItems'
 > {
   execute: ExecuteProjectionRef<TOperation, TExecute>
@@ -323,16 +315,16 @@ export interface ToolOperationOptions<
   previewResult?: (ctx: {
     args: import('./types.js').InferSchemaData<AnyConvexSchema>
     result: TPreview extends AnyFunctionRef ? FunctionLikeReturnType<TPreview> : unknown
-    principal: TPrincipal
-    capabilities: TCapabilities
+    caller: TCaller
+    recordAccess: TAccess
     runtime: TRuntime
   }) => OperationPreviewEnvelope
   confirmationMode?: McpDestructiveConfirmationMode
   confirmationStore?: McpConfirmationStore
-  tenantKey?: (ctx: {
-    principal: TPrincipal
-    delegation: TDelegation | null
-    capabilities: TCapabilities
+  scopeKey?: (ctx: {
+    caller: TCaller
+    actingFor: TActingFor | null
+    recordAccess: TAccess
     runtime: TRuntime
     args: Record<string, unknown>
   }) => MaybePromise<string>
@@ -342,17 +334,17 @@ export interface ToolOperationOptions<
 
 export type ValidateMcpToolOptions<
   S extends AnyConvexSchema,
-  TPrincipal,
-  TDelegation extends Delegation,
-  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TCaller,
+  TActingFor extends ActingFor,
+  TAccess extends ProjectionAccessSnapshot | null,
   TRuntime,
   TOptions,
 > =
   TOptions extends ToolOptions<
     S,
-    TPrincipal,
-    TDelegation,
-    TCapabilities,
+    TCaller,
+    TActingFor,
+    TAccess,
     TRuntime,
     AnyFunctionRef,
     AnyFunctionRef | undefined
@@ -361,16 +353,16 @@ export type ValidateMcpToolOptions<
     : never
 
 type ToolFactory<
-  TPrincipal,
-  TDelegation extends Delegation,
-  TCapabilities extends ProjectionCapabilitySnapshot | null,
+  TCaller,
+  TActingFor extends ActingFor,
+  TAccess extends ProjectionAccessSnapshot | null,
   TRuntime,
 > = {
   query: <S extends AnyConvexSchema, TCall extends AnyQueryRef = AnyQueryRef>(
-    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
+    tool: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ) => McpToolDefinition
   mutation: <S extends AnyConvexSchema, TCall extends AnyMutationRef = AnyMutationRef>(
-    tool: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
+    tool: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ) => McpToolDefinition
   operation: <
     TOperation extends AnyOperationDefinition,
@@ -380,9 +372,9 @@ type ToolFactory<
     operation: TOperation,
     options: ToolOperationOptions<
       TOperation,
-      TPrincipal,
-      TDelegation,
-      TCapabilities,
+      TCaller,
+      TActingFor,
+      TAccess,
       TRuntime,
       TExecute,
       TPreview
@@ -390,20 +382,16 @@ type ToolFactory<
   ) => McpToolDefinition
 }
 
-function defaultPrincipalKey(principal: unknown): string {
-  if (principal === null || principal === undefined) return 'anonymous'
-  if (
-    typeof principal === 'string' ||
-    typeof principal === 'number' ||
-    typeof principal === 'boolean'
-  ) {
-    return String(principal)
+function defaultCallerKey(caller: unknown): string {
+  if (caller === null || caller === undefined) return 'anonymous'
+  if (typeof caller === 'string' || typeof caller === 'number' || typeof caller === 'boolean') {
+    return String(caller)
   }
 
   try {
-    return JSON.stringify(principal)
+    return JSON.stringify(caller)
   } catch {
-    return 'principal'
+    return 'caller'
   }
 }
 
@@ -436,22 +424,17 @@ function toMcpPreviewResult(input: {
   }
 }
 
-function permissionAllows<TCapabilities extends ProjectionCapabilitySnapshot | null>(
-  capabilities: TCapabilities,
+function accessAllows<TAccess extends ProjectionAccessSnapshot | null>(
+  recordAccess: TAccess,
   permission: PermissionKeyHandle<string> | undefined,
 ): boolean {
   if (!permission) return true
-  if (!capabilities) return false
-  return capabilities[resolvePermissionKey(permission)] === true
+  if (!recordAccess) return false
+  return recordAccess[resolvePermissionKey(permission)] === true
 }
 
-async function observeCapabilityBackendDrift<
-  TPrincipal,
-  TDelegation extends Delegation,
-  TCapabilities,
-  TRuntime,
->(
-  projectionCtx: ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>,
+async function observeAccessBackendDrift<TCaller, TActingFor extends ActingFor, TAccess, TRuntime>(
+  projectionCtx: ProjectionRuntimeCtx<TCaller, TActingFor, TAccess, TRuntime>,
   input: {
     tool: string
     operation?: string
@@ -460,10 +443,10 @@ async function observeCapabilityBackendDrift<
   },
 ): Promise<void> {
   const explanation = createDenialExplanation({
-    reasonCode: 'tool.capability_backend_drift',
+    reasonCode: 'tool.recordAccess_backend_drift',
     decision: 'authorize',
-    message: 'MCP capability projection allowed this tool, but backend authorization denied it.',
-    suggestedAction: 'grant_capability',
+    message: 'MCP recordAccess projection allowed this tool, but backend authorization denied it.',
+    suggestedAction: 'grant_recordAccess',
   })
   await projectionCtx.observe({
     name: 'tool.denied',
@@ -471,7 +454,7 @@ async function observeCapabilityBackendDrift<
     transport: 'mcp',
     tool: input.tool,
     ...(input.operation ? { operation: input.operation } : {}),
-    reasonCode: 'tool.capability_backend_drift',
+    reasonCode: 'tool.recordAccess_backend_drift',
     details: {
       explanation,
       category: 'auth',
@@ -513,9 +496,9 @@ function assertDirectToolSafety(
   }
 }
 
-function withProjectionCalls<TRole extends string, TPrincipal, TDelegation extends Delegation>(
+function withProjectionCalls<TRole extends string, TCaller, TActingFor extends ActingFor>(
   ctx: ConvexToolHandlerCtx<TRole>,
-  projectionCtx: ProjectionRuntimeCtx<TPrincipal, TDelegation, unknown, unknown>,
+  projectionCtx: ProjectionRuntimeCtx<TCaller, TActingFor, unknown, unknown>,
 ): ConvexToolHandlerCtx<TRole> {
   return {
     ...ctx,
@@ -557,28 +540,28 @@ async function callByOperation<TRef extends AnyFunctionRef>(
  * Build the Trellis MCP app surface over protected Convex refs.
  *
  * This is the canonical agent-facing Trellis API. It keeps MCP as a transport
- * over the same principal-first business runtime used by the rest of the app.
+ * over the same caller-first business runtime used by the rest of the app.
  */
 export function defineMcpApp<
-  TPrincipal,
-  TCapabilities extends ProjectionCapabilitySnapshot | null = ProjectionCapabilitySnapshot | null,
-  TDelegation extends Delegation = Delegation,
+  TCaller,
+  TAccess extends ProjectionAccessSnapshot | null = ProjectionAccessSnapshot | null,
+  TActingFor extends ActingFor = ActingFor,
   TRuntime = Record<string, never>,
->(options: DefineMcpAppOptions<TPrincipal, TCapabilities, TDelegation, TRuntime>) {
-  const principalKeyResolver = options.principalKey ?? defaultPrincipalKey
-  const appTenantKeyResolver = options.tenantKey
+>(options: DefineMcpAppOptions<TCaller, TAccess, TActingFor, TRuntime>) {
+  const callerKeyResolver = options.callerKey ?? defaultCallerKey
+  const appTenantKeyResolver = options.scopeKey
   const appRateLimitStore = options.rateLimitStore
   const appConfirmationStore = options.confirmationStore
   const confirmationStore = appConfirmationStore ?? createMemoryConfirmationStore()
   const confirmationTtlMs = options.confirmationTtlMs ?? DEFAULT_MCP_CONFIRMATION_TTL_MS
   const requestCache = new WeakMap<
     H3Event,
-    Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>>
+    Promise<ProjectionRuntimeCtx<TCaller, TActingFor, TAccess, TRuntime>>
   >()
 
   const resolve = async (
     event: H3Event,
-  ): Promise<ProjectionRuntimeCtx<TPrincipal, TDelegation, TCapabilities, TRuntime>> => {
+  ): Promise<ProjectionRuntimeCtx<TCaller, TActingFor, TAccess, TRuntime>> => {
     let cached = requestCache.get(event)
     if (!cached) {
       cached = (async () => {
@@ -616,45 +599,45 @@ export function defineMcpApp<
             path: event.path || '(mcp)',
           },
         })
-        const principal = await options.resolvePrincipal(event)
+        const caller = await options.resolveCaller(event)
         const preDelegationConvex = await options.callConvex(event, {
-          principal,
-          delegation: null,
+          caller,
+          actingFor: null,
         })
-        const delegation = options.resolveDelegation
-          ? await options.resolveDelegation({
+        const actingFor = options.resolveActingFor
+          ? await options.resolveActingFor({
               event,
-              principal,
+              caller,
               convex: preDelegationConvex,
             })
           : null
         const convex = await options.callConvex(event, {
-          principal,
-          delegation,
+          caller,
+          actingFor,
         })
-        const capabilities = options.resolveCapabilities
-          ? await options.resolveCapabilities({
+        const recordAccess = options.resolveAccess
+          ? await options.resolveAccess({
               event,
-              principal,
-              delegation,
+              caller,
+              actingFor,
               convex,
             })
-          : (null as TCapabilities)
+          : (null as TAccess)
         const runtime = options.runtime
           ? await options.runtime({
               event,
-              principal,
-              delegation,
-              capabilities,
+              caller,
+              actingFor,
+              recordAccess,
               convex,
             })
           : ({} as TRuntime)
 
         return {
           event,
-          principal,
-          delegation,
-          capabilities,
+          caller,
+          actingFor,
+          recordAccess,
           runtime,
           convex,
           observe: observability.emit,
@@ -671,7 +654,7 @@ export function defineMcpApp<
 
   const createDirectTool = <S extends AnyConvexSchema, TCall extends AnyFunctionRef>(
     operation: 'query' | 'mutation',
-    definition: ToolOptions<S, TPrincipal, TDelegation, TCapabilities, TRuntime, TCall>,
+    definition: ToolOptions<S, TCaller, TActingFor, TAccess, TRuntime, TCall>,
   ): McpToolDefinition => {
     if (definition.meta?.destructive || definition.preview) {
       throw new Error(
@@ -696,7 +679,7 @@ export function defineMcpApp<
               const projectionCtx = await resolve(ctx.event)
               const bucket = [
                 toolName,
-                (options.principalKey ?? defaultPrincipalKey)(projectionCtx.principal),
+                (options.callerKey ?? defaultCallerKey)(projectionCtx.caller),
               ].join(':')
 
               const check = await checkToolRateLimit(
@@ -741,19 +724,19 @@ export function defineMcpApp<
       enabled: async (event) => {
         const ctx = await resolve(event)
 
-        if (!permissionAllows(ctx.capabilities, definition.permission)) {
+        if (!accessAllows(ctx.recordAccess, definition.permission)) {
           await ctx.observe({
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
             tool: definition.meta?.name ?? 'project-tool',
-            reasonCode: 'tool.capability_denied',
+            reasonCode: 'tool.recordAccess_denied',
             details: {
               explanation: createDenialExplanation({
-                reasonCode: 'tool.capability_denied',
+                reasonCode: 'tool.recordAccess_denied',
                 decision: 'tool',
                 message: 'Caller does not have the permission required for this tool.',
-                suggestedAction: 'grant_capability',
+                suggestedAction: 'grant_recordAccess',
               }),
             },
           })
@@ -781,19 +764,19 @@ export function defineMcpApp<
       },
       handler: async (args, ctx) => {
         const projectionCtx = await resolve(ctx.event)
-        if (!permissionAllows(projectionCtx.capabilities, definition.permission)) {
+        if (!accessAllows(projectionCtx.recordAccess, definition.permission)) {
           const explanation = createDenialExplanation({
-            reasonCode: 'tool.capability_denied',
+            reasonCode: 'tool.recordAccess_denied',
             decision: 'tool',
             message: 'Caller does not have the permission required for this tool.',
-            suggestedAction: 'grant_capability',
+            suggestedAction: 'grant_recordAccess',
           })
           await projectionCtx.observe({
             name: 'tool.denied',
             status: 'deny',
             transport: 'mcp',
             tool: definition.meta?.name ?? 'project-tool',
-            reasonCode: 'tool.capability_denied',
+            reasonCode: 'tool.recordAccess_denied',
             details: { explanation },
           })
           return ctx.error(
@@ -840,7 +823,7 @@ export function defineMcpApp<
             operation,
             definition.call,
             Object.assign({}, args as Record<string, unknown>, {
-              principal: projectionCtx.principal,
+              caller: projectionCtx.caller,
             }) as FunctionLikeArgs<TCall>,
           )
 
@@ -848,8 +831,8 @@ export function defineMcpApp<
             const responded = definition.respond({
               args,
               result,
-              principal: projectionCtx.principal,
-              capabilities: projectionCtx.capabilities,
+              caller: projectionCtx.caller,
+              recordAccess: projectionCtx.recordAccess,
               runtime: projectionCtx.runtime,
               ok: (data, summary) => (summary ? ctx.ok(data as SerializableValue, summary) : data),
               error: (category, message, issues, explanation, details, code) =>
@@ -869,8 +852,8 @@ export function defineMcpApp<
             ? definition.mapResult({
                 args,
                 result,
-                principal: projectionCtx.principal,
-                capabilities: projectionCtx.capabilities,
+                caller: projectionCtx.caller,
+                recordAccess: projectionCtx.recordAccess,
                 runtime: projectionCtx.runtime,
               })
             : result
@@ -878,8 +861,8 @@ export function defineMcpApp<
           const summary = definition.summary?.({
             args,
             result,
-            principal: projectionCtx.principal,
-            capabilities: projectionCtx.capabilities,
+            caller: projectionCtx.caller,
+            recordAccess: projectionCtx.recordAccess,
             runtime: projectionCtx.runtime,
           })
 
@@ -899,7 +882,7 @@ export function defineMcpApp<
             ...(normalizedError.code ? { code: normalizedError.code } : {}),
           }
           if (normalizedError.category === 'auth') {
-            await observeCapabilityBackendDrift(projectionCtx, {
+            await observeAccessBackendDrift(projectionCtx, {
               tool: definition.meta?.name ?? 'project-tool',
               message: normalizedError.message,
               ...(normalizedError.code ? { code: normalizedError.code } : {}),
@@ -931,7 +914,7 @@ export function defineMcpApp<
     })
   }
 
-  const tool: ToolFactory<TPrincipal, TDelegation, TCapabilities, TRuntime> = {
+  const tool: ToolFactory<TCaller, TActingFor, TAccess, TRuntime> = {
     query: (definition) => createDirectTool('query', definition),
     mutation: (definition) => createDirectTool('mutation', definition),
     operation: <
@@ -942,9 +925,9 @@ export function defineMcpApp<
       operation: TOperation,
       options: ToolOperationOptions<
         TOperation,
-        TPrincipal,
-        TDelegation,
-        TCapabilities,
+        TCaller,
+        TActingFor,
+        TAccess,
         TRuntime,
         TExecute,
         TPreview
@@ -965,10 +948,10 @@ export function defineMcpApp<
           `tool.operation(${metadata.name ?? metadata.id}) requires a preview ref for destructive operations.`,
         )
       }
-      const tenantKeyResolver = options.tenantKey ?? appTenantKeyResolver
-      if (isDestructive && !tenantKeyResolver) {
+      const scopeKeyResolver = options.scopeKey ?? appTenantKeyResolver
+      if (isDestructive && !scopeKeyResolver) {
         throw new Error(
-          `tool.operation(${metadata.name ?? metadata.id}) requires an explicit tenantKey resolver for destructive confirmations. Use tenantKey: () => 'global' when no tenant applies.`,
+          `tool.operation(${metadata.name ?? metadata.id}) requires an explicit scopeKey resolver for destructive confirmations. Use scopeKey: () => 'global' when no tenant applies.`,
         )
       }
 
@@ -1026,7 +1009,7 @@ export function defineMcpApp<
                   const projectionCtx = await resolve(ctx.event)
                   const bucket = [
                     options.meta?.name ?? metadata.name ?? operationId,
-                    principalKeyResolver(projectionCtx.principal),
+                    callerKeyResolver(projectionCtx.caller),
                   ].join(':')
 
                   const check = await checkToolRateLimit(
@@ -1056,20 +1039,20 @@ export function defineMcpApp<
         enabled: async (event) => {
           const ctx = await resolve(event)
 
-          if (!permissionAllows(ctx.capabilities, toolPermission)) {
+          if (!accessAllows(ctx.recordAccess, toolPermission)) {
             await ctx.observe({
               name: 'tool.denied',
               status: 'deny',
               transport: 'mcp',
               tool: options.meta?.name ?? metadata.name ?? operationId,
               operation: operationId,
-              reasonCode: 'tool.capability_denied',
+              reasonCode: 'tool.recordAccess_denied',
               details: {
                 explanation: createDenialExplanation({
-                  reasonCode: 'tool.capability_denied',
+                  reasonCode: 'tool.recordAccess_denied',
                   decision: 'tool',
                   message: 'Caller does not have the permission required for this tool.',
-                  suggestedAction: 'grant_capability',
+                  suggestedAction: 'grant_recordAccess',
                 }),
               },
             })
@@ -1098,12 +1081,12 @@ export function defineMcpApp<
         },
         handler: async (rawArgs, ctx) => {
           const projectionCtx = await resolve(ctx.event)
-          if (!permissionAllows(projectionCtx.capabilities, toolPermission)) {
+          if (!accessAllows(projectionCtx.recordAccess, toolPermission)) {
             const explanation = createDenialExplanation({
-              reasonCode: 'tool.capability_denied',
+              reasonCode: 'tool.recordAccess_denied',
               decision: 'tool',
               message: 'Caller does not have the permission required for this tool.',
-              suggestedAction: 'grant_capability',
+              suggestedAction: 'grant_recordAccess',
             })
             await projectionCtx.observe({
               name: 'tool.denied',
@@ -1111,7 +1094,7 @@ export function defineMcpApp<
               transport: 'mcp',
               tool: options.meta?.name ?? metadata.name ?? operationId,
               operation: operationId,
-              reasonCode: 'tool.capability_denied',
+              reasonCode: 'tool.recordAccess_denied',
               details: { explanation },
             })
             return ctx.error(
@@ -1154,19 +1137,19 @@ export function defineMcpApp<
           )
           const executePath = getFunctionName(options.execute)
           const previewPath = options.preview ? getFunctionName(options.preview) : executePath
-          const principalKey = principalKeyResolver(projectionCtx.principal)
-          const tenantKey = tenantKeyResolver
-            ? await tenantKeyResolver({
-                principal: projectionCtx.principal,
-                delegation: projectionCtx.delegation,
-                capabilities: projectionCtx.capabilities,
+          const callerKey = callerKeyResolver(projectionCtx.caller)
+          const scopeKey = scopeKeyResolver
+            ? await scopeKeyResolver({
+                caller: projectionCtx.caller,
+                actingFor: projectionCtx.actingFor,
+                recordAccess: projectionCtx.recordAccess,
                 runtime: projectionCtx.runtime,
                 args: executeArgs,
               })
             : 'global'
-          if (isDestructive && tenantKey.trim().length === 0) {
+          if (isDestructive && scopeKey.trim().length === 0) {
             throw new Error(
-              `tool.operation(${metadata.name ?? metadata.id}) tenantKey resolver returned an empty tenant key.`,
+              `tool.operation(${metadata.name ?? metadata.id}) scopeKey resolver returned an empty tenant key.`,
             )
           }
           const argsHash = await hashConfirmationValue(executeArgs)
@@ -1175,8 +1158,8 @@ export function defineMcpApp<
             operationId,
             executePath,
             previewPath,
-            principalKey,
-            tenantKey,
+            callerKey,
+            scopeKey,
             argsHash,
             argsFieldHashes,
           }
@@ -1197,8 +1180,8 @@ export function defineMcpApp<
               return options.respond({
                 args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
                 result,
-                principal: projectionCtx.principal,
-                capabilities: projectionCtx.capabilities,
+                caller: projectionCtx.caller,
+                recordAccess: projectionCtx.recordAccess,
                 runtime: projectionCtx.runtime,
                 ok: (data, summary) =>
                   summary ? ctx.ok(data as SerializableValue, summary) : data,
@@ -1211,8 +1194,8 @@ export function defineMcpApp<
               ? options.mapResult({
                   args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
                   result,
-                  principal: projectionCtx.principal,
-                  capabilities: projectionCtx.capabilities,
+                  caller: projectionCtx.caller,
+                  recordAccess: projectionCtx.recordAccess,
                   runtime: projectionCtx.runtime,
                 })
               : result
@@ -1220,8 +1203,8 @@ export function defineMcpApp<
             const summary = options.summary?.({
               args: executeArgs as import('./types.js').InferSchemaData<AnyConvexSchema>,
               result,
-              principal: projectionCtx.principal,
-              capabilities: projectionCtx.capabilities,
+              caller: projectionCtx.caller,
+              recordAccess: projectionCtx.recordAccess,
               runtime: projectionCtx.runtime,
             })
 
@@ -1235,8 +1218,8 @@ export function defineMcpApp<
                 result: previewResult as TPreview extends AnyFunctionRef
                   ? FunctionLikeReturnType<TPreview>
                   : unknown,
-                principal: projectionCtx.principal,
-                capabilities: projectionCtx.capabilities,
+                caller: projectionCtx.caller,
+                recordAccess: projectionCtx.recordAccess,
                 runtime: projectionCtx.runtime,
               })
             }
@@ -1281,7 +1264,7 @@ export function defineMcpApp<
               ...(normalizedError.code ? { code: normalizedError.code } : {}),
             }
             if (normalizedError.category === 'auth') {
-              await observeCapabilityBackendDrift(projectionCtx, {
+              await observeAccessBackendDrift(projectionCtx, {
                 tool: options.meta?.name ?? metadata.name ?? operationId,
                 operation: operationId,
                 message: normalizedError.message,
@@ -1336,7 +1319,7 @@ export function defineMcpApp<
                     PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                   >,
                   {
-                    trustedForwardingEnvelope: {
+                    identityForwardingEnvelope: {
                       purpose: 'operation-preview',
                     },
                   },
@@ -1416,7 +1399,7 @@ export function defineMcpApp<
                   PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
                 >,
                 {
-                  trustedForwardingEnvelope: {
+                  identityForwardingEnvelope: {
                     purpose: 'operation-preview',
                   },
                 },
@@ -1448,17 +1431,17 @@ export function defineMcpApp<
             })
 
             if (confirmationMode === 'transport') {
-              const redemption = await toolConfirmationStore.redeem({
+              const confirmation = await toolConfirmationStore.redeem({
                 payload,
                 operationId,
-                principalKey,
-                tenantKey,
+                callerKey,
+                scopeKey,
                 argsHash,
                 previewHash,
                 executePath,
                 previewPath,
               })
-              if (redemption === 'replayed') {
+              if (confirmation === 'replayed') {
                 return await returnConfirmationFailure(replayedConfirmationFailure())
               }
             }
@@ -1476,7 +1459,7 @@ export function defineMcpApp<
               }) as FunctionLikeArgs<TExecute>,
               confirmationToken && isDestructive
                 ? {
-                    trustedForwardingEnvelope: {
+                    identityForwardingEnvelope: {
                       purpose: 'operation-execute',
                       ...(operationExecuteJti ? { jti: operationExecuteJti } : {}),
                     },

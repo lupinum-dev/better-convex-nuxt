@@ -10,11 +10,11 @@ export type {
   FeatureDefinition,
   FeatureManifest,
 } from '../feature/index.js'
-export { defineCapabilities, defineRedaction } from '../visibility/index.js'
+export { defineRecordAccess, defineRedaction } from '../visibility/index.js'
 export type {
-  Capabilities,
-  CapabilityMap,
-  CapabilityResolver,
+  RecordAccess,
+  RecordAccessMap,
+  RecordAccessResolver,
   Redaction,
   RedactionRule,
 } from '../visibility/index.js'

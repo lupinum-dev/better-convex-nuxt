@@ -13,8 +13,8 @@ import type {
   FunctionLikeArgs,
   FunctionLikeReturnType,
 } from '../convex/shared/convex-shared.js'
-import type { Delegation } from '../functions/define-delegation.js'
-import type { Subject } from '../functions/define-principal.js'
+import type { ActingFor } from '../functions/define-acting-for.js'
+import type { Subject } from '../functions/define-caller.js'
 
 export {
   serverConvexQuery,
@@ -22,8 +22,8 @@ export {
   serverConvexAction,
   type ServerConvexOptions,
 } from '../convex/server/convex.js'
-export { delegateToUser } from './delegation.js'
-export type { DelegateToUserOptions } from './delegation.js'
+export { delegateToUser } from './acting-for.js'
+export type { DelegateToUserOptions } from './acting-for.js'
 export {
   createWebhookHmacSignature,
   isSharedSecretWebhookSignatureValid,
@@ -37,12 +37,12 @@ export type {
   WebhookHmacVerificationOptions,
 } from './webhooks.js'
 
-type ForwardedPrincipalOptions = {
-  principal?: ({ subject: Subject } & Record<string, unknown>) | undefined
-  delegation?: Delegation
+type ForwardedCallerOptions = {
+  caller?: ({ subject: Subject } & Record<string, unknown>) | undefined
+  actingFor?: ActingFor
 } & ServerConvexOptions
 
-type ServerConvexCallOptions = Pick<ServerConvexOptions, 'trustedForwardingEnvelope'>
+type ServerConvexCallOptions = Pick<ServerConvexOptions, 'identityForwardingEnvelope'>
 
 /**
  * Server-side convenience wrapper over the `serverConvex*` helpers.
@@ -53,28 +53,28 @@ type ServerConvexCallOptions = Pick<ServerConvexOptions, 'trustedForwardingEnvel
  *
  * The returned helpers reuse the same auth surface as the per-call
  * `serverConvex*` helpers and default to `auth: 'auto'` unless overridden.
- * Forward an explicit principal into protected root refs when business
+ * Forward an explicit caller into protected root refs when business
  * authorization should run against app-owned identity instead of request auth.
  *
  * @example
  * ```ts
  * const convex = createServerConvexCaller(event)
- * const post = await convex.query(internal.posts.getForAutomation, { id, principal })
+ * const post = await convex.query(internal.posts.getForAutomation, { id, caller })
  * ```
  */
-export function createServerConvexCaller(event: H3Event, options?: ForwardedPrincipalOptions) {
+export function createServerConvexCaller(event: H3Event, options?: ForwardedCallerOptions) {
   const callOptions: ServerConvexOptions = {
     auth: options?.auth ?? 'auto',
     ...(options?.authToken ? { authToken: options.authToken } : {}),
-    ...(options?.principal ? { principal: options.principal } : {}),
-    ...(options?.delegation ? { delegation: options.delegation } : {}),
-    ...(options?.trustedForwardingKey
-      ? { trustedForwardingKey: options.trustedForwardingKey }
+    ...(options?.caller ? { caller: options.caller } : {}),
+    ...(options?.actingFor ? { actingFor: options.actingFor } : {}),
+    ...(options?.identityForwardingKey
+      ? { identityForwardingKey: options.identityForwardingKey }
       : {}),
   }
 
   if (
-    (options?.principal !== undefined || options?.delegation !== undefined) &&
+    (options?.caller !== undefined || options?.actingFor !== undefined) &&
     callOptions.auth !== 'trusted'
   ) {
     throw new Error(
@@ -82,8 +82,8 @@ export function createServerConvexCaller(event: H3Event, options?: ForwardedPrin
     )
   }
 
-  if (callOptions.auth === 'trusted' && options?.principal === undefined) {
-    throw new Error('createServerConvexCaller() requires `principal` on trusted forwarding calls.')
+  if (callOptions.auth === 'trusted' && options?.caller === undefined) {
+    throw new Error('createServerConvexCaller() requires `caller` on identity forwarding calls.')
   }
 
   return {

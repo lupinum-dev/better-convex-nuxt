@@ -125,7 +125,7 @@ describe('posts', () => {
       expect(post?.title).toBe('Test')
     })
 
-    it('surfaces a tenant isolation violation for posts in different orgs during development', async () => {
+    it('surfaces a isolation violation for posts in different orgs during development', async () => {
       const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
 
       // User 1 creates a post
@@ -135,7 +135,7 @@ describe('posts', () => {
       })
 
       await expect(asUser2.query(api.posts.get, { id: postId })).rejects.toThrow(
-        'Document belongs to a different tenant.',
+        'Document belongs to a different isolation scope.',
       )
     })
   })
@@ -192,7 +192,7 @@ describe('posts', () => {
           id: postId,
           title: 'Still hacked',
         }),
-      ).rejects.toThrow(/Actor:\s+\{"userId":"user_member"/)
+      ).rejects.toThrow(/AppIdentity:\s+\{"userId":"user_member"/)
 
       await expect(
         asMember.mutation(api.posts.update, {
@@ -254,7 +254,7 @@ describe('posts', () => {
           id: postId,
           title: 'Trying to update',
         }),
-      ).rejects.toThrow('Document belongs to a different tenant.')
+      ).rejects.toThrow('Document belongs to a different isolation scope.')
     })
 
     it('includes tenant mismatch details outside production', async () => {

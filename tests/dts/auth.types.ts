@@ -1,4 +1,4 @@
-import { definePermission, definePermissionContext } from '@lupinum/trellis/auth'
+import { definePermission, defineAccessContext } from '@lupinum/trellis/auth'
 import { expectTypeOf } from 'vitest'
 
 const readPermission = definePermission({
@@ -12,23 +12,23 @@ const publishPermission = definePermission({
   project: false,
 })
 
-const _permissionContext = definePermissionContext({
+const _accessContext = defineAccessContext({
   permissions: [readPermission, publishPermission] as const,
-  resolve: async (_ctx: { principal: { userId: string } }) => ({
+  resolve: async (_ctx: { caller: { userId: string } }) => ({
     userId: 'user_1',
-    tenantId: 'workspace_1',
+    workspaceId: 'workspace_1',
     role: 'owner' as const,
   }),
-  extend: (_ctx, actor) => ({
-    displayName: actor.userId,
+  extend: (_ctx, appIdentity) => ({
+    displayName: appIdentity.userId,
   }),
 })
 
-type PermissionContextResult = Awaited<ReturnType<typeof _permissionContext.handler>>
+type AccessContextResult = Awaited<ReturnType<typeof _accessContext.handler>>
 
-type ExpectedPermissionContext = {
+type ExpectedAccessContext = {
   userId: string | null
-  tenantId: string | null
+  workspaceId: string | null
   role: string | null
   can: {
     'task.read': boolean
@@ -36,5 +36,5 @@ type ExpectedPermissionContext = {
   displayName: string
 }
 
-expectTypeOf<PermissionContextResult>().toMatchTypeOf<ExpectedPermissionContext | null>()
-expectTypeOf<NonNullable<PermissionContextResult>>().toMatchTypeOf<ExpectedPermissionContext>()
+expectTypeOf<AccessContextResult>().toMatchTypeOf<ExpectedAccessContext | null>()
+expectTypeOf<NonNullable<AccessContextResult>>().toMatchTypeOf<ExpectedAccessContext>()

@@ -11,9 +11,9 @@ import type { ZodRawShape, ZodTypeAny } from 'zod'
 
 import { subject, type Subject } from '../auth/index.js'
 import type { SchemaFieldMeta } from '../convex/shared/define-convex-schema.js'
-import type { Delegation } from '../functions/define-delegation.js'
+import type { ActingFor } from '../functions/define-acting-for.js'
+import { extractSubject } from '../identity-forwarding/shared.js'
 import { createServerConvexCaller } from '../server/index.js'
-import { extractSubject } from '../trusted-forwarding/shared.js'
 import type { ConvexToolOperation } from '../utils/types.js'
 import { convexToMcpZodFields } from './convex-to-mcp-zod.js'
 import { normalizeMcpError } from './error-normalization.js'
@@ -218,63 +218,63 @@ function resolveDefaultAuth<TRole extends string = string>(event: {
     | {
         role?: string
         userId?: string
-        tenantId?: string
+        workspaceId?: string
       }
     | undefined
   if (!auth?.role || !auth?.userId) return null
   return {
     role: auth.role as TRole,
     userId: auth.userId,
-    ...(auth.tenantId ? { tenantId: auth.tenantId } : {}),
+    ...(auth.workspaceId ? { workspaceId: auth.workspaceId } : {}),
   }
 }
 
 interface ToolAccessResolution<TRole extends string = string> {
-  actor: McpAuthIdentity<TRole> | null
+  appIdentity: McpAuthIdentity<TRole> | null
   deniedReason: string | null
 }
 
 interface ResolveToolAccessOptions<TRole extends string = string> {
   auth: DefineConvexToolOptions<AnyConvexSchema, TRole>['auth']
   scoped: boolean
-  check?: (actor: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
+  check?: (appIdentity: McpAuthIdentity<TRole>) => boolean | Promise<boolean>
   resolveAuth?: (
     event: H3Event,
   ) => McpAuthIdentity<TRole> | null | Promise<McpAuthIdentity<TRole> | null>
 }
 
-type TrustedToolPrincipal = { subject: Subject } & Record<string, unknown>
+type TrustedToolCaller = { subject: Subject } & Record<string, unknown>
 
-async function resolveToolPrincipal<TRole extends string = string>(
-  actor: McpAuthIdentity<TRole> | null,
-  resolvePrincipal?: (actor: McpAuthIdentity<TRole>) => unknown | Promise<unknown>,
+async function resolveToolCaller<TRole extends string = string>(
+  appIdentity: McpAuthIdentity<TRole> | null,
+  resolveCaller?: (appIdentity: McpAuthIdentity<TRole>) => unknown | Promise<unknown>,
 ): Promise<unknown> {
-  if (!actor) {
+  if (!appIdentity) {
     return undefined
   }
 
-  if (!resolvePrincipal) {
+  if (!resolveCaller) {
     return {
       kind: 'user',
-      userId: actor.userId,
-      subject: subject.user(actor.userId),
+      userId: appIdentity.userId,
+      subject: subject.user(appIdentity.userId),
     }
   }
 
-  return await resolvePrincipal(actor)
+  return await resolveCaller(appIdentity)
 }
 
-async function resolveToolDelegation<TRole extends string = string>(
-  actor: McpAuthIdentity<TRole> | null,
-  resolveDelegation?: (
-    actor: McpAuthIdentity<TRole>,
-  ) => Delegation | null | Promise<Delegation | null>,
-): Promise<Delegation | null> {
-  if (!actor || !resolveDelegation) {
+async function resolveToolActingFor<TRole extends string = string>(
+  appIdentity: McpAuthIdentity<TRole> | null,
+  resolveActingFor?: (
+    appIdentity: McpAuthIdentity<TRole>,
+  ) => ActingFor | null | Promise<ActingFor | null>,
+): Promise<ActingFor | null> {
+  if (!appIdentity || !resolveActingFor) {
     return null
   }
 
-  return await resolveDelegation(actor)
+  return await resolveActingFor(appIdentity)
 }
 
 async function resolveToolAccess<TRole extends string = string>(
@@ -283,65 +283,65 @@ async function resolveToolAccess<TRole extends string = string>(
 ): Promise<ToolAccessResolution<TRole>> {
   const { auth, scoped, check, resolveAuth } = options
 
-  let actor: McpAuthIdentity<TRole> | null = null
+  let appIdentity: McpAuthIdentity<TRole> | null = null
   if (auth !== 'none') {
-    actor = resolveAuth ? await resolveAuth(event) : resolveDefaultAuth(event)
+    appIdentity = resolveAuth ? await resolveAuth(event) : resolveDefaultAuth(event)
   }
 
-  if (auth === 'required' && !actor) {
-    return { actor, deniedReason: 'Authentication required.' }
+  if (auth === 'required' && !appIdentity) {
+    return { appIdentity, deniedReason: 'Authentication required.' }
   }
 
   if (scoped) {
-    if (!actor) {
+    if (!appIdentity) {
       return {
-        actor,
+        appIdentity,
         deniedReason: 'Authentication required for scoped tools.',
       }
     }
-    if (!actor.tenantId) {
+    if (!appIdentity.workspaceId) {
       return {
-        actor,
-        deniedReason: 'MCP token must include tenantId for scoped tools.',
+        appIdentity,
+        deniedReason: 'MCP token must include workspaceId for scoped tools.',
       }
     }
   }
 
   if (check) {
-    if (!actor) {
-      return { actor, deniedReason: 'Authentication required.' }
+    if (!appIdentity) {
+      return { appIdentity, deniedReason: 'Authentication required.' }
     }
-    const allowed = await check(actor)
+    const allowed = await check(appIdentity)
     if (!allowed) {
-      return { actor, deniedReason: 'Forbidden.' }
+      return { appIdentity, deniedReason: 'Forbidden.' }
     }
   }
 
-  return { actor, deniedReason: null }
+  return { appIdentity, deniedReason: null }
 }
 
 function createToolCallFns(
   event: H3Event,
-  actor: McpAuthIdentity | null,
-  principal: unknown,
-  delegation: Delegation | null,
+  appIdentity: McpAuthIdentity | null,
+  caller: unknown,
+  actingFor: ActingFor | null,
 ): ConvexToolCallFns {
   let convex: ReturnType<typeof createServerConvexCaller> | null = null
 
-  const requireTrustedPrincipal = (): TrustedToolPrincipal => {
-    if (!principal || typeof principal !== 'object') {
+  const requireTrustedCaller = (): TrustedToolCaller => {
+    if (!caller || typeof caller !== 'object') {
       throw new Error(
-        'defineTool: authenticated Convex calls require resolvePrincipal() to return an object with a canonical subject.',
+        'defineTool: authenticated Convex calls require resolveCaller() to return an object with a canonical subject.',
       )
     }
 
-    if (!extractSubject(principal)) {
+    if (!extractSubject(caller)) {
       throw new Error(
-        'defineTool: authenticated Convex calls require resolvePrincipal() to return a principal with a canonical subject.',
+        'defineTool: authenticated Convex calls require resolveCaller() to return a caller with a canonical subject.',
       )
     }
 
-    return principal as TrustedToolPrincipal
+    return caller as TrustedToolCaller
   }
 
   const getConvex = () => {
@@ -349,11 +349,11 @@ function createToolCallFns(
       return convex
     }
 
-    convex = actor
+    convex = appIdentity
       ? createServerConvexCaller(event, {
           auth: 'trusted',
-          principal: requireTrustedPrincipal(),
-          ...(delegation ? { delegation } : {}),
+          caller: requireTrustedCaller(),
+          ...(actingFor ? { actingFor } : {}),
         })
       : createServerConvexCaller(event, { auth: 'none' })
 
@@ -372,15 +372,15 @@ function createToolCallFns(
 
 function createToolContext<TRole extends string>(
   event: H3Event,
-  actor: McpAuthIdentity<TRole> | null,
-  principal: unknown,
-  delegation: Delegation | null,
+  appIdentity: McpAuthIdentity<TRole> | null,
+  caller: unknown,
+  actingFor: ActingFor | null,
 ): ConvexToolHandlerCtx<TRole> {
-  const calls = createToolCallFns(event, actor, principal, delegation)
+  const calls = createToolCallFns(event, appIdentity, caller, actingFor)
 
   return {
     event,
-    actor,
+    appIdentity,
     ...calls,
     ok: (data, summary) => wrapSuccess(summary ? withSummary(data, summary) : data),
     error: (category, message, issues, explanation, details, code) =>
@@ -433,8 +433,8 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
     cache,
     scoped = false,
     resolveAuth,
-    resolvePrincipal,
-    resolveDelegation,
+    resolveCaller,
+    resolveActingFor,
   } = options
 
   const toolLabel = name ? `defineTool:${name}` : 'defineTool'
@@ -529,16 +529,16 @@ function _buildToolDefinition<S extends AnyConvexSchema, TRole extends string = 
           return wrapError('auth', access.deniedReason)
         }
 
-        const resolvedAuth = access.actor
-        const resolvedPrincipal = await resolveToolPrincipal(
+        const resolvedAuth = access.appIdentity
+        const resolvedCaller = await resolveToolCaller(
           resolvedAuth,
-          resolvePrincipal ? (actor) => resolvePrincipal({ event, actor }) : undefined,
+          resolveCaller ? (appIdentity) => resolveCaller({ event, appIdentity }) : undefined,
         )
-        const resolvedDelegation = await resolveToolDelegation(
+        const resolvedActingFor = await resolveToolActingFor(
           resolvedAuth,
-          resolveDelegation ? (actor) => resolveDelegation({ event, actor }) : undefined,
+          resolveActingFor ? (appIdentity) => resolveActingFor({ event, appIdentity }) : undefined,
         )
-        const ctx = createToolContext(event, resolvedAuth, resolvedPrincipal, resolvedDelegation)
+        const ctx = createToolContext(event, resolvedAuth, resolvedCaller, resolvedActingFor)
 
         const normalizedArgs = normalizeToolArgs(args)
 

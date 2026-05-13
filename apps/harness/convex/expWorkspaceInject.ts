@@ -4,11 +4,11 @@ import { v } from 'convex/values'
 /**
  * Experiment 12: __workspaceId injection via customQuery input
  *
- * Spec §14.3: the actor resolver consumes a `__workspaceId` arg injected
+ * Spec §14.3: the appIdentity resolver consumes a `__workspaceId` arg injected
  * by the Nuxt module (from a cookie/header). That arg must:
  *   - be consumable in the `input` phase
  *   - be stripped before the handler sees args
- *   - allow the actor resolver to scope to the chosen workspace
+ *   - allow the appIdentity resolver to scope to the chosen workspace
  *
  * convex-helpers' customQuery `args` declaration is the mechanism. Any arg
  * declared in `args:` is consumed by the input callback and NOT forwarded.
@@ -17,12 +17,12 @@ import { v } from 'convex/values'
  *   12a  input consumes __workspaceId, handler args do not contain it
  *   12b  resolver uses __workspaceId to pick the correct workspace
  *   12c  omitting __workspaceId (optional) still resolves to a default
- *   12d  user not in the requested workspace → actor null → throw
+ *   12d  user not in the requested workspace → appIdentity null → throw
  */
 import { query as rawQuery } from './_generated/server'
 import type { QueryCtx } from './_generated/server'
 
-type Actor = {
+type AppIdentity = {
   userId: string
   workspaceId: string
   role: string
@@ -32,7 +32,7 @@ async function resolveActorForWorkspace(
   ctx: QueryCtx,
   authId: string,
   workspaceId: string | undefined,
-): Promise<Actor> {
+): Promise<AppIdentity> {
   // If no workspaceId provided, fall back to the first membership.
   // This mirrors the spec's graduated on-ramp: simple case without a switcher.
   const user = await ctx.db
@@ -66,13 +66,13 @@ const scopedQuery = customQuery(rawQuery, {
     const authId = identity?.subject
     if (!authId) {
       return {
-        ctx: { actor: null as Actor, resolvedWorkspaceId: null },
+        ctx: { appIdentity: null as AppIdentity, resolvedWorkspaceId: null },
         args: {},
       }
     }
-    const actor = await resolveActorForWorkspace(ctx, authId, args.__workspaceId)
+    const appIdentity = await resolveActorForWorkspace(ctx, authId, args.__workspaceId)
     return {
-      ctx: { actor, resolvedWorkspaceId: args.__workspaceId ?? null },
+      ctx: { appIdentity, resolvedWorkspaceId: args.__workspaceId ?? null },
       args: {}, // __workspaceId is NOT forwarded
     }
   },
@@ -90,8 +90,8 @@ export const whoAmIAt = scopedQuery({
   }),
   handler: async (ctx, args) => {
     return {
-      actorWorkspace: ctx.actor?.workspaceId ?? null,
-      role: ctx.actor?.role,
+      actorWorkspace: ctx.appIdentity?.workspaceId ?? null,
+      role: ctx.appIdentity?.role,
       // Prove __workspaceId is NOT in the handler's args.
       handlerArgsKeys: Object.keys(args),
       resolvedWorkspaceIdFromInput: ctx.resolvedWorkspaceId,

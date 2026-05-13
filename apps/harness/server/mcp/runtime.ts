@@ -1,24 +1,24 @@
-import type { Delegation } from '@lupinum/trellis/backend'
+import type { ActingFor } from '@lupinum/trellis/backend'
 import { defineMcpApp } from '@lupinum/trellis/mcp'
 import { createServerConvexCaller } from '@lupinum/trellis/server'
 import type { H3Event } from 'h3'
 
+import type { InternalHarnessCaller } from '../../convex/auth/caller'
 import {
   postDeletePermission,
   type InternalHarnessPermissionKey,
 } from '../../convex/auth/permissions'
-import type { InternalHarnessPrincipal } from '../../convex/auth/principal'
 import { trellisObservability } from '../../observability.config'
 import { resolveHarnessMcpAuth } from '../support/mcp-auth-helpers'
 
 type McpAuthContext = {
   keyId?: string
   role?: 'owner' | 'admin' | 'member' | 'viewer'
-  tenantId?: string
+  workspaceId?: string
   userId?: string
 }
 
-async function getMcpPrincipal(event: H3Event): Promise<InternalHarnessPrincipal> {
+async function getMcpCaller(event: H3Event): Promise<InternalHarnessCaller> {
   const auth = (await resolveHarnessMcpAuth(event)) as McpAuthContext | null
   if (!auth?.keyId || !auth.userId || !auth.role) {
     return { kind: 'anonymous', subject: 'system:anonymous' }
@@ -30,45 +30,45 @@ async function getMcpPrincipal(event: H3Event): Promise<InternalHarnessPrincipal
     userId: auth.userId,
     subject: `agent:${auth.userId}`,
     role: auth.role,
-    ...(auth.tenantId ? { tenantId: auth.tenantId } : {}),
+    ...(auth.workspaceId ? { workspaceId: auth.workspaceId } : {}),
     provider: 'mcp',
   }
 }
 
-function toForwardedHarnessPrincipal(principal: InternalHarnessPrincipal) {
-  if (principal.kind !== 'agent') {
-    return principal
+function toForwardedHarnessCaller(caller: InternalHarnessCaller) {
+  if (caller.kind !== 'agent') {
+    return caller
   }
 
   return {
     kind: 'agent' as const,
-    agentId: principal.agentId,
-    userId: principal.userId ?? principal.agentId,
-    subject: principal.subject,
-    role: principal.role,
-    ...(principal.tenantId ? { tenantId: principal.tenantId } : {}),
+    agentId: caller.agentId,
+    userId: caller.userId ?? caller.agentId,
+    subject: caller.subject,
+    role: caller.role,
+    ...(caller.workspaceId ? { workspaceId: caller.workspaceId } : {}),
     provider: 'mcp' as const,
   }
 }
 
 export const mcpRuntime = defineMcpApp<
-  InternalHarnessPrincipal,
+  InternalHarnessCaller,
   Record<InternalHarnessPermissionKey, boolean>,
-  Delegation
+  ActingFor
 >({
-  callConvex: async (event, { principal, delegation }) =>
+  callConvex: async (event, { caller, actingFor }) =>
     createServerConvexCaller(
       event,
-      principal.kind === 'agent'
+      caller.kind === 'agent'
         ? {
             auth: 'trusted',
-            principal: toForwardedHarnessPrincipal(principal),
-            ...(delegation ? { delegation } : {}),
+            caller: toForwardedHarnessCaller(caller),
+            ...(actingFor ? { actingFor } : {}),
           }
         : { auth: 'none' },
     ) as never,
-  resolvePrincipal: async (event) => await getMcpPrincipal(event),
-  resolveDelegation: async ({ event }) => {
+  resolveCaller: async (event) => await getMcpCaller(event),
+  resolveActingFor: async ({ event }) => {
     const auth = (await resolveHarnessMcpAuth(event)) as McpAuthContext | null
     if (!auth?.userId) return null
 
@@ -76,14 +76,14 @@ export const mcpRuntime = defineMcpApp<
       subject: `user:${auth.userId}`,
     }
   },
-  resolveCapabilities: async ({ principal }) => ({
+  resolveAccess: async ({ caller }) => ({
     [postDeletePermission.key]:
-      principal.kind === 'agent' && ['owner', 'admin', 'member'].includes(principal.role),
+      caller.kind === 'agent' && ['owner', 'admin', 'member'].includes(caller.role),
   }),
-  principalKey: (principal) =>
-    principal.kind === 'agent' ? `agent:${principal.agentId}:${principal.role}` : principal.kind,
-  tenantKey: ({ principal }) =>
-    principal.kind === 'agent' && principal.tenantId ? principal.tenantId : 'global',
+  callerKey: (caller) =>
+    caller.kind === 'agent' ? `agent:${caller.agentId}:${caller.role}` : caller.kind,
+  scopeKey: ({ caller }) =>
+    caller.kind === 'agent' && caller.workspaceId ? caller.workspaceId : 'global',
   observability: trellisObservability,
 })
 

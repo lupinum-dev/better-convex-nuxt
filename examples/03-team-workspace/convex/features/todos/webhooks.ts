@@ -10,8 +10,11 @@ export const processTodoSyncWebhookMutation = mutation.protected({
   args: processTodoSyncWebhookContract.args,
   guard: todoCreate,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!actor?.tenantId || actor.tenantId !== (args.workspaceId as Id<'workspaces'>)) {
+    const appIdentity = await ctx.appIdentity()
+    if (
+      !appIdentity?.workspaceId ||
+      appIdentity.workspaceId !== (args.workspaceId as Id<'workspaces'>)
+    ) {
       throw deny('Not available.')
     }
 
@@ -20,7 +23,7 @@ export const processTodoSyncWebhookMutation = mutation.protected({
     const todoId = await ctx.db.insert('todos', {
       title: args.title,
       completed: args.completed ?? false,
-      ownerId: actor.userId,
+      ownerId: appIdentity.userId,
       workspaceId: args.workspaceId,
       source: 'webhook',
       externalId: args.externalId,

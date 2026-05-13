@@ -341,17 +341,17 @@ function isPublicFacingSourcePath(filePath: string): boolean {
   return /\/(?:app|components|composables|layouts|pages|plugins|shared|utils)\//.test(normalized)
 }
 
-export function findTrustedForwardingPublicExposure(
+export function findIdentityForwardingPublicExposure(
   project: ProjectInspection,
 ): ProjectSourceLocation[] {
   const findings: ProjectSourceLocation[] = []
 
   if (
-    typeof process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY === 'string' &&
-    process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY.trim()
+    typeof process.env.NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY === 'string' &&
+    process.env.NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY.trim()
   ) {
     findings.push({
-      path: 'process.env.NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY',
+      path: 'process.env.NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY',
       line: 1,
     })
   }
@@ -359,7 +359,7 @@ export function findTrustedForwardingPublicExposure(
   for (const envSource of project.envSources) {
     const lines = envSource.text.split(/\r?\n/)
     for (const [index, line] of lines.entries()) {
-      if (readEnvAssignmentValue(line, 'NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY')) {
+      if (readEnvAssignmentValue(line, 'NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY')) {
         findings.push({
           path: envSource.path,
           line: index + 1,
@@ -369,7 +369,7 @@ export function findTrustedForwardingPublicExposure(
   }
 
   const publicRuntimeConfigMatch = project.nuxtConfigText.match(
-    /runtimeConfig\s*:\s*\{[\s\S]*?\bpublic\s*:\s*\{[\s\S]*?CONVEX_TRUSTED_FORWARDING_KEY/,
+    /runtimeConfig\s*:\s*\{[\s\S]*?\bpublic\s*:\s*\{[\s\S]*?CONVEX_IDENTITY_FORWARDING_KEY/,
   )
   if (project.nuxtConfigPath && publicRuntimeConfigMatch?.index !== undefined) {
     findings.push({
@@ -383,7 +383,7 @@ export function findTrustedForwardingPublicExposure(
 
     const match =
       sourceFile.text.match(
-        /\b(?:CONVEX_TRUSTED_FORWARDING_KEY|NUXT_PUBLIC_CONVEX_TRUSTED_FORWARDING_KEY)\b/,
+        /\b(?:CONVEX_IDENTITY_FORWARDING_KEY|NUXT_PUBLIC_CONVEX_IDENTITY_FORWARDING_KEY)\b/,
       ) ?? null
     if (!match?.index && match?.index !== 0) continue
 
@@ -460,13 +460,13 @@ export function hasBetterAuthTriggerExports(project: ProjectInspection): boolean
   )
 }
 
-export function usesTrustedForwardingSurfaces(project: ProjectInspection): boolean {
+export function usesIdentityForwardingSurfaces(project: ProjectInspection): boolean {
   if (/#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(/.test(project.nuxtConfigText)) {
     return true
   }
 
   return project.sourceFiles.some((file) =>
-    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|trustedForwardingKey\b/.test(
+    /#trellis\/mcp|@lupinum\/trellis\/mcp|defineConvexTool\s*\(|identityForwardingKey\b/.test(
       file.text,
     ),
   )
@@ -597,9 +597,7 @@ export function findMcpRateLimitStoreSupport(
 }
 
 export function usesPermissionSurfaces(project: ProjectInspection): boolean {
-  return project.sourceFiles.some((file) =>
-    /\busePermissions\s*\(|\buseAuthGuard\s*\(/.test(file.text),
-  )
+  return project.sourceFiles.some((file) => /\buseAccess\s*\(|\buseAuthGuard\s*\(/.test(file.text))
 }
 
 export function findConfiguredPermissionQueryPath(project: ProjectInspection): string | undefined {
@@ -644,7 +642,7 @@ function objectHasTrustedAuth(node: import('ts-morph').ObjectLiteralExpression):
   )
 }
 
-export function findForwardedPrincipalWithoutTrustedAuth(
+export function findForwardedCallerWithoutTrustedAuth(
   project: ProjectInspection,
 ): ProjectSourceLocation[] {
   const analysis = createAnalysisProject(project)
@@ -661,10 +659,10 @@ export function findForwardedPrincipalWithoutTrustedAuth(
       const parent = objectLiteral.getParent()
       if (!parent || !Node.isCallExpression(parent)) continue
 
-      const hasPrincipal = objectLiteral
+      const hasCaller = objectLiteral
         .getProperties()
-        .some((property) => getPropertyName(property) === 'principal')
-      if (!hasPrincipal || objectHasTrustedAuth(objectLiteral)) continue
+        .some((property) => getPropertyName(property) === 'caller')
+      if (!hasCaller || objectHasTrustedAuth(objectLiteral)) continue
 
       findings.push({
         path: filePath,
@@ -897,7 +895,7 @@ export function findCrossTenantEscapeInventory(
     for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const callee = unwrapExpression(call.getExpression())
       if (!callee || !Node.isPropertyAccessExpression(callee)) continue
-      if (callee.getName() !== 'escapeTenantIsolation') continue
+      if (callee.getName() !== 'escapeIsolation') continue
 
       findings.push({
         path: sourceFile.getFilePath(),

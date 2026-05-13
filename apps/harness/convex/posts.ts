@@ -7,14 +7,14 @@ import {
   operationPreview,
   previewOf,
 } from '@lupinum/trellis/backend'
-import { defineCapabilities } from '@lupinum/trellis/workspace'
+import { defineRecordAccess } from '@lupinum/trellis/workspace'
 import { v } from 'convex/values'
 
 import { createPost, deletePost, removePostDescriptor, updatePost } from '../shared/schemas/post'
 import type { Doc, Id } from './_generated/dataModel'
-import type { Actor } from './auth/actor'
+import type { AppIdentity } from './auth/app-identity'
+import type { InternalHarnessCaller } from './auth/caller'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
-import type { InternalHarnessPrincipal } from './auth/principal'
 import { mutation, query } from './functions'
 
 const listPostsArgs = defineArgs({
@@ -27,110 +27,121 @@ const getPostArgs = defineArgs({
   },
 })
 
-const canCreatePostActor = defineGuard<Actor>('Create post', (actor) => !!actor)
-const canManagePosts = defineGuard<Actor>('post.manage', (actor) => !!actor)
+const canCreatePostActor = defineGuard<AppIdentity>('Create post', (appIdentity) => !!appIdentity)
+const canManagePosts = defineGuard<AppIdentity>('post.manage', (appIdentity) => !!appIdentity)
 type PostOperationCtx = {
-  actor: () => Promise<Actor>
-  principal: () => Promise<InternalHarnessPrincipal>
+  appIdentity: () => Promise<AppIdentity>
+  caller: () => Promise<InternalHarnessCaller>
   db: {
     get(id: Id<'posts'>): Promise<Doc<'posts'> | null>
     delete?(id: Id<'posts'>): Promise<void>
   }
 }
-const postCapabilities = defineCapabilities<{ ownerId: string; [key: string]: unknown }>()<
-  Actor,
+const postCapabilities = defineRecordAccess<{ ownerId: string; [key: string]: unknown }>()<
+  AppIdentity,
   {
-    'post.update': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
-    'post.delete': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
-    'post.publish': (actor: Actor, post: { ownerId: string; [key: string]: unknown }) => boolean
+    'post.update': (
+      appIdentity: AppIdentity,
+      post: { ownerId: string; [key: string]: unknown },
+    ) => boolean
+    'post.delete': (
+      appIdentity: AppIdentity,
+      post: { ownerId: string; [key: string]: unknown },
+    ) => boolean
+    'post.publish': (
+      appIdentity: AppIdentity,
+      post: { ownerId: string; [key: string]: unknown },
+    ) => boolean
   }
 >({
-  'post.update': (actor, post) => can(actor, canUpdatePost(post)),
-  'post.delete': (actor, post) => can(actor, canDeletePost(post)),
-  'post.publish': (actor) => can(actor, canPublishPost),
+  'post.update': (appIdentity, post) => can(appIdentity, canUpdatePost(post)),
+  'post.delete': (appIdentity, post) => can(appIdentity, canDeletePost(post)),
+  'post.publish': (appIdentity) => can(appIdentity, canPublishPost),
 })
 
-function formatActor(actor: Actor): string {
-  if (!actor) return 'null'
+function formatAppIdentity(appIdentity: AppIdentity): string {
+  if (!appIdentity) return 'null'
   return JSON.stringify({
-    userId: actor.userId,
-    role: actor.role,
-    tenantId: actor.tenantId ?? null,
-    kind: actor.kind,
+    userId: appIdentity.userId,
+    role: appIdentity.role,
+    workspaceId: appIdentity.workspaceId ?? null,
+    kind: appIdentity.kind,
   })
 }
 
 function denyPostPermission(
   action: 'create' | 'update' | 'delete' | 'publish',
-  actor: Actor,
+  appIdentity: AppIdentity,
   reason: string,
 ): never {
   if (process.env.NODE_ENV === 'production') {
     throw new Error(`Forbidden: post.${action}`)
   }
 
-  throw new Error(`Forbidden: post.${action}\nActor: ${formatActor(actor)}\nReason: ${reason}`)
+  throw new Error(
+    `Forbidden: post.${action}\nAppIdentity: ${formatAppIdentity(appIdentity)}\nReason: ${reason}`,
+  )
 }
 
-function denyTenantMismatch(actor: Actor, post: { organizationId: string }): never {
+function denyTenantMismatch(appIdentity: AppIdentity, post: { organizationId: string }): never {
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('Document belongs to a different tenant.')
+    throw new Error('Document belongs to a different isolation scope.')
   }
 
   throw new Error(
-    `Document belongs to a different tenant.\nActor: ${formatActor(actor)}\nReason: organizationId ${post.organizationId}`,
+    `Document belongs to a different isolation scope.\nAppIdentity: ${formatAppIdentity(appIdentity)}\nReason: organizationId ${post.organizationId}`,
   )
 }
 
 export const list = query.public({
   args: listPostsArgs.args,
   handler: async (ctx, _args) => {
-    const actor = await ctx.actor()
-    if (!actor?.tenantId) return []
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity?.workspaceId) return []
 
     const posts = await ctx.db
       .query('posts')
       .withIndex('by_organization', (q) =>
-        q.eq('organizationId', actor.tenantId as Id<'organizations'>),
+        q.eq('organizationId', appIdentity.workspaceId as Id<'organizations'>),
       )
       .order('desc')
       .collect()
 
-    return postCapabilities.attach(actor, posts)
+    return postCapabilities.attach(appIdentity, posts)
   },
 })
 
 export const get = query.public({
   args: getPostArgs.args,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!actor) return null
+    const appIdentity = await ctx.appIdentity()
+    if (!appIdentity) return null
 
     const post = await ctx.db.get(args.id)
     if (!post) return null
-    if (!actor.tenantId || actor.tenantId !== post.organizationId) return null
+    if (!appIdentity.workspaceId || appIdentity.workspaceId !== post.organizationId) return null
 
-    return postCapabilities.attach(actor, post)
+    return postCapabilities.attach(appIdentity, post)
   },
 })
 
 export const create = mutation.protected({
   args: createPost.args,
-  trustedForwardingFunctionRef: 'posts:create',
+  identityForwardingFunctionRef: 'posts:create',
   guard: canCreatePostActor,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
-    if (!can(actor, canCreatePost)) {
-      denyPostPermission('create', actor, `Role "${actor.role}" cannot create posts.`)
+    const appIdentity = await ctx.appIdentity()
+    if (!can(appIdentity, canCreatePost)) {
+      denyPostPermission('create', appIdentity, `Role "${appIdentity.role}" cannot create posts.`)
     }
-    if (!actor.tenantId) throw new Error('No organization selected')
+    if (!appIdentity.workspaceId) throw new Error('No organization selected')
 
     return await ctx.db.insert('posts', {
       title: args.title,
       content: args.content,
       status: 'draft',
-      ownerId: actor.userId,
-      organizationId: actor.tenantId as Id<'organizations'>,
+      ownerId: appIdentity.userId,
+      organizationId: appIdentity.workspaceId as Id<'organizations'>,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
@@ -141,18 +152,18 @@ export const update = mutation.protected({
   args: updatePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
-    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
-      denyTenantMismatch(actor, post)
+    if (!appIdentity?.workspaceId || appIdentity.workspaceId !== post.organizationId) {
+      denyTenantMismatch(appIdentity, post)
     }
-    if (!can(actor, canUpdatePost(post))) {
+    if (!can(appIdentity, canUpdatePost(post))) {
       const reason =
-        actor?.role === 'member'
+        appIdentity?.role === 'member'
           ? 'Role "member" has own-only access.'
-          : 'Actor cannot update this post.'
-      denyPostPermission('update', actor, reason)
+          : 'AppIdentity cannot update this post.'
+      denyPostPermission('update', appIdentity, reason)
     }
 
     await ctx.db.patch(args.id, {
@@ -167,18 +178,18 @@ export const remove = mutation.protected({
   args: deletePost.args,
   guard: canManagePosts,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
-    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
-      denyTenantMismatch(actor, post)
+    if (!appIdentity?.workspaceId || appIdentity.workspaceId !== post.organizationId) {
+      denyTenantMismatch(appIdentity, post)
     }
-    if (!can(actor, canDeletePost(post))) {
+    if (!can(appIdentity, canDeletePost(post))) {
       const reason =
-        actor?.role === 'member'
+        appIdentity?.role === 'member'
           ? 'Role "member" has own-only access.'
-          : 'Actor cannot delete this post.'
-      denyPostPermission('delete', actor, reason)
+          : 'AppIdentity cannot delete this post.'
+      denyPostPermission('delete', appIdentity, reason)
     }
     await ctx.db.delete(args.id)
   },
@@ -187,18 +198,18 @@ export const remove = mutation.protected({
 export const removePostOp = implementOperation(removePostDescriptor, {
   guard: canManagePosts,
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
-    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
-      denyTenantMismatch(actor, post)
+    if (!appIdentity?.workspaceId || appIdentity.workspaceId !== post.organizationId) {
+      denyTenantMismatch(appIdentity, post)
     }
-    if (!can(actor, canDeletePost(post))) {
+    if (!can(appIdentity, canDeletePost(post))) {
       const reason =
-        actor?.role === 'member'
+        appIdentity?.role === 'member'
           ? 'Role "member" has own-only access.'
-          : 'Actor cannot delete this post.'
-      denyPostPermission('delete', actor, reason)
+          : 'AppIdentity cannot delete this post.'
+      denyPostPermission('delete', appIdentity, reason)
     }
 
     return { post }
@@ -229,28 +240,28 @@ export const removePostOp = implementOperation(removePostDescriptor, {
 
 export const removeWithConfirmation = mutation.protected({
   ...removePostOp,
-  trustedForwardingFunctionRef: 'posts:removeWithConfirmation',
+  identityForwardingFunctionRef: 'posts:removeWithConfirmation',
 })
 export const previewRemove = query.protected({
   ...previewOf(removePostOp),
-  trustedForwardingFunctionRef: 'posts:previewRemove',
+  identityForwardingFunctionRef: 'posts:previewRemove',
 })
 
 export const publish = mutation.protected({
   args: { id: v.id('posts') },
   guard: canManagePosts,
   handler: async (ctx, args) => {
-    const actor = await ctx.actor()
+    const appIdentity = await ctx.appIdentity()
     const post = await ctx.db.get(args.id)
     if (!post) throw new Error('Post not found.')
-    if (!actor?.tenantId || actor.tenantId !== post.organizationId) {
-      denyTenantMismatch(actor, post)
+    if (!appIdentity?.workspaceId || appIdentity.workspaceId !== post.organizationId) {
+      denyTenantMismatch(appIdentity, post)
     }
-    if (!can(actor, canPublishPost)) {
+    if (!can(appIdentity, canPublishPost)) {
       denyPostPermission(
         'publish',
-        actor,
-        `Role "${actor?.role ?? 'anonymous'}" cannot publish posts.`,
+        appIdentity,
+        `Role "${appIdentity?.role ?? 'anonymous'}" cannot publish posts.`,
       )
     }
 

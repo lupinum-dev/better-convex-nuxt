@@ -36,10 +36,10 @@ import { projectCreate } from '#trellis/permissions'
 
 import ProjectList from './ProjectList.vue'
 
-const { allows, role, tenantId } = usePermissions()
-const canCreateProject = allows(projectCreate)
+const { can, role, workspaceId } = useAccess()
+const canCreateProject = can(projectCreate)
 
-const workspaceArgs = computed(() => (tenantId.value ? {} : undefined))
+const workspaceArgs = computed(() => (workspaceId.value ? {} : undefined))
 const { data: projects } = await useConvexQuery(api.features.projects.domain.list, workspaceArgs)
 const { data: accessibleWorkspaces } = await useConvexQuery(
   api.features.workspaces.domain.listAccessibleWorkspaces,
@@ -47,11 +47,11 @@ const { data: accessibleWorkspaces } = await useConvexQuery(
 )
 
 const currentWorkspaceName = computed(() => {
-  if (!tenantId.value || !accessibleWorkspaces.value) return null
+  if (!workspaceId.value || !accessibleWorkspaces.value) return null
   return (
     accessibleWorkspaces.value.find(
       (workspace: { workspaceId: string; name: string }) =>
-        workspace.workspaceId === tenantId.value,
+        workspace.workspaceId === workspaceId.value,
     )?.name ?? null
   )
 })

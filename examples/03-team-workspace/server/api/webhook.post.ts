@@ -5,7 +5,7 @@ import { subject } from '@lupinum/trellis/auth'
  * mutation after verifying a server-owned signature.
  *
  * This example keeps the transport boundary deliberately small. The important thing to study is the
- * trusted principal plus delegated user that reaches the protected mutation, while replay protection
+ * trusted caller plus delegated user that reaches the protected mutation, while replay protection
  * lives in the app layer through processed event ids.
  */
 import { createError, defineEventHandler, readBody } from 'h3'
@@ -78,12 +78,12 @@ export default defineEventHandler(async (event) => {
     },
     {
       auth: 'trusted',
-      principal: {
+      caller: {
         kind: 'service',
         serviceId: 'team-workspace-webhook',
         subject: subject.service('team-workspace-webhook'),
       },
-      delegation: await delegateToUser({
+      actingFor: await delegateToUser({
         userId: authId,
         allow: true,
         reason: 'verified workspace todo webhook',

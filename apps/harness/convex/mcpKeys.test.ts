@@ -76,7 +76,7 @@ describe('mcpKeys', () => {
     expect(validated).toMatchObject({
       role: 'member',
       userId: 'user_admin',
-      tenantId: organizationId,
+      workspaceId: organizationId,
     })
 
     await asAdmin.mutation(api.mcpKeys.revoke, { id: created.id })

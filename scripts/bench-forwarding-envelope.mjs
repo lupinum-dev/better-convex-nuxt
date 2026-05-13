@@ -3,8 +3,8 @@ import { performance } from 'node:perf_hooks'
 import { createJiti } from 'jiti'
 
 const jiti = createJiti(import.meta.url)
-const { createTrustedForwardingEnvelope, verifyTrustedForwardingEnvelope } = await jiti.import(
-  '../src/runtime/trusted-forwarding/envelope.ts',
+const { createIdentityForwardingEnvelope, verifyIdentityForwardingEnvelope } = await jiti.import(
+  '../src/runtime/identity-forwarding/envelope.ts',
 )
 
 const iterations = Number.parseInt(process.env.TRELLIS_FORWARDING_BENCH_ITERATIONS ?? '20000', 10)
@@ -20,14 +20,14 @@ const args = {
   items: [1, null, { z: 1, a: true }],
 }
 
-const envelope = createTrustedForwardingEnvelope({
+const envelope = createIdentityForwardingEnvelope({
   key,
   keyId: '2026-05-a',
   iss: 'nuxt://app',
   aud: 'convex://deployment',
   jti: 'bench-call-1',
   sub: 'user:123',
-  principal: { subject: 'user:123', kind: 'user' },
+  caller: { subject: 'user:123', kind: 'user' },
   transport: 'mcp',
   purpose: 'mutation',
   functionRef: 'features.projects.create',
@@ -37,7 +37,7 @@ const envelope = createTrustedForwardingEnvelope({
 })
 
 function verify() {
-  verifyTrustedForwardingEnvelope(envelope, {
+  verifyIdentityForwardingEnvelope(envelope, {
     keys: { '2026-05-a': key },
     expectedIssuer: 'nuxt://app',
     expectedAudience: 'convex://deployment',
@@ -63,7 +63,7 @@ const p99 = samples[Math.floor(samples.length * 0.99)] ?? 0
 const max = samples.at(-1) ?? 0
 
 const result = {
-  benchmark: 'trusted-forwarding-envelope.verify',
+  benchmark: 'identity-forwarding-envelope.verify',
   iterations,
   algorithm: 'HS256 phase0 spike',
   p50Ms: Number(p50.toFixed(4)),

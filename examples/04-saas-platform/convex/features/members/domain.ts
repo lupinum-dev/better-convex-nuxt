@@ -7,8 +7,8 @@ export const list = query.protected({
   args: listMembers.args,
   guard: projectRead,
   handler: async (ctx) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     const users = await ctx.db.query('users').order('asc').collect()
     return users.filter((user) => user.workspaceId === workspaceId)

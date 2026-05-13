@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
   event.context.mcpAuth = {
     keyId: validated.id,
     userId: validated.userId,
-    tenantId: validated.tenantId,
+    workspaceId: validated.workspaceId,
   }
 
   serverConvexMutation(event, api.features.mcpKeys.domain.touch, { hash }, { auth: 'none' }).catch(

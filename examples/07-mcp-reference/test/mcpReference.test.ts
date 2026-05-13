@@ -2,7 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 
-import { createTrustedForwardingEnvelope } from '@lupinum/trellis/backend'
+import { createIdentityForwardingEnvelope } from '@lupinum/trellis/backend'
 import { createTestContext } from '@lupinum/trellis/testing'
 import { anyApi } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -18,14 +18,14 @@ import { modules } from '../convex/test.setup'
 
 const api = anyApi as any
 type WorkspaceRole = 'owner' | 'admin' | 'member' | 'viewer'
-const TRUSTED_FORWARDING_KEY = 'mcp-reference-test-trusted-forwarding-key'
+const IDENTITY_FORWARDING_KEY = 'mcp-reference-test-identity-forwarding-key'
 const functionNameSymbol = Symbol.for('functionName')
 
 function createCtx() {
   return createTestContext<typeof schema, WorkspaceRole>({
     schema,
     modules,
-    trustedForwardingKey: TRUSTED_FORWARDING_KEY,
+    identityForwardingKey: IDENTITY_FORWARDING_KEY,
   })
 }
 
@@ -44,28 +44,28 @@ function getFunctionRef(ref: unknown): string {
 function withSignedForwarding(
   args: Record<string, unknown>,
   options: {
-    principal: Record<string, unknown>
-    delegation?: Record<string, unknown>
+    caller: Record<string, unknown>
+    actingFor?: Record<string, unknown>
     ref: unknown
     operation: 'query' | 'mutation' | 'action'
   },
 ) {
-  const principalSubject = options.principal.subject
+  const principalSubject = options.caller.subject
   if (typeof principalSubject !== 'string' || !principalSubject) {
-    throw new Error('Signed test forwarding requires a canonical principal subject.')
+    throw new Error('Signed test forwarding requires a canonical caller subject.')
   }
 
   return {
     ...args,
-    _trellisForwarding: createTrustedForwardingEnvelope({
-      key: TRUSTED_FORWARDING_KEY,
+    _trellisForwarding: createIdentityForwardingEnvelope({
+      key: IDENTITY_FORWARDING_KEY,
       keyId: 'default',
       iss: 'trellis://server',
       aud: 'trellis://convex',
       jti: `mcp-reference-${options.operation}-${principalSubject}`,
       sub: principalSubject,
-      principal: options.principal,
-      ...(options.delegation ? { delegation: options.delegation } : {}),
+      caller: options.caller,
+      ...(options.actingFor ? { actingFor: options.actingFor } : {}),
       transport: 'server',
       purpose: options.operation,
       functionRef: getFunctionRef(options.ref),
@@ -135,18 +135,18 @@ describe('mcp reference example', () => {
 
     expect(workspaceId).toBeTruthy()
 
-    const permissionContext = await ctx.raw
+    const accessContext = await ctx.raw
       .withIdentity({
         subject: authId,
         email: 'owner@example.com',
         name: 'First Owner',
       })
-      .query(api.permissions.context.getPermissionContext, {})
+      .query(api.permissions.context.getAccessContext, {})
 
-    expect(permissionContext).toMatchObject({
+    expect(accessContext).toMatchObject({
       role: 'owner',
       userId: authId,
-      tenantId: workspaceId,
+      workspaceId: workspaceId,
       can: {
         [runbookRead.key]: true,
         [runbookCreate.key]: true,
@@ -156,7 +156,7 @@ describe('mcp reference example', () => {
     })
   })
 
-  it('returns an onboarding-safe permission context for authenticated users without a workspace', async () => {
+  it('returns an onboarding-safe access context for authenticated users without a workspace', async () => {
     const ctx = createCtx()
     const authId = 'user_without_workspace'
     const userId = await ctx.seed('users', {
@@ -168,18 +168,18 @@ describe('mcp reference example', () => {
       updatedAt: Date.now(),
     })
 
-    const permissionContext = await ctx.raw
+    const accessContext = await ctx.raw
       .withIdentity({
         subject: authId,
         email: 'onboarding@example.com',
         name: 'Onboarding User',
       })
-      .query(api.permissions.context.getPermissionContext, {})
+      .query(api.permissions.context.getAccessContext, {})
 
-    expect(permissionContext).toMatchObject({
+    expect(accessContext).toMatchObject({
       role: 'member',
       userId: authId,
-      tenantId: null,
+      workspaceId: null,
       email: 'onboarding@example.com',
       displayName: 'Onboarding User',
       can: {
@@ -192,7 +192,7 @@ describe('mcp reference example', () => {
     expect(userId).toBeTruthy()
   })
 
-  it('projects workspace capabilities for delegated MCP principals', async () => {
+  it('projects workspace recordAccess for delegated MCP principals', async () => {
     const ctx = createCtx()
     const team = await ctx.seedTenant({
       name: 'Alpha',
@@ -201,27 +201,27 @@ describe('mcp reference example', () => {
       },
     })
 
-    const permissionContext = await ctx.raw.query(
-      api.permissions.context.getPermissionContext,
+    const accessContext = await ctx.raw.query(
+      api.permissions.context.getAccessContext,
       withSignedForwarding(
         {},
         {
-          ref: api.permissions.context.getPermissionContext,
+          ref: api.permissions.context.getAccessContext,
           operation: 'query',
-          principal: {
+          caller: {
             kind: 'agent',
             agentId: 'primary-mcp-key',
             subject: 'agent:primary-mcp-key',
             provider: 'mcp',
           },
-          delegation: {
+          actingFor: {
             subject: `user:${team.users.member.authId}`,
           },
         },
       ),
     )
 
-    expect(permissionContext).toMatchObject({
+    expect(accessContext).toMatchObject({
       role: 'member',
       userId: team.users.member.authId,
       can: {
@@ -231,7 +231,7 @@ describe('mcp reference example', () => {
         [mcpManage.key]: false,
       },
     })
-    expect(permissionContext?.tenantId).toEqual(expect.any(String))
+    expect(accessContext?.workspaceId).toEqual(expect.any(String))
   })
 
   it('keeps public runbooks visible without auth while workspace queries stay protected', async () => {
@@ -279,7 +279,7 @@ describe('mcp reference example', () => {
 
     await expect(
       ctx
-        .asPrincipal({
+        .asCaller({
           kind: 'user',
           userId: team.users.viewer.authId,
           subject: `user:${team.users.viewer.authId}`,
@@ -328,12 +328,12 @@ describe('mcp reference example', () => {
           {
             ref: api.features.runbooks.domain.create,
             operation: 'mutation',
-            principal: {
+            caller: {
               kind: 'service',
               serviceId: 'runbook-webhook',
               subject: 'service:runbook-webhook',
             },
-            delegation: {
+            actingFor: {
               subject: `user:${team.users.viewer.authId}`,
               reason: 'verified runbook webhook',
             },
@@ -356,12 +356,12 @@ describe('mcp reference example', () => {
           {
             ref: api.features.runbooks.domain.create,
             operation: 'mutation',
-            principal: {
+            caller: {
               kind: 'service',
               serviceId: 'runbook-webhook',
               subject: 'service:runbook-webhook',
             },
-            delegation: {
+            actingFor: {
               subject: `user:${team.users.member.authId}`,
               reason: 'verified runbook webhook',
             },

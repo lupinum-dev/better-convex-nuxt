@@ -22,7 +22,7 @@ const sharedEnv = {
   CONVEX_SITE_URL: 'https://doctor-check.convex.site',
   SITE_URL: 'http://localhost:3000',
   BETTER_AUTH_SECRET: 'doctor-check-better-auth-secret-32chars',
-  CONVEX_TRUSTED_FORWARDING_KEY: 'doctor-check-trusted-forwarding-key-32chars',
+  CONVEX_IDENTITY_FORWARDING_KEY: 'doctor-check-identity-forwarding-key-32chars',
   TRELLIS_MCP_CONFIRMATION_KEY: 'doctor-check-mcp-confirmation-key-32chars',
   MCP_RATE_LIMIT_REDIS_URL: 'redis://127.0.0.1:6379',
   TEAM_WORKSPACE_WEBHOOK_SECRET: 'doctor-check-team-webhook-secret',

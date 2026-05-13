@@ -117,8 +117,8 @@ useAuthGuard({
 
 const route = useRoute()
 const toast = useToast()
-const { allows } = usePermissions()
-const canArchive = allows(projectArchive)
+const { can } = useAccess()
+const canArchive = can(projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
 
 const taskForm = reactive({
@@ -140,7 +140,7 @@ const archiveProject = useConvexMutation(api.features.projects.domain.archive, {
   onError: (error) =>
     toast.add({ title: 'Could not archive project', description: error.message, color: 'error' }),
 })
-const canCreateTask = allows(taskCreate)
+const canCreateTask = can(taskCreate)
 
 const { data: project } = await useConvexQuery(
   api.features.projects.domain.get,

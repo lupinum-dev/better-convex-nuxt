@@ -52,8 +52,8 @@ export const archiveProjectOp = defineOperation({
       },
     }),
   handler: async (ctx, args, { project }) => {
-    const actor = await ctx.actor()
-    const workspaceId = requireWorkspaceTenant(actor)
+    const appIdentity = await ctx.appIdentity()
+    const workspaceId = requireWorkspaceTenant(appIdentity)
 
     if (project.status === 'archived') throw deny('Project is already archived.')
 
@@ -65,7 +65,7 @@ export const archiveProjectOp = defineOperation({
 
     await ctx.db.insert('auditEvents', {
       workspaceId,
-      actorId: actor.userId,
+      actorId: appIdentity.userId,
       entityType: 'project',
       entityId: args.id,
       action: 'project.archived',

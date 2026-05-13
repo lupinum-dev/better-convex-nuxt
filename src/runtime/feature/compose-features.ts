@@ -27,7 +27,7 @@ type FeatureSchemaTable<TFeature extends AnyFeature> = Extract<
 type FeatureTenantTable<TFeature extends AnyFeature> =
   | TFeature['tenantTables'][number]
   | FeatureSchemaTable<TFeature>
-type FeatureGlobalTable<TFeature extends AnyFeature> = TFeature['globalTables'][number]
+type FeatureGlobalTable<TFeature extends AnyFeature> = TFeature['sharedTables'][number]
 type FeatureOperation<TFeature extends AnyFeature> = NonNullable<TFeature['operations']>[number]
 type ComposedFeatureSchema<TFeatures extends readonly AnyFeature[]> = Expand<
   UnionToIntersection<FeatureSchema<TFeatures[number]>> & Record<string, unknown>
@@ -44,7 +44,7 @@ export interface FeatureManifest<
   readonly schema: TSchema
   readonly permissions: TPermissions
   readonly tenantTables: readonly TTenantTable[]
-  readonly globalTables: readonly TGlobalTable[]
+  readonly sharedTables: readonly TGlobalTable[]
   readonly operations: TOperations
 }
 
@@ -147,7 +147,7 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
   const permissions: ErasedPermissionDefinition[] = []
   const operations: unknown[] = []
   const tenantTableOverrides: string[] = []
-  const globalTables: string[] = []
+  const sharedTables: string[] = []
   const seenOperationIds = new Map<string, string>()
 
   for (const feature of features) {
@@ -205,19 +205,19 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
     }
 
     tenantTableOverrides.push(...feature.tenantTables)
-    globalTables.push(...feature.globalTables)
+    sharedTables.push(...feature.sharedTables)
   }
 
-  const uniqueGlobalTables = dedupePreservingOrder(globalTables)
+  const uniqueSharedTables = dedupePreservingOrder(sharedTables)
   const uniqueTenantOverrides = dedupePreservingOrder(tenantTableOverrides)
   const derivedTenantTables = deriveTenantTablesFromSchema(schema)
   const uniqueTenantTables = dedupePreservingOrder([
     ...derivedTenantTables,
     ...uniqueTenantOverrides,
-  ]).filter((table) => !uniqueGlobalTables.includes(table))
+  ]).filter((table) => !uniqueSharedTables.includes(table))
 
   for (const table of uniqueTenantOverrides) {
-    if (uniqueGlobalTables.includes(table)) {
+    if (uniqueSharedTables.includes(table)) {
       throw new Error(
         `composeFeatures(...) classified table "${table}" as both tenant-scoped and global.`,
       )
@@ -228,7 +228,7 @@ export function composeFeatures<const TFeatures extends readonly AnyFeature[]>(
     schema: schema as ComposedFeatureSchema<TFeatures>,
     permissions: permissions as readonly FeaturePermission<TFeatures[number]>[],
     tenantTables: uniqueTenantTables as readonly FeatureTenantTable<TFeatures[number]>[],
-    globalTables: uniqueGlobalTables as readonly FeatureGlobalTable<TFeatures[number]>[],
+    sharedTables: uniqueSharedTables as readonly FeatureGlobalTable<TFeatures[number]>[],
     operations: operations as readonly FeatureOperation<TFeatures[number]>[],
   }
 }

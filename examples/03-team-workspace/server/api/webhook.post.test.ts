@@ -107,12 +107,12 @@ describe('example 03 webhook handler', () => {
       },
       {
         auth: 'trusted',
-        principal: {
+        caller: {
           kind: 'service',
           serviceId: 'team-workspace-webhook',
           subject: 'service:team-workspace-webhook',
         },
-        delegation: {
+        actingFor: {
           subject: 'user:webhook-user',
           reason: 'verified workspace todo webhook',
         },
@@ -146,7 +146,7 @@ describe('example 03 webhook handler', () => {
     })
   })
 
-  it('fails closed when the delegated webhook actor is not configured', async () => {
+  it('fails closed when the delegated webhook appIdentity is not configured', async () => {
     delete process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID
     readBodyMock.mockResolvedValue({
       workspaceId: 'workspace_123',
