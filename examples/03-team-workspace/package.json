@@ -13,21 +13,21 @@
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
-    "@iconify-json/lucide": "^1.2.101",
+    "@iconify-json/lucide": "^1.2.107",
     "@lupinum/trellis": "workspace:*",
-    "@nuxt/ui": "^4.7.0",
-    "better-auth": "1.6.9",
-    "convex": "1.37.0",
-    "convex-helpers": "^0.1.114",
-    "nuxt": "^4.4.2",
-    "tailwindcss": "^4.2.2",
-    "zod": "^4.3.6"
+    "@nuxt/ui": "^4.7.1",
+    "better-auth": "1.6.11",
+    "convex": "1.38.0",
+    "convex-helpers": "^0.1.117",
+    "nuxt": "^4.4.5",
+    "tailwindcss": "^4.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
-    "convex-test": "^0.0.47",
-    "typescript": "~6.0.2",
-    "vitest": "^4.1.4",
-    "vue-tsc": "^3.2.6"
+    "convex-test": "^0.0.52",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
   }
 }

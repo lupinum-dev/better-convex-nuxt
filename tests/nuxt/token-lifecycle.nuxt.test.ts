@@ -108,7 +108,6 @@ describe('Auth Token Lifecycle', () => {
   })
 
   it('times out a hung refresh without leaving a stray warning after a later success', async () => {
-    vi.useFakeTimers()
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const exchange = createMockTokenExchange()
     exchange.enqueue(
@@ -125,27 +124,34 @@ describe('Auth Token Lifecycle', () => {
 
     h = await createAuthHarness({ tokenExchange: exchange })
 
-    const timedOutRefresh = expect(h.triggerRefresh()).rejects.toThrow(/timed out/i)
-    await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS)
-    await timedOutRefresh
+    try {
+      vi.useFakeTimers()
 
-    expect(h.isAuthenticated.value).toBe(false)
-    expect(h.pending.value).toBe(false)
-    expect(h.token.value).toBeNull()
-    expect(h.user.value).toBeNull()
+      const timedOutRefresh = expect(h.triggerRefresh()).rejects.toThrow(/timed out/i)
+      await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS)
+      await timedOutRefresh
 
-    warnSpy.mockClear()
+      expect(h.isAuthenticated.value).toBe(false)
+      expect(h.pending.value).toBe(false)
+      expect(h.token.value).toBeNull()
+      expect(h.user.value).toBeNull()
 
-    const successfulRefresh = h.triggerRefresh()
-    await vi.advanceTimersByTimeAsync(200)
-    await expect(successfulRefresh).resolves.toBeUndefined()
+      warnSpy.mockClear()
 
-    expect(h.isAuthenticated.value).toBe(true)
-    expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-bob')
+      const successfulRefresh = h.triggerRefresh()
+      await vi.advanceTimersByTimeAsync(200)
+      await expect(successfulRefresh).resolves.toBeUndefined()
 
-    await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS + 100)
-    expect(warnSpy).toHaveBeenCalledTimes(0)
+      expect(h.isAuthenticated.value).toBe(true)
+      expect(h.pending.value).toBe(false)
+      expect(h.user.value?.id).toBe('user-bob')
+
+      await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS + 100)
+      expect(warnSpy).toHaveBeenCalledTimes(0)
+    } finally {
+      warnSpy.mockRestore()
+      vi.useRealTimers()
+    }
   })
 
   it('marks a lost authenticated session as expired but keeps explicit sign-out non-expired', async () => {

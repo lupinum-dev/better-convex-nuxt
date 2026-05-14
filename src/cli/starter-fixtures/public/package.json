@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@lupinum/trellis": "workspace:*",
-    "convex": "^1.34.1",
-    "nuxt": "^4.4.2"
+    "convex": "1.38.0",
+    "nuxt": "^4.4.5"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.2",
-    "vue-tsc": "^3.2.6"
+    "@types/node": "^25.8.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
   }
 }

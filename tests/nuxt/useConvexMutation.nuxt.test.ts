@@ -56,7 +56,6 @@ describe('useConvexMutation (Nuxt runtime)', () => {
   })
 
   it('warns in dev when a mutation error is never read', async () => {
-    vi.useFakeTimers()
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
@@ -68,6 +67,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
       const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
+      vi.useFakeTimers()
       await expect(result({} as never)).rejects.toThrow('mutation failed silently')
       expect(result.status.value).toBe('error')
 

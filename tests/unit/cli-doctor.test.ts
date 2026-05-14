@@ -612,8 +612,8 @@ describe('CLI doctor', () => {
         {
           dependencies: {
             '@lupinum/trellis': 'workspace:*',
-            convex: '1.37.0',
-            nuxt: '^4.4.2',
+            convex: '1.38.0',
+            nuxt: '^4.4.5',
           },
         },
         null,
@@ -1598,8 +1598,8 @@ export const appInventory = defineAppInventory({
           private: true,
           dependencies: {
             '@lupinum/trellis': 'workspace:*',
-            convex: '^1.34.1',
-            nuxt: '^4.4.2',
+            convex: '^1.38.0',
+            nuxt: '^4.4.5',
           },
         },
         null,

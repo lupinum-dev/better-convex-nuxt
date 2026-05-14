@@ -103,19 +103,20 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
   })
 
   it('suppresses offline UI during hydration grace window', async () => {
-    vi.useFakeTimers()
     const convex = new MockConvexClient()
 
     const { result, wrapper } = await captureInNuxt(() => useConvexConnectionState(), { convex })
 
-    expect(result.shouldShowOfflineUi.value).toBe(false)
+    try {
+      expect(result.shouldShowOfflineUi.value).toBe(false)
 
-    vi.advanceTimersByTime(500)
-    await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 550))
+      await Promise.resolve()
 
-    expect(result.shouldShowOfflineUi.value).toBe(true)
-    wrapper.unmount()
-    vi.useRealTimers()
+      expect(result.shouldShowOfflineUi.value).toBe(true)
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('shares one connection-state subscription for multiple consumers', async () => {

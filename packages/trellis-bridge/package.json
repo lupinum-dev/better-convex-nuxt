@@ -39,11 +39,11 @@
   },
   "devDependencies": {
     "@lupinum/trellis": "workspace:*",
-    "convex": "1.37.0"
+    "convex": "1.38.0"
   },
   "peerDependencies": {
     "@lupinum/trellis": "workspace:*",
-    "convex": "^1.32.0",
-    "convex-helpers": "^0.1.114"
+    "convex": "^1.38.0",
+    "convex-helpers": "^0.1.117"
   }
 }

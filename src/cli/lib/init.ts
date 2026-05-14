@@ -184,7 +184,7 @@ async function addMcpDependency(cwd: string): Promise<void> {
     dependencies?: Record<string, string>
   }
   parsed.dependencies ??= {}
-  parsed.dependencies['@nuxtjs/mcp-toolkit'] = '^0.14.0'
+  parsed.dependencies['@nuxtjs/mcp-toolkit'] = '^0.16.1'
   await writeFile(path, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
 }
 

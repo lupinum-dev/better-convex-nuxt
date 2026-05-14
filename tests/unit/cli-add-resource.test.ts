@@ -355,7 +355,7 @@ describe('trellis add mcp', () => {
       "mcp: { name: 'trellis-workspace-",
     )
     await expect(readFile(resolve(cwd, 'package.json'), 'utf8')).resolves.toContain(
-      '"@nuxtjs/mcp-toolkit": "^0.14.0"',
+      '"@nuxtjs/mcp-toolkit": "^0.16.1"',
     )
     await expect(readFile(resolve(cwd, 'convex/schema.ts'), 'utf8')).resolves.toContain(
       'mcpKeys: defineTable',

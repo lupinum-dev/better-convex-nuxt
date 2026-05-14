@@ -9,9 +9,9 @@
   },
   "dependencies": {
     "@lupinum/trellis": "workspace:*",
-    "@nuxtjs/mcp-toolkit": "^0.14.0",
-    "convex": "^1.36.1",
-    "nuxt": "^4.4.2",
-    "zod": "^4.3.6"
+    "@nuxtjs/mcp-toolkit": "^0.16.1",
+    "convex": "1.38.0",
+    "nuxt": "^4.4.5",
+    "zod": "^4.4.3"
   }
 }

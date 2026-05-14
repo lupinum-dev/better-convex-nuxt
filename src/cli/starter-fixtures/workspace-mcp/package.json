@@ -13,15 +13,15 @@
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
     "@lupinum/trellis": "workspace:*",
-    "@nuxtjs/mcp-toolkit": "^0.14.0",
-    "better-auth": "1.6.9",
-    "convex": "1.37.0",
-    "nuxt": "^4.4.2"
+    "@nuxtjs/mcp-toolkit": "^0.16.1",
+    "better-auth": "1.6.11",
+    "convex": "1.38.0",
+    "nuxt": "^4.4.5"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
-    "typescript": "~6.0.2",
-    "vitest": "^4.1.4",
-    "vue-tsc": "^3.2.6"
+    "@types/node": "^25.8.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
   }
 }
