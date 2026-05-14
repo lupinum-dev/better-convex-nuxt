@@ -153,6 +153,7 @@ function createConsumerProject(rootDir: string) {
       module: ts.ModuleKind.ESNext,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
       baseUrl: rootDir,
+      ignoreDeprecations: '6.0',
     },
   })
 

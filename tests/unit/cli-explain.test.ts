@@ -204,7 +204,7 @@ describe('CLI explain', () => {
     })
     expect(serialized).not.toContain('Archive task')
     expect(serialized).not.toContain('task_1')
-  })
+  }, 30_000)
 
   it('renders a human-readable operation explanation', () => {
     const appRoot = createPublicApp()

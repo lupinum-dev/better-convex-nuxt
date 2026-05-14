@@ -2,7 +2,7 @@ import { defineTrellis } from '@lupinum/trellis/backend'
 
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import { actingFor } from './auth/acting-for'
+import { actingFor } from './auth/actingFor'
 import { getAppIdentityFromCaller } from './auth/app-identity'
 import { caller } from './auth/caller'
 import { services } from './auth/services'

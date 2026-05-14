@@ -11,7 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as auth_actor from "../auth/app-identity.js";
 import type * as auth_checks from "../auth/checks.js";
-import type * as auth_delegation from "../auth/acting-for.js";
+import type * as auth_delegation from "../auth/actingFor.js";
 import type * as auth_permissions from "../auth/permissions.js";
 import type * as auth_principal from "../auth/caller.js";
 import type * as auth_resource from "../auth/resource.js";
