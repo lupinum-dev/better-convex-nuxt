@@ -2,7 +2,7 @@ import { defineTrellis } from '@lupinum/trellis/backend'
 
 import type { TableNames } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import { getAppIdentity } from './auth/app-identity'
+import { getAppIdentity } from './auth/appIdentity'
 import { sharedTables, tenantTables } from './features'
 
 const isolatedTables = [...tenantTables] as TableNames[]

@@ -4,7 +4,7 @@ import { v } from 'convex/values'
 
 import type { Id } from './_generated/dataModel'
 import { mutation as generatedMutation, query as generatedQuery } from './_generated/server'
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import { canInviteMembers } from './auth/checks'
 import { loadResource } from './auth/scope'
 import { mutation, query } from './functions'

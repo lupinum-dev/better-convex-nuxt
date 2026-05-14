@@ -2,7 +2,7 @@ import { deny, requireRecord } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { DatabaseReader } from '../../_generated/server'
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { requireEnrollment } from '../knowledgeBases'
 import type { AccessLevel } from './shareTokens'
 

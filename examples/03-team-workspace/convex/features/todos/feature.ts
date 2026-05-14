@@ -2,7 +2,7 @@ import { defineFeature } from '@lupinum/trellis/workspace'
 
 import { removeTodoDescriptor } from './operations'
 import { todoPermissions } from './permissions'
-import { todoCapabilities } from './record-access'
+import { todoCapabilities } from './recordAccess'
 import { todosTables } from './schema'
 
 export const todosFeature = defineFeature({

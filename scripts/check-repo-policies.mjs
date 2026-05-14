@@ -31,6 +31,21 @@ const checks = [
     pattern: /middleware.*subscribe:\s*false|subscribe:\s*false.*middleware/,
     roots: ['apps/docs/content/docs'],
   },
+  {
+    name: 'stale MCP toolkit pins',
+    pattern: /"@nuxtjs\/mcp-toolkit"\s*:\s*"\^?0\.(13|14|15)\./,
+    roots: ['package.json', 'apps', 'examples', 'src/cli/starter-fixtures', 'tests/fixtures'],
+  },
+  {
+    name: 'private consumer references',
+    pattern: /i18n-cms|\/_temp\/i18n-cms|\/Users\/matthias\/Git\/_temp/,
+    roots: ['README.md', 'apps/docs/content/docs', 'examples', 'src', 'tests'],
+  },
+  {
+    name: 'destructive execute examples without confirmation token',
+    pattern: /\b(archiveProject|deleteTask)\(\{(?:(?!_confirmationToken).)*\}\)/,
+    roots: ['apps/docs/content/docs', 'examples'],
+  },
 ]
 
 const repoRoot = process.cwd()

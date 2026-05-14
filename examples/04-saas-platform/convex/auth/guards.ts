@@ -6,7 +6,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc, Id } from '../_generated/dataModel'
-import type { AppIdentity } from './app-identity'
+import type { AppIdentity } from './appIdentity'
 
 export function requireWorkspaceTenant(appIdentity: { workspaceId?: Id<'workspaces'> | null }) {
   if (!appIdentity.workspaceId)

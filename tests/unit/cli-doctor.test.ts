@@ -399,7 +399,7 @@ describe('CLI doctor', () => {
     expect(runtime).not.toContain('resolveActingFor')
     expect(runtime).not.toContain('appIdentity: { userId: caller.userId }')
     expect(runtime).not.toContain('caller.userId')
-    const appIdentity = read(resolve(appRoot, 'convex/auth/app-identity.ts'))
+    const appIdentity = read(resolve(appRoot, 'convex/auth/appIdentity.ts'))
     expect(appIdentity).toContain('getSubjectValue')
     expect(appIdentity).toContain("getSubjectValue(actingFor?.subject, 'user')")
     expect(appIdentity).not.toContain("actingFor.subject.startsWith('user:')")

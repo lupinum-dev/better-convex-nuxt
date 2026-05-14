@@ -23,7 +23,7 @@ You understand auth + ownership from [`02-auth-todo`](../02-auth-todo/README.md)
 
 ## Files to read first
 
-1. `convex/auth/app-identity.ts`
+1. `convex/auth/appIdentity.ts`
 2. `convex/auth/guards.ts`
 3. `convex/features/index.ts`
 4. `convex/permissions/context.ts`

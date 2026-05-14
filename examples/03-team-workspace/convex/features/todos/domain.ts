@@ -6,7 +6,7 @@ import { mutation, query } from '../../functions'
 import { canUpdateTodo } from './checks'
 import { removeTodoOp } from './operations'
 import { todoCreate, todoRead } from './permissions'
-import { todoCapabilities } from './record-access'
+import { todoCapabilities } from './recordAccess'
 
 function requireWorkspaceActor<
   TActor extends { userId: string; workspaceId?: Id<'workspaces'> | null },

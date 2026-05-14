@@ -1,6 +1,6 @@
 import { defineAccessContext } from '@lupinum/trellis/auth'
 
-import { getAppIdentity } from '../auth/app-identity'
+import { getAppIdentity } from '../auth/appIdentity'
 import { permissions } from '../features'
 import { query } from '../functions'
 

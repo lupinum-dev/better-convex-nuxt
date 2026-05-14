@@ -14,7 +14,7 @@ import { mutation, query } from '../../functions'
 import { canUpdateTask } from './checks'
 import { removeTaskOp } from './operations'
 import { taskAssign, taskCreate, taskRead } from './permissions'
-import { taskCapabilities } from './record-access'
+import { taskCapabilities } from './recordAccess'
 
 export const listByProject = query.protected({
   args: { projectId: v.id('projects') },

@@ -9,12 +9,12 @@ import {
   updateRunbook,
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import { getAppIdentity } from '../../auth/app-identity'
+import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 import { canUpdateRunbook } from './checks'
 import { bulkRemoveRunbooksOp, removeRunbookOp } from './operations'
 import { runbookCreate, runbookPublish, runbookRead } from './permissions'
-import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './record-access'
+import { publicRunbookCapabilities, workspaceRunbookCapabilities } from './recordAccess'
 
 function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {
   return (db as TDb & { escapeIsolation: (options: { reason: string }) => TDb }).escapeIsolation({

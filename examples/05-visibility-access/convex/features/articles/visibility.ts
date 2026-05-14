@@ -1,5 +1,5 @@
 import type { DatabaseReader } from '../../_generated/server'
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 
 type ArticleOwnerScope = 'all' | Set<string>
 

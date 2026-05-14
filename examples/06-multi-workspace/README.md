@@ -28,7 +28,7 @@ You already understand the canonical protected workspace model from
 1. `convex/features/index.ts`
 2. `convex/features/workspaces/domain.ts`
 3. `convex/features/dashboard/domain.ts`
-4. `convex/auth/app-identity.ts`
+4. `convex/auth/appIdentity.ts`
 5. `shared/features/workspaces/contract.ts`
 6. `app/features/multi-workspace/components/AgencyPortalPage.vue`
 7. `convex/agency.test.ts`

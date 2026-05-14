@@ -3,7 +3,7 @@ import type { Infer } from 'convex/values'
 
 import type { Id } from '../_generated/dataModel'
 import type { roleValidator } from '../features/users'
-import type { AppIdentity } from './app-identity'
+import type { AppIdentity } from './appIdentity'
 
 type UserRole = Infer<typeof roleValidator>
 

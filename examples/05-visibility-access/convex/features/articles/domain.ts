@@ -19,7 +19,7 @@ import {
   seedDemoArticles,
   viewArticle,
 } from '../../../shared/features/articles/contract'
-import { getAppIdentity } from '../../auth/app-identity'
+import { getAppIdentity } from '../../auth/appIdentity'
 import { hasRole } from '../../auth/guards'
 import { mutation, query } from '../../functions'
 import { getInheritedAccessLevel, requireArticleAccess } from './access'

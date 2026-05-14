@@ -1,6 +1,6 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { AccessIdentity } from './app-identity'
+import type { AccessIdentity } from './appIdentity'
 import type { Role } from './caller'
 
 export const hasRole = (...roles: Role[]) =>

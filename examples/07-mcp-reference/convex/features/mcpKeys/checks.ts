@@ -1,4 +1,4 @@
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import type { Role } from '../../auth/caller'
 
 export function canIssueKeyRole(appIdentity: AppIdentity, role: Role): boolean {

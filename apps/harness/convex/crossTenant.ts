@@ -25,7 +25,7 @@ import { defineGuard } from '@lupinum/trellis/auth'
 import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import { query } from './functions'
 
 const authed = defineGuard<AppIdentity>('Authenticated', (appIdentity) => !!appIdentity)

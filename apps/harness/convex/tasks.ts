@@ -1,7 +1,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import { addTask } from '../shared/schemas/task'
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import { mutation } from './functions'
 
 const canAddTask = defineGuard<AppIdentity>('task.add', (appIdentity) => appIdentity !== null)

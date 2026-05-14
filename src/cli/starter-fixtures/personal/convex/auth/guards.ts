@@ -1,6 +1,6 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { AppIdentity } from './app-identity'
+import type { AppIdentity } from './appIdentity'
 
 export const isAuthenticated = defineGuard<AppIdentity>(
   'authenticated',

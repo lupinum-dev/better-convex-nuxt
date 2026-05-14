@@ -35,7 +35,7 @@ You already understand the canonical protected workspace model from
 2. `convex/features/mcpKeys/domain.ts`
 3. `convex/auth/caller.ts`
 4. `convex/auth/actingFor.ts`
-5. `convex/auth/app-identity.ts`
+5. `convex/auth/appIdentity.ts`
    This is where the three caller shapes converge into one permission model: direct browser user,
    MCP agent acting for a user, and verified webhook/service traffic acting for a user.
 6. `convex/auth/services.ts`

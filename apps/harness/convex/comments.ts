@@ -1,7 +1,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import { createComment } from '../shared/schemas/comment'
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import { canCreateComment } from './auth/checks'
 import { loadResource } from './auth/scope'
 import { mutation } from './functions'

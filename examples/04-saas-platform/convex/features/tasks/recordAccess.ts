@@ -2,7 +2,7 @@ import { can } from '@lupinum/trellis/auth'
 import { defineRecordAccess } from '@lupinum/trellis/workspace'
 
 import type { Doc } from '../../_generated/dataModel'
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { canDeleteTask, canUpdateTask } from './checks'
 import { taskAssign } from './permissions'
 

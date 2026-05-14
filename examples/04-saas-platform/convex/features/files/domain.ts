@@ -8,7 +8,7 @@ import { requireAuth } from '@lupinum/trellis/auth'
 import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 
 import { generateUploadUrl } from '../../../shared/features/files/contract'
-import { getAppIdentity } from '../../auth/app-identity'
+import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation } from '../../functions'
 
 export const generateUploadUrlMutation = mutation.unsafe({

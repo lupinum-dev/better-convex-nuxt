@@ -1,7 +1,7 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
 import type { Doc } from '../_generated/dataModel'
-import type { AppIdentity } from './app-identity'
+import type { AppIdentity } from './appIdentity'
 
 export const hasWorkspace = defineGuard<AppIdentity>(
   'Workspace member',

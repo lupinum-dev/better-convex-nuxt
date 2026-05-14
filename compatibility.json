@@ -1,0 +1,21 @@
+{
+  "name": "Trellis release compatibility",
+  "tracked": {
+    "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],
+    "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1"],
+    "better-auth": ["1.6.11"],
+    "convex": ["1.38.0", "^1.38.0"],
+    "convex-helpers": ["^0.1.117", "0.1.117"],
+    "h3": ["1.15.11"],
+    "nuxt": ["^4.4.5", "4.4.5"],
+    "typescript": ["~6.0.3", "^6.0.3", "6.0.3"],
+    "vite": ["^7.3.3", "7.3.3"],
+    "vue-tsc": ["^3.2.9", "3.2.9"],
+    "zod": ["^4.4.3", "4.4.3"]
+  },
+  "intentionalHolds": [
+    "h3 stays on 1.15.11 until h3 2 leaves release-candidate status and Nuxt ecosystem peers accept it.",
+    "Vite stays on 7.x until the Nuxt and Vitest peer ecosystem is ready for Vite 8.",
+    "Nuxt DevTools stays on 3.2.4 while DevTools 4 is alpha."
+  ]
+}

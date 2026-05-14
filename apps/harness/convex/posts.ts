@@ -12,7 +12,7 @@ import { v } from 'convex/values'
 
 import { createPost, deletePost, removePostDescriptor, updatePost } from '../shared/schemas/post'
 import type { Doc, Id } from './_generated/dataModel'
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import type { InternalHarnessCaller } from './auth/caller'
 import { canCreatePost, canDeletePost, canPublishPost, canUpdatePost } from './auth/checks'
 import { mutation, query } from './functions'

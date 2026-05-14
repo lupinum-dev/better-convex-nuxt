@@ -4,7 +4,7 @@ import { unsafe as unsafePermit } from '@lupinum/trellis/backend'
 import { listAgencyPortfolio } from '../../../shared/features/dashboard/contract'
 import type { Doc } from '../../_generated/dataModel'
 import { getAgencyActor, getMemberships, requireAnyAgencyRole } from '../../auth/agency'
-import { getAppIdentity } from '../../auth/app-identity'
+import { getAppIdentity } from '../../auth/appIdentity'
 import { query } from '../../functions'
 
 function escapeIsolation<TDb extends object>(db: TDb, reason: string): TDb {

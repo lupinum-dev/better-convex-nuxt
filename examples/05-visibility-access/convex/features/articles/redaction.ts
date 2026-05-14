@@ -1,6 +1,6 @@
 import { defineRedaction } from '@lupinum/trellis/workspace'
 
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { hasRole } from '../../auth/guards'
 
 export const articleRedaction = defineRedaction<Record<string, unknown>, AppIdentity>({

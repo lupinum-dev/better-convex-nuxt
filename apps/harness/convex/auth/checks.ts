@@ -1,6 +1,6 @@
 import { and, or } from '@lupinum/trellis/auth'
 
-import type { AppIdentity, Role } from './app-identity'
+import type { AppIdentity, Role } from './appIdentity'
 
 export const ROLES = ['owner', 'admin', 'member', 'viewer'] as const satisfies readonly Role[]
 

@@ -7,7 +7,7 @@ import {
   switchWorkspace as switchWorkspaceArgs,
 } from '../../../shared/features/workspaces/contract'
 import { getMemberships, requireWorkspaceMembership } from '../../auth/agency'
-import { getAppIdentity } from '../../auth/app-identity'
+import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 
 async function getIdentitySubject(ctx: {

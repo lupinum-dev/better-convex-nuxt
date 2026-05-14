@@ -17,6 +17,8 @@ node_modules
 
 # Generated dirs
 dist
+.pack
+.pack-check
 
 # Nuxt
 .nuxt

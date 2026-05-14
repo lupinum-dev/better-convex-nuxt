@@ -13,7 +13,7 @@ import {
   removeRunbookDescriptor,
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { query } from '../../functions'
 import { canDeleteRunbook } from './checks'
 import { runbookBulkDelete, runbookRead } from './permissions'

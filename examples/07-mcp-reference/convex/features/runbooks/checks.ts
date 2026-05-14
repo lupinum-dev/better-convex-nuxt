@@ -1,6 +1,6 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { AccessIdentity } from '../../auth/app-identity'
+import type { AccessIdentity } from '../../auth/appIdentity'
 import { hasRole, isOwnerOf } from '../../auth/guards'
 
 export const canUpdateRunbook = (runbook: { ownerId: string }) =>

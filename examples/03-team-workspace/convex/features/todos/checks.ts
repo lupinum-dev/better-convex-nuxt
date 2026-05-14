@@ -1,6 +1,6 @@
 import { defineGuard } from '@lupinum/trellis/auth'
 
-import type { AppIdentity } from '../../auth/app-identity'
+import type { AppIdentity } from '../../auth/appIdentity'
 import { hasRole, hasWorkspace, isOwnerOf } from '../../auth/guards'
 
 export const canUpdateTodo = (todo: { ownerId: string }) =>

@@ -14,6 +14,7 @@ overrides:
   ip-address: 10.1.1
   kysely: 0.28.17
   mermaid: 11.15.0
+  devalue: 5.8.1
   nitropack: 2.13.4
   simple-git: 3.36.0
   uuid: 11.1.1

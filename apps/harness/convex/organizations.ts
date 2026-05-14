@@ -2,7 +2,7 @@ import { defineArgs } from '@lupinum/trellis/args'
 import { defineGuard } from '@lupinum/trellis/auth'
 import { v } from 'convex/values'
 
-import type { AppIdentity } from './auth/app-identity'
+import type { AppIdentity } from './auth/appIdentity'
 import { mutation, query } from './functions'
 import { getUserRowFromActor } from './lib/user_row'
 

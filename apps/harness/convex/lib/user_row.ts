@@ -1,7 +1,7 @@
 import type { GenericDatabaseReader } from 'convex/server'
 
 import type { DataModel } from '../_generated/dataModel'
-import type { AppIdentity } from '../auth/app-identity'
+import type { AppIdentity } from '../auth/appIdentity'
 
 export async function getUserRowFromActor(
   db: GenericDatabaseReader<DataModel>,

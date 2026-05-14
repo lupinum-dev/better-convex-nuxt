@@ -23,7 +23,7 @@ You understand the public data flow from [`01-public-todo`](../01-public-todo/RE
 ## Files to read first
 
 1. `convex/auth.ts`
-2. `convex/auth/app-identity.ts`
+2. `convex/auth/appIdentity.ts`
 3. `shared/features/todos/contract.ts`
 4. `convex/features/todos/domain.ts`
 5. `app/features/auth-todo/components/AuthTodoPage.vue`

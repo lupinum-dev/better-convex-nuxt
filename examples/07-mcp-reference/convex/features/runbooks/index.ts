@@ -1,4 +1,4 @@
-export { publicRunbookCapabilities, workspaceRunbookCapabilities } from './record-access'
+export { publicRunbookCapabilities, workspaceRunbookCapabilities } from './recordAccess'
 export { canDeleteRunbook, canUpdateRunbook } from './checks'
 export {
   bulkRemove,
