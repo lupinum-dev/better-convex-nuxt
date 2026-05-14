@@ -18,6 +18,7 @@ export const removeTaskOp = defineOperation({
   id: 'tasks.remove',
   name: 'removeTask',
   kind: 'destructive',
+  identityForwardingFunctionRef: 'features/tasks/domain:remove',
   args: { id: v.id('tasks') },
   returns: v.null(),
   previewReturns: operationPreviewValidator({

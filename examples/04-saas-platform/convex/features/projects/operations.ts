@@ -18,6 +18,7 @@ export const archiveProjectOp = defineOperation({
   id: 'projects.archive',
   name: 'archiveProject',
   kind: 'destructive',
+  identityForwardingFunctionRef: 'features/projects/domain:archive',
   args: archiveProject.args,
   returns: v.null(),
   previewReturns: operationPreviewValidator({

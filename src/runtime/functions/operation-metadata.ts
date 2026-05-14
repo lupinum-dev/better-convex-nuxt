@@ -29,6 +29,7 @@ export type TrellisOperationProjectionMetadata = {
   operationId: string
   projection: 'execute' | 'preview'
   functionRef?: string
+  executeFunctionRef?: string
 }
 
 export const trellisOperationMetadataKey = Symbol.for('trellis.operation')
@@ -291,6 +292,14 @@ export function projectOperationRef<
     operationId: metadata.id,
     projection,
     ...(functionRef ? { functionRef } : {}),
+    ...(projection === 'preview' && 'identityForwardingFunctionRef' in operation
+      ? {
+          executeFunctionRef:
+            typeof operation.identityForwardingFunctionRef === 'string'
+              ? operation.identityForwardingFunctionRef
+              : undefined,
+        }
+      : {}),
   }) as ValidateOperationProjectionRef<TOperation, TProjection, TRef>
 }
 

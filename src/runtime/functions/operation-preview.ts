@@ -18,6 +18,11 @@ export type OperationPreviewEffect = {
   details?: SerializableValue
 }
 
+export type OperationPreviewConfirmation = {
+  token: string
+  expiresAt: number
+}
+
 export type OperationPreviewEnvelope<
   TConfirm extends Record<string, unknown> = Record<string, unknown>,
   TDetails = unknown,
@@ -28,6 +33,7 @@ export type OperationPreviewEnvelope<
   warnings: OperationPreviewIssue[]
   effects: OperationPreviewEffect[]
   confirm: ValidateSerializable<TConfirm>
+  confirmation?: OperationPreviewConfirmation
   version?: ValidateSerializable<SerializableValue>
   details?: ValidateSerializable<TDetails>
 }
@@ -129,6 +135,12 @@ export function operationPreviewValidator<
     warnings: v.array(operationPreviewIssueValidator),
     effects: v.array(operationPreviewEffectValidator),
     confirm: options?.confirm ?? v.record(v.string(), v.any()),
+    confirmation: v.optional(
+      v.object({
+        token: v.string(),
+        expiresAt: v.number(),
+      }),
+    ),
     version: v.optional(v.any()),
     details: v.optional(options?.details ?? v.any()),
   })

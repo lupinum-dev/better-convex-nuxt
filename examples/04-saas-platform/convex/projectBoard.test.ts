@@ -9,11 +9,6 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-// eslint-disable-next-line no-restricted-imports -- Example tests sign confirmation tokens directly to exercise backend operation execution without MCP.
-import {
-  hashConfirmationValue,
-  signConfirmationToken,
-} from '../../../src/runtime/functions/confirmation-token'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { commentCreate } from './features/comments'
@@ -33,26 +28,6 @@ const archiveProjectMutation = api.features.projects.domain.archive as FunctionR
   { id: Id<'projects'>; _confirmationToken: string },
   null
 >
-
-async function destructiveConfirmationToken(args: {
-  operationId: string
-  executeArgs: Record<string, unknown>
-  confirm: Record<string, unknown>
-}) {
-  process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
-
-  return await signConfirmationToken({
-    v: 1,
-    operationId: args.operationId,
-    executePath: 'execute',
-    previewPath: 'preview',
-    jti: crypto.randomUUID(),
-    callerKey: 'example-caller',
-    scopeKey: 'example-tenant',
-    argsHash: await hashConfirmationValue(args.executeArgs),
-    previewHash: await hashConfirmationValue(args.confirm),
-  })
-}
 
 describe('server integration workspace example', () => {
   it('lets a member update their own task but not another member`s task', async () => {
@@ -136,6 +111,7 @@ describe('server integration workspace example', () => {
       name: 'Archive me',
       summary: 'Soon frozen',
     })
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
     const archiveArgs = { id: projectId }
     const archivePreview = await team.users.owner.query(
       api.features.projects.operations.previewArchiveProject,
@@ -143,11 +119,7 @@ describe('server integration workspace example', () => {
     )
     await team.users.owner.mutation(archiveProjectMutation, {
       ...archiveArgs,
-      _confirmationToken: await destructiveConfirmationToken({
-        operationId: 'projects.archive',
-        executeArgs: archiveArgs,
-        confirm: archivePreview.confirm,
-      }),
+      _confirmationToken: archivePreview.confirmation!.token,
     })
 
     await expect(

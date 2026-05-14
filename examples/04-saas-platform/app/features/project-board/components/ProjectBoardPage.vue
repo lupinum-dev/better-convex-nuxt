@@ -22,7 +22,7 @@
               variant="soft"
               leading-icon="i-lucide-archive"
               :loading="archiveProject.pending.value"
-              @click="archiveProject({ id: projectId })"
+              @click="handleArchiveProject"
             >
               Archive
             </UButton>
@@ -117,6 +117,7 @@ useAuthGuard({
 
 const route = useRoute()
 const toast = useToast()
+const convex = useConvex()
 const { can } = useAccess()
 const canArchive = can(projectArchive)
 const projectId = computed(() => route.params.id as Id<'projects'>)
@@ -179,6 +180,22 @@ async function handleCreateTask() {
   })
   taskForm.title = ''
   taskForm.priority = 'medium'
+}
+
+async function handleArchiveProject() {
+  const preview = await convex.query(api.features.projects.operations.previewArchiveProject, {
+    id: projectId.value,
+  })
+  const token = preview.confirmation?.token
+  if (!token) {
+    toast.add({
+      title: 'Could not archive project',
+      description: 'Preview the destructive change again before confirming.',
+      color: 'error',
+    })
+    return
+  }
+  await archiveProject({ id: projectId.value, _confirmationToken: token })
 }
 
 function toggleSelected(id: Id<'tasks'>) {

@@ -10,6 +10,7 @@ import {
 import {
   defineOperation,
   operationPreview,
+  previewOf,
   transportExecuteOperationRef,
 } from '../../src/runtime/functions/define-operation'
 import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity-forwarding/shared'
@@ -58,12 +59,14 @@ async function confirmationToken(args: {
   confirm: Record<string, unknown>
   version?: unknown
   jti: string
+  executePath?: string
+  previewPath?: string
 }) {
   return await signConfirmationToken({
     v: 1,
     operationId: args.operationId,
-    executePath: 'execute',
-    previewPath: 'preview',
+    executePath: args.executePath ?? 'execute',
+    previewPath: args.previewPath ?? 'preview',
     jti: args.jti,
     callerKey: 'caller:test',
     scopeKey: 'tenant:test',
@@ -874,6 +877,92 @@ describe('defineTrellis', () => {
     expect(memory.tables.destructiveAuditLog).toHaveLength(1)
   })
 
+  it('attaches confirmation tokens to destructive operation previews when configured', async () => {
+    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+            ttlSeconds: 60,
+          },
+        },
+      },
+    )
+
+    const destructiveOp = defineOperation({
+      id: 'tests.preview-token',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      preview: async (_ctx, args) =>
+        operationPreview({
+          summary: `Destroy ${args.id}`,
+          confirm: { operation: 'tests.preview-token', id: args.id },
+          version: { id: args.id, version: 1 },
+        }),
+      handler: async () => 'destroyed',
+    })
+
+    const previewDefinition = runtime.query.protected({
+      ...previewOf(destructiveOp),
+      identityForwardingFunctionRef: 'tasks:previewDelete',
+    }) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string },
+      ) => Promise<{ confirmation?: { token: string; expiresAt: number } }>
+    }
+    const executeDefinition = runtime.mutation.protected(destructiveOp) as {
+      handler: (
+        ctx: {
+          auth: { getUserIdentity: () => Promise<null> }
+          db: ReturnType<typeof createMemoryDb>['db']
+          observe: (event: Record<string, unknown>) => Promise<void>
+        },
+        args: { id: string; _confirmationToken: string },
+      ) => Promise<unknown>
+    }
+
+    const memory = createMemoryDb()
+    const ctx = {
+      auth: { getUserIdentity: async () => null },
+      db: memory.db,
+      observe: async () => {},
+    }
+    const preview = await previewDefinition.handler(ctx, { id: 'record-1' })
+
+    expect(preview.confirmation?.token).toEqual(expect.any(String))
+    expect(preview.confirmation?.expiresAt).toBeGreaterThan(Date.now())
+    await expect(
+      executeDefinition.handler(ctx, {
+        id: 'record-1',
+        _confirmationToken: preview.confirmation!.token,
+      }),
+    ).resolves.toBe('destroyed')
+    await expect(
+      executeDefinition.handler(ctx, {
+        id: 'record-1',
+        _confirmationToken: preview.confirmation!.token,
+      }),
+    ).rejects.toThrow(/already been redeemed/i)
+  })
+
   it('requires operation-execute forwarding and confirmation tokens to share the same jti', async () => {
     process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
     process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
@@ -925,6 +1014,7 @@ describe('defineTrellis', () => {
       executeArgs,
       confirm: { id: 'record-1' },
       jti: 'confirmation-jti',
+      executePath: 'tasks:delete',
     })
     const args = createIdentityForwardingEnvelopeArgs({
       args: { ...executeArgs, _confirmationToken: token },

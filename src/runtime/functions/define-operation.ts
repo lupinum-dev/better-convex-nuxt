@@ -407,13 +407,26 @@ export function previewOf<
     load: operation.load,
     authorize: operation.authorize,
     handler: async (ctx, args, loaded) => await operation.preview!(ctx as TCtx, args, loaded),
+    [trellisOperationMetadataKey]: metadata,
     ...(metadata.id
       ? {
           [trellisOperationProjectionMetadataKey]: {
             operationId: metadata.id,
             projection: 'preview' as const,
+            ...(operation.identityForwardingFunctionRef
+              ? { executeFunctionRef: operation.identityForwardingFunctionRef }
+              : {}),
           },
         }
       : {}),
-  }
+  } as StructuredHandlerDefinition<
+    TCtx,
+    TCaller,
+    TActingFor,
+    TActor,
+    TGuard,
+    TArgsValidator,
+    TLoaded,
+    TPreview
+  >
 }

@@ -17,6 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const convex = useConvex()
 
 const priorityColor = computed(() => {
   if (props.task.priority === 'high') return 'error'
@@ -54,6 +55,22 @@ const deleteTask = useConvexMutation(api.features.tasks.domain.remove, {
   onError: (error) =>
     toast.add({ title: 'Could not delete task', description: error.message, color: 'error' }),
 })
+
+async function handleDeleteTask() {
+  const preview = await convex.query(api.features.tasks.operations.previewRemoveTask, {
+    id: props.task._id,
+  })
+  const token = preview.confirmation?.token
+  if (!token) {
+    toast.add({
+      title: 'Could not delete task',
+      description: 'Preview the destructive change again before confirming.',
+      color: 'error',
+    })
+    return
+  }
+  await deleteTask({ id: props.task._id, _confirmationToken: token })
+}
 </script>
 
 <template>
@@ -101,7 +118,7 @@ const deleteTask = useConvexMutation(api.features.tasks.domain.remove, {
         variant="soft"
         color="error"
         leading-icon="i-lucide-trash-2"
-        @click="deleteTask({ id: props.task._id })"
+        @click="handleDeleteTask"
       >
         Delete
       </UButton>

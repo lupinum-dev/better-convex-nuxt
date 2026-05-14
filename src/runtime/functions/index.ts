@@ -49,7 +49,11 @@ import {
   toObservationContext,
 } from '../observability/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
-import { hashConfirmationValue, verifyConfirmationToken } from './confirmation-token.js'
+import {
+  hashConfirmationValue,
+  signConfirmationToken,
+  verifyConfirmationToken,
+} from './confirmation-token.js'
 import { defineActingFor, type ActingFor, type ActingForDefinition } from './define-acting-for.js'
 import { defineCaller, type DefaultCaller, type CallerDefinition } from './define-caller.js'
 import { buildStructuredBuilder } from './define-handler.js'
@@ -62,6 +66,8 @@ import {
   getOperationMetadata,
   getOperationProjectionMetadata,
   isOperationPreviewEnvelope,
+  type TrellisOperationMetadata,
+  type TrellisOperationProjectionMetadata,
   type OperationPreviewEnvelope,
 } from './define-operation.js'
 import { assertUnsafePermit, type TrellisUnsafePermit } from './unsafe-permit.js'
@@ -311,6 +317,27 @@ type DestructiveOperationsDb<DataModel extends GenericDataModel> =
     insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
   }
 
+type Awaitable<T> = T | Promise<T>
+
+type DestructivePreviewConfirmationOptions<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+> = {
+  callerKey: (
+    ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    args: Record<string, unknown>,
+    loaded: unknown,
+  ) => Awaitable<string>
+  scopeKey: (
+    ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    args: Record<string, unknown>,
+    loaded: unknown,
+  ) => Awaitable<string>
+  ttlSeconds?: number
+}
+
 type AppBuilders<
   DataModel extends GenericDataModel,
   QueryVisibility extends FunctionVisibility,
@@ -348,6 +375,12 @@ export interface DefineTrellisOptions<
   destructiveOperations?: {
     confirmationTable: TableNamesInDataModel<DataModel>
     auditTable: TableNamesInDataModel<DataModel>
+    previewConfirmation?: DestructivePreviewConfirmationOptions<
+      DataModel,
+      TCaller,
+      TActingFor,
+      TActor
+    >
   }
   triggers?: Triggers<
     DataModel,
@@ -1553,6 +1586,84 @@ async function hashPreviewVersion(version: SerializableValue | undefined): Promi
   return version === undefined ? null : await hashConfirmationValue(version)
 }
 
+function getDestructivePreviewExecutePath(
+  metadata: TrellisOperationMetadata,
+  projectionMetadata: TrellisOperationProjectionMetadata | null,
+): string {
+  const executePath = projectionMetadata?.executeFunctionRef
+  if (!executePath) {
+    throw new Error(
+      `Destructive operation "${metadata.id ?? metadata.name ?? 'unknown'}" preview confirmation requires the operation definition to provide identityForwardingFunctionRef for the execute function.`,
+    )
+  }
+  return executePath
+}
+
+function getDestructivePreviewPath(
+  definition: { identityForwardingFunctionRef?: string },
+  projectionMetadata: TrellisOperationProjectionMetadata | null,
+): string {
+  return definition.identityForwardingFunctionRef ?? projectionMetadata?.functionRef ?? 'preview'
+}
+
+async function attachDestructivePreviewConfirmation<
+  DataModel extends GenericDataModel,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+>(input: {
+  ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>
+  args: Record<string, unknown>
+  loaded: unknown
+  metadata: TrellisOperationMetadata
+  projectionMetadata: TrellisOperationProjectionMetadata | null
+  definition: { identityForwardingFunctionRef?: string }
+  previewResult: unknown
+  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>
+}): Promise<unknown> {
+  const confirmationOptions = input.options.destructiveOperations?.previewConfirmation
+  if (!confirmationOptions) return input.previewResult
+  if (!isDestructivePreviewPayload(input.previewResult)) return input.previewResult
+  if (input.previewResult.allowed === false || input.previewResult.blockers.length > 0) {
+    return input.previewResult
+  }
+
+  const ttlSeconds = confirmationOptions.ttlSeconds ?? 5 * 60
+  const executePath = getDestructivePreviewExecutePath(input.metadata, input.projectionMetadata)
+  const previewPath = getDestructivePreviewPath(input.definition, input.projectionMetadata)
+  const [callerKey, scopeKey, argsHash, previewHash, versionHash] = await Promise.all([
+    confirmationOptions.callerKey(input.ctx, input.args, input.loaded),
+    confirmationOptions.scopeKey(input.ctx, input.args, input.loaded),
+    hashConfirmationValue(input.args),
+    hashConfirmationValue(input.previewResult.confirm),
+    hashPreviewVersion(input.previewResult.version),
+  ])
+
+  const token = await signConfirmationToken(
+    {
+      v: 1,
+      operationId: input.metadata.id!,
+      executePath,
+      previewPath,
+      jti: crypto.randomUUID(),
+      callerKey,
+      scopeKey,
+      argsHash,
+      previewHash,
+      ...(versionHash ? { versionHash } : {}),
+    },
+    ttlSeconds,
+  )
+
+  return {
+    ...input.previewResult,
+    confirmation: {
+      token,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    },
+  }
+}
+
 function toDestructiveOperationsError(
   error: unknown,
   operationId: string,
@@ -2068,6 +2179,74 @@ function buildUnsafeFunctions<
   }
 }
 
+function buildStructuredQueryRuntime<
+  DataModel extends GenericDataModel,
+  Visibility extends FunctionVisibility,
+  TCaller,
+  TActingFor extends ActingFor,
+  TActor,
+>(
+  builder: unknown,
+  options: DefineTrellisOptions<DataModel, TCaller, TActingFor, TActor>,
+): StructuredQueryBuilder<
+  QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+  Visibility,
+  TActor
+> {
+  const structured = buildStructuredBuilder<
+    QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    TCaller,
+    TActingFor,
+    TActor,
+    never
+  >(builder as never)
+
+  return ((definition) => {
+    const metadata = getOperationMetadata(definition as never)
+    const projectionMetadata = getOperationProjectionMetadata(definition as never)
+    if (metadata.kind !== 'destructive' || projectionMetadata?.projection !== 'preview') {
+      return structured(definition as never)
+    }
+
+    if (!metadata.id) {
+      throw new Error('query(previewOf(op)) requires `operation.id` for destructive operations.')
+    }
+
+    const originalHandler = definition.handler as (
+      ctx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+      args: Record<string, unknown>,
+      loaded: unknown,
+    ) => Promise<unknown> | unknown
+
+    const transformed = {
+      ...definition,
+      handler: async (
+        ctx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+        args: Record<string, unknown>,
+        loaded: unknown,
+      ) => {
+        const previewResult = await originalHandler(ctx, args, loaded)
+        return await attachDestructivePreviewConfirmation({
+          ctx,
+          args,
+          loaded,
+          metadata,
+          projectionMetadata,
+          definition,
+          previewResult,
+          options,
+        })
+      },
+    }
+
+    return structured(transformed as never)
+  }) as StructuredQueryBuilder<
+    QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+    Visibility,
+    TActor
+  >
+}
+
 function buildStructuredMutationRuntime<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
@@ -2234,6 +2413,13 @@ function buildStructuredMutationRuntime<
         if (payload.operationId !== metadata.id) {
           throw new Error(
             `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
+          )
+        }
+        const executePath =
+          definition.identityForwardingFunctionRef ?? projectionMetadata?.functionRef
+        if (executePath && payload.executePath !== executePath) {
+          throw new Error(
+            `Confirmation token targets execute path "${payload.executePath}", not "${executePath}".`,
           )
         }
         const forwardingEnvelope = getIdentityForwardingEnvelopeState(ctx)
@@ -2624,17 +2810,10 @@ function buildTrellisRuntime<
 ) {
   const unsafe = buildUnsafeFunctions(builders, options)
   const structured = {
-    query: buildStructuredBuilder<
-      QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-      TCaller,
-      TActingFor,
-      TActor,
-      typeof unsafe.query
-    >(unsafe.query) as StructuredQueryBuilder<
-      QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-      QueryVisibility,
-      TActor
-    >,
+    query: buildStructuredQueryRuntime<DataModel, QueryVisibility, TCaller, TActingFor, TActor>(
+      unsafe.query,
+      options,
+    ),
     mutation: buildStructuredMutationRuntime<
       DataModel,
       MutationVisibility,
@@ -2654,17 +2833,13 @@ function buildTrellisRuntime<
   const structuredInternal =
     unsafe.internal.query && unsafe.internal.mutation
       ? {
-          query: buildStructuredBuilder<
-            QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          query: buildStructuredQueryRuntime<
+            DataModel,
+            InternalQueryVisibility,
             TCaller,
             TActingFor,
-            TActor,
-            NonNullable<typeof unsafe.internal.query>
-          >(unsafe.internal.query) as StructuredQueryBuilder<
-            QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
-            InternalQueryVisibility,
             TActor
-          >,
+          >(unsafe.internal.query, options),
           mutation: buildStructuredMutationRuntime<
             DataModel,
             InternalMutationVisibility,
