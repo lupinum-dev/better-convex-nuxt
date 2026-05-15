@@ -46,6 +46,11 @@ const checks = [
     pattern: /\b(archiveProject|deleteTask)\(\{(?:(?!_confirmationToken).)*\}\)/,
     roots: ['apps/docs/content/docs', 'examples'],
   },
+  {
+    name: 'stale confirmationToken docs',
+    pattern: /\bconfirmationToken\b/,
+    roots: ['README.md', 'apps/docs/content/docs', 'labs', 'SPEC.md'],
+  },
 ]
 
 const repoRoot = process.cwd()

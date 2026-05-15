@@ -173,7 +173,7 @@ curl http://localhost:3000/mcp \
   }'
 ```
 
-That first call returns a preview with `confirmationToken`. Send the same call again with `_confirmationToken` set to that value to execute the archive.
+That first call returns a preview with `preview.confirmation.token`. Send the same call again with `_confirmationToken` set to that value to execute the archive.
 
 ## Observability Demo
 

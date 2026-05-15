@@ -1701,7 +1701,7 @@ Keep explicit result envelopes:
 ```ts
 return ctx.ok(data, 'Created project.')
 return ctx.error('auth', 'You do not have permission to create projects.')
-return ctx.preview({ summary, confirmationToken })
+return ctx.preview({ summary })
 return ctx.blocked({ summary, reasons })
 ```
 

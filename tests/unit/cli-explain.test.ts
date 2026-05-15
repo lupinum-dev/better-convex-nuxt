@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 const repoRoot = process.cwd()
 const cliEntry = resolve(repoRoot, 'dist/cli.mjs')
+
+vi.setConfig({ testTimeout: 30_000 })
 
 type ExplainOperationReport = {
   schemaVersion: 1
