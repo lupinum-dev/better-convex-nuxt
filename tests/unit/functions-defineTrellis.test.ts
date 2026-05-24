@@ -4,8 +4,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { open } from '../../src/runtime/auth'
 import { defineTrellis, trellisBackendLaneMetadataKey, unsafe } from '../../src/runtime/backend'
 import {
+  createConfirmationToken,
   hashConfirmationValue,
-  signConfirmationToken,
+  hashConfirmationToken,
 } from '../../src/runtime/functions/confirmation-token'
 import {
   defineOperation,
@@ -46,14 +47,26 @@ function createMemoryDb() {
       }),
       insert: async (table: string, value: MemoryRow) => {
         tables[table] ??= []
-        tables[table].push(value)
-        return `${table}:${tables[table].length}`
+        const id = `${table}:${tables[table].length + 1}`
+        tables[table].push({ _id: id, ...value })
+        return id
+      },
+      patch: async (id: string, value: MemoryRow) => {
+        for (const rows of Object.values(tables)) {
+          const row = rows.find((candidate) => candidate._id === id)
+          if (row) {
+            Object.assign(row, value)
+            return null
+          }
+        }
+        throw new Error(`Missing row "${id}"`)
       },
     },
   }
 }
 
 async function confirmationToken(args: {
+  memory: ReturnType<typeof createMemoryDb>
   operationId: string
   executeArgs: Record<string, unknown>
   confirm: Record<string, unknown>
@@ -62,8 +75,9 @@ async function confirmationToken(args: {
   executePath?: string
   previewPath?: string
 }) {
-  return await signConfirmationToken({
-    v: 1,
+  const token = createConfirmationToken()
+  await args.memory.db.insert('destructiveConfirmations', {
+    tokenHash: await hashConfirmationToken(token),
     operationId: args.operationId,
     executePath: args.executePath ?? 'execute',
     previewPath: args.previewPath ?? 'preview',
@@ -75,7 +89,10 @@ async function confirmationToken(args: {
     ...(args.version === undefined
       ? {}
       : { versionHash: await hashConfirmationValue(args.version) }),
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 5 * 60 * 1000,
   })
+  return token
 }
 
 describe('defineTrellis', () => {
@@ -480,7 +497,7 @@ describe('defineTrellis', () => {
     }
 
     const memory = createMemoryDb()
-    memory.tables.destructiveConfirmations = [{ jti: 'execute-1' }]
+    memory.tables.destructiveConfirmations = [{ jti: 'execute-1', redeemedAt: 1 }]
     const args = createIdentityForwardingEnvelopeArgs({
       args: { id: 'task_1' },
       caller: { kind: 'agent', agentId: 'a1', subject: 'agent:a1' },
@@ -807,7 +824,6 @@ describe('defineTrellis', () => {
   })
 
   it('rejects replayed destructive operation confirmation tokens', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -818,6 +834,10 @@ describe('defineTrellis', () => {
         destructiveOperations: {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
         },
       },
     )
@@ -854,6 +874,7 @@ describe('defineTrellis', () => {
     const memory = createMemoryDb()
     const executeArgs = { id: 'record-1' }
     const token = await confirmationToken({
+      memory,
       operationId: 'tests.destroy',
       executeArgs,
       confirm: { operation: 'tests.destroy', id: 'record-1' },
@@ -878,7 +899,6 @@ describe('defineTrellis', () => {
   })
 
   it('attaches confirmation tokens to destructive operation previews when configured', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -915,7 +935,7 @@ describe('defineTrellis', () => {
       handler: async () => 'destroyed',
     })
 
-    const previewDefinition = runtime.query.protected({
+    const previewDefinition = runtime.mutation.protected({
       ...previewOf(destructiveOp),
       identityForwardingFunctionRef: 'tasks:previewDelete',
     }) as {
@@ -949,6 +969,11 @@ describe('defineTrellis', () => {
 
     expect(preview.confirmation?.token).toEqual(expect.any(String))
     expect(preview.confirmation?.expiresAt).toBeGreaterThan(Date.now())
+    expect(memory.tables.destructiveConfirmations).toHaveLength(1)
+    expect(memory.tables.destructiveConfirmations[0]).not.toHaveProperty(
+      'token',
+      preview.confirmation?.token,
+    )
     await expect(
       executeDefinition.handler(ctx, {
         id: 'record-1',
@@ -963,9 +988,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/already been redeemed/i)
   })
 
-  it('requires operation-execute forwarding and confirmation tokens to share the same jti', async () => {
-    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
+  it('rejects query previews that try to issue stored destructive confirmations', () => {
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -976,6 +999,54 @@ describe('defineTrellis', () => {
         destructiveOperations: {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
+        },
+      },
+    )
+
+    const destructiveOp = defineOperation({
+      id: 'tests.query-preview-token',
+      kind: 'destructive',
+      args: {
+        id: v.string(),
+      },
+      identityForwardingFunctionRef: 'tasks:delete',
+      guard: open,
+      preview: async (_ctx, args) =>
+        operationPreview({
+          summary: `Destroy ${args.id}`,
+          confirm: { operation: 'tests.query-preview-token', id: args.id },
+        }),
+      handler: async () => 'destroyed',
+    })
+
+    expect(() =>
+      runtime.query.protected({
+        ...previewOf(destructiveOp),
+        identityForwardingFunctionRef: 'tasks:previewDelete',
+      }),
+    ).toThrow(/cannot issue confirmation tokens.*mutation\(previewOf\(op\)\)/i)
+  })
+
+  it('requires operation-execute forwarding and confirmation tokens to share the same jti', async () => {
+    process.env.CONVEX_IDENTITY_FORWARDING_KEY = 'trusted-key-with-enough-alpha-entropy'
+    const builder = ((definition: unknown) => definition) as never
+    const runtime = defineTrellis(
+      {
+        query: builder,
+        mutation: builder,
+      },
+      {
+        destructiveOperations: {
+          confirmationTable: 'destructiveConfirmations' as never,
+          auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
         },
       },
     )
@@ -1010,6 +1081,7 @@ describe('defineTrellis', () => {
     const memory = createMemoryDb()
     const executeArgs = { id: 'record-1' }
     const token = await confirmationToken({
+      memory,
       operationId: 'tests.destroy',
       executeArgs,
       confirm: { id: 'record-1' },
@@ -1037,12 +1109,11 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/operation-execute envelope does not match the confirmation token/i)
 
     expect(executed).toBe(false)
-    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 
   it('reports destructive safety misconfiguration before destructive handler execution', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -1053,6 +1124,10 @@ describe('defineTrellis', () => {
         destructiveOperations: {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
         },
       },
     )
@@ -1084,12 +1159,7 @@ describe('defineTrellis', () => {
       ) => Promise<unknown>
     }
     const executeArgs = { id: 'record-1' }
-    const token = await confirmationToken({
-      operationId: 'tests.destroy',
-      executeArgs,
-      confirm: { id: 'record-1' },
-      jti: 'misconfigured-store',
-    })
+    const token = createConfirmationToken()
 
     await expect(
       definition.handler(
@@ -1101,14 +1171,13 @@ describe('defineTrellis', () => {
         { ...executeArgs, _confirmationToken: token },
       ),
     ).rejects.toThrow(
-      /Destructive safety for operation "tests.destroy" is misconfigured.*destructiveConfirmations.*by_jti.*destructiveAuditLog/i,
+      /Destructive safety for operation "tests.destroy" is misconfigured.*destructiveConfirmations.*by_token_hash.*by_jti.*destructiveAuditLog/i,
     )
 
     expect(executed).toBe(false)
   })
 
   it('re-runs authorization after destructive confirmation before redeeming', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -1119,6 +1188,10 @@ describe('defineTrellis', () => {
         destructiveOperations: {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
         },
       },
     )
@@ -1157,6 +1230,7 @@ describe('defineTrellis', () => {
     const memory = createMemoryDb()
     const executeArgs = { id: 'record-1' }
     const token = await confirmationToken({
+      memory,
       operationId: 'tests.destroy',
       executeArgs,
       confirm: { id: 'record-1' },
@@ -1177,12 +1251,11 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/tests\.destroy|Access denied|Forbidden/i)
 
     expect(executed).toBe(false)
-    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 
   it('rejects stale destructive operation confirmation tokens when preview state changes', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const builder = ((definition: unknown) => definition) as never
     const runtime = defineTrellis(
       {
@@ -1193,6 +1266,10 @@ describe('defineTrellis', () => {
         destructiveOperations: {
           confirmationTable: 'destructiveConfirmations' as never,
           auditTable: 'destructiveAuditLog' as never,
+          previewConfirmation: {
+            callerKey: () => 'caller:test',
+            scopeKey: () => 'tenant:test',
+          },
         },
       },
     )
@@ -1231,6 +1308,7 @@ describe('defineTrellis', () => {
     const memory = createMemoryDb()
     const executeArgs = { id: 'record-1' }
     const token = await confirmationToken({
+      memory,
       operationId: 'tests.destroy',
       executeArgs,
       confirm: { operation: 'tests.destroy', id: 'record-1', state: 'draft' },
@@ -1252,7 +1330,7 @@ describe('defineTrellis', () => {
     ).rejects.toThrow(/changed before confirmation/i)
 
     expect(executions).toBe(0)
-    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(0)
+    expect(memory.tables.destructiveConfirmations ?? []).toHaveLength(1)
     expect(memory.tables.destructiveAuditLog ?? []).toHaveLength(0)
   })
 })

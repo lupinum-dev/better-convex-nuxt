@@ -230,8 +230,6 @@ export async function ensureManagedLocalConvex(
     `http://127.0.0.1:${resolved.port + 1}`
   const identityForwardingKey =
     process.env.CONVEX_IDENTITY_FORWARDING_KEY ?? INTERNAL_HARNESS_LOCAL_IDENTITY_FORWARDING_KEY
-  const mcpConfirmationKey =
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY ?? 'mcp-confirmation-key-1234567890'
 
   if (!activeHandle) {
     const restoreGenerated = await snapshotGeneratedDir(cwd)
@@ -264,7 +262,6 @@ export async function ensureManagedLocalConvex(
         BETTER_AUTH_SECRET:
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
         CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
-        TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
         CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
     })
@@ -302,7 +299,6 @@ export async function ensureManagedLocalConvex(
             BETTER_AUTH_SECRET:
               process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
             CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
-            TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
           },
           {
             ...process.env,
@@ -366,7 +362,6 @@ export async function ensureManagedLocalConvex(
     env: {
       ALLOW_TEST_RESET: 'true',
       CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
-      TRELLIS_MCP_CONFIRMATION_KEY: mcpConfirmationKey,
       CONVEX_URL: activeHandle.url,
       CONVEX_SITE_URL: finalSiteUrl,
       NUXT_PUBLIC_CONVEX_URL: activeHandle.url,

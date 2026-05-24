@@ -130,7 +130,19 @@ export function collectModuleValidationFindings(options: {
       analysis.destructiveOperations.confirmationTable,
     )
     const auditTable = findSchemaTable(analysis, analysis.destructiveOperations.auditTable)
-    const requiredConfirmationFields = ['jti', 'operationId', 'callerKey', 'scopeKey', 'redeemedAt']
+    const requiredConfirmationFields = [
+      'tokenHash',
+      'jti',
+      'operationId',
+      'executePath',
+      'previewPath',
+      'callerKey',
+      'scopeKey',
+      'argsHash',
+      'previewHash',
+      'createdAt',
+      'expiresAt',
+    ]
     const requiredAuditFields = [
       'operationId',
       'jti',
@@ -159,11 +171,13 @@ export function collectModuleValidationFindings(options: {
         }
       }
 
-      if (!confirmationTable.indexes.includes('by_jti')) {
-        findings.push({
-          id: 'destructive-safety-schema',
-          message: `Destructive-safety confirmation table "${analysis.destructiveOperations.confirmationTable}" is missing the "by_jti" index.`,
-        })
+      for (const index of ['by_token_hash', 'by_jti', 'by_expires_at']) {
+        if (!confirmationTable.indexes.includes(index)) {
+          findings.push({
+            id: 'destructive-safety-schema',
+            message: `Destructive-safety confirmation table "${analysis.destructiveOperations.confirmationTable}" is missing the "${index}" index.`,
+          })
+        }
       }
     }
 

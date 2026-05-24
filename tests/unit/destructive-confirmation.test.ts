@@ -1,48 +1,50 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
+  createConfirmationToken,
+  hashConfirmationToken,
   hashConfirmationValue,
-  signConfirmationToken,
 } from '../../src/runtime/functions/confirmation-token'
 import {
+  createDestructivePreviewToken,
+  createMemoryConfirmationStore,
   hashArgsForDiagnostics,
   verifyDestructiveConfirmationToken,
 } from '../../src/runtime/mcp/destructive-confirmation'
 
 describe('destructive confirmation diagnostics', () => {
-  beforeEach(() => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
-  })
-
-  afterEach(() => {
-    delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
-  })
-
   it('reports changed top-level keys from diagnostic hashes', async () => {
     const previewArgs = { id: 'post-1', message: 'first' }
     const executeArgs = { id: 'post-1', message: 'second' }
-    const token = await signConfirmationToken({
-      v: 1,
-      operationId: 'delete-post',
-      executePath: 'posts:delete',
-      previewPath: 'posts:previewDelete',
-      jti: 'token-1',
-      callerKey: 'agent-1',
-      scopeKey: 'tenant-1',
-      argsHash: await hashConfirmationValue(previewArgs),
-      argsFieldHashes: await hashArgsForDiagnostics(previewArgs),
+    const store = createMemoryConfirmationStore()
+    const { token } = await createDestructivePreviewToken({
+      binding: {
+        operationId: 'delete-post',
+        executePath: 'posts:delete',
+        previewPath: 'posts:previewDelete',
+        callerKey: 'agent-1',
+        scopeKey: 'tenant-1',
+        argsHash: await hashConfirmationValue(previewArgs),
+        argsFieldHashes: await hashArgsForDiagnostics(previewArgs),
+      },
       previewHash: await hashConfirmationValue({ id: 'post-1' }),
+      versionHash: null,
+      confirmationStore: store,
     })
 
-    const result = await verifyDestructiveConfirmationToken(token, {
-      operationId: 'delete-post',
-      executePath: 'posts:delete',
-      previewPath: 'posts:previewDelete',
-      callerKey: 'agent-1',
-      scopeKey: 'tenant-1',
-      argsHash: await hashConfirmationValue(executeArgs),
-      argsFieldHashes: await hashArgsForDiagnostics(executeArgs),
-    })
+    const result = await verifyDestructiveConfirmationToken(
+      token,
+      {
+        operationId: 'delete-post',
+        executePath: 'posts:delete',
+        previewPath: 'posts:previewDelete',
+        callerKey: 'agent-1',
+        scopeKey: 'tenant-1',
+        argsHash: await hashConfirmationValue(executeArgs),
+        argsFieldHashes: await hashArgsForDiagnostics(executeArgs),
+      },
+      store,
+    )
 
     expect(result).toMatchObject({
       ok: false,
@@ -60,27 +62,38 @@ describe('destructive confirmation diagnostics', () => {
   it('does not guess changed keys for old tokens without diagnostic hashes', async () => {
     const previewArgs = { id: 'post-1', message: 'first' }
     const executeArgs = { id: 'post-1', message: 'second' }
-    const token = await signConfirmationToken({
-      v: 1,
-      operationId: 'delete-post',
-      executePath: 'posts:delete',
-      previewPath: 'posts:previewDelete',
-      jti: 'token-1',
-      callerKey: 'agent-1',
-      scopeKey: 'tenant-1',
-      argsHash: await hashConfirmationValue(previewArgs),
-      previewHash: await hashConfirmationValue({ id: 'post-1' }),
+    const store = createMemoryConfirmationStore()
+    const token = createConfirmationToken()
+    const tokenHash = await hashConfirmationToken(token)
+    await store.create({
+      tokenHash,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 60_000,
+      payload: {
+        operationId: 'delete-post',
+        executePath: 'posts:delete',
+        previewPath: 'posts:previewDelete',
+        callerKey: 'agent-1',
+        scopeKey: 'tenant-1',
+        argsHash: await hashConfirmationValue(previewArgs),
+        jti: 'token-1',
+        previewHash: await hashConfirmationValue({ id: 'post-1' }),
+      },
     })
 
-    const result = await verifyDestructiveConfirmationToken(token, {
-      operationId: 'delete-post',
-      executePath: 'posts:delete',
-      previewPath: 'posts:previewDelete',
-      callerKey: 'agent-1',
-      scopeKey: 'tenant-1',
-      argsHash: await hashConfirmationValue(executeArgs),
-      argsFieldHashes: await hashArgsForDiagnostics(executeArgs),
-    })
+    const result = await verifyDestructiveConfirmationToken(
+      token,
+      {
+        operationId: 'delete-post',
+        executePath: 'posts:delete',
+        previewPath: 'posts:previewDelete',
+        callerKey: 'agent-1',
+        scopeKey: 'tenant-1',
+        argsHash: await hashConfirmationValue(executeArgs),
+        argsFieldHashes: await hashArgsForDiagnostics(executeArgs),
+      },
+      store,
+    )
 
     expect(result).toMatchObject({
       ok: false,
@@ -95,5 +108,29 @@ describe('destructive confirmation diagnostics', () => {
     if (!result.ok) {
       expect(result.failure.details).not.toHaveProperty('changedKeys')
     }
+  })
+
+  it('rejects opaque tokens that were never stored', async () => {
+    const result = await verifyDestructiveConfirmationToken(
+      'trellis-confirm-v1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      {
+        operationId: 'delete-post',
+        executePath: 'posts:delete',
+        previewPath: 'posts:previewDelete',
+        callerKey: 'agent-1',
+        scopeKey: 'tenant-1',
+        argsHash: await hashConfirmationValue({ id: 'post-1' }),
+        argsFieldHashes: {},
+      },
+      createMemoryConfirmationStore(),
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      failure: {
+        category: 'confirmation_required',
+        code: 'CONFIRMATION_TOKEN_INVALID',
+      },
+    })
   })
 })

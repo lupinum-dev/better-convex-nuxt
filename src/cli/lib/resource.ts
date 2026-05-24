@@ -224,7 +224,7 @@ import { implementOperation, operationEffect, operationIssue, operationPreview, 
 
 import { remove${ctx.singularPascal}Descriptor } from '../../../shared/features/${ctx.tableName}/contract'
 import { ${ctx.singularCamel}DeletePermission } from './permissions'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 
 export const remove${ctx.singularPascal}Op = implementOperation(remove${ctx.singularPascal}Descriptor, {
   guard: ${ctx.singularCamel}DeletePermission,
@@ -249,7 +249,7 @@ export const remove${ctx.singularPascal}Op = implementOperation(remove${ctx.sing
   },
 })
 
-export const previewRemove${ctx.singularPascal} = query.protected(previewOf(remove${ctx.singularPascal}Op))
+export const previewRemove${ctx.singularPascal} = mutation.protected(previewOf(remove${ctx.singularPascal}Op))
 `.trimStart()
 }
 

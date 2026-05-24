@@ -10,7 +10,7 @@ import {
 import { v } from 'convex/values'
 
 import { requireWorkspaceTenant } from '../../auth/guards'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 import { canDeleteTask } from './checks'
 import { taskRead } from './permissions'
 
@@ -84,4 +84,4 @@ export const removeTaskOp = defineOperation({
   },
 })
 
-export const previewRemoveTask = query.protected(previewOf(removeTaskOp))
+export const previewRemoveTask = mutation.protected(previewOf(removeTaskOp))

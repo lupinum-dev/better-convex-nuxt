@@ -226,7 +226,6 @@ describe('example dev launcher', () => {
     const resolved = resolveGeneratedSecretEnvValues({
       BETTER_AUTH_SECRET: 'replace-me',
       CONVEX_IDENTITY_FORWARDING_KEY: 'replace-me-with-a-long-random-shared-secret',
-      TRELLIS_MCP_CONFIRMATION_KEY: 'replace-me-with-a-second-long-random-shared-secret',
       SITE_URL: 'http://127.0.0.1:3000',
     }) as Record<string, string>
 
@@ -235,8 +234,6 @@ describe('example dev launcher', () => {
     expect(resolved.BETTER_AUTH_SECRET).toHaveLength(64) // 32 bytes hex
     expect(resolved.CONVEX_IDENTITY_FORWARDING_KEY).not.toMatch(/replace.?me/i)
     expect(resolved.CONVEX_IDENTITY_FORWARDING_KEY).not.toBe(resolved.BETTER_AUTH_SECRET)
-    expect(resolved.TRELLIS_MCP_CONFIRMATION_KEY).not.toMatch(/replace.?me/i)
-    expect(resolved.TRELLIS_MCP_CONFIRMATION_KEY).not.toBe(resolved.CONVEX_IDENTITY_FORWARDING_KEY)
   })
 
   it('keeps tracked example env files on the identity forwarding secret name', () => {

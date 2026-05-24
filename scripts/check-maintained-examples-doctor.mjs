@@ -23,7 +23,6 @@ const sharedEnv = {
   SITE_URL: 'http://localhost:3000',
   BETTER_AUTH_SECRET: 'doctor-check-better-auth-secret-32chars',
   CONVEX_IDENTITY_FORWARDING_KEY: 'doctor-check-identity-forwarding-key-32chars',
-  TRELLIS_MCP_CONFIRMATION_KEY: 'doctor-check-mcp-confirmation-key-32chars',
   MCP_RATE_LIMIT_REDIS_URL: 'redis://127.0.0.1:6379',
   TEAM_WORKSPACE_WEBHOOK_SECRET: 'doctor-check-team-webhook-secret',
   TEAM_WORKSPACE_WEBHOOK_AUTH_ID: 'user_team_workspace_webhook',

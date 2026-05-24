@@ -1,7 +1,9 @@
 import {
+  createConfirmationToken,
   hashConfirmationValue,
-  signConfirmationToken,
-  verifyConfirmationToken,
+  hashConfirmationToken,
+  normalizeStoredConfirmationPayload,
+  type StoredToolConfirmationPayload,
   type ToolConfirmationPayload,
 } from '../functions/confirmation-token.js'
 /**
@@ -18,6 +20,7 @@ import type { ConvexErrorCategory } from '../utils/types.js'
 type MaybePromise<T> = T | Promise<T>
 
 export type McpConfirmationConfirmationInput = {
+  tokenHash: string
   payload: ToolConfirmationPayload
   operationId: string
   callerKey: string
@@ -28,7 +31,16 @@ export type McpConfirmationConfirmationInput = {
   previewPath: string
 }
 
+export type McpConfirmationCreateInput = {
+  payload: ToolConfirmationPayload
+  tokenHash: string
+  createdAt: number
+  expiresAt: number
+}
+
 export interface McpConfirmationStore {
+  create(input: McpConfirmationCreateInput): MaybePromise<void>
+  lookup(input: { tokenHash: string }): MaybePromise<StoredToolConfirmationPayload | null>
   redeem(input: McpConfirmationConfirmationInput): MaybePromise<'redeemed' | 'replayed'>
 }
 
@@ -53,12 +65,26 @@ export type DestructiveConfirmationFailure = {
 }
 
 export function createMemoryConfirmationStore(): McpConfirmationStore {
-  const redeemed = new Set<string>()
+  const confirmations = new Map<string, StoredToolConfirmationPayload>()
   return {
+    create(input) {
+      confirmations.set(input.tokenHash, {
+        ...input.payload,
+        tokenHash: input.tokenHash,
+        createdAt: input.createdAt,
+        expiresAt: input.expiresAt,
+      })
+    },
+    lookup(input) {
+      return confirmations.get(input.tokenHash) ?? null
+    },
     redeem(input) {
-      const key = `${input.scopeKey}:${input.callerKey}:${input.operationId}:${input.payload.jti}`
-      if (redeemed.has(key)) return 'replayed'
-      redeemed.add(key)
+      const stored = confirmations.get(input.tokenHash)
+      if (!stored || typeof stored.redeemedAt === 'number') return 'replayed'
+      confirmations.set(input.tokenHash, {
+        ...stored,
+        redeemedAt: Date.now(),
+      })
       return 'redeemed'
     },
   }
@@ -111,15 +137,22 @@ export async function hashPreviewVersion(
   return version === undefined ? null : await hashConfirmationValue(version)
 }
 
-export async function signDestructivePreviewToken(input: {
+export async function createDestructivePreviewToken(input: {
   binding: DestructiveConfirmationBinding
   previewHash: string
   versionHash: string | null
+  confirmationStore: McpConfirmationStore
   ttlMs?: number
-}): Promise<string> {
-  return await signConfirmationToken(
-    {
-      v: 1,
+}): Promise<{ token: string; expiresAt: number }> {
+  const token = createConfirmationToken()
+  const tokenHash = await hashConfirmationToken(token)
+  const now = Date.now()
+  const expiresAt = now + (input.ttlMs ?? DEFAULT_MCP_CONFIRMATION_TTL_MS)
+  await input.confirmationStore.create({
+    tokenHash,
+    createdAt: now,
+    expiresAt,
+    payload: {
       operationId: input.binding.operationId,
       executePath: input.binding.executePath,
       previewPath: input.binding.previewPath,
@@ -131,8 +164,8 @@ export async function signDestructivePreviewToken(input: {
       previewHash: input.previewHash,
       ...(input.versionHash ? { versionHash: input.versionHash } : {}),
     },
-    Math.ceil((input.ttlMs ?? DEFAULT_MCP_CONFIRMATION_TTL_MS) / 1000),
-  )
+  })
+  return { token, expiresAt }
 }
 
 function confirmationExplanation(message: string): TrellisDenialExplanation {
@@ -166,14 +199,14 @@ function failure(input: {
 export async function verifyDestructiveConfirmationToken(
   token: string,
   binding: DestructiveConfirmationBinding,
+  confirmationStore: McpConfirmationStore,
 ): Promise<
-  | { ok: true; payload: ToolConfirmationPayload }
+  | { ok: true; payload: ToolConfirmationPayload; tokenHash: string }
   | { ok: false; failure: DestructiveConfirmationFailure }
 > {
-  let payload: ToolConfirmationPayload
-  try {
-    payload = await verifyConfirmationToken(token)
-  } catch {
+  const tokenHash = await hashConfirmationToken(token)
+  const stored = normalizeStoredConfirmationPayload(await confirmationStore.lookup({ tokenHash }))
+  if (!stored || stored.expiresAt <= Date.now()) {
     return {
       ok: false,
       failure: failure({
@@ -184,6 +217,11 @@ export async function verifyDestructiveConfirmationToken(
       }),
     }
   }
+  if (typeof stored.redeemedAt === 'number') {
+    return { ok: false, failure: replayedConfirmationFailure() }
+  }
+
+  const payload: ToolConfirmationPayload = stored
 
   const drifted =
     payload.operationId !== binding.operationId ||
@@ -208,7 +246,7 @@ export async function verifyDestructiveConfirmationToken(
     }
   }
 
-  return { ok: true, payload }
+  return { ok: true, payload, tokenHash }
 }
 
 export function validateDestructivePreviewState(input: {

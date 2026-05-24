@@ -337,7 +337,7 @@ function createDestructiveOperationPreviewProjectionFinding(
         : 'Every destructive operation in public-surface metadata has an exported preview projection.',
     fixHint:
       missingPreview.length > 0
-        ? 'Export a protected preview with `query.protected(previewOf(operation))` for every destructive operation.'
+        ? 'Export a protected preview with `mutation.protected(previewOf(operation))` when it issues confirmation state, or `query.protected(previewOf(operation))` for read-only previews.'
         : 'Keep destructive operation previews exported so UI, MCP, and doctor can share one preview contract.',
     sources: [
       findingInventorySource(

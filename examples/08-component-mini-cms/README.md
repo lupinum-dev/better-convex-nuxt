@@ -53,7 +53,6 @@ App-owned env vars:
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_IDENTITY_FORWARDING_KEY`: identity forwarding into the component boundary
-- `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `JWKS`: local auth bootstrap for the example
 - `DEMO_MCP_TOKEN`: server-only MCP caller token required for agent write/publish recordAccess
 

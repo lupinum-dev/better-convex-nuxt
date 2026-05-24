@@ -1,11 +1,6 @@
-import { SignJWT, jwtVerify } from 'jose'
-
-const PURPOSE = 'trellis:tool-confirmation:v1'
-const UNSIGNED_TOKEN_PREFIX = 'trellis-unsigned-v1.'
-const DEFAULT_TTL_SECONDS = 5 * 60
+const OPAQUE_TOKEN_PREFIX = 'trellis-confirm-v1.'
 
 export type ToolConfirmationPayload = {
-  v: 1
   operationId: string
   executePath: string
   previewPath: string
@@ -18,90 +13,15 @@ export type ToolConfirmationPayload = {
   versionHash?: string
 }
 
-export type ToolConfirmationTokenMode = 'signed' | 'unsigned'
-
-type ToolConfirmationTokenOptions = {
-  mode?: ToolConfirmationTokenMode
+export type StoredToolConfirmationPayload = ToolConfirmationPayload & {
+  tokenHash: string
+  createdAt: number
+  expiresAt: number
+  redeemedAt?: number
 }
 
-function getConfirmationSecret(): Uint8Array {
-  const secret = process.env.TRELLIS_MCP_CONFIRMATION_KEY?.trim()
-  if (!secret) {
-    throw new Error(
-      'Trellis destructive MCP confirmation requires TRELLIS_MCP_CONFIRMATION_KEY to be set.',
-    )
-  }
-
-  return new TextEncoder().encode(`${PURPOSE}:${secret}`)
-}
-
-function encodeUnsignedToken(payload: ToolConfirmationPayload, ttlSeconds: number): string {
-  const envelope = {
-    aud: PURPOSE,
-    exp: Math.floor(Date.now() / 1000) + ttlSeconds,
-    iat: Math.floor(Date.now() / 1000),
-    payload,
-  }
-  const json = JSON.stringify(envelope)
-  const bytes = new TextEncoder().encode(json)
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return `${UNSIGNED_TOKEN_PREFIX}${btoa(binary)}`
-}
-
-function decodeUnsignedToken(token: string): ToolConfirmationPayload {
-  if (!token.startsWith(UNSIGNED_TOKEN_PREFIX)) {
-    throw new Error('Unsigned confirmation token has an invalid prefix.')
-  }
-  const encoded = token.slice(UNSIGNED_TOKEN_PREFIX.length)
-  const binary = atob(encoded)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  const envelope = JSON.parse(new TextDecoder().decode(bytes)) as {
-    aud?: unknown
-    exp?: unknown
-    payload?: unknown
-  }
-  if (envelope.aud !== PURPOSE) {
-    throw new Error('Unsigned confirmation token has an invalid audience.')
-  }
-  if (typeof envelope.exp !== 'number' || envelope.exp <= Math.floor(Date.now() / 1000)) {
-    throw new Error('Unsigned confirmation token has expired.')
-  }
-  return normalizeConfirmationPayload(envelope.payload)
-}
-
-function normalizeConfirmationPayload(payload: unknown): ToolConfirmationPayload {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Confirmation token payload is invalid.')
-  }
-  const value = payload as Record<string, unknown>
-  return {
-    v: 1,
-    operationId: String(value.operationId),
-    executePath: String(value.executePath),
-    previewPath: String(value.previewPath),
-    jti: String(value.jti),
-    callerKey: String(value.callerKey),
-    scopeKey: String(value.scopeKey),
-    argsHash: String(value.argsHash),
-    ...(value.argsFieldHashes &&
-    typeof value.argsFieldHashes === 'object' &&
-    !Array.isArray(value.argsFieldHashes)
-      ? {
-          argsFieldHashes: Object.fromEntries(
-            Object.entries(value.argsFieldHashes).filter(
-              (entry): entry is [string, string] =>
-                typeof entry[0] === 'string' && typeof entry[1] === 'string',
-            ),
-          ),
-        }
-      : {}),
-    previewHash: String(value.previewHash),
-    ...(typeof value.versionHash === 'string' ? { versionHash: value.versionHash } : {}),
-  }
+export type StoredToolConfirmationRow = StoredToolConfirmationPayload & {
+  _id?: unknown
 }
 
 function canonicalize(value: unknown): unknown {
@@ -119,41 +39,71 @@ function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+function randomSegment(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return toHex(bytes)
+}
+
+export function createConfirmationToken(): string {
+  return `${OPAQUE_TOKEN_PREFIX}${randomSegment()}${randomSegment()}`
+}
+
 export async function hashConfirmationValue(value: unknown): Promise<string> {
   const payload = JSON.stringify(canonicalize(value))
   const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload))
   return toHex(new Uint8Array(digest))
 }
 
-export async function signConfirmationToken(
-  payload: ToolConfirmationPayload,
-  ttlSeconds = DEFAULT_TTL_SECONDS,
-  options: ToolConfirmationTokenOptions = {},
-): Promise<string> {
-  if (options.mode === 'unsigned') {
-    return encodeUnsignedToken(payload, ttlSeconds)
-  }
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setAudience(PURPOSE)
-    .setIssuedAt()
-    .setExpirationTime(Math.floor(Date.now() / 1000) + ttlSeconds)
-    .sign(getConfirmationSecret())
+export async function hashConfirmationToken(token: string): Promise<string> {
+  return await hashConfirmationValue({ token })
 }
 
-export async function verifyConfirmationToken(
-  token: string,
-  options: ToolConfirmationTokenOptions = {},
-): Promise<ToolConfirmationPayload> {
-  if (token.startsWith(UNSIGNED_TOKEN_PREFIX)) {
-    if (options.mode !== 'unsigned') {
-      throw new Error('Unsigned confirmation tokens are not accepted by this operation.')
-    }
-    return decodeUnsignedToken(token)
+export function normalizeStoredConfirmationPayload(row: unknown): StoredToolConfirmationRow | null {
+  if (!row || typeof row !== 'object') return null
+  const value = row as Record<string, unknown>
+  if (
+    typeof value.operationId !== 'string' ||
+    typeof value.executePath !== 'string' ||
+    typeof value.previewPath !== 'string' ||
+    typeof value.jti !== 'string' ||
+    typeof value.callerKey !== 'string' ||
+    typeof value.scopeKey !== 'string' ||
+    typeof value.argsHash !== 'string' ||
+    typeof value.previewHash !== 'string' ||
+    typeof value.tokenHash !== 'string' ||
+    typeof value.createdAt !== 'number' ||
+    typeof value.expiresAt !== 'number'
+  ) {
+    return null
   }
-  const { payload } = await jwtVerify(token, getConfirmationSecret(), {
-    audience: PURPOSE,
-  })
 
-  return normalizeConfirmationPayload(payload)
+  return {
+    ...(value._id === undefined ? {} : { _id: value._id }),
+    operationId: value.operationId,
+    executePath: value.executePath,
+    previewPath: value.previewPath,
+    jti: value.jti,
+    callerKey: value.callerKey,
+    scopeKey: value.scopeKey,
+    argsHash: value.argsHash,
+    ...(value.argsFieldHashes &&
+    typeof value.argsFieldHashes === 'object' &&
+    !Array.isArray(value.argsFieldHashes)
+      ? {
+          argsFieldHashes: Object.fromEntries(
+            Object.entries(value.argsFieldHashes).filter(
+              (entry): entry is [string, string] =>
+                typeof entry[0] === 'string' && typeof entry[1] === 'string',
+            ),
+          ),
+        }
+      : {}),
+    previewHash: value.previewHash,
+    ...(typeof value.versionHash === 'string' ? { versionHash: value.versionHash } : {}),
+    tokenHash: value.tokenHash,
+    createdAt: value.createdAt,
+    expiresAt: value.expiresAt,
+    ...(typeof value.redeemedAt === 'number' ? { redeemedAt: value.redeemedAt } : {}),
+  }
 }

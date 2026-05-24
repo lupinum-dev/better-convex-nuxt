@@ -5,4 +5,5 @@ import { tool } from '../runtime'
 export default tool.operation(deleteProjectDescriptor, {
   execute: executeDeleteProjectRef,
   preview: previewDeleteProjectRef,
+  confirmationMode: 'transport',
 })

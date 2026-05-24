@@ -224,7 +224,7 @@ import { authRequired } from '@lupinum/trellis/auth'
 import { defineOperation, operationPreview, previewOf } from '@lupinum/trellis/backend'
 import { v } from 'convex/values'
 
-import { mutation, query } from '../functions'
+import { mutation } from '../functions'
 
 export const ${exportName}Op = defineOperation({
   id: '${opId}',
@@ -246,7 +246,7 @@ export const ${exportName}Op = defineOperation({
   },
 })
 
-export const preview${exportName} = query.protected(previewOf(${exportName}Op))
+export const preview${exportName} = mutation.protected(previewOf(${exportName}Op))
 export const execute${exportName} = mutation.protected(${exportName}Op)
 `.trimStart()
   }

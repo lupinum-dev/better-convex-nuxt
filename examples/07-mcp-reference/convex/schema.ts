@@ -22,12 +22,24 @@ export default defineSchema({
   ...mcpKeyTables,
 
   destructiveConfirmations: defineTable({
+    tokenHash: v.string(),
     jti: v.string(),
     operationId: v.string(),
+    executePath: v.string(),
+    previewPath: v.string(),
     callerKey: v.string(),
     scopeKey: v.string(),
-    redeemedAt: v.number(),
-  }).index('by_jti', ['jti']),
+    argsHash: v.string(),
+    argsFieldHashes: v.optional(v.record(v.string(), v.string())),
+    previewHash: v.string(),
+    versionHash: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index('by_token_hash', ['tokenHash'])
+    .index('by_jti', ['jti'])
+    .index('by_expires_at', ['expiresAt']),
 
   destructiveAuditLog: defineTable({
     operationId: v.string(),

@@ -649,7 +649,7 @@ describe('CLI doctor', () => {
     ).toBe('pass')
   })
 
-  it('promotes deploy-time MCP warnings to failures with doctor --production', () => {
+  it('promotes deploy-time MCP identity warnings to failures with doctor --production', () => {
     const cwd = createTempDir('trellis-doctor-production-profile-')
     const initResult = runCli(
       ['init', 'doctor-app', '--template', 'workspace-mcp', '--cwd', cwd],
@@ -666,7 +666,8 @@ describe('CLI doctor', () => {
     const normalResult = runCli(['doctor', '--json', '--cwd', appRoot], repoRoot)
     const normalReport = parseJsonOutput<DoctorInventoryJsonReport>(normalResult.stdout)
     expect(
-      normalReport.findings.find((entry) => entry.id === 'mcp-confirmation-key-configured')?.status,
+      normalReport.findings.find((entry) => entry.id === 'identity-forwarding-key-configured')
+        ?.status,
     ).toBe('warn')
 
     const productionResult = runCli(
@@ -676,10 +677,6 @@ describe('CLI doctor', () => {
     const productionReport = parseJsonOutput<DoctorInventoryJsonReport>(productionResult.stdout)
 
     expect(productionResult.status).toBe(1)
-    expect(
-      productionReport.findings.find((entry) => entry.id === 'mcp-confirmation-key-configured')
-        ?.status,
-    ).toBe('fail')
     expect(
       productionReport.findings.find((entry) => entry.id === 'identity-forwarding-key-configured')
         ?.status,
@@ -707,7 +704,6 @@ describe('CLI doctor', () => {
       if (starter.mcp) {
         appendDoctorEnv(appRoot, [
           'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
-          'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
         ])
       }
 
@@ -1069,7 +1065,6 @@ export const appInventory = {
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
       'CONVEX_IDENTITY_FORWARDING_KEY=do-not-leak-this-forwarding-secret-value',
-      'TRELLIS_MCP_CONFIRMATION_KEY=do-not-leak-this-confirmation-secret-value',
     ])
     writeFileSync(
       resolve(appRoot, 'server/mcp/tools/leaky-caller.ts'),
@@ -1098,13 +1093,11 @@ export const appInventory = defineAppInventory({
 
     expect(result.status, result.stderr).toBe(0)
     expect(serializedInventory).not.toContain('do-not-leak-this-forwarding-secret-value')
-    expect(serializedInventory).not.toContain('do-not-leak-this-confirmation-secret-value')
     expect(serializedInventory).not.toContain('test-secret')
     expect(serializedInventory).not.toContain('do-not-leak-this-subject-value')
     expect(serializedInventory).not.toContain('do-not-leak-this-app-inventory-secret')
     expect(serializedInventory).not.toContain('BETTER_AUTH_SECRET')
     expect(serializedInventory).not.toContain('CONVEX_IDENTITY_FORWARDING_KEY')
-    expect(serializedInventory).not.toContain('TRELLIS_MCP_CONFIRMATION_KEY')
   })
 
   it('keeps doctor human output focused on findings', () => {
@@ -1482,12 +1475,21 @@ export const appInventory = defineAppInventory({
         .trimEnd()
         .replace(/\}\)\s*$/, '')},
   destructiveConfirmations: defineTable({
+    tokenHash: v.string(),
     jti: v.string(),
     operationId: v.string(),
+    executePath: v.string(),
+    previewPath: v.string(),
     callerKey: v.string(),
     scopeKey: v.string(),
-    redeemedAt: v.number(),
-  }),
+    argsHash: v.string(),
+    previewHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index('by_token_hash', ['tokenHash'])
+    .index('by_expires_at', ['expiresAt']),
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
@@ -1547,12 +1549,22 @@ export const appInventory = defineAppInventory({
         .trimEnd()
         .replace(/\}\)\s*$/, '')},
   destructiveConfirmations: defineTable({
+    tokenHash: v.string(),
     jti: v.string(),
     operationId: v.string(),
+    executePath: v.string(),
+    previewPath: v.string(),
     callerKey: v.string(),
     scopeKey: v.string(),
-    redeemedAt: v.number(),
-  }).index('by_jti', ['jti']),
+    argsHash: v.string(),
+    previewHash: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    redeemedAt: v.optional(v.number()),
+  })
+    .index('by_token_hash', ['tokenHash'])
+    .index('by_jti', ['jti'])
+    .index('by_expires_at', ['expiresAt']),
   destructiveAuditLog: defineTable({
     operationId: v.string(),
     jti: v.string(),
@@ -1878,7 +1890,6 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
       'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
-      'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
     ])
 
     writeFileSync(
@@ -1941,7 +1952,6 @@ export const previewPurgeTodo = query.protected(previewOf(purgeTodoOp))
     writeDoctorEnv(appRoot)
     appendDoctorEnv(appRoot, [
       'CONVEX_IDENTITY_FORWARDING_KEY=this-is-a-long-random-identity-forwarding-key',
-      'TRELLIS_MCP_CONFIRMATION_KEY=this-is-a-long-random-confirmation-key',
     ])
 
     writeFileSync(

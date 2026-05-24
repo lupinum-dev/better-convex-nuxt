@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type { H3Event } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { toAppInventoryJson } from '../../src/runtime/feature'
 import { getOperationMetadata } from '../../src/runtime/functions'
@@ -38,16 +38,6 @@ function createEvent(): H3Event {
 }
 
 describe('phase0 workspace-mcp fixture', () => {
-  const originalConfirmationKey = process.env.TRELLIS_MCP_CONFIRMATION_KEY
-
-  afterEach(() => {
-    if (originalConfirmationKey === undefined) {
-      delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
-    } else {
-      process.env.TRELLIS_MCP_CONFIRMATION_KEY = originalConfirmationKey
-    }
-  })
-
   it('builds inventory from shared descriptors and binds MCP tools without Convex implementation imports', async () => {
     const { default: deleteProjectTool } =
       await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
@@ -111,7 +101,6 @@ describe('phase0 workspace-mcp fixture', () => {
   })
 
   it('routes destructive execute through operation-execute forwarding options', async () => {
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
     const { default: deleteProjectTool } =
       await import('../fixtures/phase0-workspace-mcp/server/mcp/tools/delete-project')
     const { convexCalls } = await import('../fixtures/phase0-workspace-mcp/server/mcp/runtime')
@@ -163,7 +152,6 @@ describe('phase0 workspace-mcp fixture', () => {
         operation: 'mutation',
         args: {
           id: 'project-1',
-          _confirmationToken: confirmationToken,
         },
         options: {
           identityForwardingEnvelope: {

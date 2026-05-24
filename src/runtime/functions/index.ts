@@ -50,10 +50,12 @@ import {
 } from '../observability/index.js'
 import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import {
+  createConfirmationToken,
   hashConfirmationValue,
-  signConfirmationToken,
-  type ToolConfirmationTokenMode,
-  verifyConfirmationToken,
+  hashConfirmationToken,
+  normalizeStoredConfirmationPayload,
+  type StoredToolConfirmationRow,
+  type ToolConfirmationPayload,
 } from './confirmation-token.js'
 import { defineActingFor, type ActingFor, type ActingForDefinition } from './define-acting-for.js'
 import { defineCaller, type DefaultCaller, type CallerDefinition } from './define-caller.js'
@@ -316,6 +318,7 @@ type DestructiveConfirmationReader<DataModel extends GenericDataModel> = {
 type DestructiveOperationsDb<DataModel extends GenericDataModel> =
   DestructiveConfirmationReader<DataModel> & {
     insert: (table: TableNamesInDataModel<DataModel>, value: unknown) => Promise<unknown>
+    patch: (id: unknown, value: unknown) => Promise<unknown>
   }
 
 type Awaitable<T> = T | Promise<T>
@@ -326,12 +329,6 @@ type DestructivePreviewConfirmationOptions<
   TActingFor extends ActingFor,
   TActor,
 > = {
-  /**
-   * Signed tokens are the default. Use unsigned only when the runtime cannot
-   * access deployment env vars, for example inside Convex components; execution
-   * still rechecks auth, args, preview output, version, and replay state.
-   */
-  tokenMode?: ToolConfirmationTokenMode
   callerKey: (
     ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     args: Record<string, unknown>,
@@ -484,7 +481,7 @@ function destructiveOperationsMisconfiguredError(
   safety: { confirmationTable: string; auditTable: string },
 ): Error {
   return new Error(
-    `Destructive safety for operation "${operationId}" is misconfigured. Ensure table "${safety.confirmationTable}" exists with a "jti" field and a "by_jti" index, and ensure audit table "${safety.auditTable}" exists before executing destructive operations.`,
+    `Destructive safety for operation "${operationId}" is misconfigured. Ensure table "${safety.confirmationTable}" exists with "tokenHash" and "jti" fields plus "by_token_hash" and "by_jti" indexes, and ensure audit table "${safety.auditTable}" exists before executing destructive operations.`,
   )
 }
 
@@ -511,7 +508,12 @@ function getDestructiveOperationsDb<DataModel extends GenericDataModel>(
   safety: { confirmationTable: string; auditTable: string },
 ): DestructiveOperationsDb<DataModel> {
   const reader = getDestructiveConfirmationReader<DataModel>(db, operationId, safety)
-  if (!('insert' in reader) || typeof (reader as { insert?: unknown }).insert !== 'function') {
+  if (
+    !('insert' in reader) ||
+    typeof (reader as { insert?: unknown }).insert !== 'function' ||
+    !('patch' in reader) ||
+    typeof (reader as { patch?: unknown }).patch !== 'function'
+  ) {
     throw destructiveOperationsMisconfiguredError(operationId, safety)
   }
 
@@ -531,6 +533,7 @@ async function assertNoOperationExecuteEnvelopeReplay<
 ): Promise<void> {
   const envelope = getIdentityForwardingEnvelopeState(ctxWithIdentityForwarding)
   if (envelope?.purpose !== 'operation-execute') return
+  if (typeof envelope.jti !== 'string') return
 
   if (!options.destructiveOperations) {
     throw deny(
@@ -566,7 +569,10 @@ async function assertNoOperationExecuteEnvelopeReplay<
     throw toDestructiveOperationsError(error, envelope.functionRef, options.destructiveOperations)
   }
 
-  if (existingConfirmation) {
+  if (
+    existingConfirmation &&
+    typeof (existingConfirmation as { redeemedAt?: unknown }).redeemedAt === 'number'
+  ) {
     throw deny('Identity forwarding operation-execute envelope has already been redeemed.', {
       source: 'identity-forwarding',
       category: 'auth',
@@ -1613,6 +1619,42 @@ function getDestructivePreviewPath(
   return definition.identityForwardingFunctionRef ?? projectionMetadata?.functionRef ?? 'preview'
 }
 
+function getStoredConfirmationId(row: StoredToolConfirmationRow): unknown {
+  if (row._id === undefined) {
+    throw new Error('Stored destructive confirmation row is missing "_id".')
+  }
+  return row._id
+}
+
+function confirmationTokenInvalidError(): Error {
+  return new Error('Invalid or expired confirmation token. Preview again before executing.')
+}
+
+function assertStoredConfirmationMatches(input: {
+  payload: ToolConfirmationPayload
+  metadata: TrellisOperationMetadata
+  executePath?: string
+  callerKey: string
+  scopeKey: string
+}): void {
+  if (input.payload.operationId !== input.metadata.id) {
+    throw new Error(
+      `Confirmation token targets operation "${input.payload.operationId}", not "${input.metadata.id}".`,
+    )
+  }
+  if (input.executePath && input.payload.executePath !== input.executePath) {
+    throw new Error(
+      `Confirmation token targets execute path "${input.payload.executePath}", not "${input.executePath}".`,
+    )
+  }
+  if (input.payload.callerKey !== input.callerKey) {
+    throw new Error('Confirmation token no longer matches this caller. Preview again.')
+  }
+  if (input.payload.scopeKey !== input.scopeKey) {
+    throw new Error('Confirmation token no longer matches this scope. Preview again.')
+  }
+}
+
 async function attachDestructivePreviewConfirmation<
   DataModel extends GenericDataModel,
   TCaller,
@@ -1636,6 +1678,7 @@ async function attachDestructivePreviewConfirmation<
   }
 
   const ttlSeconds = confirmationOptions.ttlSeconds ?? 5 * 60
+  const now = Date.now()
   const executePath = getDestructivePreviewExecutePath(input.metadata, input.projectionMetadata)
   const previewPath = getDestructivePreviewPath(input.definition, input.projectionMetadata)
   const [callerKey, scopeKey, argsHash, previewHash, versionHash] = await Promise.all([
@@ -1645,29 +1688,42 @@ async function attachDestructivePreviewConfirmation<
     hashConfirmationValue(input.previewResult.confirm),
     hashPreviewVersion(input.previewResult.version),
   ])
+  const token = createConfirmationToken()
+  const tokenHash = await hashConfirmationToken(token)
+  const unsafeDb = getDestructiveOperationsDb<DataModel>(
+    getInternalUnsafeDb(input.ctx.db) ?? input.ctx.db,
+    input.metadata.id!,
+    input.options.destructiveOperations!,
+  )
 
-  const token = await signConfirmationToken(
-    {
-      v: 1,
+  try {
+    await unsafeDb.insert(input.options.destructiveOperations!.confirmationTable, {
+      tokenHash,
+      jti: crypto.randomUUID(),
       operationId: input.metadata.id!,
       executePath,
       previewPath,
-      jti: crypto.randomUUID(),
       callerKey,
       scopeKey,
       argsHash,
       previewHash,
       ...(versionHash ? { versionHash } : {}),
-    },
-    ttlSeconds,
-    { mode: confirmationOptions.tokenMode },
-  )
+      createdAt: now,
+      expiresAt: now + ttlSeconds * 1000,
+    })
+  } catch (error) {
+    throw toDestructiveOperationsError(
+      error,
+      input.metadata.id!,
+      input.options.destructiveOperations!,
+    )
+  }
 
   return {
     ...input.previewResult,
     confirmation: {
       token,
-      expiresAt: Date.now() + ttlSeconds * 1000,
+      expiresAt: now + ttlSeconds * 1000,
     },
   }
 }
@@ -1682,7 +1738,7 @@ function toDestructiveOperationsError(
   }
 
   if (
-    /by_jti|missing.*index|does not exist|unknown table|unknown index|schema|is not a function/i.test(
+    /by_token_hash|by_jti|missing.*index|does not exist|unknown table|unknown index|schema|is not a function/i.test(
       error.message,
     )
   ) {
@@ -2220,6 +2276,12 @@ function buildStructuredQueryRuntime<
       throw new Error('query(previewOf(op)) requires `operation.id` for destructive operations.')
     }
 
+    if (options.destructiveOperations?.previewConfirmation) {
+      throw new Error(
+        `query(previewOf(op)) for destructive operation "${metadata.id}" cannot issue confirmation tokens. Register the preview with mutation(previewOf(op)) so Trellis can store confirmation state.`,
+      )
+    }
+
     const originalHandler = definition.handler as (
       ctx: QueryCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
       args: Record<string, unknown>,
@@ -2286,6 +2348,37 @@ function buildStructuredMutationRuntime<
 
     if (!metadata.id) {
       throw new Error('mutation(op) requires `operation.id` for destructive operations.')
+    }
+
+    if (projectionMetadata?.projection === 'preview') {
+      const originalHandler = definition.handler as (
+        ctx: MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+        args: Record<string, unknown>,
+        loaded: unknown,
+      ) => Promise<unknown> | unknown
+
+      const transformed = {
+        ...definition,
+        handler: async (
+          ctx: MutationCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
+          args: Record<string, unknown>,
+          loaded: unknown,
+        ) => {
+          const previewResult = await originalHandler(ctx, args, loaded)
+          return await attachDestructivePreviewConfirmation({
+            ctx,
+            args,
+            loaded,
+            metadata,
+            projectionMetadata,
+            definition,
+            previewResult,
+            options,
+          })
+        },
+      }
+
+      return structured(transformed as never)
     }
 
     if (!('preview' in definition) || typeof definition.preview !== 'function') {
@@ -2417,9 +2510,38 @@ function buildStructuredMutationRuntime<
           operation: metadata.id,
         })
 
-        const payload = await verifyConfirmationToken(confirmationToken, {
-          mode: options.destructiveOperations?.previewConfirmation?.tokenMode,
-        })
+        const confirmationOptions = safety.previewConfirmation
+        if (!confirmationOptions) {
+          throw new Error(
+            `Destructive operation "${metadata.id}" requires defineTrellis({ destructiveOperations.previewConfirmation }) to redeem stored confirmation tokens.`,
+          )
+        }
+
+        const unsafeDb = getDestructiveOperationsDb<DataModel>(
+          getInternalUnsafeDb(ctx.db) ?? ctx.db,
+          metadata.id,
+          safety,
+        )
+
+        const tokenHash = await hashConfirmationToken(confirmationToken)
+        let payload: StoredToolConfirmationRow | null
+        try {
+          payload = normalizeStoredConfirmationPayload(
+            await unsafeDb
+              .query(safety.confirmationTable)
+              .withIndex('by_token_hash', (q) => q.eq('tokenHash', tokenHash))
+              .unique(),
+          )
+        } catch (error) {
+          throw toDestructiveOperationsError(error, metadata.id, safety)
+        }
+
+        if (!payload || payload.expiresAt <= Date.now()) {
+          throw confirmationTokenInvalidError()
+        }
+        if (typeof payload.redeemedAt === 'number') {
+          throw new Error('Confirmation token has already been redeemed.')
+        }
         if (payload.operationId !== metadata.id) {
           throw new Error(
             `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
@@ -2435,6 +2557,7 @@ function buildStructuredMutationRuntime<
         const forwardingEnvelope = getIdentityForwardingEnvelopeState(ctx)
         if (
           forwardingEnvelope?.purpose === 'operation-execute' &&
+          typeof forwardingEnvelope.jti === 'string' &&
           forwardingEnvelope.jti !== payload.jti
         ) {
           throw new Error(
@@ -2464,26 +2587,6 @@ function buildStructuredMutationRuntime<
           )
         }
 
-        const unsafeDb = getDestructiveOperationsDb<DataModel>(
-          getInternalUnsafeDb(ctx.db),
-          metadata.id,
-          safety,
-        )
-
-        let existingConfirmation
-        try {
-          existingConfirmation = await unsafeDb
-            .query(safety.confirmationTable)
-            .withIndex('by_jti', (q) => q.eq('jti', payload.jti))
-            .unique()
-        } catch (error) {
-          throw toDestructiveOperationsError(error, metadata.id, safety)
-        }
-
-        if (existingConfirmation) {
-          throw new Error('Confirmation token has already been redeemed.')
-        }
-
         const freshLoaded = originalLoad ? await originalLoad(ctx, executeArgs) : undefined
 
         if (originalAuthorize) {
@@ -2498,6 +2601,18 @@ function buildStructuredMutationRuntime<
             deny(`Forbidden: ${originalAuthorize.label ?? 'Access denied'}`)
           }
         }
+
+        const [callerKey, scopeKey] = await Promise.all([
+          confirmationOptions.callerKey(ctx, executeArgs, freshLoaded),
+          confirmationOptions.scopeKey(ctx, executeArgs, freshLoaded),
+        ])
+        assertStoredConfirmationMatches({
+          payload,
+          metadata,
+          executePath,
+          callerKey,
+          scopeKey,
+        })
 
         const previewResult = await preview(ctx, executeArgs, freshLoaded)
         if (!isDestructivePreviewPayload(previewResult)) {
@@ -2579,13 +2694,7 @@ function buildStructuredMutationRuntime<
 
         const now = Date.now()
         try {
-          await unsafeDb.insert(safety.confirmationTable, {
-            jti: payload.jti,
-            operationId: payload.operationId,
-            callerKey: payload.callerKey,
-            scopeKey: payload.scopeKey,
-            redeemedAt: now,
-          })
+          await unsafeDb.patch(getStoredConfirmationId(payload), { redeemedAt: now })
         } catch (error) {
           throw toDestructiveOperationsError(error, metadata.id, safety)
         }

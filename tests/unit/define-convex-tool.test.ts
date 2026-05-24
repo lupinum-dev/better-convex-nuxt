@@ -737,11 +737,6 @@ describe('Destructive confirmation payload validation', () => {
     vi.clearAllMocks()
     rateLimitStore = new ToolRateLimiter()
     useEventMock.mockReturnValue(createEvent())
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY = 'test-mcp-confirmation-key'
-  })
-
-  afterEach(() => {
-    delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
   })
 
   it('exposes operation-first MCP alias for Phase 0 authoring', () => {
@@ -1008,6 +1003,7 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
+      confirmationMode: 'transport',
     })
 
     const result = await tool.handler({} as never, {} as never)
@@ -1056,6 +1052,7 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
+      confirmationMode: 'transport',
     })
 
     const previewResult = (await tool.handler({ id: 'post-1' } as never, {} as never)) as {
@@ -1119,6 +1116,7 @@ describe('Destructive confirmation payload validation', () => {
     const tool = mcp.tool.operation(operation, {
       execute: operation as never,
       preview: preview as never,
+      confirmationMode: 'transport',
     })
 
     const previewResult = (await tool.handler(
@@ -1275,7 +1273,14 @@ describe('Destructive confirmation payload validation', () => {
   })
 
   it('routes destructive operation execute through trusted server forwarding without raw identity args', async () => {
-    vi.mocked(serverConvexQuery).mockResolvedValue(deletePostPreview())
+    const backendConfirmation = {
+      token: 'trellis-confirm-v1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      expiresAt: Date.now() + 60_000,
+    }
+    vi.mocked(serverConvexQuery).mockResolvedValue({
+      ...deletePostPreview(),
+      confirmation: backendConfirmation,
+    })
     vi.mocked(serverConvexMutation).mockResolvedValue({ ok: true })
 
     const operation = defineOperation({
@@ -1298,10 +1303,6 @@ describe('Destructive confirmation payload validation', () => {
     const actingFor = {
       subject: 'user:user_1',
     }
-    const confirmationStore = {
-      redeem: vi.fn(async () => 'replayed' as const),
-    }
-
     const mcp = defineMcpApp({
       resolveCaller: async () => caller,
       resolveActingFor: async () => actingFor,
@@ -1311,7 +1312,6 @@ describe('Destructive confirmation payload validation', () => {
           caller: caller.caller,
           ...(caller.actingFor ? { actingFor: caller.actingFor } : {}),
         }),
-      confirmationStore,
       scopeKey: () => 'global',
     })
 
@@ -1362,10 +1362,8 @@ describe('Destructive confirmation payload validation', () => {
         actingFor,
         identityForwardingEnvelope: {
           purpose: 'operation-execute',
-          jti: expect.any(String),
         },
       },
     )
-    expect(confirmationStore.redeem).not.toHaveBeenCalled()
   })
 })

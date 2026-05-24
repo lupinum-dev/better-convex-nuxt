@@ -111,9 +111,8 @@ describe('server integration workspace example', () => {
       name: 'Archive me',
       summary: 'Soon frozen',
     })
-    process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
     const archiveArgs = { id: projectId }
-    const archivePreview = await team.users.owner.query(
+    const archivePreview = await team.users.owner.mutation(
       api.features.projects.operations.previewArchiveProject,
       archiveArgs,
     )

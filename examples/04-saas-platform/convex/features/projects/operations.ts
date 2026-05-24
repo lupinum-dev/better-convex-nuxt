@@ -11,7 +11,7 @@ import { v } from 'convex/values'
 
 import { archiveProject } from '../../../shared/features/projects/contract'
 import { requireWorkspaceTenant } from '../../auth/guards'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 import { projectArchive } from './permissions'
 
 export const archiveProjectOp = defineOperation({
@@ -78,4 +78,4 @@ export const archiveProjectOp = defineOperation({
   },
 })
 
-export const previewArchiveProject = query.protected(previewOf(archiveProjectOp))
+export const previewArchiveProject = mutation.protected(previewOf(archiveProjectOp))

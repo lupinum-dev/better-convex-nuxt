@@ -10,11 +10,6 @@ import { createTestContext } from '@lupinum/trellis/testing'
 import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-// eslint-disable-next-line no-restricted-imports -- Example tests sign confirmation tokens directly to exercise backend operation execution without MCP.
-import {
-  hashConfirmationValue,
-  signConfirmationToken,
-} from '../../../src/runtime/functions/confirmation-token'
 import { api } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { shareCreate } from './features/articles'
@@ -32,26 +27,6 @@ const revokeShareTokenMutation = api.features.articles.domain.revokeShareToken a
   { tokenId: Id<'shareTokens'>; _confirmationToken: string },
   null
 >
-
-async function destructiveConfirmationToken(args: {
-  operationId: string
-  executeArgs: Record<string, unknown>
-  confirm: Record<string, unknown>
-}) {
-  process.env.TRELLIS_MCP_CONFIRMATION_KEY ??= 'example-confirmation-key'
-
-  return await signConfirmationToken({
-    v: 1,
-    operationId: args.operationId,
-    executePath: 'execute',
-    previewPath: 'preview',
-    jti: crypto.randomUUID(),
-    callerKey: 'example-caller',
-    scopeKey: 'example-tenant',
-    argsHash: await hashConfirmationValue(args.executeArgs),
-    previewHash: await hashConfirmationValue(args.confirm),
-  })
-}
 
 describe('workspace onboarding', () => {
   it('returns null access context for anonymous callers', async () => {
@@ -506,18 +481,14 @@ describe('share tokens', () => {
     const revokeArgs = {
       tokenId: tokenRecord!._id,
     }
-    const revokePreview = await team.users.editor.query(
+    const revokePreview = await team.users.editor.mutation(
       api.features.articles.operations.previewRevokeShareToken,
       revokeArgs,
     )
 
     await team.users.editor.mutation(revokeShareTokenMutation, {
       ...revokeArgs,
-      _confirmationToken: await destructiveConfirmationToken({
-        operationId: 'shareTokens.revoke',
-        executeArgs: revokeArgs,
-        confirm: revokePreview.confirm,
-      }),
+      _confirmationToken: revokePreview.confirmation!.token,
     })
 
     await expect(

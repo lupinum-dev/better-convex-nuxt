@@ -45,11 +45,11 @@ import { defineToolInternal as defineTool } from './define-convex-tool.js'
 import {
   assertProductionConfirmationStore,
   createMemoryConfirmationStore,
+  createDestructivePreviewToken,
   DEFAULT_MCP_CONFIRMATION_TTL_MS,
   hashArgsForDiagnostics,
   hashPreviewVersion,
   replayedConfirmationFailure,
-  signDestructivePreviewToken,
   validateDestructivePreviewState,
   verifyDestructiveConfirmationToken,
   type DestructiveConfirmationFailure,
@@ -1348,13 +1348,22 @@ export function defineMcpApp<
                 )
               }
 
-              const expiresAt = Date.now() + confirmationTtlMs
-              const signedToken = await signDestructivePreviewToken({
-                binding: confirmationBinding,
-                previewHash,
-                versionHash,
-                ttlMs: confirmationTtlMs,
-              })
+              const confirmation =
+                confirmationMode === 'backend'
+                  ? previewPayload.confirmation
+                  : await createDestructivePreviewToken({
+                      binding: confirmationBinding,
+                      previewHash,
+                      versionHash,
+                      confirmationStore: toolConfirmationStore,
+                      ttlMs: confirmationTtlMs,
+                    })
+              if (!confirmation) {
+                return ctx.error(
+                  'server',
+                  'Backend destructive preview did not return a confirmation token.',
+                )
+              }
 
               await projectionCtx.observe({
                 name: 'tool.confirmation.required',
@@ -1372,66 +1381,68 @@ export function defineMcpApp<
                   operationId,
                   preview: previewPayload,
                   confirmation: {
-                    token: signedToken,
-                    expiresAt,
+                    token: confirmation.token,
+                    expiresAt: confirmation.expiresAt,
                   },
                 }),
               })
             }
 
-            const confirmation = await verifyDestructiveConfirmationToken(
-              confirmationToken,
-              confirmationBinding,
-            )
-            if (!confirmation.ok) {
-              return await returnConfirmationFailure(confirmation.failure)
-            }
-            const payload = confirmation.payload
-            operationExecuteJti = payload.jti
-
-            let previewResult: unknown
-            try {
-              previewResult = await callByOperation(
-                projectionCtx.convex,
-                options.previewOperation ?? 'query',
-                options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
-                executeArgs as FunctionLikeArgs<
-                  PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
-                >,
-                {
-                  identityForwardingEnvelope: {
-                    purpose: 'operation-preview',
-                  },
-                },
-              )
-            } catch (error) {
-              return await returnBackendFailure(error)
-            }
-
-            const previewPayload = normalizeOperationPreview(previewResult)
-
-            const previewHash = await hashConfirmationValue(previewPayload.confirm)
-            const versionHash = await hashPreviewVersion(previewPayload.version)
-            const previewFailure = validateDestructivePreviewState({
-              payload,
-              blocked: isBlockedPreview(previewPayload),
-              previewHash,
-              versionHash,
-            })
-            if (previewFailure) {
-              return await returnConfirmationFailure(previewFailure)
-            }
-
-            await projectionCtx.observe({
-              name: 'operation.confirm.validated',
-              status: 'success',
-              transport: 'mcp',
-              operation: operationId,
-              tool: options.meta?.name ?? metadata.name ?? operationId,
-            })
-
             if (confirmationMode === 'transport') {
-              const confirmation = await toolConfirmationStore.redeem({
+              const confirmation = await verifyDestructiveConfirmationToken(
+                confirmationToken,
+                confirmationBinding,
+                toolConfirmationStore,
+              )
+              if (!confirmation.ok) {
+                return await returnConfirmationFailure(confirmation.failure)
+              }
+              const payload = confirmation.payload
+              operationExecuteJti = payload.jti
+
+              let previewResult: unknown
+              try {
+                previewResult = await callByOperation(
+                  projectionCtx.convex,
+                  options.previewOperation ?? 'query',
+                  options.preview as PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>,
+                  executeArgs as FunctionLikeArgs<
+                    PreviewProjectionRef<TOperation, Exclude<TPreview, undefined>>
+                  >,
+                  {
+                    identityForwardingEnvelope: {
+                      purpose: 'operation-preview',
+                    },
+                  },
+                )
+              } catch (error) {
+                return await returnBackendFailure(error)
+              }
+
+              const previewPayload = normalizeOperationPreview(previewResult)
+
+              const previewHash = await hashConfirmationValue(previewPayload.confirm)
+              const versionHash = await hashPreviewVersion(previewPayload.version)
+              const previewFailure = validateDestructivePreviewState({
+                payload,
+                blocked: isBlockedPreview(previewPayload),
+                previewHash,
+                versionHash,
+              })
+              if (previewFailure) {
+                return await returnConfirmationFailure(previewFailure)
+              }
+
+              await projectionCtx.observe({
+                name: 'operation.confirm.validated',
+                status: 'success',
+                transport: 'mcp',
+                operation: operationId,
+                tool: options.meta?.name ?? metadata.name ?? operationId,
+              })
+
+              const redemption = await toolConfirmationStore.redeem({
+                tokenHash: confirmation.tokenHash,
                 payload,
                 operationId,
                 callerKey,
@@ -1441,7 +1452,7 @@ export function defineMcpApp<
                 executePath,
                 previewPath,
               })
-              if (confirmation === 'replayed') {
+              if (redemption === 'replayed') {
                 return await returnConfirmationFailure(replayedConfirmationFailure())
               }
             }

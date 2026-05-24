@@ -10,13 +10,14 @@ import {
 import { v } from 'convex/values'
 
 import { revokeArticleShareToken } from '../../../shared/features/articles/contract'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 import { shareCreate } from './permissions'
 
 export const revokeShareTokenOp = defineOperation({
   id: 'shareTokens.revoke',
   name: 'revokeShareToken',
   kind: 'destructive',
+  identityForwardingFunctionRef: 'features/articles/domain:revokeShareToken',
   args: revokeArticleShareToken.args,
   returns: v.null(),
   previewReturns: operationPreviewValidator({
@@ -59,4 +60,4 @@ export const revokeShareTokenOp = defineOperation({
   },
 })
 
-export const previewRevokeShareToken = query.protected(previewOf(revokeShareTokenOp))
+export const previewRevokeShareToken = mutation.protected(previewOf(revokeShareTokenOp))

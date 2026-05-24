@@ -254,7 +254,6 @@ function writeDoctorEnv(appRoot, template) {
   if (template === 'workspace-mcp') {
     lines.push(
       'CONVEX_IDENTITY_FORWARDING_KEY=starter-fixture-validation-identity-forwarding-key-0123456789',
-      'TRELLIS_MCP_CONFIRMATION_KEY=starter-fixture-validation-confirmation-key-0123456789',
     )
   }
 

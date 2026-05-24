@@ -69,7 +69,6 @@ App-owned env vars:
 - `SITE_URL`: Better Auth callback origin
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_IDENTITY_FORWARDING_KEY`: identity-forwarded server-to-Convex lane
-- `TRELLIS_MCP_CONFIRMATION_KEY`: destructive MCP confirmation signing
 - `MCP_RATE_LIMIT_REDIS_URL`: Redis connection string for distributed MCP rate limiting
 - `MCP_REFERENCE_WEBHOOK_SECRET`: route secret for the verified webhook example
 - `MCP_REFERENCE_WEBHOOK_AUTH_ID`: user or bot `authId` the verified webhook delegates to

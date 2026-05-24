@@ -79,10 +79,6 @@ function createDoctorFindings(
   const identityForwardingKeyIssue = identityForwardingKeySource
     ? getIdentityForwardingKeyProductionIssue(identityForwardingKeySource.value, 'production')
     : null
-  const destructiveMcpConfirmationExpected = project.sourceFiles.some((file) =>
-    /tool\.operation\s*\(/.test(file.text),
-  )
-  const mcpConfirmationKeySource = findEnvKeySource(project, ['TRELLIS_MCP_CONFIRMATION_KEY'])
   const usesPermissions = inventoryFacts.usesPermissions
   const configuredPermissionQueryPath = findConfiguredPermissionQueryPath(project)
   let permissionQueryResolutionError: Error | null = null
@@ -331,24 +327,6 @@ function createDoctorFindings(
         : `Use a long random CONVEX_IDENTITY_FORWARDING_KEY (${minimumIdentityForwardingKeyLength}+ characters) and avoid placeholder or development values.`,
     },
     ...collectInventoryDoctorFindings(inventory),
-    {
-      id: 'mcp-confirmation-key-configured',
-      category: 'advanced',
-      title: 'MCP confirmation key source',
-      status: destructiveMcpConfirmationExpected
-        ? mcpConfirmationKeySource
-          ? 'pass'
-          : 'warn'
-        : 'pass',
-      message: !destructiveMcpConfirmationExpected
-        ? 'No destructive MCP tools were detected in the app source.'
-        : mcpConfirmationKeySource
-          ? `Found TRELLIS_MCP_CONFIRMATION_KEY in ${mcpConfirmationKeySource.source}.`
-          : 'Destructive MCP tools were detected, but no TRELLIS_MCP_CONFIRMATION_KEY source was found.',
-      fixHint: !destructiveMcpConfirmationExpected
-        ? 'No action needed unless you add destructive MCP tools later.'
-        : 'Set TRELLIS_MCP_CONFIRMATION_KEY in the local environment and the deployment serving destructive MCP traffic.',
-    },
     ...collectPermissionInventoryFindings(inventory, project),
   ]
   const moduleValidationFindings = collectModuleValidationFindings({
@@ -365,7 +343,7 @@ function createDoctorFindings(
         finding.id === 'isolation-table-coverage' || finding.id === 'isolation-valid'
           ? 'Align convex/schema.ts, convex/features/*/feature.ts, and convex/functions.ts so the derived manifest tenant classification is complete and non-conflicting.'
           : finding.id === 'destructive-safety-schema'
-            ? 'Restore the destructive-safety tables in convex/schema.ts, including the confirmation fields, audit fields, and `by_jti` index.'
+            ? 'Restore the destructive-safety tables in convex/schema.ts, including the stored confirmation fields, audit fields, and `by_token_hash`, `by_jti`, and `by_expires_at` indexes.'
             : 'Align the project source with the canonical Trellis contract.',
     }),
   )
@@ -376,7 +354,6 @@ function createDoctorFindings(
 const productionRequiredFindingIds = new Set([
   'identity-forwarding-key-configured',
   'identity-forwarding-key-strength',
-  'mcp-confirmation-key-configured',
   'mcp-rate-limit-store',
   'operation-tool-agreement',
 ])
