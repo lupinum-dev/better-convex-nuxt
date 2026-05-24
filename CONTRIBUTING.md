@@ -67,34 +67,19 @@ pnpm run check
 ### Release and niche maintainer commands
 
 - `pnpm run release:verify`: stricter release gate than day-to-day `check`; includes the full suite and build.
-- `pnpm run release`: publish workflow.
+- `pnpm run release`: alias for `release:verify`; it does not publish.
+- `pnpm run release:notes`: generate draft release notes with changelogen.
+- `pnpm run release:pack`: build publishable tarballs under `.pack/` for manual inspection.
 - `pnpm run harness:convex:codegen`: regenerate Convex code for the internal harness when changing backend schema or functions.
 - `pnpm run prepare`: Husky install hook only.
 
-`release:verify` is the authoritative release gate. If that command is not green, the package is not ready to publish.
+`release:verify` is the authoritative release gate. If that command is not green, the package is not ready to publish. Live publish scripts are disabled; follow `MAINTAINING.md`.
 
 ## Public Package Surface
 
 The generated API reference at [`apps/docs/content/docs/13.api-reference/7.api-surface.md`](./apps/docs/content/docs/13.api-reference/7.api-surface.md) is the canonical inventory.
 
-Use this shortened maintainer summary only:
-
-- root module
-- `auth`
-- `args`
-- `bridge`
-- `composables`
-- `feature`
-- `functions`
-- `mcp`
-- `server`
-- `testing`
-- `identity-forwarding`
-- `type-primitives`
-- `visibility`
-- `eslint`
-
-If a change touches exports, update the generated API surface page in the same PR instead of restating the inventory here.
+Do not maintain a second handwritten export list here. If a change touches exports, update the generated API surface page in the same PR.
 
 ## Publish-Surface Invariants
 

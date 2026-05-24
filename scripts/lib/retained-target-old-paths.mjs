@@ -24,12 +24,23 @@ const scannedExtensions = new Set([
   '.vue',
 ])
 
-export const retainedTargetRoots = ['examples', 'apps/harness', 'apps/docs', 'apps/devtools-ui']
+export const retainedTargetRoots = [
+  'README.md',
+  'CHANGELOG.md',
+  'examples',
+  'apps/harness',
+  'apps/docs',
+  'apps/devtools-ui',
+]
 
 export const deletedTrellisSurfacePatterns = [
   {
     label: '@lupinum/trellis/functions',
     pattern: /@lupinum\/trellis\/functions/,
+  },
+  {
+    label: '@lupinum/trellis/trusted-forwarding',
+    pattern: /@lupinum\/trellis\/trusted-forwarding/,
   },
   {
     label: '@lupinum/trellis/bridge',

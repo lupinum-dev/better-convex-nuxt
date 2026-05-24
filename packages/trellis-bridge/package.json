@@ -3,6 +3,17 @@
   "version": "0.1.0",
   "private": false,
   "description": "Bridge package boundary for Trellis-aware Convex component integrations",
+  "homepage": "https://trellis.vercel.app",
+  "bugs": {
+    "url": "https://github.com/lupinum-dev/trellis/issues"
+  },
+  "license": "MIT",
+  "author": "Matthias Amon <ma4m0>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lupinum-dev/trellis.git",
+    "directory": "packages/trellis-bridge"
+  },
   "files": [
     "dist",
     "README.md"
@@ -29,6 +40,9 @@
       "import": "./dist/manifest.js",
       "default": "./dist/manifest.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

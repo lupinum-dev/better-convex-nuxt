@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
@@ -55,6 +56,13 @@ const checks = [
 
 const repoRoot = process.cwd()
 const ignoredDirNames = new Set(['node_modules', '_generated', '.git'])
+const trackedIgnoredArtifactPathspecs = [
+  ':(glob)**/.pack/**',
+  ':(glob)**/.pack-check/**',
+  ':(glob)**/dist/**',
+  ':(glob)**/.nuxt/**',
+  ':(glob)**/.output/**',
+]
 
 function collectFiles(rootPath) {
   const absoluteRoot = path.resolve(repoRoot, rootPath)
@@ -106,6 +114,22 @@ for (const check of checks) {
 
   const preview = matches.slice(0, 10).join('\n')
   throw new Error(`[trellis] repo policy violated: ${check.name}\n${preview}`)
+}
+
+const trackedIgnoredArtifacts = execFileSync(
+  'git',
+  ['ls-files', '-ci', '--exclude-standard', ...trackedIgnoredArtifactPathspecs],
+  { cwd: repoRoot, encoding: 'utf8' },
+)
+  .split('\n')
+  .filter(Boolean)
+
+if (trackedIgnoredArtifacts.length > 0) {
+  throw new Error(
+    `[trellis] repo policy violated: ignored generated/release artifacts are tracked\n${trackedIgnoredArtifacts
+      .slice(0, 20)
+      .join('\n')}`,
+  )
 }
 
 const runtimeBoundaryFiles = collectFiles('src').map((filePath) => ({

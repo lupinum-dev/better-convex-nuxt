@@ -46,7 +46,9 @@ pnpm docs:api-surface
 - `pnpm test:contracts` runs the public contract and maintainer guard suites.
 - `pnpm test:internals` runs extracted helper and internal state-machine suites.
 - `pnpm release:verify` runs the maintainer release gate without publishing anything.
-- `pnpm release` follows the official Nuxt module starter release flow: verify, changelog, publish, push tags.
+- `pnpm release` is an alias for `release:verify`; it does not publish.
+- `pnpm release:notes` generates draft changelog text with changelogen.
+- `pnpm release:pack` writes inspectable tarballs under `.pack/`.
 - With the current dependency set, the `vitest/environments` deprecation warning comes from the Nuxt/Vitest stack, not a repo-local Trellis import. Recheck on dependency upgrades, especially around `@nuxt/test-utils`.
 
 ## Hotspots

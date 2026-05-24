@@ -127,6 +127,22 @@ Expected properties:
 - observation envelopes do not participate in query cache identity
 - correlation metadata is transport/runtime state, not app data
 
+## Supply Chain And Publishing
+
+Publishing is a security boundary.
+
+Expected properties:
+
+- no long-lived npm publish tokens in CI
+- release jobs use the committed lockfile and no package-manager cache
+- fresh dependency resolution respects `minimumReleaseAge`
+- temporary workspace overrides are explained and removed once upstreams carry
+  the patched versions
+- packed tarballs contain no `workspace:*` dependency ranges
+- publishable packages are reviewed from `.pack/*.tgz` before release
+- first package releases are manual owner-controlled publishes with 2FA
+- later releases should use npm trusted publishing plus staged publishing
+
 ## Validation
 
 Use the repo gates that match the changed surface:

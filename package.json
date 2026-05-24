@@ -119,6 +119,9 @@
       "import": "./dist/runtime/testing/index.mjs"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "pnpm run build:module && pnpm run build:client && pnpm run build:cli",
     "build:module": "nuxt-module-build build && node scripts/fix-dts-specifiers.mjs && node scripts/check-dist-dts-specifiers.mjs && node scripts/check-define-better-auth-esm.mjs",
@@ -143,8 +146,9 @@
     "harness:convex:codegen": "node scripts/harness-convex-codegen.mjs",
     "release:verify": "pnpm run format:check && pnpm run lint && pnpm run check:publish-surface && pnpm run check:compatibility-matrix && pnpm run test:types && pnpm run test:contracts && pnpm run test && pnpm run test:e2e && pnpm run check:starter-fixtures:typecheck && pnpm run check:starter-fixtures:build && pnpm run check:convex-generated:drift && pnpm run check:packs:no-workspace-refs && pnpm run audit:prod && pnpm run build",
     "release:pack": "node scripts/release-pack.mjs",
-    "release:publish": "pnpm run release:verify && pnpm run release:pack && changelogen --release && npm publish --access public && pnpm --dir packages/trellis-bridge publish --access public && git push --follow-tags",
-    "release": "pnpm run release:publish",
+    "release:notes": "changelogen --output CHANGELOG.md",
+    "release:publish": "node -e \"console.error('Direct publish scripts are disabled. Run release:verify and release:pack, inspect .pack, then follow MAINTAINING.md.'); process.exit(1)\"",
+    "release": "pnpm run release:verify",
     "lint": "pnpm run check:repo-policies && pnpm run check:compatibility-matrix && pnpm run check:docs:api-surface && pnpm run check:docs:links && eslint src tests examples --ignore-pattern '**/_generated/**'",
     "check:repo-policies": "node scripts/check-repo-policies.mjs",
     "format": "oxfmt",
