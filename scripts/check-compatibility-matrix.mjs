@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const matrix = JSON.parse(readFileSync(resolve(repoRoot, 'compatibility.json'), 'utf8'))
 const tracked = matrix.tracked ?? {}
+const releaseStack = matrix.releaseStack ?? {}
 
 const ignoredDirs = new Set([
   '.git',
@@ -43,6 +44,40 @@ function isLocalRange(range) {
 }
 
 const violations = []
+
+const packageLocations = {
+  '@lupinum/trellis': 'package.json',
+  '@lupinum/trellis-bridge': 'packages/trellis-bridge/package.json',
+}
+
+for (const [packageName, expectedVersion] of Object.entries(releaseStack)) {
+  const manifestPath = packageLocations[packageName]
+  if (!manifestPath) {
+    violations.push(`compatibility.json releaseStack.${packageName} has no package location`)
+    continue
+  }
+
+  const manifest = JSON.parse(readFileSync(resolve(repoRoot, manifestPath), 'utf8'))
+  if (manifest.version !== expectedVersion) {
+    violations.push(
+      `${manifestPath} version is ${JSON.stringify(manifest.version)}; expected ${expectedVersion} from compatibility.json`,
+    )
+  }
+}
+
+const publicPackageFiles = collectPackageJsonFiles(repoRoot).filter((filePath) => {
+  const manifest = JSON.parse(readFileSync(filePath, 'utf8'))
+  return manifest.private !== true && typeof manifest.name === 'string'
+})
+
+for (const filePath of publicPackageFiles) {
+  const manifest = JSON.parse(readFileSync(filePath, 'utf8'))
+  if (manifest.version === '0.0.0') {
+    violations.push(
+      `${relative(repoRoot, filePath).replaceAll('\\', '/')} is publishable at version 0.0.0`,
+    )
+  }
+}
 
 for (const filePath of collectPackageJsonFiles(repoRoot)) {
   if (!existsSync(filePath)) continue

@@ -1,5 +1,9 @@
 {
   "name": "Trellis release compatibility",
+  "releaseStack": {
+    "@lupinum/trellis": "0.4.0",
+    "@lupinum/trellis-bridge": "0.1.0"
+  },
   "tracked": {
     "@convex-dev/better-auth": ["^0.12.2", "0.12.2"],
     "@nuxtjs/mcp-toolkit": ["^0.16.1", "0.16.1"],

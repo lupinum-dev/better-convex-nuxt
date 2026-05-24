@@ -11,7 +11,6 @@ export default defineNuxtConfig({
     '@nuxt/content',
     'nuxt-og-image',
     'nuxt-llms',
-    '@nuxtjs/mcp-toolkit',
     '@vueuse/nuxt',
   ],
 
@@ -275,9 +274,6 @@ export default defineNuxtConfig({
     ],
   },
 
-  mcp: {
-    name: 'Trellis',
-  },
   sitemap: {
     sources: ['/api/__sitemap__/urls'],
   },

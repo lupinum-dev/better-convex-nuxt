@@ -9,7 +9,6 @@ const packDir = resolve(repoRoot, '.pack')
 const targets = [
   { name: '@lupinum/trellis', dir: repoRoot },
   { name: '@lupinum/trellis-bridge', dir: resolve(repoRoot, 'packages/trellis-bridge') },
-  { name: '@lupinum/trellis-eslint', dir: resolve(repoRoot, 'packages/trellis-eslint') },
 ]
 
 function run(command, args, cwd = repoRoot) {

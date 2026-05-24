@@ -1,6 +1,6 @@
 {
   "name": "@lupinum/trellis-bridge",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": false,
   "description": "Bridge package boundary for Trellis-aware Convex component integrations",
   "files": [
@@ -38,11 +38,11 @@
     "consola": "^3.4.2"
   },
   "devDependencies": {
-    "@lupinum/trellis": "workspace:*",
+    "@lupinum/trellis": "workspace:^",
     "convex": "1.38.0"
   },
   "peerDependencies": {
-    "@lupinum/trellis": "workspace:*",
+    "@lupinum/trellis": "workspace:^",
     "convex": "^1.38.0",
     "convex-helpers": "^0.1.117"
   }

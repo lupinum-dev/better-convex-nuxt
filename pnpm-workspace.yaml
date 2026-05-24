@@ -6,8 +6,10 @@ packages:
   - 'tests/fixtures/doctor-*'
 
 overrides:
-  # Temporary security audit overrides. Remove each line once the direct
-  # dependency that pulls it carries the patched version itself.
+  # Release audit overrides. These affect local workspace resolution only; packed
+  # package manifests must not ship override policy. Remove a line when
+  # `pnpm why <name>` shows all upstream owners resolve the patched version
+  # without help and `pnpm audit --prod --audit-level low` stays green.
   fast-uri: 3.1.2
   fast-xml-builder: 1.1.7
   hono: 4.12.18

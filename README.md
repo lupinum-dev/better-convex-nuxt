@@ -19,6 +19,20 @@ It is not a neutral helper layer. It is the hard-default path when you want the 
 - [Contributing](./CONTRIBUTING.md)
 - [Development](./DEVELOPMENT.md)
 
+## Release Compatibility
+
+The first clean public release line is:
+
+| Package                   | Version | Audience                                                             |
+| ------------------------- | ------: | -------------------------------------------------------------------- |
+| `@lupinum/trellis`        | `0.4.0` | Nuxt + Convex app teams                                              |
+| `@lupinum/trellis-bridge` | `0.1.0` | Package authors building Trellis-aware Convex component integrations |
+
+`@lupinum/trellis-bridge` is not a beginner app API. Use it when you are
+shipping a package that installs generated host bridge files into another app.
+Normal Trellis apps should start with the module, starters, composables, server
+helpers, and MCP runtime from `@lupinum/trellis`.
+
 ## Good Fit
 
 Use Trellis when:

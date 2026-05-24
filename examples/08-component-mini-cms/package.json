@@ -16,7 +16,6 @@
     "@iconify-json/lucide": "^1.2.107",
     "@lupinum/trellis": "workspace:*",
     "@nuxt/ui": "^4.7.1",
-    "@nuxtjs/mcp-toolkit": "^0.16.1",
     "better-auth": "1.6.11",
     "convex": "1.38.0",
     "convex-helpers": "^0.1.117",
@@ -26,6 +25,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
+    "@nuxtjs/mcp-toolkit": "^0.16.1",
     "convex-test": "^0.0.52",
     "typescript": "~6.0.3",
     "vitest": "^4.1.6",

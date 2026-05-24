@@ -1,7 +1,7 @@
 {
   "name": "@lupinum/trellis-eslint",
   "version": "0.0.0",
-  "private": false,
+  "private": true,
   "description": "Optional ESLint rules for Trellis apps",
   "files": [
     "dist",
