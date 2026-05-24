@@ -30,4 +30,32 @@ describe('mcp confirmation token', () => {
       versionHash: 'version_hash',
     })
   })
+
+  it('round-trips unsigned tokens only when the operation opts in', async () => {
+    delete process.env.TRELLIS_MCP_CONFIRMATION_KEY
+
+    const token = await signConfirmationToken(
+      {
+        v: 1,
+        operationId: 'cms.publish-entry',
+        executePath: 'entries/publish:publishEntryOperationExecute',
+        previewPath: 'editor:previewPublishEntryOperation',
+        jti: 'jti_component_001',
+        callerKey: 'user:editor-1',
+        scopeKey: 'ginko-cms',
+        argsHash: 'args_hash',
+        previewHash: 'preview_hash',
+      },
+      undefined,
+      { mode: 'unsigned' },
+    )
+
+    await expect(verifyConfirmationToken(token)).rejects.toThrow(/Unsigned confirmation tokens/)
+    await expect(verifyConfirmationToken(token, { mode: 'unsigned' })).resolves.toMatchObject({
+      jti: 'jti_component_001',
+      operationId: 'cms.publish-entry',
+      executePath: 'entries/publish:publishEntryOperationExecute',
+      previewPath: 'editor:previewPublishEntryOperation',
+    })
+  })
 })

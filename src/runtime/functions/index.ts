@@ -52,6 +52,7 @@ import type { NoInfer, SerializableValue } from '../types/type-utils.js'
 import {
   hashConfirmationValue,
   signConfirmationToken,
+  type ToolConfirmationTokenMode,
   verifyConfirmationToken,
 } from './confirmation-token.js'
 import { defineActingFor, type ActingFor, type ActingForDefinition } from './define-acting-for.js'
@@ -325,6 +326,12 @@ type DestructivePreviewConfirmationOptions<
   TActingFor extends ActingFor,
   TActor,
 > = {
+  /**
+   * Signed tokens are the default. Use unsigned only when the runtime cannot
+   * access deployment env vars, for example inside Convex components; execution
+   * still rechecks auth, args, preview output, version, and replay state.
+   */
+  tokenMode?: ToolConfirmationTokenMode
   callerKey: (
     ctx: AnyCtxWithRuntime<DataModel, TCaller, TActingFor, TActor>,
     args: Record<string, unknown>,
@@ -1653,6 +1660,7 @@ async function attachDestructivePreviewConfirmation<
       ...(versionHash ? { versionHash } : {}),
     },
     ttlSeconds,
+    { mode: confirmationOptions.tokenMode },
   )
 
   return {
@@ -2409,7 +2417,9 @@ function buildStructuredMutationRuntime<
           operation: metadata.id,
         })
 
-        const payload = await verifyConfirmationToken(confirmationToken)
+        const payload = await verifyConfirmationToken(confirmationToken, {
+          mode: options.destructiveOperations?.previewConfirmation?.tokenMode,
+        })
         if (payload.operationId !== metadata.id) {
           throw new Error(
             `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
