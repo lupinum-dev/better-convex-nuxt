@@ -14,7 +14,7 @@ describe('organizations', () => {
 
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId: 'browser_user',
+        authKey: 'browser_user',
         role: 'member',
         displayName: 'Browser User',
         email: 'browser@test.com',
@@ -23,7 +23,10 @@ describe('organizations', () => {
       })
     })
 
-    const asBrowserUser = t.withIdentity({ subject: 'browser_user' })
+    const asBrowserUser = t.withIdentity({
+      subject: 'browser_user',
+      tokenIdentifier: 'browser_user',
+    })
     const orgId = await asBrowserUser.mutation(api.organizations.create, {
       name: 'Browser Org',
       slug: 'browser-org',
@@ -32,7 +35,7 @@ describe('organizations', () => {
     const user = await t.run(async (ctx) => {
       return await ctx.db
         .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', 'browser_user'))
+        .withIndex('by_auth_key', (q) => q.eq('authKey', 'browser_user'))
         .first()
     })
 
@@ -47,7 +50,7 @@ describe('organizations', () => {
 
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId: 'service_user',
+        authKey: 'service_user',
         role: 'member',
         displayName: 'Service User',
         email: 'service@test.com',
@@ -65,8 +68,8 @@ describe('organizations', () => {
         },
         {
           kind: 'user',
-          userId: 'service_user',
-          subject: 'user:service_user',
+          authKey: 'service_user',
+          subject: 'auth:service_user',
         },
         null,
         api.organizations.create,
@@ -76,7 +79,7 @@ describe('organizations', () => {
     const user = await t.run(async (ctx) => {
       return await ctx.db
         .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', 'service_user'))
+        .withIndex('by_auth_key', (q) => q.eq('authKey', 'service_user'))
         .first()
     })
 
@@ -99,8 +102,8 @@ describe('organizations', () => {
           },
           {
             kind: 'user',
-            userId: 'missing_user',
-            subject: 'user:missing_user',
+            authKey: 'missing_user',
+            subject: 'auth:missing_user',
           },
           null,
           api.organizations.create,

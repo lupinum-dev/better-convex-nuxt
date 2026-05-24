@@ -11,7 +11,7 @@ export const runbookTables = {
     content: v.string(),
     visibility: visibilityValidator,
     tags: v.array(v.string()),
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     workspaceId: v.id('workspaces'),
     createdAt: v.number(),
     updatedAt: v.number(),

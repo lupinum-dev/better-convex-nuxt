@@ -141,7 +141,7 @@ type TestClient<TSchema extends AnySchemaDefinition> = Pick<
 
 type SeedTenantUserInput<TRole extends string> = {
   role: TRole
-  authId?: string
+  authKey?: string
   displayName?: string
   email?: string
   [key: string]: unknown
@@ -164,7 +164,7 @@ type SeededTenantUser<
   TUserTable extends TableName<TSchema>,
 > = TestClient<TSchema> & {
   id: DocumentFor<TSchema, TUserTable>['_id']
-  authId: string
+  authKey: string
   role: TRole
 }
 
@@ -192,7 +192,7 @@ export interface CreateTestContextOptions<
     table?: TTenantTable
     field?: string
   }
-  /** Advanced override for non-canonical user schemas. Omit for the default `users.authId/role/workspaceId` model. */
+  /** Advanced override for non-canonical user schemas. Omit for the default `users.authKey/role/workspaceId` model. */
   users?: {
     table?: TUserTable
     authField?: string
@@ -413,6 +413,10 @@ function resolveIdentityForwardingSubject(caller: Record<string, unknown>): Subj
     return subject.user(caller.userId)
   }
 
+  if (typeof caller.authKey === 'string' && caller.authKey) {
+    return subject.auth(caller.authKey)
+  }
+
   if (typeof caller.agentId === 'string' && caller.agentId) {
     return subject.agent(caller.agentId)
   }
@@ -469,7 +473,7 @@ export function createTestContext<
   const tenantTable = (options.tenant?.table ?? 'workspaces') as TTenantTable
   const tenantField = options.tenant?.field ?? 'workspaceId'
   const userTable = (options.users?.table ?? 'users') as TUserTable
-  const authField = options.users?.authField ?? 'authId'
+  const authField = options.users?.authField ?? 'authKey'
   const roleField = options.users?.roleField ?? 'role'
   const userTenantField = options.users?.tenantField ?? tenantField
   const nameField = options.users?.nameField ?? 'displayName'
@@ -501,34 +505,21 @@ export function createTestContext<
     const { name, users, ...tenantData } = seedOptions
     const slug = slugify(name) || 'tenant'
     const entries = Object.entries(users) as Array<[keyof TUsers & string, TUsers[keyof TUsers]]>
-    const ownerEntry = entries.find(([, user]) => user.role === 'owner') ?? entries[0]
-    const ownerAuthId = ownerEntry?.[1].authId ?? `${slug}-${ownerEntry?.[0] ?? 'owner'}`
     const now = Date.now()
 
-    const id = await raw.run(async (ctx) => {
-      return await ctx.db.insert(tenantTable, {
-        name,
-        slug,
-        ownerId: ownerAuthId,
-        createdAt: now,
-        updatedAt: now,
-        ...tenantData,
-      } as never)
-    })
-
     const seededUsers = {} as SeededTenantUsers<TSchema, TRole, TUserTable, TUsers>
+    let ownerUserId: DocumentFor<TSchema, TUserTable>['_id'] | null = null
 
     for (const [key, user] of entries) {
-      const { role, authId, displayName, email, ...userData } = user
-      const resolvedAuthId = authId ?? `${slug}-${key}`
+      const { role, authKey, displayName, email, ...userData } = user
+      const resolvedAuthKey = authKey ?? `${slug}-${key}`
       const resolvedDisplayName = displayName ?? key.replace(/[-_]/g, ' ')
       const resolvedEmail = email ?? `${slug}-${key}@example.test`
 
       const userId = await raw.run(async (ctx) => {
         return await ctx.db.insert(userTable, {
-          [authField]: resolvedAuthId,
+          [authField]: resolvedAuthKey,
           [roleField]: role,
-          [userTenantField]: id,
           [nameField]: resolvedDisplayName,
           [emailField]: resolvedEmail,
           createdAt: now,
@@ -537,15 +528,50 @@ export function createTestContext<
         } as never)
       })
 
-      const caller = raw.withIdentity({ subject: resolvedAuthId })
+      const caller = raw.withIdentity({
+        subject: resolvedAuthKey,
+        tokenIdentifier: resolvedAuthKey,
+      } as never)
       seededUsers[key] = {
         id: userId,
-        authId: resolvedAuthId,
+        authKey: resolvedAuthKey,
         role,
         query: caller.query,
         mutation: caller.mutation,
         action: caller.action,
       }
+
+      if (!ownerUserId && (role === 'owner' || entries.length === 1)) {
+        ownerUserId = userId
+      }
+    }
+
+    ownerUserId ??= Object.values(seededUsers)[0]?.id ?? null
+
+    if (!ownerUserId) {
+      throw new Error('seedTenant requires at least one user.')
+    }
+
+    const id = await raw.run(async (ctx) => {
+      return await ctx.db.insert(tenantTable, {
+        name,
+        slug,
+        ownerId: ownerUserId,
+        createdAt: now,
+        updatedAt: now,
+        ...tenantData,
+      } as never)
+    })
+
+    for (const user of Object.values(seededUsers)) {
+      await raw.run(async (ctx) => {
+        await ctx.db.patch(
+          user.id as never,
+          {
+            [userTenantField]: id,
+          } as never,
+        )
+      })
     }
 
     return {

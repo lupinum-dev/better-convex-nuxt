@@ -35,6 +35,8 @@ export interface ToolDefinitionMetadata {
   file: string
   line: number
   source: 'tool' | 'operation' | 'defineTool'
+  operationId?: string
+  operationExportName?: string
 }
 
 export interface PublicSurfaceCodegenMetadata {
@@ -236,6 +238,7 @@ function readToolMetadata(
   rootDir: string,
   sourceFile: SourceFile,
   exportAssignment: ExportAssignment,
+  operationsByExport: Map<string, OperationDefinitionMetadata>,
 ): ToolDefinitionMetadata | null {
   const expression = unwrapExpression(exportAssignment.getExpression())
   if (!expression || !Node.isCallExpression(expression)) return null
@@ -243,6 +246,7 @@ function readToolMetadata(
   const callee = unwrapExpression(expression.getExpression())
   let source: ToolDefinitionMetadata['source'] | null = null
   let options: ObjectLiteralExpression | null = null
+  let operation: OperationDefinitionMetadata | undefined
 
   if (Node.isIdentifier(callee)) {
     if (callee.getText() !== 'tool' && callee.getText() !== 'defineTool') return null
@@ -253,6 +257,10 @@ function readToolMetadata(
   } else if (Node.isPropertyAccessExpression(callee)) {
     if (callee.getName() === 'operation') {
       source = 'operation'
+      const firstArg = unwrapExpression(expression.getArguments()[0])
+      if (firstArg && Node.isIdentifier(firstArg)) {
+        operation = operationsByExport.get(firstArg.getText())
+      }
     } else if (['query', 'mutation', 'action'].includes(callee.getName())) {
       source = 'tool'
     } else {
@@ -277,6 +285,12 @@ function readToolMetadata(
     file: toPosixPath(relative(rootDir, sourceFile.getFilePath())),
     line: exportAssignment.getStartLineNumber(),
     source,
+    ...(operation
+      ? {
+          operationId: operation.id,
+          operationExportName: operation.exportName,
+        }
+      : {}),
   }
 }
 
@@ -326,19 +340,42 @@ export function extractPublicSurfaceCodegenMetadata(rootDir: string): PublicSurf
     if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
 
     const fileOperations = extractOperationDefinitions(rootDir, sourceFile)
-    const operationsByExport = new Map(
-      fileOperations.map((operation) => [operation.exportName, operation]),
-    )
 
     operations.push(...fileOperations)
+  }
+
+  const operationExportCounts = new Map<string, number>()
+  for (const operation of operations) {
+    operationExportCounts.set(
+      operation.exportName,
+      (operationExportCounts.get(operation.exportName) ?? 0) + 1,
+    )
+  }
+  const operationsByExport = new Map(
+    operations
+      .filter((operation) => operationExportCounts.get(operation.exportName) === 1)
+      .map((operation) => [operation.exportName, operation]),
+  )
+
+  for (const sourceFile of project.getSourceFiles()) {
+    if (isPrivateMcpSurfaceFile(rootDir, sourceFile)) continue
+
+    const fileOperationsByExport = new Map(
+      operations
+        .filter(
+          (operation) =>
+            operation.file === toPosixPath(relative(rootDir, sourceFile.getFilePath())),
+        )
+        .map((operation) => [operation.exportName, operation]),
+    )
 
     for (const declaration of sourceFile.getVariableDeclarations()) {
-      const binding = extractProjectionBinding(declaration, operationsByExport)
+      const binding = extractProjectionBinding(declaration, fileOperationsByExport)
       if (binding) projections.push(binding)
     }
 
     for (const exportAssignment of sourceFile.getExportAssignments()) {
-      const tool = readToolMetadata(rootDir, sourceFile, exportAssignment)
+      const tool = readToolMetadata(rootDir, sourceFile, exportAssignment, operationsByExport)
       if (tool) tools.push(tool)
     }
   }

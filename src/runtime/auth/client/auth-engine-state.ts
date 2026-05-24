@@ -1,18 +1,21 @@
-import type { ConvexAuthChangedPayload, ConvexUser } from '../../utils/types.js'
+import type { ConvexAuthChangedPayload, AuthSessionUser } from '../../utils/types.js'
 
 export interface AuthSnapshot {
   isAuthenticated: boolean
-  user: ConvexUser | null
-  userId: string | null
+  user: AuthSessionUser | null
+  tokenFingerprint: string | null
 }
 
-export function buildAuthSnapshot(token: string | null, user: ConvexUser | null): AuthSnapshot {
+export function buildAuthSnapshot(
+  token: string | null,
+  user: AuthSessionUser | null,
+): AuthSnapshot {
   const isAuthenticated = Boolean(token && user)
 
   return {
     isAuthenticated,
     user: isAuthenticated ? user : null,
-    userId: isAuthenticated ? user!.id : null,
+    tokenFingerprint: isAuthenticated ? token : null,
   }
 }
 
@@ -22,7 +25,7 @@ export function hasAuthSnapshotChanged(
 ): boolean {
   return (
     previousSnapshot.isAuthenticated !== nextSnapshot.isAuthenticated ||
-    previousSnapshot.userId !== nextSnapshot.userId
+    previousSnapshot.tokenFingerprint !== nextSnapshot.tokenFingerprint
   )
 }
 
@@ -33,8 +36,8 @@ export function createAuthChangedPayload(
   return {
     isAuthenticated: nextSnapshot.isAuthenticated,
     previousIsAuthenticated: previousSnapshot.isAuthenticated,
-    user: nextSnapshot.user,
-    previousUser: previousSnapshot.user,
+    sessionUser: nextSnapshot.user,
+    previousSessionUser: previousSnapshot.user,
   }
 }
 

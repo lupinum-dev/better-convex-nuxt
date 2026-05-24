@@ -100,20 +100,17 @@ export interface JWTClaims {
   [key: string]: unknown
 }
 
-export interface DevtoolsConvexUser {
-  id: string
-  name?: string | null
+export interface DevtoolsAuthSessionUser {
+  displayName?: string | null
   email?: string | null
   emailVerified?: boolean
-  image?: string | null
-  createdAt?: Date
-  updatedAt?: Date
+  avatarUrl?: string | null
 }
 
 export interface AuthState {
   isAuthenticated: boolean
   isPending: boolean
-  user: DevtoolsConvexUser | null
+  sessionUser: DevtoolsAuthSessionUser | null
   tokenStatus: 'valid' | 'expired' | 'none' | 'unknown'
 }
 
@@ -137,7 +134,6 @@ export interface AuthBootstrapState {
   mutationName: string | null
   pending: boolean
   ensured: boolean
-  lastUserId: string | null
   error: string | null
 }
 

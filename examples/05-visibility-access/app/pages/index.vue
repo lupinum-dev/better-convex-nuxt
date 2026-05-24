@@ -309,8 +309,9 @@ import {
   knowledgeBasePermissionMatrix,
 } from '#trellis/permissions'
 
-const { client, signOut, user } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 const toast = useToast()
 const { can, ctx, ready, role, workspaceId } = useAccess()
 
@@ -340,7 +341,11 @@ const { data: knowledgeBases } = await useConvexQuery(
 )
 
 const displayName = computed(
-  () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
+  () =>
+    ctx.value?.displayName ||
+    sessionUser.value?.displayName ||
+    sessionUser.value?.email ||
+    'Signed in',
 )
 const currentWorkspaceName = computed(() => ctx.value?.workspace?.name ?? null)
 const canCreate = can(kbCreate)

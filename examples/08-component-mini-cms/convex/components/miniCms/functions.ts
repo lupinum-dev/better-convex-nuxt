@@ -10,7 +10,7 @@ import {
 
 export type MiniCmsActor =
   | { kind: 'viewer' }
-  | { kind: 'editor'; userId: string }
+  | { kind: 'editor'; authKey: string }
   | { kind: 'agent'; agentId: string }
 
 export const caller = defineCaller({
@@ -29,7 +29,7 @@ export async function getAppIdentityFromCaller(
     case 'anonymous':
       return { kind: 'viewer' }
     case 'user':
-      return { kind: 'editor', userId: resolved.userId }
+      return { kind: 'editor', authKey: resolved.authKey }
     case 'agent':
       return { kind: 'agent', agentId: resolved.agentId }
   }

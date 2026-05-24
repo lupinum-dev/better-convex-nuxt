@@ -86,13 +86,14 @@ export {
 export {
   useConvexAuth,
   type UseConvexAuthReturn,
-  type ConvexUser,
+  type AuthSessionUser,
 } from '../auth/composables/useConvexAuth.js'
+export { useBetterAuthClient } from '../auth/composables/useBetterAuthClient.js'
 export {
-  useConvexAuthActions,
-  type UseConvexAuthActionsOptions,
-  type UseConvexAuthActionsReturn,
-} from '../auth/composables/useConvexAuthActions.js'
-export { useConvexSignIn } from '../auth/composables/useConvexSignIn.js'
-export { useConvexSignUp } from '../auth/composables/useConvexSignUp.js'
-export { useConvexPasswordReset } from '../auth/composables/useConvexPasswordReset.js'
+  useBetterAuthActions,
+  type UseBetterAuthActionsOptions,
+  type UseBetterAuthActionsReturn,
+} from '../auth/composables/useBetterAuthActions.js'
+export { useBetterAuthSignIn } from '../auth/composables/useBetterAuthSignIn.js'
+export { useBetterAuthSignUp } from '../auth/composables/useBetterAuthSignUp.js'
+export { useBetterAuthPasswordReset } from '../auth/composables/useBetterAuthPasswordReset.js'

@@ -135,7 +135,7 @@ export const enrollByEmail = mutation.protected({
     const existing = await ctx.db
       .query('enrollments')
       .withIndex('by_user_kb', (q) =>
-        q.eq('userId', user.authId).eq('knowledgeBaseId', knowledgeBase._id),
+        q.eq('userId', user._id).eq('knowledgeBaseId', knowledgeBase._id),
       )
       .first()
 
@@ -148,7 +148,7 @@ export const enrollByEmail = mutation.protected({
 
     return ctx.db.insert('enrollments', {
       workspaceId: appIdentity.workspaceId,
-      userId: user.authId,
+      userId: user._id,
       knowledgeBaseId: knowledgeBase._id,
       status: 'active',
       createdAt: Date.now(),

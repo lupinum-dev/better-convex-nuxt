@@ -1,14 +1,14 @@
 import { getAuth } from '@lupinum/trellis/auth'
 /**
  * Why this file differs from the later tenant-scoped examples:
- * Example 02 is still auth-only. `userId` here is the auth-subject string stored in `users.authId`,
- * not a Convex document id.
+ * Example 02 is still auth-only. It still resolves app identity through the local `users` table so
+ * todo rows never store provider subjects or auth keys as user ids.
  */
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 
-export type AppIdentity = { kind: 'user'; userId: string } | null
+export type AppIdentity = { kind: 'user'; userId: Id<'users'>; authKey: string } | null
 
 type AuthTodoCtx =
   | GenericQueryCtx<DataModel>
@@ -24,13 +24,14 @@ export async function getAppIdentity(ctx: AuthTodoCtx): Promise<AppIdentity> {
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', auth.authKey))
     .first()
 
   if (!user) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
   }
 }

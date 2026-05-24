@@ -4,9 +4,9 @@ import { createTodo } from '~~/shared/features/todos/contract'
 import { api } from '#trellis/api'
 import { todoCreate } from '#trellis/permissions'
 
-const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
-const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
-const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
+const { isAuthenticated, isPending, signOut, sessionUser } = useConvexAuth()
+const { signIn, pending: signInPending, error: signInError } = useBetterAuthSignIn()
+const { signUp, pending: signUpPending, error: signUpError } = useBetterAuthSignUp()
 const { can, ready, workspaceId, role } = useAccess()
 
 const email = ref('owner@example.com')
@@ -68,7 +68,10 @@ async function handleCreateTodo() {
     </div>
 
     <div v-else-if="!ready" style="display: grid; gap: 12px; max-width: 320px">
-      <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}. Create your first workspace.</p>
+      <p>
+        Signed in as {{ sessionUser?.email ?? sessionUser?.displayName ?? 'user' }}. Create your
+        first workspace.
+      </p>
       <input v-model="workspaceName" type="text" placeholder="Workspace name" />
       <button :disabled="createWorkspace.pending.value" @click="handleCreateWorkspace">
         Create workspace

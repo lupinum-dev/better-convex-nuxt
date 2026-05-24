@@ -1,5 +1,5 @@
-import { useConvexAuth } from './useConvexAuth.js'
-import { useConvexAuthActions, type UseConvexAuthActionsOptions } from './useConvexAuthActions.js'
+import { useBetterAuthActions, type UseBetterAuthActionsOptions } from './useBetterAuthActions.js'
+import { useBetterAuthClient } from './useBetterAuthClient.js'
 
 /** Subset of the Better Auth client used by password-reset flows (available when emailAndPassword is enabled). */
 interface PasswordResetClient {
@@ -20,7 +20,7 @@ interface PasswordResetClient {
  * @example Request step
  * ```vue
  * <script setup>
- * const { forgotPassword, pending, error } = useConvexPasswordReset()
+ * const { forgotPassword, pending, error } = useBetterAuthPasswordReset()
  * </script>
  *
  * <template>
@@ -36,7 +36,7 @@ interface PasswordResetClient {
  * <script setup>
  * const route = useRoute()
  * const token = String(route.query.token ?? '')
- * const { resetPassword, pending, error } = useConvexPasswordReset()
+ * const { resetPassword, pending, error } = useBetterAuthPasswordReset()
  * </script>
  *
  * <template>
@@ -47,9 +47,9 @@ interface PasswordResetClient {
  * </template>
  * ```
  */
-export function useConvexPasswordReset(options?: { resetPagePath?: string }) {
-  const { client } = useConvexAuth()
-  const actions = useConvexAuthActions()
+export function useBetterAuthPasswordReset(options?: { resetPagePath?: string }) {
+  const client = useBetterAuthClient()
+  const actions = useBetterAuthActions()
   const resetPage = options?.resetPagePath ?? '/reset-password'
   // Cast to the password-reset subset — available when emailAndPassword is enabled in Better Auth
   const passwordClient = client as PasswordResetClient | null
@@ -59,14 +59,14 @@ export function useConvexPasswordReset(options?: { resetPagePath?: string }) {
   const getUnavailableError = (operation: 'forgotPassword' | 'resetPassword') =>
     new Error(
       !passwordClient
-        ? '[useConvexPasswordReset] Better Auth client is not available. Ensure auth is enabled in your Trellis config.'
+        ? '[useBetterAuthPasswordReset] Better Auth client is not available. Ensure auth is enabled in your Trellis config.'
         : operation === 'forgotPassword'
-          ? '[useConvexPasswordReset] Password reset email flow is not available on the Better Auth client. Enable emailAndPassword with reset-password support in your Better Auth config.'
-          : '[useConvexPasswordReset] Password reset confirmation is not available on the Better Auth client. Enable emailAndPassword with reset-password support in your Better Auth config.',
+          ? '[useBetterAuthPasswordReset] Password reset email flow is not available on the Better Auth client. Enable emailAndPassword with reset-password support in your Better Auth config.'
+          : '[useBetterAuthPasswordReset] Password reset confirmation is not available on the Better Auth client. Enable emailAndPassword with reset-password support in your Better Auth config.',
     )
 
   // Better Auth uses "forgetPassword"; we expose "forgotPassword" for natural English
-  const forgotPasswordAction = (email: string, opts?: UseConvexAuthActionsOptions) => {
+  const forgotPasswordAction = (email: string, opts?: UseBetterAuthActionsOptions) => {
     if (!forgetPassword) {
       return actions.execute(() => Promise.reject(getUnavailableError('forgotPassword')), opts)
     }
@@ -75,7 +75,7 @@ export function useConvexPasswordReset(options?: { resetPagePath?: string }) {
 
   const resetPasswordAction = (
     args: { newPassword: string; token: string },
-    opts?: UseConvexAuthActionsOptions,
+    opts?: UseBetterAuthActionsOptions,
   ) => {
     if (!resetPasswordFn) {
       return actions.execute(() => Promise.reject(getUnavailableError('resetPassword')), opts)

@@ -25,7 +25,7 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from './utils/constants.js'
-import type { ConvexUser } from './utils/types.js'
+import type { AuthSessionUser } from './utils/types.js'
 
 function applyAuthenticatedSsrCacheHeaders(event: NonNullable<ReturnType<typeof useRequestEvent>>) {
   const response = (
@@ -94,7 +94,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
 
   // Initialize useState for hydration (must be done even if unauthenticated)
   const convexToken = useState<string | null>(STATE_KEY_TOKEN, () => null)
-  const convexUser = useState<ConvexUser | null>(STATE_KEY_USER, () => null)
+  const convexUser = useState<AuthSessionUser | null>(STATE_KEY_USER, () => null)
   const convexAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR, () => null)
   const convexPending = useState<boolean>(STATE_KEY_PENDING, () => true)
   const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () => false)

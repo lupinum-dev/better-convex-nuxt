@@ -31,7 +31,7 @@ type AppIdentity = {
 async function resolveCaller(ctx: QueryCtx): Promise<Caller> {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) return { kind: 'anonymous' }
-  return { kind: 'user', userId: identity.subject }
+  return { kind: 'user', userId: identity.tokenIdentifier }
 }
 
 async function resolveActor(ctx: QueryCtx, caller: Caller): Promise<AppIdentity | null> {
@@ -40,7 +40,7 @@ async function resolveActor(ctx: QueryCtx, caller: Caller): Promise<AppIdentity 
   // Use raw ctx.db — no RLS wrapping during resolution
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
+    .withIndex('by_auth_key', (q) => q.eq('authKey', caller.userId))
     .first()
   if (!user || !user.organizationId) return null
   return {

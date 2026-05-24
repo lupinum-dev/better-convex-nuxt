@@ -1,5 +1,6 @@
 export type McpBoundUser = {
-  authId: string
+  userId: string
+  authKey: string
   displayName?: string | null
   email?: string | null
   role: string
@@ -7,10 +8,10 @@ export type McpBoundUser = {
 
 export function selectMcpBoundUser(
   users: McpBoundUser[],
-  boundAuthId: string | null | undefined,
+  boundUserId: string | null | undefined,
 ): McpBoundUser | null {
-  const normalizedAuthId = boundAuthId?.trim()
-  if (!normalizedAuthId) return null
+  const normalizedUserId = boundUserId?.trim()
+  if (!normalizedUserId) return null
 
-  return users.find((user) => user.authId === normalizedAuthId) ?? null
+  return users.find((user) => user.userId === normalizedUserId) ?? null
 }

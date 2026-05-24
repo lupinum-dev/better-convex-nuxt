@@ -3,23 +3,23 @@ import type { GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 import { v } from 'convex/values'
 
 import { createMcpKey, revokeMcpKey } from '../../../shared/features/mcpKeys/contract'
-import type { DataModel, Doc } from '../../_generated/dataModel'
+import type { DataModel, Doc, Id } from '../../_generated/dataModel'
 import { mutation, query } from '../../functions'
 import { canIssueKeyRole } from './checks'
 import { mcpManage } from './permissions'
 
 const TOUCH_DEBOUNCE_MS = 60_000
 
-type BoundUser = Pick<Doc<'users'>, 'authId' | 'displayName' | 'email' | 'role' | 'workspaceId'>
+type BoundUser = Pick<
+  Doc<'users'>,
+  '_id' | 'authKey' | 'displayName' | 'email' | 'role' | 'workspaceId'
+>
 type McpKeyDoc = Doc<'mcpKeys'>
 type Ctx = GenericQueryCtx<DataModel> | GenericMutationCtx<DataModel>
 type KeyUsability = 'usable' | 'revoked' | 'bound_user_missing' | 'bound_user_workspace_mismatch'
 
-async function getBoundUser(ctx: Ctx, boundAuthId: string): Promise<BoundUser | null> {
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', boundAuthId))
-    .first()
+async function getBoundUser(ctx: Ctx, boundUserId: Id<'users'>): Promise<BoundUser | null> {
+  const user = await ctx.db.get(boundUserId)
 
   return user ?? null
 }
@@ -37,9 +37,9 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
     _creationTime: key._creationTime,
     name: key.name,
     prefix: key.prefix,
-    boundAuthId: key.boundAuthId,
+    boundUserId: key.boundUserId,
     boundWorkspaceId: key.boundWorkspaceId,
-    issuedByAuthId: key.issuedByAuthId,
+    issuedByUserId: key.issuedByUserId,
     status: key.status,
     createdAt: key.createdAt,
     lastUsedAt: key.lastUsedAt,
@@ -48,7 +48,8 @@ function toListedKey(key: McpKeyDoc, boundUser: BoundUser | null) {
     usability: getKeyUsability(key, boundUser),
     boundUser: boundUser
       ? {
-          authId: boundUser.authId,
+          userId: boundUser._id,
+          authKey: boundUser.authKey,
           displayName: boundUser.displayName ?? null,
           email: boundUser.email ?? null,
           role: boundUser.role,
@@ -70,7 +71,7 @@ export const list = query.protected({
       .collect()
 
     return await Promise.all(
-      keys.map(async (key) => toListedKey(key, await getBoundUser(ctx, key.boundAuthId))),
+      keys.map(async (key) => toListedKey(key, await getBoundUser(ctx, key.boundUserId))),
     )
   },
 })
@@ -81,7 +82,7 @@ export const create = mutation.protected({
   handler: async (ctx, args) => {
     const appIdentity = await ctx.appIdentity()
 
-    const boundUser = await getBoundUser(ctx, args.boundAuthId)
+    const boundUser = await getBoundUser(ctx, args.boundUserId)
     if (!boundUser?.workspaceId || boundUser.workspaceId !== appIdentity.workspaceId) {
       throw deny('You can only issue MCP keys for users in your workspace.')
     }
@@ -93,9 +94,9 @@ export const create = mutation.protected({
       name: args.name,
       prefix: args.prefix,
       hash: args.hash,
-      boundAuthId: boundUser.authId,
+      boundUserId: boundUser._id,
       boundWorkspaceId: appIdentity.workspaceId,
-      issuedByAuthId: appIdentity.userId,
+      issuedByUserId: appIdentity.userId,
       status: 'active',
       createdAt: Date.now(),
     })
@@ -113,7 +114,7 @@ export const revoke = mutation.protected({
       throw deny('MCP key not found.')
     }
 
-    const boundUser = await getBoundUser(ctx, rawKey.boundAuthId)
+    const boundUser = await getBoundUser(ctx, rawKey.boundUserId)
     if (
       boundUser?.workspaceId &&
       boundUser.workspaceId === rawKey.boundWorkspaceId &&
@@ -140,13 +141,13 @@ export const validate = query.public({
       .first()
 
     if (!key || key.status !== 'active') return null
-    const boundUser = await getBoundUser(ctx, key.boundAuthId)
+    const boundUser = await getBoundUser(ctx, key.boundUserId)
     if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
 
     return {
       id: key._id,
       role: boundUser.role,
-      userId: boundUser.authId,
+      userId: boundUser._id,
       workspaceId: boundUser.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }

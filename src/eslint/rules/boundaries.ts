@@ -438,42 +438,4 @@ export const boundaryRules = {
       },
     }),
   ),
-  'no-owner-id-as-document-id': createRule(
-    {
-      type: 'problem',
-      schema: [],
-      messages: {
-        invalid: "`ownerId` must use `v.string()`, not `v.id('users')`.",
-      },
-    },
-    (context) => ({
-      Property(node: any) {
-        const filename = getFilename(context)
-        if (!filename.endsWith('/schema.ts') && !filename.endsWith('\\schema.ts')) return
-        const propertyName =
-          node.key?.type === 'Identifier'
-            ? node.key.name
-            : node.key?.type === 'Literal' && typeof node.key.value === 'string'
-              ? node.key.value
-              : null
-        if (propertyName !== 'ownerId') return
-        const value = node.value
-        if (
-          value?.type === 'CallExpression' &&
-          value.callee?.type === 'MemberExpression' &&
-          value.callee.object?.type === 'Identifier' &&
-          value.callee.object.name === 'v' &&
-          value.callee.property?.type === 'Identifier' &&
-          value.callee.property.name === 'id' &&
-          value.arguments?.[0]?.type === 'Literal' &&
-          value.arguments[0].value === 'users'
-        ) {
-          context.report({
-            node: value,
-            messageId: 'invalid',
-          })
-        }
-      },
-    }),
-  ),
 } as const

@@ -90,6 +90,8 @@ describe('public surface codegen', () => {
         file: 'server/mcp/tools/tasks/archive-task.ts',
         line: expect.any(Number),
         name: 'archive-task',
+        operationExportName: 'archiveTaskOp',
+        operationId: 'tasks.archive',
         source: 'operation',
       },
     ])

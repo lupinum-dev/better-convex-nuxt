@@ -236,8 +236,9 @@ import ProjectSummary from './ProjectSummary.vue'
 import WorkspaceOnboarding from './WorkspaceOnboarding.vue'
 import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 
-const { client, user, signOut } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 const toast = useToast()
 const { ctx, role, workspaceId } = useAccess()
 const canDashboard = computed(() => ctx.value?.agencyDashboard === true)
@@ -286,7 +287,11 @@ const { data: portfolio } = await useConvexQuery(
 )
 
 const displayName = computed(
-  () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
+  () =>
+    ctx.value?.displayName ||
+    sessionUser.value?.displayName ||
+    sessionUser.value?.email ||
+    'Signed in',
 )
 const currentWorkspaceName = computed(() => {
   if (!workspaceId.value || !accessibleWorkspaces.value) return null

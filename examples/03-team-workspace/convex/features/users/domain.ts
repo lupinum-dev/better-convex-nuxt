@@ -19,7 +19,7 @@ export const resolveMcpUserByEmailQuery = query.public({
     }
 
     return {
-      userId: user.authId,
+      userId: user._id,
     }
   },
 })

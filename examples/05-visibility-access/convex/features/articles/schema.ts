@@ -16,7 +16,7 @@ export const articleTables = {
     status: articleStatusValidator,
     visibility: articleVisibilityValidator,
     parentArticleId: v.optional(v.id('articles')),
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     internalNotes: v.optional(v.string()),
     draftFeedback: v.optional(v.string()),
     prerequisiteIds: v.optional(v.array(v.id('articles'))),
@@ -31,7 +31,7 @@ export const articleTables = {
 
   articleProgress: defineTable({
     workspaceId: v.id('workspaces'),
-    userId: v.string(),
+    userId: v.id('users'),
     articleId: v.id('articles'),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -42,7 +42,7 @@ export const articleTables = {
   articleShares: defineTable({
     workspaceId: v.id('workspaces'),
     articleId: v.id('articles'),
-    userId: v.string(),
+    userId: v.id('users'),
     level: articleAccessLevelValidator,
     createdAt: v.number(),
   })

@@ -18,7 +18,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
   }),
   users: defineTable({
-    authId: v.string(),
+    authKey: v.string(),
     role: v.union(v.literal('owner'), v.literal('member')),
     workspaceId: v.id('workspaces'),
     createdAt: v.number(),
@@ -31,7 +31,7 @@ const schema = defineSchema({
     updatedAt: v.number(),
   }),
   members: defineTable({
-    authId: v.string(),
+    authKey: v.string(),
     role: v.union(v.literal('owner'), v.literal('member')),
     organizationId: v.id('organizations'),
     createdAt: v.number(),
@@ -67,7 +67,7 @@ const _organizationCtx = createTestContext({
   tenant: { table: 'organizations', field: 'organizationId' },
   users: {
     table: 'members',
-    authField: 'authId',
+    authField: 'authKey',
     roleField: 'role',
     tenantField: 'organizationId',
   },

@@ -30,11 +30,10 @@ describe('decodeUserFromJwt', () => {
     })
 
     expect(decodeUserFromJwt(token)).toEqual({
-      id: 'user_123',
-      name: 'Ada',
       email: 'ada@example.com',
+      displayName: 'Ada',
       emailVerified: true,
-      image: 'https://example.com/avatar.png',
+      avatarUrl: 'https://example.com/avatar.png',
     })
   })
 
@@ -57,21 +56,25 @@ describe('decodeUserFromJwt', () => {
     const user = decodeUserFromJwt(token)
 
     expect(user).toEqual({
-      id: 'user_123',
-      name: 'Ada',
       email: 'ada@example.com',
+      displayName: 'Ada',
     })
+    expect(user).not.toHaveProperty('id')
     expect(user).not.toHaveProperty('claims')
     expect(({} as { polluted?: boolean }).polluted).toBeUndefined()
   })
 
-  it('returns null when identifier claims resolve to an empty id', () => {
+  it('does not expose JWT identifiers as app user ids', () => {
     const token = makeJwt({
-      sub: '',
+      sub: 'user_123',
+      userId: 'legacy_user_123',
       email: 'user@example.com',
     })
 
-    expect(decodeUserFromJwt(token)).toBeNull()
+    const user = decodeUserFromJwt(token)
+
+    expect(user).toEqual({ email: 'user@example.com' })
+    expect(user).not.toHaveProperty('id')
   })
 })
 

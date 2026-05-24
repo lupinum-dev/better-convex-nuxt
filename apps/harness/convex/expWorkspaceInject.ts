@@ -30,14 +30,14 @@ type AppIdentity = {
 
 async function resolveActorForWorkspace(
   ctx: QueryCtx,
-  authId: string,
+  authKey: string,
   workspaceId: string | undefined,
 ): Promise<AppIdentity> {
   // If no workspaceId provided, fall back to the first membership.
   // This mirrors the spec's graduated on-ramp: simple case without a switcher.
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
     .first()
   if (!user || !user.organizationId) return null
 
@@ -48,7 +48,7 @@ async function resolveActorForWorkspace(
   }
 
   return {
-    userId: authId,
+    userId: authKey,
     workspaceId: user.organizationId,
     role: user.role,
   }
@@ -61,16 +61,16 @@ const scopedQuery = customQuery(rawQuery, {
   },
   input: async (ctx, args) => {
     // The identity is simulated — in production this comes from ctx.auth.
-    // For the experiment we use a test header-like approach: authId passed.
+    // For the experiment we use a test header-like approach: authKey passed.
     const identity = await ctx.auth.getUserIdentity()
-    const authId = identity?.subject
-    if (!authId) {
+    const authKey = identity?.subject
+    if (!authKey) {
       return {
         ctx: { appIdentity: null as AppIdentity, resolvedWorkspaceId: null },
         args: {},
       }
     }
-    const appIdentity = await resolveActorForWorkspace(ctx, authId, args.__workspaceId)
+    const appIdentity = await resolveActorForWorkspace(ctx, authKey, args.__workspaceId)
     return {
       ctx: { appIdentity, resolvedWorkspaceId: args.__workspaceId ?? null },
       args: {}, // __workspaceId is NOT forwarded

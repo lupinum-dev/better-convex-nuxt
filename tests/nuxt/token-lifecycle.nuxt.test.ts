@@ -54,7 +54,7 @@ describe('Auth Token Lifecycle', () => {
 
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-bob')
+    expect(h.user.value?.email).toBe('bob@test.com')
     expect(exchange.callCount).toBe(1)
   })
 
@@ -144,7 +144,7 @@ describe('Auth Token Lifecycle', () => {
 
       expect(h.isAuthenticated.value).toBe(true)
       expect(h.pending.value).toBe(false)
-      expect(h.user.value?.id).toBe('user-bob')
+      expect(h.user.value?.email).toBe('bob@test.com')
 
       await vi.advanceTimersByTimeAsync(AUTH_REFRESH_TIMEOUT_MS + 100)
       expect(warnSpy).toHaveBeenCalledTimes(0)

@@ -9,7 +9,7 @@ import type { Ref } from 'vue'
 
 import { decodeJwtPayload } from '../convex/shared/convex-shared.js'
 import type { TrellisObservationEvent } from '../observability/types.js'
-import type { ConvexUser as RuntimeConvexUser } from '../utils/types.js'
+import type { AuthSessionUser as RuntimeAuthSessionUser } from '../utils/types.js'
 import type {
   QueryRegistryEntry,
   MutationEntry,
@@ -20,7 +20,7 @@ import type {
   AccessContextState,
   AuthBootstrapState,
   ConvexDevtoolsSnapshot,
-  DevtoolsConvexUser,
+  DevtoolsAuthSessionUser,
   JWTClaims,
   DecisionTraceState,
 } from './types.js'
@@ -58,13 +58,9 @@ function areSerializedValuesEqual(previous: unknown, next: unknown): boolean {
   return stableStringify(previous) === stableStringify(next)
 }
 
-function toDevtoolsUser(user: RuntimeConvexUser | null): DevtoolsConvexUser | null {
+function toDevtoolsUser(user: RuntimeAuthSessionUser | null): DevtoolsAuthSessionUser | null {
   if (!user) return null
-  return {
-    ...clonePayload(user),
-    createdAt: typeof user.createdAt === 'string' ? new Date(user.createdAt) : undefined,
-    updatedAt: typeof user.updatedAt === 'string' ? new Date(user.updatedAt) : undefined,
-  }
+  return clonePayload(user)
 }
 
 export class ConvexDevtoolsStore {
@@ -77,7 +73,7 @@ export class ConvexDevtoolsStore {
   authState: EnhancedAuthState = {
     isAuthenticated: false,
     isPending: false,
-    user: null,
+    sessionUser: null,
     tokenStatus: 'none',
   }
 
@@ -103,7 +99,6 @@ export class ConvexDevtoolsStore {
     mutationName: null,
     pending: false,
     ensured: false,
-    lastUserId: null,
     error: null,
   }
 
@@ -190,11 +185,17 @@ export class ConvexDevtoolsStore {
 
   updateAuthState(
     convexToken: Ref<string | null>,
-    convexUser: Ref<RuntimeConvexUser | null>,
+    convexUser: Ref<RuntimeAuthSessionUser | null>,
   ): void {
     const rawUser = toRaw(convexUser.value)
     const hasToken = !!convexToken.value
-    const hasUser = !!(rawUser && typeof rawUser === 'object' && (rawUser.id || rawUser.email))
+    const hasUser =
+      !!rawUser &&
+      typeof rawUser === 'object' &&
+      (Boolean(rawUser.email) ||
+        Boolean(rawUser.displayName) ||
+        Boolean(rawUser.avatarUrl) ||
+        typeof rawUser.emailVerified === 'boolean')
     const plainUser = hasUser ? toDevtoolsUser(rawUser) : null
     const token = convexToken.value
 
@@ -217,7 +218,7 @@ export class ConvexDevtoolsStore {
     const nextAuthState: EnhancedAuthState = {
       isAuthenticated: !!(hasToken && hasUser),
       isPending: false,
-      user: plainUser,
+      sessionUser: plainUser,
       tokenStatus: hasToken ? 'valid' : 'none',
       claims,
       issuedAt,

@@ -108,38 +108,27 @@ export const seedMcpVerification = mutation({
     assertTestResetEnabled(args.confirmationCode, 'SEED_MCP_VERIFICATION', 'seedMcpVerification')
 
     const now = Date.now()
-    const organizationId = await ctx.db.insert('organizations', {
-      name: 'MCP Verification Org',
-      slug: `mcp-verify-${now}`,
-      ownerId: 'mcp-admin-user',
-      createdAt: now,
-      updatedAt: now,
-    })
-
     const userRecords = {
       admin: {
-        authId: 'mcp-admin-user',
+        authKey: 'mcp-admin-user',
         role: 'admin' as const,
         displayName: 'MCP Admin',
         email: 'admin+mcp@test.local',
-        organizationId,
       },
       member: {
-        authId: 'mcp-member-user',
+        authKey: 'mcp-member-user',
         role: 'member' as const,
         displayName: 'MCP Member',
         email: 'member+mcp@test.local',
-        organizationId,
       },
       viewer: {
-        authId: 'mcp-viewer-user',
+        authKey: 'mcp-viewer-user',
         role: 'viewer' as const,
         displayName: 'MCP Viewer',
         email: 'viewer+mcp@test.local',
-        organizationId,
       },
       noOrg: {
-        authId: 'mcp-no-org-user',
+        authKey: 'mcp-no-org-user',
         role: 'member' as const,
         displayName: 'MCP No Org',
         email: 'no-org+mcp@test.local',
@@ -169,18 +158,30 @@ export const seedMcpVerification = mutation({
       }),
     }
 
+    const organizationId = await ctx.db.insert('organizations', {
+      name: 'MCP Verification Org',
+      slug: `mcp-verify-${now}`,
+      ownerId: userIds.admin,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await ctx.db.patch(userIds.admin, { organizationId, updatedAt: now })
+    await ctx.db.patch(userIds.member, { organizationId, updatedAt: now })
+    await ctx.db.patch(userIds.viewer, { organizationId, updatedAt: now })
+
     const noteId = await ctx.db.insert('notes', {
       title: 'Seed note',
       content: 'Created by testing.seedMcpVerification',
       createdAt: now,
-      userId: userRecords.member.authId,
+      userId: userIds.member,
     })
 
     const postId = await ctx.db.insert('posts', {
       title: 'Seed post',
       content: 'Created by testing.seedMcpVerification',
       status: 'draft',
-      ownerId: userRecords.member.authId,
+      ownerId: userIds.member,
       organizationId,
       createdAt: now,
       updatedAt: now,
@@ -192,7 +193,7 @@ export const seedMcpVerification = mutation({
         keyHash: hashKey(MCP_VERIFICATION_KEYS.admin),
         prefix: 'mcp_admin_ve...',
         role: 'admin' as const,
-        userId: userRecords.admin.authId,
+        userId: userIds.admin,
         organizationId,
         status: 'active' as const,
         createdAt: now,
@@ -202,7 +203,7 @@ export const seedMcpVerification = mutation({
         keyHash: hashKey(MCP_VERIFICATION_KEYS.member),
         prefix: 'mcp_member_v...',
         role: 'member' as const,
-        userId: userRecords.member.authId,
+        userId: userIds.member,
         organizationId,
         status: 'active' as const,
         createdAt: now,
@@ -212,7 +213,7 @@ export const seedMcpVerification = mutation({
         keyHash: hashKey(MCP_VERIFICATION_KEYS.viewer),
         prefix: 'mcp_viewer_v...',
         role: 'viewer' as const,
-        userId: userRecords.viewer.authId,
+        userId: userIds.viewer,
         organizationId,
         status: 'active' as const,
         createdAt: now,
@@ -222,7 +223,7 @@ export const seedMcpVerification = mutation({
         keyHash: hashKey(MCP_VERIFICATION_KEYS.noOrg),
         prefix: 'mcp_noorg_ve...',
         role: 'member' as const,
-        userId: userRecords.noOrg.authId,
+        userId: userIds.noOrg,
         status: 'active' as const,
         createdAt: now,
       },
@@ -231,7 +232,7 @@ export const seedMcpVerification = mutation({
         keyHash: hashKey(MCP_VERIFICATION_KEYS.revoked),
         prefix: 'mcp_revoked_...',
         role: 'member' as const,
-        userId: userRecords.member.authId,
+        userId: userIds.member,
         organizationId,
         status: 'revoked' as const,
         createdAt: now,
@@ -250,10 +251,10 @@ export const seedMcpVerification = mutation({
     return {
       organizationId,
       users: {
-        admin: { id: userIds.admin, authId: userRecords.admin.authId },
-        member: { id: userIds.member, authId: userRecords.member.authId },
-        viewer: { id: userIds.viewer, authId: userRecords.viewer.authId },
-        noOrg: { id: userIds.noOrg, authId: userRecords.noOrg.authId },
+        admin: { id: userIds.admin, authKey: userRecords.admin.authKey },
+        member: { id: userIds.member, authKey: userRecords.member.authKey },
+        viewer: { id: userIds.viewer, authKey: userRecords.viewer.authKey },
+        noOrg: { id: userIds.noOrg, authKey: userRecords.noOrg.authKey },
       },
       resources: {
         noteId,

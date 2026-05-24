@@ -26,11 +26,13 @@ type ExplainOperationReport = {
       source: { path: string; line: number }
     }>
     mcpTools: {
-      status: 'not-derivable' | 'matched'
+      status: 'none' | 'matched'
       tools: Array<{
         name: string
         source: 'tool' | 'operation' | 'defineTool'
         sourceLocation: { path: string; line: number }
+        operationId?: string
+        operationExportName?: string
       }>
       message?: string
     }
@@ -191,9 +193,14 @@ describe('CLI explain', () => {
           }),
         ]),
         mcpTools: {
-          status: 'not-derivable',
-          tools: [],
-          message: expect.stringContaining('not the exact operation id'),
+          status: 'matched',
+          tools: [
+            expect.objectContaining({
+              name: 'archive-task',
+              operationId: 'tasks.archive',
+              source: 'operation',
+            }),
+          ],
         },
         featureRefs: [
           expect.objectContaining({
@@ -222,7 +229,7 @@ describe('CLI explain', () => {
     expect(result.stdout).toContain('preview: previewArchiveTask')
     expect(result.stdout).toContain('execute: archiveTask')
     expect(result.stdout).toContain('tasksFeature (tasks)')
-    expect(result.stdout).toContain('Current inventory can identify operation-backed MCP tools')
+    expect(result.stdout).toContain('archive-task: operation-backed')
   })
 
   it('fails clearly for an unknown operation and lists available ids', () => {

@@ -4,6 +4,7 @@
   "include": [
     ".env.example",
     ".gitignore",
+    "AGENTS.md",
     "README.md",
     "app/**",
     "convex/**/*.ts",
@@ -24,6 +25,7 @@
   "generatedPaths": [
     ".env.example",
     ".gitignore",
+    "AGENTS.md",
     "README.md",
     "package.json",
     "tsconfig.json",

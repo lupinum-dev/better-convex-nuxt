@@ -1,7 +1,8 @@
+import type { Id } from '../../_generated/dataModel'
 import type { DatabaseReader } from '../../_generated/server'
 import type { AppIdentity } from '../../auth/appIdentity'
 
-type ArticleOwnerScope = 'all' | Set<string>
+type ArticleOwnerScope = 'all' | Set<Id<'users'>>
 
 export async function getArticleOwnerScope(
   db: DatabaseReader,
@@ -17,12 +18,12 @@ export async function getArticleOwnerScope(
       .withIndex('by_manager', (q) => q.eq('managerId', appIdentity.userId))
       .collect()
 
-    return new Set([appIdentity.userId, ...team.map((user) => user.authId)])
+    return new Set([appIdentity.userId, ...team.map((user) => user._id)])
   }
 
   return new Set([appIdentity.userId])
 }
 
-export function canAccessArticleOwner(scope: ArticleOwnerScope, ownerId: string): boolean {
+export function canAccessArticleOwner(scope: ArticleOwnerScope, ownerId: Id<'users'>): boolean {
   return scope === 'all' || scope.has(ownerId)
 }

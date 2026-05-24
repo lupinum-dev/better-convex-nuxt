@@ -16,7 +16,7 @@
     "@lupinum/trellis": "workspace:*",
     "@nuxt/ui": "^4.7.1",
     "convex": "1.38.0",
-    "nuxt": "^4.4.5",
+    "nuxt": "^4.4.6",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {

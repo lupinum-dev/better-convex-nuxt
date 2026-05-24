@@ -108,8 +108,9 @@ await createTask({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signOut, client } = useConvexAuth()
-const { execute } = useConvexAuthActions()
+const { isAuthenticated, sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const { execute } = useBetterAuthActions()
 
 async function handleOAuth() {
   if (!client) return
@@ -119,7 +120,7 @@ async function handleOAuth() {
 
 <template>
   <div v-if="isAuthenticated">
-    Welcome, {{ user?.name }}!
+    Welcome, {{ sessionUser?.displayName }}!
     <button @click="signOut()">Sign Out</button>
   </div>
   <div v-else>

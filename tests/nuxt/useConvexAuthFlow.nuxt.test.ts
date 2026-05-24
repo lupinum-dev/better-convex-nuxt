@@ -4,8 +4,8 @@ import { computed } from 'vue'
 import { useRouter } from '#imports'
 
 import { setupConfiguredAuthBootstrap } from '../../src/runtime/auth/client/auth-bootstrap'
+import { useBetterAuthActions } from '../../src/runtime/auth/composables/useBetterAuthActions'
 import { useConvexAuth } from '../../src/runtime/auth/composables/useConvexAuth'
-import { useConvexAuthActions } from '../../src/runtime/auth/composables/useConvexAuthActions'
 import { createConvexQueryState } from '../../src/runtime/convex/query/query-runtime'
 import { useAuthBootstrapDevtoolsState } from '../../src/runtime/devtools/state'
 import { ConvexCallError } from '../../src/runtime/utils/call-result'
@@ -15,8 +15,7 @@ import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { waitFor } from '../support/nuxt/wait-for'
 
 const AUTH_USER = {
-  id: 'u-auth',
-  name: 'Auth User',
+  displayName: 'Auth User',
   email: 'auth@test.com',
 }
 const ENSURE_USER_MUTATION = mockFnRef<'mutation'>('auth:createUserIfNeeded')
@@ -34,11 +33,11 @@ function initAuthEngine(options?: Parameters<typeof installMockAuthEngine>[0]) {
   })
 }
 
-describe('useConvexAuthActions (Nuxt runtime)', () => {
+describe('useBetterAuthActions (Nuxt runtime)', () => {
   it('happy path: execute calls fn, refreshAuth, and returns result', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     const fnResult = await result.execute(async () => ({
@@ -56,7 +55,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('sets pending=true during execution', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     const pendingStates: boolean[] = []
@@ -76,25 +75,25 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('returns the raw result from fn for data access', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     const authResponse = await result.execute(async () => ({
-      data: { session: { token: 'abc' }, user: { id: 'u1', name: 'Test' } },
+      data: { session: { token: 'abc' }, user: { displayName: 'Test' } },
       error: null,
     }))
 
     if (!authResponse) {
       throw new Error('Expected auth response')
     }
-    expect(authResponse.data.user.name).toBe('Test')
+    expect(authResponse.data.user.displayName).toBe('Test')
     expect(authResponse.data.session.token).toBe('abc')
   })
 
   it('clears previous error on new execute call', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => {
@@ -110,7 +109,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('detects Better Auth { error } response and sets error.value', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => ({
@@ -129,7 +128,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('wraps non-ConvexCallError thrown by fn', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => {
@@ -143,7 +142,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('sets pending=false when execute fails', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => {
@@ -162,13 +161,13 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
           refreshCallCount++
           return {
             token: 'should-not-be-set',
-            user: { id: 'unexpected', name: 'Unexpected User', email: 'unexpected@test.com' },
+            user: { displayName: 'Unexpected User', email: 'unexpected@test.com' },
             error: null,
             source: 'exchange',
           }
         },
       })
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => ({
@@ -182,7 +181,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
   it('reset clears data and error and returns to idle', async () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine()
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await result.execute(async () => ({ data: 'ok', error: null }))
@@ -205,7 +204,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
           source: 'exchange',
         }),
       })
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await expect(
@@ -222,7 +221,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       initAuthEngine({
         initialToken: 'stale.jwt.token',
-        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        initialUser: { displayName: 'Stale User', email: 'stale@test.com' },
         fetchAuthState: async (_input) => ({
           token: null,
           user: null,
@@ -230,7 +229,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
           source: 'exchange',
         }),
       })
-      return useConvexAuthActions()
+      return useBetterAuthActions()
     })
 
     await expect(
@@ -259,7 +258,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
         })
 
         const auth = useConvexAuth()
-        const actions = useConvexAuthActions()
+        const actions = useBetterAuthActions()
         setupConfiguredAuthBootstrap(ENSURE_USER_MUTATION, 'auth.createUserIfNeeded')
         const bootstrap = useAuthBootstrapDevtoolsState()
         const todoArgs = computed(() =>
@@ -314,7 +313,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
         const router = useRouter()
         return {
           router,
-          actions: useConvexAuthActions(),
+          actions: useBetterAuthActions(),
         }
       },
       {
@@ -346,7 +345,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
         const router = useRouter()
         return {
           router,
-          actions: useConvexAuthActions(),
+          actions: useBetterAuthActions(),
         }
       },
       {
@@ -380,7 +379,7 @@ describe('useConvexAuthActions (Nuxt runtime)', () => {
         const router = useRouter()
         return {
           router,
-          actions: useConvexAuthActions(),
+          actions: useBetterAuthActions(),
         }
       },
       {

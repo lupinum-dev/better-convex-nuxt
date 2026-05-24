@@ -114,16 +114,6 @@ function useAccessContextState<
       return null
     }
 
-    const authUserId = authState.user.value?.id
-    const contextUserId = value?.userId
-    if (
-      typeof authUserId === 'string' &&
-      typeof contextUserId === 'string' &&
-      contextUserId !== authUserId
-    ) {
-      return null
-    }
-
     return value
   })
   const devtoolsState = usePermissionDevtoolsState()

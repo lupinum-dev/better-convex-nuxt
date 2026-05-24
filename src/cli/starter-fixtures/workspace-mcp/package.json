@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "nuxi dev --dotenv .env.local",
+    "dev:local": "USE_LOCAL_CONVEX=true nuxi dev --dotenv .env.local",
+    "dev:local:reset": "USE_LOCAL_CONVEX=true RESET_LOCAL_BACKEND=true nuxi dev --dotenv .env.local",
     "build": "nuxi build --dotenv .env.local",
     "typecheck": "nuxi typecheck --dotenv .env.local",
     "test": "vitest run",
@@ -16,10 +18,11 @@
     "@nuxtjs/mcp-toolkit": "^0.16.1",
     "better-auth": "1.6.11",
     "convex": "1.38.0",
-    "nuxt": "^4.4.5"
+    "nuxt": "^4.4.6"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
+    "convex-vite-plugin": "^0.4.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.6",
     "vue-tsc": "^3.2.9"

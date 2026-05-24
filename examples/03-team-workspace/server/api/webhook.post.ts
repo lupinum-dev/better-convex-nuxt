@@ -34,20 +34,20 @@ function getWebhookSecret(): string {
   return secret
 }
 
-function getWebhookActorAuthId(): string {
-  const authId = process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID?.trim()
-  if (!authId) {
+function getWebhookActorUserId(): string {
+  const userId = process.env.TEAM_WORKSPACE_WEBHOOK_USER_ID?.trim()
+  if (!userId) {
     throw createError({
       statusCode: 500,
-      message: 'TEAM_WORKSPACE_WEBHOOK_AUTH_ID is required for the webhook example.',
+      message: 'TEAM_WORKSPACE_WEBHOOK_USER_ID is required for the webhook example.',
     })
   }
 
-  return authId
+  return userId
 }
 
 export default defineEventHandler(async (event) => {
-  const authId = getWebhookActorAuthId()
+  const userId = getWebhookActorUserId()
   const body = await readSharedSecretWebhookBody({
     // Demo route boundary: one shared secret header. Production integrations usually add a
     // timestamped HMAC scheme and replay window on top of this before forwarding inward.
@@ -84,7 +84,7 @@ export default defineEventHandler(async (event) => {
         subject: subject.service('team-workspace-webhook'),
       },
       actingFor: await delegateToUser({
-        userId: authId,
+        userId,
         allow: true,
         reason: 'verified workspace todo webhook',
       }),

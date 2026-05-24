@@ -86,17 +86,18 @@ describe('installer auto-import surface', () => {
         'useConvexAction',
         'useConvexUpload',
         'useConvexAuth',
-        'useConvexAuthActions',
-        'useConvexSignIn',
-        'useConvexSignUp',
-        'useConvexPasswordReset',
+        'useBetterAuthClient',
+        'useBetterAuthActions',
+        'useBetterAuthSignIn',
+        'useBetterAuthSignUp',
+        'useBetterAuthPasswordReset',
         'useAccess',
         'useAuthGuard',
       ]),
     )
     expect(importedNames).not.toEqual(
       expect.arrayContaining([
-        'useEnsureConvexUser',
+        'useEnsureAuthSessionUser',
         'useConvexAuthInternal',
         'useConvexFileUpload',
         'useConvexUploadQueue',

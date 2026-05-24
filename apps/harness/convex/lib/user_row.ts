@@ -9,8 +9,5 @@ export async function getUserRowFromActor(
 ) {
   if (!appIdentity) return null
 
-  return await db
-    .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', appIdentity.userId))
-    .first()
+  return await db.get(appIdentity.userId)
 }

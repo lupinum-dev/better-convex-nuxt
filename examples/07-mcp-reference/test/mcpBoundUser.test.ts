@@ -4,13 +4,15 @@ import { selectMcpBoundUser } from '../shared/features/mcpKeys/bound-user'
 
 const users = [
   {
-    authId: 'user_alice',
+    userId: 'users_alice',
+    authKey: 'user_alice',
     displayName: 'Alice',
     email: 'alice@example.com',
     role: 'member',
   },
   {
-    authId: 'user_bob',
+    userId: 'users_bob',
+    authKey: 'user_bob',
     displayName: 'Bob',
     email: 'bob@example.com',
     role: 'admin',
@@ -18,15 +20,15 @@ const users = [
 ]
 
 describe('selectMcpBoundUser', () => {
-  it('returns null when boundAuthId is empty', () => {
+  it('returns null when boundUserId is empty', () => {
     expect(selectMcpBoundUser(users, '')).toBeNull()
   })
 
-  it('does not fall back to the first user when boundAuthId is stale', () => {
+  it('does not fall back to the first user when boundUserId is stale', () => {
     expect(selectMcpBoundUser(users, 'user_missing')).toBeNull()
   })
 
-  it('returns the matched bound user when boundAuthId is valid', () => {
-    expect(selectMcpBoundUser(users, 'user_bob')).toEqual(users[1])
+  it('returns the matched bound user when boundUserId is valid', () => {
+    expect(selectMcpBoundUser(users, 'users_bob')).toEqual(users[1])
   })
 })

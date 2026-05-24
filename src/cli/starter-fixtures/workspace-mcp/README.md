@@ -6,9 +6,10 @@ Generated with `trellis init trellis-starter-workspace-mcp --template workspace-
 
 ```bash
 pnpm install
-pnpm convex:dev
-pnpm dev
+pnpm dev:local
 ```
+
+Use `pnpm convex:dev` and `pnpm dev` when you want to connect to a hosted Convex dev deployment.
 
 ## Canonical shape
 

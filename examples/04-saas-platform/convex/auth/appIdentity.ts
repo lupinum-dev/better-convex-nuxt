@@ -1,4 +1,4 @@
-import { getAuth, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { getAuth } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -9,14 +9,17 @@ type ProjectBoardCtx =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type AppIdentity = DefaultAppIdentity & {
+export type AppIdentity = {
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
   role: Role
   workspaceId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(
+async function loadActorByAuthKey(
   ctx: ProjectBoardCtx,
-  authId: string,
+  authKey: string,
 ): Promise<AppIdentity | null> {
   if (!('db' in ctx)) {
     throw new Error('ProjectBoard appIdentity resolution requires a query or mutation context.')
@@ -24,14 +27,15 @@ async function loadActorByAuthId(
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', authKey))
     .first()
 
   if (!user) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
   }
@@ -46,12 +50,12 @@ export async function getAppIdentityFromCaller(
     case 'anonymous':
       return null
     case 'user':
-      return await loadActorByAuthId(ctx, caller.userId)
+      return await loadActorByAuthKey(ctx, caller.authKey)
   }
 }
 
 export async function getAppIdentity(ctx: ProjectBoardCtx): Promise<AppIdentity | null> {
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return await loadActorByAuthId(ctx, auth.subject)
+  return await loadActorByAuthKey(ctx, auth.authKey)
 }

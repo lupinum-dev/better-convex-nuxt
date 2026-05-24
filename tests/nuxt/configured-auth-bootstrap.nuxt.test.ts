@@ -34,8 +34,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     expect(convex.calls.mutation).toHaveLength(0)
 
     result.auth.user.value = {
-      id: 'user-1',
-      name: 'Auth User',
+      displayName: 'Auth User',
       email: 'auth@example.test',
     }
     result.auth.token.value = 'jwt.token'
@@ -56,8 +55,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
         installMockAuthEngine({
           initialToken: 'jwt.token',
           initialUser: {
-            id: 'user-1',
-            name: 'Auth User',
+            displayName: 'Auth User',
             email: 'auth@example.test',
           },
           initialPending: false,
@@ -96,8 +94,7 @@ describe('configured auth bootstrap (Nuxt runtime)', () => {
     )
 
     result.auth.user.value = {
-      id: 'user-1',
-      name: 'Auth User',
+      displayName: 'Auth User',
       email: 'auth@example.test',
     }
     result.auth.token.value = 'jwt.token'

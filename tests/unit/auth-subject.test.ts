@@ -11,6 +11,7 @@ import {
 describe('canonical subject helpers', () => {
   it('parses the canonical subject kind for supported subject shapes', () => {
     expect(getSubjectKind('user:u_1')).toBe('user')
+    expect(getSubjectKind('auth:issuer|u_1')).toBe('auth')
     expect(getSubjectKind('agent:a_1')).toBe('agent')
     expect(getSubjectKind('service:sync')).toBe('service')
     expect(getSubjectKind('system:anonymous')).toBe('system')
@@ -18,6 +19,7 @@ describe('canonical subject helpers', () => {
 
   it('extracts the canonical subject value and enforces the expected kind when provided', () => {
     expect(getSubjectValue('user:u_1')).toBe('u_1')
+    expect(getSubjectValue('auth:issuer|u_1', 'auth')).toBe('issuer|u_1')
     expect(getSubjectValue('user:u_1', 'user')).toBe('u_1')
     expect(getSubjectValue('agent:a_1', 'agent')).toBe('a_1')
     expect(getSubjectValue('service:sync', 'user')).toBeNull()
@@ -42,6 +44,7 @@ describe('canonical subject helpers', () => {
 
   it('builds canonical subjects for each supported kind', () => {
     expect(subject.user('u_1')).toBe('user:u_1')
+    expect(subject.auth('issuer|u_1')).toBe('auth:issuer|u_1')
     expect(subject.agent('a_1')).toBe('agent:a_1')
     expect(subject.service('sync')).toBe('service:sync')
     expect(subject.webhook('incoming')).toBe('webhook:incoming')

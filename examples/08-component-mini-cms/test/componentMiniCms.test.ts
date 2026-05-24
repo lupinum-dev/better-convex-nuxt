@@ -78,6 +78,7 @@ describe('example 08 component mini cms', () => {
     const pageId = await (
       ctx.raw.withIdentity({
         subject: 'editor-public',
+        tokenIdentifier: 'editor-public',
         email: 'editor-public@example.com',
         name: 'Editor Public',
       }) as {
@@ -92,6 +93,7 @@ describe('example 08 component mini cms', () => {
     await (
       ctx.raw.withIdentity({
         subject: 'editor-public',
+        tokenIdentifier: 'editor-public',
         email: 'editor-public@example.com',
         name: 'Editor Public',
       }) as {
@@ -123,6 +125,7 @@ describe('example 08 component mini cms', () => {
     const ctx = createCtx()
     const editor = ctx.raw.withIdentity({
       subject: 'editor-workflow',
+      tokenIdentifier: 'editor-workflow',
       email: 'editor-workflow@example.com',
       name: 'Editor Workflow',
     }) as {
@@ -161,6 +164,7 @@ describe('example 08 component mini cms', () => {
     const ctx = createCtx()
     const editor = ctx.raw.withIdentity({
       subject: 'editor-action-publish',
+      tokenIdentifier: 'editor-action-publish',
       email: 'editor-action-publish@example.com',
       name: 'Editor Action Publish',
     }) as {
@@ -210,6 +214,7 @@ describe('example 08 component mini cms', () => {
 
     const withIdentity = ctx.raw.withIdentity({
       subject: 'browser-auth-user',
+      tokenIdentifier: 'browser-auth-user',
       email: 'browser@example.com',
       name: 'Browser User',
     })

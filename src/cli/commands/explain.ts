@@ -24,7 +24,7 @@ interface ExplainOperationReport {
     source: TrellisCliInventorySourceLocation
     projections: TrellisCliInventoryPublicSurfaceProjection[]
     mcpTools: {
-      status: 'not-derivable' | 'matched'
+      status: 'none' | 'matched'
       tools: TrellisCliInventoryPublicSurfaceTool[]
       message?: string
     }
@@ -90,8 +90,8 @@ function createOperationReport(
   inventory: TrellisCliInventory,
   operation: TrellisCliInventoryPublicSurfaceOperation,
 ): ExplainOperationReport {
-  const operationBackedTools = inventory.publicSurface.tools.filter(
-    (tool) => tool.source === 'operation',
+  const matchedTools = inventory.publicSurface.tools.filter(
+    (tool) => tool.source === 'operation' && tool.operationId === operation.id,
   )
 
   return {
@@ -104,12 +104,11 @@ function createOperationReport(
       source: operation.source,
       projections: findOperationProjections(inventory, operation.id),
       mcpTools: {
-        status: 'not-derivable',
-        tools: [],
-        message:
-          operationBackedTools.length === 0
-            ? 'No operation-backed MCP tools were found in inventory.'
-            : 'Current inventory can identify operation-backed MCP tools, but not the exact operation id each tool binds to.',
+        status: matchedTools.length > 0 ? 'matched' : 'none',
+        tools: matchedTools,
+        ...(matchedTools.length === 0
+          ? { message: 'No MCP tools were found for this operation id.' }
+          : {}),
       },
       featureRefs: findFeatureRefs(inventory, operation),
     },
@@ -161,7 +160,9 @@ function renderOperationReport(report: ExplainOperationReport): void {
     process.stdout.write(`  ${operation.mcpTools.message ?? 'none'}\n`)
   } else {
     for (const tool of operation.mcpTools.tools) {
-      process.stdout.write(`  ${tool.name} at ${formatLocation(tool.sourceLocation)}\n`)
+      process.stdout.write(
+        `  ${tool.name}: operation-backed at ${formatLocation(tool.sourceLocation)}\n`,
+      )
     }
   }
 

@@ -20,7 +20,7 @@ function isStaffActor(appIdentity: AppIdentity): boolean {
 
 async function ensurePrerequisites(
   db: DatabaseReader,
-  userId: string,
+  userId: Id<'users'>,
   article: Doc<'articles'>,
 ): Promise<void> {
   for (const prerequisiteId of article.prerequisiteIds ?? []) {

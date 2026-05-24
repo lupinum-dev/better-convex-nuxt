@@ -84,8 +84,8 @@ defineProps<{
       </div>
       <div v-if="authState?.isAuthenticated" class="flex items-center gap-4">
         <div>
-          <div class="font-medium">{{ authState.user?.name || 'Authenticated' }}</div>
-          <div class="text-xs op-50">{{ authState.user?.email || '' }}</div>
+          <div class="font-medium">{{ authState.sessionUser?.displayName || 'Authenticated' }}</div>
+          <div class="text-xs op-50">{{ authState.sessionUser?.email || '' }}</div>
         </div>
         <NBadge n="green xs">Valid Token</NBadge>
         <div v-if="authState.expiresInSeconds !== undefined" class="text-xs op-50 font-mono">

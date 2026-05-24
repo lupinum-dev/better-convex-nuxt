@@ -24,7 +24,7 @@
     "@vueuse/nuxt": "^14.3.0",
     "better-sqlite3": "^12.10.0",
     "mermaid": "^11.14.0",
-    "nuxt": "^4.4.5",
+    "nuxt": "^4.4.6",
     "nuxt-llms": "0.2.0",
     "nuxt-og-image": "^6.4.9",
     "satori": "^0.26.0",

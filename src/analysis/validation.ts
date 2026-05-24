@@ -8,7 +8,7 @@ export interface ModuleValidationFinding {
 function matchesAuthUsage(text: string): boolean {
   return (
     /\buseConvexAuth\b/u.test(text) ||
-    /\buseConvexAuthActions\b/u.test(text) ||
+    /\buseBetterAuthActions\b/u.test(text) ||
     /\bConvexAuthenticated\b/u.test(text) ||
     /\bConvexAuthLoading\b/u.test(text)
   )

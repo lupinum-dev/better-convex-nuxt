@@ -18,7 +18,7 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import type { ConvexUser } from '../../utils/types.js'
+import type { AuthSessionUser } from '../../utils/types.js'
 import { getSharedAuthEngine, type AuthTrigger } from '../client/auth-engine.js'
 
 type AuthClient = ReturnType<typeof createAuthClient>
@@ -26,7 +26,7 @@ type AuthClient = ReturnType<typeof createAuthClient>
 /** Full auth controller surface for internal composables. */
 export interface ConvexAuthController {
   token: Readonly<Ref<string | null>>
-  user: Readonly<Ref<ConvexUser | null>>
+  user: Readonly<Ref<AuthSessionUser | null>>
   pending: Readonly<Ref<boolean>>
   rawAuthError: Readonly<Ref<string | null>>
   wasAuthenticated: Readonly<Ref<boolean>>

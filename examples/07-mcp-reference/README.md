@@ -49,8 +49,8 @@ You already understand the canonical protected workspace model from
 ## Demo flow
 
 1. Sign up and create a workspace.
-2. In the `users` table, note the workspace owner's `authId`.
-3. Set `MCP_REFERENCE_WEBHOOK_SECRET` and `MCP_REFERENCE_WEBHOOK_AUTH_ID` locally.
+2. In the `users` table, note the workspace owner's `authKey`.
+3. Set `MCP_REFERENCE_WEBHOOK_SECRET` and `MCP_REFERENCE_WEBHOOK_USER_ID` locally.
 4. Issue an MCP key from the UI.
 5. Call the default MCP endpoint and confirm scoped tools appear.
 6. POST to `/api/runbook-webhook` with `x-example-signature` and watch the same protected
@@ -71,7 +71,7 @@ App-owned env vars:
 - `CONVEX_IDENTITY_FORWARDING_KEY`: identity-forwarded server-to-Convex lane
 - `MCP_RATE_LIMIT_REDIS_URL`: Redis connection string for distributed MCP rate limiting
 - `MCP_REFERENCE_WEBHOOK_SECRET`: route secret for the verified webhook example
-- `MCP_REFERENCE_WEBHOOK_AUTH_ID`: user or bot `authId` the verified webhook delegates to
+- `MCP_REFERENCE_WEBHOOK_USER_ID`: local `users._id` the verified webhook delegates to
 
 Rate-limited MCP tools in this example use Trellis's Redis-backed store. For local development, run a
 Redis instance such as `docker run --rm -p 6379:6379 redis:7-alpine` and keep

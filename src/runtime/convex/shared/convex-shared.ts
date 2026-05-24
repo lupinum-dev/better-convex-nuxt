@@ -7,7 +7,7 @@ import type {
 import { hash } from 'ohash'
 
 import { stripObservationEnvelope } from '../../observability/envelope.js'
-import type { QueryStatus, ConvexUser } from '../../utils/types.js'
+import type { QueryStatus, AuthSessionUser } from '../../utils/types.js'
 
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
@@ -86,29 +86,27 @@ export function getJwtTimeUntilExpiryMs(token: string, nowMs = Date.now()): numb
  * @param token - The JWT token string
  * @returns The decoded user or null if decoding fails
  */
-export function decodeUserFromJwt(token: string): ConvexUser | null {
+export function decodeUserFromJwt(token: string): AuthSessionUser | null {
   const payload = decodeJwtPayload(token)
   if (!payload) return null
   if (typeof payload !== 'object' || Array.isArray(payload)) return null
 
-  // Check for required identifiers
   if (!payload.sub && !payload.userId && !payload.email) {
     return null
   }
 
-  const user = {
-    id: String(payload.sub || payload.userId || ''),
-    name: String(payload.name || ''),
-    email: String(payload.email || ''),
-    emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
-    image: typeof payload.image === 'string' ? payload.image : undefined,
+  const user: AuthSessionUser = {
+    ...(typeof payload.email === 'string' ? { email: payload.email } : {}),
+    ...(typeof payload.name === 'string' ? { displayName: payload.name } : {}),
+    ...(typeof payload.emailVerified === 'boolean' ? { emailVerified: payload.emailVerified } : {}),
+    ...(typeof payload.picture === 'string'
+      ? { avatarUrl: payload.picture }
+      : typeof payload.image === 'string'
+        ? { avatarUrl: payload.image }
+        : {}),
   }
 
-  if (!user.id) {
-    return null
-  }
-
-  return user as ConvexUser
+  return user
 }
 
 // ============================================================================

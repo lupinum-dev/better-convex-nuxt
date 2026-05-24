@@ -117,7 +117,7 @@ function addMcpKeysSchemaBlock() {
   mcpKeys: defineTable({
     hash: v.string(),
     name: v.string(),
-    boundAuthId: v.string(),
+    boundUserId: v.id('users'),
     boundWorkspaceId: v.id('workspaces'),
     status: v.union(v.literal('active'), v.literal('revoked')),
     createdAt: v.number(),

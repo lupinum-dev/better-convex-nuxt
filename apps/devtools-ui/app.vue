@@ -59,7 +59,7 @@ function onTabAuth() {
             <span class="op-60">
               {{
                 authState?.isAuthenticated
-                  ? authState.user?.name || 'Authenticated'
+                  ? authState.sessionUser?.displayName || 'Authenticated'
                   : 'Not authenticated'
               }}
             </span>

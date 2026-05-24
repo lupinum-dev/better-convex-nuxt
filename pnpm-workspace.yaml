@@ -18,6 +18,9 @@ overrides:
   nitropack: 2.13.4
   simple-git: 3.36.0
   uuid: 11.1.1
+  brace-expansion: 5.0.6
+  qs: 6.15.2
+  ws: 8.20.1
 
 ignoredBuiltDependencies:
   - '@parcel/watcher'

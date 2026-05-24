@@ -13,7 +13,7 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
 
-    // The user who created the org (authId)
+    // The local app user who created the org.
     ownerId: v.string(),
 
     // Optional settings
@@ -33,7 +33,7 @@ export default defineSchema({
   // ============================================
   users: defineTable({
     // Auth provider ID (from Better Auth)
-    authId: v.string(),
+    authKey: v.string(),
 
     // User info
     displayName: v.optional(v.string()),
@@ -50,7 +50,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index('by_auth_id', ['authId'])
+    .index('by_auth_key', ['authKey'])
     .index('by_organization', ['organizationId'])
     .index('by_email', ['email']),
 
@@ -63,7 +63,7 @@ export default defineSchema({
     status: literals('draft', 'published', 'archived'),
 
     // Ownership - required for permission checks
-    ownerId: v.string(), // authId of creator
+    ownerId: v.string(), // local users._id of creator
     organizationId: v.id('organizations'),
 
     // Optional metadata
@@ -104,7 +104,7 @@ export default defineSchema({
   // TASKS (existing - unchanged)
   // ============================================
   tasks: defineTable({
-    userId: v.string(), // Better Auth user ID
+    userId: v.string(), // local users._id
     title: v.string(),
     completed: v.boolean(),
     createdAt: v.number(),
@@ -133,7 +133,7 @@ export default defineSchema({
 
     // Identity bound to this key
     role: roleValidator,
-    userId: v.string(), // authId of the user who created the key
+    userId: v.string(), // local users._id of the user who created the key
     organizationId: v.optional(v.id('organizations')),
 
     // Status

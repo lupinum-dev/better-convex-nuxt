@@ -23,7 +23,7 @@ export const createWorkspaceMutation = mutation.public({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', caller.authKey))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
@@ -35,7 +35,7 @@ export const createWorkspaceMutation = mutation.public({
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: caller.userId,
+      ownerId: user._id,
       createdAt: now,
       updatedAt: now,
     })
@@ -61,7 +61,7 @@ export const createWorkspaceMutation = mutation.public({
       ].join('\n'),
       visibility: 'public',
       tags: ['public', 'onboarding'],
-      ownerId: caller.userId,
+      ownerId: user._id,
       workspaceId: workspaceId,
       createdAt: now,
       updatedAt: now,
@@ -80,7 +80,7 @@ export const createWorkspaceMutation = mutation.public({
       ].join('\n'),
       visibility: 'workspace',
       tags: ['incident', 'ops'],
-      ownerId: caller.userId,
+      ownerId: user._id,
       workspaceId: workspaceId,
       createdAt: now,
       updatedAt: now,

@@ -25,7 +25,7 @@ describe('@lupinum/trellis/testing', () => {
     })
 
     expect(team.id).toBeDefined()
-    expect(team.users.alice.authId).toContain('acme-alice')
+    expect(team.users.alice.authKey).toContain('acme-alice')
 
     const postId = await team.users.alice.mutation(api.posts.create, {
       title: 'Seeded by helper',
@@ -56,8 +56,8 @@ describe('@lupinum/trellis/testing', () => {
 
     const identityForwarding = ctx.asCaller({
       kind: 'user',
-      userId: team.users.viewer.authId,
-      subject: `user:${team.users.viewer.authId}`,
+      authKey: team.users.viewer.authKey,
+      subject: `auth:${team.users.viewer.authKey}`,
     })
 
     await expect(

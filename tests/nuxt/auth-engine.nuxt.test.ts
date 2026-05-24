@@ -27,7 +27,7 @@ describe('auth engine', () => {
 
     expect(harness.tokenExchange.callCount).toBe(1)
     expect(harness.isAuthenticated.value).toBe(true)
-    expect(harness.user.value?.id).toBe('u-refresh')
+    expect(harness.user.value?.email).toBe('refresh@test.com')
   })
 
   it('discards a stale refresh result after invalidate wins the operation race', async () => {
@@ -56,7 +56,7 @@ describe('auth engine', () => {
   it('serializes signOut so upstream logout runs only once', async () => {
     const harness = await createAuthHarness({
       initialToken: mintJwt({ sub: 'u-signout', email: 'signout@test.com' }),
-      initialUser: { id: 'u-signout', name: 'Sign Out', email: 'signout@test.com' },
+      initialUser: { displayName: 'Sign Out', email: 'signout@test.com' },
       signOutBehavior: 'slow',
     })
     disposables.push(() => harness.dispose())
@@ -74,7 +74,7 @@ describe('auth engine', () => {
     const signOutDeferred = createDeferred<undefined>()
     const harness = await createAuthHarness({
       initialToken: mintJwt({ sub: 'u-pending', email: 'pending@test.com' }),
-      initialUser: { id: 'u-pending', name: 'Pending User', email: 'pending@test.com' },
+      initialUser: { displayName: 'Pending User', email: 'pending@test.com' },
       signOutBehavior: () => signOutDeferred.promise,
     })
     disposables.push(() => harness.dispose())

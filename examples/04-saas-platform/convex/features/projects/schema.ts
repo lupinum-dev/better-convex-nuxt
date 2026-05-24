@@ -9,7 +9,7 @@ export const projectTables = {
     name: v.string(),
     summary: v.optional(v.string()),
     status: projectStatusValidator,
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

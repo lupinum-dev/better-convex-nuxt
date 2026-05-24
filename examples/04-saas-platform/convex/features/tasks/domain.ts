@@ -133,10 +133,7 @@ export const assign = mutation.protected({
     )
 
     if (args.assigneeId) {
-      const assignee = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q) => q.eq('authId', args.assigneeId!))
-        .first()
+      const assignee = await ctx.db.get(args.assigneeId)
       if (!assignee || assignee.workspaceId !== workspaceId) {
         throw deny('Assignee must already belong to this workspace.')
       }

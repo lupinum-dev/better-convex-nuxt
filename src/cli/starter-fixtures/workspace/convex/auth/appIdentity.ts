@@ -1,4 +1,4 @@
-import { getAuth, getSubjectValue, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { getAuth, getSubjectValue } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -9,48 +9,74 @@ type WorkspaceCtx =
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type AppIdentity = DefaultAppIdentity & {
+type BaseAppIdentity = {
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
+}
+
+export type AppIdentity = BaseAppIdentity & {
   role: Role
   workspaceId: Id<'workspaces'>
 }
 
-export type AccessIdentity = DefaultAppIdentity & {
+export type AccessIdentity = BaseAppIdentity & {
   role: Role
   workspaceId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(
+async function loadActorByAuthKey(
   ctx: WorkspaceCtx,
-  authId: string,
+  authKey: string,
 ): Promise<AccessIdentity | null> {
   if (!('db' in ctx)) return null
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', authId))
+    .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
     .first()
 
   if (!user) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
     role: (user.role ?? 'viewer') as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
   }
 }
 
-function missingUserRowMessage(authId: string): string {
+async function loadActorByUserId(
+  ctx: WorkspaceCtx,
+  userId: string,
+): Promise<AccessIdentity | null> {
+  if (!('db' in ctx)) return null
+  const user = await ctx.db.get(userId as Id<'users'>)
+  if (!user) return null
+
+  return {
+    kind: 'user',
+    userId: user._id,
+    authKey: user.authKey,
+    role: (user.role ?? 'viewer') as Role,
+    workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+  }
+}
+
+function missingUserRowMessage(authKey: string): string {
   return [
-    `Expected a Trellis users row for auth subject "${authId}", but none was found.`,
-    'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
-    'If those exports are already correct, verify the Trellis auth bootstrap is enabled and healthy.',
+    `Expected a Trellis users row for auth key "${authKey}", but none was found.`,
+    'Verify the Trellis auth bootstrap is enabled and healthy.',
   ].join(' ')
 }
 
-function requireAccessIdentity(authId: string, appIdentity: AccessIdentity | null): AccessIdentity {
+function requireAccessIdentity(
+  authKey: string,
+  appIdentity: AccessIdentity | null,
+): AccessIdentity {
   if (appIdentity) return appIdentity
-  throw new Error(missingUserRowMessage(authId))
+  throw new Error(missingUserRowMessage(authKey))
 }
 
 export async function getAppIdentityFromCaller(
@@ -59,12 +85,12 @@ export async function getAppIdentityFromCaller(
   caller: WorkspaceCaller,
   actingFor: { subject: string } | null,
 ): Promise<AppIdentity | null> {
-  const delegatedAuthId = getSubjectValue(actingFor?.subject, 'user')
+  const delegatedUserId = getSubjectValue(actingFor?.subject, 'user')
 
-  if (delegatedAuthId) {
+  if (delegatedUserId) {
     const appIdentity = requireAccessIdentity(
-      delegatedAuthId,
-      await loadActorByAuthId(ctx, delegatedAuthId),
+      delegatedUserId,
+      await loadActorByUserId(ctx, delegatedUserId),
     )
     return appIdentity?.workspaceId
       ? { ...appIdentity, workspaceId: appIdentity.workspaceId }
@@ -78,8 +104,8 @@ export async function getAppIdentityFromCaller(
       return null
     case 'user': {
       const appIdentity = requireAccessIdentity(
-        caller.userId,
-        await loadActorByAuthId(ctx, caller.userId),
+        caller.authKey,
+        await loadActorByAuthKey(ctx, caller.authKey),
       )
       return appIdentity?.workspaceId
         ? { ...appIdentity, workspaceId: appIdentity.workspaceId }
@@ -91,7 +117,7 @@ export async function getAppIdentityFromCaller(
 export async function getAccessIdentity(ctx: WorkspaceCtx): Promise<AccessIdentity | null> {
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return requireAccessIdentity(auth.subject, await loadActorByAuthId(ctx, auth.subject))
+  return requireAccessIdentity(auth.authKey, await loadActorByAuthKey(ctx, auth.authKey))
 }
 
 export async function getAppIdentity(ctx: WorkspaceCtx): Promise<AppIdentity | null> {

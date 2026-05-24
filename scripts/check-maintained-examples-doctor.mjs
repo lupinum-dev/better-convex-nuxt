@@ -25,10 +25,10 @@ const sharedEnv = {
   CONVEX_IDENTITY_FORWARDING_KEY: 'doctor-check-identity-forwarding-key-32chars',
   MCP_RATE_LIMIT_REDIS_URL: 'redis://127.0.0.1:6379',
   TEAM_WORKSPACE_WEBHOOK_SECRET: 'doctor-check-team-webhook-secret',
-  TEAM_WORKSPACE_WEBHOOK_AUTH_ID: 'user_team_workspace_webhook',
+  TEAM_WORKSPACE_WEBHOOK_USER_ID: 'user_team_workspace_webhook',
   PROJECT_BOARD_WEBHOOK_SECRET: 'doctor-check-project-board-webhook-secret',
   MCP_REFERENCE_WEBHOOK_SECRET: 'doctor-check-mcp-reference-webhook-secret',
-  MCP_REFERENCE_WEBHOOK_AUTH_ID: 'user_mcp_reference_webhook',
+  MCP_REFERENCE_WEBHOOK_USER_ID: 'user_mcp_reference_webhook',
   JWKS: '{"keys":[]}',
   DEMO_MCP_TOKEN: 'doctor-check-demo-mcp-token',
 }

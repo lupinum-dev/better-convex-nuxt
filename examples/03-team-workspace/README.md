@@ -56,7 +56,7 @@ App-owned env vars:
 - `BETTER_AUTH_SECRET`: Better Auth signing secret
 - `CONVEX_IDENTITY_FORWARDING_KEY`: shared secret for identity forwarding from the webhook route into Convex
 - `TEAM_WORKSPACE_WEBHOOK_SECRET`: webhook route signature secret
-- `TEAM_WORKSPACE_WEBHOOK_AUTH_ID`: existing workspace user that verified webhook calls act for
+- `TEAM_WORKSPACE_WEBHOOK_USER_ID`: local `users._id` that verified webhook calls act for
 
 ## Production notes
 

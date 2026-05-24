@@ -5,7 +5,7 @@ export const createMcpKey = defineArgs({
   description: 'Create a bearer token for MCP clients.',
   args: {
     name: v.string(),
-    boundAuthId: v.string(),
+    boundUserId: v.id('users'),
     prefix: v.string(),
     hash: v.string(),
   },

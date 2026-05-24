@@ -128,11 +128,15 @@ function getDecisionReason(trace: DecisionTraceState): string {
           <div
             class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-500 font-bold"
           >
-            {{ (authState.user?.name || authState.user?.email || '?').charAt(0).toUpperCase() }}
+            {{
+              (authState.sessionUser?.displayName || authState.sessionUser?.email || '?')
+                .charAt(0)
+                .toUpperCase()
+            }}
           </div>
           <div>
-            <div class="font-medium">{{ authState.user?.name || 'Unknown' }}</div>
-            <div class="text-xs op-50">{{ authState.user?.email || '' }}</div>
+            <div class="font-medium">{{ authState.sessionUser?.displayName || 'Unknown' }}</div>
+            <div class="text-xs op-50">{{ authState.sessionUser?.email || '' }}</div>
           </div>
         </div>
         <div class="flex gap-4 text-xs mb-4">

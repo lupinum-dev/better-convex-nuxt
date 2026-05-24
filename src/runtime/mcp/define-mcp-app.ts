@@ -1468,7 +1468,7 @@ export function defineMcpApp<
                   ? { _confirmationToken: confirmationToken }
                   : {}),
               }) as FunctionLikeArgs<TExecute>,
-              confirmationToken && isDestructive
+              confirmationToken && isDestructive && confirmationMode === 'transport'
                 ? {
                     identityForwardingEnvelope: {
                       purpose: 'operation-execute',

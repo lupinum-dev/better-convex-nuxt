@@ -35,7 +35,9 @@
           </div>
 
           <div v-if="isAuthenticated" class="flex flex-col gap-2 text-sm text-right">
-            <span class="mini-code">{{ user?.email || user?.name || 'editor' }}</span>
+            <span class="mini-code">{{
+              sessionUser?.email || sessionUser?.displayName || 'editor'
+            }}</span>
             <UButton color="neutral" variant="ghost" @click="handleSignOut">Sign out</UButton>
           </div>
         </div>
@@ -286,8 +288,9 @@ import { createPage, saveDraft } from '~~/shared/features/pages/contract'
 
 import { api } from '#trellis/api'
 
-const { client, isAuthenticated, isPending, user, signOut } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { isAuthenticated, isPending, sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 
 const signUpFields: AuthFormField[] = [
   { name: 'name', type: 'text', label: 'Name', placeholder: 'Editor name', required: true },

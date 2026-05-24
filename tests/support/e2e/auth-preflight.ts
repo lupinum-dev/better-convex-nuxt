@@ -62,6 +62,10 @@ function buildLocalAuthSetupHelp(cwd: string): string {
   ].join('\n')
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = {}): Promise<void> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'apps/harness')
   const timeoutMs = options.timeoutMs ?? 5_000
@@ -92,64 +96,81 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
 
   const origin = options.origin ?? 'http://localhost:3000'
   const getSessionEndpoint = `${siteUrl.replace(/\/$/, '')}/api/auth/get-session`
+  const deadline = Date.now() + timeoutMs
 
-  let response: Response
-  try {
-    response = await fetchWithTimeout(
-      getSessionEndpoint,
-      {
-        method: 'GET',
-        headers: {
-          origin,
-          'x-forwarded-host': 'localhost:3000',
-          'x-forwarded-proto': 'http',
+  while (true) {
+    let response: Response
+    try {
+      response = await fetchWithTimeout(
+        getSessionEndpoint,
+        {
+          method: 'GET',
+          headers: {
+            origin,
+            'x-forwarded-host': 'localhost:3000',
+            'x-forwarded-proto': 'http',
+          },
+          redirect: 'manual',
         },
-        redirect: 'manual',
-      },
-      timeoutMs,
-    )
-  } catch (error) {
-    throw new Error(
-      [
-        `[e2e][local-auth] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
-        `- cause: ${error instanceof Error ? error.message : String(error)}`,
-        buildLocalAuthSetupHelp(cwd),
-      ].join('\n'),
-    )
-  }
+        Math.min(2_000, Math.max(500, deadline - Date.now())),
+      )
+    } catch (error) {
+      if (Date.now() < deadline) {
+        await sleep(250)
+        continue
+      }
+      throw new Error(
+        [
+          `[e2e][local-auth] Could not reach Better Auth endpoint: ${getSessionEndpoint}`,
+          `- cause: ${error instanceof Error ? error.message : String(error)}`,
+          buildLocalAuthSetupHelp(cwd),
+        ].join('\n'),
+      )
+    }
 
-  if (response.status === 404) {
-    throw new Error(
-      [
-        `[e2e][local-auth] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
-        '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
-        buildLocalAuthSetupHelp(cwd),
-      ].join('\n'),
-    )
-  }
+    if (response.status === 404) {
+      if (Date.now() < deadline) {
+        await sleep(250)
+        continue
+      }
+      throw new Error(
+        [
+          `[e2e][local-auth] Better Auth HTTP route returned 404 at ${getSessionEndpoint}.`,
+          '- likely cause: Better Auth routes are not registered on the local Convex site URL.',
+          buildLocalAuthSetupHelp(cwd),
+        ].join('\n'),
+      )
+    }
 
-  if (response.status === 403) {
-    const body = sanitizeBodyPreview(await response.text())
-    throw new Error(
-      [
-        `[e2e][local-auth] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
-        `- attempted origin: ${origin}`,
-        `- response: ${body || '(empty body)'}`,
-        '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
-        buildLocalAuthSetupHelp(cwd),
-      ].join('\n'),
-    )
-  }
+    if (response.status === 403) {
+      const body = sanitizeBodyPreview(await response.text())
+      throw new Error(
+        [
+          `[e2e][local-auth] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
+          `- attempted origin: ${origin}`,
+          `- response: ${body || '(empty body)'}`,
+          '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
+          buildLocalAuthSetupHelp(cwd),
+        ].join('\n'),
+      )
+    }
 
-  if (response.status >= 500) {
-    const body = sanitizeBodyPreview(await response.text())
-    throw new Error(
-      [
-        `[e2e][local-auth] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
-        `- response: ${body || '(empty body)'}`,
-        '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
-        buildLocalAuthSetupHelp(cwd),
-      ].join('\n'),
-    )
+    if (response.status >= 500) {
+      if (Date.now() < deadline) {
+        await sleep(250)
+        continue
+      }
+      const body = sanitizeBodyPreview(await response.text())
+      throw new Error(
+        [
+          `[e2e][local-auth] Better Auth endpoint returned ${response.status} at ${getSessionEndpoint}.`,
+          `- response: ${body || '(empty body)'}`,
+          '- likely cause: missing/invalid BETTER_AUTH_SECRET or local auth component setup.',
+          buildLocalAuthSetupHelp(cwd),
+        ].join('\n'),
+      )
+    }
+
+    return
   }
 }

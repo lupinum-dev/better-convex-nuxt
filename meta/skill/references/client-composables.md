@@ -121,8 +121,9 @@ state ad hoc.
 
 ## Auth UI
 
-Use `useConvexAuth()` for reactive auth state and Better Auth client access.
-Use `useConvexAuthActions()` for Better Auth actions that need Convex auth
+Use `useConvexAuth()` for provider-neutral reactive auth state.
+Use `useBetterAuthClient()` when UI code needs direct Better Auth calls.
+Use `useBetterAuthActions()` for Better Auth actions that need Convex auth
 refresh after sign-in/sign-out flows.
 
 The auth components are global only when `trellis.auth` is enabled:

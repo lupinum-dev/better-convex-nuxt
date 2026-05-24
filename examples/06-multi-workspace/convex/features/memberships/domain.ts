@@ -16,10 +16,7 @@ export const listMembers = query.protected({
 
     return Promise.all(
       memberships.map(async (membership) => {
-        const user = await ctx.db
-          .query('users')
-          .withIndex('by_auth_id', (q) => q.eq('authId', membership.userId))
-          .first()
+        const user = await ctx.db.get(membership.userId)
 
         return {
           _id: membership._id,

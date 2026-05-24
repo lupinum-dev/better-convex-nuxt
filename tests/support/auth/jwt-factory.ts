@@ -68,19 +68,17 @@ export function mintJwtExpiringIn(payload: JwtPayload, ms: number): string {
   })
 }
 
-/** Extract a ConvexUser-shaped object from a JWT payload, or null if no valid id. */
+/** Extract an AuthSessionUser-shaped profile object from a JWT payload. */
 export function userFromPayload(payload: JwtPayload) {
-  const id = payload.sub || payload.userId
-  if (typeof id !== 'string' || id.length === 0) {
+  if (!payload.sub && !payload.userId && !payload.email) {
     return null
   }
 
   return {
-    id,
-    name: String(payload.name || ''),
-    email: String(payload.email || ''),
-    emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
-    image: typeof payload.image === 'string' ? payload.image : undefined,
+    ...(typeof payload.name === 'string' ? { displayName: payload.name } : {}),
+    ...(typeof payload.email === 'string' ? { email: payload.email } : {}),
+    ...(typeof payload.emailVerified === 'boolean' ? { emailVerified: payload.emailVerified } : {}),
+    ...(typeof payload.image === 'string' ? { avatarUrl: payload.image } : {}),
   }
 }
 

@@ -97,13 +97,13 @@ The identity Convex verified from an auth token.
 For vNext, Trellis should read this through:
 
 ```ts
-const identity = await ctx.auth.getUserIdentity();
+const identity = await ctx.auth.getUserIdentity()
 ```
 
 The important field is:
 
 ```ts
-identity.tokenIdentifier;
+identity.tokenIdentifier
 ```
 
 That becomes `authKey`.
@@ -127,7 +127,7 @@ The row in the app-owned `users` table.
 The canonical app user id is:
 
 ```ts
-user._id;
+user._id
 ```
 
 Domain rows should reference that id.
@@ -140,12 +140,12 @@ It should contain the local app user id and app-owned fields:
 
 ```ts
 type AppIdentity = {
-  kind: "user";
-  userId: Id<"users">;
-  authKey: string;
-  role: string;
-  workspaceId?: Id<"workspaces">;
-};
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
+  role: string
+  workspaceId?: Id<'workspaces'>
+}
 ```
 
 ### Operation
@@ -158,24 +158,24 @@ Example:
 
 ```ts
 export const deleteProject = defineOperation({
-  id: "projects.delete",
-  name: "Delete project",
-  kind: "destructive",
-  args: { projectId: v.id("projects") },
+  id: 'projects.delete',
+  name: 'Delete project',
+  kind: 'destructive',
+  args: { projectId: v.id('projects') },
   permission: projectPermissions.delete,
 
   preview: async (ctx, args) => {
     return operationPreview({
-      summary: "Delete project",
-      effects: [operationEffect("delete", "projects", args.projectId)],
+      summary: 'Delete project',
+      effects: [operationEffect('delete', 'projects', args.projectId)],
       confirm: { projectId: args.projectId },
-    });
+    })
   },
 
   handler: async (ctx, args) => {
-    await deleteProjectNow(ctx, args.projectId);
+    await deleteProjectNow(ctx, args.projectId)
   },
-});
+})
 ```
 
 ### MCP Projection
@@ -275,8 +275,8 @@ Trellis is unreleased, so the correct migration is a hard cutover.
 Use this in starters, examples, tests, and docs:
 
 ```ts
-import { defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineTable } from 'convex/server'
+import { v } from 'convex/values'
 
 export const userTables = {
   users: defineTable({
@@ -284,19 +284,14 @@ export const userTables = {
     email: v.optional(v.string()),
     displayName: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    role: v.union(
-      v.literal("owner"),
-      v.literal("admin"),
-      v.literal("member"),
-      v.literal("viewer"),
-    ),
-    workspaceId: v.optional(v.id("workspaces")),
+    role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member'), v.literal('viewer')),
+    workspaceId: v.optional(v.id('workspaces')),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_auth_key", ["authKey"])
-    .index("by_workspace", ["workspaceId"]),
-};
+    .index('by_auth_key', ['authKey'])
+    .index('by_workspace', ['workspaceId']),
+}
 ```
 
 Do not add `provider`, `providerSubject`, or `issuer` yet.
@@ -313,30 +308,26 @@ Use a small normalized helper:
 
 ```ts
 export type AuthIdentity = {
-  authKey: string;
-  providerSubject: string;
-  email?: string;
-  displayName?: string;
-  avatarUrl?: string;
-};
+  authKey: string
+  providerSubject: string
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+}
 
 export async function getAuthIdentity(ctx: {
-  auth: { getUserIdentity: () => Promise<any> };
+  auth: { getUserIdentity: () => Promise<any> }
 }): Promise<AuthIdentity | null> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) return null
 
   return {
     authKey: identity.tokenIdentifier,
     providerSubject: identity.subject,
-    ...(typeof identity.email === "string" ? { email: identity.email } : {}),
-    ...(typeof identity.name === "string"
-      ? { displayName: identity.name }
-      : {}),
-    ...(typeof identity.picture === "string"
-      ? { avatarUrl: identity.picture }
-      : {}),
-  };
+    ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
+    ...(typeof identity.name === 'string' ? { displayName: identity.name } : {}),
+    ...(typeof identity.picture === 'string' ? { avatarUrl: identity.picture } : {}),
+  }
 }
 ```
 
@@ -345,15 +336,15 @@ Rule:
 ```ts
 // Good
 const user = await ctx.db
-  .query("users")
-  .withIndex("by_auth_key", (q) => q.eq("authKey", identity.tokenIdentifier))
-  .first();
+  .query('users')
+  .withIndex('by_auth_key', (q) => q.eq('authKey', identity.tokenIdentifier))
+  .first()
 
 // Bad
 const user = await ctx.db
-  .query("users")
-  .withIndex("by_auth_id", (q) => q.eq("authId", identity.subject))
-  .first();
+  .query('users')
+  .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+  .first()
 ```
 
 #### Target User Bootstrap
@@ -365,50 +356,50 @@ function userProfilePatchFromIdentity(
   identity: AuthIdentity,
   now: number,
 ): Record<string, unknown> {
-  const patch: Record<string, unknown> = { updatedAt: now };
+  const patch: Record<string, unknown> = { updatedAt: now }
 
   if (identity.email !== undefined) {
-    patch.email = identity.email;
+    patch.email = identity.email
   }
   if (identity.displayName !== undefined) {
-    patch.displayName = identity.displayName;
+    patch.displayName = identity.displayName
   }
   if (identity.avatarUrl !== undefined) {
-    patch.avatarUrl = identity.avatarUrl;
+    patch.avatarUrl = identity.avatarUrl
   }
 
-  return patch;
+  return patch
 }
 
 export const createUserIfNeeded = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await getAuthIdentity(ctx);
+    const identity = await getAuthIdentity(ctx)
     if (!identity) {
-      throw new Error("Not authenticated.");
+      throw new Error('Not authenticated.')
     }
 
-    const now = Date.now();
+    const now = Date.now()
     const existing = await ctx.db
-      .query("users")
-      .withIndex("by_auth_key", (q) => q.eq("authKey", identity.authKey))
-      .first();
+      .query('users')
+      .withIndex('by_auth_key', (q) => q.eq('authKey', identity.authKey))
+      .first()
 
-    const patch = userProfilePatchFromIdentity(identity, now);
+    const patch = userProfilePatchFromIdentity(identity, now)
 
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
-      return existing._id;
+      await ctx.db.patch(existing._id, patch)
+      return existing._id
     }
 
-    return await ctx.db.insert("users", {
+    return await ctx.db.insert('users', {
       authKey: identity.authKey,
       ...patch,
-      role: "member",
+      role: 'member',
       createdAt: now,
-    });
+    })
   },
-});
+})
 ```
 
 Rules:
@@ -423,31 +414,31 @@ Rules:
 
 ```ts
 export type AppIdentity = {
-  kind: "user";
-  userId: Id<"users">;
-  authKey: string;
-  role: string;
-  workspaceId?: Id<"workspaces">;
-};
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
+  role: string
+  workspaceId?: Id<'workspaces'>
+}
 
 export async function getAppIdentity(ctx: Ctx): Promise<AppIdentity | null> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) return null
 
   const user = await ctx.db
-    .query("users")
-    .withIndex("by_auth_key", (q) => q.eq("authKey", identity.tokenIdentifier))
-    .first();
+    .query('users')
+    .withIndex('by_auth_key', (q) => q.eq('authKey', identity.tokenIdentifier))
+    .first()
 
-  if (!user) return null;
+  if (!user) return null
 
   return {
-    kind: "user",
+    kind: 'user',
     userId: user._id,
     authKey: user.authKey,
     role: user.role,
     workspaceId: user.workspaceId,
-  };
+  }
 }
 ```
 
@@ -465,18 +456,18 @@ Good:
 ```ts
 tasks: defineTable({
   title: v.string(),
-  createdByUserId: v.id("users"),
-  assigneeUserId: v.optional(v.id("users")),
-});
+  createdByUserId: v.id('users'),
+  assigneeUserId: v.optional(v.id('users')),
+})
 
 memberships: defineTable({
-  userId: v.id("users"),
-  workspaceId: v.id("workspaces"),
-  role: v.union(v.literal("admin"), v.literal("member")),
+  userId: v.id('users'),
+  workspaceId: v.id('workspaces'),
+  role: v.union(v.literal('admin'), v.literal('member')),
 })
-  .index("by_user", ["userId"])
-  .index("by_workspace", ["workspaceId"])
-  .index("by_workspace_user", ["workspaceId", "userId"]);
+  .index('by_user', ['userId'])
+  .index('by_workspace', ['workspaceId'])
+  .index('by_workspace_user', ['workspaceId', 'userId'])
 ```
 
 Bad:
@@ -485,7 +476,7 @@ Bad:
 tasks: defineTable({
   // Bad: this stores an external auth key or provider subject.
   createdBy: v.string(),
-});
+})
 ```
 
 #### Better Auth Naming
@@ -511,19 +502,19 @@ Example:
 
 ```ts
 // convex/auth.ts
-import { defineBetterAuth } from "@lupinum/trellis/auth";
-import { components, internal } from "./_generated/api.js";
-import { mutation } from "./_generated/server.js";
-import authConfig from "./auth.config.js";
+import { defineBetterAuth } from '@lupinum/trellis/auth'
+import { components, internal } from './_generated/api.js'
+import { mutation } from './_generated/server.js'
+import authConfig from './auth.config.js'
 
 const auth = defineBetterAuth(
   { components, internal, mutation, authConfig },
   { emailPassword: true },
-);
+)
 
-export const authComponent = auth.authComponent;
-export const createAuth = auth.createAuth;
-export const createUserIfNeeded = auth.createUserIfNeeded;
+export const authComponent = auth.authComponent
+export const createAuth = auth.createAuth
+export const createUserIfNeeded = auth.createUserIfNeeded
 ```
 
 #### Provider-Neutral Auth Composable
@@ -533,44 +524,44 @@ export const createUserIfNeeded = auth.createUserIfNeeded;
 Target:
 
 ```ts
-const auth = useConvexAuth();
+const auth = useConvexAuth()
 
-auth.sessionUser.value;
-auth.isAuthenticated.value;
-auth.isPending.value;
-auth.isAnonymous.value;
-auth.isSessionExpired.value;
-await auth.refreshAuth();
-await auth.signOut();
+auth.sessionUser.value
+auth.isAuthenticated.value
+auth.isPending.value
+auth.isAnonymous.value
+auth.isSessionExpired.value
+await auth.refreshAuth()
+await auth.signOut()
 ```
 
 Target type:
 
 ```ts
 export type AuthSessionUser = {
-  email?: string;
-  displayName?: string;
-  avatarUrl?: string;
-  emailVerified?: boolean;
-};
+  email?: string
+  displayName?: string
+  avatarUrl?: string
+  emailVerified?: boolean
+}
 
 export interface UseConvexAuthReturn {
-  sessionUser: Readonly<Ref<AuthSessionUser | null>>;
-  isAuthenticated: ComputedRef<boolean>;
-  isPending: Readonly<Ref<boolean>>;
-  isAnonymous: ComputedRef<boolean>;
-  isSessionExpired: ComputedRef<boolean>;
-  refreshAuth: () => Promise<void>;
-  authError: Readonly<Ref<Error | null>>;
-  signOut: () => Promise<void>;
+  sessionUser: Readonly<Ref<AuthSessionUser | null>>
+  isAuthenticated: ComputedRef<boolean>
+  isPending: Readonly<Ref<boolean>>
+  isAnonymous: ComputedRef<boolean>
+  isSessionExpired: ComputedRef<boolean>
+  refreshAuth: () => Promise<void>
+  authError: Readonly<Ref<Error | null>>
+  signOut: () => Promise<void>
 }
 ```
 
 Better Auth direct access moves to Better Auth-named APIs:
 
 ```ts
-const betterAuthClient = useBetterAuthClient();
-const { signIn } = useBetterAuthSignIn();
+const betterAuthClient = useBetterAuthClient()
+const { signIn } = useBetterAuthSignIn()
 ```
 
 Do not expose `sessionUser.id`.
@@ -604,68 +595,68 @@ This phase is done when:
 Add or update tests for these invariants.
 
 ```ts
-it("uses tokenIdentifier as authKey", async () => {
+it('uses tokenIdentifier as authKey', async () => {
   const identity = {
-    subject: "same-subject",
-    tokenIdentifier: "https://issuer.example|same-subject",
-    email: "a@example.test",
-    name: "Alice",
-  };
+    subject: 'same-subject',
+    tokenIdentifier: 'https://issuer.example|same-subject',
+    email: 'a@example.test',
+    name: 'Alice',
+  }
 
-  const userId = await createUserIfNeeded(ctx.withIdentity(identity));
-  const user = await ctx.db.get(userId);
+  const userId = await createUserIfNeeded(ctx.withIdentity(identity))
+  const user = await ctx.db.get(userId)
 
-  expect(user.authKey).toBe(identity.tokenIdentifier);
-});
+  expect(user.authKey).toBe(identity.tokenIdentifier)
+})
 ```
 
 ```ts
-it("allows the same provider subject from two issuers", async () => {
+it('allows the same provider subject from two issuers', async () => {
   const first = await createUserIfNeeded(
     ctx.withIdentity({
-      subject: "user_same",
-      tokenIdentifier: "https://issuer-one.example|user_same",
+      subject: 'user_same',
+      tokenIdentifier: 'https://issuer-one.example|user_same',
     }),
-  );
+  )
 
   const second = await createUserIfNeeded(
     ctx.withIdentity({
-      subject: "user_same",
-      tokenIdentifier: "https://issuer-two.example|user_same",
+      subject: 'user_same',
+      tokenIdentifier: 'https://issuer-two.example|user_same',
     }),
-  );
+  )
 
-  expect(first).not.toBe(second);
-});
+  expect(first).not.toBe(second)
+})
 ```
 
 ```ts
-it("returns local users._id as appIdentity.userId", async () => {
-  const userId = await ctx.db.insert("users", {
-    authKey: "issuer|subject",
-    role: "member",
+it('returns local users._id as appIdentity.userId', async () => {
+  const userId = await ctx.db.insert('users', {
+    authKey: 'issuer|subject',
+    role: 'member',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  });
+  })
 
   const resolved = await appIdentity.resolve(
-    ctx.withIdentity({ subject: "subject", tokenIdentifier: "issuer|subject" }),
-  );
+    ctx.withIdentity({ subject: 'subject', tokenIdentifier: 'issuer|subject' }),
+  )
 
-  expect(resolved?.appIdentity.userId).toBe(userId);
-  expect(resolved?.appIdentity.authKey).toBe("issuer|subject");
-});
+  expect(resolved?.appIdentity.userId).toBe(userId)
+  expect(resolved?.appIdentity.authKey).toBe('issuer|subject')
+})
 ```
 
 ```ts
-it("keeps useConvexAuth provider-neutral", () => {
-  const auth = useConvexAuth();
+it('keeps useConvexAuth provider-neutral', () => {
+  const auth = useConvexAuth()
 
-  expect("client" in auth).toBe(false);
-  expect("user" in auth).toBe(false);
-  expect("sessionUser" in auth).toBe(true);
-  expect("id" in (auth.sessionUser.value ?? {})).toBe(false);
-});
+  expect('client' in auth).toBe(false)
+  expect('user' in auth).toBe(false)
+  expect('sessionUser' in auth).toBe(true)
+  expect('id' in (auth.sessionUser.value ?? {})).toBe(false)
+})
 ```
 
 ### Phase 2: Inspector Hardening
@@ -731,9 +722,9 @@ Improve `doctor` output so junior developers understand the fix.
 Bad:
 
 ```ts
-tool.mutation("delete-project", {
+tool.mutation('delete-project', {
   ref: api.projects.deleteProject,
-});
+})
 ```
 
 Good:
@@ -743,7 +734,7 @@ tool.operation(deleteProject, {
   execute: api.projects.executeDeleteProject,
   preview: api.projects.previewDeleteProject,
   scopeKey: ({ access }) => access.workspaceId,
-});
+})
 ```
 
 Acceptance criteria:
@@ -764,9 +755,9 @@ Bad:
 
 ```ts
 await serverConvexMutation(event, api.tasks.create, {
-  title: "Import",
+  title: 'Import',
   caller,
-});
+})
 ```
 
 Good:
@@ -775,9 +766,9 @@ Good:
 await serverConvexMutation(
   event,
   api.tasks.createFromTrustedSource,
-  { title: "Import" },
-  { auth: "trusted", caller },
-);
+  { title: 'Import' },
+  { auth: 'trusted', caller },
+)
 ```
 
 Acceptance criteria:

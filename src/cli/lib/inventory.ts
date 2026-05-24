@@ -78,6 +78,8 @@ export interface TrellisCliInventoryPublicSurfaceTool {
   name: string
   source: 'tool' | 'operation' | 'defineTool'
   sourceLocation: TrellisCliInventorySourceLocation
+  operationId?: string
+  operationExportName?: string
 }
 
 export interface TrellisCliInventoryFeature {
@@ -271,6 +273,8 @@ function collectPublicSurface(project: ProjectInspection): TrellisCliInventory['
       name: tool.name,
       source: tool.source,
       sourceLocation: toMetadataLocation(tool.file, tool.line),
+      ...(tool.operationId ? { operationId: tool.operationId } : {}),
+      ...(tool.operationExportName ? { operationExportName: tool.operationExportName } : {}),
     })),
   }
 }

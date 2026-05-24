@@ -9,10 +9,7 @@ export const getAccessContext = query.protected({
     resolve: getAccessIdentity,
     permissions,
     extend: async (ctx, appIdentity) => {
-      const user = await ctx.db
-        .query('users')
-        .withIndex('by_auth_id', (q: any) => q.eq('authId', appIdentity.userId))
-        .first()
+      const user = await ctx.db.get(appIdentity.userId)
 
       return {
         email: user?.email ?? null,

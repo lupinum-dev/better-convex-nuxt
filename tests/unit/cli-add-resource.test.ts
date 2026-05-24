@@ -127,8 +127,8 @@ import { v } from 'convex/values'
 
 export const userTables = {
   users: defineTable({
-    authId: v.string(),
-  }).index('by_auth_id', ['authId']),
+    authKey: v.string(),
+  }).index('by_auth_key', ['authKey']),
 }
 `.trimStart(),
   )

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { withObservationEnvelope } from '../../../src/runtime/observability'
 import { api } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import {
   INTERNAL_HARNESS_TEST_IDENTITY_FORWARDING_KEY,
@@ -30,9 +31,10 @@ describe('defineTrellis', () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.functionsProbe.resetActorResolverCalls, {})
 
+    let memoUserId!: Id<'users'>
     await t.run(async (ctx) => {
-      await ctx.db.insert('users', {
-        authId: 'memo_user',
+      memoUserId = await ctx.db.insert('users', {
+        authKey: 'memo_user',
         role: 'member',
         displayName: 'Memo User',
         email: 'memo@test.com',
@@ -46,7 +48,7 @@ describe('defineTrellis', () => {
         api.functionsProbe.actorMemoization,
         withTrustedCaller(
           {},
-          { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
+          { kind: 'user', authKey: 'memo_user', subject: 'auth:memo_user' },
           null,
           api.functionsProbe.actorMemoization,
         ),
@@ -57,7 +59,7 @@ describe('defineTrellis', () => {
       sameReference: true,
       appIdentity: {
         kind: 'user',
-        userId: 'memo_user',
+        userId: memoUserId,
         role: 'member',
       },
     })
@@ -67,7 +69,7 @@ describe('defineTrellis', () => {
         api.functionsProbe.actorMemoization,
         withTrustedCaller(
           {},
-          { kind: 'user', userId: 'memo_user', subject: 'user:memo_user' },
+          { kind: 'user', authKey: 'memo_user', subject: 'auth:memo_user' },
           null,
           api.functionsProbe.actorMemoization,
         ),
@@ -216,7 +218,7 @@ describe('defineTrellis', () => {
 
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId: 'no_org_user',
+        authKey: 'no_org_user',
         role: 'member',
         displayName: 'No Org User',
         email: 'no-org@test.com',
@@ -235,7 +237,10 @@ describe('defineTrellis', () => {
       })
     })
 
-    const asNoOrgUser = t.withIdentity({ subject: 'no_org_user' })
+    const asNoOrgUser = t.withIdentity({
+      subject: 'no_org_user',
+      tokenIdentifier: 'no_org_user',
+    })
 
     await expect(asNoOrgUser.query(api.functionsProbe.unsafeListMcpKeys, {})).rejects.toThrow(
       'Document belongs to a different isolation scope.',
@@ -265,7 +270,7 @@ describe('defineTrellis', () => {
   })
 
   it('supports structured load and authorize phases alongside raw builders', async () => {
-    const { asOwner, asAdmin } = await setupTestWithMultipleUsers()
+    const { asOwner, asAdmin, userIds } = await setupTestWithMultipleUsers()
 
     const postId = await asOwner.mutation(api.posts.create, {
       title: 'Owned by owner',
@@ -275,7 +280,7 @@ describe('defineTrellis', () => {
     await expect(
       asOwner.query(api.functionsProbe.structuredPostOwner, { id: postId }),
     ).resolves.toEqual({
-      ownerId: 'user_owner',
+      ownerId: userIds.owner,
     })
 
     await expect(

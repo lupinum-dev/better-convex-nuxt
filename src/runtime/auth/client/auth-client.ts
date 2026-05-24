@@ -29,7 +29,7 @@ import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../convex/shared/
 import type { RuntimeObserver } from '../../observability/runtime-observer.js'
 import { TOKEN_CACHE_MS, TOKEN_EXPIRY_SAFETY_BUFFER_MS } from '../../utils/constants.js'
 import { matchesSkipRoute } from '../../utils/route-matcher.js'
-import type { ConvexUser } from '../../utils/types.js'
+import type { AuthSessionUser } from '../../utils/types.js'
 import {
   buildAuthTokenDecodeFailureMessage,
   buildClientAuthRequestFailureMessage,
@@ -59,7 +59,7 @@ interface AuthClientOptions {
   authRoute: string
   skipRoutes: string[]
   convexToken: Ref<string | null>
-  convexUser: Ref<ConvexUser | null>
+  convexUser: Ref<AuthSessionUser | null>
   logger: RuntimeObserver
   nuxtApp: MinimalNuxtApp
   router: MinimalRouter
@@ -70,22 +70,28 @@ interface AuthClientOptions {
  * Validate and narrow a hydrated user value from Nuxt state.
  *
  * During SSR hydration, `convexUser` may contain any shape — including
- * arrays, strings, or objects without an `id`. This function ensures
- * we only return a ConvexUser when the value is structurally valid.
+ * arrays, strings, or arbitrary objects. This function ensures we only return
+ * an AuthSessionUser when the value is structurally valid.
  */
-function normalizeHydratedUser(user: unknown): ConvexUser | null {
+function normalizeHydratedUser(user: unknown): AuthSessionUser | null {
   if (!user || typeof user !== 'object') {
     return null
   }
 
-  const candidate = user as Partial<ConvexUser>
-  return typeof candidate.id === 'string' ? (candidate as ConvexUser) : null
+  const candidate = user as Partial<AuthSessionUser>
+  const hasProfileField =
+    typeof candidate.email === 'string' ||
+    typeof candidate.displayName === 'string' ||
+    typeof candidate.avatarUrl === 'string' ||
+    typeof candidate.emailVerified === 'boolean'
+
+  return hasProfileField ? (candidate as AuthSessionUser) : null
 }
 
 function buildAuthenticatedResult(
   source: ClientAuthStateResult['source'],
   token: string,
-  user: ConvexUser,
+  user: AuthSessionUser,
 ): ClientAuthStateResult {
   return {
     token,

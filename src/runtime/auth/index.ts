@@ -1,16 +1,16 @@
-import type {
-  GenericActionCtx,
-  GenericDataModel,
-  GenericMutationCtx,
-  GenericQueryCtx,
-} from 'convex/server'
 import { ConvexError } from 'convex/values'
 
 import { isAnonymousCaller, type AuthenticatedCaller } from './caller-state.js'
 import { runCheck, type AnyCheck, type Check } from './define-guard.js'
 
-export { defineAuth } from './define-auth.js'
-export type { DefineAuthOptions, DefineAuthDeps, ConvexAuthBridge } from './define-auth.js'
+export { defineBetterAuth } from './define-better-auth.js'
+export type {
+  DefineBetterAuthOptions,
+  DefineBetterAuthDeps,
+  BetterAuthBridge,
+} from './define-better-auth.js'
+export { getAuth } from './auth-identity.js'
+export type { AuthIdentity } from './auth-identity.js'
 export {
   authRequired,
   defineGuard,
@@ -77,23 +77,12 @@ export type {
   ServiceTenantMode,
 } from './define-services.js'
 
-export type AuthIdentity = {
-  subject: string
-  email?: string
-  name?: string
-}
-
 export type AuthErrorData = {
   code: 'FORBIDDEN' | 'NOT_FOUND'
   message: string
   category?: string
   source?: string
 }
-
-type AnyCtx<DataModel extends GenericDataModel = GenericDataModel> =
-  | GenericQueryCtx<DataModel>
-  | GenericMutationCtx<DataModel>
-  | GenericActionCtx<DataModel>
 
 function toForbiddenError(
   reason: string,
@@ -161,19 +150,6 @@ export function requireRecord<T>(doc: T | null | undefined, label?: string): ass
       code: 'NOT_FOUND' as const,
       message: `${label ?? 'Resource'} not found.`,
     })
-  }
-}
-
-/** Read the authenticated identity from a Convex query or mutation context. */
-export async function getAuth<DataModel extends GenericDataModel>(
-  ctx: AnyCtx<DataModel>,
-): Promise<AuthIdentity | null> {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) return null
-  return {
-    subject: identity.subject,
-    ...(typeof identity.email === 'string' ? { email: identity.email } : {}),
-    ...(typeof identity.name === 'string' ? { name: identity.name } : {}),
   }
 }
 

@@ -1,6 +1,7 @@
 import { authRequired } from '@lupinum/trellis/auth'
 
 import { createWorkspace } from '../../../shared/features/workspaces/contract'
+import type { Id } from '../../_generated/dataModel'
 import { mutation } from '../../functions'
 
 export const createWorkspaceMutation = mutation.protected({
@@ -19,10 +20,13 @@ export const createWorkspaceMutation = mutation.protected({
 
     if (existing) throw new Error('That workspace slug is already taken.')
 
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
-      .first()
+    const user =
+      caller.kind === 'user'
+        ? await ctx.db
+            .query('users')
+            .withIndex('by_auth_key', (q) => q.eq('authKey', caller.authKey))
+            .first()
+        : await ctx.db.get(caller.userId as Id<'users'>)
 
     if (!user) throw new Error('Current user row not found.')
 
@@ -30,7 +34,7 @@ export const createWorkspaceMutation = mutation.protected({
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: caller.userId,
+      ownerId: user._id,
       createdAt: now,
       updatedAt: now,
     })

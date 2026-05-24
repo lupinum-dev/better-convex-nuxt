@@ -1,4 +1,4 @@
-import type { ConvexUser } from '../../utils/types.js'
+import type { AuthSessionUser } from '../../utils/types.js'
 /**
  * Projects server-resolved auth into a hydration-safe snapshot.
  *
@@ -31,7 +31,7 @@ export type HydratedRequestAuth =
   | {
       decodeFailed: false
       token: string
-      user: ConvexUser
+      user: AuthSessionUser
       error: null
     }
   | {

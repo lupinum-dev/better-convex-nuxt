@@ -1,5 +1,6 @@
 export interface BootstrapResponse {
   organizationId: string
+  users: Record<'admin' | 'member' | 'viewer' | 'noOrg', { id: string; authKey: string }>
   resources: {
     noteId: string
     postId: string

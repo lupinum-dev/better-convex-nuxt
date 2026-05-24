@@ -20,8 +20,8 @@ export const taskTables = {
     title: v.string(),
     status: taskStatusValidator,
     priority: taskPriorityValidator,
-    assigneeId: v.optional(v.string()),
-    ownerId: v.string(),
+    assigneeId: v.optional(v.id('users')),
+    ownerId: v.id('users'),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

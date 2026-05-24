@@ -29,9 +29,9 @@ function hasForwardedIdentity(ctx: McpReferenceCtx): ctx is ForwardedIdentityCtx
   return 'caller' in ctx && typeof ctx.caller === 'function'
 }
 
-async function loadUserActorByAuthId(
+async function loadUserActorByAuthKey(
   ctx: McpReferenceCtx,
-  authId: string,
+  authKey: string,
 ): Promise<AccessIdentity | null> {
   if (!('db' in ctx)) {
     throw new Error('MCP reference appIdentity resolution requires a query or mutation context.')
@@ -39,14 +39,35 @@ async function loadUserActorByAuthId(
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', authKey))
     .first()
 
   if (!user) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
+    role: user.role as Role,
+    workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+  }
+}
+
+async function loadUserActorByUserId(
+  ctx: McpReferenceCtx,
+  userId: string,
+): Promise<AccessIdentity | null> {
+  if (!('db' in ctx)) {
+    throw new Error('MCP reference appIdentity resolution requires a query or mutation context.')
+  }
+
+  const user = await ctx.db.get(userId as Id<'users'>)
+  if (!user) return null
+
+  return {
+    kind: 'user',
+    userId: user._id,
+    authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
   }
@@ -56,9 +77,9 @@ function getDelegatedUserId(actingFor: ActingFor | null): string | null {
   return getSubjectValue(actingFor?.subject, 'user')
 }
 
-function getUserIdFromPrincipal(caller: McpReferencePrincipal): string | null {
+function getAuthKeyFromPrincipal(caller: McpReferencePrincipal): string | null {
   if (caller.kind !== 'user') return null
-  return caller.userId
+  return caller.authKey
 }
 
 function requireTenantActor(appIdentity: AccessIdentity | null): AppIdentity | null {
@@ -74,14 +95,14 @@ async function resolveAccessIdentityFromCaller(
   // When a non-user caller acts for a user, permissions resolve as that user.
   const delegatedUserId = getDelegatedUserId(actingFor)
   if (delegatedUserId) {
-    return await loadUserActorByAuthId(ctx, delegatedUserId)
+    return await loadUserActorByUserId(ctx, delegatedUserId)
   }
 
   // Browser-style calls resolve directly from the user caller.
-  const directUserId = getUserIdFromPrincipal(caller)
-  if (!directUserId) return null
+  const directAuthKey = getAuthKeyFromPrincipal(caller)
+  if (!directAuthKey) return null
 
-  return await loadUserActorByAuthId(ctx, directUserId)
+  return await loadUserActorByAuthKey(ctx, directAuthKey)
 }
 
 export async function getAppIdentityFromCaller(
@@ -107,7 +128,7 @@ export async function getAccessIdentity(ctx: McpReferenceCtx): Promise<AccessIde
   // surface, so fall back to the signed-in browser user identity there.
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return await loadUserActorByAuthId(ctx, auth.subject)
+  return await loadUserActorByAuthKey(ctx, auth.authKey)
 }
 
 export async function getAppIdentity(ctx: McpReferenceCtx): Promise<AppIdentity | null> {

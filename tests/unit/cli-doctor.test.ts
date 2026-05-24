@@ -415,7 +415,7 @@ describe('CLI doctor', () => {
     expect(functions).toContain('@lupinum/trellis/backend')
     expect(todos).toContain('query.protected({')
     expect(todos).toContain('mutation.protected({')
-    expect(mcpKeys).toContain("query('users')")
+    expect(mcpKeys).toContain('ctx.db.get(key.boundUserId)')
     expect(mcpKeys).not.toContain('boundRole')
     expect(mcpKeys).not.toContain('seenAt')
     expect(mcpKeys).toContain('query.public({')
@@ -1997,6 +1997,7 @@ export default tool.operation(purgeTodoOp, {
         expect.objectContaining({
           name: 'delete-todo',
           source: 'operation',
+          operationId: 'todos.purge',
           sourceLocation: expect.objectContaining({
             path: 'server/mcp/tools/delete-todo.ts',
             line: expect.any(Number),

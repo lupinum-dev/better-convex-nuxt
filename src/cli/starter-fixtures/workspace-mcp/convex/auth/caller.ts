@@ -13,7 +13,7 @@ export type Role = NonNullable<Doc<'users'>['role']>
 
 export type WorkspaceCaller =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
-  | { kind: 'user'; userId: string; subject: `user:${string}` }
+  | { kind: 'user'; authKey: string; subject: `auth:${string}` }
   | {
       kind: 'agent'
       agentId: string
@@ -28,7 +28,7 @@ export const workspacePrincipalValidator = v.union(
   }),
   v.object({
     kind: v.literal('user'),
-    userId: v.string(),
+    authKey: v.string(),
     subject: v.string(),
   }),
   v.object({
@@ -52,8 +52,8 @@ export const caller = defineCaller({
 
     return {
       kind: 'user',
-      userId: auth.subject,
-      subject: `user:${auth.subject}`,
+      authKey: auth.authKey,
+      subject: `auth:${auth.authKey}`,
     }
   },
 })

@@ -33,7 +33,7 @@ export const enrollKnowledgeBaseUser = defineArgs({
   description: 'Enroll a user in one knowledge base.',
   args: {
     knowledgeBaseId: v.id('knowledgeBases'),
-    userId: v.string(),
+    userId: v.id('users'),
   },
 })
 

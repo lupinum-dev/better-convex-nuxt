@@ -3,7 +3,7 @@ import { createLocalJWKSet, jwtVerify, type JWTPayload, type JWTVerifyResult } f
 import { fetchWithTimeout } from '../../convex/server/http.js'
 import { decodeUserFromJwt } from '../../convex/shared/convex-shared.js'
 import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
-import type { ConvexUser } from '../../utils/types.js'
+import type { AuthSessionUser } from '../../utils/types.js'
 
 const LOCAL_JWKS_BOOTSTRAP_SENTINEL = '__TRELLIS_LOCAL_JWKS_BOOTSTRAP__'
 const JWKS_CACHE_TTL_MS = 5 * 60_000
@@ -84,7 +84,7 @@ async function loadServerJwks(siteUrl: string): Promise<ReturnType<typeof create
 
 export interface VerifiedServerJwt {
   payload: JWTPayload
-  user: ConvexUser
+  user: AuthSessionUser
 }
 
 export async function verifyServerJwt(

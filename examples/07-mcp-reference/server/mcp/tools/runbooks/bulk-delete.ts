@@ -14,6 +14,7 @@ export default tool.operation(bulkRemoveRunbooksDescriptor, {
     bulkRemoveRunbooksDescriptor,
     api.features.runbooks.operations.previewBulkRemove,
   ),
+  previewOperation: 'mutation',
   group: 'workspace',
   tags: ['bulk', 'dangerous'],
   meta: {

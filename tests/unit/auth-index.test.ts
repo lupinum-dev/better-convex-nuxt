@@ -28,7 +28,7 @@ describe('auth entrypoint exports', () => {
     expect(authApi).toHaveProperty('requireRecord')
     expect(authApi).toHaveProperty('ensureTenant')
     expect(authApi).toHaveProperty('loadTenantResource')
-    expect(authApi).toHaveProperty('defineAuth')
+    expect(authApi).toHaveProperty('defineBetterAuth')
     expect(authApi).toHaveProperty('defineAccessContext')
     expect(authApi).toHaveProperty('getSubjectKind')
     expect(authApi).toHaveProperty('getSubjectValue')

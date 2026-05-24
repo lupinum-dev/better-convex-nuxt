@@ -3,9 +3,9 @@ import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
 
-const { isAuthenticated, isPending, signOut, user } = useConvexAuth()
-const { signIn, pending: signInPending, error: signInError } = useConvexSignIn()
-const { signUp, pending: signUpPending, error: signUpError } = useConvexSignUp()
+const { isAuthenticated, isPending, signOut, sessionUser } = useConvexAuth()
+const { signIn, pending: signInPending, error: signInError } = useBetterAuthSignIn()
+const { signUp, pending: signUpPending, error: signUpError } = useBetterAuthSignUp()
 
 const email = ref('demo@example.com')
 const password = ref('password1234')
@@ -59,7 +59,7 @@ async function handleCreateTodo() {
     </div>
 
     <div v-else style="display: grid; gap: 16px">
-      <p>Signed in as {{ user?.email ?? user?.name ?? 'user' }}</p>
+      <p>Signed in as {{ sessionUser?.email ?? sessionUser?.displayName ?? 'user' }}</p>
       <div style="display: flex; gap: 8px">
         <input v-model="title" type="text" placeholder="Add a todo" />
         <button :disabled="createTodoMutation.pending.value" @click="handleCreateTodo">Add</button>

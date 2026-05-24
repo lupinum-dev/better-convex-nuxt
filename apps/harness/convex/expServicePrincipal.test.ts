@@ -26,7 +26,7 @@ describe('Exp 6: Service Caller Structural Detection', () => {
     const t = convexTest(schema, modules)
 
     const result = await t
-      .withIdentity({ subject: 'user_1' })
+      .withIdentity({ subject: 'user_1', tokenIdentifier: 'user_1' })
       .query(api.expServicePrincipal.getPublicPrincipal, {})
 
     expect(result.kind).toBe('user')
@@ -46,7 +46,7 @@ describe('Exp 6: Service Caller Structural Detection', () => {
     const t = convexTest(schema, modules)
 
     const result = await t
-      .withIdentity({ subject: 'user_1' })
+      .withIdentity({ subject: 'user_1', tokenIdentifier: 'user_1' })
       .query(internal.expServicePrincipal.getInternalPrincipal, {})
 
     expect(result.kind).toBe('user')

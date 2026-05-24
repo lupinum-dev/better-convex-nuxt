@@ -440,24 +440,19 @@ export function findConvexAuthSource(
   )
 }
 
-export function usesSyncedUsersTable(project: ProjectInspection): boolean {
+export function usesTrellisUsersTable(project: ProjectInspection): boolean {
   return project.sourceFiles.some((file) =>
-    /\.query\(\s*['"]users['"]\s*\)|withIndex\(\s*['"]by_auth_id['"]\s*|defineTable\(\s*\{[\s\S]*?\bauthId\s*:/.test(
+    /\.query\(\s*['"]users['"]\s*\)|withIndex\(\s*['"]by_auth_key['"]\s*|defineTable\(\s*\{[\s\S]*?\bauthKey\s*:/.test(
       file.text,
     ),
   )
 }
 
-export function hasBetterAuthTriggerExports(project: ProjectInspection): boolean {
+export function hasBetterAuthBootstrapExport(project: ProjectInspection): boolean {
   const convexAuthSource = findConvexAuthSource(project)
   if (!convexAuthSource) return false
 
-  return (
-    /authComponent\.triggersApi\s*\(/.test(convexAuthSource.text) &&
-    /onCreate/.test(convexAuthSource.text) &&
-    /onUpdate/.test(convexAuthSource.text) &&
-    /onDelete/.test(convexAuthSource.text)
-  )
+  return /\bcreateUserIfNeeded\b/.test(convexAuthSource.text)
 }
 
 export function usesIdentityForwardingSurfaces(project: ProjectInspection): boolean {

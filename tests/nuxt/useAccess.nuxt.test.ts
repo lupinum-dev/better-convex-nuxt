@@ -59,7 +59,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       () => {
         installMockAuthEngine({
           initialToken: 'active.jwt.token',
-          initialUser: { id: 'u-1', name: 'User One', email: 'user@test.com' },
+          initialUser: { displayName: 'User One', email: 'user@test.com' },
         })
         setupConfiguredAuthBootstrap(ensureUser, 'auth.createUserIfNeeded')
 
@@ -105,7 +105,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       () => {
         installMockAuthEngine({
           initialToken: 'active.jwt.token',
-          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+          initialUser: { displayName: 'User One', email: 'user@test.com' },
         })
 
         const permissions = useAccess()
@@ -194,7 +194,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       () => {
         installMockAuthEngine({
           initialToken: 'active.jwt.token',
-          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+          initialUser: { displayName: 'User One', email: 'user@test.com' },
         })
 
         const router = useRouter()
@@ -239,7 +239,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       () => {
         installMockAuthEngine({
           initialToken: 'active.jwt.token',
-          initialUser: { id: 'user-1', name: 'User One', email: 'user@test.com' },
+          initialUser: { displayName: 'User One', email: 'user@test.com' },
         })
 
         const router = useRouter()
@@ -287,7 +287,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
         () => {
           installMockAuthEngine({
             initialToken: 'active.jwt.token',
-            initialUser: { id: 'u-1', name: 'User One', email: 'user@test.com' },
+            initialUser: { displayName: 'User One', email: 'user@test.com' },
           })
 
           return useAccess()
@@ -307,7 +307,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
     }
   }, 10_000)
 
-  it('fails closed while access context still belongs to a previous authenticated user', async () => {
+  it('trusts the server-projected access context after auth is ready', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('auth:getAccessContext:stale-auth-user')
     const { useAccess } = createConfiguredPermissionsComposables(
@@ -319,7 +319,7 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       () => {
         installMockAuthEngine({
           initialToken: 'active.jwt.token',
-          initialUser: { id: 'user-current', name: 'Current User', email: 'current@test.com' },
+          initialUser: { displayName: 'Current User', email: 'current@test.com' },
         })
 
         const permissions = useAccess()
@@ -342,22 +342,8 @@ describe('configured permissions composables (Nuxt runtime)', () => {
       },
     })
 
-    await waitFor(() => result.pending.value === false)
-    expect(result.ready.value).toBe(false)
-    expect(result.workspaceId.value).toBeNull()
-    expect(result.canRead.value).toBe(false)
-
-    convex.emitQueryResultByPath('auth:getAccessContext:stale-auth-user', {
-      role: 'owner',
-      userId: 'user-current',
-      workspaceId: 'tenant-current',
-      can: {
-        'todo.read': true,
-      },
-    })
-
     await waitFor(() => result.ready.value)
-    expect(result.workspaceId.value).toBe('tenant-current')
+    expect(result.workspaceId.value).toBe('tenant-previous')
     expect(result.canRead.value).toBe(true)
   })
 })

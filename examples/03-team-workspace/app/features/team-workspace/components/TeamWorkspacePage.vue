@@ -287,8 +287,9 @@ import { createTodo } from '~~/shared/features/todos/contract'
 import { api } from '#trellis/api'
 import { todoCreate, todoPermissionMatrix } from '#trellis/permissions'
 
-const { client, user, signOut } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 const { can, ready, role, workspaceId, ctx } = useAccess()
 
 const signUpFields: AuthFormField[] = [
@@ -369,8 +370,8 @@ const displayName = computed(
   () =>
     ctx.value?.displayName ||
     ctx.value?.email ||
-    user.value?.name ||
-    user.value?.email ||
+    sessionUser.value?.displayName ||
+    sessionUser.value?.email ||
     'Signed in user',
 )
 

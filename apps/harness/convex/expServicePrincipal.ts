@@ -26,7 +26,7 @@ const publicQuery = customQuery(rawQuery, {
   input: async (ctx, _args) => {
     const identity = await ctx.auth.getUserIdentity()
     const caller: Caller = identity
-      ? { kind: 'user', userId: identity.subject }
+      ? { kind: 'user', userId: identity.tokenIdentifier }
       : { kind: 'anonymous' }
     return { ctx: { caller }, args: {} }
   },
@@ -37,7 +37,7 @@ const publicMutation = customMutation(rawMutation, {
   input: async (ctx, _args) => {
     const identity = await ctx.auth.getUserIdentity()
     const caller: Caller = identity
-      ? { kind: 'user', userId: identity.subject }
+      ? { kind: 'user', userId: identity.tokenIdentifier }
       : { kind: 'anonymous' }
     return { ctx: { caller }, args: {} }
   },
@@ -50,7 +50,7 @@ const internalTrellisQuery = customQuery(rawInternalQuery, {
   input: async (ctx, _args) => {
     const identity = await ctx.auth.getUserIdentity()
     const caller: Caller = identity
-      ? { kind: 'user', userId: identity.subject }
+      ? { kind: 'user', userId: identity.tokenIdentifier }
       : { kind: 'system' }
     return { ctx: { caller }, args: {} }
   },
@@ -61,7 +61,7 @@ const internalTrellisMutation = customMutation(rawInternalMutation, {
   input: async (ctx, _args) => {
     const identity = await ctx.auth.getUserIdentity()
     const caller: Caller = identity
-      ? { kind: 'user', userId: identity.subject }
+      ? { kind: 'user', userId: identity.tokenIdentifier }
       : { kind: 'system' }
     return { ctx: { caller }, args: {} }
   },

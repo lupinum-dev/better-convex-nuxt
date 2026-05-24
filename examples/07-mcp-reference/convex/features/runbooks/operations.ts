@@ -14,7 +14,7 @@ import {
 } from '../../../shared/features/runbooks/contract'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { AppIdentity } from '../../auth/appIdentity'
-import { query } from '../../functions'
+import { mutation } from '../../functions'
 import { canDeleteRunbook } from './checks'
 import { runbookBulkDelete, runbookRead } from './permissions'
 
@@ -37,6 +37,7 @@ type LoadedBulkRunbooks = {
 }
 
 export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
+  identityForwardingFunctionRef: 'features/runbooks/domain:remove',
   guard: runbookRead,
   load: async (ctx: RunbookMutationCtx, args: DeleteRunbookArgs): Promise<LoadedRunbook> => {
     const runbook = await ctx.db.get(args.id)
@@ -65,6 +66,7 @@ export const removeRunbookOp = implementOperation(removeRunbookDescriptor, {
 })
 
 export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescriptor, {
+  identityForwardingFunctionRef: 'features/runbooks/domain:bulkRemove',
   guard: runbookBulkDelete,
   load: async (
     ctx: RunbookMutationCtx,
@@ -157,11 +159,11 @@ export const bulkRemoveRunbooksOp = implementOperation(bulkRemoveRunbooksDescrip
   },
 })
 
-export const previewRemove = query.protected({
+export const previewRemove = mutation.protected({
   ...previewOf(removeRunbookOp),
   identityForwardingFunctionRef: 'features/runbooks/operations:previewRemove',
 })
-export const previewBulkRemove = query.protected({
+export const previewBulkRemove = mutation.protected({
   ...previewOf(bulkRemoveRunbooksOp),
   identityForwardingFunctionRef: 'features/runbooks/operations:previewBulkRemove',
 })

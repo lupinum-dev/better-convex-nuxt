@@ -27,7 +27,7 @@ export const mcpRuntime = defineMcpApp<MiniCmsPrincipal, RecordAccessSnapshot>({
       case 'anonymous':
         return 'anonymous'
       case 'user':
-        return `user:${caller.userId}`
+        return `auth:${caller.authKey}`
       case 'agent':
         return `agent:${caller.agentId}`
     }

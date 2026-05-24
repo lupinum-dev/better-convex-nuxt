@@ -36,8 +36,9 @@ describe('plugin.client token cache', () => {
     await expect(fetchToken!({ forceRefreshToken: true })).resolves.toBe(hydratedToken)
     expect(tokenMock).not.toHaveBeenCalled()
     expect(stateStore.get('convex:user')?.value).toEqual(
-      expect.objectContaining({ id: 'u-cache', email: 'cache@test.com' }),
+      expect.objectContaining({ email: 'cache@test.com' }),
     )
+    expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
   })
 
   it('fails closed and logs when the recent token cache holds a token that can no longer be decoded', async () => {

@@ -5,7 +5,7 @@ export const todosTables = {
   todos: defineTable({
     title: v.string(),
     completed: v.boolean(),
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     workspaceId: v.id('workspaces'),
     source: v.optional(v.string()),
     externalId: v.optional(v.string()),

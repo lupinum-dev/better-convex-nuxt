@@ -9,7 +9,7 @@ import { ConvexError } from 'convex/values'
 
 import type { Subject } from '../functions/define-caller.js'
 import { getForwardedActingFor, getForwardedCaller } from '../identity-forwarding/index.js'
-import { getAuth, type AuthIdentity } from './index.js'
+import { getAuth } from './index.js'
 import { getSubjectValue } from './subject.js'
 
 /**
@@ -19,6 +19,7 @@ import { getSubjectValue } from './subject.js'
 export type DefaultAppIdentity = {
   kind: 'user'
   userId: string
+  authKey: string
   role: string
   workspaceId?: string
 }
@@ -63,47 +64,71 @@ export interface AppIdentityBuilder<TCtx, TUser, TActor> {
   }
 }
 
-async function resolveAuthIdentity<DataModel extends GenericDataModel>(
+function resolveForwardedUserId<DataModel extends GenericDataModel>(
   ctx: AnyCtx<DataModel>,
-): Promise<AuthIdentity | null> {
+): string | null {
   const forwardedActingFor = getForwardedActingFor<{ subject: Subject }>(ctx)
   const delegatedUserId = getSubjectValue(forwardedActingFor?.subject, 'user')
   if (delegatedUserId) {
-    return { subject: delegatedUserId }
+    return delegatedUserId
   }
 
   const forwardedCaller = getForwardedCaller<{ subject: Subject }>(ctx)
   const principalUserId = getSubjectValue(forwardedCaller?.subject, 'user')
   if (principalUserId) {
-    return { subject: principalUserId }
+    return principalUserId
   }
 
-  return await getAuth(ctx)
+  return null
 }
 
 async function resolveDefaultUser<DataModel extends GenericDataModel>(
   ctx: AnyCtx<DataModel>,
 ): Promise<Record<string, unknown> | null> {
-  const auth = await resolveAuthIdentity(ctx)
-  if (!auth) return null
   if (!hasDb(ctx)) return null
+
+  const forwardedUserId = resolveForwardedUserId(ctx)
+  if (forwardedUserId) {
+    const forwardedUser = await (ctx.db as any).get(forwardedUserId)
+    if (!forwardedUser) {
+      throw new ConvexError({
+        code: 'NOT_FOUND' as const,
+        message: `Expected a Trellis users row for forwarded app user "${forwardedUserId}", but none was found.`,
+      })
+    }
+    return forwardedUser
+  }
+
+  const auth = await getAuth(ctx)
+  if (!auth) return null
 
   const user = await (ctx.db as any)
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', auth.authKey))
     .first()
 
   if (!user) {
     throw new ConvexError({
       code: 'NOT_FOUND' as const,
       message: [
-        `Expected a Trellis users row for auth subject "${auth.subject}", but none was found.`,
-        'Ensure your Trellis auth bridge exports authComponent.triggersApi() and the built-in auth bootstrap is enabled.',
+        `Expected a Trellis users row for auth key "${auth.authKey}", but none was found.`,
+        'Ensure the built-in Trellis auth bootstrap mutation is exported and enabled.',
       ].join(' '),
     })
   }
 
   return user
+}
+
+function requireAuthKey(user: Record<string, unknown>): string {
+  if (typeof user.authKey === 'string' && user.authKey.trim().length > 0) {
+    return user.authKey
+  }
+
+  throw new ConvexError({
+    code: 'NOT_FOUND' as const,
+    message: 'Expected Trellis users row to contain authKey.',
+  })
 }
 
 function createAppIdentityBuilder<TCtx, TUser, TActor>(
@@ -165,7 +190,8 @@ export const defineAppIdentity = {
           user,
           appIdentity: {
             kind: 'user',
-            userId: String(user.authId),
+            userId: String(user._id),
+            authKey: requireAuthKey(user),
             role: typeof user.role === 'string' ? user.role : 'member',
             ...(user.workspaceId ? { workspaceId: String(user.workspaceId) } : {}),
           },
@@ -198,7 +224,8 @@ export const defineAppIdentity = {
           user,
           appIdentity: {
             kind: 'user',
-            userId: String(user.authId),
+            userId: String(user._id),
+            authKey: requireAuthKey(user),
             role: String(membership[roleField]),
             workspaceId: membership[workspaceField]
               ? String(membership[workspaceField])

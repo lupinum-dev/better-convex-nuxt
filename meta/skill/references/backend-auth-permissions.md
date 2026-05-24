@@ -13,8 +13,8 @@ services, and trusted-forwarding validators.
   `src/runtime/trusted-forwarding/shared.ts`.
 - Visibility: `src/runtime/visibility/index.ts`.
 - Feature manifests: `src/runtime/feature/index.ts`.
-- Component bridge helpers: `src/runtime/bridge/index.ts`,
-  `src/runtime/functions/component-bridge-manifest.ts`.
+- Component bridge helpers: `packages/trellis-bridge/src/component.ts`,
+  `packages/trellis-bridge/src/manifest.ts`.
 - Observability: `src/runtime/observability/index.ts`,
   `apps/docs/content/docs/09.observability/**`.
 - Docs:
@@ -101,7 +101,7 @@ trusted server-to-server identity.
 
 Important auth exports include:
 
-- `defineAuth`
+- `defineBetterAuth`
 - `defineGuard`, `authRequired`, `open`
 - `defineActor`
 - `definePermission`

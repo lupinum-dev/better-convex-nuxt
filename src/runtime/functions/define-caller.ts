@@ -21,8 +21,8 @@ export type DefaultCaller =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
   | {
       kind: 'user'
-      subject: `user:${string}`
-      userId: string
+      subject: `auth:${string}`
+      authKey: string
       sessionId?: string
     }
   | {
@@ -74,8 +74,8 @@ defineCaller.fromAuth = function fromAuth<
 
       return {
         kind: 'user',
-        userId: auth.subject,
-        subject: subject.user(auth.subject),
+        authKey: auth.authKey,
+        subject: subject.auth(auth.authKey),
       }
     },
   })

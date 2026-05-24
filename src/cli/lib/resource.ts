@@ -227,6 +227,7 @@ import { ${ctx.singularCamel}DeletePermission } from './permissions'
 import { mutation } from '../../functions'
 
 export const remove${ctx.singularPascal}Op = implementOperation(remove${ctx.singularPascal}Descriptor, {
+  identityForwardingFunctionRef: 'features/${ctx.tableName}/domain:remove',
   guard: ${ctx.singularCamel}DeletePermission,
   load: async (ctx, args) => {
     const ${ctx.singularCamel} = await ctx.db.get(args.id)
@@ -436,11 +437,11 @@ function createCtx() {
   return createTestContext({ schema, modules })
 }
 
-async function seedUser(ctx: ReturnType<typeof createCtx>, authId: string) {
+async function seedUser(ctx: ReturnType<typeof createCtx>, authKey: string) {
   await ctx.seed('users', {
-    authId,
-    email: \`\${authId}@example.test\`,
-    displayName: authId,
+    authKey,
+    email: \`\${authKey}@example.test\`,
+    displayName: authKey,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })
@@ -450,7 +451,7 @@ describe('${ctx.tableName}', () => {
   it('allows the owner to update their own ${ctx.singularCamel}', async () => {
     const ctx = createCtx()
     await seedUser(ctx, 'owner-1')
-    const owner = ctx.raw.withIdentity({ subject: 'owner-1' })
+    const owner = ctx.raw.withIdentity({ subject: 'owner-1', tokenIdentifier: 'owner-1' })
     const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await owner.mutation(api.features.${ctx.tableName}.domain.update, { id, name: 'Renamed' })
@@ -463,8 +464,8 @@ describe('${ctx.tableName}', () => {
     const ctx = createCtx()
     await seedUser(ctx, 'owner-1')
     await seedUser(ctx, 'other-1')
-    const owner = ctx.raw.withIdentity({ subject: 'owner-1' })
-    const other = ctx.raw.withIdentity({ subject: 'other-1' })
+    const owner = ctx.raw.withIdentity({ subject: 'owner-1', tokenIdentifier: 'owner-1' })
+    const other = ctx.raw.withIdentity({ subject: 'other-1', tokenIdentifier: 'other-1' })
     const id = await owner.mutation(api.features.${ctx.tableName}.domain.create, { name: 'Draft' })
 
     await expect(
@@ -537,6 +538,7 @@ export default tool.operation(remove${ctx.singularPascal}Descriptor, {
     remove${ctx.singularPascal}Descriptor,
     api.features.${ctx.tableName}.operations.previewRemove${ctx.singularPascal},
   ),
+  previewOperation: 'mutation',
   meta: {
     name: 'delete-${ctx.fileStem}',
   },

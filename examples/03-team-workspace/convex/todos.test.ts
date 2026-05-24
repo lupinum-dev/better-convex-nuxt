@@ -130,11 +130,11 @@ describe('team todo example', () => {
   it('returns onboarding access context for signed-in users without a workspace', async () => {
     const ctx = createCtx()
     const now = Date.now()
-    const authId = 'onboarding-user'
+    const authKey = 'onboarding-user'
 
-    await ctx.raw.run(async (innerCtx) => {
-      await innerCtx.db.insert('users', {
-        authId,
+    const userId = await ctx.raw.run(async (innerCtx) => {
+      return await innerCtx.db.insert('users', {
+        authKey,
         role: 'member',
         email: 'onboarding@example.test',
         displayName: 'Onboarding User',
@@ -143,11 +143,11 @@ describe('team todo example', () => {
       })
     })
 
-    const onboardingUser = ctx.raw.withIdentity({ subject: authId })
+    const onboardingUser = ctx.raw.withIdentity({ subject: authKey, tokenIdentifier: authKey })
     const permissionCtx = await onboardingUser.query(api.permissions.context.getAccessContext, {})
 
     expect(permissionCtx).toMatchObject({
-      userId: authId,
+      userId,
       role: 'member',
       workspaceId: null,
       email: 'onboarding@example.test',

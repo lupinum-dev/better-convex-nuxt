@@ -34,13 +34,13 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../../../src/runtime/utils/constants'
-import type { ConvexUser } from '../../../src/runtime/utils/types'
+import type { AuthSessionUser } from '../../../src/runtime/utils/types'
 import { captureInNuxt } from '../nuxt/runtime-harness'
 import { createMockTokenExchange, type MockTokenExchange } from './mock-token-exchange'
 
 export interface AuthHarnessOptions {
   initialToken?: string | null
-  initialUser?: ConvexUser | null
+  initialUser?: AuthSessionUser | null
   initialPending?: boolean
   initialAuthError?: string | null
   signOutBehavior?: 'success' | 'fail' | 'slow' | (() => Promise<void>)
@@ -50,7 +50,7 @@ export interface AuthHarnessOptions {
 export interface AuthHarness {
   engine: SharedAuthEngine
   token: Ref<string | null>
-  user: Ref<ConvexUser | null>
+  user: Ref<AuthSessionUser | null>
   pending: Ref<boolean>
   rawAuthError: Ref<string | null>
   isAuthenticated: Ref<boolean>
@@ -129,7 +129,7 @@ export async function createAuthHarness(options: AuthHarnessOptions = {}): Promi
     () => {
       const nuxtApp = useNuxtApp()
       const token = useState<string | null>(STATE_KEY_TOKEN)
-      const user = useState<ConvexUser | null>(STATE_KEY_USER)
+      const user = useState<AuthSessionUser | null>(STATE_KEY_USER)
       const pending = useState<boolean>(STATE_KEY_PENDING)
       const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
       const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () =>

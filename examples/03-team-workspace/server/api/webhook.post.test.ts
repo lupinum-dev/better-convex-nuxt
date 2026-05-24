@@ -72,7 +72,7 @@ describe('example 03 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.TEAM_WORKSPACE_WEBHOOK_SECRET = 'team-workspace-demo'
-    process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID = 'webhook-user'
+    process.env.TEAM_WORKSPACE_WEBHOOK_USER_ID = 'user_webhook'
   })
 
   it('verifies the route secret and dispatches to the protected webhook mutation', async () => {
@@ -113,7 +113,7 @@ describe('example 03 webhook handler', () => {
           subject: 'service:team-workspace-webhook',
         },
         actingFor: {
-          subject: 'user:webhook-user',
+          subject: 'user:user_webhook',
           reason: 'verified workspace todo webhook',
         },
       },
@@ -147,7 +147,7 @@ describe('example 03 webhook handler', () => {
   })
 
   it('fails closed when the delegated webhook appIdentity is not configured', async () => {
-    delete process.env.TEAM_WORKSPACE_WEBHOOK_AUTH_ID
+    delete process.env.TEAM_WORKSPACE_WEBHOOK_USER_ID
     readBodyMock.mockResolvedValue({
       workspaceId: 'workspace_123',
       eventId: 'evt_123',
@@ -156,7 +156,7 @@ describe('example 03 webhook handler', () => {
 
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
       statusCode: 500,
-      message: 'TEAM_WORKSPACE_WEBHOOK_AUTH_ID is required for the webhook example.',
+      message: 'TEAM_WORKSPACE_WEBHOOK_USER_ID is required for the webhook example.',
     })
   })
 

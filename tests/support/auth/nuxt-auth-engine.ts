@@ -24,11 +24,11 @@ import {
   STATE_KEY_TOKEN,
   STATE_KEY_USER,
 } from '../../../src/runtime/utils/constants'
-import type { ConvexUser } from '../../../src/runtime/utils/types'
+import type { AuthSessionUser } from '../../../src/runtime/utils/types'
 
 export interface InstallMockAuthEngineOptions {
   initialToken?: string | null
-  initialUser?: ConvexUser | null
+  initialUser?: AuthSessionUser | null
   initialPending?: boolean
   initialAuthError?: string | null
   initialWasAuthenticated?: boolean
@@ -43,7 +43,7 @@ export interface InstallMockAuthEngineOptions {
 export function installMockAuthEngine(options: InstallMockAuthEngineOptions = {}) {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>(STATE_KEY_TOKEN)
-  const user = useState<ConvexUser | null>(STATE_KEY_USER)
+  const user = useState<AuthSessionUser | null>(STATE_KEY_USER)
   const pending = useState<boolean>(STATE_KEY_PENDING)
   const rawAuthError = useState<string | null>(STATE_KEY_AUTH_ERROR)
   const wasAuthenticated = useState<boolean>('trellis:was-authenticated', () =>
@@ -64,7 +64,7 @@ export function installMockAuthEngine(options: InstallMockAuthEngineOptions = {}
       options.fetchAuthState ??
       (async (_input) => ({
         token: 'refreshed.jwt.token',
-        user: { id: 'u-auth', name: 'Auth User', email: 'auth@test.com' },
+        user: { displayName: 'Auth User', email: 'auth@test.com' },
         error: null,
         source: 'exchange',
       })),

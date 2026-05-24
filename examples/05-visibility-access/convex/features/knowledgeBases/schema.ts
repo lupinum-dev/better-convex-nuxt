@@ -8,14 +8,14 @@ export const knowledgeBaseTables = {
     workspaceId: v.id('workspaces'),
     title: v.string(),
     status: knowledgeBaseStatusValidator,
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_workspace', ['workspaceId']),
 
   enrollments: defineTable({
     workspaceId: v.id('workspaces'),
-    userId: v.string(),
+    userId: v.id('users'),
     knowledgeBaseId: v.id('knowledgeBases'),
     status: v.union(v.literal('active'), v.literal('canceled')),
     createdAt: v.number(),

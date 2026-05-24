@@ -19,14 +19,14 @@ describe('auth todo example', () => {
   it('keeps todos user-scoped', async () => {
     const ctx = createCtx()
     await ctx.seed('users', {
-      authId: 'alice',
+      authKey: 'alice',
       email: 'alice@example.test',
       displayName: 'Alice',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
     await ctx.seed('users', {
-      authId: 'bob',
+      authKey: 'bob',
       email: 'bob@example.test',
       displayName: 'Bob',
       createdAt: Date.now(),
@@ -35,11 +35,13 @@ describe('auth todo example', () => {
 
     const alice = ctx.raw.withIdentity({
       subject: 'alice',
+      tokenIdentifier: 'alice',
       email: 'alice@example.test',
       name: 'Alice',
     })
     const bob = ctx.raw.withIdentity({
       subject: 'bob',
+      tokenIdentifier: 'bob',
       email: 'bob@example.test',
       name: 'Bob',
     })

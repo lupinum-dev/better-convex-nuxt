@@ -11,6 +11,7 @@ export default tool.operation(removeRunbookDescriptor, {
     removeRunbookDescriptor,
     api.features.runbooks.operations.previewRemove,
   ),
+  previewOperation: 'mutation',
   group: 'workspace',
   meta: {
     name: 'delete-runbook',

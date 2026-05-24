@@ -196,6 +196,7 @@ export const remove = mutation.protected({
 })
 
 export const removePostOp = implementOperation(removePostDescriptor, {
+  identityForwardingFunctionRef: 'posts:removeWithConfirmation',
   guard: canManagePosts,
   load: async (ctx: PostOperationCtx, args: { id: Id<'posts'> }) => {
     const appIdentity = await ctx.appIdentity()
@@ -242,7 +243,7 @@ export const removeWithConfirmation = mutation.protected({
   ...removePostOp,
   identityForwardingFunctionRef: 'posts:removeWithConfirmation',
 })
-export const previewRemove = query.protected({
+export const previewRemove = mutation.protected({
   ...previewOf(removePostOp),
   identityForwardingFunctionRef: 'posts:previewRemove',
 })

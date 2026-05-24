@@ -20,7 +20,7 @@ describe('Auth Identity Continuity', () => {
 
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-alice')
+    expect(h.user.value?.email).toBe('alice@test.com')
     expect(h.authChangedSpy).not.toHaveBeenCalled()
   })
 
@@ -38,13 +38,13 @@ describe('Auth Identity Continuity', () => {
 
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-bob')
+    expect(h.user.value?.email).toBe('bob@test.com')
     expect(h.authChangedSpy).toHaveBeenCalledTimes(1)
     expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: true,
       previousIsAuthenticated: true,
-      user: expect.objectContaining({ id: 'user-bob' }),
-      previousUser: expect.objectContaining({ id: 'user-alice' }),
+      sessionUser: expect.objectContaining({ email: 'bob@test.com' }),
+      previousSessionUser: expect.objectContaining({ email: 'alice@test.com' }),
     })
   })
 
@@ -62,7 +62,7 @@ describe('Auth Identity Continuity', () => {
 
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-alice')
+    expect(h.user.value?.email).toBe('alice@test.com')
     expect(exchange.callCount).toBe(1)
   })
 
@@ -91,13 +91,13 @@ describe('Auth Identity Continuity', () => {
 
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-alice')
+    expect(h.user.value?.email).toBe('alice@test.com')
     expect(h.rawAuthError.value).toBeNull()
     expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: true,
       previousIsAuthenticated: false,
-      user: expect.objectContaining({ id: 'user-alice' }),
-      previousUser: null,
+      sessionUser: expect.objectContaining({ email: 'alice@test.com' }),
+      previousSessionUser: null,
     })
   })
 
@@ -119,8 +119,8 @@ describe('Auth Identity Continuity', () => {
     expect(h.authChangedSpy).toHaveBeenCalledWith({
       isAuthenticated: false,
       previousIsAuthenticated: true,
-      user: null,
-      previousUser: expect.objectContaining({ id: 'user-alice' }),
+      sessionUser: null,
+      previousSessionUser: expect.objectContaining({ email: 'alice@test.com' }),
     })
   })
 

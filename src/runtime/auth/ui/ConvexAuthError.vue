@@ -59,7 +59,7 @@ defineSlots<{
   }): unknown
 }>()
 
-const { isAuthenticated, isPending, user, authError } = useConvexAuth()
+const { isAuthenticated, isPending, sessionUser, authError } = useConvexAuth()
 const { token, refreshAuth } = useConvexAuthController()
 
 /**
@@ -79,7 +79,7 @@ const hasError = computed(() => {
   if (authError.value) return true
 
   // Has token but no user = potential decode error
-  if (token.value && !user.value) return true
+  if (token.value && !sessionUser.value) return true
 
   return false
 })
@@ -103,7 +103,7 @@ async function retry() {
 
 const structuredError = computed<StructuredAuthError | null>(() => {
   if (!hasError.value) return null
-  const isTokenDecode = !!(token.value && !user.value)
+  const isTokenDecode = !!(token.value && !sessionUser.value)
   const isExplicitFailure = !!authError.value
   return {
     message:

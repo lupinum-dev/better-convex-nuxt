@@ -17,21 +17,39 @@ export type AppIdentity = DefaultAppIdentity & {
   workspaceId?: Id<'workspaces'>
 }
 
-async function loadActorByAuthId(ctx: TeamTodoCtx, authId: string): Promise<AppIdentity | null> {
+async function loadActorByAuthKey(ctx: TeamTodoCtx, authKey: string): Promise<AppIdentity | null> {
   if (!('db' in ctx)) {
     throw new Error('TeamTodo appIdentity resolution requires a query or mutation context.')
   }
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', authId))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', authKey))
     .first()
 
   if (!user) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
+    role: user.role as Role,
+    workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
+  }
+}
+
+async function loadActorByUserId(ctx: TeamTodoCtx, userId: string): Promise<AppIdentity | null> {
+  if (!('db' in ctx)) {
+    throw new Error('TeamTodo appIdentity resolution requires a query or mutation context.')
+  }
+
+  const user = await ctx.db.get(userId as Id<'users'>)
+  if (!user) return null
+
+  return {
+    kind: 'user',
+    userId: user._id,
+    authKey: user.authKey,
     role: user.role as Role,
     workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
   }
@@ -41,8 +59,8 @@ function getDelegatedUserId(actingFor: ActingFor | null): string | null {
   return getSubjectValue(actingFor?.subject, 'user')
 }
 
-function getUserIdFromPrincipal(caller: TeamTodoPrincipal): string | null {
-  if (caller.kind === 'user' || caller.kind === 'agent') {
+function getAgentUserIdFromPrincipal(caller: TeamTodoPrincipal): string | null {
+  if (caller.kind === 'agent') {
     return caller.userId
   }
 
@@ -57,17 +75,21 @@ export async function getAppIdentityFromCaller(
 ): Promise<AppIdentity | null> {
   const delegatedUserId = getDelegatedUserId(actingFor)
   if (delegatedUserId) {
-    return await loadActorByAuthId(ctx, delegatedUserId)
+    return await loadActorByUserId(ctx, delegatedUserId)
   }
 
-  const directUserId = getUserIdFromPrincipal(caller)
+  if (caller.kind === 'user') {
+    return await loadActorByAuthKey(ctx, caller.authKey)
+  }
+
+  const directUserId = getAgentUserIdFromPrincipal(caller)
   if (!directUserId) return null
 
-  return await loadActorByAuthId(ctx, directUserId)
+  return await loadActorByUserId(ctx, directUserId)
 }
 
 export async function getAppIdentity(ctx: TeamTodoCtx): Promise<AppIdentity | null> {
   const auth = await getAuth(ctx)
   if (!auth) return null
-  return await loadActorByAuthId(ctx, auth.subject)
+  return await loadActorByAuthKey(ctx, auth.authKey)
 }

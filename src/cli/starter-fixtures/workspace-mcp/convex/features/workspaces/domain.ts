@@ -14,7 +14,7 @@ export const createWorkspaceMutation = mutation.protected({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', caller.authKey))
       .first()
 
     if (!user) {

@@ -42,7 +42,7 @@ describe('OWASP A04: Insecure Design (Runtime)', () => {
     expect(exchange.callCount).toBe(1)
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-alice')
+    expect(h.user.value?.email).toBe('alice@test.com')
   })
 
   it('dedupes concurrent signOut calls', async () => {
@@ -151,7 +151,7 @@ describe('OWASP A07: Authentication Failures (Runtime)', () => {
     expect(h.token.value).not.toContain(previousToken ?? '')
     expect(h.isAuthenticated.value).toBe(true)
     expect(h.pending.value).toBe(false)
-    expect(h.user.value?.id).toBe('user-bob')
+    expect(h.user.value?.email).toBe('bob@test.com')
   })
 
   it('does not restore the previous identity after signOut when the exchange misses', async () => {

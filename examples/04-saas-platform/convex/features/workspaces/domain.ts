@@ -18,7 +18,7 @@ export const createWorkspaceMutation = mutation.protected({
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', caller.userId))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', caller.authKey))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
@@ -28,7 +28,7 @@ export const createWorkspaceMutation = mutation.protected({
       name: args.name,
       slug: args.slug,
       plan: 'free',
-      ownerId: caller.userId,
+      ownerId: user._id,
       createdAt: now,
       updatedAt: now,
     })

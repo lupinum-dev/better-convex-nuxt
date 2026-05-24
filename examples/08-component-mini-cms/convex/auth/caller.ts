@@ -5,7 +5,7 @@ import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'conv
 import { miniCmsPrincipalValidator, type MiniCmsPrincipal } from '../../shared/caller'
 import type { DataModel } from '../_generated/dataModel'
 
-export type RootActor = { kind: 'user'; userId: string } | { kind: 'agent'; agentId: string }
+export type RootActor = { kind: 'user'; authKey: string } | { kind: 'agent'; agentId: string }
 
 type RootCtx =
   | GenericQueryCtx<DataModel>
@@ -25,8 +25,8 @@ export const caller = defineCaller({
 
     return {
       kind: 'user',
-      userId: auth.subject,
-      subject: `user:${auth.subject}`,
+      authKey: auth.authKey,
+      subject: `auth:${auth.authKey}`,
     }
   },
 })

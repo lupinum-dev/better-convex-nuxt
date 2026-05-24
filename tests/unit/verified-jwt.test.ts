@@ -47,9 +47,9 @@ describe('verifyServerJwt', () => {
       sub: 'user-1',
     })
     expect(verified.user).toMatchObject({
-      id: 'user-1',
       email: 'owner@example.com',
     })
+    expect(verified.user).not.toHaveProperty('id')
   })
 
   it('rejects wrong issuer and wrong audience tokens', async () => {

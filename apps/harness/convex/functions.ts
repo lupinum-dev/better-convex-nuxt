@@ -10,6 +10,26 @@ import { getAppIdentityFromCaller } from './auth/appIdentity'
 import type { InternalHarnessCaller } from './auth/caller'
 import { caller } from './auth/caller'
 
+async function requirePreviewIdentity(ctx: {
+  appIdentity: () => Promise<AppIdentity>
+}): Promise<NonNullable<AppIdentity>> {
+  const appIdentity = await ctx.appIdentity()
+  if (!appIdentity) throw new Error('Destructive preview confirmation requires identity.')
+  return appIdentity
+}
+
+async function previewCallerKey(ctx: {
+  appIdentity: () => Promise<AppIdentity>
+  caller: () => Promise<InternalHarnessCaller>
+}): Promise<string> {
+  const resolvedCaller = await ctx.caller()
+  if (resolvedCaller.kind === 'agent') {
+    return `agent:${resolvedCaller.agentId}:${resolvedCaller.role}`
+  }
+
+  return (await requirePreviewIdentity(ctx)).userId
+}
+
 export const { mutation, query, unsafe } = defineTrellis<
   DataModel,
   'public',
@@ -32,6 +52,11 @@ export const { mutation, query, unsafe } = defineTrellis<
     destructiveOperations: {
       confirmationTable: 'destructiveConfirmations' as never,
       auditTable: 'destructiveAuditLog' as never,
+      previewConfirmation: {
+        callerKey: previewCallerKey,
+        scopeKey: async (ctx) =>
+          String((await requirePreviewIdentity(ctx)).workspaceId ?? 'global'),
+      },
     },
     observability: trellisObservability,
   },

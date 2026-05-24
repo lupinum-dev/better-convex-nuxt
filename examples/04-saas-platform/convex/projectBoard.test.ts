@@ -217,7 +217,7 @@ describe('server integration workspace example', () => {
     })
 
     await ctx.seed('users', {
-      authId: 'floating-user',
+      authKey: 'floating-user',
       email: 'floating-user@example.test',
       displayName: 'Floating User',
       role: 'viewer',
@@ -230,7 +230,7 @@ describe('server integration workspace example', () => {
 
     expect(members).toHaveLength(2)
     expect(
-      members.find((member: (typeof members)[number]) => member.authId === 'floating-user'),
+      members.find((member: (typeof members)[number]) => member.authKey === 'floating-user'),
     ).toBeUndefined()
   })
 
@@ -297,7 +297,7 @@ describe('server integration workspace example', () => {
     expect(tasks).toHaveLength(1)
     expect(tasks[0]?.title).toBe('Created from webhook')
     expect(tasks[0]?.priority).toBe('high')
-    expect(tasks[0]?.ownerId).toBe(team.users.owner.authId)
+    expect(tasks[0]?.ownerId).toBe(team.users.owner.id)
   })
 
   it('returns access context booleans for owners and viewers', async () => {

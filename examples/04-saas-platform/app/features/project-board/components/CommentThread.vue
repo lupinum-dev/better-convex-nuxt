@@ -23,8 +23,8 @@ const createCommentMutation = useConvexMutation(api.features.comments.domain.cre
 })
 const canCreateComment = can(commentCreate)
 
-function resolveName(authId: string) {
-  return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`
+function resolveName(userId: string) {
+  return props.memberNames?.get(userId) ?? `Member ${userId.slice(0, 8)}…`
 }
 
 const {

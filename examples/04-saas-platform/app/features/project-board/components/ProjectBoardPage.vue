@@ -161,7 +161,7 @@ const { data: members } = await useConvexQuery(
 const memberNames = computed(() => {
   const map = new Map<string, string>()
   for (const m of members.value ?? []) {
-    map.set(m.authId, m.displayName || m.email || m.authId)
+    map.set(m._id, m.displayName || m.email || m.authKey)
   }
   return map
 })
@@ -183,7 +183,7 @@ async function handleCreateTask() {
 }
 
 async function handleArchiveProject() {
-  const preview = await convex.query(api.features.projects.operations.previewArchiveProject, {
+  const preview = await convex.mutation(api.features.projects.operations.previewArchiveProject, {
     id: projectId.value,
   })
   const token = preview.confirmation?.token

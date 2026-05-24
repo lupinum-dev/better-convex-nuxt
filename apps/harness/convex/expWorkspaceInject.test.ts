@@ -11,20 +11,20 @@ import { modules } from './test.setup'
 describe('Experiment 12: __workspaceId injection', () => {
   async function seedUserInOrg(
     t: ReturnType<typeof convexTest>,
-    authId: string,
+    authKey: string,
   ): Promise<{ orgId: string }> {
     const orgId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
         name: 'Acme',
         slug: 'acme',
-        ownerId: authId,
+        ownerId: authKey,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       })
     })
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId,
+        authKey,
         role: 'admin',
         organizationId: orgId,
         displayName: 'A',
@@ -41,7 +41,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     const { orgId } = await seedUserInOrg(t, 'user_a')
 
     const result = await t
-      .withIdentity({ subject: 'user_a' })
+      .withIdentity({ subject: 'user_a', tokenIdentifier: 'user_a' })
       .query(api.expWorkspaceInject.whoAmIAt, {
         __workspaceId: orgId,
         probe: 'hello',
@@ -59,7 +59,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     const { orgId } = await seedUserInOrg(t, 'user_b')
 
     const result = await t
-      .withIdentity({ subject: 'user_b' })
+      .withIdentity({ subject: 'user_b', tokenIdentifier: 'user_b' })
       .query(api.expWorkspaceInject.whoAmIAt, { __workspaceId: orgId })
 
     expect(result.actorWorkspace).toBe(orgId)
@@ -71,7 +71,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     const { orgId } = await seedUserInOrg(t, 'user_c')
 
     const result = await t
-      .withIdentity({ subject: 'user_c' })
+      .withIdentity({ subject: 'user_c', tokenIdentifier: 'user_c' })
       .query(api.expWorkspaceInject.whoAmIAt, {})
 
     expect(result.actorWorkspace).toBe(orgId)
@@ -94,7 +94,7 @@ describe('Experiment 12: __workspaceId injection', () => {
     })
 
     const result = await t
-      .withIdentity({ subject: 'user_d' })
+      .withIdentity({ subject: 'user_d', tokenIdentifier: 'user_d' })
       .query(api.expWorkspaceInject.whoAmIAt, { __workspaceId: otherOrgId })
 
     expect(result.actorWorkspace).toBeNull()

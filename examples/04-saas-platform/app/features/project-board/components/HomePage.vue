@@ -334,8 +334,9 @@ import {
 } from '#trellis/permissions'
 
 const toast = useToast()
-const { client, signOut, user } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 const { can, ready, role, workspaceId, ctx } = useAccess()
 
 const signUpForm = reactive({
@@ -386,7 +387,11 @@ const {
 })
 
 const displayName = computed(
-  () => ctx.value?.displayName || user.value?.name || user.value?.email || 'Signed in',
+  () =>
+    ctx.value?.displayName ||
+    sessionUser.value?.displayName ||
+    sessionUser.value?.email ||
+    'Signed in',
 )
 const currentWorkspace = computed(() => ctx.value?.workspace ?? null)
 const canCreateProject = can(projectCreate)

@@ -4,27 +4,18 @@ import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
 async function setupAuthorizedUser() {
   const t = convexTest(schema, modules)
-
-  const organizationId = await t.run(async (ctx) => {
-    return await ctx.db.insert('organizations', {
-      name: 'Test Org',
-      slug: 'test-org',
-      ownerId: 'user_admin',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    })
-  })
+  let userId!: Id<'users'>
 
   await t.run(async (ctx) => {
-    await ctx.db.insert('users', {
-      authId: 'user_admin',
+    userId = await ctx.db.insert('users', {
+      authKey: 'user_admin',
       role: 'admin',
-      organizationId,
       displayName: 'Admin User',
       email: 'admin@test.com',
       createdAt: Date.now(),
@@ -32,9 +23,27 @@ async function setupAuthorizedUser() {
     })
   })
 
+  const organizationId = await t.run(async (ctx) => {
+    const id = await ctx.db.insert('organizations', {
+      name: 'Test Org',
+      slug: 'test-org',
+      ownerId: userId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+
+    await ctx.db.patch(userId, {
+      organizationId: id,
+      updatedAt: Date.now(),
+    })
+
+    return id
+  })
+
   return {
     organizationId,
-    asAdmin: t.withIdentity({ subject: 'user_admin' }),
+    userId,
+    asAdmin: t.withIdentity({ subject: 'user_admin', tokenIdentifier: 'user_admin' }),
   }
 }
 
@@ -52,7 +61,7 @@ describe('mcpKeys', () => {
   })
 
   it('creates, lists, validates, and revokes MCP keys', async () => {
-    const { asAdmin, organizationId } = await setupAuthorizedUser()
+    const { asAdmin, organizationId, userId } = await setupAuthorizedUser()
 
     const created = await asAdmin.mutation(api.mcpKeys.create, {
       name: 'Claude Desktop',
@@ -68,14 +77,14 @@ describe('mcpKeys', () => {
       name: 'Claude Desktop',
       role: 'member',
       status: 'active',
-      userId: 'user_admin',
+      userId,
       organizationId,
     })
 
     const validated = await asAdmin.query(api.mcpKeys.validate, { keyHash: hashKey(created.key) })
     expect(validated).toMatchObject({
       role: 'member',
-      userId: 'user_admin',
+      userId,
       workspaceId: organizationId,
     })
 

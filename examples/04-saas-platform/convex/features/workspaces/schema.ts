@@ -6,14 +6,14 @@ export const workspaceTables = {
     name: v.string(),
     slug: v.string(),
     plan: v.optional(v.union(v.literal('free'), v.literal('pro'))),
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_slug', ['slug']),
 
   auditEvents: defineTable({
     workspaceId: v.id('workspaces'),
-    actorId: v.string(),
+    actorId: v.id('users'),
     entityType: v.string(),
     entityId: v.string(),
     action: v.string(),

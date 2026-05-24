@@ -6,12 +6,12 @@ import { useConvexAuthController } from '../internal/useConvexAuthController.js'
 import { wrapBetterAuthError } from '../shared/auth-errors.js'
 import { useAuthRedirect } from './useAuthRedirect.js'
 
-export interface UseConvexAuthActionsOptions {
+export interface UseBetterAuthActionsOptions {
   /** Where to redirect after a successful auth flow. Overridden by `?redirect=` query param. */
   redirectTo?: string
 }
 
-export interface UseConvexAuthActionsReturn<T = unknown> {
+export interface UseBetterAuthActionsReturn<T = unknown> {
   /**
    * Execute an auth action, refresh Convex auth state, then redirect.
    *
@@ -20,7 +20,7 @@ export interface UseConvexAuthActionsReturn<T = unknown> {
    */
   execute: <R extends T = T>(
     fn: () => Promise<R>,
-    options?: UseConvexAuthActionsOptions,
+    options?: UseBetterAuthActionsOptions,
   ) => Promise<R | undefined>
   /** Lifecycle status for the latest auth action. */
   status: ComputedRef<MutationStatus>
@@ -43,7 +43,7 @@ function extractBetterAuthError(result: unknown): unknown | null {
   return null
 }
 
-export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<T> {
+export function useBetterAuthActions<T = unknown>(): UseBetterAuthActionsReturn<T> {
   const auth = useConvexAuthController()
   const { redirectAfterAuth } = useAuthRedirect()
 
@@ -66,7 +66,7 @@ export function useConvexAuthActions<T = unknown>(): UseConvexAuthActionsReturn<
 
   const execute = async <R extends T = T>(
     fn: () => Promise<R>,
-    options?: UseConvexAuthActionsOptions,
+    options?: UseBetterAuthActionsOptions,
   ): Promise<R | undefined> => {
     _status.value = 'pending'
     error.value = null

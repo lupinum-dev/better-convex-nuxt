@@ -12,7 +12,7 @@ type PrincipalCtx =
 
 export type Role = Doc<'users'>['role']
 
-export type ProjectBoardPrincipal = { kind: 'anonymous' } | { kind: 'user'; userId: string }
+export type ProjectBoardPrincipal = { kind: 'anonymous' } | { kind: 'user'; authKey: string }
 
 export const projectBoardPrincipalValidator = v.union(
   v.object({
@@ -20,7 +20,7 @@ export const projectBoardPrincipalValidator = v.union(
   }),
   v.object({
     kind: v.literal('user'),
-    userId: v.string(),
+    authKey: v.string(),
   }),
 )
 
@@ -32,7 +32,7 @@ export const caller = defineCaller<PrincipalCtx, ProjectBoardPrincipal>({
 
     return {
       kind: 'user',
-      userId: auth.subject,
+      authKey: auth.authKey,
     }
   },
 })

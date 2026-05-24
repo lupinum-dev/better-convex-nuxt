@@ -56,20 +56,24 @@ export {}
   addImports([
     { name: 'useConvexAuth', from: resolver.resolve('./runtime/auth/composables/useConvexAuth') },
     {
-      name: 'useConvexAuthActions',
-      from: resolver.resolve('./runtime/auth/composables/useConvexAuthActions'),
+      name: 'useBetterAuthClient',
+      from: resolver.resolve('./runtime/auth/composables/useBetterAuthClient'),
     },
     {
-      name: 'useConvexSignIn',
-      from: resolver.resolve('./runtime/auth/composables/useConvexSignIn'),
+      name: 'useBetterAuthActions',
+      from: resolver.resolve('./runtime/auth/composables/useBetterAuthActions'),
     },
     {
-      name: 'useConvexSignUp',
-      from: resolver.resolve('./runtime/auth/composables/useConvexSignUp'),
+      name: 'useBetterAuthSignIn',
+      from: resolver.resolve('./runtime/auth/composables/useBetterAuthSignIn'),
     },
     {
-      name: 'useConvexPasswordReset',
-      from: resolver.resolve('./runtime/auth/composables/useConvexPasswordReset'),
+      name: 'useBetterAuthSignUp',
+      from: resolver.resolve('./runtime/auth/composables/useBetterAuthSignUp'),
+    },
+    {
+      name: 'useBetterAuthPasswordReset',
+      from: resolver.resolve('./runtime/auth/composables/useBetterAuthPasswordReset'),
     },
   ])
 

@@ -5,7 +5,7 @@ export const commentTables = {
   comments: defineTable({
     workspaceId: v.id('workspaces'),
     taskId: v.id('tasks'),
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     body: v.string(),
     attachmentStorageId: v.optional(v.id('_storage')),
     createdAt: v.number(),

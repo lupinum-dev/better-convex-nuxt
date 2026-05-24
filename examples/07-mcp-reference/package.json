@@ -21,7 +21,7 @@
     "convex": "1.38.0",
     "convex-helpers": "^0.1.117",
     "ioredis": "^5.10.1",
-    "nuxt": "^4.4.5",
+    "nuxt": "^4.4.6",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3"
   },

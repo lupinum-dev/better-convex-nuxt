@@ -3,7 +3,7 @@
  * The knowledge base appIdentity includes managerId for team hierarchy visibility, built from the
  * composable appIdentity primitive.
  */
-import { defineAppIdentity, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { defineAppIdentity } from '@lupinum/trellis/auth'
 import type { Infer } from 'convex/values'
 
 import type { DataModel, Id } from '../_generated/dataModel'
@@ -11,10 +11,13 @@ import type { roleValidator } from '../features/users'
 
 type UserRole = Infer<typeof roleValidator>
 
-type KnowledgeBaseActor = DefaultAppIdentity & {
+type KnowledgeBaseActor = {
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
   role: UserRole
   workspaceId: Id<'workspaces'>
-  managerId: string | undefined
+  managerId: Id<'users'> | undefined
 }
 
 const appIdentity = defineAppIdentity
@@ -23,7 +26,7 @@ const appIdentity = defineAppIdentity
     fields: async (_ctx, user) => ({
       role: user.role as UserRole,
       workspaceId: user.workspaceId as Id<'workspaces'> | undefined,
-      managerId: user.managerId ?? undefined,
+      managerId: user.managerId as Id<'users'> | undefined,
     }),
   })
   .filter((value): value is KnowledgeBaseActor => !!value.workspaceId)

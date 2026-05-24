@@ -24,16 +24,16 @@ function getWebhookSecret(): string {
   return secret
 }
 
-function getWebhookActorAuthId(): string {
-  const authId = process.env.MCP_REFERENCE_WEBHOOK_AUTH_ID?.trim()
-  if (!authId) {
+function getWebhookActorUserId(): string {
+  const userId = process.env.MCP_REFERENCE_WEBHOOK_USER_ID?.trim()
+  if (!userId) {
     throw createError({
       statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_AUTH_ID is required for the webhook example.',
+      message: 'MCP_REFERENCE_WEBHOOK_USER_ID is required for the webhook example.',
     })
   }
 
-  return authId
+  return userId
 }
 
 function normalizeVisibility(value: WebhookBody['visibility']): 'draft' | 'workspace' | 'public' {
@@ -61,7 +61,7 @@ function normalizeTags(value: WebhookBody['tags']): string[] {
 }
 
 export default defineEventHandler(async (event) => {
-  const authId = getWebhookActorAuthId()
+  const userId = getWebhookActorUserId()
   const body = await readSharedSecretWebhookBody({
     // Keep the transport check small so the service-caller + actingFor path is the thing being
     // demonstrated. Production senders should usually add timestamped HMAC verification too.
@@ -111,7 +111,7 @@ export default defineEventHandler(async (event) => {
         subject: subject.service('runbook-webhook'),
       },
       actingFor: await delegateToUser({
-        userId: authId,
+        userId,
         allow: true,
         reason: 'verified runbook webhook',
       }),

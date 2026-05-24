@@ -444,7 +444,7 @@ curl {{ endpointBase }}/mcp \
                               required
                             />
                             <USelect
-                              v-model="createKeyForm.boundAuthId"
+                              v-model="createKeyForm.boundUserId"
                               :items="mcpBoundUserOptions"
                               :disabled="!canManageMcp || !mcpBoundUserOptions.length"
                               placeholder="Choose workspace user"
@@ -455,7 +455,7 @@ curl {{ endpointBase }}/mcp \
                                 {{
                                   selectedMcpBoundUser.displayName ||
                                   selectedMcpBoundUser.email ||
-                                  selectedMcpBoundUser.authId
+                                  selectedMcpBoundUser.authKey
                                 }}
                               </span>
                               with their live role
@@ -513,7 +513,7 @@ curl {{ endpointBase }}/mcp \
                                     {{
                                       key.boundUser?.displayName ||
                                       key.boundUser?.email ||
-                                      key.boundAuthId
+                                      key.boundUserId
                                     }}
                                     · live role {{ key.effectiveRole || 'unavailable' }} · status
                                     {{ key.status }}
@@ -624,8 +624,9 @@ import { mcpManage, runbookCreate } from '#trellis/permissions'
 import type { Id } from '~/convex/_generated/dataModel'
 import { selectMcpBoundUser } from '~/shared/features/mcpKeys/bound-user'
 
-const { client, user, signOut } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 const { can, ready, role, workspaceId, ctx, pending: permissionsPending } = useAccess()
 
 const signUpFields: AuthFormField[] = [
@@ -680,7 +681,7 @@ const createRunbookForm = reactive({
 
 const createKeyForm = reactive({
   name: 'Primary agent key',
-  boundAuthId: '',
+  boundUserId: '',
 })
 
 const verifyMcpKeyForm = reactive({
@@ -730,8 +731,8 @@ const displayName = computed(
   () =>
     ctx.value?.displayName ||
     ctx.value?.email ||
-    user.value?.name ||
-    user.value?.email ||
+    sessionUser.value?.displayName ||
+    sessionUser.value?.email ||
     'Signed in user',
 )
 
@@ -748,19 +749,20 @@ const visibilityOptions: Array<'draft' | 'workspace' | 'public'> = ['draft', 'wo
 const mcpBoundUserOptions = computed(() =>
   (mcpKeyUsers.value ?? []).map(
     (user: {
+      userId: string
       displayName?: string | null
       email?: string | null
-      authId: string
+      authKey: string
       role: string
     }) => ({
-      label: `${user.displayName || user.email || user.authId} (${user.role})`,
-      value: user.authId,
+      label: `${user.displayName || user.email || user.authKey} (${user.role})`,
+      value: user.userId,
     }),
   ),
 )
 
 const selectedMcpBoundUser = computed(() =>
-  selectMcpBoundUser(mcpKeyUsers.value ?? [], createKeyForm.boundAuthId),
+  selectMcpBoundUser(mcpKeyUsers.value ?? [], createKeyForm.boundUserId),
 )
 
 const appError = computed(
@@ -852,8 +854,8 @@ async function handleDeleteRunbook(id: Id<'runbooks'>) {
 }
 
 async function handleCreateMcpKey() {
-  const boundAuthId = createKeyForm.boundAuthId.trim()
-  if (!boundAuthId || !selectedMcpBoundUser.value) {
+  const boundUserId = createKeyForm.boundUserId.trim()
+  if (!boundUserId || !selectedMcpBoundUser.value) {
     throw new Error('Choose a workspace user before issuing an MCP key.')
   }
 
@@ -863,7 +865,7 @@ async function handleCreateMcpKey() {
 
   await createKey({
     name: createKeyForm.name,
-    boundAuthId,
+    boundUserId,
     prefix,
     hash,
   })

@@ -26,7 +26,6 @@ export function useAuthBootstrapDevtoolsState(): Ref<AuthBootstrapDevtoolsState>
     mutationName: null,
     pending: false,
     ensured: false,
-    lastUserId: null,
     error: null,
   }))
 }

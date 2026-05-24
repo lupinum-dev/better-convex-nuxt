@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 
 export type MiniCmsPrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
-  | { kind: 'user'; userId: string; subject: `user:${string}` }
+  | { kind: 'user'; authKey: string; subject: `auth:${string}` }
   | { kind: 'agent'; agentId: string; subject: `agent:${string}`; provider: 'mcp' }
 
 export const miniCmsPrincipalValidator = v.union(
@@ -12,7 +12,7 @@ export const miniCmsPrincipalValidator = v.union(
   }),
   v.object({
     kind: v.literal('user'),
-    userId: v.string(),
+    authKey: v.string(),
     subject: v.string(),
   }),
   v.object({

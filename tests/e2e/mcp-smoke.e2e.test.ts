@@ -369,6 +369,9 @@ describe('MCP route smoke', async () => {
       }
     }
 
+    if (confirmedPayload.result?.structuredContent?.ok !== true) {
+      throw new Error(`delete-post confirmed payload ${JSON.stringify(confirmed._data)}`)
+    }
     expect(confirmedPayload.result?.structuredContent?.ok).toBe(true)
     expect(confirmedPayload.result?.structuredContent?.data?.deleted).toBe(true)
 
@@ -377,13 +380,13 @@ describe('MCP route smoke', async () => {
     expect(firstState.audit).toHaveLength(1)
     expect(firstState.confirmations[0]).toMatchObject({
       operationId: 'posts.remove',
-      callerKey: 'agent:mcp-admin-user:admin',
+      callerKey: `agent:${bootstrap.users.admin.id}:admin`,
       scopeKey: bootstrap.organizationId,
     })
     expect(firstState.audit[0]).toMatchObject({
       operationId: 'posts.remove',
       jti: firstState.confirmations[0]?.jti,
-      callerKey: 'agent:mcp-admin-user:admin',
+      callerKey: `agent:${bootstrap.users.admin.id}:admin`,
       scopeKey: bootstrap.organizationId,
       executePath: 'posts:removeWithConfirmation',
     })
@@ -530,7 +533,7 @@ describe('MCP route smoke', async () => {
     expect(driftReplayPayload.result?.isError).toBe(true)
 
     const secondState = await fetchMcpState(fetchAny)
-    expect(secondState.confirmations).toHaveLength(2)
+    expect(secondState.confirmations).toHaveLength(3)
     expect(secondState.audit).toHaveLength(2)
 
     const revokedCall = await rpc(

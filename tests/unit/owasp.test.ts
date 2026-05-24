@@ -117,14 +117,16 @@ describe('OWASP A02: Cryptographic Failures', () => {
     ).toBeNull()
   })
 
-  it('returns a user only when the JWT carries a usable identifier', () => {
+  it('decodes only safe session profile fields from auth JWTs', () => {
     const bySub = decodeUserFromJwt(mintJwt({ sub: 'user-1', name: 'Alice' }))
     const byUserId = decodeUserFromJwt(mintJwt({ userId: 'user-2', email: 'bob@test.com' }))
     const emailOnly = decodeUserFromJwt(mintJwt({ email: 'carol@test.com' }))
 
-    expect(bySub?.id).toBe('user-1')
-    expect(byUserId?.id).toBe('user-2')
-    expect(emailOnly).toBeNull()
+    expect(bySub).toEqual({ displayName: 'Alice' })
+    expect(byUserId).toEqual({ email: 'bob@test.com' })
+    expect(emailOnly).toEqual({ email: 'carol@test.com' })
+    expect(bySub).not.toHaveProperty('id')
+    expect(byUserId).not.toHaveProperty('id')
   })
 })
 

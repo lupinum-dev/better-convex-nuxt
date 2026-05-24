@@ -11,22 +11,20 @@
 /**
  * Authenticated user information from Better Auth / Convex JWT.
  * Used for both SSR hydration and client-side auth state.
+ *
+ * This is a session profile projection only. It intentionally does not expose
+ * the Better Auth component id or the Trellis app `users._id`; app-domain code
+ * must resolve those through Convex app identity.
  */
-export interface ConvexUser {
-  /** Unique user identifier */
-  id: string
-  /** User's display name */
-  name: string
+export interface AuthSessionUser {
   /** User's email address */
-  email: string
+  email?: string
+  /** User's display name */
+  displayName?: string
   /** Whether the email has been verified */
   emailVerified?: boolean
   /** URL to user's profile image */
-  image?: string
-  /** When the user account was created */
-  createdAt?: string
-  /** When the user account was last updated */
-  updatedAt?: string
+  avatarUrl?: string
 }
 
 /**
@@ -203,7 +201,7 @@ export interface ConvexAuthChangedPayload {
   /** Previous effective auth state. */
   previousIsAuthenticated: boolean
   /** Current authenticated user, or null when signed out. */
-  user: ConvexUser | null
+  sessionUser: AuthSessionUser | null
   /** Previous authenticated user, or null when previously signed out. */
-  previousUser: ConvexUser | null
+  previousSessionUser: AuthSessionUser | null
 }

@@ -1156,6 +1156,7 @@ describe('Destructive confirmation payload validation', () => {
 
   it('can keep confirmation token out of transport-confirmed bridge mutations', async () => {
     let executedArgs: Record<string, unknown> | null = null
+    let executeCallOptions: Record<string, unknown> | undefined
 
     const operation = defineOperation({
       id: 'delete-post',
@@ -1178,8 +1179,9 @@ describe('Destructive confirmation payload validation', () => {
       }),
       callConvex: async () => ({
         query: async () => deletePostPreview(),
-        mutation: async (_ref, args) => {
+        mutation: async (_ref, args, options) => {
           executedArgs = args as Record<string, unknown>
+          executeCallOptions = options as Record<string, unknown>
           return { ok: true }
         },
         action: async () => ({ ok: true }),
@@ -1210,6 +1212,12 @@ describe('Destructive confirmation payload validation', () => {
     )
 
     expect(executedArgs).toEqual({ id: 'post-1' })
+    expect(executeCallOptions).toMatchObject({
+      identityForwardingEnvelope: {
+        purpose: 'operation-execute',
+        jti: expect.any(String),
+      },
+    })
   })
 
   it('rejects replayed transport confirmation tokens', async () => {
@@ -1272,7 +1280,7 @@ describe('Destructive confirmation payload validation', () => {
     })
   })
 
-  it('routes destructive operation execute through trusted server forwarding without raw identity args', async () => {
+  it('routes backend-confirmed destructive execute through trusted forwarding without raw identity args', async () => {
     const backendConfirmation = {
       token: 'trellis-confirm-v1.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       expiresAt: Date.now() + 60_000,
@@ -1360,9 +1368,6 @@ describe('Destructive confirmation payload validation', () => {
         auth: 'trusted',
         caller,
         actingFor,
-        identityForwardingEnvelope: {
-          purpose: 'operation-execute',
-        },
       },
     )
   })

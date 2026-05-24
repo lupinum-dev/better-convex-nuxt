@@ -1,4 +1,4 @@
-import { can, defineAuth } from '@lupinum/trellis/auth'
+import { can, defineBetterAuth } from '@lupinum/trellis/auth'
 import type { BetterAuthPlugin } from 'better-auth'
 import { betterAuth } from 'better-auth'
 
@@ -18,7 +18,7 @@ import {
 } from './auth/checks'
 import { query } from './functions'
 
-export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
+export const { authComponent, createAuth, createUserIfNeeded } = defineBetterAuth(
   { components, internal, mutation, authConfig },
   {
     emailPassword: true,
@@ -58,7 +58,6 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
                 email: user.email,
                 emailVerified: user.emailVerified,
                 image: user.image ?? undefined,
-                authId: user.id,
                 role: 'member',
               }),
             },
@@ -72,8 +71,6 @@ export const { authComponent, createAuth, createUserIfNeeded } = defineAuth(
       }),
   },
 )
-
-export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()
 
 export type AppAuth = ReturnType<typeof createAuth>
 
@@ -112,7 +109,7 @@ export const getAccessContext = query.public({
     // Look up user in our database
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', identity.tokenIdentifier))
       .first()
 
     // #region agent log
@@ -122,7 +119,7 @@ export const getAccessContext = query.public({
     debugInfo.role = user?.role
     // #endregion
 
-    // Missing user row means Better Auth sync has not populated the app user table yet.
+    // Missing user row means the Trellis auth bootstrap has not populated the app user table yet.
     if (!user) {
       // #region agent log
       debugInfo.reason = 'user row missing after auth sync'
@@ -142,13 +139,15 @@ export const getAccessContext = query.public({
     const context: {
       role: string
       userId: string
+      authKey: string
       displayName?: string
       email?: string
       workspaceId?: string
       can: Record<string, boolean>
     } = {
       role: user.role,
-      userId: user.authId,
+      userId: user._id,
+      authKey: user.authKey,
       displayName: user.displayName,
       email: user.email,
       can: {

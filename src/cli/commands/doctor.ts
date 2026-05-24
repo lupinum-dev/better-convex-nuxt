@@ -28,13 +28,13 @@ import {
   findConvexAuthSource,
   findConfiguredPermissionQueryPath,
   findMissingCanonicalLayoutPaths,
-  hasBetterAuthTriggerExports,
+  hasBetterAuthBootstrapExport,
   hasBetterConvexNuxtRegistration,
   hasBetterAuthRouteRegistration,
   hasDependency,
   inspectProject,
   isAuthExplicitlyEnabled,
-  usesSyncedUsersTable,
+  usesTrellisUsersTable,
   type ProjectInspection,
 } from '../lib/project.js'
 
@@ -72,8 +72,8 @@ function createDoctorFindings(
   const convexHttpSource = findConvexHttpSource(project)
   const hasAuthRoutes = hasBetterAuthRouteRegistration(project)
   const convexAuthSource = findConvexAuthSource(project)
-  const expectsSyncedUsers = usesSyncedUsersTable(project)
-  const hasAuthTriggers = hasBetterAuthTriggerExports(project)
+  const expectsTrellisUsers = usesTrellisUsersTable(project)
+  const hasAuthBootstrap = hasBetterAuthBootstrapExport(project)
   const identityForwardingExpected = inventory.forwarding.expected
   const identityForwardingKeySource = findEnvKeySource(project, ['CONVEX_IDENTITY_FORWARDING_KEY'])
   const identityForwardingKeyIssue = identityForwardingKeySource
@@ -245,23 +245,23 @@ function createDoctorFindings(
         : 'Register your Better Auth bridge in convex/http.ts so the Nuxt auth proxy can exchange session cookies for Convex JWTs.',
     },
     {
-      id: 'better-auth-triggers-exported',
+      id: 'trellis-auth-bootstrap-exported',
       category: 'auth',
-      title: 'Better Auth trigger exports',
-      status: authExpected && expectsSyncedUsers ? (hasAuthTriggers ? 'pass' : 'warn') : 'pass',
+      title: 'Trellis auth bootstrap export',
+      status: authExpected && expectsTrellisUsers ? (hasAuthBootstrap ? 'pass' : 'warn') : 'pass',
       message: !authExpected
         ? 'Auth is explicitly disabled in nuxt.config.'
-        : !expectsSyncedUsers
-          ? 'No synced users-table pattern was detected in the app source.'
-          : hasAuthTriggers
-            ? `Found Better Auth trigger exports in ${convexAuthSource?.path ?? 'convex/auth.ts'}.`
+        : !expectsTrellisUsers
+          ? 'No Trellis users-table pattern was detected in the app source.'
+          : hasAuthBootstrap
+            ? `Found createUserIfNeeded export in ${convexAuthSource?.path ?? 'convex/auth.ts'}.`
             : convexAuthSource
-              ? `Found ${convexAuthSource.path}, but it does not export authComponent.triggersApi().`
-              : 'Could not find convex/auth.ts with Better Auth trigger exports.',
+              ? `Found ${convexAuthSource.path}, but it does not export createUserIfNeeded.`
+              : 'Could not find convex/auth.ts with the Trellis auth bootstrap export.',
       fixHint:
-        !authExpected || !expectsSyncedUsers
-          ? 'No action needed unless this app resolves actors from a synced users table later.'
-          : 'Export `onCreate`, `onUpdate`, and `onDelete` from `authComponent.triggersApi()` in convex/auth.ts so Better Auth keeps the users table in sync.',
+        !authExpected || !expectsTrellisUsers
+          ? 'No action needed unless this app resolves actors from the Trellis users table later.'
+          : 'Export `createUserIfNeeded` from defineBetterAuth(...) in convex/auth.ts so the client bootstrap can create or refresh the app user row from Convex auth identity.',
     },
     {
       id: 'permissions-query-configured',

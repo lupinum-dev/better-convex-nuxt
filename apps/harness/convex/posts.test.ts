@@ -181,7 +181,7 @@ describe('posts', () => {
     })
 
     it('includes detailed permission diagnostics outside production', async () => {
-      const { asMember, asAdmin } = await setupTestWithMultipleUsers()
+      const { asMember, asAdmin, userIds } = await setupTestWithMultipleUsers()
       const postId = await asAdmin.mutation(api.posts.create, {
         title: 'Admin Post',
         content: 'Content',
@@ -192,7 +192,7 @@ describe('posts', () => {
           id: postId,
           title: 'Still hacked',
         }),
-      ).rejects.toThrow(/AppIdentity:\s+\{"userId":"user_member"/)
+      ).rejects.toThrow(new RegExp(`AppIdentity:\\s+\\{"userId":"${userIds.member}"`))
 
       await expect(
         asMember.mutation(api.posts.update, {

@@ -11,7 +11,8 @@ import type { MembershipRole } from '../features/memberships'
 
 export type AppIdentity = {
   kind: 'user'
-  userId: string
+  userId: Id<'users'>
+  authKey: string
   role: MembershipRole
   workspaceId: Id<'workspaces'>
 }
@@ -27,21 +28,22 @@ export async function getAppIdentity(ctx: Ctx): Promise<AppIdentity | null> {
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q: any) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_key', (q: any) => q.eq('authKey', auth.authKey))
     .first()
   if (!user?.workspaceId) return null
 
   const membership = await ctx.db
     .query('memberships')
     .withIndex('by_user_workspace', (q: any) =>
-      q.eq('userId', user.authId).eq('workspaceId', user.workspaceId!),
+      q.eq('userId', user._id).eq('workspaceId', user.workspaceId!),
     )
     .first()
   if (!membership) return null
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
     role: membership.role,
     workspaceId: user.workspaceId,
   }

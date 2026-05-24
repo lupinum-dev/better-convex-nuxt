@@ -88,10 +88,10 @@ Core client auto-imports are registered by `installCoreTrellis`:
 Auth auto-imports are registered only when `trellis.auth` is enabled:
 
 - `useConvexAuth`
-- `useConvexAuthActions`
-- `useConvexSignIn`
-- `useConvexSignUp`
-- `useConvexPasswordReset`
+- `useBetterAuthActions`
+- `useBetterAuthSignIn`
+- `useBetterAuthSignUp`
+- `useBetterAuthPasswordReset`
 
 Permission auto-imports are registered only when
 `trellis.permissions.query` resolves:

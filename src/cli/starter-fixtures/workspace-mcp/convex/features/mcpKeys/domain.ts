@@ -15,10 +15,7 @@ export const validate = query.public({
       .first()
 
     if (!key || key.status !== 'active') return null
-    const boundUser = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', key.boundAuthId))
-      .first()
+    const boundUser = await ctx.db.get(key.boundUserId)
 
     if (!boundUser?.workspaceId || boundUser.workspaceId !== key.boundWorkspaceId) return null
     if (!boundUser.role) return null
@@ -26,7 +23,7 @@ export const validate = query.public({
     return {
       id: key._id,
       role: boundUser.role,
-      userId: boundUser.authId,
+      userId: boundUser._id,
       workspaceId: boundUser.workspaceId,
       lastUsedAt: key.lastUsedAt ?? null,
     }

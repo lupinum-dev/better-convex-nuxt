@@ -111,10 +111,10 @@ describe('mcp reference example', () => {
 
   it('lets a signed-in user without a workspace create their first workspace', async () => {
     const ctx = createCtx()
-    const authId = 'first_workspace_owner'
+    const authKey = 'first_workspace_owner'
 
     await ctx.seed('users', {
-      authId,
+      authKey,
       email: 'owner@example.com',
       displayName: 'First Owner',
       role: 'member',
@@ -124,7 +124,8 @@ describe('mcp reference example', () => {
 
     const workspaceId = await ctx.raw
       .withIdentity({
-        subject: authId,
+        subject: authKey,
+        tokenIdentifier: authKey,
         email: 'owner@example.com',
         name: 'First Owner',
       })
@@ -137,7 +138,8 @@ describe('mcp reference example', () => {
 
     const accessContext = await ctx.raw
       .withIdentity({
-        subject: authId,
+        subject: authKey,
+        tokenIdentifier: authKey,
         email: 'owner@example.com',
         name: 'First Owner',
       })
@@ -145,7 +147,7 @@ describe('mcp reference example', () => {
 
     expect(accessContext).toMatchObject({
       role: 'owner',
-      userId: authId,
+      userId: expect.any(String),
       workspaceId: workspaceId,
       can: {
         [runbookRead.key]: true,
@@ -158,9 +160,9 @@ describe('mcp reference example', () => {
 
   it('returns an onboarding-safe access context for authenticated users without a workspace', async () => {
     const ctx = createCtx()
-    const authId = 'user_without_workspace'
+    const authKey = 'user_without_workspace'
     const userId = await ctx.seed('users', {
-      authId,
+      authKey,
       email: 'onboarding@example.com',
       displayName: 'Onboarding User',
       role: 'member',
@@ -170,7 +172,8 @@ describe('mcp reference example', () => {
 
     const accessContext = await ctx.raw
       .withIdentity({
-        subject: authId,
+        subject: authKey,
+        tokenIdentifier: authKey,
         email: 'onboarding@example.com',
         name: 'Onboarding User',
       })
@@ -178,7 +181,7 @@ describe('mcp reference example', () => {
 
     expect(accessContext).toMatchObject({
       role: 'member',
-      userId: authId,
+      userId,
       workspaceId: null,
       email: 'onboarding@example.com',
       displayName: 'Onboarding User',
@@ -215,7 +218,7 @@ describe('mcp reference example', () => {
             provider: 'mcp',
           },
           actingFor: {
-            subject: `user:${team.users.member.authId}`,
+            subject: `user:${team.users.member.id}`,
           },
         },
       ),
@@ -223,7 +226,7 @@ describe('mcp reference example', () => {
 
     expect(accessContext).toMatchObject({
       role: 'member',
-      userId: team.users.member.authId,
+      userId: team.users.member.id,
       can: {
         [runbookRead.key]: true,
         [runbookCreate.key]: true,
@@ -281,8 +284,8 @@ describe('mcp reference example', () => {
       ctx
         .asCaller({
           kind: 'user',
-          userId: team.users.viewer.authId,
-          subject: `user:${team.users.viewer.authId}`,
+          authKey: team.users.viewer.authKey,
+          subject: `auth:${team.users.viewer.authKey}`,
         })
         .mutation(api.features.runbooks.domain.create, {
           title: 'Viewer should fail',
@@ -334,7 +337,7 @@ describe('mcp reference example', () => {
               subject: 'service:runbook-webhook',
             },
             actingFor: {
-              subject: `user:${team.users.viewer.authId}`,
+              subject: `user:${team.users.viewer.id}`,
               reason: 'verified runbook webhook',
             },
           },
@@ -362,7 +365,7 @@ describe('mcp reference example', () => {
               subject: 'service:runbook-webhook',
             },
             actingFor: {
-              subject: `user:${team.users.member.authId}`,
+              subject: `user:${team.users.member.id}`,
               reason: 'verified runbook webhook',
             },
           },
@@ -383,7 +386,7 @@ describe('mcp reference example', () => {
 
     const keyId = await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Primary key',
-      boundAuthId: team.users.member.authId,
+      boundUserId: team.users.member.id,
       prefix: 'mcp_deadbeef...',
       hash: 'hash_123',
     })
@@ -392,7 +395,7 @@ describe('mcp reference example', () => {
       hash: 'hash_123',
     })
     expect(validated?.id).toBe(keyId)
-    expect(validated?.userId).toBe(team.users.member.authId)
+    expect(validated?.userId).toBe(team.users.member.id)
     expect(validated?.role).toBe('member')
 
     await ctx.raw.mutation(api.features.mcpKeys.domain.touch, { hash: 'hash_123' })
@@ -416,7 +419,7 @@ describe('mcp reference example', () => {
     expect(keysAfterDebouncedTouch[0]?.lastUsedAt).toEqual(expect.any(Number))
     expect(keysAfterDebouncedTouch[0]?.lastUsedAt).not.toBe(0)
     expect('hash' in (keysAfterDebouncedTouch[0] ?? {})).toBe(false)
-    expect(keysAfterDebouncedTouch[0]?.boundUser?.authId).toBe(team.users.member.authId)
+    expect(keysAfterDebouncedTouch[0]?.boundUser?.authKey).toBe(team.users.member.authKey)
     expect(keysAfterDebouncedTouch[0]?.effectiveRole).toBe('member')
     expect(keysAfterDebouncedTouch[0]?.usability).toBe('usable')
   })
@@ -433,7 +436,7 @@ describe('mcp reference example', () => {
 
     await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Member key',
-      boundAuthId: team.users.member.authId,
+      boundUserId: team.users.member.id,
       prefix: 'mcp_member...',
       hash: 'hash_member',
     })
@@ -442,7 +445,7 @@ describe('mcp reference example', () => {
       await ctx.raw.query(api.features.mcpKeys.domain.validate, { hash: 'hash_member' }),
     ).toMatchObject({
       role: 'member',
-      userId: team.users.member.authId,
+      userId: team.users.member.id,
     })
 
     await ctx.raw.run(async (innerCtx) => {
@@ -456,7 +459,7 @@ describe('mcp reference example', () => {
       await ctx.raw.query(api.features.mcpKeys.domain.validate, { hash: 'hash_member' }),
     ).toMatchObject({
       role: 'viewer',
-      userId: team.users.member.authId,
+      userId: team.users.member.id,
     })
   })
 
@@ -472,7 +475,7 @@ describe('mcp reference example', () => {
 
     const keyId = await team.users.owner.mutation(api.features.mcpKeys.domain.create, {
       name: 'Member key',
-      boundAuthId: team.users.member.authId,
+      boundUserId: team.users.member.id,
       prefix: 'mcp_member...',
       hash: 'hash_member_dead',
     })

@@ -14,7 +14,8 @@ type Membership = Doc<'memberships'>
 
 export type AgencyActor = {
   kind: 'agency_user'
-  userId: string
+  userId: Id<'users'>
+  authKey: string
 }
 
 export async function getAgencyActor(ctx: Ctx): Promise<AgencyActor | null> {
@@ -23,17 +24,18 @@ export async function getAgencyActor(ctx: Ctx): Promise<AgencyActor | null> {
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_key', (q) => q.eq('authKey', auth.authKey))
     .first()
   if (!user) return null
 
   return {
     kind: 'agency_user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
   }
 }
 
-export async function getMemberships(db: Db, userId: string): Promise<Array<Membership>> {
+export async function getMemberships(db: Db, userId: Id<'users'>): Promise<Array<Membership>> {
   return db
     .query('memberships')
     .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -42,7 +44,7 @@ export async function getMemberships(db: Db, userId: string): Promise<Array<Memb
 
 export async function requireAnyAgencyRole(
   db: Db,
-  userId: string,
+  userId: Id<'users'>,
   ...roles: Array<Membership['role']>
 ): Promise<void> {
   const memberships = await getMemberships(db, userId)
@@ -53,7 +55,7 @@ export async function requireAnyAgencyRole(
 
 export async function requireWorkspaceMembership(
   db: Db,
-  userId: string,
+  userId: Id<'users'>,
   workspaceId: Id<'workspaces'>,
 ): Promise<Membership> {
   const membership = await db

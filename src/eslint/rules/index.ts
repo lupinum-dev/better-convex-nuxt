@@ -13,7 +13,6 @@ export const rules = {
 
 export const recommendedRuleLevels: Record<string, 'error' | 'warn'> = {
   [`${TENANT_RULE_NAME}/mcp-scoped-requires-auth`]: 'error',
-  [`${TENANT_RULE_NAME}/no-owner-id-as-document-id`]: 'error',
   [`${TENANT_RULE_NAME}/await-convex-query`]: 'error',
   [`${TENANT_RULE_NAME}/reactive-query-args`]: 'error',
   [`${TENANT_RULE_NAME}/appIdentity-access-after-enforce`]: 'error',

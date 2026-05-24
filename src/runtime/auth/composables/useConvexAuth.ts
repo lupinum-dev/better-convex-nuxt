@@ -1,19 +1,16 @@
-import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import type { ConvexUser } from '../../utils/types.js'
+import type { AuthSessionUser } from '../../utils/types.js'
 import { getConvexAuthRuntime, type ConvexAuthRuntime } from '../internal/auth-runtime.js'
 
 // Re-export for convenience
-export type { ConvexUser } from '../../utils/types.js'
-
-type AuthClient = ReturnType<typeof createAuthClient>
+export type { AuthSessionUser } from '../../utils/types.js'
 
 export interface UseConvexAuthReturn {
-  /** The authenticated user data (readonly) */
-  user: Readonly<Ref<ConvexUser | null>>
+  /** Authenticated session profile data (readonly). Does not expose app or provider ids. */
+  sessionUser: Readonly<Ref<AuthSessionUser | null>>
   /** Whether the user is currently authenticated */
   isAuthenticated: ComputedRef<boolean>
   /** Whether auth is still initializing (true on client until first token fetch resolves) */
@@ -22,8 +19,6 @@ export interface UseConvexAuthReturn {
   isAnonymous: ComputedRef<boolean>
   /** True when the user was previously authenticated but lost their session */
   isSessionExpired: ComputedRef<boolean>
-  /** Better Auth client for direct sign-in, sign-up, and provider actions. */
-  client: AuthClient | null
   /** Re-sync Convex auth state after a Better Auth session change. Throws only on real refresh failure. */
   refreshAuth: () => Promise<void>
   /** Last auth error as an Error instance, or null when healthy. */
@@ -51,7 +46,7 @@ export type { ConvexAuthRuntime }
  * @example
  * ```vue
  * <script setup>
- * const { user, isAuthenticated, isPending, signOut } = useConvexAuth()
+ * const { sessionUser, isAuthenticated, isPending, signOut } = useConvexAuth()
  *
  * async function handleLogout() {
  *   await signOut()
@@ -62,7 +57,8 @@ export type { ConvexAuthRuntime }
  *
  * To sign in directly with Better Auth and refresh Convex auth state afterwards:
  * ```ts
- * const { client, refreshAuth } = useConvexAuth()
+ * const client = useBetterAuthClient()
+ * const { refreshAuth } = useConvexAuth()
  * await client!.signIn.email({ email, password })
  * await refreshAuth()
  * ```

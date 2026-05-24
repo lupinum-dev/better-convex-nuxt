@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 import { fetchWithTimeout } from '../../convex/server/http.js'
 import type { NormalizedConvexRuntimeConfig } from '../../convex/shared/runtime-config.js'
 import { SERVER_FETCH_TIMEOUT_MS } from '../../utils/constants.js'
-import type { ConvexUser, ConvexServerAuthMode } from '../../utils/types.js'
+import type { AuthSessionUser, ConvexServerAuthMode } from '../../utils/types.js'
 import type { AuthWaterfallPhase } from '../shared/auth-debug.js'
 import {
   buildMissingSiteUrlMessage,
@@ -32,7 +32,7 @@ export interface AuthResolutionTrace {
 
 export interface ResolvedRequestAuth {
   token: string | null
-  user: ConvexUser | null
+  user: AuthSessionUser | null
   error: string | null
   source: 'cache' | 'exchange' | 'none'
   hasSessionCookie: boolean
@@ -297,7 +297,7 @@ async function resolveRequestAuthUncached(
         }
 
         const verifyStart = Date.now()
-        let user: ConvexUser | null = null
+        let user: AuthSessionUser | null = null
         let verificationError: Error | null = null
         try {
           user = (await verifyServerJwt(cachedToken, config.siteUrl)).user
@@ -403,7 +403,7 @@ async function resolveRequestAuthUncached(
       )
 
       const verifyStart = Date.now()
-      let user: ConvexUser | null = null
+      let user: AuthSessionUser | null = null
       let verificationError: Error | null = null
       try {
         user = (await verifyServerJwt(tokenResponse.token, config.siteUrl)).user

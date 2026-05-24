@@ -35,6 +35,7 @@ const convexCliPath = fileURLToPath(
   new URL('../../../node_modules/convex/bin/main.js', import.meta.url),
 )
 const execFileAsync = promisify(execFile)
+const MANAGED_CONVEX_DEPLOYMENT = 'anonymous:anonymous-harness'
 const MANAGED_CONVEX_ENV_SET_RETRIES = 10
 const MANAGED_CONVEX_ENV_SET_RETRY_DELAY_MS = 500
 const MANAGED_CONVEX_ENV_DISCOVERY_TIMEOUT_MS = 15_000
@@ -51,7 +52,7 @@ function isRetryableConvexEnvSetError(error: unknown): boolean {
     'stderr' in error && typeof error.stderr === 'string' ? error.stderr : '',
   ].join('\n')
 
-  return /OptimisticConcurrencyControlFailure|fetch failed|ECONNREFUSED|connection refused|timed out/i.test(
+  return /OptimisticConcurrencyControlFailure|Environment variables have changed|Unable to start push|Failed to load deployment config|fetch failed|ECONNREFUSED|connection refused|timed out/i.test(
     details,
   )
 }
@@ -233,6 +234,22 @@ export async function ensureManagedLocalConvex(
 
   if (!activeHandle) {
     const restoreGenerated = await snapshotGeneratedDir(cwd)
+    const envFilePath = path.join(cwd, '.env.local')
+    const originalEnvFile = await readFile(envFilePath).catch((error: unknown) => {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        return null
+      }
+      throw error
+    })
+    const restoreEnvFile = async () => {
+      if (originalEnvFile === null) {
+        await rm(envFilePath, { force: true })
+        return
+      }
+      await writeFile(envFilePath, originalEnvFile)
+    }
+
+    await rm(path.join(cwd, '.convex', 'local', 'default'), { recursive: true, force: true })
     const managedPorts = new Set<number>([resolved.port, resolved.port + 1])
     for (const candidate of [resolved.url, initialSiteUrl]) {
       try {
@@ -261,6 +278,7 @@ export async function ensureManagedLocalConvex(
         SITE_URL: process.env.SITE_URL ?? 'http://localhost:3000',
         BETTER_AUTH_SECRET:
           process.env.BETTER_AUTH_SECRET ?? 'local-test-better-auth-secret-not-for-production',
+        CONVEX_DEPLOYMENT: MANAGED_CONVEX_DEPLOYMENT,
         CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
         CONVEX_LOCAL_BACKEND_PORT: String(resolved.port),
       },
@@ -272,6 +290,7 @@ export async function ensureManagedLocalConvex(
         try {
           await managedProcess.stop()
         } finally {
+          await restoreEnvFile()
           await restoreGenerated()
         }
       },
@@ -302,6 +321,7 @@ export async function ensureManagedLocalConvex(
           },
           {
             ...process.env,
+            CONVEX_DEPLOYMENT: MANAGED_CONVEX_DEPLOYMENT,
             CONVEX_URL: managedEnv.url,
             CONVEX_SITE_URL: managedEnv.siteUrl,
             CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
@@ -313,22 +333,11 @@ export async function ensureManagedLocalConvex(
         assertLocalAuthReady({
           cwd,
           env: {
+            CONVEX_DEPLOYMENT: MANAGED_CONVEX_DEPLOYMENT,
             CONVEX_URL: managedEnv.url,
             CONVEX_SITE_URL: managedEnv.siteUrl,
           },
           timeoutMs: 20_000,
-        }),
-        managedProcess.unexpectedExit,
-      ])
-      await Promise.race([
-        execFileAsync(process.execPath, [convexCliPath, 'codegen'], {
-          cwd,
-          env: {
-            ...process.env,
-            CONVEX_URL: managedEnv.url,
-            CONVEX_SITE_URL: managedEnv.siteUrl,
-            CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
-          },
         }),
         managedProcess.unexpectedExit,
       ])
@@ -337,6 +346,7 @@ export async function ensureManagedLocalConvex(
       try {
         await managedProcess.stop()
       } finally {
+        await restoreEnvFile()
         await restoreGenerated()
       }
       throw managedProcess.createFailure('Managed local Convex failed to become ready.', error)
@@ -361,6 +371,7 @@ export async function ensureManagedLocalConvex(
   return {
     env: {
       ALLOW_TEST_RESET: 'true',
+      CONVEX_DEPLOYMENT: MANAGED_CONVEX_DEPLOYMENT,
       CONVEX_IDENTITY_FORWARDING_KEY: identityForwardingKey,
       CONVEX_URL: activeHandle.url,
       CONVEX_SITE_URL: finalSiteUrl,

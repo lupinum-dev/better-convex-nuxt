@@ -22,7 +22,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
 
     await t.run(async (ctx) => {
       await ctx.db.insert('users', {
-        authId: 'user_owner',
+        authKey: 'user_owner',
         role: 'admin',
         organizationId: orgId,
         displayName: 'Owner',
@@ -40,7 +40,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     const { orgId } = await setupOrgWithUser(t)
 
     const result = await t
-      .withIdentity({ subject: 'user_owner' })
+      .withIdentity({ subject: 'user_owner', tokenIdentifier: 'user_owner' })
       .query(api.expValueCtx.getPrincipalAndActor, {})
 
     expect(result.principalIsValue).toBe(true)
@@ -89,7 +89,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     })
 
     const result = await t
-      .withIdentity({ subject: 'user_owner' })
+      .withIdentity({ subject: 'user_owner', tokenIdentifier: 'user_owner' })
       .query(api.expValueCtx.getMyPosts, {})
 
     // RLS should filter to only the user's org posts
@@ -122,7 +122,7 @@ describe('Exp 3: Value-Based ctx + Raw DB Resolution', () => {
     const { orgId } = await setupOrgWithUser(t)
 
     const result = await t
-      .withIdentity({ subject: 'user_owner' })
+      .withIdentity({ subject: 'user_owner', tokenIdentifier: 'user_owner' })
       .mutation(api.expValueCtx.createPostViaMutation, { title: 'Test Post' })
 
     expect(result.id).toBeTruthy()

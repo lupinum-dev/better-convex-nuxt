@@ -13,8 +13,7 @@ import { captureInNuxt } from '../support/nuxt/runtime-harness'
 import { createDeferred } from '../support/unit/deferred'
 
 const AUTH_USER = {
-  id: 'u-auth',
-  name: 'Auth User',
+  displayName: 'Auth User',
   email: 'auth@test.com',
 }
 
@@ -56,7 +55,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       installMockAuthEngine({
         fetchAuthState: async (_input) => ({
           token: 'new.jwt.token',
-          user: { id: 'u2', name: 'User Two', email: 'u2@test.com' },
+          user: { displayName: 'User Two', email: 'u2@test.com' },
           error: null,
           source: 'exchange',
         }),
@@ -67,7 +66,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     await result.internal.refreshAuth()
     expect(result.internal.token.value).toBe('new.jwt.token')
-    expect(result.auth.user.value).toEqual({ id: 'u2', name: 'User Two', email: 'u2@test.com' })
+    expect(result.auth.sessionUser.value).toEqual({ displayName: 'User Two', email: 'u2@test.com' })
     expect(result.auth.isAuthenticated.value).toBe(true)
     expect(result.auth.isPending.value).toBe(false)
   })
@@ -76,7 +75,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
         initialToken: 'stale.jwt.token',
-        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        initialUser: { displayName: 'Stale User', email: 'stale@test.com' },
         fetchAuthState: async (_input) => ({
           token: null,
           user: null,
@@ -90,7 +89,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     await expect(result.internal.refreshAuth()).resolves.toBeUndefined()
     expect(result.internal.token.value).toBeNull()
-    expect(result.auth.user.value).toBeNull()
+    expect(result.auth.sessionUser.value).toBeNull()
     expect(result.auth.isAuthenticated.value).toBe(false)
     expect(result.auth.authError.value).toBeNull()
     expect(result.auth.isPending.value).toBe(false)
@@ -100,7 +99,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
         initialToken: 'stale.jwt.token',
-        initialUser: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+        initialUser: { displayName: 'Stale User', email: 'stale@test.com' },
         fetchAuthState: async (_input) => ({
           token: null,
           user: null,
@@ -114,7 +113,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     await expect(result.internal.refreshAuth()).rejects.toThrow('refresh exchange failed')
     expect(result.internal.token.value).toBeNull()
-    expect(result.auth.user.value).toBeNull()
+    expect(result.auth.sessionUser.value).toBeNull()
     expect(result.auth.isAuthenticated.value).toBe(false)
     expect(result.auth.authError.value?.message).toBe('refresh exchange failed')
     expect(result.auth.isPending.value).toBe(false)
@@ -128,11 +127,11 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
       const pending = useState<boolean>('convex:pending')
       const token = useState<string | null>('convex:token')
-      const user = useState<{ id: string } | null>('convex:user')
+      const user = useState<{ email: string } | null>('convex:user')
 
       setTimeout(() => {
         token.value = 'ready.jwt.token'
-        user.value = { id: 'u-ready' }
+        user.value = { email: 'ready@test.com' }
         pending.value = false
       }, 10)
 
@@ -162,7 +161,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
       installMockAuthEngine({
         fetchAuthState: async (_input) => ({
           token: 'hook-test.jwt.token',
-          user: { id: 'u-hook', name: 'Hook User', email: 'hook@test.com' },
+          user: { displayName: 'Hook User', email: 'hook@test.com' },
           error: null,
           source: 'exchange',
         }),
@@ -191,7 +190,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const { result } = await captureInNuxt(() => {
       installMockAuthEngine({
         initialToken: 'active.jwt.token',
-        initialUser: { id: 'u-active', name: 'Active User', email: 'active@test.com' },
+        initialUser: { displayName: 'Active User', email: 'active@test.com' },
         invalidate: async () => {
           throw new Error('invalidate failed')
         },
@@ -226,7 +225,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     deferredResult.resolve({
       token: 'stale.jwt.token',
-      user: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+      user: { displayName: 'Stale User', email: 'stale@test.com' },
       error: null,
       source: 'exchange',
       onCommit,
@@ -256,7 +255,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
     const nextTransport = buildMockTransport({
       fetchAuthState: async (_input) => ({
         token: 'fresh.jwt.token',
-        user: { id: 'u-fresh', name: 'Fresh User', email: 'fresh@test.com' },
+        user: { displayName: 'Fresh User', email: 'fresh@test.com' },
         error: null,
         source: 'exchange',
       }),
@@ -269,7 +268,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     deferredResult.resolve({
       token: 'stale.jwt.token',
-      user: { id: 'u-stale', name: 'Stale User', email: 'stale@test.com' },
+      user: { displayName: 'Stale User', email: 'stale@test.com' },
       error: null,
       source: 'exchange',
       onCommit: oldOnCommit,
@@ -287,8 +286,7 @@ describe('useConvexAuthController (Nuxt runtime)', () => {
 
     expect(result.token.value).toBe('fresh.jwt.token')
     expect(result.user.value).toEqual({
-      id: 'u-fresh',
-      name: 'Fresh User',
+      displayName: 'Fresh User',
       email: 'fresh@test.com',
     })
   })

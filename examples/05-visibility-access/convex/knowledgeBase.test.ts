@@ -311,7 +311,7 @@ describe('enrollment', () => {
     // Enroll the viewer
     await team.users.owner.mutation(api.features.knowledgeBases.domain.enroll, {
       knowledgeBaseId: kbId,
-      userId: team.users.viewer.authId,
+      userId: team.users.viewer.id,
     })
 
     // Now viewer can access
@@ -381,7 +381,7 @@ describe('prerequisites', () => {
 
     await team.users.owner.mutation(api.features.knowledgeBases.domain.enroll, {
       knowledgeBaseId: kbId,
-      userId: team.users.viewer.authId,
+      userId: team.users.viewer.id,
     })
 
     // Without completing intro, advanced is blocked
@@ -595,14 +595,14 @@ describe('inherited access levels', () => {
     // Enroll viewer and grant explicit share on parent
     await team.users.owner.mutation(api.features.knowledgeBases.domain.enroll, {
       knowledgeBaseId: kbId,
-      userId: team.users.viewer.authId,
+      userId: team.users.viewer.id,
     })
 
     // Add a direct share for the parent article via raw db
     await ctx.seed('articleShares', {
       workspaceId: team.id as never,
       articleId: parentId,
-      userId: team.users.viewer.authId,
+      userId: team.users.viewer.id,
       level: 'comment',
       createdAt: Date.now(),
     })

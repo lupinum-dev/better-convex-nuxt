@@ -6,7 +6,7 @@ import { createIdentityForwardingEnvelopeArgs } from '../../src/runtime/identity
 
 type FakeUser = {
   _id: string
-  authId: string
+  authKey: string
   role: string
   workspaceId?: string
   plan?: string
@@ -36,7 +36,7 @@ function signedForwardingArgs(options: {
 }
 
 function createCtx(options: {
-  identity: { subject: string } | null
+  identity: { subject: string; tokenIdentifier?: string } | null
   users?: FakeUser[]
   memberships?: FakeMembership[]
 }): AppIdentityCtx {
@@ -45,9 +45,16 @@ function createCtx(options: {
 
   return {
     auth: {
-      getUserIdentity: async () => options.identity,
+      getUserIdentity: async () =>
+        options.identity
+          ? {
+              ...options.identity,
+              tokenIdentifier: options.identity.tokenIdentifier ?? options.identity.subject,
+            }
+          : null,
     },
     db: {
+      get: async (id: string) => users.find((user) => user._id === id) ?? null,
       query(table: string) {
         return {
           withIndex(
@@ -66,8 +73,8 @@ function createCtx(options: {
 
             return {
               first: async () => {
-                if (table === 'users' && index === 'by_auth_id') {
-                  return users.find((user) => user.authId === terms.get('authId')) ?? null
+                if (table === 'users' && index === 'by_auth_key') {
+                  return users.find((user) => user.authKey === terms.get('authKey')) ?? null
                 }
 
                 if (table === 'memberships' && index === 'by_user') {
@@ -94,7 +101,7 @@ describe('defineAppIdentity', () => {
       .extend({
         fields: async (_ctx, user, baseActor) => ({
           plan: user.plan ?? 'free',
-          summary: `${baseActor.role}:${String(user.authId)}`,
+          summary: `${baseActor.role}:${String(user.authKey)}`,
         }),
       })
       .filter(
@@ -115,7 +122,7 @@ describe('defineAppIdentity', () => {
           users: [
             {
               _id: 'user-1',
-              authId: 'alice',
+              authKey: 'alice',
               role: 'admin',
               workspaceId: 'workspace-1',
               plan: 'pro',
@@ -125,7 +132,8 @@ describe('defineAppIdentity', () => {
       ),
     ).resolves.toEqual({
       kind: 'user',
-      userId: 'alice',
+      userId: 'user-1',
+      authKey: 'alice',
       role: 'admin',
       workspaceId: 'workspace-1',
       plan: 'pro',
@@ -138,10 +146,10 @@ describe('defineAppIdentity', () => {
       defineAppIdentity.fromAuth().resolve(
         createCtx({
           identity: { subject: 'missing' },
-          users: [{ _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' }],
+          users: [{ _id: 'user-1', authKey: 'alice', role: 'member', workspaceId: 'workspace-1' }],
         }),
       ),
-    ).rejects.toThrow(/Expected a Trellis users row for auth subject \\"missing\\"/)
+    ).rejects.toThrow(/Expected a Trellis users row for auth key/)
 
     await expect(
       defineAppIdentity
@@ -152,10 +160,12 @@ describe('defineAppIdentity', () => {
         .resolve(
           createCtx({
             identity: { subject: 'missing' },
-            users: [{ _id: 'user-1', authId: 'alice', role: 'member', workspaceId: 'workspace-1' }],
+            users: [
+              { _id: 'user-1', authKey: 'alice', role: 'member', workspaceId: 'workspace-1' },
+            ],
           }),
         ),
-    ).rejects.toThrow(/Expected a Trellis users row for auth subject \\"missing\\"/)
+    ).rejects.toThrow(/Expected a Trellis users row for auth key/)
   })
 
   it('returns null when the auth user is filtered out after resolution', async () => {
@@ -170,7 +180,7 @@ describe('defineAppIdentity', () => {
       requiresTenant.resolve(
         createCtx({
           identity: { subject: 'alice' },
-          users: [{ _id: 'user-1', authId: 'alice', role: 'member' }],
+          users: [{ _id: 'user-1', authKey: 'alice', role: 'member' }],
         }),
       ),
     ).resolves.toBeNull()
@@ -181,7 +191,9 @@ describe('defineAppIdentity', () => {
 
     const ctx = createCtx({
       identity: null,
-      users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
+      users: [
+        { _id: 'user-1', authKey: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' },
+      ],
     })
 
     setIdentityForwardingContext(
@@ -189,15 +201,16 @@ describe('defineAppIdentity', () => {
       signedForwardingArgs({
         caller: {
           kind: 'user',
-          userId: 'trusted_user',
-          subject: 'user:trusted_user',
+          userId: 'user-1',
+          subject: 'user:user-1',
         },
       }),
     )
 
     await expect(defineAppIdentity.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
-      userId: 'trusted_user',
+      userId: 'user-1',
+      authKey: 'trusted_user',
       role: 'admin',
       workspaceId: 'workspace-1',
     })
@@ -209,7 +222,7 @@ describe('defineAppIdentity', () => {
     const ctx = createCtx({
       identity: { subject: 'browser_user' },
       users: [
-        { _id: 'user-1', authId: 'browser_user', role: 'member', workspaceId: 'workspace-1' },
+        { _id: 'user-1', authKey: 'browser_user', role: 'member', workspaceId: 'workspace-1' },
       ],
     })
 
@@ -226,7 +239,8 @@ describe('defineAppIdentity', () => {
 
     await expect(defineAppIdentity.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
-      userId: 'browser_user',
+      userId: 'user-1',
+      authKey: 'browser_user',
       role: 'member',
       workspaceId: 'workspace-1',
     })
@@ -240,7 +254,7 @@ describe('defineAppIdentity', () => {
       users: [
         {
           _id: 'user-1',
-          authId: 'delegated_user',
+          authKey: 'delegated_user',
           role: 'owner',
           workspaceId: 'workspace-1',
         },
@@ -256,14 +270,15 @@ describe('defineAppIdentity', () => {
           subject: 'agent:assistant-bot',
         },
         actingFor: {
-          subject: 'user:delegated_user',
+          subject: 'user:user-1',
         },
       }),
     )
 
     await expect(defineAppIdentity.fromAuth().resolve(ctx)).resolves.toEqual({
       kind: 'user',
-      userId: 'delegated_user',
+      userId: 'user-1',
+      authKey: 'delegated_user',
       role: 'owner',
       workspaceId: 'workspace-1',
     })
@@ -274,7 +289,9 @@ describe('defineAppIdentity', () => {
 
     const ctx = createCtx({
       identity: null,
-      users: [{ _id: 'user-1', authId: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' }],
+      users: [
+        { _id: 'user-1', authKey: 'trusted_user', role: 'admin', workspaceId: 'workspace-1' },
+      ],
     })
 
     setIdentityForwardingContext(
@@ -305,7 +322,7 @@ describe('defineAppIdentity', () => {
           users: [
             {
               _id: 'user-1',
-              authId: 'alice',
+              authKey: 'alice',
               role: 'owner',
               workspaceId: 'workspace-1',
               plan: 'enterprise',
@@ -315,7 +332,8 @@ describe('defineAppIdentity', () => {
       ),
     ).resolves.toEqual({
       kind: 'user',
-      userId: 'alice',
+      userId: 'user-1',
+      authKey: 'alice',
       role: 'owner',
       workspaceId: 'workspace-1',
       plan: 'enterprise',
@@ -330,7 +348,7 @@ describe('defineAppIdentity', () => {
 
     const ctx = createCtx({
       identity: { subject: 'alice' },
-      users: [{ _id: 'user-1', authId: 'alice', role: 'viewer' }],
+      users: [{ _id: 'user-1', authKey: 'alice', role: 'viewer' }],
       memberships: [
         {
           _id: 'membership-1',
@@ -343,7 +361,8 @@ describe('defineAppIdentity', () => {
 
     await expect(appIdentity.resolve(ctx)).resolves.toEqual({
       kind: 'user',
-      userId: 'alice',
+      userId: 'user-1',
+      authKey: 'alice',
       role: 'admin',
       workspaceId: 'workspace-2',
     })

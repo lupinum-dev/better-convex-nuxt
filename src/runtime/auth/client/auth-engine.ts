@@ -18,7 +18,7 @@ import type { createAuthClient } from 'better-auth/vue'
 import { computed, type ComputedRef, type Ref } from 'vue'
 
 import { AUTH_REFRESH_TIMEOUT_MS } from '../../utils/constants.js'
-import type { ConvexAuthChangedPayload, ConvexUser } from '../../utils/types.js'
+import type { ConvexAuthChangedPayload, AuthSessionUser } from '../../utils/types.js'
 import { waitForPendingClear } from '../shared/auth-pending.js'
 import {
   buildAuthSnapshot,
@@ -61,7 +61,7 @@ type AuthSource = 'skip' | 'hydrated-token' | 'recent-token-cache' | 'exchange'
  * defer side effects (like updating cache timestamps) until commit.
  */
 export type ClientAuthStateResult =
-  | { token: string; user: ConvexUser; error: null; source: AuthSource; onCommit?: () => void }
+  | { token: string; user: AuthSessionUser; error: null; source: AuthSource; onCommit?: () => void }
   | { token: null; user: null; error: string | null; source: AuthSource; onCommit?: () => void }
 
 /** Callback signature used by ConvexClient.setAuth(). */
@@ -119,7 +119,7 @@ interface AuthEngineState {
 
 export interface SharedAuthEngine {
   token: Readonly<Ref<string | null>>
-  user: Readonly<Ref<ConvexUser | null>>
+  user: Readonly<Ref<AuthSessionUser | null>>
   pending: Readonly<Ref<boolean>>
   rawAuthError: Readonly<Ref<string | null>>
   wasAuthenticated: Readonly<Ref<boolean>>
@@ -142,7 +142,7 @@ export interface SharedAuthEngine {
 export interface CreateSharedAuthEngineOptions {
   nuxtApp: RuntimeHookApp
   token: Ref<string | null>
-  user: Ref<ConvexUser | null>
+  user: Ref<AuthSessionUser | null>
   pending: Ref<boolean>
   rawAuthError: Ref<string | null>
   wasAuthenticated: Ref<boolean>
@@ -182,7 +182,7 @@ function withTimeout<T>(
 function getEngineState(
   nuxtApp: object,
   token: Ref<string | null>,
-  user: Ref<ConvexUser | null>,
+  user: Ref<AuthSessionUser | null>,
 ): AuthEngineState {
   const store = nuxtApp as NuxtAppStore
   const existing = store[AUTH_ENGINE_STATE_KEY] as AuthEngineState | undefined
@@ -274,7 +274,7 @@ export function createSharedAuthEngine(options: CreateSharedAuthEngineOptions): 
     )
   }
 
-  const commitAuthenticated = (nextToken: string, nextUser: ConvexUser) => {
+  const commitAuthenticated = (nextToken: string, nextUser: AuthSessionUser) => {
     token.value = nextToken
     user.value = nextUser
     rawAuthError.value = null

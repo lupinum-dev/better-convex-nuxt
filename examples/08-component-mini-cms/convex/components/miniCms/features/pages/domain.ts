@@ -133,7 +133,7 @@ export const create = mutation.protected({
       appIdentity.kind === 'agent'
         ? `agent:${appIdentity.agentId}`
         : appIdentity.kind === 'editor'
-          ? appIdentity.userId
+          ? appIdentity.authKey
           : (() => {
               throw new Error('Viewer cannot create pages.')
             })()

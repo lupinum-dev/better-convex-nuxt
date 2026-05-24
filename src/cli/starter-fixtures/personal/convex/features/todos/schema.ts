@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 
 export const todosTables = {
   todos: defineTable({
-    ownerId: v.string(),
+    ownerId: v.id('users'),
     title: v.string(),
     completed: v.boolean(),
     createdAt: v.number(),

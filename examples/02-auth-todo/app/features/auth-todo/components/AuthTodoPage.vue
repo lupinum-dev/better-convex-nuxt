@@ -84,7 +84,7 @@
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 class="text-xl font-semibold">
-                {{ user?.name || user?.email || 'Signed in user' }}
+                {{ sessionUser?.displayName || sessionUser?.email || 'Signed in user' }}
               </h2>
               <p class="text-sm text-muted mt-1">
                 SSR can already know who you are, but app appIdentity readiness is separate. The
@@ -183,8 +183,9 @@ import { createTodo } from '~~/shared/features/todos/contract'
 
 import { api } from '#trellis/api'
 
-const { client, isAuthenticated, isPending, user, signOut } = useConvexAuth()
-const authAction = useConvexAuthActions()
+const { isAuthenticated, isPending, sessionUser, signOut } = useConvexAuth()
+const client = useBetterAuthClient()
+const authAction = useBetterAuthActions()
 
 const signUpFields: AuthFormField[] = [
   {
@@ -273,7 +274,7 @@ const debugPhase = computed(() => {
 
 if (import.meta.dev) {
   watch(
-    [debugPhase, () => user.value?.id ?? null, () => todos.value?.length ?? 0, todoError],
+    [debugPhase, () => sessionUser.value?.email ?? null, () => todos.value?.length ?? 0, todoError],
     ([phase, userId, todoCount, error], previous) => {
       const [previousPhase, previousUserId, previousTodoCount, previousError] = previous ?? []
       if (

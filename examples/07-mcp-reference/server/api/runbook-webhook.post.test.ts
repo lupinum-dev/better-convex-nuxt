@@ -69,7 +69,7 @@ describe('example 07 webhook handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.MCP_REFERENCE_WEBHOOK_SECRET = 'mcp-reference-demo'
-    process.env.MCP_REFERENCE_WEBHOOK_AUTH_ID = 'user_bot'
+    process.env.MCP_REFERENCE_WEBHOOK_USER_ID = 'user_bot'
   })
 
   it('verifies the route secret and forwards a service caller plus delegated user', async () => {
@@ -151,14 +151,14 @@ describe('example 07 webhook handler', () => {
   })
 
   it('fails closed when the delegated webhook appIdentity is not configured', async () => {
-    delete process.env.MCP_REFERENCE_WEBHOOK_AUTH_ID
+    delete process.env.MCP_REFERENCE_WEBHOOK_USER_ID
     readBodyMock.mockResolvedValue({
       title: 'Webhook runbook',
     })
 
     await expect(handler(createEvent() as never)).rejects.toMatchObject({
       statusCode: 500,
-      message: 'MCP_REFERENCE_WEBHOOK_AUTH_ID is required for the webhook example.',
+      message: 'MCP_REFERENCE_WEBHOOK_USER_ID is required for the webhook example.',
     })
   })
 

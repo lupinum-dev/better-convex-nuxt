@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 
 export const userTables = {
   users: defineTable({
-    authId: v.string(),
+    authKey: v.string(),
     email: v.optional(v.string()),
     displayName: v.optional(v.string()),
     role: v.optional(
@@ -12,5 +12,5 @@ export const userTables = {
     workspaceId: v.optional(v.id('workspaces')),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index('by_auth_id', ['authId']),
+  }).index('by_auth_key', ['authKey']),
 }

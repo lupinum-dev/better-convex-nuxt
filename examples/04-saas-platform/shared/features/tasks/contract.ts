@@ -40,7 +40,7 @@ export const assignTask = defineArgs({
   description: 'Assign a task to another workspace member.',
   args: {
     id: v.id('tasks'),
-    assigneeId: v.optional(v.string()),
+    assigneeId: v.optional(v.id('users')),
   },
 })
 

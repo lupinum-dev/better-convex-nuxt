@@ -14,7 +14,7 @@ export const membershipRoleValidator = literals(
 
 export const membershipTables = {
   memberships: defineTable({
-    userId: v.string(),
+    userId: v.id('users'),
     workspaceId: v.id('workspaces'),
     role: membershipRoleValidator,
     createdAt: v.number(),

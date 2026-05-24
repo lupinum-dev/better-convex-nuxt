@@ -103,15 +103,15 @@ const { data: members } = await useConvexQuery(
 const memberNames = computed(() => {
   const map = new Map<string, string>()
   for (const m of members.value ?? []) {
-    map.set(m.authId, m.displayName || m.email || m.authId)
+    map.set(m._id, m.displayName || m.email || m.authKey)
   }
   return map
 })
 
 const assigneeOptions = computed(() =>
   (members.value ?? []).map((m) => ({
-    label: m.displayName || m.email || m.authId,
-    value: m.authId,
+    label: m.displayName || m.email || m.authKey,
+    value: m._id,
   })),
 )
 
@@ -125,9 +125,9 @@ const statusLabel = computed(() =>
   (task.value?.status ?? '').replace('_', ' ').replace(/^\w/, (c) => c.toUpperCase()),
 )
 
-function resolveName(authId: string | undefined) {
-  if (!authId) return 'Unassigned'
-  return memberNames.value.get(authId) ?? `Member ${authId.slice(0, 8)}…`
+function resolveName(userId: string | undefined) {
+  if (!userId) return 'Unassigned'
+  return memberNames.value.get(userId) ?? `Member ${userId.slice(0, 8)}…`
 }
 
 const assignTaskMutation = useConvexMutation(api.features.tasks.domain.assign, {

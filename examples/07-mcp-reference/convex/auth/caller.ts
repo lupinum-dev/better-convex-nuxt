@@ -14,7 +14,7 @@ export type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 export type McpReferencePrincipal =
   | { kind: 'anonymous'; subject: 'system:anonymous' }
-  | { kind: 'user'; userId: string; subject: `user:${string}` }
+  | { kind: 'user'; authKey: string; subject: `auth:${string}` }
   | { kind: 'agent'; agentId: string; subject: `agent:${string}`; provider: 'mcp' }
   | { kind: 'service'; serviceId: string; subject: `service:${string}` }
 
@@ -25,7 +25,7 @@ export const mcpReferencePrincipalValidator = v.union(
   }),
   v.object({
     kind: v.literal('user'),
-    userId: v.string(),
+    authKey: v.string(),
     subject: v.string(),
   }),
   v.object({
@@ -57,8 +57,8 @@ export const caller = defineCaller<PrincipalCtx, McpReferencePrincipal>({
     // Browser requests resolve to a plain user caller with a canonical subject.
     return {
       kind: 'user',
-      userId: auth.subject,
-      subject: `user:${auth.subject}`,
+      authKey: auth.authKey,
+      subject: `auth:${auth.authKey}`,
     }
   },
 })

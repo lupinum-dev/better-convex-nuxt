@@ -16,6 +16,7 @@ const previewRemoveRef = previewOperationRef(
 export default tool.operation(removePostDescriptor, {
   execute: removeWithConfirmationRef,
   preview: previewRemoveRef,
+  previewOperation: 'mutation',
   meta: {
     name: 'delete-post',
   },

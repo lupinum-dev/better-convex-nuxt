@@ -1,20 +1,24 @@
-import { getAuth, type DefaultAppIdentity } from '@lupinum/trellis/auth'
+import { getAuth } from '@lupinum/trellis/auth'
 import type { GenericActionCtx, GenericMutationCtx, GenericQueryCtx } from 'convex/server'
 
-import type { DataModel } from '../_generated/dataModel'
+import type { DataModel, Id } from '../_generated/dataModel'
 
 type PersonalCtx =
   | GenericQueryCtx<DataModel>
   | GenericMutationCtx<DataModel>
   | GenericActionCtx<DataModel>
 
-export type AppIdentity = DefaultAppIdentity | null
+export type AppIdentity = {
+  kind: 'user'
+  userId: Id<'users'>
+  authKey: string
+  role: string
+} | null
 
-function missingUserRowMessage(authId: string): string {
+function missingUserRowMessage(authKey: string): string {
   return [
-    `Expected a Trellis users row for auth subject "${authId}", but none was found.`,
-    'Ensure convex/auth.ts exports onCreate, onUpdate, and onDelete from authComponent.triggersApi().',
-    'If those exports are already correct, verify the Trellis auth bootstrap is enabled and healthy.',
+    `Expected a Trellis users row for auth key "${authKey}", but none was found.`,
+    'Verify the Trellis auth bootstrap is enabled and healthy.',
   ].join(' ')
 }
 
@@ -25,16 +29,17 @@ export async function getAppIdentity(ctx: PersonalCtx): Promise<AppIdentity> {
 
   const user = await ctx.db
     .query('users')
-    .withIndex('by_auth_id', (q) => q.eq('authId', auth.subject))
+    .withIndex('by_auth_key', (q) => q.eq('authKey', auth.authKey))
     .first()
 
   if (!user) {
-    throw new Error(missingUserRowMessage(auth.subject))
+    throw new Error(missingUserRowMessage(auth.authKey))
   }
 
   return {
     kind: 'user',
-    userId: user.authId,
+    userId: user._id,
+    authKey: user.authKey,
     role: typeof user.role === 'string' ? user.role : 'member',
   }
 }

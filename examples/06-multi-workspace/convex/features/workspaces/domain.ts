@@ -10,11 +10,11 @@ import { getMemberships, requireWorkspaceMembership } from '../../auth/agency'
 import { getAppIdentity } from '../../auth/appIdentity'
 import { mutation, query } from '../../functions'
 
-async function getIdentitySubject(ctx: {
-  auth: { getUserIdentity: () => Promise<{ subject: string } | null> }
+async function getIdentityAuthKey(ctx: {
+  auth: { getUserIdentity: () => Promise<{ tokenIdentifier?: string } | null> }
 }) {
   const identity = await ctx.auth.getUserIdentity()
-  return identity?.subject ?? null
+  return identity?.tokenIdentifier ?? null
 }
 
 export const listAccessibleWorkspaces = query.public({
@@ -45,8 +45,8 @@ export const listAccessibleWorkspaces = query.public({
 export const createWorkspaceMutation = mutation.public({
   args: createWorkspace.args,
   handler: async (ctx, args) => {
-    const subject = await getIdentitySubject(ctx)
-    if (!subject) throw deny('Not authenticated.')
+    const authKey = await getIdentityAuthKey(ctx)
+    if (!authKey) throw deny('Not authenticated.')
 
     // Workspace bootstrap is one of the few legitimate writes that must happen before the caller has
     // a current tenant.
@@ -55,7 +55,7 @@ export const createWorkspaceMutation = mutation.public({
     })
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', subject))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
@@ -71,13 +71,13 @@ export const createWorkspaceMutation = mutation.public({
     const workspaceId = await db.insert('workspaces', {
       name: args.name,
       slug: args.slug,
-      ownerId: user.authId,
+      ownerId: user._id,
       createdAt: now,
       updatedAt: now,
     })
 
     await db.insert('memberships', {
-      userId: user.authId,
+      userId: user._id,
       workspaceId,
       role: 'owner',
       createdAt: now,
@@ -95,12 +95,12 @@ export const createWorkspaceMutation = mutation.public({
 export const switchWorkspace = mutation.public({
   args: switchWorkspaceArgs.args,
   handler: async (ctx, args) => {
-    const subject = await getIdentitySubject(ctx)
-    if (!subject) throw deny('Not authenticated.')
+    const authKey = await getIdentityAuthKey(ctx)
+    if (!authKey) throw deny('Not authenticated.')
 
     const user = await ctx.db
       .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', subject))
+      .withIndex('by_auth_key', (q) => q.eq('authKey', authKey))
       .first()
 
     if (!user) throw new Error('Current user row not found.')
@@ -111,7 +111,7 @@ export const switchWorkspace = mutation.public({
       ctx.db.escapeIsolation({
         reason: 'Workspace switching validates membership in another tenant.',
       }),
-      user.authId,
+      user._id,
       args.workspaceId,
     )
 

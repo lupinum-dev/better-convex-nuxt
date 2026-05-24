@@ -31,8 +31,9 @@ describe('plugin.client hydration', () => {
     expect(token).toBe(hydratedToken)
     expect(tokenMock).not.toHaveBeenCalled()
     expect(stateStore.get('convex:user')?.value).toEqual(
-      expect.objectContaining({ id: 'u-hydrated', email: 'hydrated@test.com' }),
+      expect.objectContaining({ email: 'hydrated@test.com' }),
     )
+    expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
     expect(stateStore.get('convex:authError')?.value).toBeNull()
   })
 
@@ -63,22 +64,24 @@ describe('plugin.client hydration', () => {
       await plugin(createNuxtAppMock({ serverRendered: true }) as never)
     }
 
-    it('rejects a truthy object without a string id and decodes user from JWT', async () => {
+    it('rejects an object without session profile fields and decodes user from JWT', async () => {
       const hydratedToken = mintJwt({ sub: 'u-edge', email: 'edge@test.com' })
       await initPluginWithHydratedUser(hydratedToken, { name: 'No ID' })
 
       const result = await clientState.fetchToken?.({ forceRefreshToken: false })
       expect(result).toBe(hydratedToken)
-      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-edge' })
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ email: 'edge@test.com' })
+      expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
     })
 
-    it('rejects a user with a non-string id', async () => {
+    it('rejects a user object with no session profile fields', async () => {
       const hydratedToken = mintJwt({ sub: 'u-num', email: 'num@test.com' })
       await initPluginWithHydratedUser(hydratedToken, { id: 42 })
 
       const result = await clientState.fetchToken?.({ forceRefreshToken: false })
       expect(result).toBe(hydratedToken)
-      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-num' })
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ email: 'num@test.com' })
+      expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
     })
 
     it('rejects an array as not a valid user', async () => {
@@ -87,7 +90,8 @@ describe('plugin.client hydration', () => {
 
       const result = await clientState.fetchToken?.({ forceRefreshToken: false })
       expect(result).toBe(hydratedToken)
-      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-arr' })
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ email: 'arr@test.com' })
+      expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
     })
 
     it('rejects a string primitive as not a valid user', async () => {
@@ -96,7 +100,8 @@ describe('plugin.client hydration', () => {
 
       const result = await clientState.fetchToken?.({ forceRefreshToken: false })
       expect(result).toBe(hydratedToken)
-      expect(stateStore.get('convex:user')?.value).toMatchObject({ id: 'u-str' })
+      expect(stateStore.get('convex:user')?.value).toMatchObject({ email: 'str@test.com' })
+      expect(stateStore.get('convex:user')?.value).not.toHaveProperty('id')
     })
   })
 })

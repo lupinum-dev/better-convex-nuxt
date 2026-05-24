@@ -11,7 +11,7 @@ import { modules } from './test.setup'
 type MembershipRole = Doc<'memberships'>['role']
 type SeededUser = {
   id: Id<'users'>
-  authId: string
+  authKey: string
   role: MembershipRole
   query: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['query']
   mutation: ReturnType<ReturnType<typeof createCtx>['raw']['withIdentity']>['mutation']
@@ -37,40 +37,52 @@ async function seedWorkspace(
   if (!ownerEntry) throw new Error('seedWorkspace requires at least one user.')
 
   const now = Date.now()
-  const workspaceId = (await ctx.seed('workspaces', {
-    name,
-    slug,
-    ownerId: `${slug}-${ownerEntry[0]}`,
-    createdAt: now,
-    updatedAt: now,
-  })) as Id<'workspaces'>
-
   const seededUsers = {} as Record<string, SeededUser>
   for (const [key, user] of Object.entries(users)) {
-    const authId = `${slug}-${key}`
+    const authKey = `${slug}-${key}`
     const userId = (await ctx.seed('users', {
-      authId,
-      email: `${authId}@example.test`,
+      authKey,
+      email: `${authKey}@example.test`,
       displayName: key,
-      workspaceId,
       createdAt: now,
       updatedAt: now,
     })) as Id<'users'>
-    await ctx.seed('memberships', {
-      userId: authId,
-      workspaceId,
-      role: user.role,
-      createdAt: now,
-    })
 
-    const caller = ctx.raw.withIdentity({ subject: authId })
+    const caller = ctx.raw.withIdentity({ subject: authKey, tokenIdentifier: authKey })
     seededUsers[key] = {
       id: userId,
-      authId,
+      authKey,
       role: user.role,
       query: caller.query,
       mutation: caller.mutation,
     }
+  }
+
+  const ownerUser = seededUsers[ownerEntry[0]]
+  if (!ownerUser) throw new Error('seedWorkspace owner user was not seeded.')
+
+  const workspaceId = (await ctx.seed('workspaces', {
+    name,
+    slug,
+    ownerId: ownerUser.id,
+    createdAt: now,
+    updatedAt: now,
+  })) as Id<'workspaces'>
+
+  for (const [key, user] of Object.entries(users)) {
+    const seededUser = seededUsers[key]
+    if (!seededUser) continue
+
+    await ctx.raw.run(async (innerCtx) => {
+      await innerCtx.db.patch(seededUser.id, { workspaceId } as never)
+    })
+
+    await ctx.seed('memberships', {
+      userId: seededUser.id,
+      workspaceId,
+      role: user.role,
+      createdAt: now,
+    })
   }
 
   return { id: workspaceId, users: seededUsers }
@@ -97,7 +109,7 @@ describe('agency example', () => {
   it('shows only assigned clients on the agency dashboard', async () => {
     const ctx = createCtx()
     const user = await ctx.seed('users', {
-      authId: 'agent-1',
+      authKey: 'agent-1',
       email: 'agent@example.test',
       displayName: 'Agent',
       createdAt: Date.now(),
@@ -106,21 +118,21 @@ describe('agency example', () => {
     const clientA = await ctx.seed('workspaces', {
       name: 'Client A',
       slug: 'client-a',
-      ownerId: 'agent-1',
+      ownerId: user,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
     const clientB = await ctx.seed('workspaces', {
       name: 'Client B',
       slug: 'client-b',
-      ownerId: 'agent-1',
+      ownerId: user,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
     const clientC = await ctx.seed('workspaces', {
       name: 'Client C',
       slug: 'client-c',
-      ownerId: 'agent-1',
+      ownerId: user,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
@@ -129,13 +141,13 @@ describe('agency example', () => {
       await innerCtx.db.patch(user, { workspaceId: clientA } as never)
     })
     await ctx.seed('memberships', {
-      userId: 'agent-1',
+      userId: user,
       workspaceId: clientA,
       role: 'agency_manager',
       createdAt: Date.now(),
     })
     await ctx.seed('memberships', {
-      userId: 'agent-1',
+      userId: user,
       workspaceId: clientB,
       role: 'agency_manager',
       createdAt: Date.now(),
@@ -163,7 +175,7 @@ describe('agency example', () => {
       updatedAt: Date.now(),
     })
 
-    const agent = ctx.raw.withIdentity({ subject: 'agent-1' })
+    const agent = ctx.raw.withIdentity({ subject: 'agent-1', tokenIdentifier: 'agent-1' })
     const portfolio = await agent.query(api.features.dashboard.domain.portfolio, {})
     expect(portfolio).toHaveLength(2)
     expect(
@@ -218,7 +230,7 @@ describe('agency example', () => {
     const memberships = await ctx.readAll('memberships')
     const ownerMemberships = memberships.filter((membership: Doc<'memberships'>) => {
       return (
-        membership.userId === team.users.owner.authId &&
+        membership.userId === team.users.owner.id &&
         membership.workspaceId === workspaceId &&
         membership.role === 'owner'
       )

@@ -1690,9 +1690,14 @@ async function attachDestructivePreviewConfirmation<
   ])
   const token = createConfirmationToken()
   const tokenHash = await hashConfirmationToken(token)
+  const operationId = input.metadata.id
+  if (!operationId) {
+    throw new Error('Destructive preview confirmation requires `operation.id`.')
+  }
+  const db = 'db' in input.ctx ? (input.ctx as { db?: unknown }).db : undefined
   const unsafeDb = getDestructiveOperationsDb<DataModel>(
-    getInternalUnsafeDb(input.ctx.db) ?? input.ctx.db,
-    input.metadata.id!,
+    getInternalUnsafeDb((db as object) ?? {}) ?? db,
+    operationId,
     input.options.destructiveOperations!,
   )
 
@@ -1700,7 +1705,7 @@ async function attachDestructivePreviewConfirmation<
     await unsafeDb.insert(input.options.destructiveOperations!.confirmationTable, {
       tokenHash,
       jti: crypto.randomUUID(),
-      operationId: input.metadata.id!,
+      operationId,
       executePath,
       previewPath,
       callerKey,
@@ -1712,11 +1717,7 @@ async function attachDestructivePreviewConfirmation<
       expiresAt: now + ttlSeconds * 1000,
     })
   } catch (error) {
-    throw toDestructiveOperationsError(
-      error,
-      input.metadata.id!,
-      input.options.destructiveOperations!,
-    )
+    throw toDestructiveOperationsError(error, operationId, input.options.destructiveOperations!)
   }
 
   return {
@@ -2349,6 +2350,7 @@ function buildStructuredMutationRuntime<
     if (!metadata.id) {
       throw new Error('mutation(op) requires `operation.id` for destructive operations.')
     }
+    const operationId = metadata.id
 
     if (projectionMetadata?.projection === 'preview') {
       const originalHandler = definition.handler as (
@@ -2488,7 +2490,7 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.missing',
             status: 'deny',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               explanation: createDenialExplanation({
@@ -2507,19 +2509,19 @@ function buildStructuredMutationRuntime<
         await ctx.observe({
           name: 'operation.preview.started',
           status: 'success',
-          operation: metadata.id,
+          operation: operationId,
         })
 
         const confirmationOptions = safety.previewConfirmation
         if (!confirmationOptions) {
-          throw new Error(
-            `Destructive operation "${metadata.id}" requires defineTrellis({ destructiveOperations.previewConfirmation }) to redeem stored confirmation tokens.`,
+          throw new TypeError(
+            `Destructive operation "${operationId}" requires defineTrellis({ destructiveOperations.previewConfirmation }) to redeem stored confirmation tokens.`,
           )
         }
 
         const unsafeDb = getDestructiveOperationsDb<DataModel>(
           getInternalUnsafeDb(ctx.db) ?? ctx.db,
-          metadata.id,
+          operationId,
           safety,
         )
 
@@ -2533,18 +2535,18 @@ function buildStructuredMutationRuntime<
               .unique(),
           )
         } catch (error) {
-          throw toDestructiveOperationsError(error, metadata.id, safety)
+          throw toDestructiveOperationsError(error, operationId, safety)
         }
 
         if (!payload || payload.expiresAt <= Date.now()) {
           throw confirmationTokenInvalidError()
         }
         if (typeof payload.redeemedAt === 'number') {
-          throw new Error('Confirmation token has already been redeemed.')
+          throw new TypeError('Confirmation token has already been redeemed.')
         }
-        if (payload.operationId !== metadata.id) {
+        if (payload.operationId !== operationId) {
           throw new Error(
-            `Confirmation token targets operation "${payload.operationId}", not "${metadata.id}".`,
+            `Confirmation token targets operation "${payload.operationId}", not "${operationId}".`,
           )
         }
         const executePath =
@@ -2570,7 +2572,7 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               cause: 'args_mismatch',
@@ -2617,20 +2619,20 @@ function buildStructuredMutationRuntime<
         const previewResult = await preview(ctx, executeArgs, freshLoaded)
         if (!isDestructivePreviewPayload(previewResult)) {
           throw new Error(
-            `Destructive operation "${metadata.id}" preview must return an OperationPreviewEnvelope with allowed, summary, blockers, warnings, effects, and a non-empty plain-object confirm payload.`,
+            `Destructive operation "${operationId}" preview must return an OperationPreviewEnvelope with allowed, summary, blockers, warnings, effects, and a non-empty plain-object confirm payload.`,
           )
         }
         await ctx.observe({
           name: 'operation.preview.completed',
           status: 'success',
-          operation: metadata.id,
+          operation: operationId,
         })
 
         if (previewResult.allowed === false || previewResult.blockers.length > 0) {
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               cause: 'preview_blocked',
@@ -2650,7 +2652,7 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               cause: 'preview_mismatch',
@@ -2670,7 +2672,7 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.confirm.drifted',
             status: 'deny',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'tool.confirmation_mismatch',
             details: {
               cause: 'preview_version_mismatch',
@@ -2689,14 +2691,14 @@ function buildStructuredMutationRuntime<
         await ctx.observe({
           name: 'operation.confirm.validated',
           status: 'success',
-          operation: metadata.id,
+          operation: operationId,
         })
 
         const now = Date.now()
         try {
           await unsafeDb.patch(getStoredConfirmationId(payload), { redeemedAt: now })
         } catch (error) {
-          throw toDestructiveOperationsError(error, metadata.id, safety)
+          throw toDestructiveOperationsError(error, operationId, safety)
         }
 
         try {
@@ -2714,13 +2716,13 @@ function buildStructuredMutationRuntime<
               executePath: payload.executePath,
             })
           } catch (error) {
-            throw toDestructiveOperationsError(error, metadata.id, safety)
+            throw toDestructiveOperationsError(error, operationId, safety)
           }
 
           await ctx.observe({
             name: 'operation.execute.completed',
             status: 'success',
-            operation: metadata.id,
+            operation: operationId,
           })
 
           return result
@@ -2728,7 +2730,7 @@ function buildStructuredMutationRuntime<
           await ctx.observe({
             name: 'operation.execute.failed',
             status: 'error',
-            operation: metadata.id,
+            operation: operationId,
             reasonCode: 'operation.execute.failed',
             details:
               error instanceof Error
@@ -2787,6 +2789,7 @@ function buildStructuredTransportMutationRuntime<
     if (!metadata.id) {
       throw new Error('transportMutation(op) requires `operation.id` for destructive operations.')
     }
+    const operationId = metadata.id
 
     const originalLoad = definition.load as
       | ((
@@ -2869,7 +2872,7 @@ function buildStructuredTransportMutationRuntime<
           await ctx.observe({
             name: 'operation.execute.completed',
             status: 'success',
-            operation: metadata.id,
+            operation: operationId,
             transport: 'mcp',
           })
           return result
@@ -2877,7 +2880,7 @@ function buildStructuredTransportMutationRuntime<
           await ctx.observe({
             name: 'operation.execute.failed',
             status: 'error',
-            operation: metadata.id,
+            operation: operationId,
             transport: 'mcp',
             reasonCode: 'operation.execute.failed',
             details:

@@ -31,8 +31,8 @@ function nextStatus() {
   return 'done'
 }
 
-function resolveName(authId: string) {
-  return props.memberNames?.get(authId) ?? `Member ${authId.slice(0, 8)}…`
+function resolveName(userId: string) {
+  return props.memberNames?.get(userId) ?? `Member ${userId.slice(0, 8)}…`
 }
 
 const moveTask = useConvexMutation(api.features.tasks.domain.moveToColumn, {
@@ -57,7 +57,7 @@ const deleteTask = useConvexMutation(api.features.tasks.domain.remove, {
 })
 
 async function handleDeleteTask() {
-  const preview = await convex.query(api.features.tasks.operations.previewRemoveTask, {
+  const preview = await convex.mutation(api.features.tasks.operations.previewRemoveTask, {
     id: props.task._id,
   })
   const token = preview.confirmation?.token

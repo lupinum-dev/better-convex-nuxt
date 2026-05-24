@@ -7,10 +7,7 @@ export const getCurrentUser = query.public({
     const appIdentity = await ctx.appIdentity()
     if (!appIdentity) return null
 
-    return await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', appIdentity.userId))
-      .first()
+    return await ctx.db.get(appIdentity.userId)
   },
 })
 
@@ -26,7 +23,8 @@ export const listWorkspaceUsersForMcpKeys = query.protected({
       .filter((user) => user.workspaceId === appIdentity.workspaceId)
       .filter((user) => canIssueKeyRole(appIdentity, user.role))
       .map((user) => ({
-        authId: user.authId,
+        userId: user._id,
+        authKey: user.authKey,
         displayName: user.displayName ?? null,
         email: user.email ?? null,
         role: user.role,
