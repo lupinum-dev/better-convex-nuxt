@@ -40,8 +40,7 @@ export type PaginatedQueryReference = FunctionReference<
   'query',
   'public',
   { paginationOpts: PaginationOptions },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  PaginationResult<any>
+  PaginationResult<unknown>
 >
 
 /**

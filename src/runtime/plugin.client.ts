@@ -14,6 +14,11 @@ import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
 
+type ConvexDebugWindow = Window & {
+  __convex_client__?: ConvexClient
+  __auth_client__?: AuthClientWithConvex
+}
+
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
@@ -147,10 +152,9 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // Expose for debugging (dev only)
   if (typeof window !== 'undefined' && import.meta.dev) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(window as any).__convex_client__ = client
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (authClient) (window as any).__auth_client__ = authClient
+    const debugWindow = window as ConvexDebugWindow
+    debugWindow.__convex_client__ = client
+    if (authClient) debugWindow.__auth_client__ = authClient
 
     // Setup DevTools bridge in dev mode
     void import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
