@@ -307,6 +307,67 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     })
   })
 
+  it('refresh() keeps previous pages when a later page refresh fails', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-atomic')
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'A' },
+          { _id: 'n2', title: 'B' },
+        ],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+      c1: {
+        page: [{ _id: 'n3', title: 'C' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      const response = responses[key]
+      if (response instanceof Error) throw response
+      return { value: response }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 2)
+
+    result.loadMore(2)
+    await waitFor(() => result.results.value.length === 3)
+
+    responses.null = {
+      page: [
+        { _id: 'n1', title: 'A (refreshed)' },
+        { _id: 'n2', title: 'B (refreshed)' },
+      ],
+      isDone: false,
+      continueCursor: 'c1',
+    }
+    responses.c1 = new Error('second page failed')
+
+    await result.refresh()
+
+    expect(result.error.value?.message).toBe('second page failed')
+    expect((result.results.value as Array<{ title: string }>).map((item) => item.title)).toEqual([
+      'A',
+      'B',
+      'C',
+    ])
+  })
+
   it('reset() starts over from first page with a new pagination id', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:reset')
     const firstPageIds: number[] = []

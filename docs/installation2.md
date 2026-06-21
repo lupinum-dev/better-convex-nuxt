@@ -204,8 +204,8 @@ package.json
 },
 "dependencies": {
 "convex": "^1.25.2",
-"convex-nuxt": "^0.1.3",
-"nuxt": "^3.17.6",
+"better-convex-nuxt": "^0.4.0",
+"nuxt": "^4.0.0",
 "vue": "^3.5.17",
 "vue-router": "^4.5.1"
 }

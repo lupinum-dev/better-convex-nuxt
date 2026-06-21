@@ -22,15 +22,11 @@ import {
   hashArgs,
   getQueryKey,
   fetchAuthToken,
-  registerSubscription,
-  hasSubscription,
   releaseSubscription,
-  getSubscription,
-  createQueryBridge,
-  ensureQueryBridge,
+  acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
-  type SubscriptionEntry,
+  type QuerySubscriptionBridge,
 } from '../utils/convex-cache'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
@@ -389,10 +385,8 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  const attachFirstPageSharedBridge = (entry: SubscriptionEntry) => {
+  const attachFirstPageSharedBridge = (bridge: QuerySubscriptionBridge) => {
     cleanupFirstPageBridgeWatchers()
-
-    const bridge = ensureQueryBridge(entry)
 
     const syncDataFromBridge = () => {
       if (!bridge.hasRawData) return
@@ -414,10 +408,8 @@ export function createConvexPaginatedQueryState<
     syncErrorFromBridge()
   }
 
-  const attachPageSharedBridge = (pageIndex: number, entry: SubscriptionEntry) => {
+  const attachPageSharedBridge = (pageIndex: number, bridge: QuerySubscriptionBridge) => {
     cleanupPageBridgeWatchers(pageIndex)
-
-    const bridge = ensureQueryBridge(entry)
 
     const syncDataFromBridge = () => {
       if (!bridge.hasRawData) return
@@ -518,20 +510,6 @@ export function createConvexPaginatedQueryState<
       cursor: page.paginationOpts.cursor,
     })
 
-    if (hasSubscription(nuxtApp, subscriptionKey)) {
-      // Join existing subscription - increment ref count and set unsubscribe
-      const existingEntry = getSubscription(nuxtApp, subscriptionKey)
-      if (existingEntry) {
-        existingEntry.refCount++
-        attachPageSharedBridge(pageIndex, existingEntry)
-        page.unsubscribe = () => {
-          cleanupPageBridgeWatchers(pageIndex)
-          void releaseSubscription(nuxtApp, subscriptionKey)
-        }
-      }
-      return
-    }
-
     // Clean up existing subscription
     if (page.unsubscribe) {
       page.unsubscribe()
@@ -543,42 +521,30 @@ export function createConvexPaginatedQueryState<
       paginationOpts: page.paginationOpts,
     }
 
-    const localBridge = createQueryBridge()
-    let rawUnsubscribe: (() => void) | null = null
-    let didRegister = false
-
     try {
-      rawUnsubscribe = convex.onUpdate(
-        query,
-        fullArgs as FunctionArgs<Query>,
-        (result: PaginationResult<Item>) => {
-          commitQueryBridgeData(localBridge, result)
-        },
-        (err: Error) => {
-          void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
-          commitQueryBridgeError(localBridge, err)
-        },
+      const subscription = acquireQuerySubscription(nuxtApp, subscriptionKey, (bridge) =>
+        convex.onUpdate(
+          query,
+          fullArgs as FunctionArgs<Query>,
+          (result: PaginationResult<Item>) => {
+            commitQueryBridgeData(bridge, result)
+          },
+          (err: Error) => {
+            void handleUnauthorizedAuthFailure({
+              error: err,
+              source: 'query',
+              functionName: fnName,
+            })
+            commitQueryBridgeError(bridge, err)
+          },
+        ),
       )
-      // Register subscription in cache and wrap unsubscribe to go through ref-counting
-      registerSubscription(nuxtApp, subscriptionKey, rawUnsubscribe)
-      didRegister = true
-      const registeredEntry = getSubscription(nuxtApp, subscriptionKey)
-      if (registeredEntry) {
-        registeredEntry.queryBridge = localBridge
-        attachPageSharedBridge(pageIndex, registeredEntry)
-      }
       page.unsubscribe = () => {
         cleanupPageBridgeWatchers(pageIndex)
         void releaseSubscription(nuxtApp, subscriptionKey)
       }
+      attachPageSharedBridge(pageIndex, subscription.bridge)
     } catch (e) {
-      if (rawUnsubscribe && !didRegister) {
-        try {
-          rawUnsubscribe()
-        } catch {
-          // Best-effort cleanup after partial subscription setup failure.
-        }
-      }
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
       }
@@ -923,20 +889,6 @@ export function createConvexPaginatedQueryState<
       cursor: initialPaginationOpts.value.cursor,
     })
 
-    if (hasSubscription(nuxtApp, subscriptionKey)) {
-      // Join existing subscription - increment ref count and set unsubscribe
-      const existingEntry = getSubscription(nuxtApp, subscriptionKey)
-      if (existingEntry) {
-        existingEntry.refCount++
-        attachFirstPageSharedBridge(existingEntry)
-        firstPageUnsubscribe = () => {
-          cleanupFirstPageBridgeWatchers()
-          releaseSubscription(nuxtApp, subscriptionKey)
-        }
-      }
-      return
-    }
-
     // Clean up existing subscription
     if (firstPageUnsubscribe) {
       firstPageUnsubscribe()
@@ -949,42 +901,30 @@ export function createConvexPaginatedQueryState<
       paginationOpts: initialPaginationOpts.value,
     }
 
-    const localBridge = createQueryBridge()
-    let rawUnsubscribe: (() => void) | null = null
-    let didRegister = false
-
     try {
-      rawUnsubscribe = convex.onUpdate(
-        query,
-        fullArgs as FunctionArgs<Query>,
-        (result: PaginationResult<Item>) => {
-          commitQueryBridgeData(localBridge, result)
-        },
-        (err: Error) => {
-          void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
-          commitQueryBridgeError(localBridge, err)
-        },
+      const subscription = acquireQuerySubscription(nuxtApp, subscriptionKey, (bridge) =>
+        convex.onUpdate(
+          query,
+          fullArgs as FunctionArgs<Query>,
+          (result: PaginationResult<Item>) => {
+            commitQueryBridgeData(bridge, result)
+          },
+          (err: Error) => {
+            void handleUnauthorizedAuthFailure({
+              error: err,
+              source: 'query',
+              functionName: fnName,
+            })
+            commitQueryBridgeError(bridge, err)
+          },
+        ),
       )
-      // Register subscription in cache and wrap unsubscribe to go through ref-counting
-      registerSubscription(nuxtApp, subscriptionKey, rawUnsubscribe)
-      didRegister = true
-      const registeredEntry = getSubscription(nuxtApp, subscriptionKey)
-      if (registeredEntry) {
-        registeredEntry.queryBridge = localBridge
-        attachFirstPageSharedBridge(registeredEntry)
-      }
       firstPageUnsubscribe = () => {
         cleanupFirstPageBridgeWatchers()
         releaseSubscription(nuxtApp, subscriptionKey)
       }
+      attachFirstPageSharedBridge(subscription.bridge)
     } catch (e) {
-      if (rawUnsubscribe && !didRegister) {
-        try {
-          rawUnsubscribe()
-        } catch {
-          // Best-effort cleanup after partial subscription setup failure.
-        }
-      }
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] First page subscription failed:', e)
       }
@@ -1096,42 +1036,32 @@ export function createConvexPaginatedQueryState<
     globalError.value = null
     ;(asyncData.error as unknown as Ref<Error | null>).value = null
 
-    if (pages.value.length > 0) {
-      const clearedPages = [...pages.value]
-      for (let i = 0; i < clearedPages.length; i++) {
-        const page = clearedPages[i]
-        if (!page) continue
-        clearedPages[i] = {
-          ...page,
-          error: null,
-        }
-      }
-      pages.value = clearedPages
-    }
+    const refreshPaginationId = currentPaginationId.value
+    const loadedPages = [...pages.value]
 
     try {
-      // Re-fetch first page
       const firstPageResult = await fetchPage(initialPaginationOpts.value)
-      firstPageRealtimeData.value = firstPageResult
-      ;(asyncData.error as unknown as Ref<Error | null>).value = null
 
-      // Re-fetch additional pages
-      for (let i = 0; i < pages.value.length; i++) {
-        const page = pages.value[i]
+      const refreshedPages = [...loadedPages]
+      for (let i = 0; i < loadedPages.length; i++) {
+        const page = loadedPages[i]
         if (!page) continue
 
         const pageResult = await fetchPage(page.paginationOpts)
-        const newPages = [...pages.value]
-        newPages[i] = {
+        refreshedPages[i] = {
           ...page,
           result: pageResult,
           pending: false,
           error: null,
         }
-        pages.value = newPages
       }
 
-      globalError.value = null
+      if (currentPaginationId.value === refreshPaginationId && !isSkipped.value) {
+        firstPageRealtimeData.value = firstPageResult
+        pages.value = refreshedPages
+        ;(asyncData.error as unknown as Ref<Error | null>).value = null
+        globalError.value = null
+      }
     } catch (e) {
       globalError.value = e instanceof Error ? e : new Error(String(e))
     } finally {

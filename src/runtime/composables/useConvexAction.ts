@@ -1,5 +1,10 @@
 import type { ConvexClient } from 'convex/browser'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  OptionalRestArgs,
+} from 'convex/server'
 import type { Ref, ComputedRef } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
@@ -19,24 +24,20 @@ import type { ConvexCallStatus } from '../utils/types'
 /**
  * Return value from useConvexAction
  */
-export interface UseConvexActionReturn<Args, Result> {
-  /**
-   * Execute the action. The returned object is callable and also exposes
-   * state refs on the same function.
-   */
-  (args: Args): Promise<Result>
-
+export type UseConvexActionReturn<Action extends FunctionReference<'action'>> = ((
+  ...args: OptionalRestArgs<Action>
+) => Promise<FunctionReturnType<Action>>) & {
   /**
    * Execute the action without throwing.
    * Returns a stable result envelope.
    */
-  safe: (args: Args) => Promise<CallResult<Result>>
+  safe: (...args: OptionalRestArgs<Action>) => Promise<CallResult<FunctionReturnType<Action>>>
 
   /**
    * Result data from the last successful action.
    * undefined if action hasn't succeeded yet.
    */
-  data: Ref<Result | undefined>
+  data: Ref<FunctionReturnType<Action> | undefined>
 
   /**
    * Action status for explicit state management.
@@ -124,7 +125,7 @@ export interface UseConvexActionOptions<Args, Result> {
 export function useConvexAction<Action extends FunctionReference<'action'>>(
   action: Action,
   options?: UseConvexActionOptions<FunctionArgs<Action>, FunctionReturnType<Action>>,
-): UseConvexActionReturn<FunctionArgs<Action>, FunctionReturnType<Action>> {
+): UseConvexActionReturn<Action> {
   type Args = FunctionArgs<Action>
   type Result = FunctionReturnType<Action>
 
@@ -137,7 +138,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const callState = createConvexCallState<Result>()
 
   // The execute function
-  const execute = async (args: Args): Promise<Result> => {
+  const execute = async (...callArgs: OptionalRestArgs<Action>): Promise<Result> => {
+    const args = (callArgs[0] ?? {}) as Args
     const startTime = Date.now()
     const currentRequestId = callState.start()
 
@@ -198,8 +200,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     }
   }
 
-  const safe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
+  const safe = async (...callArgs: OptionalRestArgs<Action>): Promise<CallResult<Result>> => {
+    return await toCallResult(() => execute(...callArgs))
   }
 
   return Object.assign(execute, {

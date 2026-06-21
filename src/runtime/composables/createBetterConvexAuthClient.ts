@@ -5,6 +5,8 @@ import type { VueAuthClient } from 'better-auth/vue'
 
 import { useRuntimeConfig } from '#imports'
 
+import { normalizeAuthRoute } from '../utils/convex-config'
+
 type ConvexBetterAuthClientPlugin = ReturnType<typeof convexClient>
 type BetterConvexClientPlugins = readonly BetterAuthClientPlugin[]
 type MutablePlugins<Plugins extends BetterConvexClientPlugins> = {
@@ -44,13 +46,6 @@ export type BetterConvexAuthClient<Plugins extends BetterConvexClientPlugins> = 
   BetterConvexAuthClientResolvedOptions<Plugins>
 >
 
-function normalizeAuthRoute(input: unknown): string {
-  const raw = typeof input === 'string' && input.length > 0 ? input : '/api/auth'
-  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`
-  const trimmed = withLeadingSlash.replace(/\/+$/, '')
-  return trimmed || '/api/auth'
-}
-
 export function resolveBetterConvexAuthBaseURL(baseURL?: string): string {
   if (baseURL) return baseURL
 
@@ -62,7 +57,9 @@ export function resolveBetterConvexAuthBaseURL(baseURL?: string): string {
 
   const config = useRuntimeConfig()
   const publicConvex = config.public?.convex as { authRoute?: unknown } | undefined
-  const authRoute = normalizeAuthRoute(publicConvex?.authRoute)
+  const authRoute = normalizeAuthRoute(
+    typeof publicConvex?.authRoute === 'string' ? publicConvex.authRoute : undefined,
+  )
   return `${window.location.origin}${authRoute}`
 }
 

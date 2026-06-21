@@ -132,7 +132,7 @@
     "vue-tsc": "^3.2.5"
   },
   "peerDependencies": {
-    "nuxt": "^3.0.0 || ^4.0.0"
+    "nuxt": "^4.0.0"
   },
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"

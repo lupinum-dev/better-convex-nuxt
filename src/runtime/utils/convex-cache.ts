@@ -48,6 +48,12 @@ export interface QuerySubscriptionBridge {
  */
 export type SubscriptionCache = Map<string, SubscriptionEntry>
 
+export interface AcquiredQuerySubscription {
+  bridge: QuerySubscriptionBridge
+  refCount: number
+  release: () => boolean
+}
+
 export function createQueryBridge(): QuerySubscriptionBridge {
   return {
     rawData: undefined,
@@ -79,6 +85,35 @@ export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: 
 export function commitQueryBridgeError(bridge: QuerySubscriptionBridge, error: Error): void {
   bridge.error = error
   bridge.errorVersion.value += 1
+}
+
+export function acquireQuerySubscription(
+  nuxtApp: SubscriptionCacheOwner,
+  cacheKey: string,
+  start: (bridge: QuerySubscriptionBridge) => () => void,
+): AcquiredQuerySubscription {
+  const cache = getSubscriptionCache(nuxtApp)
+  const existing = cache.get(cacheKey)
+
+  if (existing) {
+    existing.refCount += 1
+    return {
+      bridge: ensureQueryBridge(existing),
+      refCount: existing.refCount,
+      release: () => releaseSubscription(nuxtApp, cacheKey),
+    }
+  }
+
+  const bridge = createQueryBridge()
+  const unsubscribe = start(bridge)
+  const entry: SubscriptionEntry = { unsubscribe, refCount: 1, queryBridge: bridge }
+  cache.set(cacheKey, entry)
+
+  return {
+    bridge,
+    refCount: entry.refCount,
+    release: () => releaseSubscription(nuxtApp, cacheKey),
+  }
 }
 
 // ============================================================================

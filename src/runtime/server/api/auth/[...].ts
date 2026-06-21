@@ -4,8 +4,8 @@ import {
   setHeaders,
   setResponseStatus,
   createError,
+  getRequestWebStream,
   getRequestURL,
-  readRawBody,
   send,
   appendResponseHeader,
 } from 'h3'
@@ -19,7 +19,12 @@ import {
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
-import { getRequestBodySizeError, getResponseBodySizeError } from './body-size'
+import {
+  getRequestBodySizeError,
+  getResponseBodySizeError,
+  readRequestBodyWithLimit,
+  readResponseBodyWithLimit,
+} from './body-size'
 import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
 import { fetchWithCanonicalRedirects } from './redirect-utils'
 import { getAuthRoutePattern, isOriginAllowed } from './security'
@@ -129,7 +134,10 @@ export default defineEventHandler(async (event: H3Event) => {
           },
         })
       }
-      body = (await readRawBody(event, 'utf8')) || undefined
+      body = await readRequestBodyWithLimit(
+        getRequestWebStream(event),
+        authProxy.maxRequestBodyBytes,
+      )
     }
 
     // Make request to Convex (manual redirect handling).
@@ -209,7 +217,7 @@ export default defineEventHandler(async (event: H3Event) => {
         },
       })
     }
-    const responseBody = new Uint8Array(await response.arrayBuffer())
+    const responseBody = await readResponseBodyWithLimit(response, authProxy.maxResponseBodyBytes)
     return send(event, responseBody)
   } catch (error) {
     if (error && typeof error === 'object' && 'statusCode' in error) {

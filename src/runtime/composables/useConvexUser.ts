@@ -9,6 +9,11 @@ import { useConvexAuth, type ConvexUser } from './useConvexAuth'
 import { createConvexQueryState, type ConvexQueryArgs } from './useConvexQuery'
 
 export type ConvexUserSource = 'none' | 'session' | 'better-auth' | 'projection'
+export type ConvexUserState<User> =
+  | { source: 'none'; data: null }
+  | { source: 'session'; data: ConvexUser }
+  | { source: 'better-auth'; data: User }
+  | { source: 'projection'; data: User }
 
 export interface UseConvexUserOptions<RawUser, User = RawUser> {
   /**
@@ -37,6 +42,8 @@ export interface UseConvexUserOptions<RawUser, User = RawUser> {
 }
 
 export interface UseConvexUserReturn<User> {
+  /** Canonical discriminated user state. `data` and `source` below are derived views. */
+  state: ComputedRef<ConvexUserState<User>>
   data: ComputedRef<ConvexUser | User | null>
   pending: ComputedRef<boolean>
   status: ComputedRef<ConvexCallStatus>
@@ -85,17 +92,18 @@ export function useConvexUser<
     () => auth.isAuthenticated.value && queryState.data.value != null,
   )
 
-  const data = computed<ConvexUser | User | null>(() => {
-    if (!auth.isAuthenticated.value) return null
-    if (hasCanonicalUser.value) return queryState.data.value as User
-    return seedFromSession ? auth.user.value : null
+  const state = computed<ConvexUserState<User>>(() => {
+    if (!auth.isAuthenticated.value) return { source: 'none', data: null }
+    if (hasCanonicalUser.value) {
+      return { source: canonicalSource, data: queryState.data.value as User }
+    }
+    if (seedFromSession && auth.user.value) {
+      return { source: 'session', data: auth.user.value }
+    }
+    return { source: 'none', data: null }
   })
-
-  const source = computed<ConvexUserSource>(() => {
-    if (!auth.isAuthenticated.value) return 'none'
-    if (hasCanonicalUser.value) return canonicalSource
-    return seedFromSession && auth.user.value ? 'session' : 'none'
-  })
+  const data = computed<ConvexUser | User | null>(() => state.value.data)
+  const source = computed<ConvexUserSource>(() => state.value.source)
 
   const pending = computed(
     () => auth.isPending.value || (auth.isAuthenticated.value && queryState.pending.value),
@@ -108,6 +116,7 @@ export function useConvexUser<
   })
 
   return {
+    state,
     data,
     pending,
     status,

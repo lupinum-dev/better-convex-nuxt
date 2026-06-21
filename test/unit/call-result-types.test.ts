@@ -1,3 +1,4 @@
+import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
@@ -9,30 +10,59 @@ type IsEqual<A, B> =
 type Assert<T extends true> = T
 type HasKey<T, K extends PropertyKey> = K extends keyof T ? true : false
 
-type MutationReturn = UseConvexMutationReturn<{ id: string }, { id: string }>
-type ActionReturn = UseConvexActionReturn<{ id: string }, { id: string }>
+type ConvexArgs = Record<string, unknown>
+type MutationRef<Args extends ConvexArgs, Result> = FunctionReference<
+  'mutation',
+  'public',
+  Args,
+  Result
+>
+type ActionRef<Args extends ConvexArgs, Result> = FunctionReference<
+  'action',
+  'public',
+  Args,
+  Result
+>
+type Argless = Record<string, never>
+
+type MutationReturn = UseConvexMutationReturn<MutationRef<{ id: string }, { id: string }>>
+type ActionReturn = UseConvexActionReturn<ActionRef<{ id: string }, { id: string }>>
 
 type _MutationNestedSafe = Assert<
   IsEqual<
     Awaited<
-      ReturnType<UseConvexMutationReturn<{ id: string }, CallResult<{ id: string }>>['safe']>
+      ReturnType<
+        UseConvexMutationReturn<MutationRef<{ id: string }, CallResult<{ id: string }>>>['safe']
+      >
     >,
     CallResult<CallResult<{ id: string }>>
   >
 >
 
 type _MutationCallable = Assert<IsEqual<Awaited<ReturnType<MutationReturn>>, { id: string }>>
+type _MutationCallableArgs = Assert<IsEqual<Parameters<MutationReturn>, [args: { id: string }]>>
+type _ArglessMutationCallableArgs = Assert<
+  IsEqual<Parameters<UseConvexMutationReturn<MutationRef<Argless, string>>>, [args?: Argless]>
+>
 type _MutationHasNoExecute = Assert<IsEqual<HasKey<MutationReturn, 'execute'>, false>>
 type _MutationHasNoExecuteSafe = Assert<IsEqual<HasKey<MutationReturn, 'executeSafe'>, false>>
 
 type _ActionNestedSafe = Assert<
   IsEqual<
-    Awaited<ReturnType<UseConvexActionReturn<{ id: string }, CallResult<{ id: string }>>['safe']>>,
+    Awaited<
+      ReturnType<
+        UseConvexActionReturn<ActionRef<{ id: string }, CallResult<{ id: string }>>>['safe']
+      >
+    >,
     CallResult<CallResult<{ id: string }>>
   >
 >
 
 type _ActionCallable = Assert<IsEqual<Awaited<ReturnType<ActionReturn>>, { id: string }>>
+type _ActionCallableArgs = Assert<IsEqual<Parameters<ActionReturn>, [args: { id: string }]>>
+type _ArglessActionCallableArgs = Assert<
+  IsEqual<Parameters<UseConvexActionReturn<ActionRef<Argless, string>>>, [args?: Argless]>
+>
 type _ActionHasNoExecute = Assert<IsEqual<HasKey<ActionReturn, 'execute'>, false>>
 type _ActionHasNoExecuteSafe = Assert<IsEqual<HasKey<ActionReturn, 'executeSafe'>, false>>
 

@@ -3,9 +3,20 @@ import { describe, expect, it } from 'vitest'
 import {
   getRequestBodySizeError,
   getResponseBodySizeError,
+  readRequestBodyWithLimit,
+  readResponseBodyWithLimit,
   DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES,
   DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES,
 } from '../../src/runtime/server/api/auth/body-size'
+
+function streamFromText(input: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(input))
+      controller.close()
+    },
+  })
+}
 
 describe('auth proxy body size guards', () => {
   it('ignores missing and malformed content-length headers', () => {
@@ -35,5 +46,32 @@ describe('auth proxy body size guards', () => {
   it('supports custom configured limits', () => {
     expect(getRequestBodySizeError('11', 10)?.maxBytes).toBe(10)
     expect(getResponseBodySizeError('11', 10)?.maxBytes).toBe(10)
+  })
+
+  it('enforces request body limits while reading the stream', async () => {
+    await expect(readRequestBodyWithLimit(streamFromText('too large'), 3)).rejects.toMatchObject({
+      statusCode: 413,
+      code: 'BCN_AUTH_PROXY_REQUEST_BODY_TOO_LARGE',
+      maxBytes: 3,
+    })
+  })
+
+  it('enforces upstream response body limits while reading the stream', async () => {
+    const response = new Response(streamFromText('too large'))
+
+    await expect(readResponseBodyWithLimit(response, 3)).rejects.toMatchObject({
+      statusCode: 502,
+      code: 'BCN_AUTH_PROXY_UPSTREAM_BODY_TOO_LARGE',
+      maxBytes: 3,
+    })
+  })
+
+  it('returns exact bounded request and response bodies', async () => {
+    await expect(readRequestBodyWithLimit(streamFromText('abc'), 3)).resolves.toBe('abc')
+
+    const response = new Response(streamFromText('abc'))
+    await expect(readResponseBodyWithLimit(response, 3)).resolves.toEqual(
+      new TextEncoder().encode('abc'),
+    )
   })
 })

@@ -43,6 +43,17 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ ok: true, args: { message: 'hi' } })
   })
 
+  it('calls argless actions with empty args', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:argless-action')
+    convex.setActionHandler('testing:argless-action', async (args) => ({ args }))
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+
+    await expect(result()).resolves.toEqual({ args: {} })
+    expect(convex.calls.action.at(-1)?.args).toEqual({})
+  })
+
   it('tracks error and supports reset()', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:fails')

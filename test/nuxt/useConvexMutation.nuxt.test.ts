@@ -41,6 +41,17 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ id: 'new-id', value: 'hello' })
   })
 
+  it('calls argless mutations with empty args', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:argless')
+    convex.setMutationHandler('testing:argless', async (args) => ({ args }))
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    await expect(result()).resolves.toEqual({ args: {} })
+    expect(convex.calls.mutation.at(-1)?.args).toEqual({})
+  })
+
   it('tracks errors and reset() clears state', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:fail')

@@ -1,7 +1,10 @@
+import type { ConvexUser } from '../utils/types'
 /**
  * DevTools types and interfaces.
  */
 import type { QueryRegistryEntry } from './query-registry'
+
+export type { ConvexUser } from '../utils/types'
 
 // ============================================================================
 // Mutation Types
@@ -56,16 +59,6 @@ export interface JWTClaims {
 // ============================================================================
 // User and Auth State Types
 // ============================================================================
-
-export interface ConvexUser {
-  id: string
-  name?: string | null
-  email?: string | null
-  emailVerified?: boolean
-  image?: string | null
-  createdAt?: Date
-  updatedAt?: Date
-}
 
 export interface AuthState {
   isAuthenticated: boolean

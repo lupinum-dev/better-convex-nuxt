@@ -23,14 +23,11 @@ import {
   getQueryKey,
   computeQueryStatus,
   fetchAuthToken,
-  createQueryBridge,
-  registerSubscription,
-  getSubscription,
   releaseSubscription,
-  ensureQueryBridge,
+  acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
-  type SubscriptionEntry,
+  type QuerySubscriptionBridge,
   type ConvexCallStatus,
 } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
@@ -90,7 +87,7 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
 }
 
 export interface UseConvexQueryData<DataT> {
-  data: Ref<DataT | null>
+  data: ComputedRef<DataT | null>
   error: Ref<Error | null>
   refresh: () => Promise<void>
   clear: () => void
@@ -363,6 +360,7 @@ export function createConvexQueryState<
 
   // Track whether this component instance has registered with the subscription cache
   let registeredCacheKey: string | null = null
+  let registeredBridge: QuerySubscriptionBridge | null = null
   const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
   let stopSharedDataWatch: WatchStopHandle | null = null
   let stopSharedErrorWatch: WatchStopHandle | null = null
@@ -378,10 +376,8 @@ export function createConvexQueryState<
     }
   }
 
-  const attachSharedBridge = (entry: SubscriptionEntry) => {
+  const attachSharedBridge = (bridge: QuerySubscriptionBridge) => {
     cleanupSharedBridgeWatchers()
-
-    const bridge = ensureQueryBridge(entry)
 
     const syncDataFromBridge = () => {
       if (!bridge.hasRawData) return
@@ -445,82 +441,63 @@ export function createConvexQueryState<
 
       const currentCacheKey = getCacheKey()
 
-      // Atomic check-and-join: if subscription exists, increment refCount directly
-      const existingEntry = getSubscription(nuxtApp, currentCacheKey)
-      if (existingEntry) {
-        existingEntry.refCount++
-        registeredCacheKey = currentCacheKey
-        attachSharedBridge(existingEntry)
+      try {
+        const subscription = acquireQuerySubscription(nuxtApp, currentCacheKey, (bridge) =>
+          convex.onUpdate(
+            query,
+            currentArgs as FunctionArgs<Query>,
+            (result: RawT) => {
+              // Subscription-level callback writes to shared bridge only.
+              commitQueryBridgeData(bridge, result)
 
-        // Log shared subscription
+              logger.query({
+                name: fnName,
+                event: 'update',
+                count: Array.isArray(result) ? result.length : 1,
+                args: currentArgs,
+                data: result,
+              })
+
+              // DevTools stores raw shared subscription data (not transformed), because
+              // different subscribers may apply different transform() functions.
+              if (import.meta.dev && devToolsRegistry) {
+                devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                  status: 'success',
+                  data: result,
+                  dataSource: 'websocket',
+                })
+              }
+            },
+            (err: Error) => {
+              commitQueryBridgeError(bridge, err)
+              void handleUnauthorizedAuthFailure({
+                error: err,
+                source: 'query',
+                functionName: fnName,
+              })
+
+              logger.query({ name: fnName, event: 'error', error: err })
+
+              // Keep DevTools subscription-level error visibility
+              if (import.meta.dev && devToolsRegistry) {
+                devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                  status: 'error',
+                  error: err.message,
+                })
+              }
+            },
+          ),
+        )
+        registeredCacheKey = currentCacheKey
+        registeredBridge = subscription.bridge
+        attachSharedBridge(subscription.bridge)
+
         logger.query({
           name: fnName,
-          event: 'share',
-          refCount: existingEntry.refCount,
+          event: subscription.refCount === 1 ? 'subscribe' : 'share',
+          refCount: subscription.refCount,
           args: currentArgs,
         })
-        return
-      }
-
-      try {
-        // Local bridge is created up-front so synchronous callbacks (if any) still have
-        // a place to write before the subscription entry is registered.
-        const localBridge = createQueryBridge()
-
-        const unsubscribeFn = convex.onUpdate(
-          query,
-          currentArgs as FunctionArgs<Query>,
-          (result: RawT) => {
-            // Subscription-level callback writes to shared bridge only.
-            commitQueryBridgeData(localBridge, result)
-
-            logger.query({
-              name: fnName,
-              event: 'update',
-              count: Array.isArray(result) ? result.length : 1,
-              args: currentArgs,
-              data: result,
-            })
-
-            // DevTools stores raw shared subscription data (not transformed), because
-            // different subscribers may apply different transform() functions.
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
-                status: 'success',
-                data: result,
-                dataSource: 'websocket',
-              })
-            }
-          },
-          (err: Error) => {
-            commitQueryBridgeError(localBridge, err)
-            void handleUnauthorizedAuthFailure({
-              error: err,
-              source: 'query',
-              functionName: fnName,
-            })
-
-            logger.query({ name: fnName, event: 'error', error: err })
-
-            // Keep DevTools subscription-level error visibility
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
-                status: 'error',
-                error: err.message,
-              })
-            }
-          },
-        )
-        registerSubscription(nuxtApp, currentCacheKey, unsubscribeFn)
-        const registeredEntry = getSubscription(nuxtApp, currentCacheKey)
-        if (!registeredEntry) {
-          throw new Error('[useConvexQuery] Failed to register subscription entry')
-        }
-        registeredEntry.queryBridge = localBridge
-        registeredCacheKey = currentCacheKey
-        attachSharedBridge(registeredEntry)
-
-        logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
 
         // Register with DevTools in dev mode
         if (import.meta.dev && devToolsRegistry) {
@@ -570,6 +547,7 @@ export function createConvexQueryState<
           }
 
           registeredCacheKey = null
+          registeredBridge = null
         }
 
         // Setup new subscription (data will be updated by useAsyncData's watch)
@@ -580,10 +558,8 @@ export function createConvexQueryState<
           // useAsyncData key can hydrate from a shared cached value after bridge sync.
           // Re-sync once more on next macrotask so transform() stays subscriber-specific.
           setTimeout(() => {
-            if (!registeredCacheKey) return
-            const entry = getSubscription(nuxtApp, registeredCacheKey)
-            if (!entry) return
-            attachSharedBridge(entry)
+            if (!registeredCacheKey || !registeredBridge) return
+            attachSharedBridge(registeredBridge)
           }, 0)
         }
       },
@@ -598,6 +574,7 @@ export function createConvexQueryState<
             logger.query({ name: fnName, event: 'unsubscribe' })
           }
           registeredCacheKey = null
+          registeredBridge = null
         }
         return
       }
@@ -628,8 +605,10 @@ export function createConvexQueryState<
         }
 
         registeredCacheKey = null
+        registeredBridge = null
       } else {
         cleanupSharedBridgeWatchers()
+        registeredBridge = null
       }
     })
   }
@@ -665,14 +644,9 @@ export function createConvexQueryState<
     }
   }
 
-  const data = computed<DataT | null>({
-    get: () => {
-      const raw = asyncData.data.value
-      return raw == null ? null : applyTransform(raw as RawT)
-    },
-    set: (value: DataT | null) => {
-      ;(asyncData.data as Ref<RawT | null | undefined>).value = value as unknown as RawT | null
-    },
+  const data = computed<DataT | null>(() => {
+    const raw = asyncData.data.value
+    return raw == null ? null : applyTransform(raw as RawT)
   })
 
   // Build result data object with our own pending/status

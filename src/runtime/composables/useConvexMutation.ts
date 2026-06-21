@@ -1,5 +1,10 @@
 import type { ConvexClient, OptimisticLocalStore } from 'convex/browser'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  OptionalRestArgs,
+} from 'convex/server'
 import type { Ref, ComputedRef } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
@@ -31,24 +36,20 @@ export {
 /**
  * Return value from useConvexMutation
  */
-export interface UseConvexMutationReturn<Args, Result> {
-  /**
-   * Execute the mutation. The returned object is callable and also exposes
-   * state refs on the same function.
-   */
-  (args: Args): Promise<Result>
-
+export type UseConvexMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
+  ...args: OptionalRestArgs<Mutation>
+) => Promise<FunctionReturnType<Mutation>>) & {
   /**
    * Execute the mutation without throwing.
    * Returns a stable result envelope.
    */
-  safe: (args: Args) => Promise<CallResult<Result>>
+  safe: (...args: OptionalRestArgs<Mutation>) => Promise<CallResult<FunctionReturnType<Mutation>>>
 
   /**
    * Result data from the last successful mutation.
    * undefined if mutation hasn't succeeded yet.
    */
-  data: Ref<Result | undefined>
+  data: Ref<FunctionReturnType<Mutation> | undefined>
 
   /**
    * Mutation status for explicit state management.
@@ -233,7 +234,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,
   options?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
-): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
+): UseConvexMutationReturn<Mutation> {
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
 
@@ -247,7 +248,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const callState = createConvexCallState<Result>()
 
   // The mutation function
-  const execute = async (args: Args): Promise<Result> => {
+  const execute = async (...callArgs: OptionalRestArgs<Mutation>): Promise<Result> => {
+    const args = (callArgs[0] ?? {}) as Args
     const startTime = Date.now()
     const currentRequestId = callState.start()
 
@@ -315,8 +317,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     }
   }
 
-  const safe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
+  const safe = async (...callArgs: OptionalRestArgs<Mutation>): Promise<CallResult<Result>> => {
+    return await toCallResult(() => execute(...callArgs))
   }
 
   return Object.assign(execute, {

@@ -4,8 +4,8 @@ const {
   appendResponseHeaderMock,
   createErrorMock,
   getConvexRuntimeConfigMock,
+  getRequestWebStreamMock,
   getRequestURLMock,
-  readRawBodyMock,
   sendMock,
   setHeadersMock,
   setResponseStatusMock,
@@ -19,8 +19,16 @@ const {
     return error
   }),
   getConvexRuntimeConfigMock: vi.fn(),
+  getRequestWebStreamMock: vi.fn((event: { body?: string }) => {
+    if (event.body === undefined) return undefined
+    return new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(event.body))
+        controller.close()
+      },
+    })
+  }),
   getRequestURLMock: vi.fn(),
-  readRawBodyMock: vi.fn(),
   sendMock: vi.fn((_event: unknown, body: Uint8Array) => body),
   setHeadersMock: vi.fn(),
   setResponseStatusMock: vi.fn(),
@@ -31,8 +39,8 @@ vi.mock('h3', () => ({
   appendResponseHeader: appendResponseHeaderMock,
   createError: createErrorMock,
   defineEventHandler: (handler: unknown) => handler,
+  getRequestWebStream: getRequestWebStreamMock,
   getRequestURL: getRequestURLMock,
-  readRawBody: readRawBodyMock,
   send: sendMock,
   setHeaders: setHeadersMock,
   setResponseStatus: setResponseStatusMock,
@@ -46,9 +54,10 @@ vi.mock('../../src/runtime/server/api/auth/redirect-utils', () => ({
   fetchWithCanonicalRedirects: fetchWithCanonicalRedirectsMock,
 }))
 
-function createEvent(method: string): { method: string; headers: Headers } {
+function createEvent(method: string): { method: string; headers: Headers; body?: string } {
   return {
     method,
+    body: method === 'GET' ? undefined : '{"name":"Demo workspace"}',
     headers: new Headers({
       accept: 'application/json',
       authorization: 'Bearer browser-session-token',
@@ -75,7 +84,6 @@ describe('auth proxy Better Auth plugin routes', () => {
         maxResponseBodyBytes: 1024 * 1024,
       },
     })
-    readRawBodyMock.mockResolvedValue('{"name":"Demo workspace"}')
     fetchWithCanonicalRedirectsMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,

@@ -36,6 +36,14 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     })
 
     expect(result.source.value).toBe('session')
+    expect(result.state.value).toEqual({
+      source: 'session',
+      data: {
+        id: 'auth-user-1',
+        name: 'Session Name',
+        email: 'session@example.com',
+      },
+    })
     expect(result.data.value).toEqual({
       id: 'auth-user-1',
       name: 'Session Name',
@@ -45,6 +53,13 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     resolveFetch?.({ value: { id: 'auth-user-1', displayName: 'Canonical Name' } })
 
     await waitFor(() => result.source.value === 'better-auth')
+    expect(result.state.value).toEqual({
+      source: 'better-auth',
+      data: {
+        id: 'auth-user-1',
+        displayName: 'Canonical Name',
+      },
+    })
     expect(result.data.value).toEqual({
       id: 'auth-user-1',
       displayName: 'Canonical Name',
@@ -78,6 +93,10 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     })
 
     await waitFor(() => result.source.value === 'projection')
+    expect(result.state.value).toEqual({
+      source: 'projection',
+      data: { authId: 'auth-user-2', handle: 'canonical' },
+    })
     expect(result.data.value).toEqual({ authId: 'auth-user-2', handle: 'canonical' })
   })
 
@@ -100,6 +119,7 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
     expect(result.data.value).toBeNull()
     expect(result.source.value).toBe('none')
+    expect(result.state.value).toEqual({ source: 'none', data: null })
     expect(result.status.value).toBe('idle')
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -147,6 +167,7 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
     expect(result.currentUser.data.value).toBeNull()
     expect(result.currentUser.source.value).toBe('none')
+    expect(result.currentUser.state.value).toEqual({ source: 'none', data: null })
     expect(result.currentUser.status.value).toBe('idle')
   })
 })

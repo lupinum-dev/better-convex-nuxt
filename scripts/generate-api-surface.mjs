@@ -48,7 +48,7 @@ const componentNames = readdirSync(componentsDir)
 const composableMeta = {
   createPermissions: {
     kind: 'Factory',
-    purpose: 'Builds a typed permission API for route/UI guards and capability checks.',
+    purpose: 'Builds a typed permission API for app-level capability checks.',
     guide: '/docs/auth-security/permissions',
   },
   deleteFromPaginatedQuery: {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ComputedRef } from 'vue'
 
 import type {
   ConvexPaginatedQueryArgs,
@@ -6,6 +7,7 @@ import type {
 } from '../../src/runtime/composables/useConvexPaginatedQuery'
 import type {
   ConvexQueryArgs,
+  UseConvexQueryData,
   UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
 
@@ -18,6 +20,7 @@ type QueryOptions = UseConvexQueryOptions<string[]>
 type PaginatedOptions = UseConvexPaginatedQueryOptions<{ id: string }>
 type QueryArgs = ConvexQueryArgs<{ id: string }>
 type PaginatedArgs = ConvexPaginatedQueryArgs<{ id: string }>
+type QueryData = UseConvexQueryData<string>
 
 type _QueryUsesInitialData = Assert<
   IsEqual<QueryOptions['initialData'], string[] | (() => string[] | undefined) | undefined>
@@ -38,6 +41,7 @@ type _QueryHasNoAuthOption = Assert<IsEqual<HasKey<QueryOptions, 'auth'>, false>
 type _PaginatedHasNoAuthOption = Assert<IsEqual<HasKey<PaginatedOptions, 'auth'>, false>>
 type _QueryArgsUseOnlySkipSentinel = Assert<IsEqual<QueryArgs, { id: string } | 'skip'>>
 type _PaginatedArgsUseOnlySkipSentinel = Assert<IsEqual<PaginatedArgs, { id: string } | 'skip'>>
+type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
 
 describe('query option type contracts', () => {
   it('uses initialData and skip args instead of legacy option aliases', () => {
