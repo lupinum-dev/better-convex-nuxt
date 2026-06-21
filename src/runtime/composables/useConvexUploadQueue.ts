@@ -4,24 +4,14 @@ import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type 
 import { toCallResult, type CallResult } from '../utils/call-result'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
+import {
+  computeUploadQueueAggregateProgress,
+  countUploadQueueItems,
+  type UploadQueueItem,
+} from '../utils/upload-queue-state'
 import { useConvex } from './useConvex'
 
-export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
-
-export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
-  id: string
-  file: File
-  mutationArgs?: MutationArgs
-  status: UploadQueueItemStatus
-  progress: number
-  loadedBytes: number
-  totalBytes: number
-  storageId?: string
-  error: Error | null
-  createdAt: number
-  startedAt: number | null
-  finishedAt: number | null
-}
+export type { UploadQueueItem, UploadQueueItemStatus } from '../utils/upload-queue-state'
 
 export interface UploadQueueEnqueueItem<MutationArgs = Record<string, unknown>> {
   file: File
@@ -124,17 +114,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   let scheduling = false
   let hasBeenBusy = false
 
-  const queuedCount = computed(() => items.value.filter((item) => item.status === 'queued').length)
-  const pendingCount = computed(
-    () => items.value.filter((item) => item.status === 'pending').length,
-  )
-  const successCount = computed(
-    () => items.value.filter((item) => item.status === 'success').length,
-  )
-  const errorCount = computed(() => items.value.filter((item) => item.status === 'error').length)
-  const cancelledCount = computed(
-    () => items.value.filter((item) => item.status === 'cancelled').length,
-  )
+  const queuedCount = computed(() => countUploadQueueItems(items.value, 'queued'))
+  const pendingCount = computed(() => countUploadQueueItems(items.value, 'pending'))
+  const successCount = computed(() => countUploadQueueItems(items.value, 'success'))
+  const errorCount = computed(() => countUploadQueueItems(items.value, 'error'))
+  const cancelledCount = computed(() => countUploadQueueItems(items.value, 'cancelled'))
 
   const isRunning = computed(
     () => pendingCount.value > 0 || (!haltedByError.value && queuedCount.value > 0),
@@ -142,34 +126,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 
   const hasErrors = computed(() => errorCount.value > 0)
 
-  const aggregateProgress = computed(() => {
-    if (items.value.length === 0) return 0
-
-    let totalBytes = 0
-    let uploadedBytes = 0
-
-    for (const item of items.value) {
-      const itemTotal = Math.max(0, item.totalBytes || item.file.size || 0)
-      totalBytes += itemTotal
-
-      if (item.status === 'queued') continue
-      if (item.status === 'success') {
-        uploadedBytes += itemTotal
-        continue
-      }
-
-      uploadedBytes += Math.max(0, Math.min(item.loadedBytes, itemTotal || item.loadedBytes))
-    }
-
-    if (totalBytes <= 0) {
-      const hasWork = items.value.some(
-        (item) => item.status === 'queued' || item.status === 'pending',
-      )
-      return hasWork ? 0 : 100
-    }
-
-    return Math.min(100, Math.floor((uploadedBytes / totalBytes) * 100))
-  })
+  const aggregateProgress = computed(() => computeUploadQueueAggregateProgress(items.value))
 
   const mutateItem = (id: string, updater: (item: QueueItem) => QueueItem): QueueItem | null => {
     let updated: QueueItem | null = null

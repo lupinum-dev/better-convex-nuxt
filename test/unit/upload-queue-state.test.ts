@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  computeUploadQueueAggregateProgress,
+  countUploadQueueItems,
+  type UploadQueueItem,
+  type UploadQueueItemStatus,
+} from '../../src/runtime/utils/upload-queue-state'
+
+function file(size: number): File {
+  return new File([size > 0 ? 'x'.repeat(size) : ''], 'upload.bin')
+}
+
+function item(
+  status: UploadQueueItemStatus,
+  overrides: Partial<UploadQueueItem> = {},
+): UploadQueueItem {
+  return {
+    id: crypto.randomUUID(),
+    file: file(10),
+    status,
+    progress: 0,
+    loadedBytes: 0,
+    totalBytes: 10,
+    error: null,
+    createdAt: 1,
+    startedAt: null,
+    finishedAt: null,
+    ...overrides,
+  }
+}
+
+describe('upload queue state helpers', () => {
+  it('counts items by status', () => {
+    const items = [
+      item('queued'),
+      item('pending'),
+      item('pending'),
+      item('success'),
+      item('error'),
+      item('cancelled'),
+    ]
+
+    expect(countUploadQueueItems(items, 'queued')).toBe(1)
+    expect(countUploadQueueItems(items, 'pending')).toBe(2)
+    expect(countUploadQueueItems(items, 'success')).toBe(1)
+    expect(countUploadQueueItems(items, 'error')).toBe(1)
+    expect(countUploadQueueItems(items, 'cancelled')).toBe(1)
+  })
+
+  it('computes byte-weighted progress across queued, pending, and successful items', () => {
+    const items = [
+      item('success', { file: file(10), totalBytes: 10, loadedBytes: 10 }),
+      item('pending', { file: file(90), totalBytes: 90, loadedBytes: 45 }),
+      item('queued', { file: file(100), totalBytes: 100, loadedBytes: 100 }),
+    ]
+
+    expect(computeUploadQueueAggregateProgress(items)).toBe(27)
+  })
+
+  it('returns zero for empty or all-zero active work and one hundred for finished zero-byte work', () => {
+    expect(computeUploadQueueAggregateProgress([])).toBe(0)
+    expect(
+      computeUploadQueueAggregateProgress([
+        item('pending', { file: file(0), totalBytes: 0, loadedBytes: 0 }),
+      ]),
+    ).toBe(0)
+    expect(
+      computeUploadQueueAggregateProgress([
+        item('success', { file: file(0), totalBytes: 0, loadedBytes: 0 }),
+      ]),
+    ).toBe(100)
+  })
+})
