@@ -380,9 +380,10 @@ export function createConvexQueryState<
     cleanupSharedBridgeWatchers()
 
     const syncDataFromBridge = () => {
-      if (!bridge.hasRawData) return
+      const snapshot = bridge.data.value
+      if (!snapshot.hasData) return
 
-      const rawResult = bridge.rawData as RawT
+      const rawResult = snapshot.rawData as RawT
       ;(asyncData.data as Ref<RawT | null>).value = rawResult
       commitFreshData(rawResult)
 
@@ -394,7 +395,7 @@ export function createConvexQueryState<
     }
 
     const syncErrorFromBridge = () => {
-      const err = bridge.error
+      const err = bridge.error.value
       if (!err) return
 
       const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
@@ -404,14 +405,14 @@ export function createConvexQueryState<
     }
 
     stopSharedDataWatch = watch(
-      () => bridge.dataVersion.value,
+      () => bridge.data.value,
       () => {
         syncDataFromBridge()
       },
     )
 
     stopSharedErrorWatch = watch(
-      () => bridge.errorVersion.value,
+      () => bridge.error.value,
       () => {
         syncErrorFromBridge()
       },

@@ -389,20 +389,22 @@ export function createConvexPaginatedQueryState<
     cleanupFirstPageBridgeWatchers()
 
     const syncDataFromBridge = () => {
-      if (!bridge.hasRawData) return
-      firstPageRealtimeData.value = bridge.rawData as PaginationResult<Item>
+      const snapshot = bridge.data.value
+      if (!snapshot.hasData) return
+      firstPageRealtimeData.value = snapshot.rawData as PaginationResult<Item>
       if (asyncData.error.value !== null) {
         ;(asyncData.error as unknown as Ref<Error | null>).value = null
       }
     }
 
     const syncErrorFromBridge = () => {
-      if (!bridge.error) return
-      ;(asyncData.error as unknown as Ref<Error | null>).value = bridge.error
+      const err = bridge.error.value
+      if (!err) return
+      ;(asyncData.error as unknown as Ref<Error | null>).value = err
     }
 
-    stopFirstPageBridgeDataWatch = watch(() => bridge.dataVersion.value, syncDataFromBridge)
-    stopFirstPageBridgeErrorWatch = watch(() => bridge.errorVersion.value, syncErrorFromBridge)
+    stopFirstPageBridgeDataWatch = watch(() => bridge.data.value, syncDataFromBridge)
+    stopFirstPageBridgeErrorWatch = watch(() => bridge.error.value, syncErrorFromBridge)
 
     syncDataFromBridge()
     syncErrorFromBridge()
@@ -412,14 +414,15 @@ export function createConvexPaginatedQueryState<
     cleanupPageBridgeWatchers(pageIndex)
 
     const syncDataFromBridge = () => {
-      if (!bridge.hasRawData) return
+      const snapshot = bridge.data.value
+      if (!snapshot.hasData) return
       const currentPage = pages.value[pageIndex]
       if (!currentPage) return
 
       const newPages = [...pages.value]
       newPages[pageIndex] = {
         ...currentPage,
-        result: bridge.rawData as PaginationResult<Item>,
+        result: snapshot.rawData as PaginationResult<Item>,
         pending: false,
         error: null,
       }
@@ -427,7 +430,8 @@ export function createConvexPaginatedQueryState<
     }
 
     const syncErrorFromBridge = () => {
-      if (!bridge.error) return
+      const err = bridge.error.value
+      if (!err) return
       const currentPage = pages.value[pageIndex]
       if (!currentPage) return
 
@@ -435,13 +439,13 @@ export function createConvexPaginatedQueryState<
       newPages[pageIndex] = {
         ...currentPage,
         pending: false,
-        error: bridge.error,
+        error: err,
       }
       pages.value = newPages
     }
 
-    const stopData = watch(() => bridge.dataVersion.value, syncDataFromBridge)
-    const stopError = watch(() => bridge.errorVersion.value, syncErrorFromBridge)
+    const stopData = watch(() => bridge.data.value, syncDataFromBridge)
+    const stopError = watch(() => bridge.error.value, syncErrorFromBridge)
     pageBridgeWatchStops.set(pageIndex, { data: stopData, error: stopError })
 
     // Late joiners may attach after the owner already received data/error.

@@ -32,15 +32,22 @@ export interface SubscriptionEntry {
 
 /**
  * Shared query state for deduplicated useConvexQuery subscribers.
- * Stores raw subscription data and reactive version counters so each subscriber
+ * Stores raw subscription data in reactive source refs so each subscriber
  * can sync into its own local asyncData refs with its own transform().
  */
+export type QueryBridgeData =
+  | {
+      hasData: false
+      rawData: undefined
+    }
+  | {
+      hasData: true
+      rawData: unknown
+    }
+
 export interface QuerySubscriptionBridge {
-  rawData: unknown
-  hasRawData: boolean
-  dataVersion: ShallowRef<number>
-  error: Error | null
-  errorVersion: ShallowRef<number>
+  data: ShallowRef<QueryBridgeData>
+  error: ShallowRef<Error | null>
 }
 
 /**
@@ -56,11 +63,8 @@ export interface AcquiredQuerySubscription {
 
 export function createQueryBridge(): QuerySubscriptionBridge {
   return {
-    rawData: undefined,
-    hasRawData: false,
-    dataVersion: shallowRef(0),
-    error: null,
-    errorVersion: shallowRef(0),
+    data: shallowRef({ hasData: false, rawData: undefined }),
+    error: shallowRef(null),
   }
 }
 
@@ -76,15 +80,12 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
 }
 
 export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: unknown): void {
-  bridge.rawData = rawData
-  bridge.hasRawData = true
-  bridge.error = null
-  bridge.dataVersion.value += 1
+  bridge.data.value = { hasData: true, rawData }
+  bridge.error.value = null
 }
 
 export function commitQueryBridgeError(bridge: QuerySubscriptionBridge, error: Error): void {
-  bridge.error = error
-  bridge.errorVersion.value += 1
+  bridge.error.value = error
 }
 
 export function acquireQuerySubscription(
