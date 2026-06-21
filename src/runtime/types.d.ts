@@ -54,8 +54,6 @@ export interface ConvexPublicRuntimeConfig {
     clientAuthFlow?: boolean
     serverAuthFlow?: boolean
   }
-  /** Index signature for compatibility with Record<string, unknown> */
-  [key: string]: unknown
 }
 
 declare module '#app' {

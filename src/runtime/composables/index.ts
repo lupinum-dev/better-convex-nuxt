@@ -2,6 +2,7 @@ export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useC
 export {
   useConvexUser,
   type ConvexUserSource,
+  type ConvexUserState,
   type UseConvexUserOptions,
   type UseConvexUserReturn,
 } from './useConvexUser'
