@@ -6,7 +6,10 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthEngineState,
 } from '../../src/runtime/auth/client-engine'
-import { getSubscription, registerSubscription } from '../../src/runtime/utils/convex-cache'
+import {
+  acquireQuerySubscription,
+  getSubscriptionCache,
+} from '../../src/runtime/utils/convex-cache'
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf-8')
@@ -280,12 +283,12 @@ describe('createConvexAuthEngine', () => {
       isAuthEnabled: true,
     })
 
-    registerSubscription(nuxtApp, 'convex:query:private', unsubscribe)
+    acquireQuerySubscription(nuxtApp, 'convex:query:private', () => unsubscribe)
     engine.attachConvexClient(client as never)
 
     await engine.signOut()
 
     expect(unsubscribe).toHaveBeenCalledTimes(1)
-    expect(getSubscription(nuxtApp, 'convex:query:private')).toBeUndefined()
+    expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(false)
   })
 })

@@ -226,61 +226,6 @@ export function getSubscriptionCache(nuxtApp: SubscriptionCacheOwner): Subscript
 }
 
 /**
- * Register a subscription in the cache with reference counting.
- * If a subscription already exists, increments the ref count instead of replacing.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @param unsubscribe - The unsubscribe function
- * @returns true if this component should manage the subscription (first registrant), false if joining existing
- */
-export function registerSubscription(
-  nuxtApp: SubscriptionCacheOwner,
-  cacheKey: string,
-  unsubscribe: () => void,
-): boolean {
-  const cache = getSubscriptionCache(nuxtApp)
-  const existing = cache.get(cacheKey)
-
-  if (existing) {
-    // Subscription exists - increment ref count, don't replace
-    existing.refCount++
-    return false // This component is joining an existing subscription
-  }
-
-  // New subscription
-  cache.set(cacheKey, { unsubscribe, refCount: 1 })
-  return true // This component owns the subscription
-}
-
-/**
- * Check if a subscription already exists in the cache.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @returns True if subscription exists
- */
-export function hasSubscription(nuxtApp: SubscriptionCacheOwner, cacheKey: string): boolean {
-  const cache = getSubscriptionCache(nuxtApp)
-  return cache.has(cacheKey)
-}
-
-/**
- * Get the current subscription entry from the cache.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @returns The subscription entry if it exists, undefined otherwise
- */
-export function getSubscription(
-  nuxtApp: SubscriptionCacheOwner,
-  cacheKey: string,
-): SubscriptionEntry | undefined {
-  const cache = getSubscriptionCache(nuxtApp)
-  return cache.get(cacheKey)
-}
-
-/**
  * Decrement reference count and cleanup subscription if no more references.
  * Returns true if the subscription was actually unsubscribed.
  *

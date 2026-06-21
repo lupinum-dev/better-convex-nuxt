@@ -318,28 +318,12 @@ export function insertAtTop<Query extends PaginatedQueryReference>(
 ): void {
   const { query, argsToMatch, store, item } = options
 
-  // Get all queries matching this function
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    // Skip if args don't match filter
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
-      continue
-    }
-
-    // Skip if no value yet (query hasn't loaded)
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Insert item at the beginning of the page
-    const newPage = [item, ...paginatedValue.page]
-
-    store.setQuery(query, args, {
+  updateMatchingPaginatedQueries({ query, argsToMatch, store }, (paginatedValue) => {
+    return {
       ...paginatedValue,
-      page: newPage,
-    })
-  }
+      page: [item, ...paginatedValue.page],
+    }
+  })
 }
 
 /**
@@ -390,16 +374,7 @@ export function insertAtPosition<Query extends PaginatedQueryReference>(
 ): void {
   const { query, argsToMatch, sortOrder, sortKeyFromItem, store, item } = options
 
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
+  updateMatchingPaginatedQueries({ query, argsToMatch, store }, (paginatedValue) => {
     const newItemKey = sortKeyFromItem(item)
     const newItemKeyJson = convexToJson(newItemKey)
 
@@ -436,11 +411,11 @@ export function insertAtPosition<Query extends PaginatedQueryReference>(
       ...paginatedValue.page.slice(insertIndex),
     ]
 
-    store.setQuery(query, args, {
+    return {
       ...paginatedValue,
       page: newPage,
-    })
-  }
+    }
+  })
 }
 
 /**
@@ -485,29 +460,16 @@ export function insertAtBottomIfLoaded<Query extends PaginatedQueryReference>(
 ): void {
   const { query, argsToMatch, store, item } = options
 
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    // Only insert if all pages are loaded (isDone is true)
+  updateMatchingPaginatedQueries({ query, argsToMatch, store }, (paginatedValue) => {
     if (!paginatedValue.isDone) {
-      continue
+      return undefined
     }
 
-    const newPage = [...paginatedValue.page, item]
-
-    store.setQuery(query, args, {
+    return {
       ...paginatedValue,
-      page: newPage,
-    })
-  }
+      page: [...paginatedValue.page, item],
+    }
+  })
 }
 
 /**
@@ -552,24 +514,12 @@ export function updateInPaginatedQuery<Query extends PaginatedQueryReference>(
 ): void {
   const { query, argsToMatch, store, updateValue } = options
 
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.map(updateValue)
-
-    store.setQuery(query, args, {
+  updateMatchingPaginatedQueries({ query, argsToMatch, store }, (paginatedValue) => {
+    return {
       ...paginatedValue,
-      page: newPage,
-    })
-  }
+      page: paginatedValue.page.map(updateValue),
+    }
+  })
 }
 
 /**
@@ -608,24 +558,12 @@ export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
 ): void {
   const { query, argsToMatch, store, shouldDelete } = options
 
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
-      continue
-    }
-
-    if (!value) continue
-
-    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
-
-    const newPage = paginatedValue.page.filter((item) => !shouldDelete(item))
-
-    store.setQuery(query, args, {
+  updateMatchingPaginatedQueries({ query, argsToMatch, store }, (paginatedValue) => {
+    return {
       ...paginatedValue,
-      page: newPage,
-    })
-  }
+      page: paginatedValue.page.filter((item) => !shouldDelete(item)),
+    }
+  })
 }
 
 // ============================================================================
@@ -654,6 +592,34 @@ function argsMatchForPaginatedQuery(
   filterArgs: Record<string, unknown>,
 ): boolean {
   return sharedArgsMatch(queryArgs, filterArgs, ['paginationOpts'])
+}
+
+function updateMatchingPaginatedQueries<Query extends PaginatedQueryReference>(
+  options: {
+    query: Query
+    argsToMatch?: Partial<PaginatedQueryArgs<Query>>
+    store: OptimisticLocalStore
+  },
+  updater: (
+    currentValue: PaginationResult<PaginatedQueryItem<Query>>,
+  ) => PaginationResult<PaginatedQueryItem<Query>> | undefined,
+): void {
+  const { query, argsToMatch, store } = options
+  const allQueries = store.getAllQueries(query)
+
+  for (const { args, value } of allQueries) {
+    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
+      continue
+    }
+
+    if (!value) continue
+
+    const paginatedValue = value as PaginationResult<PaginatedQueryItem<Query>>
+    const newValue = updater(paginatedValue)
+    if (newValue === undefined) continue
+
+    store.setQuery(query, args, newValue)
+  }
 }
 
 /**
