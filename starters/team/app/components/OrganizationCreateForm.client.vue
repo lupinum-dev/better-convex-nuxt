@@ -2,14 +2,20 @@
 import { api } from '~~/convex/_generated/api'
 
 const name = ref('')
+const error = ref<string | null>(null)
 const { execute: createOrganization, pending } = useConvexMutation(api.organizations.create)
 
 async function submit() {
   const trimmedName = name.value.trim()
   if (!trimmedName) return
 
-  await createOrganization({ name: trimmedName })
-  name.value = ''
+  error.value = null
+  try {
+    await createOrganization({ name: trimmedName })
+    name.value = ''
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Organization was not created'
+  }
 }
 </script>
 
@@ -17,6 +23,7 @@ async function submit() {
   <form class="create-form" @submit.prevent="submit">
     <input v-model="name" placeholder="Organization name" />
     <button :disabled="pending || !name.trim()">Create</button>
+    <p v-if="error" class="form-error">{{ error }}</p>
   </form>
 </template>
 
@@ -50,5 +57,12 @@ button {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #b42318;
+  font-size: 14px;
 }
 </style>

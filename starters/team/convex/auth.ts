@@ -10,7 +10,7 @@ const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
 const isLocalSite = siteUrl.startsWith('http://localhost') || siteUrl.startsWith('http://127.0.0.1')
 const authSecret =
   process.env.BETTER_AUTH_SECRET ??
-  (isLocalSite ? 'better-convex-nuxt-team-local-dev-secret' : undefined)
+  (isLocalSite ? 'better-convex-nuxt-team-dev-secret' : undefined)
 const authFunctions: AuthFunctions = internal.auth
 
 export const authComponent = createClient<DataModel>(components.betterAuth, {
