@@ -12,25 +12,18 @@
 
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
-import type { AuthWaterfall, AuthWaterfallPhase } from './devtools/types'
-import { getCachedAuthToken, setCachedAuthToken } from './server/utils/auth-cache'
+import type { AuthWaterfall } from './devtools/types'
+import { resolveServerAuthSnapshot } from './server/utils/auth-snapshot'
 import { fetchWithTimeout } from './server/utils/http'
 import {
   buildAuthProxyUnreachableMessage,
   buildAuthProxyUpstreamStatusMessage,
   buildMissingSiteUrlMessage,
-  buildTokenExchangeFailureMessage,
 } from './utils/auth-errors'
-import { decodeUserFromJwt } from './utils/convex-shared'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-import { getCookie } from './utils/shared-helpers'
 import type { ConvexUser } from './utils/types'
 
-/** Session cookie name used by Better Auth */
-const SESSION_COOKIE_NAME = 'better-auth.session_token'
-/** Secure cookie name (used on HTTPS in production) */
-const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
 const AUTH_HEALTHCHECK_CACHE_KEY = '__BCN_AUTH_HEALTHCHECK_DONE__'
 
 async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
@@ -64,43 +57,6 @@ async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
     console.warn(buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', response.status))
   } catch (error) {
     console.warn(buildAuthProxyUnreachableMessage(siteUrl, error))
-  }
-}
-
-async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<ConvexUser | null> {
-  try {
-    const sessionFetch = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader },
-      timeoutMs: 5_000,
-    })
-    if (!sessionFetch.ok) return null
-    const sessionResponse = (await sessionFetch.json().catch(() => null)) as {
-      user?: ConvexUser
-    } | null
-    return sessionResponse?.user ?? null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Helper to build a waterfall phase entry (dev-only)
- */
-function buildPhase(
-  name: string,
-  startTime: number,
-  waterfallStart: number,
-  result: AuthWaterfallPhase['result'],
-  details?: string,
-): AuthWaterfallPhase {
-  const end = Date.now()
-  return {
-    name,
-    start: startTime - waterfallStart,
-    end: end - waterfallStart,
-    duration: end - startTime,
-    result,
-    details,
   }
 }
 
@@ -191,262 +147,28 @@ export default defineNuxtPlugin(async () => {
   const convexAuthError = useState<string | null>('convex:authError', () => null)
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
 
-  // Waterfall tracking (dev-only)
-  const trackWaterfall = import.meta.dev
-  const waterfallStart = trackWaterfall ? Date.now() : 0
-  const phases: AuthWaterfallPhase[] = []
-  let cacheHit = false
-  // Get auth cache config
-  const authCacheConfig = convexConfig.authCache
-
-  // Phase 1: Session Check
-  const sessionCheckStart = trackWaterfall ? Date.now() : 0
   const cookieHeader = event.headers.get('cookie')
-  // Try both cookie names: __Secure- prefix is used on HTTPS (production)
-  const sessionToken =
-    getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) ||
-    getCookie(cookieHeader, SESSION_COOKIE_NAME)
-  logAuth('server-init', 'success', {
-    hasCookieHeader: Boolean(cookieHeader),
-    hasSessionToken: Boolean(sessionToken),
-    cacheEnabled: Boolean(authCacheConfig?.enabled),
+
+  const snapshot = await resolveServerAuthSnapshot({
+    siteUrl,
+    cookieHeader,
+    authCache: convexConfig.authCache,
+    requestId,
+    trackWaterfall: import.meta.dev,
+    throwOnMisconfig: import.meta.dev,
   })
 
-  if (!cookieHeader || !sessionToken) {
-    convexAuthError.value = null
-    if (trackWaterfall) {
-      phases.push(
-        buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'),
-      )
-      convexAuthWaterfall.value = {
-        requestId,
-        timestamp: waterfallStart,
-        phases,
-        totalDuration: Date.now() - waterfallStart,
-        outcome: 'unauthenticated',
-        cacheHit: false,
-      }
-    }
-    endInit()
-    logAuth('session-check', 'miss')
-    return
+  convexToken.value = snapshot.token
+  convexUser.value = snapshot.user
+  convexAuthError.value = snapshot.authError
+  convexAuthWaterfall.value = snapshot.waterfall
+
+  endInit()
+  for (const event of snapshot.logEvents) {
+    logAuth(event.phase, event.outcome, event.details, event.error)
   }
 
-  if (trackWaterfall) {
-    phases.push(
-      buildPhase('session-check', sessionCheckStart, waterfallStart, 'success', 'Cookie found'),
-    )
-  }
-
-  try {
-    let token: string | null = null
-    let tokenExchangeStatus: number | undefined
-    let tokenExchangeThrown: unknown
-
-    // Phase 2: Cache Lookup (if enabled)
-    if (authCacheConfig?.enabled && sessionToken) {
-      const cacheStart = trackWaterfall ? Date.now() : 0
-      token = await getCachedAuthToken(sessionToken)
-      if (token) {
-        // Cache hit - use cached token
-        cacheHit = true
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'),
-          )
-        }
-
-        // Phase 3: JWT Decode (from cache)
-        const decodeStart = trackWaterfall ? Date.now() : 0
-        convexToken.value = token
-        convexUser.value = decodeUserFromJwt(token)
-        if (!convexUser.value) {
-          convexUser.value = await fetchSessionUser(siteUrl, cookieHeader)
-        }
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              convexUser.value ? 'success' : 'error',
-              convexUser.value ? undefined : 'Cache hit decode fallback failed',
-            ),
-          )
-          convexAuthWaterfall.value = {
-            requestId,
-            timestamp: waterfallStart,
-            phases,
-            totalDuration: Date.now() - waterfallStart,
-            outcome: 'authenticated',
-            cacheHit: true,
-          }
-        }
-
-        endInit()
-        logAuth('cache', 'success', { source: 'cache' })
-        return
-      } else if (trackWaterfall) {
-        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'miss', 'Cache miss'))
-      }
-    } else if (trackWaterfall && authCacheConfig?.enabled === false) {
-      // Cache explicitly disabled
-      phases.push({
-        name: 'cache-lookup',
-        start: 0,
-        end: 0,
-        duration: 0,
-        result: 'skipped',
-        details: 'Cache disabled',
-      })
-    }
-
-    // Phase 3: Token Exchange (cache miss or caching disabled)
-    const exchangeStart = trackWaterfall ? Date.now() : 0
-    let tokenResponse: { token?: string } | null = null
-    try {
-      const response = await fetchWithTimeout(`${siteUrl}/api/auth/convex/token`, {
-        headers: { Cookie: cookieHeader },
-        timeoutMs: 5_000,
-      })
-      tokenExchangeStatus = response.status
-      if (response.ok) {
-        tokenResponse = (await response.json().catch(() => null)) as { token?: string } | null
-      }
-    } catch (error) {
-      tokenExchangeThrown = error
-    }
-
-    if (tokenResponse?.token) {
-      if (trackWaterfall) {
-        phases.push(
-          buildPhase(
-            'token-exchange',
-            exchangeStart,
-            waterfallStart,
-            'success',
-            `${siteUrl}/api/auth/convex/token`,
-          ),
-        )
-      }
-      token = tokenResponse.token
-      convexToken.value = token
-      convexAuthError.value = null
-
-      // Phase 4: JWT Decode
-      const decodeStart = trackWaterfall ? Date.now() : 0
-      convexUser.value = decodeUserFromJwt(token)
-
-      // If decode failed, fallback to session endpoint
-      if (!convexUser.value) {
-        convexUser.value = await fetchSessionUser(siteUrl, cookieHeader)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              'success',
-              'Fallback to session endpoint',
-            ),
-          )
-        }
-      } else if (trackWaterfall) {
-        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
-      }
-
-      // Phase 5: Cache Store (if caching is enabled)
-      if (authCacheConfig?.enabled && sessionToken && token) {
-        const storeStart = trackWaterfall ? Date.now() : 0
-        const ttl = authCacheConfig.ttl ?? 60
-        await setCachedAuthToken(sessionToken, token, ttl)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase('cache-store', storeStart, waterfallStart, 'success', `TTL: ${ttl}s`),
-          )
-        }
-      }
-
-      endInit()
-      logAuth('exchange', 'success', { user: convexUser.value?.email })
-    } else {
-      const likelyMisconfig =
-        Boolean(tokenExchangeThrown) ||
-        tokenExchangeStatus === 404 ||
-        (tokenExchangeStatus !== undefined && tokenExchangeStatus >= 500)
-      if (likelyMisconfig) {
-        convexAuthError.value = buildTokenExchangeFailureMessage({
-          siteUrl,
-          status: tokenExchangeStatus,
-          error: tokenExchangeThrown,
-        })
-      } else {
-        convexAuthError.value = null
-      }
-      if (trackWaterfall) {
-        phases.push(
-          buildPhase(
-            'token-exchange',
-            exchangeStart,
-            waterfallStart,
-            likelyMisconfig ? 'error' : 'miss',
-            tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
-          ),
-        )
-      }
-      if (import.meta.dev && likelyMisconfig) {
-        throw new Error(convexAuthError.value ?? 'Convex auth token exchange failed')
-      }
-
-      endInit()
-      logAuth(
-        'exchange',
-        likelyMisconfig ? 'error' : 'miss',
-        tokenExchangeStatus ? { status: tokenExchangeStatus } : undefined,
-        tokenExchangeThrown instanceof Error ? tokenExchangeThrown : undefined,
-      )
-    }
-
-    // Store waterfall (dev-only)
-    if (trackWaterfall) {
-      convexAuthWaterfall.value = {
-        requestId,
-        timestamp: waterfallStart,
-        phases,
-        totalDuration: Date.now() - waterfallStart,
-        outcome: convexToken.value ? 'authenticated' : 'unauthenticated',
-        cacheHit,
-      }
-    }
-  } catch (error) {
-    // Token exchange failed - session may be invalid/expired
-    convexToken.value = null
-    convexUser.value = null
-    convexAuthError.value = buildTokenExchangeFailureMessage({ siteUrl, error })
-
-    // Store waterfall with error (dev-only)
-    if (trackWaterfall) {
-      convexAuthWaterfall.value = {
-        requestId,
-        timestamp: waterfallStart,
-        phases,
-        totalDuration: Date.now() - waterfallStart,
-        outcome: 'error',
-        cacheHit: false,
-        error: error instanceof Error ? error.message : 'Token exchange failed',
-      }
-    }
-
-    endInit()
-    logAuth(
-      'exchange',
-      'error',
-      undefined,
-      error instanceof Error ? error : new Error(convexAuthError.value),
-    )
-
-    if (import.meta.dev) {
-      throw error instanceof Error ? error : new Error(convexAuthError.value)
-    }
+  if (snapshot.devError) {
+    throw snapshot.devError
   }
 })
