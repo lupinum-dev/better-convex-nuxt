@@ -31,6 +31,13 @@ import {
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
 import {
+  commitPaginatedPageError,
+  commitPaginatedPageResult,
+  createPendingPaginatedPage,
+  getLastLoadedPaginatedResult,
+  type PaginatedPageState,
+} from '../utils/paginated-query-pages'
+import {
   computePaginatedQueryStale,
   computePaginatedQueryStatus,
   type PaginatedFirstPageState,
@@ -187,15 +194,6 @@ interface BuildConvexPaginatedQueryResult<Item> {
   resolvePromise: Promise<void>
 }
 
-// Internal page state
-interface PageState<T> {
-  paginationOpts: { numItems: number; cursor: string | null; id: number }
-  result: PaginationResult<T> | undefined
-  error: Error | null
-  pending: boolean
-  unsubscribe: (() => void) | null
-}
-
 interface StablePaginationOpts {
   numItems: number
   cursor: string | null
@@ -308,7 +306,7 @@ export function createConvexPaginatedQueryState<
   const currentPaginationId = ref(generatePaginationId())
   // pages ref holds ADDITIONAL pages (loaded via loadMore), NOT the first page
   // First page comes from asyncData (for SSR) + firstPageRealtimeData (for real-time updates)
-  const pages = shallowRef<PageState<Item>[]>([])
+  const pages = shallowRef<PaginatedPageState<Item>[]>([])
   const globalError = ref<Error | null>(null)
   const pageBridgeWatchStops = new Map<
     number,
@@ -421,14 +419,11 @@ export function createConvexPaginatedQueryState<
       const currentPage = pages.value[pageIndex]
       if (!currentPage) return
 
-      const newPages = [...pages.value]
-      newPages[pageIndex] = {
-        ...currentPage,
-        result: snapshot.rawData as PaginationResult<Item>,
-        pending: false,
-        error: null,
-      }
-      pages.value = newPages
+      pages.value = commitPaginatedPageResult(
+        pages.value,
+        pageIndex,
+        snapshot.rawData as PaginationResult<Item>,
+      )
     }
 
     const syncErrorFromBridge = () => {
@@ -437,13 +432,7 @@ export function createConvexPaginatedQueryState<
       const currentPage = pages.value[pageIndex]
       if (!currentPage) return
 
-      const newPages = [...pages.value]
-      newPages[pageIndex] = {
-        ...currentPage,
-        pending: false,
-        error: err,
-      }
-      pages.value = newPages
+      pages.value = commitPaginatedPageError(pages.value, pageIndex, err)
     }
 
     const stopData = watch(() => bridge.data.value, syncDataFromBridge)
@@ -563,33 +552,18 @@ export function createConvexPaginatedQueryState<
   const loadMore = (numItems: number) => {
     if (isSkipped.value) return
 
-    // Get cursor from either first page (asyncData/realtime) or additional pages
-    let lastPageResult: PaginationResult<Item> | undefined
-
-    if (pages.value.length > 0) {
-      // Get cursor from last additional page
-      const lastPage = pages.value[pages.value.length - 1]
-      if (!lastPage) return
-      if (lastPage.pending) return // Already loading
-      lastPageResult = lastPage.result
-    } else {
-      // Get cursor from first page (real-time or asyncData)
-      lastPageResult = firstPageRealtimeData.value ?? asyncData.data.value ?? undefined
-    }
+    const lastPageResult = getLastLoadedPaginatedResult(
+      firstPageRealtimeData.value ?? asyncData.data.value,
+      pages.value,
+    )
 
     if (!lastPageResult || lastPageResult.isDone) return
 
-    const newPage: PageState<Item> = {
-      paginationOpts: {
-        numItems,
-        cursor: lastPageResult.continueCursor,
-        id: currentPaginationId.value,
-      },
-      result: undefined,
-      error: null,
-      pending: true,
-      unsubscribe: null,
-    }
+    const newPage = createPendingPaginatedPage<Item>({
+      numItems,
+      cursor: lastPageResult.continueCursor,
+      id: currentPaginationId.value,
+    })
 
     pages.value = [...pages.value, newPage]
 
@@ -598,7 +572,7 @@ export function createConvexPaginatedQueryState<
     const requestPaginationId = currentPaginationId.value
     const requestArgsHash = argsHash.value
 
-    const getCurrentPageForCommit = (): PageState<Item> | null => {
+    const getCurrentPageForCommit = (): PaginatedPageState<Item> | null => {
       if (currentPaginationId.value !== requestPaginationId || argsHash.value !== requestArgsHash) {
         return null
       }
@@ -622,15 +596,7 @@ export function createConvexPaginatedQueryState<
           .then((result) => {
             const currentPage = getCurrentPageForCommit()
             if (!currentPage) return
-            const newPages = [...pages.value]
-            newPages[newPageIndex] = {
-              paginationOpts: currentPage.paginationOpts,
-              unsubscribe: currentPage.unsubscribe,
-              error: null,
-              result,
-              pending: false,
-            }
-            pages.value = newPages
+            pages.value = commitPaginatedPageResult(pages.value, newPageIndex, result)
 
             // Start subscription for real-time updates
             startPageSubscription(newPageIndex)
@@ -639,15 +605,7 @@ export function createConvexPaginatedQueryState<
             void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
             const currentPage = getCurrentPageForCommit()
             if (!currentPage) return
-            const newPages = [...pages.value]
-            newPages[newPageIndex] = {
-              paginationOpts: currentPage.paginationOpts,
-              unsubscribe: currentPage.unsubscribe,
-              result: currentPage.result,
-              error: e instanceof Error ? e : new Error(String(e)),
-              pending: false,
-            }
-            pages.value = newPages
+            pages.value = commitPaginatedPageError(pages.value, newPageIndex, e)
           })
         return
       }
@@ -657,29 +615,13 @@ export function createConvexPaginatedQueryState<
       .then((result) => {
         const currentPage = getCurrentPageForCommit()
         if (!currentPage) return
-        const newPages = [...pages.value]
-        newPages[newPageIndex] = {
-          paginationOpts: currentPage.paginationOpts,
-          unsubscribe: currentPage.unsubscribe,
-          error: null,
-          result,
-          pending: false,
-        }
-        pages.value = newPages
+        pages.value = commitPaginatedPageResult(pages.value, newPageIndex, result)
       })
       .catch((e) => {
         void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
         const currentPage = getCurrentPageForCommit()
         if (!currentPage) return
-        const newPages = [...pages.value]
-        newPages[newPageIndex] = {
-          paginationOpts: currentPage.paginationOpts,
-          unsubscribe: currentPage.unsubscribe,
-          result: currentPage.result,
-          error: e instanceof Error ? e : new Error(String(e)),
-          pending: false,
-        }
-        pages.value = newPages
+        pages.value = commitPaginatedPageError(pages.value, newPageIndex, e)
       })
   }
 
@@ -1045,18 +987,13 @@ export function createConvexPaginatedQueryState<
     try {
       const firstPageResult = await fetchPage(initialPaginationOpts.value)
 
-      const refreshedPages = [...loadedPages]
+      let refreshedPages = [...loadedPages]
       for (let i = 0; i < loadedPages.length; i++) {
         const page = loadedPages[i]
         if (!page) continue
 
         const pageResult = await fetchPage(page.paginationOpts)
-        refreshedPages[i] = {
-          ...page,
-          result: pageResult,
-          pending: false,
-          error: null,
-        }
+        refreshedPages = commitPaginatedPageResult(refreshedPages, i, pageResult)
       }
 
       if (currentPaginationId.value === refreshPaginationId && !isSkipped.value) {
