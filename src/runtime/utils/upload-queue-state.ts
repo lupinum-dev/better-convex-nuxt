@@ -15,6 +15,52 @@ export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
   finishedAt: number | null
 }
 
+export interface UploadQueueEnqueueItem<MutationArgs = Record<string, unknown>> {
+  file: File
+  mutationArgs?: MutationArgs
+}
+
+export type UploadQueueEnqueueInput<MutationArgs = Record<string, unknown>> =
+  | File
+  | File[]
+  | FileList
+  | UploadQueueEnqueueItem<MutationArgs>[]
+
+export function normalizeUploadQueueEnqueueInput<MutationArgs>(
+  input: UploadQueueEnqueueInput<MutationArgs>,
+  mutationArgs?: MutationArgs,
+): UploadQueueEnqueueItem<MutationArgs>[] {
+  const hasFileCtor = typeof File !== 'undefined'
+
+  if (hasFileCtor && input instanceof File) {
+    return [{ file: input, mutationArgs }]
+  }
+
+  if (typeof FileList !== 'undefined' && input instanceof FileList) {
+    return Array.from(input).map((file) => ({ file, mutationArgs }))
+  }
+
+  if (!Array.isArray(input)) {
+    throw new TypeError('Unsupported upload queue input')
+  }
+
+  if (input.length === 0) return []
+
+  if (hasFileCtor && input[0] instanceof File) {
+    return (input as File[]).map((file) => ({ file, mutationArgs }))
+  }
+
+  return (input as UploadQueueEnqueueItem<MutationArgs>[]).map((entry) => {
+    if (!(entry.file instanceof File)) {
+      throw new TypeError('Upload queue item must include a valid File')
+    }
+    return {
+      file: entry.file,
+      mutationArgs: entry.mutationArgs ?? mutationArgs,
+    }
+  })
+}
+
 export function countUploadQueueItems(
   items: readonly UploadQueueItem[],
   status: UploadQueueItemStatus,

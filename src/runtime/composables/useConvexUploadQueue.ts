@@ -7,22 +7,18 @@ import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
 import {
   computeUploadQueueAggregateProgress,
   countUploadQueueItems,
+  normalizeUploadQueueEnqueueInput,
   type UploadQueueItem,
+  type UploadQueueEnqueueInput,
 } from '../utils/upload-queue-state'
 import { useConvex } from './useConvex'
 
-export type { UploadQueueItem, UploadQueueItemStatus } from '../utils/upload-queue-state'
-
-export interface UploadQueueEnqueueItem<MutationArgs = Record<string, unknown>> {
-  file: File
-  mutationArgs?: MutationArgs
-}
-
-export type UploadQueueEnqueueInput<MutationArgs = Record<string, unknown>> =
-  | File
-  | File[]
-  | FileList
-  | UploadQueueEnqueueItem<MutationArgs>[]
+export type {
+  UploadQueueEnqueueInput,
+  UploadQueueEnqueueItem,
+  UploadQueueItem,
+  UploadQueueItemStatus,
+} from '../utils/upload-queue-state'
 
 export interface UseConvexUploadQueueOptions<Mutation extends FunctionReference<'mutation'>> {
   maxConcurrent?: number
@@ -275,46 +271,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     }
   }
 
-  const normalizeEnqueueInput = (
-    input: UploadQueueEnqueueInput<MutationArgs>,
-    mutationArgs?: MutationArgs,
-  ): UploadQueueEnqueueItem<MutationArgs>[] => {
-    const hasFileCtor = typeof File !== 'undefined'
-
-    if (hasFileCtor && input instanceof File) {
-      return [{ file: input, mutationArgs }]
-    }
-
-    if (typeof FileList !== 'undefined' && input instanceof FileList) {
-      return Array.from(input).map((file) => ({ file, mutationArgs }))
-    }
-
-    if (!Array.isArray(input)) {
-      throw new TypeError('Unsupported upload queue input')
-    }
-
-    if (input.length === 0) return []
-
-    if (hasFileCtor && input[0] instanceof File) {
-      return (input as File[]).map((file) => ({ file, mutationArgs }))
-    }
-
-    return (input as UploadQueueEnqueueItem<MutationArgs>[]).map((entry) => {
-      if (!(entry.file instanceof File)) {
-        throw new TypeError('Upload queue item must include a valid File')
-      }
-      return {
-        file: entry.file,
-        mutationArgs: entry.mutationArgs ?? mutationArgs,
-      }
-    })
-  }
-
   const enqueue = async (
     input: UploadQueueEnqueueInput<MutationArgs>,
     mutationArgs?: MutationArgs,
   ): Promise<string[]> => {
-    const entries = normalizeEnqueueInput(input, mutationArgs)
+    const entries = normalizeUploadQueueEnqueueInput(input, mutationArgs)
     if (entries.length === 0) return []
 
     if (haltedByError.value && pendingCount.value === 0) {

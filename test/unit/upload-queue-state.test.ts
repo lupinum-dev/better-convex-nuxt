@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeUploadQueueAggregateProgress,
   countUploadQueueItems,
+  normalizeUploadQueueEnqueueInput,
   type UploadQueueItem,
   type UploadQueueItemStatus,
 } from '../../src/runtime/utils/upload-queue-state'
@@ -31,6 +32,45 @@ function item(
 }
 
 describe('upload queue state helpers', () => {
+  it('normalizes a single File with default mutation args', () => {
+    const uploadFile = file(10)
+
+    expect(normalizeUploadQueueEnqueueInput(uploadFile, { folder: 'docs' })).toEqual([
+      { file: uploadFile, mutationArgs: { folder: 'docs' } },
+    ])
+  })
+
+  it('normalizes File arrays and item arrays while preserving per-item args', () => {
+    const first = file(10)
+    const second = file(20)
+
+    expect(normalizeUploadQueueEnqueueInput([first, second], { folder: 'shared' })).toEqual([
+      { file: first, mutationArgs: { folder: 'shared' } },
+      { file: second, mutationArgs: { folder: 'shared' } },
+    ])
+
+    expect(
+      normalizeUploadQueueEnqueueInput(
+        [
+          { file: first, mutationArgs: { folder: 'first' } },
+          { file: second },
+        ],
+        { folder: 'fallback' },
+      ),
+    ).toEqual([
+      { file: first, mutationArgs: { folder: 'first' } },
+      { file: second, mutationArgs: { folder: 'fallback' } },
+    ])
+  })
+
+  it('rejects unsupported enqueue input shapes', () => {
+    expect(() =>
+      normalizeUploadQueueEnqueueInput([{ file: 'not-a-file' }] as never),
+    ).toThrow(/valid File/)
+
+    expect(() => normalizeUploadQueueEnqueueInput({} as never)).toThrow(/Unsupported/)
+  })
+
   it('counts items by status', () => {
     const items = [
       item('queued'),
