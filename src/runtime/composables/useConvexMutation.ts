@@ -1,8 +1,8 @@
-import type { OptimisticLocalStore } from 'convex/browser'
+import type { ConvexClient, OptimisticLocalStore } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { Ref, ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
@@ -15,7 +15,6 @@ import {
 } from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
-import { useConvex } from './useConvex'
 
 // Re-export optimistic update helpers
 export {
@@ -244,9 +243,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const fnName = getFunctionName(mutation)
   const hasOptimisticUpdate = !!options?.optimisticUpdate
 
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
   const callState = createConvexCallState<Result>()
 
   // The mutation function
@@ -263,6 +260,13 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     }
 
     try {
+      const client = nuxtApp.$convex as ConvexClient | undefined
+      if (!client) {
+        throw new Error(
+          '[useConvexMutation] Convex client is unavailable. Call mutations from the browser after configuring a Convex URL.',
+        )
+      }
+
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,
       })

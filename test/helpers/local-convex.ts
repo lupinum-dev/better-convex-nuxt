@@ -45,6 +45,11 @@ function cacheStartupFailure(key: string, error: unknown): Error {
   return normalized
 }
 
+function installLocalConvexEnv(env: Record<string, string>): Record<string, string> {
+  Object.assign(process.env, env)
+  return env
+}
+
 function createChildOutputReader(child: ChildProcessWithoutNullStreams): () => string {
   const chunks: string[] = []
   const maxLength = 4000
@@ -430,14 +435,16 @@ export async function ensureLocalConvex(
       clearTimeout(timer)
     }
 
+    const env = installLocalConvexEnv({
+      CONVEX_URL: explicitUrl,
+      NUXT_PUBLIC_CONVEX_URL: explicitUrl,
+      ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
+      ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
+      ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+    })
+
     return {
-      env: {
-        CONVEX_URL: explicitUrl,
-        NUXT_PUBLIC_CONVEX_URL: explicitUrl,
-        ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
-        ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
-        ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
-      },
+      env,
       release,
     }
   }
@@ -515,14 +522,16 @@ export async function ensureLocalConvex(
     clearTimeout(timer)
   }
 
+  const env = installLocalConvexEnv({
+    CONVEX_URL: activeHandle.url,
+    NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
+    CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
+    NUXT_PUBLIC_CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
+    ALLOW_TEST_RESET: 'true',
+  })
+
   return {
-    env: {
-      CONVEX_URL: activeHandle.url,
-      NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
-      CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-      NUXT_PUBLIC_CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-      ALLOW_TEST_RESET: 'true',
-    },
+    env,
     release,
   }
 }

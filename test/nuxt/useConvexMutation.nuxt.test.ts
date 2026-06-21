@@ -6,6 +6,17 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexMutation (Nuxt runtime)', () => {
+  it('can be created during SSR setup without a Convex client and fails when called', async () => {
+    const mutation = mockFnRef<'mutation'>('testing:ssr-safe-mutation')
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+    expect(result.pending.value).toBe(false)
+  })
+
   it('tracks pending and success states and exposes result data', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:add')

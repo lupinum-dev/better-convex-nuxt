@@ -1,7 +1,8 @@
+import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { Ref, ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
@@ -14,7 +15,6 @@ import {
 } from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
-import { useConvex } from './useConvex'
 
 /**
  * Return value from useConvexAction
@@ -133,9 +133,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(action)
 
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
   const callState = createConvexCallState<Result>()
 
   // The execute function
@@ -147,6 +145,13 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     const actionId = registerDevToolsEntry(fnName, 'action', args, false)
 
     try {
+      const client = nuxtApp.$convex as ConvexClient | undefined
+      if (!client) {
+        throw new Error(
+          '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
+        )
+      }
+
       const result = await client.action(action, args)
       callState.commitSuccess(currentRequestId, result)
 

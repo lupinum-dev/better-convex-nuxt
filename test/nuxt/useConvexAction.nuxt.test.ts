@@ -6,6 +6,17 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexAction (Nuxt runtime)', () => {
+  it('can be created during SSR setup without a Convex client and fails when called', async () => {
+    const action = mockFnRef<'action'>('testing:ssr-safe-action')
+
+    const { result } = await captureInNuxt(() => useConvexAction(action))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+    expect(result.pending.value).toBe(false)
+  })
+
   it('tracks pending and success states and exposes result data', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:echo')
