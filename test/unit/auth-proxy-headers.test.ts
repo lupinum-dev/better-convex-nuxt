@@ -10,7 +10,7 @@ describe('auth proxy header helpers', () => {
     const event = {
       headers: new Headers({
         host: 'app.example.com',
-        cookie: 'a=1',
+        cookie: 'a=1; better-auth.session_token=session; __Secure-better-auth.callback=state',
         origin: 'https://app.example.com',
         accept: 'application/json',
         connection: 'keep-alive',
@@ -23,7 +23,10 @@ describe('auth proxy header helpers', () => {
       originalHost: 'app.example.com',
     })
 
-    expect(headers.cookie).toBe('a=1')
+    expect(headers.cookie).toBe(
+      'better-auth.session_token=session; __Secure-better-auth.callback=state',
+    )
+    expect(headers.cookie).not.toContain('a=1')
     expect(headers.accept).toBe('application/json')
     expect(headers.origin).toBe('https://app.example.com')
     expect(headers.connection).toBeUndefined()

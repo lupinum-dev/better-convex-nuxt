@@ -6,11 +6,16 @@ import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path
 const rootDir = process.cwd()
 const checkDist = process.argv.includes('--dist')
 const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf8'))
-const declaredPackages = new Set([
+const sourceDeclaredPackages = new Set([
   ...Object.keys(packageJson.dependencies ?? {}),
   ...Object.keys(packageJson.peerDependencies ?? {}),
   ...Object.keys(packageJson.optionalDependencies ?? {}),
   ...Object.keys(packageJson.devDependencies ?? {}),
+])
+const runtimeDeclaredPackages = new Set([
+  ...Object.keys(packageJson.dependencies ?? {}),
+  ...Object.keys(packageJson.peerDependencies ?? {}),
+  ...Object.keys(packageJson.optionalDependencies ?? {}),
 ])
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
@@ -117,6 +122,7 @@ function extractSpecifiers(line) {
 
 function validateSpecifier(file, specifier, lineNumber) {
   const location = `${relative(rootDir, file)}:${lineNumber}`
+  const isBuiltFile = relative(rootDir, file).startsWith('dist/')
 
   if (
     specifier.startsWith('$lib') ||
@@ -149,8 +155,33 @@ function validateSpecifier(file, specifier, lineNumber) {
   const packageName = rootPackageName(specifier)
   if (allowedFrameworkPackages.has(packageName)) return
 
+  const declaredPackages = isBuiltFile ? runtimeDeclaredPackages : sourceDeclaredPackages
   if (!declaredPackages.has(packageName)) {
     failures.push(`${location} imports undeclared package "${packageName}" via "${specifier}"`)
+  }
+}
+
+function collectExportTargets(value) {
+  if (typeof value === 'string') {
+    return [value]
+  }
+  if (!value || typeof value !== 'object') {
+    return []
+  }
+
+  return Object.values(value).flatMap((next) => collectExportTargets(next))
+}
+
+function validatePackageExportTargets() {
+  if (!checkDist) return
+
+  for (const [subpath, exportValue] of Object.entries(packageJson.exports ?? {})) {
+    for (const target of collectExportTargets(exportValue)) {
+      if (!target.startsWith('./')) continue
+      if (!existsSync(resolve(rootDir, target))) {
+        failures.push(`package.json exports["${subpath}"] points to missing file "${target}"`)
+      }
+    }
   }
 }
 
@@ -169,6 +200,7 @@ const files = [...sourceRoots, ...builtRoots].flatMap(collectFiles)
 for (const file of files) {
   validateFile(file)
 }
+validatePackageExportTargets()
 
 if (failures.length > 0) {
   console.error(`Package export validation failed with ${failures.length} issue(s):`)

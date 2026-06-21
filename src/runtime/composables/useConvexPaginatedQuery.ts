@@ -321,6 +321,8 @@ export function createConvexPaginatedQueryState<
   // Real-time updates for the first page (overrides asyncData when available)
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
   let firstPageUnsubscribe: (() => void) | null = null
+  let stopFirstPageBridgeDataWatch: WatchStopHandle | null = null
+  let stopFirstPageBridgeErrorWatch: WatchStopHandle | null = null
 
   // Initial pagination options for the first page
   // Computed to stay in sync with currentPaginationId (e.g., after reset())
@@ -374,6 +376,42 @@ export function createConvexPaginatedQueryState<
     for (const pageIndex of pageBridgeWatchStops.keys()) {
       cleanupPageBridgeWatchers(pageIndex)
     }
+  }
+
+  const cleanupFirstPageBridgeWatchers = () => {
+    if (stopFirstPageBridgeDataWatch) {
+      stopFirstPageBridgeDataWatch()
+      stopFirstPageBridgeDataWatch = null
+    }
+    if (stopFirstPageBridgeErrorWatch) {
+      stopFirstPageBridgeErrorWatch()
+      stopFirstPageBridgeErrorWatch = null
+    }
+  }
+
+  const attachFirstPageSharedBridge = (entry: SubscriptionEntry) => {
+    cleanupFirstPageBridgeWatchers()
+
+    const bridge = ensureQueryBridge(entry)
+
+    const syncDataFromBridge = () => {
+      if (!bridge.hasRawData) return
+      firstPageRealtimeData.value = bridge.rawData as PaginationResult<Item>
+      if (asyncData.error.value !== null) {
+        ;(asyncData.error as unknown as Ref<Error | null>).value = null
+      }
+    }
+
+    const syncErrorFromBridge = () => {
+      if (!bridge.error) return
+      ;(asyncData.error as unknown as Ref<Error | null>).value = bridge.error
+    }
+
+    stopFirstPageBridgeDataWatch = watch(() => bridge.dataVersion.value, syncDataFromBridge)
+    stopFirstPageBridgeErrorWatch = watch(() => bridge.errorVersion.value, syncErrorFromBridge)
+
+    syncDataFromBridge()
+    syncErrorFromBridge()
   }
 
   const attachPageSharedBridge = (pageIndex: number, entry: SubscriptionEntry) => {
@@ -585,6 +623,19 @@ export function createConvexPaginatedQueryState<
 
     // Start fetching the new page (index in pages ref, not including first page from asyncData)
     const newPageIndex = pages.value.length - 1
+    const requestPaginationId = currentPaginationId.value
+    const requestArgsHash = argsHash.value
+
+    const getCurrentPageForCommit = (): PageState<Item> | null => {
+      if (currentPaginationId.value !== requestPaginationId || argsHash.value !== requestArgsHash) {
+        return null
+      }
+      const currentPage = pages.value[newPageIndex]
+      if (!currentPage || currentPage.paginationOpts.id !== requestPaginationId) {
+        return null
+      }
+      return currentPage
+    }
 
     if (import.meta.client && subscribeRealtime) {
       const convex = nuxtApp.$convex as ConvexClient | undefined
@@ -597,7 +648,7 @@ export function createConvexPaginatedQueryState<
 
         executeQueryViaSubscription(convex, query, fullArgs as FunctionArgs<Query>)
           .then((result) => {
-            const currentPage = pages.value[newPageIndex]
+            const currentPage = getCurrentPageForCommit()
             if (!currentPage) return
             const newPages = [...pages.value]
             newPages[newPageIndex] = {
@@ -614,7 +665,7 @@ export function createConvexPaginatedQueryState<
           })
           .catch((e) => {
             void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
-            const currentPage = pages.value[newPageIndex]
+            const currentPage = getCurrentPageForCommit()
             if (!currentPage) return
             const newPages = [...pages.value]
             newPages[newPageIndex] = {
@@ -632,7 +683,7 @@ export function createConvexPaginatedQueryState<
 
     void fetchPage(newPage.paginationOpts)
       .then((result) => {
-        const currentPage = pages.value[newPageIndex]
+        const currentPage = getCurrentPageForCommit()
         if (!currentPage) return
         const newPages = [...pages.value]
         newPages[newPageIndex] = {
@@ -646,7 +697,7 @@ export function createConvexPaginatedQueryState<
       })
       .catch((e) => {
         void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
-        const currentPage = pages.value[newPageIndex]
+        const currentPage = getCurrentPageForCommit()
         if (!currentPage) return
         const newPages = [...pages.value]
         newPages[newPageIndex] = {
@@ -669,13 +720,25 @@ export function createConvexPaginatedQueryState<
     return typeof initialData === 'function' ? (initialData as () => Item[])() : initialData
   }
   const lastSettledResults = shallowRef<TransformedItem[]>([])
+  const lastSettledArgsHash = ref<string | null>(null)
+
+  const isPreviousDataForCurrentArgs = () =>
+    keepPreviousData &&
+    lastSettledArgsHash.value !== null &&
+    argsHash.value !== lastSettledArgsHash.value &&
+    asyncData.status.value === 'pending'
 
   // Computed status (defined before results since results may use it for default)
   // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
   const status = computed((): PaginatedQueryStatus => {
-    const firstPageData = firstPageRealtimeData.value ?? asyncData.data.value
+    const isUsingPreviousData = isPreviousDataForCurrentArgs()
+    const firstPageData = isUsingPreviousData
+      ? null
+      : (firstPageRealtimeData.value ?? asyncData.data.value)
     const firstPagePending =
-      (asyncData.status.value === 'pending' || shouldWaitForAuthBeforeLiveQuery.value) &&
+      (isUsingPreviousData ||
+        asyncData.status.value === 'pending' ||
+        shouldWaitForAuthBeforeLiveQuery.value) &&
       !firstPageRealtimeData.value
     const lastPage = pages.value.length > 0 ? pages.value[pages.value.length - 1] : null
 
@@ -702,6 +765,7 @@ export function createConvexPaginatedQueryState<
   // Additional pages come from pages ref
   const rawResults = computed((): Item[] => {
     if (isSkipped.value) return []
+    if (isPreviousDataForCurrentArgs()) return []
 
     const allItems: Item[] = []
 
@@ -830,6 +894,7 @@ export function createConvexPaginatedQueryState<
       if (isSkipped.value) return
       if (nextStatus === 'loading-first-page') return
       lastSettledResults.value = nextResults as TransformedItem[]
+      lastSettledArgsHash.value = argsHash.value
     },
     { immediate: true },
   )
@@ -863,7 +928,11 @@ export function createConvexPaginatedQueryState<
       const existingEntry = getSubscription(nuxtApp, subscriptionKey)
       if (existingEntry) {
         existingEntry.refCount++
-        firstPageUnsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
+        attachFirstPageSharedBridge(existingEntry)
+        firstPageUnsubscribe = () => {
+          cleanupFirstPageBridgeWatchers()
+          releaseSubscription(nuxtApp, subscriptionKey)
+        }
       }
       return
     }
@@ -880,6 +949,7 @@ export function createConvexPaginatedQueryState<
       paginationOpts: initialPaginationOpts.value,
     }
 
+    const localBridge = createQueryBridge()
     let rawUnsubscribe: (() => void) | null = null
     let didRegister = false
 
@@ -888,17 +958,25 @@ export function createConvexPaginatedQueryState<
         query,
         fullArgs as FunctionArgs<Query>,
         (result: PaginationResult<Item>) => {
-          firstPageRealtimeData.value = result
+          commitQueryBridgeData(localBridge, result)
         },
         (err: Error) => {
           void handleUnauthorizedAuthFailure({ error: err, source: 'query', functionName: fnName })
-          ;(asyncData.error as unknown as Ref<Error | null>).value = err
+          commitQueryBridgeError(localBridge, err)
         },
       )
       // Register subscription in cache and wrap unsubscribe to go through ref-counting
       registerSubscription(nuxtApp, subscriptionKey, rawUnsubscribe)
       didRegister = true
-      firstPageUnsubscribe = () => releaseSubscription(nuxtApp, subscriptionKey)
+      const registeredEntry = getSubscription(nuxtApp, subscriptionKey)
+      if (registeredEntry) {
+        registeredEntry.queryBridge = localBridge
+        attachFirstPageSharedBridge(registeredEntry)
+      }
+      firstPageUnsubscribe = () => {
+        cleanupFirstPageBridgeWatchers()
+        releaseSubscription(nuxtApp, subscriptionKey)
+      }
     } catch (e) {
       if (rawUnsubscribe && !didRegister) {
         try {
@@ -917,6 +995,7 @@ export function createConvexPaginatedQueryState<
 
   // Helper to clean up all subscriptions
   function cleanupAllSubscriptions() {
+    cleanupFirstPageBridgeWatchers()
     cleanupAllPageBridgeWatchers()
 
     // Clean up first page subscription via ref-counted release

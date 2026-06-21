@@ -106,7 +106,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
   assertType<string[]>(await queue.enqueue(file))
   assertType<boolean>((await queue.enqueueSafe(file)).ok)
 
-  const { usePermissions, usePermissionGuard } = createPermissions<
+  const { usePermissions, usePermissionRedirect } = createPermissions<
     Permission,
     PermissionContext,
     PermissionResource
@@ -116,7 +116,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
       ctx?.role === 'admin' || (permission === 'task.delete' && resource?.ownerId === ctx?.userId),
   })
   assertType<boolean>(usePermissions().can('task.create').value)
-  await usePermissionGuard({ permission: 'task.delete', resource: { ownerId: 'user_1' } })
+  await usePermissionRedirect({ permission: 'task.delete', resource: { ownerId: 'user_1' } })
 
   createBetterConvexAuthClient<
     [

@@ -278,6 +278,30 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await waitFor(() => convex.activeListenerCount() === 0)
   })
 
+  it('keeps same-source transforms with different captured values isolated', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('counter:get:captured-transform')
+    const makeTransform = (prefix: string) => (input: { count: number }) =>
+      `${prefix}:${input.count}`
+
+    const { result } = await captureInNuxt(
+      () => {
+        const alpha = useConvexQueryState(query, {}, { transform: makeTransform('alpha') })
+        const beta = useConvexQueryState(query, {}, { transform: makeTransform('beta') })
+        return { alpha, beta }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    convex.emitQueryResult(query, {}, { count: 3 })
+
+    await waitFor(
+      () => result.alpha.data.value === 'alpha:3' && result.beta.data.value === 'beta:3',
+    )
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+  })
+
   it('handles error-before-data for late subscribers and recovers on next data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('counter:get:error-late')

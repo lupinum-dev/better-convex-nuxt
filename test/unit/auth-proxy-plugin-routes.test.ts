@@ -52,7 +52,8 @@ function createEvent(method: string): { method: string; headers: Headers } {
     headers: new Headers({
       accept: 'application/json',
       authorization: 'Bearer browser-session-token',
-      cookie: 'better-auth.session_token=session-token',
+      cookie:
+        'better-auth.session_token=session-token; private_app_cookie=secret; __Secure-better-auth.callback=value',
       host: 'app.example.com',
       origin: 'https://app.example.com',
       'content-length': method === 'GET' ? '0' : '25',
@@ -125,12 +126,13 @@ describe('auth proxy Better Auth plugin routes', () => {
       expect.objectContaining({
         accept: 'application/json',
         authorization: 'Bearer browser-session-token',
-        cookie: 'better-auth.session_token=session-token',
+        cookie: 'better-auth.session_token=session-token; __Secure-better-auth.callback=value',
         origin: 'https://app.example.com',
         'x-forwarded-host': 'app.example.com',
         'x-forwarded-proto': 'https',
       }),
     )
+    expect(forwardedHeaders.cookie).not.toContain('private_app_cookie')
     expect(setResponseStatusMock).toHaveBeenCalledWith(expect.anything(), 200, '')
     expect(setHeadersMock).toHaveBeenCalledWith(expect.anything(), {
       'Access-Control-Allow-Origin': 'https://app.example.com',

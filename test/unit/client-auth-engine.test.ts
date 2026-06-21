@@ -153,6 +153,50 @@ describe('createConvexAuthEngine', () => {
     expect(state.pending.value).toBe(false)
   })
 
+  it('replaces the user when a refreshed token belongs to a different account', async () => {
+    const token = makeJwt({
+      sub: 'user_456',
+      name: 'Grace',
+      email: 'grace@example.com',
+      emailVerified: true,
+    })
+    const state = createState()
+    state.token.value = makeJwt({
+      sub: 'user_123',
+      exp: Math.floor(Date.now() / 1000) + 1,
+    })
+    state.user.value = {
+      id: 'user_123',
+      name: 'Ada',
+      email: 'ada@example.com',
+      emailVerified: true,
+    }
+    const authClient = {
+      signOut: vi.fn(),
+      convex: { token: vi.fn(async () => ({ data: { token } })) },
+    } as unknown as AuthClientWithConvex
+    const { client, fetchToken } = createClient()
+    const engine = createConvexAuthEngine({
+      nuxtApp: createNuxtApp(),
+      authClient,
+      state,
+      isAuthEnabled: true,
+      getRoute: () => ({ path: '/dashboard' }),
+    })
+
+    engine.attachConvexClient(client as never)
+    const result = await fetchToken()({ forceRefreshToken: true })
+
+    expect(result).toBe(token)
+    expect(state.token.value).toBe(token)
+    expect(state.user.value).toEqual({
+      id: 'user_456',
+      name: 'Grace',
+      email: 'grace@example.com',
+      emailVerified: true,
+    })
+  })
+
   it('ignores a stale token response after signOut starts', async () => {
     const token = makeJwt({
       sub: 'user_123',

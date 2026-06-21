@@ -86,7 +86,7 @@ describe('auth proxy plugin routes', async () => {
         slug: 'trellis-labs',
       },
       headers: {
-        cookie: 'better-auth.session_token=e2e-session',
+        cookie: 'better-auth.session_token=e2e-session; private_app_cookie=secret',
       },
     })
 
@@ -101,6 +101,7 @@ describe('auth proxy plugin routes', async () => {
       url: '/api/auth/organization/create?source=e2e',
     })
     expect(request?.headers.cookie).toContain('better-auth.session_token=e2e-session')
+    expect(request?.headers.cookie).not.toContain('private_app_cookie')
     expect(JSON.parse(request?.body || '{}')).toEqual({
       name: 'Trellis Labs',
       slug: 'trellis-labs',

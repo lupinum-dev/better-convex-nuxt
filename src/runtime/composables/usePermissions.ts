@@ -11,7 +11,7 @@
  * import { api } from '#convex/api'
  * import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
  *
- * export const { usePermissions, usePermissionGuard } = createPermissions({
+ * export const { usePermissions, usePermissionRedirect } = createPermissions({
  *   query: api.auth.getPermissionContext,
  *   checkPermission,
  * })
@@ -94,13 +94,13 @@ export interface UsePermissionsReturn<
 }
 
 /**
- * Options for usePermissionGuard.
+ * Options for usePermissionRedirect.
  */
-export interface UsePermissionGuardOptions<
+export interface UsePermissionRedirectOptions<
   TPermission extends string = string,
   TResource extends Resource = Resource,
 > {
-  /** Permission required to access the page */
+  /** Permission required before staying on the current view */
   permission: TPermission
   /** Path to redirect if permission denied */
   redirectTo?: RouteLocationRaw
@@ -124,7 +124,7 @@ export interface UsePermissionGuardOptions<
  * import { api } from '#convex/api'
  * import { checkPermission } from '~/convex/permissions.config'
  *
- * export const { usePermissions, usePermissionGuard } = createPermissions({
+ * export const { usePermissions, usePermissionRedirect } = createPermissions({
  *   query: api.auth.getPermissionContext,
  *   checkPermission,
  * })
@@ -208,24 +208,25 @@ export function createPermissions<
   }
 
   /**
-   * Protect a page with permission requirements.
-   * Redirects if user lacks permission.
+   * Redirect after render when the current user lacks a permission.
+   * Enforce real access control in Convex functions; this is only a UX helper.
    *
-   * Includes protection against rapid redirect loops by tracking
-   * pending navigation state.
+   * Suppresses rapid redirect loops by tracking pending navigation state.
    *
    * @example
    * ```vue
    * <script setup>
    * // Redirect to /dashboard if user can't access org settings
-   * usePermissionGuard({
+   * usePermissionRedirect({
    *   permission: 'org.settings',
    *   redirectTo: '/dashboard',
    * })
    * </script>
    * ```
    */
-  function usePermissionGuard(guardOptions: UsePermissionGuardOptions<TPermission, TResource>) {
+  function usePermissionRedirect(
+    guardOptions: UsePermissionRedirectOptions<TPermission, TResource>,
+  ) {
     const { permission, redirectTo = '/', resource, loginPath = '/auth/signin' } = guardOptions
 
     const { can, pending, isAuthenticated } = usePermissions()
@@ -265,6 +266,6 @@ export function createPermissions<
 
   return {
     usePermissions,
-    usePermissionGuard,
+    usePermissionRedirect,
   }
 }

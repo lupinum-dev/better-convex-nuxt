@@ -330,10 +330,7 @@ export function createConvexAuthEngine({
       state.token.value = token
       state.authError.value = null
       lastTokenValidation = Date.now()
-
-      if (!state.user.value) {
-        state.user.value = decodeUserFromJwt(token)
-      }
+      state.user.value = decodeUserFromJwt(token)
 
       logAuth({
         phase: 'client-fetchToken:response',

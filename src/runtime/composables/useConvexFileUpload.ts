@@ -4,16 +4,16 @@
  * Inspired by nuxt-convex by @onmax (https://github.com/onmax/nuxt-convex)
  */
 
+import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
-import { useConvex } from './useConvex'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
 
@@ -223,9 +223,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
 
   // Internal state
   const _status = ref<UploadStatus>('idle')
@@ -313,6 +311,13 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     progress.value = 0
 
     try {
+      const client = nuxtApp.$convex as ConvexClient | undefined
+      if (!client) {
+        throw new Error(
+          '[useConvexFileUpload] Convex client is unavailable. Upload files from the browser after configuring a Convex URL.',
+        )
+      }
+
       // Step 1: Get upload URL from Convex
       const postUrl = await requestUploadUrl(
         client,

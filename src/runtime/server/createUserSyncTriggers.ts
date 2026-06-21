@@ -121,6 +121,13 @@ export function createUserSyncTriggers<
     user: {
       onCreate: async (ctx: TCtx, user: TAuthUser) => {
         const now = Date.now()
+        const existing = await findExistingByAuthId(
+          ctx,
+          { table: options.table, index: options.index, authIdField: options.authIdField },
+          user._id,
+        )
+        if (existing) return
+
         const doc = await options.createDoc({ ctx, user, now })
         await ctx.db.insert(options.table, doc)
       },

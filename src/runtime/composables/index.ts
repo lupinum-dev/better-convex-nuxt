@@ -101,5 +101,5 @@ export {
   type CheckPermissionFn,
   type CreatePermissionsOptions,
   type UsePermissionsReturn,
-  type UsePermissionGuardOptions,
+  type UsePermissionRedirectOptions,
 } from './usePermissions'

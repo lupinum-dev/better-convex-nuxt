@@ -37,7 +37,6 @@ import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
 import { computeConvexQueryPending, computeConvexQueryStale } from '../utils/query-state'
-import { getTransformedAsyncDataKeySuffix } from '../utils/query-transform-key'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 
 // DevTools query registry (client-side only in dev mode)
@@ -171,6 +170,7 @@ export function createConvexQueryState<
   }
 
   const lastSettledData = ref<DataT | null>(null)
+  const lastSettledRawData = ref<RawT | null>(null)
   const lastSettledArgsHash = ref<string | null>(null)
 
   // Generate cache key
@@ -181,12 +181,7 @@ export function createConvexQueryState<
   }
 
   const cacheKey = computed(() => getCacheKey())
-  const transformedKeySuffix = getTransformedAsyncDataKeySuffix(
-    options?.transform as ((input: unknown) => unknown) | undefined,
-  )
-  // Transformed results are consumer-specific shapes and cannot safely share the same
-  // Nuxt async-data slot with untransformed consumers (or different transforms).
-  const asyncDataKey = computed(() => `${cacheKey.value}${transformedKeySuffix}`)
+  const asyncDataKey = cacheKey
 
   // Computed hash of args for deep reactivity detection
   // This ensures useAsyncData re-fetches when args change deeply (not just ref identity)
@@ -203,8 +198,9 @@ export function createConvexQueryState<
       : initialData
   }
 
-  const commitFreshData = (value: DataT) => {
-    lastSettledData.value = value
+  const commitFreshData = (raw: RawT) => {
+    lastSettledRawData.value = raw
+    lastSettledData.value = applyTransform(raw)
     lastSettledArgsHash.value = argsHash.value
   }
 
@@ -230,7 +226,7 @@ export function createConvexQueryState<
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
-  const asyncData = useAsyncData<DataT | null, Error>(
+  const asyncData = useAsyncData<RawT | null, Error>(
     asyncDataKey,
     async () => {
       if (isSkipped.value) {
@@ -257,18 +253,16 @@ export function createConvexQueryState<
           })
 
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-          const transformed = applyTransform(result)
-          commitFreshData(transformed)
-          return transformed
+          commitFreshData(result)
+          return result
         }
 
         // Client HTTP-only mode (no WebSocket dependency)
         if (!subscribe) {
           const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-          const transformed = applyTransform(result)
-          commitFreshData(transformed)
-          return transformed
+          commitFreshData(result)
+          return result
         }
 
         // Client live mode: use WebSocket for first result
@@ -282,9 +276,8 @@ export function createConvexQueryState<
         }
 
         const result = await executeQueryViaSubscription(convex, query, currentArgs)
-        const transformed = applyTransform(result)
-        commitFreshData(transformed)
-        return transformed
+        commitFreshData(result)
+        return result
       } catch (error) {
         if (import.meta.client) {
           void handleUnauthorizedAuthFailure({ error, source: 'query', functionName: fnName })
@@ -298,11 +291,11 @@ export function createConvexQueryState<
       // Wrap default to handle undefined → null conversion for type compatibility.
       default: () => {
         if (keepPreviousData && lastSettledData.value !== null) {
-          return lastSettledData.value
+          return lastSettledRawData.value
         }
         const fallbackRaw = resolveInitialData()
         if (fallbackRaw == null) return null
-        return applyTransform(fallbackRaw as RawT)
+        return fallbackRaw
       },
       // Convex payloads are replaced immutably; deep Vue traversal is unnecessary overhead.
       deep: false,
@@ -318,7 +311,8 @@ export function createConvexQueryState<
         asyncData.status.value === 'success' &&
         !isSkipped.value
       ) {
-        lastSettledData.value = value
+        lastSettledRawData.value = value as RawT
+        lastSettledData.value = applyTransform(value as RawT)
         lastSettledArgsHash.value = argsHash.value
       }
     },
@@ -392,9 +386,9 @@ export function createConvexQueryState<
     const syncDataFromBridge = () => {
       if (!bridge.hasRawData) return
 
-      const transformedResult = applyTransform(bridge.rawData as RawT)
-      ;(asyncData.data as Ref<DataT | null>).value = transformedResult
-      commitFreshData(transformedResult)
+      const rawResult = bridge.rawData as RawT
+      ;(asyncData.data as Ref<RawT | null>).value = rawResult
+      commitFreshData(rawResult)
 
       if (asyncData.error.value !== null) {
         ;(asyncData.error as Ref<Error | null>).value = null
@@ -672,9 +666,12 @@ export function createConvexQueryState<
   }
 
   const data = computed<DataT | null>({
-    get: () => (asyncData.data.value ?? null) as DataT | null,
+    get: () => {
+      const raw = asyncData.data.value
+      return raw == null ? null : applyTransform(raw as RawT)
+    },
     set: (value: DataT | null) => {
-      ;(asyncData.data as Ref<DataT | null | undefined>).value = value
+      ;(asyncData.data as Ref<RawT | null | undefined>).value = value as unknown as RawT | null
     },
   })
 

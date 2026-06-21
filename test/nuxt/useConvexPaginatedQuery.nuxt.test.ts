@@ -31,6 +31,16 @@ function useConvexPaginatedQueryState<
     .resultData
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
@@ -450,6 +460,60 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.results.value).toEqual(['n1:A*', 'n2:B', 'n3:C'])
   })
 
+  it('shares first-page paginated subscriptions across consumers without dropping updates', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:first-page-dedup')
+
+    const { result } = await captureInNuxt(
+      () => {
+        const first = useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 })
+        const second = useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 })
+        return { first, second }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const cursor = (args as { paginationOpts?: { cursor?: string | null } }).paginationOpts
+          ?.cursor
+        return path === 'notes:listPaginated:first-page-dedup' && cursor === null
+      },
+      {
+        page: [{ _id: 'n1', title: 'Initial' }],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+    )
+
+    await waitFor(
+      () => result.first.results.value.length === 1 && result.second.results.value.length === 1,
+    )
+    await waitFor(() => convex.activeListenerCount() === 1)
+
+    convex.emitQueryResultWhere(
+      ({ query: q, args }) => {
+        const path = (q as { _path?: string })._path
+        const cursor = (args as { paginationOpts?: { cursor?: string | null } }).paginationOpts
+          ?.cursor
+        return path === 'notes:listPaginated:first-page-dedup' && cursor === null
+      },
+      {
+        page: [{ _id: 'n1', title: 'Updated' }],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+    )
+
+    await waitFor(
+      () =>
+        (result.first.results.value as Array<{ title: string }>)[0]?.title === 'Updated' &&
+        (result.second.results.value as Array<{ title: string }>)[0]?.title === 'Updated',
+    )
+  })
+
   it('keeps loading-first-page contract for server options until first data', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:blocking-server')
@@ -629,6 +693,55 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe(
       'Recovered after reset',
     )
+  })
+
+  it('discards stale loadMore results after reset changes the pagination id', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:stale-load-more')
+    const oldLoadMore = deferred<{ value: PaginationResult<{ _id: string; title: string }> }>()
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+
+      if (cursor === 'c1') {
+        return await oldLoadMore.promise
+      }
+
+      return {
+        value: {
+          page: [{ _id: 'n1', title: 'First page' }],
+          isDone: false,
+          continueCursor: 'c1',
+        },
+      }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 1)
+    result.loadMore(1)
+    await waitFor(() => result.status.value === 'loading-more')
+
+    await result.reset()
+    await waitFor(() => result.results.value.length === 1)
+
+    oldLoadMore.resolve({
+      value: {
+        page: [{ _id: 'old', title: 'Stale page' }],
+        isDone: true,
+        continueCursor: '',
+      },
+    })
+
+    await Promise.resolve()
+    expect(result.results.value).toEqual([{ _id: 'n1', title: 'First page' }])
   })
 
   it('applies transform to initial placeholder rows', async () => {

@@ -65,8 +65,9 @@
     "dev:build": "nuxi build --cwd playground --dotenv .env.local",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
-    "release": "npm run lint && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
-    "lint": "npm run check:no-legacy-query-api && npm run check:no-legacy-call-api && npm run check:no-legacy-generated-api-imports && npm run check:no-stale-doc-imports && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && npm run check:no-starter-generated-artifacts && npm run check:api-surface-docs && npm run check:package-exports && npm run check:workspace-deps && npm run check:consumer-smoke && npm run check:missing-convex-api && npm run check:better-auth-local-component && eslint .",
+    "release": "npm run lint && npm run test:types && npm run check:contracts && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "npm run check:no-legacy-query-api && npm run check:no-legacy-call-api && npm run check:no-legacy-generated-api-imports && npm run check:no-stale-doc-imports && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && npm run check:no-starter-generated-artifacts && eslint .",
+    "check:contracts": "npm run check:api-surface-docs && npm run check:package-exports && npm run check:workspace-deps && npm run check:consumer-smoke && npm run check:missing-convex-api && npm run check:better-auth-local-component",
     "check:package-exports": "node scripts/check-package-exports.mjs",
     "check:api-surface-docs": "node scripts/generate-api-surface.mjs --check",
     "check:no-starter-generated-artifacts": "node scripts/check-no-starter-generated-artifacts.mjs",
@@ -129,6 +130,9 @@
     "vitest": "^4.0.18",
     "vitest-browser-vue": "^2.0.2",
     "vue-tsc": "^3.2.5"
+  },
+  "peerDependencies": {
+    "nuxt": "^3.0.0 || ^4.0.0"
   },
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"

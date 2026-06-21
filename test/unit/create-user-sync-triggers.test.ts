@@ -130,6 +130,44 @@ describe('createUserSyncTriggers', () => {
     expect(withIndex).toHaveBeenCalledWith('by_auth_user_id', expect.any(Function))
   })
 
+  it('does not insert duplicate projection rows for repeated create events', async () => {
+    const insert = vi.fn(async () => 'new-id')
+    const patch = vi.fn(async () => undefined)
+    const first = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ _id: 'user-1', authId: 'auth-1', email: 'a@example.com' })
+    const withIndex = vi.fn(() => ({ first }))
+    const query = vi.fn(() => ({ withIndex }))
+
+    const ctx = {
+      db: {
+        insert,
+        patch,
+        delete: vi.fn(),
+        query,
+      },
+    }
+
+    const triggers = createUserSyncTriggers<TestAuthUser, TestProjectionUser>({
+      table: 'users',
+      index: 'by_auth_id',
+      createDoc: ({ user, now }) => ({
+        authId: user._id,
+        email: user.email,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    })
+
+    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'a@example.com' })
+    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'a@example.com' })
+
+    expect(insert).toHaveBeenCalledTimes(1)
+    expect(patch).not.toHaveBeenCalled()
+    expect(query).toHaveBeenCalledTimes(2)
+  })
+
   it('does not overwrite existing projection rows during rebuild without an explicit rebuild patch', async () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
