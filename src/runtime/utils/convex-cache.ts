@@ -1,5 +1,3 @@
-import { shallowRef, type ShallowRef } from 'vue'
-
 // Re-export shared utilities
 export {
   parseConvexResponse,
@@ -32,8 +30,8 @@ export interface SubscriptionEntry {
 
 /**
  * Shared query state for deduplicated useConvexQuery subscribers.
- * Stores raw subscription data in reactive source refs so each subscriber
- * can sync into its own local asyncData refs with its own transform().
+ * Stores raw subscription data once and notifies each subscriber directly so
+ * local asyncData refs can apply their own transform().
  */
 export type QueryBridgeData =
   | {
@@ -45,9 +43,16 @@ export type QueryBridgeData =
       rawData: unknown
     }
 
+export interface QueryBridgeSnapshot {
+  data: QueryBridgeData
+  error: Error | null
+}
+
+export type QueryBridgeListener = (snapshot: QueryBridgeSnapshot) => void
+
 export interface QuerySubscriptionBridge {
-  data: ShallowRef<QueryBridgeData>
-  error: ShallowRef<Error | null>
+  snapshot: QueryBridgeSnapshot
+  listeners: Set<QueryBridgeListener>
 }
 
 /**
@@ -63,8 +68,11 @@ export interface AcquiredQuerySubscription {
 
 export function createQueryBridge(): QuerySubscriptionBridge {
   return {
-    data: shallowRef({ hasData: false, rawData: undefined }),
-    error: shallowRef(null),
+    snapshot: {
+      data: { hasData: false, rawData: undefined },
+      error: null,
+    },
+    listeners: new Set(),
   }
 }
 
@@ -79,13 +87,38 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
   return entry.queryBridge
 }
 
+function notifyQueryBridgeListeners(bridge: QuerySubscriptionBridge): void {
+  const snapshot = bridge.snapshot
+  for (const listener of Array.from(bridge.listeners)) {
+    listener(snapshot)
+  }
+}
+
+export function subscribeQueryBridge(
+  bridge: QuerySubscriptionBridge,
+  listener: QueryBridgeListener,
+): () => void {
+  bridge.listeners.add(listener)
+  listener(bridge.snapshot)
+  return () => {
+    bridge.listeners.delete(listener)
+  }
+}
+
 export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: unknown): void {
-  bridge.data.value = { hasData: true, rawData }
-  bridge.error.value = null
+  bridge.snapshot = {
+    data: { hasData: true, rawData },
+    error: null,
+  }
+  notifyQueryBridgeListeners(bridge)
 }
 
 export function commitQueryBridgeError(bridge: QuerySubscriptionBridge, error: Error): void {
-  bridge.error.value = error
+  bridge.snapshot = {
+    data: bridge.snapshot.data,
+    error,
+  }
+  notifyQueryBridgeListeners(bridge)
 }
 
 export function acquireQuerySubscription(

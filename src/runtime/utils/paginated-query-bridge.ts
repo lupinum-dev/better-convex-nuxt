@@ -1,13 +1,15 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, PaginationResult } from 'convex/server'
-import { watch, type Ref, type ShallowRef, type WatchStopHandle } from 'vue'
+import type { Ref, ShallowRef } from 'vue'
 
 import { handleUnauthorizedAuthFailure } from './auth-unauthorized'
 import {
   acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
+  subscribeQueryBridge,
   type AcquiredQuerySubscription,
+  type QueryBridgeSnapshot,
   type QuerySubscriptionBridge,
 } from './convex-cache'
 import {
@@ -62,94 +64,72 @@ export function createPaginatedQueryBridgeSync<T>(options: {
   pages: ShallowRef<PaginatedPageState<T>[]>
 }): PaginatedQueryBridgeSync {
   const { firstPageRealtimeData, asyncDataError, pages } = options
-  const pageBridgeWatchStops = new Map<
-    number,
-    { data: WatchStopHandle | null; error: WatchStopHandle | null }
-  >()
-  let stopFirstPageBridgeDataWatch: WatchStopHandle | null = null
-  let stopFirstPageBridgeErrorWatch: WatchStopHandle | null = null
+  const pageBridgeUnsubscribers = new Map<number, () => void>()
+  let unsubscribeFirstPageBridge: (() => void) | null = null
 
   const cleanupPage = (pageIndex: number) => {
-    const stops = pageBridgeWatchStops.get(pageIndex)
-    if (!stops) return
-    stops.data?.()
-    stops.error?.()
-    pageBridgeWatchStops.delete(pageIndex)
+    const unsubscribe = pageBridgeUnsubscribers.get(pageIndex)
+    if (!unsubscribe) return
+    unsubscribe()
+    pageBridgeUnsubscribers.delete(pageIndex)
   }
 
   const cleanupAllPages = () => {
-    for (const pageIndex of pageBridgeWatchStops.keys()) {
+    for (const pageIndex of pageBridgeUnsubscribers.keys()) {
       cleanupPage(pageIndex)
     }
   }
 
   const cleanupFirstPage = () => {
-    if (stopFirstPageBridgeDataWatch) {
-      stopFirstPageBridgeDataWatch()
-      stopFirstPageBridgeDataWatch = null
-    }
-    if (stopFirstPageBridgeErrorWatch) {
-      stopFirstPageBridgeErrorWatch()
-      stopFirstPageBridgeErrorWatch = null
+    if (unsubscribeFirstPageBridge) {
+      unsubscribeFirstPageBridge()
+      unsubscribeFirstPageBridge = null
     }
   }
 
   const attachFirstPage = (bridge: QuerySubscriptionBridge) => {
     cleanupFirstPage()
 
-    const syncDataFromBridge = () => {
-      const snapshot = bridge.data.value
-      if (!snapshot.hasData) return
-      firstPageRealtimeData.value = snapshot.rawData as PaginationResult<T>
-      if (asyncDataError.value !== null) {
-        asyncDataError.value = null
+    const syncSnapshotFromBridge = (snapshot: QueryBridgeSnapshot) => {
+      if (snapshot.data.hasData) {
+        firstPageRealtimeData.value = snapshot.data.rawData as PaginationResult<T>
+        if (asyncDataError.value !== null) {
+          asyncDataError.value = null
+        }
+      }
+
+      if (snapshot.error) {
+        asyncDataError.value = snapshot.error
       }
     }
 
-    const syncErrorFromBridge = () => {
-      const err = bridge.error.value
-      if (!err) return
-      asyncDataError.value = err
-    }
-
-    stopFirstPageBridgeDataWatch = watch(() => bridge.data.value, syncDataFromBridge)
-    stopFirstPageBridgeErrorWatch = watch(() => bridge.error.value, syncErrorFromBridge)
-
-    syncDataFromBridge()
-    syncErrorFromBridge()
+    unsubscribeFirstPageBridge = subscribeQueryBridge(bridge, syncSnapshotFromBridge)
   }
 
   const attachPage = (pageIndex: number, bridge: QuerySubscriptionBridge) => {
     cleanupPage(pageIndex)
 
-    const syncDataFromBridge = () => {
-      const snapshot = bridge.data.value
-      if (!snapshot.hasData) return
-      const currentPage = pages.value[pageIndex]
-      if (!currentPage) return
+    const syncSnapshotFromBridge = (snapshot: QueryBridgeSnapshot) => {
+      if (snapshot.data.hasData) {
+        const currentPage = pages.value[pageIndex]
+        if (!currentPage) return
 
-      pages.value = commitPaginatedPageResult(
-        pages.value,
-        pageIndex,
-        snapshot.rawData as PaginationResult<T>,
-      )
-    }
+        pages.value = commitPaginatedPageResult(
+          pages.value,
+          pageIndex,
+          snapshot.data.rawData as PaginationResult<T>,
+        )
+      }
 
-    const syncErrorFromBridge = () => {
-      const err = bridge.error.value
+      const err = snapshot.error
       if (!err) return
-      const currentPage = pages.value[pageIndex]
-      if (!currentPage) return
+      const pageAfterDataSync = pages.value[pageIndex]
+      if (!pageAfterDataSync) return
 
       pages.value = commitPaginatedPageError(pages.value, pageIndex, err)
     }
 
-    const stopData = watch(() => bridge.data.value, syncDataFromBridge)
-    const stopError = watch(() => bridge.error.value, syncErrorFromBridge)
-    pageBridgeWatchStops.set(pageIndex, { data: stopData, error: stopError })
-
-    syncDataFromBridge()
-    syncErrorFromBridge()
+    pageBridgeUnsubscribers.set(pageIndex, subscribeQueryBridge(bridge, syncSnapshotFromBridge))
   }
 
   return {

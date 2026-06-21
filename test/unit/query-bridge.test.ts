@@ -4,6 +4,7 @@ import {
   commitQueryBridgeData,
   commitQueryBridgeError,
   createQueryBridge,
+  subscribeQueryBridge,
 } from '../../src/runtime/utils/convex-cache'
 
 describe('query subscription bridge', () => {
@@ -14,8 +15,8 @@ describe('query subscription bridge', () => {
     commitQueryBridgeError(bridge, error)
     commitQueryBridgeData(bridge, { count: 1 })
 
-    expect(bridge.data.value).toEqual({ hasData: true, rawData: { count: 1 } })
-    expect(bridge.error.value).toBeNull()
+    expect(bridge.snapshot.data).toEqual({ hasData: true, rawData: { count: 1 } })
+    expect(bridge.snapshot.error).toBeNull()
   })
 
   it('commits errors without replacing the current raw data', () => {
@@ -25,7 +26,25 @@ describe('query subscription bridge', () => {
     commitQueryBridgeData(bridge, ['a'])
     commitQueryBridgeError(bridge, error)
 
-    expect(bridge.data.value).toEqual({ hasData: true, rawData: ['a'] })
-    expect(bridge.error.value).toBe(error)
+    expect(bridge.snapshot.data).toEqual({ hasData: true, rawData: ['a'] })
+    expect(bridge.snapshot.error).toBe(error)
+  })
+
+  it('notifies listeners immediately, on commits, and stops after unsubscribe', () => {
+    const bridge = createQueryBridge()
+    const snapshots: unknown[] = []
+
+    const unsubscribe = subscribeQueryBridge(bridge, (snapshot) => {
+      snapshots.push(snapshot)
+    })
+
+    commitQueryBridgeData(bridge, { count: 1 })
+    unsubscribe()
+    commitQueryBridgeData(bridge, { count: 2 })
+
+    expect(snapshots).toEqual([
+      { data: { hasData: false, rawData: undefined }, error: null },
+      { data: { hasData: true, rawData: { count: 1 } }, error: null },
+    ])
   })
 })

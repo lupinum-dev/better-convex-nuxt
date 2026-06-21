@@ -9,7 +9,6 @@ import {
   ref,
   type Ref,
   type ComputedRef,
-  type WatchStopHandle,
   type MaybeRefOrGetter,
 } from 'vue'
 
@@ -27,6 +26,8 @@ import {
   acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
+  subscribeQueryBridge,
+  type QueryBridgeSnapshot,
   type QuerySubscriptionBridge,
   type ConvexCallStatus,
 } from '../utils/convex-cache'
@@ -362,41 +363,35 @@ export function createConvexQueryState<
   let registeredCacheKey: string | null = null
   let registeredBridge: QuerySubscriptionBridge | null = null
   const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
-  let stopSharedDataWatch: WatchStopHandle | null = null
-  let stopSharedErrorWatch: WatchStopHandle | null = null
+  let unsubscribeSharedBridge: (() => void) | null = null
 
-  const cleanupSharedBridgeWatchers = () => {
-    if (stopSharedDataWatch) {
-      stopSharedDataWatch()
-      stopSharedDataWatch = null
-    }
-    if (stopSharedErrorWatch) {
-      stopSharedErrorWatch()
-      stopSharedErrorWatch = null
+  const cleanupSharedBridgeSubscriber = () => {
+    if (unsubscribeSharedBridge) {
+      unsubscribeSharedBridge()
+      unsubscribeSharedBridge = null
     }
   }
 
   const attachSharedBridge = (bridge: QuerySubscriptionBridge) => {
-    cleanupSharedBridgeWatchers()
+    cleanupSharedBridgeSubscriber()
 
-    const syncDataFromBridge = () => {
-      const snapshot = bridge.data.value
-      if (!snapshot.hasData) return
+    const syncSnapshotFromBridge = (snapshot: QueryBridgeSnapshot) => {
+      if (snapshot.data.hasData) {
+        const rawResult = snapshot.data.rawData as RawT
+        ;(asyncData.data as Ref<RawT | null>).value = rawResult
+        commitFreshData(rawResult)
 
-      const rawResult = snapshot.rawData as RawT
-      ;(asyncData.data as Ref<RawT | null>).value = rawResult
-      commitFreshData(rawResult)
+        if (asyncData.error.value !== null) {
+          ;(asyncData.error as Ref<Error | null>).value = null
+        }
 
-      if (asyncData.error.value !== null) {
-        ;(asyncData.error as Ref<Error | null>).value = null
+        triggerRef(asyncData.data)
       }
 
-      triggerRef(asyncData.data)
-    }
-
-    const syncErrorFromBridge = () => {
-      const err = bridge.error.value
-      if (!err) return
+      const err = snapshot.error
+      if (!err) {
+        return
+      }
 
       const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
       if (!hasData) {
@@ -404,23 +399,7 @@ export function createConvexQueryState<
       }
     }
 
-    stopSharedDataWatch = watch(
-      () => bridge.data.value,
-      () => {
-        syncDataFromBridge()
-      },
-    )
-
-    stopSharedErrorWatch = watch(
-      () => bridge.error.value,
-      () => {
-        syncErrorFromBridge()
-      },
-    )
-
-    // Immediate sync for late joiners (e.g. skip -> real args)
-    syncDataFromBridge()
-    syncErrorFromBridge()
+    unsubscribeSharedBridge = subscribeQueryBridge(bridge, syncSnapshotFromBridge)
   }
 
   // Setup WebSocket subscription bridge on client
@@ -535,7 +514,7 @@ export function createConvexQueryState<
         }
 
         if (registeredCacheKey) {
-          cleanupSharedBridgeWatchers()
+          cleanupSharedBridgeSubscriber()
           const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
 
           if (wasUnsubscribed) {
@@ -569,7 +548,7 @@ export function createConvexQueryState<
     watch(shouldWaitForAuthBeforeLiveQuery, async (waitForAuth, previousWaitForAuth) => {
       if (waitForAuth) {
         if (registeredCacheKey) {
-          cleanupSharedBridgeWatchers()
+          cleanupSharedBridgeSubscriber()
           const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
           if (wasUnsubscribed) {
             logger.query({ name: fnName, event: 'unsubscribe' })
@@ -591,7 +570,7 @@ export function createConvexQueryState<
     // Cleanup on scope dispose (component setup or other Vue effect scopes)
     onScopeDispose(() => {
       if (registeredCacheKey) {
-        cleanupSharedBridgeWatchers()
+        cleanupSharedBridgeSubscriber()
         // Release our reference to the subscription
         // This decrements the ref count - only actually unsubscribes when count reaches 0
         const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
@@ -608,7 +587,7 @@ export function createConvexQueryState<
         registeredCacheKey = null
         registeredBridge = null
       } else {
-        cleanupSharedBridgeWatchers()
+        cleanupSharedBridgeSubscriber()
         registeredBridge = null
       }
     })
