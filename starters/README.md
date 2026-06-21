@@ -10,7 +10,9 @@ Use the smallest starter that matches the product you are building:
 - `mcp-agent`: team-style app with service actors and MCP tool adapters.
 - `vertical-ai`: AI workflow starter where agents create drafts and humans approve canonical changes.
 
+Current implementation and verification notes are in
+[IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md).
+
 The starters intentionally duplicate some backend access code. Do not extract a
 shared B2B package until two starters have the same tested invariant and the
 extracted API is smaller than the duplicated code.
-

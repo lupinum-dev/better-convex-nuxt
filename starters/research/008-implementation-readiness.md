@@ -41,7 +41,6 @@ starters/public/
   package.json
   nuxt.config.ts
   tsconfig.json
-  convex.json
   convex/
     schema.ts
     todos.ts
@@ -66,10 +65,10 @@ starters/team/
   package.json
   nuxt.config.ts
   tsconfig.json
-  convex.json
   convex/
+    auth.config.ts
+    convex.config.ts
     schema.ts
-    auth.ts
     users.ts
     organizations.ts
     memberships.ts
@@ -103,10 +102,10 @@ starters/agency/
   package.json
   nuxt.config.ts
   tsconfig.json
-  convex.json
   convex/
+    auth.config.ts
+    convex.config.ts
     schema.ts
-    auth.ts
     users.ts
     organizations.ts
     organizationLinks.ts
@@ -139,10 +138,10 @@ starters/mcp-agent/
   package.json
   nuxt.config.ts
   tsconfig.json
-  convex.json
   convex/
+    auth.config.ts
+    convex.config.ts
     schema.ts
-    auth.ts
     users.ts
     organizations.ts
     memberships.ts
@@ -177,10 +176,10 @@ starters/vertical-ai/
   package.json
   nuxt.config.ts
   tsconfig.json
-  convex.json
   convex/
+    auth.config.ts
+    convex.config.ts
     schema.ts
-    auth.ts
     organizations.ts
     access.ts
     audit.ts
