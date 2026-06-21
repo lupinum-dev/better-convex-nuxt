@@ -6,6 +6,15 @@ export type PaginatedQueryStatus =
   | 'exhausted'
   | 'error'
 
+export type PaginatedFirstPageState =
+  | { state: 'loading' }
+  | { state: 'ready'; isDone: boolean }
+
+export type PaginatedNextPageState =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'exhausted' }
+
 export interface ConvexQueryPendingInput {
   isSkipped: boolean
   hasData: boolean
@@ -50,57 +59,36 @@ export function computeConvexQueryStale(input: ConvexQueryStaleInput): boolean {
   return input.pending && input.argsHash !== input.lastSettledArgsHash
 }
 
-export interface PaginatedQueryStatusInput {
-  isSkipped: boolean
-  isManualRefreshPending: boolean
-  hasGlobalError: boolean
-  hasFirstPageError: boolean
-  hasMorePageError: boolean
-  server: boolean
-  isServer: boolean
-  isClient: boolean
-  resolveImmediately: boolean
-  hasFirstPageData: boolean
-  firstPagePending: boolean
-  lastPagePending: boolean
-  lastPageDone: boolean
-  firstPageDone: boolean
+export interface PaginatedQueryStatusState {
+  disabled: boolean
+  refresh: 'idle' | 'pending'
+  hasError: boolean
+  firstPage: PaginatedFirstPageState
+  nextPage: PaginatedNextPageState
 }
 
 export function computePaginatedQueryStatus(
-  input: PaginatedQueryStatusInput,
+  input: PaginatedQueryStatusState,
 ): PaginatedQueryStatus {
-  if (input.isSkipped) return 'idle'
+  if (input.disabled) return 'idle'
 
-  if (input.isManualRefreshPending) {
+  if (input.refresh === 'pending') {
     return 'loading-first-page'
   }
 
-  if (input.hasGlobalError || input.hasFirstPageError || input.hasMorePageError) {
+  if (input.hasError) {
     return 'error'
   }
 
-  if (!input.server && input.isServer) {
+  if (input.firstPage.state === 'loading') {
     return 'loading-first-page'
   }
 
-  if (!input.hasFirstPageData && (!input.server || input.resolveImmediately) && input.isClient) {
-    return 'loading-first-page'
-  }
-
-  if (input.firstPagePending && !input.hasFirstPageData) {
-    return 'loading-first-page'
-  }
-
-  if (!input.hasFirstPageData) {
-    return 'loading-first-page'
-  }
-
-  if (input.lastPagePending) {
+  if (input.nextPage.state === 'loading') {
     return 'loading-more'
   }
 
-  if (input.lastPageDone || input.firstPageDone) {
+  if (input.nextPage.state === 'exhausted' || input.firstPage.isDone) {
     return 'exhausted'
   }
 

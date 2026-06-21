@@ -5,24 +5,15 @@ import {
   computeConvexQueryStale,
   computePaginatedQueryStale,
   computePaginatedQueryStatus,
-  type PaginatedQueryStatusInput,
+  type PaginatedQueryStatusState,
 } from '../../src/runtime/utils/query-state'
 
-const basePaginatedInput: PaginatedQueryStatusInput = {
-  isSkipped: false,
-  isManualRefreshPending: false,
-  hasGlobalError: false,
-  hasFirstPageError: false,
-  hasMorePageError: false,
-  server: true,
-  isServer: false,
-  isClient: true,
-  resolveImmediately: false,
-  hasFirstPageData: true,
-  firstPagePending: false,
-  lastPagePending: false,
-  lastPageDone: false,
-  firstPageDone: false,
+const readyPaginatedState: PaginatedQueryStatusState = {
+  disabled: false,
+  refresh: 'idle',
+  hasError: false,
+  firstPage: { state: 'ready', isDone: false },
+  nextPage: { state: 'idle' },
 }
 
 describe('query state helpers', () => {
@@ -132,62 +123,55 @@ describe('query state helpers', () => {
 
   describe('computePaginatedQueryStatus', () => {
     it('returns idle when skipped', () => {
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, isSkipped: true })).toBe('idle')
+      expect(computePaginatedQueryStatus({ ...readyPaginatedState, disabled: true })).toBe('idle')
     })
 
     it('prioritizes manual refresh loading before existing data state', () => {
       expect(
         computePaginatedQueryStatus({
-          ...basePaginatedInput,
-          isManualRefreshPending: true,
-          hasFirstPageData: true,
+          ...readyPaginatedState,
+          refresh: 'pending',
         }),
       ).toBe('loading-first-page')
     })
 
-    it('returns error for global, first-page, or later-page errors', () => {
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, hasGlobalError: true })).toBe(
-        'error',
-      )
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, hasFirstPageError: true })).toBe(
-        'error',
-      )
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, hasMorePageError: true })).toBe(
-        'error',
-      )
+    it('returns error for any query error', () => {
+      expect(computePaginatedQueryStatus({ ...readyPaginatedState, hasError: true })).toBe('error')
     })
 
-    it('reports first-page loading for SSR-disabled server render and immediate client loads', () => {
+    it('reports first-page loading until the first page is ready', () => {
       expect(
         computePaginatedQueryStatus({
-          ...basePaginatedInput,
-          server: false,
-          isServer: true,
-          isClient: false,
-          hasFirstPageData: false,
-        }),
-      ).toBe('loading-first-page')
-
-      expect(
-        computePaginatedQueryStatus({
-          ...basePaginatedInput,
-          resolveImmediately: true,
-          hasFirstPageData: false,
+          ...readyPaginatedState,
+          firstPage: { state: 'loading' },
         }),
       ).toBe('loading-first-page')
     })
 
     it('distinguishes ready, loading-more, and exhausted', () => {
-      expect(computePaginatedQueryStatus(basePaginatedInput)).toBe('ready')
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, lastPagePending: true })).toBe(
-        'loading-more',
-      )
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, lastPageDone: true })).toBe(
-        'exhausted',
-      )
-      expect(computePaginatedQueryStatus({ ...basePaginatedInput, firstPageDone: true })).toBe(
-        'exhausted',
-      )
+      expect(computePaginatedQueryStatus(readyPaginatedState)).toBe('ready')
+      expect(
+        computePaginatedQueryStatus({ ...readyPaginatedState, nextPage: { state: 'loading' } }),
+      ).toBe('loading-more')
+      expect(
+        computePaginatedQueryStatus({ ...readyPaginatedState, nextPage: { state: 'exhausted' } }),
+      ).toBe('exhausted')
+      expect(
+        computePaginatedQueryStatus({
+          ...readyPaginatedState,
+          firstPage: { state: 'ready', isDone: true },
+        }),
+      ).toBe('exhausted')
+    })
+
+    it('keeps a first-page-only exhausted result out of loading-more', () => {
+      expect(
+        computePaginatedQueryStatus({
+          ...readyPaginatedState,
+          firstPage: { state: 'ready', isDone: true },
+          nextPage: { state: 'loading' },
+        }),
+      ).toBe('loading-more')
     })
   })
 

@@ -33,6 +33,8 @@ import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-ex
 import {
   computePaginatedQueryStale,
   computePaginatedQueryStatus,
+  type PaginatedFirstPageState,
+  type PaginatedNextPageState,
   type PaginatedQueryStatus,
 } from '../utils/query-state'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -705,28 +707,25 @@ export function createConvexPaginatedQueryState<
     const firstPageData = isUsingPreviousData
       ? null
       : (firstPageRealtimeData.value ?? asyncData.data.value)
-    const firstPagePending =
-      (isUsingPreviousData ||
-        asyncData.status.value === 'pending' ||
-        shouldWaitForAuthBeforeLiveQuery.value) &&
-      !firstPageRealtimeData.value
     const lastPage = pages.value.length > 0 ? pages.value[pages.value.length - 1] : null
+    const firstPage: PaginatedFirstPageState = firstPageData
+      ? { state: 'ready', isDone: firstPageData.isDone }
+      : { state: 'loading' }
+    const nextPage: PaginatedNextPageState = lastPage?.pending
+      ? { state: 'loading' }
+      : lastPage?.result?.isDone
+        ? { state: 'exhausted' }
+        : { state: 'idle' }
 
     return computePaginatedQueryStatus({
-      isSkipped: isSkipped.value,
-      isManualRefreshPending: isManualRefreshPending.value,
-      hasGlobalError: globalError.value != null,
-      hasFirstPageError: asyncData.error.value != null,
-      hasMorePageError: pages.value.some((page) => page.error != null),
-      server,
-      isServer: import.meta.server,
-      isClient: import.meta.client,
-      resolveImmediately,
-      hasFirstPageData: firstPageData != null,
-      firstPagePending,
-      lastPagePending: lastPage?.pending ?? false,
-      lastPageDone: lastPage?.result?.isDone ?? false,
-      firstPageDone: firstPageData?.isDone ?? false,
+      disabled: isSkipped.value,
+      refresh: isManualRefreshPending.value ? 'pending' : 'idle',
+      hasError:
+        globalError.value != null ||
+        asyncData.error.value != null ||
+        pages.value.some((page) => page.error != null),
+      firstPage,
+      nextPage,
     })
   })
 
