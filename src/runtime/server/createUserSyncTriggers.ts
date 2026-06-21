@@ -23,7 +23,7 @@ export interface CreateUserSyncTriggersOptions<
   TCtx extends UserSyncCtx<TExistingUser> = UserSyncCtx<TExistingUser>,
 > {
   /**
-   * Convex table to sync Better Auth users into (for example: "users").
+   * Convex table to project Better Auth users into (for example: "userProfiles").
    */
   table: string
   /**
@@ -56,6 +56,22 @@ export interface CreateUserSyncTriggersOptions<
     | null
     | undefined
     | Promise<Record<string, unknown> | null | undefined>
+  /**
+   * Build a patch for rebuild jobs when the projection row already exists.
+   *
+   * Existing rows are skipped during rebuild when this is omitted, which avoids
+   * overwriting fields such as createdAt with insert-only values from createDoc.
+   */
+  rebuildDoc?: (args: {
+    ctx: TCtx
+    user: TAuthUser
+    existing: TExistingUser
+    now: number
+  }) =>
+    | Record<string, unknown>
+    | null
+    | undefined
+    | Promise<Record<string, unknown> | null | undefined>
 }
 
 type ConvexQueryChain<TExistingUser> = {
@@ -63,6 +79,12 @@ type ConvexQueryChain<TExistingUser> = {
     indexName: string,
     cb: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
   ) => { first: () => Promise<TExistingUser | null> }
+}
+
+export interface UserSyncRebuildResult {
+  inserted: number
+  patched: number
+  skipped: number
 }
 
 async function findExistingByAuthId<
@@ -84,10 +106,11 @@ async function findExistingByAuthId<
 }
 
 /**
- * Creates Better Auth trigger handlers that sync auth users into a Convex app table.
+ * Creates Better Auth trigger handlers that project auth users into a Convex app table.
  *
- * This intentionally scopes to CRUD sync boilerplate only. You still own your
- * Better Auth configuration, plugins, and Convex `createClient()` wiring.
+ * This intentionally scopes to user projection boilerplate only. Better Auth
+ * remains the canonical source of auth truth; app tables created with this
+ * helper must be treated as derived and rebuildable.
  */
 export function createUserSyncTriggers<
   TAuthUser extends BetterAuthUserDocLike = BetterAuthUserDocLike,
@@ -131,6 +154,46 @@ export function createUserSyncTriggers<
         if (!existing) return
 
         await ctx.db.delete(existing._id)
+      },
+      rebuild: async (ctx: TCtx, users: readonly TAuthUser[]): Promise<UserSyncRebuildResult> => {
+        const result: UserSyncRebuildResult = { inserted: 0, patched: 0, skipped: 0 }
+
+        for (const user of users) {
+          const now = Date.now()
+          const existing = await findExistingByAuthId(
+            ctx,
+            { table: options.table, index: options.index, authIdField: options.authIdField },
+            user._id,
+          )
+
+          if (!existing) {
+            const doc = await options.createDoc({ ctx, user, now })
+            await ctx.db.insert(options.table, doc)
+            result.inserted += 1
+            continue
+          }
+
+          if (!options.rebuildDoc) {
+            result.skipped += 1
+            continue
+          }
+
+          const patch = await options.rebuildDoc({
+            ctx,
+            user,
+            existing: existing as TExistingUser,
+            now,
+          })
+          if (!patch || Object.keys(patch).length === 0) {
+            result.skipped += 1
+            continue
+          }
+
+          await ctx.db.patch(existing._id, patch)
+          result.patched += 1
+        }
+
+        return result
       },
     },
   }

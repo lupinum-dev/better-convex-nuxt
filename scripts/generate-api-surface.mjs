@@ -7,6 +7,7 @@ const modulePath = resolve(rootDir, 'src/module.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
 const outputPath = resolve(rootDir, 'docs/content/docs/6.advanced/8.api-surface.md')
 const packageJsonPath = resolve(rootDir, 'package.json')
+const checkOnly = process.argv.includes('--check')
 
 const moduleSource = readFileSync(modulePath, 'utf8')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
@@ -80,10 +81,20 @@ const composableMeta = {
     purpose: 'Optimistically inserts an item at the top of paginated data.',
     guide: '/docs/mutations/optimistic-updates',
   },
-  optimisticallyUpdateValueInPaginatedQuery: {
+  updateInPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically updates matching items across paginated query pages.',
     guide: '/docs/mutations/optimistic-updates',
+  },
+  defineSharedConvexQuery: {
+    kind: 'Helper',
+    purpose: 'Defines a reusable shared query contract for multiple consumers.',
+    guide: '/docs/data-fetching/caching-reuse',
+  },
+  createBetterConvexAuthClient: {
+    kind: 'Factory',
+    purpose: 'Creates a plugin-typed Better Auth client with Convex token sync.',
+    guide: '/docs/auth-security/authentication',
   },
   setQueryData: {
     kind: 'Helper',
@@ -115,6 +126,11 @@ const composableMeta = {
     purpose: 'Tracks auth state and user/session information in Nuxt.',
     guide: '/docs/auth-security/authentication',
   },
+  useConvexCall: {
+    kind: 'Composable',
+    purpose: 'Runs one-shot Convex calls from client middleware, plugins, and effects.',
+    guide: '/docs/advanced/client-access',
+  },
   useConvexConnectionState: {
     kind: 'Composable',
     purpose: 'Observes live WebSocket connection state to Convex.',
@@ -139,6 +155,11 @@ const composableMeta = {
     kind: 'Composable',
     purpose: 'Fetches reactive query data with SSR and subscription support.',
     guide: '/docs/data-fetching/queries',
+  },
+  useConvexUser: {
+    kind: 'Composable',
+    purpose: 'Seeds from session user, then upgrades to canonical user/profile data.',
+    guide: '/docs/auth-security/authentication',
   },
   useConvexStorageUrl: {
     kind: 'Composable',
@@ -234,6 +255,7 @@ Source of truth:
 
 This reference answers:
 - Which APIs are auto-imported?
+- Which Nuxt aliases are registered?
 - What is each API for?
 - Where is the best guide for examples and deeper usage?
 
@@ -243,7 +265,30 @@ Regenerate this page with:
 node scripts/generate-api-surface.mjs
 \`\`\`
 
+## Nuxt Aliases
+
+| Alias | Points To | Supported Contexts |
+| ----- | --------- | ------------------ |
+| \`#convex/api\` | Your app's \`convex/_generated/api\` | Vue components, composables, route middleware, Nitro server routes, tests |
+| \`#convex/server\` | \`better-convex-nuxt\` server exports | Nitro server routes and Convex-adjacent server utilities |
+
+Use \`#convex/api\` for generated Convex functions:
+
+\`\`\`ts
+import { api } from '#convex/api'
+\`\`\`
+
+Before Convex codegen creates \`convex/_generated/api\`, this alias points to a typed placeholder that keeps imports working and fails with a codegen message if accessed.
+
+Use \`#convex/server\` when an explicit server import is clearer than relying on Nuxt auto-imports, or for exports that are intentionally not auto-imported:
+
+\`\`\`ts
+import { createUserSyncTriggers, serverConvexQuery } from '#convex/server'
+\`\`\`
+
 ## Composable Auto-Imports
+
+\`useConvexAuth\`, \`useConvexUser\`, \`createBetterConvexAuthClient\`, and the global auth components are available when module auth is enabled. \`createPermissions\` is available when the module \`permissions\` option is enabled.
 
 | Name | Kind | Purpose | Learn More |
 | ---- | ---- | ------- | ---------- |
@@ -262,5 +307,14 @@ ${toRows(serverImports, serverMeta, { defaultKind: 'Server helper' })}
 ${toRows(componentNames, componentMeta, { component: true, defaultKind: 'Component' })}
 `
 
-writeFileSync(outputPath, file)
-console.log(`Generated ${outputPath}`)
+if (checkOnly) {
+  const current = readFileSync(outputPath, 'utf8')
+  if (current !== file) {
+    console.error(`${outputPath} is stale. Run: pnpm run docs:api-surface`)
+    process.exit(1)
+  }
+  console.log(`API surface docs are up to date (${outputPath})`)
+} else {
+  writeFileSync(outputPath, file)
+  console.log(`Generated ${outputPath}`)
+}

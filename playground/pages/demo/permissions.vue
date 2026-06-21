@@ -460,7 +460,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
 definePageMeta({
@@ -474,7 +474,7 @@ const { can, user, role, orgId, pending, isAuthenticated } = usePermissions()
 // status: 'idle' (skipped) | 'pending' (loading) | 'success' (has data) | 'error' (failed)
 const { data: currentOrg, status: currentOrgStatus } = await useConvexQuery(
   api.organizations.getCurrent,
-  computed(() => (orgId.value ? {} : undefined)),
+  computed(() => (orgId.value ? {} : 'skip')),
 )
 
 const {
@@ -483,7 +483,7 @@ const {
   error: postsError,
 } = await useConvexQuery(
   api.posts.list,
-  computed(() => (orgId.value ? {} : undefined)),
+  computed(() => (orgId.value ? {} : 'skip')),
 )
 
 const {
@@ -492,18 +492,18 @@ const {
   error: membersError,
 } = await useConvexQuery(
   api.organizations.getMembers,
-  computed(() => (orgId.value && can('org.members') ? {} : undefined)),
+  computed(() => (orgId.value && can('org.members') ? {} : 'skip')),
 )
 
 const { data: pendingInvites } = await useConvexQuery(
   api.invites.listPending,
-  computed(() => (orgId.value && can('org.invite') ? {} : undefined)),
+  computed(() => (orgId.value && can('org.invite') ? {} : 'skip')),
 )
 
 // Get my pending invites (when no orgId)
 const myInvitesQuery = await useConvexQuery(
   api.invites.getMyInvites,
-  computed(() => (!orgId.value ? {} : undefined)),
+  computed(() => (!orgId.value ? {} : 'skip')),
 )
 const { data: myInvites } = myInvitesQuery
 
@@ -515,13 +515,13 @@ const orgIdsForInvites = computed(() => {
 
 const { data: allOrgs } = await useConvexQuery(
   api.organizations.getByIds,
-  computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : undefined)),
+  computed(() => (orgIdsForInvites.value.length ? { ids: orgIdsForInvites.value } : 'skip')),
 )
 
 // Get all organizations (for browsing)
 const allOrganizationsQuery = await useConvexQuery(
   api.organizations.list,
-  computed(() => (!orgId.value ? {} : undefined)),
+  computed(() => (!orgId.value ? {} : 'skip')),
 )
 const {
   data: allOrganizations,
@@ -533,29 +533,24 @@ const {
 // This blocks client-side navigation until data is ready
 await Promise.all([myInvitesQuery, allOrganizationsQuery])
 
-// Mutations - use pending/error shorthands from new API
-const {
-  execute: createOrg,
-  pending: isCreatingOrg,
-  error: createOrgError,
-} = useConvexMutation(api.organizations.create)
-const {
-  execute: createPost,
-  pending: isCreatingPost,
-  error: createPostError,
-} = useConvexMutation(api.posts.create)
-const { execute: updatePost } = useConvexMutation(api.posts.update)
-const { execute: publishPost } = useConvexMutation(api.posts.publish)
-const { execute: deletePost } = useConvexMutation(api.posts.remove)
-const { execute: changeMemberRole } = useConvexMutation(api.organizations.changeMemberRole)
-const { execute: createInvite, pending: isInviting } = useConvexMutation(api.invites.create)
-const { execute: revokeInvite } = useConvexMutation(api.invites.revoke)
-const { execute: acceptInvite } = useConvexMutation(api.invites.accept)
-const { execute: removeMember } = useConvexMutation(api.organizations.removeMember)
-const { execute: leaveOrg, pending: isLeavingOrg } = useConvexMutation(api.organizations.leave)
-const { execute: updateOrgSettings, pending: isSavingSettings } = useConvexMutation(
-  api.organizations.updateSettings,
-)
+// Mutations - use pending/error shorthands from callable mutations
+const createOrg = useConvexMutation(api.organizations.create)
+const createPost = useConvexMutation(api.posts.create)
+const updatePost = useConvexMutation(api.posts.update)
+const publishPost = useConvexMutation(api.posts.publish)
+const deletePost = useConvexMutation(api.posts.remove)
+const changeMemberRole = useConvexMutation(api.organizations.changeMemberRole)
+const createInvite = useConvexMutation(api.invites.create)
+const revokeInvite = useConvexMutation(api.invites.revoke)
+const acceptInvite = useConvexMutation(api.invites.accept)
+const removeMember = useConvexMutation(api.organizations.removeMember)
+const leaveOrg = useConvexMutation(api.organizations.leave)
+const updateOrgSettings = useConvexMutation(api.organizations.updateSettings)
+const { pending: isCreatingOrg, error: createOrgError } = createOrg
+const { pending: isCreatingPost, error: createPostError } = createPost
+const { pending: isInviting } = createInvite
+const { pending: isLeavingOrg } = leaveOrg
+const { pending: isSavingSettings } = updateOrgSettings
 
 // State
 const error = ref<string | null>(null)

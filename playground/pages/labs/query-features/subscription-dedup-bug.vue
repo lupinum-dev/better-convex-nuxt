@@ -18,8 +18,8 @@ const { data: parentData, status: parentStatus } = await useConvexQuery(
 const childReady = ref(false)
 let childReadyTimer: ReturnType<typeof setTimeout> | null = null
 
-const childArgs = computed<Record<string, never> | undefined>(() =>
-  childReady.value ? emptyQueryArgs : undefined,
+const childArgs = computed<Record<string, never> | 'skip'>(() =>
+  childReady.value ? emptyQueryArgs : 'skip',
 )
 const { data: childData, status: childStatus } = await useConvexQuery(
   subscriptionDedupCounterQuery,

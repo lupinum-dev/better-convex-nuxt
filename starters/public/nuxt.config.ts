@@ -1,16 +1,16 @@
-export default defineNuxtConfig({
+export default {
   modules: ['better-convex-nuxt'],
   devtools: { enabled: true },
   compatibilityDate: '2026-06-21',
   typescript: {
-    strict: true
+    strict: true,
   },
   convex: {
     auth: {
-      enabled: false
+      enabled: false,
     },
     defaults: {
-      auth: 'none'
-    }
-  }
-})
+      auth: 'none',
+    },
+  },
+}

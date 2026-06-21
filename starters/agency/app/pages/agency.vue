@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
+
+defineOptions({ name: 'AgencyPage' })
 
 const agencyOrganizationId = ref('' as Id<'organizations'>)
 const { data: clients } = await useConvexQuery(api.organizationLinks.listClients, {
-  agencyOrganizationId
+  agencyOrganizationId,
 })
 </script>
 
@@ -69,4 +72,3 @@ input {
   text-decoration: none;
 }
 </style>
-

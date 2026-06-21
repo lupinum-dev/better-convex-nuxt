@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
+
+defineOptions({ name: 'DraftReviewPage' })
 
 const organizationId = ref('' as Id<'organizations'>)
 const { data: drafts } = await useConvexQuery(api.drafts.listPending, { organizationId })
-const { execute: approveDraft } = useConvexMutation(api.approvals.approveDraft)
-const { execute: rejectDraft } = useConvexMutation(api.approvals.rejectDraft)
+const approveDraft = useConvexMutation(api.approvals.approveDraft)
+const rejectDraft = useConvexMutation(api.approvals.rejectDraft)
 </script>
 
 <template>
@@ -26,4 +29,3 @@ const { execute: rejectDraft } = useConvexMutation(api.approvals.rejectDraft)
     </article>
   </main>
 </template>
-

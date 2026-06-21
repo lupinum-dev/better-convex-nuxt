@@ -23,7 +23,7 @@ const submitLabel = computed(() => {
   return mode.value === 'signIn' ? 'Sign in' : 'Create account'
 })
 const passwordAutocomplete = computed(() =>
-  mode.value === 'signIn' ? 'current-password' : 'new-password'
+  mode.value === 'signIn' ? 'current-password' : 'new-password',
 )
 
 watch(mode, () => {
@@ -42,7 +42,7 @@ async function submitAuth() {
       const { error: signUpError } = await signUp.email({
         name: name.value.trim(),
         email: trimmedEmail,
-        password: password.value
+        password: password.value,
       })
 
       if (signUpError) {
@@ -53,7 +53,7 @@ async function submitAuth() {
 
     const result = await signIn.email({
       email: trimmedEmail,
-      password: password.value
+      password: password.value,
     })
 
     if (result.error) {
@@ -79,18 +79,10 @@ async function submitAuth() {
     <p v-if="checking" class="auth-status">Checking session...</p>
 
     <div v-else class="mode-toggle" aria-label="Authentication mode">
-      <button
-        type="button"
-        :class="{ active: mode === 'signUp' }"
-        @click="mode = 'signUp'"
-      >
+      <button type="button" :class="{ active: mode === 'signUp' }" @click="mode = 'signUp'">
         Sign up
       </button>
-      <button
-        type="button"
-        :class="{ active: mode === 'signIn' }"
-        @click="mode = 'signIn'"
-      >
+      <button type="button" :class="{ active: mode === 'signIn' }" @click="mode = 'signIn'">
         Sign in
       </button>
     </div>
@@ -103,7 +95,13 @@ async function submitAuth() {
 
       <label>
         Email
-        <input v-model="email" autocomplete="email" placeholder="you@example.com" required type="email" />
+        <input
+          v-model="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+          required
+          type="email"
+        />
       </label>
 
       <label>

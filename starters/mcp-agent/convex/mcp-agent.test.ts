@@ -2,19 +2,18 @@ import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
-import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
 async function seedActor(
   t: ReturnType<typeof convexTest>,
   role: 'owner' | 'admin' | 'member' | 'viewer',
-  status: 'active' | 'revoked' = 'active'
+  status: 'active' | 'revoked' = 'active',
 ) {
   return await t.run(async (ctx) => {
     const organizationId = await ctx.db.insert('organizations', {
       name: 'Acme',
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
     const serviceActorId = await ctx.db.insert('serviceActors', {
       organizationId,
@@ -22,14 +21,14 @@ async function seedActor(
       role,
       status,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
     await ctx.db.insert('agentCredentials', {
       organizationId,
       serviceActorId,
       secretHash: 'hash',
       status: 'active',
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
     return { organizationId, serviceActorId }
   })
@@ -42,7 +41,7 @@ describe('mcp-agent starter invariants', () => {
 
     const projects = await t.query(api.projects.listForServiceActor, {
       credentialHash: 'hash',
-      organizationId
+      organizationId,
     })
 
     expect(projects).toEqual([])
@@ -55,7 +54,7 @@ describe('mcp-agent starter invariants', () => {
     const projectId = await t.mutation(api.projects.createFromServiceActor, {
       credentialHash: 'hash',
       organizationId,
-      name: 'Launch'
+      name: 'Launch',
     })
 
     expect(projectId).toBeTruthy()
@@ -75,8 +74,8 @@ describe('mcp-agent starter invariants', () => {
     await expect(
       t.query(api.projects.listForServiceActor, {
         credentialHash: 'hash',
-        organizationId
-      })
+        organizationId,
+      }),
     ).rejects.toThrow('Service actor credential denied')
   })
 
@@ -86,7 +85,7 @@ describe('mcp-agent starter invariants', () => {
     const otherOrganizationId = await t.run(async (ctx) => {
       return await ctx.db.insert('organizations', {
         name: 'Other',
-        createdAt: Date.now()
+        createdAt: Date.now(),
       })
     })
 
@@ -94,8 +93,8 @@ describe('mcp-agent starter invariants', () => {
       t.mutation(api.projects.createFromServiceActor, {
         credentialHash: 'hash',
         organizationId: otherOrganizationId,
-        name: 'Blocked'
-      })
+        name: 'Blocked',
+      }),
     ).rejects.toThrow('Service actor credential denied')
   })
 
@@ -111,8 +110,8 @@ describe('mcp-agent starter invariants', () => {
       t.mutation(api.projects.createFromServiceActor, {
         credentialHash: 'hash',
         organizationId,
-        name: 'Blocked'
-      })
+        name: 'Blocked',
+      }),
     ).rejects.toThrow('Insufficient service actor role')
   })
 
@@ -122,7 +121,7 @@ describe('mcp-agent starter invariants', () => {
     const projectId = await t.mutation(api.projects.createFromServiceActor, {
       credentialHash: 'hash',
       organizationId,
-      name: 'Delete me'
+      name: 'Delete me',
     })
 
     const approvalId = await t.run(async (ctx) => {
@@ -132,7 +131,7 @@ describe('mcp-agent starter invariants', () => {
         resourceId: projectId,
         status: 'pending',
         expiresAt: Date.now() + 60_000,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       })
     })
 
@@ -141,8 +140,8 @@ describe('mcp-agent starter invariants', () => {
         credentialHash: 'hash',
         organizationId,
         projectId,
-        approvalId
-      })
+        approvalId,
+      }),
     ).rejects.toThrow('Approval required')
 
     await t.run(async (ctx) => {
@@ -153,7 +152,7 @@ describe('mcp-agent starter invariants', () => {
       credentialHash: 'hash',
       organizationId,
       projectId,
-      approvalId
+      approvalId,
     })
 
     const deleted = await t.run(async (ctx) => await ctx.db.get(projectId))

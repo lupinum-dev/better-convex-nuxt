@@ -7,9 +7,14 @@
 
 import { watchEffect } from 'vue'
 
+import { api } from '#convex/api'
 import { createPermissions } from '#imports'
-import { api } from '~/convex/_generated/api'
-import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
+import {
+  checkPermission,
+  type Permission,
+  type PermissionContext,
+  type Resource,
+} from '~/convex/permissions.config'
 
 // Re-export types for convenience
 export type { Permission, Resource }
@@ -19,7 +24,7 @@ export type { Permission, Resource }
 // ============================================
 
 const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
-  createPermissions<Permission>({
+  createPermissions<Permission, PermissionContext, Resource>({
     query: api.auth.getPermissionContext,
     checkPermission,
   })
@@ -60,7 +65,7 @@ export function usePermissions() {
       debugInfo?.reason === 'user not found in DB, needs to be created'
     ) {
       try {
-        await createUser.execute({})
+        await createUser({})
         // Query will automatically re-run and pick up the new user
       } catch (e) {
         console.error('Failed to create user:', e)

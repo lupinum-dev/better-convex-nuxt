@@ -10,20 +10,18 @@ const roleRank: Record<Role, number> = {
   owner: 4,
   admin: 3,
   member: 2,
-  viewer: 1
+  viewer: 1,
 }
 
 export async function requireOrgMember(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<'organizations'>,
-  minimumRole: Role = 'viewer'
+  minimumRole: Role = 'viewer',
 ) {
   const user = await requireCurrentUser(ctx)
   const membership = await ctx.db
     .query('memberships')
-    .withIndex('by_org_user', (q: any) =>
-      q.eq('organizationId', organizationId).eq('userId', user._id)
-    )
+    .withIndex('by_org_user', (q) => q.eq('organizationId', organizationId).eq('userId', user._id))
     .unique()
 
   if (!membership || membership.status !== 'active') {
@@ -43,15 +41,15 @@ export async function requireDelegatedClientAccess(
     agencyOrganizationId: Id<'organizations'>
     clientOrganizationId: Id<'organizations'>
   },
-  minimumAgencyRole: Role = 'member'
+  minimumAgencyRole: Role = 'member',
 ) {
   const agencyAccess = await requireOrgMember(ctx, args.agencyOrganizationId, minimumAgencyRole)
   const link = await ctx.db
     .query('organizationLinks')
-    .withIndex('by_agency_client', (q: any) =>
+    .withIndex('by_agency_client', (q) =>
       q
         .eq('agencyOrganizationId', args.agencyOrganizationId)
-        .eq('clientOrganizationId', args.clientOrganizationId)
+        .eq('clientOrganizationId', args.clientOrganizationId),
     )
     .unique()
 
@@ -62,6 +60,6 @@ export async function requireDelegatedClientAccess(
   return {
     user: agencyAccess.user,
     link,
-    accessPath: 'delegated' as const
+    accessPath: 'delegated' as const,
   }
 }

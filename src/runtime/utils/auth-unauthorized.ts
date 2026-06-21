@@ -89,7 +89,7 @@ export async function handleUnauthorizedAuthFailure(options: {
       try {
         await signOut()
       } catch {
-        // Best effort; local state is already cleared by useConvexAuth().signOut()
+        // Best effort; recovery still redirects even when upstream logout fails.
       }
 
       await navigateTo(redirectTo)

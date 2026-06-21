@@ -15,7 +15,7 @@ import { useNuxtApp } from '#imports'
  * @example
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const convex = useConvex()
  *

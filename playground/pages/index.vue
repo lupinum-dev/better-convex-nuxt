@@ -73,7 +73,7 @@
             <span class="icon">Z</span>
             <div>
               <strong>Instant Cache Reuse</strong>
-              <p>List card → slug page default + useNuxtData</p>
+              <p>List card → slug initialData + useNuxtData</p>
             </div>
           </NuxtLink>
           <NuxtLink to="/labs/pagination" class="link-card new">

@@ -9,15 +9,18 @@ type Todo = {
 }
 
 const listTodos = makeFunctionReference<'query', Record<string, never>, Todo[]>('todos:list')
-const createTodoRef = makeFunctionReference<'mutation', { text: string }, Id<'todos'>>('todos:create')
+const createTodoRef = makeFunctionReference<'mutation', { text: string }, Id<'todos'>>(
+  'todos:create',
+)
 const toggleTodoRef = makeFunctionReference<'mutation', { id: Id<'todos'> }, null>('todos:toggle')
 const removeTodoRef = makeFunctionReference<'mutation', { id: Id<'todos'> }, null>('todos:remove')
 
 const newText = ref('')
 const { data: todos, status } = await useConvexQuery(listTodos, {})
-const { execute: createTodo, pending: isCreating } = useConvexMutation(createTodoRef)
-const { execute: toggleTodo } = useConvexMutation(toggleTodoRef)
-const { execute: removeTodo } = useConvexMutation(removeTodoRef)
+const createTodo = useConvexMutation(createTodoRef)
+const toggleTodo = useConvexMutation(toggleTodoRef)
+const removeTodo = useConvexMutation(removeTodoRef)
+const isCreating = createTodo.pending
 const todoList = computed(() => (todos.value ?? []) as Todo[])
 
 async function addTodo() {
@@ -65,7 +68,13 @@ body {
   background: #f6f7f9;
   color: #18181b;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .shell {

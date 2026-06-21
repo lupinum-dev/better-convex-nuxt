@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { convexToJson, jsonToConvex } from 'convex/values'
+import type { Value } from 'convex/values'
 import { computed } from 'vue'
-import { api } from '~~/convex/_generated/api'
+
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -13,7 +15,7 @@ interface ConvexPayloadFixture {
   b: ArrayBuffer
 }
 
-const { data, pending, status, error } = useConvexQuery<
+const { data, pending, status, error } = await useConvexQuery<
   typeof api.testing.healthCheck,
   Record<string, never>,
   ConvexPayloadFixture
@@ -29,7 +31,7 @@ const { data, pending, status, error } = useConvexQuery<
           n: BigInt(123),
           b: new Uint8Array([1, 2, 3]).buffer,
         }),
-      ) as ConvexPayloadFixture,
+      ) as unknown as ConvexPayloadFixture,
   },
 )
 
@@ -50,7 +52,10 @@ const bytesValues = computed(() => {
 const convexJson = computed(() => {
   if (!data.value) return null
   try {
-    return convexToJson(data.value)
+    return convexToJson(data.value as unknown as Value) as {
+      n?: { $integer?: string }
+      b?: { $bytes?: string }
+    }
   } catch {
     return null
   }

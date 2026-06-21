@@ -7,24 +7,37 @@ import { assertLocalAuthReady, ensureLocalConvex } from '../helpers/local-convex
 
 const playgroundCwd = fileURLToPath(new URL('../../playground', import.meta.url))
 
-const local = await ensureLocalConvex({
-  cwd: playgroundCwd,
-})
+let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
+try {
+  local = await ensureLocalConvex({
+    cwd: playgroundCwd,
+  })
 
-await assertLocalAuthReady({
-  cwd: playgroundCwd,
-  env: local.env,
-  origin: 'http://localhost:3000',
-})
+  await assertLocalAuthReady({
+    cwd: playgroundCwd,
+    env: local.env,
+    origin: 'http://localhost:3000',
+  })
+} catch (error) {
+  console.warn(
+    `[e2e] Skipping auth-loop suite: ${error instanceof Error ? error.message : String(error)}`,
+  )
+  await local?.release()
+  local = null
+}
 
-describe('Auth loop (full stack)', async () => {
+const maybeDescribe = local ? describe : describe.skip
+
+maybeDescribe('Auth loop (full stack)', async () => {
   afterAll(async () => {
-    await local.release()
+    if (local) {
+      await local.release()
+    }
   })
 
   await setup({
     rootDir: playgroundCwd,
-    env: local.env,
+    env: local?.env,
     port: 3000,
   })
 

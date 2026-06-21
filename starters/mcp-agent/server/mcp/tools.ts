@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { ConvexHttpClient } from 'convex/browser'
+import type { ConvexHttpClient } from 'convex/browser'
 import { createError } from 'h3'
 import { z } from 'zod'
 
@@ -9,11 +9,11 @@ import type { Id } from '../../convex/_generated/dataModel'
 
 const createProjectSchema = z.object({
   organizationId: z.string(),
-  name: z.string().min(1)
+  name: z.string().min(1),
 })
 
 const listProjectsSchema = z.object({
-  organizationId: z.string()
+  organizationId: z.string(),
 })
 
 export function hashBearerSecret(secret: string) {
@@ -40,8 +40,8 @@ export function createMcpHandlers(client: ConvexHttpClient, credentialHash: stri
             inputSchema: {
               type: 'object',
               properties: { organizationId: { type: 'string' } },
-              required: ['organizationId']
-            }
+              required: ['organizationId'],
+            },
           },
           {
             name: 'projects.create',
@@ -50,12 +50,12 @@ export function createMcpHandlers(client: ConvexHttpClient, credentialHash: stri
               type: 'object',
               properties: {
                 organizationId: { type: 'string' },
-                name: { type: 'string' }
+                name: { type: 'string' },
               },
-              required: ['organizationId', 'name']
-            }
-          }
-        ]
+              required: ['organizationId', 'name'],
+            },
+          },
+        ],
       }
     },
 
@@ -64,11 +64,11 @@ export function createMcpHandlers(client: ConvexHttpClient, credentialHash: stri
         const args = listProjectsSchema.parse(rawArgs)
         const projects = await client.query(api.projects.listForServiceActor, {
           credentialHash,
-          organizationId: args.organizationId as Id<'organizations'>
+          organizationId: args.organizationId as Id<'organizations'>,
         })
 
         return {
-          content: [{ type: 'text', text: JSON.stringify(projects, null, 2) }]
+          content: [{ type: 'text', text: JSON.stringify(projects, null, 2) }],
         }
       }
 
@@ -77,15 +77,15 @@ export function createMcpHandlers(client: ConvexHttpClient, credentialHash: stri
         const projectId = await client.mutation(api.projects.createFromServiceActor, {
           credentialHash,
           organizationId: args.organizationId as Id<'organizations'>,
-          name: args.name
+          name: args.name,
         })
 
         return {
-          content: [{ type: 'text', text: `Created project ${projectId}` }]
+          content: [{ type: 'text', text: `Created project ${projectId}` }],
         }
       }
 
       throw createError({ statusCode: 404, statusMessage: `Unknown tool: ${name}` })
-    }
+    },
   }
 }

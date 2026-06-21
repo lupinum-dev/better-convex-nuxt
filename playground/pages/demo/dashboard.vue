@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',

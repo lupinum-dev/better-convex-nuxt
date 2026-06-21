@@ -12,11 +12,12 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "..": "link:../../../..",
     "@ai-sdk/openai": "^2.0.99",
     "@convex-dev/agent": "^0.3.2",
-    "@convex-dev/better-auth": "^0.10.13",
-    "better-auth": "1.4.9",
-    "better-convex-nuxt": "^0.3.4",
+    "@convex-dev/better-auth": "^0.12.4",
+    "better-auth": "^1.6.20",
+    "better-convex-nuxt": "^0.4.0",
     "convex": "^1.32.0",
     "nuxt": "^4.3.1",
     "vue": "^3.5.25"

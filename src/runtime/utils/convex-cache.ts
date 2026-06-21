@@ -1,7 +1,5 @@
 import { shallowRef, type ShallowRef } from 'vue'
 
-import type { useNuxtApp } from '#app'
-
 // Re-export shared utilities
 export {
   parseConvexResponse,
@@ -12,8 +10,7 @@ export {
 } from './convex-shared'
 export type { ConvexCallStatus } from './types'
 
-// Get the NuxtApp type from useNuxtApp return type
-type NuxtApp = ReturnType<typeof useNuxtApp>
+type SubscriptionCacheOwner = object
 
 // Module-level WeakMap for automatic GC when NuxtApp is destroyed
 // This replaces the previous pattern of patching nuxtApp._convexSubscriptions
@@ -70,6 +67,18 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
     entry.queryBridge = createQueryBridge()
   }
   return entry.queryBridge
+}
+
+export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: unknown): void {
+  bridge.rawData = rawData
+  bridge.hasRawData = true
+  bridge.error = null
+  bridge.dataVersion.value += 1
+}
+
+export function commitQueryBridgeError(bridge: QuerySubscriptionBridge, error: Error): void {
+  bridge.error = error
+  bridge.errorVersion.value += 1
 }
 
 // ============================================================================
@@ -173,7 +182,7 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  * }
  * ```
  */
-export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
+export function getSubscriptionCache(nuxtApp: SubscriptionCacheOwner): SubscriptionCache {
   if (!subscriptionRegistry.has(nuxtApp)) {
     subscriptionRegistry.set(nuxtApp, new Map())
   }
@@ -190,7 +199,7 @@ export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
  * @returns true if this component should manage the subscription (first registrant), false if joining existing
  */
 export function registerSubscription(
-  nuxtApp: NuxtApp,
+  nuxtApp: SubscriptionCacheOwner,
   cacheKey: string,
   unsubscribe: () => void,
 ): boolean {
@@ -215,7 +224,7 @@ export function registerSubscription(
  * @param cacheKey - Unique key for this subscription
  * @returns True if subscription exists
  */
-export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
+export function hasSubscription(nuxtApp: SubscriptionCacheOwner, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
   return cache.has(cacheKey)
 }
@@ -227,7 +236,10 @@ export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
  * @param cacheKey - Unique key for this subscription
  * @returns The subscription entry if it exists, undefined otherwise
  */
-export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): SubscriptionEntry | undefined {
+export function getSubscription(
+  nuxtApp: SubscriptionCacheOwner,
+  cacheKey: string,
+): SubscriptionEntry | undefined {
   const cache = getSubscriptionCache(nuxtApp)
   return cache.get(cacheKey)
 }
@@ -240,7 +252,7 @@ export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): Subscriptio
  * @param cacheKey - Unique key for this subscription
  * @returns true if subscription was unsubscribed, false if still has references
  */
-export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
+export function releaseSubscription(nuxtApp: SubscriptionCacheOwner, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
   const entry = cache.get(cacheKey)
 
@@ -258,4 +270,19 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
   }
 
   return false
+}
+
+/**
+ * Unsubscribe and remove every shared Convex query subscription for a Nuxt app.
+ * Used after successful sign-out so authenticated live queries cannot keep
+ * streaming data from the previous session.
+ */
+export function clearSubscriptionCache(nuxtApp: SubscriptionCacheOwner): void {
+  const cache = getSubscriptionCache(nuxtApp)
+
+  for (const entry of cache.values()) {
+    entry.unsubscribe()
+  }
+
+  cache.clear()
 }

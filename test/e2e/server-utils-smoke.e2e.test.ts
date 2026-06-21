@@ -11,7 +11,9 @@ try {
     cwd: fileURLToPath(new URL('../../playground', import.meta.url)),
   })
 } catch (error) {
-  console.warn('[e2e] Skipping server-utils smoke suite: local Convex backend unavailable.', error)
+  console.warn(
+    `[e2e] Skipping server-utils smoke suite: ${error instanceof Error ? error.message : String(error)}`,
+  )
 }
 
 const maybeDescribe = local ? describe : describe.skip

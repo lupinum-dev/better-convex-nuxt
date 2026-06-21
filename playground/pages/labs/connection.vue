@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -85,15 +85,18 @@ definePageMeta({
 const {
   state,
   isConnected,
-  hasEverConnected,
-  connectionRetries,
-  hasInflightRequests,
   isReconnecting,
-  inflightMutations,
-  inflightActions,
-  isHydratingConnection,
+  pendingMutations,
+  pendingActions,
   shouldShowOfflineUi,
 } = useConvexConnectionState()
+
+const hasEverConnected = computed(() => state.value.hasEverConnected)
+const connectionRetries = computed(() => state.value.connectionRetries)
+const hasInflightRequests = computed(() => state.value.hasInflightRequests)
+const inflightMutations = pendingMutations
+const inflightActions = pendingActions
+const isHydratingConnection = computed(() => !state.value.hasEverConnected)
 
 const statusClass = computed(() => {
   if (isReconnecting.value) return 'reconnecting'
@@ -108,7 +111,8 @@ const statusLabel = computed(() => {
 })
 
 // Test mutation to see inflight state
-const { execute: addNote, pending: addingNote } = useConvexMutation(api.notes.add)
+const addNote = useConvexMutation(api.notes.add)
+const { pending: addingNote } = addNote
 const lastNoteId = ref<string | null>(null)
 
 async function triggerMutation() {

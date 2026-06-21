@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
 
 const props = defineProps<{
   organizationId: Id<'organizations'>
 }>()
 
 const name = ref('')
-const { execute: createProject, pending } = useConvexMutation(api.projects.create)
+const createProject = useConvexMutation(api.projects.create)
+const pending = createProject.pending
 
 async function submit() {
   const trimmedName = name.value.trim()

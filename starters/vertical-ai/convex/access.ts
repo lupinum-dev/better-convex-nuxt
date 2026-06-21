@@ -10,20 +10,18 @@ const roleRank: Record<Role, number> = {
   owner: 4,
   admin: 3,
   reviewer: 2,
-  viewer: 1
+  viewer: 1,
 }
 
 export async function requireOrgAccess(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<'organizations'>,
-  minimumRole: Role = 'viewer'
+  minimumRole: Role = 'viewer',
 ) {
   const user = await requireCurrentUser(ctx)
   const membership = await ctx.db
     .query('memberships')
-    .withIndex('by_org_user', (q: any) =>
-      q.eq('organizationId', organizationId).eq('userId', user._id)
-    )
+    .withIndex('by_org_user', (q) => q.eq('organizationId', organizationId).eq('userId', user._id))
     .unique()
 
   if (!membership || membership.status !== 'active') {

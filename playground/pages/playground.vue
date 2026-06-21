@@ -148,10 +148,10 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
         </div>
 
         <div class="option-card">
-          <h4>default: []</h4>
+          <h4>initialData: []</h4>
           <p>Shows placeholder immediately</p>
           <span class="badge success">
-            {{ initialDataDemo?.length ?? 0 }} notes (default: [])
+            {{ initialDataDemo?.length ?? 0 }} notes (initialData: [])
           </span>
         </div>
 
@@ -194,9 +194,8 @@ export default defineNuxtConfig({
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 import type { Id } from '~/convex/_generated/dataModel'
-import { getQueryKey } from 'better-convex-nuxt/composables'
 
 // Mutations using the new composable
 const addNoteMutation = useConvexMutation(api.notes.add)
@@ -222,7 +221,7 @@ async function addNote() {
 
   isAdding.value = true
   try {
-    await addNoteMutation.execute({
+    await addNoteMutation({
       title: newNoteTitle.value.trim(),
       content: newNoteContent.value.trim() || 'No content',
     })
@@ -238,7 +237,7 @@ async function addNote() {
 
 async function deleteNote(id: Id<'notes'>) {
   try {
-    await deleteNoteMutation.execute({ id })
+    await deleteNoteMutation({ id })
     // Real-time subscription will update automatically!
   } catch (e) {
     console.error('Failed to delete note:', e)
@@ -262,7 +261,7 @@ if (import.meta.client) {
 }
 
 const searchArgs = computed(() => {
-  if (!debouncedQuery.value.trim()) return undefined
+  if (!debouncedQuery.value.trim()) return 'skip'
   return { query: debouncedQuery.value }
 })
 
@@ -275,7 +274,7 @@ const { data: searchResults, pending: searchPending } = await useConvexQuery(
 const enableSkipDemo = useState('playground-skip-demo', () => true)
 
 const skipArgs = computed(() => {
-  return enableSkipDemo.value ? {} : undefined
+  return enableSkipDemo.value ? {} : 'skip'
 })
 
 const { data: skipDemoData, pending: skipDemoPending } = await useConvexQuery(
@@ -291,8 +290,8 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 // Client-only query example
 const { data: lazyData, pending: lazyPending } = await useConvexQuery(api.notes.list, {})
 
-// Default data (factory function that provides initial value)
-const { data: initialDataDemo } = await useConvexQuery(api.notes.list, {}, { default: () => [] })
+// Initial data (factory function that provides initial value)
+const { data: initialDataDemo } = await useConvexQuery(api.notes.list, {}, { initialData: [] })
 
 // Client-only
 const { data: clientOnlyData, pending: clientOnlyPending } = await useConvexQuery(
@@ -316,7 +315,7 @@ const debugInfo = computed(() => ({
     pending: searchPending.value,
   },
   skipDemo: {
-    enabled: enableSkipDemo.value,
+    running: enableSkipDemo.value,
     dataCount: skipDemoData.value?.length ?? 'undefined',
     pending: skipDemoPending.value,
   },

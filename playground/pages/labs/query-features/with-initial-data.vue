@@ -1,30 +1,39 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
 })
 
 /**
- * Test page for default data option
+ * Test page for initial data option
  *
- * Uses default: () => [] to provide initial placeholder data.
+ * Uses initialData: [] to provide initial placeholder data.
  * Expected behavior:
- * - Initial render shows default value (empty array)
+ * - Initial render shows initial value (empty array)
  * - After fetch, shows real data
- * - Default is used before data loads, not as fallback for errors
+ * - Initial data is used before data loads, not as fallback for errors
  */
 
-// Define default data as a constant for comparison
-const DEFAULT_DATA = [
-  { _id: 'placeholder-1', title: 'Loading...', content: 'Please wait', _creationTime: 0 },
+// Define initial data as a constant for comparison
+type NoteList = Awaited<ReturnType<typeof useConvexQuery<typeof api.notes.list>>>['data']['value']
+type NoteListItem = NonNullable<NoteList>[number]
+
+const INITIAL_DATA: NoteListItem[] = [
+  {
+    _id: 'placeholder-1' as NoteListItem['_id'],
+    _creationTime: 0,
+    title: 'Loading...',
+    content: 'Please wait',
+    createdAt: 0,
+  },
 ]
 
 const { data, pending, status, error } = await useConvexQuery(
   api.notes.list,
   {},
   {
-    default: () => DEFAULT_DATA as typeof data.value,
+    initialData: INITIAL_DATA,
   },
 )
 
@@ -33,14 +42,14 @@ const capturedAtRender = {
   pending: pending.value,
   status: status.value,
   hasData: data.value !== null && data.value !== undefined,
-  isDefaultData: JSON.stringify(data.value) === JSON.stringify(DEFAULT_DATA),
+  isInitialData: JSON.stringify(data.value) === JSON.stringify(INITIAL_DATA),
   dataLength: Array.isArray(data.value) ? data.value.length : null,
 }
 </script>
 
 <template>
-  <div data-testid="with-default-page" class="test-page">
-    <h1>default Data Option</h1>
+  <div data-testid="with-initial-data-page" class="test-page">
+    <h1>initialData Option</h1>
     <p class="description">Provides placeholder data while loading.</p>
 
     <NuxtLink to="/labs/query" class="back-link">Back to Query Lab</NuxtLink>
@@ -61,9 +70,9 @@ const capturedAtRender = {
           <span data-testid="initial-has-data" class="value">{{ capturedAtRender.hasData }}</span>
         </div>
         <div class="state-item">
-          <span class="label">is default:</span>
-          <span data-testid="initial-is-default" class="value">{{
-            capturedAtRender.isDefaultData
+          <span class="label">is initial:</span>
+          <span data-testid="initial-is-initial" class="value">{{
+            capturedAtRender.isInitialData
           }}</span>
         </div>
         <div class="state-item">
@@ -91,9 +100,9 @@ const capturedAtRender = {
           <span data-testid="current-has-data" class="value">{{ data !== null }}</span>
         </div>
         <div class="state-item">
-          <span class="label">is default:</span>
-          <span data-testid="current-is-default" class="value">
-            {{ JSON.stringify(data) === JSON.stringify(DEFAULT_DATA) }}
+          <span class="label">is initial:</span>
+          <span data-testid="current-is-initial" class="value">
+            {{ JSON.stringify(data) === JSON.stringify(INITIAL_DATA) }}
           </span>
         </div>
         <div class="state-item">
@@ -116,7 +125,7 @@ const capturedAtRender = {
           <h3>Before Fetch Completes</h3>
           <ul>
             <li>has data: <code>true</code></li>
-            <li>is default: <code>true</code></li>
+            <li>is initial: <code>true</code></li>
             <li>Shows placeholder "Loading..." item</li>
           </ul>
         </div>
@@ -124,7 +133,7 @@ const capturedAtRender = {
           <h3>After Fetch Completes</h3>
           <ul>
             <li>has data: <code>true</code></li>
-            <li>is default: <code>false</code></li>
+            <li>is initial: <code>false</code></li>
             <li>Shows real notes from database</li>
           </ul>
         </div>

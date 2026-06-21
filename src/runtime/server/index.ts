@@ -8,4 +8,5 @@ export {
   createUserSyncTriggers,
   type BetterAuthUserDocLike,
   type CreateUserSyncTriggersOptions,
+  type UserSyncRebuildResult,
 } from './createUserSyncTriggers'

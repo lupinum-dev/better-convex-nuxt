@@ -3,6 +3,17 @@
 Starter for organization apps that expose a small MCP surface to service
 actors.
 
+## Organization Ownership
+
+This starter intentionally uses app-owned Convex `organizations` and
+`memberships` tables because service actors, credentials, approvals, and audit
+events are product-domain records scoped to those organizations.
+
+It does not enable the Better Auth Organization plugin. If you enable Better
+Auth Organization, remove independent org/member truth and key service actors,
+credentials, approvals, projects, and audit events by Better Auth organization
+ids.
+
 ## Includes
 
 - organizations and memberships;
@@ -34,4 +45,3 @@ pnpm typecheck
 The MCP route is `POST /mcp`. It supports `initialize`, `tools/list`, and
 `tools/call`. Use a bearer token whose SHA-256 hash is stored in
 `agentCredentials.secretHash`.
-

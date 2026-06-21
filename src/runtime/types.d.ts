@@ -2,6 +2,7 @@ import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import type { RouteLocationRaw } from 'vue-router'
 
+import type { ConvexAuthEngine } from './auth/client-engine'
 import type { ConvexAuthConfigInput } from './utils/auth-config'
 import type { LogLevel } from './utils/logger'
 
@@ -61,6 +62,7 @@ declare module '#app' {
   interface NuxtApp {
     $convex?: ConvexClient
     $auth?: AuthClient
+    $convexAuthEngine?: ConvexAuthEngine
     /** Internal dedupe state for unauthorized query/action/mutation recovery */
     _bcnUnauthorizedRecoveryState?: {
       activeRecovery: Promise<void> | null

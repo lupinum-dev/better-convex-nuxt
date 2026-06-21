@@ -64,7 +64,7 @@
         <div class="code-example">
           <h3>Server Query (GET /api/test-server-query)</h3>
           <pre><code>import { serverConvexQuery } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
         <div class="code-example">
           <h3>Server Mutation (POST /api/test-server-mutation)</h3>
           <pre><code>import { serverConvexMutation } from '#convex/server'
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
@@ -105,12 +105,26 @@ definePageMeta({
 
 const queryLimit = ref(5)
 const isQueryLoading = ref(false)
-const queryResult = ref<Record<string, unknown> | null>(null)
+type ServerQueryResult = {
+  success: boolean
+  executedOn?: string
+  [key: string]: unknown
+}
+
+type ServerMutationResult = {
+  success: boolean
+  meta?: {
+    executedOn?: string
+  }
+  [key: string]: unknown
+}
+
+const queryResult = ref<ServerQueryResult | null>(null)
 
 const noteTitle = ref('')
 const noteContent = ref('')
 const isMutationLoading = ref(false)
-const mutationResult = ref<Record<string, unknown> | null>(null)
+const mutationResult = ref<ServerMutationResult | null>(null)
 
 async function testFetchQuery() {
   isQueryLoading.value = true
@@ -118,7 +132,7 @@ async function testFetchQuery() {
 
   try {
     const response = await $fetch(`/api/test-server-query?limit=${queryLimit.value}`)
-    queryResult.value = response as Record<string, unknown>
+    queryResult.value = response as ServerQueryResult
   } catch (error) {
     queryResult.value = {
       success: false,
@@ -141,7 +155,7 @@ async function testFetchMutation() {
         content: noteContent.value || undefined,
       },
     })
-    mutationResult.value = response as Record<string, unknown>
+    mutationResult.value = response as ServerMutationResult
     // Clear inputs on success
     if ((response as Record<string, unknown>).success) {
       noteTitle.value = ''

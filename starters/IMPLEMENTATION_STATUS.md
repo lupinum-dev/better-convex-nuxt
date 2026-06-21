@@ -17,7 +17,6 @@ Status: starter apps are implemented and locally verified.
 
 ## Verified Locally
 
-- `pnpm install` resolves for all five starters.
 - `pnpm exec nuxi prepare` passes for all five starters.
 - `pnpm typecheck` passes for all five starters.
 - `pnpm test` passes for all five starters.

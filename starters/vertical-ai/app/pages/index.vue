@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
 
 const organizationId = ref('' as Id<'organizations'>)
 const { data: records } = await useConvexQuery(api.domainRecords.list, { organizationId })
@@ -52,4 +53,3 @@ input {
   font: inherit;
 }
 </style>
-

@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+
 import {
   defineNuxtModule,
   addPlugin,
@@ -27,6 +29,15 @@ export type { LogLevel } from './runtime/utils/logger'
 export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
+
+function hasGeneratedConvexApi(aliasPath: string): boolean {
+  return (
+    existsSync(aliasPath) ||
+    existsSync(`${aliasPath}.ts`) ||
+    existsSync(`${aliasPath}.js`) ||
+    existsSync(`${aliasPath}.d.ts`)
+  )
+}
 
 function normalizeAuthCacheTtl(input: unknown): number {
   if (typeof input !== 'number' || !Number.isFinite(input)) return 60
@@ -285,6 +296,44 @@ export default defineNuxtModule<ModuleOptions>({
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
+    const generatedConvexApiAlias = resolver.resolve(nuxt.options.rootDir, 'convex/_generated/api')
+    const missingConvexApiTemplate = addTemplate({
+      filename: 'better-convex-nuxt/convex-api-missing.ts',
+      write: true,
+      getContents: () => `
+type MissingConvexGeneratedApi = {
+  /**
+   * The generated Convex API was not found.
+   * Run \`npx convex dev\` or \`npx convex codegen\` to create \`convex/_generated/api\`.
+   */
+  readonly __betterConvexNuxtError: 'Missing generated Convex API. Run npx convex dev or npx convex codegen.'
+}
+
+function createMissingConvexApiProxy(path: string[]): MissingConvexGeneratedApi {
+  return new Proxy({} as MissingConvexGeneratedApi, {
+    get(_target, prop) {
+      if (typeof prop === 'symbol') return undefined
+      if (prop === '__betterConvexNuxtError') {
+        return 'Missing generated Convex API. Run npx convex dev or npx convex codegen.'
+      }
+      const accessPath = [...path, String(prop)].join('.')
+      throw new Error(
+        '[better-convex-nuxt] #convex/api points to a placeholder because convex/_generated/api was not found. ' +
+          'Run \`npx convex dev\` or \`npx convex codegen\` to generate your Convex API. ' +
+          'Attempted to access ' + accessPath + '.',
+      )
+    },
+  })
+}
+
+export const api = createMissingConvexApiProxy([])
+export const internal = createMissingConvexApiProxy(['internal'])
+export const components = createMissingConvexApiProxy(['components'])
+`,
+    })
+    const convexApiAlias = hasGeneratedConvexApi(generatedConvexApiAlias)
+      ? generatedConvexApiAlias
+      : missingConvexApiTemplate.dst
 
     // Validate Convex URL format
     if (options.url && !isValidAbsoluteUrl(options.url)) {
@@ -364,6 +413,8 @@ export default defineNuxtModule<ModuleOptions>({
       },
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
+    nuxt.options.alias['#convex/api'] = convexApiAlias
+    nuxt.options.alias['#convex/server'] = resolver.resolve('./runtime/server/index')
 
     // 2. Register Server Plugin (runs first for SSR token exchange)
     addPlugin({
@@ -453,6 +504,7 @@ export {}
       },
       { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
       { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
+      { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
       {
         name: 'defineSharedConvexQuery',
         from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
@@ -517,6 +569,11 @@ export {}
     if (isAuthEnabled) {
       addImports([
         { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
+        { name: 'useConvexUser', from: resolver.resolve('./runtime/composables/useConvexUser') },
+        {
+          name: 'createBetterConvexAuthClient',
+          from: resolver.resolve('./runtime/composables/createBetterConvexAuthClient'),
+        },
       ])
 
       // Register auth components
@@ -547,11 +604,17 @@ export {}
       },
     ])
 
-    // 9. Add types to tsconfig references
+    // 9. Add types and aliases to generated tsconfig
     nuxt.hook('prepare:types', (opts) => {
       opts.references.push({
         path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
       })
+      opts.tsConfig.compilerOptions ??= {}
+      opts.tsConfig.compilerOptions.paths ??= {}
+      opts.tsConfig.compilerOptions.paths['#convex/api'] = [convexApiAlias]
+      opts.tsConfig.compilerOptions.paths['#convex/server'] = [
+        resolver.resolve('./runtime/server/index'),
+      ]
     })
 
     // 10. Setup Nuxt DevTools integration (dev mode only)

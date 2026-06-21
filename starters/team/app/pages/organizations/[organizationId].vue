@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
 
 const route = useRoute()
 const organizationId = computed(() => route.params.organizationId as Id<'organizations'>)
 const { isAuthenticated, isPending } = useConvexAuth()
 
 const projectArgs = computed(() =>
-  isAuthenticated.value ? { organizationId: organizationId.value } : undefined
+  isAuthenticated.value ? { organizationId: organizationId.value } : 'skip',
 )
 const { data: projects } = await useConvexQuery(api.projects.list, projectArgs)
 </script>

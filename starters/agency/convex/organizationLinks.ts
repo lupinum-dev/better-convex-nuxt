@@ -6,7 +6,7 @@ import { requireDelegatedClientAccess, requireOrgMember } from './access'
 export const linkClient = mutation({
   args: {
     agencyOrganizationId: v.id('organizations'),
-    clientOrganizationId: v.id('organizations')
+    clientOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgMember(ctx, args.agencyOrganizationId, 'admin')
@@ -15,39 +15,39 @@ export const linkClient = mutation({
       ...args,
       status: 'active',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
-  }
+  },
 })
 
 export const revoke = mutation({
   args: {
     agencyOrganizationId: v.id('organizations'),
-    clientOrganizationId: v.id('organizations')
+    clientOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgMember(ctx, args.agencyOrganizationId, 'admin')
     const link = await ctx.db
       .query('organizationLinks')
-      .withIndex('by_agency_client', (q: any) =>
+      .withIndex('by_agency_client', (q) =>
         q
           .eq('agencyOrganizationId', args.agencyOrganizationId)
-          .eq('clientOrganizationId', args.clientOrganizationId)
+          .eq('clientOrganizationId', args.clientOrganizationId),
       )
       .unique()
 
     if (link) {
       await ctx.db.patch(link._id, {
         status: 'revoked',
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       })
     }
-  }
+  },
 })
 
 export const listClients = query({
   args: {
-    agencyOrganizationId: v.id('organizations')
+    agencyOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgMember(ctx, args.agencyOrganizationId)
@@ -64,16 +64,16 @@ export const listClients = query({
     }
 
     return clients
-  }
+  },
 })
 
 export const assertClientAccess = query({
   args: {
     agencyOrganizationId: v.id('organizations'),
-    clientOrganizationId: v.id('organizations')
+    clientOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireDelegatedClientAccess(ctx, args)
     return true
-  }
+  },
 })

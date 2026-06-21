@@ -1,4 +1,14 @@
 {
   "extends": "./.nuxt/tsconfig.json",
-  "exclude": ["dist", "node_modules", "playground", "docs", "demo", "src/runtime/server"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "playground",
+    "docs",
+    "demo",
+    "starters",
+    "test/fixtures/consumer-smoke",
+    "test/fixtures/missing-convex-api",
+    "src/runtime/server"
+  ]
 }

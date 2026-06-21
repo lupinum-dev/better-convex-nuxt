@@ -8,6 +8,7 @@ import { useState } from '#imports'
 import {
   createConvexQueryState,
   useConvexQuery,
+  type ConvexQueryArgs,
   type UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -16,7 +17,7 @@ import { waitFor } from '../helpers/wait-for'
 
 function useConvexQueryState<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  Args extends ConvexQueryArgs<FunctionArgs<Query>> = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
@@ -51,15 +52,30 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(resolved.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
   })
 
-  it('returns idle + pending=false immediately for disabled nullable args', async () => {
+  it('returns idle + pending=false immediately for skipped args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
-    const { result } = await captureInNuxt(() => useConvexQueryState(query, null), {
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, 'skip'), {
       convex: new MockConvexClient(),
     })
 
     expect(result.data.value).toBeNull()
     expect(result.pending.value).toBe(false)
     expect(result.status.value).toBe('idle')
+  })
+
+  it('treats "skip" args as idle and does not start subscriptions', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:skip-static')
+
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, 'skip'), {
+      convex,
+    })
+
+    expect(result.data.value).toBeNull()
+    expect(result.pending.value).toBe(false)
+    expect(result.isStale.value).toBe(false)
+    expect(result.status.value).toBe('idle')
+    expect(convex.calls.onUpdate.length).toBe(0)
   })
 
   it('exposes refresh/clear but omits execute on query return shape', async () => {
@@ -73,13 +89,14 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect('execute' in (result as unknown as Record<string, unknown>)).toBe(false)
   })
 
-  it('respects auth:none by omitting Authorization header in client HTTP mode', async () => {
+  it('respects global auth:none by omitting Authorization header in client HTTP mode', async () => {
     const query = mockFnRef<'query'>('notes:list:auth-none')
     const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
     vi.stubGlobal('$fetch', fetchMock)
 
-    await captureInNuxt(() => useConvexQueryState(query, {}, { subscribe: false, auth: 'none' }), {
+    await captureInNuxt(() => useConvexQueryState(query, {}, { subscribe: false }), {
       convex: new MockConvexClient(),
+      convexConfig: { defaults: { auth: 'none' } },
     })
 
     const firstCall = fetchMock.mock.calls[0]
@@ -97,9 +114,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => {
         const token = useState<string | null>('convex:token')
         token.value = 'cached.jwt.token'
-        return useConvexQueryState(query, {}, { subscribe: false, auth: 'auto' })
+        return useConvexQueryState(query, {}, { subscribe: false })
       },
-      { convex: new MockConvexClient() },
+      { convex: new MockConvexClient(), convexConfig: { defaults: { auth: 'auto' } } },
     )
 
     const firstCall = fetchMock.mock.calls[0]
@@ -108,23 +125,92 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cached.jwt.token')
   })
 
-  it('respects enabled:false and does not start subscriptions', async () => {
+  it('respects skip args and does not start subscriptions', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:enabled-false')
+    const query = mockFnRef<'query'>('notes:list:skip-static')
 
-    const { result } = await captureInNuxt(
-      () => useConvexQueryState(query, {}, { enabled: false }),
-      { convex },
-    )
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, 'skip'), { convex })
 
     expect(result.status.value).toBe('idle')
     expect(result.pending.value).toBe(false)
     expect(convex.calls.onUpdate.length).toBe(0)
   })
 
-  it('uses default value while loading and transitions to success on first update', async () => {
+  it('releases an active subscription when args switch to "skip"', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:default-loading')
+    const query = mockFnRef<'query'>('notes:list:skip-reactive')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const args = ref<ConvexQueryArgs<Record<string, never>>>({})
+        const queryResult = useConvexQueryState(query, args)
+        return { args, queryResult }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.activeListenerCount(query, {}) >= 1)
+    convex.emitQueryResult(query, {}, { ready: true })
+    await waitFor(() => result.queryResult.data.value?.ready === true)
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+
+    result.args.value = 'skip'
+    await flush()
+
+    await waitFor(() => convex.activeListenerCount(query, {}) === 0)
+    expect(result.queryResult.status.value).toBe('idle')
+    expect(result.queryResult.pending.value).toBe(false)
+    expect(result.queryResult.isStale.value).toBe(false)
+  })
+
+  it('waits for auth bootstrap before starting live subscriptions', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:auth-gated-live')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = true
+        const queryResult = useConvexQueryState(query, {})
+        return { authPending, queryResult }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    expect(result.queryResult.pending.value).toBe(true)
+    expect(convex.calls.onUpdate.length).toBe(0)
+
+    result.authPending.value = false
+    await flush()
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+  })
+
+  it('does not wait for auth bootstrap when global query auth is none', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:auth-none-live')
+
+    await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = true
+        return useConvexQueryState(query, {})
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'none' } },
+      },
+    )
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+  })
+
+  it('uses initialData while loading and transitions to success on first update', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:initial-data-loading')
 
     const { result } = await captureInNuxt(
       () =>
@@ -132,17 +218,19 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
           query,
           {},
           {
-            default: () => [{ _id: 'default', title: 'Loading placeholder' }],
+            initialData: [{ _id: 'initial', title: 'Loading placeholder' }],
           },
         ),
       { convex },
     )
 
-    expect(result.data.value).toEqual([{ _id: 'default', title: 'Loading placeholder' }])
+    expect(result.data.value).toEqual([{ _id: 'initial', title: 'Loading placeholder' }])
     expect(result.pending.value).toBe(true)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
-    convex.emitQueryResultByPath('notes:list:default-loading', [{ _id: 'n1', title: 'Loaded' }])
+    convex.emitQueryResultByPath('notes:list:initial-data-loading', [
+      { _id: 'n1', title: 'Loaded' },
+    ])
     await waitFor(() => result.pending.value === false)
 
     expect(result.status.value).toBe('success')
@@ -361,9 +449,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     )
   })
 
-  it('applies transform to default values while loading', async () => {
+  it('applies transform to initialData while loading', async () => {
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('notes:list:default-transform')
+    const query = mockFnRef<'query'>('notes:list:initial-data-transform')
 
     const { result } = await captureInNuxt(
       () =>
@@ -371,7 +459,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
           query,
           {},
           {
-            default: () => [{ _id: 'default', title: 'loading' }],
+            initialData: [{ _id: 'initial', title: 'loading' }],
             transform: (items: Array<{ _id: string; title: string }>) =>
               items.map((item) => ({ ...item, title: item.title.toUpperCase() })),
           },
@@ -379,7 +467,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    expect(result.data.value).toEqual([{ _id: 'default', title: 'LOADING' }])
+    expect(result.data.value).toEqual([{ _id: 'initial', title: 'LOADING' }])
     expect(result.pending.value).toBe(true)
   })
 
@@ -407,9 +495,11 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     expect(result.queryResult.data.value).toEqual({ tag: 'alpha', hits: 2 })
     expect(result.queryResult.pending.value).toBe(true)
+    expect(result.queryResult.isStale.value).toBe(true)
 
     convex.emitQueryResult(query, { filter: { tag: 'beta' } }, { tag: 'beta', hits: 5 })
     await waitFor(() => result.queryResult.data.value?.tag === 'beta')
+    expect(result.queryResult.isStale.value).toBe(false)
   })
 
   it('uses pending status contract for server:false until first data', async () => {

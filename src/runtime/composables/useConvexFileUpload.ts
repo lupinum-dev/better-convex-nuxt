@@ -132,7 +132,7 @@ export interface UseConvexFileUploadOptions {
  * @example Basic usage with progress tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const {
  *   upload,
@@ -165,7 +165,7 @@ export interface UseConvexFileUploadOptions {
  * @example With cancel support
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress, cancel } = useConvexFileUpload(
  *   api.files.generateUploadUrl
@@ -183,7 +183,7 @@ export interface UseConvexFileUploadOptions {
  * @example With callbacks
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress } = useConvexFileUpload(
  *   api.files.generateUploadUrl,
@@ -202,10 +202,10 @@ export interface UseConvexFileUploadOptions {
  * @example Saving storageId to a document
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress } = useConvexFileUpload(api.files.generateUploadUrl)
- * const { execute: saveDocument } = useConvexMutation(api.documents.create)
+ * const saveDocument = useConvexMutation(api.documents.create)
  *
  * async function handleUpload(file: File, title: string) {
  *   const storageId = await upload(file)

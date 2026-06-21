@@ -4,12 +4,21 @@ import { defineEventHandler, createError } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
-import { api } from '../../convex/_generated/api'
+import { api } from '#convex/api'
 
 export default defineEventHandler(async (event: H3Event) => {
   const config = useRuntimeConfig(event)
-  const convexUrl = config.public.convex?.url
-  const siteUrl = config.public.convex?.siteUrl || config.public.convex?.auth?.url
+  const publicConvex = config.public.convex as
+    | {
+        url?: string
+        siteUrl?: string
+        auth?: {
+          url?: string
+        }
+      }
+    | undefined
+  const convexUrl = publicConvex?.url
+  const siteUrl = publicConvex?.siteUrl || publicConvex?.auth?.url
 
   if (!convexUrl || !siteUrl) {
     throw createError({ statusCode: 500, message: 'Convex not configured' })
@@ -24,9 +33,9 @@ export default defineEventHandler(async (event: H3Event) => {
   // Step 2: Exchange session for JWT
   let token: string | null = null
   try {
-    const tokenResponse = await $fetch<{ token?: string }>(`${siteUrl}/api/auth/convex/token`, {
+    const tokenResponse = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
       headers: { Cookie: cookieHeader },
-    })
+    })) as { token?: string }
     token = tokenResponse?.token ?? null
   } catch (e) {
     return { authenticated: false, message: 'Failed to get token', error: String(e) }

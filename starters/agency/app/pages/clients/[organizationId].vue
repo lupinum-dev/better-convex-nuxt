@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
 
 const route = useRoute()
 const clientOrganizationId = computed(() => route.params.organizationId as Id<'organizations'>)
 const agencyOrganizationId = computed(
-  () => route.query.agencyOrganizationId as Id<'organizations'> | undefined
+  () => route.query.agencyOrganizationId as Id<'organizations'> | undefined,
 )
 const projectName = ref('')
 
 const { data: projects } = await useConvexQuery(api.clientProjects.listForClient, {
   clientOrganizationId: clientOrganizationId.value,
-  agencyOrganizationId: agencyOrganizationId.value
+  agencyOrganizationId: agencyOrganizationId.value,
 })
-const { execute: createProject } = useConvexMutation(api.clientProjects.createForClient)
+const createProject = useConvexMutation(api.clientProjects.createForClient)
 
 async function addProject() {
   const name = projectName.value.trim()
@@ -21,7 +22,7 @@ async function addProject() {
   await createProject({
     agencyOrganizationId: agencyOrganizationId.value,
     clientOrganizationId: clientOrganizationId.value,
-    name
+    name,
   })
   projectName.value = ''
 }
@@ -44,4 +45,3 @@ async function addProject() {
     </ul>
   </main>
 </template>
-

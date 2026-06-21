@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
 definePageMeta({
@@ -174,7 +174,7 @@ const { isAuthenticated, user } = useConvexAuth()
 const nuxtApp = useNuxtApp()
 
 // Query posts with real-time updates
-const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
+const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 
 const { data: posts, pending, error } = await useConvexQuery(api.posts.list, queryArgs)
 
@@ -206,23 +206,26 @@ const canCreate = computed(() => {
 
 function canEdit(post: { ownerId: string; status: string }) {
   if (!user.value) return false
+  const role = user.value.role
   // Members can only edit their own posts
   // Admins/owners can edit any post
-  return user.value.authId === post.ownerId || ['owner', 'admin'].includes(user.value.role)
+  return user.value.authId === post.ownerId || (role ? ['owner', 'admin'].includes(role) : false)
 }
 
 function canPublish(post: { status: string }) {
   if (!user.value) return false
+  const role = user.value.role
   // Only admins and owners can publish
   // Can only publish drafts
-  return ['owner', 'admin'].includes(user.value.role) && post.status === 'draft'
+  return Boolean(role && ['owner', 'admin'].includes(role) && post.status === 'draft')
 }
 
 function canDelete(post: { ownerId: string }) {
   if (!user.value) return false
+  const role = user.value.role
   // Members can only delete their own posts
   // Admins/owners can delete any post
-  return user.value.authId === post.ownerId || ['owner', 'admin'].includes(user.value.role)
+  return user.value.authId === post.ownerId || (role ? ['owner', 'admin'].includes(role) : false)
 }
 
 function getConvexClient() {

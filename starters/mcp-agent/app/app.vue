@@ -3,8 +3,8 @@
     <p>MCP agent starter</p>
     <h1>Service actors call the same Convex functions as the app.</h1>
     <p>
-      Configure a service actor credential, then call <code>POST /mcp</code>
-      with <code>Authorization: Bearer &lt;secret&gt;</code>.
+      Configure a service actor credential, then call <code>POST /mcp</code> with
+      <code>Authorization: Bearer &lt;secret&gt;</code>.
     </p>
   </main>
 </template>
@@ -23,4 +23,3 @@ body {
   padding: 48px 24px;
 }
 </style>
-

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -34,6 +34,8 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
       })),
   },
 )
+
+const firstResult = computed(() => results.value[0])
 </script>
 
 <template>
@@ -60,13 +62,13 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
         <div v-if="results.length > 0" class="state-item">
           <span class="label">has formattedTitle:</span>
           <span data-testid="has-formatted" class="value">{{
-            'formattedTitle' in results[0]
+            firstResult ? 'formattedTitle' in firstResult : false
           }}</span>
         </div>
         <div v-if="results.length > 0" class="state-item">
           <span class="label">has titleLength:</span>
           <span data-testid="has-title-length" class="value">{{
-            'titleLength' in results[0]
+            firstResult ? 'titleLength' in firstResult : false
           }}</span>
         </div>
       </div>

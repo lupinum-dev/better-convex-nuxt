@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 const { user, signOut } = useConvexAuth()
 const { data: organizations } = await useConvexQuery(api.organizations.listMine, {})
@@ -14,11 +14,7 @@ const { data: organizations } = await useConvexQuery(api.organizations.listMine,
   <OrganizationCreateForm />
 
   <nav class="list">
-    <NuxtLink
-      v-for="org in organizations ?? []"
-      :key="org._id"
-      :to="`/organizations/${org._id}`"
-    >
+    <NuxtLink v-for="org in organizations ?? []" :key="org._id" :to="`/organizations/${org._id}`">
       <strong>{{ org.name }}</strong>
       <span>{{ org.role }}</span>
     </NuxtLink>

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 const name = ref('')
 const error = ref<string | null>(null)
-const { execute: createOrganization, pending } = useConvexMutation(api.organizations.create)
+const createOrganization = useConvexMutation(api.organizations.create)
+const pending = createOrganization.pending
 
 async function submit() {
   const trimmedName = name.value.trim()

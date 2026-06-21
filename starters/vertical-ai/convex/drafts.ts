@@ -8,7 +8,7 @@ export const createFromAgent = mutation({
     organizationId: v.id('organizations'),
     title: v.string(),
     body: v.string(),
-    sourceThreadId: v.optional(v.string())
+    sourceThreadId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const title = args.title.trim()
@@ -24,23 +24,23 @@ export const createFromAgent = mutation({
       source: 'agent',
       sourceThreadId: args.sourceThreadId,
       status: 'pending',
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
-  }
+  },
 })
 
 export const listPending = query({
   args: {
-    organizationId: v.id('organizations')
+    organizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgAccess(ctx, args.organizationId, 'reviewer')
     return await ctx.db
       .query('drafts')
-      .withIndex('by_org_status', (q: any) =>
-        q.eq('organizationId', args.organizationId).eq('status', 'pending')
+      .withIndex('by_org_status', (q) =>
+        q.eq('organizationId', args.organizationId).eq('status', 'pending'),
       )
       .order('desc')
       .collect()
-  }
+  },
 })

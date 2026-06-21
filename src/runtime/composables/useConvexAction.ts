@@ -1,10 +1,11 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import type { Ref, ComputedRef } from 'vue'
 
 import { useRuntimeConfig } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
+import { createConvexCallState } from '../utils/call-state'
 import { getFunctionName } from '../utils/convex-cache'
 import {
   registerDevToolsEntry,
@@ -20,16 +21,16 @@ import { useConvex } from './useConvex'
  */
 export interface UseConvexActionReturn<Args, Result> {
   /**
-   * Execute the action. Returns a promise with the result.
-   * Automatically tracks status, error, and data.
-   * Throws on error (use try/catch or check error ref after).
+   * Execute the action. The returned object is callable and also exposes
+   * state refs on the same function.
    */
-  execute: (args: Args) => Promise<Result>
+  (args: Args): Promise<Result>
+
   /**
    * Execute the action without throwing.
    * Returns a stable result envelope.
    */
-  executeSafe: (args: Args) => Promise<CallResult<Result>>
+  safe: (args: Args) => Promise<CallResult<Result>>
 
   /**
    * Result data from the last successful action.
@@ -84,8 +85,8 @@ export interface UseConvexActionOptions<Args, Result> {
  * Actions can call third-party APIs, run longer computations, and perform
  * side effects that aren't possible in queries or mutations.
  *
- * Returns an execute function along with reactive status, error, and data refs.
- * The action automatically tracks its state - no manual loading refs needed.
+ * Returns a callable action function with reactive status, error, and data refs
+ * attached. The action automatically tracks its state - no manual loading refs needed.
  *
  * API designed to match useConvexMutation for consistency:
  * - `data` - result from last successful call
@@ -98,14 +99,9 @@ export interface UseConvexActionOptions<Args, Result> {
  * @example Basic usage with status tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
- * const {
- *   execute: sendEmail,
- *   pending,
- *   status,
- *   error,
- * } = useConvexAction(api.emails.send)
+ * const sendEmail = useConvexAction(api.emails.send)
  *
  * async function handleSend() {
  *   try {
@@ -117,11 +113,11 @@ export interface UseConvexActionOptions<Args, Result> {
  * </script>
  *
  * <template>
- *   <button :disabled="pending" @click="handleSend">
- *     {{ pending ? 'Sending...' : 'Send' }}
+ *   <button :disabled="sendEmail.pending.value" @click="handleSend">
+ *     {{ sendEmail.pending.value ? 'Sending...' : 'Send' }}
  *   </button>
- *   <p v-if="status === 'error'" class="error">{{ error?.message }}</p>
- *   <p v-if="status === 'success'">Sent!</p>
+ *   <p v-if="sendEmail.status.value === 'error'" class="error">{{ sendEmail.error.value?.message }}</p>
+ *   <p v-if="sendEmail.status.value === 'success'">Sent!</p>
  * </template>
  * ```
  */
@@ -140,42 +136,19 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // Get client at setup time (not inside async callback) to avoid Vue context issues
   // Per Nuxt best practices, composables must be called synchronously at setup time
   const client = useConvex()
-  let activeRequestId = 0
-
-  // Internal state
-  const _status = ref<ConvexCallStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
-  const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
-
-  // Computed - matches useConvexMutation pattern
-  const status = computed(() => _status.value)
-  const pending = computed(() => _status.value === 'pending')
-
-  // Reset function
-  const reset = () => {
-    activeRequestId += 1
-    _status.value = 'idle'
-    error.value = null
-    data.value = undefined
-  }
+  const callState = createConvexCallState<Result>()
 
   // The execute function
   const execute = async (args: Args): Promise<Result> => {
     const startTime = Date.now()
-    const currentRequestId = ++activeRequestId
-
-    _status.value = 'pending'
-    error.value = null
+    const currentRequestId = callState.start()
 
     // Register with DevTools
     const actionId = registerDevToolsEntry(fnName, 'action', args, false)
 
     try {
       const result = await client.action(action, args)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'success'
-        data.value = result
-      }
+      callState.commitSuccess(currentRequestId, result)
 
       try {
         options?.onSuccess?.(result, args)
@@ -197,10 +170,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'error'
-        error.value = err
-      }
+      callState.commitError(currentRequestId, err)
 
       try {
         options?.onError?.(err, args)
@@ -223,17 +193,16 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     }
   }
 
-  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
+  const safe = async (args: Args): Promise<CallResult<Result>> => {
     return await toCallResult(() => execute(args))
   }
 
-  return {
-    execute,
-    executeSafe,
-    data,
-    status,
-    pending,
-    error,
-    reset,
-  }
+  return Object.assign(execute, {
+    safe,
+    data: callState.data,
+    status: callState.status,
+    pending: callState.pending,
+    error: callState.error,
+    reset: callState.reset,
+  })
 }

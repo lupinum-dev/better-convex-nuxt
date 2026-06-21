@@ -13,7 +13,7 @@ async function seedUser(t: ReturnType<typeof convexTest>, subject: string) {
       name: subject,
       email: `${subject}@example.com`,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
   })
 }
@@ -22,14 +22,14 @@ async function seedOrganization(
   t: ReturnType<typeof convexTest>,
   userId: Id<'users'>,
   kind: 'agency' | 'client',
-  name: string
+  name: string,
 ) {
   return await t.run(async (ctx) => {
     const organizationId = await ctx.db.insert('organizations', {
       name,
       kind,
       createdBy: userId,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
     await ctx.db.insert('memberships', {
       organizationId,
@@ -37,7 +37,7 @@ async function seedOrganization(
       role: 'owner',
       status: 'active',
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
     return organizationId
   })
@@ -46,7 +46,7 @@ async function seedOrganization(
 async function linkClient(
   t: ReturnType<typeof convexTest>,
   agencyOrganizationId: Id<'organizations'>,
-  clientOrganizationId: Id<'organizations'>
+  clientOrganizationId: Id<'organizations'>,
 ) {
   await t.run(async (ctx) => {
     await ctx.db.insert('organizationLinks', {
@@ -54,7 +54,7 @@ async function linkClient(
       clientOrganizationId,
       status: 'active',
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
   })
 }
@@ -69,9 +69,11 @@ describe('agency starter invariants', () => {
     await seedOrganization(t, clientUserId, 'client', 'Unlinked')
     await linkClient(t, agencyOrganizationId, linkedClientId)
 
-    const clients = await t.withIdentity({ subject: 'agency' }).query(api.organizationLinks.listClients, {
-      agencyOrganizationId
-    })
+    const clients = await t
+      .withIdentity({ subject: 'agency' })
+      .query(api.organizationLinks.listClients, {
+        agencyOrganizationId,
+      })
 
     expect(clients.map((client: { name: string }) => client.name)).toEqual(['Linked'])
   })
@@ -87,8 +89,8 @@ describe('agency starter invariants', () => {
       t.withIdentity({ subject: 'agency' }).mutation(api.clientProjects.createForClient, {
         agencyOrganizationId,
         clientOrganizationId,
-        name: 'Blocked'
-      })
+        name: 'Blocked',
+      }),
     ).rejects.toThrow('Client access denied')
   })
 
@@ -100,20 +102,20 @@ describe('agency starter invariants', () => {
       const otherUserId = await ctx.db.insert('users', {
         subject: 'other',
         createdAt: Date.now(),
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       })
       return await ctx.db.insert('organizations', {
         name: 'Sibling',
         kind: 'client',
         createdBy: otherUserId,
-        createdAt: Date.now()
+        createdAt: Date.now(),
       })
     })
 
     await expect(
       t.withIdentity({ subject: 'client' }).query(api.clientProjects.listForClient, {
-        clientOrganizationId: siblingClientId
-      })
+        clientOrganizationId: siblingClientId,
+      }),
     ).rejects.toThrow('Organization access denied')
   })
 
@@ -128,10 +130,10 @@ describe('agency starter invariants', () => {
     await t.run(async (ctx) => {
       const link = await ctx.db
         .query('organizationLinks')
-        .withIndex('by_agency_client', (q: any) =>
+        .withIndex('by_agency_client', (q) =>
           q
             .eq('agencyOrganizationId', agencyOrganizationId)
-            .eq('clientOrganizationId', clientOrganizationId)
+            .eq('clientOrganizationId', clientOrganizationId),
         )
         .unique()
       await ctx.db.patch(link!._id, { status: 'revoked' })
@@ -141,8 +143,8 @@ describe('agency starter invariants', () => {
       t.withIdentity({ subject: 'agency' }).mutation(api.clientProjects.createForClient, {
         agencyOrganizationId,
         clientOrganizationId,
-        name: 'Blocked'
-      })
+        name: 'Blocked',
+      }),
     ).rejects.toThrow('Client access denied')
   })
 
@@ -157,7 +159,7 @@ describe('agency starter invariants', () => {
     await t.withIdentity({ subject: 'agency' }).mutation(api.clientProjects.createForClient, {
       agencyOrganizationId,
       clientOrganizationId,
-      name: 'Audit me'
+      name: 'Audit me',
     })
 
     const events = await t.run(async (ctx) => {

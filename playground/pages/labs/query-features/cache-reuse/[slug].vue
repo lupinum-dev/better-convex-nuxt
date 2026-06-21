@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
-import { getQueryKey } from 'better-convex-nuxt/composables'
+
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -9,9 +9,11 @@ definePageMeta({
 
 type NoteRecord = {
   _id: Id<'notes'>
+  _creationTime: number
   title?: string
   content: string
   createdAt: number
+  userId?: string
 }
 
 function toExcerpt(value: string, max = 140): string {
@@ -66,17 +68,17 @@ const {
   status,
 } = await useConvexQuery(
   api.notes.get,
-  computed(() => (noteId.value ? { id: noteId.value } : undefined)),
+  computed(() => (noteId.value ? { id: noteId.value } : 'skip')),
   {
-    default: () => {
+    initialData: () => {
       if (!cachedCard.value) return undefined
       return {
-        id: cachedCard.value._id,
+        _id: cachedCard.value._id,
+        _creationTime: 0,
         title: cachedCard.value.title,
-        description: cachedCard.value.description,
-        content: null,
+        content: cachedCard.value.description,
         createdAt: cachedCard.value.createdAt,
-      } satisfies DetailView
+      }
     },
     transform: (note): DetailView | null => {
       if (!note) return null
@@ -109,7 +111,7 @@ const showingPreviewOnly = computed(() => Boolean(post.value && post.value.conte
       <p>
         This page reads cached list data via
         <code>useNuxtData(getQueryKey(api.notes.list, {}))</code> and uses it as the
-        <code>default</code> for a <code>await useConvexQuery(...)</code> detail query.
+        <code>initialData</code> for a <code>await useConvexQuery(...)</code> detail query.
       </p>
     </header>
 

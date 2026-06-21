@@ -1,8 +1,9 @@
 import type { H3Event } from 'h3'
 import { defineEventHandler, createError, getQuery } from 'h3'
 
-import { serverConvexQuery } from '../../../src/runtime/server/utils/convex'
-import { api } from '../../convex/_generated/api'
+import { api } from '#convex/api'
+
+import { serverConvexQuery } from '#convex/server'
 
 /**
  * Test API endpoint that demonstrates server-side queries using serverConvexQuery.

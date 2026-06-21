@@ -8,25 +8,11 @@ import { ConvexClient } from 'convex/browser'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
+import { createConvexAuthEngine, type AuthClientWithConvex } from './auth/client-engine'
 import type { AuthWaterfall } from './devtools/types'
-import {
-  buildClientAuthRequestFailureMessage,
-  buildClientAuthResponseErrorMessage,
-  buildMissingSiteUrlMessage,
-} from './utils/auth-errors'
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from './utils/convex-shared'
 import { createLogger, getLogLevel } from './utils/logger'
-import { matchesSkipRoute } from './utils/route-matcher'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-
-interface TokenResponse {
-  data?: { token: string } | null
-  error?: unknown
-}
-
-type AuthClientWithConvex = ReturnType<typeof createAuthClient> & {
-  convex: { token: () => Promise<TokenResponse> }
-}
+import type { ConvexUser } from './utils/types'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
@@ -85,7 +71,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // SSR-hydrated auth state
   const convexToken = useState<string | null>('convex:token')
-  const convexUser = useState<unknown>('convex:user')
+  const convexUser = useState<ConvexUser | null>('convex:user')
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall')
   const convexAuthError = useState<string | null>('convex:authError')
 
@@ -96,13 +82,6 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Pending state for auth operations (exposed via useConvexAuth)
   // Start as true - will be set to false after first auth check completes
   const convexPending = useState('convex:pending', () => true)
-  let hasResolvedInitialAuth = false
-  const resolveInitialAuth = () => {
-    if (!hasResolvedInitialAuth) {
-      hasResolvedInitialAuth = true
-      convexPending.value = false
-    }
-  }
 
   logger.auth({
     phase: 'client-init',
@@ -113,20 +92,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       authEnabled: Boolean(isAuthEnabled),
     },
   })
-
-  if (isAuthEnabled && !resolvedSiteUrl) {
-    convexAuthError.value = buildMissingSiteUrlMessage(convexUrl)
-    convexPending.value = false
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
-      throw new Error(convexAuthError.value ?? buildMissingSiteUrlMessage(convexUrl))
-    })
-    logger.auth({
-      phase: 'client-init',
-      outcome: 'error',
-      error: new Error(convexAuthError.value),
-      details: { traceId: convexAuthTraceId.value },
-    })
-  }
 
   if (isAuthEnabled && resolvedSiteUrl) {
     const authRoute = convexConfig.authRoute
@@ -139,312 +104,6 @@ export default defineNuxtPlugin((nuxtApp) => {
       fetchOptions: { credentials: 'include' },
     }) as AuthClientWithConvex
 
-    // Token cache to avoid redundant fetches
-    let lastTokenValidation = Date.now()
-    let lastNullTokenCheck = 0
-    const TOKEN_CACHE_MS = 10000
-    const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
-    const NULL_TOKEN_CACHE_MS = 5000 // Cache "not logged in" state to avoid duplicate 401s
-    const skipRoutes = convexConfig.skipAuthRoutes
-    const router = useRouter()
-
-    // Cancellation controller for auth operations (kept for potential future use)
-    // let currentAuthOperation: AbortController | null = null
-
-    const fetchToken = async ({
-      forceRefreshToken,
-      signal,
-    }: {
-      forceRefreshToken: boolean
-      signal?: AbortSignal
-    }) => {
-      const route = router.currentRoute.value
-      const routePath = route.path
-
-      logger.auth({
-        phase: 'client-fetchToken:start',
-        outcome: 'success',
-        details: {
-          traceId: convexAuthTraceId.value,
-          path: routePath,
-          forceRefreshToken,
-          hasHydratedToken: Boolean(convexToken.value),
-          hasHydratedUser: Boolean(convexUser.value),
-        },
-      })
-
-      // Check if operation was cancelled before starting
-      if (signal?.aborted) {
-        logger.auth({
-          phase: 'client-fetchToken:abort',
-          outcome: 'skip',
-          details: {
-            traceId: convexAuthTraceId.value,
-            reason: 'signal-aborted-before-start',
-            path: routePath,
-          },
-        })
-        return null
-      }
-
-      // Layer 3: Page-level skip via definePageMeta({ skipConvexAuth: true })
-      if (route.meta?.skipConvexAuth === true) {
-        logger.auth({
-          phase: 'client-fetchToken:skip',
-          outcome: 'skip',
-          details: { traceId: convexAuthTraceId.value, reason: 'page-meta-skip', path: routePath },
-        })
-        resolveInitialAuth()
-        return null
-      }
-
-      // Layer 2: Config-based route skip (skipAuthRoutes in nuxt.config)
-      if (matchesSkipRoute(route.path, skipRoutes)) {
-        logger.auth({
-          phase: 'client-fetchToken:skip',
-          outcome: 'skip',
-          details: { traceId: convexAuthTraceId.value, reason: 'skip-auth-route', path: routePath },
-        })
-        resolveInitialAuth()
-        return null
-      }
-
-      // Use SSR-hydrated token if available
-      if (convexToken.value && !forceRefreshToken) {
-        lastTokenValidation = Date.now()
-        logger.auth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'success',
-          details: { traceId: convexAuthTraceId.value, source: 'hydrated-token', path: routePath },
-        })
-        resolveInitialAuth()
-        return convexToken.value
-      }
-
-      // Use cached token if recently validated
-      const timeSinceValidation = Date.now() - lastTokenValidation
-      if (convexToken.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
-        const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(convexToken.value)
-        if (
-          tokenTimeUntilExpiryMs !== null &&
-          tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
-        ) {
-          logger.auth({
-            phase: 'client-fetchToken:cache',
-            outcome: 'skip',
-            details: {
-              traceId: convexAuthTraceId.value,
-              reason: 'token-expiring',
-              timeUntilExpiryMs: tokenTimeUntilExpiryMs,
-              path: routePath,
-            },
-          })
-        } else if (
-          tokenTimeUntilExpiryMs === null ||
-          timeSinceValidation <
-            Math.min(
-              TOKEN_CACHE_MS,
-              Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS),
-            )
-        ) {
-          logger.auth({
-            phase: 'client-fetchToken:cache',
-            outcome: 'success',
-            details: {
-              traceId: convexAuthTraceId.value,
-              source: 'recent-token-cache',
-              ageMs: timeSinceValidation,
-              path: routePath,
-            },
-          })
-          resolveInitialAuth()
-          return convexToken.value
-        }
-      }
-
-      // Layer 1: SSR detection - trust hydration in SSR mode
-      // If server rendered and no token/user, server would have hydrated if user was logged in
-      // Skip this check if forceRefreshToken is true (session changed client-side)
-      const wasServerRendered = !!nuxtApp.payload?.serverRendered
-      if (wasServerRendered && !convexToken.value && !convexUser.value && !forceRefreshToken) {
-        logger.auth({
-          phase: 'client-fetchToken:skip',
-          outcome: 'skip',
-          details: {
-            traceId: convexAuthTraceId.value,
-            reason: 'ssr-rendered-no-hydrated-session',
-            path: routePath,
-          },
-        })
-        resolveInitialAuth()
-        return null
-      }
-
-      // Negative cache: if we recently confirmed no session, don't re-check
-      // This prevents duplicate 401 requests during Convex client initialization
-      const timeSinceNullCheck = Date.now() - lastNullTokenCheck
-      if (!convexToken.value && timeSinceNullCheck < NULL_TOKEN_CACHE_MS) {
-        logger.auth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'miss',
-          details: {
-            traceId: convexAuthTraceId.value,
-            source: 'negative-cache',
-            ageMs: timeSinceNullCheck,
-            path: routePath,
-          },
-        })
-        resolveInitialAuth()
-        return null
-      }
-
-      // CSR mode: must fetch token (unavoidable for HttpOnly cookie auth)
-      try {
-        logger.auth({
-          phase: 'client-fetchToken:request',
-          outcome: 'success',
-          details: {
-            traceId: convexAuthTraceId.value,
-            endpoint: `${authRoute}/convex/token`,
-            path: routePath,
-          },
-        })
-        const response = await authClient!.convex.token()
-
-        // Check if operation was cancelled after async operation
-        if (signal?.aborted) {
-          logger.auth({
-            phase: 'client-fetchToken:abort',
-            outcome: 'skip',
-            details: {
-              traceId: convexAuthTraceId.value,
-              reason: 'signal-aborted-after-request',
-              path: routePath,
-            },
-          })
-          return null
-        }
-
-        if (response.error || !response.data?.token) {
-          convexToken.value = null
-          convexUser.value = null
-          // Set auth error only for explicit failures. Missing token without error is typically "not signed in".
-          if (response.error) {
-            const errorMsg =
-              typeof response.error === 'object' &&
-              response.error !== null &&
-              'message' in response.error
-                ? String((response.error as { message: unknown }).message)
-                : 'Authentication failed'
-            convexAuthError.value = buildClientAuthResponseErrorMessage(errorMsg)
-          } else {
-            convexAuthError.value = null
-          }
-          lastNullTokenCheck = Date.now() // Cache the "no session" result
-          logger.auth({
-            phase: 'client-fetchToken:response',
-            outcome: 'miss',
-            details: {
-              traceId: convexAuthTraceId.value,
-              path: routePath,
-              hasError: Boolean(response.error),
-            },
-          })
-          resolveInitialAuth()
-          return null
-        }
-        const token = response.data.token
-        convexToken.value = token
-        convexAuthError.value = null // Clear any previous error on success
-        lastTokenValidation = Date.now()
-
-        // In CSR mode, extract user from JWT since server didn't hydrate it
-        if (!convexUser.value) {
-          convexUser.value = decodeUserFromJwt(token)
-        }
-
-        logger.auth({
-          phase: 'client-fetchToken:response',
-          outcome: 'success',
-          details: {
-            traceId: convexAuthTraceId.value,
-            path: routePath,
-            userHydrated: Boolean(convexUser.value),
-          },
-        })
-
-        resolveInitialAuth()
-        return token
-      } catch (e) {
-        // Check if operation was cancelled
-        if (signal?.aborted) {
-          logger.auth({
-            phase: 'client-fetchToken:abort',
-            outcome: 'skip',
-            details: {
-              traceId: convexAuthTraceId.value,
-              reason: 'signal-aborted-after-error',
-              path: routePath,
-            },
-          })
-          return null
-        }
-
-        convexToken.value = null
-        convexUser.value = null
-        // Set auth error for caught exceptions
-        convexAuthError.value = buildClientAuthRequestFailureMessage(e)
-        lastNullTokenCheck = Date.now() // Cache the failed result
-        logger.auth({
-          phase: 'client-fetchToken:response',
-          outcome: 'error',
-          details: { traceId: convexAuthTraceId.value, path: routePath },
-          error: e instanceof Error ? e : new Error('Authentication request failed'),
-        })
-        resolveInitialAuth()
-        return null
-      }
-    }
-
-    client.setAuth(fetchToken, (isAuthenticated) => {
-      logger.auth({
-        phase: 'client-setAuth',
-        outcome: 'success',
-        details: {
-          traceId: convexAuthTraceId.value,
-          state: isAuthenticated ? 'authenticated' : 'unauthenticated',
-          hasToken: Boolean(convexToken.value),
-          hasUser: Boolean(convexUser.value),
-        },
-      })
-    })
-
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
-      logger.auth({
-        phase: 'client-refresh',
-        outcome: 'success',
-        details: {
-          traceId: convexAuthTraceId.value,
-        },
-      })
-      // Reset cache timestamps to force fresh fetch
-      lastTokenValidation = 0
-      lastNullTokenCheck = 0
-
-      await new Promise<void>((resolve) => {
-        client.setAuth(fetchToken, (_isAuthenticated) => {
-          resolve()
-        })
-      })
-
-      if (convexAuthError.value) {
-        throw new Error(convexAuthError.value)
-      }
-      if (!convexToken.value) {
-        throw new Error('Authentication refresh completed without a token')
-      }
-    })
-
     // NOTE: We intentionally do NOT call authClient.useSession() here.
     // useSession() triggers a separate /get-session fetch which is redundant
     // since we already fetch /convex/token and decode user info from the JWT.
@@ -456,16 +115,35 @@ export default defineNuxtPlugin((nuxtApp) => {
     //
     // If you need reactive session watching, use authClient.useSession() in your component,
     // but be aware it adds an extra API call (~2 Convex queries).
-  } else {
-    // No auth integration configured - avoid leaving pending=true forever.
-    convexPending.value = false
   }
+
+  const router = useRouter()
+  const authEngine = createConvexAuthEngine({
+    nuxtApp,
+    authClient,
+    state: {
+      token: convexToken,
+      user: convexUser,
+      pending: convexPending,
+      authError: convexAuthError,
+    },
+    logger,
+    traceId: convexAuthTraceId,
+    convexUrl,
+    isAuthEnabled,
+    authRoute: convexConfig.authRoute,
+    skipRoutes: convexConfig.skipAuthRoutes,
+    getRoute: () => router.currentRoute.value,
+    wasServerRendered: () => Boolean(nuxtApp.payload?.serverRendered),
+  })
+  authEngine.attachConvexClient(client)
 
   // Provide clients globally
   nuxtApp.provide('convex', client)
   if (authClient) {
     nuxtApp.provide('auth', authClient)
   }
+  nuxtApp.provide('convexAuthEngine', authEngine)
 
   // Expose for debugging (dev only)
   if (typeof window !== 'undefined' && import.meta.dev) {

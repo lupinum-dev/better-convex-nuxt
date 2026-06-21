@@ -19,7 +19,7 @@ import { createConvexQueryState } from './useConvexQuery'
  * @example Basic usage
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * // From a document or upload
  * const storageId = ref<string | null>(null)
@@ -35,7 +35,7 @@ import { createConvexQueryState } from './useConvexQuery'
  * @example With useConvexFileUpload
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const {
  *   upload,
@@ -64,7 +64,7 @@ import { createConvexQueryState } from './useConvexQuery'
  * @example With document data
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const props = defineProps<{ documentId: string }>()
  *
@@ -91,7 +91,7 @@ export function useConvexStorageUrl(
     getUrlQuery,
     computed(() => {
       const id = toValue(storageId)
-      return id ? { storageId: id } : undefined
+      return id ? { storageId: id } : 'skip'
     }),
     undefined,
     true,

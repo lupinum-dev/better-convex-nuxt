@@ -83,12 +83,12 @@ describe('posts', () => {
       // User 1 should only see their org's post
       const user1Posts = await asUser1.query(api.posts.list, {})
       expect(user1Posts.length).toBe(1)
-      expect(user1Posts[0]._id).toBe(post1Id)
+      expect(user1Posts[0]!._id).toBe(post1Id)
 
       // User 2 should only see their org's post
       const user2Posts = await asUser2.query(api.posts.list, {})
       expect(user2Posts.length).toBe(1)
-      expect(user2Posts[0]._id).toBe(post2Id)
+      expect(user2Posts[0]!._id).toBe(post2Id)
     })
 
     it('returns empty array for unauthenticated users', async () => {
