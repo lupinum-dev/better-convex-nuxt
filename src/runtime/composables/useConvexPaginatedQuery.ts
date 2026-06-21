@@ -3,33 +3,25 @@ import type { FunctionArgs, PaginationResult } from 'convex/server'
 import {
   ref,
   computed,
-  watch,
   getCurrentScope,
   onScopeDispose,
   type ComputedRef,
   type MaybeRefOrGetter,
   type Ref,
-  type WatchStopHandle,
   shallowRef,
+  watch,
 } from 'vue'
 
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
+import { getFunctionName, hashArgs, getQueryKey, fetchAuthToken } from '../utils/convex-cache'
 import {
-  getFunctionName,
-  hashArgs,
-  getQueryKey,
-  fetchAuthToken,
-  releaseSubscription,
-  acquireQuerySubscription,
-  commitQueryBridgeData,
-  commitQueryBridgeError,
-  type QuerySubscriptionBridge,
-} from '../utils/convex-cache'
-import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
-import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
+  acquirePaginatedQuerySubscription,
+  createPaginatedQueryBridgeSync,
+  type PaginatedQueryBridgeSync,
+} from '../utils/paginated-query-bridge'
 import {
   commitPaginatedPageError,
   commitPaginatedPageResult,
@@ -37,6 +29,8 @@ import {
   getLastLoadedPaginatedResult,
   type PaginatedPageState,
 } from '../utils/paginated-query-pages'
+import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
+import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
 import {
   computePaginatedQueryStale,
   computePaginatedQueryStatus,
@@ -263,7 +257,6 @@ export function createConvexPaginatedQueryState<
   const nuxtApp = useNuxtApp()
   const convexConfig = getConvexRuntimeConfig()
 
-  // Resolve options from: per-call options → global defaults → built-in defaults
   const defaults = convexConfig.defaults
   const initialNumItems = options?.initialNumItems ?? 10
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
@@ -274,7 +267,6 @@ export function createConvexPaginatedQueryState<
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
   const subscribeRealtime = subscribe
 
-  // Get function name (needed for cache key)
   const fnName = getFunctionName(query)
 
   const normalizedArgs = computed((): Args => {
@@ -285,12 +277,9 @@ export function createConvexPaginatedQueryState<
   const isSkipped = computed(() => isConvexArgsSkipped(normalizedArgs.value))
   const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
-  // Get request event and cookies on server
   const event = import.meta.server ? useRequestEvent() : null
   const cookieHeader = event?.headers.get('cookie') || ''
 
-  // Get cached token state at setup time (synchronously) to avoid Vue context issues
-  // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
   const cachedToken = useState<string | null>('convex:token')
   const authPending = useState<boolean>('convex:pending', () => false)
   const shouldWaitForAuthBeforeLiveQuery = computed(
@@ -302,43 +291,28 @@ export function createConvexPaginatedQueryState<
       authPending.value,
   )
 
-  // State management
   const currentPaginationId = ref(generatePaginationId())
-  // pages ref holds ADDITIONAL pages (loaded via loadMore), NOT the first page
-  // First page comes from asyncData (for SSR) + firstPageRealtimeData (for real-time updates)
   const pages = shallowRef<PaginatedPageState<Item>[]>([])
   const globalError = ref<Error | null>(null)
-  const pageBridgeWatchStops = new Map<
-    number,
-    { data: WatchStopHandle | null; error: WatchStopHandle | null }
-  >()
   const isManualRefreshPending = ref(false)
 
-  // Real-time updates for the first page (overrides asyncData when available)
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
   let firstPageUnsubscribe: (() => void) | null = null
-  let stopFirstPageBridgeDataWatch: WatchStopHandle | null = null
-  let stopFirstPageBridgeErrorWatch: WatchStopHandle | null = null
 
-  // Initial pagination options for the first page
-  // Computed to stay in sync with currentPaginationId (e.g., after reset())
   const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
     cursor: null as string | null,
     id: currentPaginationId.value,
   }))
 
-  // Generate cache key for SSR data
   // IMPORTANT: Do NOT include pagination ID in cache key - it changes between server/client
   // causing hydration mismatches. Only include args and initial numItems.
-  // Made computed to stay in sync with reactive args changes
   const cacheKey = computed((): string => {
     if (isSkipped.value) {
       return `convex-paginated:idle:${fnName}`
     }
     const currentArgs = getArgs()
     if (currentArgs == null || currentArgs === 'skip') return `convex-paginated:idle:${fnName}`
-    // Use stable pagination options (without the changing id)
     const stablePaginationOpts = { numItems: initialNumItems, cursor: null }
     return `convex-paginated:${getQueryKey(query, { ...currentArgs, paginationOpts: stablePaginationOpts })}`
   })
@@ -360,91 +334,6 @@ export function createConvexPaginatedQueryState<
     })}`
   }
 
-  const cleanupPageBridgeWatchers = (pageIndex: number) => {
-    const stops = pageBridgeWatchStops.get(pageIndex)
-    if (!stops) return
-    stops.data?.()
-    stops.error?.()
-    pageBridgeWatchStops.delete(pageIndex)
-  }
-
-  const cleanupAllPageBridgeWatchers = () => {
-    for (const pageIndex of pageBridgeWatchStops.keys()) {
-      cleanupPageBridgeWatchers(pageIndex)
-    }
-  }
-
-  const cleanupFirstPageBridgeWatchers = () => {
-    if (stopFirstPageBridgeDataWatch) {
-      stopFirstPageBridgeDataWatch()
-      stopFirstPageBridgeDataWatch = null
-    }
-    if (stopFirstPageBridgeErrorWatch) {
-      stopFirstPageBridgeErrorWatch()
-      stopFirstPageBridgeErrorWatch = null
-    }
-  }
-
-  const attachFirstPageSharedBridge = (bridge: QuerySubscriptionBridge) => {
-    cleanupFirstPageBridgeWatchers()
-
-    const syncDataFromBridge = () => {
-      const snapshot = bridge.data.value
-      if (!snapshot.hasData) return
-      firstPageRealtimeData.value = snapshot.rawData as PaginationResult<Item>
-      if (asyncData.error.value !== null) {
-        ;(asyncData.error as unknown as Ref<Error | null>).value = null
-      }
-    }
-
-    const syncErrorFromBridge = () => {
-      const err = bridge.error.value
-      if (!err) return
-      ;(asyncData.error as unknown as Ref<Error | null>).value = err
-    }
-
-    stopFirstPageBridgeDataWatch = watch(() => bridge.data.value, syncDataFromBridge)
-    stopFirstPageBridgeErrorWatch = watch(() => bridge.error.value, syncErrorFromBridge)
-
-    syncDataFromBridge()
-    syncErrorFromBridge()
-  }
-
-  const attachPageSharedBridge = (pageIndex: number, bridge: QuerySubscriptionBridge) => {
-    cleanupPageBridgeWatchers(pageIndex)
-
-    const syncDataFromBridge = () => {
-      const snapshot = bridge.data.value
-      if (!snapshot.hasData) return
-      const currentPage = pages.value[pageIndex]
-      if (!currentPage) return
-
-      pages.value = commitPaginatedPageResult(
-        pages.value,
-        pageIndex,
-        snapshot.rawData as PaginationResult<Item>,
-      )
-    }
-
-    const syncErrorFromBridge = () => {
-      const err = bridge.error.value
-      if (!err) return
-      const currentPage = pages.value[pageIndex]
-      if (!currentPage) return
-
-      pages.value = commitPaginatedPageError(pages.value, pageIndex, err)
-    }
-
-    const stopData = watch(() => bridge.data.value, syncDataFromBridge)
-    const stopError = watch(() => bridge.error.value, syncErrorFromBridge)
-    pageBridgeWatchStops.set(pageIndex, { data: stopData, error: stopError })
-
-    // Late joiners may attach after the owner already received data/error.
-    syncDataFromBridge()
-    syncErrorFromBridge()
-  }
-
-  // Fetch function for HTTP transport (SSR and client HTTP-only mode)
   async function fetchPage(paginationOpts: {
     numItems: number
     cursor: string | null
@@ -464,7 +353,6 @@ export function createConvexPaginatedQueryState<
       paginationOpts,
     }
 
-    // Get auth token for HTTP transport
     let authToken: string | undefined
     if (import.meta.server) {
       authToken = await fetchAuthToken({
@@ -480,75 +368,6 @@ export function createConvexPaginatedQueryState<
     return executeQueryHttp<PaginationResult<Item>>(convexUrl, functionPath, fullArgs, authToken)
   }
 
-  // Start subscription for a specific page
-  function startPageSubscription(pageIndex: number) {
-    if (import.meta.server) return
-    if (!subscribeRealtime) return // Skip if subscriptions disabled
-    if (shouldWaitForAuthBeforeLiveQuery.value) return
-
-    const page = pages.value[pageIndex]
-    if (!page) return
-
-    const convex = nuxtApp.$convex as ConvexClient | undefined
-    if (!convex) {
-      if (import.meta.dev) {
-        console.warn(
-          '[useConvexPaginatedQuery] Convex client not available. Real-time updates disabled.',
-        )
-      }
-      return
-    }
-
-    // Subscription deduplication (using shared helper)
-    const subscriptionKey = getStablePaginatedSubscriptionKey({
-      numItems: page.paginationOpts.numItems,
-      cursor: page.paginationOpts.cursor,
-    })
-
-    // Clean up existing subscription
-    if (page.unsubscribe) {
-      page.unsubscribe()
-    }
-
-    const currentArgs = getArgs() as PaginatedQueryArgs<Query>
-    const fullArgs = {
-      ...currentArgs,
-      paginationOpts: page.paginationOpts,
-    }
-
-    try {
-      const subscription = acquireQuerySubscription(nuxtApp, subscriptionKey, (bridge) =>
-        convex.onUpdate(
-          query,
-          fullArgs as FunctionArgs<Query>,
-          (result: PaginationResult<Item>) => {
-            commitQueryBridgeData(bridge, result)
-          },
-          (err: Error) => {
-            void handleUnauthorizedAuthFailure({
-              error: err,
-              source: 'query',
-              functionName: fnName,
-            })
-            commitQueryBridgeError(bridge, err)
-          },
-        ),
-      )
-      page.unsubscribe = () => {
-        cleanupPageBridgeWatchers(pageIndex)
-        void releaseSubscription(nuxtApp, subscriptionKey)
-      }
-      attachPageSharedBridge(pageIndex, subscription.bridge)
-    } catch (e) {
-      if (import.meta.dev) {
-        console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
-      }
-      // Track error in page state so it surfaces via the error computed
-      page.error = e instanceof Error ? e : new Error(String(e))
-    }
-  }
-
-  // Load more function
   const loadMore = (numItems: number) => {
     if (isSkipped.value) return
 
@@ -567,7 +386,6 @@ export function createConvexPaginatedQueryState<
 
     pages.value = [...pages.value, newPage]
 
-    // Start fetching the new page (index in pages ref, not including first page from asyncData)
     const newPageIndex = pages.value.length - 1
     const requestPaginationId = currentPaginationId.value
     const requestArgsHash = argsHash.value
@@ -598,7 +416,6 @@ export function createConvexPaginatedQueryState<
             if (!currentPage) return
             pages.value = commitPaginatedPageResult(pages.value, newPageIndex, result)
 
-            // Start subscription for real-time updates
             startPageSubscription(newPageIndex)
           })
           .catch((e) => {
@@ -625,7 +442,6 @@ export function createConvexPaginatedQueryState<
       })
   }
 
-  // === Transform helper ===
   const applyTransform = (items: Item[]): TransformedItem[] => {
     return options?.transform ? options.transform(items) : (items as unknown as TransformedItem[])
   }
@@ -642,8 +458,6 @@ export function createConvexPaginatedQueryState<
     argsHash.value !== lastSettledArgsHash.value &&
     asyncData.status.value === 'pending'
 
-  // Computed status (defined before results since results may use it for default)
-  // Uses asyncData/firstPageRealtimeData for first page state, pages ref for additional pages
   const status = computed((): PaginatedQueryStatus => {
     const isUsingPreviousData = isPreviousDataForCurrentArgs()
     const firstPageData = isUsingPreviousData
@@ -671,23 +485,17 @@ export function createConvexPaginatedQueryState<
     })
   })
 
-  // Computed results - concatenate all pages
-  // First page comes from asyncData (for proper SSR) or firstPageRealtimeData (for real-time updates)
-  // Additional pages come from pages ref
   const rawResults = computed((): Item[] => {
     if (isSkipped.value) return []
     if (isPreviousDataForCurrentArgs()) return []
 
     const allItems: Item[] = []
 
-    // First page: prefer real-time data, fall back to asyncData
-    // asyncData.data is tracked by Nuxt's Suspense and will block SSR until ready
     const firstPageData = firstPageRealtimeData.value ?? asyncData.data.value
     if (firstPageData) {
       allItems.push(...firstPageData.page)
     }
 
-    // Additional pages (from loadMore) come from pages ref
     for (const page of pages.value) {
       if (page?.result) {
         allItems.push(...page.result.page)
@@ -697,19 +505,15 @@ export function createConvexPaginatedQueryState<
     return allItems
   })
 
-  // Apply transform to results, use default if loading first page with no data
   const transformedResults = computed((): TransformedItem[] => {
     const raw = rawResults.value
-    // If we have raw data, transform it
     if (raw.length > 0) {
       return applyTransform(raw)
     }
-    // If loading first page and have initial data, use it
     const initialData = resolveInitialData()
     if (status.value === 'loading-first-page' && initialData) {
       return applyTransform(initialData)
     }
-    // Otherwise return empty transformed array
     return applyTransform([])
   })
 
@@ -730,34 +534,26 @@ export function createConvexPaginatedQueryState<
     return transformedResults.value
   })
 
-  // Computed isLoading
   const isLoading = computed(() => {
     const s = status.value
     return s === 'loading-first-page' || s === 'loading-more'
   })
   const hasNextPage = computed(() => status.value === 'ready')
 
-  // Computed error - checks all error sources
-  // Note: asyncData is referenced here but defined below - this works because computed is lazily evaluated
   const error = computed((): Error | null => {
     if (globalError.value) return globalError.value
 
-    // Check asyncData error (first page fetch/subscription errors)
     const asyncError = asyncData.error.value
     if (asyncError != null) {
-      // Convert NuxtError to Error if needed
       return asyncError instanceof Error ? asyncError : new Error(String(asyncError))
     }
 
-    // Check page-specific errors
     for (const page of pages.value) {
       if (page.error) return page.error
     }
     return null
   })
 
-  // Use useAsyncData for SSR-compatible first page fetch
-  // This handles: SSR fetch, payload serialization, client hydration
   const asyncData = useAsyncData(
     cacheKey,
     async (): Promise<PaginationResult<Item> | null> => {
@@ -781,7 +577,6 @@ export function createConvexPaginatedQueryState<
           }
         }
 
-        // Server or HTTP-only mode
         return await fetchPage(initialPaginationOpts.value)
       } catch (error) {
         if (import.meta.client) {
@@ -798,6 +593,67 @@ export function createConvexPaginatedQueryState<
       deep: false,
     },
   )
+  const asyncDataError = asyncData.error as unknown as Ref<Error | null>
+  const bridgeSync: PaginatedQueryBridgeSync = createPaginatedQueryBridgeSync({
+    firstPageRealtimeData,
+    asyncDataError,
+    pages,
+  })
+
+  function startPageSubscription(pageIndex: number) {
+    if (import.meta.server) return
+    if (!subscribeRealtime) return // Skip if subscriptions disabled
+    if (shouldWaitForAuthBeforeLiveQuery.value) return
+
+    const page = pages.value[pageIndex]
+    if (!page) return
+
+    const convex = nuxtApp.$convex as ConvexClient | undefined
+    if (!convex) {
+      if (import.meta.dev) {
+        console.warn(
+          '[useConvexPaginatedQuery] Convex client not available. Real-time updates disabled.',
+        )
+      }
+      return
+    }
+
+    const subscriptionKey = getStablePaginatedSubscriptionKey({
+      numItems: page.paginationOpts.numItems,
+      cursor: page.paginationOpts.cursor,
+    })
+
+    if (page.unsubscribe) {
+      page.unsubscribe()
+    }
+
+    const currentArgs = getArgs() as PaginatedQueryArgs<Query>
+    const fullArgs = {
+      ...currentArgs,
+      paginationOpts: page.paginationOpts,
+    }
+
+    try {
+      const subscription = acquirePaginatedQuerySubscription<Query, Item>({
+        nuxtApp,
+        subscriptionKey,
+        convex,
+        query,
+        args: fullArgs as FunctionArgs<Query>,
+        functionName: fnName,
+      })
+      page.unsubscribe = () => {
+        bridgeSync.cleanupPage(pageIndex)
+        void subscription.release()
+      }
+      bridgeSync.attachPage(pageIndex, subscription.bridge)
+    } catch (e) {
+      if (import.meta.dev) {
+        console.warn('[useConvexPaginatedQuery] Page subscription failed:', e)
+      }
+      page.error = e instanceof Error ? e : new Error(String(e))
+    }
+  }
 
   watch(
     [() => status.value, () => transformedResults.value],
@@ -810,7 +666,6 @@ export function createConvexPaginatedQueryState<
     { immediate: true },
   )
 
-  // Start subscription for the first page (for real-time updates)
   function startFirstPageSubscription() {
     if (import.meta.server) return
     if (!subscribeRealtime) return // Skip if subscriptions disabled
@@ -826,7 +681,6 @@ export function createConvexPaginatedQueryState<
       return
     }
 
-    // Subscription deduplication (using shared helper)
     if (isSkipped.value) return
 
     const subscriptionKey = getStablePaginatedSubscriptionKey({
@@ -834,7 +688,6 @@ export function createConvexPaginatedQueryState<
       cursor: initialPaginationOpts.value.cursor,
     })
 
-    // Clean up existing subscription
     if (firstPageUnsubscribe) {
       firstPageUnsubscribe()
       firstPageUnsubscribe = null
@@ -847,49 +700,36 @@ export function createConvexPaginatedQueryState<
     }
 
     try {
-      const subscription = acquireQuerySubscription(nuxtApp, subscriptionKey, (bridge) =>
-        convex.onUpdate(
-          query,
-          fullArgs as FunctionArgs<Query>,
-          (result: PaginationResult<Item>) => {
-            commitQueryBridgeData(bridge, result)
-          },
-          (err: Error) => {
-            void handleUnauthorizedAuthFailure({
-              error: err,
-              source: 'query',
-              functionName: fnName,
-            })
-            commitQueryBridgeError(bridge, err)
-          },
-        ),
-      )
+      const subscription = acquirePaginatedQuerySubscription<Query, Item>({
+        nuxtApp,
+        subscriptionKey,
+        convex,
+        query,
+        args: fullArgs as FunctionArgs<Query>,
+        functionName: fnName,
+      })
       firstPageUnsubscribe = () => {
-        cleanupFirstPageBridgeWatchers()
-        releaseSubscription(nuxtApp, subscriptionKey)
+        bridgeSync.cleanupFirstPage()
+        subscription.release()
       }
-      attachFirstPageSharedBridge(subscription.bridge)
+      bridgeSync.attachFirstPage(subscription.bridge)
     } catch (e) {
       if (import.meta.dev) {
         console.warn('[useConvexPaginatedQuery] First page subscription failed:', e)
       }
-      // Track error so it surfaces via the error computed
       globalError.value = e instanceof Error ? e : new Error(String(e))
     }
   }
 
-  // Helper to clean up all subscriptions
   function cleanupAllSubscriptions() {
-    cleanupFirstPageBridgeWatchers()
-    cleanupAllPageBridgeWatchers()
+    bridgeSync.cleanupFirstPage()
+    bridgeSync.cleanupAllPages()
 
-    // Clean up first page subscription via ref-counted release
     if (firstPageUnsubscribe) {
       firstPageUnsubscribe()
       firstPageUnsubscribe = null
     }
 
-    // Clean up additional page subscriptions via ref-counted release
     for (let i = 0; i < pages.value.length; i++) {
       const page = pages.value[i]
       if (page?.unsubscribe) {
@@ -898,7 +738,6 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  // Client-side subscription setup
   if (import.meta.client) {
     const startAllSubscriptions = () => {
       if (!subscribeRealtime) {
@@ -907,16 +746,13 @@ export function createConvexPaginatedQueryState<
       if (shouldWaitForAuthBeforeLiveQuery.value) {
         return
       }
-      // Start first page subscription
       startFirstPageSubscription()
 
-      // Start subscriptions for additional pages
       for (let i = 0; i < pages.value.length; i++) {
         startPageSubscription(i)
       }
     }
 
-    // Start subscriptions after hydration
     if (!isSkipped.value && subscribeRealtime) {
       startAllSubscriptions()
     }
@@ -936,7 +772,6 @@ export function createConvexPaginatedQueryState<
           return
         }
 
-        // Clean up all subscriptions
         cleanupAllSubscriptions()
         firstPageRealtimeData.value = null
 
@@ -946,22 +781,18 @@ export function createConvexPaginatedQueryState<
           return
         }
 
-        // Reset pagination
         currentPaginationId.value = generatePaginationId()
         pages.value = []
         globalError.value = null
 
-        // Refresh asyncData with new args (this will trigger re-fetch)
         await asyncData.refresh()
 
-        // Start subscriptions in live mode
         if (subscribeRealtime) {
           startAllSubscriptions()
         }
       },
     )
 
-    // Cleanup on unmount/scope dispose.
     if (cleanupScope) {
       onScopeDispose(() => {
         cleanupAllSubscriptions()
@@ -969,9 +800,6 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  // === Methods ===
-
-  // Refresh: Re-fetch all currently loaded pages via HTTP
   async function refresh(): Promise<void> {
     if (isSkipped.value) {
       return
@@ -979,7 +807,7 @@ export function createConvexPaginatedQueryState<
 
     isManualRefreshPending.value = true
     globalError.value = null
-    ;(asyncData.error as unknown as Ref<Error | null>).value = null
+    asyncDataError.value = null
 
     const refreshPaginationId = currentPaginationId.value
     const loadedPages = [...pages.value]
@@ -999,7 +827,7 @@ export function createConvexPaginatedQueryState<
       if (currentPaginationId.value === refreshPaginationId && !isSkipped.value) {
         firstPageRealtimeData.value = firstPageResult
         pages.value = refreshedPages
-        ;(asyncData.error as unknown as Ref<Error | null>).value = null
+        asyncDataError.value = null
         globalError.value = null
       }
     } catch (e) {
@@ -1009,30 +837,25 @@ export function createConvexPaginatedQueryState<
     }
   }
 
-  // Reset: Clear all pages and restart from the first page
   async function reset(): Promise<void> {
     isManualRefreshPending.value = true
 
-    // Clean up subscriptions
     if (import.meta.client) {
       cleanupAllSubscriptions()
     }
 
-    // Reset state
     firstPageRealtimeData.value = null
     currentPaginationId.value = generatePaginationId()
     pages.value = []
     globalError.value = null
-    ;(asyncData.error as unknown as Ref<Error | null>).value = null
+    asyncDataError.value = null
 
-    // Re-fetch first page via asyncData refresh
     try {
       await asyncData.refresh()
     } finally {
       isManualRefreshPending.value = false
     }
 
-    // Restart subscriptions
     if (import.meta.client && subscribeRealtime && !isSkipped.value) {
       startFirstPageSubscription()
     }
@@ -1041,42 +864,31 @@ export function createConvexPaginatedQueryState<
   let resolvePromise: Promise<void>
 
   if (isSkipped.value) {
-    // Skipped - resolve immediately
     resolvePromise = Promise.resolve()
   } else if (import.meta.server) {
-    // SSR
     if (!server) {
-      // server: false - skip SSR fetch, resolve immediately
       resolvePromise = Promise.resolve()
     } else {
-      // server: true - wait for asyncData (useAsyncData handles the blocking)
       // NOTE: On SSR, immediate resolve is ignored and we always wait for fetch.
       resolvePromise = asyncData.then(() => {})
     }
   } else {
-    // Client
     const isInitialHydration = nuxtApp.isHydrating
     const hasExistingData = asyncData.data.value !== null && asyncData.data.value !== undefined
 
     if (hasExistingData) {
-      // Already have data (from SSR hydration)
       resolvePromise = Promise.resolve()
     } else if (resolveImmediately) {
-      // Internal immediate resolve mode: resolve immediately while data loads in background.
       resolvePromise = Promise.resolve()
     } else if (!server && isInitialHydration) {
-      // server: false during initial hydration - don't block
       resolvePromise = Promise.resolve()
     } else if (!subscribeRealtime) {
-      // Real-time subscriptions are disabled - asyncData uses HTTP-only transport.
       resolvePromise = asyncData.then(() => {})
     } else {
-      // Wait for asyncData (which uses subscription on client)
       resolvePromise = asyncData.then(() => {})
     }
   }
 
-  // Create result data object
   const resultData: UseConvexPaginatedQueryData<TransformedItem> = {
     results,
     status,
