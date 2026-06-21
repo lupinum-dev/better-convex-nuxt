@@ -31,7 +31,7 @@ export {
   type SetQueryDataOptions,
   type UpdateAllQueriesOptions,
   type DeleteFromQueryOptions,
-} from './optimistic-updates'
+} from './regular-optimistic-updates'
 
 /**
  * Return value from useConvexMutation

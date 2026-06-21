@@ -24,6 +24,17 @@ import {
   compareJsonValues as sharedCompareJsonValues,
 } from '../utils/shared-helpers'
 
+export {
+  deleteFromQuery,
+  setQueryData,
+  updateAllQueries,
+  updateQuery,
+  type DeleteFromQueryOptions,
+  type SetQueryDataOptions,
+  type UpdateAllQueriesOptions,
+  type UpdateQueryOptions,
+} from './regular-optimistic-updates'
+
 // ============================================================================
 // Types for Paginated Queries
 // ============================================================================
@@ -57,220 +68,6 @@ export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
  */
 export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
   FunctionReturnType<Query>['page'][number]
-
-// ============================================================================
-// Regular Query Optimistic Update Helpers
-// ============================================================================
-
-/**
- * Options for updateQuery helper
- */
-export interface UpdateQueryOptions<Query extends FunctionReference<'query'>> {
-  /** The query function reference */
-  query: Query
-  /** The args to match the specific query */
-  args: FunctionArgs<Query>
-  /** The local store from optimistic update context */
-  store: OptimisticLocalStore
-  /**
-   * Updater function. Receives current value (or undefined if not loaded).
-   * Return the new value.
-   */
-  updater: (currentValue: FunctionReturnType<Query> | undefined) => FunctionReturnType<Query>
-}
-
-/**
- * Update a regular query result with an updater function.
- *
- * Use this in optimistic updates when you need to modify a query result
- * based on its current value (e.g., adding to a list, incrementing a counter).
- *
- * @example
- * ```ts
- * const addNote = useConvexMutation(api.notes.add, {
- *   optimisticUpdate: (localStore, args) => {
- *     updateQuery({
- *       query: api.notes.list,
- *       args: { userId: args.userId },
- *       store: localStore,
- *       updater: (current) => {
- *         const newNote = { _id: crypto.randomUUID(), ...args }
- *         return current ? [newNote, ...current] : [newNote]
- *       },
- *     })
- *   },
- * })
- * ```
- */
-export function updateQuery<Query extends FunctionReference<'query'>>(
-  options: UpdateQueryOptions<Query>,
-): void {
-  const { query, args, store, updater } = options
-
-  const currentValue = store.getQuery(query, args)
-  const newValue = updater(currentValue)
-  store.setQuery(query, args, newValue)
-}
-
-/**
- * Options for setQueryData helper
- */
-export interface SetQueryDataOptions<Query extends FunctionReference<'query'>> {
-  /** The query function reference */
-  query: Query
-  /** The args to match the specific query */
-  args: FunctionArgs<Query>
-  /** The local store from optimistic update context */
-  store: OptimisticLocalStore
-  /** The new value to set */
-  value: FunctionReturnType<Query>
-}
-
-/**
- * Set a query result directly to a new value.
- *
- * Use this in optimistic updates when you know the exact new value
- * and don't need to compute it from the current value.
- *
- * @example
- * ```ts
- * const updateProfile = useConvexMutation(api.users.updateProfile, {
- *   optimisticUpdate: (localStore, args) => {
- *     setQueryData({
- *       query: api.users.get,
- *       args: { userId: args.userId },
- *       store: localStore,
- *       value: { ...existingUser, name: args.name },
- *     })
- *   },
- * })
- * ```
- */
-export function setQueryData<Query extends FunctionReference<'query'>>(
-  options: SetQueryDataOptions<Query>,
-): void {
-  const { query, args, store, value } = options
-  store.setQuery(query, args, value)
-}
-
-/**
- * Options for updateAllQueries helper
- */
-export interface UpdateAllQueriesOptions<Query extends FunctionReference<'query'>> {
-  /** The query function reference */
-  query: Query
-  /** Optional args to filter which queries to update. If not provided, updates all. */
-  argsToMatch?: Partial<FunctionArgs<Query>>
-  /** The local store from optimistic update context */
-  store: OptimisticLocalStore
-  /**
-   * Updater function. Receives current value (or undefined if not loaded) and args.
-   * Return the new value, or undefined to skip updating this query.
-   */
-  updater: (
-    currentValue: FunctionReturnType<Query> | undefined,
-    args: FunctionArgs<Query>,
-  ) => FunctionReturnType<Query> | undefined
-}
-
-/**
- * Update all instances of a query that match the filter.
- *
- * Use this when you need to update multiple query results with the same
- * function reference but different args (e.g., updating a user's name
- * across all queries that display it).
- *
- * @example
- * ```ts
- * const updateName = useConvexMutation(api.users.updateName, {
- *   optimisticUpdate: (localStore, args) => {
- *     updateAllQueries({
- *       query: api.users.get,
- *       argsToMatch: { userId: args.userId },
- *       store: localStore,
- *       updater: (current) => {
- *         if (!current) return undefined // Skip if not loaded
- *         return { ...current, name: args.name }
- *       },
- *     })
- *   },
- * })
- * ```
- */
-export function updateAllQueries<Query extends FunctionReference<'query'>>(
-  options: UpdateAllQueriesOptions<Query>,
-): void {
-  const { query, argsToMatch, store, updater } = options
-
-  const allQueries = store.getAllQueries(query)
-
-  for (const { args, value } of allQueries) {
-    // Skip if args don't match filter
-    if (argsToMatch && !argsMatchForRegularQuery(args, argsToMatch)) {
-      continue
-    }
-
-    const newValue = updater(value, args)
-
-    // Only update if updater returned a value
-    if (newValue !== undefined) {
-      store.setQuery(query, args, newValue)
-    }
-  }
-}
-
-/**
- * Options for deleteFromQuery helper
- */
-export interface DeleteFromQueryOptions<
-  Query extends FunctionReference<'query'>,
-  Item = FunctionReturnType<Query> extends (infer T)[] ? T : never,
-> {
-  /** The query function reference (must return an array) */
-  query: Query
-  /** The args to match the specific query */
-  args: FunctionArgs<Query>
-  /** The local store from optimistic update context */
-  store: OptimisticLocalStore
-  /** Predicate to identify items to delete. Return true to delete the item. */
-  shouldDelete: (item: Item) => boolean
-}
-
-/**
- * Delete items from a query result that returns an array.
- *
- * Use this to optimistically remove items from array-type queries.
- *
- * @example
- * ```ts
- * const removeNote = useConvexMutation(api.notes.remove, {
- *   optimisticUpdate: (localStore, args) => {
- *     deleteFromQuery({
- *       query: api.notes.list,
- *       args: { userId: currentUserId },
- *       store: localStore,
- *       shouldDelete: (note) => note._id === args.noteId,
- *     })
- *   },
- * })
- * ```
- */
-export function deleteFromQuery<
-  Query extends FunctionReference<'query'>,
-  Item = FunctionReturnType<Query> extends (infer T)[] ? T : never,
->(options: DeleteFromQueryOptions<Query, Item>): void {
-  const { query, args, store, shouldDelete } = options
-
-  const currentValue = store.getQuery(query, args)
-
-  // Skip if query not loaded or not an array
-  if (!currentValue || !Array.isArray(currentValue)) {
-    return
-  }
-
-  const newValue = currentValue.filter((item: Item) => !shouldDelete(item))
-  store.setQuery(query, args, newValue as FunctionReturnType<Query>)
-}
 
 // ============================================================================
 // Paginated Query Optimistic Update Helpers
@@ -569,18 +366,6 @@ export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
 // ============================================================================
 // Internal Helper Functions
 // ============================================================================
-
-/**
- * Check if query args match the filter args for regular queries.
- * Uses deep equality comparison from shared utilities.
- * @internal
- */
-function argsMatchForRegularQuery(
-  queryArgs: Record<string, unknown>,
-  filterArgs: Record<string, unknown>,
-): boolean {
-  return sharedArgsMatch(queryArgs, filterArgs)
-}
 
 /**
  * Check if query args match the filter args for paginated queries.
