@@ -31,11 +31,13 @@ export const components = createMissingConvexApiProxy(['components'])
 `
 }
 
-export function getTypeAugmentationTemplateContents(): string {
+export function getTypeAugmentationTemplateContents(authPageMetaTypeImport: string): string {
+  const authPageMetaImportSpecifier = JSON.stringify(authPageMetaTypeImport)
+
   return `
 import type { ConvexClient } from 'convex/browser'
 import type { createAuthClient } from 'better-auth/vue'
-import type { RouteLocationRaw } from 'vue-router'
+import type { ConvexAuthPageMeta } from ${authPageMetaImportSpecifier}
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
@@ -59,7 +61,7 @@ declare module '#app' {
      * Opt-in route protection powered by better-convex-nuxt.
      * true = require auth (default redirect), object = custom redirect.
      */
-    convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
+    convexAuth?: ConvexAuthPageMeta
   }
 }
 

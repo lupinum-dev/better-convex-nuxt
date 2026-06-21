@@ -77,7 +77,15 @@ describe('module auto-import surface', () => {
       },
     })
     expect(getMissingConvexApiTemplateContents()).toContain('createMissingConvexApiProxy')
-    expect(getTypeAugmentationTemplateContents()).toContain("declare module '#app'")
-    expect(getTypeAugmentationTemplateContents()).toContain('interface PageMeta')
+    const typeAugmentationTemplate = getTypeAugmentationTemplateContents(
+      '/node_modules/better-convex-nuxt/dist/runtime/utils/auth-route-protection',
+    )
+
+    expect(typeAugmentationTemplate).toContain("declare module '#app'")
+    expect(typeAugmentationTemplate).toContain('interface PageMeta')
+    expect(typeAugmentationTemplate).toContain(
+      'from "/node_modules/better-convex-nuxt/dist/runtime/utils/auth-route-protection"',
+    )
+    expect(typeAugmentationTemplate).toContain('convexAuth?: ConvexAuthPageMeta')
   })
 })

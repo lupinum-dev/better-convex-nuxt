@@ -445,7 +445,10 @@ export default defineNuxtModule<ModuleOptions>({
     // 5. Register Type Augmentation for IDE support
     addTemplate({
       filename: 'types/better-convex-nuxt.d.ts',
-      getContents: getTypeAugmentationTemplateContents,
+      getContents: () =>
+        getTypeAugmentationTemplateContents(
+          resolver.resolve('./runtime/utils/auth-route-protection'),
+        ),
     })
 
     // 6. Auto-import composables (non-auth, always available)
