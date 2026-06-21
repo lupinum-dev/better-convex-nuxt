@@ -25,6 +25,11 @@ vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
   decodeUserFromJwt: decodeUserFromJwtMock,
+  normalizeConvexUser: (input: unknown) => {
+    if (!input || typeof input !== 'object') return null
+    const user = input as { id?: unknown }
+    return typeof user.id === 'string' && user.id.length > 0 ? input : null
+  },
 }))
 
 function createResponse(status: number, body: unknown): Response {
@@ -153,5 +158,35 @@ describe('resolveServerAuthSnapshot', () => {
       outcome: 'error',
       details: { status: 500 },
     })
+  })
+
+  it('uses a valid session user fallback when JWT decoding fails', async () => {
+    fetchWithTimeoutMock
+      .mockResolvedValueOnce(createResponse(200, { token: 'fresh.jwt' }))
+      .mockResolvedValueOnce(
+        createResponse(200, { user: { id: 'user-session', email: 'session@example.com' } }),
+      )
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-5',
+    })
+
+    expect(snapshot.token).toBe('fresh.jwt')
+    expect(snapshot.user).toEqual({ id: 'user-session', email: 'session@example.com' })
+  })
+
+  it('ignores malformed session user fallback payloads', async () => {
+    fetchWithTimeoutMock
+      .mockResolvedValueOnce(createResponse(200, { token: 'fresh.jwt' }))
+      .mockResolvedValueOnce(createResponse(200, { user: { email: 'missing-id@example.com' } }))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-6',
+    })
+
+    expect(snapshot.token).toBe('fresh.jwt')
+    expect(snapshot.user).toBeNull()
   })
 })

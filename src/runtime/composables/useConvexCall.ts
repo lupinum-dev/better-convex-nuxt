@@ -1,4 +1,9 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  OptionalRestArgs,
+} from 'convex/server'
 
 import { toCallResult, type CallResult } from '../utils/call-result'
 import { useConvex } from './useConvex'
@@ -6,9 +11,6 @@ import { useConvex } from './useConvex'
 export interface UseConvexCallOptions {
   timeoutMs?: number
 }
-
-type OptionalRestArgs<Fn extends FunctionReference<'query' | 'mutation' | 'action'>> =
-  FunctionArgs<Fn> extends Record<string, never> ? [] : [args: FunctionArgs<Fn>]
 
 export interface UseConvexCallReturn {
   query: <Query extends FunctionReference<'query'>>(

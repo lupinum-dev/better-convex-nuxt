@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../../src/runtime/utils/convex-shared'
+import {
+  decodeUserFromJwt,
+  getJwtTimeUntilExpiryMs,
+  normalizeConvexUser,
+} from '../../src/runtime/utils/convex-shared'
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf-8')
@@ -66,6 +70,35 @@ describe('decodeUserFromJwt', () => {
     })
 
     expect(decodeUserFromJwt(token)).toBeNull()
+  })
+})
+
+describe('normalizeConvexUser', () => {
+  it('normalizes valid Better Auth session users', () => {
+    expect(
+      normalizeConvexUser({
+        id: 'user_123',
+        name: 'Ada',
+        email: 'ada@example.com',
+        emailVerified: true,
+        image: null,
+        role: 'admin',
+      }),
+    ).toEqual({
+      id: 'user_123',
+      name: 'Ada',
+      email: 'ada@example.com',
+      emailVerified: true,
+      image: null,
+      role: 'admin',
+      createdAt: undefined,
+      updatedAt: undefined,
+    })
+  })
+
+  it('rejects session users without a string id', () => {
+    expect(normalizeConvexUser({ email: 'ada@example.com' })).toBeNull()
+    expect(normalizeConvexUser({ id: 123, email: 'ada@example.com' })).toBeNull()
   })
 })
 

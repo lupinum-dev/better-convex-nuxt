@@ -128,6 +128,31 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
   return user as ConvexUser
 }
 
+export function normalizeConvexUser(input: unknown): ConvexUser | null {
+  if (!input || typeof input !== 'object') return null
+
+  const value = input as Record<string, unknown>
+  const id = value.id
+  if (typeof id !== 'string' || id.length === 0) return null
+
+  return {
+    ...value,
+    id,
+    name: typeof value.name === 'string' || value.name === null ? value.name : undefined,
+    email: typeof value.email === 'string' || value.email === null ? value.email : undefined,
+    emailVerified: typeof value.emailVerified === 'boolean' ? value.emailVerified : undefined,
+    image: typeof value.image === 'string' || value.image === null ? value.image : undefined,
+    createdAt:
+      typeof value.createdAt === 'string' || value.createdAt instanceof Date
+        ? value.createdAt
+        : undefined,
+    updatedAt:
+      typeof value.updatedAt === 'string' || value.updatedAt instanceof Date
+        ? value.updatedAt
+        : undefined,
+  } as ConvexUser
+}
+
 // ============================================================================
 // Types
 // ============================================================================

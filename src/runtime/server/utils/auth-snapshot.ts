@@ -1,6 +1,6 @@
 import type { AuthWaterfall, AuthWaterfallPhase } from '../../devtools/types'
 import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
-import { decodeUserFromJwt } from '../../utils/convex-shared'
+import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
 import { getCookie } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
@@ -67,9 +67,9 @@ async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<
     })
     if (!sessionFetch.ok) return null
     const sessionResponse = (await sessionFetch.json().catch(() => null)) as {
-      user?: ConvexUser
+      user?: unknown
     } | null
-    return sessionResponse?.user ?? null
+    return normalizeConvexUser(sessionResponse?.user)
   } catch {
     return null
   }
