@@ -15,6 +15,7 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
+import { registerConvexAliases } from './module-aliases'
 import {
   authAutoImports,
   composableAutoImports,
@@ -402,8 +403,7 @@ export default defineNuxtModule<ModuleOptions>({
       },
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
-    nuxt.options.alias['#convex/api'] = convexApiAlias
-    nuxt.options.alias['#convex/server'] = resolver.resolve('./runtime/server/index')
+    registerConvexAliases({ nuxt, resolver, convexApiAlias })
 
     // 2. Register Server Plugin (runs first for SSR token exchange)
     addPlugin({
@@ -505,19 +505,6 @@ export {}
 
     // 7. Auto-import server utilities
     addServerImports(resolveModuleImports(resolver, serverAutoImports))
-
-    // 9. Add types and aliases to generated tsconfig
-    nuxt.hook('prepare:types', (opts) => {
-      opts.references.push({
-        path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
-      })
-      opts.tsConfig.compilerOptions ??= {}
-      opts.tsConfig.compilerOptions.paths ??= {}
-      opts.tsConfig.compilerOptions.paths['#convex/api'] = [convexApiAlias]
-      opts.tsConfig.compilerOptions.paths['#convex/server'] = [
-        resolver.resolve('./runtime/server/index'),
-      ]
-    })
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {
