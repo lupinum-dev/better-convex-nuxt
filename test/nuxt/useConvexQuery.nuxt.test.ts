@@ -262,7 +262,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
 
     convex.emitQueryResult(query, {}, { count: 0 })
     await waitFor(() => result.parent.data.value === 0 && result.child.data.value === 'count:0')
@@ -293,7 +293,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
     convex.emitQueryResult(query, {}, { count: 3 })
 
     await waitFor(
@@ -552,7 +552,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const first = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
     const second = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
     convex.emitQueryResult(query, {}, { count: 1 })
     await waitFor(
       () => first.result.data.value?.count === 1 && second.result.data.value?.count === 1,

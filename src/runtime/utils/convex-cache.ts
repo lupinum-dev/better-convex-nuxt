@@ -105,6 +105,71 @@ export function subscribeQueryBridge(
   }
 }
 
+export function waitForQueryBridgeData<T>(
+  bridge: QuerySubscriptionBridge,
+  options: { timeoutMs?: number; timeoutMessage?: string } = {},
+): Promise<T> {
+  if (bridge.snapshot.data.hasData) {
+    return Promise.resolve(bridge.snapshot.data.rawData as T)
+  }
+  if (bridge.snapshot.error) {
+    return Promise.reject(bridge.snapshot.error)
+  }
+
+  const timeoutMs = options.timeoutMs ?? 10_000
+
+  return new Promise((resolve, reject) => {
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null =
+      timeoutMs > 0 && Number.isFinite(timeoutMs)
+        ? setTimeout(() => {
+            finishReject(
+              new Error(
+                options.timeoutMessage ??
+                  `[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`,
+              ),
+            )
+          }, timeoutMs)
+        : null
+    let unsubscribe: (() => void) | null = null
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = null
+      }
+      if (unsubscribe) {
+        unsubscribe()
+        unsubscribe = null
+      }
+    }
+
+    const finishResolve = (result: T) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+
+    const finishReject = (error: unknown) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
+
+    unsubscribe = subscribeQueryBridge(bridge, (snapshot) => {
+      if (snapshot.data.hasData) {
+        finishResolve(snapshot.data.rawData as T)
+        return
+      }
+      if (snapshot.error) {
+        finishReject(snapshot.error)
+      }
+    })
+  })
+}
+
 export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: unknown): void {
   bridge.snapshot = {
     data: { hasData: true, rawData },

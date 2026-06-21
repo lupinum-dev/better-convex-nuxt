@@ -27,13 +27,14 @@ import {
   commitQueryBridgeData,
   commitQueryBridgeError,
   subscribeQueryBridge,
+  waitForQueryBridgeData,
   type QueryBridgeSnapshot,
   type QuerySubscriptionBridge,
   type ConvexCallStatus,
 } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
-import { executeQueryHttp, executeQueryViaSubscription } from '../utils/query-execution'
+import { executeQueryHttp } from '../utils/query-execution'
 import { computeConvexQueryPending, computeConvexQueryStale } from '../utils/query-state'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 
@@ -221,6 +222,120 @@ export function createConvexQueryState<
   const currentScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexQuery', import.meta.client, currentScope)
 
+  // Track whether this component instance has registered with the subscription cache.
+  let registeredCacheKey: string | null = null
+  let registeredBridge: QuerySubscriptionBridge | null = null
+  const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
+  let unsubscribeSharedBridge: (() => void) | null = null
+
+  const cleanupSharedBridgeSubscriber = () => {
+    if (unsubscribeSharedBridge) {
+      unsubscribeSharedBridge()
+      unsubscribeSharedBridge = null
+    }
+  }
+
+  const releaseRegisteredSubscription = () => {
+    if (!registeredCacheKey) {
+      cleanupSharedBridgeSubscriber()
+      registeredBridge = null
+      return
+    }
+
+    const cacheKeyToRelease = registeredCacheKey
+    cleanupSharedBridgeSubscriber()
+    const wasUnsubscribed = releaseSubscription(nuxtApp, cacheKeyToRelease)
+
+    if (wasUnsubscribed) {
+      logger.query({ name: fnName, event: 'unsubscribe' })
+
+      // Unregister from DevTools only if we were the last user
+      if (import.meta.dev && devToolsRegistry) {
+        devToolsRegistry.unregisterQuery(cacheKeyToRelease)
+      }
+    }
+
+    registeredCacheKey = null
+    registeredBridge = null
+  }
+
+  const acquireSharedSubscriptionBridge = (
+    currentArgs: FunctionArgs<Query>,
+  ): QuerySubscriptionBridge => {
+    const convex = nuxtApp.$convex as ConvexClient | undefined
+    if (!convex) {
+      throw new Error('[useConvexQuery] Convex client not available')
+    }
+
+    const currentCacheKey = getCacheKey()
+    if (registeredCacheKey === currentCacheKey && registeredBridge) {
+      return registeredBridge
+    }
+
+    if (registeredCacheKey) {
+      releaseRegisteredSubscription()
+    }
+
+    const subscription = acquireQuerySubscription(nuxtApp, currentCacheKey, (bridge) =>
+      convex.onUpdate(
+        query,
+        currentArgs,
+        (result: RawT) => {
+          // Subscription-level callback writes to shared bridge only.
+          commitQueryBridgeData(bridge, result)
+
+          logger.query({
+            name: fnName,
+            event: 'update',
+            count: Array.isArray(result) ? result.length : 1,
+            args: currentArgs,
+            data: result,
+          })
+
+          // DevTools stores raw shared subscription data (not transformed), because
+          // different subscribers may apply different transform() functions.
+          if (import.meta.dev && devToolsRegistry) {
+            devToolsRegistry.updateQueryStatus(currentCacheKey, {
+              status: 'success',
+              data: result,
+              dataSource: 'websocket',
+            })
+          }
+        },
+        (err: Error) => {
+          commitQueryBridgeError(bridge, err)
+          void handleUnauthorizedAuthFailure({
+            error: err,
+            source: 'query',
+            functionName: fnName,
+          })
+
+          logger.query({ name: fnName, event: 'error', error: err })
+
+          // Keep DevTools subscription-level error visibility.
+          if (import.meta.dev && devToolsRegistry) {
+            devToolsRegistry.updateQueryStatus(currentCacheKey, {
+              status: 'error',
+              error: err.message,
+            })
+          }
+        },
+      ),
+    )
+
+    registeredCacheKey = currentCacheKey
+    registeredBridge = subscription.bridge
+
+    logger.query({
+      name: fnName,
+      event: subscription.refCount === 1 ? 'subscribe' : 'share',
+      refCount: subscription.refCount,
+      args: currentArgs,
+    })
+
+    return subscription.bridge
+  }
+
   // Use Nuxt's useAsyncData for SSR + hydration
   // Note: Return null (not undefined) when skipped to avoid Nuxt warning about
   // undefined returns potentially causing duplicate requests on client
@@ -268,12 +383,8 @@ export function createConvexQueryState<
           return null
         }
 
-        const convex = nuxtApp.$convex as ConvexClient | undefined
-        if (!convex) {
-          throw new Error('[useConvexQuery] Convex client not available')
-        }
-
-        const result = await executeQueryViaSubscription(convex, query, currentArgs)
+        const bridge = acquireSharedSubscriptionBridge(currentArgs)
+        const result = await waitForQueryBridgeData<RawT>(bridge)
         commitFreshData(result)
         return result
       } catch (error) {
@@ -359,19 +470,6 @@ export function createConvexQueryState<
     })
   })
 
-  // Track whether this component instance has registered with the subscription cache
-  let registeredCacheKey: string | null = null
-  let registeredBridge: QuerySubscriptionBridge | null = null
-  const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
-  let unsubscribeSharedBridge: (() => void) | null = null
-
-  const cleanupSharedBridgeSubscriber = () => {
-    if (unsubscribeSharedBridge) {
-      unsubscribeSharedBridge()
-      unsubscribeSharedBridge = null
-    }
-  }
-
   const attachSharedBridge = (bridge: QuerySubscriptionBridge) => {
     cleanupSharedBridgeSubscriber()
 
@@ -414,70 +512,11 @@ export function createConvexQueryState<
         return
       }
 
-      const convex = nuxtApp.$convex as ConvexClient | undefined
-      if (!convex) {
-        return
-      }
-
       const currentCacheKey = getCacheKey()
 
       try {
-        const subscription = acquireQuerySubscription(nuxtApp, currentCacheKey, (bridge) =>
-          convex.onUpdate(
-            query,
-            currentArgs as FunctionArgs<Query>,
-            (result: RawT) => {
-              // Subscription-level callback writes to shared bridge only.
-              commitQueryBridgeData(bridge, result)
-
-              logger.query({
-                name: fnName,
-                event: 'update',
-                count: Array.isArray(result) ? result.length : 1,
-                args: currentArgs,
-                data: result,
-              })
-
-              // DevTools stores raw shared subscription data (not transformed), because
-              // different subscribers may apply different transform() functions.
-              if (import.meta.dev && devToolsRegistry) {
-                devToolsRegistry.updateQueryStatus(currentCacheKey, {
-                  status: 'success',
-                  data: result,
-                  dataSource: 'websocket',
-                })
-              }
-            },
-            (err: Error) => {
-              commitQueryBridgeError(bridge, err)
-              void handleUnauthorizedAuthFailure({
-                error: err,
-                source: 'query',
-                functionName: fnName,
-              })
-
-              logger.query({ name: fnName, event: 'error', error: err })
-
-              // Keep DevTools subscription-level error visibility
-              if (import.meta.dev && devToolsRegistry) {
-                devToolsRegistry.updateQueryStatus(currentCacheKey, {
-                  status: 'error',
-                  error: err.message,
-                })
-              }
-            },
-          ),
-        )
-        registeredCacheKey = currentCacheKey
-        registeredBridge = subscription.bridge
-        attachSharedBridge(subscription.bridge)
-
-        logger.query({
-          name: fnName,
-          event: subscription.refCount === 1 ? 'subscribe' : 'share',
-          refCount: subscription.refCount,
-          args: currentArgs,
-        })
+        const bridge = acquireSharedSubscriptionBridge(currentArgs as FunctionArgs<Query>)
+        attachSharedBridge(bridge)
 
         // Register with DevTools in dev mode
         if (import.meta.dev && devToolsRegistry) {
@@ -514,20 +553,7 @@ export function createConvexQueryState<
         }
 
         if (registeredCacheKey) {
-          cleanupSharedBridgeSubscriber()
-          const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
-
-          if (wasUnsubscribed) {
-            logger.query({ name: fnName, event: 'unsubscribe' })
-
-            // Unregister from DevTools only if we were the last user
-            if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.unregisterQuery(registeredCacheKey)
-            }
-          }
-
-          registeredCacheKey = null
-          registeredBridge = null
+          releaseRegisteredSubscription()
         }
 
         // Setup new subscription (data will be updated by useAsyncData's watch)
@@ -548,13 +574,7 @@ export function createConvexQueryState<
     watch(shouldWaitForAuthBeforeLiveQuery, async (waitForAuth, previousWaitForAuth) => {
       if (waitForAuth) {
         if (registeredCacheKey) {
-          cleanupSharedBridgeSubscriber()
-          const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
-          if (wasUnsubscribed) {
-            logger.query({ name: fnName, event: 'unsubscribe' })
-          }
-          registeredCacheKey = null
-          registeredBridge = null
+          releaseRegisteredSubscription()
         }
         return
       }
@@ -570,22 +590,7 @@ export function createConvexQueryState<
     // Cleanup on scope dispose (component setup or other Vue effect scopes)
     onScopeDispose(() => {
       if (registeredCacheKey) {
-        cleanupSharedBridgeSubscriber()
-        // Release our reference to the subscription
-        // This decrements the ref count - only actually unsubscribes when count reaches 0
-        const wasUnsubscribed = releaseSubscription(nuxtApp, registeredCacheKey)
-
-        if (wasUnsubscribed) {
-          logger.query({ name: fnName, event: 'unsubscribe' })
-
-          // Unregister from DevTools only if we were the last user
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.unregisterQuery(registeredCacheKey)
-          }
-        }
-
-        registeredCacheKey = null
-        registeredBridge = null
+        releaseRegisteredSubscription()
       } else {
         cleanupSharedBridgeSubscriber()
         registeredBridge = null

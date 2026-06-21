@@ -534,7 +534,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       { convex },
     )
 
-    await waitFor(() => convex.calls.onUpdate.length >= 2)
+    await waitFor(() => convex.activeListenerCount() === 1)
     convex.emitQueryResultWhere(
       ({ query: q, args }) => {
         const path = (q as { _path?: string })._path
@@ -652,6 +652,19 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect((result.queryResult.results.value as Array<{ title: string }>)[0]).toMatchObject({
       title: 'Active A',
     })
+
+    await waitFor(
+      () =>
+        convex.activeListenerCountWhere(({ query: q, args }) => {
+          const path = (q as { _path?: string })._path
+          const a = args as { status?: string; paginationOpts?: { cursor?: string | null } }
+          return (
+            path === 'notes:listPaginated:keep-previous' &&
+            a.status === 'archived' &&
+            a.paginationOpts?.cursor === null
+          )
+        }) === 1,
+    )
 
     convex.emitQueryResultWhere(
       ({ query: q, args }) => {
