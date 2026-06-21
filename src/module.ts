@@ -23,7 +23,10 @@ import {
   serverAutoImports,
   type ModuleImportRegistration,
 } from './module-api-surface'
-import { getMissingConvexApiTemplateContents } from './module-templates'
+import {
+  getMissingConvexApiTemplateContents,
+  getTypeAugmentationTemplateContents,
+} from './module-templates'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import {
   getSiteUrlResolutionHint,
@@ -442,46 +445,7 @@ export default defineNuxtModule<ModuleOptions>({
     // 5. Register Type Augmentation for IDE support
     addTemplate({
       filename: 'types/better-convex-nuxt.d.ts',
-      getContents: () => `
-import type { ConvexClient } from 'convex/browser'
-import type { createAuthClient } from 'better-auth/vue'
-import type { RouteLocationRaw } from 'vue-router'
-
-type AuthClient = ReturnType<typeof createAuthClient>
-
-declare module '#app' {
-  interface NuxtApp {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-
-  interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
-  }
-
-    interface PageMeta {
-    /**
-     * Skip Convex auth check for this page.
-     * Useful for marketing pages that don't need authentication.
-     */
-      skipConvexAuth?: boolean
-      /**
-       * Opt-in route protection powered by better-convex-nuxt.
-       * true = require auth (default redirect), object = custom redirect.
-       */
-      convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
-    }
-  }
-
-declare module 'vue' {
-  interface ComponentCustomProperties {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-}
-
-export {}
-`,
+      getContents: getTypeAugmentationTemplateContents,
     })
 
     // 6. Auto-import composables (non-auth, always available)

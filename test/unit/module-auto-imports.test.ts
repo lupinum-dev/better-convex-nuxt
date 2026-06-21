@@ -6,7 +6,10 @@ import {
   composableAutoImports,
   permissionAutoImports,
 } from '../../src/module-api-surface'
-import { getMissingConvexApiTemplateContents } from '../../src/module-templates'
+import {
+  getMissingConvexApiTemplateContents,
+  getTypeAugmentationTemplateContents,
+} from '../../src/module-templates'
 
 describe('module auto-import surface', () => {
   it('includes stable public composable auto-imports', () => {
@@ -74,5 +77,7 @@ describe('module auto-import surface', () => {
       },
     })
     expect(getMissingConvexApiTemplateContents()).toContain('createMissingConvexApiProxy')
+    expect(getTypeAugmentationTemplateContents()).toContain("declare module '#app'")
+    expect(getTypeAugmentationTemplateContents()).toContain('interface PageMeta')
   })
 })
