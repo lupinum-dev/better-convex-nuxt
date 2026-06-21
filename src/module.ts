@@ -15,6 +15,13 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
+import {
+  authAutoImports,
+  composableAutoImports,
+  permissionAutoImports,
+  serverAutoImports,
+  type ModuleImportRegistration,
+} from './module-api-surface'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import {
   getSiteUrlResolutionHint,
@@ -45,6 +52,16 @@ function normalizeAuthCacheTtl(input: unknown): number {
   if (normalized < 1) return 1
   if (normalized > 60) return 60
   return normalized
+}
+
+function resolveModuleImports(
+  resolver: ReturnType<typeof createResolver>,
+  imports: readonly ModuleImportRegistration[],
+): ModuleImportRegistration[] {
+  return imports.map((entry) => ({
+    name: entry.name,
+    from: resolver.resolve(entry.from),
+  }))
 }
 
 export interface AuthCacheOptions {
@@ -496,85 +513,11 @@ export {}
     })
 
     // 6. Auto-import composables (non-auth, always available)
-    addImports([
-      { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
-      {
-        name: 'useConvexMutation',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
-      { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      { name: 'getQueryKey', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      {
-        name: 'defineSharedConvexQuery',
-        from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
-      },
-      { name: 'useConvexCall', from: resolver.resolve('./runtime/composables/useConvexCall') },
-      {
-        name: 'useConvexPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'useConvexConnectionState',
-        from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
-      },
-      // Optimistic update helpers for regular queries
-      { name: 'updateQuery', from: resolver.resolve('./runtime/composables/useConvexMutation') },
-      { name: 'setQueryData', from: resolver.resolve('./runtime/composables/useConvexMutation') },
-      {
-        name: 'updateAllQueries',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      {
-        name: 'deleteFromQuery',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      // Optimistic update helpers for paginated queries
-      {
-        name: 'insertAtTop',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'insertAtPosition',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'insertAtBottomIfLoaded',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'updateInPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'deleteFromPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      // File upload composables
-      {
-        name: 'useConvexFileUpload',
-        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
-      },
-      {
-        name: 'useConvexUploadQueue',
-        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
-      },
-      {
-        name: 'useConvexStorageUrl',
-        from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
-      },
-    ])
+    addImports(resolveModuleImports(resolver, composableAutoImports))
 
     // 6b. Auth composables and components (only when auth enabled)
     if (isAuthEnabled) {
-      addImports([
-        { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
-        { name: 'useConvexUser', from: resolver.resolve('./runtime/composables/useConvexUser') },
-        {
-          name: 'createBetterConvexAuthClient',
-          from: resolver.resolve('./runtime/composables/createBetterConvexAuthClient'),
-        },
-      ])
+      addImports(resolveModuleImports(resolver, authAutoImports))
 
       // Register auth components
       addComponentsDir({
@@ -585,24 +528,11 @@ export {}
 
     // 6c. Conditionally add permission composables
     if (options.permissions) {
-      addImports([
-        {
-          name: 'createPermissions',
-          from: resolver.resolve('./runtime/composables/usePermissions'),
-        },
-      ])
+      addImports(resolveModuleImports(resolver, permissionAutoImports))
     }
 
     // 7. Auto-import server utilities
-    addServerImports([
-      { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexMutation', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
-      {
-        name: 'serverConvexClearAuthCache',
-        from: resolver.resolve('./runtime/server/utils/auth-cache'),
-      },
-    ])
+    addServerImports(resolveModuleImports(resolver, serverAutoImports))
 
     // 9. Add types and aliases to generated tsconfig
     nuxt.hook('prepare:types', (opts) => {

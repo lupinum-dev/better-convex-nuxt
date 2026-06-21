@@ -3,13 +3,13 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const rootDir = process.cwd()
-const modulePath = resolve(rootDir, 'src/module.ts')
+const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
 const outputPath = resolve(rootDir, 'docs/content/docs/6.advanced/8.api-surface.md')
 const packageJsonPath = resolve(rootDir, 'package.json')
 const checkOnly = process.argv.includes('--check')
 
-const moduleSource = readFileSync(modulePath, 'utf8')
+const apiSurfaceSource = readFileSync(apiSurfacePath, 'utf8')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
 
 function normalizeRepoUrl(input) {
@@ -25,21 +25,28 @@ const repoBase =
   normalizeRepoUrl(packageJson?.repository?.url) ??
   'https://github.com/lupinum-dev/better-convex-nuxt'
 
-function extractNames(pattern) {
+function extractNamesFromRegistry(registryName) {
+  const registryMatch = apiSurfaceSource.match(
+    new RegExp(`export const ${registryName} = \\[([\\s\\S]*?)\\] as const`),
+  )
+  if (!registryMatch?.[1]) {
+    throw new Error(`Could not find ${registryName} in ${apiSurfacePath}`)
+  }
+
   const names = new Set()
-  for (const match of moduleSource.matchAll(pattern)) {
+  for (const match of registryMatch[1].matchAll(/name:\s*'([^']+)'/g)) {
     if (!match[1]) continue
     names.add(match[1])
   }
   return [...names].sort((a, b) => a.localeCompare(b))
 }
 
-const composableImports = extractNames(
-  /name:\s*'([^']+)'\s*,\s*from:\s*resolver\.resolve\('\.\/runtime\/composables\/[^']+'\)/g,
-)
-const serverImports = extractNames(
-  /name:\s*'([^']+)'\s*,\s*from:\s*resolver\.resolve\('\.\/runtime\/server\/utils\/[^']+'\)/g,
-)
+const composableImports = [
+  ...extractNamesFromRegistry('composableAutoImports'),
+  ...extractNamesFromRegistry('authAutoImports'),
+  ...extractNamesFromRegistry('permissionAutoImports'),
+].sort((a, b) => a.localeCompare(b))
+const serverImports = extractNamesFromRegistry('serverAutoImports')
 const componentNames = readdirSync(componentsDir)
   .filter((name) => name.endsWith('.vue'))
   .map((name) => name.replace(/\.vue$/, ''))
@@ -248,7 +255,7 @@ navigation:
 This page is generated from module entrypoints and runtime component files.
 
 Source of truth:
-- [src/module.ts](${repoBase}/blob/main/src/module.ts)
+- [src/module-api-surface.ts](${repoBase}/blob/main/src/module-api-surface.ts)
 - [src/runtime/composables/index.ts](${repoBase}/blob/main/src/runtime/composables/index.ts)
 - [src/runtime/server/utils](${repoBase}/tree/main/src/runtime/server/utils)
 - [src/runtime/components](${repoBase}/tree/main/src/runtime/components)
