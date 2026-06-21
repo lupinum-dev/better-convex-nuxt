@@ -3,18 +3,25 @@ import { resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import {
+  authAutoImports,
+  composableAutoImports,
+  permissionAutoImports,
+} from '../../src/module-api-surface'
+
 describe('module auto-import surface', () => {
   it('includes stable public composable auto-imports', () => {
-    const apiSurfaceSource = readFileSync(
-      resolve(process.cwd(), 'src/module-api-surface.ts'),
-      'utf8',
+    const autoImportNames = new Set(
+      [...composableAutoImports, ...authAutoImports, ...permissionAutoImports].map(
+        (entry) => entry.name,
+      ),
     )
 
-    expect(apiSurfaceSource).toMatch(/name:\s*'useConvexCall'/)
-    expect(apiSurfaceSource).toMatch(/name:\s*'getQueryKey'/)
-    expect(apiSurfaceSource).toMatch(/name:\s*'createBetterConvexAuthClient'/)
-    expect(apiSurfaceSource).toMatch(/name:\s*'useConvexUser'/)
-    expect(apiSurfaceSource).not.toMatch(/name:\s*'useConvexRpc'/)
+    expect(autoImportNames).toContain('useConvexCall')
+    expect(autoImportNames).toContain('getQueryKey')
+    expect(autoImportNames).toContain('createBetterConvexAuthClient')
+    expect(autoImportNames).toContain('useConvexUser')
+    expect(autoImportNames).not.toContain('useConvexRpc')
   })
 
   it('registers the #convex runtime and type aliases', () => {

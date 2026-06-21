@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import vm from 'node:vm'
+
+import ts from 'typescript'
 
 const rootDir = process.cwd()
 const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
@@ -11,6 +14,25 @@ const checkOnly = process.argv.includes('--check')
 
 const apiSurfaceSource = readFileSync(apiSurfacePath, 'utf8')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+
+function loadApiSurfaceRegistry() {
+  const transpiled = ts.transpileModule(apiSurfaceSource, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: apiSurfacePath,
+  }).outputText
+
+  const module = { exports: {} }
+  vm.runInNewContext(transpiled, {
+    exports: module.exports,
+    module,
+  })
+  return module.exports
+}
+
+const apiSurfaceRegistry = loadApiSurfaceRegistry()
 
 function normalizeRepoUrl(input) {
   if (typeof input !== 'string') return null
@@ -26,19 +48,21 @@ const repoBase =
   'https://github.com/lupinum-dev/better-convex-nuxt'
 
 function extractNamesFromRegistry(registryName) {
-  const registryMatch = apiSurfaceSource.match(
-    new RegExp(`export const ${registryName} = \\[([\\s\\S]*?)\\] as const`),
-  )
-  if (!registryMatch?.[1]) {
-    throw new Error(`Could not find ${registryName} in ${apiSurfacePath}`)
+  const registry = apiSurfaceRegistry[registryName]
+  if (!Array.isArray(registry)) {
+    throw new TypeError(`Could not find ${registryName} array in ${apiSurfacePath}`)
   }
 
-  const names = new Set()
-  for (const match of registryMatch[1].matchAll(/name:\s*'([^']+)'/g)) {
-    if (!match[1]) continue
-    names.add(match[1])
-  }
-  return [...names].sort((a, b) => a.localeCompare(b))
+  return [
+    ...new Set(
+      registry.map((entry) => {
+        if (!entry || typeof entry.name !== 'string') {
+          throw new TypeError(`${registryName} contains an entry without a string name`)
+        }
+        return entry.name
+      }),
+    ),
+  ].sort((a, b) => a.localeCompare(b))
 }
 
 const composableImports = [
