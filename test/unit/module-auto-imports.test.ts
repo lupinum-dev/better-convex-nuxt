@@ -19,12 +19,14 @@ describe('module auto-import surface', () => {
 
   it('registers the #convex runtime and type aliases', () => {
     const moduleSource = readFileSync(resolve(process.cwd(), 'src/module.ts'), 'utf8')
+    const templateSource = readFileSync(resolve(process.cwd(), 'src/module-templates.ts'), 'utf8')
 
     expect(moduleSource).toContain("nuxt.options.alias['#convex/api'] = convexApiAlias")
     expect(moduleSource).toContain("opts.tsConfig.compilerOptions.paths['#convex/api']")
     expect(moduleSource).toContain('convex/_generated/api')
     expect(moduleSource).toContain('hasGeneratedConvexApi')
     expect(moduleSource).toContain('better-convex-nuxt/convex-api-missing.ts')
+    expect(templateSource).toContain('createMissingConvexApiProxy')
     expect(moduleSource).toContain("nuxt.options.alias['#convex/server']")
     expect(moduleSource).toContain("opts.tsConfig.compilerOptions.paths['#convex/server']")
     expect(moduleSource).toContain('./runtime/server/index')
