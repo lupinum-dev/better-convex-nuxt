@@ -1,5 +1,5 @@
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
-import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client'
+import type { BetterAuthClientOptions } from 'better-auth/client'
 import { createAuthClient } from 'better-auth/vue'
 import type { VueAuthClient } from 'better-auth/vue'
 
@@ -8,7 +8,7 @@ import { useRuntimeConfig } from '#imports'
 import { normalizeAuthRoute } from '../utils/convex-config'
 
 type ConvexBetterAuthClientPlugin = ReturnType<typeof convexClient>
-type BetterConvexClientPlugins = readonly BetterAuthClientPlugin[]
+type BetterConvexClientPlugins = readonly unknown[]
 type MutablePlugins<Plugins extends BetterConvexClientPlugins> = {
   -readonly [Index in keyof Plugins]: Plugins[Index]
 }
@@ -43,7 +43,7 @@ export type BetterConvexAuthClientResolvedOptions<Plugins extends BetterConvexCl
 }
 
 export type BetterConvexAuthClient<Plugins extends BetterConvexClientPlugins> = VueAuthClient<
-  BetterConvexAuthClientResolvedOptions<Plugins>
+  BetterConvexAuthClientResolvedOptions<Plugins> & BetterAuthClientOptions
 >
 
 export function resolveBetterConvexAuthBaseURL(baseURL?: string): string {
@@ -76,7 +76,7 @@ export function createBetterConvexAuthClient<const Plugins extends BetterConvexC
   const { baseURL, plugins, fetchOptions, ...rest } = options
   const resolvedPlugins = [
     convexClient(),
-    ...((plugins ?? []) as Plugins),
+    ...((plugins ?? []) as unknown as Plugins),
   ] as BetterConvexAuthClientPluginList<Plugins>
 
   const clientOptions: BetterConvexAuthClientResolvedOptions<Plugins> = {
@@ -89,5 +89,7 @@ export function createBetterConvexAuthClient<const Plugins extends BetterConvexC
     },
   }
 
-  return createAuthClient(clientOptions)
+  return createAuthClient(
+    clientOptions as BetterAuthClientOptions,
+  ) as unknown as BetterConvexAuthClient<Plugins>
 }

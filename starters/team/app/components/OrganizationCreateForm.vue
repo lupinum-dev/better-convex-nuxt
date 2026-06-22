@@ -1,21 +1,47 @@
 <script setup lang="ts">
-import { api } from '#convex/api'
-
 const name = ref('')
 const error = ref<string | null>(null)
-const createOrganization = useConvexMutation(api.organizations.create)
-const pending = createOrganization.pending
+const pending = ref(false)
+const authClient = useTeamAuthClient()
+
+const emit = defineEmits<{
+  created: []
+}>()
+
+function slugify(value: string) {
+  const slug = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return `${slug || 'organization'}-${Date.now().toString(36)}`
+}
 
 async function submit() {
   const trimmedName = name.value.trim()
   if (!trimmedName) return
 
+  pending.value = true
   error.value = null
   try {
-    await createOrganization({ name: trimmedName })
+    const result = await authClient.organization.create({
+      name: trimmedName,
+      slug: slugify(trimmedName),
+      plan: 'team',
+      region: 'eu',
+    })
+
+    if (result.error) {
+      error.value = result.error.message || 'Organization was not created'
+      return
+    }
+
     name.value = ''
+    emit('created')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Organization was not created'
+  } finally {
+    pending.value = false
   }
 }
 </script>

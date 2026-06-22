@@ -1,20 +1,22 @@
 <script setup lang="ts">
-import type { Id } from '~~/convex/_generated/dataModel'
-
 import { api } from '#convex/api'
 
 const route = useRoute()
-const organizationId = computed(() => route.params.organizationId as Id<'organizations'>)
+const organizationId = computed(() => route.params.organizationId as string)
 const { isAuthenticated, isPending } = useConvexAuth()
+const organizationState = useTeamOrganizations()
 
-const organizationArgs = computed(() =>
-  isAuthenticated.value ? { organizationId: organizationId.value } : 'skip'
+const organizations = computed(() => organizationState.value.data ?? [])
+const organization = computed(
+  () => organizations.value.find((org) => org.id === organizationId.value) ?? null,
 )
-const { data: organization, pending: organizationPending } = await useConvexQuery(
-  api.organizations.get,
-  organizationArgs
+const organizationPending = computed(
+  () => organizationState.value.isPending || organizationState.value.isRefetching,
 )
-const { data: projects } = await useConvexQuery(api.projects.list, organizationArgs)
+const projectArgs = computed(() =>
+  isAuthenticated.value && organization.value ? { organizationId: organizationId.value } : 'skip',
+)
+const { data: projects } = await useConvexQuery(api.projects.list, projectArgs)
 </script>
 
 <template>

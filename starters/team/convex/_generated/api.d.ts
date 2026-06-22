@@ -8,15 +8,16 @@
  * @module
  */
 
-import type * as access from "../access.js";
-import type * as audit from "../audit.js";
+import type * as apiKeyExperiments from "../apiKeyExperiments.js";
 import type * as auth from "../auth.js";
+import type * as billingPlans from "../billingPlans.js";
 import type * as experiments from "../experiments.js";
 import type * as http from "../http.js";
-import type * as invitations from "../invitations.js";
-import type * as memberships from "../memberships.js";
-import type * as organizations from "../organizations.js";
+import type * as memberProfileExperiments from "../memberProfileExperiments.js";
+import type * as oauthTokenExperiments from "../oauthTokenExperiments.js";
+import type * as productAuthExperiments from "../productAuthExperiments.js";
 import type * as projects from "../projects.js";
+import type * as stripeEntitlementExperiments from "../stripeEntitlementExperiments.js";
 import type * as users from "../users.js";
 
 import type {
@@ -26,15 +27,16 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  access: typeof access;
-  audit: typeof audit;
+  apiKeyExperiments: typeof apiKeyExperiments;
   auth: typeof auth;
+  billingPlans: typeof billingPlans;
   experiments: typeof experiments;
   http: typeof http;
-  invitations: typeof invitations;
-  memberships: typeof memberships;
-  organizations: typeof organizations;
+  memberProfileExperiments: typeof memberProfileExperiments;
+  oauthTokenExperiments: typeof oauthTokenExperiments;
+  productAuthExperiments: typeof productAuthExperiments;
   projects: typeof projects;
+  stripeEntitlementExperiments: typeof stripeEntitlementExperiments;
   users: typeof users;
 }>;
 
@@ -65,5 +67,5 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
 };

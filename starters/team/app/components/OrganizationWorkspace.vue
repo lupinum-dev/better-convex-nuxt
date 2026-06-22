@@ -2,10 +2,21 @@
 import { api } from '#convex/api'
 
 const currentUser = useConvexUser(api.users.getCurrent, {}, { source: 'projection' })
-const { signOut } = useConvexAuth()
-const { data: organizations } = await useConvexQuery(api.organizations.listMine, {})
+const { signOut, refreshAuth } = useConvexAuth()
+const organizationState = useTeamOrganizations()
 
 const hasUserProjection = computed(() => currentUser.source.value === 'projection')
+const organizations = computed(() => organizationState.value.data ?? [])
+const organizationsPending = computed(() => organizationState.value.isPending)
+
+async function refreshOrganizations() {
+  await organizationState.value.refetch()
+}
+
+async function signOutAndRefresh() {
+  await signOut()
+  await refreshAuth()
+}
 </script>
 
 <template>
@@ -13,16 +24,18 @@ const hasUserProjection = computed(() => currentUser.source.value === 'projectio
     <span>
       {{ currentUser.data.value.email || currentUser.data.value.name || 'Signed in' }}
     </span>
-    <button type="button" @click="signOut()">Sign out</button>
+    <button type="button" @click="signOutAndRefresh">Sign out</button>
   </section>
 
   <template v-if="hasUserProjection">
-    <OrganizationCreateForm />
+    <OrganizationCreateForm @created="refreshOrganizations" />
 
-    <nav v-if="organizations?.length" class="list">
-      <NuxtLink v-for="org in organizations ?? []" :key="org._id" :to="`/organizations/${org._id}`">
+    <section v-if="organizationsPending" class="empty">Loading organizations...</section>
+
+    <nav v-else-if="organizations.length" class="list">
+      <NuxtLink v-for="org in organizations" :key="org.id" :to="`/organizations/${org.id}`">
         <strong>{{ org.name }}</strong>
-        <span>{{ org.role }}</span>
+        <span>{{ org.role ?? 'member' }}</span>
       </NuxtLink>
     </nav>
 

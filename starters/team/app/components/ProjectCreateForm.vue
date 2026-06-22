@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import type { Id } from '~~/convex/_generated/dataModel'
-
 import { api } from '#convex/api'
 
 const props = defineProps<{
-  organizationId: Id<'organizations'>
+  organizationId: string
 }>()
 
 const name = ref('')

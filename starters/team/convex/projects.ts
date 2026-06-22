@@ -1,15 +1,51 @@
 import { ConvexError, v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
-import { requireOrgAccess } from './access'
-import { writeAuditEvent } from './audit'
+import { authComponent, createAuth } from './auth'
+
+type ProjectPermission = 'create' | 'read'
+
+async function requireProjectPermission(
+  ctx: Parameters<typeof authComponent.getHeaders>[0],
+  args: {
+    organizationId: string
+    permission: ProjectPermission
+  },
+) {
+  const headers = await authComponent.getHeaders(ctx)
+  const auth = createAuth(ctx)
+  const session = await auth.api.getSession({ headers })
+  if (!session) {
+    throw new ConvexError('Unauthenticated')
+  }
+
+  const allowed = await auth.api.hasPermission({
+    headers,
+    body: {
+      organizationId: args.organizationId,
+      permissions: {
+        project: [args.permission],
+      },
+    },
+  })
+
+  if (!allowed.success) {
+    throw new ConvexError(`Missing project:${args.permission} permission`)
+  }
+
+  return session.user
+}
 
 export const list = query({
   args: {
-    organizationId: v.id('organizations'),
+    organizationId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireOrgAccess(ctx, args.organizationId)
+    await requireProjectPermission(ctx, {
+      organizationId: args.organizationId,
+      permission: 'read',
+    })
+
     return await ctx.db
       .query('projects')
       .withIndex('by_org', (q) => q.eq('organizationId', args.organizationId))
@@ -20,7 +56,7 @@ export const list = query({
 
 export const create = mutation({
   args: {
-    organizationId: v.id('organizations'),
+    organizationId: v.string(),
     name: v.string(),
   },
   handler: async (ctx, args) => {
@@ -29,20 +65,25 @@ export const create = mutation({
       throw new ConvexError('Project name is required')
     }
 
-    const { user } = await requireOrgAccess(ctx, args.organizationId, 'member')
+    const user = await requireProjectPermission(ctx, {
+      organizationId: args.organizationId,
+      permission: 'create',
+    })
+
     const projectId = await ctx.db.insert('projects', {
       organizationId: args.organizationId,
       name,
-      createdBy: user._id,
+      createdByAuthUserId: user.id,
       createdAt: Date.now(),
     })
 
-    await writeAuditEvent(ctx, {
+    await ctx.db.insert('auditEvents', {
       organizationId: args.organizationId,
-      actorUserId: user._id,
+      actorAuthUserId: user.id,
       action: 'projects.create',
       resourceType: 'project',
       resourceId: projectId,
+      createdAt: Date.now(),
     })
 
     return projectId
