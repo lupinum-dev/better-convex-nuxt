@@ -7,6 +7,11 @@ let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthEngineTarget: Record<PropertyKey, unknown> | null = null
 
+const defaultAuthEngineTarget: Record<PropertyKey, unknown> = {
+  awaitAuthReady: async () => true,
+  refreshAuth: async () => {},
+}
+
 const convexProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
   {
@@ -78,7 +83,7 @@ export async function captureInNuxt<T>(
           currentAuthTarget = null
         }
         if (options.authEngine === undefined) {
-          currentAuthEngineTarget = null
+          currentAuthEngineTarget = defaultAuthEngineTarget
         }
 
         if (options.convex !== undefined) {
@@ -96,7 +101,10 @@ export async function captureInNuxt<T>(
         }
 
         if (options.authEngine !== undefined) {
-          currentAuthEngineTarget = options.authEngine as Record<PropertyKey, unknown>
+          currentAuthEngineTarget = {
+            ...defaultAuthEngineTarget,
+            ...(options.authEngine as Record<PropertyKey, unknown>),
+          }
           if (!(nuxtApp as typeof nuxtApp & { $convexAuthEngine?: unknown }).$convexAuthEngine) {
             nuxtApp.provide('convexAuthEngine', authEngineProxy)
           }
