@@ -5,6 +5,16 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useConvexMutation (Nuxt runtime)', () => {
   it('can be created during SSR setup without a Convex client and fails when called', async () => {
     const mutation = mockFnRef<'mutation'>('testing:ssr-safe-mutation')
@@ -39,6 +49,55 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.status.value).toBe('success')
     expect(result.error.value).toBeNull()
     expect(result.data.value).toEqual({ id: 'new-id', value: 'hello' })
+  })
+
+  it('waits for Convex auth confirmation before sending mutations', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:auth-ready')
+    const authReady = deferred<boolean>()
+    convex.setMutationHandler('testing:auth-ready', async (args) => {
+      const { value } = args as { value: string }
+      return { value }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+      authEngine: {
+        awaitAuthReady: () => authReady.promise,
+      },
+    })
+
+    const promise = result({ value: 'delayed' } as never)
+    await Promise.resolve()
+    expect(convex.calls.mutation).toHaveLength(0)
+
+    authReady.resolve(true)
+
+    await expect(promise).resolves.toEqual({ value: 'delayed' })
+    expect(convex.calls.mutation).toHaveLength(1)
+  })
+
+  it('refreshes Convex auth once when auth readiness is stale', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:auth-refresh')
+    convex.setMutationHandler('testing:auth-refresh', async (args) => args)
+
+    const awaitAuthReady = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const refreshAuth = vi.fn(async () => {})
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+      authEngine: {
+        awaitAuthReady,
+        refreshAuth,
+      },
+    })
+
+    await expect(result({ value: 'after-refresh' } as never)).resolves.toEqual({
+      value: 'after-refresh',
+    })
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+    expect(awaitAuthReady).toHaveBeenCalledTimes(2)
+    expect(convex.calls.mutation).toHaveLength(1)
   })
 
   it('calls argless mutations with empty args', async () => {

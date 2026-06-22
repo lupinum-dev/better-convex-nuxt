@@ -12,6 +12,7 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { createConvexCallState } from '../utils/call-state'
+import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
 import {
   registerDevToolsEntry,
@@ -153,6 +154,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
           '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
         )
       }
+
+      await ensureConvexAuthReady(nuxtApp.$convexAuthEngine, 'useConvexAction')
 
       const result = await client.action(action, args)
       callState.commitSuccess(currentRequestId, result)

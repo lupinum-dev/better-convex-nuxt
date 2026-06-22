@@ -20,7 +20,7 @@ interface TokenResponse {
 }
 
 export type AuthClientWithConvex = AuthClient & {
-  convex: { token: () => Promise<TokenResponse> }
+  convex: { token: (options?: unknown) => Promise<TokenResponse> }
 }
 
 type AuthEngineNuxtApp = {
@@ -51,6 +51,7 @@ export interface ConvexAuthEngine {
     ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
   >
   refreshAuth: () => Promise<void>
+  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
 }
 
 const getErrorMessage = (value: unknown, fallback: string): string => {
@@ -93,6 +94,8 @@ export function createConvexAuthEngine({
   let authGeneration = 0
   let signOutPromise: ReturnType<ConvexAuthEngine['signOut']> | null = null
   let attachedClient: ConvexClient | null = null
+  let authReadyPromise: Promise<boolean> | null = null
+  let resolveAuthReady: ((isAuthenticated: boolean) => void) | null = null
 
   const getTraceId = () => {
     if (!traceId) return undefined
@@ -108,6 +111,18 @@ export function createConvexAuthEngine({
     return authGeneration
   }
 
+  const resetAuthReady = () => {
+    authReadyPromise = new Promise<boolean>((resolve) => {
+      resolveAuthReady = resolve
+    })
+  }
+
+  const settleAuthReady = (isAuthenticated: boolean) => {
+    resolveAuthReady?.(isAuthenticated)
+    resolveAuthReady = null
+    authReadyPromise = Promise.resolve(isAuthenticated)
+  }
+
   const resolveInitialAuth = (generation = authGeneration) => {
     if (isActiveGeneration(generation) && !hasResolvedInitialAuth) {
       hasResolvedInitialAuth = true
@@ -118,8 +133,9 @@ export function createConvexAuthEngine({
   const logAuth = logger?.auth ?? (() => {})
 
   const getConvexAuthClient = (): AuthClientWithConvex | null => {
-    if (!authClient || !('convex' in authClient)) return null
-    return authClient as AuthClientWithConvex
+    const maybeAuthClient = authClient as Partial<AuthClientWithConvex> | null
+    if (typeof maybeAuthClient?.convex?.token !== 'function') return null
+    return maybeAuthClient as AuthClientWithConvex
   }
 
   const fetchToken = async ({
@@ -282,7 +298,9 @@ export function createConvexAuthEngine({
           path: routePath,
         },
       })
-      const response = await convexAuthClient.convex.token()
+      const response = await convexAuthClient.convex.token({
+        fetchOptions: { throw: false },
+      })
 
       if (signal?.aborted) {
         logAuth({
@@ -390,12 +408,14 @@ export function createConvexAuthEngine({
 
     if (!isAuthEnabled) {
       state.pending.value = false
+      settleAuthReady(true)
       return
     }
 
     if (!getConvexAuthClient()) {
       state.authError.value = buildMissingSiteUrlMessage(convexUrl ?? 'the configured Convex URL')
       state.pending.value = false
+      settleAuthReady(false)
       nuxtApp.hook('better-convex:auth:refresh', async () => {
         throw new Error(state.authError.value ?? buildMissingSiteUrlMessage(convexUrl ?? ''))
       })
@@ -408,7 +428,15 @@ export function createConvexAuthEngine({
       return
     }
 
+    resetAuthReady()
     client.setAuth(fetchToken, (isAuthenticated) => {
+      if (isAuthenticated) {
+        state.authError.value = null
+      } else if (state.token.value) {
+        state.authError.value = 'Convex authentication token was rejected by the server'
+      }
+      state.pending.value = false
+      settleAuthReady(isAuthenticated)
       logAuth({
         phase: 'client-setAuth',
         outcome: 'success',
@@ -430,13 +458,25 @@ export function createConvexAuthEngine({
       lastTokenValidation = 0
       lastNullTokenCheck = 0
 
-      await new Promise<void>((resolve) => {
-        client.setAuth(fetchToken, () => {
-          resolve()
+      const isAuthenticated = await new Promise<boolean>((resolve) => {
+        resetAuthReady()
+        client.setAuth(fetchToken, (nextIsAuthenticated) => {
+          if (nextIsAuthenticated) {
+            state.authError.value = null
+          } else if (state.token.value) {
+            state.authError.value = 'Convex authentication token was rejected by the server'
+          }
+          state.pending.value = false
+          settleAuthReady(nextIsAuthenticated)
+          resolve(nextIsAuthenticated)
         })
       })
 
       if (state.authError.value) {
+        throw new Error(state.authError.value)
+      }
+      if (!isAuthenticated) {
+        state.authError.value = 'Convex authentication did not complete'
         throw new Error(state.authError.value)
       }
       if (!state.token.value) {
@@ -477,6 +517,7 @@ export function createConvexAuthEngine({
         state.authError.value = null
         lastTokenValidation = 0
         lastNullTokenCheck = Date.now()
+        settleAuthReady(false)
         attachedClient?.setAuth(
           async () => null,
           () => {},
@@ -551,9 +592,24 @@ export function createConvexAuthEngine({
     return nuxtApp._convexRefreshAuthPromise
   }
 
+  const awaitAuthReady: ConvexAuthEngine['awaitAuthReady'] = async (options) => {
+    if (!isAuthEnabled) return true
+    if (!getConvexAuthClient()) return false
+    if (!state.token.value) return true
+
+    const timeoutMs = options?.timeoutMs ?? 5_000
+    return await Promise.race([
+      authReadyPromise ?? Promise.resolve(Boolean(state.token.value)),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), timeoutMs)
+      }),
+    ])
+  }
+
   return {
     attachConvexClient,
     signOut,
     refreshAuth,
+    awaitAuthReady,
   }
 }

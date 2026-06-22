@@ -12,6 +12,7 @@ describe('useConvexAuth (Nuxt runtime)', () => {
       attachConvexClient: vi.fn(),
       signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
       refreshAuth: vi.fn(async () => {}),
+      awaitAuthReady: vi.fn(async () => true),
     }
 
     const { result, nuxtApp } = await captureInNuxt(() => {

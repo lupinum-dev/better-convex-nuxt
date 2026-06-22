@@ -12,6 +12,7 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { createConvexCallState } from '../utils/call-state'
+import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
 import {
   registerDevToolsEntry,
@@ -268,6 +269,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
           '[useConvexMutation] Convex client is unavailable. Call mutations from the browser after configuring a Convex URL.',
         )
       }
+
+      await ensureConvexAuthReady(nuxtApp.$convexAuthEngine, 'useConvexMutation')
 
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,

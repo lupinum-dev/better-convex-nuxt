@@ -154,6 +154,145 @@ describe('createConvexAuthEngine', () => {
     })
     expect(state.authError.value).toBeNull()
     expect(state.pending.value).toBe(false)
+    await expect(engine.awaitAuthReady()).resolves.toBe(false)
+  })
+
+  it('supports Better Auth proxy clients whose plugin methods fail `in` checks', async () => {
+    const token = makeJwt({
+      sub: 'user_proxy',
+      email: 'proxy@example.com',
+    })
+    const state = createState()
+    const convexToken = vi.fn(async () => ({ data: { token } }))
+    const authClient = new Proxy(
+      {
+        signOut: vi.fn(),
+      },
+      {
+        get(target, key) {
+          if (key === 'convex') return { token: convexToken }
+          return target[key as keyof typeof target]
+        },
+        has(target, key) {
+          if (key === 'convex') return false
+          return key in target
+        },
+      },
+    ) as unknown as AuthClientWithConvex
+    const { client, fetchToken } = createClient()
+    const engine = createConvexAuthEngine({
+      nuxtApp: createNuxtApp(),
+      authClient,
+      state,
+      isAuthEnabled: true,
+      getRoute: () => ({ path: '/dashboard' }),
+    })
+
+    engine.attachConvexClient(client as never)
+    const result = await fetchToken()({ forceRefreshToken: false })
+
+    expect(result).toBe(token)
+    expect(convexToken).toHaveBeenCalledWith({ fetchOptions: { throw: false } })
+    expect(state.user.value?.id).toBe('user_proxy')
+  })
+
+  it('treats signed-out auth as ready for public Convex calls', async () => {
+    const state = createState()
+    const authClient = {
+      signOut: vi.fn(),
+      convex: { token: vi.fn() },
+    } as unknown as AuthClientWithConvex
+    const { client } = createClient()
+    const engine = createConvexAuthEngine({
+      nuxtApp: createNuxtApp(),
+      authClient,
+      state,
+      isAuthEnabled: true,
+      getRoute: () => ({ path: '/' }),
+    })
+
+    engine.attachConvexClient(client as never)
+
+    await expect(engine.awaitAuthReady()).resolves.toBe(true)
+  })
+
+  it('resolves auth readiness after Convex confirms the token', async () => {
+    const token = makeJwt({
+      sub: 'user_ready',
+      name: 'Ada',
+      email: 'ada@example.com',
+    })
+    const state = createState()
+    state.token.value = token
+    state.user.value = {
+      id: 'user_ready',
+      name: 'Ada',
+      email: 'ada@example.com',
+    }
+    const authClient = {
+      signOut: vi.fn(),
+      convex: { token: vi.fn(async () => ({ data: { token } })) },
+    } as unknown as AuthClientWithConvex
+    const { client } = createClient()
+    let onAuthChange: ((isAuthenticated: boolean) => void) | undefined
+    client.setAuth.mockImplementation((_fetchToken, onChange) => {
+      onAuthChange = onChange
+    })
+    const engine = createConvexAuthEngine({
+      nuxtApp: createNuxtApp(),
+      authClient,
+      state,
+      isAuthEnabled: true,
+      getRoute: () => ({ path: '/dashboard' }),
+    })
+
+    engine.attachConvexClient(client as never)
+    const ready = engine.awaitAuthReady({ timeoutMs: 100 })
+    await Promise.resolve()
+    if (!onAuthChange) throw new Error('setAuth callback was not captured')
+    onAuthChange(true)
+
+    await expect(ready).resolves.toBe(true)
+    expect(state.pending.value).toBe(false)
+    expect(state.authError.value).toBeNull()
+  })
+
+  it('rejects refresh when Convex rejects the token', async () => {
+    const token = makeJwt({
+      sub: 'user_rejected',
+      name: 'Ada',
+      email: 'ada@example.com',
+    })
+    const state = createState()
+    state.token.value = token
+    state.user.value = {
+      id: 'user_rejected',
+      name: 'Ada',
+      email: 'ada@example.com',
+    }
+    const authClient = {
+      signOut: vi.fn(),
+      convex: { token: vi.fn(async () => ({ data: { token } })) },
+    } as unknown as AuthClientWithConvex
+    const nuxtApp = createNuxtApp()
+    const { client } = createClient()
+    client.setAuth.mockImplementation((_fetchToken, onChange) => {
+      onChange(false)
+    })
+    const engine = createConvexAuthEngine({
+      nuxtApp,
+      authClient,
+      state,
+      isAuthEnabled: true,
+      getRoute: () => ({ path: '/dashboard' }),
+    })
+
+    engine.attachConvexClient(client as never)
+
+    await expect(engine.refreshAuth()).rejects.toThrow(
+      'Convex authentication token was rejected by the server',
+    )
+    await expect(engine.awaitAuthReady()).resolves.toBe(false)
   })
 
   it('replaces the user when a refreshed token belongs to a different account', async () => {

@@ -5,6 +5,16 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useConvexAction (Nuxt runtime)', () => {
   it('can be created during SSR setup without a Convex client and fails when called', async () => {
     const action = mockFnRef<'action'>('testing:ssr-safe-action')
@@ -41,6 +51,52 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.pending.value).toBe(false)
     expect(result.error.value).toBeNull()
     expect(result.data.value).toEqual({ ok: true, args: { message: 'hi' } })
+  })
+
+  it('waits for Convex auth confirmation before sending actions', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:auth-ready-action')
+    const authReady = deferred<boolean>()
+    convex.setActionHandler('testing:auth-ready-action', async (args) => args)
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+      authEngine: {
+        awaitAuthReady: () => authReady.promise,
+      },
+    })
+
+    const promise = result({ value: 'delayed' } as never)
+    await Promise.resolve()
+    expect(convex.calls.action).toHaveLength(0)
+
+    authReady.resolve(true)
+
+    await expect(promise).resolves.toEqual({ value: 'delayed' })
+    expect(convex.calls.action).toHaveLength(1)
+  })
+
+  it('refreshes Convex auth once when auth readiness is stale', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:auth-refresh-action')
+    convex.setActionHandler('testing:auth-refresh-action', async (args) => args)
+
+    const awaitAuthReady = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const refreshAuth = vi.fn(async () => {})
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+      authEngine: {
+        awaitAuthReady,
+        refreshAuth,
+      },
+    })
+
+    await expect(result({ value: 'after-refresh' } as never)).resolves.toEqual({
+      value: 'after-refresh',
+    })
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+    expect(awaitAuthReady).toHaveBeenCalledTimes(2)
+    expect(convex.calls.action).toHaveLength(1)
   })
 
   it('calls argless actions with empty args', async () => {
