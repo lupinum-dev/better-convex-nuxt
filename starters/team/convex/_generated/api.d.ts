@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as experiments from "../experiments.js";
 import type * as http from "../http.js";
 import type * as invitations from "../invitations.js";
 import type * as memberships from "../memberships.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   audit: typeof audit;
   auth: typeof auth;
+  experiments: typeof experiments;
   http: typeof http;
   invitations: typeof invitations;
   memberships: typeof memberships;
