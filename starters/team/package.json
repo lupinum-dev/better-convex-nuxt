@@ -12,7 +12,6 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "..": "link:../../../..",
     "@convex-dev/better-auth": "^0.12.4",
     "better-auth": "^1.6.20",
     "better-convex-nuxt": "^0.4.0",
