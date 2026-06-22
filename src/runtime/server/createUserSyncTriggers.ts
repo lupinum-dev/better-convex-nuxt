@@ -7,10 +7,10 @@ export interface BetterAuthUserDocLike {
 }
 
 type UserSyncDb<TExistingUser extends { _id: unknown }> = {
-  insert: (table: string, value: Record<string, unknown>) => Promise<unknown>
-  query: (table: string) => ConvexQueryChain<TExistingUser>
-  patch: (id: TExistingUser['_id'], value: Record<string, unknown>) => Promise<unknown>
-  delete: (id: TExistingUser['_id']) => Promise<unknown>
+  insert(table: string, value: Record<string, unknown>): Promise<unknown>
+  query(table: string): unknown
+  patch(id: TExistingUser['_id'], value: Record<string, unknown>): Promise<unknown>
+  delete(id: TExistingUser['_id']): Promise<unknown>
 }
 
 type UserSyncCtx<TExistingUser extends { _id: unknown }> = {
@@ -75,10 +75,14 @@ export interface CreateUserSyncTriggersOptions<
 }
 
 type ConvexQueryChain<TExistingUser> = {
-  withIndex: (
+  withIndex(
     indexName: string,
-    cb: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
-  ) => { first: () => Promise<TExistingUser | null> }
+    cb: (q: UserSyncIndexRangeBuilder) => unknown,
+  ): { first: () => Promise<TExistingUser | null> }
+}
+
+type UserSyncIndexRangeBuilder = {
+  eq(field: string, value: unknown): unknown
 }
 
 export interface UserSyncRebuildResult {
@@ -99,9 +103,10 @@ async function findExistingByAuthId<
   authUserId: string,
 ): Promise<TExistingUser | null> {
   const authIdField = options.authIdField ?? 'authId'
-  return await ctx.db
-    .query(options.table)
-    .withIndex(options.index, (q) => q.eq(authIdField, authUserId))
+  const query = ctx.db.query(options.table) as ConvexQueryChain<TExistingUser>
+
+  return await query
+    .withIndex(options.index, (q: UserSyncIndexRangeBuilder) => q.eq(authIdField, authUserId))
     .first()
 }
 

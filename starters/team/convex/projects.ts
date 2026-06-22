@@ -6,7 +6,7 @@ import { writeAuditEvent } from './audit'
 
 export const list = query({
   args: {
-    organizationId: v.id('organizations')
+    organizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgAccess(ctx, args.organizationId)
@@ -14,14 +14,14 @@ export const list = query({
       .query('projects')
       .withIndex('by_org', (q) => q.eq('organizationId', args.organizationId))
       .order('desc')
-      .collect()
-  }
+      .take(100)
+  },
 })
 
 export const create = mutation({
   args: {
     organizationId: v.id('organizations'),
-    name: v.string()
+    name: v.string(),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim()
@@ -34,7 +34,7 @@ export const create = mutation({
       organizationId: args.organizationId,
       name,
       createdBy: user._id,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
 
     await writeAuditEvent(ctx, {
@@ -42,10 +42,9 @@ export const create = mutation({
       actorUserId: user._id,
       action: 'projects.create',
       resourceType: 'project',
-      resourceId: projectId
+      resourceId: projectId,
     })
 
     return projectId
-  }
+  },
 })
-

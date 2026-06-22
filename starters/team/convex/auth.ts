@@ -1,56 +1,51 @@
 import { createClient, type AuthFunctions, type GenericCtx } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
+import {
+  createUserSyncTriggers,
+  type BetterAuthUserDocLike,
+} from 'better-convex-nuxt/server/createUserSyncTriggers'
 
 import { components, internal } from './_generated/api'
-import type { DataModel } from './_generated/dataModel'
+import type { DataModel, Doc } from './_generated/dataModel'
 import authConfig from './auth.config'
 
 const authFunctions: AuthFunctions = internal.auth
 const localTrustedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000']
 
+function userProjectionFields(user: BetterAuthUserDocLike) {
+  const fields: { name?: string; email?: string } = {}
+  if (typeof user.name === 'string') fields.name = user.name
+  if (typeof user.email === 'string') fields.email = user.email
+  return fields
+}
+
+const userProjection = createUserSyncTriggers<BetterAuthUserDocLike, Doc<'users'>>({
+  table: 'users',
+  index: 'by_auth_user_id',
+  authIdField: 'authUserId',
+  createDoc: ({ user, now }) => ({
+    authUserId: user._id,
+    ...userProjectionFields(user),
+    createdAt: now,
+    updatedAt: now,
+  }),
+  patchDoc: ({ user, now }) => ({
+    ...userProjectionFields(user),
+    updatedAt: now,
+  }),
+  rebuildDoc: ({ user, now }) => ({
+    ...userProjectionFields(user),
+    updatedAt: now,
+  }),
+})
+
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
   triggers: {
     user: {
-      onCreate: async (ctx, doc) => {
-        const existing = await ctx.db
-          .query('users')
-          .withIndex('by_subject', (q) => q.eq('subject', doc._id))
-          .unique()
-        const now = Date.now()
-
-        if (existing) {
-          await ctx.db.patch(existing._id, {
-            name: doc.name,
-            email: doc.email,
-            updatedAt: now,
-          })
-          return
-        }
-
-        await ctx.db.insert('users', {
-          subject: doc._id,
-          name: doc.name,
-          email: doc.email,
-          createdAt: now,
-          updatedAt: now,
-        })
-      },
-      onUpdate: async (ctx, doc) => {
-        const existing = await ctx.db
-          .query('users')
-          .withIndex('by_subject', (q) => q.eq('subject', doc._id))
-          .unique()
-
-        if (!existing) return
-
-        await ctx.db.patch(existing._id, {
-          name: doc.name,
-          email: doc.email,
-          updatedAt: Date.now(),
-        })
-      },
+      onCreate: userProjection.user.onCreate,
+      onUpdate: userProjection.user.onUpdate,
     },
   },
 })

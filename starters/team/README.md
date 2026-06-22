@@ -6,8 +6,9 @@ role checks, projects, and audit events.
 ## Organization Ownership
 
 This starter intentionally uses app-owned Convex `organizations`, `memberships`,
-and `invitations` tables. It does not enable the Better Auth Organization
-plugin.
+and `invitations` tables. Better Auth remains the canonical auth source, and
+the app `users` table is a derived projection keyed by the Better Auth user id.
+It does not enable the Better Auth Organization plugin.
 
 Choose this starter when product-specific membership and role rules are the
 main domain model. If you enable Better Auth Organization, remove these
@@ -16,11 +17,11 @@ source for memberships, invitations, and organization roles.
 
 ## Includes
 
-- users keyed by auth subject;
+- users projected from Better Auth users;
 - organizations;
-- active/suspended/removed memberships;
+- active/removed memberships;
 - owner/admin/member/viewer roles;
-- invitation acceptance;
+- invitation creation, revocation, expiry, and acceptance;
 - project mutations protected by `requireOrgAccess`;
 - audit events for product writes.
 

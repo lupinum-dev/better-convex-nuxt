@@ -41,6 +41,9 @@
       ],
       "server": [
         "./dist/runtime/server/index.d.ts"
+      ],
+      "server/createUserSyncTriggers": [
+        "./dist/runtime/server/createUserSyncTriggers.d.ts"
       ]
     }
   },
@@ -56,6 +59,10 @@
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
+    },
+    "./server/createUserSyncTriggers": {
+      "types": "./dist/runtime/server/createUserSyncTriggers.d.ts",
+      "import": "./dist/runtime/server/createUserSyncTriggers.js"
     }
   },
   "scripts": {

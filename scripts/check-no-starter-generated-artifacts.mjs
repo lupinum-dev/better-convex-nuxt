@@ -4,6 +4,7 @@ import { join } from 'node:path'
 const repoRoot = new URL('..', import.meta.url).pathname
 const startersDir = join(repoRoot, 'starters')
 const generatedNames = ['.nuxt', '.output', 'node_modules', 'dist']
+const forbiddenPayloadNames = ['.agents', '.claude', '.env.local', 'CLAUDE.md', 'skills-lock.json']
 
 const offenders = []
 
@@ -16,6 +17,13 @@ for (const entry of readdirSync(startersDir, { withFileTypes: true })) {
       offenders.push(`starters/${entry.name}/${generatedName}`)
     }
   }
+
+  for (const forbiddenName of forbiddenPayloadNames) {
+    const forbiddenPath = join(startersDir, entry.name, forbiddenName)
+    if (existsSync(forbiddenPath)) {
+      offenders.push(`starters/${entry.name}/${forbiddenName}`)
+    }
+  }
 }
 
 if (offenders.length > 0) {
@@ -25,7 +33,10 @@ if (offenders.length > 0) {
   }
   console.error('\nRemove them with:')
   console.error(
-    'find starters -maxdepth 2 \\( -name .nuxt -o -name .output -o -name node_modules -o -name dist \\) -type d -prune -exec rm -rf {} +',
+    'find starters -maxdepth 2 \\( -name .nuxt -o -name .output -o -name node_modules -o -name dist -o -name .agents -o -name .claude \\) -type d -prune -exec rm -rf {} +',
+  )
+  console.error(
+    'find starters -maxdepth 2 \\( -name .env.local -o -name CLAUDE.md -o -name skills-lock.json \\) -type f -delete',
   )
   process.exit(1)
 }

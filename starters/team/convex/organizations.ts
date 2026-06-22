@@ -1,13 +1,13 @@
 import { ConvexError, v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
-import { writeAuditEvent } from './audit'
 import { requireOrgAccess } from './access'
-import { ensureCurrentUser, getCurrentUserOrNull } from './users'
+import { writeAuditEvent } from './audit'
+import { getCurrentUserOrNull, requireCurrentUser } from './users'
 
 export const create = mutation({
   args: {
-    name: v.string()
+    name: v.string(),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim()
@@ -15,12 +15,12 @@ export const create = mutation({
       throw new ConvexError('Organization name is required')
     }
 
-    const user = await ensureCurrentUser(ctx)
+    const user = await requireCurrentUser(ctx)
     const now = Date.now()
     const organizationId = await ctx.db.insert('organizations', {
       name,
       createdBy: user._id,
-      createdAt: now
+      createdAt: now,
     })
 
     await ctx.db.insert('memberships', {
@@ -29,7 +29,7 @@ export const create = mutation({
       role: 'owner',
       status: 'active',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
 
     await writeAuditEvent(ctx, {
@@ -37,11 +37,11 @@ export const create = mutation({
       actorUserId: user._id,
       action: 'organizations.create',
       resourceType: 'organization',
-      resourceId: organizationId
+      resourceId: organizationId,
     })
 
     return organizationId
-  }
+  },
 })
 
 export const listMine = query({
@@ -54,12 +54,11 @@ export const listMine = query({
 
     const memberships = await ctx.db
       .query('memberships')
-      .withIndex('by_user', (q) => q.eq('userId', user._id))
-      .collect()
+      .withIndex('by_user_status', (q) => q.eq('userId', user._id).eq('status', 'active'))
+      .take(100)
 
     const rows = []
     for (const membership of memberships) {
-      if (membership.status !== 'active') continue
       const organization = await ctx.db.get(membership.organizationId)
       if (organization) {
         rows.push({ ...organization, role: membership.role })
@@ -67,15 +66,15 @@ export const listMine = query({
     }
 
     return rows
-  }
+  },
 })
 
 export const get = query({
   args: {
-    organizationId: v.id('organizations')
+    organizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrgAccess(ctx, args.organizationId)
     return await ctx.db.get(args.organizationId)
-  }
+  },
 })
