@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import type { Id } from '~~/convex/_generated/dataModel'
+
 import { api } from '#convex/api'
+
+const props = defineProps<{
+  organizationId: Id<'organizations'>
+}>()
 
 const name = ref('')
 const error = ref<string | null>(null)
-const createOrganization = useConvexMutation(api.organizations.create)
-const pending = createOrganization.pending
+const createProject = useConvexMutation(api.projects.create)
+const pending = createProject.pending
 
 async function submit() {
   const trimmedName = name.value.trim()
@@ -12,10 +18,10 @@ async function submit() {
 
   error.value = null
   try {
-    await createOrganization({ name: trimmedName })
+    await createProject({ organizationId: props.organizationId, name: trimmedName })
     name.value = ''
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Organization was not created'
+    error.value = e instanceof Error ? e.message : 'Project was not created'
   }
 }
 </script>
@@ -25,7 +31,7 @@ async function submit() {
     v-model:name="name"
     :error="error"
     :pending="pending"
-    placeholder="Organization name"
+    placeholder="Project name"
     @submit="submit"
   />
 </template>

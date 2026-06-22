@@ -17,6 +17,7 @@ button {
   background: #18181b;
   color: white;
   font: inherit;
+  cursor: pointer;
 }
 
 button:disabled {
@@ -37,6 +38,13 @@ button:disabled {
 
 .header h1 {
   margin: 0 0 24px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: #475569;
+  text-decoration: none;
 }
 
 .empty,
@@ -82,6 +90,7 @@ button:disabled {
 
 .list a {
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   text-decoration: none;
 }

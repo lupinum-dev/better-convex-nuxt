@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { api } from '#convex/api'
 
-const { user, signOut } = useConvexAuth()
+const currentUser = useConvexUser(api.users.getCurrent, {}, { source: 'projection' })
+const { signOut } = useConvexAuth()
 const { data: organizations } = await useConvexQuery(api.organizations.listMine, {})
 </script>
 
 <template>
-  <section v-if="user" class="user">
-    <span>{{ user.email || user.name || 'Signed in' }}</span>
+  <section v-if="currentUser.data.value" class="user">
+    <span>
+      {{ currentUser.data.value.email || currentUser.data.value.name || 'Signed in' }}
+    </span>
     <button type="button" @click="signOut()">Sign out</button>
   </section>
 
   <OrganizationCreateForm />
 
-  <nav class="list">
+  <nav v-if="organizations?.length" class="list">
     <NuxtLink v-for="org in organizations ?? []" :key="org._id" :to="`/organizations/${org._id}`">
       <strong>{{ org.name }}</strong>
       <span>{{ org.role }}</span>
     </NuxtLink>
   </nav>
+
+  <section v-else class="empty">No organizations yet.</section>
 </template>

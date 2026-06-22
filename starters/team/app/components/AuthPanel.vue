@@ -1,6 +1,5 @@
 <script setup lang="ts">
 const { message } = defineProps<{
-  checking?: boolean
   message: string
 }>()
 
@@ -76,9 +75,7 @@ async function submitAuth() {
     <strong>Signed out</strong>
     <span>{{ message }}</span>
 
-    <p v-if="checking" class="auth-status">Checking session...</p>
-
-    <div v-else class="mode-toggle" aria-label="Authentication mode">
+    <div class="mode-toggle" aria-label="Authentication mode">
       <button type="button" :class="{ active: mode === 'signUp' }" @click="mode = 'signUp'">
         Sign up
       </button>
@@ -87,7 +84,7 @@ async function submitAuth() {
       </button>
     </div>
 
-    <form v-if="!checking" class="auth-form" @submit.prevent="submitAuth">
+    <form class="auth-form" @submit.prevent="submitAuth">
       <label v-if="mode === 'signUp'">
         Name
         <input v-model="name" autocomplete="name" placeholder="Your name" required />
@@ -203,13 +200,8 @@ async function submitAuth() {
   opacity: 0.55;
 }
 
-.auth-status,
 .auth-error {
   margin: 0;
-}
-
-.auth-status {
-  color: #475569;
 }
 
 .auth-error {
