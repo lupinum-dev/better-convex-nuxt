@@ -48,6 +48,10 @@ async function submitAuth() {
         error.value = signUpError.message || 'Sign up failed'
         return
       }
+
+      password.value = ''
+      await refreshAuth()
+      return
     }
 
     const result = await signIn.email({

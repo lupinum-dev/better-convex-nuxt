@@ -7,11 +7,9 @@ import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
+import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
-
-const SESSION_COOKIE_NAME = 'better-auth.session_token='
-const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token='
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 
@@ -27,26 +25,6 @@ export interface ServerConvexOptions {
    * Explicit auth token override. When provided, skips auto resolution.
    */
   authToken?: string
-}
-
-function hasSessionCookie(cookieHeader: string): boolean {
-  return (
-    cookieHeader.includes(SESSION_COOKIE_NAME) || cookieHeader.includes(SECURE_SESSION_COOKIE_NAME)
-  )
-}
-
-function extractSessionToken(cookieHeader: string): string | null {
-  const segments = cookieHeader.split(';')
-  for (const segment of segments) {
-    const trimmed = segment.trim()
-    if (trimmed.startsWith(SESSION_COOKIE_NAME)) {
-      return trimmed.slice(SESSION_COOKIE_NAME.length)
-    }
-    if (trimmed.startsWith(SECURE_SESSION_COOKIE_NAME)) {
-      return trimmed.slice(SECURE_SESSION_COOKIE_NAME.length)
-    }
-  }
-  return null
 }
 
 function getCookieHeader(event: H3Event): string {
@@ -78,9 +56,10 @@ async function resolveAuthToken(
 
   const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
   const cookieHeader = getCookieHeader(event)
-  const sessionToken = extractSessionToken(cookieHeader)
+  const sessionToken = getBetterAuthSessionToken(cookieHeader)
+  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
 
-  if (!cookieHeader || !hasSessionCookie(cookieHeader)) {
+  if (!authCookieHeader || !sessionToken) {
     if (policy === 'required') {
       throw new Error(
         '[serverConvex] Authentication required but no Better Auth session cookie was found',
@@ -106,7 +85,7 @@ async function resolveAuthToken(
 
     const response = (await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
       headers: {
-        Cookie: cookieHeader,
+        Cookie: authCookieHeader,
       },
     })) as { token?: string } | null
 

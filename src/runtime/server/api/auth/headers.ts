@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3'
 
+import { filterBetterAuthCookies } from '../../../utils/shared-helpers'
+
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -11,20 +13,6 @@ const HOP_BY_HOP_HEADERS = new Set([
   'upgrade',
   'host',
 ])
-
-function filterBetterAuthCookies(cookieHeader: string | null): string | null {
-  if (!cookieHeader) return null
-
-  const authCookies = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .filter((part) => {
-      const name = part.split('=', 1)[0]?.trim()
-      return name ? name.toLowerCase().includes('better-auth') : false
-    })
-
-  return authCookies.length > 0 ? authCookies.join('; ') : null
-}
 
 function stripHopByHopHeaders(headers: Headers): Headers {
   const result = new Headers()

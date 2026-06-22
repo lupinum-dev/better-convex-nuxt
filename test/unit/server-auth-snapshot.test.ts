@@ -105,7 +105,8 @@ describe('resolveServerAuthSnapshot', () => {
     const snapshot = await resolveServerAuthSnapshot({
       ...baseOptions,
       authCache: { enabled: true, ttl: 45 },
-      cookieHeader: '__Secure-better-auth.session_token=session-2',
+      cookieHeader:
+        'private_app_cookie=secret; __Secure-better-auth.session_token=session-2; better-auth.callback=state',
     })
 
     expect(snapshot.token).toBe('fresh.jwt')
@@ -115,7 +116,9 @@ describe('resolveServerAuthSnapshot', () => {
     expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
       'https://demo.convex.site/api/auth/convex/token',
       expect.objectContaining({
-        headers: { Cookie: '__Secure-better-auth.session_token=session-2' },
+        headers: {
+          Cookie: '__Secure-better-auth.session_token=session-2; better-auth.callback=state',
+        },
       }),
     )
   })
@@ -169,11 +172,18 @@ describe('resolveServerAuthSnapshot', () => {
 
     const snapshot = await resolveServerAuthSnapshot({
       ...baseOptions,
-      cookieHeader: 'better-auth.session_token=session-5',
+      cookieHeader: 'private_app_cookie=secret; better-auth.session_token=session-5',
     })
 
     expect(snapshot.token).toBe('fresh.jwt')
     expect(snapshot.user).toEqual({ id: 'user-session', email: 'session@example.com' })
+    expect(fetchWithTimeoutMock).toHaveBeenNthCalledWith(
+      2,
+      'https://demo.convex.site/api/auth/get-session',
+      expect.objectContaining({
+        headers: { Cookie: 'better-auth.session_token=session-5' },
+      }),
+    )
   })
 
   it('ignores malformed session user fallback payloads', async () => {

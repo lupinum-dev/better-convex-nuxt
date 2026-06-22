@@ -6,12 +6,8 @@ import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import authConfig from './auth.config'
 
-const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
-const isLocalSite = siteUrl.startsWith('http://localhost') || siteUrl.startsWith('http://127.0.0.1')
-const authSecret =
-  process.env.BETTER_AUTH_SECRET ??
-  (isLocalSite ? 'better-convex-nuxt-team-dev-secret' : undefined)
 const authFunctions: AuthFunctions = internal.auth
+const localTrustedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000']
 
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
@@ -28,7 +24,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           await ctx.db.patch(existing._id, {
             name: doc.name,
             email: doc.email,
-            updatedAt: now
+            updatedAt: now,
           })
           return
         }
@@ -38,7 +34,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           name: doc.name,
           email: doc.email,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         })
       },
       onUpdate: async (ctx, doc) => {
@@ -52,24 +48,33 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         await ctx.db.patch(existing._id, {
           name: doc.name,
           email: doc.email,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         })
-      }
-    }
-  }
+      },
+    },
+  },
 })
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  if (!authSecret) {
-    throw new Error('BETTER_AUTH_SECRET is required outside local development')
+  const siteUrl = process.env.SITE_URL
+  const authSecret = process.env.BETTER_AUTH_SECRET
+
+  if (!siteUrl) {
+    throw new Error('SITE_URL is required')
   }
+  if (!authSecret) {
+    throw new Error('BETTER_AUTH_SECRET is required')
+  }
+
+  const isLocalSite =
+    siteUrl.startsWith('http://localhost') || siteUrl.startsWith('http://127.0.0.1')
 
   return betterAuth({
     baseURL: siteUrl,
     secret: authSecret,
     database: authComponent.adapter(ctx),
     emailAndPassword: {
-      enabled: true
+      enabled: true,
     },
     plugins: [
       convex({
@@ -79,20 +84,18 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
             name: user.name,
             email: user.email,
             emailVerified: user.emailVerified,
-            image: user.image ?? undefined
-          })
-        }
-      })
+            image: user.image ?? undefined,
+          }),
+        },
+      }),
     ],
     session: {
       expiresIn: 60 * 60 * 24 * 7,
-      updateAge: 60 * 60 * 24
+      updateAge: 60 * 60 * 24,
     },
-    trustedOrigins: [
-      siteUrl,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000'
-    ]
+    trustedOrigins: isLocalSite
+      ? Array.from(new Set([siteUrl, ...localTrustedOrigins]))
+      : [siteUrl],
   })
 }
 

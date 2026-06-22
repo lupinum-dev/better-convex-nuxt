@@ -41,3 +41,12 @@ pnpm dev
 pnpm test
 pnpm typecheck
 ```
+
+## Auth Environment
+
+Set these in Convex before using auth routes:
+
+```bash
+npx convex env set SITE_URL http://localhost:3000
+npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+```

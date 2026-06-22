@@ -1,3 +1,5 @@
+import { filterBetterAuthCookies, getBetterAuthSessionToken } from './shared-helpers'
+
 // Re-export shared utilities
 export {
   parseConvexResponse,
@@ -263,8 +265,10 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
     return undefined
   }
 
-  // Check if we have session cookie
-  if (!cookieHeader.includes('better-auth.session_token')) {
+  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
+  const sessionToken = getBetterAuthSessionToken(cookieHeader)
+
+  if (!authCookieHeader || !sessionToken) {
     return undefined
   }
 
@@ -280,7 +284,7 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
 
   try {
     const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: cookieHeader },
+      headers: { Cookie: authCookieHeader },
     })) as { token?: string }
     if (response?.token) {
       cachedToken.value = response.token

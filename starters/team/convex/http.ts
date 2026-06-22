@@ -4,6 +4,6 @@ import { authComponent, createAuth } from './auth'
 
 const http = httpRouter()
 
-authComponent.registerRoutes(http, createAuth)
+authComponent.registerRoutesLazy(http, createAuth)
 
 export default http

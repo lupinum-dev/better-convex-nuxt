@@ -1,15 +1,10 @@
 import type { AuthWaterfall, AuthWaterfallPhase } from '../../devtools/types'
 import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
 import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
-import { getCookie } from '../../utils/shared-helpers'
+import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 import { fetchWithTimeout } from './http'
-
-/** Session cookie name used by Better Auth */
-const SESSION_COOKIE_NAME = 'better-auth.session_token'
-/** Secure cookie name used by Better Auth on HTTPS */
-const SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 
@@ -105,9 +100,8 @@ export async function resolveServerAuthSnapshot(
       : null
 
   const sessionCheckStart = trackWaterfall ? Date.now() : 0
-  const sessionToken =
-    getCookie(cookieHeader, SECURE_SESSION_COOKIE_NAME) ||
-    getCookie(cookieHeader, SESSION_COOKIE_NAME)
+  const sessionToken = getBetterAuthSessionToken(cookieHeader)
+  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
 
   logEvents.push({
     phase: 'server-init',
@@ -119,7 +113,7 @@ export async function resolveServerAuthSnapshot(
     },
   })
 
-  if (!cookieHeader || !sessionToken) {
+  if (!authCookieHeader || !sessionToken) {
     if (trackWaterfall) {
       phases.push(
         buildPhase('session-check', sessionCheckStart, waterfallStart, 'miss', 'No session cookie'),
@@ -157,7 +151,7 @@ export async function resolveServerAuthSnapshot(
         const decodeStart = trackWaterfall ? Date.now() : 0
         user = decodeUserFromJwt(token)
         if (!user) {
-          user = await fetchSessionUser(siteUrl, cookieHeader)
+          user = await fetchSessionUser(siteUrl, authCookieHeader)
         }
         if (trackWaterfall) {
           phases.push(
@@ -203,7 +197,7 @@ export async function resolveServerAuthSnapshot(
 
     try {
       const response = await fetchWithTimeout(`${siteUrl}/api/auth/convex/token`, {
-        headers: { Cookie: cookieHeader },
+        headers: { Cookie: authCookieHeader },
         timeoutMs: 5_000,
       })
       tokenExchangeStatus = response.status
@@ -233,7 +227,7 @@ export async function resolveServerAuthSnapshot(
       const decodeStart = trackWaterfall ? Date.now() : 0
       user = decodeUserFromJwt(token)
       if (!user) {
-        user = await fetchSessionUser(siteUrl, cookieHeader)
+        user = await fetchSessionUser(siteUrl, authCookieHeader)
         if (trackWaterfall) {
           phases.push(
             buildPhase(
