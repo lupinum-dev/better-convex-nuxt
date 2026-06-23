@@ -1,17 +1,5 @@
-import { apiKeyClient } from '@better-auth/api-key/client'
-import { passkeyClient } from '@better-auth/passkey/client'
-import { scimClient } from '@better-auth/scim/client'
-import {
-  adminClient,
-  emailOTPClient,
-  inferAdditionalFields,
-  magicLinkClient,
-  organizationClient,
-  twoFactorClient,
-} from 'better-auth/client/plugins'
+import { organizationClient } from 'better-auth/client/plugins'
 import type { Ref } from 'vue'
-
-import type { AppAuth } from '../../convex/auth'
 
 let teamAuthClient: ReturnType<typeof createTeamAuthClient> | undefined
 
@@ -49,40 +37,11 @@ function createTeamAuthClient(baseURL?: string) {
   return createBetterConvexAuthClient({
     baseURL,
     plugins: [
-      inferAdditionalFields<AppAuth>(),
       organizationClient({
-        dynamicAccessControl: {
-          enabled: true,
-        },
         teams: {
           enabled: true,
         },
-        schema: {
-          member: {
-            additionalFields: {
-              title: {
-                type: 'string',
-                required: false,
-              },
-              department: {
-                type: 'string',
-                required: false,
-              },
-              billable: {
-                type: 'boolean',
-                required: false,
-              },
-            },
-          },
-        },
       }),
-      adminClient(),
-      apiKeyClient(),
-      scimClient(),
-      passkeyClient(),
-      twoFactorClient(),
-      emailOTPClient(),
-      magicLinkClient(),
     ] as const,
   })
 }

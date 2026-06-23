@@ -8,16 +8,15 @@
  * @module
  */
 
-import type * as apiKeyExperiments from "../apiKeyExperiments.js";
+import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
-import type * as billingPlans from "../billingPlans.js";
-import type * as experiments from "../experiments.js";
 import type * as http from "../http.js";
-import type * as memberProfileExperiments from "../memberProfileExperiments.js";
-import type * as oauthTokenExperiments from "../oauthTokenExperiments.js";
-import type * as productAuthExperiments from "../productAuthExperiments.js";
+import type * as lib_audit from "../lib/audit.js";
+import type * as lib_authz from "../lib/authz.js";
+import type * as lib_betterAuthRows from "../lib/betterAuthRows.js";
+import type * as organizationAccess from "../organizationAccess.js";
 import type * as projects from "../projects.js";
-import type * as stripeEntitlementExperiments from "../stripeEntitlementExperiments.js";
+import type * as teamAccess from "../teamAccess.js";
 import type * as users from "../users.js";
 
 import type {
@@ -27,16 +26,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  apiKeyExperiments: typeof apiKeyExperiments;
+  audit: typeof audit;
   auth: typeof auth;
-  billingPlans: typeof billingPlans;
-  experiments: typeof experiments;
   http: typeof http;
-  memberProfileExperiments: typeof memberProfileExperiments;
-  oauthTokenExperiments: typeof oauthTokenExperiments;
-  productAuthExperiments: typeof productAuthExperiments;
+  "lib/audit": typeof lib_audit;
+  "lib/authz": typeof lib_authz;
+  "lib/betterAuthRows": typeof lib_betterAuthRows;
+  organizationAccess: typeof organizationAccess;
   projects: typeof projects;
-  stripeEntitlementExperiments: typeof stripeEntitlementExperiments;
+  teamAccess: typeof teamAccess;
   users: typeof users;
 }>;
 

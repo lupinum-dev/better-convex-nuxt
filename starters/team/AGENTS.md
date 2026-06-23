@@ -1,8 +1,9 @@
 # Team Starter Guardrails
 
-- Convex owns membership and authorization invariants.
+- Better Auth owns membership, organization, team, invitation, session, and role state.
+- Convex owns product state and product authorization invariants.
 - Nuxt may display roles, but display state is never authorization.
-- Keep role policy in `convex/access.ts`.
+- Keep product authorization policy in `convex/lib/authz.ts`.
 - Keep product behavior in product modules such as `convex/projects.ts`.
 - Do not add agency delegation here; use the `agency` starter.
 - Do not add MCP or agent surfaces here; use the `mcp-agent` starter.

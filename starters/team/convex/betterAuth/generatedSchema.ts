@@ -9,8 +9,8 @@
  * https://labs.convex.dev/better-auth/features/local-install#adding-custom-indexes.
  */
 
-import { defineSchema, defineTable } from "convex/server";
-import { v } from "convex/values";
+import { defineSchema, defineTable } from 'convex/server'
+import { v } from 'convex/values'
 
 export const tables = {
   user: defineTable({
@@ -20,20 +20,11 @@ export const tables = {
     image: v.optional(v.union(v.null(), v.string())),
     createdAt: v.number(),
     updatedAt: v.number(),
-    role: v.optional(v.union(v.null(), v.string())),
-    banned: v.optional(v.union(v.null(), v.boolean())),
-    banReason: v.optional(v.union(v.null(), v.string())),
-    banExpires: v.optional(v.union(v.null(), v.number())),
-    twoFactorEnabled: v.optional(v.union(v.null(), v.boolean())),
-    stripeCustomerId: v.optional(v.union(v.null(), v.string())),
     userId: v.optional(v.union(v.null(), v.string())),
-    locale: v.optional(v.union(v.null(), v.string())),
-    timezone: v.optional(v.union(v.null(), v.string())),
-    marketingOptIn: v.optional(v.union(v.null(), v.boolean())),
   })
-    .index("email_name", ["email","name"])
-    .index("name", ["name"])
-    .index("userId", ["userId"]),
+    .index('email_name', ['email', 'name'])
+    .index('name', ['name'])
+    .index('userId', ['userId']),
   session: defineTable({
     expiresAt: v.number(),
     token: v.string(),
@@ -42,14 +33,13 @@ export const tables = {
     ipAddress: v.optional(v.union(v.null(), v.string())),
     userAgent: v.optional(v.union(v.null(), v.string())),
     userId: v.string(),
-    impersonatedBy: v.optional(v.union(v.null(), v.string())),
     activeOrganizationId: v.optional(v.union(v.null(), v.string())),
     activeTeamId: v.optional(v.union(v.null(), v.string())),
   })
-    .index("expiresAt", ["expiresAt"])
-    .index("expiresAt_userId", ["expiresAt","userId"])
-    .index("token", ["token"])
-    .index("userId", ["userId"]),
+    .index('expiresAt', ['expiresAt'])
+    .index('expiresAt_userId', ['expiresAt', 'userId'])
+    .index('token', ['token'])
+    .index('userId', ['userId']),
   account: defineTable({
     accountId: v.string(),
     providerId: v.string(),
@@ -64,10 +54,10 @@ export const tables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("accountId", ["accountId"])
-    .index("accountId_providerId", ["accountId","providerId"])
-    .index("providerId_userId", ["providerId","userId"])
-    .index("userId", ["userId"]),
+    .index('accountId', ['accountId'])
+    .index('accountId_providerId', ['accountId', 'providerId'])
+    .index('providerId_userId', ['providerId', 'userId'])
+    .index('userId', ['userId']),
   verification: defineTable({
     identifier: v.string(),
     value: v.string(),
@@ -75,75 +65,39 @@ export const tables = {
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("expiresAt", ["expiresAt"])
-    .index("identifier", ["identifier"]),
-  twoFactor: defineTable({
-    secret: v.string(),
-    backupCodes: v.string(),
-    userId: v.string(),
-    verified: v.optional(v.union(v.null(), v.boolean())),
-  })
-    .index("userId", ["userId"]),
-  passkey: defineTable({
-    name: v.optional(v.union(v.null(), v.string())),
-    publicKey: v.string(),
-    userId: v.string(),
-    credentialID: v.string(),
-    counter: v.number(),
-    deviceType: v.string(),
-    backedUp: v.boolean(),
-    transports: v.optional(v.union(v.null(), v.string())),
-    createdAt: v.optional(v.union(v.null(), v.number())),
-    aaguid: v.optional(v.union(v.null(), v.string())),
-  })
-    .index("userId", ["userId"]),
+    .index('expiresAt', ['expiresAt'])
+    .index('identifier', ['identifier']),
   organization: defineTable({
     name: v.string(),
     slug: v.string(),
     logo: v.optional(v.union(v.null(), v.string())),
     createdAt: v.number(),
     metadata: v.optional(v.union(v.null(), v.string())),
-    plan: v.optional(v.union(v.null(), v.string())),
-    region: v.optional(v.union(v.null(), v.string())),
-    stripeCustomerId: v.optional(v.union(v.null(), v.string())),
   })
-    .index("name", ["name"])
-    .index("slug", ["slug"]),
-  organizationRole: defineTable({
-    organizationId: v.string(),
-    role: v.string(),
-    permission: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.optional(v.union(v.null(), v.number())),
-  })
-    .index("organizationId", ["organizationId"]),
+    .index('name', ['name'])
+    .index('slug', ['slug']),
   team: defineTable({
     name: v.string(),
     organizationId: v.string(),
     createdAt: v.number(),
     updatedAt: v.optional(v.union(v.null(), v.number())),
-    color: v.optional(v.union(v.null(), v.string())),
-  })
-    .index("organizationId", ["organizationId"]),
+  }).index('organizationId', ['organizationId']),
   teamMember: defineTable({
     teamId: v.string(),
     userId: v.string(),
     createdAt: v.optional(v.union(v.null(), v.number())),
   })
-    .index("teamId", ["teamId"])
-    .index("userId", ["userId"]),
+    .index('teamId', ['teamId'])
+    .index('userId', ['userId']),
   member: defineTable({
     organizationId: v.string(),
     userId: v.string(),
     role: v.string(),
     createdAt: v.number(),
-    title: v.optional(v.union(v.null(), v.string())),
-    department: v.optional(v.union(v.null(), v.string())),
-    billable: v.optional(v.union(v.null(), v.boolean())),
   })
-    .index("organizationId", ["organizationId"])
-    .index("userId", ["userId"])
-    .index("role", ["role"]),
+    .index('organizationId', ['organizationId'])
+    .index('userId', ['userId'])
+    .index('role', ['role']),
   invitation: defineTable({
     organizationId: v.string(),
     email: v.string(),
@@ -153,121 +107,21 @@ export const tables = {
     expiresAt: v.number(),
     createdAt: v.number(),
     inviterId: v.string(),
-    note: v.optional(v.union(v.null(), v.string())),
   })
-    .index("organizationId", ["organizationId"])
-    .index("email", ["email"])
-    .index("role", ["role"])
-    .index("teamId", ["teamId"])
-    .index("status", ["status"])
-    .index("inviterId", ["inviterId"]),
-  apikey: defineTable({
-    configId: v.string(),
-    name: v.optional(v.union(v.null(), v.string())),
-    start: v.optional(v.union(v.null(), v.string())),
-    referenceId: v.string(),
-    prefix: v.optional(v.union(v.null(), v.string())),
-    key: v.string(),
-    refillInterval: v.optional(v.union(v.null(), v.number())),
-    refillAmount: v.optional(v.union(v.null(), v.number())),
-    lastRefillAt: v.optional(v.union(v.null(), v.number())),
-    enabled: v.optional(v.union(v.null(), v.boolean())),
-    rateLimitEnabled: v.optional(v.union(v.null(), v.boolean())),
-    rateLimitTimeWindow: v.optional(v.union(v.null(), v.number())),
-    rateLimitMax: v.optional(v.union(v.null(), v.number())),
-    requestCount: v.optional(v.union(v.null(), v.number())),
-    remaining: v.optional(v.union(v.null(), v.number())),
-    lastRequest: v.optional(v.union(v.null(), v.number())),
-    expiresAt: v.optional(v.union(v.null(), v.number())),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    permissions: v.optional(v.union(v.null(), v.string())),
-    metadata: v.optional(v.union(v.null(), v.string())),
-  }),
-  scimProvider: defineTable({
-    providerId: v.string(),
-    scimToken: v.string(),
-    organizationId: v.optional(v.union(v.null(), v.string())),
-  })
-    .index("providerId", ["providerId"])
-    .index("scimToken", ["scimToken"]),
-  subscription: defineTable({
-    plan: v.string(),
-    referenceId: v.string(),
-    stripeCustomerId: v.optional(v.union(v.null(), v.string())),
-    stripeSubscriptionId: v.optional(v.union(v.null(), v.string())),
-    status: v.optional(v.union(v.null(), v.string())),
-    periodStart: v.optional(v.union(v.null(), v.number())),
-    periodEnd: v.optional(v.union(v.null(), v.number())),
-    trialStart: v.optional(v.union(v.null(), v.number())),
-    trialEnd: v.optional(v.union(v.null(), v.number())),
-    cancelAtPeriodEnd: v.optional(v.union(v.null(), v.boolean())),
-    cancelAt: v.optional(v.union(v.null(), v.number())),
-    canceledAt: v.optional(v.union(v.null(), v.number())),
-    endedAt: v.optional(v.union(v.null(), v.number())),
-    seats: v.optional(v.union(v.null(), v.number())),
-    billingInterval: v.optional(v.union(v.null(), v.string())),
-    stripeScheduleId: v.optional(v.union(v.null(), v.string())),
-  }),
-  deviceCode: defineTable({
-    deviceCode: v.string(),
-    userCode: v.string(),
-    userId: v.optional(v.union(v.null(), v.string())),
-    expiresAt: v.number(),
-    status: v.string(),
-    lastPolledAt: v.optional(v.union(v.null(), v.number())),
-    pollingInterval: v.optional(v.union(v.null(), v.number())),
-    clientId: v.optional(v.union(v.null(), v.string())),
-    scope: v.optional(v.union(v.null(), v.string())),
-  }),
-  oauthApplication: defineTable({
-    name: v.optional(v.union(v.null(), v.string())),
-    icon: v.optional(v.union(v.null(), v.string())),
-    metadata: v.optional(v.union(v.null(), v.string())),
-    clientId: v.optional(v.union(v.null(), v.string())),
-    clientSecret: v.optional(v.union(v.null(), v.string())),
-    redirectUrls: v.optional(v.union(v.null(), v.string())),
-    type: v.optional(v.union(v.null(), v.string())),
-    disabled: v.optional(v.union(v.null(), v.boolean())),
-    userId: v.optional(v.union(v.null(), v.string())),
-    createdAt: v.optional(v.union(v.null(), v.number())),
-    updatedAt: v.optional(v.union(v.null(), v.number())),
-  })
-    .index("clientId", ["clientId"])
-    .index("userId", ["userId"]),
-  oauthAccessToken: defineTable({
-    accessToken: v.optional(v.union(v.null(), v.string())),
-    refreshToken: v.optional(v.union(v.null(), v.string())),
-    accessTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
-    refreshTokenExpiresAt: v.optional(v.union(v.null(), v.number())),
-    clientId: v.optional(v.union(v.null(), v.string())),
-    userId: v.optional(v.union(v.null(), v.string())),
-    scopes: v.optional(v.union(v.null(), v.string())),
-    createdAt: v.optional(v.union(v.null(), v.number())),
-    updatedAt: v.optional(v.union(v.null(), v.number())),
-  })
-    .index("accessToken", ["accessToken"])
-    .index("refreshToken", ["refreshToken"])
-    .index("clientId", ["clientId"])
-    .index("userId", ["userId"]),
-  oauthConsent: defineTable({
-    clientId: v.optional(v.union(v.null(), v.string())),
-    userId: v.optional(v.union(v.null(), v.string())),
-    scopes: v.optional(v.union(v.null(), v.string())),
-    createdAt: v.optional(v.union(v.null(), v.number())),
-    updatedAt: v.optional(v.union(v.null(), v.number())),
-    consentGiven: v.optional(v.union(v.null(), v.boolean())),
-  })
-    .index("clientId_userId", ["clientId","userId"])
-    .index("userId", ["userId"]),
+    .index('organizationId', ['organizationId'])
+    .index('email', ['email'])
+    .index('role', ['role'])
+    .index('teamId', ['teamId'])
+    .index('status', ['status'])
+    .index('inviterId', ['inviterId']),
   jwks: defineTable({
     publicKey: v.string(),
     privateKey: v.string(),
     createdAt: v.number(),
     expiresAt: v.optional(v.union(v.null(), v.number())),
   }),
-};
+}
 
-const schema = defineSchema(tables);
+const schema = defineSchema(tables)
 
-export default schema;
+export default schema

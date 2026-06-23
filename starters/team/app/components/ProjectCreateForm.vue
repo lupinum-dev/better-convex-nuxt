@@ -2,7 +2,7 @@
 import { api } from '#convex/api'
 
 const props = defineProps<{
-  organizationId: string
+  teamId: string
 }>()
 
 const name = ref('')
@@ -16,7 +16,7 @@ async function submit() {
 
   error.value = null
   try {
-    await createProject({ organizationId: props.organizationId, name: trimmedName })
+    await createProject({ teamId: props.teamId, name: trimmedName })
     name.value = ''
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Project was not created'
