@@ -1,10 +1,6 @@
 import { ConvexError, v } from 'convex/values'
 
-import {
-  canViewOrganizationActivity,
-  isInviteRole,
-  isOrganizationRole,
-} from '../shared/organizationRoles'
+import { canViewOrganizationActivity, isOrganizationRole } from '../shared/organizationRoles'
 import { mutation, query } from './_generated/server'
 import {
   getAppAuth,
@@ -12,7 +8,7 @@ import {
   requireAuthenticatedSession,
   requireOrgMembership,
 } from './lib/authz'
-import { getBetterAuthMember } from './lib/betterAuthRows'
+import { getBetterAuthMember, listBetterAuthOrganizationMembers } from './lib/betterAuthRows'
 
 function slugify(value: string) {
   const slug = value
@@ -103,7 +99,6 @@ export const getCapabilities = query({
       }),
       hasOrganizationPermissions(auth, headers, args.organizationId, {
         member: ['create', 'update', 'delete'],
-        invitation: ['create'],
       }),
       hasOrganizationPermissions(auth, headers, args.organizationId, {
         team: ['create', 'update'],
@@ -255,47 +250,8 @@ export const listMembers = query({
       throw new ConvexError('Missing member:update permission')
     }
 
-    const result = await auth.api.listMembers({
-      headers,
-      query: {
-        organizationId: args.organizationId,
-        limit: 100,
-      },
-    })
-
-    return result.members.map(memberDto)
-  },
-})
-
-export const inviteMember = mutation({
-  args: {
-    organizationId: v.string(),
-    email: v.string(),
-    role: v.string(),
-    teamId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const email = args.email.trim()
-    if (!email) {
-      throw new ConvexError('Email is required')
-    }
-    if (!isInviteRole(args.role)) {
-      throw new ConvexError('Valid role is required')
-    }
-    if (!args.teamId.trim()) {
-      throw new ConvexError('teamId is required')
-    }
-
-    return await auth.api.createInvitation({
-      headers,
-      body: {
-        organizationId: args.organizationId,
-        email,
-        role: args.role,
-        teamId: args.teamId,
-      },
-    })
+    const members = await listBetterAuthOrganizationMembers(ctx, args.organizationId)
+    return members.map(memberDto)
   },
 })
 

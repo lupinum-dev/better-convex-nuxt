@@ -49,6 +49,7 @@ starter does not mirror those management actions into app tables.
 ## Not Included
 
 - Admin user management.
+- Organization invitations.
 - API keys.
 - Dynamic roles.
 - Passkeys.

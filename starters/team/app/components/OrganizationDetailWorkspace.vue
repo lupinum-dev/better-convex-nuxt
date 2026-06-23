@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
+import type { OrganizationRole } from '~~/shared/organizationRoles'
 
 import { api } from '#convex/api'
 import type { Member, OrganizationSummary, Team } from '~/utils/organizationModels'
@@ -16,7 +16,6 @@ const organizationId = computed(() => props.organization.id)
 const createTeamMutation = useConvexMutation(api.organizations.createTeam)
 const renameOrganizationMutation = useConvexMutation(api.organizations.rename)
 const renameTeamMutation = useConvexMutation(api.teams.rename)
-const inviteMemberMutation = useConvexMutation(api.organizations.inviteMember)
 const changeRoleMutation = useConvexMutation(api.organizations.changeMemberRole)
 const removeMemberMutation = useConvexMutation(api.organizations.removeMember)
 const addTeamMemberMutation = useConvexMutation(api.teams.addMember)
@@ -36,9 +35,9 @@ const {
   data: membersData,
   pending: membersPending,
   error: membersQueryError,
-} = await useConvexQuery(api.organizations.listMembers, () => ({
-  organizationId: organizationId.value,
-}))
+} = await useConvexQuery(api.organizations.listMembers, () =>
+  orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
+)
 
 const selectedTeamId = ref<string | null>(null)
 const teamName = ref('')
@@ -50,10 +49,6 @@ const orgRenamePending = ref(false)
 const orgRenameError = ref<string | null>(null)
 const teamRenamePending = ref(false)
 const teamRenameError = ref<string | null>(null)
-const inviteEmail = ref('')
-const inviteRole = ref<InviteRole>('member')
-const invitePending = ref(false)
-const inviteError = ref<string | null>(null)
 
 const teams = computed(() => teamsData.value ?? [])
 const members = computed(() => membersData.value ?? [])
@@ -152,28 +147,6 @@ async function renameSelectedTeam() {
   }
 }
 
-async function inviteMember() {
-  if (!selectedTeamId.value) return
-  const email = inviteEmail.value.trim()
-  if (!email) return
-
-  invitePending.value = true
-  inviteError.value = null
-  try {
-    await inviteMemberMutation({
-      organizationId: organizationId.value,
-      email,
-      role: inviteRole.value,
-      teamId: selectedTeamId.value,
-    })
-    inviteEmail.value = ''
-  } catch (error) {
-    inviteError.value = errorMessage(error, 'Member was not invited')
-  } finally {
-    invitePending.value = false
-  }
-}
-
 async function changeMemberRole(member: Member, role: OrganizationRole) {
   if (role === member.role) return
 
@@ -248,18 +221,11 @@ function memberLabel(member: Member) {
     :members-pending="membersPending"
     :members-error="membersError"
     :can-manage-members="orgCapabilities?.canManageMembers"
-    :invite-email="inviteEmail"
-    :invite-role="inviteRole"
-    :invite-pending="invitePending"
-    :invite-error="inviteError"
     :member-label="memberLabel"
-    :on-invite="inviteMember"
     :on-change-role="changeMemberRole"
     :on-add-to-team="addMemberToSelectedTeam"
     :on-remove-from-team="removeMemberFromSelectedTeam"
     :on-remove-member="removeMember"
-    @update:invite-email="inviteEmail = $event"
-    @update:invite-role="inviteRole = $event"
   />
 
   <OrganizationAuditSection

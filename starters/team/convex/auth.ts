@@ -67,11 +67,30 @@ const organizationRoleConfig = {
 >
 
 function userProjectionFields(user: BetterAuthUserDocLike) {
-  const fields: { name?: string; email?: string; image?: string } = {}
-  if (typeof user.name === 'string') fields.name = user.name
-  if (typeof user.email === 'string') fields.email = user.email
-  if (typeof user.image === 'string') fields.image = user.image
-  return fields
+  return {
+    name: user.name ?? undefined,
+    email: user.email ?? undefined,
+    image: user.image ?? undefined,
+  }
+}
+
+function userProjectionPatchFields(
+  user: BetterAuthUserDocLike,
+  previousUser: BetterAuthUserDocLike,
+) {
+  const nameChanged = user.name !== previousUser.name
+  const emailChanged = user.email !== previousUser.email
+  const imageChanged = user.image !== previousUser.image
+
+  if (!nameChanged && !emailChanged && !imageChanged) {
+    return null
+  }
+
+  return {
+    ...(nameChanged ? { name: user.name ?? undefined } : {}),
+    ...(emailChanged ? { email: user.email ?? undefined } : {}),
+    ...(imageChanged ? { image: user.image ?? undefined } : {}),
+  }
 }
 
 const userProjection = createUserSyncTriggers<BetterAuthUserDocLike, Doc<'users'>>({
@@ -84,10 +103,17 @@ const userProjection = createUserSyncTriggers<BetterAuthUserDocLike, Doc<'users'
     createdAt: now,
     updatedAt: now,
   }),
-  patchDoc: ({ user, now }) => ({
-    ...userProjectionFields(user),
-    updatedAt: now,
-  }),
+  patchDoc: ({ user, previousUser, now }) => {
+    const fields = userProjectionPatchFields(user, previousUser)
+    if (!fields) {
+      return null
+    }
+
+    return {
+      ...fields,
+      updatedAt: now,
+    }
+  },
   rebuildDoc: ({ user, now }) => ({
     ...userProjectionFields(user),
     updatedAt: now,
@@ -170,4 +196,4 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 
 export type AppAuth = ReturnType<typeof createAuth>
 
-export const { onCreate, onUpdate } = authComponent.triggersApi()
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi()

@@ -759,33 +759,6 @@ describe('team starter invariants', () => {
     )
   })
 
-  it('rejects unsupported invite roles before calling Better Auth', async () => {
-    const t = initConvexTest()
-    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_validation' })
-    const ownerSeed = await seedBetterAuthActor(t, {
-      label: 'owner_invite_validation',
-      organizationId,
-      role: 'owner',
-    })
-    const teamId = await seedBetterAuthTeam(t, {
-      organizationId,
-      teamId: 'team_invite_validation',
-    })
-    const owner = asActor(t, {
-      userId: ownerSeed.authUserId,
-      sessionId: ownerSeed.sessionId,
-    })
-
-    await expect(
-      owner.mutation(api.organizations.inviteMember, {
-        organizationId,
-        email: 'new-owner@example.com',
-        role: 'owner',
-        teamId,
-      }),
-    ).rejects.toThrow(/Valid role is required/)
-  })
-
   it('changes member roles and removal affects downstream authorization', async () => {
     const t = initConvexTest()
     const organizationId = await seedBetterAuthOrganization(t, { name: 'org_membership_lifecycle' })

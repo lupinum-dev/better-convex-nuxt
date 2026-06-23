@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
+import type { OrganizationRole } from '~~/shared/organizationRoles'
 
 import { api } from '#convex/api'
 import type { Member } from '~/utils/organizationModels'
-
-const inviteEmail = defineModel<string>('inviteEmail', { required: true })
-const inviteRole = defineModel<InviteRole>('inviteRole', { required: true })
 
 const props = defineProps<{
   organizationId: string
@@ -14,10 +11,7 @@ const props = defineProps<{
   membersPending: boolean
   membersError: string | null
   canManageMembers?: boolean
-  invitePending: boolean
-  inviteError: string | null
   memberLabel: (member: Member) => string
-  onInvite: () => void
   onChangeRole: (member: Member, role: OrganizationRole) => void
   onAddToTeam: (member: Member) => void
   onRemoveFromTeam: (member: Member) => void
@@ -29,7 +23,7 @@ const { data: teamCapabilities } = await useConvexQuery(api.teams.getCapabilitie
 }))
 const { data: teamMemberIds, error: teamMembersQueryError } = await useConvexQuery(
   api.teams.listMemberIds,
-  () => ({ teamId: props.teamId }),
+  () => (props.canManageMembers ? { teamId: props.teamId } : 'skip'),
 )
 
 const selectedTeamMemberUserIds = computed(() => new Set(teamMemberIds.value ?? []))
@@ -40,19 +34,13 @@ const teamMembersError = computed(() =>
 
 <template>
   <MembersPanel
-    v-model:invite-email="inviteEmail"
-    v-model:invite-role="inviteRole"
     :can-manage-members="canManageMembers"
     :members="members"
     :selected-team-member-user-ids="selectedTeamMemberUserIds"
-    :selected-team-id="teamId"
-    :invite-pending="invitePending"
-    :invite-error="inviteError"
     :members-pending="membersPending"
     :members-error="membersError"
     :team-members-error="teamMembersError"
     :member-label="memberLabel"
-    :on-invite="onInvite"
     :on-change-role="onChangeRole"
     :on-add-to-team="onAddToTeam"
     :on-remove-from-team="onRemoveFromTeam"

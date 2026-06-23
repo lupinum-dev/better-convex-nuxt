@@ -10,8 +10,8 @@ Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.c
 - [Documentation](https://better-convex-nuxt.vercel.app)
 
 > [!NOTE]
-> **Work In Progress**
-> This module is rapidly evolving. While we are using it in our own apps, features and APIs are subject to change as we refine the best patterns for Nuxt + Convex.
+> **Early Version - Not Production Ready**
+> This module is usable today, but the API surface is still evolving as we validate the best long-term patterns for Nuxt + Convex.
 
 Contributions and PRs to help improve the library, playground or docs are highly appreciated! 🙏
 

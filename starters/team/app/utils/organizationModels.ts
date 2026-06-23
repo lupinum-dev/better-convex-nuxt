@@ -1,4 +1,4 @@
-import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
+import type { OrganizationRole } from '~~/shared/organizationRoles'
 
 export type OrganizationSummary = {
   id: string
@@ -43,5 +43,3 @@ export type TeamCapabilities = {
   canUpdateProject: boolean
   canDeleteProject: boolean
 }
-
-export type InviteRoleValue = InviteRole
