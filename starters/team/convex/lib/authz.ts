@@ -3,7 +3,7 @@ import { ConvexError } from 'convex/values'
 import { canAccessAllTeams, canViewOrganizationActivity } from '../../shared/organizationRoles'
 import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
-import { authComponent, createAuth } from '../auth'
+import { authComponent, createAuth, type AppAuth } from '../auth'
 import { getBetterAuthMember, getBetterAuthTeam, getBetterAuthTeamMember } from './betterAuthRows'
 
 export type ProjectPermission = 'create' | 'read' | 'update' | 'delete'
@@ -25,18 +25,45 @@ export type ProjectAccess = TeamAccess & {
   project: Doc<'projects'>
 }
 
-export async function requireAuthenticatedUser(ctx: Ctx): Promise<AccessActor> {
-  const headers = await authComponent.getHeaders(ctx)
-  const auth = createAuth(ctx)
+export async function getAppAuth(ctx: Ctx) {
+  return await authComponent.getAuth(createAuth, ctx)
+}
+
+export async function requireAuthenticatedSession(ctx: Ctx) {
+  const { auth, headers } = await getAppAuth(ctx)
   const session = await auth.api.getSession({ headers })
   if (!session) {
     throw new ConvexError('Unauthenticated')
   }
 
-  return {
-    kind: 'user',
+  const actor = {
+    kind: 'user' as const,
     authUserId: session.user.id,
   }
+
+  return { auth, headers, session, actor }
+}
+
+export async function requireAuthenticatedUser(ctx: Ctx): Promise<AccessActor> {
+  const { actor } = await requireAuthenticatedSession(ctx)
+  return actor
+}
+
+export async function hasOrganizationPermissions(
+  auth: AppAuth,
+  headers: Headers,
+  organizationId: string,
+  permissions: Record<string, ('create' | 'read' | 'update' | 'delete')[]>,
+) {
+  const allowed = await auth.api.hasPermission({
+    headers,
+    body: {
+      organizationId,
+      permissions,
+    },
+  })
+
+  return allowed.success
 }
 
 export async function requireOrgPermission(
@@ -46,33 +73,18 @@ export async function requireOrgPermission(
     permission: ProjectPermission
   },
 ) {
-  const headers = await authComponent.getHeaders(ctx)
-  const auth = createAuth(ctx)
-  const session = await auth.api.getSession({ headers })
-  if (!session) {
-    throw new ConvexError('Unauthenticated')
-  }
-
-  const allowed = await auth.api.hasPermission({
-    headers,
-    body: {
-      organizationId: args.organizationId,
-      permissions: {
-        project: [args.permission],
-      },
-    },
+  const { auth, headers, actor } = await requireAuthenticatedSession(ctx)
+  const allowed = await hasOrganizationPermissions(auth, headers, args.organizationId, {
+    project: [args.permission],
   })
 
-  if (!allowed.success) {
+  if (!allowed) {
     throw new ConvexError(`Missing project:${args.permission} permission`)
   }
 
   return {
-    actor: {
-      kind: 'user' as const,
-      authUserId: session.user.id,
-    },
-    userId: session.user.id,
+    actor,
+    userId: actor.authUserId,
   }
 }
 

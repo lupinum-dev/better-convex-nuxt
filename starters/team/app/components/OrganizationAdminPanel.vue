@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type { Team } from '~/utils/managementResponses'
-
-type Organization = {
-  id: string
-  name: string
-}
+import type { OrganizationSummary, Team } from '~/utils/organizationModels'
 
 const selectedTeamId = defineModel<string | null>('selectedTeamId', { required: true })
 const orgName = defineModel<string>('orgName', { required: true })
@@ -12,7 +7,7 @@ const teamName = defineModel<string>('teamName', { required: true })
 const teamRenameName = defineModel<string>('teamRenameName', { required: true })
 
 defineProps<{
-  organization: Organization
+  organization: OrganizationSummary
   role?: string | null
   canManageOrganization?: boolean
   canManageTeams?: boolean

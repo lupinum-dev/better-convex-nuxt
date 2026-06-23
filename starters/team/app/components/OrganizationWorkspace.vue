@@ -3,15 +3,12 @@ import { api } from '#convex/api'
 
 const currentUser = useConvexUser(api.users.getCurrent, {}, { source: 'projection' })
 const { signOut, refreshAuth } = useConvexAuth()
-const organizationState = useTeamOrganizations()
+const { data: organizations, pending: organizationsPending } = await useConvexQuery(
+  api.organizations.listMine,
+  {},
+)
 
 const hasUserProjection = computed(() => currentUser.source.value === 'projection')
-const organizations = computed(() => organizationState.value.data ?? [])
-const organizationsPending = computed(() => organizationState.value.isPending)
-
-async function refreshOrganizations() {
-  await organizationState.value.refetch()
-}
 
 async function signOutAndRefresh() {
   await signOut()
@@ -28,11 +25,11 @@ async function signOutAndRefresh() {
   </section>
 
   <template v-if="hasUserProjection">
-    <OrganizationCreateForm @created="refreshOrganizations" />
+    <OrganizationCreateForm />
 
     <section v-if="organizationsPending" class="empty">Loading organizations...</section>
 
-    <nav v-else-if="organizations.length" class="list">
+    <nav v-else-if="organizations?.length" class="list">
       <NuxtLink v-for="org in organizations" :key="org.id" :to="`/organizations/${org.id}`">
         <strong>{{ org.name }}</strong>
         <span>{{ org.role ?? 'member' }}</span>

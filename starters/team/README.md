@@ -6,6 +6,9 @@ This starter is intentionally focused. It teaches one production-shaped path:
 
 - Better Auth owns auth-domain state: users, sessions, organizations, members,
   invitations, teams, team members, and roles.
+- The UI calls Convex for app behavior.
+- Convex calls Better Auth APIs for auth-domain workflows.
+- Nuxt `/api/auth/*` only exists for Better Auth transport and session exchange.
 - Convex app tables own product-domain state: projects and audit events.
 - `users` is a tiny display projection from Better Auth users.
 - Every project belongs to one Better Auth organization and one Better Auth team.
@@ -29,6 +32,9 @@ starter does not mirror those management actions into app tables.
 ## Security Decisions
 
 - Backend checks are authoritative. UI capability flags only hide controls.
+- Better Auth APIs are the canonical path for auth-domain workflows.
+- Raw Better Auth component reads are reserved for narrow app-side checks such
+  as team membership gates and org/team relationship validation.
 - Project access requires both a Better Auth organization project permission and
   access to the Better Auth team that owns the project.
 - Organization owners and admins may access every team in their organization.
@@ -37,6 +43,8 @@ starter does not mirror those management actions into app tables.
   state and must not be used as an authorization source.
 - `auditEvents` records product events only. Organization, member, invitation,
   team, and team-member management remain in Better Auth's domain.
+- The starter does not mix app-owned HTTP management wrappers with Convex hooks.
+- The starter does not duplicate Better Auth org/member/team state in app tables.
 
 ## Not Included
 
@@ -76,8 +84,8 @@ pnpm verify:full
 ```
 
 `pnpm test` runs focused Convex tests for schema invariants, Better Auth user
-projection, project lifecycle audit writes, role permissions, team membership,
-soft-delete query behavior, and Nuxt management route contracts.
+projection, auth-domain Convex contracts, project lifecycle audit writes, role
+permissions, team membership, and soft-delete query behavior.
 
 `pnpm typecheck` runs Nuxt type checking. Without local Convex environment
 values, the module can warn that no Convex site URL was resolved; that warning is
@@ -107,12 +115,9 @@ run `pnpm exec playwright install chromium`.
 
 This starter keeps tests close to the invariants that matter:
 
-- Convex tests prove product schema shape, user projection behavior, project
-  audit writes, role permissions, team membership checks, and soft-delete
-  visibility.
-- Nuxt route contract tests prove management wrappers normalize input, reject
-  unsupported roles, avoid trusting client-supplied audit fields, and resolve
-  team management authority in Convex before forwarding to Better Auth.
+- Convex tests prove product schema shape, user projection behavior, Better Auth
+  organization and team workflows through Convex, project audit writes, role
+  permissions, team membership checks, and soft-delete visibility.
 - Browser end-to-end tests are intentionally left to the consuming app. Add them
   once the app has a real product flow, seeded users, and environment-specific
   auth setup.

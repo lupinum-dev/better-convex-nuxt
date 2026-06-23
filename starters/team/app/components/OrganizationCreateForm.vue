@@ -1,11 +1,10 @@
 <script setup lang="ts">
+import { api } from '#convex/api'
+
 const name = ref('')
 const error = ref<string | null>(null)
 const pending = ref(false)
-
-const emit = defineEmits<{
-  created: []
-}>()
+const createOrganization = useConvexMutation(api.organizations.create)
 
 async function submit() {
   const trimmedName = name.value.trim()
@@ -14,15 +13,10 @@ async function submit() {
   pending.value = true
   error.value = null
   try {
-    await $fetch('/api/organizations', {
-      method: 'POST',
-      body: {
-        name: trimmedName,
-      },
+    await createOrganization({
+      name: trimmedName,
     })
-
     name.value = ''
-    emit('created')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Organization was not created'
   } finally {

@@ -2,7 +2,7 @@
 import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
 import { inviteRoles, organizationRoles } from '~~/shared/organizationRoles'
 
-import type { Member } from '~/utils/managementResponses'
+import type { Member } from '~/utils/organizationModels'
 
 const inviteEmail = defineModel<string>('inviteEmail', { required: true })
 const inviteRole = defineModel<InviteRole>('inviteRole', { required: true })

@@ -94,6 +94,41 @@ async function seedBetterAuthActor(
   })
 }
 
+async function signUpBetterAuthUser(
+  t: ReturnType<typeof initConvexTest>,
+  args: {
+    label: string
+  },
+) {
+  return await t.run(async (ctx) => {
+    const auth = createAuth(ctx)
+    const signedUp = await auth.api.signUpEmail({
+      body: {
+        email: `${args.label}@example.com`,
+        password: 'password123',
+        name: args.label,
+      },
+    })
+    if (!signedUp.token) {
+      throw new Error('Better Auth signup did not return a session token')
+    }
+
+    const session = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: 'session',
+      where: [{ field: 'token', value: signedUp.token }],
+    })) as { _id: string } | null
+    if (!session) {
+      throw new Error('Better Auth session row was not created')
+    }
+
+    return {
+      authUserId: signedUp.user.id,
+      sessionId: session._id,
+      token: signedUp.token,
+    }
+  })
+}
+
 async function seedBetterAuthTeam(
   t: ReturnType<typeof initConvexTest>,
   args: {
@@ -219,6 +254,227 @@ describe('team starter invariants', () => {
       },
       action: 'project.create',
       resourceId: projectId,
+    })
+  })
+
+  it('lists only the caller organizations with Better Auth roles', async () => {
+    const t = initConvexTest()
+    const visibleOrganizationId = await seedBetterAuthOrganization(t, { name: 'org_visible' })
+    const hiddenOrganizationId = await seedBetterAuthOrganization(t, { name: 'org_hidden' })
+    const actorSeed = await seedBetterAuthActor(t, {
+      label: 'org_list_actor',
+      organizationId: visibleOrganizationId,
+      role: 'admin',
+    })
+    await seedBetterAuthActor(t, {
+      label: 'org_list_other',
+      organizationId: hiddenOrganizationId,
+      role: 'owner',
+    })
+
+    const actor = asActor(t, {
+      userId: actorSeed.authUserId,
+      sessionId: actorSeed.sessionId,
+    })
+    const organizations = await actor.query(api.organizations.listMine, {})
+
+    expect(organizations).toEqual([
+      {
+        id: visibleOrganizationId,
+        name: 'org_visible',
+        role: 'admin',
+      },
+    ])
+  })
+
+  it('creates organizations through Better Auth and exposes them in the Convex list', async () => {
+    const t = initConvexTest()
+    const creatorSeed = await signUpBetterAuthUser(t, {
+      label: 'organization_creator',
+    })
+    const creator = asActor(t, {
+      userId: creatorSeed.authUserId,
+      sessionId: creatorSeed.sessionId,
+    })
+
+    const organization = await creator.mutation(api.organizations.create, {
+      name: 'Created Org',
+    })
+    const organizations = await creator.query(api.organizations.listMine, {})
+    const rows = await t.run(async (ctx) => {
+      const teams = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: 'team',
+        where: [{ field: 'organizationId', value: organization.id }],
+        paginationOpts: { cursor: null, numItems: 10 },
+      })) as { page: Array<{ organizationId: string }> }
+      const members = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: 'member',
+        where: [{ field: 'organizationId', value: organization.id }],
+        paginationOpts: { cursor: null, numItems: 10 },
+      })) as { page: Array<{ organizationId: string; role: string; userId: string }> }
+
+      return { teams: teams.page, members: members.page }
+    })
+
+    expect(organizations).toContainEqual({
+      id: organization.id,
+      name: 'Created Org',
+      role: 'owner',
+    })
+    expect(rows.teams).toHaveLength(1)
+    expect(rows.members).toHaveLength(1)
+    expect(rows.members[0]).toMatchObject({
+      organizationId: organization.id,
+      role: 'owner',
+      userId: creatorSeed.authUserId,
+    })
+  })
+
+  it('renames organizations and reflects the change in listMine', async () => {
+    const t = initConvexTest()
+    const creatorSeed = await signUpBetterAuthUser(t, {
+      label: 'organization_rename_owner',
+    })
+    const creator = asActor(t, {
+      userId: creatorSeed.authUserId,
+      sessionId: creatorSeed.sessionId,
+    })
+    const organization = await creator.mutation(api.organizations.create, {
+      name: 'Before Rename',
+    })
+
+    await creator.mutation(api.organizations.rename, {
+      organizationId: organization.id,
+      name: 'After Rename',
+    })
+
+    const organizations = await creator.query(api.organizations.listMine, {})
+    expect(organizations).toContainEqual({
+      id: organization.id,
+      name: 'After Rename',
+      role: 'owner',
+    })
+  })
+
+  it('renames teams and reflects the change in the organization team list', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_team_rename' })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_rename',
+      name: 'Before Rename',
+    })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_team_rename',
+      organizationId,
+      role: 'owner',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    const renamedTeam = await owner.mutation(api.teams.rename, {
+      teamId,
+      name: 'After Rename',
+    })
+    const teams = await owner.query(api.organizations.listTeams, { organizationId })
+
+    expect(renamedTeam).toEqual({
+      id: teamId,
+      name: 'After Rename',
+      organizationId,
+    })
+    expect(teams).toContainEqual({
+      id: teamId,
+      name: 'After Rename',
+      organizationId,
+    })
+  })
+
+  it('rejects renaming a missing team', async () => {
+    const t = initConvexTest()
+    const ownerSeed = await signUpBetterAuthUser(t, {
+      label: 'missing_team_rename_owner',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    await expect(
+      owner.mutation(api.teams.rename, {
+        teamId: 'missing-team-id',
+        name: 'Missing Team',
+      }),
+    ).rejects.toThrow(/Team not found/)
+  })
+
+  it('renames a team even when the session active organization points elsewhere', async () => {
+    const t = initConvexTest()
+    const primaryOrganizationId = await seedBetterAuthOrganization(t, {
+      name: 'org_team_rename_primary',
+    })
+    const targetOrganizationId = await seedBetterAuthOrganization(t, {
+      name: 'org_team_rename_target',
+    })
+    const targetTeamId = await seedBetterAuthTeam(t, {
+      organizationId: targetOrganizationId,
+      teamId: 'team_rename_target',
+      name: 'Target Team',
+    })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_team_rename_context',
+      organizationId: primaryOrganizationId,
+      role: 'owner',
+    })
+
+    await t.run(async (ctx) => {
+      await ctx.runMutation(components.betterAuth.adapter.create, {
+        input: {
+          model: 'member',
+          data: {
+            organizationId: targetOrganizationId,
+            userId: ownerSeed.authUserId,
+            role: 'owner',
+            createdAt: now,
+          },
+        },
+      })
+
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: 'session',
+          where: [{ field: '_id', value: ownerSeed.sessionId }],
+          update: {
+            activeOrganizationId: primaryOrganizationId,
+          },
+        },
+      })
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    const renamedTeam = await owner.mutation(api.teams.rename, {
+      teamId: targetTeamId,
+      name: 'Renamed Across Active Org',
+    })
+    const teams = await owner.query(api.organizations.listTeams, {
+      organizationId: targetOrganizationId,
+    })
+
+    expect(renamedTeam).toEqual({
+      id: targetTeamId,
+      name: 'Renamed Across Active Org',
+      organizationId: targetOrganizationId,
+    })
+    expect(teams).toContainEqual({
+      id: targetTeamId,
+      name: 'Renamed Across Active Org',
+      organizationId: targetOrganizationId,
     })
   })
 
@@ -382,17 +638,271 @@ describe('team starter invariants', () => {
       userId: ownerSeed.authUserId,
       sessionId: ownerSeed.sessionId,
     })
-    const teamMembers = await owner.query(api.teamAccess.listMembers, { teamId })
+    const teamMembers = await owner.query(api.teams.listMemberIds, { teamId })
 
-    expect(teamMembers).toEqual([
+    expect(teamMembers).toEqual([memberSeed.authUserId])
+  })
+
+  it('lists teams by organization scope and visibility rules', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_teams_scope' })
+    const otherOrganizationId = await seedBetterAuthOrganization(t, { name: 'org_other_scope' })
+    const visibleTeamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_visible',
+      name: 'Visible Team',
+    })
+    await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_hidden',
+      name: 'Hidden Team',
+    })
+    await seedBetterAuthTeam(t, {
+      organizationId: otherOrganizationId,
+      teamId: 'team_other_org',
+      name: 'Other Org Team',
+    })
+
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_teams_scope',
+      organizationId,
+      role: 'owner',
+    })
+    const memberSeed = await seedBetterAuthActor(t, {
+      label: 'member_teams_scope',
+      organizationId,
+      role: 'member',
+      teamIds: [visibleTeamId],
+    })
+    await t.run(async (ctx) => {
+      await ctx.runMutation(components.betterAuth.adapter.create, {
+        input: {
+          model: 'member',
+          data: {
+            organizationId: otherOrganizationId,
+            userId: memberSeed.authUserId,
+            role: 'member',
+            createdAt: now,
+          },
+        },
+      })
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    const member = asActor(t, {
+      userId: memberSeed.authUserId,
+      sessionId: memberSeed.sessionId,
+    })
+
+    const ownerTeams = await owner.query(api.organizations.listTeams, {
+      organizationId,
+    })
+    const memberTeams = await member.query(api.organizations.listTeams, {
+      organizationId,
+    })
+
+    expect(ownerTeams.every((team) => team.organizationId === organizationId)).toBe(true)
+    expect(ownerTeams.map((team) => team.name).sort()).toEqual(['Hidden Team', 'Visible Team'])
+    expect(memberTeams).toEqual([
       {
-        id: expect.any(String),
-        teamId,
-        userId: memberSeed.authUserId,
+        id: visibleTeamId,
+        name: 'Visible Team',
+        organizationId,
       },
     ])
-    const [teamMember] = teamMembers
-    expect(teamMember).not.toHaveProperty('_id')
+  })
+
+  it('lists enriched members with valid roles', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_member_list' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_member_list',
+      organizationId,
+      role: 'owner',
+    })
+    const adminSeed = await seedBetterAuthActor(t, {
+      label: 'admin_member_list',
+      organizationId,
+      role: 'admin',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    const members = await owner.query(api.organizations.listMembers, {
+      organizationId,
+    })
+
+    expect(members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationId,
+          userId: ownerSeed.authUserId,
+          role: 'owner',
+          user: expect.objectContaining({
+            email: 'owner_member_list@example.com',
+          }),
+        }),
+        expect.objectContaining({
+          organizationId,
+          userId: adminSeed.authUserId,
+          role: 'admin',
+          user: expect.objectContaining({
+            email: 'admin_member_list@example.com',
+          }),
+        }),
+      ]),
+    )
+  })
+
+  it('rejects unsupported invite roles before calling Better Auth', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_validation' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_validation',
+      organizationId,
+      role: 'owner',
+    })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_invite_validation',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    await expect(
+      owner.mutation(api.organizations.inviteMember, {
+        organizationId,
+        email: 'new-owner@example.com',
+        role: 'owner',
+        teamId,
+      }),
+    ).rejects.toThrow(/Valid role is required/)
+  })
+
+  it('changes member roles and removal affects downstream authorization', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_membership_lifecycle' })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_membership_lifecycle',
+    })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_membership_lifecycle',
+      organizationId,
+      role: 'owner',
+    })
+    const memberSeed = await seedBetterAuthActor(t, {
+      label: 'member_membership_lifecycle',
+      organizationId,
+      role: 'member',
+      teamIds: [teamId],
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    const member = asActor(t, {
+      userId: memberSeed.authUserId,
+      sessionId: memberSeed.sessionId,
+    })
+
+    const memberRows = await owner.query(api.organizations.listMembers, {
+      organizationId,
+    })
+    const memberRow = memberRows.find((row) => row.userId === memberSeed.authUserId)
+    if (!memberRow) {
+      throw new Error('Expected member row to exist')
+    }
+    const projectId = await member.mutation(api.projects.create, {
+      teamId,
+      name: 'Mutable Role Project',
+    })
+
+    await owner.mutation(api.organizations.changeMemberRole, {
+      organizationId,
+      memberId: memberRow.id,
+      role: 'viewer',
+    })
+
+    await expect(
+      member.mutation(api.projects.rename, {
+        projectId,
+        name: 'Should Fail',
+      }),
+    ).rejects.toThrow(/Missing project:update permission/)
+
+    await owner.mutation(api.organizations.removeMember, {
+      organizationId,
+      memberId: memberRow.id,
+    })
+
+    await expect(
+      member.query(api.organizations.listTeams, {
+        organizationId,
+      }),
+    ).rejects.toThrow(/User is not an organization member/)
+  })
+
+  it('adds and removes team members through the Convex teams API', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_team_management' })
+    const otherOrganizationId = await seedBetterAuthOrganization(t, {
+      name: 'org_team_management_other',
+    })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_management',
+    })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_team_management',
+      organizationId,
+      role: 'owner',
+    })
+    const memberSeed = await seedBetterAuthActor(t, {
+      label: 'member_team_management',
+      organizationId,
+      role: 'member',
+    })
+    const outsiderSeed = await seedBetterAuthActor(t, {
+      label: 'outsider_team_management',
+      organizationId: otherOrganizationId,
+      role: 'owner',
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    const outsider = asActor(t, {
+      userId: outsiderSeed.authUserId,
+      sessionId: outsiderSeed.sessionId,
+    })
+
+    await owner.mutation(api.teams.addMember, {
+      teamId,
+      userId: memberSeed.authUserId,
+    })
+    expect(await owner.query(api.teams.listMemberIds, { teamId })).toEqual([memberSeed.authUserId])
+
+    await expect(
+      outsider.mutation(api.teams.addMember, {
+        teamId,
+        userId: outsiderSeed.authUserId,
+      }),
+    ).rejects.toThrow(/permission|organization member|organization/i)
+
+    await owner.mutation(api.teams.removeMember, {
+      teamId,
+      userId: memberSeed.authUserId,
+    })
+    expect(await owner.query(api.teams.listMemberIds, { teamId })).toEqual([])
   })
 
   it('limits organization audit to organization activity roles', async () => {

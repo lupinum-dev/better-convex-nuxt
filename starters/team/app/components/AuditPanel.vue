@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatAuditTimestamp } from '~/utils/formatTime'
+
 type AuditEvent = {
   _id: string
   action: string
@@ -10,7 +12,6 @@ defineProps<{
   title: string
   events: AuditEvent[]
   status: string
-  formatTime: (createdAt: number) => string
   onLoadMore: (numItems: number) => void
 }>()
 </script>
@@ -21,7 +22,9 @@ defineProps<{
     <ul v-if="events.length" class="items-list">
       <li v-for="event in events" :key="event._id">
         <span>{{ event.summary ?? event.action }}</span>
-        <time>{{ formatTime(event.createdAt) }}</time>
+        <time :datetime="new Date(event.createdAt).toISOString()">
+          {{ formatAuditTimestamp(event.createdAt) }}
+        </time>
       </li>
     </ul>
     <section v-else class="empty">No {{ title.toLowerCase() }} yet.</section>
