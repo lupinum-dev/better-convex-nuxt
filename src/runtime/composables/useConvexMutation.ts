@@ -9,6 +9,7 @@ import type { Ref, ComputedRef } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import type { ConvexAuthEngine } from '../auth/client-engine'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { createConvexCallState } from '../utils/call-state'
@@ -270,7 +271,10 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
         )
       }
 
-      await ensureConvexAuthReady(nuxtApp.$convexAuthEngine, 'useConvexMutation')
+      await ensureConvexAuthReady(
+        nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+        'useConvexMutation',
+      )
 
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,

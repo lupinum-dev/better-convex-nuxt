@@ -1,7 +1,8 @@
 # MCP Agent Starter
 
-Starter for organization apps that expose a small MCP surface to service
-actors.
+Starter for organization apps where humans sign in with Better Auth, app-owned
+organizations stay canonical in Convex, and service actors call a small private
+MCP surface on behalf of an organization.
 
 ## Organization Ownership
 
@@ -16,20 +17,30 @@ ids.
 
 ## Includes
 
+- clickable Nuxt UI for sign-up/sign-in, user bootstrap, organization creation,
+  human project creation, service actor credential creation, and MCP project
+  creation;
 - organizations and memberships;
 - service actors scoped to one organization;
+- service actor roles limited to `viewer`, `member`, and `admin`;
 - credential hashes;
-- MCP-style `tools/list` and `tools/call` HTTP route;
+- Nuxt MCP Toolkit Streamable HTTP route at `/mcp`;
+- demo server route at `/api/demo/mcp-projects` that uses the official MCP SDK
+  client to call this app's `/mcp` route;
+- file-discovered project tools under `server/mcp/tools/`;
 - project read/write tools;
 - approval-gated destructive mutation;
-- audit events for service actor calls.
+- schema-bounded approval operation and audit labels for service actor calls.
 
 ## Non-goals
 
 - no public OAuth MCP;
+- no role-filtered tool listing yet; Convex execution-time authorization is
+  the source of truth;
 - no generated tool wrappers;
 - no broad platform manifest;
 - no custom agent runtime;
+- no app usage ledger; do not add caller-supplied usage recording here;
 - no shared B2B package yet.
 
 ## Commands
@@ -42,6 +53,64 @@ pnpm test
 pnpm typecheck
 ```
 
-The MCP route is `POST /mcp`. It supports `initialize`, `tools/list`, and
-`tools/call`. Use a bearer token whose SHA-256 hash is stored in
-`agentCredentials.secretHash`.
+Use the package scripts instead of direct binaries such as `pnpm convex dev`.
+`pnpm convex:dev` prepares Nuxt types before starting Convex.
+
+On first run, Convex writes `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to
+`.env.local`. This starter reads those defaults directly. You can override them
+with `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, or
+`CONVEX_SITE_URL`.
+
+For deployed auth, set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex. Local
+development has proof defaults so the starter boots immediately; do not use
+those defaults for production.
+
+The MCP route is `/mcp`. It uses `@nuxtjs/mcp-toolkit` for Streamable HTTP,
+including `initialize`, `tools/list`, and `tools/call`. Use a bearer token whose
+SHA-256 hash is stored in `agentCredentials.secretHash`.
+
+The home page walks through the supported user stories:
+
+1. create or sign in to a Better Auth user;
+2. explicitly bootstrap the app-owned Convex user with `users.upsertCurrent`;
+3. create an app-owned organization and owner membership;
+4. create a project as the signed-in human;
+5. create a service actor credential, storing only the SHA-256 hash;
+6. create a project through MCP with the generated bearer secret;
+7. see both projects through the human project list.
+
+Better Auth routes are registered in `convex/http.ts` at `/api/auth/*`, and the
+Nuxt auth proxy forwards to the Convex HTTP Actions URL.
+
+Project tools are always listed. Tool execution parses exactly
+`Bearer <secret>` from MCP request metadata, hashes it, and calls Convex. Convex
+is the authorization boundary for organization, role, credential status, and
+approvals; tool visibility is not treated as permission.
+
+`/api/demo/mcp-projects` exists only to make the browser demo exercise the real
+MCP transport. It accepts a one-time bearer secret from the page, calls
+`projects.create` through `/mcp`, and returns only text content from the MCP
+result. Product permissions still live in Convex.
+
+The test suite proves the Streamable HTTP route with a real MCP SDK client
+against a Convex-shaped HTTP backend, the UI demo route through the same MCP
+path, and the project tool adapters against real `convex-test` product
+functions. Human and service actor project wrappers share the same domain
+operations. Convex normalizes and bounds project names, so MCP tool input cannot
+create blank, whitespace-only, or overlong product names. Organization reads
+require active membership, current users can list only their active
+organizations, and member/service actor listing requires owner/admin. Service
+actor credential issuance is scoped to the stored credential organization and
+requires an active owner/admin membership. Service actors cannot be assigned the
+human `owner` role. Issuance accepts only SHA-256 hex digests and rejects
+duplicate credential hashes before inserting a service actor. Destructive
+approvals derive the organization from the target project, require an active
+owner/admin membership, and store the approving human user. The suite also
+guards against reintroducing a fake caller-supplied agent usage action.
+Streamable HTTP tool-call tests assert MCP responses do not expose the bearer
+secret, its SHA-256 hash, the credential hash field name, or raw project
+documents.
+
+Call `users.upsertCurrent` after Better Auth sign-in before using human-scoped
+Convex functions. `requireCurrentUser` intentionally expects the app-owned user
+row to exist.

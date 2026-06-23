@@ -1,7 +1,83 @@
 import { ConvexError, v } from 'convex/values'
 
+import type { Id } from './_generated/dataModel'
+import type { MutationCtx, QueryCtx } from './_generated/server'
 import { mutation, query } from './_generated/server'
-import { requireServiceActor, writeServiceAudit } from './access'
+import {
+  requireOrganizationMembership,
+  requireServiceActor,
+  writeServiceAudit
+} from './access'
+
+const maxProjectNameLength = 120
+type ProjectCreator =
+  | { kind: 'user'; userId: Id<'users'> }
+  | { kind: 'serviceActor'; serviceActorId: Id<'serviceActors'> }
+
+function normalizeProjectName(name: string) {
+  const normalized = name.trim()
+  if (!normalized) {
+    throw new ConvexError('Project name is required')
+  }
+  if (normalized.length > maxProjectNameLength) {
+    throw new ConvexError('Project name is too long')
+  }
+
+  return normalized
+}
+
+async function listProjectsForOrganization(
+  ctx: QueryCtx,
+  organizationId: Id<'organizations'>
+) {
+  return await ctx.db
+    .query('projects')
+    .withIndex('by_org', (q) => q.eq('organizationId', organizationId))
+    .order('desc')
+    .collect()
+}
+
+async function createProject(
+  ctx: MutationCtx,
+  args: {
+    organizationId: Id<'organizations'>
+    name: string
+    createdBy: ProjectCreator
+  }
+) {
+  const name = normalizeProjectName(args.name)
+  return await ctx.db.insert('projects', {
+    organizationId: args.organizationId,
+    name,
+    createdBy: args.createdBy,
+    createdAt: Date.now()
+  })
+}
+
+export const listForCurrentUser = query({
+  args: {
+    organizationId: v.id('organizations')
+  },
+  handler: async (ctx, args) => {
+    await requireOrganizationMembership(ctx, args.organizationId)
+    return await listProjectsForOrganization(ctx, args.organizationId)
+  }
+})
+
+export const createForCurrentUser = mutation({
+  args: {
+    organizationId: v.id('organizations'),
+    name: v.string()
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireOrganizationMembership(ctx, args.organizationId, 'member')
+    return await createProject(ctx, {
+      organizationId: args.organizationId,
+      name: args.name,
+      createdBy: { kind: 'user', userId: user._id }
+    })
+  }
+})
 
 export const listForServiceActor = query({
   args: {
@@ -10,11 +86,7 @@ export const listForServiceActor = query({
   },
   handler: async (ctx, args) => {
     await requireServiceActor(ctx, args)
-    return await ctx.db
-      .query('projects')
-      .withIndex('by_org', (q) => q.eq('organizationId', args.organizationId))
-      .order('desc')
-      .collect()
+    return await listProjectsForOrganization(ctx, args.organizationId)
   }
 })
 
@@ -25,21 +97,15 @@ export const createFromServiceActor = mutation({
     name: v.string()
   },
   handler: async (ctx, args) => {
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Project name is required')
-    }
-
     const actor = await requireServiceActor(ctx, {
       ...args,
       minimumRole: 'member'
     })
 
-    const projectId = await ctx.db.insert('projects', {
+    const projectId = await createProject(ctx, {
       organizationId: args.organizationId,
-      name,
-      createdByServiceActorId: actor._id,
-      createdAt: Date.now()
+      name: args.name,
+      createdBy: { kind: 'serviceActor', serviceActorId: actor._id }
     })
 
     await writeServiceAudit(ctx, {
@@ -47,8 +113,7 @@ export const createFromServiceActor = mutation({
       serviceActorId: actor._id,
       action: 'projects.create',
       resourceType: 'project',
-      resourceId: projectId,
-      result: 'allowed'
+      resourceId: projectId
     })
 
     return projectId
@@ -94,9 +159,7 @@ export const deleteWithApproval = mutation({
       serviceActorId: actor._id,
       action: 'projects.delete',
       resourceType: 'project',
-      resourceId: args.projectId,
-      result: 'allowed'
+      resourceId: args.projectId
     })
   }
 })
-

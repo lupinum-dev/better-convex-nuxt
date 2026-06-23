@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
+import { requireOrganizationMembership } from './access'
 import { requireCurrentUser } from './users'
 
 export const create = mutation({
@@ -39,7 +40,36 @@ export const get = query({
     organizationId: v.id('organizations')
   },
   handler: async (ctx, args) => {
+    await requireOrganizationMembership(ctx, args.organizationId)
     return await ctx.db.get(args.organizationId)
   }
 })
 
+export const listMine = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireCurrentUser(ctx)
+    const memberships = await ctx.db
+      .query('memberships')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .collect()
+
+    const rows = await Promise.all(
+      memberships
+        .filter((membership) => membership.status === 'active')
+        .map(async (membership) => {
+          const organization = await ctx.db.get(membership.organizationId)
+          if (!organization) return null
+
+          return {
+            id: organization._id,
+            name: organization.name,
+            role: membership.role,
+            createdAt: organization.createdAt
+          }
+        })
+    )
+
+    return rows.filter((row): row is NonNullable<typeof row> => row !== null)
+  }
+})

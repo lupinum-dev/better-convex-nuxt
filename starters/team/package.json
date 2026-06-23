@@ -48,6 +48,7 @@
     "feedback:better-auth-oauth-product-route": "bash scripts/verify-better-auth-oauth-product-route.sh",
     "feedback:better-auth-oauth-token-lifecycle": "bash scripts/verify-better-auth-oauth-token-lifecycle.sh",
     "feedback:better-auth-oauth-client-credentials-limit": "bash scripts/verify-better-auth-oauth-client-credentials-limit.sh",
+    "feedback:better-auth-oauth-provider-surface": "bash scripts/verify-better-auth-oauth-provider-surface.sh",
     "feedback:better-auth-email-otp": "bash scripts/verify-better-auth-email-otp.sh",
     "feedback:better-auth-magic-link": "bash scripts/verify-better-auth-magic-link.sh",
     "feedback:better-auth-passkey-surface": "bash scripts/verify-better-auth-passkey-surface.sh",

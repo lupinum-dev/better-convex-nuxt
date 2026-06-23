@@ -2,7 +2,8 @@ import { ConvexError, v } from 'convex/values'
 
 import { components } from './_generated/api'
 import { mutation } from './_generated/server'
-import { authComponent, createAuth } from './auth'
+import type { authComponent } from './auth'
+import { createAuth } from './auth'
 import { projectLimitForPlan } from './billingPlans'
 
 async function requireProjectCreatePermission(
@@ -10,7 +11,7 @@ async function requireProjectCreatePermission(
   args: {
     organizationId: string
     sessionTokenForExperiment: string
-  }
+  },
 ) {
   if (process.env.ALLOW_TEST_RESET !== 'true') {
     throw new ConvexError('Session token experiment path is disabled')
@@ -44,7 +45,7 @@ async function requireProjectCreatePermission(
 
 async function requireActiveProjectLimit(
   ctx: Parameters<typeof authComponent.getHeaders>[0],
-  organizationId: string
+  organizationId: string,
 ) {
   const subscription = await ctx.runQuery(components.betterAuth.adapter.findOne, {
     model: 'subscription',
@@ -63,7 +64,7 @@ async function requireActiveProjectLimit(
   }
 
   const projectLimit = projectLimitForPlan(
-    typeof subscription.plan === 'string' ? subscription.plan : undefined
+    typeof subscription.plan === 'string' ? subscription.plan : undefined,
   )
   if (projectLimit === null) {
     throw new ConvexError('Subscription plan has no project limit')

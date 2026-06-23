@@ -8,6 +8,29 @@ export const roleValidator = v.union(
   v.literal('viewer')
 )
 
+export const serviceActorRoleValidator = v.union(
+  v.literal('admin'),
+  v.literal('member'),
+  v.literal('viewer')
+)
+
+export const approvalOperationValidator = v.literal('projects.delete')
+export const serviceAuditActionValidator = v.union(
+  v.literal('projects.create'),
+  v.literal('projects.delete')
+)
+export const serviceAuditResourceTypeValidator = v.literal('project')
+export const projectCreatorValidator = v.union(
+  v.object({
+    kind: v.literal('user'),
+    userId: v.id('users')
+  }),
+  v.object({
+    kind: v.literal('serviceActor'),
+    serviceActorId: v.id('serviceActors')
+  })
+)
+
 export default defineSchema({
   users: defineTable({
     subject: v.string(),
@@ -37,7 +60,7 @@ export default defineSchema({
   serviceActors: defineTable({
     organizationId: v.id('organizations'),
     name: v.string(),
-    role: roleValidator,
+    role: serviceActorRoleValidator,
     status: v.union(v.literal('active'), v.literal('revoked')),
     createdAt: v.number(),
     updatedAt: v.number()
@@ -57,16 +80,16 @@ export default defineSchema({
   projects: defineTable({
     organizationId: v.id('organizations'),
     name: v.string(),
-    createdByServiceActorId: v.optional(v.id('serviceActors')),
+    createdBy: projectCreatorValidator,
     createdAt: v.number()
   }).index('by_org', ['organizationId']),
 
   approvals: defineTable({
     organizationId: v.id('organizations'),
-    operation: v.string(),
+    operation: approvalOperationValidator,
     resourceId: v.string(),
-    status: v.union(v.literal('pending'), v.literal('approved'), v.literal('denied'), v.literal('used')),
-    approvedBy: v.optional(v.id('users')),
+    status: v.union(v.literal('approved'), v.literal('used')),
+    approvedBy: v.id('users'),
     expiresAt: v.number(),
     createdAt: v.number(),
     usedAt: v.optional(v.number())
@@ -75,11 +98,9 @@ export default defineSchema({
   auditEvents: defineTable({
     organizationId: v.id('organizations'),
     serviceActorId: v.id('serviceActors'),
-    action: v.string(),
-    resourceType: v.string(),
+    action: serviceAuditActionValidator,
+    resourceType: serviceAuditResourceTypeValidator,
     resourceId: v.optional(v.string()),
-    result: v.union(v.literal('allowed'), v.literal('denied')),
     createdAt: v.number()
   }).index('by_org_created', ['organizationId', 'createdAt'])
 })
-

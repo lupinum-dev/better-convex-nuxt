@@ -9,6 +9,7 @@ import type { Ref, ComputedRef } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import type { ConvexAuthEngine } from '../auth/client-engine'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { createConvexCallState } from '../utils/call-state'
@@ -155,7 +156,10 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
         )
       }
 
-      await ensureConvexAuthReady(nuxtApp.$convexAuthEngine, 'useConvexAction')
+      await ensureConvexAuthReady(
+        nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+        'useConvexAction',
+      )
 
       const result = await client.action(action, args)
       callState.commitSuccess(currentRequestId, result)

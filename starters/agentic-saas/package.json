@@ -1,0 +1,34 @@
+{
+  "name": "better-convex-nuxt-starter-agentic-saas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "convex:dev": "convex dev",
+    "convex:codegen": "convex codegen",
+    "convex:local:once": "CONVEX_AGENT_MODE=anonymous convex dev --once --typecheck try --typecheck-components",
+    "test": "nuxi prepare && vitest run",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@convex-dev/agent": "^0.3.2",
+    "@convex-dev/better-auth": "^0.12.4",
+    "better-auth": "^1.6.20",
+    "better-convex-nuxt": "link:../..",
+    "convex": "^1.32.0",
+    "nuxt": "^4.3.1",
+    "vue": "^3.5.25",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "convex-test": "^0.0.41",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.7",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.2.5"
+  },
+  "packageManager": "pnpm@10.30.3"
+}

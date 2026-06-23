@@ -16,7 +16,7 @@ export default createConfigForNuxt({
   .prepend(
     // Ignore demo and docs folders - they have their own eslint configs
     {
-      ignores: ['demo/**', 'docs/**', '**/convex/_generated/**'],
+      ignores: ['demo/**', 'docs/**', '**/convex/**/_generated/**'],
     },
   )
   .append(

@@ -45,7 +45,7 @@ function localExperimentOtp() {
 }
 
 function localExperimentMagicLinkToken(email: string) {
-  return `local-magic-link-${email.replace(/[^a-zA-Z0-9]/g, '-')}`
+  return `local-magic-link-${email.replace(/[^a-z\d]/gi, '-')}`
 }
 
 function createLocalStripeClient() {

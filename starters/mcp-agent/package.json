@@ -6,15 +6,16 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "convex:dev": "convex dev",
-    "convex:codegen": "convex codegen",
-    "test": "vitest run",
+    "convex:dev": "nuxi prepare && convex dev",
+    "convex:codegen": "nuxi prepare && convex codegen",
+    "test": "nuxi prepare && vitest run",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.4",
+    "@nuxtjs/mcp-toolkit": "^0.17.2",
     "better-auth": "^1.6.20",
-    "better-convex-nuxt": "^0.4.0",
+    "better-convex-nuxt": "link:../..",
     "convex": "^1.32.0",
     "h3": "^1.15.5",
     "nuxt": "^4.3.1",
@@ -22,6 +23,8 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^25.0.0",
     "convex-test": "^0.0.41",
     "typescript": "~5.9.3",

@@ -1,22 +1,28 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 
 import { mutation } from './_generated/server'
+import { requireOrganizationAdmin } from './access'
 
-export const createApprovedForDemo = mutation({
+export const approveProjectDelete = mutation({
   args: {
-    organizationId: v.id('organizations'),
-    operation: v.string(),
-    resourceId: v.string()
+    projectId: v.id('projects')
   },
   handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId)
+    if (!project) {
+      throw new ConvexError('Project not found')
+    }
+
+    const user = await requireOrganizationAdmin(ctx, project.organizationId)
+    const now = Date.now()
     return await ctx.db.insert('approvals', {
-      organizationId: args.organizationId,
-      operation: args.operation,
-      resourceId: args.resourceId,
+      organizationId: project.organizationId,
+      operation: 'projects.delete',
+      resourceId: args.projectId,
       status: 'approved',
-      expiresAt: Date.now() + 5 * 60 * 1000,
-      createdAt: Date.now()
+      approvedBy: user._id,
+      expiresAt: now + 5 * 60 * 1000,
+      createdAt: now
     })
   }
 })
-
