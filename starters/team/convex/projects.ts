@@ -1,10 +1,12 @@
 import { paginationOptsValidator } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 
-import { mutation, query } from './_generated/server'
+import { internalMutation, mutation, query } from './_generated/server'
 import { writeAuditEvent } from './lib/audit'
 import { requireProjectAccessById, requireProjectTeamAccess } from './lib/authz'
 import { projectStatus } from './schema'
+
+const softDeleteRetentionMs = 30 * 24 * 60 * 60 * 1000
 
 export const list = query({
   args: {
@@ -186,5 +188,28 @@ export const restore = mutation({
     })
 
     return args.projectId
+  },
+})
+
+export const purgeSoftDeleted = internalMutation({
+  args: {
+    now: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now()
+    const cutoff = now - softDeleteRetentionMs
+    const deletedProjects = await ctx.db
+      .query('projects')
+      .withIndex('by_status_deletedAt', (q) => q.eq('status', 'deleted').lte('deletedAt', cutoff))
+      .collect()
+
+    for (const project of deletedProjects) {
+      await ctx.db.delete(project._id)
+    }
+
+    return {
+      deletedCount: deletedProjects.length,
+      cutoff,
+    }
   },
 })

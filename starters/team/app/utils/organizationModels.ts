@@ -1,4 +1,4 @@
-import type { OrganizationRole } from '~~/shared/organizationRoles'
+import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
 
 export type OrganizationSummary = {
   id: string
@@ -23,6 +23,16 @@ export type Member = {
     name: string
     image?: string
   }
+}
+
+export type PendingInvitation = {
+  email: string
+  role: InviteRole
+  teamId?: string
+  teamName?: string
+  status: string
+  expiresAt: number
+  createdAt: number
 }
 
 export type OrganizationCapabilities = {

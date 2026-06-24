@@ -12,9 +12,31 @@ import { components, internal } from './_generated/api'
 import type { DataModel, Doc } from './_generated/dataModel'
 import authConfig from './auth.config'
 import authSchema from './betterAuth/schema'
+import { sendStarterEmail } from './lib/authEmail'
 
 const authFunctions: AuthFunctions = internal.auth
 const localTrustedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000']
+
+type InvitationEmailData = {
+  id: string
+  email: string
+  organization: {
+    name: string
+  }
+  inviter: {
+    user: {
+      name?: string | null
+      email: string
+    }
+  }
+}
+
+type VerificationEmailData = {
+  url: string
+  user: {
+    email: string
+  }
+}
 
 const accessControl = createAccessControl({
   organization: ['update'],
@@ -65,6 +87,44 @@ const organizationRoleConfig = {
   OrganizationRole,
   typeof ownerRole | typeof adminRole | typeof memberRole | typeof viewerRole
 >
+
+function invitationLink(siteUrl: string, invitationId: string) {
+  return `${siteUrl.replace(/\/+$/, '')}/invitations/${encodeURIComponent(invitationId)}`
+}
+
+async function sendInvitationEmail(siteUrl: string, data: InvitationEmailData) {
+  const link = invitationLink(siteUrl, data.id)
+  const inviterName = data.inviter.user.name?.trim() || data.inviter.user.email
+  await sendStarterEmail({
+    recipient: data.email,
+    siteUrl,
+    fallbackLabel: 'Invitation link',
+    fallbackUrl: link,
+    content: {
+      subject: `${inviterName} invited you to join ${data.organization.name}`,
+      text: [
+        `${inviterName} invited you to join ${data.organization.name}.`,
+        '',
+        `Accept the invitation: ${link}`,
+      ].join('\n'),
+      html: `<p>${inviterName} invited you to join <strong>${data.organization.name}</strong>.</p><p><a href="${link}">Accept the invitation</a></p>`,
+    },
+  })
+}
+
+async function sendVerificationEmail(siteUrl: string, data: VerificationEmailData) {
+  await sendStarterEmail({
+    recipient: data.user.email,
+    siteUrl,
+    fallbackLabel: 'Verification link',
+    fallbackUrl: data.url,
+    content: {
+      subject: 'Verify your email address',
+      text: `Click the link to verify your email: ${data.url}`,
+      html: `<p><a href="${data.url}">Verify your email address</a></p>`,
+    },
+  })
+}
 
 function userProjectionFields(user: BetterAuthUserDocLike) {
   return {
@@ -147,11 +207,22 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     emailAndPassword: {
       enabled: true,
     },
+    emailVerification: {
+      sendOnSignIn: true,
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      async sendVerificationEmail(data) {
+        await sendVerificationEmail(siteUrl, data as VerificationEmailData)
+      },
+    },
     plugins: [
       organization({
         ac: accessControl,
         roles: organizationRoleConfig,
-        requireEmailVerificationOnInvitation: process.env.ALLOW_TEST_RESET !== 'true',
+        requireEmailVerificationOnInvitation: true,
+        async sendInvitationEmail(data) {
+          await sendInvitationEmail(siteUrl, data as InvitationEmailData)
+        },
         teams: {
           enabled: true,
         },

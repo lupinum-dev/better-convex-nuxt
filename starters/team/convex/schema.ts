@@ -36,12 +36,14 @@ export default defineSchema({
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
     deletedByAuthUserId: v.optional(v.string()),
-  }).index('by_organizationId_teamId_status_updatedAt', [
-    'organizationId',
-    'teamId',
-    'status',
-    'updatedAt',
-  ]),
+  })
+    .index('by_organizationId_teamId_status_updatedAt', [
+      'organizationId',
+      'teamId',
+      'status',
+      'updatedAt',
+    ])
+    .index('by_status_deletedAt', ['status', 'deletedAt']),
 
   auditEvents: defineTable({
     organizationId: v.string(),

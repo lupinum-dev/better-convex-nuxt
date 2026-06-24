@@ -1,6 +1,10 @@
 import { ConvexError, v } from 'convex/values'
 
-import { canViewOrganizationActivity, isOrganizationRole } from '../shared/organizationRoles'
+import {
+  canViewOrganizationActivity,
+  isInviteRole,
+  isOrganizationRole,
+} from '../shared/organizationRoles'
 import { mutation, query } from './_generated/server'
 import {
   getAppAuth,
@@ -8,7 +12,12 @@ import {
   requireAuthenticatedSession,
   requireOrgMembership,
 } from './lib/authz'
-import { getBetterAuthMember, listBetterAuthOrganizationMembers } from './lib/betterAuthRows'
+import {
+  getBetterAuthMember,
+  getBetterAuthPendingInvitationByEmail,
+  listBetterAuthOrganizationInvitations,
+  listBetterAuthOrganizationMembers,
+} from './lib/betterAuthRows'
 
 function slugify(value: string) {
   const slug = value
@@ -41,6 +50,34 @@ function memberDto(member: {
     userId: member.userId,
     role: member.role,
     user: member.user,
+  }
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase()
+}
+
+function invitationDto(invitation: {
+  email: string
+  role?: string | null
+  teamId?: string
+  teamName?: string
+  status: string
+  expiresAt: number
+  createdAt: number
+}) {
+  if (!isInviteRole(invitation.role)) {
+    throw new ConvexError('Invitation response had an invalid role')
+  }
+
+  return {
+    email: invitation.email,
+    role: invitation.role,
+    teamId: invitation.teamId,
+    teamName: invitation.teamName,
+    status: invitation.status,
+    expiresAt: invitation.expiresAt,
+    createdAt: invitation.createdAt,
   }
 }
 
@@ -252,6 +289,92 @@ export const listMembers = query({
 
     const members = await listBetterAuthOrganizationMembers(ctx, args.organizationId)
     return members.map(memberDto)
+  },
+})
+
+export const listInvitations = query({
+  args: {
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { auth, headers } = await getAppAuth(ctx)
+    await requireOrgMembership(ctx, { organizationId: args.organizationId })
+    const allowed = await hasOrganizationPermissions(auth, headers, args.organizationId, {
+      member: ['update'],
+    })
+    if (!allowed) {
+      throw new ConvexError('Missing member:update permission')
+    }
+
+    const invitations = await listBetterAuthOrganizationInvitations(ctx, args.organizationId)
+    return invitations
+      .filter((invitation) => invitation.status === 'pending')
+      .map(invitationDto)
+      .sort((left, right) => right.createdAt - left.createdAt)
+  },
+})
+
+export const inviteMember = mutation({
+  args: {
+    organizationId: v.string(),
+    email: v.string(),
+    role: v.string(),
+    teamId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { auth, headers } = await requireAuthenticatedSession(ctx)
+    const email = normalizeEmail(args.email)
+    const teamId = args.teamId?.trim() || undefined
+    if (!email) {
+      throw new ConvexError('Email is required')
+    }
+    if (!isInviteRole(args.role)) {
+      throw new ConvexError('Valid invite role is required')
+    }
+
+    await auth.api.createInvitation({
+      headers,
+      body: {
+        organizationId: args.organizationId,
+        email,
+        role: args.role,
+        ...(teamId ? { teamId } : {}),
+      },
+    })
+
+    return { ok: true }
+  },
+})
+
+export const cancelInvitation = mutation({
+  args: {
+    organizationId: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { auth, headers } = await requireAuthenticatedSession(ctx)
+    const invitation = await getBetterAuthPendingInvitationByEmail(ctx, {
+      organizationId: args.organizationId,
+      email: normalizeEmail(args.email),
+    })
+
+    if (!invitation) {
+      return { ok: true }
+    }
+
+    const invitationId = invitation.id ?? invitation._id
+    if (!invitationId) {
+      throw new ConvexError('Invitation row is missing an id')
+    }
+
+    await auth.api.cancelInvitation({
+      headers,
+      body: {
+        invitationId,
+      },
+    })
+
+    return { ok: true }
   },
 })
 

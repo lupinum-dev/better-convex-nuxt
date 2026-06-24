@@ -14,11 +14,13 @@ This starter is intentionally focused. It teaches one production-shaped path:
 - Every project belongs to one Better Auth organization and one Better Auth team.
 - Project access is organization permission plus team access.
 - Project deletion is soft delete with restore.
+- Soft-deleted projects are purged after 30 days by a Convex cron job.
 
 ## Includes
 
 - Email/password auth.
 - Better Auth Organization with static roles.
+- Organization invitations with Better Auth-managed acceptance and verified-email gating.
 - Better Auth teams and default team flow.
 - Team-scoped projects.
 - Product authorization in Convex.
@@ -45,11 +47,19 @@ starter does not mirror those management actions into app tables.
   team, and team-member management remain in Better Auth's domain.
 - The starter does not mix app-owned HTTP management wrappers with Convex hooks.
 - The starter does not duplicate Better Auth org/member/team state in app tables.
+- Invitation acceptance requires a logged-in session whose email matches the
+  invited address.
+- Invitation acceptance also requires that the invited email address is verified.
+- Verification emails are sent automatically on sign-up and again on sign-in for
+  unverified users.
+- The app does not expose Better Auth invitation ids in organization management
+  queries. Only the emailed invitation link carries the action-capable id.
+- Verification and invitation delivery must be configured outside local
+  development. The local fallback only logs links for localhost/test workflows.
 
 ## Not Included
 
 - Admin user management.
-- Organization invitations.
 - API keys.
 - Dynamic roles.
 - Passkeys.
@@ -86,7 +96,8 @@ pnpm verify:full
 
 `pnpm test` runs focused Convex tests for schema invariants, Better Auth user
 projection, auth-domain Convex contracts, project lifecycle audit writes, role
-permissions, team membership, and soft-delete query behavior.
+permissions, invitation lifecycle, team membership, and soft-delete query
+behavior.
 
 `pnpm typecheck` runs Nuxt type checking. Without local Convex environment
 values, the module can warn that no Convex site URL was resolved; that warning is
@@ -130,6 +141,8 @@ Recommended first browser flows for a production app:
 
 - Owner signs up, creates an organization, creates a team, creates a project,
   renames it, soft-deletes it, and restores it.
+- Owner invites a user, the user signs in through the invitation link, and the
+  invited user lands in the correct organization/team.
 - Viewer can read allowed data but cannot create, update, delete, or restore a
   project.
 - Member can work inside an assigned team but cannot access another team in the
@@ -143,6 +156,17 @@ Set these in Convex before using auth routes:
 npx convex env set SITE_URL http://localhost:3000
 npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
 ```
+
+Email delivery with Resend:
+
+```bash
+npx convex env set RESEND_API_KEY your_resend_api_key
+npx convex env set RESEND_FROM_EMAIL invites@example.com
+```
+
+Without Resend configured, localhost/test runs log verification and invitation
+links for manual testing. Non-local deployments fail fast instead of pretending
+email was sent.
 
 Also configure the Nuxt public Convex URLs, for example in `.env`:
 

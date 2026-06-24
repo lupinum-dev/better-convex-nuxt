@@ -4,13 +4,16 @@ const { message } = defineProps<{
 }>()
 
 const { signIn, signUp, refreshAuth } = useConvexAuth()
+const route = useRoute()
 
 const mode = ref<'signIn' | 'signUp'>('signUp')
 const name = ref('')
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
+const info = ref<string | null>(null)
 const loading = ref(false)
+const callbackURL = computed(() => route.fullPath || '/')
 
 const canSubmit = computed(() => {
   if (!email.value.trim() || password.value.length < 8) return false
@@ -27,6 +30,7 @@ const passwordAutocomplete = computed(() =>
 
 watch(mode, () => {
   error.value = null
+  info.value = null
 })
 
 async function submitAuth() {
@@ -34,6 +38,7 @@ async function submitAuth() {
 
   loading.value = true
   error.value = null
+  info.value = null
   const trimmedEmail = email.value.trim()
 
   try {
@@ -42,6 +47,7 @@ async function submitAuth() {
         name: name.value.trim(),
         email: trimmedEmail,
         password: password.value,
+        callbackURL: callbackURL.value,
       })
 
       if (signUpError) {
@@ -51,12 +57,14 @@ async function submitAuth() {
 
       password.value = ''
       await refreshAuth()
+      info.value = 'Check your email for a verification link.'
       return
     }
 
     const result = await signIn.email({
       email: trimmedEmail,
       password: password.value,
+      callbackURL: callbackURL.value,
     })
 
     if (result.error) {
@@ -66,6 +74,8 @@ async function submitAuth() {
 
     password.value = ''
     await refreshAuth()
+    info.value =
+      'Signed in. If your email is not verified yet, check your inbox for a verification link.'
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Authentication failed'
   } finally {
@@ -117,6 +127,7 @@ async function submitAuth() {
         />
       </label>
 
+      <p v-if="info" class="auth-info">{{ info }}</p>
       <p v-if="error" class="auth-error">{{ error }}</p>
 
       <button type="submit" :disabled="loading || !canSubmit">
@@ -206,6 +217,11 @@ async function submitAuth() {
 
 .auth-error {
   margin: 0;
+}
+
+.auth-info {
+  margin: 0;
+  color: #155eef;
 }
 
 .auth-error {

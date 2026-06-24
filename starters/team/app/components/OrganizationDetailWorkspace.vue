@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import type { OrganizationRole } from '~~/shared/organizationRoles'
+import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
 
 import { api } from '#convex/api'
-import type { Member, OrganizationSummary, Team } from '~/utils/organizationModels'
+import type {
+  Member,
+  OrganizationSummary,
+  PendingInvitation,
+  Team,
+} from '~/utils/organizationModels'
 
 const props = defineProps<{
   organization: OrganizationSummary
@@ -16,6 +21,8 @@ const organizationId = computed(() => props.organization.id)
 const createTeamMutation = useConvexMutation(api.organizations.createTeam)
 const renameOrganizationMutation = useConvexMutation(api.organizations.rename)
 const renameTeamMutation = useConvexMutation(api.teams.rename)
+const inviteMemberMutation = useConvexMutation(api.organizations.inviteMember)
+const cancelInvitationMutation = useConvexMutation(api.organizations.cancelInvitation)
 const changeRoleMutation = useConvexMutation(api.organizations.changeMemberRole)
 const removeMemberMutation = useConvexMutation(api.organizations.removeMember)
 const addTeamMemberMutation = useConvexMutation(api.teams.addMember)
@@ -38,6 +45,13 @@ const {
 } = await useConvexQuery(api.organizations.listMembers, () =>
   orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
 )
+const {
+  data: invitationsData,
+  pending: invitationsPending,
+  error: invitationsQueryError,
+} = await useConvexQuery(api.organizations.listInvitations, () =>
+  orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
+)
 
 const selectedTeamId = ref<string | null>(null)
 const teamName = ref('')
@@ -49,15 +63,24 @@ const orgRenamePending = ref(false)
 const orgRenameError = ref<string | null>(null)
 const teamRenamePending = ref(false)
 const teamRenameError = ref<string | null>(null)
+const invitePending = ref(false)
+const inviteError = ref<string | null>(null)
+const cancelInvitationEmail = ref<string | null>(null)
 
 const teams = computed(() => teamsData.value ?? [])
 const members = computed(() => membersData.value ?? [])
+const invitations = computed<PendingInvitation[]>(() => invitationsData.value ?? [])
 const teamsError = computed(() =>
   teamsQueryError.value ? errorMessage(teamsQueryError.value, 'Teams could not be loaded') : null,
 )
 const membersError = computed(() =>
   membersQueryError.value
     ? errorMessage(membersQueryError.value, 'Members could not be loaded')
+    : null,
+)
+const invitationsError = computed(() =>
+  invitationsQueryError.value
+    ? errorMessage(invitationsQueryError.value, 'Invitations could not be loaded')
     : null,
 )
 const selectedTeam = computed<Team | null>(
@@ -147,6 +170,37 @@ async function renameSelectedTeam() {
   }
 }
 
+async function inviteMember(email: string, role: InviteRole) {
+  invitePending.value = true
+  inviteError.value = null
+  try {
+    await inviteMemberMutation({
+      organizationId: organizationId.value,
+      email,
+      role,
+      teamId: selectedTeamId.value ?? undefined,
+    })
+    return true
+  } catch (error) {
+    inviteError.value = errorMessage(error, 'Member was not invited')
+    return false
+  } finally {
+    invitePending.value = false
+  }
+}
+
+async function cancelInvitation(email: string) {
+  cancelInvitationEmail.value = email
+  try {
+    await cancelInvitationMutation({
+      organizationId: organizationId.value,
+      email,
+    })
+  } finally {
+    cancelInvitationEmail.value = null
+  }
+}
+
 async function changeMemberRole(member: Member, role: OrganizationRole) {
   if (role === member.role) return
 
@@ -218,10 +272,18 @@ function memberLabel(member: Member) {
     :organization-id="organizationId"
     :team-id="selectedTeam.id"
     :members="members"
+    :selected-team-name="selectedTeam.name"
+    :invitations="invitations"
+    :invitations-pending="invitationsPending"
+    :invitations-error="invitationsError"
+    :invite-pending="invitePending || cancelInvitationEmail !== null"
+    :invite-error="inviteError"
     :members-pending="membersPending"
     :members-error="membersError"
     :can-manage-members="orgCapabilities?.canManageMembers"
     :member-label="memberLabel"
+    :on-invite="inviteMember"
+    :on-cancel-invitation="cancelInvitation"
     :on-change-role="changeMemberRole"
     :on-add-to-team="addMemberToSelectedTeam"
     :on-remove-from-team="removeMemberFromSelectedTeam"

@@ -29,9 +29,24 @@ export type BetterAuthTeam = BetterAuthRowWithId & {
   name?: string
 }
 
+export type BetterAuthOrganization = BetterAuthRowWithId & {
+  name: string
+}
+
 export type BetterAuthTeamMember = BetterAuthRowWithId & {
   teamId: string
   userId: string
+}
+
+export type BetterAuthInvitation = BetterAuthRowWithId & {
+  organizationId: string
+  email: string
+  role?: string | null
+  teamId?: string | null
+  status: string
+  expiresAt: number
+  createdAt: number
+  inviterId: string
 }
 
 export type BetterAuthUser = BetterAuthRowWithId & {
@@ -51,6 +66,16 @@ export type BetterAuthOrganizationMember = {
     name: string
     image?: string
   }
+}
+
+export type BetterAuthOrganizationInvitation = {
+  email: string
+  role?: string | null
+  teamId?: string
+  teamName?: string
+  status: string
+  expiresAt: number
+  createdAt: number
 }
 
 const betterAuthPageSize = 100
@@ -138,6 +163,17 @@ export async function getBetterAuthTeam(
   )
 }
 
+export async function getBetterAuthOrganization(
+  ctx: Ctx,
+  args: {
+    organizationId: string
+  },
+) {
+  return await findBetterAuthRow<BetterAuthOrganization>(ctx, 'organization', [
+    { field: '_id', value: args.organizationId },
+  ])
+}
+
 export async function getBetterAuthTeamMember(
   ctx: Ctx,
   args: {
@@ -151,10 +187,73 @@ export async function getBetterAuthTeamMember(
   ])
 }
 
+export async function getBetterAuthInvitation(
+  ctx: Ctx,
+  args: {
+    invitationId: string
+  },
+) {
+  return await findBetterAuthRow<BetterAuthInvitation>(ctx, 'invitation', [
+    { field: '_id', value: args.invitationId },
+  ])
+}
+
+export async function getBetterAuthPendingInvitationByEmail(
+  ctx: Ctx,
+  args: {
+    organizationId: string
+    email: string
+  },
+) {
+  return await findBetterAuthRow<BetterAuthInvitation>(ctx, 'invitation', [
+    { field: 'organizationId', value: args.organizationId },
+    { field: 'email', value: args.email },
+    { field: 'status', value: 'pending' },
+  ])
+}
+
 export async function listBetterAuthTeamMembers(ctx: Ctx, teamId: string) {
   return await listBetterAuthRows<BetterAuthTeamMember>(ctx, {
     model: 'teamMember',
     where: [{ field: 'teamId', value: teamId }],
+  })
+}
+
+export async function listBetterAuthOrganizationInvitations(ctx: Ctx, organizationId: string) {
+  const invitations = await listBetterAuthRows<BetterAuthInvitation>(ctx, {
+    model: 'invitation',
+    where: [{ field: 'organizationId', value: organizationId }],
+  })
+
+  const teamIds = Array.from(
+    new Set(
+      invitations
+        .map((invitation) => invitation.teamId ?? undefined)
+        .filter((teamId): teamId is string => typeof teamId === 'string' && teamId.length > 0),
+    ),
+  )
+  const teams =
+    teamIds.length === 0
+      ? []
+      : await listBetterAuthRows<BetterAuthTeam>(ctx, {
+          model: 'team',
+          where: [{ field: '_id', operator: 'in', value: teamIds }],
+        })
+  const teamsById = new Map(teams.map((team) => [getBetterAuthRowId(team, 'team'), team]))
+
+  return invitations.map((invitation): BetterAuthOrganizationInvitation => {
+    const teamId = invitation.teamId ?? undefined
+    const team = teamId ? teamsById.get(teamId) : undefined
+
+    return {
+      email: invitation.email,
+      role: invitation.role ?? undefined,
+      teamId,
+      teamName: team?.name,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      createdAt: invitation.createdAt,
+    }
   })
 }
 

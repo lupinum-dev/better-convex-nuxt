@@ -9,6 +9,7 @@ import { initConvexTest } from './test.setup'
 const now = 1_700_000_000_000
 
 type Role = 'owner' | 'admin' | 'member' | 'viewer'
+const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
 
 async function seedBetterAuthOrganization(
   t: ReturnType<typeof initConvexTest>,
@@ -151,6 +152,25 @@ async function seedBetterAuthTeam(
     })) as { _id: string }
 
     return team._id
+  })
+}
+
+async function verifyBetterAuthUserEmail(
+  t: ReturnType<typeof initConvexTest>,
+  args: {
+    userId: string
+  },
+) {
+  await t.run(async (ctx) => {
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: 'user',
+        where: [{ field: '_id', value: args.userId }],
+        update: {
+          emailVerified: true,
+        },
+      },
+    })
   })
 }
 
@@ -527,6 +547,71 @@ describe('team starter invariants', () => {
     expect(project?.deletedByAuthUserId).toBeUndefined()
   })
 
+  it('purges soft-deleted projects after 30 days', async () => {
+    const t = initConvexTest()
+    const staleDeletedAt = 1_000
+    const purgeNow = staleDeletedAt + thirtyDaysMs + 1
+
+    const [activeProjectId, staleDeletedProjectId, recentDeletedProjectId] = await t.run(
+      async (ctx) => {
+        return await Promise.all([
+          ctx.db.insert('projects', {
+            organizationId: 'org_purge',
+            teamId: 'team_purge',
+            name: 'Active Project',
+            status: 'active',
+            createdByAuthUserId: 'user_purge',
+            createdAt: 1,
+            updatedAt: 1,
+          }),
+          ctx.db.insert('projects', {
+            organizationId: 'org_purge',
+            teamId: 'team_purge',
+            name: 'Stale Deleted Project',
+            status: 'deleted',
+            createdByAuthUserId: 'user_purge',
+            createdAt: 1,
+            updatedAt: staleDeletedAt,
+            deletedAt: staleDeletedAt,
+            deletedByAuthUserId: 'user_purge',
+          }),
+          ctx.db.insert('projects', {
+            organizationId: 'org_purge',
+            teamId: 'team_purge',
+            name: 'Recent Deleted Project',
+            status: 'deleted',
+            createdByAuthUserId: 'user_purge',
+            createdAt: 1,
+            updatedAt: purgeNow,
+            deletedAt: purgeNow,
+            deletedByAuthUserId: 'user_purge',
+          }),
+        ])
+      },
+    )
+
+    const result = await t.mutation(internal.projects.purgeSoftDeleted, {
+      now: purgeNow,
+    })
+
+    expect(result).toEqual({
+      deletedCount: 1,
+      cutoff: purgeNow - thirtyDaysMs,
+    })
+
+    const [activeProject, staleDeletedProject, recentDeletedProject] = await t.run(async (ctx) => {
+      return await Promise.all([
+        ctx.db.get(activeProjectId),
+        ctx.db.get(staleDeletedProjectId),
+        ctx.db.get(recentDeletedProjectId),
+      ])
+    })
+
+    expect(activeProject?.status).toBe('active')
+    expect(staleDeletedProject).toBeNull()
+    expect(recentDeletedProject?.status).toBe('deleted')
+  })
+
   it('keeps management actions out of the product audit schema', async () => {
     const t = initConvexTest()
 
@@ -821,6 +906,212 @@ describe('team starter invariants', () => {
         organizationId,
       }),
     ).rejects.toThrow(/User is not an organization member/)
+  })
+
+  it('completes the invitation lifecycle into organization and team membership', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_accept' })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'team_invite_accept',
+    })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_accept',
+      organizationId,
+      role: 'owner',
+    })
+    const inviteeSeed = await signUpBetterAuthUser(t, {
+      label: 'invitee_accept',
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    await owner.mutation(api.organizations.inviteMember, {
+      organizationId,
+      email: 'invitee_accept@example.com',
+      role: 'member',
+      teamId,
+    })
+
+    const invitationId = await t.run(async (ctx) => {
+      const invitation = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: 'invitation',
+        where: [
+          { field: 'organizationId', value: organizationId },
+          { field: 'email', value: 'invitee_accept@example.com' },
+          { field: 'status', value: 'pending' },
+        ],
+      })) as { _id?: string; id?: string } | null
+
+      return invitation?.id ?? invitation?._id ?? null
+    })
+    if (!invitationId) {
+      throw new Error('Expected invitation row to exist')
+    }
+
+    const invitee = asActor(t, {
+      userId: inviteeSeed.authUserId,
+      sessionId: inviteeSeed.sessionId,
+    })
+    await expect(
+      invitee.query(api.invitations.get, {
+        invitationId,
+      }),
+    ).rejects.toThrow(/Verify your email/)
+
+    await verifyBetterAuthUserEmail(t, {
+      userId: inviteeSeed.authUserId,
+    })
+
+    const invitation = await invitee.query(api.invitations.get, {
+      invitationId,
+    })
+    expect(invitation).toMatchObject({
+      organizationId,
+      email: 'invitee_accept@example.com',
+      role: 'member',
+      teamId,
+      status: 'pending',
+    })
+
+    await invitee.mutation(api.invitations.accept, {
+      invitationId,
+    })
+
+    const [memberRow, teamMemberRow] = await t.run(async (ctx) => {
+      return await Promise.all([
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: 'member',
+          where: [
+            { field: 'organizationId', value: organizationId },
+            { field: 'userId', value: inviteeSeed.authUserId },
+          ],
+        }),
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: 'teamMember',
+          where: [
+            { field: 'teamId', value: teamId },
+            { field: 'userId', value: inviteeSeed.authUserId },
+          ],
+        }),
+      ])
+    })
+
+    expect(memberRow).toMatchObject({
+      organizationId,
+      userId: inviteeSeed.authUserId,
+      role: 'member',
+    })
+    expect(teamMemberRow).toMatchObject({
+      teamId,
+      userId: inviteeSeed.authUserId,
+    })
+  })
+
+  it('can reject an invitation without creating membership rows', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_reject' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_reject',
+      organizationId,
+      role: 'owner',
+    })
+    const inviteeSeed = await signUpBetterAuthUser(t, {
+      label: 'invitee_reject',
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    await owner.mutation(api.organizations.inviteMember, {
+      organizationId,
+      email: 'invitee_reject@example.com',
+      role: 'viewer',
+    })
+
+    const invitationId = await t.run(async (ctx) => {
+      const invitation = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: 'invitation',
+        where: [
+          { field: 'organizationId', value: organizationId },
+          { field: 'email', value: 'invitee_reject@example.com' },
+          { field: 'status', value: 'pending' },
+        ],
+      })) as { _id?: string; id?: string } | null
+
+      return invitation?.id ?? invitation?._id ?? null
+    })
+    if (!invitationId) {
+      throw new Error('Expected invitation row to exist')
+    }
+
+    const invitee = asActor(t, {
+      userId: inviteeSeed.authUserId,
+      sessionId: inviteeSeed.sessionId,
+    })
+    await verifyBetterAuthUserEmail(t, {
+      userId: inviteeSeed.authUserId,
+    })
+    await invitee.mutation(api.invitations.reject, {
+      invitationId,
+    })
+
+    const memberRow = await t.run(async (ctx) => {
+      return await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: 'member',
+        where: [
+          { field: 'organizationId', value: organizationId },
+          { field: 'userId', value: inviteeSeed.authUserId },
+        ],
+      })
+    })
+
+    expect(memberRow).toBeNull()
+  })
+
+  it('lists and cancels pending invitations without exposing invitation ids', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_cancel' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_cancel',
+      organizationId,
+      role: 'owner',
+    })
+
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    await owner.mutation(api.organizations.inviteMember, {
+      organizationId,
+      email: 'pending_cancel@example.com',
+      role: 'admin',
+    })
+
+    const invitations = await owner.query(api.organizations.listInvitations, {
+      organizationId,
+    })
+    expect(invitations).toEqual([
+      expect.objectContaining({
+        email: 'pending_cancel@example.com',
+        role: 'admin',
+        status: 'pending',
+      }),
+    ])
+    expect('id' in invitations[0]!).toBe(false)
+
+    await owner.mutation(api.organizations.cancelInvitation, {
+      organizationId,
+      email: 'pending_cancel@example.com',
+    })
+
+    const remainingInvitations = await owner.query(api.organizations.listInvitations, {
+      organizationId,
+    })
+    expect(remainingInvitations).toEqual([])
   })
 
   it('adds and removes team members through the Convex teams API', async () => {

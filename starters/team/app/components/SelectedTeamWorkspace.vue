@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { OrganizationRole } from '~~/shared/organizationRoles'
+import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
 
 import { api } from '#convex/api'
-import type { Member } from '~/utils/organizationModels'
+import type { Member, PendingInvitation } from '~/utils/organizationModels'
 
 const props = defineProps<{
   organizationId: string
@@ -11,7 +11,15 @@ const props = defineProps<{
   membersPending: boolean
   membersError: string | null
   canManageMembers?: boolean
+  selectedTeamName?: string
+  invitations: PendingInvitation[]
+  invitationsPending: boolean
+  invitationsError: string | null
+  invitePending: boolean
+  inviteError: string | null
   memberLabel: (member: Member) => string
+  onInvite: (email: string, role: InviteRole) => Promise<boolean>
+  onCancelInvitation: (email: string) => void
   onChangeRole: (member: Member, role: OrganizationRole) => void
   onAddToTeam: (member: Member) => void
   onRemoveFromTeam: (member: Member) => void
@@ -33,6 +41,18 @@ const teamMembersError = computed(() =>
 </script>
 
 <template>
+  <InvitationsPanel
+    :can-manage-members="canManageMembers"
+    :selected-team-name="selectedTeamName"
+    :invitations="invitations"
+    :invitations-pending="invitationsPending"
+    :invitations-error="invitationsError"
+    :invite-pending="invitePending"
+    :invite-error="inviteError"
+    :on-invite="onInvite"
+    :on-cancel-invitation="onCancelInvitation"
+  />
+
   <MembersPanel
     :can-manage-members="canManageMembers"
     :members="members"

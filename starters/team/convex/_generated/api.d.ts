@@ -10,8 +10,11 @@
 
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
+import type * as invitations from "../invitations.js";
 import type * as lib_audit from "../lib/audit.js";
+import type * as lib_authEmail from "../lib/authEmail.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_betterAuthRows from "../lib/betterAuthRows.js";
 import type * as organizations from "../organizations.js";
@@ -28,8 +31,11 @@ import type {
 declare const fullApi: ApiFromModules<{
   audit: typeof audit;
   auth: typeof auth;
+  crons: typeof crons;
   http: typeof http;
+  invitations: typeof invitations;
   "lib/audit": typeof lib_audit;
+  "lib/authEmail": typeof lib_authEmail;
   "lib/authz": typeof lib_authz;
   "lib/betterAuthRows": typeof lib_betterAuthRows;
   organizations: typeof organizations;
