@@ -3,7 +3,8 @@ import { api } from '@@/convex/_generated/api'
 import { ROLE_INFO, ROLES, type Role } from '@@/convex/permissions.config'
 
 const { user, pending: isPendingPermissions, isAuthenticated } = useDemoPermissions()
-const { execute: setRole, status: mutationStatus } = useConvexMutation(api.auth.setOwnRole)
+const setRole = useConvexMutation(api.auth.setOwnRole)
+const mutationStatus = setRole.status
 
 const currentRole = computed(() => (user.value as { role?: Role } | null)?.role)
 const isPending = computed(() => mutationStatus.value === 'pending')

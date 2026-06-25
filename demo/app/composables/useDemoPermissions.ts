@@ -13,7 +13,7 @@ import { createPermissions } from '#imports'
 export type { Permission, Resource }
 
 // Create base composables from module
-const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
+const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissionRedirect } =
   createPermissions<Permission>({
     query: api.auth.getPermissionContext,
     checkPermission: checkPermission as any,
@@ -54,7 +54,7 @@ export function usePermissionGuard(
   redirectTo: string = '/demo',
   resource?: any,
 ) {
-  return basePermissionGuard({
+  return basePermissionRedirect({
     permission,
     redirectTo,
     resource,

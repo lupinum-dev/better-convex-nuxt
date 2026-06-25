@@ -29,11 +29,7 @@ onMounted(() => {
     (entries) => {
       const [entry] = entries
       if (!entry) return
-      if (
-        entry.isIntersecting &&
-        infiniteStatus.value === 'ready' &&
-        !infiniteLoading.value
-      ) {
+      if (entry.isIntersecting && infiniteStatus.value === 'ready' && !infiniteLoading.value) {
         infiniteLoadMore(5)
       }
     },
@@ -59,7 +55,8 @@ const {
 // ADD SAMPLE DATA
 // ============================================
 
-const { execute: seedMessages, status: seedStatus } = useConvexMutation(api.messages.seed)
+const seedMessages = useConvexMutation(api.messages.seed)
+const seedStatus = seedMessages.status
 
 async function addSampleData() {
   await seedMessages({ count: 20 })
