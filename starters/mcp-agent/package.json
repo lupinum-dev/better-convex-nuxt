@@ -8,14 +8,20 @@
     "preview": "nuxt preview",
     "convex:dev": "nuxi prepare && convex dev",
     "convex:codegen": "nuxi prepare && convex codegen",
+    "lint": "../../node_modules/.bin/oxfmt --check app server convex/*.ts scripts shared package.json README.md",
     "test": "nuxi prepare && vitest run",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "verify": "pnpm lint && pnpm test && pnpm convex:codegen && pnpm typecheck && pnpm build",
+    "verify:browser": "node scripts/verify-browser-happy-path.mjs",
+    "verify:browser:mobile": "node scripts/verify-browser-happy-path.mjs --mobile",
+    "verify:full": "pnpm verify && pnpm verify:browser && pnpm verify:browser:mobile"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.4",
+    "@convex-dev/rate-limiter": "^0.3.2",
     "@nuxtjs/mcp-toolkit": "^0.17.2",
     "better-auth": "^1.6.20",
-    "better-convex-nuxt": "link:../..",
+    "better-convex-nuxt": "^0.3.4",
     "convex": "^1.32.0",
     "h3": "^1.15.5",
     "nuxt": "^4.3.1",

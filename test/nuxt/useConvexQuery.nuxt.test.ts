@@ -24,7 +24,8 @@ function useConvexQueryState<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
 ) {
-  return createConvexQueryState<Query, Args, DataT>(query, args, options, true).resultData
+  return createConvexQueryState<Query, Args, DataT>(query, args, { auth: 'none', ...options }, true)
+    .resultData
 }
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {
@@ -32,7 +33,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:blocking-default')
 
-    const { result } = await captureInNuxt(() => useConvexQuery(query, {}), { convex })
+    const { result } = await captureInNuxt(() => useConvexQuery(query, {}, { auth: 'none' }), {
+      convex,
+    })
 
     let settled = false
     const blockingResult = result.then((value) => {
@@ -114,7 +117,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => {
         const token = useState<string | null>('convex:token')
         token.value = 'cached.jwt.token'
-        return useConvexQueryState(query, {}, { subscribe: false })
+        return useConvexQueryState(query, {}, { auth: 'auto', subscribe: false })
       },
       { convex: new MockConvexClient(), convexConfig: { defaults: { auth: 'auto' } } },
     )
@@ -123,6 +126,57 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer cached.jwt.token')
+  })
+
+  it('does not fetch client HTTP queries while private auth is pending', async () => {
+    const query = mockFnRef<'query'>('notes:list:auth-pending-http')
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = true
+        const queryResult = useConvexQueryState(query, {}, { auth: 'auto', subscribe: false })
+        return { authPending, queryResult }
+      },
+      {
+        convex: new MockConvexClient(),
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    expect(result.queryResult.pending.value).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    result.authPending.value = false
+    await flush()
+  })
+
+  it('allows per-query auth:none to fetch while auth is pending', async () => {
+    const query = mockFnRef<'query'>('notes:list:per-query-auth-none')
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'n1' }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = true
+        const queryResult = useConvexQueryState(query, {}, { auth: 'none', subscribe: false })
+        return { authPending, queryResult }
+      },
+      {
+        convex: new MockConvexClient(),
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
+
+    result.authPending.value = false
+    await flush()
   })
 
   it('respects skip args and does not start subscriptions', async () => {
@@ -170,9 +224,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
         authPending.value = true
-        const queryResult = useConvexQueryState(query, {})
-        return { authPending, queryResult }
+        const queryResult = useConvexQueryState(query, {}, { auth: 'auto' })
+        return { authPending, queryResult, token }
       },
       {
         convex,
@@ -183,6 +238,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.pending.value).toBe(true)
     expect(convex.calls.onUpdate.length).toBe(0)
 
+    result.token.value = 'ready.jwt.token'
     result.authPending.value = false
     await flush()
 

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 
@@ -18,6 +18,7 @@ type ConvexRequest = {
 const convexRequests: ConvexRequest[] = []
 const proofToken = 'proof-token'
 const proofTokenHash = hashBearerSecret(proofToken)
+const proofServerSecret = 'mcp-agent-local-server-secret'
 
 async function readRequestBody(request: IncomingMessage) {
   const chunks: Buffer[] = []
@@ -45,17 +46,18 @@ async function startFakeConvexServer() {
       args: body.args,
     })
 
-    const value = request.url === '/api/query'
-      ? [
-          {
-            _id: 'project-1',
-            organizationId: 'org-1',
-            name: 'Launch',
-            createdBy: { kind: 'serviceActor', serviceActorId: 'actor-1' },
-            createdAt: 1,
-          },
-        ]
-      : 'project-2'
+    const value =
+      request.url === '/api/query'
+        ? [
+            {
+              _id: 'project-1',
+              organizationId: 'org-1',
+              name: 'Launch',
+              createdBy: { kind: 'serviceActor', serviceActorId: 'actor-1' },
+              createdAt: 1,
+            },
+          ]
+        : 'project-2'
 
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ status: 'success', value }))
@@ -82,6 +84,19 @@ function mcpUrl() {
 
 function readSource(path: string) {
   return readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
+}
+
+function readRuntimeSources(path: string): string[] {
+  const absolutePath = fileURLToPath(new URL(path, import.meta.url))
+  if (statSync(absolutePath).isFile()) {
+    return [readFileSync(absolutePath, 'utf8')]
+  }
+
+  return readdirSync(absolutePath, { withFileTypes: true }).flatMap((entry) => {
+    const childPath = `${path}/${entry.name}`
+    if (entry.isDirectory()) return readRuntimeSources(childPath)
+    return entry.name.endsWith('.ts') ? readRuntimeSources(childPath) : []
+  })
 }
 
 async function createClient(token = proofToken, authorizationHeader?: string) {
@@ -112,6 +127,7 @@ async function createClient(token = proofToken, authorizationHeader?: string) {
 describe('Nuxt MCP Toolkit transport', async () => {
   const fakeConvex: { server: Server; url: string } = await startFakeConvexServer()
   process.env.NUXT_PUBLIC_CONVEX_URL = fakeConvex.url
+  process.env.MCP_SERVER_SECRET = proofServerSecret
 
   await setup({
     rootDir: fileURLToPath(new URL('..', import.meta.url)),
@@ -124,6 +140,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
       fakeConvex?.server.close((error) => (error ? reject(error) : resolve()))
     })
     delete process.env.NUXT_PUBLIC_CONVEX_URL
+    delete process.env.MCP_SERVER_SECRET
   })
 
   afterEach(async () => {
@@ -141,12 +158,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
       ...Object.keys(packageJson.dependencies ?? {}),
       ...Object.keys(packageJson.devDependencies ?? {}),
     ])
-    const runtimeSources = [
-      './mcp/index.ts',
-      './mcp/tools/projects-create.ts',
-      './mcp/tools/projects-list.ts',
-      './utils/mcpProjectTools.ts',
-    ].map((path) => readSource(path))
+    const runtimeSources = [...readRuntimeSources('./mcp'), ...readRuntimeSources('./utils')]
     const forbiddenRuntimePatterns = [
       '@better-auth/oauth-provider',
       'mcpHandler',
@@ -171,8 +183,28 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
       'projects.create',
+      'projects.delete',
       'projects.list',
     ])
+    expect(tools.tools.find((tool) => tool.name === 'projects.list')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {},
+    })
+    expect(tools.tools.find((tool) => tool.name === 'projects.create')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        name: { minLength: 1, type: 'string' },
+      },
+      required: ['name'],
+    })
+    expect(tools.tools.find((tool) => tool.name === 'projects.delete')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        approvalId: { minLength: 1, type: 'string' },
+        projectId: { minLength: 1, type: 'string' },
+      },
+      required: ['projectId', 'approvalId'],
+    })
   })
 
   it('routes read-only tools/call through the toolkit handler into Convex HTTP', async () => {
@@ -180,7 +212,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     const result = await client.callTool({
       name: 'projects.list',
-      arguments: { organizationId: 'org-1' },
+      arguments: {},
     })
     const serializedResult = JSON.stringify(result)
 
@@ -196,8 +228,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
       path: 'projects:listForServiceActor',
       args: [
         {
-          credentialHash: proofTokenHash,
-          organizationId: 'org-1',
+          bearerToken: proofToken,
+          serverSecret: proofServerSecret,
         },
       ],
     })
@@ -208,7 +240,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     const result = await client.callTool({
       name: 'projects.create',
-      arguments: { organizationId: 'org-1', name: 'Launch' },
+      arguments: { name: 'Launch' },
     })
     const serializedResult = JSON.stringify(result)
 
@@ -223,9 +255,41 @@ describe('Nuxt MCP Toolkit transport', async () => {
       path: 'projects:createFromServiceActor',
       args: [
         {
-          credentialHash: proofTokenHash,
-          organizationId: 'org-1',
+          bearerToken: proofToken,
           name: 'Launch',
+          serverSecret: proofServerSecret,
+        },
+      ],
+    })
+  })
+
+  it('routes approval-gated destructive tools/call through the toolkit handler into Convex HTTP', async () => {
+    client = await createClient()
+
+    const result = await client.callTool({
+      name: 'projects.delete',
+      arguments: {
+        projectId: 'project-1',
+        approvalId: 'approval-1',
+      },
+    })
+    const serializedResult = JSON.stringify(result)
+
+    expect(result.isError).not.toBe(true)
+    expect(serializedResult).toContain('Deleted project project-1')
+    expect(serializedResult).not.toContain(proofToken)
+    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(serializedResult).not.toContain('credentialHash')
+    expect(convexRequests).toHaveLength(1)
+    expect(convexRequests[0]).toMatchObject({
+      endpoint: '/api/mutation',
+      path: 'projects:deleteWithApproval',
+      args: [
+        {
+          approvalId: 'approval-1',
+          bearerToken: proofToken,
+          projectId: 'project-1',
+          serverSecret: proofServerSecret,
         },
       ],
     })
@@ -236,7 +300,6 @@ describe('Nuxt MCP Toolkit transport', async () => {
       method: 'POST',
       body: {
         bearerToken: proofToken,
-        organizationId: 'org-1',
         name: 'From UI demo',
       },
     })
@@ -250,24 +313,41 @@ describe('Nuxt MCP Toolkit transport', async () => {
       path: 'projects:createFromServiceActor',
       args: [
         {
-          credentialHash: proofTokenHash,
-          organizationId: 'org-1',
+          bearerToken: proofToken,
           name: 'From UI demo',
+          serverSecret: proofServerSecret,
         },
       ],
     })
+  })
+
+  it('uses the shared project validation message in the demo MCP route', async () => {
+    const error = await $fetch('/api/demo/mcp-projects', {
+      method: 'POST',
+      ignoreResponseError: true,
+      body: {
+        bearerToken: proofToken,
+        name: '   ',
+      },
+    })
+
+    expect(error).toMatchObject({
+      statusCode: 400,
+      statusMessage: 'Project name is required',
+    })
+    expect(convexRequests).toHaveLength(0)
   })
 
   it('rejects undeclared tool calls through the MCP server', async () => {
     client = await createClient()
 
     const result = await client.callTool({
-      name: 'projects.delete',
-      arguments: { organizationId: 'org-1', projectId: 'project-1' },
+      name: 'projects.archive',
+      arguments: { projectId: 'project-1' },
     })
 
     expect(result.isError).toBe(true)
-    expect(JSON.stringify(result.content)).toContain('Tool projects.delete not found')
+    expect(JSON.stringify(result.content)).toContain('Tool projects.archive not found')
     expect(convexRequests).toHaveLength(0)
   })
 
@@ -277,12 +357,13 @@ describe('Nuxt MCP Toolkit transport', async () => {
     const tools = await client.listTools()
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
       'projects.create',
+      'projects.delete',
       'projects.list',
     ])
 
     const result = await client.callTool({
       name: 'projects.list',
-      arguments: { organizationId: 'org-1' },
+      arguments: {},
     })
 
     expect(result.isError).toBe(true)
@@ -296,12 +377,13 @@ describe('Nuxt MCP Toolkit transport', async () => {
     const tools = await client.listTools()
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
       'projects.create',
+      'projects.delete',
       'projects.list',
     ])
 
     const result = await client.callTool({
       name: 'projects.list',
-      arguments: { organizationId: 'org-1' },
+      arguments: {},
     })
 
     expect(result.isError).toBe(true)
@@ -315,12 +397,13 @@ describe('Nuxt MCP Toolkit transport', async () => {
     const tools = await client.listTools()
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
       'projects.create',
+      'projects.delete',
       'projects.list',
     ])
 
     const result = await client.callTool({
       name: 'projects.list',
-      arguments: { organizationId: 'org-1' },
+      arguments: {},
     })
 
     expect(result.isError).toBe(true)

@@ -37,8 +37,10 @@ type _QueryHasNoDeepUnrefArgsOption = Assert<IsEqual<HasKey<QueryOptions, 'deepU
 type _PaginatedHasNoDeepUnrefArgsOption = Assert<
   IsEqual<HasKey<PaginatedOptions, 'deepUnrefArgs'>, false>
 >
-type _QueryHasNoAuthOption = Assert<IsEqual<HasKey<QueryOptions, 'auth'>, false>>
-type _PaginatedHasNoAuthOption = Assert<IsEqual<HasKey<PaginatedOptions, 'auth'>, false>>
+type _QueryHasAuthOption = Assert<IsEqual<QueryOptions['auth'], 'auto' | 'none' | undefined>>
+type _PaginatedHasAuthOption = Assert<
+  IsEqual<PaginatedOptions['auth'], 'auto' | 'none' | undefined>
+>
 type _QueryArgsUseOnlySkipSentinel = Assert<IsEqual<QueryArgs, { id: string } | 'skip'>>
 type _PaginatedArgsUseOnlySkipSentinel = Assert<IsEqual<PaginatedArgs, { id: string } | 'skip'>>
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>

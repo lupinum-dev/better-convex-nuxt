@@ -11,9 +11,7 @@ const {
   loadMore: loadMoreTeamAudit,
 } = await useConvexPaginatedQuery(
   api.audit.listForTeam,
-  {
-    teamId: props.teamId,
-  },
+  computed(() => ({ teamId: props.teamId })),
   {
     initialNumItems: 10,
   },

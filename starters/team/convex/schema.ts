@@ -15,6 +15,12 @@ export const auditAction = v.union(
   v.literal('project.restore'),
 )
 export const auditResourceType = v.literal('project')
+export const auditSource = v.union(
+  v.literal('ui'),
+  v.literal('api'),
+  v.literal('mcp'),
+  v.literal('agent'),
+)
 
 export default defineSchema({
   users: defineTable({
@@ -43,6 +49,7 @@ export default defineSchema({
       'status',
       'updatedAt',
     ])
+    .index('by_organizationId_status_updatedAt', ['organizationId', 'status', 'updatedAt'])
     .index('by_status_deletedAt', ['status', 'deletedAt']),
 
   auditEvents: defineTable({
@@ -51,6 +58,7 @@ export default defineSchema({
     actor: auditActor,
     action: auditAction,
     resourceType: auditResourceType,
+    source: auditSource,
     resourceId: v.optional(v.string()),
     summary: v.optional(v.string()),
     createdAt: v.number(),

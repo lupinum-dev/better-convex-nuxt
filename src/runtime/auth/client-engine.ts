@@ -1,5 +1,6 @@
 import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
+import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 
 import {
@@ -503,6 +504,9 @@ export function createConvexAuthEngine({
     state.authError.value = null
 
     signOutPromise = (async () => {
+      clearSubscriptionCache(nuxtApp)
+      await nextTick()
+
       const result = await authClient.signOut()
       const maybeError =
         result && typeof result === 'object' && 'error' in result ? result.error : null

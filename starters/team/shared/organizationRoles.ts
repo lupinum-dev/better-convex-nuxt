@@ -15,7 +15,9 @@ export function isInviteRole(role: unknown): role is InviteRole {
 }
 
 export function canAccessAllTeams(role: unknown): role is OrganizationActivityRole {
-  return typeof role === 'string' && organizationActivityRoles.includes(role as OrganizationActivityRole)
+  return (
+    typeof role === 'string' && organizationActivityRoles.includes(role as OrganizationActivityRole)
+  )
 }
 
 export function canViewOrganizationActivity(role: unknown): role is OrganizationActivityRole {

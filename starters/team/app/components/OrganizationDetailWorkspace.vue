@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import {
+  cancelInvitationInputSchema,
+  changeMemberRoleInputSchema,
+  createTeamInputSchema,
+  inviteMemberInputSchema,
+  removeMemberInputSchema,
+  renameOrganizationInputSchema,
+  renameTeamInputSchema,
+  teamMembershipInputSchema,
+} from '~~/shared/inputSchemas'
 import type { InviteRole, OrganizationRole } from '~~/shared/organizationRoles'
 
 import { api } from '#convex/api'
@@ -113,16 +123,19 @@ watch(
 )
 
 async function createTeam() {
-  const name = teamName.value.trim()
-  if (!name) return
+  const parsed = createTeamInputSchema.safeParse({
+    organizationId: organizationId.value,
+    name: teamName.value,
+  })
+  if (!parsed.success) {
+    teamCreateError.value = parsed.error.issues[0]?.message ?? 'Team was not created'
+    return
+  }
 
   teamCreatePending.value = true
   teamCreateError.value = null
   try {
-    const team = await createTeamMutation({
-      organizationId: organizationId.value,
-      name,
-    })
+    const team = await createTeamMutation(parsed.data)
     teamName.value = ''
     selectedTeamId.value = team.id
   } catch (error) {
@@ -133,16 +146,20 @@ async function createTeam() {
 }
 
 async function renameOrganization() {
-  const name = orgName.value.trim()
-  if (!name || name === props.organization.name) return
+  const parsed = renameOrganizationInputSchema.safeParse({
+    organizationId: organizationId.value,
+    name: orgName.value,
+  })
+  if (!parsed.success) {
+    orgRenameError.value = parsed.error.issues[0]?.message ?? 'Organization was not renamed'
+    return
+  }
+  if (parsed.data.name === props.organization.name) return
 
   orgRenamePending.value = true
   orgRenameError.value = null
   try {
-    await renameOrganizationMutation({
-      organizationId: organizationId.value,
-      name,
-    })
+    await renameOrganizationMutation(parsed.data)
   } catch (error) {
     orgRenameError.value = errorMessage(error, 'Organization was not renamed')
   } finally {
@@ -153,16 +170,20 @@ async function renameOrganization() {
 async function renameSelectedTeam() {
   if (!selectedTeam.value) return
 
-  const nextName = teamRenameName.value.trim()
-  if (!nextName || nextName === selectedTeam.value.name) return
+  const parsed = renameTeamInputSchema.safeParse({
+    teamId: selectedTeam.value.id,
+    name: teamRenameName.value,
+  })
+  if (!parsed.success) {
+    teamRenameError.value = parsed.error.issues[0]?.message ?? 'Team was not renamed'
+    return
+  }
+  if (parsed.data.name === selectedTeam.value.name) return
 
   teamRenamePending.value = true
   teamRenameError.value = null
   try {
-    await renameTeamMutation({
-      teamId: selectedTeam.value.id,
-      name: nextName,
-    })
+    await renameTeamMutation(parsed.data)
   } catch (error) {
     teamRenameError.value = errorMessage(error, 'Team was not renamed')
   } finally {
@@ -171,15 +192,21 @@ async function renameSelectedTeam() {
 }
 
 async function inviteMember(email: string, role: InviteRole) {
+  const parsed = inviteMemberInputSchema.safeParse({
+    organizationId: organizationId.value,
+    email,
+    role,
+    teamId: selectedTeamId.value ?? undefined,
+  })
+  if (!parsed.success) {
+    inviteError.value = parsed.error.issues[0]?.message ?? 'Member was not invited'
+    return false
+  }
+
   invitePending.value = true
   inviteError.value = null
   try {
-    await inviteMemberMutation({
-      organizationId: organizationId.value,
-      email,
-      role,
-      teamId: selectedTeamId.value ?? undefined,
-    })
+    await inviteMemberMutation(parsed.data)
     return true
   } catch (error) {
     inviteError.value = errorMessage(error, 'Member was not invited')
@@ -190,12 +217,15 @@ async function inviteMember(email: string, role: InviteRole) {
 }
 
 async function cancelInvitation(email: string) {
+  const parsed = cancelInvitationInputSchema.safeParse({
+    organizationId: organizationId.value,
+    email,
+  })
+  if (!parsed.success) return
+
   cancelInvitationEmail.value = email
   try {
-    await cancelInvitationMutation({
-      organizationId: organizationId.value,
-      email,
-    })
+    await cancelInvitationMutation(parsed.data)
   } finally {
     cancelInvitationEmail.value = null
   }
@@ -203,40 +233,52 @@ async function cancelInvitation(email: string) {
 
 async function changeMemberRole(member: Member, role: OrganizationRole) {
   if (role === member.role) return
-
-  await changeRoleMutation({
+  const parsed = changeMemberRoleInputSchema.safeParse({
     organizationId: organizationId.value,
     memberId: member.id,
     role,
   })
+  if (!parsed.success) return
+
+  await changeRoleMutation(parsed.data)
 }
 
 async function removeMember(member: Member) {
-  await removeMemberMutation({
+  const parsed = removeMemberInputSchema.safeParse({
     organizationId: organizationId.value,
     memberId: member.id,
   })
+  if (!parsed.success) return
+
+  await removeMemberMutation(parsed.data)
 }
 
 async function addMemberToSelectedTeam(member: Member) {
   if (!selectedTeamId.value) return
-
-  await addTeamMemberMutation({
+  const parsed = teamMembershipInputSchema.safeParse({
     teamId: selectedTeamId.value,
     userId: member.userId,
   })
+  if (!parsed.success) return
+
+  await addTeamMemberMutation(parsed.data)
 }
 
 async function removeMemberFromSelectedTeam(member: Member) {
   if (!selectedTeamId.value) return
-
-  await removeTeamMemberMutation({
+  const parsed = teamMembershipInputSchema.safeParse({
     teamId: selectedTeamId.value,
     userId: member.userId,
   })
+  if (!parsed.success) return
+
+  await removeTeamMemberMutation(parsed.data)
 }
 
 function memberLabel(member: Member) {
+  if (member.user?.name && member.user.email) {
+    return `${member.user.name} <${member.user.email}>`
+  }
   return member.user?.name || member.user?.email || member.userId
 }
 </script>

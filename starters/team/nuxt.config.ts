@@ -23,6 +23,22 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+  vite: {
+    optimizeDeps: {
+      // The browser verifier exercises first-load auth/codegen paths. Pre-bundling
+      // these runtime deps prevents Vite's dependency discovery reload mid-flow.
+      include: [
+        '@convex-dev/better-auth/client/plugins',
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        'better-auth/vue',
+        'convex/browser',
+        'convex/server',
+        'convex/values',
+        'zod',
+      ],
+    },
+  },
   convex: {
     url: convexUrl,
     siteUrl: convexSiteUrl,

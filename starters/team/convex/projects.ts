@@ -1,12 +1,52 @@
+import { calculateRateLimit } from '@convex-dev/rate-limiter'
+import type { RateLimitConfig } from '@convex-dev/rate-limiter'
 import { paginationOptsValidator } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 
+import { createProjectInputSchema, renameProjectInputSchema } from '../shared/inputSchemas'
 import { internalMutation, mutation, query } from './_generated/server'
 import { writeAuditEvent } from './lib/audit'
 import { requireProjectAccessById, requireProjectTeamAccess } from './lib/authz'
+import { organizationActorRateLimitKey, rateLimiter } from './lib/rateLimits'
+import { parseWithConvexError } from './lib/validation'
 import { projectStatus } from './schema'
 
 const softDeleteRetentionMs = 30 * 24 * 60 * 60 * 1000
+
+function formatRetryDuration(ms: number) {
+  const totalSeconds = Math.max(1, Math.ceil(ms / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  if (minutes <= 0) return `${seconds}s`
+  if (seconds === 0) return `${minutes}m`
+  return `${minutes}m ${seconds}s`
+}
+
+function projectCreateRateLimitStatus(snapshot: {
+  value: number
+  ts: number
+  config: RateLimitConfig
+}) {
+  const checked = calculateRateLimit(
+    { value: snapshot.value, ts: snapshot.ts },
+    snapshot.config,
+    Date.now(),
+    1,
+  )
+  const retryAfterMs = checked.retryAfter ? Math.ceil(checked.retryAfter) : null
+
+  return {
+    allowed: checked.value >= 0,
+    retryAfterMs,
+    message:
+      checked.value < 0 && retryAfterMs
+        ? `Project creation is temporarily limited. Try again in ${formatRetryDuration(
+            retryAfterMs,
+          )}.`
+        : null,
+  }
+}
 
 export const list = query({
   args: {
@@ -39,21 +79,22 @@ export const create = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Project name is required')
-    }
+    const input = parseWithConvexError(createProjectInputSchema, args)
 
     const access = await requireProjectTeamAccess(ctx, {
-      teamId: args.teamId,
+      teamId: input.teamId,
       permission: 'create',
+    })
+    await rateLimiter.limit(ctx, 'projectCreate', {
+      key: organizationActorRateLimitKey(access.organizationId, access.actor.authUserId),
+      throws: true,
     })
     const now = Date.now()
 
     const projectId = await ctx.db.insert('projects', {
       organizationId: access.organizationId,
       teamId: access.teamId,
-      name,
+      name: input.name,
       status: 'active',
       createdByAuthUserId: access.actor.authUserId,
       createdAt: now,
@@ -67,11 +108,29 @@ export const create = mutation({
       action: 'project.create',
       resourceType: 'project',
       resourceId: projectId,
-      summary: `Created project ${name}`,
+      summary: `Created project ${input.name}`,
       createdAt: now,
     })
 
     return projectId
+  },
+})
+
+export const getCreateRateLimit = query({
+  args: {
+    teamId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireProjectTeamAccess(ctx, {
+      teamId: args.teamId,
+      permission: 'create',
+    })
+
+    const snapshot = await rateLimiter.getValue(ctx, 'projectCreate', {
+      key: organizationActorRateLimitKey(access.organizationId, access.actor.authUserId),
+    })
+
+    return projectCreateRateLimitStatus(snapshot)
   },
 })
 
@@ -81,10 +140,10 @@ export const rename = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Project name is required')
-    }
+    const input = parseWithConvexError(renameProjectInputSchema, {
+      projectId: args.projectId,
+      name: args.name,
+    })
 
     const access = await requireProjectAccessById(ctx, {
       projectId: args.projectId,
@@ -98,7 +157,7 @@ export const rename = mutation({
     const previousName = access.project.name
 
     await ctx.db.patch(args.projectId, {
-      name,
+      name: input.name,
       updatedAt: now,
     })
 
@@ -109,7 +168,7 @@ export const rename = mutation({
       action: 'project.update',
       resourceType: 'project',
       resourceId: args.projectId,
-      summary: `Renamed project from ${previousName} to ${name}`,
+      summary: `Renamed project from ${previousName} to ${input.name}`,
       createdAt: now,
     })
 

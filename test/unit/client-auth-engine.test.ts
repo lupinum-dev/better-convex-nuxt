@@ -404,14 +404,20 @@ describe('createConvexAuthEngine', () => {
     expect(state.user.value).toBeNull()
   })
 
-  it('clears shared query subscriptions after successful signOut', async () => {
+  it('clears shared query subscriptions before Better Auth signOut', async () => {
     const nuxtApp = createNuxtApp()
-    const unsubscribe = vi.fn()
+    const events: string[] = []
+    const unsubscribe = vi.fn(() => {
+      events.push('unsubscribe')
+    })
     const state = createState()
     state.token.value = 'existing.jwt.token'
     state.user.value = { id: 'u1', name: 'Ada', email: 'ada@example.com' }
     const authClient = {
-      signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
+      signOut: vi.fn(async () => {
+        events.push('better-auth-sign-out')
+        return { data: { success: true }, error: null }
+      }),
       convex: { token: vi.fn() },
     } as unknown as AuthClientWithConvex
     const { client } = createClient()
@@ -427,6 +433,7 @@ describe('createConvexAuthEngine', () => {
 
     await engine.signOut()
 
+    expect(events).toEqual(['unsubscribe', 'better-auth-sign-out'])
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(false)
   })

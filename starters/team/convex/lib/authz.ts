@@ -29,12 +29,10 @@ export async function getAppAuth(ctx: Ctx) {
   return await authComponent.getAuth(createAuth, ctx)
 }
 
-export async function requireAuthenticatedSession(ctx: Ctx) {
+export async function getAuthenticatedSessionOrNull(ctx: Ctx) {
   const { auth, headers } = await getAppAuth(ctx)
   const session = await auth.api.getSession({ headers })
-  if (!session) {
-    throw new ConvexError('Unauthenticated')
-  }
+  if (!session) return null
 
   const actor = {
     kind: 'user' as const,
@@ -42,6 +40,15 @@ export async function requireAuthenticatedSession(ctx: Ctx) {
   }
 
   return { auth, headers, session, actor }
+}
+
+export async function requireAuthenticatedSession(ctx: Ctx) {
+  const authState = await getAuthenticatedSessionOrNull(ctx)
+  if (!authState) {
+    throw new ConvexError('Unauthenticated')
+  }
+
+  return authState
 }
 
 export async function requireAuthenticatedUser(ctx: Ctx): Promise<AccessActor> {

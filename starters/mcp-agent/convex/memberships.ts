@@ -12,12 +12,12 @@ export const listMine = query({
       .query('memberships')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .collect()
-  }
+  },
 })
 
 export const listForOrganization = query({
   args: {
-    organizationId: v.id('organizations')
+    organizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrganizationAdmin(ctx, args.organizationId)
@@ -25,5 +25,5 @@ export const listForOrganization = query({
       .query('memberships')
       .withIndex('by_org_user', (q) => q.eq('organizationId', args.organizationId))
       .collect()
-  }
+  },
 })

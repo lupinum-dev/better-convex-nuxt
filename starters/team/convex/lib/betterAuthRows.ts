@@ -31,6 +31,7 @@ export type BetterAuthTeam = BetterAuthRowWithId & {
 
 export type BetterAuthOrganization = BetterAuthRowWithId & {
   name: string
+  metadata?: string | null
 }
 
 export type BetterAuthTeamMember = BetterAuthRowWithId & {

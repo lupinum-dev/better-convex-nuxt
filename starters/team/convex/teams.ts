@@ -1,5 +1,6 @@
 import { ConvexError, v } from 'convex/values'
 
+import { renameTeamInputSchema, teamMembershipInputSchema } from '../shared/inputSchemas'
 import { query, mutation } from './_generated/server'
 import {
   getAppAuth,
@@ -9,6 +10,7 @@ import {
   requireTeamAccess,
 } from './lib/authz'
 import { getBetterAuthTeam, listBetterAuthTeamMembers } from './lib/betterAuthRows'
+import { parseWithConvexError } from './lib/validation'
 
 export const getCapabilities = query({
   args: {
@@ -25,7 +27,7 @@ export const getCapabilities = query({
       organizationId: team.organizationId,
     })
 
-    const [canViewProjects, canCreateProject, canUpdateProject, canDeleteProject] =
+    const [canViewProjects, canCreateProjectPermission, canUpdateProject, canDeleteProject] =
       await Promise.all([
         hasOrganizationPermissions(auth, headers, team.organizationId, {
           project: ['read'],
@@ -41,7 +43,7 @@ export const getCapabilities = query({
         }),
       ])
 
-    if (canViewProjects || canCreateProject || canUpdateProject || canDeleteProject) {
+    if (canViewProjects || canCreateProjectPermission || canUpdateProject || canDeleteProject) {
       await requireTeamAccess(ctx, {
         organizationId: team.organizationId,
         teamId: args.teamId,
@@ -53,7 +55,7 @@ export const getCapabilities = query({
       organizationId: team.organizationId,
       teamId: args.teamId,
       canViewProjects,
-      canCreateProject,
+      canCreateProject: canCreateProjectPermission,
       canUpdateProject,
       canDeleteProject,
     }
@@ -67,12 +69,9 @@ export const rename = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Team name is required')
-    }
+    const input = parseWithConvexError(renameTeamInputSchema, args)
 
-    const existingTeam = await getBetterAuthTeam(ctx, { teamId: args.teamId })
+    const existingTeam = await getBetterAuthTeam(ctx, { teamId: input.teamId })
     if (!existingTeam?.organizationId) {
       throw new ConvexError('Team not found')
     }
@@ -80,9 +79,9 @@ export const rename = mutation({
     const team = await auth.api.updateTeam({
       headers,
       body: {
-        teamId: args.teamId,
+        teamId: input.teamId,
         data: {
-          name,
+          name: input.name,
           organizationId: existingTeam.organizationId,
         },
       },
@@ -136,6 +135,7 @@ export const addMember = mutation({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const input = parseWithConvexError(teamMembershipInputSchema, args)
     const team = await getBetterAuthTeam(ctx, { teamId: args.teamId })
     if (!team?.organizationId) {
       throw new ConvexError('Team not found')
@@ -146,8 +146,8 @@ export const addMember = mutation({
       headers,
       body: {
         organizationId: team.organizationId,
-        teamId: args.teamId,
-        userId: args.userId.trim(),
+        teamId: input.teamId,
+        userId: input.userId,
       },
     })
 
@@ -161,6 +161,7 @@ export const removeMember = mutation({
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    const input = parseWithConvexError(teamMembershipInputSchema, args)
     const team = await getBetterAuthTeam(ctx, { teamId: args.teamId })
     if (!team?.organizationId) {
       throw new ConvexError('Team not found')
@@ -171,8 +172,8 @@ export const removeMember = mutation({
       headers,
       body: {
         organizationId: team.organizationId,
-        teamId: args.teamId,
-        userId: args.userId.trim(),
+        teamId: input.teamId,
+        userId: input.userId,
       },
     })
 

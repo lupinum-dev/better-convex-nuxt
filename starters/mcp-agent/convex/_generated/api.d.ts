@@ -16,8 +16,10 @@ import type * as http from "../http.js";
 import type * as memberships from "../memberships.js";
 import type * as organizations from "../organizations.js";
 import type * as projects from "../projects.js";
+import type * as rateLimits from "../rateLimits.js";
 import type * as serviceActors from "../serviceActors.js";
 import type * as users from "../users.js";
+import type * as validation from "../validation.js";
 
 import type {
   ApiFromModules,
@@ -34,8 +36,10 @@ declare const fullApi: ApiFromModules<{
   memberships: typeof memberships;
   organizations: typeof organizations;
   projects: typeof projects;
+  rateLimits: typeof rateLimits;
   serviceActors: typeof serviceActors;
   users: typeof users;
+  validation: typeof validation;
 }>;
 
 /**
@@ -66,4 +70,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

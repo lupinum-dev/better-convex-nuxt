@@ -25,6 +25,8 @@ This starter is intentionally focused. It teaches one production-shaped path:
 - Team-scoped projects.
 - Product authorization in Convex.
 - Product audit in the same Convex mutation.
+- Targeted Convex-backed rate limits for organization creation, invitations, and project creation.
+- App-owned project-create rate-limit composable for temporary UI disable and retry messaging.
 - Paginated project and audit queries.
 
 `auditEvents` is intentionally product-only. Better Auth remains the canonical
@@ -34,6 +36,7 @@ starter does not mirror those management actions into app tables.
 ## Security Decisions
 
 - Backend checks are authoritative. UI capability flags only hide controls.
+- Temporary create-project throttling is enforced in Convex and exposed through a checked query; the UI composable is display-only.
 - Better Auth APIs are the canonical path for auth-domain workflows.
 - Raw Better Auth component reads are reserved for narrow app-side checks such
   as team membership gates and org/team relationship validation.
@@ -78,6 +81,13 @@ Advanced proof code that used to live in this starter has been quarantined under
 `research/better-auth-proofs/team-legacy/`. Promote a proof into a recipe only
 after it has a clean product boundary, docs, and validation.
 
+Rate limits are intentionally separate from permissions:
+
+- Better Auth permissions decide whether a user may create a project at all.
+- Convex rate limits decide how quickly repeated writes may happen.
+- the create form disables itself temporarily only after reading checked Convex
+  rate-limit state.
+
 ## Commands
 
 ```bash
@@ -96,8 +106,8 @@ pnpm verify:full
 
 `pnpm test` runs focused Convex tests for schema invariants, Better Auth user
 projection, auth-domain Convex contracts, project lifecycle audit writes, role
-permissions, invitation lifecycle, team membership, and soft-delete query
-behavior.
+permissions, invitation lifecycle, team membership, rate-limit enforcement, and
+soft-delete query behavior.
 
 `pnpm typecheck` runs Nuxt type checking. Without local Convex environment
 values, the module can warn that no Convex site URL was resolved; that warning is

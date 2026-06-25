@@ -14,6 +14,9 @@ importers:
       '@convex-dev/better-auth':
         specifier: ^0.12.4
         version: 0.12.4(@standard-schema/spec@1.1.0)(better-auth@1.6.20(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.38(typescript@5.9.3)))(convex@1.41.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      '@convex-dev/rate-limiter':
+        specifier: ^0.3.2
+        version: 0.3.2(convex@1.41.0(react@19.2.7))(react@19.2.7)
       better-auth:
         specifier: ^1.6.20
         version: 1.6.20(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.38(typescript@5.9.3))
@@ -29,6 +32,9 @@ importers:
       vue:
         specifier: ^3.5.25
         version: 3.5.38(typescript@5.9.3)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@edge-runtime/vm':
         specifier: ^5.0.0
@@ -316,6 +322,15 @@ packages:
       better-auth: '>=1.6.11 <1.7.0'
       convex: ^1.25.0
       react: ^18.3.1 || ^19.0.0
+
+  '@convex-dev/rate-limiter@0.3.2':
+    resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
+    peerDependencies:
+      convex: ^1.24.8
+      react: ^18.2.0 || ^19.0.0
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@dxup/nuxt@0.4.1':
     resolution: {integrity: sha512-gtYffW6OfWNvoLW+XD3Mx/K8uUq08PMGLYJoDxc92EzZAWqR0FhcR5iaLm5r/OxyGTKz+P5f5Y7Aoir9+SjYaw==}
@@ -4385,6 +4400,12 @@ snapshots:
       - '@standard-schema/spec'
       - hono
       - typescript
+
+  '@convex-dev/rate-limiter@0.3.2(convex@1.41.0(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      convex: 1.41.0(react@19.2.7)
+    optionalDependencies:
+      react: 19.2.7
 
   '@dxup/nuxt@0.4.1(magicast@0.5.3)(typescript@5.9.3)':
     dependencies:

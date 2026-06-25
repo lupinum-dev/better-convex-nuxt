@@ -27,8 +27,12 @@ function useConvexPaginatedQueryState<
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ) {
-  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(query, args, options, true)
-    .resultData
+  return createConvexPaginatedQueryState<Query, Args, TransformedItem>(
+    query,
+    args,
+    { auth: 'none', ...options },
+    true,
+  ).resultData
 }
 
 function deferred<T>() {
@@ -52,7 +56,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const query = mockFnRef<'query'>('notes:listPaginated:blocking-default')
 
     const { result } = await captureInNuxt(
-      () => useConvexPaginatedQuery(query as never, {}, { initialNumItems: 2 }),
+      () => useConvexPaginatedQuery(query as never, {}, { auth: 'none', initialNumItems: 2 }),
       { convex },
     )
 
@@ -163,9 +167,17 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
         authPending.value = true
-        const queryResult = useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 })
-        return { authPending, queryResult }
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'auto',
+            initialNumItems: 2,
+          },
+        )
+        return { authPending, queryResult, token }
       },
       {
         convex,
@@ -176,10 +188,41 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.status.value).toBe('loading-first-page')
     expect(convex.calls.onUpdate.length).toBe(0)
 
+    result.token.value = 'ready.jwt.token'
     result.authPending.value = false
     await flush()
 
     await waitFor(() => convex.activeListenerCount() >= 1)
+  })
+
+  it('does not wait for auth bootstrap when paginated query auth is none', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:auth-none-live')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = true
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'none',
+            initialNumItems: 2,
+          },
+        )
+        return { authPending, queryResult }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await waitFor(() => convex.activeListenerCount() >= 1)
+
+    result.authPending.value = false
+    await flush()
   })
 
   it('walks the full status machine: loading-first-page -> ready -> loading-more -> exhausted', async () => {

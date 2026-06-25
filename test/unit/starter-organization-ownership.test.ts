@@ -25,6 +25,8 @@ describe('starter organization ownership', () => {
       'app/components/OrganizationWorkspace.vue',
     )
     const projects = readStarterFile('team', 'convex/projects.ts')
+    const authz = readStarterFile('team', 'convex/lib/authz.ts')
+    const audit = readStarterFile('team', 'convex/lib/audit.ts')
 
     expect(schema).not.toContain('organizations: defineTable')
     expect(schema).not.toContain('memberships: defineTable')
@@ -35,21 +37,25 @@ describe('starter organization ownership', () => {
     expect(schema).toContain('auditEvents: defineTable')
     expect(schema).toContain('organizationId: v.string()')
     expect(schema).toContain('createdByAuthUserId: v.string()')
-    expect(schema).toContain('actorAuthUserId: v.string()')
-    expect(readme).toContain('Better Auth Organization plugin')
+    expect(schema).toContain('actor: auditActor')
+    expect(schema).toContain('authUserId: v.string()')
+    expect(readme).toContain('Better Auth Organization with static roles.')
     expect(readme).toMatch(
-      /canonical organization,\s+member,\s+invitation,\s+team,\s+and role\s+state/,
+      /source for organization,\s+member,\s+invitation,\s+team,\s+and team-member state/,
     )
     expect(auth).toMatch(/\borganization\s*\(/)
     expect(auth).toContain("from 'better-auth/plugins'")
-    expect(organizationCreateForm).toContain('authClient.organization.create')
-    expect(organizationCreateForm).not.toContain('api.organizations.create')
-    expect(organizationWorkspace).toContain('useTeamOrganizations')
-    expect(organizationWorkspace).not.toContain('api.organizations.listMine')
-    expect(projects).toContain('auth.api.hasPermission')
+    expect(organizationCreateForm).toContain('api.organizations.create')
+    expect(organizationCreateForm).not.toContain('authClient.organization.create')
+    expect(organizationWorkspace).toContain('api.organizations.listMine')
+    expect(organizationWorkspace).not.toContain('useTeamOrganizations')
+    expect(authz).toContain('auth.api.hasPermission')
+    expect(projects).toContain('requireProjectTeamAccess')
+    expect(projects).toContain('requireProjectAccessById')
     expect(projects).toContain("query('projects')")
     expect(projects).toContain("insert('projects'")
-    expect(projects).toContain("insert('auditEvents'")
+    expect(projects).toContain('writeAuditEvent')
+    expect(audit).toContain("insert('auditEvents'")
     expect(projects).not.toContain('requireOrgAccess')
   })
 

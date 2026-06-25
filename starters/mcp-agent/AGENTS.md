@@ -6,4 +6,3 @@
 - Tool visibility is advisory; execution authorization is authoritative.
 - Sensitive writes require an approval record.
 - Keep public OAuth MCP out of this starter until there is a real product need.
-

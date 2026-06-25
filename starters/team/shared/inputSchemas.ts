@@ -1,0 +1,111 @@
+import { z } from 'zod'
+
+import { inviteRoles, organizationRoles } from './organizationRoles'
+
+const organizationNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Organization name is required')
+  .max(120, 'Organization name is too long')
+
+const teamNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Team name is required')
+  .max(120, 'Team name is too long')
+
+const projectNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Project name is required')
+  .max(120, 'Project name is too long')
+
+const emailSchema = z
+  .string()
+  .trim()
+  .min(1, 'Email is required')
+  .email('A valid email is required')
+  .transform((value) => value.toLowerCase())
+
+const passwordSchema = z.string().min(8, 'Password must be at least 8 characters')
+
+const personNameSchema = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long')
+
+const optionalIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => value)
+
+const inviteRoleSchema = z.enum(inviteRoles)
+const organizationRoleSchema = z.enum(organizationRoles)
+
+export const createOrganizationInputSchema = z.object({
+  name: organizationNameSchema,
+})
+
+export const renameOrganizationInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  name: organizationNameSchema,
+})
+
+export const createTeamInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  name: teamNameSchema,
+})
+
+export const renameTeamInputSchema = z.object({
+  teamId: z.string().min(1, 'Team is required'),
+  name: teamNameSchema,
+})
+
+export const createProjectInputSchema = z.object({
+  teamId: z.string().min(1, 'Team is required'),
+  name: projectNameSchema,
+})
+
+export const renameProjectInputSchema = z.object({
+  projectId: z.string().min(1, 'Project is required'),
+  name: projectNameSchema,
+})
+
+export const inviteMemberInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  email: emailSchema,
+  role: inviteRoleSchema,
+  teamId: optionalIdSchema.optional(),
+})
+
+export const cancelInvitationInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  email: emailSchema,
+})
+
+export const changeMemberRoleInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  memberId: z.string().trim().min(1, 'Member is required'),
+  role: organizationRoleSchema,
+})
+
+export const removeMemberInputSchema = z.object({
+  organizationId: z.string().min(1, 'Organization is required'),
+  memberId: z.string().trim().min(1, 'Member is required'),
+})
+
+export const teamMembershipInputSchema = z.object({
+  teamId: z.string().min(1, 'Team is required'),
+  userId: z.string().trim().min(1, 'User is required'),
+})
+
+export const signInInputSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  callbackURL: z.string().min(1),
+})
+
+export const signUpInputSchema = z.object({
+  name: personNameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+  callbackURL: z.string().min(1),
+})

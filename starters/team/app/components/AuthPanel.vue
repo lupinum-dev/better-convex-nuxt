@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { signInInputSchema, signUpInputSchema } from '~~/shared/inputSchemas'
+
 const { message } = defineProps<{
   message: string
 }>()
@@ -16,8 +18,13 @@ const loading = ref(false)
 const callbackURL = computed(() => route.fullPath || '/')
 
 const canSubmit = computed(() => {
-  if (!email.value.trim() || password.value.length < 8) return false
-  return mode.value === 'signIn' || !!name.value.trim()
+  const schema = mode.value === 'signIn' ? signInInputSchema : signUpInputSchema
+  return schema.safeParse({
+    name: name.value,
+    email: email.value,
+    password: password.value,
+    callbackURL: callbackURL.value,
+  }).success
 })
 
 const submitLabel = computed(() => {
@@ -39,15 +46,22 @@ async function submitAuth() {
   loading.value = true
   error.value = null
   info.value = null
-  const trimmedEmail = email.value.trim()
 
   try {
     if (mode.value === 'signUp') {
-      const { error: signUpError } = await signUp.email({
-        name: name.value.trim(),
-        email: trimmedEmail,
+      const parsed = signUpInputSchema.safeParse({
+        name: name.value,
+        email: email.value,
         password: password.value,
         callbackURL: callbackURL.value,
+      })
+      if (!parsed.success) {
+        error.value = parsed.error.issues[0]?.message ?? 'Sign up failed'
+        return
+      }
+
+      const { error: signUpError } = await signUp.email({
+        ...parsed.data,
       })
 
       if (signUpError) {
@@ -61,10 +75,18 @@ async function submitAuth() {
       return
     }
 
-    const result = await signIn.email({
-      email: trimmedEmail,
+    const parsed = signInInputSchema.safeParse({
+      email: email.value,
       password: password.value,
       callbackURL: callbackURL.value,
+    })
+    if (!parsed.success) {
+      error.value = parsed.error.issues[0]?.message ?? 'Sign in failed'
+      return
+    }
+
+    const result = await signIn.email({
+      ...parsed.data,
     })
 
     if (result.error) {

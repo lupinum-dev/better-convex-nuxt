@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
+import { renameProjectInputSchema } from '~~/shared/inputSchemas'
 
 import { api } from '#convex/api'
 
@@ -19,6 +20,7 @@ const {
   status: projectStatus,
   isLoading: projectsLoading,
   loadMore,
+  reset,
 } = await useConvexPaginatedQuery(
   api.projects.list,
   computed(() => ({ teamId: props.teamId, status: statusFilter.value })),
@@ -32,10 +34,16 @@ function loadMoreProjects() {
 }
 
 async function renameSelectedProject(projectId: Id<'projects'>, name: string) {
-  const nextName = name.trim()
-  if (!nextName) return
+  const parsed = renameProjectInputSchema.safeParse({
+    projectId,
+    name,
+  })
+  if (!parsed.success) return
 
-  await renameProject({ projectId, name: nextName })
+  await renameProject({
+    projectId,
+    name: parsed.data.name,
+  })
 }
 
 async function deleteSelectedProject(projectId: Id<'projects'>) {
@@ -58,6 +66,7 @@ async function restoreSelectedProject(projectId: Id<'projects'>) {
     :can-update-project="canUpdateProject"
     :can-delete-project="canDeleteProject"
     :on-load-more="loadMoreProjects"
+    :on-refresh="reset"
     :on-rename="renameSelectedProject"
     :on-delete="deleteSelectedProject"
     :on-restore="restoreSelectedProject"

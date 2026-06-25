@@ -39,7 +39,7 @@ export const upsertCurrent = mutation({
       await ctx.db.patch(existing._id, {
         name: identity.name,
         email: identity.email,
-        updatedAt: now
+        updatedAt: now,
       })
       return existing._id
     }
@@ -49,15 +49,14 @@ export const upsertCurrent = mutation({
       name: identity.name,
       email: identity.email,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
-  }
+  },
 })
 
 export const getCurrent = query({
   args: {},
   handler: async (ctx) => {
     return await requireCurrentUser(ctx)
-  }
+  },
 })
-

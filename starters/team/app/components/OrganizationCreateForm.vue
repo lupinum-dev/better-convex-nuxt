@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { createOrganizationInputSchema } from '~~/shared/inputSchemas'
+
 import { api } from '#convex/api'
 
 const name = ref('')
@@ -7,15 +9,18 @@ const pending = ref(false)
 const createOrganization = useConvexMutation(api.organizations.create)
 
 async function submit() {
-  const trimmedName = name.value.trim()
-  if (!trimmedName) return
+  const parsed = createOrganizationInputSchema.safeParse({
+    name: name.value,
+  })
+  if (!parsed.success) {
+    error.value = parsed.error.issues[0]?.message ?? 'Organization was not created'
+    return
+  }
 
   pending.value = true
   error.value = null
   try {
-    await createOrganization({
-      name: trimmedName,
-    })
+    await createOrganization(parsed.data)
     name.value = ''
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Organization was not created'

@@ -35,6 +35,7 @@ import {
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp } from '../utils/query-execution'
+import { createQueryExecutionGate, type ConvexQueryAuthMode } from '../utils/query-execution-gate'
 import { computeConvexQueryPending, computeConvexQueryStale } from '../utils/query-state'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 
@@ -86,6 +87,8 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   transform?: (input: RawT) => DataT
   /** Keep the last successful data while args are changing and next request is pending. @default false */
   keepPreviousData?: boolean
+  /** Auth transport mode for this query. Public queries can opt out with "none". @default convex.defaults.auth */
+  auth?: ConvexQueryAuthMode
 }
 
 export interface UseConvexQueryData<DataT> {
@@ -148,7 +151,7 @@ export function createConvexQueryState<
   const defaults = convexConfig.defaults
   const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
   const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = defaults?.auth ?? 'auto'
+  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
   const keepPreviousData = options?.keepPreviousData ?? false
 
   // Get function name for cache key and logging
@@ -172,9 +175,29 @@ export function createConvexQueryState<
   const lastSettledRawData = ref<RawT | null>(null)
   const lastSettledArgsHash = ref<string | null>(null)
 
+  // Get request event and cookies for SSR auth
+  const event = import.meta.server ? useRequestEvent() : null
+  const cookieHeader = event?.headers.get('cookie') || ''
+
+  // Get cached token state at setup time (synchronously) to avoid Vue context issues
+  // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
+  const cachedToken = useState<string | null>('convex:token')
+  const authPending = useState<boolean>('convex:pending', () => false)
+  const executionGate = computed(() =>
+    createQueryExecutionGate({
+      authEnabled: convexConfig.auth.enabled,
+      authMode,
+      authPending: authPending.value,
+      hasAuthToken: Boolean(cachedToken.value),
+      isClient: import.meta.client,
+      skipped: isSkipped.value,
+      subscribe,
+    }),
+  )
+
   // Generate cache key
   const getCacheKey = (): string => {
-    if (isSkipped.value) return `convex:idle:${fnName}`
+    if (executionGate.value.resolveAsIdle) return `convex:idle:${fnName}`
     const currentArgs = getArgs() as FunctionArgs<Query>
     return getQueryKey(query, currentArgs ?? ({} as FunctionArgs<Query>))
   }
@@ -203,22 +226,6 @@ export function createConvexQueryState<
     lastSettledArgsHash.value = argsHash.value
   }
 
-  // Get request event and cookies for SSR auth
-  const event = import.meta.server ? useRequestEvent() : null
-  const cookieHeader = event?.headers.get('cookie') || ''
-
-  // Get cached token state at setup time (synchronously) to avoid Vue context issues
-  // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
-  const cachedToken = useState<string | null>('convex:token')
-  const authPending = useState<boolean>('convex:pending', () => false)
-  const shouldWaitForAuthBeforeLiveQuery = computed(
-    () =>
-      import.meta.client &&
-      subscribe &&
-      authMode !== 'none' &&
-      convexConfig.auth.enabled &&
-      authPending.value,
-  )
   const currentScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexQuery', import.meta.client, currentScope)
 
@@ -342,7 +349,7 @@ export function createConvexQueryState<
   const asyncData = useAsyncData<RawT | null, Error>(
     asyncDataKey,
     async () => {
-      if (isSkipped.value) {
+      if (executionGate.value.resolveAsIdle) {
         return null
       }
 
@@ -364,6 +371,9 @@ export function createConvexQueryState<
             siteUrl,
             cachedToken,
           })
+          if (authMode !== 'none' && !authToken) {
+            return null
+          }
 
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           commitFreshData(result)
@@ -373,13 +383,16 @@ export function createConvexQueryState<
         // Client HTTP-only mode (no WebSocket dependency)
         if (!subscribe) {
           const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
+          if (authMode !== 'none' && !authToken) {
+            return null
+          }
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           commitFreshData(result)
           return result
         }
 
         // Client live mode: use WebSocket for first result
-        if (shouldWaitForAuthBeforeLiveQuery.value) {
+        if (executionGate.value.waitForAuth) {
           return null
         }
 
@@ -418,7 +431,7 @@ export function createConvexQueryState<
         value !== null &&
         value !== undefined &&
         asyncData.status.value === 'success' &&
-        !isSkipped.value
+        !executionGate.value.resolveAsIdle
       ) {
         lastSettledRawData.value = value as RawT
         lastSettledData.value = applyTransform(value as RawT)
@@ -437,7 +450,7 @@ export function createConvexQueryState<
     const hasData = asyncData.data.value !== null && asyncData.data.value !== undefined
     const hasSettled = asyncData.status.value === 'success' || asyncData.status.value === 'error'
     return computeConvexQueryPending({
-      isSkipped: isSkipped.value,
+      isSkipped: executionGate.value.pendingReason === 'explicit-skip',
       hasData,
       hasSettled,
       server,
@@ -445,13 +458,16 @@ export function createConvexQueryState<
       isServer: import.meta.server,
       isClient: import.meta.client,
       asyncDataPending: asyncData.pending.value,
-      isAuthPending: shouldWaitForAuthBeforeLiveQuery.value,
+      isAuthPending: executionGate.value.pendingReason === 'auth-pending',
     })
   })
 
   const status = computed((): ConvexCallStatus => {
+    const isIdle =
+      executionGate.value.pendingReason === 'explicit-skip' ||
+      executionGate.value.pendingReason === 'auth-signed-out'
     return computeQueryStatus(
-      isSkipped.value,
+      isIdle,
       asyncData.error.value != null, // != catches both null AND undefined (strict !== would fail on undefined)
       pending.value,
       asyncData.data.value != null, // Simplified: != null covers both null and undefined
@@ -461,7 +477,7 @@ export function createConvexQueryState<
   const isStale = computed((): boolean => {
     return computeConvexQueryStale({
       keepPreviousData,
-      isSkipped: isSkipped.value,
+      isSkipped: executionGate.value.resolveAsIdle,
       hasLastSettledData: lastSettledData.value !== null,
       hasLastSettledArgsHash: lastSettledArgsHash.value !== null,
       pending: pending.value,
@@ -503,7 +519,7 @@ export function createConvexQueryState<
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe && cleanupScope) {
     const setupSubscription = () => {
-      if (shouldWaitForAuthBeforeLiveQuery.value) {
+      if (executionGate.value.waitForAuth) {
         return
       }
 
@@ -546,9 +562,17 @@ export function createConvexQueryState<
     setupSubscription()
 
     watch(
-      () => ({ hash: argsHash.value, skipped: isSkipped.value }),
+      () => ({
+        hash: argsHash.value,
+        skipped: isSkipped.value,
+        pendingReason: executionGate.value.pendingReason,
+      }),
       async (next, prev) => {
-        if (next.hash === prev.hash && next.skipped === prev.skipped) {
+        if (
+          next.hash === prev.hash &&
+          next.skipped === prev.skipped &&
+          next.pendingReason === prev.pendingReason
+        ) {
           return
         }
 
@@ -557,7 +581,7 @@ export function createConvexQueryState<
         }
 
         // Setup new subscription (data will be updated by useAsyncData's watch)
-        if (!isSkipped.value && !shouldWaitForAuthBeforeLiveQuery.value) {
+        if (executionGate.value.setupLiveSubscription) {
           setupSubscription()
 
           // When args switch from disabled->active (or active->active), a reactive
@@ -571,21 +595,24 @@ export function createConvexQueryState<
       },
     )
 
-    watch(shouldWaitForAuthBeforeLiveQuery, async (waitForAuth, previousWaitForAuth) => {
-      if (waitForAuth) {
-        if (registeredCacheKey) {
-          releaseRegisteredSubscription()
+    watch(
+      () => executionGate.value.waitForAuth,
+      async (waitForAuth, previousWaitForAuth) => {
+        if (waitForAuth) {
+          if (registeredCacheKey) {
+            releaseRegisteredSubscription()
+          }
+          return
         }
-        return
-      }
 
-      if (!previousWaitForAuth || isSkipped.value) {
-        return
-      }
+        if (!previousWaitForAuth || isSkipped.value) {
+          return
+        }
 
-      setupSubscription()
-      await asyncData.refresh()
-    })
+        setupSubscription()
+        await asyncData.refresh()
+      },
+    )
 
     // Cleanup on scope dispose (component setup or other Vue effect scopes)
     onScopeDispose(() => {
@@ -601,7 +628,7 @@ export function createConvexQueryState<
   // Determine when the promise should resolve based on options
   let resolvePromise: Promise<void>
 
-  if (isSkipped.value) {
+  if (executionGate.value.resolveAsIdle) {
     // Skipped - resolve immediately
     resolvePromise = Promise.resolve()
   } else if (import.meta.server) {

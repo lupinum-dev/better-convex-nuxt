@@ -6,16 +6,17 @@ import { createError } from 'h3'
 import { z } from 'zod'
 
 import { api } from '../../convex/_generated/api'
-import type { Doc, Id } from '../../convex/_generated/dataModel'
+import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
+import { createProjectInputSchema } from '../../shared/inputSchemas'
 
-const projectToolInput = {
-  organizationId: z.string(),
-}
-
-const createProjectInput = {
-  ...projectToolInput,
-  name: z.string().min(1),
-}
+const listProjectsInputSchema = z.object({})
+const deleteProjectInputSchema = z.object({
+  projectId: z.string({ error: 'Project id is required' }).trim().min(1, 'Project id is required'),
+  approvalId: z
+    .string({ error: 'Approval id is required' })
+    .trim()
+    .min(1, 'Approval id is required'),
+})
 
 type ProjectToolClient = Pick<ConvexHttpClient, 'query' | 'mutation'>
 type RequestExtra = {
@@ -24,8 +25,11 @@ type RequestExtra = {
   }
 }
 type ProjectToolArgs = {
-  getCredentialHash?: (extra: RequestExtra) => string
   getClient: () => ProjectToolClient
+  getServerSecret: () => string
+}
+type ProjectToolResponse = {
+  content: Array<{ type: 'text'; text: string }>
 }
 type ProjectDto = {
   id: string
@@ -34,46 +38,124 @@ type ProjectDto = {
   createdBy: Doc<'projects'>['createdBy']
   createdAt: number
 }
+type BearerTokenParseResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: 'missing' | 'malformed' }
+type HeaderReadResult = { ok: true; value: string | undefined } | { ok: false; reason: 'ambiguous' }
 
 export function hashBearerSecret(secret: string) {
   return createHash('sha256').update(secret).digest('hex')
 }
 
-export function parseBearerToken(value: string | undefined) {
-  const parts = value?.split(' ') ?? []
+function readBearerToken(value: string | undefined): BearerTokenParseResult {
+  const parts = value?.trim().split(/\s+/) ?? []
   const [scheme, token] = parts
-  if (parts.length !== 2 || scheme !== 'Bearer' || !token) {
+  if (parts.length === 2 && scheme?.toLowerCase() === 'bearer' && token) {
+    return { ok: true, token }
+  }
+
+  return { ok: false, reason: value ? 'malformed' : 'missing' }
+}
+
+function getExtraHeader(extra: RequestExtra, name: string): HeaderReadResult {
+  const headers = extra.requestInfo?.headers
+  if (!headers) return { ok: true, value: undefined }
+
+  if (headers instanceof Headers) {
+    return { ok: true, value: headers.get(name) ?? undefined }
+  }
+
+  const headerEntry = Object.entries(headers).find(
+    ([key]) => key.toLowerCase() === name.toLowerCase(),
+  )
+  const value = headerEntry?.[1]
+  if (Array.isArray(value)) {
+    return { ok: false, reason: 'ambiguous' }
+  }
+
+  return { ok: true, value }
+}
+
+function logToolBoundaryDenial(event: {
+  reason: 'missing_bearer' | 'malformed_bearer' | 'invalid_input'
+  toolName: string
+  detail?: string
+}) {
+  console.warn('[mcp-agent] MCP tool request denied at boundary', event)
+}
+
+function parseToolInput<TOutput>(
+  toolName: string,
+  schema: z.ZodType<TOutput>,
+  input: unknown,
+): TOutput {
+  const result = schema.safeParse(input)
+  if (!result.success) {
+    logToolBoundaryDenial({
+      reason: 'invalid_input',
+      toolName,
+      detail: result.error.issues[0]?.message ?? 'Invalid tool input',
+    })
+    throw createError({
+      statusCode: 400,
+      statusMessage: result.error.issues[0]?.message ?? 'Invalid tool input',
+    })
+  }
+
+  return result.data
+}
+
+function textToolContent(text: string): ProjectToolResponse {
+  return {
+    content: [{ type: 'text', text }],
+  }
+}
+
+function jsonToolContent(value: unknown): ProjectToolResponse {
+  return textToolContent(JSON.stringify(value, null, 2))
+}
+
+function requireBearerToken(extra: RequestExtra, toolName: string) {
+  const authorization = getExtraHeader(extra, 'authorization')
+  if (!authorization.ok) {
+    logToolBoundaryDenial({
+      reason: 'malformed_bearer',
+      toolName,
+    })
     throw createError({ statusCode: 401, statusMessage: 'Bearer token required' })
   }
 
-  return token
-}
-
-function getExtraHeader(extra: RequestExtra, name: string) {
-  const headers = extra.requestInfo?.headers
-  if (!headers) return undefined
-
-  if (headers instanceof Headers) {
-    return headers.get(name) ?? undefined
+  const parsed = readBearerToken(authorization.value)
+  if (!parsed.ok) {
+    logToolBoundaryDenial({
+      reason: parsed.reason === 'missing' ? 'missing_bearer' : 'malformed_bearer',
+      toolName,
+    })
+    throw createError({ statusCode: 401, statusMessage: 'Bearer token required' })
   }
 
-  const value = headers[name] ?? headers[name.toLowerCase()]
-  if (Array.isArray(value)) {
-    return value[0]
-  }
-
-  return value
+  return parsed.token
 }
 
-export function credentialHashFromExtra(extra: RequestExtra) {
-  return hashBearerSecret(parseBearerToken(getExtraHeader(extra, 'authorization')))
+function requireServerSecret(args: ProjectToolArgs) {
+  const serverSecret = args.getServerSecret()
+  if (!serverSecret) {
+    throw createError({ statusCode: 500, statusMessage: 'MCP_SERVER_SECRET is required' })
+  }
+
+  return serverSecret
+}
+
+function toConvexId<TableName extends TableNames>(value: string) {
+  return value as Id<TableName>
 }
 
 export function createProjectToolClient(configuredConvexUrl?: string) {
-  const convexUrl = configuredConvexUrl
-    ?? process.env.NUXT_PUBLIC_CONVEX_URL
-    ?? process.env.VITE_CONVEX_URL
-    ?? process.env.CONVEX_URL
+  const convexUrl =
+    configuredConvexUrl ??
+    process.env.NUXT_PUBLIC_CONVEX_URL ??
+    process.env.VITE_CONVEX_URL ??
+    process.env.CONVEX_URL
   if (typeof convexUrl !== 'string' || !convexUrl) {
     throw createError({
       statusCode: 500,
@@ -97,21 +179,21 @@ function toProjectDto(project: Doc<'projects'>): ProjectDto {
 export function createListProjectsTool(args: ProjectToolArgs): McpToolDefinitionListItem {
   return {
     name: 'projects.list',
-    description: 'List projects for the credential organization',
-    inputSchema: projectToolInput,
+    description: 'List projects for the authenticated service actor organization',
+    inputSchema: listProjectsInputSchema.shape,
     annotations: {
       readOnlyHint: true,
     },
-    handler: async ({ organizationId }, extra) => {
-      const credentialHash = args.getCredentialHash?.(extra) ?? credentialHashFromExtra(extra)
-      const projects = await args.getClient().query(api.projects.listForServiceActor, {
-        credentialHash,
-        organizationId: organizationId as Id<'organizations'>,
+    handler: async (input, extra) => {
+      parseToolInput('projects.list', listProjectsInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'projects.list')
+      const client = args.getClient()
+      const projects = await client.query(api.projects.listForServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
       })
 
-      return {
-        content: [{ type: 'text', text: JSON.stringify(projects.map(toProjectDto), null, 2) }],
-      }
+      return jsonToolContent(projects.map(toProjectDto))
     },
   }
 }
@@ -119,22 +201,46 @@ export function createListProjectsTool(args: ProjectToolArgs): McpToolDefinition
 export function createCreateProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
   return {
     name: 'projects.create',
-    description: 'Create a project in the credential organization',
-    inputSchema: createProjectInput,
+    description: 'Create a project in the authenticated service actor organization',
+    inputSchema: createProjectInputSchema.shape,
     annotations: {
       destructiveHint: false,
     },
-    handler: async ({ organizationId, name }, extra) => {
-      const credentialHash = args.getCredentialHash?.(extra) ?? credentialHashFromExtra(extra)
-      const projectId = await args.getClient().mutation(api.projects.createFromServiceActor, {
-        credentialHash,
-        organizationId: organizationId as Id<'organizations'>,
-        name,
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput('projects.create', createProjectInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'projects.create')
+      const client = args.getClient()
+      const projectId = await client.mutation(api.projects.createFromServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        name: parsedInput.name,
       })
 
-      return {
-        content: [{ type: 'text', text: `Created project ${projectId}` }],
-      }
+      return textToolContent(`Created project ${projectId}`)
+    },
+  }
+}
+
+export function createDeleteProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
+  return {
+    name: 'projects.delete',
+    description: 'Delete a project after a human approved deletion request',
+    inputSchema: deleteProjectInputSchema.shape,
+    annotations: {
+      destructiveHint: true,
+    },
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput('projects.delete', deleteProjectInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'projects.delete')
+      const client = args.getClient()
+      await client.mutation(api.projects.deleteWithApproval, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        projectId: toConvexId<'projects'>(parsedInput.projectId),
+        approvalId: toConvexId<'approvals'>(parsedInput.approvalId),
+      })
+
+      return textToolContent(`Deleted project ${parsedInput.projectId}`)
     },
   }
 }
@@ -143,5 +249,6 @@ export function createProjectMcpTools(args: ProjectToolArgs) {
   return {
     listProjects: createListProjectsTool(args),
     createProject: createCreateProjectTool(args),
+    deleteProject: createDeleteProjectTool(args),
   }
 }

@@ -1,25 +1,24 @@
-import { ConvexError, v } from 'convex/values'
+import { v } from 'convex/values'
 
+import { createOrganizationInputSchema } from '../shared/inputSchemas'
 import { mutation, query } from './_generated/server'
 import { requireOrganizationMembership } from './access'
 import { requireCurrentUser } from './users'
+import { parseWithConvexError } from './validation'
 
 export const create = mutation({
   args: {
-    name: v.string()
+    name: v.string(),
   },
   handler: async (ctx, args) => {
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Organization name is required')
-    }
+    const { name } = parseWithConvexError(createOrganizationInputSchema, args)
 
     const user = await requireCurrentUser(ctx)
     const now = Date.now()
     const organizationId = await ctx.db.insert('organizations', {
       name,
       createdBy: user._id,
-      createdAt: now
+      createdAt: now,
     })
 
     await ctx.db.insert('memberships', {
@@ -28,21 +27,21 @@ export const create = mutation({
       role: 'owner',
       status: 'active',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
 
     return organizationId
-  }
+  },
 })
 
 export const get = query({
   args: {
-    organizationId: v.id('organizations')
+    organizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
     await requireOrganizationMembership(ctx, args.organizationId)
     return await ctx.db.get(args.organizationId)
-  }
+  },
 })
 
 export const listMine = query({
@@ -65,11 +64,11 @@ export const listMine = query({
             id: organization._id,
             name: organization.name,
             role: membership.role,
-            createdAt: organization.createdAt
+            createdAt: organization.createdAt,
           }
-        })
+        }),
     )
 
     return rows.filter((row): row is NonNullable<typeof row> => row !== null)
-  }
+  },
 })

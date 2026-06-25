@@ -2,10 +2,11 @@ import { ConvexError, v } from 'convex/values'
 
 import { mutation } from './_generated/server'
 import { requireOrganizationAdmin } from './access'
+import { organizationUserKey, rateLimiter } from './rateLimits'
 
 export const approveProjectDelete = mutation({
   args: {
-    projectId: v.id('projects')
+    projectId: v.id('projects'),
   },
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId)
@@ -14,6 +15,10 @@ export const approveProjectDelete = mutation({
     }
 
     const user = await requireOrganizationAdmin(ctx, project.organizationId)
+    await rateLimiter.limit(ctx, 'humanProjectDeleteApproval', {
+      key: organizationUserKey(project.organizationId, user._id),
+      throws: true,
+    })
     const now = Date.now()
     return await ctx.db.insert('approvals', {
       organizationId: project.organizationId,
@@ -22,7 +27,7 @@ export const approveProjectDelete = mutation({
       status: 'approved',
       approvedBy: user._id,
       expiresAt: now + 5 * 60 * 1000,
-      createdAt: now
+      createdAt: now,
     })
-  }
+  },
 })

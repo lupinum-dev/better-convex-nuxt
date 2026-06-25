@@ -11,9 +11,7 @@ const {
   loadMore: loadMoreOrgAudit,
 } = await useConvexPaginatedQuery(
   api.audit.listForOrganization,
-  {
-    organizationId: props.organizationId,
-  },
+  computed(() => ({ organizationId: props.organizationId })),
   {
     initialNumItems: 10,
   },

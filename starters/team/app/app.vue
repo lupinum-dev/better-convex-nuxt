@@ -99,4 +99,49 @@ button:disabled {
   padding: 0;
   list-style: none;
 }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.toolbar input,
+.toolbar select,
+.items-list input,
+.items-list select {
+  min-width: 0;
+}
+
+.items-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 520px) {
+  .shell {
+    padding: 24px 14px;
+  }
+
+  .user,
+  .list a,
+  .toolbar,
+  .items-list li {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar input,
+  .toolbar select,
+  .toolbar button,
+  .items-list input,
+  .items-list select,
+  .items-list button {
+    width: 100%;
+  }
+}
 </style>

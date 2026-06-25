@@ -8,6 +8,7 @@ const createProject = createCreateProjectTool({
     const convex = config.public.convex as { url?: string } | undefined
     return createProjectToolClient(convex?.url)
   },
+  getServerSecret: () => useRuntimeConfig().mcpServerSecret,
 })
 
 export default createProject

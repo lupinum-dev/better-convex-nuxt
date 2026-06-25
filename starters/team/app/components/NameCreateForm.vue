@@ -3,6 +3,7 @@ const name = defineModel<string>('name', { required: true })
 
 const props = defineProps<{
   buttonLabel?: string
+  disabled?: boolean
   error?: string | null
   pending?: boolean
   placeholder: string
@@ -12,12 +13,12 @@ const emit = defineEmits<{
   submit: []
 }>()
 
-const canSubmit = computed(() => !props.pending && name.value.trim().length > 0)
+const canSubmit = computed(() => !props.pending && !props.disabled && name.value.trim().length > 0)
 </script>
 
 <template>
   <form class="create-form" @submit.prevent="emit('submit')">
-    <input v-model="name" :placeholder="placeholder" />
+    <input v-model="name" :disabled="disabled" :placeholder="placeholder" />
     <button type="submit" :disabled="!canSubmit">
       {{ pending ? 'Creating...' : (buttonLabel ?? 'Create') }}
     </button>

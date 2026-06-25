@@ -13,6 +13,7 @@ const convexSiteUrl =
   env.NUXT_PUBLIC_CONVEX_SITE_URL ||
   env.CONVEX_SITE_URL ||
   env.VITE_CONVEX_SITE_URL
+const mcpServerSecret = process.env.MCP_SERVER_SECRET || env.MCP_SERVER_SECRET || ''
 
 export default {
   modules: ['better-convex-nuxt', '@nuxtjs/mcp-toolkit'],
@@ -26,6 +27,9 @@ export default {
   },
   typescript: {
     strict: true,
+  },
+  runtimeConfig: {
+    mcpServerSecret,
   },
   convex: {
     url: convexUrl,

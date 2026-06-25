@@ -1,6 +1,15 @@
 import { ConvexError, v } from 'convex/values'
 
 import {
+  cancelInvitationInputSchema,
+  changeMemberRoleInputSchema,
+  createOrganizationInputSchema,
+  createTeamInputSchema,
+  inviteMemberInputSchema,
+  removeMemberInputSchema,
+  renameOrganizationInputSchema,
+} from '../shared/inputSchemas'
+import {
   canViewOrganizationActivity,
   isInviteRole,
   isOrganizationRole,
@@ -8,6 +17,7 @@ import {
 import { mutation, query } from './_generated/server'
 import {
   getAppAuth,
+  getAuthenticatedSessionOrNull,
   hasOrganizationPermissions,
   requireAuthenticatedSession,
   requireOrgMembership,
@@ -18,6 +28,8 @@ import {
   listBetterAuthOrganizationInvitations,
   listBetterAuthOrganizationMembers,
 } from './lib/betterAuthRows'
+import { organizationActorRateLimitKey, rateLimiter } from './lib/rateLimits'
+import { parseWithConvexError } from './lib/validation'
 
 function slugify(value: string) {
   const slug = value
@@ -53,10 +65,6 @@ function memberDto(member: {
   }
 }
 
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase()
-}
-
 function invitationDto(invitation: {
   email: string
   role?: string | null
@@ -84,19 +92,17 @@ function invitationDto(invitation: {
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return []
-    }
+    const authState = await getAuthenticatedSessionOrNull(ctx)
+    if (!authState) return []
 
-    const { auth, headers } = await getAppAuth(ctx)
+    const { auth, headers, actor } = authState
     const organizations = await auth.api.listOrganizations({ headers })
 
     return await Promise.all(
       organizations.map(async (organization) => {
         const member = await getBetterAuthMember(ctx, {
           organizationId: organization.id,
-          userId: identity.subject,
+          userId: actor.authUserId,
         })
 
         return {
@@ -128,7 +134,7 @@ export const getCapabilities = query({
       canManageOrganization,
       canManageMembers,
       canManageTeams,
-      canCreateProject,
+      canCreateProjectPermission,
       canDeleteProject,
     ] = await Promise.all([
       hasOrganizationPermissions(auth, headers, args.organizationId, {
@@ -154,7 +160,7 @@ export const getCapabilities = query({
       canManageMembers,
       canManageTeams,
       canViewOrgActivity: canViewOrganizationActivity(member.role),
-      canCreateProject,
+      canCreateProject: canCreateProjectPermission,
       canDeleteProject,
     }
   },
@@ -165,17 +171,18 @@ export const create = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
-    const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Organization name is required')
-    }
+    const { auth, headers, actor } = await requireAuthenticatedSession(ctx)
+    const input = parseWithConvexError(createOrganizationInputSchema, args)
+    await rateLimiter.limit(ctx, 'organizationCreate', {
+      key: actor.authUserId,
+      throws: true,
+    })
 
     const organization = await auth.api.createOrganization({
       headers,
       body: {
-        name,
-        slug: slugify(name),
+        name: input.name,
+        slug: slugify(input.name),
       },
     })
 
@@ -193,16 +200,13 @@ export const rename = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Organization name is required')
-    }
+    const input = parseWithConvexError(renameOrganizationInputSchema, args)
 
     const organization = await auth.api.updateOrganization({
       headers,
       body: {
-        organizationId: args.organizationId,
-        data: { name },
+        organizationId: input.organizationId,
+        data: { name: input.name },
       },
     })
     if (!organization) {
@@ -252,16 +256,13 @@ export const createTeam = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Team name is required')
-    }
+    const input = parseWithConvexError(createTeamInputSchema, args)
 
     const team = await auth.api.createTeam({
       headers,
       body: {
-        organizationId: args.organizationId,
-        name,
+        organizationId: input.organizationId,
+        name: input.name,
       },
     })
 
@@ -322,23 +323,23 @@ export const inviteMember = mutation({
     teamId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { auth, headers } = await requireAuthenticatedSession(ctx)
-    const email = normalizeEmail(args.email)
-    const teamId = args.teamId?.trim() || undefined
-    if (!email) {
-      throw new ConvexError('Email is required')
-    }
-    if (!isInviteRole(args.role)) {
-      throw new ConvexError('Valid invite role is required')
-    }
+    const { auth, headers, actor } = await requireAuthenticatedSession(ctx)
+    const input = parseWithConvexError(inviteMemberInputSchema, {
+      ...args,
+      teamId: args.teamId?.trim() || undefined,
+    })
+    await rateLimiter.limit(ctx, 'inviteMember', {
+      key: organizationActorRateLimitKey(input.organizationId, actor.authUserId),
+      throws: true,
+    })
 
     await auth.api.createInvitation({
       headers,
       body: {
-        organizationId: args.organizationId,
-        email,
-        role: args.role,
-        ...(teamId ? { teamId } : {}),
+        organizationId: input.organizationId,
+        email: input.email,
+        role: input.role,
+        ...(input.teamId ? { teamId: input.teamId } : {}),
       },
     })
 
@@ -353,9 +354,10 @@ export const cancelInvitation = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
+    const input = parseWithConvexError(cancelInvitationInputSchema, args)
     const invitation = await getBetterAuthPendingInvitationByEmail(ctx, {
-      organizationId: args.organizationId,
-      email: normalizeEmail(args.email),
+      organizationId: input.organizationId,
+      email: input.email,
     })
 
     if (!invitation) {
@@ -386,16 +388,14 @@ export const changeMemberRole = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
-    if (!isOrganizationRole(args.role)) {
-      throw new ConvexError('Valid role is required')
-    }
+    const input = parseWithConvexError(changeMemberRoleInputSchema, args)
 
     const result = await auth.api.updateMemberRole({
       headers,
       body: {
-        organizationId: args.organizationId,
-        memberId: args.memberId,
-        role: args.role,
+        organizationId: input.organizationId,
+        memberId: input.memberId,
+        role: input.role,
       },
     })
 
@@ -410,11 +410,12 @@ export const removeMember = mutation({
   },
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
+    const input = parseWithConvexError(removeMemberInputSchema, args)
     await auth.api.removeMember({
       headers,
       body: {
-        organizationId: args.organizationId,
-        memberIdOrEmail: args.memberId,
+        organizationId: input.organizationId,
+        memberIdOrEmail: input.memberId,
       },
     })
     return { ok: true }
