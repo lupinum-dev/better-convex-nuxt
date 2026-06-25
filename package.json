@@ -67,7 +67,7 @@
   },
   "scripts": {
     "build:devtools": "nuxi build src/runtime/devtools/ui --preset static",
-    "prepack": "npm run build:devtools && nuxt-module-build build && npm run check:package-exports -- --dist",
+    "prepack": "nuxt-module-build prepare && npm run build:devtools && nuxt-module-build build && npm run check:package-exports -- --dist",
     "dev": "npm run dev:prepare && nuxi dev --cwd playground --dotenv .env.local",
     "dev:build": "nuxi build --cwd playground --dotenv .env.local",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
