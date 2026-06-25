@@ -5,7 +5,28 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useConvexMutation (Nuxt runtime)', () => {
+  it('can be created during SSR setup without a Convex client and fails when called', async () => {
+    const mutation = mockFnRef<'mutation'>('testing:ssr-safe-mutation')
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+    expect(result.pending.value).toBe(false)
+  })
+
   it('tracks pending and success states and exposes result data', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:add')
@@ -16,14 +37,78 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
+    expect(typeof result).toBe('function')
+    expect('execute' in result).toBe(false)
+    expect('executeSafe' in result).toBe(false)
+    expect(typeof result.safe).toBe('function')
     expect(result.status.value).toBe('idle')
-    const promise = result.execute({ value: 'hello' } as never)
+    const promise = result({ value: 'hello' } as never)
     expect(result.pending.value).toBe(true)
 
     await expect(promise).resolves.toEqual({ id: 'new-id', value: 'hello' })
     expect(result.status.value).toBe('success')
     expect(result.error.value).toBeNull()
     expect(result.data.value).toEqual({ id: 'new-id', value: 'hello' })
+  })
+
+  it('waits for Convex auth confirmation before sending mutations', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:auth-ready')
+    const authReady = deferred<boolean>()
+    convex.setMutationHandler('testing:auth-ready', async (args) => {
+      const { value } = args as { value: string }
+      return { value }
+    })
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+      authEngine: {
+        awaitAuthReady: () => authReady.promise,
+      },
+    })
+
+    const promise = result({ value: 'delayed' } as never)
+    await Promise.resolve()
+    expect(convex.calls.mutation).toHaveLength(0)
+
+    authReady.resolve(true)
+
+    await expect(promise).resolves.toEqual({ value: 'delayed' })
+    expect(convex.calls.mutation).toHaveLength(1)
+  })
+
+  it('refreshes Convex auth once when auth readiness is stale', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:auth-refresh')
+    convex.setMutationHandler('testing:auth-refresh', async (args) => args)
+
+    const awaitAuthReady = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const refreshAuth = vi.fn(async () => {})
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+      authEngine: {
+        awaitAuthReady,
+        refreshAuth,
+      },
+    })
+
+    await expect(result({ value: 'after-refresh' } as never)).resolves.toEqual({
+      value: 'after-refresh',
+    })
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+    expect(awaitAuthReady).toHaveBeenCalledTimes(2)
+    expect(convex.calls.mutation).toHaveLength(1)
+  })
+
+  it('calls argless mutations with empty args', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:argless')
+    convex.setMutationHandler('testing:argless', async (args) => ({ args }))
+
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+
+    await expect(result()).resolves.toEqual({ args: {} })
+    expect(convex.calls.mutation.at(-1)?.args).toEqual({})
   })
 
   it('tracks errors and reset() clears state', async () => {
@@ -35,7 +120,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-    await expect(result.execute({} as never)).rejects.toThrow('mutation failed')
+    await expect(result({} as never)).rejects.toThrow('mutation failed')
     expect(result.status.value).toBe('error')
     expect(result.error.value?.message).toBe('mutation failed')
 
@@ -69,7 +154,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     )
 
     const successArgs = { value: 'ok' }
-    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
+    await expect(result.success(successArgs as never)).resolves.toEqual({
       ok: true,
       payload: successArgs,
     })
@@ -77,7 +162,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
-    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('callback boom')
+    await expect(result.fail(failArgs as never)).rejects.toThrow('callback boom')
     expect(onError).toHaveBeenCalledTimes(1)
     const callbackError = onError.mock.calls[0]?.[0]
     expect(callbackError).toBeInstanceOf(Error)
@@ -85,7 +170,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('executeSafe never throws and returns normalized error metadata', async () => {
+  it('safe never throws and returns normalized error metadata', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-fail')
 
@@ -94,7 +179,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -105,7 +190,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.status.value).toBe('error')
   })
 
-  it('executeSafe prefers structured ConvexError payloads when present', async () => {
+  it('safe prefers structured ConvexError payloads when present', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
 
@@ -118,7 +203,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -129,7 +214,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(safeResult.error.status).toBe(422)
   })
 
-  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+  it('safe wraps domain CallResult values without flattening them', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-domain-result')
 
@@ -141,8 +226,8 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
-    const direct = await result.execute({} as never)
-    const wrapped = await result.executeSafe({} as never)
+    const direct = await result({} as never)
+    const wrapped = await result.safe({} as never)
 
     expect(direct).toEqual({
       ok: false,
@@ -171,8 +256,8 @@ describe('useConvexMutation (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
 
-    const slowFail = result.execute({ value: 'first', delayMs: 30, shouldFail: true } as never)
-    const fastSuccess = result.execute({ value: 'second', delayMs: 5 } as never)
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
     await expect(slowFail).rejects.toThrow('failed:first')

@@ -8,10 +8,10 @@
  * ```ts
  * // ~/composables/usePermissions.ts
  * import { createPermissions } from '#imports'
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  * import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
  *
- * export const { usePermissions, usePermissionGuard } = createPermissions({
+ * export const { usePermissions, usePermissionRedirect } = createPermissions({
  *   query: api.auth.getPermissionContext,
  *   checkPermission,
  * })
@@ -38,7 +38,6 @@ export interface PermissionContext {
   role: string
   userId: string
   orgId?: string
-  [key: string]: unknown
 }
 
 /**
@@ -46,30 +45,30 @@ export interface PermissionContext {
  */
 export interface Resource {
   ownerId?: string
-  [key: string]: unknown
 }
 
 /**
  * Check permission function signature.
  * User provides this from their permissions.config.ts
  */
-export type CheckPermissionFn<TPermission extends string = string> = (
-  ctx: { role: string; userId: string } | null,
-  permission: TPermission,
-  resource?: Resource,
-) => boolean
+export type CheckPermissionFn<
+  TPermission extends string = string,
+  TContext extends PermissionContext = PermissionContext,
+  TResource extends Resource = Resource,
+> = (ctx: TContext | null, permission: TPermission, resource?: TResource) => boolean
 
 /**
  * Options for createPermissions factory.
  */
 export interface CreatePermissionsOptions<
   TPermission extends string = string,
-  _TContext extends PermissionContext = PermissionContext,
+  TContext extends PermissionContext = PermissionContext,
+  TResource extends Resource = Resource,
 > {
   /** Convex query that returns permission context (role, userId, orgId, etc.) */
   query: FunctionReference<'query'>
   /** Permission checking function from permissions.config.ts */
-  checkPermission: CheckPermissionFn<TPermission>
+  checkPermission: CheckPermissionFn<TPermission, TContext, TResource>
 }
 
 /**
@@ -78,9 +77,10 @@ export interface CreatePermissionsOptions<
 export interface UsePermissionsReturn<
   TPermission extends string = string,
   TContext extends PermissionContext = PermissionContext,
+  TResource extends Resource = Resource,
 > {
   /** Check if user has a specific permission (reactive) */
-  can: (permission: TPermission, resource?: Resource) => ComputedRef<boolean>
+  can: (permission: TPermission, resource?: TResource) => ComputedRef<boolean>
   /** Current user's permission context */
   user: ComputedRef<TContext | null>
   /** Current user's role */
@@ -94,15 +94,18 @@ export interface UsePermissionsReturn<
 }
 
 /**
- * Options for usePermissionGuard.
+ * Options for usePermissionRedirect.
  */
-export interface UsePermissionGuardOptions<TPermission extends string = string> {
-  /** Permission required to access the page */
+export interface UsePermissionRedirectOptions<
+  TPermission extends string = string,
+  TResource extends Resource = Resource,
+> {
+  /** Permission required before staying on the current view */
   permission: TPermission
   /** Path to redirect if permission denied */
   redirectTo?: RouteLocationRaw
   /** Resource to check ownership against */
-  resource?: Resource
+  resource?: TResource
   /** Path to redirect if not authenticated */
   loginPath?: RouteLocationRaw
 }
@@ -118,10 +121,10 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
  * ```ts
  * // ~/composables/usePermissions.ts
  * import { createPermissions } from '#imports'
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  * import { checkPermission } from '~/convex/permissions.config'
  *
- * export const { usePermissions, usePermissionGuard } = createPermissions({
+ * export const { usePermissions, usePermissionRedirect } = createPermissions({
  *   query: api.auth.getPermissionContext,
  *   checkPermission,
  * })
@@ -130,7 +133,8 @@ export interface UsePermissionGuardOptions<TPermission extends string = string> 
 export function createPermissions<
   TPermission extends string = string,
   TContext extends PermissionContext = PermissionContext,
->(options: CreatePermissionsOptions<TPermission, TContext>) {
+  TResource extends Resource = Resource,
+>(options: CreatePermissionsOptions<TPermission, TContext, TResource>) {
   const { query, checkPermission } = options
 
   /**
@@ -148,7 +152,7 @@ export function createPermissions<
    * </template>
    * ```
    */
-  function usePermissions(): UsePermissionsReturn<TPermission, TContext> {
+  function usePermissions(): UsePermissionsReturn<TPermission, TContext, TResource> {
     // Fetch permission context from Convex
     const {
       data: permissionContext,
@@ -158,17 +162,14 @@ export function createPermissions<
     const runtimeConfig = useRuntimeConfig()
 
     // Build context object for checkPermission
-    const ctx = computed(() => {
+    const ctx = computed<TContext | null>(() => {
       const context = permissionContext.value as TContext | null
       if (!context?.role) return null
-      return {
-        role: context.role,
-        userId: context.userId,
-      }
+      return context
     })
 
     // Permission check function (returns reactive ComputedRef)
-    function can(permission: TPermission, resource?: Resource): ComputedRef<boolean> {
+    function can(permission: TPermission, resource?: TResource): ComputedRef<boolean> {
       return computed(() => checkPermission(ctx.value, permission, resource))
     }
 
@@ -207,24 +208,25 @@ export function createPermissions<
   }
 
   /**
-   * Protect a page with permission requirements.
-   * Redirects if user lacks permission.
+   * Redirect after render when the current user lacks a permission.
+   * Enforce real access control in Convex functions; this is only a UX helper.
    *
-   * Includes protection against rapid redirect loops by tracking
-   * pending navigation state.
+   * Suppresses rapid redirect loops by tracking pending navigation state.
    *
    * @example
    * ```vue
    * <script setup>
    * // Redirect to /dashboard if user can't access org settings
-   * usePermissionGuard({
+   * usePermissionRedirect({
    *   permission: 'org.settings',
    *   redirectTo: '/dashboard',
    * })
    * </script>
    * ```
    */
-  function usePermissionGuard(guardOptions: UsePermissionGuardOptions<TPermission>) {
+  function usePermissionRedirect(
+    guardOptions: UsePermissionRedirectOptions<TPermission, TResource>,
+  ) {
     const { permission, redirectTo = '/', resource, loginPath = '/auth/signin' } = guardOptions
 
     const { can, pending, isAuthenticated } = usePermissions()
@@ -264,6 +266,6 @@ export function createPermissions<
 
   return {
     usePermissions,
-    usePermissionGuard,
+    usePermissionRedirect,
   }
 }

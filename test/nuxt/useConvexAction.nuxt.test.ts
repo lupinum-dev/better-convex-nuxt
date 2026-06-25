@@ -5,7 +5,28 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useConvexAction (Nuxt runtime)', () => {
+  it('can be created during SSR setup without a Convex client and fails when called', async () => {
+    const action = mockFnRef<'action'>('testing:ssr-safe-action')
+
+    const { result } = await captureInNuxt(() => useConvexAction(action))
+
+    expect(result.status.value).toBe('idle')
+    await expect(result({} as never)).rejects.toThrow('Convex client is unavailable')
+    expect(result.status.value).toBe('error')
+    expect(result.pending.value).toBe(false)
+  })
+
   it('tracks pending and success states and exposes result data', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:echo')
@@ -15,8 +36,12 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
+    expect(typeof result).toBe('function')
+    expect('execute' in result).toBe(false)
+    expect('executeSafe' in result).toBe(false)
+    expect(typeof result.safe).toBe('function')
     expect(result.status.value).toBe('idle')
-    const promise = result.execute({ message: 'hi' } as never)
+    const promise = result({ message: 'hi' } as never)
     expect(result.pending.value).toBe(true)
 
     const value = await promise
@@ -28,6 +53,63 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ ok: true, args: { message: 'hi' } })
   })
 
+  it('waits for Convex auth confirmation before sending actions', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:auth-ready-action')
+    const authReady = deferred<boolean>()
+    convex.setActionHandler('testing:auth-ready-action', async (args) => args)
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+      authEngine: {
+        awaitAuthReady: () => authReady.promise,
+      },
+    })
+
+    const promise = result({ value: 'delayed' } as never)
+    await Promise.resolve()
+    expect(convex.calls.action).toHaveLength(0)
+
+    authReady.resolve(true)
+
+    await expect(promise).resolves.toEqual({ value: 'delayed' })
+    expect(convex.calls.action).toHaveLength(1)
+  })
+
+  it('refreshes Convex auth once when auth readiness is stale', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:auth-refresh-action')
+    convex.setActionHandler('testing:auth-refresh-action', async (args) => args)
+
+    const awaitAuthReady = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const refreshAuth = vi.fn(async () => {})
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+      authEngine: {
+        awaitAuthReady,
+        refreshAuth,
+      },
+    })
+
+    await expect(result({ value: 'after-refresh' } as never)).resolves.toEqual({
+      value: 'after-refresh',
+    })
+    expect(refreshAuth).toHaveBeenCalledTimes(1)
+    expect(awaitAuthReady).toHaveBeenCalledTimes(2)
+    expect(convex.calls.action).toHaveLength(1)
+  })
+
+  it('calls argless actions with empty args', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:argless-action')
+    convex.setActionHandler('testing:argless-action', async (args) => ({ args }))
+
+    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+
+    await expect(result()).resolves.toEqual({ args: {} })
+    expect(convex.calls.action.at(-1)?.args).toEqual({})
+  })
+
   it('tracks error and supports reset()', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:fails')
@@ -37,7 +119,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-    await expect(result.execute({} as never)).rejects.toThrow('boom')
+    await expect(result({} as never)).rejects.toThrow('boom')
     expect(result.status.value).toBe('error')
     expect(result.error.value?.message).toBe('boom')
 
@@ -71,7 +153,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     )
 
     const successArgs = { value: 'ok' }
-    await expect(result.success.execute(successArgs as never)).resolves.toEqual({
+    await expect(result.success(successArgs as never)).resolves.toEqual({
       ok: true,
       payload: successArgs,
     })
@@ -79,7 +161,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(onSuccess).toHaveBeenCalledWith({ ok: true, payload: successArgs }, successArgs)
 
     const failArgs = { value: 'nope' }
-    await expect(result.fail.execute(failArgs as never)).rejects.toThrow('action callback boom')
+    await expect(result.fail(failArgs as never)).rejects.toThrow('action callback boom')
     expect(onError).toHaveBeenCalledTimes(1)
     const callbackError = onError.mock.calls[0]?.[0]
     expect(callbackError).toBeInstanceOf(Error)
@@ -87,7 +169,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(onError.mock.calls[0]?.[1]).toEqual(failArgs)
   })
 
-  it('executeSafe never throws and returns normalized errors', async () => {
+  it('safe never throws and returns normalized errors', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-action-fail')
     convex.setActionHandler('testing:safe-action-fail', async () => {
@@ -95,7 +177,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const safeResult = await result.executeSafe({} as never)
+    const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
     if (safeResult.ok) {
@@ -105,7 +187,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(safeResult.error.message).toBe('Action limit reached')
   })
 
-  it('executeSafe wraps domain CallResult values without flattening them', async () => {
+  it('safe wraps domain CallResult values without flattening them', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-domain-result')
     convex.setActionHandler('testing:safe-domain-result', async () => {
@@ -116,8 +198,8 @@ describe('useConvexAction (Nuxt runtime)', () => {
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
-    const direct = await result.execute({} as never)
-    const wrapped = await result.executeSafe({} as never)
+    const direct = await result({} as never)
+    const wrapped = await result.safe({} as never)
 
     expect(direct).toEqual({
       ok: false,
@@ -145,8 +227,8 @@ describe('useConvexAction (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
 
-    const slowFail = result.execute({ value: 'first', delayMs: 30, shouldFail: true } as never)
-    const fastSuccess = result.execute({ value: 'second', delayMs: 5 } as never)
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
     await expect(slowFail).rejects.toThrow('failed:first')

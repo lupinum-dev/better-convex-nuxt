@@ -2,10 +2,37 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useNuxtApp, useState } from '#imports'
 
+import type { ConvexAuthEngine } from '../../src/runtime/auth/client-engine'
 import { useConvexAuth } from '../../src/runtime/composables/useConvexAuth'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 describe('useConvexAuth (Nuxt runtime)', () => {
+  it('delegates signOut and refreshAuth to the injected auth engine', async () => {
+    const engine: ConvexAuthEngine = {
+      attachConvexClient: vi.fn(),
+      signOut: vi.fn(async () => ({ data: { success: true }, error: null })),
+      refreshAuth: vi.fn(async () => {}),
+      awaitAuthReady: vi.fn(async () => true),
+    }
+
+    const { result, nuxtApp } = await captureInNuxt(() => {
+      const nuxtApp = useNuxtApp()
+      Object.defineProperty(nuxtApp, '$convexAuthEngine', {
+        configurable: true,
+        value: engine,
+      })
+      return useConvexAuth()
+    })
+
+    await result.signOut()
+    await result.refreshAuth()
+
+    expect(engine.signOut).toHaveBeenCalledTimes(1)
+    expect(engine.refreshAuth).toHaveBeenCalledTimes(1)
+
+    delete (nuxtApp as typeof nuxtApp & { $convexAuthEngine?: unknown }).$convexAuthEngine
+  })
+
   it('computes authenticated state from token + user and signOut clears local state', async () => {
     const signOut = vi.fn(async () => ({ data: { success: true }, error: null }))
 
@@ -28,6 +55,58 @@ describe('useConvexAuth (Nuxt runtime)', () => {
     expect(result.token.value).toBeNull()
     expect(result.user.value).toBeNull()
     expect(result.isAuthenticated.value).toBe(false)
+  })
+
+  it('preserves local auth state when upstream signOut fails', async () => {
+    const signOut = vi.fn(async () => {
+      throw new Error('network down')
+    })
+
+    const { result } = await captureInNuxt(
+      () => {
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        return useConvexAuth()
+      },
+      {
+        auth: { signOut },
+      },
+    )
+
+    await expect(result.signOut()).rejects.toThrow('network down')
+    expect(signOut).toHaveBeenCalledTimes(1)
+    expect(result.token.value).toBe('jwt.token')
+    expect(result.user.value).toEqual({ id: 'u1' })
+    expect(result.authError.value).toBe('network down')
+    expect(result.isAuthenticated.value).toBe(true)
+    expect(result.isPending.value).toBe(false)
+  })
+
+  it('preserves local auth state when Better Auth returns a signOut error envelope', async () => {
+    const signOut = vi.fn(async () => ({
+      data: null,
+      error: { message: 'session still active' },
+    }))
+
+    const { result } = await captureInNuxt(
+      () => {
+        const token = useState<string | null>('convex:token')
+        const user = useState<unknown>('convex:user')
+        token.value = 'jwt.token'
+        user.value = { id: 'u1' }
+        return useConvexAuth()
+      },
+      {
+        auth: { signOut },
+      },
+    )
+
+    await expect(result.signOut()).rejects.toThrow('session still active')
+    expect(result.token.value).toBe('jwt.token')
+    expect(result.user.value).toEqual({ id: 'u1' })
+    expect(result.authError.value).toBe('session still active')
   })
 
   it('refreshAuth resolves after refresh hook updates token', async () => {

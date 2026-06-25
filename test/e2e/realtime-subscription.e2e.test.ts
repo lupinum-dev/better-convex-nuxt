@@ -12,8 +12,7 @@ try {
   })
 } catch (error) {
   console.warn(
-    '[e2e] Skipping realtime subscription suite: local Convex backend unavailable.',
-    error,
+    `[e2e] Skipping realtime subscription suite: ${error instanceof Error ? error.message : String(error)}`,
   )
 }
 

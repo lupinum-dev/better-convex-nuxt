@@ -1,5 +1,7 @@
 import type { H3Event } from 'h3'
 
+import { filterBetterAuthCookies } from '../../../utils/shared-helpers'
+
 const HOP_BY_HOP_HEADERS = new Set([
   'connection',
   'keep-alive',
@@ -33,8 +35,13 @@ export function buildAuthProxyForwardHeaders(
   options: AuthProxyForwardHeadersOptions,
 ): Record<string, string> {
   const headers = stripHopByHopHeaders(event.headers)
-  // Intentionally preserve cookies. Better Auth routes may depend on multiple cookies
-  // beyond the session token, and this proxy handles generic auth endpoints.
+  const authCookieHeader = filterBetterAuthCookies(headers.get('cookie'))
+  if (authCookieHeader) {
+    headers.set('cookie', authCookieHeader)
+  } else {
+    headers.delete('cookie')
+  }
+
   const originalHost = options.originalHost || options.requestUrl.host
   const originalProto = options.requestUrl.protocol.replace(':', '')
 

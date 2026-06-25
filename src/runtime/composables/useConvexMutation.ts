@@ -1,11 +1,19 @@
-import type { OptimisticLocalStore } from 'convex/browser'
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import type { ConvexClient, OptimisticLocalStore } from 'convex/browser'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  OptionalRestArgs,
+} from 'convex/server'
+import type { Ref, ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
+import type { ConvexAuthEngine } from '../auth/client-engine'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
+import { createConvexCallState } from '../utils/call-state'
+import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
 import {
   registerDevToolsEntry,
@@ -14,7 +22,6 @@ import {
 } from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
-import { useConvex } from './useConvex'
 
 // Re-export optimistic update helpers
 export {
@@ -26,29 +33,25 @@ export {
   type SetQueryDataOptions,
   type UpdateAllQueriesOptions,
   type DeleteFromQueryOptions,
-} from './optimistic-updates'
+} from './regular-optimistic-updates'
 
 /**
  * Return value from useConvexMutation
  */
-export interface UseConvexMutationReturn<Args, Result> {
-  /**
-   * Execute the mutation. Returns a promise with the result.
-   * Automatically tracks status, error, and data.
-   * Throws on error (use try/catch or check error ref after).
-   */
-  execute: (args: Args) => Promise<Result>
+export type UseConvexMutationReturn<Mutation extends FunctionReference<'mutation'>> = ((
+  ...args: OptionalRestArgs<Mutation>
+) => Promise<FunctionReturnType<Mutation>>) & {
   /**
    * Execute the mutation without throwing.
    * Returns a stable result envelope.
    */
-  executeSafe: (args: Args) => Promise<CallResult<Result>>
+  safe: (...args: OptionalRestArgs<Mutation>) => Promise<CallResult<FunctionReturnType<Mutation>>>
 
   /**
    * Result data from the last successful mutation.
    * undefined if mutation hasn't succeeded yet.
    */
-  data: Ref<Result | undefined>
+  data: Ref<FunctionReturnType<Mutation> | undefined>
 
   /**
    * Mutation status for explicit state management.
@@ -87,7 +90,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
    *
    * @example
    * ```ts
-   * const { execute } = useConvexMutation(api.notes.add, {
+   * const addNote = useConvexMutation(api.notes.add, {
    *   optimisticUpdate: (localStore, args) => {
    *     // Update a regular query
    *     updateQuery({
@@ -123,8 +126,8 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
 /**
  * Composable for calling Convex mutations with automatic state tracking.
  *
- * Returns a mutation function along with reactive status, error, and data refs.
- * The mutation automatically tracks its state - no manual loading refs needed.
+ * Returns a callable mutation function with reactive status, error, and data refs
+ * attached. The mutation automatically tracks its state - no manual loading refs needed.
  *
  * API designed to match useConvexQuery for consistency:
  * - `data` - result from last successful call
@@ -137,14 +140,9 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  * @example Basic usage with status tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
- * const {
- *   execute: createPost,
- *   pending,
- *   status,
- *   error,
- * } = useConvexMutation(api.posts.create)
+ * const createPost = useConvexMutation(api.posts.create)
  *
  * async function handleSubmit() {
  *   try {
@@ -156,38 +154,30 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  * </script>
  *
  * <template>
- *   <button :disabled="pending" @click="handleSubmit">
- *     {{ pending ? 'Creating...' : 'Create' }}
+ *   <button :disabled="createPost.pending.value" @click="handleSubmit">
+ *     {{ createPost.pending.value ? 'Creating...' : 'Create' }}
  *   </button>
- *   <p v-if="status === 'error'" class="error">{{ error?.message }}</p>
- *   <p v-if="status === 'success'">Created!</p>
+ *   <p v-if="createPost.status.value === 'error'" class="error">{{ createPost.error.value?.message }}</p>
+ *   <p v-if="createPost.status.value === 'success'">Created!</p>
  * </template>
  * ```
  *
  * @example Multiple mutations with individual state
  * ```vue
  * <script setup>
- * const {
- *   execute: createPost,
- *   pending: isCreating,
- *   error: createError,
- * } = useConvexMutation(api.posts.create)
+ * const createPost = useConvexMutation(api.posts.create)
  *
- * const {
- *   execute: deletePost,
- *   pending: isDeleting,
- *   error: deleteError,
- * } = useConvexMutation(api.posts.remove)
+ * const deletePost = useConvexMutation(api.posts.remove)
  * </script>
  * ```
  *
  * @example With optimistic update for paginated queries
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  * import { insertAtTop } from '#imports'
  *
- * const { execute: addNote, pending } = useConvexMutation(api.notes.add, {
+ * const addNote = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     insertAtTop({
  *       query: api.notes.listPaginated,
@@ -207,11 +197,11 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  * @example With optimistic update for regular queries
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  * import { updateQuery, deleteFromQuery } from '#imports'
  *
  * // Add to a list query
- * const { execute: addNote } = useConvexMutation(api.notes.add, {
+ * const addNote = useConvexMutation(api.notes.add, {
  *   optimisticUpdate: (localStore, args) => {
  *     updateQuery({
  *       query: api.notes.list,
@@ -230,7 +220,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
  * })
  *
  * // Remove from a list query
- * const { execute: removeNote } = useConvexMutation(api.notes.remove, {
+ * const removeNote = useConvexMutation(api.notes.remove, {
  *   optimisticUpdate: (localStore, args) => {
  *     deleteFromQuery({
  *       query: api.notes.list,
@@ -246,7 +236,7 @@ export interface UseConvexMutationOptions<Args extends Record<string, unknown>, 
 export function useConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   mutation: Mutation,
   options?: UseConvexMutationOptions<FunctionArgs<Mutation>, FunctionReturnType<Mutation>>,
-): UseConvexMutationReturn<FunctionArgs<Mutation>, FunctionReturnType<Mutation>> {
+): UseConvexMutationReturn<Mutation> {
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
 
@@ -256,35 +246,14 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const fnName = getFunctionName(mutation)
   const hasOptimisticUpdate = !!options?.optimisticUpdate
 
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
-  const client = useConvex()
-  let activeRequestId = 0
-
-  // Internal state
-  const _status = ref<ConvexCallStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
-  const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
-
-  // Computed - matches useConvexQuery pattern
-  const status = computed(() => _status.value)
-  const pending = computed(() => _status.value === 'pending')
-
-  // Reset function
-  const reset = () => {
-    activeRequestId += 1
-    _status.value = 'idle'
-    error.value = null
-    data.value = undefined
-  }
+  const nuxtApp = useNuxtApp()
+  const callState = createConvexCallState<Result>()
 
   // The mutation function
-  const execute = async (args: Args): Promise<Result> => {
+  const execute = async (...callArgs: OptionalRestArgs<Mutation>): Promise<Result> => {
+    const args = (callArgs[0] ?? {}) as Args
     const startTime = Date.now()
-    const currentRequestId = ++activeRequestId
-
-    _status.value = 'pending'
-    error.value = null
+    const currentRequestId = callState.start()
 
     // Register with DevTools
     const mutationId = registerDevToolsEntry(fnName, 'mutation', args, hasOptimisticUpdate)
@@ -295,13 +264,22 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     }
 
     try {
+      const client = nuxtApp.$convex as ConvexClient | undefined
+      if (!client) {
+        throw new Error(
+          '[useConvexMutation] Convex client is unavailable. Call mutations from the browser after configuring a Convex URL.',
+        )
+      }
+
+      await ensureConvexAuthReady(
+        nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+        'useConvexMutation',
+      )
+
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,
       })
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'success'
-        data.value = result
-      }
+      callState.commitSuccess(currentRequestId, result)
 
       try {
         options?.onSuccess?.(result, args)
@@ -323,10 +301,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      if (currentRequestId === activeRequestId) {
-        _status.value = 'error'
-        error.value = err
-      }
+      callState.commitError(currentRequestId, err)
 
       try {
         options?.onError?.(err, args)
@@ -349,17 +324,16 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     }
   }
 
-  const executeSafe = async (args: Args): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(args))
+  const safe = async (...callArgs: OptionalRestArgs<Mutation>): Promise<CallResult<Result>> => {
+    return await toCallResult(() => execute(...callArgs))
   }
 
-  return {
-    execute,
-    executeSafe,
-    data,
-    status,
-    pending,
-    error,
-    reset,
-  }
+  return Object.assign(execute, {
+    safe,
+    data: callState.data,
+    status: callState.status,
+    pending: callState.pending,
+    error: callState.error,
+    reset: callState.reset,
+  })
 }

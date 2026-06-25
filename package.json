@@ -1,6 +1,6 @@
 {
   "name": "better-convex-nuxt",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
     "authentication",
@@ -41,6 +41,9 @@
       ],
       "server": [
         "./dist/runtime/server/index.d.ts"
+      ],
+      "server/createUserSyncTriggers": [
+        "./dist/runtime/server/createUserSyncTriggers.d.ts"
       ]
     }
   },
@@ -56,18 +59,33 @@
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
       "import": "./dist/runtime/server/index.js"
+    },
+    "./server/createUserSyncTriggers": {
+      "types": "./dist/runtime/server/createUserSyncTriggers.d.ts",
+      "import": "./dist/runtime/server/createUserSyncTriggers.js"
     }
   },
   "scripts": {
     "build:devtools": "nuxi build src/runtime/devtools/ui --preset static",
-    "prepack": "npm run build:devtools && nuxt-module-build build",
+    "prepack": "nuxt-module-build prepare && npm run build:devtools && nuxt-module-build build && npm run check:package-exports -- --dist",
     "dev": "npm run dev:prepare && nuxi dev --cwd playground --dotenv .env.local",
     "dev:build": "nuxi build --cwd playground --dotenv .env.local",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
-    "release": "npm run lint && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
-    "lint": "npm run check:no-legacy-query-api && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && eslint .",
-    "check:no-legacy-query-api": "sh -c '! rg -n \"useConvexQueryLazy|useConvexPaginatedQueryLazy\" src playground docs test'",
+    "release": "npm run lint && npm run test:types && npm run check:contracts && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "npm run check:no-legacy-query-api && npm run check:no-legacy-call-api && npm run check:no-legacy-generated-api-imports && npm run check:no-stale-doc-imports && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && npm run check:no-starter-generated-artifacts && eslint .",
+    "check:contracts": "npm run check:api-surface-docs && npm run check:package-exports && npm run check:workspace-deps && npm run check:consumer-smoke && npm run check:missing-convex-api && npm run check:better-auth-local-component",
+    "check:package-exports": "node scripts/check-package-exports.mjs",
+    "check:api-surface-docs": "node scripts/generate-api-surface.mjs --check",
+    "check:no-starter-generated-artifacts": "node scripts/check-no-starter-generated-artifacts.mjs",
+    "check:workspace-deps": "node scripts/check-workspace-dependency-alignment.mjs",
+    "check:consumer-smoke": "nuxi prepare --cwd test/fixtures/consumer-smoke && nuxi typecheck --cwd test/fixtures/consumer-smoke",
+    "check:missing-convex-api": "nuxi prepare --cwd test/fixtures/missing-convex-api && nuxi typecheck --cwd test/fixtures/missing-convex-api",
+    "check:better-auth-local-component": "tsc --noEmit -p test/fixtures/better-auth-local-component/tsconfig.json",
+    "check:no-legacy-query-api": "sh -c '! rg -n \"useConvexQueryLazy|useConvexPaginatedQueryLazy|with-default|useConvex(Query|PaginatedQuery)[^\\n]*default\\\\b\" src playground docs test starters'",
+    "check:no-legacy-call-api": "sh -c '! rg -n \"\\\\.execute(Safe)?\\\\s*\\\\(|const \\\\{[^}]*\\\\bexecute\\\\b\" src playground docs/content starters'",
+    "check:no-legacy-generated-api-imports": "sh -c '! rg -n \"from ['\"'\"'\\\"](?:~~|~)/convex/_generated/api['\"'\"'\\\"]\" README.md docs/content docs/installation2.md starters/*/app playground/pages playground/components playground/composables playground/middleware playground/server src/runtime/composables'",
+    "check:no-stale-doc-imports": "sh -c '! rg -n \"better-convex-nuxt/composables|getQueryKey is intentionally\" README.md docs/content docs/installation2.md starters playground test/fixtures'",
     "check:no-query-composables-in-middleware": "sh -c '! rg -n \"useConvexQuery\\\\(|useConvexPaginatedQuery\\\\(\" playground/middleware playground/plugins'",
     "check:no-use-route-in-middleware": "sh -c '! rg -n \"useRoute\\\\(\" playground/middleware'",
     "check:no-middleware-query-docs": "sh -c '! rg -n \"middleware[^\\n]{0,120}subscribe:\\s*false|subscribe:\\s*false[^\\n]{0,120}middleware\" docs/content/docs'",
@@ -75,8 +93,8 @@
     "format:check": "oxfmt --check",
     "test": "vitest run --project=unit --project=convex --project=nuxt --project=browser",
     "test:browser": "vitest run --project=browser",
-    "test:e2e": "vitest run --project=e2e",
-    "test:e2e:full": "vitest run --project=e2e",
+    "test:e2e": "nuxi prepare --cwd playground --dotenv .env.local && vitest run --project=e2e",
+    "test:e2e:full": "nuxi prepare --cwd playground --dotenv .env.local && vitest run --project=e2e",
     "test:nuxt": "vitest run --project=nuxt",
     "test:full": "vitest run --project=unit --project=convex --project=nuxt --project=browser",
     "test:watch": "vitest watch --project=unit --project=nuxt",
@@ -84,16 +102,17 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.10.13",
+    "@convex-dev/better-auth": "^0.12.4",
     "@nuxt/devtools-kit": "^3.2.2",
     "@nuxt/kit": "^4.3.1",
-    "better-auth": "^1.4.9",
+    "better-auth": "^1.6.20",
     "convex": "^1.32.0",
     "defu": "^6.1.4",
     "h3": "1.15.5",
     "ohash": "^2.0.11"
   },
   "devDependencies": {
+    "@better-auth/api-key": "^1.6.20",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.2",
     "@nuxt/eslint-config": "^1.15.2",
@@ -118,6 +137,9 @@
     "vitest": "^4.0.18",
     "vitest-browser-vue": "^2.0.2",
     "vue-tsc": "^3.2.5"
+  },
+  "peerDependencies": {
+    "nuxt": "^4.0.0"
   },
   "lint-staged": {
     "!(**/_generated/**/*)": "oxfmt --no-error-on-unmatched-pattern"

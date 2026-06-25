@@ -5,6 +5,12 @@ import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
+let currentAuthEngineTarget: Record<PropertyKey, unknown> | null = null
+
+const defaultAuthEngineTarget: Record<PropertyKey, unknown> = {
+  awaitAuthReady: async () => true,
+  refreshAuth: async () => {},
+}
 
 const convexProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
@@ -30,9 +36,22 @@ const authProxy = new Proxy<Record<PropertyKey, unknown>>(
   },
 )
 
+const authEngineProxy = new Proxy<Record<PropertyKey, unknown>>(
+  {},
+  {
+    get(_target, key) {
+      const target = currentAuthEngineTarget
+      if (!target) return undefined
+      const value = target[key]
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+  },
+)
+
 interface CaptureOptions {
   convex?: unknown
   auth?: unknown
+  authEngine?: unknown
   convexConfig?: Record<string, unknown>
   payloadData?: Record<string, unknown>
 }
@@ -63,6 +82,9 @@ export async function captureInNuxt<T>(
         if (options.auth === undefined) {
           currentAuthTarget = null
         }
+        if (options.authEngine === undefined) {
+          currentAuthEngineTarget = defaultAuthEngineTarget
+        }
 
         if (options.convex !== undefined) {
           currentConvexTarget = options.convex as Record<PropertyKey, unknown>
@@ -75,6 +97,16 @@ export async function captureInNuxt<T>(
           currentAuthTarget = options.auth as Record<PropertyKey, unknown>
           if (!(nuxtApp as typeof nuxtApp & { $auth?: unknown }).$auth) {
             nuxtApp.provide('auth', authProxy)
+          }
+        }
+
+        if (options.authEngine !== undefined) {
+          currentAuthEngineTarget = {
+            ...defaultAuthEngineTarget,
+            ...(options.authEngine as Record<PropertyKey, unknown>),
+          }
+          if (!(nuxtApp as typeof nuxtApp & { $convexAuthEngine?: unknown }).$convexAuthEngine) {
+            nuxtApp.provide('convexAuthEngine', authEngineProxy)
           }
         }
 

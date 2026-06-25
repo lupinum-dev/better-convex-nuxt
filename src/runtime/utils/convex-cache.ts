@@ -1,6 +1,4 @@
-import { shallowRef, type ShallowRef } from 'vue'
-
-import type { useNuxtApp } from '#app'
+import { filterBetterAuthCookies, getBetterAuthSessionToken } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -12,8 +10,7 @@ export {
 } from './convex-shared'
 export type { ConvexCallStatus } from './types'
 
-// Get the NuxtApp type from useNuxtApp return type
-type NuxtApp = ReturnType<typeof useNuxtApp>
+type SubscriptionCacheOwner = object
 
 // Module-level WeakMap for automatic GC when NuxtApp is destroyed
 // This replaces the previous pattern of patching nuxtApp._convexSubscriptions
@@ -35,15 +32,29 @@ export interface SubscriptionEntry {
 
 /**
  * Shared query state for deduplicated useConvexQuery subscribers.
- * Stores raw subscription data and reactive version counters so each subscriber
- * can sync into its own local asyncData refs with its own transform().
+ * Stores raw subscription data once and notifies each subscriber directly so
+ * local asyncData refs can apply their own transform().
  */
-export interface QuerySubscriptionBridge {
-  rawData: unknown
-  hasRawData: boolean
-  dataVersion: ShallowRef<number>
+export type QueryBridgeData =
+  | {
+      hasData: false
+      rawData: undefined
+    }
+  | {
+      hasData: true
+      rawData: unknown
+    }
+
+export interface QueryBridgeSnapshot {
+  data: QueryBridgeData
   error: Error | null
-  errorVersion: ShallowRef<number>
+}
+
+export type QueryBridgeListener = (snapshot: QueryBridgeSnapshot) => void
+
+export interface QuerySubscriptionBridge {
+  snapshot: QueryBridgeSnapshot
+  listeners: Set<QueryBridgeListener>
 }
 
 /**
@@ -51,13 +62,19 @@ export interface QuerySubscriptionBridge {
  */
 export type SubscriptionCache = Map<string, SubscriptionEntry>
 
+export interface AcquiredQuerySubscription {
+  bridge: QuerySubscriptionBridge
+  refCount: number
+  release: () => boolean
+}
+
 export function createQueryBridge(): QuerySubscriptionBridge {
   return {
-    rawData: undefined,
-    hasRawData: false,
-    dataVersion: shallowRef(0),
-    error: null,
-    errorVersion: shallowRef(0),
+    snapshot: {
+      data: { hasData: false, rawData: undefined },
+      error: null,
+    },
+    listeners: new Set(),
   }
 }
 
@@ -70,6 +87,134 @@ export function ensureQueryBridge(entry: SubscriptionEntry): QuerySubscriptionBr
     entry.queryBridge = createQueryBridge()
   }
   return entry.queryBridge
+}
+
+function notifyQueryBridgeListeners(bridge: QuerySubscriptionBridge): void {
+  const snapshot = bridge.snapshot
+  for (const listener of Array.from(bridge.listeners)) {
+    listener(snapshot)
+  }
+}
+
+export function subscribeQueryBridge(
+  bridge: QuerySubscriptionBridge,
+  listener: QueryBridgeListener,
+): () => void {
+  bridge.listeners.add(listener)
+  listener(bridge.snapshot)
+  return () => {
+    bridge.listeners.delete(listener)
+  }
+}
+
+export function waitForQueryBridgeData<T>(
+  bridge: QuerySubscriptionBridge,
+  options: { timeoutMs?: number; timeoutMessage?: string } = {},
+): Promise<T> {
+  if (bridge.snapshot.data.hasData) {
+    return Promise.resolve(bridge.snapshot.data.rawData as T)
+  }
+  if (bridge.snapshot.error) {
+    return Promise.reject(bridge.snapshot.error)
+  }
+
+  const timeoutMs = options.timeoutMs ?? 10_000
+
+  return new Promise((resolve, reject) => {
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | null =
+      timeoutMs > 0 && Number.isFinite(timeoutMs)
+        ? setTimeout(() => {
+            finishReject(
+              new Error(
+                options.timeoutMessage ??
+                  `[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`,
+              ),
+            )
+          }, timeoutMs)
+        : null
+    let unsubscribe: (() => void) | null = null
+
+    const cleanup = () => {
+      if (timeout) {
+        clearTimeout(timeout)
+        timeout = null
+      }
+      if (unsubscribe) {
+        unsubscribe()
+        unsubscribe = null
+      }
+    }
+
+    const finishResolve = (result: T) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+
+    const finishReject = (error: unknown) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
+
+    unsubscribe = subscribeQueryBridge(bridge, (snapshot) => {
+      if (snapshot.data.hasData) {
+        finishResolve(snapshot.data.rawData as T)
+        return
+      }
+      if (snapshot.error) {
+        finishReject(snapshot.error)
+      }
+    })
+  })
+}
+
+export function commitQueryBridgeData(bridge: QuerySubscriptionBridge, rawData: unknown): void {
+  bridge.snapshot = {
+    data: { hasData: true, rawData },
+    error: null,
+  }
+  notifyQueryBridgeListeners(bridge)
+}
+
+export function commitQueryBridgeError(bridge: QuerySubscriptionBridge, error: Error): void {
+  bridge.snapshot = {
+    data: bridge.snapshot.data,
+    error,
+  }
+  notifyQueryBridgeListeners(bridge)
+}
+
+export function acquireQuerySubscription(
+  nuxtApp: SubscriptionCacheOwner,
+  cacheKey: string,
+  start: (bridge: QuerySubscriptionBridge) => () => void,
+): AcquiredQuerySubscription {
+  const cache = getSubscriptionCache(nuxtApp)
+  const existing = cache.get(cacheKey)
+
+  if (existing) {
+    existing.refCount += 1
+    return {
+      bridge: ensureQueryBridge(existing),
+      refCount: existing.refCount,
+      release: () => releaseSubscription(nuxtApp, cacheKey),
+    }
+  }
+
+  const bridge = createQueryBridge()
+  const unsubscribe = start(bridge)
+  const entry: SubscriptionEntry = { unsubscribe, refCount: 1, queryBridge: bridge }
+  cache.set(cacheKey, entry)
+
+  return {
+    bridge,
+    refCount: entry.refCount,
+    release: () => releaseSubscription(nuxtApp, cacheKey),
+  }
 }
 
 // ============================================================================
@@ -120,8 +265,10 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
     return undefined
   }
 
-  // Check if we have session cookie
-  if (!cookieHeader.includes('better-auth.session_token')) {
+  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
+  const sessionToken = getBetterAuthSessionToken(cookieHeader)
+
+  if (!authCookieHeader || !sessionToken) {
     return undefined
   }
 
@@ -137,7 +284,7 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
 
   try {
     const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: cookieHeader },
+      headers: { Cookie: authCookieHeader },
     })) as { token?: string }
     if (response?.token) {
       cachedToken.value = response.token
@@ -173,63 +320,11 @@ export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<st
  * }
  * ```
  */
-export function getSubscriptionCache(nuxtApp: NuxtApp): SubscriptionCache {
+export function getSubscriptionCache(nuxtApp: SubscriptionCacheOwner): SubscriptionCache {
   if (!subscriptionRegistry.has(nuxtApp)) {
     subscriptionRegistry.set(nuxtApp, new Map())
   }
   return subscriptionRegistry.get(nuxtApp)!
-}
-
-/**
- * Register a subscription in the cache with reference counting.
- * If a subscription already exists, increments the ref count instead of replacing.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @param unsubscribe - The unsubscribe function
- * @returns true if this component should manage the subscription (first registrant), false if joining existing
- */
-export function registerSubscription(
-  nuxtApp: NuxtApp,
-  cacheKey: string,
-  unsubscribe: () => void,
-): boolean {
-  const cache = getSubscriptionCache(nuxtApp)
-  const existing = cache.get(cacheKey)
-
-  if (existing) {
-    // Subscription exists - increment ref count, don't replace
-    existing.refCount++
-    return false // This component is joining an existing subscription
-  }
-
-  // New subscription
-  cache.set(cacheKey, { unsubscribe, refCount: 1 })
-  return true // This component owns the subscription
-}
-
-/**
- * Check if a subscription already exists in the cache.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @returns True if subscription exists
- */
-export function hasSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
-  const cache = getSubscriptionCache(nuxtApp)
-  return cache.has(cacheKey)
-}
-
-/**
- * Get the current subscription entry from the cache.
- *
- * @param nuxtApp - The NuxtApp instance
- * @param cacheKey - Unique key for this subscription
- * @returns The subscription entry if it exists, undefined otherwise
- */
-export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): SubscriptionEntry | undefined {
-  const cache = getSubscriptionCache(nuxtApp)
-  return cache.get(cacheKey)
 }
 
 /**
@@ -240,7 +335,7 @@ export function getSubscription(nuxtApp: NuxtApp, cacheKey: string): Subscriptio
  * @param cacheKey - Unique key for this subscription
  * @returns true if subscription was unsubscribed, false if still has references
  */
-export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean {
+export function releaseSubscription(nuxtApp: SubscriptionCacheOwner, cacheKey: string): boolean {
   const cache = getSubscriptionCache(nuxtApp)
   const entry = cache.get(cacheKey)
 
@@ -258,4 +353,19 @@ export function releaseSubscription(nuxtApp: NuxtApp, cacheKey: string): boolean
   }
 
   return false
+}
+
+/**
+ * Unsubscribe and remove every shared Convex query subscription for a Nuxt app.
+ * Used after successful sign-out so authenticated live queries cannot keep
+ * streaming data from the previous session.
+ */
+export function clearSubscriptionCache(nuxtApp: SubscriptionCacheOwner): void {
+  const cache = getSubscriptionCache(nuxtApp)
+
+  for (const entry of cache.values()) {
+    entry.unsubscribe()
+  }
+
+  cache.clear()
 }

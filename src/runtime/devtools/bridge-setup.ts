@@ -19,6 +19,12 @@ import type {
   AuthWaterfall,
 } from './types'
 
+type HotImportMeta = ImportMeta & {
+  hot?: {
+    dispose: (callback: () => void) => void
+  }
+}
+
 /**
  * Setup the DevTools bridge on the window object.
  * Only called in dev mode from plugin.client.ts.
@@ -251,8 +257,7 @@ export async function setupDevToolsBridge(
 
   // HMR cleanup: close the BroadcastChannel and unsubscribe when module is hot-replaced
   // This prevents ghost instances from responding to messages and subscription leaks
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const hot = (import.meta as any).hot
+  const hot = (import.meta as HotImportMeta).hot
   if (hot) {
     hot.dispose(() => {
       unsubscribeMutations()

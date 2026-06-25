@@ -4,35 +4,21 @@ import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type 
 import { toCallResult, type CallResult } from '../utils/call-result'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
+import {
+  computeUploadQueueAggregateProgress,
+  countUploadQueueItems,
+  normalizeUploadQueueEnqueueInput,
+  type UploadQueueItem,
+  type UploadQueueEnqueueInput,
+} from '../utils/upload-queue-state'
 import { useConvex } from './useConvex'
 
-export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
-
-export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
-  id: string
-  file: File
-  mutationArgs?: MutationArgs
-  status: UploadQueueItemStatus
-  progress: number
-  loadedBytes: number
-  totalBytes: number
-  storageId?: string
-  error: Error | null
-  createdAt: number
-  startedAt: number | null
-  finishedAt: number | null
-}
-
-export interface UploadQueueEnqueueItem<MutationArgs = Record<string, unknown>> {
-  file: File
-  mutationArgs?: MutationArgs
-}
-
-export type UploadQueueEnqueueInput<MutationArgs = Record<string, unknown>> =
-  | File
-  | File[]
-  | FileList
-  | UploadQueueEnqueueItem<MutationArgs>[]
+export type {
+  UploadQueueEnqueueInput,
+  UploadQueueEnqueueItem,
+  UploadQueueItem,
+  UploadQueueItemStatus,
+} from '../utils/upload-queue-state'
 
 export interface UseConvexUploadQueueOptions<Mutation extends FunctionReference<'mutation'>> {
   maxConcurrent?: number
@@ -70,6 +56,11 @@ interface Deferred<T> {
   promise: Promise<T>
   resolve: (value: T) => void
   reject: (reason: unknown) => void
+}
+
+interface UploadQueueRuntime {
+  controller: AbortController | null
+  deferred: Deferred<string>
 }
 
 function createDeferred<T>(): Deferred<T> {
@@ -119,22 +110,15 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 
   const items = ref<QueueItem[]>([])
   const haltedByError = ref(false)
-  const activeById = new Map<string, AbortController>()
-  const completionById = new Map<string, Deferred<string>>()
+  const runtimeById = new Map<string, UploadQueueRuntime>()
   let scheduling = false
   let hasBeenBusy = false
 
-  const queuedCount = computed(() => items.value.filter((item) => item.status === 'queued').length)
-  const pendingCount = computed(
-    () => items.value.filter((item) => item.status === 'pending').length,
-  )
-  const successCount = computed(
-    () => items.value.filter((item) => item.status === 'success').length,
-  )
-  const errorCount = computed(() => items.value.filter((item) => item.status === 'error').length)
-  const cancelledCount = computed(
-    () => items.value.filter((item) => item.status === 'cancelled').length,
-  )
+  const queuedCount = computed(() => countUploadQueueItems(items.value, 'queued'))
+  const pendingCount = computed(() => countUploadQueueItems(items.value, 'pending'))
+  const successCount = computed(() => countUploadQueueItems(items.value, 'success'))
+  const errorCount = computed(() => countUploadQueueItems(items.value, 'error'))
+  const cancelledCount = computed(() => countUploadQueueItems(items.value, 'cancelled'))
 
   const isRunning = computed(
     () => pendingCount.value > 0 || (!haltedByError.value && queuedCount.value > 0),
@@ -142,34 +126,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 
   const hasErrors = computed(() => errorCount.value > 0)
 
-  const aggregateProgress = computed(() => {
-    if (items.value.length === 0) return 0
-
-    let totalBytes = 0
-    let uploadedBytes = 0
-
-    for (const item of items.value) {
-      const itemTotal = Math.max(0, item.totalBytes || item.file.size || 0)
-      totalBytes += itemTotal
-
-      if (item.status === 'queued') continue
-      if (item.status === 'success') {
-        uploadedBytes += itemTotal
-        continue
-      }
-
-      uploadedBytes += Math.max(0, Math.min(item.loadedBytes, itemTotal || item.loadedBytes))
-    }
-
-    if (totalBytes <= 0) {
-      const hasWork = items.value.some(
-        (item) => item.status === 'queued' || item.status === 'pending',
-      )
-      return hasWork ? 0 : 100
-    }
-
-    return Math.min(100, Math.floor((uploadedBytes / totalBytes) * 100))
-  })
+  const aggregateProgress = computed(() => computeUploadQueueAggregateProgress(items.value))
 
   const mutateItem = (id: string, updater: (item: QueueItem) => QueueItem): QueueItem | null => {
     let updated: QueueItem | null = null
@@ -200,31 +157,31 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     }
   }
 
-  const getItemDeferred = (id: string): Deferred<string> => {
-    const existing = completionById.get(id)
+  const getItemRuntime = (id: string): UploadQueueRuntime => {
+    const existing = runtimeById.get(id)
     if (existing) return existing
-    const created = createDeferred<string>()
-    completionById.set(id, created)
+    const created = { controller: null, deferred: createDeferred<string>() }
+    runtimeById.set(id, created)
     return created
   }
 
   const resolveItemDeferred = (id: string, storageId: string) => {
-    const deferred = completionById.get(id)
-    if (!deferred) return
-    completionById.delete(id)
-    deferred.resolve(storageId)
+    const runtime = runtimeById.get(id)
+    if (!runtime) return
+    runtimeById.delete(id)
+    runtime.deferred.resolve(storageId)
   }
 
   const rejectItemDeferred = (id: string, error: unknown) => {
-    const deferred = completionById.get(id)
-    if (!deferred) return
-    completionById.delete(id)
-    deferred.reject(error)
+    const runtime = runtimeById.get(id)
+    if (!runtime) return
+    runtimeById.delete(id)
+    runtime.deferred.reject(error)
   }
 
   const runItem = async (itemId: string): Promise<void> => {
     const controller = new AbortController()
-    activeById.set(itemId, controller)
+    getItemRuntime(itemId).controller = controller
     mutateItem(itemId, (item) => ({
       ...item,
       status: 'pending',
@@ -295,7 +252,8 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         }
       }
     } finally {
-      activeById.delete(itemId)
+      const runtime = runtimeById.get(itemId)
+      if (runtime) runtime.controller = null
       void schedule()
       maybeEmitQueueIdle()
     }
@@ -307,7 +265,8 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 
     try {
       while (!haltedByError.value) {
-        if (activeById.size >= maxConcurrent) break
+        const activeCount = [...runtimeById.values()].filter((runtime) => runtime.controller).length
+        if (activeCount >= maxConcurrent) break
         const nextQueued = items.value.find((item) => item.status === 'queued')
         if (!nextQueued) break
         void runItem(nextQueued.id)
@@ -318,46 +277,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     }
   }
 
-  const normalizeEnqueueInput = (
-    input: UploadQueueEnqueueInput<MutationArgs>,
-    mutationArgs?: MutationArgs,
-  ): UploadQueueEnqueueItem<MutationArgs>[] => {
-    const hasFileCtor = typeof File !== 'undefined'
-
-    if (hasFileCtor && input instanceof File) {
-      return [{ file: input, mutationArgs }]
-    }
-
-    if (typeof FileList !== 'undefined' && input instanceof FileList) {
-      return Array.from(input).map((file) => ({ file, mutationArgs }))
-    }
-
-    if (!Array.isArray(input)) {
-      throw new TypeError('Unsupported upload queue input')
-    }
-
-    if (input.length === 0) return []
-
-    if (hasFileCtor && input[0] instanceof File) {
-      return (input as File[]).map((file) => ({ file, mutationArgs }))
-    }
-
-    return (input as UploadQueueEnqueueItem<MutationArgs>[]).map((entry) => {
-      if (!(entry.file instanceof File)) {
-        throw new TypeError('Upload queue item must include a valid File')
-      }
-      return {
-        file: entry.file,
-        mutationArgs: entry.mutationArgs ?? mutationArgs,
-      }
-    })
-  }
-
   const enqueue = async (
     input: UploadQueueEnqueueInput<MutationArgs>,
     mutationArgs?: MutationArgs,
   ): Promise<string[]> => {
-    const entries = normalizeEnqueueInput(input, mutationArgs)
+    const entries = normalizeUploadQueueEnqueueInput(input, mutationArgs)
     if (entries.length === 0) return []
 
     if (haltedByError.value && pendingCount.value === 0) {
@@ -380,10 +304,13 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     }))
 
     items.value = [...items.value, ...newItems]
+    for (const item of newItems) {
+      getItemRuntime(item.id)
+    }
     void schedule()
 
     const settled = await Promise.allSettled(
-      newItems.map((item) => getItemDeferred(item.id).promise),
+      newItems.map((item) => getItemRuntime(item.id).deferred.promise),
     )
 
     const storageIds: string[] = []
@@ -417,9 +344,9 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const cancelItem = (id: string): void => {
-    const controller = activeById.get(id)
-    if (controller) {
-      controller.abort()
+    const runtime = runtimeById.get(id)
+    if (runtime?.controller) {
+      runtime.controller.abort()
       return
     }
 
@@ -451,8 +378,8 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
       return item
     })
 
-    for (const controller of activeById.values()) {
-      controller.abort()
+    for (const runtime of runtimeById.values()) {
+      runtime.controller?.abort()
     }
     maybeEmitQueueIdle()
   }
@@ -464,14 +391,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const reset = (): void => {
-    for (const [id, deferred] of completionById.entries()) {
-      deferred.reject(new Error('Upload queue was reset'))
-      completionById.delete(id)
+    for (const runtime of runtimeById.values()) {
+      runtime.deferred.reject(new Error('Upload queue was reset'))
+      runtime.controller?.abort()
     }
-    for (const controller of activeById.values()) {
-      controller.abort()
-    }
-    activeById.clear()
+    runtimeById.clear()
     haltedByError.value = false
     items.value = []
     maybeEmitQueueIdle()

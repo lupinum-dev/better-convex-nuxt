@@ -128,6 +128,31 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
   return user as ConvexUser
 }
 
+export function normalizeConvexUser(input: unknown): ConvexUser | null {
+  if (!input || typeof input !== 'object') return null
+
+  const value = input as Record<string, unknown>
+  const id = value.id
+  if (typeof id !== 'string' || id.length === 0) return null
+
+  return {
+    ...value,
+    id,
+    name: typeof value.name === 'string' || value.name === null ? value.name : undefined,
+    email: typeof value.email === 'string' || value.email === null ? value.email : undefined,
+    emailVerified: typeof value.emailVerified === 'boolean' ? value.emailVerified : undefined,
+    image: typeof value.image === 'string' || value.image === null ? value.image : undefined,
+    createdAt:
+      typeof value.createdAt === 'string' || value.createdAt instanceof Date
+        ? value.createdAt
+        : undefined,
+    updatedAt:
+      typeof value.updatedAt === 'string' || value.updatedAt instanceof Date
+        ? value.updatedAt
+        : undefined,
+  } as ConvexUser
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -204,21 +229,24 @@ export function getFunctionName(
   if (!fn) return 'unknown'
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const q = fn as any
+    const value = fn as unknown
+    if (typeof value === 'string') return value
+
+    if ((typeof value !== 'object' && typeof value !== 'function') || value === null) {
+      return 'unknown'
+    }
+
+    const functionRef = value as Record<PropertyKey, unknown>
 
     // Convex uses Symbol.for('functionName') to store the path
-    const symbolName = q[functionNameSymbol]
+    const symbolName = functionRef[functionNameSymbol]
     if (typeof symbolName === 'string') return symbolName
 
     // Fallback: check for _path (used in tests/mocks)
-    if (typeof q._path === 'string') return q._path
+    if (typeof functionRef._path === 'string') return functionRef._path
 
     // Fallback: check for functionPath
-    if (typeof q.functionPath === 'string') return q.functionPath
-
-    // Fallback: if it's already a string
-    if (typeof q === 'string') return q
+    if (typeof functionRef.functionPath === 'string') return functionRef.functionPath
 
     return 'unknown'
   } catch {

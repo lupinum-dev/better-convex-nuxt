@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
-import { getQueryKey } from 'better-convex-nuxt/composables'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -35,7 +34,8 @@ const listCacheKey = getQueryKey(api.notes.list, {})
 
 const { data: notes, pending, error, refresh } = await useConvexQuery(api.notes.list, {})
 
-const { execute: addNote, pending: isCreating } = useConvexMutation(api.notes.add)
+const addNote = useConvexMutation(api.notes.add)
+const { pending: isCreating } = addNote
 
 const cards = computed(() =>
   (notes.value ?? []).map((note) => ({
@@ -58,7 +58,7 @@ async function seedDemoNotes() {
     {
       title: 'Nuxt 4 + Convex Instant Navigation',
       content:
-        'Use useNuxtData with getQueryKey to synchronously read list query results and seed a detail page default. Combine that with useConvexQuery so route navigation does not block while the full query fetches in the background.',
+        'Use useNuxtData with getQueryKey to synchronously read list query results and seed detail initialData. Combine that with useConvexQuery so route navigation does not block while the full query fetches in the background.',
     },
     {
       title: 'Vue 3.5 Cleanup Patterns',

@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 import type { Id } from '~/convex/_generated/dataModel'
 
 definePageMeta({
@@ -73,7 +73,7 @@ const nuxtApp = useNuxtApp()
 
 // Use useConvexQuery for SSR + real-time updates!
 // Skip query when not authenticated
-const queryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
+const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 
 const {
   data: tasks,

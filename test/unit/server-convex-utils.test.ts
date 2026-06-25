@@ -182,13 +182,20 @@ describe('server Convex fetch helpers', () => {
     vi.stubGlobal('$fetch', tokenFetchMock)
 
     await serverConvexQuery(
-      createEvent('better-auth.session_token=session123'),
+      createEvent(
+        'private_app_cookie=secret; better-auth.session_token=session123; __Secure-better-auth.callback=state',
+      ),
       { _path: 'notes:list' } as never,
       {} as never,
       { auth: 'auto' },
     )
 
     expect(tokenFetchMock).toHaveBeenCalledTimes(1)
+    expect(tokenFetchMock).toHaveBeenCalledWith('http://127.0.0.1:3220/api/auth/convex/token', {
+      headers: {
+        Cookie: 'better-auth.session_token=session123; __Secure-better-auth.callback=state',
+      },
+    })
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]

@@ -151,6 +151,9 @@ export function compareJsonValues(a: unknown, b: unknown): number {
 // Cookie Parsing
 // ============================================================================
 
+export const BETTER_AUTH_SESSION_COOKIE_NAME = 'better-auth.session_token'
+export const BETTER_AUTH_SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
+
 /**
  * Parse a cookie header string into a key-value object.
  * Handles URL-encoded values and edge cases properly.
@@ -193,6 +196,33 @@ export function parseCookies(cookieHeader: string | null | undefined): Record<st
 export function getCookie(cookieHeader: string | null | undefined, name: string): string | null {
   const cookies = parseCookies(cookieHeader)
   return cookies[name] ?? null
+}
+
+export function getBetterAuthSessionToken(cookieHeader: string | null | undefined): string | null {
+  return (
+    getCookie(cookieHeader, BETTER_AUTH_SECURE_SESSION_COOKIE_NAME) ||
+    getCookie(cookieHeader, BETTER_AUTH_SESSION_COOKIE_NAME)
+  )
+}
+
+export function filterBetterAuthCookies(cookieHeader: string | null | undefined): string | null {
+  if (!cookieHeader) return null
+
+  const isBetterAuthCookie = (name: string): boolean =>
+    name === BETTER_AUTH_SESSION_COOKIE_NAME ||
+    name === BETTER_AUTH_SECURE_SESSION_COOKIE_NAME ||
+    name.startsWith('better-auth.') ||
+    name.startsWith('__Secure-better-auth.')
+
+  const authCookies = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .filter((part) => {
+      const name = part.split('=', 1)[0]?.trim()
+      return name ? isBetterAuthCookie(name) : false
+    })
+
+  return authCookies.length > 0 ? authCookies.join('; ') : null
 }
 
 // ============================================================================

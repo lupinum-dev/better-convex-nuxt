@@ -29,6 +29,65 @@ export interface LocalAuthPreflightOptions {
 
 let activeHandle: LocalConvexHandle | null = null
 let retainers = 0
+const startupFailures = new Map<string, Error>()
+
+function startupKey(cwd: string, url: string): string {
+  return `${cwd}:${url}`
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error))
+}
+
+function cacheStartupFailure(key: string, error: unknown): Error {
+  const normalized = toError(error)
+  startupFailures.set(key, normalized)
+  return normalized
+}
+
+function installLocalConvexEnv(env: Record<string, string>): Record<string, string> {
+  Object.assign(process.env, env)
+  return env
+}
+
+function createChildOutputReader(child: ChildProcessWithoutNullStreams): () => string {
+  const chunks: string[] = []
+  const maxLength = 4000
+
+  const append = (data: Buffer | string) => {
+    chunks.push(data.toString())
+
+    let length = chunks.reduce((total, chunk) => total + chunk.length, 0)
+    while (length > maxLength && chunks.length > 1) {
+      const removed = chunks.shift()
+      length -= removed?.length ?? 0
+    }
+  }
+
+  child.stdout.on('data', append)
+  child.stderr.on('data', append)
+
+  return () => {
+    const output = chunks.join('').replace(/\r/g, '').trim()
+    if (!output) return '(no output captured)'
+    return output.length > maxLength ? output.slice(-maxLength) : output
+  }
+}
+
+async function terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return
+
+  child.kill('SIGTERM')
+
+  const timer = setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL')
+    }
+  }, 3000)
+
+  await once(child, 'exit').catch(() => {})
+  clearTimeout(timer)
+}
 
 async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
   try {
@@ -85,7 +144,18 @@ function buildManualAuthSetupHelp(cwd: string): string {
     '  npx convex dev --local --once',
     '  npx convex env set SITE_URL http://localhost:3000 --env-file .env.local',
     '  npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
-    '  cd /Users/matthias/Git/libs/better-convex-nuxt && pnpm test:e2e',
+    '  cd .. && pnpm test:e2e',
+  ].join('\n')
+}
+
+function buildLocalConvexSetupHelp(cwd: string): string {
+  return [
+    '[e2e] Local Convex backend is not configured.',
+    'Either export CONVEX_URL and CONVEX_SITE_URL, or run:',
+    `  cd ${cwd}`,
+    '  npx convex dev --local --once',
+    '  cd .. && pnpm test:e2e',
+    'To let the e2e helper spawn `npx convex dev --local`, set CONVEX_E2E_AUTO_START=true.',
   ].join('\n')
 }
 
@@ -121,6 +191,37 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
 
     check()
   })
+}
+
+async function waitForLocalConvexStart(
+  child: ChildProcessWithoutNullStreams,
+  port: number,
+  timeoutMs: number,
+  getOutput: () => string,
+): Promise<void> {
+  try {
+    await Promise.race([
+      waitForPort(port, timeoutMs),
+      once(child, 'exit').then(([code, signal]) => {
+        throw new Error(
+          [
+            `Local Convex exited before opening port ${port}.`,
+            `- exit code: ${code ?? 'none'}`,
+            `- signal: ${signal ?? 'none'}`,
+            'Captured Convex output:',
+            getOutput(),
+          ].join('\n'),
+        )
+      }),
+    ])
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('Captured Convex output:')) {
+      throw toError(error)
+    }
+
+    throw new Error([message, '', 'Captured Convex output:', getOutput()].join('\n'))
+  }
 }
 
 async function fetchWithTimeout(
@@ -246,6 +347,10 @@ export async function ensureLocalConvex(
   const explicitUrl = process.env.CONVEX_URL ?? envFile.url
 
   if (explicitUrl) {
+    const key = startupKey(cwd, explicitUrl)
+    const previousFailure = startupFailures.get(key)
+    if (previousFailure) throw previousFailure
+
     const explicitSiteUrl =
       process.env.CONVEX_SITE_URL ?? envFile.siteUrl ?? deriveSiteUrlFromConvexUrl(explicitUrl)
 
@@ -274,8 +379,7 @@ export async function ensureLocalConvex(
           stdio: 'pipe',
         })
 
-        child.stdout.on('data', () => {})
-        child.stderr.on('data', () => {})
+        const getOutput = createChildOutputReader(child)
 
         child.once('exit', (code) => {
           if (code !== null && code !== 0 && activeHandle?.process === child) {
@@ -289,7 +393,22 @@ export async function ensureLocalConvex(
           port: explicitPort,
         }
 
-        await waitForPort(explicitPort, timeoutMs)
+        try {
+          await waitForLocalConvexStart(child, explicitPort, timeoutMs, getOutput)
+        } catch (error) {
+          if (activeHandle?.process === child) {
+            activeHandle = null
+          }
+          await terminateChild(child)
+          throw cacheStartupFailure(
+            key,
+            [
+              error instanceof Error ? error.message : String(error),
+              '',
+              buildLocalConvexSetupHelp(cwd),
+            ].join('\n'),
+          )
+        }
       }
     }
 
@@ -316,20 +435,29 @@ export async function ensureLocalConvex(
       clearTimeout(timer)
     }
 
+    const env = installLocalConvexEnv({
+      CONVEX_URL: explicitUrl,
+      NUXT_PUBLIC_CONVEX_URL: explicitUrl,
+      ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
+      ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
+      ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
+    })
+
     return {
-      env: {
-        CONVEX_URL: explicitUrl,
-        NUXT_PUBLIC_CONVEX_URL: explicitUrl,
-        ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
-        ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
-        ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
-      },
+      env,
       release,
     }
   }
 
   const port = options.port ?? 3214
   const url = `http://127.0.0.1:${port}`
+  const key = startupKey(cwd, url)
+  const previousFailure = startupFailures.get(key)
+  if (previousFailure) throw previousFailure
+
+  if (process.env.CONVEX_E2E_AUTO_START !== 'true') {
+    throw cacheStartupFailure(key, new Error(buildLocalConvexSetupHelp(cwd)))
+  }
 
   if (!activeHandle) {
     const child = spawn('npx', ['convex', 'dev', '--local'], {
@@ -341,8 +469,7 @@ export async function ensureLocalConvex(
       stdio: 'pipe',
     })
 
-    child.stdout.on('data', () => {})
-    child.stderr.on('data', () => {})
+    const getOutput = createChildOutputReader(child)
 
     child.once('exit', (code) => {
       if (code !== null && code !== 0 && activeHandle?.process === child) {
@@ -356,7 +483,22 @@ export async function ensureLocalConvex(
       port,
     }
 
-    await waitForPort(port, timeoutMs)
+    try {
+      await waitForLocalConvexStart(child, port, timeoutMs, getOutput)
+    } catch (error) {
+      if (activeHandle?.process === child) {
+        activeHandle = null
+      }
+      await terminateChild(child)
+      throw cacheStartupFailure(
+        key,
+        [
+          error instanceof Error ? error.message : String(error),
+          '',
+          buildLocalConvexSetupHelp(cwd),
+        ].join('\n'),
+      )
+    }
   }
 
   retainers += 1
@@ -380,14 +522,16 @@ export async function ensureLocalConvex(
     clearTimeout(timer)
   }
 
+  const env = installLocalConvexEnv({
+    CONVEX_URL: activeHandle.url,
+    NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
+    CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
+    NUXT_PUBLIC_CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
+    ALLOW_TEST_RESET: 'true',
+  })
+
   return {
-    env: {
-      CONVEX_URL: activeHandle.url,
-      NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
-      CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-      NUXT_PUBLIC_CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-      ALLOW_TEST_RESET: 'true',
-    },
+    env,
     release,
   }
 }

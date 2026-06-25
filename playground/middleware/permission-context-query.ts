@@ -1,4 +1,4 @@
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 /**
  * Playground example: query Convex inside Nuxt route middleware.
@@ -9,8 +9,8 @@ import { api } from '~~/convex/_generated/api'
  */
 export default defineNuxtRouteMiddleware(async () => {
   const context = import.meta.server
-    ? await serverConvexQuery(api.auth.getPermissionContext, {})
-    : await useConvexCall({ timeoutMs: 5000 }).query(api.auth.getPermissionContext, {})
+    ? await serverConvexQuery(useRequestEvent()!, api.auth.getPermissionContext, {})
+    : await useConvexCall({ timeoutMs: 5000 }).query(api.auth.getPermissionContext)
 
   // For the playground demo, just require an authenticated permission context.
   // (Some users may not have a DB user row yet on first sign-in, and the playground

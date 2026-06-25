@@ -10,7 +10,7 @@ const props = withDefaults(
     starCount?: number
     color?: string
     speed?: 'slow' | 'normal' | 'fast'
-    size?: { min: number; max: number }
+    size?: { min: number, max: number }
   }>(),
   {
     starCount: 300,
@@ -18,9 +18,9 @@ const props = withDefaults(
     speed: 'normal',
     size: () => ({
       min: 1,
-      max: 2,
-    }),
-  },
+      max: 2
+    })
+  }
 )
 
 // Generate random star positions and sizes
@@ -31,7 +31,7 @@ const generateStars = (count: number): Star[] => {
     size:
       typeof props.size === 'number'
         ? props.size
-        : Math.random() * (props.size.max - props.size.min) + props.size.min,
+        : Math.random() * (props.size.max - props.size.min) + props.size.min
   }))
 }
 
@@ -39,15 +39,15 @@ const generateStars = (count: number): Star[] => {
 const speedMap = {
   slow: { duration: 200, opacity: 0.5, ratio: 0.3 },
   normal: { duration: 150, opacity: 0.75, ratio: 0.3 },
-  fast: { duration: 100, opacity: 1, ratio: 0.4 },
+  fast: { duration: 100, opacity: 1, ratio: 0.4 }
 }
 
 // Use a more efficient approach to generate and store stars
-const stars = useState<{ slow: Star[]; normal: Star[]; fast: Star[] }>('stars', () => {
+const stars = useState<{ slow: Star[], normal: Star[], fast: Star[] }>('stars', () => {
   return {
     slow: generateStars(Math.floor(props.starCount * speedMap.slow.ratio)),
     normal: generateStars(Math.floor(props.starCount * speedMap.normal.ratio)),
-    fast: generateStars(Math.floor(props.starCount * speedMap.fast.ratio)),
+    fast: generateStars(Math.floor(props.starCount * speedMap.fast.ratio))
   }
 })
 
@@ -55,7 +55,7 @@ const stars = useState<{ slow: Star[]; normal: Star[]; fast: Star[] }>('stars', 
 const starLayers = computed(() => [
   { stars: stars.value.fast, ...speedMap.fast },
   { stars: stars.value.normal, ...speedMap.normal },
-  { stars: stars.value.slow, ...speedMap.slow },
+  { stars: stars.value.slow, ...speedMap.slow }
 ])
 </script>
 
@@ -70,10 +70,17 @@ const starLayers = computed(() => [
       xmlns="http://www.w3.org/2000/svg"
     >
       <g opacity="0.5">
-        <mask id="path-1-inside-1_846_160841" fill="white">
+        <mask
+          id="path-1-inside-1_846_160841"
+          fill="white"
+        >
           <path d="M0 0H1017V181H0V0Z" />
         </mask>
-        <path d="M0 0H1017V181H0V0Z" fill="url(#paint0_radial_846_160841)" fill-opacity="0.22" />
+        <path
+          d="M0 0H1017V181H0V0Z"
+          fill="url(#paint0_radial_846_160841)"
+          fill-opacity="0.22"
+        />
       </g>
       <defs>
         <radialGradient
@@ -85,7 +92,11 @@ const starLayers = computed(() => [
           gradientTransform="translate(508.999 19.5) rotate(90.177) scale(161.501 509.002)"
         >
           <stop stop-color="var(--ui-primary)" />
-          <stop offset="1" stop-color="var(--ui-primary)" stop-opacity="0" />
+          <stop
+            offset="1"
+            stop-color="var(--ui-primary)"
+            stop-opacity="0"
+          />
         </radialGradient>
         <linearGradient
           id="paint1_linear_846_160841"
@@ -95,9 +106,19 @@ const starLayers = computed(() => [
           y2="90.502"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stop-color="var(--ui-primary)" stop-opacity="0" />
-          <stop offset="0.395" stop-color="var(--ui-primary)" />
-          <stop offset="1" stop-color="var(--ui-primary)" stop-opacity="0" />
+          <stop
+            stop-color="var(--ui-primary)"
+            stop-opacity="0"
+          />
+          <stop
+            offset="0.395"
+            stop-color="var(--ui-primary)"
+          />
+          <stop
+            offset="1"
+            stop-color="var(--ui-primary)"
+            stop-opacity="0"
+          />
         </linearGradient>
       </defs>
     </svg>
@@ -110,7 +131,7 @@ const starLayers = computed(() => [
         :style="{
           '--star-duration': `${layer.duration}s`,
           '--star-opacity': layer.opacity,
-          '--star-color': color,
+          '--star-color': color
         }"
       >
         <div
@@ -123,7 +144,7 @@ const starLayers = computed(() => [
             width: `${star.size}px`,
             height: `${star.size}px`,
             backgroundColor: 'var(--star-color)',
-            opacity: 'var(--star-opacity)',
+            opacity: 'var(--star-opacity)'
           }"
         />
       </div>

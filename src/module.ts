@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+
 import {
   defineNuxtModule,
   addPlugin,
@@ -13,6 +15,18 @@ import {
 import type { Nuxt } from '@nuxt/schema'
 import { defu } from 'defu'
 
+import { registerConvexAliases } from './module-aliases'
+import {
+  authAutoImports,
+  composableAutoImports,
+  permissionAutoImports,
+  serverAutoImports,
+  type ModuleImportRegistration,
+} from './module-api-surface'
+import {
+  getMissingConvexApiTemplateContents,
+  getTypeAugmentationTemplateContents,
+} from './module-templates'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
 import {
   getSiteUrlResolutionHint,
@@ -28,12 +42,31 @@ export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 
 const logger = useLogger('better-convex-nuxt')
 
+function hasGeneratedConvexApi(aliasPath: string): boolean {
+  return (
+    existsSync(aliasPath) ||
+    existsSync(`${aliasPath}.ts`) ||
+    existsSync(`${aliasPath}.js`) ||
+    existsSync(`${aliasPath}.d.ts`)
+  )
+}
+
 function normalizeAuthCacheTtl(input: unknown): number {
   if (typeof input !== 'number' || !Number.isFinite(input)) return 60
   const normalized = Math.trunc(input)
   if (normalized < 1) return 1
   if (normalized > 60) return 60
   return normalized
+}
+
+function resolveModuleImports(
+  resolver: ReturnType<typeof createResolver>,
+  imports: readonly ModuleImportRegistration[],
+): ModuleImportRegistration[] {
+  return imports.map((entry) => ({
+    name: entry.name,
+    from: resolver.resolve(entry.from),
+  }))
 }
 
 export interface AuthCacheOptions {
@@ -285,6 +318,15 @@ export default defineNuxtModule<ModuleOptions>({
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
+    const generatedConvexApiAlias = resolver.resolve(nuxt.options.rootDir, 'convex/_generated/api')
+    const missingConvexApiTemplate = addTemplate({
+      filename: 'better-convex-nuxt/convex-api-missing.ts',
+      write: true,
+      getContents: getMissingConvexApiTemplateContents,
+    })
+    const convexApiAlias = hasGeneratedConvexApi(generatedConvexApiAlias)
+      ? generatedConvexApiAlias
+      : missingConvexApiTemplate.dst
 
     // Validate Convex URL format
     if (options.url && !isValidAbsoluteUrl(options.url)) {
@@ -364,6 +406,7 @@ export default defineNuxtModule<ModuleOptions>({
       },
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
+    registerConvexAliases({ nuxt, resolver, convexApiAlias })
 
     // 2. Register Server Plugin (runs first for SSR token exchange)
     addPlugin({
@@ -402,122 +445,18 @@ export default defineNuxtModule<ModuleOptions>({
     // 5. Register Type Augmentation for IDE support
     addTemplate({
       filename: 'types/better-convex-nuxt.d.ts',
-      getContents: () => `
-import type { ConvexClient } from 'convex/browser'
-import type { createAuthClient } from 'better-auth/vue'
-import type { RouteLocationRaw } from 'vue-router'
-
-type AuthClient = ReturnType<typeof createAuthClient>
-
-declare module '#app' {
-  interface NuxtApp {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-
-  interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
-  }
-
-    interface PageMeta {
-    /**
-     * Skip Convex auth check for this page.
-     * Useful for marketing pages that don't need authentication.
-     */
-      skipConvexAuth?: boolean
-      /**
-       * Opt-in route protection powered by better-convex-nuxt.
-       * true = require auth (default redirect), object = custom redirect.
-       */
-      convexAuth?: boolean | { redirectTo?: RouteLocationRaw }
-    }
-  }
-
-declare module 'vue' {
-  interface ComponentCustomProperties {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-}
-
-export {}
-`,
+      getContents: () =>
+        getTypeAugmentationTemplateContents(
+          resolver.resolve('./runtime/utils/auth-route-protection'),
+        ),
     })
 
     // 6. Auto-import composables (non-auth, always available)
-    addImports([
-      { name: 'useConvex', from: resolver.resolve('./runtime/composables/useConvex') },
-      {
-        name: 'useConvexMutation',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      { name: 'useConvexAction', from: resolver.resolve('./runtime/composables/useConvexAction') },
-      { name: 'useConvexQuery', from: resolver.resolve('./runtime/composables/useConvexQuery') },
-      {
-        name: 'defineSharedConvexQuery',
-        from: resolver.resolve('./runtime/composables/defineSharedConvexQuery'),
-      },
-      { name: 'useConvexCall', from: resolver.resolve('./runtime/composables/useConvexCall') },
-      {
-        name: 'useConvexPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'useConvexConnectionState',
-        from: resolver.resolve('./runtime/composables/useConvexConnectionState'),
-      },
-      // Optimistic update helpers for regular queries
-      { name: 'updateQuery', from: resolver.resolve('./runtime/composables/useConvexMutation') },
-      { name: 'setQueryData', from: resolver.resolve('./runtime/composables/useConvexMutation') },
-      {
-        name: 'updateAllQueries',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      {
-        name: 'deleteFromQuery',
-        from: resolver.resolve('./runtime/composables/useConvexMutation'),
-      },
-      // Optimistic update helpers for paginated queries
-      {
-        name: 'insertAtTop',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'insertAtPosition',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'insertAtBottomIfLoaded',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'updateInPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      {
-        name: 'deleteFromPaginatedQuery',
-        from: resolver.resolve('./runtime/composables/useConvexPaginatedQuery'),
-      },
-      // File upload composables
-      {
-        name: 'useConvexFileUpload',
-        from: resolver.resolve('./runtime/composables/useConvexFileUpload'),
-      },
-      {
-        name: 'useConvexUploadQueue',
-        from: resolver.resolve('./runtime/composables/useConvexUploadQueue'),
-      },
-      {
-        name: 'useConvexStorageUrl',
-        from: resolver.resolve('./runtime/composables/useConvexStorageUrl'),
-      },
-    ])
+    addImports(resolveModuleImports(resolver, composableAutoImports))
 
     // 6b. Auth composables and components (only when auth enabled)
     if (isAuthEnabled) {
-      addImports([
-        { name: 'useConvexAuth', from: resolver.resolve('./runtime/composables/useConvexAuth') },
-      ])
+      addImports(resolveModuleImports(resolver, authAutoImports))
 
       // Register auth components
       addComponentsDir({
@@ -528,31 +467,11 @@ export {}
 
     // 6c. Conditionally add permission composables
     if (options.permissions) {
-      addImports([
-        {
-          name: 'createPermissions',
-          from: resolver.resolve('./runtime/composables/usePermissions'),
-        },
-      ])
+      addImports(resolveModuleImports(resolver, permissionAutoImports))
     }
 
     // 7. Auto-import server utilities
-    addServerImports([
-      { name: 'serverConvexQuery', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexMutation', from: resolver.resolve('./runtime/server/utils/convex') },
-      { name: 'serverConvexAction', from: resolver.resolve('./runtime/server/utils/convex') },
-      {
-        name: 'serverConvexClearAuthCache',
-        from: resolver.resolve('./runtime/server/utils/auth-cache'),
-      },
-    ])
-
-    // 9. Add types to tsconfig references
-    nuxt.hook('prepare:types', (opts) => {
-      opts.references.push({
-        path: resolver.resolve(nuxt.options.buildDir, 'types/better-convex-nuxt.d.ts'),
-      })
-    })
+    addServerImports(resolveModuleImports(resolver, serverAutoImports))
 
     // 10. Setup Nuxt DevTools integration (dev mode only)
     if (nuxt.options.dev) {

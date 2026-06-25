@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -18,23 +18,23 @@ definePageMeta({
  */
 
 // Successful mutation
+const addNote = useConvexMutation(api.notes.add)
 const {
-  execute: addNote,
   pending: addPending,
   status: addStatus,
   error: addError,
   data: addData,
   reset: addReset,
-} = useConvexMutation(api.notes.add)
+} = addNote
 
 // Error mutation
+const failMutation = useConvexMutation(api.testing.alwaysFailsMutation)
 const {
-  execute: failMutation,
   pending: failPending,
   status: failStatus,
   error: failError,
   reset: failReset,
-} = useConvexMutation(api.testing.alwaysFailsMutation)
+} = failMutation
 
 // Track mutation counts
 const successCount = ref(0)

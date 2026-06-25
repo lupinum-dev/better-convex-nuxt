@@ -1,10 +1,42 @@
-import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import type {
+  FunctionArgs,
+  FunctionReference,
+  FunctionReturnType,
+  OptionalRestArgs,
+} from 'convex/server'
 
 import { toCallResult, type CallResult } from '../utils/call-result'
 import { useConvex } from './useConvex'
 
 export interface UseConvexCallOptions {
   timeoutMs?: number
+}
+
+export interface UseConvexCallReturn {
+  query: <Query extends FunctionReference<'query'>>(
+    queryRef: Query,
+    ...args: OptionalRestArgs<Query>
+  ) => Promise<FunctionReturnType<Query>>
+  querySafe: <Query extends FunctionReference<'query'>>(
+    queryRef: Query,
+    ...args: OptionalRestArgs<Query>
+  ) => Promise<CallResult<FunctionReturnType<Query>>>
+  mutation: <Mutation extends FunctionReference<'mutation'>>(
+    mutationRef: Mutation,
+    ...args: OptionalRestArgs<Mutation>
+  ) => Promise<FunctionReturnType<Mutation>>
+  mutationSafe: <Mutation extends FunctionReference<'mutation'>>(
+    mutationRef: Mutation,
+    ...args: OptionalRestArgs<Mutation>
+  ) => Promise<CallResult<FunctionReturnType<Mutation>>>
+  action: <Action extends FunctionReference<'action'>>(
+    actionRef: Action,
+    ...args: OptionalRestArgs<Action>
+  ) => Promise<FunctionReturnType<Action>>
+  actionSafe: <Action extends FunctionReference<'action'>>(
+    actionRef: Action,
+    ...args: OptionalRestArgs<Action>
+  ) => Promise<CallResult<FunctionReturnType<Action>>>
 }
 
 async function withTimeout<T>(
@@ -26,7 +58,7 @@ async function withTimeout<T>(
   ])
 }
 
-export function useConvexCall(options: UseConvexCallOptions = {}) {
+export function useConvexCall(options: UseConvexCallOptions = {}): UseConvexCallReturn {
   const client = useConvex()
   const timeoutMs = options.timeoutMs ?? 10_000
 
@@ -39,7 +71,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const query = async <Query extends FunctionReference<'query'>>(
     queryRef: Query,
-    ...args: FunctionArgs<Query> extends Record<string, never> ? [] : [args: FunctionArgs<Query>]
+    ...args: OptionalRestArgs<Query>
   ): Promise<FunctionReturnType<Query>> => {
     const convex = requireClient()
     return (await withTimeout(
@@ -51,9 +83,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const mutation = async <Mutation extends FunctionReference<'mutation'>>(
     mutationRef: Mutation,
-    ...args: FunctionArgs<Mutation> extends Record<string, never>
-      ? []
-      : [args: FunctionArgs<Mutation>]
+    ...args: OptionalRestArgs<Mutation>
   ): Promise<FunctionReturnType<Mutation>> => {
     const convex = requireClient()
     return (await withTimeout(
@@ -65,7 +95,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const action = async <Action extends FunctionReference<'action'>>(
     actionRef: Action,
-    ...args: FunctionArgs<Action> extends Record<string, never> ? [] : [args: FunctionArgs<Action>]
+    ...args: OptionalRestArgs<Action>
   ): Promise<FunctionReturnType<Action>> => {
     const convex = requireClient()
     return (await withTimeout(
@@ -77,7 +107,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const querySafe = async <Query extends FunctionReference<'query'>>(
     queryRef: Query,
-    ...args: FunctionArgs<Query> extends Record<string, never> ? [] : [args: FunctionArgs<Query>]
+    ...args: OptionalRestArgs<Query>
   ): Promise<CallResult<FunctionReturnType<Query>>> => {
     const convex = requireClient()
     return toCallResult(
@@ -92,9 +122,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const mutationSafe = async <Mutation extends FunctionReference<'mutation'>>(
     mutationRef: Mutation,
-    ...args: FunctionArgs<Mutation> extends Record<string, never>
-      ? []
-      : [args: FunctionArgs<Mutation>]
+    ...args: OptionalRestArgs<Mutation>
   ): Promise<CallResult<FunctionReturnType<Mutation>>> => {
     const convex = requireClient()
     return toCallResult(
@@ -109,7 +137,7 @@ export function useConvexCall(options: UseConvexCallOptions = {}) {
 
   const actionSafe = async <Action extends FunctionReference<'action'>>(
     actionRef: Action,
-    ...args: FunctionArgs<Action> extends Record<string, never> ? [] : [args: FunctionArgs<Action>]
+    ...args: OptionalRestArgs<Action>
   ): Promise<CallResult<FunctionReturnType<Action>>> => {
     const convex = requireClient()
     return toCallResult(

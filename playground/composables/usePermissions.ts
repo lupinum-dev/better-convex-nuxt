@@ -7,9 +7,14 @@
 
 import { watchEffect } from 'vue'
 
+import { api } from '#convex/api'
 import { createPermissions } from '#imports'
-import { api } from '~/convex/_generated/api'
-import { checkPermission, type Permission, type Resource } from '~/convex/permissions.config'
+import {
+  checkPermission,
+  type Permission,
+  type PermissionContext,
+  type Resource,
+} from '~/convex/permissions.config'
 
 // Re-export types for convenience
 export type { Permission, Resource }
@@ -18,8 +23,8 @@ export type { Permission, Resource }
 // CREATE BASE COMPOSABLES FROM MODULE
 // ============================================
 
-const { usePermissions: useBasePermissions, usePermissionGuard: basePermissionGuard } =
-  createPermissions<Permission>({
+const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissionRedirect } =
+  createPermissions<Permission, PermissionContext, Resource>({
     query: api.auth.getPermissionContext,
     checkPermission,
   })
@@ -60,7 +65,7 @@ export function usePermissions() {
       debugInfo?.reason === 'user not found in DB, needs to be created'
     ) {
       try {
-        await createUser.execute({})
+        await createUser({})
         // Query will automatically re-run and pick up the new user
       } catch (e) {
         console.error('Failed to create user:', e)
@@ -73,22 +78,16 @@ export function usePermissions() {
 }
 
 // ============================================
-// USE PERMISSION GUARD
+// USE PERMISSION REDIRECT
 // ============================================
 // Re-export with custom login path for playground.
 //
 // Usage:
-//   usePermissionGuard('org.settings', '/dashboard')
+//   usePermissionRedirect({ permission: 'org.settings', redirectTo: '/dashboard' })
 
-export function usePermissionGuard(
-  permission: Permission,
-  redirectTo: string = '/',
-  resource?: Resource,
-) {
-  return basePermissionGuard({
-    permission,
-    redirectTo,
-    resource,
+export function usePermissionRedirect(options: Parameters<typeof basePermissionRedirect>[0]) {
+  return basePermissionRedirect({
     loginPath: '/auth/signin',
+    ...options,
   })
 }

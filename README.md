@@ -10,8 +10,8 @@ Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.c
 - [Documentation](https://better-convex-nuxt.vercel.app)
 
 > [!NOTE]
-> **Work In Progress**
-> This module is rapidly evolving. While we are using it in our own apps, features and APIs are subject to change as we refine the best patterns for Nuxt + Convex.
+> **Early Version - Not Production Ready**
+> This module is usable today, but the API surface is still evolving as we validate the best long-term patterns for Nuxt + Convex.
 
 Contributions and PRs to help improve the library, playground or docs are highly appreciated! 🙏
 
@@ -38,7 +38,7 @@ pnpm add better-convex-nuxt
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 // Real-time subscription with SSR support
 const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
@@ -57,9 +57,9 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: '
 
 ```vue
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
-const { execute, pending } = useConvexMutation(api.tasks.create, {
+const createTask = useConvexMutation(api.tasks.create, {
   optimisticUpdate: (localStore, args) => {
     updateQuery({
       query: api.tasks.list,
@@ -70,8 +70,9 @@ const { execute, pending } = useConvexMutation(api.tasks.create, {
     })
   },
 })
+const pending = createTask.pending
 
-await execute({ text: 'Ship my app' })
+await createTask({ text: 'Ship my app' })
 </script>
 ```
 
@@ -105,6 +106,7 @@ async function handleLogin() {
 | `useConvexUploadQueue`     | Queue uploads with controlled concurrency            |
 | `useConvexStorageUrl`      | Get reactive URLs for stored files                   |
 | `useConvexAuth`            | Authentication state (user, token, isAuthenticated)  |
+| `useConvexUser`            | Current-user query seeded from auth session data     |
 | `useConvexConnectionState` | WebSocket connection status                          |
 | `createPermissions`        | Build app-specific permission composables            |
 | `useConvex`                | Access raw ConvexClient instance                     |

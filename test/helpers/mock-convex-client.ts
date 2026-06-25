@@ -208,6 +208,14 @@ export class MockConvexClient {
     return count
   }
 
+  activeListenerCountWhere(match: (entry: { query: unknown; args: unknown }) => boolean): number {
+    let count = 0
+    for (const listener of this.listeners.values()) {
+      if (match({ query: listener.query, args: listener.args })) count++
+    }
+    return count
+  }
+
   updateConnectionState(partial: Partial<MockConnectionState>) {
     this.currentConnectionState = {
       ...this.currentConnectionState,

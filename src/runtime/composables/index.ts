@@ -1,4 +1,17 @@
 export { useConvexAuth, type UseConvexAuthReturn, type ConvexUser } from './useConvexAuth'
+export {
+  useConvexUser,
+  type ConvexUserSource,
+  type ConvexUserState,
+  type UseConvexUserOptions,
+  type UseConvexUserReturn,
+} from './useConvexUser'
+export {
+  createBetterConvexAuthClient,
+  resolveBetterConvexAuthBaseURL,
+  type BetterConvexAuthClientOptions,
+  type BetterConvexAuthClientPluginList,
+} from './createBetterConvexAuthClient'
 export { useConvex } from './useConvex'
 export { type CallResult, type ConvexCallError, normalizeConvexError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'
@@ -27,6 +40,8 @@ export {
 export {
   useConvexQuery,
   getQueryKey,
+  type ConvexQueryArgs,
+  type ConvexQuerySkip,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
@@ -35,9 +50,11 @@ export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
-export { useConvexCall, type UseConvexCallOptions } from './useConvexCall'
+export { useConvexCall, type UseConvexCallOptions, type UseConvexCallReturn } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
+  type ConvexPaginatedQueryArgs,
+  type ConvexPaginatedQuerySkip,
   type PaginatedQueryStatus,
   type UseConvexPaginatedQueryOptions,
   type UseConvexPaginatedQueryData,
@@ -85,5 +102,5 @@ export {
   type CheckPermissionFn,
   type CreatePermissionsOptions,
   type UsePermissionsReturn,
-  type UsePermissionGuardOptions,
+  type UsePermissionRedirectOptions,
 } from './usePermissions'

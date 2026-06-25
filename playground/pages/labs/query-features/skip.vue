@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -8,7 +8,7 @@ definePageMeta({
 /**
  * Test page for static skip behavior
  *
- * Uses undefined args to permanently skip the query.
+ * Uses the explicit skip sentinel to permanently skip the query.
  * Expected behavior:
  * - status = 'idle'
  * - data = null
@@ -16,13 +16,13 @@ definePageMeta({
  * - No network requests made
  */
 
-const { data, pending, status, error } = await useConvexQuery(api.notes.list, undefined)
+const { data, pending, status, error } = await useConvexQuery(api.notes.list, 'skip')
 </script>
 
 <template>
   <div data-testid="static-skip-page" class="test-page">
     <h1>Static Skip</h1>
-    <p class="description">Query is always skipped with undefined args</p>
+    <p class="description">Query is always skipped with the explicit skip sentinel</p>
 
     <NuxtLink to="/labs/query" class="back-link">Back to Query Lab</NuxtLink>
 

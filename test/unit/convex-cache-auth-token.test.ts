@@ -30,7 +30,7 @@ describe('fetchAuthToken', () => {
     const cachedToken = { value: null as string | null }
     const token = await fetchAuthToken({
       auth: 'auto',
-      cookieHeader: 'better-auth.session_token=abc',
+      cookieHeader: 'private_app_cookie=secret; better-auth.session_token=abc',
       siteUrl: 'https://demo.convex.site',
       cachedToken,
     })
@@ -40,6 +40,23 @@ describe('fetchAuthToken', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith('https://demo.convex.site/api/auth/convex/token', {
       headers: { Cookie: 'better-auth.session_token=abc' },
+    })
+  })
+
+  it('recognizes secure Better Auth session cookies', async () => {
+    const fetchMock = vi.fn(async () => ({ token: 'jwt-from-secure-cookie' }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const token = await fetchAuthToken({
+      auth: 'auto',
+      cookieHeader: 'private_app_cookie=secret; __Secure-better-auth.session_token=secure-abc',
+      siteUrl: 'https://demo.convex.site',
+      cachedToken: { value: null },
+    })
+
+    expect(token).toBe('jwt-from-secure-cookie')
+    expect(fetchMock).toHaveBeenCalledWith('https://demo.convex.site/api/auth/convex/token', {
+      headers: { Cookie: '__Secure-better-auth.session_token=secure-abc' },
     })
   })
 })

@@ -222,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { api } from '~/convex/_generated/api'
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -241,7 +241,7 @@ type ExtendedSessionData = ExtendedAuthClient['$Infer']['Session']
 const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
 
-const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : undefined))
+const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 const { data: permissionContext } = await useConvexQuery(
   api.auth.getPermissionContext,
   permissionQueryArgs,

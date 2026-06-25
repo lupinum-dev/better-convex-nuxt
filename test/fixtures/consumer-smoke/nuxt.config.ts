@@ -3,5 +3,6 @@ export default defineNuxtConfig({
   convex: {
     url: 'https://consumer-smoke.convex.cloud',
     siteUrl: 'https://consumer-smoke.convex.site',
+    permissions: true,
   },
 })

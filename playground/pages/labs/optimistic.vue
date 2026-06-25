@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Id } from '~~/convex/_generated/dataModel'
-import { api } from '~~/convex/_generated/api'
+
+import { api } from '#convex/api'
 import { updateQuery, deleteFromQuery } from '#imports'
 
 definePageMeta({
@@ -42,55 +43,51 @@ watch(
 )
 
 // Mutation WITH optimistic update
-const { execute: addNoteOptimistic, pending: addPendingOptimistic } = useConvexMutation(
-  api.notes.add,
-  {
-    optimisticUpdate: (localStore, args) => {
-      console.log('[Optimistic] Applying optimistic update for add')
-      updateQuery({
-        query: api.notes.list,
-        args: {},
-        store: localStore,
-        updater: (current) => {
-          const now = Date.now()
-          const optimisticNote = {
-            _id: `optimistic-${now}` as Id<'notes'>,
-            _creationTime: now,
-            createdAt: now,
-            title: args.title,
-            content: args.content,
-          }
-          console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
-          return current ? [optimisticNote, ...current] : [optimisticNote]
-        },
-      })
-    },
+const addNoteOptimistic = useConvexMutation(api.notes.add, {
+  optimisticUpdate: (localStore, args) => {
+    console.log('[Optimistic] Applying optimistic update for add')
+    updateQuery({
+      query: api.notes.list,
+      args: {},
+      store: localStore,
+      updater: (current) => {
+        const now = Date.now()
+        const optimisticNote = {
+          _id: `optimistic-${now}` as Id<'notes'>,
+          _creationTime: now,
+          createdAt: now,
+          title: args.title,
+          content: args.content,
+        }
+        console.log('[Optimistic] Created optimistic note:', optimisticNote.title)
+        return current ? [optimisticNote, ...current] : [optimisticNote]
+      },
+    })
   },
-)
+})
+const { pending: addPendingOptimistic } = addNoteOptimistic
 
 // Mutation WITHOUT optimistic update (for comparison)
-const { execute: addNoteNormal, pending: addPendingNormal } = useConvexMutation(api.notes.add)
+const addNoteNormal = useConvexMutation(api.notes.add)
+const { pending: addPendingNormal } = addNoteNormal
 
 // Delete mutation WITH optimistic update
-const { execute: removeNoteOptimistic, pending: removePendingOptimistic } = useConvexMutation(
-  api.notes.remove,
-  {
-    optimisticUpdate: (localStore, args) => {
-      console.log('[Optimistic] Applying optimistic update for remove')
-      deleteFromQuery({
-        query: api.notes.list,
-        args: {},
-        store: localStore,
-        shouldDelete: (note) => note._id === args.id,
-      })
-    },
+const removeNoteOptimistic = useConvexMutation(api.notes.remove, {
+  optimisticUpdate: (localStore, args) => {
+    console.log('[Optimistic] Applying optimistic update for remove')
+    deleteFromQuery({
+      query: api.notes.list,
+      args: {},
+      store: localStore,
+      shouldDelete: (note) => note._id === args.id,
+    })
   },
-)
+})
+const { pending: removePendingOptimistic } = removeNoteOptimistic
 
 // Delete mutation WITHOUT optimistic update (for comparison)
-const { execute: removeNoteNormal, pending: removePendingNormal } = useConvexMutation(
-  api.notes.remove,
-)
+const removeNoteNormal = useConvexMutation(api.notes.remove)
+const { pending: removePendingNormal } = removeNoteNormal
 
 async function handleAddOptimistic() {
   const timestamp = Date.now()

@@ -7,20 +7,23 @@ const docsSchema = z.object({
         label: z.string(),
         icon: z.string(),
         to: z.string(),
-        target: z.string().optional(),
-      }),
+        target: z.string().optional()
+      })
     )
     .optional(),
   sitemap: z
-    .object({
-      loc: z.string().optional(),
-      lastmod: z.union([z.string(), z.date()]).optional(),
-      changefreq: z
-        .enum(['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'])
-        .optional(),
-      priority: z.number().min(0).max(1).optional(),
-    })
-    .optional(),
+    .union([
+      z.literal(false),
+      z.object({
+        loc: z.string().optional(),
+        lastmod: z.union([z.string(), z.date()]).optional(),
+        changefreq: z
+          .enum(['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'])
+          .optional(),
+        priority: z.number().min(0).max(1).optional()
+      })
+    ])
+    .optional()
 })
 
 export default defineContentConfig({
@@ -28,13 +31,14 @@ export default defineContentConfig({
     landing: defineCollection({
       type: 'page',
       source: 'index.md',
+      schema: docsSchema
     }),
     docs: defineCollection({
       type: 'page',
       source: {
-        include: 'docs/**',
+        include: 'docs/**'
       },
-      schema: docsSchema,
-    }),
-  },
+      schema: docsSchema
+    })
+  }
 })

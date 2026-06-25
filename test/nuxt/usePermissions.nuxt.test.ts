@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { useRouter } from '#imports'
+import { useRouter, useState } from '#imports'
 
 import { createPermissions } from '../../src/runtime/composables/usePermissions'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -70,9 +70,9 @@ describe('usePermissions (Nuxt runtime)', () => {
 
   it('waits for loading before redirecting unauthenticated users', async () => {
     const convex = new MockConvexClient()
-    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-unauth')
+    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:redirect-unauth')
 
-    const { usePermissionGuard } = createPermissions<Permission>({
+    const { usePermissionRedirect } = createPermissions<Permission>({
       query: permissionQuery,
       checkPermission: (ctx, permission) => {
         if (!ctx) return false
@@ -80,26 +80,31 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-    const { result } = await captureInNuxt(
-      () => {
-        const router = useRouter()
-        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+	    const { result } = await captureInNuxt(
+	      () => {
+	        const router = useRouter()
+	        const authPending = useState<boolean>('convex:pending')
+	        const token = useState<string | null>('convex:token')
+	        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+	        authPending.value = true
 
-        usePermissionGuard({
-          permission: 'org.members',
-          loginPath: '/auth/signin',
-        })
+	        usePermissionRedirect({
+	          permission: 'org.members',
+	          loginPath: '/auth/signin',
+	        })
 
-        return { pushSpy }
-      },
-      { convex },
-    )
+	        return { authPending, pushSpy, token }
+	      },
+	      { convex },
+	    )
 
-    expect(result.pushSpy).not.toHaveBeenCalled()
+	    expect(result.pushSpy).not.toHaveBeenCalled()
 
-    await waitFor(() => convex.calls.onUpdate.length > 0)
+	    result.authPending.value = false
+	    result.token.value = 'test-token'
+	    await waitFor(() => convex.calls.onUpdate.length > 0)
 
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-unauth', null)
+	    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauth', null)
 
     await waitFor(() => result.pushSpy.mock.calls.length > 0)
     expect(result.pushSpy).toHaveBeenCalledTimes(1)
@@ -108,9 +113,9 @@ describe('usePermissions (Nuxt runtime)', () => {
 
   it('does not redirect when authenticated user is authorized', async () => {
     const convex = new MockConvexClient()
-    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-authorized')
+    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:redirect-authorized')
 
-    const { usePermissionGuard, usePermissions } = createPermissions<Permission>({
+    const { usePermissionRedirect, usePermissions } = createPermissions<Permission>({
       query: permissionQuery,
       checkPermission: (ctx, permission) => {
         if (!ctx) return false
@@ -124,7 +129,7 @@ describe('usePermissions (Nuxt runtime)', () => {
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
         const permissions = usePermissions()
 
-        usePermissionGuard({
+        usePermissionRedirect({
           permission: 'org.members',
           redirectTo: '/forbidden',
           loginPath: '/auth/signin',
@@ -137,7 +142,7 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-authorized', {
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',
       userId: 'user-1',
       orgId: 'org-1',
@@ -149,7 +154,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     await flush()
     result.pushSpy.mockClear()
 
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-authorized', {
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',
       userId: 'user-1',
       orgId: 'org-1',
@@ -159,11 +164,11 @@ describe('usePermissions (Nuxt runtime)', () => {
     expect(result.pushSpy).not.toHaveBeenCalled()
   })
 
-  it('prevents redirect loops while a guard redirect is still pending', async () => {
+  it('prevents redirect loops while a redirect is still pending', async () => {
     const convex = new MockConvexClient()
-    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:guard-unauthorized')
+    const permissionQuery = mockFnRef<'query'>('auth:getPermissionContext:redirect-unauthorized')
 
-    const { usePermissionGuard } = createPermissions<Permission>({
+    const { usePermissionRedirect } = createPermissions<Permission>({
       query: permissionQuery,
       checkPermission: (ctx, permission) => {
         if (!ctx) return false
@@ -182,7 +187,7 @@ describe('usePermissions (Nuxt runtime)', () => {
           }) as never
         })
 
-        usePermissionGuard({
+        usePermissionRedirect({
           permission: 'org.members',
           redirectTo: '/forbidden',
         })
@@ -193,18 +198,18 @@ describe('usePermissions (Nuxt runtime)', () => {
     )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-unauthorized', null)
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauthorized', null)
     await waitFor(() => result.pushSpy.mock.calls.length === 1)
 
     const firstRedirectTarget = result.pushSpy.mock.calls[0]?.[0]
     expect(['/auth/signin', '/forbidden']).toContain(firstRedirectTarget)
 
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-unauthorized', {
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauthorized', {
       role: 'member',
       userId: 'user-1',
     })
 
-    convex.emitQueryResultByPath('auth:getPermissionContext:guard-unauthorized', {
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauthorized', {
       role: 'member',
       userId: 'user-1',
       orgId: 'org-1',

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
 import type { Id } from '~~/convex/_generated/dataModel'
+
+import { api } from '#convex/api'
 
 definePageMeta({
   layout: 'sidebar',
@@ -20,8 +21,10 @@ definePageMeta({
 
 const { data, pending, status, error } = await useConvexQuery(api.notes.list, {})
 
-const { execute: addNote, pending: addPending } = useConvexMutation(api.notes.add)
-const { execute: removeNote, pending: removePending } = useConvexMutation(api.notes.remove)
+const addNote = useConvexMutation(api.notes.add)
+const removeNote = useConvexMutation(api.notes.remove)
+const { pending: addPending } = addNote
+const { pending: removePending } = removeNote
 
 // Track add/remove counts for verification
 const addCount = ref(0)

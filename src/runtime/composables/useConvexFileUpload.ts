@@ -4,16 +4,16 @@
  * Inspired by nuxt-convex by @onmax (https://github.com/onmax/nuxt-convex)
  */
 
+import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 
-import { useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getFunctionName } from '../utils/convex-cache'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
-import { useConvex } from './useConvex'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
 
@@ -132,7 +132,7 @@ export interface UseConvexFileUploadOptions {
  * @example Basic usage with progress tracking
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const {
  *   upload,
@@ -165,7 +165,7 @@ export interface UseConvexFileUploadOptions {
  * @example With cancel support
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress, cancel } = useConvexFileUpload(
  *   api.files.generateUploadUrl
@@ -183,7 +183,7 @@ export interface UseConvexFileUploadOptions {
  * @example With callbacks
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress } = useConvexFileUpload(
  *   api.files.generateUploadUrl,
@@ -202,10 +202,10 @@ export interface UseConvexFileUploadOptions {
  * @example Saving storageId to a document
  * ```vue
  * <script setup>
- * import { api } from '~/convex/_generated/api'
+ * import { api } from '#convex/api'
  *
  * const { upload, pending, progress } = useConvexFileUpload(api.files.generateUploadUrl)
- * const { execute: saveDocument } = useConvexMutation(api.documents.create)
+ * const saveDocument = useConvexMutation(api.documents.create)
  *
  * async function handleUpload(file: File, title: string) {
  *   const storageId = await upload(file)
@@ -223,9 +223,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
-  // Get client at setup time (not inside async callback) to avoid Vue context issues
-  // Per Nuxt best practices, composables must be called synchronously at setup time
-  const client = useConvex()
+  const nuxtApp = useNuxtApp()
 
   // Internal state
   const _status = ref<UploadStatus>('idle')
@@ -313,6 +311,13 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     progress.value = 0
 
     try {
+      const client = nuxtApp.$convex as ConvexClient | undefined
+      if (!client) {
+        throw new Error(
+          '[useConvexFileUpload] Convex client is unavailable. Upload files from the browser after configuring a Convex URL.',
+        )
+      }
+
       // Step 1: Get upload URL from Convex
       const postUrl = await requestUploadUrl(
         client,

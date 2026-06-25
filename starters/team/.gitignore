@@ -1,0 +1,8 @@
+
+.env.local
+node_modules
+.nuxt
+.output
+convex/*.js
+convex/*.js.map
+!convex/_generated/*.js

@@ -12,11 +12,57 @@ export default defineNuxtConfig({
     'nuxt-og-image',
     'nuxt-llms',
     '@nuxtjs/mcp-toolkit',
-    '@vueuse/nuxt',
+    '@vueuse/nuxt'
   ],
 
   devtools: {
-    enabled: true,
+    enabled: true
+  },
+
+  app: {
+    head: {
+      htmlAttrs: {
+        lang: 'en'
+      },
+      title: 'Real-time Nuxt apps with Convex.',
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        {
+          name: 'description',
+          content:
+            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
+        },
+        { name: 'apple-mobile-web-app-title', content: 'Better Convex Nuxt' },
+        {
+          name: 'google-site-verification',
+          content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk'
+        },
+        { property: 'og:site_name', content: 'Better Convex Nuxt' },
+        { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
+        {
+          property: 'og:description',
+          content:
+            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
+        },
+        { property: 'og:image', content: `${siteUrl}og-image.png` },
+        { property: 'og:url', content: siteUrl },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
+        {
+          name: 'twitter:description',
+          content:
+            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
+        },
+        { name: 'twitter:image', content: `${siteUrl}og-image.png` }
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/favicon-96x96.png', sizes: '96x96' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'shortcut icon', href: '/favicon.ico' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' }
+      ]
+    }
   },
 
   css: ['~/assets/css/main.css'],
@@ -26,70 +72,24 @@ export default defineNuxtConfig({
     build: {
       markdown: {
         toc: {
-          searchDepth: 1,
-        },
-      },
-    },
+          searchDepth: 1
+        }
+      }
+    }
   },
 
   experimental: {
-    asyncContext: true,
+    asyncContext: true
   },
 
   compatibilityDate: '2024-07-11',
-
-  app: {
-    head: {
-      htmlAttrs: {
-        lang: 'en',
-      },
-      title: 'Real-time Nuxt apps with Convex.',
-      meta: [
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        {
-          name: 'description',
-          content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
-        },
-        { name: 'apple-mobile-web-app-title', content: 'Better Convex Nuxt' },
-        {
-          name: 'google-site-verification',
-          content: 'mFA4hQqscVMdgB5EefYAjQxRZRBYMDJeJ7Rqbx76ewk',
-        },
-        { property: 'og:site_name', content: 'Better Convex Nuxt' },
-        { property: 'og:title', content: 'Real-time Nuxt apps with Convex.' },
-        {
-          property: 'og:description',
-          content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
-        },
-        { property: 'og:image', content: `${siteUrl}og-image.png` },
-        { property: 'og:url', content: siteUrl },
-        { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
-        {
-          name: 'twitter:description',
-          content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
-        },
-        { name: 'twitter:image', content: `${siteUrl}og-image.png` },
-      ],
-      link: [
-        { rel: 'icon', type: 'image/png', href: '/favicon-96x96.png', sizes: '96x96' },
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'shortcut icon', href: '/favicon.ico' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
-        { rel: 'manifest', href: '/site.webmanifest' },
-      ],
-    },
-  },
 
   nitro: {
     prerender: {
       routes: ['/'],
       crawlLinks: true,
-      autoSubfolderIndex: false,
-    },
+      autoSubfolderIndex: false
+    }
   },
 
   hooks: {
@@ -108,20 +108,20 @@ export default defineNuxtConfig({
 
       nitroConfig.prerender = nitroConfig.prerender || {}
       nitroConfig.prerender.routes = [...(nitroConfig.prerender.routes || []), ...rawRoutes]
-    },
+    }
   },
 
   eslint: {
     config: {
       stylistic: {
         commaDangle: 'never',
-        braceStyle: '1tbs',
-      },
-    },
+        braceStyle: '1tbs'
+      }
+    }
   },
 
   icon: {
-    provider: 'iconify',
+    provider: 'iconify'
   },
 
   llms: {
@@ -132,7 +132,7 @@ export default defineNuxtConfig({
     full: {
       title: 'Better Convex Nuxt - Full Documentation',
       description:
-        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.',
+        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.'
     },
     sections: [
       {
@@ -141,8 +141,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Data Fetching',
@@ -150,8 +150,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/2.data-fetching%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Mutations',
@@ -159,8 +159,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/3.mutations%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Authentication & Security',
@@ -168,8 +168,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Server-Side Rendering',
@@ -177,8 +177,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/5.server-side%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Advanced',
@@ -186,8 +186,8 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/6.advanced%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
       },
       {
         title: 'Deployment',
@@ -195,16 +195,16 @@ export default defineNuxtConfig({
         contentCollection: 'docs',
         contentFilters: [
           { field: 'path', operator: 'LIKE', value: '%/7.deployment%' },
-          { field: 'extension', operator: '=', value: 'md' },
-        ],
-      },
-    ],
+          { field: 'extension', operator: '=', value: 'md' }
+        ]
+      }
+    ]
   },
 
   mcp: {
-    name: 'better-convex-nuxt',
+    name: 'better-convex-nuxt'
   },
   sitemap: {
-    sources: ['/api/__sitemap__/urls'],
-  },
+    sources: ['/api/__sitemap__/urls']
+  }
 })

@@ -69,19 +69,22 @@ pnpm test:full
    - `SITE_URL` (must include `http://localhost:3000` for strict auth-loop E2E)
 3. Keep E2E manual/local (`pnpm test:e2e`), not part of CI gate.
 
-### Auth-loop bootstrap (strict fail-fast)
+Without `CONVEX_URL`, local Convex-backed suites skip immediately. Set
+`CONVEX_E2E_AUTO_START=true` to let the helper spawn `npx convex dev --local`
+for the current run after the local Convex project has been initialized. If the
+Convex CLI needs to ask what to configure, run the bootstrap commands below
+first; non-interactive test runs cannot answer CLI prompts.
+
+### Auth-loop bootstrap
 
 ```bash
-cd /Users/matthias/Git/libs/better-convex-nuxt/playground
+cd playground
 npx convex dev --local --once
 npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
 npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
-cd /Users/matthias/Git/libs/better-convex-nuxt
+cd ..
 pnpm test:e2e
 ```
-
-The auth-loop suite is intentionally strict: it does not soft-skip setup errors.
-If setup is incomplete, preflight checks fail immediately with actionable diagnostics.
 
 ## Regression workflow
 

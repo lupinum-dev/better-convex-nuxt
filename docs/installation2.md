@@ -170,7 +170,7 @@ In app.vue use useQuery to subscribe your api.tasks.get API function.
 app/app.vue
 
 <script setup lang="ts">
-import { api } from '~~/convex/_generated/api'
+import { api } from '#convex/api'
 
 const { data, status, error }= await useConvexQuery(api.tasks.list, { })
 </script>
@@ -204,8 +204,8 @@ package.json
 },
 "dependencies": {
 "convex": "^1.25.2",
-"convex-nuxt": "^0.1.3",
-"nuxt": "^3.17.6",
+"better-convex-nuxt": "^0.4.0",
+"nuxt": "^4.0.0",
 "vue": "^3.5.17",
 "vue-router": "^4.5.1"
 }
