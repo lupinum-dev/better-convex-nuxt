@@ -1,11 +1,11 @@
 import { useRuntimeConfig } from '#imports'
 
 import {
-  createExecuteDeleteProjectTool,
+  createPreviewCreateProjectTool,
   createProjectToolClient,
 } from '../../utils/mcpProjectTools'
 
-const executeDeleteProject = createExecuteDeleteProjectTool({
+const previewCreateProject = createPreviewCreateProjectTool({
   getClient: () => {
     const config = useRuntimeConfig()
     const convex = config.public.convex as { url?: string } | undefined
@@ -14,4 +14,4 @@ const executeDeleteProject = createExecuteDeleteProjectTool({
   getServerSecret: () => useRuntimeConfig().mcpServerSecret,
 })
 
-export default executeDeleteProject
+export default previewCreateProject

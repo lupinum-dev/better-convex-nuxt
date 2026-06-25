@@ -19,6 +19,15 @@ const convexRequests: ConvexRequest[] = []
 const proofToken = 'proof-token'
 const proofTokenHash = hashBearerSecret(proofToken)
 const proofServerSecret = 'mcp-agent-local-server-secret'
+const expectedToolNames = [
+  'approvals.get',
+  'projects.create',
+  'projects.create.preview',
+  'projects.delete.execute',
+  'projects.delete.preview',
+  'projects.delete.requestApproval',
+  'projects.list',
+]
 
 async function readRequestBody(request: IncomingMessage) {
   const chunks: Buffer[] = []
@@ -46,18 +55,65 @@ async function startFakeConvexServer() {
       args: body.args,
     })
 
-    const value =
-      request.url === '/api/query'
-        ? [
-            {
-              _id: 'project-1',
-              organizationId: 'org-1',
-              name: 'Launch',
-              createdBy: { kind: 'serviceActor', serviceActorId: 'actor-1' },
-              createdAt: 1,
-            },
-          ]
-        : 'project-2'
+    let value: unknown = 'project-2'
+    if (body.path === 'projects:listForServiceActor') {
+      value = [
+        {
+          _id: 'project-1',
+          organizationId: 'org-1',
+          name: 'Launch',
+          createdBy: { kind: 'serviceActor', serviceActorId: 'actor-1' },
+          status: 'active',
+          createdAt: 1,
+        },
+      ]
+    } else if (body.path === 'projects:previewCreateFromServiceActor') {
+      value = {
+        status: 'ready',
+        operation: 'projects.create',
+        requiresApproval: false,
+        normalizedInput: { name: 'Launch' },
+        nextActions: [{ tool: 'projects.create', arguments: { name: 'Launch' } }],
+      }
+    } else if (body.path === 'projects:previewDeleteFromServiceActor') {
+      value = {
+        status: 'ready',
+        operation: 'projects.delete',
+        requiresApproval: true,
+        resource: { id: 'project-1', label: 'Launch', organizationId: 'org-1' },
+        nextActions: [
+          { tool: 'projects.delete.requestApproval', arguments: { projectId: 'project-1' } },
+        ],
+      }
+    } else if (body.path === 'projects:requestDeleteApprovalFromServiceActor') {
+      value = {
+        status: 'waiting_for_approval',
+        approvalRequestId: 'approval-1',
+        message: 'Approval request created.',
+        nextActions: [{ tool: 'approvals.get', arguments: { approvalRequestId: 'approval-1' } }],
+      }
+    } else if (body.path === 'approvals:getForServiceActor') {
+      value = {
+        approvalRequestId: 'approval-1',
+        operation: 'projects.delete',
+        resourceId: 'project-1',
+        status: 'approved',
+        nextActions: [
+          {
+            tool: 'projects.delete.execute',
+            arguments: { projectId: 'project-1', approvalId: 'approval-1' },
+          },
+        ],
+      }
+    } else if (body.path === 'projects:deleteWithApproval') {
+      value = {
+        status: 'executed',
+        operation: 'projects.delete',
+        projectId: 'project-1',
+        approvalId: 'approval-1',
+        message: 'Soft-deleted project Launch.',
+      }
+    }
 
     response.writeHead(200, { 'content-type': 'application/json' })
     response.end(JSON.stringify({ status: 'success', value }))
@@ -181,11 +237,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     const tools = await client.listTools()
 
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-      'projects.create',
-      'projects.delete',
-      'projects.list',
-    ])
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(expectedToolNames)
     expect(tools.tools.find((tool) => tool.name === 'projects.list')?.inputSchema).toMatchObject({
       type: 'object',
       properties: {},
@@ -197,7 +249,9 @@ describe('Nuxt MCP Toolkit transport', async () => {
       },
       required: ['name'],
     })
-    expect(tools.tools.find((tool) => tool.name === 'projects.delete')?.inputSchema).toMatchObject({
+    expect(
+      tools.tools.find((tool) => tool.name === 'projects.delete.execute')?.inputSchema,
+    ).toMatchObject({
       type: 'object',
       properties: {
         approvalId: { minLength: 1, type: 'string' },
@@ -263,11 +317,39 @@ describe('Nuxt MCP Toolkit transport', async () => {
     })
   })
 
+  it('routes create preview through the toolkit handler into a Convex query', async () => {
+    client = await createClient()
+
+    const result = await client.callTool({
+      name: 'projects.create.preview',
+      arguments: { name: 'Launch' },
+    })
+    const serializedResult = JSON.stringify(result)
+
+    expect(result.isError).not.toBe(true)
+    expect(serializedResult).toContain('projects.create')
+    expect(serializedResult).toContain('requiresApproval')
+    expect(serializedResult).not.toContain(proofToken)
+    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(convexRequests).toHaveLength(1)
+    expect(convexRequests[0]).toMatchObject({
+      endpoint: '/api/query',
+      path: 'projects:previewCreateFromServiceActor',
+      args: [
+        {
+          bearerToken: proofToken,
+          name: 'Launch',
+          serverSecret: proofServerSecret,
+        },
+      ],
+    })
+  })
+
   it('routes approval-gated destructive tools/call through the toolkit handler into Convex HTTP', async () => {
     client = await createClient()
 
     const result = await client.callTool({
-      name: 'projects.delete',
+      name: 'projects.delete.execute',
       arguments: {
         projectId: 'project-1',
         approvalId: 'approval-1',
@@ -276,7 +358,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
     const serializedResult = JSON.stringify(result)
 
     expect(result.isError).not.toBe(true)
-    expect(serializedResult).toContain('Deleted project project-1')
+    expect(serializedResult).toContain('executed')
     expect(serializedResult).not.toContain(proofToken)
     expect(serializedResult).not.toContain(proofTokenHash)
     expect(serializedResult).not.toContain('credentialHash')
@@ -355,11 +437,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
     client = await createClient('')
 
     const tools = await client.listTools()
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-      'projects.create',
-      'projects.delete',
-      'projects.list',
-    ])
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(expectedToolNames)
 
     const result = await client.callTool({
       name: 'projects.list',
@@ -375,11 +453,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
     client = await createClient('', 'not-a-bearer')
 
     const tools = await client.listTools()
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-      'projects.create',
-      'projects.delete',
-      'projects.list',
-    ])
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(expectedToolNames)
 
     const result = await client.callTool({
       name: 'projects.list',
@@ -395,11 +469,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
     client = await createClient('', 'Bearer proof-token extra')
 
     const tools = await client.listTools()
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual([
-      'projects.create',
-      'projects.delete',
-      'projects.list',
-    ])
+    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(expectedToolNames)
 
     const result = await client.callTool({
       name: 'projects.list',

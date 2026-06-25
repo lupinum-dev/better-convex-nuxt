@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   convexTest,
   mcpServerSecret,
-  readRateLimitError,
   seedActor,
   seedHumanMember,
   serviceBearerToken,
@@ -14,7 +13,7 @@ import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
-describe('mcp-agent destructive approvals', () => {
+describe('mcp-agent destructive approval lifecycle', () => {
   let restoreMcpServerSecret: () => void
 
   beforeEach(() => {
@@ -25,9 +24,9 @@ describe('mcp-agent destructive approvals', () => {
     restoreMcpServerSecret()
   })
 
-  it('sensitive write requires approval', async () => {
+  async function createProjectForDelete() {
     const t = convexTest(schema, modules)
-    const { organizationId } = await seedActor(t, 'admin')
+    const { organizationId, serviceActorId, credentialId } = await seedActor(t, 'admin')
     const ownerId = await seedHumanMember(t, organizationId, 'owner', 'owner')
     const projectId = await t.mutation(api.projects.createFromServiceActor, {
       serverSecret: mcpServerSecret,
@@ -35,301 +34,341 @@ describe('mcp-agent destructive approvals', () => {
       name: 'Delete me',
     })
 
-    const approvalId = await t.run(async (ctx) => {
-      return await ctx.db.insert('approvals', {
+    return { t, organizationId, serviceActorId, credentialId, ownerId, projectId }
+  }
+
+  it('previews project deletion without mutating state', async () => {
+    const { t, projectId } = await createProjectForDelete()
+
+    const preview = await t.query(api.projects.previewDeleteFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+    })
+    const project = await t.run(async (ctx) => await ctx.db.get(projectId))
+
+    expect(preview).toMatchObject({
+      status: 'ready',
+      operation: 'projects.delete',
+      riskLevel: 'approval_required',
+      requiresApproval: true,
+      canRequestApproval: true,
+      canExecute: false,
+    })
+    expect(project).toMatchObject({ status: 'active' })
+  })
+
+  it('creates one pending approval request and reuses it for idempotent retries', async () => {
+    const { t, projectId } = await createProjectForDelete()
+
+    const first = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      reason: 'User asked in chat.',
+      requestKey: 'chat-request-1',
+    })
+    const second = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      reason: 'Retried after network failure.',
+      requestKey: 'chat-request-1',
+    })
+
+    expect(second.approvalRequestId).toBe(first.approvalRequestId)
+    const approvals = await t.run(async (ctx) => await ctx.db.query('approvals').collect())
+    expect(approvals).toHaveLength(1)
+    expect(approvals[0]).toMatchObject({
+      operation: 'projects.delete',
+      resourceId: projectId,
+      status: 'pending',
+      requestedReason: 'User asked in chat.',
+    })
+  })
+
+  it('does not create duplicate approvals when a request key is reused after rejection', async () => {
+    const { t, projectId } = await createProjectForDelete()
+    const first = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      requestKey: 'stable-request-key',
+    })
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.rejectProjectDelete, {
+      approvalRequestId: first.approvalRequestId,
+      reason: 'Rejected.',
+    })
+
+    const second = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      requestKey: 'stable-request-key',
+    })
+    const approvals = await t.run(async (ctx) => await ctx.db.query('approvals').collect())
+
+    expect(second).toMatchObject({
+      status: 'blocked',
+      reason: 'approval_rejected',
+      approvalRequestId: first.approvalRequestId,
+    })
+    expect(approvals).toHaveLength(1)
+  })
+
+  it('does not show expired pending approval requests as actionable app approvals', async () => {
+    const { t, organizationId, projectId } = await createProjectForDelete()
+    await t.run(async (ctx) => {
+      await ctx.db.insert('approvals', {
         organizationId,
         operation: 'projects.delete',
         resourceId: projectId,
-        status: 'used',
-        approvedBy: ownerId,
-        expiresAt: Date.now() + 60_000,
-        createdAt: Date.now(),
-        usedAt: Date.now(),
+        status: 'pending',
+        requestedReason: 'Expired pending request.',
+        expiresAt: Date.now() - 1,
+        createdAt: Date.now() - 60_000,
       })
     })
 
-    await expect(
-      t.mutation(api.projects.deleteWithApproval, {
-        serverSecret: mcpServerSecret,
-        bearerToken: serviceBearerToken,
-        projectId,
-        approvalId,
-      }),
-    ).rejects.toThrow('Approval required')
+    const pending = await t
+      .withIdentity({ subject: 'owner' })
+      .query(api.approvals.listPending, { organizationId })
 
-    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
-      projectId,
-    })
-
-    const approvedApproval = await t.run(async (ctx) => {
-      return await ctx.db
-        .query('approvals')
-        .withIndex('by_operation_resource', (q) =>
-          q.eq('operation', 'projects.delete').eq('resourceId', projectId),
-        )
-        .filter((q) => q.eq(q.field('status'), 'approved'))
-        .unique()
-    })
-    expect(approvedApproval).toMatchObject({
-      organizationId,
-      operation: 'projects.delete',
-      resourceId: projectId,
-      status: 'approved',
-    })
-    expect(approvedApproval?.approvedBy).toBeTruthy()
-
-    await t.mutation(api.projects.deleteWithApproval, {
-      serverSecret: mcpServerSecret,
-      bearerToken: serviceBearerToken,
-      projectId,
-      approvalId: approvedApproval!._id,
-    })
-
-    const deleted = await t.run(async (ctx) => await ctx.db.get(projectId))
-    expect(deleted).toBeNull()
+    expect(pending).toEqual([])
   })
 
-  it('only an active organization admin can approve destructive project actions', async () => {
-    const t = convexTest(schema, modules)
-    const { organizationId } = await seedActor(t, 'admin')
+  it('only active organization admins can approve or reject pending delete requests', async () => {
+    const { t, organizationId, ownerId, projectId } = await createProjectForDelete()
     await seedHumanMember(t, organizationId, 'member', 'member')
-    await seedHumanMember(t, organizationId, 'admin', 'admin')
-    const projectId = await t.mutation(api.projects.createFromServiceActor, {
+    const request = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
-      name: 'Delete me',
+      projectId,
     })
 
     await expect(
       t.withIdentity({ subject: 'member' }).mutation(api.approvals.approveProjectDelete, {
-        projectId,
+        approvalRequestId: request.approvalRequestId,
       }),
     ).rejects.toThrow('Insufficient organization role')
 
-    const approvalId = await t
-      .withIdentity({ subject: 'admin' })
-      .mutation(api.approvals.approveProjectDelete, {
-        projectId,
-      })
-    const approval = await t.run(async (ctx) => await ctx.db.get(approvalId))
-    expect(approval).toMatchObject({
-      organizationId,
-      operation: 'projects.delete',
-      resourceId: projectId,
-      status: 'approved',
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: request.approvalRequestId,
     })
+    const approval = await t.run(async (ctx) => await ctx.db.get(request.approvalRequestId))
+    expect(approval).toMatchObject({ status: 'approved' })
     expect(approval?.approvedBy).toBeTruthy()
-  })
-
-  it('does not let another organization admin approve destructive project actions', async () => {
-    const t = convexTest(schema, modules)
-    await seedActor(t, 'admin')
-    const projectId = await t.mutation(api.projects.createFromServiceActor, {
-      serverSecret: mcpServerSecret,
-      bearerToken: serviceBearerToken,
-      name: 'Delete me',
-    })
-    const otherOrganizationId = await t.run(async (ctx) => {
-      return await ctx.db.insert('organizations', {
-        name: 'Other',
-        createdAt: Date.now(),
-      })
-    })
-    await seedHumanMember(t, otherOrganizationId, 'other-admin', 'admin')
+    expect(approval?.approvedAt).toBeTypeOf('number')
 
     await expect(
-      t.withIdentity({ subject: 'other-admin' }).mutation(api.approvals.approveProjectDelete, {
-        projectId,
+      t.withIdentity({ subject: 'owner' }).mutation(api.approvals.rejectProjectDelete, {
+        approvalRequestId: request.approvalRequestId,
       }),
-    ).rejects.toThrow('Insufficient organization role')
-
-    const approvals = await t.run(async (ctx) => await ctx.db.query('approvals').collect())
-    expect(approvals).toHaveLength(0)
+    ).rejects.toThrow('Approval request is not pending')
   })
 
-  it('rate limits repeated destructive approvals per organization admin', async () => {
-    const t = convexTest(schema, modules)
-    const { organizationId, serviceActorId } = await seedActor(t, 'admin')
-    await seedHumanMember(t, organizationId, 'admin', 'admin')
-
-    const projectIds = await t.run(async (ctx) => {
-      const ids: Id<'projects'>[] = []
-      for (let index = 0; index < 11; index += 1) {
-        ids.push(
-          await ctx.db.insert('projects', {
-            organizationId,
-            name: `Approval ${index}`,
-            createdBy: { kind: 'serviceActor', serviceActorId },
-            createdAt: Date.now(),
-          }),
-        )
-      }
-      return ids
+  it('reports approval status to the same service actor organization', async () => {
+    const { t, projectId } = await createProjectForDelete()
+    const request = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
     })
 
-    for (const projectId of projectIds.slice(0, 10)) {
-      await t.withIdentity({ subject: 'admin' }).mutation(api.approvals.approveProjectDelete, {
+    const pending = await t.query(api.approvals.getForServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      approvalRequestId: request.approvalRequestId,
+    })
+    expect(pending).toMatchObject({
+      approvalRequestId: request.approvalRequestId,
+      status: 'pending',
+      resourceId: projectId,
+    })
+
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: request.approvalRequestId,
+    })
+    const approved = await t.query(api.approvals.getForServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      approvalRequestId: request.approvalRequestId,
+    })
+    expect(approved).toMatchObject({ status: 'approved' })
+    expect(approved.nextActions[0]).toMatchObject({
+      tool: 'projects.delete.execute',
+    })
+  })
+
+  it('rejects rejected, expired, reused, and mismatched approvals at execute time', async () => {
+    const { t, organizationId, ownerId, projectId } = await createProjectForDelete()
+    const rejected = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      requestKey: 'rejected',
+    })
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.rejectProjectDelete, {
+      approvalRequestId: rejected.approvalRequestId,
+      reason: 'No longer needed.',
+    })
+
+    await expect(
+      t.mutation(api.projects.deleteWithApproval, {
+        serverSecret: mcpServerSecret,
+        bearerToken: serviceBearerToken,
         projectId,
-      })
-    }
+        approvalId: rejected.approvalRequestId,
+      }),
+    ).rejects.toThrow('Approval required')
 
-    let error: unknown
-    try {
-      await t.withIdentity({ subject: 'admin' }).mutation(api.approvals.approveProjectDelete, {
-        projectId: projectIds[10]!,
-      })
-    } catch (caught) {
-      error = caught
-    }
-
-    expect(readRateLimitError(error)).toMatchObject({
-      kind: 'RateLimited',
-      name: 'humanProjectDeleteApproval',
-    })
-  })
-
-  it('rejects expired and reused destructive approvals', async () => {
-    const t = convexTest(schema, modules)
-    const { organizationId } = await seedActor(t, 'admin')
-    const ownerId = await seedHumanMember(t, organizationId, 'owner', 'owner')
-    const expiredProjectId = await t.mutation(api.projects.createFromServiceActor, {
-      serverSecret: mcpServerSecret,
-      bearerToken: serviceBearerToken,
-      name: 'Expired',
-    })
-    const reusedProjectId = await t.mutation(api.projects.createFromServiceActor, {
-      serverSecret: mcpServerSecret,
-      bearerToken: serviceBearerToken,
-      name: 'Reused',
-    })
     const expiredApprovalId = await t.run(async (ctx) => {
       return await ctx.db.insert('approvals', {
         organizationId,
         operation: 'projects.delete',
-        resourceId: expiredProjectId,
+        resourceId: projectId,
         status: 'approved',
+        requestedReason: 'Expired.',
         approvedBy: ownerId,
+        approvedAt: Date.now() - 10_000,
         expiresAt: Date.now() - 1,
-        createdAt: Date.now(),
+        createdAt: Date.now() - 20_000,
       })
     })
-    const reusedApprovalId = await t
-      .withIdentity({ subject: 'owner' })
-      .mutation(api.approvals.approveProjectDelete, {
-        projectId: reusedProjectId,
-      })
-
     await expect(
       t.mutation(api.projects.deleteWithApproval, {
         serverSecret: mcpServerSecret,
         bearerToken: serviceBearerToken,
-        projectId: expiredProjectId,
+        projectId,
         approvalId: expiredApprovalId,
       }),
     ).rejects.toThrow('Approval required')
 
-    await t.mutation(api.projects.deleteWithApproval, {
+    const approved = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
-      projectId: reusedProjectId,
-      approvalId: reusedApprovalId,
+      projectId,
+      requestKey: 'approved',
     })
-    const nextProjectId = await t.mutation(api.projects.createFromServiceActor, {
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: approved.approvalRequestId,
+    })
+    const otherProjectId = await t.mutation(api.projects.createFromServiceActor, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
-      name: 'Next',
+      name: 'Other project',
     })
     await expect(
       t.mutation(api.projects.deleteWithApproval, {
         serverSecret: mcpServerSecret,
         bearerToken: serviceBearerToken,
-        projectId: nextProjectId,
-        approvalId: reusedApprovalId,
+        projectId: otherProjectId,
+        approvalId: approved.approvalRequestId,
       }),
     ).rejects.toThrow('Approval required')
-  })
-
-  it('rejects cross-organization destructive approvals and records delete audit details', async () => {
-    const t = convexTest(schema, modules)
-    const { organizationId, serviceActorId } = await seedActor(t, 'admin')
-    const ownerId = await seedHumanMember(t, organizationId, 'owner', 'owner')
-    const projectId = await t.mutation(api.projects.createFromServiceActor, {
-      serverSecret: mcpServerSecret,
-      bearerToken: serviceBearerToken,
-      name: 'Delete with audit',
-    })
-    const { foreignApprovalId, foreignProjectId } = await t.run(async (ctx) => {
-      const foreignOrganizationId = await ctx.db.insert('organizations', {
-        name: 'Foreign',
-        createdAt: Date.now(),
-      })
-      const foreignServiceActorId = await ctx.db.insert('serviceActors', {
-        organizationId: foreignOrganizationId,
-        name: 'Foreign MCP',
-        role: 'admin',
-        status: 'active',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      })
-      const foreignProjectId = await ctx.db.insert('projects', {
-        organizationId: foreignOrganizationId,
-        name: 'Foreign Project',
-        createdBy: { kind: 'serviceActor', serviceActorId: foreignServiceActorId },
-        createdAt: Date.now(),
-      })
-      const foreignApprovalId = await ctx.db.insert('approvals', {
-        organizationId: foreignOrganizationId,
-        operation: 'projects.delete',
-        resourceId: projectId,
-        status: 'approved',
-        approvedBy: ownerId,
-        expiresAt: Date.now() + 60_000,
-        createdAt: Date.now(),
-      })
-      return { foreignApprovalId, foreignProjectId }
-    })
-
-    await expect(
-      t.mutation(api.projects.deleteWithApproval, {
-        serverSecret: mcpServerSecret,
-        bearerToken: serviceBearerToken,
-        projectId,
-        approvalId: foreignApprovalId,
-      }),
-    ).rejects.toThrow('Approval required')
-
-    const approvalId = await t
-      .withIdentity({ subject: 'owner' })
-      .mutation(api.approvals.approveProjectDelete, {
-        projectId,
-      })
-    await expect(
-      t.mutation(api.projects.deleteWithApproval, {
-        serverSecret: mcpServerSecret,
-        bearerToken: serviceBearerToken,
-        projectId: foreignProjectId,
-        approvalId,
-      }),
-    ).rejects.toThrow('Project not found')
 
     await t.mutation(api.projects.deleteWithApproval, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
       projectId,
-      approvalId,
+      approvalId: approved.approvalRequestId,
+    })
+    await expect(
+      t.mutation(api.projects.deleteWithApproval, {
+        serverSecret: mcpServerSecret,
+        bearerToken: serviceBearerToken,
+        projectId,
+        approvalId: approved.approvalRequestId,
+      }),
+    ).rejects.toThrow('Project not found')
+  })
+
+  it('re-checks service actor role and credential status after approval', async () => {
+    const { t, serviceActorId, credentialId, projectId } = await createProjectForDelete()
+    const roleDowngradeRequest = await t.mutation(
+      api.projects.requestDeleteApprovalFromServiceActor,
+      {
+        serverSecret: mcpServerSecret,
+        bearerToken: serviceBearerToken,
+        projectId,
+        requestKey: 'role-downgrade',
+      },
+    )
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: roleDowngradeRequest.approvalRequestId,
+    })
+    await t.run(async (ctx) => {
+      await ctx.db.patch(serviceActorId, { role: 'viewer' })
     })
 
-    const { auditEvents, usedApproval } = await t.run(async (ctx) => {
-      return {
-        auditEvents: await ctx.db
-          .query('auditEvents')
-          .withIndex('by_org_created', (q) => q.eq('organizationId', organizationId))
-          .collect(),
-        usedApproval: await ctx.db.get(approvalId),
-      }
+    await expect(
+      t.mutation(api.projects.deleteWithApproval, {
+        serverSecret: mcpServerSecret,
+        bearerToken: serviceBearerToken,
+        projectId,
+        approvalId: roleDowngradeRequest.approvalRequestId,
+      }),
+    ).rejects.toThrow('Insufficient service actor role')
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(serviceActorId, { role: 'admin' })
+      await ctx.db.patch(credentialId, { status: 'revoked', revokedAt: Date.now() })
     })
-    expect(usedApproval).toMatchObject({ status: 'used' })
-    expect(usedApproval?.usedAt).toBeTypeOf('number')
+
+    await expect(
+      t.mutation(api.projects.deleteWithApproval, {
+        serverSecret: mcpServerSecret,
+        bearerToken: serviceBearerToken,
+        projectId,
+        approvalId: roleDowngradeRequest.approvalRequestId,
+      }),
+    ).rejects.toThrow('Service actor credential denied')
+  })
+
+  it('soft-deletes approved projects, hides them from lists, and records audit details', async () => {
+    const { t, organizationId, serviceActorId, projectId } = await createProjectForDelete()
+    const request = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+    })
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: request.approvalRequestId,
+    })
+
+    const result = await t.mutation(api.projects.deleteWithApproval, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      approvalId: request.approvalRequestId,
+    })
+
+    expect(result).toMatchObject({
+      status: 'executed',
+      operation: 'projects.delete',
+      projectId,
+      approvalId: request.approvalRequestId,
+    })
+    const visibleProjects = await t.query(api.projects.listForServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+    })
+    const { project, approval, auditEvents } = await t.run(async (ctx) => ({
+      project: await ctx.db.get(projectId),
+      approval: await ctx.db.get(request.approvalRequestId),
+      auditEvents: await ctx.db
+        .query('auditEvents')
+        .withIndex('by_org_created', (q) => q.eq('organizationId', organizationId))
+        .collect(),
+    }))
+
+    expect(visibleProjects.some((project) => project._id === projectId)).toBe(false)
+    expect(project).toMatchObject({
+      status: 'deleted',
+      deletedBy: serviceActorId,
+    })
+    expect(project?.deletedAt).toBeTypeOf('number')
+    expect(approval).toMatchObject({ status: 'used' })
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         organizationId,

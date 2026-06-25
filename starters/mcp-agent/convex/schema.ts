@@ -15,6 +15,12 @@ export const serviceActorRoleValidator = v.union(
 )
 
 export const approvalOperationValidator = v.literal('projects.delete')
+export const approvalStatusValidator = v.union(
+  v.literal('pending'),
+  v.literal('approved'),
+  v.literal('rejected'),
+  v.literal('used'),
+)
 export const serviceAuditActionValidator = v.union(
   v.literal('projects.create'),
   v.literal('projects.delete'),
@@ -82,6 +88,9 @@ export default defineSchema({
     organizationId: v.id('organizations'),
     name: v.string(),
     createdBy: projectCreatorValidator,
+    status: v.optional(v.union(v.literal('active'), v.literal('deleted'))),
+    deletedAt: v.optional(v.number()),
+    deletedBy: v.optional(v.id('serviceActors')),
     createdAt: v.number(),
   }).index('by_org', ['organizationId']),
 
@@ -89,12 +98,36 @@ export default defineSchema({
     organizationId: v.id('organizations'),
     operation: approvalOperationValidator,
     resourceId: v.string(),
-    status: v.union(v.literal('approved'), v.literal('used')),
-    approvedBy: v.id('users'),
+    status: approvalStatusValidator,
+    requestedBy: v.optional(v.id('serviceActors')),
+    requestedReason: v.optional(v.string()),
+    requestKey: v.optional(v.string()),
+    preview: v.optional(
+      v.object({
+        resourceLabel: v.string(),
+        effects: v.array(
+          v.object({
+            type: v.union(v.literal('update'), v.literal('audit')),
+            table: v.union(v.literal('projects'), v.literal('auditEvents')),
+            id: v.optional(v.string()),
+            label: v.optional(v.string()),
+            action: v.optional(v.string()),
+          }),
+        ),
+      }),
+    ),
+    approvedBy: v.optional(v.id('users')),
+    approvedAt: v.optional(v.number()),
+    rejectedBy: v.optional(v.id('users')),
+    rejectedAt: v.optional(v.number()),
+    rejectionReason: v.optional(v.string()),
     expiresAt: v.number(),
     createdAt: v.number(),
     usedAt: v.optional(v.number()),
-  }).index('by_operation_resource', ['operation', 'resourceId']),
+  })
+    .index('by_operation_resource', ['operation', 'resourceId'])
+    .index('by_org_status', ['organizationId', 'status'])
+    .index('by_request_key', ['organizationId', 'operation', 'resourceId', 'requestKey']),
 
   auditEvents: defineTable({
     organizationId: v.id('organizations'),

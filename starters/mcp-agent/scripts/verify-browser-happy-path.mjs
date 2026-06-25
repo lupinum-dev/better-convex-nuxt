@@ -4,9 +4,11 @@ import net from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 import { stripVTControlCharacters } from 'node:util'
 
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { chromium } from 'playwright'
 
-const rootUrl = process.env.STARTER_BROWSER_URL ?? 'http://localhost:3000'
+const rootUrl = process.env.STARTER_BROWSER_URL ?? 'http://127.0.0.1:3000'
 const convexCloudPort = Number(process.env.STARTER_CONVEX_CLOUD_PORT ?? 3210)
 const convexSitePort = Number(process.env.STARTER_CONVEX_SITE_PORT ?? 3211)
 const nuxtPort = Number(new URL(rootUrl).port || 80)
@@ -227,12 +229,73 @@ async function expectTestIdHidden(page, testId) {
   }
 }
 
+async function callMcpTool(bearerToken, name, args) {
+  const client = new Client({
+    name: 'mcp-agent-browser-verifier',
+    version: '0.1.0',
+  })
+
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL('/mcp', rootUrl), {
+        requestInit: {
+          headers: {
+            authorization: `Bearer ${bearerToken}`,
+          },
+        },
+      }),
+    )
+
+    const result = await client.callTool({
+      name,
+      arguments: args,
+    })
+    const content = Array.isArray(result.content) ? result.content : []
+    const text = content
+      .filter((item) => item && typeof item === 'object' && item.type === 'text')
+      .map((item) => item.text)
+    if (result.isError) {
+      throw new Error(text[0] ?? `${name} failed`)
+    }
+
+    return text
+  } finally {
+    await client.close()
+  }
+}
+
+function parseMcpJson(text, toolName) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error(`${toolName} returned non-JSON content: ${text}`)
+  }
+}
+
 function redactDebugValue(testId, value) {
   if (value === undefined) return undefined
   if (/(password|secret|token|bearer|credential|hash|server)/i.test(testId ?? '')) {
     return '[redacted]'
   }
   return value
+}
+
+function isAllowedAuthToken401Console(message, allowAuthToken401) {
+  if (!allowAuthToken401) return false
+  if (
+    !message.text().includes('Failed to load resource: the server responded with a status of 401')
+  ) {
+    return false
+  }
+
+  const locationUrl = message.location().url
+  if (!locationUrl) return false
+
+  try {
+    return new URL(locationUrl).pathname === '/api/auth/convex/token'
+  } catch {
+    return false
+  }
 }
 
 async function readPageDebug(page, failures) {
@@ -269,19 +332,12 @@ async function runBrowserHappyPath() {
   const page = await context.newPage()
   const failures = []
   let allowAuthToken401 = true
-  let allowedAuthToken401ConsoleCount = 0
 
   page.on('pageerror', (error) => {
     failures.push(`page error: ${error.message}`)
   })
   page.on('console', (message) => {
-    if (
-      allowedAuthToken401ConsoleCount > 0 &&
-      message.text().includes('Failed to load resource: the server responded with a status of 401')
-    ) {
-      allowedAuthToken401ConsoleCount -= 1
-      return
-    }
+    if (isAllowedAuthToken401Console(message, allowAuthToken401)) return
     if (['error', 'warning'].includes(message.type())) {
       failures.push(`console ${message.type()}: ${message.text()}`)
     }
@@ -292,7 +348,6 @@ async function runBrowserHappyPath() {
       new URL(response.url()).pathname === '/api/auth/convex/token' &&
       allowAuthToken401
     ) {
-      allowedAuthToken401ConsoleCount += 1
       return
     }
     if (response.status() >= 400) {
@@ -357,6 +412,7 @@ async function runBrowserHappyPath() {
     await waitForText(page, 'Service actor name is required')
 
     await fillTestId(page, 'service-actor-name', serviceActorName)
+    await page.getByTestId('service-actor-role').selectOption('admin')
     await clickTestId(page, 'create-service-actor', 'Create service actor button')
     await waitForText(page, 'Service actor credential created')
     await page.getByTestId('action-error').waitFor({ state: 'detached', timeout: 20_000 })
@@ -377,6 +433,66 @@ async function runBrowserHappyPath() {
     await page.getByTestId('action-error').waitFor({ state: 'detached', timeout: 20_000 })
     await waitForText(page, mcpProjectName)
     await waitForText(page, 'service actor')
+
+    const listedProjectsText = await callMcpTool(secret, 'projects.list', {})
+    const listedProjects = parseMcpJson(listedProjectsText[0] ?? '[]', 'projects.list')
+    const mcpProject = listedProjects.find((project) => project.name === mcpProjectName)
+    if (!mcpProject?.id) {
+      throw new Error('MCP-created project was not returned by projects.list')
+    }
+
+    const previewText = await callMcpTool(secret, 'projects.delete.preview', {
+      projectId: mcpProject.id,
+    })
+    const preview = parseMcpJson(previewText[0] ?? '{}', 'projects.delete.preview')
+    if (preview.status !== 'ready' || preview.requiresApproval !== true) {
+      throw new Error('projects.delete.preview did not require approval')
+    }
+
+    const approvalRequestText = await callMcpTool(secret, 'projects.delete.requestApproval', {
+      projectId: mcpProject.id,
+      reason: 'Browser verifier requested project deletion through MCP.',
+      requestKey: `browser-${stamp}-delete-${mcpProject.id}`,
+    })
+    const approvalRequest = parseMcpJson(
+      approvalRequestText[0] ?? '{}',
+      'projects.delete.requestApproval',
+    )
+    if (approvalRequest.status !== 'waiting_for_approval' || !approvalRequest.approvalRequestId) {
+      throw new Error('projects.delete.requestApproval did not create a pending approval')
+    }
+
+    await waitForText(page, 'Pending approvals')
+    await waitForText(page, mcpProjectName)
+    await clickTestId(
+      page,
+      `approve-approval-${approvalRequest.approvalRequestId}`,
+      'Approve MCP delete request button',
+    )
+    await waitForText(page, 'Approval granted')
+
+    const approvalStatusText = await callMcpTool(secret, 'approvals.get', {
+      approvalRequestId: approvalRequest.approvalRequestId,
+    })
+    const approvalStatus = parseMcpJson(approvalStatusText[0] ?? '{}', 'approvals.get')
+    if (approvalStatus.status !== 'approved') {
+      throw new Error('approvals.get did not report approved status')
+    }
+
+    const deleteText = await callMcpTool(secret, 'projects.delete.execute', {
+      projectId: mcpProject.id,
+      approvalId: approvalRequest.approvalRequestId,
+    })
+    const deleteResult = parseMcpJson(deleteText[0] ?? '{}', 'projects.delete.execute')
+    if (deleteResult.status !== 'executed') {
+      throw new Error('projects.delete.execute did not execute after approval')
+    }
+    await waitForText(page, 'No pending approvals')
+    await page.waitForFunction(
+      (deletedProjectName) => !document.body.innerText.includes(deletedProjectName),
+      mcpProjectName,
+      { timeout: 30_000 },
+    )
 
     await clickTestId(page, 'sign-out', 'Sign out button')
     allowAuthToken401 = true

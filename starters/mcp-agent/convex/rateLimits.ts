@@ -21,6 +21,12 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     period: HOUR,
     capacity: 3,
   },
+  serviceActorProjectDeleteApproval: {
+    kind: 'token bucket',
+    rate: 10,
+    period: HOUR,
+    capacity: 10,
+  },
   humanServiceActorCreate: {
     kind: 'token bucket',
     rate: 5,

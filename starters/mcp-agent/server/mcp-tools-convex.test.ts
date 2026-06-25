@@ -6,8 +6,12 @@ import schema from '../convex/schema'
 import { initConvexTest, modules } from '../convex/test.setup'
 import {
   createCreateProjectTool,
-  createDeleteProjectTool,
+  createExecuteDeleteProjectTool,
+  createGetApprovalTool,
   createListProjectsTool,
+  createPreviewCreateProjectTool,
+  createPreviewDeleteProjectTool,
+  createRequestDeleteProjectApprovalTool,
   hashBearerSecret,
 } from './utils/mcpProjectTools'
 
@@ -54,8 +58,12 @@ function createTools(t: TestConvex) {
   }
   return {
     listProjects: createListProjectsTool(args),
+    previewCreateProject: createPreviewCreateProjectTool(args),
     createProject: createCreateProjectTool(args),
-    deleteProject: createDeleteProjectTool(args),
+    previewDeleteProject: createPreviewDeleteProjectTool(args),
+    requestDeleteProjectApproval: createRequestDeleteProjectApprovalTool(args),
+    executeDeleteProject: createExecuteDeleteProjectTool(args),
+    getApproval: createGetApprovalTool(args),
   }
 }
 
@@ -108,6 +116,23 @@ describe('MCP project tool adapters with Convex functions', () => {
     })
     expect(projects).toHaveLength(1)
     expect(projects[0]?.name).toBe('Launch')
+  })
+
+  it('previews project creation without writing through Convex', async () => {
+    const t = convexTest(schema, modules)
+    await seedServiceActor(t, 'member')
+    const { previewCreateProject } = createTools(t)
+
+    const result = await previewCreateProject.handler({ name: '  Launch  ' }, mcpExtra())
+    const projects = await t.query(api.projects.listForServiceActor, {
+      serverSecret: proofServerSecret,
+      bearerToken: 'proof-token',
+    })
+
+    expect(result.content[0]?.text).toContain('"operation": "projects.create"')
+    expect(result.content[0]?.text).toContain('"requiresApproval": false')
+    expect(result.content[0]?.text).toContain('"name": "Launch"')
+    expect(projects).toEqual([])
   })
 
   it('does not let MCP tool input create overlong project names', async () => {
@@ -174,10 +199,46 @@ describe('MCP project tool adapters with Convex functions', () => {
     expect(credentialProjects.map((project) => project.organizationId)).toEqual([organizationId])
   })
 
+  it('previews, requests, and reads project delete approvals through Convex', async () => {
+    const t = convexTest(schema, modules)
+    const { organizationId, serviceActorId } = await seedServiceActor(t, 'admin')
+    const { previewDeleteProject, requestDeleteProjectApproval, getApproval } = createTools(t)
+    const projectId = await t.run(async (ctx) => {
+      return await ctx.db.insert('projects', {
+        organizationId,
+        name: 'Preview Me',
+        createdBy: { kind: 'serviceActor', serviceActorId },
+        status: 'active',
+        createdAt: Date.now(),
+      })
+    })
+
+    const preview = await previewDeleteProject.handler({ projectId }, mcpExtra())
+    expect(preview.content[0]?.text).toContain('"requiresApproval": true')
+    expect(preview.content[0]?.text).toContain('projects.delete.requestApproval')
+
+    const request = await requestDeleteProjectApproval.handler(
+      {
+        projectId,
+        reason: 'User asked through MCP.',
+        requestKey: 'adapter-request-1',
+      },
+      mcpExtra(),
+    )
+    const parsedRequest = JSON.parse(request.content[0]!.text) as { approvalRequestId: string }
+    expect(request.content[0]?.text).toContain('"status": "waiting_for_approval"')
+
+    const approval = await getApproval.handler(
+      { approvalRequestId: parsedRequest.approvalRequestId },
+      mcpExtra(),
+    )
+    expect(approval.content[0]?.text).toContain('"status": "pending"')
+  })
+
   it('deletes projects only through the approved Convex destructive path', async () => {
     const t = convexTest(schema, modules)
     const { organizationId, serviceActorId } = await seedServiceActor(t, 'admin')
-    const { deleteProject } = createTools(t)
+    const { executeDeleteProject } = createTools(t)
     const { projectId, approvalId } = await t.run(async (ctx) => {
       const approvedBy = await ctx.db.insert('users', {
         subject: 'owner-subject',
@@ -190,6 +251,7 @@ describe('MCP project tool adapters with Convex functions', () => {
         organizationId,
         name: 'Delete Me',
         createdBy: { kind: 'serviceActor', serviceActorId },
+        status: 'active',
         createdAt: Date.now(),
       })
       const approvalId = await ctx.db.insert('approvals', {
@@ -204,7 +266,7 @@ describe('MCP project tool adapters with Convex functions', () => {
       return { projectId, approvalId }
     })
 
-    const result = await deleteProject.handler(
+    const result = await executeDeleteProject.handler(
       {
         projectId,
         approvalId,
@@ -212,18 +274,18 @@ describe('MCP project tool adapters with Convex functions', () => {
       mcpExtra(),
     )
 
-    expect(result.content[0]?.text).toContain(`Deleted project ${projectId}`)
+    expect(result.content[0]?.text).toContain('"status": "executed"')
 
     const deletedProject = await t.run(async (ctx) => await ctx.db.get(projectId as Id<'projects'>))
     const usedApproval = await t.run(async (ctx) => await ctx.db.get(approvalId as Id<'approvals'>))
-    expect(deletedProject).toBeNull()
+    expect(deletedProject).toMatchObject({ status: 'deleted' })
     expect(usedApproval).toMatchObject({ status: 'used' })
   })
 
   it('does not bypass approval checks for destructive MCP tools', async () => {
     const t = convexTest(schema, modules)
     const { organizationId, serviceActorId } = await seedServiceActor(t, 'admin')
-    const { deleteProject } = createTools(t)
+    const { executeDeleteProject } = createTools(t)
     const { projectId, mismatchedApprovalId } = await t.run(async (ctx) => {
       const approvedBy = await ctx.db.insert('users', {
         subject: 'admin-subject',
@@ -236,12 +298,14 @@ describe('MCP project tool adapters with Convex functions', () => {
         organizationId,
         name: 'Still Here',
         createdBy: { kind: 'serviceActor', serviceActorId },
+        status: 'active',
         createdAt: Date.now(),
       })
       const otherProjectId = await ctx.db.insert('projects', {
         organizationId,
         name: 'Other Project',
         createdBy: { kind: 'serviceActor', serviceActorId },
+        status: 'active',
         createdAt: Date.now(),
       })
       const mismatchedApprovalId = await ctx.db.insert('approvals', {
@@ -257,7 +321,7 @@ describe('MCP project tool adapters with Convex functions', () => {
     })
 
     await expect(
-      deleteProject.handler(
+      executeDeleteProject.handler(
         {
           projectId,
           approvalId: mismatchedApprovalId,
@@ -269,10 +333,10 @@ describe('MCP project tool adapters with Convex functions', () => {
 
   it('rejects destructive MCP calls without an approval id before Convex execution', async () => {
     const t = convexTest(schema, modules)
-    const { deleteProject } = createTools(t)
+    const { executeDeleteProject } = createTools(t)
 
     await expect(
-      deleteProject.handler(
+      executeDeleteProject.handler(
         {
           projectId: 'project-1',
         },

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AuthSection from '../components/demo/AuthSection.vue'
+import PendingApprovalsSection from '../components/demo/PendingApprovalsSection.vue'
 import ResultsSection from '../components/demo/ResultsSection.vue'
 import WorkspaceActionsSection from '../components/demo/WorkspaceActionsSection.vue'
 
@@ -109,6 +110,13 @@ const workspaceState = reactive(workspace)
       <ResultsSection
         :projects="workspaceState.projectEntries"
         :service-actors="workspaceState.serviceActorEntries"
+      />
+
+      <PendingApprovalsSection
+        :approvals="workspaceState.approvalEntries"
+        :action-busy="workspaceState.actionBusy"
+        @approve="workspaceState.approveApproval"
+        @reject="workspaceState.rejectApproval"
       />
     </section>
   </main>
@@ -417,6 +425,12 @@ const workspaceState = reactive(workspace)
   color: #71717a;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.page-shell .inline-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
 .page-shell .empty-state {

@@ -354,20 +354,30 @@ async function waitForDevServerVerificationLink(email, timeoutMs = 20_000) {
   throw new Error(`Verification link for ${email} was not logged within ${timeoutMs}ms`)
 }
 
-function trackPageFailures(page, failures, label, options = {}) {
-  let allowedAuthToken401ConsoleCount = 0
+function isAllowedAuthToken401Console(message, allowAuthToken401) {
+  if (!allowAuthToken401) return false
+  if (
+    !message.text().includes('Failed to load resource: the server responded with a status of 401')
+  ) {
+    return false
+  }
 
+  const locationUrl = message.location().url
+  if (!locationUrl) return false
+
+  try {
+    return new URL(locationUrl).pathname === '/api/auth/convex/token'
+  } catch {
+    return false
+  }
+}
+
+function trackPageFailures(page, failures, label, options = {}) {
   page.on('pageerror', (error) => {
     failures.push(`${label} page error: ${error.message}`)
   })
   page.on('console', (message) => {
-    if (
-      allowedAuthToken401ConsoleCount > 0 &&
-      message.text().includes('Failed to load resource: the server responded with a status of 401')
-    ) {
-      allowedAuthToken401ConsoleCount -= 1
-      return
-    }
+    if (isAllowedAuthToken401Console(message, options.allowAuthToken401)) return
     if (['error', 'warning'].includes(message.type())) {
       failures.push(`${label} console ${message.type()}: ${message.text()}`)
     }
@@ -378,7 +388,6 @@ function trackPageFailures(page, failures, label, options = {}) {
       new URL(response.url()).pathname === '/api/auth/convex/token' &&
       options.allowAuthToken401
     ) {
-      allowedAuthToken401ConsoleCount += 1
       return
     }
     if (response.status() >= 400) {
@@ -566,19 +575,12 @@ async function runBrowserHappyPath() {
   const page = await context.newPage()
   const failures = []
   let allowAuthToken401 = true
-  let allowedAuthToken401ConsoleCount = 0
 
   page.on('pageerror', (error) => {
     failures.push(`page error: ${error.message}`)
   })
   page.on('console', (message) => {
-    if (
-      allowedAuthToken401ConsoleCount > 0 &&
-      message.text().includes('Failed to load resource: the server responded with a status of 401')
-    ) {
-      allowedAuthToken401ConsoleCount -= 1
-      return
-    }
+    if (isAllowedAuthToken401Console(message, allowAuthToken401)) return
     if (['error', 'warning'].includes(message.type())) {
       failures.push(`console ${message.type()}: ${message.text()}`)
     }
@@ -589,7 +591,6 @@ async function runBrowserHappyPath() {
       new URL(response.url()).pathname === '/api/auth/convex/token' &&
       allowAuthToken401
     ) {
-      allowedAuthToken401ConsoleCount += 1
       return
     }
     if (response.status() >= 400) {

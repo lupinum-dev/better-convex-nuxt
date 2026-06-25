@@ -46,15 +46,19 @@ export async function useMcpDemoWorkspace() {
     api.serviceActors.listForOrganization,
     selectedOrganizationArgs,
   )
+  const approvalsQuery = useConvexQuery(api.approvals.listPending, selectedOrganizationArgs)
 
   const upsertCurrent = useConvexMutation(api.users.upsertCurrent)
   const createOrganization = useConvexMutation(api.organizations.create)
   const createProject = useConvexMutation(api.projects.createForCurrentUser)
   const createServiceActor = useConvexMutation(api.serviceActors.create)
+  const approveProjectDelete = useConvexMutation(api.approvals.approveProjectDelete)
+  const rejectProjectDelete = useConvexMutation(api.approvals.rejectProjectDelete)
 
   const { data: organizations, refresh: refreshOrganizations } = await organizationsQuery
   const { data: projects, refresh: refreshProjects } = await projectsQuery
   const { data: serviceActors, refresh: refreshServiceActors } = await serviceActorsQuery
+  const { data: approvals, refresh: refreshApprovals } = await approvalsQuery
 
   const selectedOrganization = computed(() =>
     organizations.value?.find((organization) => organization.id === selectedOrganizationId.value),
@@ -82,6 +86,20 @@ export async function useMcpDemoWorkspace() {
       summary: `${actor.role} · ${actor.status}`,
     })),
   )
+  const approvalEntries = computed(() =>
+    (approvals.value ?? []).map((approval) => ({
+      id: approval.id,
+      operation: approval.operation,
+      resourceId: approval.resourceId,
+      status: approval.status,
+      requestedReason: approval.requestedReason,
+      resourceLabel: approval.preview?.resourceLabel ?? approval.resourceId,
+      expiresAtLabel: new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(approval.expiresAt),
+    })),
+  )
 
   watch(
     organizations,
@@ -107,7 +125,7 @@ export async function useMcpDemoWorkspace() {
     if (!organizationId || !appUserReady.value) return
 
     await nextTick()
-    await Promise.all([refreshProjects(), refreshServiceActors()])
+    await Promise.all([refreshProjects(), refreshServiceActors(), refreshApprovals()])
   })
 
   function resetWorkspace() {
@@ -243,7 +261,27 @@ export async function useMcpDemoWorkspace() {
       })) as { content: string[] }
 
       await refreshProjects()
+      await refreshApprovals()
       setActionResult(response.content[0] ?? 'MCP project created')
+    })
+  }
+
+  async function approveApproval(approvalRequestId: string) {
+    await runAction(async () => {
+      await approveProjectDelete({ approvalRequestId: approvalRequestId as Id<'approvals'> })
+      await refreshApprovals()
+      setActionResult('Approval granted')
+    })
+  }
+
+  async function rejectApproval(approvalRequestId: string) {
+    await runAction(async () => {
+      await rejectProjectDelete({
+        approvalRequestId: approvalRequestId as Id<'approvals'>,
+        reason: 'Rejected in the MCP starter demo.',
+      })
+      await refreshApprovals()
+      setActionResult('Approval rejected')
     })
   }
 
@@ -265,11 +303,14 @@ export async function useMcpDemoWorkspace() {
     selectedOrganizationName,
     projectEntries,
     serviceActorEntries,
+    approvalEntries,
     resetWorkspace,
     bootstrapCurrentUser,
     createWorkspace,
     createHumanProject,
     createAgentCredential,
     createProjectThroughMcp,
+    approveApproval,
+    rejectApproval,
   }
 }

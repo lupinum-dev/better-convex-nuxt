@@ -28,7 +28,7 @@ ids.
 - demo server route at `/api/demo/mcp-projects` that uses the official MCP SDK
   client to call this app's `/mcp` route;
 - file-discovered project tools under `server/mcp/tools/`;
-- project read/write tools plus approval-gated delete;
+- project read/write tools plus preview/request/execute approval flow for delete;
 - starter-local MCP tool wrapper utilities with boundary auth/input checks and
   denial telemetry;
 - approval-gated destructive mutation;
@@ -85,13 +85,16 @@ The home page walks through the supported user stories:
 5. create a service actor credential; Convex returns the bearer secret once and
    stores only its SHA-256 hash;
 6. create a project through MCP with the server-minted bearer secret;
-7. see both projects through the human project list.
+7. request and approve a destructive MCP project delete;
+8. execute the approved delete through MCP and see the project disappear from
+   the active project list.
 
 `pnpm verify:browser` starts local Convex and Nuxt, then drives a real browser
 through sign-up, app-user bootstrap, organization creation, human project
 creation, service actor credential creation, MCP project creation through the
-demo route, project-list verification, and sign-out. It requires ports `3000`,
-`3210`, and `3211` to be free. If Chromium is not installed yet, run
+demo route, MCP delete preview, MCP approval request, in-app human approval, MCP
+delete execution, project-list verification, and sign-out. It requires ports
+`3000`, `3210`, and `3211` to be free. If Chromium is not installed yet, run
 `pnpm exec playwright install chromium`.
 
 Better Auth routes are registered in `convex/http.ts` at `/api/auth/*`, and the
@@ -116,9 +119,11 @@ without turning Nuxt into the product authority.
 MCP transport. It accepts a one-time bearer secret from the page, calls
 `projects.create` through `/mcp` without a caller-supplied organization id, and
 returns only text content from the MCP result. Product permissions still live
-in Convex. Destructive MCP writes stay approval-gated through
-`projects.delete`, which requires a human-produced `approvalId` from the normal
-Convex approval flow.
+in Convex. Destructive MCP writes use the app-owned approval flow:
+`projects.delete.preview`, `projects.delete.requestApproval`,
+`approvals.get`, and `projects.delete.execute`. The execute tool requires an
+approved Convex approval request and re-checks service actor role, organization
+scope, approval status, expiry, and project state before soft-deleting.
 
 Set `MCP_SERVER_SECRET` in Convex and Nuxt for every deployed environment.
 Convex fails closed when the secret is missing. The local browser verifier

@@ -9,6 +9,12 @@ describe('mcp-agent schema invariants', () => {
     expect(source).toContain(
       "export const approvalOperationValidator = v.literal('projects.delete')",
     )
+    expect(source).toContain('export const approvalStatusValidator = v.union(')
+    expect(source).toContain("v.literal('pending')")
+    expect(source).toContain("v.literal('approved')")
+    expect(source).toContain("v.literal('rejected')")
+    expect(source).toContain("v.literal('used')")
+    expect(source).not.toContain("v.literal('expired')")
     expect(source).toContain('export const serviceAuditActionValidator = v.union(')
     expect(source).toContain("v.literal('projects.create')")
     expect(source).toContain("v.literal('projects.delete')")
@@ -23,7 +29,6 @@ describe('mcp-agent schema invariants', () => {
     expect(source).toContain('resourceType: serviceAuditResourceTypeValidator')
     expect(source).toContain('createdBy: projectCreatorValidator')
     expect(source).not.toContain('createdByServiceActorId')
-    expect(source).not.toContain("v.literal('pending')")
     expect(source).not.toContain("v.literal('denied')")
   })
 })

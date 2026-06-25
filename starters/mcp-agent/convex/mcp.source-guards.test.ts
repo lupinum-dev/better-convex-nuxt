@@ -17,7 +17,9 @@ describe('mcp-agent source guards', () => {
     expect(source).not.toContain('operation: v.string()')
     expect(source).not.toContain('resourceId: v.string()')
     expect(source).toContain('requireOrganizationAdmin')
-    expect(source).toContain("operation: 'projects.delete'")
+    expect(source).toContain("approval.operation !== 'projects.delete'")
+    expect(source).toContain("status: 'approved'")
+    expect(source).toContain("status: 'rejected'")
   })
 
   it('does not keep a caller-supplied fake agent usage action', () => {

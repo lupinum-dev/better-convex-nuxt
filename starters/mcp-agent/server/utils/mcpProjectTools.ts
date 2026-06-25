@@ -10,12 +10,26 @@ import type { Doc, Id, TableNames } from '../../convex/_generated/dataModel'
 import { createProjectInputSchema } from '../../shared/inputSchemas'
 
 const listProjectsInputSchema = z.object({})
+const previewDeleteProjectInputSchema = z.object({
+  projectId: z.string({ error: 'Project id is required' }).trim().min(1, 'Project id is required'),
+})
+const requestDeleteProjectApprovalInputSchema = z.object({
+  projectId: z.string({ error: 'Project id is required' }).trim().min(1, 'Project id is required'),
+  reason: z.string().trim().optional(),
+  requestKey: z.string().trim().optional(),
+})
 const deleteProjectInputSchema = z.object({
   projectId: z.string({ error: 'Project id is required' }).trim().min(1, 'Project id is required'),
   approvalId: z
     .string({ error: 'Approval id is required' })
     .trim()
     .min(1, 'Approval id is required'),
+})
+const getApprovalInputSchema = z.object({
+  approvalRequestId: z
+    .string({ error: 'Approval request id is required' })
+    .trim()
+    .min(1, 'Approval request id is required'),
 })
 
 type ProjectToolClient = Pick<ConvexHttpClient, 'query' | 'mutation'>
@@ -221,26 +235,138 @@ export function createCreateProjectTool(args: ProjectToolArgs): McpToolDefinitio
   }
 }
 
-export function createDeleteProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
+export function createPreviewCreateProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
   return {
-    name: 'projects.delete',
-    description: 'Delete a project after a human approved deletion request',
+    name: 'projects.create.preview',
+    description:
+      'Preview normalized project creation input for the authenticated service actor organization',
+    inputSchema: createProjectInputSchema.shape,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+    },
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput('projects.create.preview', createProjectInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'projects.create.preview')
+      const client = args.getClient()
+      const preview = await client.query(api.projects.previewCreateFromServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        name: parsedInput.name,
+      })
+
+      return jsonToolContent(preview)
+    },
+  }
+}
+
+export function createPreviewDeleteProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
+  return {
+    name: 'projects.delete.preview',
+    description:
+      'Preview project deletion effects for the authenticated service actor organization',
+    inputSchema: previewDeleteProjectInputSchema.shape,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+    },
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput(
+        'projects.delete.preview',
+        previewDeleteProjectInputSchema,
+        input,
+      )
+      const bearerToken = requireBearerToken(extra, 'projects.delete.preview')
+      const client = args.getClient()
+      const preview = await client.query(api.projects.previewDeleteFromServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        projectId: toConvexId<'projects'>(parsedInput.projectId),
+      })
+
+      return jsonToolContent(preview)
+    },
+  }
+}
+
+export function createRequestDeleteProjectApprovalTool(
+  args: ProjectToolArgs,
+): McpToolDefinitionListItem {
+  return {
+    name: 'projects.delete.requestApproval',
+    description: 'Request app-owned human approval before deleting an organization project',
+    inputSchema: requestDeleteProjectApprovalInputSchema.shape,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+    },
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput(
+        'projects.delete.requestApproval',
+        requestDeleteProjectApprovalInputSchema,
+        input,
+      )
+      const bearerToken = requireBearerToken(extra, 'projects.delete.requestApproval')
+      const client = args.getClient()
+      const request = await client.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        projectId: toConvexId<'projects'>(parsedInput.projectId),
+        reason: parsedInput.reason,
+        requestKey: parsedInput.requestKey,
+      })
+
+      return jsonToolContent(request)
+    },
+  }
+}
+
+export function createExecuteDeleteProjectTool(args: ProjectToolArgs): McpToolDefinitionListItem {
+  return {
+    name: 'projects.delete.execute',
+    description: 'Execute project deletion after an app-owned human approval was granted',
     inputSchema: deleteProjectInputSchema.shape,
     annotations: {
+      readOnlyHint: false,
       destructiveHint: true,
     },
     handler: async (input, extra) => {
-      const parsedInput = parseToolInput('projects.delete', deleteProjectInputSchema, input)
-      const bearerToken = requireBearerToken(extra, 'projects.delete')
+      const parsedInput = parseToolInput('projects.delete.execute', deleteProjectInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'projects.delete.execute')
       const client = args.getClient()
-      await client.mutation(api.projects.deleteWithApproval, {
+      const result = await client.mutation(api.projects.deleteWithApproval, {
         serverSecret: requireServerSecret(args),
         bearerToken,
         projectId: toConvexId<'projects'>(parsedInput.projectId),
         approvalId: toConvexId<'approvals'>(parsedInput.approvalId),
       })
 
-      return textToolContent(`Deleted project ${parsedInput.projectId}`)
+      return jsonToolContent(result)
+    },
+  }
+}
+
+export function createGetApprovalTool(args: ProjectToolArgs): McpToolDefinitionListItem {
+  return {
+    name: 'approvals.get',
+    description: 'Read an app-owned approval request status for the authenticated service actor',
+    inputSchema: getApprovalInputSchema.shape,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+    },
+    handler: async (input, extra) => {
+      const parsedInput = parseToolInput('approvals.get', getApprovalInputSchema, input)
+      const bearerToken = requireBearerToken(extra, 'approvals.get')
+      const client = args.getClient()
+      const approval = await client.query(api.approvals.getForServiceActor, {
+        serverSecret: requireServerSecret(args),
+        bearerToken,
+        approvalRequestId: toConvexId<'approvals'>(parsedInput.approvalRequestId),
+      })
+
+      return jsonToolContent(approval)
     },
   }
 }
@@ -248,7 +374,11 @@ export function createDeleteProjectTool(args: ProjectToolArgs): McpToolDefinitio
 export function createProjectMcpTools(args: ProjectToolArgs) {
   return {
     listProjects: createListProjectsTool(args),
+    previewCreateProject: createPreviewCreateProjectTool(args),
     createProject: createCreateProjectTool(args),
-    deleteProject: createDeleteProjectTool(args),
+    previewDeleteProject: createPreviewDeleteProjectTool(args),
+    requestDeleteProjectApproval: createRequestDeleteProjectApprovalTool(args),
+    executeDeleteProject: createExecuteDeleteProjectTool(args),
+    getApproval: createGetApprovalTool(args),
   }
 }
