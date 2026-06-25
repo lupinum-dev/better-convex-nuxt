@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { ConvexUser } from '../../src/module'
 import type { ConvexUserState } from '../../src/runtime/composables'
 
 type IsEqual<A, B> =
@@ -19,6 +20,7 @@ type _ProjectionStateHasProfile = Assert<
 type _BetterAuthStateHasProfile = Assert<
   IsEqual<Extract<UserState, { source: 'better-auth' }>['data'], Profile>
 >
+type _ModuleEntrypointExportsConvexUser = Assert<IsEqual<ConvexUser['id'], string>>
 
 describe('useConvexUser type contracts', () => {
   it('keeps source and data correlated through state', () => {
