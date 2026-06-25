@@ -2,7 +2,7 @@ import type { UserIdentity } from 'convex/server'
 
 import { components } from './_generated/api'
 import { createAuth } from './auth'
-import { initConvexTest } from './test.setup'
+import type { initConvexTest } from './test.setup'
 
 export const now = 1_700_000_000_000
 export const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000

@@ -9,7 +9,6 @@ import {
   setMcpServerSecret,
 } from '../test/mcpTestHelpers'
 import { api } from './_generated/api'
-import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -138,7 +137,7 @@ describe('mcp-agent destructive approval lifecycle', () => {
   })
 
   it('only active organization admins can approve or reject pending delete requests', async () => {
-    const { t, organizationId, ownerId, projectId } = await createProjectForDelete()
+    const { t, organizationId, projectId } = await createProjectForDelete()
     await seedHumanMember(t, organizationId, 'member', 'member')
     const request = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,

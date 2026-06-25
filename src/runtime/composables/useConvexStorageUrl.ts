@@ -93,7 +93,7 @@ export function useConvexStorageUrl(
       const id = toValue(storageId)
       return id ? { storageId: id } : 'skip'
     }),
-    undefined,
+    { auth: 'none' },
     true,
   ).resultData
 

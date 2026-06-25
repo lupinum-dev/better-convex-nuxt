@@ -273,8 +273,8 @@ async function visibleProjectRow(page, name, failures, options = {}) {
     await row.waitFor({ state: 'visible', timeout: 20_000 })
   } catch (error) {
     const debug = await projects
-      .innerText({ timeout: 1_000 })
-      .catch(async () => await page.locator('body').innerText({ timeout: 1_000 }))
+      .textContent({ timeout: 1_000 })
+      .catch(async () => await page.locator('body').textContent({ timeout: 1_000 }))
       .catch(() => 'Unable to read page text')
     const formDebug = await page.evaluate(() =>
       Array.from(document.querySelectorAll('form')).map((form) => ({
@@ -465,7 +465,7 @@ async function completeInvitation(browser, args, failures) {
     const debug = await inviteePage
       .evaluate(() => ({
         url: location.href,
-        text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 2_000),
+        text: document.body.textContent?.replace(/\s+/g, ' ').slice(0, 2_000) ?? '',
       }))
       .catch(() => ({ url: inviteePage.url(), text: 'Unable to read invitee page text' }))
     throw new Error(
@@ -547,7 +547,7 @@ async function waitForSignedOutPanel(page, failures) {
     const debug = await page
       .evaluate(() => ({
         url: location.href,
-        text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 2_000),
+        text: document.body.textContent?.replace(/\s+/g, ' ').slice(0, 2_000) ?? '',
         auth: {
           token: window.__NUXT__?.state?.['$sconvex:token'] ?? null,
           user: window.__NUXT__?.state?.['$sconvex:user'] ?? null,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { api, components } from './_generated/api'
+import { api } from './_generated/api'
 import { initConvexTest } from './test.setup'
 import {
   asActor,

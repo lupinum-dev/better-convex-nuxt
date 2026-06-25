@@ -217,7 +217,7 @@ async function waitForEnabled(locator, label, timeoutMs = 15_000) {
 }
 
 async function waitForText(page, text, timeoutMs = 30_000) {
-  await page.waitForFunction((expected) => document.body.innerText.includes(expected), text, {
+  await page.waitForFunction((expected) => document.body.textContent?.includes(expected), text, {
     timeout: timeoutMs,
   })
 }
@@ -274,7 +274,7 @@ function parseMcpJson(text, toolName) {
 
 function redactDebugValue(testId, value) {
   if (value === undefined) return undefined
-  if (/(password|secret|token|bearer|credential|hash|server)/i.test(testId ?? '')) {
+  if (/password|secret|token|bearer|credential|hash|server/i.test(testId ?? '')) {
     return '[redacted]'
   }
   return value
@@ -301,7 +301,7 @@ function isAllowedAuthToken401Console(message, allowAuthToken401) {
 async function readPageDebug(page, failures) {
   const debug = await page.evaluate(() => ({
     url: location.href,
-    text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 2_000),
+    text: document.body.textContent?.replace(/\s+/g, ' ').slice(0, 2_000) ?? '',
     testIds: Array.from(document.querySelectorAll('[data-testid]')).map((element) => ({
       id: element.getAttribute('data-testid'),
       tag: element.tagName.toLowerCase(),
@@ -489,7 +489,7 @@ async function runBrowserHappyPath() {
     }
     await waitForText(page, 'No pending approvals')
     await page.waitForFunction(
-      (deletedProjectName) => !document.body.innerText.includes(deletedProjectName),
+      (deletedProjectName) => !document.body.textContent?.includes(deletedProjectName),
       mcpProjectName,
       { timeout: 30_000 },
     )

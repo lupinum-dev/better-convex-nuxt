@@ -6,6 +6,7 @@
     "playground",
     "docs",
     "demo",
+    "research/better-auth-proofs",
     "starters",
     "test/fixtures/consumer-smoke",
     "test/fixtures/missing-convex-api",

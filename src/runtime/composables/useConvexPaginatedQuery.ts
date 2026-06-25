@@ -86,7 +86,7 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   /**
    * Number of items to load in the initial page.
    */
-  initialNumItems: number
+  initialNumItems?: number
 
   /**
    * Run query on server during SSR.
