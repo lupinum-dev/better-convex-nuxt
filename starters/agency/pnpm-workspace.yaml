@@ -1,3 +1,2 @@
 overrides:
-  ..: link:../../../..
   better-convex-nuxt: link:../..
