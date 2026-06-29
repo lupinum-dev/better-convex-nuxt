@@ -4,38 +4,29 @@ navigation: false
 description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
 ---
 
-## ::u-page-hero
-
+::u-page-hero
+---
 orientation: 'horizontal'
 description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and backend-driven permissions.
 ui:
 container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
-
 ---
-
 #title
 Full-stack Nuxt that [feels like cheating]{.text-primary}
 #links
 :::u-button
-
 ---
-
 size: lg
 to: /docs/guide/get-started
 color: warning
 trailing-icon: i-lucide-arrow-right
-
 ---
-
 Get Started
 :::
-
 :u-input-copy{value="pnpm add better-convex-nuxt"}
-
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
 :::tabs-item{label="Queries" icon="i-lucide-database"}
-
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
@@ -155,88 +146,60 @@ Built-in features for building production-ready apps
 
 :::u-page-grid{class="pb-12 xl:pb-24"}
 :::landing-feature
-
 ---
-
 title: Real-time Queries
 description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
 icon: i-lucide-database
 to: /docs/data-fetching/queries
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: Optimistic Updates
 description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
 icon: i-lucide-zap
 to: /docs/mutations/optimistic-updates
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: Authentication
 description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
 icon: i-lucide-lock
 to: /docs/auth-security/authentication
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: Permissions
 description: Role-based access control with ownership rules. Backend enforces, frontend displays.
 icon: i-lucide-shield
 to: /docs/auth-security/permissions
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: SSR Support
 description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
 icon: i-lucide-server
 to: /docs/server-side/ssr-hydration
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: Type Safety
 description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
 icon: i-lucide-type
 to: /docs/data-fetching/queries#typescript
-
 ---
-
 :::
 :::landing-feature
-
 ---
-
 title: File Storage
 description: Upload files with progress tracking, cancel support, and multi-file queues with concurrency control.
 icon: i-lucide-upload
 to: /docs/advanced/file-storage
-
 ---
-
 :::
 :::
 ::
