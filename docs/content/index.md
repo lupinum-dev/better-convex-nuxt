@@ -145,61 +145,18 @@ Built-in features for building production-ready apps
 :::
 
 :::u-page-grid{class="pb-12 xl:pb-24"}
-:::landing-feature
----
-title: Real-time Queries
-description: Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients.
-icon: i-lucide-database
-to: /docs/data-fetching/queries
----
-:::
-:::landing-feature
----
-title: Optimistic Updates
-description: Instant UI feedback with automatic rollback on failure. Make your app feel fast.
-icon: i-lucide-zap
-to: /docs/mutations/optimistic-updates
----
-:::
-:::landing-feature
----
-title: Authentication
-description: Better Auth integration with email/password, OAuth, and magic links. SSR-compatible.
-icon: i-lucide-lock
-to: /docs/auth-security/authentication
----
-:::
-:::landing-feature
----
-title: Permissions
-description: Role-based access control with ownership rules. Backend enforces, frontend displays.
-icon: i-lucide-shield
-to: /docs/auth-security/permissions
----
-:::
-:::landing-feature
----
-title: SSR Support
-description: Server-side rendering with hydration. Fast initial loads, then real-time updates.
-icon: i-lucide-server
-to: /docs/server-side/ssr-hydration
----
-:::
-:::landing-feature
----
-title: Type Safety
-description: Full TypeScript inference from your Convex schema. Catch errors at compile time.
-icon: i-lucide-type
-to: /docs/data-fetching/queries#typescript
----
-:::
-:::landing-feature
----
-title: File Storage
-description: Upload files with progress tracking, cancel support, and multi-file queues with concurrency control.
-icon: i-lucide-upload
-to: /docs/advanced/file-storage
----
-:::
+::landing-feature{title="Real-time Queries" description="Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients." icon="i-lucide-database" to="/docs/data-fetching/queries"}
+
+::landing-feature{title="Optimistic Updates" description="Instant UI feedback with automatic rollback on failure. Make your app feel fast." icon="i-lucide-zap" to="/docs/mutations/optimistic-updates"}
+
+::landing-feature{title="Authentication" description="Better Auth integration with email/password, OAuth, and magic links. SSR-compatible." icon="i-lucide-lock" to="/docs/auth-security/authentication"}
+
+::landing-feature{title="Permissions" description="Role-based access control with ownership rules. Backend enforces, frontend displays." icon="i-lucide-shield" to="/docs/auth-security/permissions"}
+
+::landing-feature{title="SSR Support" description="Server-side rendering with hydration. Fast initial loads, then real-time updates." icon="i-lucide-server" to="/docs/server-side/ssr-hydration"}
+
+::landing-feature{title="Type Safety" description="Full TypeScript inference from your Convex schema. Catch errors at compile time." icon="i-lucide-type" to="/docs/data-fetching/queries#typescript"}
+
+::landing-feature{title="File Storage" description="Upload files with progress tracking, cancel support, and multi-file queues with concurrency control." icon="i-lucide-upload" to="/docs/advanced/file-storage"}
 :::
 ::
