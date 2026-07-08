@@ -94,4 +94,24 @@ describe('runtime config normalization', () => {
     })
     expect(config.defaults.auth).toBe('auto')
   })
+
+  it('defaults query waitTimeoutMs to 10000ms', () => {
+    expect(normalizeConvexRuntimeConfig({}).defaults.waitTimeoutMs).toBe(10_000)
+  })
+
+  it('accepts an explicit waitTimeoutMs (including 0 to disable) and rejects invalid values', () => {
+    expect(
+      normalizeConvexRuntimeConfig({ defaults: { waitTimeoutMs: 2500 } }).defaults.waitTimeoutMs,
+    ).toBe(2500)
+    expect(
+      normalizeConvexRuntimeConfig({ defaults: { waitTimeoutMs: 0 } }).defaults.waitTimeoutMs,
+    ).toBe(0)
+    expect(
+      normalizeConvexRuntimeConfig({ defaults: { waitTimeoutMs: -5 } }).defaults.waitTimeoutMs,
+    ).toBe(10_000)
+    expect(
+      normalizeConvexRuntimeConfig({ defaults: { waitTimeoutMs: Number.NaN } }).defaults
+        .waitTimeoutMs,
+    ).toBe(10_000)
+  })
 })

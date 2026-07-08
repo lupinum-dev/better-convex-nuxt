@@ -1,3 +1,4 @@
+import { CONVEX_MODULE_DEFAULTS } from './config-defaults'
 import { getBetterAuthSessionToken } from './shared-helpers'
 
 // Re-export shared utilities
@@ -120,7 +121,7 @@ export function waitForQueryBridgeData<T>(
     return Promise.reject(bridge.snapshot.error)
   }
 
-  const timeoutMs = options.timeoutMs ?? 10_000
+  const timeoutMs = options.timeoutMs ?? CONVEX_MODULE_DEFAULTS.defaults.waitTimeoutMs
 
   return new Promise((resolve, reject) => {
     let settled = false

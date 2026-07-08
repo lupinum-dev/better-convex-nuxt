@@ -407,7 +407,9 @@ export function createConvexQueryState<
         }
 
         const bridge = acquireSharedSubscriptionBridge(currentArgs)
-        const result = await waitForQueryBridgeData<RawT>(bridge)
+        const result = await waitForQueryBridgeData<RawT>(bridge, {
+          timeoutMs: defaults.waitTimeoutMs,
+        })
         commitFreshData(result)
         return result
       } catch (error) {

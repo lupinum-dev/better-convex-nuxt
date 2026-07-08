@@ -411,6 +411,102 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     ])
   })
 
+  it('refresh() re-chains fresh cursors so an insert into an earlier page stays gapless (F-26b)', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-gapless')
+    // Ordered list starts [n1, n2, n3, n4]; two pages of 2 items each.
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'n1' },
+          { _id: 'n2', title: 'n2' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n2',
+      },
+      'after-n2': {
+        page: [
+          { _id: 'n3', title: 'n3' },
+          { _id: 'n4', title: 'n4' },
+        ],
+        isDone: true,
+        continueCursor: 'after-n4',
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      return { value: responses[key] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 2)
+    result.loadMore(2)
+    await waitFor(() => result.results.value.length === 4)
+
+    // Insert n1.5 into page 1's range. New list: [n1, n1.5, n2, n3, n4].
+    // Page 1 (numItems 2, cursor null) now ends earlier, with a NEW continueCursor.
+    responses.null = {
+      page: [
+        { _id: 'n1', title: 'n1' },
+        { _id: 'n1.5', title: 'n1.5' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n1.5',
+    }
+    // The correctly-chained follow-up page starts at page 1's FRESH cursor.
+    responses['after-n1.5'] = {
+      page: [
+        { _id: 'n2', title: 'n2' },
+        { _id: 'n3', title: 'n3' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n3',
+    }
+    // The STALE stored cursor still resolves: a parallel refresh replaying it
+    // would drop n2, leaving a gap [n1, n1.5, n3, n4].
+    responses['after-n2'] = {
+      page: [
+        { _id: 'n3', title: 'n3' },
+        { _id: 'n4', title: 'n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-n4',
+    }
+
+    const callsBefore = fetchMock.mock.calls.length
+    await result.refresh()
+
+    // Gapless, ordered concatenation — n2 is not dropped between the pages.
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+
+    // The follow-up page was re-fetched with the fresh chained cursor, never the
+    // stale stored one.
+    const refreshCursors = fetchMock.mock.calls.slice(callsBefore).map((call) => {
+      const init = call[1] as RequestInit | undefined
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      return body.args?.paginationOpts?.cursor ?? null
+    })
+    expect(refreshCursors).toContain('after-n1.5')
+    expect(refreshCursors).not.toContain('after-n2')
+  })
+
   it('reset() starts over from first page with a new pagination id', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:reset')
     const firstPageIds: number[] = []

@@ -38,6 +38,7 @@ export interface ConvexPublicRuntimeConfig {
     server?: boolean
     subscribe?: boolean
     auth?: 'auto' | 'none'
+    waitTimeoutMs?: number
   }
   /** Upload defaults */
   upload?: {

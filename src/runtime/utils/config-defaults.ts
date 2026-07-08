@@ -22,6 +22,9 @@ const AUTH_CACHE_TTL_MIN = 1
 const AUTH_CACHE_TTL_MAX = DEFAULT_AUTH_CACHE_TTL
 const DEFAULT_MAX_CONCURRENT_UPLOADS = 3
 const DEFAULT_AUTH_PROXY_BODY_LIMIT_BYTES = 1_048_576
+// How long an awaited subscribe-mode query waits for its first WS result before
+// rejecting. 0 (or non-finite) disables the timeout.
+const DEFAULT_WAIT_TIMEOUT_MS = 10_000
 
 // --- Frozen defaults object --------------------------------------------------
 
@@ -42,6 +45,7 @@ export const CONVEX_MODULE_DEFAULTS = Object.freeze({
     server: true,
     subscribe: true,
     auth: 'auto' as 'auto' | 'none',
+    waitTimeoutMs: DEFAULT_WAIT_TIMEOUT_MS,
   }),
   upload: Object.freeze({
     maxConcurrent: DEFAULT_MAX_CONCURRENT_UPLOADS,
@@ -68,6 +72,14 @@ export function normalizeMaxConcurrent(input: unknown): number {
   if (typeof input !== 'number' || !Number.isFinite(input)) return DEFAULT_MAX_CONCURRENT_UPLOADS
   const normalized = Math.trunc(input)
   return normalized > 0 ? normalized : 1
+}
+
+/** Normalize the awaited-query WS wait timeout (ms). 0 disables; default 10s. */
+export function normalizeWaitTimeoutMs(input: unknown): number {
+  if (typeof input !== 'number' || !Number.isFinite(input) || input < 0) {
+    return DEFAULT_WAIT_TIMEOUT_MS
+  }
+  return Math.trunc(input)
 }
 
 /** Clamp an auth-proxy body limit to a positive integer (default 1 MiB). */

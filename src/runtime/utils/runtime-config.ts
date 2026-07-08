@@ -6,6 +6,7 @@ import {
   normalizeAuthCacheTtl,
   normalizeAuthProxyBodyLimit,
   normalizeMaxConcurrent,
+  normalizeWaitTimeoutMs,
 } from './config-defaults'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
@@ -14,6 +15,8 @@ export interface ConvexRuntimeDefaults {
   server: boolean
   subscribe: boolean
   auth: 'auto' | 'none'
+  /** WS first-result wait timeout (ms) for awaited subscribe-mode queries. */
+  waitTimeoutMs: number
 }
 
 export interface NormalizedConvexRuntimeConfig {
@@ -99,6 +102,7 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       server: defaults?.server !== false,
       subscribe: defaults?.subscribe !== false,
       auth: defaults?.auth === 'none' ? 'none' : CONVEX_MODULE_DEFAULTS.defaults.auth,
+      waitTimeoutMs: normalizeWaitTimeoutMs(defaults?.waitTimeoutMs),
     },
     debug: {
       authFlow: debug?.authFlow === true,

@@ -575,8 +575,8 @@ export function createConvexPaginatedQueryState<
           if (nuxtApp.$convex) {
             const bridge = acquireFirstPageSubscriptionBridge()
             return await waitForQueryBridgeData<PaginationResult<Item>>(bridge, {
-              timeoutMessage:
-                '[useConvexPaginatedQuery] Timed out waiting for first page subscription result after 10000ms',
+              timeoutMs: defaults.waitTimeoutMs,
+              timeoutMessage: `[useConvexPaginatedQuery] Timed out waiting for first page subscription result after ${defaults.waitTimeoutMs}ms`,
             })
           }
         }
@@ -841,14 +841,33 @@ export function createConvexPaginatedQueryState<
       const firstPageResult = await fetchPage(initialPaginationOpts.value)
       if (!firstPageResult) return
 
-      const pageResults = await Promise.all(
-        loadedPages.map((page) => (page ? fetchPage(page.paginationOpts) : Promise.resolve(null))),
-      )
-      let refreshedPages = [...loadedPages]
-      for (let i = 0; i < pageResults.length; i++) {
-        const pageResult = pageResults[i]
-        if (!pageResult) continue
-        refreshedPages = commitPaginatedPageResult(refreshedPages, i, pageResult)
+      // Re-fetch pages SEQUENTIALLY, chaining each page off the PREVIOUS page's
+      // FRESH continueCursor (not the stale stored cursor) while preserving each
+      // page's originally requested numItems. Replaying stored cursors in parallel
+      // would leave a gap/overlap when items were inserted into an earlier page's
+      // range since load (F-26b). Build the whole new array first; only commit it
+      // atomically on full success so a mid-chain failure never half-swaps state.
+      const refreshedPages: PaginatedPageState<Item>[] = [...loadedPages]
+      let previousResult: PaginationResult<Item> = firstPageResult
+      for (let i = 0; i < loadedPages.length; i++) {
+        const page = loadedPages[i]
+        if (!page) continue
+        const pageResult = await fetchPage({
+          numItems: page.paginationOpts.numItems,
+          cursor: previousResult.continueCursor,
+          id: page.paginationOpts.id,
+        })
+        // Auth gate returned null mid-chain: abort without committing so state is
+        // never left half-refreshed (the chain past this point is unknowable).
+        if (!pageResult) return
+        refreshedPages[i] = {
+          ...page,
+          paginationOpts: { ...page.paginationOpts, cursor: previousResult.continueCursor },
+          result: pageResult,
+          error: null,
+          pending: false,
+        }
+        previousResult = pageResult
       }
 
       if (currentPaginationId.value === refreshPaginationId && !executionGate.value.resolveAsIdle) {

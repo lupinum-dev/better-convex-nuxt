@@ -102,6 +102,12 @@ export interface QueryDefaults {
    * @default 'auto'
    */
   auth?: 'auto' | 'none'
+  /**
+   * How long an awaited subscribe-mode query waits (ms) for its first WebSocket
+   * result before rejecting. Set 0 to wait indefinitely.
+   * @default 10000
+   */
+  waitTimeoutMs?: number
 }
 
 export interface UploadDefaults {
@@ -377,6 +383,8 @@ export default defineNuxtModule<ModuleOptions>({
           server: options.defaults?.server ?? CONVEX_MODULE_DEFAULTS.defaults.server,
           subscribe: options.defaults?.subscribe ?? CONVEX_MODULE_DEFAULTS.defaults.subscribe,
           auth: options.defaults?.auth ?? CONVEX_MODULE_DEFAULTS.defaults.auth,
+          waitTimeoutMs:
+            options.defaults?.waitTimeoutMs ?? CONVEX_MODULE_DEFAULTS.defaults.waitTimeoutMs,
         },
         upload: {
           maxConcurrent:
