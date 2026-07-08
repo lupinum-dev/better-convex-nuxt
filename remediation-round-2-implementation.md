@@ -1254,8 +1254,19 @@ configured default auth:none when no per-call auth option is passed`.
 
 ### Phase 5 exit gate
 
-Full §0.1 gate (lint includes the broadened guard). D3 snippet-pair compile
-check recorded. `rg -n "\.value" docs/content | grep "can("` → zero hits.
+Full §0.1 gate passed on 2026-07-08:
+
+- `pnpm lint` PASS. Includes the broadened
+  `check:no-app-owned-org-docs` guard.
+- `pnpm format:check` PASS.
+- `pnpm test:types` PASS.
+- `pnpm test` PASS: 71 files / 532 tests.
+- `pnpm check:contracts` PASS. Includes API-surface docs, package exports,
+  workspace dependency alignment, consumer-smoke, missing-convex-api, and
+  better-auth-local-component checks.
+- D3 snippet/API source verification recorded in TODO 5.2.
+- App-owned org/role guard calibration recorded in TODO 5.3.
+- `rg -n "\.value" docs/content | grep "can("` → zero hits.
 
 ---
 
