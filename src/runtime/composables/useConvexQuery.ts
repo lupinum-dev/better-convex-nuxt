@@ -148,11 +148,12 @@ export function createConvexQueryState<
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
 
-  // Resolve options from: per-call options → global defaults → built-in defaults
+  // Resolve options from: per-call options → global defaults (already normalized,
+  // never undefined — see NormalizedConvexRuntimeConfig.defaults).
   const defaults = convexConfig.defaults
-  const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
-  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
+  const server = options?.server ?? defaults.server
+  const subscribe = options?.subscribe ?? defaults.subscribe
+  const authMode = options?.auth ?? defaults.auth
   const keepPreviousData = options?.keepPreviousData ?? false
 
   // Get function name for cache key and logging

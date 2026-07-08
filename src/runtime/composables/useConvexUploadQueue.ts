@@ -2,6 +2,7 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
 import { toCallResult, type CallResult } from '../utils/call-result'
+import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
 import {
@@ -81,12 +82,6 @@ function createQueueItemId(): string {
   }
   queueItemSequence += 1
   return `upload-item-${Date.now()}-${queueItemSequence}`
-}
-
-function normalizeMaxConcurrent(value: number | undefined): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 3
-  const normalized = Math.trunc(value)
-  return normalized > 0 ? normalized : 1
 }
 
 function isUploadAbortError(error: unknown): boolean {

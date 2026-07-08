@@ -28,6 +28,7 @@ import {
   getTypeAugmentationTemplateContents,
 } from './module-templates'
 import { normalizeConvexAuthConfig, type ConvexAuthConfigInput } from './runtime/utils/auth-config'
+import { CONVEX_MODULE_DEFAULTS, normalizeAuthCacheTtl } from './runtime/utils/config-defaults'
 import {
   getSiteUrlResolutionHint,
   isValidAbsoluteUrl,
@@ -50,14 +51,6 @@ function hasGeneratedConvexApi(aliasPath: string): boolean {
     existsSync(`${aliasPath}.js`) ||
     existsSync(`${aliasPath}.d.ts`)
   )
-}
-
-function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
-  const normalized = Math.trunc(input)
-  if (normalized < 1) return 1
-  if (normalized > 60) return 60
-  return normalized
 }
 
 function resolveModuleImports(
@@ -290,32 +283,16 @@ export default defineNuxtModule<ModuleOptions>({
         includeQueries: false,
       },
     },
-    authRoute: '/api/auth',
+    authRoute: CONVEX_MODULE_DEFAULTS.authRoute,
     trustedOrigins: [],
     skipAuthRoutes: [],
-    permissions: false,
-    logging: false,
-    debug: {
-      authFlow: false,
-      clientAuthFlow: false,
-      serverAuthFlow: false,
-    },
-    authCache: {
-      enabled: false,
-      ttl: 60,
-    },
-    defaults: {
-      server: true, // SSR enabled by default (like Nuxt's useFetch)
-      subscribe: true,
-      auth: 'auto',
-    },
-    upload: {
-      maxConcurrent: 3,
-    },
-    authProxy: {
-      maxRequestBodyBytes: 1_048_576,
-      maxResponseBodyBytes: 1_048_576,
-    },
+    permissions: CONVEX_MODULE_DEFAULTS.permissions,
+    logging: CONVEX_MODULE_DEFAULTS.logging,
+    debug: { ...CONVEX_MODULE_DEFAULTS.debug },
+    authCache: { ...CONVEX_MODULE_DEFAULTS.authCache },
+    defaults: { ...CONVEX_MODULE_DEFAULTS.defaults },
+    upload: { ...CONVEX_MODULE_DEFAULTS.upload },
+    authProxy: { ...CONVEX_MODULE_DEFAULTS.authProxy },
   },
   setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
@@ -365,7 +342,9 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.authCache?.ttl)
-    if ((options.authCache?.ttl ?? 60) !== normalizedAuthCacheTtl) {
+    if (
+      (options.authCache?.ttl ?? CONVEX_MODULE_DEFAULTS.authCache.ttl) !== normalizedAuthCacheTtl
+    ) {
       logger.warn(
         `convex.authCache.ttl must be between 1 and 60 seconds. Using ${normalizedAuthCacheTtl}s instead.`,
       )
@@ -381,28 +360,35 @@ export default defineNuxtModule<ModuleOptions>({
         authRoute,
         trustedOrigins: options.trustedOrigins ?? [],
         skipAuthRoutes: options.skipAuthRoutes ?? [],
-        permissions: options.permissions ?? false,
-        logging: options.logging ?? false,
+        permissions: options.permissions ?? CONVEX_MODULE_DEFAULTS.permissions,
+        logging: options.logging ?? CONVEX_MODULE_DEFAULTS.logging,
         debug: {
-          authFlow: options.debug?.authFlow ?? false,
-          clientAuthFlow: options.debug?.clientAuthFlow ?? false,
-          serverAuthFlow: options.debug?.serverAuthFlow ?? false,
+          authFlow: options.debug?.authFlow ?? CONVEX_MODULE_DEFAULTS.debug.authFlow,
+          clientAuthFlow:
+            options.debug?.clientAuthFlow ?? CONVEX_MODULE_DEFAULTS.debug.clientAuthFlow,
+          serverAuthFlow:
+            options.debug?.serverAuthFlow ?? CONVEX_MODULE_DEFAULTS.debug.serverAuthFlow,
         },
         authCache: {
-          enabled: options.authCache?.enabled ?? false,
+          enabled: options.authCache?.enabled ?? CONVEX_MODULE_DEFAULTS.authCache.enabled,
           ttl: normalizedAuthCacheTtl,
         },
         defaults: {
-          server: options.defaults?.server ?? true, // SSR enabled by default
-          subscribe: options.defaults?.subscribe ?? true,
-          auth: options.defaults?.auth ?? 'auto',
+          server: options.defaults?.server ?? CONVEX_MODULE_DEFAULTS.defaults.server,
+          subscribe: options.defaults?.subscribe ?? CONVEX_MODULE_DEFAULTS.defaults.subscribe,
+          auth: options.defaults?.auth ?? CONVEX_MODULE_DEFAULTS.defaults.auth,
         },
         upload: {
-          maxConcurrent: options.upload?.maxConcurrent ?? 3,
+          maxConcurrent:
+            options.upload?.maxConcurrent ?? CONVEX_MODULE_DEFAULTS.upload.maxConcurrent,
         },
         authProxy: {
-          maxRequestBodyBytes: options.authProxy?.maxRequestBodyBytes ?? 1_048_576,
-          maxResponseBodyBytes: options.authProxy?.maxResponseBodyBytes ?? 1_048_576,
+          maxRequestBodyBytes:
+            options.authProxy?.maxRequestBodyBytes ??
+            CONVEX_MODULE_DEFAULTS.authProxy.maxRequestBodyBytes,
+          maxResponseBodyBytes:
+            options.authProxy?.maxResponseBodyBytes ??
+            CONVEX_MODULE_DEFAULTS.authProxy.maxResponseBodyBytes,
         },
       },
     )

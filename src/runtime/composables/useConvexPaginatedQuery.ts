@@ -274,9 +274,9 @@ export function createConvexPaginatedQueryState<
 
   const defaults = convexConfig.defaults
   const initialNumItems = options?.initialNumItems ?? 10
-  const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
-  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
+  const server = options?.server ?? defaults.server
+  const subscribe = options?.subscribe ?? defaults.subscribe
+  const authMode = options?.auth ?? defaults.auth
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)

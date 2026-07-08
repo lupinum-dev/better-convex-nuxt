@@ -86,19 +86,4 @@ declare module 'vue' {
   }
 }
 
-declare module 'nuxt/schema' {
-  interface PublicRuntimeConfig {
-    convex?: ConvexPublicRuntimeConfig
-  }
-  interface RuntimeConfig {
-    convexDevtoolsPath?: string
-  }
-  interface NuxtConfig {
-    convex?: ConvexPublicRuntimeConfig
-  }
-  interface NuxtOptions {
-    convex?: ConvexPublicRuntimeConfig
-  }
-}
-
 export {}

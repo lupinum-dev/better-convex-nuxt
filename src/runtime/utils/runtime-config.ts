@@ -1,6 +1,12 @@
 import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config'
+import {
+  CONVEX_MODULE_DEFAULTS,
+  normalizeAuthCacheTtl,
+  normalizeAuthProxyBodyLimit,
+  normalizeMaxConcurrent,
+} from './config-defaults'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
 
@@ -40,14 +46,6 @@ export interface NormalizedConvexRuntimeConfig {
 
 function asRecord(input: unknown): Record<string, unknown> | null {
   return input && typeof input === 'object' ? (input as Record<string, unknown>) : null
-}
-
-function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
-  const normalized = Math.trunc(input)
-  if (normalized < 1) return 1
-  if (normalized > 60) return 60
-  return normalized
 }
 
 export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRuntimeConfig {
@@ -91,31 +89,16 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       ttl: normalizeAuthCacheTtl(authCache?.ttl),
     },
     upload: {
-      maxConcurrent: (() => {
-        const candidate = upload?.maxConcurrent
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 3
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1
-      })(),
+      maxConcurrent: normalizeMaxConcurrent(upload?.maxConcurrent),
     },
     authProxy: {
-      maxRequestBodyBytes: (() => {
-        const candidate = authProxy?.maxRequestBodyBytes
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1_048_576
-      })(),
-      maxResponseBodyBytes: (() => {
-        const candidate = authProxy?.maxResponseBodyBytes
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1_048_576
-      })(),
+      maxRequestBodyBytes: normalizeAuthProxyBodyLimit(authProxy?.maxRequestBodyBytes),
+      maxResponseBodyBytes: normalizeAuthProxyBodyLimit(authProxy?.maxResponseBodyBytes),
     },
     defaults: {
       server: defaults?.server !== false,
       subscribe: defaults?.subscribe !== false,
-      auth: defaults?.auth === 'none' ? 'none' : 'auto',
+      auth: defaults?.auth === 'none' ? 'none' : CONVEX_MODULE_DEFAULTS.defaults.auth,
     },
     debug: {
       authFlow: debug?.authFlow === true,
