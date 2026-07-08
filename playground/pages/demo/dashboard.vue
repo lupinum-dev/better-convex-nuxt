@@ -39,8 +39,8 @@
               <span class="value id">{{ user?.authId }}</span>
             </div>
             <div class="info-item">
-              <span class="label">Role</span>
-              <span class="value role" :class="user?.role">{{ user?.role || 'user' }}</span>
+              <span class="label">Email</span>
+              <span class="value">{{ user?.email || '—' }}</span>
             </div>
           </div>
         </section>
@@ -91,7 +91,7 @@ const isTestingConvex = ref(false)
 const convexResult = ref<string | null>(null)
 const convexError = ref(false)
 
-// Get user profile with role from our users table
+// Get the user projection from our users table (Better Auth owns identity)
 const { data: user, pending: isLoadingUser } = await useConvexQuery(api.users.getCurrentUser, {})
 
 const tokenPreview = computed(() => {

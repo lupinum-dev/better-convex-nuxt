@@ -204,28 +204,21 @@ const canCreate = computed(() => {
   return isAuthenticated.value && user.value
 })
 
+// Ownership model: only the owner may edit/publish/delete their own posts.
+// (The playground has no org plugin, so there are no admin/owner roles.)
 function canEdit(post: { ownerId: string; status: string }) {
   if (!user.value) return false
-  const role = user.value.role
-  // Members can only edit their own posts
-  // Admins/owners can edit any post
-  return user.value.authId === post.ownerId || (role ? ['owner', 'admin'].includes(role) : false)
+  return user.value.authId === post.ownerId
 }
 
-function canPublish(post: { status: string }) {
+function canPublish(post: { ownerId: string; status: string }) {
   if (!user.value) return false
-  const role = user.value.role
-  // Only admins and owners can publish
-  // Can only publish drafts
-  return Boolean(role && ['owner', 'admin'].includes(role) && post.status === 'draft')
+  return user.value.authId === post.ownerId && post.status === 'draft'
 }
 
 function canDelete(post: { ownerId: string }) {
   if (!user.value) return false
-  const role = user.value.role
-  // Members can only delete their own posts
-  // Admins/owners can delete any post
-  return user.value.authId === post.ownerId || (role ? ['owner', 'admin'].includes(role) : false)
+  return user.value.authId === post.ownerId
 }
 
 function getConvexClient() {

@@ -1,11 +1,10 @@
 /**
  * Permission Composable
  *
- * Uses createPermissions() from the module, then extends with
- * playground-specific features like auto-user-creation.
+ * Uses createPermissions() from the module against the minimal signed-in +
+ * ownership context query (the playground has no Better Auth Organization
+ * plugin). See convex/permissions.config.ts.
  */
-
-import { watchEffect } from 'vue'
 
 import { api } from '#convex/api'
 import { createPermissions } from '#imports'
@@ -20,73 +19,24 @@ import {
 export type { Permission, Resource }
 
 // ============================================
-// CREATE BASE COMPOSABLES FROM MODULE
+// CREATE COMPOSABLES FROM MODULE
 // ============================================
+//
+//   const { can, user, isAuthenticated, pending } = usePermissions()
+//   <button v-if="can('post.update', post)">Edit</button>
 
-const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissionRedirect } =
+export const { usePermissions, usePermissionRedirect: baseUsePermissionRedirect } =
   createPermissions<Permission, PermissionContext, Resource>({
     query: api.auth.getPermissionContext,
     checkPermission,
   })
 
 // ============================================
-// EXTENDED USE PERMISSIONS
-// ============================================
-// Wraps the base composable with auto-user-creation for the playground.
-//
-// Usage:
-//   const { can, user, isAuthenticated, pending } = usePermissions()
-//
-//   // In template:
-//   <button v-if="can('post.update', post)">Edit</button>
-
-export function usePermissions() {
-  const base = useBasePermissions()
-
-  // ----------------------------------------
-  // Auto-create user if needed (playground-specific)
-  // ----------------------------------------
-  // If user has identity but doesn't exist in DB, create them.
-  // This is useful for testing flows where users sign in but
-  // haven't been created in the database yet.
-
-  const createUser = useConvexMutation(api.auth.createUserIfNeeded)
-
-  watchEffect(async () => {
-    if (base.pending.value) return
-    const context = base.user.value as {
-      _debug?: { hasIdentity?: boolean; hasUser?: boolean; reason?: string }
-    } | null
-    const debugInfo = context?._debug
-    // If user has identity but not in DB, create them
-    if (
-      debugInfo?.hasIdentity &&
-      !debugInfo?.hasUser &&
-      debugInfo?.reason === 'user not found in DB, needs to be created'
-    ) {
-      try {
-        await createUser({})
-        // Query will automatically re-run and pick up the new user
-      } catch (e) {
-        console.error('Failed to create user:', e)
-      }
-    }
-  })
-
-  // Return base API (no extra helpers needed for playground)
-  return base
-}
-
-// ============================================
 // USE PERMISSION REDIRECT
 // ============================================
-// Re-export with custom login path for playground.
-//
-// Usage:
-//   usePermissionRedirect({ permission: 'org.settings', redirectTo: '/dashboard' })
 
-export function usePermissionRedirect(options: Parameters<typeof basePermissionRedirect>[0]) {
-  return basePermissionRedirect({
+export function usePermissionRedirect(options: Parameters<typeof baseUsePermissionRedirect>[0]) {
+  return baseUsePermissionRedirect({
     loginPath: '/auth/signin',
     ...options,
   })

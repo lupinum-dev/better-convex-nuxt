@@ -11,15 +11,7 @@ import { components } from './_generated/api'
 import { action, internalQuery, mutation, query } from './_generated/server'
 
 // All tables from schema.ts
-const ALL_TABLES = [
-  'organizations',
-  'users',
-  'invites',
-  'posts',
-  'comments',
-  'tasks',
-  'notes',
-] as const
+const ALL_TABLES = ['users', 'posts', 'tasks', 'files', 'notes'] as const
 
 // Better Auth component tables
 const BETTER_AUTH_TABLES = [
