@@ -40,6 +40,24 @@ export function getCanonicalRedirectTarget(
   return null
 }
 
+/**
+ * Canonical redirects followed here are always cross-origin by construction
+ * (getCanonicalRedirectTarget only returns a target when the origin
+ * differs). Strip the cookie header before re-issuing the request so a
+ * Better Auth session cookie never crosses an origin boundary (F-27) - even
+ * though today's caller (same registrable-domain apex<->www hops) is
+ * low-risk, this holds even if the upstream host is ever compromised or
+ * misconfigured into redirecting somewhere else.
+ */
+function withoutCookieHeader(headers: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === 'cookie') continue
+    result[key] = value
+  }
+  return result
+}
+
 type FetchLike = typeof fetch
 
 interface FetchWithCanonicalRedirectsOptions {
@@ -89,7 +107,7 @@ export async function fetchWithCanonicalRedirects({
     canonicalRedirectsFollowed += 1
     response = await fetchWithTimeout(resolvedTarget, {
       method,
-      headers,
+      headers: withoutCookieHeader(headers),
       body,
       redirect: 'manual',
       timeoutMs,
