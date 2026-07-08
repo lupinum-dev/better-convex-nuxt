@@ -124,6 +124,27 @@ describe('resolveServerAuthSnapshot', () => {
     )
   })
 
+  it('logs a truncated user id, never an email, on successful exchange (F-39)', async () => {
+    decodeUserFromJwtMock.mockReturnValue({
+      id: 'user-abcdefghijklmnop',
+      email: 'private-email@example.com',
+    })
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(200, { token: 'fresh.jwt' }))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-log',
+    })
+
+    const exchangeEvent = snapshot.logEvents.find(
+      (event) => event.phase === 'exchange' && event.outcome === 'success',
+    )
+    expect(exchangeEvent).toBeDefined()
+    expect(exchangeEvent?.details).toEqual({ userId: 'user-abc…' })
+    expect(JSON.stringify(exchangeEvent)).not.toContain('example.com')
+    expect(JSON.stringify(exchangeEvent)).not.toContain('private-email')
+  })
+
   it('treats 401 token exchange as graceful unauthenticated state', async () => {
     fetchWithTimeoutMock.mockResolvedValue(createResponse(401, { error: 'unauthorized' }))
 

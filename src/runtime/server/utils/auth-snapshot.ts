@@ -17,6 +17,16 @@ type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
  */
 const GENERIC_AUTH_ERROR_MESSAGE = 'Authentication is temporarily unavailable'
 
+/**
+ * Truncate a user id for debug logs (F-39). Log events are debug-gated but
+ * still land in server logs / log aggregators; a full email is PII that
+ * doesn't need to be there just to correlate log lines to a session.
+ */
+function truncateUserIdForLog(id: string | null | undefined): string | undefined {
+  if (!id) return undefined
+  return id.length <= 8 ? id : `${id.slice(0, 8)}…`
+}
+
 export interface ServerAuthLogEvent {
   phase: string
   outcome: AuthLogOutcome
@@ -270,7 +280,11 @@ export async function resolveServerAuthSnapshot(
         }
       }
 
-      logEvents.push({ phase: 'exchange', outcome: 'success', details: { user: user?.email } })
+      logEvents.push({
+        phase: 'exchange',
+        outcome: 'success',
+        details: { userId: truncateUserIdForLog(user?.id) },
+      })
       return {
         token,
         user,
