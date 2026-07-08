@@ -89,6 +89,12 @@ type ConvexGeneratedEmptyArgs = {}
 
 declare const noArgQuery: FunctionReference<'query', 'public', ConvexGeneratedEmptyArgs, string[]>
 declare const reqArgQuery: FunctionReference<'query', 'public', { id: string }, string>
+declare const optArgQuery: FunctionReference<
+  'query',
+  'public',
+  { term?: string; limit?: number },
+  string[]
+>
 declare const noArgPaginated: FunctionReference<
   'query',
   'public',
@@ -111,6 +117,17 @@ async function _arityContracts() {
   void useConvexQuery(reqArgQuery)
   // @ts-expect-error wrong arg shape must not compile (F-5)
   void useConvexQuery(reqArgQuery, { wrong: 1 })
+  // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
+  void useConvexQuery(noArgQuery, { initialNumItems: 5 })
+
+  // --- useConvexQuery: all-optional args stay callable (R2-3.3b) ---
+  void useConvexQuery(optArgQuery, { limit: 5 }) // populated optional args compile
+  void useConvexQuery(optArgQuery, { term: 'x' }) // partial optional args compile
+  void useConvexQuery(optArgQuery) // optional args may omit the args slot
+  void useConvexQuery(optArgQuery, {}) // optional args accept an empty object
+  void useConvexQuery(optArgQuery, 'skip') // 'skip' still compiles
+  // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
+  void useConvexQuery(optArgQuery, { limit: 5, wrong: 1 })
 
   // --- useConvexPaginatedQuery ---
   void useConvexPaginatedQuery(noArgPaginated) // no extra args accepts zero args

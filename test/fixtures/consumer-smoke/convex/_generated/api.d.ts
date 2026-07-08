@@ -19,6 +19,7 @@ export declare const api: {
   }
   tasks: {
     list: FunctionReference<'query', 'public', {}, string[]>
+    search: FunctionReference<'query', 'public', { term?: string; limit?: number }, string[]>
     listPaginated: FunctionReference<
       'query',
       'public',

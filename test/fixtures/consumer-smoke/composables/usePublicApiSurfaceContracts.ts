@@ -142,6 +142,22 @@ async function _requiredArgsContracts() {
   void useConvexQuery(api.files.getUrl)
   // @ts-expect-error wrong arg shape must not compile (F-5)
   void useConvexQuery(api.files.getUrl, { wrong: 1 })
+  // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
+  void useConvexQuery(api.tasks.list, { initialNumItems: 5 })
+
+  // --- useConvexQuery: all-optional args stay callable (R2-3.3b) ---
+  // Positive: all-optional args accept a populated object.
+  void useConvexQuery(api.tasks.search, { limit: 5 })
+  // Positive: all-optional args accept a partial object.
+  void useConvexQuery(api.tasks.search, { term: 'x' })
+  // Positive: all-optional args may omit the args slot entirely.
+  void useConvexQuery(api.tasks.search)
+  // Positive: all-optional args accept an empty object.
+  void useConvexQuery(api.tasks.search, {})
+  // Positive: all-optional args accept the skip sentinel.
+  void useConvexQuery(api.tasks.search, 'skip')
+  // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
+  void useConvexQuery(api.tasks.search, { limit: 5, wrong: 1 })
 
   // --- useConvexPaginatedQuery ---
   // Positive: paginated query with no extra args accepts zero args.
