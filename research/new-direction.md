@@ -1,3 +1,5 @@
+> Research ledger, not current direction. Kept for historical context.
+
 # New Direction: Better Convex Nuxt SaaS Kit
 
 ## Executive Recommendation

@@ -1,3 +1,5 @@
+> Research ledger, not current direction. Kept for historical context.
+
 # Better Auth Team Starter Research Learnings
 
 ## Goal
