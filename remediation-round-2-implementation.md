@@ -661,7 +661,7 @@ Implemented in this slice:
   page subscription, stale-cursor emissions no longer clobber the refreshed
   range, and fresh-cursor emissions continue updating the page.
 - Restore-and-retest: removing the re-bind loop fails `refresh() re-binds live
-  page subscriptions to fresh chained cursors`.
+page subscriptions to fresh chained cursors`.
 
 ### TODO 2.3 — Investigate & fix auth-refresh page collapse (B4) `[x]`
 
@@ -694,7 +694,7 @@ Implemented in this slice:
 - Restore-and-retest: removing the same-token auth-refresh guard fails
   `preserves loaded pages across a same-token auth refresh pending pulse`.
 
-### TODO 2.4 — Live-mode F-26b + race regression tests `[ ]`
+### TODO 2.4 — Live-mode F-26b + race regression tests `[x]`
 
 Extend `test/nuxt/useConvexPaginatedQuery.nuxt.test.ts` (mirror the existing
 `subscribe:false` gapless test at ~448):
@@ -707,17 +707,40 @@ Extend `test/nuxt/useConvexPaginatedQuery.nuxt.test.ts` (mirror the existing
 | `refresh()` rejection with an unauthorized-shaped error → `handleUnauthorizedAuthFailure` invoked (spy)                                                                                                   | 2.1  |
 | `refresh()` racing an args change (bump args mid-refresh) → no `globalError` pollution of the new view                                                                                                    | 2.1  |
 
+Implemented across Phase 2:
+
+- Live-mode F-26b rebind coverage: `refresh() re-binds live page subscriptions
+to fresh chained cursors`.
+- Race coverage: `loadMore() is ignored while refresh() is rebuilding the page
+chain` and `deduplicates concurrent refresh() calls`.
+- Error coverage: `routes refresh() failures through unauthorized recovery` and
+  `does not let stale refresh errors pollute a newer args view`.
+- Auth-refresh depth coverage: `preserves loaded pages across a same-token auth
+refresh pending pulse`.
+
 ### Phase 2 exit gate
 
 Full §0.1 gate + `prepack`. Restore-and-retest 2.1 (both guards), 2.2, and 2.3
 (if code changed). Record failing test names here:
 
 ```
-2.1 loadMore-guard revert -> FAILS: <test>
-2.1 catch-gate revert -> FAILS: <test>
-2.2 re-bind revert -> FAILS: <test>
-2.3 revert -> FAILS: <test> (or REFUTED)
+2.1 loadMore-guard revert -> FAILS: loadMore() is ignored while refresh() is rebuilding the page chain
+2.1 refresh-guard revert -> FAILS: deduplicates concurrent refresh() calls
+2.1 catch-gate revert -> FAILS: does not let stale refresh errors pollute a newer args view; routes refresh() failures through unauthorized recovery
+2.2 re-bind revert -> FAILS: refresh() re-binds live page subscriptions to fresh chained cursors
+2.3 same-token auth-refresh guard revert -> FAILS: preserves loaded pages across a same-token auth refresh pending pulse
 ```
+
+Phase 2 exit gate:
+
+- `pnpm lint` PASS
+- `pnpm format:check` PASS after running `pnpm format` for markdown/test
+  wrapping
+- `pnpm test:types` PASS
+- `pnpm test` PASS: 70 files, 506 tests
+- `pnpm check:contracts` PASS
+- `pnpm prepack` PASS, including `check:package-exports -- --dist`
+- `node scripts/check-package-exports.mjs --dist` PASS: 278 files
 
 ---
 

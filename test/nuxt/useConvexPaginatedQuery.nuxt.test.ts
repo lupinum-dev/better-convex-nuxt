@@ -260,9 +260,7 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
         const path = (q as { _path?: string })._path
         const actualCursor = (args as { paginationOpts?: { cursor?: string | null } })
           .paginationOpts?.cursor
-        return (
-          path === 'notes:listPaginated:auth-refresh-preserve-pages' && actualCursor === cursor
-        )
+        return path === 'notes:listPaginated:auth-refresh-preserve-pages' && actualCursor === cursor
       }
     }
 
