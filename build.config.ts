@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
-import { readdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { lstat, readdir, rm } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 
 /**
  * Post-build dist cleanup (F-37).
@@ -57,18 +57,25 @@ export default {
   hooks: {
     async 'build:done'(ctx: MinimalBuildDoneContext) {
       const outDir = ctx.options.outDir
+      if (basename(outDir) !== 'dist') {
+        return
+      }
+      const runtimeDir = join(outDir, 'runtime')
+      if (existsSync(runtimeDir) && (await lstat(runtimeDir)).isSymbolicLink()) {
+        return
+      }
 
       // Keep only the built static output (`ui/dist`); drop the devtools UI source.
-      await removeSiblingsExcept(join(outDir, 'runtime/devtools/ui'), 'dist')
+      await removeSiblingsExcept(join(runtimeDir, 'devtools/ui'), 'dist')
 
       // Drop the stray tsconfig that extends a repo-only path.
-      const serverTsconfig = join(outDir, 'runtime/server/tsconfig.json')
+      const serverTsconfig = join(runtimeDir, 'server/tsconfig.json')
       if (existsSync(serverTsconfig)) {
         await rm(serverTsconfig, { force: true })
       }
 
       // Drop the duplicate raw nitro output — ui/dist above is the one that ships.
-      const devtoolsRawOutput = join(outDir, 'runtime/devtools/.output')
+      const devtoolsRawOutput = join(runtimeDir, 'devtools/.output')
       if (existsSync(devtoolsRawOutput)) {
         await rm(devtoolsRawOutput, { recursive: true, force: true })
       }
