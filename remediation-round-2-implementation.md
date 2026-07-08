@@ -1272,7 +1272,7 @@ Full §0.1 gate passed on 2026-07-08:
 
 ## Phase 6 — Honesty & final verification
 
-### TODO 6.1 — Correct the false claims in `refactor-progress.md` `[ ]`
+### TODO 6.1 — Correct the false claims in `refactor-progress.md` `[x]`
 
 Append a dated "Round 2 corrections" section (do not silently rewrite history):
 
@@ -1287,6 +1287,10 @@ Append a dated "Round 2 corrections" section (do not silently rewrite history):
   authoritative-roles section; fixed by R2-5.3.
 - The F-5 "verified against the fixture's real generated types" claim was
   inaccurate (fixture was stricter than codegen); fixed by R2-3.3.
+
+Implemented in `refactor-progress.md` under "Round 2 corrections —
+2026-07-08", appended after the original Phase 6 notes so the original review
+history remains visible.
 
 ### TODO 6.2 — Full final gate `[ ]`
 

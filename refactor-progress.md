@@ -226,3 +226,30 @@ All 12 tasks DONE, 0 BLOCKED, 0 SKIPPED.
 - P6.9 found and fixed a second packaging leak not named in the audit's F-37 evidence: `dist/runtime/devtools/.output/` (nitro's raw static-build output, sibling to `ui/`) duplicated the exact same static site already kept at `dist/runtime/devtools/ui/dist/`, and is never referenced by any runtime code path (`module.ts` only resolves `./runtime/devtools/ui/dist`). Deleted it in the same `build:done` hook as the two named cleanups. Flagged here per the working agreement's "note anything to scrutinize" instruction, since it's an addition beyond the task's literal file list — but it is the same class of fix (dist packaging cruft) and was verified the same way (`pnpm prepack` + `check-package-exports.mjs --dist`).
 - No task hit the 3-failed-attempts threshold; nothing is BLOCKED.
 - No new public APIs, no new dependencies (the `build.config.ts` hook uses only Node built-ins; `unbuild`'s types were deliberately NOT imported, to avoid depending on an undeclared package — the hook context is typed with a small local interface instead).
+
+---
+
+## Round 2 corrections — 2026-07-08
+
+This section corrects claims above that did not survive independent Round 2
+review. The earlier entries are left intact as historical review notes, not
+current truth.
+
+- The round-1 claim that every deleted test was only a test of deleted code was
+  false. `posts.ts` survived with 7 endpoints and `checkPermission` survived as
+  a live API, but both had zero direct coverage until Round 2 restored
+  permissions coverage in R2-3.2.
+- The F-2 regression test did not pin the auth-engine call site. Reverting the
+  engine back to the blanket `clearSubscriptionCache()` behavior still left the
+  suite green until Round 2 added the focused auth-engine lifecycle tests in
+  R2-1.5.
+- The F-3 Part-A test drove a transition production does not produce. Round 2
+  replaced that manufactured transition with auth-engine sign-out lifecycle
+  coverage in R2-1.5/R2-1.6.
+- The Phase 5 note that `authentication.md` was verified clean missed an
+  app-owned authoritative roles section. Round 2 removed that stale model and
+  broadened the guard in R2-5.3.
+- The F-5 claim that the type contracts were verified against the fixture's real
+  generated Convex types was inaccurate: the fixture was stricter than generated
+  Convex types for optional-only args. Round 2 aligned the type contract with
+  codegen behavior in R2-3.3.
