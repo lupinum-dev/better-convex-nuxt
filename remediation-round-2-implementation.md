@@ -997,10 +997,21 @@ Implemented in this slice:
 Full §0.1 gate. Restore-and-retest 4.1–4.3:
 
 ```
-4.1 revert -> FAILS: <test>
-4.2 revert -> FAILS: <test>
-4.3 revert -> FAILS: <test>
+4.1 revert -> FAILS: forces no-store on token-bearing auth responses after forwarding upstream headers
+4.2 revert -> FAILS: clears the cached token for Better Auth revocation route /revoke-session; detects trailing-slash revocation without changing the upstream proxy target
+4.3 revert -> FAILS: strips the authorization header on a followed cross-origin canonical redirect (F-27); does not forward final Set-Cookie after a followed canonical redirect
 ```
+
+Gate results:
+
+- `pnpm lint` PASS
+- `pnpm format:check` PASS
+- `pnpm test:types` PASS
+- `pnpm test` PASS: 71 files / 530 tests
+- `pnpm check:contracts` PASS: api surface docs current, package exports 104
+  source files checked, workspace dependency alignment passed, consumer-smoke
+  typecheck passed, missing-convex-api typecheck passed, Better Auth local
+  component typecheck passed
 
 ---
 
