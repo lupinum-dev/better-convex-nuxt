@@ -79,7 +79,7 @@
     "check:api-surface-docs": "node scripts/generate-api-surface.mjs --check",
     "check:no-starter-generated-artifacts": "node scripts/check-no-starter-generated-artifacts.mjs",
     "check:workspace-deps": "node scripts/check-workspace-dependency-alignment.mjs",
-    "check:consumer-smoke": "nuxi prepare --cwd test/fixtures/consumer-smoke && nuxi typecheck --cwd test/fixtures/consumer-smoke",
+    "check:consumer-smoke": "nuxt-module-build build && nuxi prepare --cwd test/fixtures/consumer-smoke && nuxi typecheck --cwd test/fixtures/consumer-smoke",
     "check:missing-convex-api": "nuxi prepare --cwd test/fixtures/missing-convex-api && nuxi typecheck --cwd test/fixtures/missing-convex-api",
     "check:better-auth-local-component": "tsc --noEmit -p test/fixtures/better-auth-local-component/tsconfig.json",
     "check:no-legacy-query-api": "sh -c '! rg -n \"useConvexQueryLazy|useConvexPaginatedQueryLazy|with-default|useConvex(Query|PaginatedQuery)[^\\n]*default\\\\b\" src playground docs test starters'",
