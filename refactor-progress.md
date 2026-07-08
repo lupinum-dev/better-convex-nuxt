@@ -22,6 +22,7 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 | P2.1 args (F-5+F-23) | DONE   | f95c9080 | plan A conditional tuple `ConvexQueryRest`/`SharedQueryArgsField`; consumer-smoke + query-options-types negatives green; revert of signature fails contracts (verified); check:contracts + missing-convex-api green; 62 query-family nuxt tests green                                                                          |
 | P2.2 error (F-19)    | DONE   | 19615e2f | `error` now `ComputedRef<Error \| null>` via `computed(() => asyncData.error.value ?? null)`; cast removed; useConvexUser ripple retyped; type test `_QueryErrorIsComputedErrorNull`; types + consumer-smoke + 32 nuxt query/user tests green                                                                                  |
 | P2.3 perms (F-18)    | DONE   | d4410d4d | query typed `FunctionReference<'query','public',Record<string,never>,TContext\|null>`; 4 `as TContext\|null` casts removed; `pending` → ComputedRef; consumer-smoke + 4 usePermissions nuxt tests green. Playground `getPermissionContext` debug-shape mismatch deferred (not gated; Phase 5 P5.2 reworks it) — see Deviations |
+| P2.4 storage (F-15)  | DONE   | 55a2081f | getUrlQuery constrained to `FunctionReference<'query','public',{storageId:string},string\|null>`; inline `options.auth` (ConvexQueryAuthMode, default 'none', behavior-preserving) replaces hardcoded literal; consumer-smoke positive+auth+mistyped `@ts-expect-error` contracts green; types + storage-url test green        |
 
 ## Phase 1 gate
 
