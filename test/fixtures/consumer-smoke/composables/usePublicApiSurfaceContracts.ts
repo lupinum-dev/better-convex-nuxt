@@ -146,6 +146,8 @@ async function _requiredArgsContracts() {
   // --- useConvexPaginatedQuery ---
   // Positive: paginated query with no extra args accepts zero args.
   void useConvexPaginatedQuery(api.tasks.listPaginated)
+  // @ts-expect-error options object must not be accepted in the args slot (F-5 follow-up)
+  void useConvexPaginatedQuery(api.tasks.listPaginated, { initialNumItems: 5 })
   // Positive: correct required extra args compile.
   void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { owner: 'user_1' })
   // @ts-expect-error required paginated args must not be omittable (F-5)

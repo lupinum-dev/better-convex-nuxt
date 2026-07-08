@@ -2,6 +2,10 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
 
 type EmptyArgs = Record<string, never>
+type StrictEmptyArgs = Record<PropertyKey, never>
+type TightenEmptyArgs<T> = T extends string ? T : EmptyArgs extends T ? StrictEmptyArgs : T
+type TightenEmptyArgsParam<T> =
+  T extends MaybeRefOrGetter<infer Value> ? MaybeRefOrGetter<TightenEmptyArgs<Value>> : T
 
 /**
  * Mirrors convex's OptionalRestArgs rule for our `(args, options)` call shape:
@@ -15,7 +19,7 @@ type EmptyArgs = Record<string, never>
  * `Options` is the trailing options object type.
  */
 export type ConvexQueryRest<ArgsObject, ArgsParam, Options> = EmptyArgs extends ArgsObject
-  ? [args?: ArgsParam, options?: Options]
+  ? [args?: TightenEmptyArgsParam<ArgsParam>, options?: Options]
   : [args: ArgsParam, options?: Options]
 
 /**

@@ -773,12 +773,17 @@ export async function useConvexQuery<
   query: Query,
   ...rest: ConvexQueryRest<
     FunctionArgs<Query>,
-    MaybeRefOrGetter<Args>,
+    MaybeRefOrGetter<ConvexQueryArgs<NoInfer<Args>>>,
     UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
   >
 ): Promise<UseConvexQueryData<DataT>> {
   const [args, options] = rest
-  const { resultData, resolvePromise } = createConvexQueryState(query, args, options, false)
+  const { resultData, resolvePromise } = createConvexQueryState(
+    query,
+    args as MaybeRefOrGetter<ConvexQueryArgs<Args>> | undefined,
+    options,
+    false,
+  )
   await resolvePromise
   return resultData
 }

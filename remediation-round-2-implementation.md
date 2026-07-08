@@ -803,7 +803,7 @@ Implemented in this slice:
 - `checkPermission` covers null context, signed-in permissions, owner/non-owner
   resource checks, missing resource, and malformed/unknown permissions.
 
-### TODO 3.3 — Codegen-faithful F-5 fixture (LD-8) `[ ]`
+### TODO 3.3 — Codegen-faithful F-5 fixture (LD-8) `[x]`
 
 `test/fixtures/consumer-smoke/convex/_generated/api.d.ts` hand-writes
 `args: Record<string, never>` for arg-less functions; real convex codegen emits
@@ -824,6 +824,21 @@ than production.
 4. Confirm the required-args contracts still fire: temporarily revert the F-5
    conditional type (`ConvexQueryRest`) and expect TS2578 at the arity
    contracts; restore.
+
+Implemented in this slice:
+
+- Changed the consumer-smoke generated API fixture's argless functions from
+  `Record<string, never>` to `{}`.
+- No existing consumer-smoke `@ts-expect-error` lines became unused from that
+  change.
+- Added consumer-smoke and unit negative contracts for the paginated
+  options-object-in-args-slot hole.
+- Closed that hole by tightening explicit empty args to
+  `Record<PropertyKey, never>` and using `NoInfer` so the function reference,
+  not the supplied argument, drives public args inference.
+- Restore-and-retest: temporarily weakening `ConvexQueryRest` to always make
+  args optional fails `pnpm test:types` with TS2578 at
+  `test/unit/query-options-types.test.ts:106`, `:116`, and `:123`.
 
 ### Phase 3 exit gate
 

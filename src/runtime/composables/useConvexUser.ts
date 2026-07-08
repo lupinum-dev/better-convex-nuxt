@@ -67,11 +67,12 @@ export function useConvexUser<
   query: Query,
   ...rest: ConvexQueryRest<
     FunctionArgs<Query>,
-    MaybeRefOrGetter<Args>,
+    MaybeRefOrGetter<NoInfer<Args>>,
     UseConvexUserOptions<FunctionReturnType<Query>, User>
   >
 ): UseConvexUserReturn<User> {
-  const [args, options = {}] = rest
+  const [rawArgs, options = {}] = rest
+  const args = rawArgs as MaybeRefOrGetter<Args> | undefined
   const auth = useConvexAuth()
   const seedFromSession = options.seedFromSession ?? true
   const canonicalSource = options.source ?? 'better-auth'

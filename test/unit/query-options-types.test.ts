@@ -83,7 +83,7 @@ type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], Compute
 // `@ts-expect-error` lines fail `test:types`. `_arityContracts` is never called.
 // ============================================================================
 
-declare const noArgQuery: FunctionReference<'query', 'public', Record<string, never>, string[]>
+declare const noArgQuery: FunctionReference<'query', 'public', {}, string[]>
 declare const reqArgQuery: FunctionReference<'query', 'public', { id: string }, string>
 declare const noArgPaginated: FunctionReference<
   'query',
@@ -110,6 +110,8 @@ async function _arityContracts() {
 
   // --- useConvexPaginatedQuery ---
   void useConvexPaginatedQuery(noArgPaginated) // no extra args accepts zero args
+  // @ts-expect-error options object must not be accepted in the args slot (F-5 follow-up)
+  void useConvexPaginatedQuery(noArgPaginated, { initialNumItems: 5 })
   void useConvexPaginatedQuery(reqArgPaginated, { owner: 'x' }) // correct extra args compile
   // @ts-expect-error required paginated args must not be omittable (F-5)
   void useConvexPaginatedQuery(reqArgPaginated)
