@@ -530,6 +530,19 @@ Implemented in this slice:
 1.4 generation-gate+no-serialization revert -> FAILS: `clears identity even when refreshAuth starts during signOut`
 ```
 
+Phase 1 exit gate run after TODO 1.6:
+
+- `pnpm lint` PASS.
+- `pnpm format:check` PASS.
+- `pnpm test:types` PASS.
+- `pnpm test` PASS: 500 tests.
+- `pnpm check:contracts` PASS.
+- `pnpm prepack` PASS.
+- `node scripts/check-package-exports.mjs --dist` PASS: 278 files checked.
+- Dist spot-check after `prepack`: no `dist/runtime/devtools/.output`, no
+  `dist/runtime/server/tsconfig.json`, no `dist/runtime/devtools/ui/app.vue`,
+  and `dist/runtime/devtools/ui/dist/index.html` exists.
+
 ---
 
 ## Phase 2 — Paginated refresh correctness
