@@ -506,8 +506,10 @@ export function createConvexAuthEngine({
     state.authError.value = null
 
     signOutPromise = (async () => {
-      clearAuthSubscriptions(nuxtApp)
-      await nextTick()
+      const inflightRefresh = nuxtApp._convexRefreshAuthPromise
+      if (inflightRefresh) {
+        await inflightRefresh.catch(() => {})
+      }
 
       const result = await authClient.signOut()
       const maybeError =
@@ -517,28 +519,30 @@ export function createConvexAuthEngine({
         throw new Error(getErrorMessage(maybeError, 'Sign out failed'))
       }
 
-      if (isActiveGeneration(operationGeneration)) {
-        state.token.value = null
-        state.user.value = null
-        state.authError.value = null
-        lastTokenValidation = 0
-        lastNullTokenCheck = Date.now()
-        settleAuthReady(false)
-        attachedClient?.setAuth(
-          async () => null,
-          () => {},
-        )
-        clearAuthSubscriptions(nuxtApp)
+      state.token.value = null
+      state.user.value = null
+      lastTokenValidation = 0
+      lastNullTokenCheck = Date.now()
+      settleAuthReady(false)
+      attachedClient?.setAuth(
+        async () => null,
+        () => {},
+      )
+      clearAuthSubscriptions(nuxtApp)
+      await nextTick()
 
-        // Purge cached Convex query payload so a subsequent session can never read or
-        // hydrate the previous user's data. Payload keys consumed exclusively by
-        // public auth:'none' queries are auth-independent and keep their data.
-        const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
-        clearNuxtData(
-          (key) =>
-            (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
-            !publicPayloadKeys.has(key),
-        )
+      // Purge cached Convex query payload so a subsequent session can never read or
+      // hydrate the previous user's data. Payload keys consumed exclusively by
+      // public auth:'none' queries are auth-independent and keep their data.
+      const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
+      clearNuxtData(
+        (key) =>
+          (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
+          !publicPayloadKeys.has(key),
+      )
+
+      if (isActiveGeneration(operationGeneration)) {
+        state.authError.value = null
       }
 
       return result
@@ -566,6 +570,11 @@ export function createConvexAuthEngine({
     }
 
     nuxtApp._convexRefreshAuthPromise = (async () => {
+      const inflightSignOut = signOutPromise
+      if (inflightSignOut) {
+        await inflightSignOut.catch(() => {})
+      }
+
       const operationGeneration = nextGeneration()
       state.pending.value = true
       state.authError.value = null

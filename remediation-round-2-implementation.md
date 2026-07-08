@@ -350,7 +350,7 @@ Implemented in this slice:
   a local `unknown` fetch function, avoiding Nuxt typed-route recursion in
   `vue-tsc` without changing runtime behavior.
 
-### TODO 1.4 — Rewrite the engine sign-out sequence `[ ]`
+### TODO 1.4 — Rewrite the engine sign-out sequence `[x]`
 
 **File:** `src/runtime/auth/client-engine.ts` (~lines 495-560), plus
 `refreshAuth` (~line 560+).
@@ -432,6 +432,24 @@ unrelated app keys like `convexSomething`. The new predicate matches only the
 module's own namespaces (`convex:` / `convex-paginated:`). Grep
 `rg -n "startsWith\('convex'\)" src/` afterwards — zero hits expected.
 
+Implemented in this slice:
+
+- `signOut()` now waits for an in-flight `refreshAuth()` before calling Better
+  Auth, and `refreshAuth()` waits for an in-flight `signOut()` before starting
+  its own generation.
+- Subscription teardown, Convex `setAuth(null)`, identity clearing, and Nuxt
+  payload purge now run only after upstream sign-out succeeds.
+- Identity teardown is no longer guarded by `isActiveGeneration`; only cosmetic
+  state remains generation-gated.
+- Restore-and-retest:
+  - Reintroducing pre-upstream `clearAuthSubscriptions()` fails `clears shared
+query subscriptions only after Better Auth signOut succeeds` and `keeps
+identity and subscriptions when Better Auth signOut fails`.
+  - Reintroducing the old combined race (no refresh/sign-out serialization plus
+    generation-gated teardown) fails `clears identity even when refreshAuth
+starts during signOut`.
+  - `rg -n "startsWith\('convex'\)" src/` returns no matches.
+
 ### TODO 1.5 — End-to-end `engine.signOut()` test suite `[ ]`
 
 **New file:** `test/nuxt/client-engine.signout-lifecycle.nuxt.test.ts`
@@ -485,8 +503,8 @@ Required cases — each maps to a bug and MUST fail if that fix is lone-reverted
 1.2 revert -> FAILS: `does not resurrect keepPreviousData when sign-out purge re-runs the default factory`
 1.3 keys revert -> FAILS: `does not alias the same query mounted as auth:auto and auth:none`; `does not alias paginated first-page subscriptions mounted as auth:auto and auth:none`
 1.3 registry revert -> FAILS: `keeps only keys consumed exclusively by auth:none queries`; `drops stale private payload keys and keeps mounted public query data`; `keeps public subscribe:false payloads during sign-out purge`
-1.4 blanket-clear revert -> FAILS: <test name>
-1.4 generation-gate revert -> FAILS: <test name>
+1.4 blanket-clear revert -> FAILS: `clears shared query subscriptions only after Better Auth signOut succeeds`; `keeps identity and subscriptions when Better Auth signOut fails`
+1.4 generation-gate+no-serialization revert -> FAILS: `clears identity even when refreshAuth starts during signOut`
 ```
 
 ---
