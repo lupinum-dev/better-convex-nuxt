@@ -579,6 +579,115 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     expect(refreshCursors).not.toContain('after-n2')
   })
 
+  it('refresh() re-binds live page subscriptions to fresh chained cursors', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-live-rebind')
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'n1' },
+          { _id: 'n1.5', title: 'n1.5' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n1.5',
+      },
+      'after-n1.5': {
+        page: [
+          { _id: 'n2', title: 'n2' },
+          { _id: 'n3', title: 'n3' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n3',
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      return { value: responses[key] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const matchesCursor = (cursor: string | null) => {
+      return ({ query: q, args }: { query: unknown; args: unknown }) => {
+        const path = (q as { _path?: string })._path
+        const actualCursor = (args as { paginationOpts?: { cursor?: string | null } })
+          .paginationOpts?.cursor
+        return path === 'notes:listPaginated:refresh-live-rebind' && actualCursor === cursor
+      }
+    }
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
+      { convex },
+    )
+
+    convex.emitQueryResultWhere(matchesCursor(null), {
+      page: [
+        { _id: 'n1', title: 'n1' },
+        { _id: 'n2', title: 'n2' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n2',
+    })
+    await waitFor(() => result.results.value.length === 2)
+
+    result.loadMore(2)
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('after-n2')) === 1)
+    convex.emitQueryResultWhere(matchesCursor('after-n2'), {
+      page: [
+        { _id: 'n3', title: 'n3' },
+        { _id: 'n4', title: 'n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-n4',
+    })
+    await waitFor(() => result.results.value.length === 4)
+
+    await result.refresh()
+
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('after-n1.5')) === 1)
+    expect(convex.activeListenerCountWhere(matchesCursor('after-n2'))).toBe(0)
+
+    convex.emitQueryResultWhere(matchesCursor('after-n2'), {
+      page: [
+        { _id: 'stale-n3', title: 'stale n3' },
+        { _id: 'stale-n4', title: 'stale n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-stale-n4',
+    })
+    await Promise.resolve()
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+
+    convex.emitQueryResultWhere(matchesCursor('after-n1.5'), {
+      page: [
+        { _id: 'n2', title: 'n2 live' },
+        { _id: 'n3', title: 'n3 live' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n3',
+    })
+    await waitFor(() => {
+      const titles = (result.results.value as Array<{ title: string }>).map((item) => item.title)
+      return titles.includes('n2 live') && titles.includes('n3 live')
+    })
+  })
+
   it('loadMore() is ignored while refresh() is rebuilding the page chain', async () => {
     const query = mockFnRef<'query'>('notes:listPaginated:refresh-loadMore-race')
     const inFlightRefresh = deferred<{ value: PaginationResult<{ _id: string; title: string }> }>()

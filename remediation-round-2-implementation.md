@@ -622,7 +622,7 @@ refresh() calls`.
 errors pollute a newer args view` and `routes refresh() failures through
 unauthorized recovery`.
 
-### TODO 2.2 — Re-bind page subscriptions after refresh commit (LD-6) `[ ]`
+### TODO 2.2 — Re-bind page subscriptions after refresh commit (LD-6) `[x]`
 
 Inside the successful-commit branch, after `pages.value = refreshedPages`:
 
@@ -634,7 +634,7 @@ Inside the successful-commit branch, after `pages.value = refreshedPages`:
 // unsubscribes the previous subscription for that page. Page 0 keeps the
 // stable first-page subscription (cursor is always null).
 if (import.meta.client && executionGate.value.setupLiveSubscription) {
-  for (let i = 1; i < refreshedPages.length; i++) {
+  for (let i = 0; i < refreshedPages.length; i++) {
     const before = loadedPages[i]
     const after = refreshedPages[i]
     if (before && after && before.paginationOpts.cursor !== after.paginationOpts.cursor) {
@@ -650,6 +650,18 @@ sure the wording matches the implemented behavior (re-chained cursors +
 re-bound subscriptions). Cross-check the plain-query doc that claims
 `refresh()` is a no-op under subscriptions for `useConvexQuery` — that doc
 statement concerns the _plain_ composable and stays.
+
+Implemented in this slice:
+
+- Successful refresh commits now re-bind every loaded page subscription whose
+  cursor changed, starting at `pages[0]` because `pages[]` stores only
+  additional pages after the first page.
+- `refresh()` JSDoc now states the concrete re-chain/re-bind behavior.
+- Added a live-mode regression proving a refreshed cursor replaces the stale
+  page subscription, stale-cursor emissions no longer clobber the refreshed
+  range, and fresh-cursor emissions continue updating the page.
+- Restore-and-retest: removing the re-bind loop fails `refresh() re-binds live
+  page subscriptions to fresh chained cursors`.
 
 ### TODO 2.3 — Investigate & fix auth-refresh page collapse (B4) `[ ]`
 

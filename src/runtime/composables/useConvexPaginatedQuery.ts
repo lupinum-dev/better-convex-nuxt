@@ -190,7 +190,7 @@ export interface UseConvexPaginatedQueryData<Item> {
 
   /**
    * Re-fetch all currently loaded pages via HTTP.
-   * Useful for manual refresh when subscribe: false, or force-refresh with subscriptions.
+   * Re-chains page cursors and re-binds live page subscriptions when subscriptions are active.
    */
   refresh: () => Promise<void>
 
@@ -927,6 +927,15 @@ export function createConvexPaginatedQueryState<
       ) {
         firstPageRealtimeData.value = firstPageResult
         pages.value = refreshedPages
+        if (import.meta.client && executionGate.value.setupLiveSubscription) {
+          for (let i = 0; i < refreshedPages.length; i++) {
+            const before = loadedPages[i]
+            const after = refreshedPages[i]
+            if (before && after && before.paginationOpts.cursor !== after.paginationOpts.cursor) {
+              startPageSubscription(i)
+            }
+          }
+        }
         asyncDataError.value = null
         globalError.value = null
       } else if (import.meta.dev && pages.value.length !== loadedPages.length) {
