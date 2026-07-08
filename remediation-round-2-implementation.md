@@ -772,7 +772,7 @@ Implemented in this slice:
   inside `setupSubscription()` fails `does not enter subscription setup while
 auth is still pending` on the invariant-error assertion.
 
-### TODO 3.2 — Cover `posts.ts` and `checkPermission` `[ ]`
+### TODO 3.2 — Cover `posts.ts` and `checkPermission` `[x]`
 
 `playground/convex/posts.ts` (7 endpoints: auth checks, `authorize()`
 ownership, `ConvexError({ code })` shapes) and `checkPermission`
@@ -791,6 +791,17 @@ were deleted in round 1 (the log claimed they only tested deleted code — false
 
 Target ≥ 15 focused tests. Do not test Convex framework behavior — test the
 authorization decisions.
+
+Implemented in this slice:
+
+- Added `playground/convex/posts.test.ts` with 15 focused Convex tests.
+- Read-query unauthenticated behavior is pinned to the actual contract:
+  `list`/`listPaginated` return empty results and `get` returns `null`.
+- Protected mutations assert structured `UNAUTHENTICATED`, `FORBIDDEN`, and
+  `NOT_FOUND` `ConvexError` codes.
+- Ownership isolation covers list/get/paginated/update/publish/remove.
+- `checkPermission` covers null context, signed-in permissions, owner/non-owner
+  resource checks, missing resource, and malformed/unknown permissions.
 
 ### TODO 3.3 — Codegen-faithful F-5 fixture (LD-8) `[ ]`
 
