@@ -55,14 +55,14 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const authCache = asRecord(raw?.authCache)
   const upload = asRecord(raw?.upload)
   const authProxy = asRecord(raw?.authProxy)
-  const envUrl = process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL
-  const envSiteUrl = process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL
 
-  const runtimeUrl = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
-  const runtimeSiteUrl =
+  // URL/siteUrl are resolved from runtimeConfig only. module.ts reads env at build
+  // time; Nuxt's native `NUXT_PUBLIC_*` runtime override supplies deploy-time
+  // values. Re-reading process.env here would be server-only (empty client shim)
+  // and silently diverge SSR from the browser (F-16).
+  const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
+  const explicitSiteUrl =
     typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
-  const url = runtimeUrl ?? envUrl
-  const explicitSiteUrl = runtimeSiteUrl ?? envSiteUrl
   const resolvedSiteUrl = resolveConvexSiteUrl({
     url,
     siteUrl: explicitSiteUrl,
