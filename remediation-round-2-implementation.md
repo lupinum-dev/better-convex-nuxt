@@ -892,7 +892,7 @@ Implemented in this slice:
 - Restore-and-retest: removing the forced no-store override fails `forces
 no-store on token-bearing auth responses after forwarding upstream headers`.
 
-### TODO 4.2 — Harden sign-out detection (F-28) `[ ]`
+### TODO 4.2 — Harden sign-out detection (F-28) `[x]`
 
 Same file, ~line 70-75. Current:
 
@@ -920,6 +920,18 @@ Also update the doc note in `docs/content/docs/**/7.module-config.md` (find the
 F-28 authCache paragraph): state honestly that a request already in-flight when
 revocation lands can re-cache a JWT for up to `authCache.ttl` (≤60s default) —
 "immediately clears" is only true absent concurrency.
+
+Implemented in this slice:
+
+- Revocation detection now covers `/sign-out`, `/revoke-session`,
+  `/revoke-sessions`, `/revoke-other-sessions`, and `/delete-user`.
+- Detection trims trailing slashes, while the proxied upstream target preserves
+  the caller's exact path.
+- Module-config docs now describe the in-flight token request race that can
+  re-cache a JWT until `authCache.ttl` expires.
+- Restore-and-retest: reverting to sign-out-only detection fails all new
+  revocation-route and trailing-slash cases in
+  `test/unit/auth-proxy-signout-cache.test.ts`.
 
 ### TODO 4.3 — Strip credentials on cross-origin redirect hops (F-27) `[ ]`
 

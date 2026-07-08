@@ -110,6 +110,35 @@ describe('auth proxy sign-out cache invalidation (F-28)', () => {
     expect(serverConvexClearAuthCacheMock).toHaveBeenCalledWith('session-token')
   })
 
+  it.each(['/revoke-session', '/revoke-sessions', '/revoke-other-sessions', '/delete-user'])(
+    'clears the cached token for Better Auth revocation route %s',
+    async (route) => {
+      getRequestURLMock.mockReturnValue(new URL(`https://app.example.com/api/auth${route}`))
+
+      const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+        .default as unknown as (event: ReturnType<typeof createEvent>) => Promise<Uint8Array>
+      await handler(createEvent('POST'))
+
+      expect(serverConvexClearAuthCacheMock).toHaveBeenCalledTimes(1)
+      expect(serverConvexClearAuthCacheMock).toHaveBeenCalledWith('session-token')
+    },
+  )
+
+  it('detects trailing-slash revocation without changing the upstream proxy target', async () => {
+    getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/sign-out/'))
+
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (event: ReturnType<typeof createEvent>) => Promise<Uint8Array>
+    await handler(createEvent('POST'))
+
+    expect(serverConvexClearAuthCacheMock).toHaveBeenCalledWith('session-token')
+    expect(fetchWithCanonicalRedirectsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: 'https://demo.convex.site/api/auth/sign-out/',
+      }),
+    )
+  })
+
   it('does not clear the cache when authCache is disabled', async () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',

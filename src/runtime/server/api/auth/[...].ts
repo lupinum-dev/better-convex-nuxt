@@ -37,6 +37,14 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
   await recordAuthProxyRequest(request)
 }
 
+const SESSION_REVOKING_PATHS = new Set([
+  '/sign-out',
+  '/revoke-session',
+  '/revoke-sessions',
+  '/revoke-other-sessions',
+  '/delete-user',
+])
+
 /**
  * Validates if the given origin is allowed.
  * Same-origin requests are always allowed.
@@ -70,9 +78,9 @@ export default defineEventHandler(async (event: H3Event) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
 
-  // Better Auth's sign-out endpoint. Detected cheaply from the already-computed
-  // proxy path - no request body inspection needed (F-28).
-  const isSignOutRequest = normalizedPath === '/sign-out' && event.method === 'POST'
+  // Detection only: the proxy target keeps the caller's exact path.
+  const detectionPath = normalizedPath.replace(/\/+$/, '') || '/'
+  const isSignOutRequest = SESSION_REVOKING_PATHS.has(detectionPath) && event.method === 'POST'
   const sessionTokenBeforeProxy = isSignOutRequest
     ? getBetterAuthSessionToken(event.headers.get('cookie'))
     : null
