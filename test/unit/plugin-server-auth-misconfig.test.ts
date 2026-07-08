@@ -104,7 +104,7 @@ describe('plugin.server token exchange failure policy', () => {
     decodeUserFromJwtMock.mockReturnValue(null)
   })
 
-  it('treats 500 token exchange as misconfig (dev throw, always sets auth error)', async () => {
+  it('treats 500 token exchange as misconfig (dev throw + detailed error, prod generic error)', async () => {
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/api/auth/get-session')) {
         return createResponse(200, { user: null })
@@ -119,14 +119,19 @@ describe('plugin.server token exchange failure policy', () => {
     const run = plugin()
 
     if (import.meta.dev) {
+      // Dev: hard-fails the SSR render, and the client-visible error carries
+      // implementation detail to speed up local debugging.
       await expect(run).rejects.toThrow(/token exchange/i)
+      expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(
+        /convex\/token|token exchange/i,
+      )
     } else {
+      // Prod (F-11): never leak secret/file hints or raw upstream text to the client.
       await expect(run).resolves.toBeUndefined()
+      expect(stateStore.get('convex:authError')?.value).toBe(
+        'Authentication is temporarily unavailable',
+      )
     }
-
-    expect(String(stateStore.get('convex:authError')?.value ?? '')).toMatch(
-      /convex\/token|token exchange/i,
-    )
   })
 
   it('keeps 401 token exchange as graceful unauthenticated (no throw)', async () => {

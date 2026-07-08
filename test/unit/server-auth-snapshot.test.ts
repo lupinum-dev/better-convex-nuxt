@@ -41,6 +41,7 @@ const baseOptions = {
   requestId: 'request-1',
   trackWaterfall: true,
   throwOnMisconfig: true,
+  revealAuthErrorDetails: true,
   authCache: { enabled: false, ttl: 60 },
 }
 
@@ -161,6 +162,28 @@ describe('resolveServerAuthSnapshot', () => {
       outcome: 'error',
       details: { status: 500 },
     })
+  })
+
+  it('hydrates a generic authError in production while logging the detailed message (F-11)', async () => {
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      throwOnMisconfig: false,
+      revealAuthErrorDetails: false,
+      cookieHeader: 'better-auth.session_token=session-prod',
+    })
+
+    expect(snapshot.token).toBeNull()
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
+    expect(snapshot.authError).not.toMatch(/BETTER_AUTH_SECRET|convex\/http\.ts|convex\/token/i)
+    expect(snapshot.devError).toBeNull()
+
+    // The detailed diagnostic still reaches server-side logs in prod.
+    const exchangeLog = snapshot.logEvents.find(
+      (event) => event.phase === 'exchange' && event.outcome === 'error',
+    )
+    expect(String(exchangeLog?.details?.message ?? '')).toMatch(/convex\/token|token exchange/i)
   })
 
   it('uses a valid session user fallback when JWT decoding fails', async () => {

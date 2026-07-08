@@ -156,6 +156,9 @@ export default defineNuxtPlugin(async () => {
     requestId,
     trackWaterfall: import.meta.dev,
     throwOnMisconfig: import.meta.dev,
+    // Detailed token-exchange failures (secret/file hints, upstream error
+    // text) are dev-only; production hydrates a generic message (F-11).
+    revealAuthErrorDetails: import.meta.dev,
   })
 
   convexToken.value = snapshot.token

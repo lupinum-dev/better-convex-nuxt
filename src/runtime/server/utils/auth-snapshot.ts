@@ -8,6 +8,14 @@ import { fetchWithTimeout } from './http'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 
+/**
+ * Generic message hydrated to the client in production when token exchange
+ * fails. The detailed diagnostic (secret/file hints, upstream error text)
+ * still reaches server-side log events via ServerAuthLogEvent.details - it
+ * just never reaches the client-visible snapshot outside dev.
+ */
+const GENERIC_AUTH_ERROR_MESSAGE = 'Authentication is temporarily unavailable'
+
 export interface ServerAuthLogEvent {
   phase: string
   outcome: AuthLogOutcome
@@ -25,6 +33,13 @@ export interface ResolveServerAuthSnapshotOptions {
   requestId: string
   trackWaterfall: boolean
   throwOnMisconfig: boolean
+  /**
+   * Whether the client-visible `authError` may include implementation
+   * details (secret names, file hints, raw upstream error text). Pass
+   * `import.meta.dev` from callers. When false, a generic message is
+   * hydrated instead - the detailed message still flows into `logEvents`.
+   */
+  revealAuthErrorDetails: boolean
 }
 
 export interface ServerAuthSnapshot {
@@ -73,7 +88,15 @@ async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<
 export async function resolveServerAuthSnapshot(
   options: ResolveServerAuthSnapshotOptions,
 ): Promise<ServerAuthSnapshot> {
-  const { siteUrl, cookieHeader, authCache, requestId, trackWaterfall, throwOnMisconfig } = options
+  const {
+    siteUrl,
+    cookieHeader,
+    authCache,
+    requestId,
+    trackWaterfall,
+    throwOnMisconfig,
+    revealAuthErrorDetails,
+  } = options
   const waterfallStart = trackWaterfall ? Date.now() : 0
   const phases: AuthWaterfallPhase[] = []
   const logEvents: ServerAuthLogEvent[] = []
@@ -275,12 +298,20 @@ export async function resolveServerAuthSnapshot(
       tokenExchangeStatus === 404 ||
       (tokenExchangeStatus !== undefined && tokenExchangeStatus >= 500)
 
-    authError = likelyMisconfig
+    // Full diagnostic (secret names, file hints, raw upstream error text) -
+    // safe for server logs/dev error pages, never for the client in prod.
+    const detailedExchangeError = likelyMisconfig
       ? buildTokenExchangeFailureMessage({
           siteUrl,
           status: tokenExchangeStatus,
           error: tokenExchangeThrown,
         })
+      : null
+
+    authError = likelyMisconfig
+      ? revealAuthErrorDetails
+        ? detailedExchangeError
+        : GENERIC_AUTH_ERROR_MESSAGE
       : null
 
     if (trackWaterfall) {
@@ -297,13 +328,20 @@ export async function resolveServerAuthSnapshot(
 
     devError =
       throwOnMisconfig && likelyMisconfig
-        ? new Error(authError ?? 'Convex auth token exchange failed')
+        ? new Error(detailedExchangeError ?? 'Convex auth token exchange failed')
         : null
+
+    const exchangeLogDetails: Record<string, unknown> | undefined = tokenExchangeStatus
+      ? { status: tokenExchangeStatus }
+      : undefined
 
     logEvents.push({
       phase: 'exchange',
       outcome: likelyMisconfig ? 'error' : 'miss',
-      details: tokenExchangeStatus ? { status: tokenExchangeStatus } : undefined,
+      // Detailed message always lands in server logs, regardless of env.
+      details: detailedExchangeError
+        ? { ...(exchangeLogDetails ?? {}), message: detailedExchangeError }
+        : exchangeLogDetails,
       error: tokenExchangeThrown instanceof Error ? tokenExchangeThrown : undefined,
     })
 
@@ -316,9 +354,15 @@ export async function resolveServerAuthSnapshot(
       devError,
     }
   } catch (error) {
-    authError = buildTokenExchangeFailureMessage({ siteUrl, error })
-    const err = error instanceof Error ? error : new Error(authError)
-    logEvents.push({ phase: 'exchange', outcome: 'error', error: err })
+    const detailedError = buildTokenExchangeFailureMessage({ siteUrl, error })
+    authError = revealAuthErrorDetails ? detailedError : GENERIC_AUTH_ERROR_MESSAGE
+    const err = error instanceof Error ? error : new Error(detailedError)
+    logEvents.push({
+      phase: 'exchange',
+      outcome: 'error',
+      error: err,
+      details: { message: detailedError },
+    })
 
     return {
       token: null,
