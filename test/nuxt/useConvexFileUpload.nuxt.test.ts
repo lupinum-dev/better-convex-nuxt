@@ -48,6 +48,16 @@ afterEach(() => {
   FakeXhr.delayMs = 0
 })
 
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useConvexFileUpload (Nuxt runtime)', () => {
   it('can be created during SSR setup without a Convex client and fails when called', async () => {
     const mutation = mockFnRef<'mutation'>('files:ssr-safe-upload-url')
@@ -138,5 +148,70 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     expect(result.status.value).toBe('idle')
     expect(result.progress.value).toBe(0)
     expect(result.data.value).toBeUndefined()
+  })
+
+  it('rejects a second concurrent upload() while one is pending (F-14)', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+    FakeXhr.delayMs = 20
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:concurrent')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:concurrent',
+      async () => 'http://upload.local',
+    )
+
+    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation), { convex })
+    const fileA = new File(['a'], 'a.txt', { type: 'text/plain' })
+    const fileB = new File(['b'], 'b.txt', { type: 'text/plain' })
+
+    // No `await` between these two calls: the first synchronously flips
+    // status to 'pending' before yielding at its first `await`, so the
+    // second call must see 'pending' and reject immediately — without
+    // touching the first call's status/error state.
+    const firstPromise = result.upload(fileA)
+    expect(result.status.value).toBe('pending')
+
+    await expect(result.upload(fileB)).rejects.toThrow('Upload already in progress')
+    // The rejected concurrent call must not have clobbered the in-flight upload.
+    expect(result.status.value).toBe('pending')
+
+    const storageId = await firstPromise
+    expect(storageId).toBe('storage_1')
+    expect(result.status.value).toBe('success')
+    expect(result.error.value).toBeNull()
+  })
+
+  it('cancel() during the URL-request phase prevents the XHR and leaves state idle (F-14)', async () => {
+    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+    const sendSpy = vi.spyOn(FakeXhr.prototype, 'send')
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:cancel-during-url')
+    const urlRequest = deferred<string>()
+    convex.setMutationHandler('files:generateUploadUrl:cancel-during-url', async () => {
+      return await urlRequest.promise
+    })
+
+    const { result } = await captureInNuxt(() => useConvexFileUpload(mutation), { convex })
+    const file = new File(['hello'], 'hello.txt', { type: 'text/plain' })
+
+    const uploadPromise = result.upload(file)
+    expect(result.status.value).toBe('pending')
+
+    // Cancel while still waiting on the generateUploadUrl mutation — before
+    // the previous behavior assigned an AbortController, this was a no-op.
+    result.cancel()
+    expect(result.status.value).toBe('idle')
+
+    // Now let the mutation resolve; the upload must not proceed to the XHR.
+    urlRequest.resolve('http://upload.local')
+
+    await expect(uploadPromise).rejects.toThrow()
+    expect(sendSpy).not.toHaveBeenCalled()
+    expect(result.status.value).toBe('idle')
+    expect(result.progress.value).toBe(0)
+    expect(result.data.value).toBeUndefined()
+    expect(result.error.value).toBeNull()
   })
 })
