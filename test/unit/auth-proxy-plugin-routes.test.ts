@@ -151,4 +151,29 @@ describe('auth proxy Better Auth plugin routes', () => {
     expect(new TextDecoder().decode(result)).toBe(JSON.stringify({ ok: true }))
     expect(appendResponseHeaderMock).not.toHaveBeenCalled()
   })
+
+  it('forces no-store on token-bearing auth responses after forwarding upstream headers', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue(
+      new Response(JSON.stringify({ token: 'jwt' }), {
+        status: 200,
+        headers: {
+          'cache-control': 'public, max-age=60',
+          'content-type': 'application/json',
+        },
+      }),
+    )
+    getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/convex/token'))
+
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (event: ReturnType<typeof createEvent>) => Promise<Uint8Array>
+    await handler(createEvent('POST'))
+
+    const cacheControlCalls = setHeadersMock.mock.calls.filter(
+      (call) => (call[1] as Record<string, string>)['cache-control'],
+    )
+    expect(cacheControlCalls.map((call) => call[1])).toEqual([
+      { 'cache-control': 'public, max-age=60' },
+      { 'cache-control': 'private, no-store' },
+    ])
+  })
 })

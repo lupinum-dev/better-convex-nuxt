@@ -216,6 +216,9 @@ export default defineEventHandler(async (event: H3Event) => {
         setHeaders(event, { [key]: value })
       }
     }
+    if (isCriticalAuthEndpoint) {
+      setHeaders(event, { 'cache-control': 'private, no-store' })
+    }
 
     // Preserve intentional redirects (OAuth flows, etc).
     if (response.status >= 300 && response.status < 400) {

@@ -862,7 +862,7 @@ Phase 3 exit gate:
 
 All bounded severity; all cheap. Files under `src/runtime/server/`.
 
-### TODO 4.1 — Force `no-store` on token-bearing proxy responses `[ ]`
+### TODO 4.1 — Force `no-store` on token-bearing proxy responses `[x]`
 
 **File:** `src/runtime/server/api/auth/[...].ts`. The variable
 `isCriticalAuthEndpoint` (`/convex/token` or `/get-session`, ~line 164) already
@@ -882,6 +882,15 @@ harness existing `[...].ts` tests use; if none exists, test
 via the smallest seam available and note it): response for `/convex/token`
 carries `cache-control: private, no-store` even when the stubbed upstream
 responds with `Cache-Control: public, max-age=60`.
+
+Implemented in this slice:
+
+- Critical `/convex/token` and `/get-session` responses now force
+  `cache-control: private, no-store` after upstream headers are forwarded.
+- Added a proxy regression proving `/convex/token` overwrites upstream
+  `public, max-age=60`.
+- Restore-and-retest: removing the forced no-store override fails `forces
+no-store on token-bearing auth responses after forwarding upstream headers`.
 
 ### TODO 4.2 — Harden sign-out detection (F-28) `[ ]`
 
