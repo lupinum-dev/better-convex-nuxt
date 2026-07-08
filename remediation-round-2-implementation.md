@@ -974,7 +974,7 @@ a followed cross-origin canonical redirect (F-27)`.
   - Removing the Set-Cookie suppression fails `does not forward final
 Set-Cookie after a followed canonical redirect`.
 
-### TODO 4.4 — Honest `skipAuthRoutes` doc (F-10) `[ ]`
+### TODO 4.4 — Honest `skipAuthRoutes` doc (F-10) `[x]`
 
 `docs/content/docs/4.auth-security/1.authentication.md` (~line 57) recommends
 `skipAuthRoutes` as a cache safe-harbor. It is client-only
@@ -984,6 +984,13 @@ auth bootstrapping; it does NOT prevent SSR token hydration, so it is not a
 caching safe-harbor. Mention that SSR responses carrying a token already send
 `Cache-Control: private, no-store`, and that platform-level ISR/route-rule
 caching ignores handler headers and must not be enabled for authed routes.
+
+Implemented in this slice:
+
+- Authentication docs now state that `skipAuthRoutes` only skips client auth
+  bootstrapping and does not prevent SSR token hydration.
+- The same warning now calls out platform-level ISR/route-rule/CDN caching as
+  unsafe for authenticated routes even when handler headers say no-store.
 
 ### Phase 4 exit gate
 
