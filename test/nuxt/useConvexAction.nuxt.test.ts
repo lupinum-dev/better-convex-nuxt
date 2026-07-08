@@ -238,4 +238,38 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.data.value).toEqual({ value: 'second' })
     expect(result.error.value).toBeNull()
   })
+
+  it('does not fire onSuccess/onError for a superseded call (F-30)', async () => {
+    const convex = new MockConvexClient()
+    const action = mockFnRef<'action'>('testing:superseded-action')
+
+    convex.setActionHandler('testing:superseded-action', async (args) => {
+      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      await new Promise((resolve) => setTimeout(resolve, input.delayMs))
+      if (input.shouldFail) {
+        throw new Error(`failed:${input.value}`)
+      }
+      return { value: input.value }
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(() => useConvexAction(action, { onSuccess, onError }), {
+      convex,
+    })
+
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
+
+    await expect(fastSuccess).resolves.toEqual({ value: 'second' })
+    await expect(slowFail).rejects.toThrow('failed:first')
+    await waitFor(() => result.pending.value === false)
+
+    // Only the latest (winning) call's success callback should fire; the superseded
+    // failing call must fire neither onSuccess nor onError.
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith({ value: 'second' }, { value: 'second', delayMs: 5 })
+    expect(onError).not.toHaveBeenCalled()
+  })
 })

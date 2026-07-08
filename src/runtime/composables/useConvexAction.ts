@@ -162,16 +162,19 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       )
 
       const result = await client.action(action, args)
-      callState.commitSuccess(currentRequestId, result)
+      const committed = callState.commitSuccess(currentRequestId, result)
 
-      try {
-        options?.onSuccess?.(result, args)
-      } catch (callbackError) {
-        logger.action({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
+      if (committed) {
+        try {
+          options?.onSuccess?.(result, args)
+        } catch (callbackError) {
+          logger.action({
+            name: fnName,
+            event: 'error',
+            error:
+              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+          })
+        }
       }
 
       // Update DevTools
@@ -184,16 +187,19 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      callState.commitError(currentRequestId, err)
+      const committed = callState.commitError(currentRequestId, err)
 
-      try {
-        options?.onError?.(err, args)
-      } catch (callbackError) {
-        logger.action({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
+      if (committed) {
+        try {
+          options?.onError?.(err, args)
+        } catch (callbackError) {
+          logger.action({
+            name: fnName,
+            event: 'error',
+            error:
+              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+          })
+        }
       }
 
       // Update DevTools

@@ -60,4 +60,27 @@ describe('createConvexCallState', () => {
     expect(state.data.value).toBeUndefined()
     expect(state.error.value).toBeNull()
   })
+
+  it('returns a commit signal callers must use to gate result callbacks (F-30)', () => {
+    // Consumers (useConvexMutation/useConvexAction) must only invoke onSuccess/onError
+    // when commitSuccess/commitError report the commit actually landed. A superseded
+    // or reset request must fire neither callback.
+    const state = createConvexCallState<string>()
+
+    const superseded = state.start()
+    state.start() // supersedes `superseded`
+
+    let onSuccessCalls = 0
+    let onErrorCalls = 0
+
+    if (state.commitSuccess(superseded, 'stale-success')) {
+      onSuccessCalls += 1
+    }
+    if (state.commitError(superseded, new Error('stale-error'))) {
+      onErrorCalls += 1
+    }
+
+    expect(onSuccessCalls).toBe(0)
+    expect(onErrorCalls).toBe(0)
+  })
 })
