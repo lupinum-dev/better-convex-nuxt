@@ -274,6 +274,12 @@ export function createConvexQueryState<
       throw new Error('[useConvexQuery] Convex client not available')
     }
 
+    if (executionGate.value.resolveAsIdle) {
+      throw new Error(
+        '[useConvexQuery] Internal invariant violated: attempted to subscribe while query is idle',
+      )
+    }
+
     const currentCacheKey = getCacheKey()
     if (registeredCacheKey === currentCacheKey && registeredBridge) {
       return registeredBridge
@@ -519,7 +525,9 @@ export function createConvexQueryState<
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe && cleanupScope) {
     const setupSubscription = () => {
-      if (executionGate.value.waitForAuth) {
+      // The execution gate is the single decision point. It is false when skipped,
+      // auth-pending, signed-out-private, or subscribe:false — never acquire in those states.
+      if (!executionGate.value.setupLiveSubscription) {
         return
       }
 
@@ -609,8 +617,12 @@ export function createConvexQueryState<
           return
         }
 
-        setupSubscription()
-        await asyncData.refresh()
+        // Auth settled. Signed-in → resubscribe + refetch. Signed-out → stay idle
+        // (setupSubscription self-guards, and refreshing would just write null).
+        if (executionGate.value.setupLiveSubscription) {
+          setupSubscription()
+          await asyncData.refresh()
+        }
       },
     )
 

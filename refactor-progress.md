@@ -11,10 +11,10 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 
 ## Task log
 
-| Task | Status | Commit | Evidence |
-| --- | --- | --- | --- |
-| P0.1 baseline | DONE | — | 510/510 green on branch |
-| P0.2 format (F-41) | DONE | 7f684af7 | `pnpm format:check` clean (662 files); tests+types green after |
+| Task               | Status | Commit   | Evidence                                                       |
+| ------------------ | ------ | -------- | -------------------------------------------------------------- |
+| P0.1 baseline      | DONE   | —        | 510/510 green on branch                                        |
+| P0.2 format (F-41) | DONE   | 7f684af7 | `pnpm format:check` clean (662 files); tests+types green after |
 
 ## Review log (coordinator)
 
