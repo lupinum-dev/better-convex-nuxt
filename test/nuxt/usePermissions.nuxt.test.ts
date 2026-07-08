@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { computed } from 'vue'
 
 import { useRouter, useState } from '#imports'
 
@@ -35,8 +36,9 @@ describe('usePermissions (Nuxt runtime)', () => {
         const permissions = usePermissions()
         return {
           ...permissions,
-          canEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
-          canEditOther: permissions.can('post.edit', { ownerId: 'user-2' }),
+          canEditOwn: computed(() => permissions.can('post.edit', { ownerId: 'user-1' })),
+          canEditOther: computed(() => permissions.can('post.edit', { ownerId: 'user-2' })),
+          initialCanEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
         }
       },
       { convex },
@@ -44,6 +46,7 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     expect(result.isAuthenticated.value).toBe(false)
     expect(result.role.value).toBeNull()
+    expect(result.initialCanEditOwn).toBe(false)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
@@ -129,6 +132,8 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(
       () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
         const router = useRouter()
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
         const permissions = usePermissions()
@@ -145,6 +150,9 @@ describe('usePermissions (Nuxt runtime)', () => {
     )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
+    await flush()
+    await flush()
+    result.pushSpy.mockClear()
 
     convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',
@@ -156,7 +164,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     await waitFor(() => result.permissions.role.value === 'admin')
     await flush()
     await flush()
-    result.pushSpy.mockClear()
+    expect(result.pushSpy).not.toHaveBeenCalled()
 
     convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',

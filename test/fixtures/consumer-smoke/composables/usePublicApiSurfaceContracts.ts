@@ -115,7 +115,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
     checkPermission: (ctx, permission, resource) =>
       ctx?.role === 'admin' || (permission === 'task.delete' && resource?.ownerId === ctx?.userId),
   })
-  assertType<boolean>(usePermissions().can('task.create').value)
+  assertType<boolean>(usePermissions().can('task.create'))
   await usePermissionRedirect({ permission: 'task.delete', resource: { ownerId: 'user_1' } })
 
   createBetterConvexAuthClient<

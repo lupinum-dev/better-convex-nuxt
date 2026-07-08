@@ -79,8 +79,8 @@ export interface UsePermissionsReturn<
   TContext extends PermissionContext = PermissionContext,
   TResource extends Resource = Resource,
 > {
-  /** Check if user has a specific permission (reactive) */
-  can: (permission: TPermission, resource?: TResource) => ComputedRef<boolean>
+  /** Check if user has a specific permission against the current reactive context */
+  can: (permission: TPermission, resource?: TResource) => boolean
   /** Current user's permission context */
   user: ComputedRef<TContext | null>
   /** Current user's role */
@@ -168,9 +168,9 @@ export function createPermissions<
       return context
     })
 
-    // Permission check function (returns reactive ComputedRef)
-    function can(permission: TPermission, resource?: TResource): ComputedRef<boolean> {
-      return computed(() => checkPermission(ctx.value, permission, resource))
+    // Call from templates, render functions, or computed/watchEffect callbacks to track updates.
+    function can(permission: TPermission, resource?: TResource): boolean {
+      return checkPermission(ctx.value, permission, resource)
     }
 
     // Convenience getters
@@ -232,9 +232,6 @@ export function createPermissions<
     const { can, pending, isAuthenticated } = usePermissions()
     const router = useRouter()
 
-    // Create permission ref once at setup time
-    const hasPermission = can(permission, resource)
-
     // Track pending redirect to prevent double navigation
     let pendingRedirect = false
 
@@ -255,7 +252,7 @@ export function createPermissions<
       }
 
       // Redirect if user lacks permission
-      if (!hasPermission.value) {
+      if (!can(permission, resource)) {
         pendingRedirect = true
         void router.push(redirectTo).finally(() => {
           pendingRedirect = false

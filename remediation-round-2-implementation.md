@@ -1017,7 +1017,7 @@ Gate results:
 
 ## Phase 5 — API & docs
 
-### TODO 5.1 — `can()` returns plain boolean (LD-7) `[ ]`
+### TODO 5.1 — `can()` returns plain boolean (LD-7) `[x]`
 
 **File:** `src/runtime/composables/usePermissions.ts`
 
@@ -1055,6 +1055,33 @@ Then, mechanically:
 5. Update `test/nuxt/usePermissions.nuxt.test.ts` expectations (results are
    booleans now; reactivity asserted by re-invoking after a role change inside
    an `effect`/computed — follow the existing test's style).
+
+Implemented in this slice:
+
+- `can()` now returns a plain boolean from the current reactive permission
+  context; callers that store a derived value use `computed(() => can(...))`.
+- `usePermissionRedirect()` re-evaluates `can()` inside its `watchEffect` instead
+  of capturing a stale setup-time boolean.
+- Removed `.value` from `can()` calls in docs, playground, demo, and the
+  consumer-smoke public API contract.
+- Deleted the false docs claim that Vue unwraps `ComputedRef` values returned
+  from call expressions.
+- Restore-and-retest:
+  - Reverting `can()` to return `ComputedRef<boolean>` fails `derives auth
+context and keeps can() reactive across permission updates`.
+  - Reverting the redirect helper to capture a setup-time permission boolean
+    fails `does not redirect when authenticated user is authorized` with an
+    unwanted `/forbidden` navigation.
+- Focused gate:
+  - `pnpm vitest run --project=nuxt test/nuxt/usePermissions.nuxt.test.ts` PASS:
+    1 file / 4 tests
+  - `pnpm lint` PASS
+  - `pnpm format:check` PASS
+  - `pnpm test:types` PASS
+  - `pnpm check:contracts` PASS
+  - Stale `can().value`, `can()`/`ComputedRef<boolean>`, and auto-unwrap docs
+    search across `docs/content src test playground demo README.md starters`:
+    zero matches
 
 ### TODO 5.2 — Fix the three permissions-doc breakers `[ ]`
 

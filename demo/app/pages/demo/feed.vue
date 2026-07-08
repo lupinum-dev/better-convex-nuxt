@@ -84,7 +84,7 @@ const typeIcons: Record<string, string> = {
 }
 
 function canDelete(item: { authorId: string }) {
-  return can('feed.delete', { ownerId: item.authorId }).value
+  return can('feed.delete', { ownerId: item.authorId })
 }
 </script>
 

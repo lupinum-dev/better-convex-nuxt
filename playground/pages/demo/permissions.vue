@@ -27,13 +27,13 @@
       <section class="section">
         <h2>Global checks (no resource)</h2>
         <ul class="checks">
-          <li :class="{ allowed: can('post.create').value }">
+          <li :class="{ allowed: can('post.create') }">
             <code>can('post.create')</code>
-            <span class="status">{{ can('post.create').value ? '✓' : '✗' }}</span>
+            <span class="status">{{ can('post.create') ? '✓' : '✗' }}</span>
           </li>
-          <li :class="{ allowed: can('post.read').value }">
+          <li :class="{ allowed: can('post.read') }">
             <code>can('post.read')</code>
-            <span class="status">{{ can('post.read').value ? '✓' : '✗' }}</span>
+            <span class="status">{{ can('post.read') ? '✓' : '✗' }}</span>
           </li>
         </ul>
       </section>
@@ -41,7 +41,7 @@
       <section class="section">
         <h2>Your posts (ownership checks)</h2>
 
-        <form v-if="can('post.create').value" class="create" @submit.prevent="createPost">
+        <form v-if="can('post.create')" class="create" @submit.prevent="createPost">
           <input v-model="newTitle" placeholder="Post title" />
           <button type="submit" :disabled="!newTitle.trim() || creating">Create</button>
         </form>
@@ -55,18 +55,14 @@
               <span class="pill">{{ post.status }}</span>
             </div>
             <div class="actions">
-              <button v-if="can('post.update', post).value" @click="rename(post._id)">
-                Rename
-              </button>
+              <button v-if="can('post.update', post)" @click="rename(post._id)">Rename</button>
               <button
-                v-if="can('post.publish', post).value && post.status === 'draft'"
+                v-if="can('post.publish', post) && post.status === 'draft'"
                 @click="publish(post._id)"
               >
                 Publish
               </button>
-              <button v-if="can('post.delete', post).value" @click="remove(post._id)">
-                Delete
-              </button>
+              <button v-if="can('post.delete', post)" @click="remove(post._id)">Delete</button>
             </div>
           </li>
         </ul>
