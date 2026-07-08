@@ -160,7 +160,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // Make request to Convex (manual redirect handling).
     // We internally follow only canonical host redirects (same path/query),
     // but preserve intentional redirects to providers (OAuth, etc).
-    const response = await fetchWithCanonicalRedirects({
+    const { response, followedCanonicalRedirect } = await fetchWithCanonicalRedirects({
       target,
       method: event.method,
       headers: forwardHeaders,
@@ -213,9 +213,11 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Forward response headers (except some that shouldn't be forwarded)
     // Handle Set-Cookie specially (can have multiple values)
-    const cookies = response.headers.getSetCookie?.() || []
-    for (const cookie of cookies) {
-      appendResponseHeader(event, 'set-cookie', cookie)
+    if (!followedCanonicalRedirect) {
+      const cookies = response.headers.getSetCookie?.() || []
+      for (const cookie of cookies) {
+        appendResponseHeader(event, 'set-cookie', cookie)
+      }
     }
 
     // Forward other headers

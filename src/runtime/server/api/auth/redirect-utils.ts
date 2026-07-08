@@ -43,16 +43,17 @@ export function getCanonicalRedirectTarget(
 /**
  * Canonical redirects followed here are always cross-origin by construction
  * (getCanonicalRedirectTarget only returns a target when the origin
- * differs). Strip the cookie header before re-issuing the request so a
- * Better Auth session cookie never crosses an origin boundary (F-27) - even
- * though today's caller (same registrable-domain apex<->www hops) is
- * low-risk, this holds even if the upstream host is ever compromised or
- * misconfigured into redirecting somewhere else.
+ * differs). Strip credential headers before re-issuing the request so a
+ * Better Auth session cookie or bearer token never crosses an origin boundary
+ * (F-27) - even though today's caller (same registrable-domain apex<->www
+ * hops) is low-risk, this holds even if the upstream host is ever compromised
+ * or misconfigured into redirecting somewhere else.
  */
-function withoutCookieHeader(headers: Record<string, string>): Record<string, string> {
+function withoutCredentialHeaders(headers: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() === 'cookie') continue
+    const lower = key.toLowerCase()
+    if (lower === 'cookie' || lower === 'authorization') continue
     result[key] = value
   }
   return result
@@ -70,6 +71,11 @@ interface FetchWithCanonicalRedirectsOptions {
   fetchImpl?: FetchLike
 }
 
+interface FetchWithCanonicalRedirectsResult {
+  response: Response
+  followedCanonicalRedirect: boolean
+}
+
 export async function fetchWithCanonicalRedirects({
   target,
   method,
@@ -78,7 +84,7 @@ export async function fetchWithCanonicalRedirects({
   maxRedirects = 2,
   timeoutMs,
   fetchImpl = fetch,
-}: FetchWithCanonicalRedirectsOptions): Promise<Response> {
+}: FetchWithCanonicalRedirectsOptions): Promise<FetchWithCanonicalRedirectsResult> {
   let resolvedTarget = target
   let response = await fetchWithTimeout(resolvedTarget, {
     method,
@@ -107,7 +113,7 @@ export async function fetchWithCanonicalRedirects({
     canonicalRedirectsFollowed += 1
     response = await fetchWithTimeout(resolvedTarget, {
       method,
-      headers: withoutCookieHeader(headers),
+      headers: withoutCredentialHeaders(headers),
       body,
       redirect: 'manual',
       timeoutMs,
@@ -115,5 +121,8 @@ export async function fetchWithCanonicalRedirects({
     })
   }
 
-  return response
+  return {
+    response,
+    followedCanonicalRedirect: canonicalRedirectsFollowed > 0,
+  }
 }

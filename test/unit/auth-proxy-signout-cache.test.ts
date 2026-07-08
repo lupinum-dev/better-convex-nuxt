@@ -91,12 +91,13 @@ describe('auth proxy sign-out cache invalidation (F-28)', () => {
         maxResponseBodyBytes: 1024 * 1024,
       },
     })
-    fetchWithCanonicalRedirectsMock.mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
-    )
+      followedCanonicalRedirect: false,
+    })
   })
 
   it('clears the cached token for the session on a successful sign-out', async () => {
@@ -161,7 +162,10 @@ describe('auth proxy sign-out cache invalidation (F-28)', () => {
   })
 
   it('does not clear the cache when the upstream sign-out call fails', async () => {
-    fetchWithCanonicalRedirectsMock.mockResolvedValue(new Response('', { status: 500 }))
+    fetchWithCanonicalRedirectsMock.mockResolvedValue({
+      response: new Response('', { status: 500 }),
+      followedCanonicalRedirect: false,
+    })
     getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/sign-out'))
 
     const handler = (await import('../../src/runtime/server/api/auth/[...]'))

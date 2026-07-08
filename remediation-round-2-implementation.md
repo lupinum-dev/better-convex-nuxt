@@ -933,7 +933,7 @@ Implemented in this slice:
   revocation-route and trailing-slash cases in
   `test/unit/auth-proxy-signout-cache.test.ts`.
 
-### TODO 4.3 — Strip credentials on cross-origin redirect hops (F-27) `[ ]`
+### TODO 4.3 — Strip credentials on cross-origin redirect hops (F-27) `[x]`
 
 **File:** `src/runtime/server/api/auth/redirect-utils.ts` (~line 52). Rename
 `withoutCookieHeader` → `withoutCredentialHeaders` and strip both:
@@ -959,6 +959,20 @@ must not set cookies on our domain). Keep the existing behavior byte-identical
 when no redirect was followed. Unit-test both directions in the existing
 redirect-utils test file (find it via
 `rg -l "fetchWithCanonicalRedirects" test/`).
+
+Implemented in this slice:
+
+- Canonical cross-origin redirect follows now strip both `cookie` and
+  `authorization` request headers.
+- `fetchWithCanonicalRedirects` now returns `{ response,
+followedCanonicalRedirect }`.
+- The auth proxy skips forwarding final `Set-Cookie` headers when a canonical
+  cross-origin redirect was followed.
+- Restore-and-retest:
+  - Removing authorization stripping fails `strips the authorization header on
+a followed cross-origin canonical redirect (F-27)`.
+  - Removing the Set-Cookie suppression fails `does not forward final
+Set-Cookie after a followed canonical redirect`.
 
 ### TODO 4.4 — Honest `skipAuthRoutes` doc (F-10) `[ ]`
 

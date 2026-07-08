@@ -84,12 +84,13 @@ describe('auth proxy Better Auth plugin routes', () => {
         maxResponseBodyBytes: 1024 * 1024,
       },
     })
-    fetchWithCanonicalRedirectsMock.mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       }),
-    )
+      followedCanonicalRedirect: false,
+    })
   })
 
   it.each([
@@ -153,15 +154,16 @@ describe('auth proxy Better Auth plugin routes', () => {
   })
 
   it('forces no-store on token-bearing auth responses after forwarding upstream headers', async () => {
-    fetchWithCanonicalRedirectsMock.mockResolvedValue(
-      new Response(JSON.stringify({ token: 'jwt' }), {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ token: 'jwt' }), {
         status: 200,
         headers: {
           'cache-control': 'public, max-age=60',
           'content-type': 'application/json',
         },
       }),
-    )
+      followedCanonicalRedirect: false,
+    })
     getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/convex/token'))
 
     const handler = (await import('../../src/runtime/server/api/auth/[...]'))
@@ -175,5 +177,25 @@ describe('auth proxy Better Auth plugin routes', () => {
       { 'cache-control': 'public, max-age=60' },
       { 'cache-control': 'private, no-store' },
     ])
+  })
+
+  it('does not forward final Set-Cookie after a followed canonical redirect', async () => {
+    fetchWithCanonicalRedirectsMock.mockResolvedValue({
+      response: new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'set-cookie': 'better-auth.session_token=foreign; Path=/; HttpOnly',
+        },
+      }),
+      followedCanonicalRedirect: true,
+    })
+    getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/get-session'))
+
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (event: ReturnType<typeof createEvent>) => Promise<Uint8Array>
+    await handler(createEvent('GET'))
+
+    expect(appendResponseHeaderMock).not.toHaveBeenCalled()
   })
 })
