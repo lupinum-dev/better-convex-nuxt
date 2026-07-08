@@ -45,8 +45,13 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
     }
   }
 
+  // Signed-out is knowable on BOTH server and client: the server plugin
+  // resolves the token before render, so `hasAuthToken` is authoritative on
+  // either side. Resolving idle here keeps SSR HTML identical to the client's
+  // first render (no hydration mismatch) and skips a server fetch that could
+  // never succeed without a token anyway.
   const signedOutPrivateQuery =
-    input.isClient && input.authEnabled && input.authMode !== 'none' && !input.hasAuthToken
+    input.authEnabled && input.authMode !== 'none' && !input.hasAuthToken
 
   if (signedOutPrivateQuery) {
     return {

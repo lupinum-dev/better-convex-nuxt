@@ -47,11 +47,7 @@ type AgentThread = {
 }
 
 function getCreatedAgentThread(createdThread: unknown): AgentThread {
-  if (
-    createdThread === null ||
-    typeof createdThread !== 'object' ||
-    !('thread' in createdThread)
-  ) {
+  if (createdThread === null || typeof createdThread !== 'object' || !('thread' in createdThread)) {
     throw new Error('Agent thread was not created')
   }
 
@@ -112,10 +108,7 @@ function isAgentBudgetError(error: unknown) {
   return String(error).includes('token budget exceeded')
 }
 
-async function assertAgentBudgetAvailable(
-  ctx: ActionCtx,
-  args: { agentRunId: Id<'agentRuns'> },
-) {
+async function assertAgentBudgetAvailable(ctx: ActionCtx, args: { agentRunId: Id<'agentRuns'> }) {
   try {
     await ctx.runQuery(internal.agentUsage.assertBudgetAvailable, args)
   } catch (error) {

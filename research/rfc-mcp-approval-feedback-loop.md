@@ -115,15 +115,15 @@ The starter should teach a small set of backend-owned building blocks that can b
 
 The blocks:
 
-| Block | Purpose | Required for |
-| --- | --- | --- |
-| `authz` | verify service actor, role, tenant scope, and server secret | every tool |
-| `policy` | classify operation risk and approval requirement | every write |
-| `preview` | return normalized inputs, effects, warnings, and next actions | agent-facing writes |
-| `approval` | store app-owned human approval | sensitive/destructive writes |
-| `execute` | perform mutation after re-checking authz and policy | every write |
-| `audit` | record who did what, from where, and why | every write |
-| `undo` | restore soft-deleted or reversible state | reversible writes |
+| Block      | Purpose                                                       | Required for                 |
+| ---------- | ------------------------------------------------------------- | ---------------------------- |
+| `authz`    | verify service actor, role, tenant scope, and server secret   | every tool                   |
+| `policy`   | classify operation risk and approval requirement              | every write                  |
+| `preview`  | return normalized inputs, effects, warnings, and next actions | agent-facing writes          |
+| `approval` | store app-owned human approval                                | sensitive/destructive writes |
+| `execute`  | perform mutation after re-checking authz and policy           | every write                  |
+| `audit`    | record who did what, from where, and why                      | every write                  |
+| `undo`     | restore soft-deleted or reversible state                      | reversible writes            |
 
 Apps can then choose one of these flows:
 
@@ -150,11 +150,7 @@ blocked write:
 The API should make this explicit in the tool result:
 
 ```ts
-type McpActionStatus =
-  | 'ready'
-  | 'executed'
-  | 'waiting_for_approval'
-  | 'blocked'
+type McpActionStatus = 'ready' | 'executed' | 'waiting_for_approval' | 'blocked'
 
 type McpActionSafety = {
   riskLevel: 'read' | 'low' | 'approval_required'
@@ -187,15 +183,15 @@ type McpOperationPolicy = {
 
 Recommended defaults:
 
-| Operation shape | Example | Default |
-| --- | --- | --- |
-| Read-only | list projects, read notes | no approval |
-| Additive, reversible write | create personal note, create project | no approval |
-| Single-user soft delete | archive my own personal note | no approval if restorable |
-| Organization destructive write | delete project, revoke member, delete credential | app approval |
-| Irreversible or external side effect | hard delete, billing change, email blast | app approval |
-| Permission or auth change | change roles, create admin service actor | app approval |
-| Cross-tenant or ambiguous scope | any uncertain operation | block or require approval |
+| Operation shape                      | Example                                          | Default                   |
+| ------------------------------------ | ------------------------------------------------ | ------------------------- |
+| Read-only                            | list projects, read notes                        | no approval               |
+| Additive, reversible write           | create personal note, create project             | no approval               |
+| Single-user soft delete              | archive my own personal note                     | no approval if restorable |
+| Organization destructive write       | delete project, revoke member, delete credential | app approval              |
+| Irreversible or external side effect | hard delete, billing change, email blast         | app approval              |
+| Permission or auth change            | change roles, create admin service actor         | app approval              |
+| Cross-tenant or ambiguous scope      | any uncertain operation                          | block or require approval |
 
 Example low-risk direct delete:
 
@@ -449,7 +445,7 @@ Convex mutation:
 
 ```ts
 approvals.approve({
-  approvalRequestId
+  approvalRequestId,
 })
 ```
 
@@ -479,7 +475,7 @@ The agent executes only after approval:
 ```ts
 projects.delete.execute({
   projectId,
-  approvalId
+  approvalId,
 })
 ```
 

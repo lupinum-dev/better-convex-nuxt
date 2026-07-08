@@ -20,9 +20,7 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
 
   return {
     baseURL: siteUrl,
-    secret:
-      process.env.BETTER_AUTH_SECRET ??
-      'platform-auth-local-proof-secret-at-least-32-chars',
+    secret: process.env.BETTER_AUTH_SECRET ?? 'platform-auth-local-proof-secret-at-least-32-chars',
     database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,

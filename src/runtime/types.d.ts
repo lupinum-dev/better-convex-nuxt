@@ -38,6 +38,7 @@ export interface ConvexPublicRuntimeConfig {
     server?: boolean
     subscribe?: boolean
     auth?: 'auto' | 'none'
+    waitTimeoutMs?: number
   }
   /** Upload defaults */
   upload?: {
@@ -83,21 +84,6 @@ declare module 'vue' {
   interface ComponentCustomProperties {
     $convex?: ConvexClient
     $auth?: AuthClient
-  }
-}
-
-declare module 'nuxt/schema' {
-  interface PublicRuntimeConfig {
-    convex?: ConvexPublicRuntimeConfig
-  }
-  interface RuntimeConfig {
-    convexDevtoolsPath?: string
-  }
-  interface NuxtConfig {
-    convex?: ConvexPublicRuntimeConfig
-  }
-  interface NuxtOptions {
-    convex?: ConvexPublicRuntimeConfig
   }
 }
 

@@ -5,7 +5,7 @@ export default defineEventHandler(async (e) => {
   // Query all collections
   const [docsPages, landingPages] = await Promise.all([
     queryCollection(e, 'docs' as keyof Collections).all(),
-    queryCollection(e, 'landing' as keyof Collections).all()
+    queryCollection(e, 'landing' as keyof Collections).all(),
   ])
 
   const contentList = [...docsPages, ...landingPages]
@@ -24,7 +24,7 @@ export default defineEventHandler(async (e) => {
         loc: sitemapData.loc || c.path,
         lastmod: sitemapData.lastmod,
         changefreq: sitemapData.changefreq,
-        priority: sitemapData.priority
+        priority: sitemapData.priority,
       }
     })
 })

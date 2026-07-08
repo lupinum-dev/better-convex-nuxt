@@ -14,9 +14,23 @@ import {
   type PaginatedQueryItem,
   type UseConvexPaginatedQueryOptions,
 } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import {
+  clearAuthSubscriptions,
+  getQueryKey,
+  getSubscriptionCache,
+  withAuthDimension,
+} from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
+
+const { handleUnauthorizedMock } = vi.hoisted(() => ({
+  handleUnauthorizedMock: vi.fn(),
+}))
+
+vi.mock('../../src/runtime/utils/auth-unauthorized', () => ({
+  handleUnauthorizedAuthFailure: handleUnauthorizedMock,
+}))
 
 function useConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
@@ -46,6 +60,7 @@ function deferred<T>() {
 }
 
 afterEach(() => {
+  handleUnauthorizedMock.mockClear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -223,6 +238,142 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     result.authPending.value = false
     await flush()
+  })
+
+  it('preserves loaded pages across a same-token auth refresh pending pulse', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:auth-refresh-preserve-pages')
+
+    vi.stubGlobal('$fetch', async () => ({
+      value: {
+        page: [
+          { _id: 'n1', title: 'A' },
+          { _id: 'n2', title: 'B' },
+        ],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+    }))
+
+    const matchesCursor = (cursor: string | null) => {
+      return ({ query: q, args }: { query: unknown; args: unknown }) => {
+        const path = (q as { _path?: string })._path
+        const actualCursor = (args as { paginationOpts?: { cursor?: string | null } })
+          .paginationOpts?.cursor
+        return path === 'notes:listPaginated:auth-refresh-preserve-pages' && actualCursor === cursor
+      }
+    }
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
+        authPending.value = false
+        token.value = 'same.jwt.token'
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          { auth: 'auto', initialNumItems: 2 },
+        )
+        return { authPending, queryResult, token }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    convex.emitQueryResultWhere(matchesCursor(null), {
+      page: [
+        { _id: 'n1', title: 'A' },
+        { _id: 'n2', title: 'B' },
+      ],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    await waitFor(() => result.queryResult.results.value.length === 2)
+
+    result.queryResult.loadMore(2)
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('c1')) === 1)
+    convex.emitQueryResultWhere(matchesCursor('c1'), {
+      page: [
+        { _id: 'n3', title: 'C' },
+        { _id: 'n4', title: 'D' },
+      ],
+      isDone: true,
+      continueCursor: null,
+    })
+    await waitFor(() => result.queryResult.results.value.length === 4)
+
+    result.authPending.value = true
+    await flush()
+    expect(result.queryResult.results.value).toEqual([])
+
+    result.authPending.value = false
+    await flush()
+
+    await waitFor(() => result.queryResult.results.value.length > 0)
+    expect(
+      (result.queryResult.results.value as Array<{ _id: string }>).map((item) => item._id),
+    ).toEqual(['n1', 'n2', 'n3', 'n4'])
+    expect(convex.activeListenerCountWhere(matchesCursor('c1'))).toBe(1)
+  })
+
+  it('does not alias paginated first-page subscriptions mounted as auth:auto and auth:none', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:mixed-auth')
+
+    const { result, nuxtApp } = await captureInNuxt(
+      () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
+        const authResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'auto',
+            initialNumItems: 2,
+          },
+        )
+        const publicResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'none',
+            initialNumItems: 2,
+          },
+        )
+        return { authResult, publicResult }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await waitFor(() => convex.activeListenerCount() === 2)
+
+    const rawFirstPageKey = `paginated:${getQueryKey(query, {
+      paginationOpts: { numItems: 2, cursor: null },
+    })}`
+    const authKey = withAuthDimension(rawFirstPageKey, 'auto')
+    const publicKey = withAuthDimension(rawFirstPageKey, 'none')
+
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(true)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    clearAuthSubscriptions(nuxtApp)
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(false)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    convex.emitQueryResultByPath('notes:listPaginated:mixed-auth', {
+      page: [{ _id: 'p1', title: 'public' }],
+      isDone: true,
+      continueCursor: null,
+    })
+
+    await waitFor(() => result.publicResult.results.value.length === 1)
+    expect(result.publicResult.results.value).toEqual([{ _id: 'p1', title: 'public' }])
   })
 
   it('walks the full status machine: loading-first-page -> ready -> loading-more -> exhausted', async () => {
@@ -409,6 +560,468 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
       'B',
       'C',
     ])
+  })
+
+  it('refresh() re-chains fresh cursors so an insert into an earlier page stays gapless (F-26b)', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-gapless')
+    // Ordered list starts [n1, n2, n3, n4]; two pages of 2 items each.
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'n1' },
+          { _id: 'n2', title: 'n2' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n2',
+      },
+      'after-n2': {
+        page: [
+          { _id: 'n3', title: 'n3' },
+          { _id: 'n4', title: 'n4' },
+        ],
+        isDone: true,
+        continueCursor: 'after-n4',
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      return { value: responses[key] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 2)
+    result.loadMore(2)
+    await waitFor(() => result.results.value.length === 4)
+
+    // Insert n1.5 into page 1's range. New list: [n1, n1.5, n2, n3, n4].
+    // Page 1 (numItems 2, cursor null) now ends earlier, with a NEW continueCursor.
+    responses.null = {
+      page: [
+        { _id: 'n1', title: 'n1' },
+        { _id: 'n1.5', title: 'n1.5' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n1.5',
+    }
+    // The correctly-chained follow-up page starts at page 1's FRESH cursor.
+    responses['after-n1.5'] = {
+      page: [
+        { _id: 'n2', title: 'n2' },
+        { _id: 'n3', title: 'n3' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n3',
+    }
+    // The STALE stored cursor still resolves: a parallel refresh replaying it
+    // would drop n2, leaving a gap [n1, n1.5, n3, n4].
+    responses['after-n2'] = {
+      page: [
+        { _id: 'n3', title: 'n3' },
+        { _id: 'n4', title: 'n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-n4',
+    }
+
+    const callsBefore = fetchMock.mock.calls.length
+    await result.refresh()
+
+    // Gapless, ordered concatenation — n2 is not dropped between the pages.
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+
+    // The follow-up page was re-fetched with the fresh chained cursor, never the
+    // stale stored one.
+    const refreshCursors = fetchMock.mock.calls.slice(callsBefore).map((call) => {
+      const init = call[1] as RequestInit | undefined
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      return body.args?.paginationOpts?.cursor ?? null
+    })
+    expect(refreshCursors).toContain('after-n1.5')
+    expect(refreshCursors).not.toContain('after-n2')
+  })
+
+  it('refresh() re-binds live page subscriptions to fresh chained cursors', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-live-rebind')
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'n1' },
+          { _id: 'n1.5', title: 'n1.5' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n1.5',
+      },
+      'after-n1.5': {
+        page: [
+          { _id: 'n2', title: 'n2' },
+          { _id: 'n3', title: 'n3' },
+        ],
+        isDone: false,
+        continueCursor: 'after-n3',
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      return { value: responses[key] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const matchesCursor = (cursor: string | null) => {
+      return ({ query: q, args }: { query: unknown; args: unknown }) => {
+        const path = (q as { _path?: string })._path
+        const actualCursor = (args as { paginationOpts?: { cursor?: string | null } })
+          .paginationOpts?.cursor
+        return path === 'notes:listPaginated:refresh-live-rebind' && actualCursor === cursor
+      }
+    }
+
+    const { result } = await captureInNuxt(
+      () => useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2 }),
+      { convex },
+    )
+
+    convex.emitQueryResultWhere(matchesCursor(null), {
+      page: [
+        { _id: 'n1', title: 'n1' },
+        { _id: 'n2', title: 'n2' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n2',
+    })
+    await waitFor(() => result.results.value.length === 2)
+
+    result.loadMore(2)
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('after-n2')) === 1)
+    convex.emitQueryResultWhere(matchesCursor('after-n2'), {
+      page: [
+        { _id: 'n3', title: 'n3' },
+        { _id: 'n4', title: 'n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-n4',
+    })
+    await waitFor(() => result.results.value.length === 4)
+
+    await result.refresh()
+
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('after-n1.5')) === 1)
+    expect(convex.activeListenerCountWhere(matchesCursor('after-n2'))).toBe(0)
+
+    convex.emitQueryResultWhere(matchesCursor('after-n2'), {
+      page: [
+        { _id: 'stale-n3', title: 'stale n3' },
+        { _id: 'stale-n4', title: 'stale n4' },
+      ],
+      isDone: true,
+      continueCursor: 'after-stale-n4',
+    })
+    await Promise.resolve()
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n1.5',
+      'n2',
+      'n3',
+    ])
+
+    convex.emitQueryResultWhere(matchesCursor('after-n1.5'), {
+      page: [
+        { _id: 'n2', title: 'n2 live' },
+        { _id: 'n3', title: 'n3 live' },
+      ],
+      isDone: false,
+      continueCursor: 'after-n3',
+    })
+    await waitFor(() => {
+      const titles = (result.results.value as Array<{ title: string }>).map((item) => item.title)
+      return titles.includes('n2 live') && titles.includes('n3 live')
+    })
+  })
+
+  it('loadMore() is ignored while refresh() is rebuilding the page chain', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-loadMore-race')
+    const inFlightRefresh = deferred<{ value: PaginationResult<{ _id: string; title: string }> }>()
+    let holdNextFirstPage = false
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [
+          { _id: 'n1', title: 'A' },
+          { _id: 'n2', title: 'B' },
+        ],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+      c1: {
+        page: [{ _id: 'n3', title: 'C' }],
+        isDone: false,
+        continueCursor: 'c2',
+      },
+      c2: {
+        page: [{ _id: 'n4', title: 'D' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      const key = cursor === null || cursor === undefined ? 'null' : String(cursor)
+      if (key === 'null' && holdNextFirstPage) {
+        holdNextFirstPage = false
+        return inFlightRefresh.promise
+      }
+      return { value: responses[key] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 2, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 2)
+    result.loadMore(1)
+    await waitFor(() => result.results.value.length === 3)
+
+    const callsBeforeRefresh = fetchMock.mock.calls.length
+    holdNextFirstPage = true
+    const refreshPromise = result.refresh()
+    await waitFor(() => fetchMock.mock.calls.length === callsBeforeRefresh + 1)
+
+    result.loadMore(1)
+    await Promise.resolve()
+
+    const pendingCursors = fetchMock.mock.calls.slice(callsBeforeRefresh).map((call) => {
+      const init = call[1] as RequestInit | undefined
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      return body.args?.paginationOpts?.cursor ?? null
+    })
+    expect(pendingCursors).not.toContain('c2')
+
+    responses.null = {
+      page: [
+        { _id: 'n1', title: 'A refreshed' },
+        { _id: 'n2', title: 'B refreshed' },
+      ],
+      isDone: false,
+      continueCursor: 'c1',
+    }
+    responses.c1 = {
+      page: [{ _id: 'n3', title: 'C refreshed' }],
+      isDone: false,
+      continueCursor: 'c2',
+    }
+    inFlightRefresh.resolve({
+      value: responses.null as PaginationResult<{ _id: string; title: string }>,
+    })
+    await refreshPromise
+
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n2',
+      'n3',
+    ])
+
+    result.loadMore(1)
+    await waitFor(() => result.results.value.length === 4)
+    expect((result.results.value as Array<{ _id: string }>).map((item) => item._id)).toEqual([
+      'n1',
+      'n2',
+      'n3',
+      'n4',
+    ])
+  })
+
+  it('deduplicates concurrent refresh() calls', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-dedupe')
+    const inFlightRefresh = deferred<{ value: PaginationResult<{ _id: string; title: string }> }>()
+    let holdNextFirstPage = false
+    const responses: Record<string, unknown> = {
+      null: {
+        page: [{ _id: 'n1', title: 'A' }],
+        isDone: true,
+        continueCursor: null,
+      },
+    }
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { paginationOpts?: { cursor?: string | null } }
+      }
+      const cursor = body.args?.paginationOpts?.cursor
+      if ((cursor === null || cursor === undefined) && holdNextFirstPage) {
+        holdNextFirstPage = false
+        return inFlightRefresh.promise
+      }
+      return { value: responses.null }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 1)
+    const callsBeforeRefresh = fetchMock.mock.calls.length
+    holdNextFirstPage = true
+
+    const firstRefresh = result.refresh()
+    await waitFor(() => fetchMock.mock.calls.length === callsBeforeRefresh + 1)
+    const secondRefresh = result.refresh()
+    await secondRefresh
+
+    const firstPageCallsWhilePending = fetchMock.mock.calls
+      .slice(callsBeforeRefresh)
+      .filter((call) => {
+        const init = call[1] as RequestInit | undefined
+        const body = (init?.body ?? {}) as {
+          args?: { paginationOpts?: { cursor?: string | null } }
+        }
+        const cursor = body.args?.paginationOpts?.cursor
+        return cursor === null || cursor === undefined
+      })
+    expect(firstPageCallsWhilePending).toHaveLength(1)
+
+    responses.null = {
+      page: [{ _id: 'n1', title: 'A refreshed' }],
+      isDone: true,
+      continueCursor: null,
+    }
+    inFlightRefresh.resolve({
+      value: responses.null as PaginationResult<{ _id: string; title: string }>,
+    })
+    await firstRefresh
+    expect((result.results.value as Array<{ title: string }>)[0]?.title).toBe('A refreshed')
+  })
+
+  it('does not let stale refresh errors pollute a newer args view', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-stale-error')
+    const oldRefreshFailure = deferred<never>()
+    let failNextOldRefresh = false
+
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = (init?.body ?? {}) as {
+        args?: { status?: string; paginationOpts?: { cursor?: string | null } }
+      }
+      const status = body.args?.status
+      const cursor = body.args?.paginationOpts?.cursor
+      if (status === 'old' && (cursor === null || cursor === undefined) && failNextOldRefresh) {
+        failNextOldRefresh = false
+        return oldRefreshFailure.promise
+      }
+      return {
+        value: {
+          page: [{ _id: `${status ?? 'missing'}-1`, title: String(status) }],
+          isDone: true,
+          continueCursor: null,
+        },
+      }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const status = ref<'old' | 'new'>('old')
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          () => ({ status: status.value }) as never,
+          { initialNumItems: 1, subscribe: false },
+        )
+        return { status, queryResult }
+      },
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.queryResult.results.value.length === 1)
+    failNextOldRefresh = true
+    const callsBeforeRefresh = fetchMock.mock.calls.length
+    const staleRefresh = result.queryResult.refresh()
+    await waitFor(() => fetchMock.mock.calls.length === callsBeforeRefresh + 1)
+
+    result.status.value = 'new'
+    await flush()
+    await waitFor(
+      () => (result.queryResult.results.value as Array<{ _id: string }>)[0]?._id === 'new-1',
+    )
+
+    oldRefreshFailure.reject(new Error('old refresh failed'))
+    await staleRefresh
+    await flush()
+
+    expect(result.queryResult.error.value).toBeNull()
+    expect(result.queryResult.status.value).toBe('exhausted')
+    expect((result.queryResult.results.value as Array<{ _id: string }>)[0]?._id).toBe('new-1')
+  })
+
+  it('routes refresh() failures through unauthorized recovery', async () => {
+    const query = mockFnRef<'query'>('notes:listPaginated:refresh-unauthorized')
+    let failRefresh = false
+    const unauthorized = new Error('Unauthenticated')
+    const fetchMock = vi.fn(async () => {
+      if (failRefresh) throw unauthorized
+      return {
+        value: {
+          page: [{ _id: 'n1', title: 'A' }],
+          isDone: true,
+          continueCursor: null,
+        },
+      }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () =>
+        useConvexPaginatedQueryState(query as never, {}, { initialNumItems: 1, subscribe: false }),
+      { convex: new MockConvexClient() },
+    )
+
+    await waitFor(() => result.results.value.length === 1)
+    failRefresh = true
+    await result.refresh()
+
+    expect(handleUnauthorizedMock).toHaveBeenCalledWith({
+      error: unauthorized,
+      source: 'query',
+      functionName: 'notes:listPaginated:refresh-unauthorized',
+    })
+    expect(result.error.value?.message).toBe('Unauthenticated')
   })
 
   it('reset() starts over from first page with a new pagination id', async () => {

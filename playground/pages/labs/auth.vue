@@ -10,14 +10,12 @@
     <div class="current-state">
       <h2>Current Auth State</h2>
       <p class="hint">
-        This page includes a TypeScript-only check for <code>user.role</code>,
-        <code>user.authId</code>, and <code>user.organizationId</code>. If this page compiles and
-        loads, <code>ConvexUser</code> augmentation is working.
+        This page includes a TypeScript-only check for <code>user.authId</code>. If this page
+        compiles and loads, <code>ConvexUser</code> augmentation is working.
       </p>
       <p class="hint">
-        <strong>Important:</strong> the authoritative app role comes from Convex (see
-        <code>convex db role</code> below). The <code>custom role</code> field here is a demo JWT
-        claim for extending <code>ConvexUser</code>.
+        <strong>Note:</strong> Better Auth owns identity, role, and org state. This playground does
+        not enable the organization plugin, so the permission context below is signed-in only.
       </p>
       <div class="state-grid">
         <div class="state-item">
@@ -41,22 +39,12 @@
           <span class="value">{{ user?.name || user?.email || '(none)' }}</span>
         </div>
         <div class="state-item">
-          <span class="label">custom role</span>
-          <span class="value">{{ augmentedUserFields?.role || '(no JWT claim)' }}</span>
-        </div>
-        <div class="state-item">
           <span class="label">custom authId</span>
           <span class="value id">{{ augmentedUserFields?.authId || '(no JWT claim)' }}</span>
         </div>
         <div class="state-item">
-          <span class="label">custom orgId</span>
-          <span class="value id">{{
-            augmentedUserFields?.organizationId || '(no JWT claim)'
-          }}</span>
-        </div>
-        <div class="state-item">
-          <span class="label">convex db role</span>
-          <span class="value">{{ permissionRole || '(not loaded)' }}</span>
+          <span class="label">permission context userId</span>
+          <span class="value id">{{ permissionUserId || '(not loaded)' }}</span>
         </div>
       </div>
     </div>
@@ -75,10 +63,6 @@
             <span class="value" :class="{ positive: pluginChecks.hasExtendedClient }">
               {{ pluginChecks.hasExtendedClient ? 'ready' : 'initializing...' }}
             </span>
-          </div>
-          <div class="state-item">
-            <span class="label">session additional orgId</span>
-            <span class="value id">{{ pluginSessionFields.organizationId }}</span>
           </div>
           <div class="state-item">
             <span class="label">session additional marketingOptIn</span>
@@ -103,28 +87,6 @@
         </div>
       </template>
     </ClientOnly>
-
-    <div v-if="isAuthenticated" class="demo-card">
-      <h3>Convex Role Management Demo (Authoritative)</h3>
-      <p class="demo-description">
-        This updates the role in the Convex <code>users</code> table (the real app source of truth).
-        The JWT claim shown above is intentionally a demo/static claim.
-      </p>
-      <div class="demo-output">
-        <div class="button-group role-buttons">
-          <button
-            v-for="roleOption in roleOptions"
-            :key="roleOption"
-            class="btn btn-secondary"
-            :disabled="isUpdatingRole"
-            @click="changeRole(roleOption)"
-          >
-            Set {{ roleOption }}
-          </button>
-        </div>
-        <p v-if="claimDemoStatus" class="status-text">{{ claimDemoStatus }}</p>
-      </div>
-    </div>
 
     <div class="component-demos">
       <h2>Component Demos</h2>
@@ -229,10 +191,6 @@ definePageMeta({
 })
 
 const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
-const nuxtApp = useNuxtApp()
-const roleOptions = ['admin', 'member', 'viewer'] as const
-const isUpdatingRole = ref(false)
-const claimDemoStatus = ref('')
 const pluginInitError = ref('')
 
 type ExtendedAuthClient = NonNullable<ReturnType<typeof useExtendedAuthClient>>
@@ -247,16 +205,14 @@ const { data: permissionContext } = await useConvexQuery(
   permissionQueryArgs,
 )
 
-// Compile-time proof: these property accesses fail if ConvexUser augmentation
+// Compile-time proof: this property access fails if ConvexUser augmentation
 // does not flow through useConvexAuth().user.
 const augmentedUserFields = computed(() => ({
-  role: user.value?.role,
   authId: user.value?.authId,
-  organizationId: user.value?.organizationId,
 }))
-const permissionRole = computed(() =>
-  permissionContext.value && 'role' in permissionContext.value
-    ? permissionContext.value.role
+const permissionUserId = computed(() =>
+  permissionContext.value && 'userId' in permissionContext.value
+    ? permissionContext.value.userId
     : null,
 )
 
@@ -279,7 +235,6 @@ onMounted(() => {
     const sessionStore = extendedSessionStore.value as {
       value?: { data?: ExtendedSessionData | null }
     } | null
-    void sessionStore?.value?.data?.user?.organizationId
     void sessionStore?.value?.data?.user?.marketingOptIn
   } catch (error) {
     pluginInitError.value = `init failed: ${formatErrorMessage(error)}`
@@ -298,7 +253,6 @@ const pluginSessionFields = computed(() => {
   } | null
   const sessionUser = sessionStore?.value?.data?.user
   return {
-    organizationId: sessionUser?.organizationId ?? '(undefined / not set yet)',
     marketingOptIn:
       typeof sessionUser?.marketingOptIn === 'boolean'
         ? String(sessionUser.marketingOptIn)
@@ -318,28 +272,6 @@ function formatErrorMessage(error: unknown) {
     return JSON.stringify(error, null, 2)
   } catch {
     return String(error)
-  }
-}
-
-function getConvexClient() {
-  const client = nuxtApp.$convex
-  if (!client) {
-    throw new Error('Convex client unavailable')
-  }
-  return client
-}
-
-async function changeRole(role: (typeof roleOptions)[number]) {
-  isUpdatingRole.value = true
-  claimDemoStatus.value = ''
-  try {
-    const convex = getConvexClient()
-    await convex.mutation(api.auth.setOwnRole, { role })
-    claimDemoStatus.value = `Convex DB role updated to ${role}. (Authoritative role is shown in "convex db role" above.)`
-  } catch (e) {
-    claimDemoStatus.value = `Failed to update role: ${e instanceof Error ? e.message : 'Unknown error'}`
-  } finally {
-    isUpdatingRole.value = false
   }
 }
 

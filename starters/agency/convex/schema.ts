@@ -5,7 +5,7 @@ export const roleValidator = v.union(
   v.literal('owner'),
   v.literal('admin'),
   v.literal('member'),
-  v.literal('viewer')
+  v.literal('viewer'),
 )
 
 export default defineSchema({
@@ -14,14 +14,14 @@ export default defineSchema({
     name: v.optional(v.string()),
     email: v.optional(v.string()),
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
   }).index('by_subject', ['subject']),
 
   organizations: defineTable({
     name: v.string(),
     kind: v.union(v.literal('agency'), v.literal('client')),
     createdBy: v.id('users'),
-    createdAt: v.number()
+    createdAt: v.number(),
   }),
 
   memberships: defineTable({
@@ -30,7 +30,7 @@ export default defineSchema({
     role: roleValidator,
     status: v.union(v.literal('active'), v.literal('removed')),
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
   })
     .index('by_org_user', ['organizationId', 'userId'])
     .index('by_user', ['userId'])
@@ -41,7 +41,7 @@ export default defineSchema({
     clientOrganizationId: v.id('organizations'),
     status: v.union(v.literal('active'), v.literal('revoked')),
     createdAt: v.number(),
-    updatedAt: v.number()
+    updatedAt: v.number(),
   })
     .index('by_agency', ['agencyOrganizationId'])
     .index('by_agency_client', ['agencyOrganizationId', 'clientOrganizationId'])
@@ -52,7 +52,7 @@ export default defineSchema({
     name: v.string(),
     createdBy: v.id('users'),
     actingFromOrganizationId: v.optional(v.id('organizations')),
-    createdAt: v.number()
+    createdAt: v.number(),
   }).index('by_client', ['clientOrganizationId']),
 
   auditEvents: defineTable({
@@ -62,7 +62,6 @@ export default defineSchema({
     action: v.string(),
     resourceType: v.string(),
     resourceId: v.optional(v.string()),
-    createdAt: v.number()
-  }).index('by_org_created', ['organizationId', 'createdAt'])
+    createdAt: v.number(),
+  }).index('by_org_created', ['organizationId', 'createdAt']),
 })
-

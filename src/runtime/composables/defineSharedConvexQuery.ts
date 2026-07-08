@@ -1,8 +1,9 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import type { MaybeRefOrGetter } from 'vue'
+import { effectScope } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
+import type { SharedQueryArgsField } from '../utils/args-tuple'
 import { getFunctionName, hashArgs } from '../utils/convex-shared'
 import {
   createConvexQueryState,
@@ -16,6 +17,7 @@ interface SharedQueryRegistry {
 
 interface SharedQueryRegistryEntry<T> {
   value: T
+  scope: ReturnType<typeof effectScope>
   config: unknown
   queryName: string
   argsFingerprint: string
@@ -69,30 +71,42 @@ function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryR
   return app._convexSharedQueryRegistry!
 }
 
-export interface DefineSharedConvexQueryOptions<
+export type DefineSharedConvexQueryOptions<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  // Public type dialect is 'skip' only (F-35 — matches useConvexQuery's
+  // ConvexQueryArgs). `null`/`undefined` are still accepted at runtime for
+  // back-compat (see isConvexArgsSkipped), just not advertised in the type.
+  Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
-> {
+> = {
   /** Stable app-level key used to share a single query state instance. */
   key: string
   /** Convex query reference. */
   query: Query
-  /** Query args (supports refs/getters, including nullable disable semantics). */
-  args?: MaybeRefOrGetter<Args>
   /** Same options as useConvexQuery. */
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
-}
+} & SharedQueryArgsField<Query, Args>
 
 /**
  * Create a shared query composable that initializes once per Nuxt app/request.
  *
  * Useful for global context data (current user/team/settings) without custom
  * nuxtApp mutation patterns in app code.
+ *
+ * @example Disabling the query conditionally
+ * ```ts
+ * // Pass 'skip' (the same sentinel useConvexQuery uses) to disable the
+ * // query — do not pass null/undefined; only 'skip' is the documented dialect.
+ * const useCurrentTeam = defineSharedConvexQuery({
+ *   key: 'current-team',
+ *   query: api.teams.getCurrent,
+ *   args: () => (teamId.value ? { teamId: teamId.value } : 'skip'),
+ * })
+ * ```
  */
 export function defineSharedConvexQuery<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(config: DefineSharedConvexQueryOptions<Query, Args, DataT>): () => UseConvexQueryData<DataT> {
   return () => {
@@ -123,15 +137,18 @@ export function defineSharedConvexQuery<
       return existing.value as UseConvexQueryData<DataT>
     }
 
-    const created = createConvexQueryState<Query, Args, DataT>(
-      config.query,
-      config.args,
-      config.options,
-      true,
-    ).resultData
+    // Shared state must outlive any individual consumer. A detached scope is owned
+    // by the registry (app lifetime), so the first consumer unmounting cannot
+    // dispose the shared subscription.
+    // scope is stopped never: registry and scope share the nuxt app lifetime.
+    const scope = effectScope(true /* detached */)
+    const created = scope.run(() =>
+      createConvexQueryState<Query, Args, DataT>(config.query, config.args, config.options, true),
+    )!.resultData
 
     registry.entries.set(config.key, {
       value: created,
+      scope,
       config,
       queryName,
       argsFingerprint,

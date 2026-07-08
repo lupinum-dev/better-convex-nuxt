@@ -2,7 +2,6 @@ import type { H3Event } from 'h3'
 import { defineEventHandler, createError, getQuery } from 'h3'
 
 import { api } from '#convex/api'
-
 import { serverConvexQuery } from '#convex/server'
 
 /**

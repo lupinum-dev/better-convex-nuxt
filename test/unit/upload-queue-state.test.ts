@@ -51,10 +51,7 @@ describe('upload queue state helpers', () => {
 
     expect(
       normalizeUploadQueueEnqueueInput(
-        [
-          { file: first, mutationArgs: { folder: 'first' } },
-          { file: second },
-        ],
+        [{ file: first, mutationArgs: { folder: 'first' } }, { file: second }],
         { folder: 'fallback' },
       ),
     ).toEqual([
@@ -64,9 +61,9 @@ describe('upload queue state helpers', () => {
   })
 
   it('rejects unsupported enqueue input shapes', () => {
-    expect(() =>
-      normalizeUploadQueueEnqueueInput([{ file: 'not-a-file' }] as never),
-    ).toThrow(/valid File/)
+    expect(() => normalizeUploadQueueEnqueueInput([{ file: 'not-a-file' }] as never)).toThrow(
+      /valid File/,
+    )
 
     expect(() => normalizeUploadQueueEnqueueInput({} as never)).toThrow(/Unsupported/)
   })
@@ -96,6 +93,17 @@ describe('upload queue state helpers', () => {
     ]
 
     expect(computeUploadQueueAggregateProgress(items)).toBe(27)
+  })
+
+  it('treats halted items settled to cancelled as distinct from queued (F-32)', () => {
+    // useConvexUploadQueue settles still-queued items to 'cancelled' when the
+    // queue halts after an error (continueOnError: false), specifically so a
+    // later enqueue() cannot mistake them for still-pending work and resume
+    // them. countUploadQueueItems must keep these statuses mutually exclusive.
+    const items = [item('cancelled'), item('cancelled'), item('queued')]
+
+    expect(countUploadQueueItems(items, 'cancelled')).toBe(2)
+    expect(countUploadQueueItems(items, 'queued')).toBe(1)
   })
 
   it('returns zero for empty or all-zero active work and one hundred for finished zero-byte work', () => {

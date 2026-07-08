@@ -46,7 +46,7 @@ describe('auth proxy canonical redirect handling', () => {
         )
         .mockResolvedValueOnce(new Response('ok', { status: 200 }))
 
-      const response = await fetchWithCanonicalRedirects({
+      const result = await fetchWithCanonicalRedirects({
         target: 'https://my-domain.com/api/auth/sign-up/email?foo=bar',
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -54,7 +54,8 @@ describe('auth proxy canonical redirect handling', () => {
         fetchImpl: fetchMock,
       })
 
-      expect(response.status).toBe(200)
+      expect(result.response.status).toBe(200)
+      expect(result.followedCanonicalRedirect).toBe(true)
       expect(fetchMock).toHaveBeenCalledTimes(2)
       const [firstCall, secondCall] = fetchMock.mock.calls
       expect(firstCall).toBeDefined()
@@ -76,15 +77,115 @@ describe('auth proxy canonical redirect handling', () => {
         }),
       )
 
-      const response = await fetchWithCanonicalRedirects({
+      const result = await fetchWithCanonicalRedirects({
         target: 'https://www.my-domain.com/api/auth/sign-in/social',
         method: 'GET',
         headers: {},
         fetchImpl: fetchMock,
       })
 
-      expect(response.status).toBe(302)
+      expect(result.response.status).toBe(302)
+      expect(result.followedCanonicalRedirect).toBe(false)
       expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('strips credential headers on a followed cross-origin canonical redirect (F-27)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response('', {
+            status: 302,
+            headers: {
+              location: 'https://www.my-domain.com/api/auth/get-session',
+            },
+          }),
+        )
+        .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+      await fetchWithCanonicalRedirects({
+        target: 'https://my-domain.com/api/auth/get-session',
+        method: 'GET',
+        headers: { cookie: 'better-auth.session_token=secret', 'content-type': 'text/plain' },
+        fetchImpl: fetchMock,
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const [firstCall, secondCall] = fetchMock.mock.calls
+      if (!firstCall || !secondCall) {
+        throw new Error('Expected two fetch calls')
+      }
+
+      // First (same-origin) request carries the cookie normally.
+      const firstHeaders = firstCall[1]?.headers as Record<string, string>
+      expect(firstHeaders.cookie).toBe('better-auth.session_token=secret')
+
+      // Second (cross-origin follow) must not carry it.
+      const secondHeaders = secondCall[1]?.headers as Record<string, string>
+      expect(secondHeaders.cookie).toBeUndefined()
+      expect(secondHeaders['content-type']).toBe('text/plain')
+    })
+
+    it('strips the authorization header on a followed cross-origin canonical redirect (F-27)', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response('', {
+            status: 302,
+            headers: {
+              location: 'https://www.my-domain.com/api/auth/get-session',
+            },
+          }),
+        )
+        .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+
+      await fetchWithCanonicalRedirects({
+        target: 'https://my-domain.com/api/auth/get-session',
+        method: 'GET',
+        headers: {
+          authorization: 'Bearer secret',
+          'content-type': 'text/plain',
+        },
+        fetchImpl: fetchMock,
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const secondCall = fetchMock.mock.calls[1]
+      if (!secondCall) {
+        throw new Error('Expected second fetch call')
+      }
+      const secondHeaders = secondCall[1]?.headers as Record<string, string>
+      expect(secondHeaders.authorization).toBeUndefined()
+      expect(secondHeaders['content-type']).toBe('text/plain')
+    })
+
+    it('preserves the cookie header when a redirect stays same-origin', async () => {
+      // Same-origin redirects are never "canonical" by this module's definition
+      // (getCanonicalRedirectTarget requires a different origin), so they are
+      // returned to the caller unfollowed - the single request made still
+      // carries its cookie normally.
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response('', {
+          status: 302,
+          headers: {
+            location: 'https://my-domain.com/api/auth/callback',
+          },
+        }),
+      )
+
+      const result = await fetchWithCanonicalRedirects({
+        target: 'https://my-domain.com/api/auth/sign-in/social',
+        method: 'GET',
+        headers: { cookie: 'better-auth.session_token=secret' },
+        fetchImpl: fetchMock,
+      })
+
+      expect(result.response.status).toBe(302)
+      expect(result.followedCanonicalRedirect).toBe(false)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [firstCall] = fetchMock.mock.calls
+      if (!firstCall) throw new Error('Expected one fetch call')
+      const headers = firstCall[1]?.headers as Record<string, string>
+      expect(headers.cookie).toBe('better-auth.session_token=secret')
     })
 
     it('stops after max canonical redirects', async () => {
@@ -115,7 +216,7 @@ describe('auth proxy canonical redirect handling', () => {
           }),
         )
 
-      const response = await fetchWithCanonicalRedirects({
+      const result = await fetchWithCanonicalRedirects({
         target: 'https://my-domain.com/api/auth/sign-up/email',
         method: 'POST',
         headers: {},
@@ -123,7 +224,8 @@ describe('auth proxy canonical redirect handling', () => {
         fetchImpl: fetchMock,
       })
 
-      expect(response.status).toBe(307)
+      expect(result.response.status).toBe(307)
+      expect(result.followedCanonicalRedirect).toBe(true)
       expect(fetchMock).toHaveBeenCalledTimes(3)
     })
   })

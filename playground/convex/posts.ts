@@ -1,33 +1,30 @@
 /**
  * Posts Module
  *
- * CRUD operations with full permission checks.
- * Demonstrates the permission system in action.
+ * CRUD operations demonstrating the permission system with a minimal
+ * signed-in + ownership model (no org roles). See permissions.config.ts.
  */
 
 import { paginationOptsValidator } from 'convex/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
-import { getUser, authorize, requireSameOrg } from './lib/permissions'
+import { getUser, authorize } from './lib/permissions'
 
 // ============================================
 // LIST
 // ============================================
-// Returns all posts in the user's organization.
+// Returns the signed-in user's own posts.
 
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    // Get current user (null if not logged in)
     const user = await getUser(ctx)
     if (!user) return []
 
-    // Fetch posts scoped to user's org
-    // This IS the "read" permission - org isolation
     return await ctx.db
       .query('posts')
-      .withIndex('by_organization', (q) => q.eq('organizationId', user.organizationId))
+      .withIndex('by_owner', (q) => q.eq('ownerId', user.authId))
       .order('desc')
       .collect()
   },
@@ -36,16 +33,14 @@ export const list = query({
 // ============================================
 // LIST PAGINATED (auth-protected)
 // ============================================
-// Returns paginated posts in the user's organization.
-// Requires authentication - used to test SSR with auth.
+// Returns paginated posts owned by the signed-in user.
+// Used to exercise SSR with auth.
 
 export const listPaginated = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    // Get current user (null if not logged in)
     const user = await getUser(ctx)
 
-    // If not logged in, return empty result
     if (!user) {
       return {
         page: [],
@@ -54,10 +49,9 @@ export const listPaginated = query({
       }
     }
 
-    // Fetch paginated posts scoped to user's org
     return await ctx.db
       .query('posts')
-      .withIndex('by_organization', (q) => q.eq('organizationId', user.organizationId))
+      .withIndex('by_owner', (q) => q.eq('ownerId', user.authId))
       .order('desc')
       .paginate(args.paginationOpts)
   },
@@ -66,16 +60,16 @@ export const listPaginated = query({
 // ============================================
 // GET
 // ============================================
-// Returns a single post if user can access it.
+// Returns a single post if the signed-in user owns it.
 
 export const get = query({
   args: { id: v.id('posts') },
   handler: async (ctx, args) => {
     const user = await getUser(ctx)
-    const post = await ctx.db.get(args.id)
+    if (!user) return null
 
-    // Org isolation: only return if same org
-    if (!requireSameOrg(user, post)) {
+    const post = await ctx.db.get(args.id)
+    if (!post || post.ownerId !== user.authId) {
       return null
     }
 
@@ -86,7 +80,6 @@ export const get = query({
 // ============================================
 // CREATE
 // ============================================
-// Creates a new post. User must have post.create permission.
 
 export const create = mutation({
   args: {
@@ -94,10 +87,6 @@ export const create = mutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    // authorize() does:
-    // 1. Checks user is logged in
-    // 2. Checks post.create permission
-    // 3. Returns user so we can use it
     const user = await authorize(ctx, 'post.create')
 
     return await ctx.db.insert('posts', {
@@ -105,7 +94,6 @@ export const create = mutation({
       content: args.content,
       status: 'draft',
       ownerId: user.authId,
-      organizationId: user.organizationId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })
@@ -113,9 +101,8 @@ export const create = mutation({
 })
 
 // ============================================
-// UPDATE
+// UPDATE (owner only)
 // ============================================
-// Updates a post. Checks ownership for members.
 
 export const update = mutation({
   args: {
@@ -124,14 +111,9 @@ export const update = mutation({
     content: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Get post first (need it for ownership check)
     const post = await ctx.db.get(args.id)
-    if (!post) throw new Error('Post not found')
+    if (!post) throw new ConvexError({ code: 'NOT_FOUND', message: 'Post not found' })
 
-    // authorize() with resource checks:
-    // - Org isolation (post must be in user's org)
-    // - Permission (post.update)
-    // - Ownership (if permission uses "own")
     await authorize(ctx, 'post.update', post)
 
     await ctx.db.patch(args.id, {
@@ -143,14 +125,14 @@ export const update = mutation({
 })
 
 // ============================================
-// DELETE
+// DELETE (owner only)
 // ============================================
 
 export const remove = mutation({
   args: { id: v.id('posts') },
   handler: async (ctx, args) => {
     const post = await ctx.db.get(args.id)
-    if (!post) throw new Error('Post not found')
+    if (!post) throw new ConvexError({ code: 'NOT_FOUND', message: 'Post not found' })
 
     await authorize(ctx, 'post.delete', post)
 
@@ -159,17 +141,15 @@ export const remove = mutation({
 })
 
 // ============================================
-// PUBLISH (admin only)
+// PUBLISH (owner only)
 // ============================================
 
 export const publish = mutation({
   args: { id: v.id('posts') },
   handler: async (ctx, args) => {
     const post = await ctx.db.get(args.id)
-    if (!post) throw new Error('Post not found')
+    if (!post) throw new ConvexError({ code: 'NOT_FOUND', message: 'Post not found' })
 
-    // post.publish = { roles: ["owner", "admin"] }
-    // No "own" option, so members can NEVER publish
     await authorize(ctx, 'post.publish', post)
 
     await ctx.db.patch(args.id, {

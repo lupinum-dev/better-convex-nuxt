@@ -117,6 +117,11 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => {
         const token = useState<string | null>('convex:token')
         token.value = 'cached.jwt.token'
+        // Signed-in settled state: a real client with a token has auth settled
+        // (pending=false). The unified convex:pending default is import.meta.client
+        // (pending on the client until the engine settles), so model settled here.
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = false
         return useConvexQueryState(query, {}, { auth: 'auto', subscribe: false })
       },
       { convex: new MockConvexClient(), convexConfig: { defaults: { auth: 'auto' } } },
@@ -356,6 +361,40 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => result.alpha.data.value === 'alpha:3' && result.beta.data.value === 'beta:3',
     )
     await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+  })
+
+  it('re-syncs a subscriber-specific transform after a disabled->active args transition (F-34)', async () => {
+    // Pins the setupSubscription() `setTimeout(0)` re-attach: when args flip
+    // from 'skip' to active and share an already-populated subscription/cache
+    // with another subscriber, the newly-active subscriber must end up
+    // applying its OWN transform, not leak the other subscriber's.
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('counter:get:reattach-transform')
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const lateArgs = ref<ConvexQueryArgs<Record<string, never>>>('skip')
+        const primary = useConvexQueryState(query, {}, { transform: (input) => input.count })
+        const late = useConvexQueryState(query, lateArgs, {
+          transform: (input) => `count:${input.count}`,
+        })
+        return { lateArgs, primary, late }
+      },
+      { convex },
+    )
+
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+    convex.emitQueryResult(query, {}, { count: 5 })
+    await waitFor(() => result.primary.data.value === 5)
+
+    result.lateArgs.value = {}
+    await flush()
+    // Let the setTimeout(0) macrotask (the re-attach) run.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await flush()
+
+    await waitFor(() => result.late.data.value === 'count:5')
+    expect(result.primary.data.value).toBe(5)
   })
 
   it('handles error-before-data for late subscribers and recovers on next data', async () => {

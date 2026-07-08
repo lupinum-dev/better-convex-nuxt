@@ -22,16 +22,6 @@ export const generateUploadUrl = mutation({
       throw new Error('Not authenticated')
     }
 
-    // Check user role - only admin and member can upload
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user || user.role === 'viewer') {
-      throw new Error('Not authorized to upload files')
-    }
-
     return await ctx.storage.generateUploadUrl()
   },
 })
@@ -50,18 +40,6 @@ export const save = mutation({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
       throw new Error('Not authenticated')
-    }
-
-    // Check user role - only admin and member can upload
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user || user.role === 'viewer') {
-      // Clean up the uploaded file since user isn't authorized
-      await ctx.storage.delete(args.storageId)
-      throw new Error('Not authorized to upload files')
     }
 
     // Validate file size
@@ -148,20 +126,9 @@ export const remove = mutation({
       throw new Error('File not found')
     }
 
-    // Check user role and ownership
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
     const isOwner = file.uploadedBy === identity.subject
-    const isAdmin = user?.role === 'admin'
-    const isMember = user?.role === 'member'
 
-    // Admins can delete any file
-    // Members can only delete their own files
-    // Viewers cannot delete any files
-    if (!isAdmin && !(isMember && isOwner)) {
+    if (!isOwner) {
       throw new Error('Not authorized to delete this file')
     }
 

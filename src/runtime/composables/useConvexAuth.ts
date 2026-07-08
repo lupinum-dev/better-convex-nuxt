@@ -3,8 +3,9 @@ import type { ComputedRef, Ref } from 'vue'
 
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
-import { createConvexAuthEngine, type ConvexAuthEngine } from '../auth/client-engine'
+import type { ConvexAuthEngine } from '../auth/client-engine'
 import { waitForPendingClear } from '../utils/auth-pending'
+import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import type { ConvexUser } from '../utils/types'
 
 // Re-export for convenience
@@ -117,25 +118,25 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  // SSR auth is already settled before render, so default false on server to avoid
-  // hydration mismatches. CSR-first loads still start pending=true until client init.
-  const pending = useState<boolean>('convex:pending', () => import.meta.client)
+  const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
-  const authEngine =
-    (nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined) ??
-    createConvexAuthEngine({
-      nuxtApp,
-      authClient: client,
-      state: {
-        token,
-        user,
-        pending,
-        authError,
-      },
-    })
+
+  // `$convexAuthEngine` is provided by the client plugin only — it never
+  // exists during SSR. Resolve it lazily (only when signOut()/refreshAuth()
+  // are actually called) instead of silently constructing a throwaway engine
+  // per composable call, which masked a real "used before ready" bug (F-34).
+  const getAuthEngine = (): ConvexAuthEngine => {
+    const engine = nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined
+    if (!engine) {
+      throw new Error(
+        '[useConvexAuth] Convex auth engine is unavailable. signOut()/refreshAuth() are client-only — call them from a browser event handler after the module has initialized.',
+      )
+    }
+    return engine
+  }
 
   /**
    * Signs out the user from both Better Auth and clears Convex auth state.
@@ -161,7 +162,7 @@ export function useConvexAuth(): UseConvexAuthReturn {
    * ```
    */
   const signOut = async () => {
-    return await authEngine.signOut()
+    return await getAuthEngine().signOut()
   }
 
   /**
@@ -182,7 +183,7 @@ export function useConvexAuth(): UseConvexAuthReturn {
    * ```
    */
   const refreshAuth = async (): Promise<void> => {
-    return await authEngine.refreshAuth()
+    return await getAuthEngine().refreshAuth()
   }
 
   const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {

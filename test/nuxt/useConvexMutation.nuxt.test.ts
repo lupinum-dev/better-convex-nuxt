@@ -175,7 +175,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('testing:safe-fail')
 
     convex.setMutationHandler('testing:safe-fail', async () => {
-      throw new Error('LIMIT_ITEMS: Limit reached')
+      throw new Error('Limit reached')
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
@@ -185,7 +185,10 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     if (safeResult.ok) {
       throw new Error('Expected safe result to be an error')
     }
-    expect(safeResult.error.code).toBe('LIMIT_ITEMS')
+    // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
+    // (F-31: that was an app convention, not core behavior) — the message passes
+    // through verbatim and no code is synthesized from it.
+    expect(safeResult.error.code).toBeUndefined()
     expect(safeResult.error.message).toBe('Limit reached')
     expect(result.status.value).toBe('error')
   })
@@ -266,5 +269,42 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.status.value).toBe('success')
     expect(result.data.value).toEqual({ value: 'second' })
     expect(result.error.value).toBeNull()
+  })
+
+  it('does not fire onSuccess/onError for a superseded call (F-30)', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:superseded-mutation')
+
+    convex.setMutationHandler('testing:superseded-mutation', async (args) => {
+      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      await new Promise((resolve) => setTimeout(resolve, input.delayMs))
+      if (input.shouldFail) {
+        throw new Error(`failed:${input.value}`)
+      }
+      return { value: input.value }
+    })
+
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexMutation(mutation, { onSuccess, onError }),
+      {
+        convex,
+      },
+    )
+
+    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
+
+    await expect(fastSuccess).resolves.toEqual({ value: 'second' })
+    await expect(slowFail).rejects.toThrow('failed:first')
+    await waitFor(() => result.pending.value === false)
+
+    // Only the latest (winning) call's success callback should fire; the superseded
+    // failing call must fire neither onSuccess nor onError.
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith({ value: 'second' }, { value: 'second', delayMs: 5 })
+    expect(onError).not.toHaveBeenCalled()
   })
 })

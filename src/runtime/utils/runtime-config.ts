@@ -1,6 +1,13 @@
 import { useRuntimeConfig } from '#imports'
 
 import { normalizeConvexAuthConfig, type ConvexAuthConfig } from './auth-config'
+import {
+  CONVEX_MODULE_DEFAULTS,
+  normalizeAuthCacheTtl,
+  normalizeAuthProxyBodyLimit,
+  normalizeMaxConcurrent,
+  normalizeWaitTimeoutMs,
+} from './config-defaults'
 import { normalizeAuthRoute, resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
 
@@ -8,6 +15,8 @@ export interface ConvexRuntimeDefaults {
   server: boolean
   subscribe: boolean
   auth: 'auto' | 'none'
+  /** WS first-result wait timeout (ms) for awaited subscribe-mode queries. */
+  waitTimeoutMs: number
 }
 
 export interface NormalizedConvexRuntimeConfig {
@@ -42,14 +51,6 @@ function asRecord(input: unknown): Record<string, unknown> | null {
   return input && typeof input === 'object' ? (input as Record<string, unknown>) : null
 }
 
-function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return 60
-  const normalized = Math.trunc(input)
-  if (normalized < 1) return 1
-  if (normalized > 60) return 60
-  return normalized
-}
-
 export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRuntimeConfig {
   const raw = asRecord(input)
   const defaults = asRecord(raw?.defaults)
@@ -57,14 +58,14 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const authCache = asRecord(raw?.authCache)
   const upload = asRecord(raw?.upload)
   const authProxy = asRecord(raw?.authProxy)
-  const envUrl = process.env.NUXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL
-  const envSiteUrl = process.env.NUXT_PUBLIC_CONVEX_SITE_URL || process.env.CONVEX_SITE_URL
 
-  const runtimeUrl = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
-  const runtimeSiteUrl =
+  // URL/siteUrl are resolved from runtimeConfig only. module.ts reads env at build
+  // time; Nuxt's native `NUXT_PUBLIC_*` runtime override supplies deploy-time
+  // values. Re-reading process.env here would be server-only (empty client shim)
+  // and silently diverge SSR from the browser (F-16).
+  const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
+  const explicitSiteUrl =
     typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
-  const url = runtimeUrl ?? envUrl
-  const explicitSiteUrl = runtimeSiteUrl ?? envSiteUrl
   const resolvedSiteUrl = resolveConvexSiteUrl({
     url,
     siteUrl: explicitSiteUrl,
@@ -91,31 +92,17 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       ttl: normalizeAuthCacheTtl(authCache?.ttl),
     },
     upload: {
-      maxConcurrent: (() => {
-        const candidate = upload?.maxConcurrent
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 3
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1
-      })(),
+      maxConcurrent: normalizeMaxConcurrent(upload?.maxConcurrent),
     },
     authProxy: {
-      maxRequestBodyBytes: (() => {
-        const candidate = authProxy?.maxRequestBodyBytes
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1_048_576
-      })(),
-      maxResponseBodyBytes: (() => {
-        const candidate = authProxy?.maxResponseBodyBytes
-        if (typeof candidate !== 'number' || !Number.isFinite(candidate)) return 1_048_576
-        const normalized = Math.trunc(candidate)
-        return normalized > 0 ? normalized : 1_048_576
-      })(),
+      maxRequestBodyBytes: normalizeAuthProxyBodyLimit(authProxy?.maxRequestBodyBytes),
+      maxResponseBodyBytes: normalizeAuthProxyBodyLimit(authProxy?.maxResponseBodyBytes),
     },
     defaults: {
       server: defaults?.server !== false,
       subscribe: defaults?.subscribe !== false,
-      auth: defaults?.auth === 'none' ? 'none' : 'auto',
+      auth: defaults?.auth === 'none' ? 'none' : CONVEX_MODULE_DEFAULTS.defaults.auth,
+      waitTimeoutMs: normalizeWaitTimeoutMs(defaults?.waitTimeoutMs),
     },
     debug: {
       authFlow: debug?.authFlow === true,

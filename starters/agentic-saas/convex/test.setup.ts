@@ -100,7 +100,10 @@ export function initConvexTest() {
   harness.query = async (functionReference: HarnessFunctionReference, args: HarnessArgs = {}) => {
     return await callWithOptionalBetterAuthSession('query', functionReference, args)
   }
-  harness.mutation = async (functionReference: HarnessFunctionReference, args: HarnessArgs = {}) => {
+  harness.mutation = async (
+    functionReference: HarnessFunctionReference,
+    args: HarnessArgs = {},
+  ) => {
     return await callWithOptionalBetterAuthSession('mutation', functionReference, args)
   }
 

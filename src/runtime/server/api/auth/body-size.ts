@@ -1,5 +1,9 @@
-export const DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES = 1_048_576 // 1 MiB
-export const DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES = 1_048_576 // 1 MiB
+import { CONVEX_MODULE_DEFAULTS } from '../../../utils/config-defaults'
+
+export const DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES =
+  CONVEX_MODULE_DEFAULTS.authProxy.maxRequestBodyBytes
+export const DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES =
+  CONVEX_MODULE_DEFAULTS.authProxy.maxResponseBodyBytes
 
 export interface ProxyBodySizeErrorShape {
   statusCode: 413 | 502

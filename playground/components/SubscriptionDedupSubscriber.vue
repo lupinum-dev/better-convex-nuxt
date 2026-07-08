@@ -23,22 +23,20 @@ const queryArgs = computed<Record<string, never> | 'skip'>(() =>
   ready.value ? emptyQueryArgs : 'skip',
 )
 
-const result = await (
-  props.transformMode === 'label'
-    ? useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', string>(
-        subscriptionDedupCounterQuery,
-        queryArgs,
-        {
-          server: false,
-          transform: (value: number) => `count:${value}`,
-        },
-      )
-    : useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', number>(
-        subscriptionDedupCounterQuery,
-        queryArgs,
-        { server: false },
-      )
-)
+const result = await (props.transformMode === 'label'
+  ? useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', string>(
+      subscriptionDedupCounterQuery,
+      queryArgs,
+      {
+        server: false,
+        transform: (value: number) => `count:${value}`,
+      },
+    )
+  : useConvexQuery<typeof subscriptionDedupCounterQuery, Record<string, never> | 'skip', number>(
+      subscriptionDedupCounterQuery,
+      queryArgs,
+      { server: false },
+    ))
 
 const { data, status, error } = result
 

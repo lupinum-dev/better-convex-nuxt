@@ -136,6 +136,19 @@ export function createUserSyncTriggers<
         const doc = await options.createDoc({ ctx, user, now })
         await ctx.db.insert(options.table, doc)
       },
+      /**
+       * Patches the projected row for a Better Auth user update.
+       *
+       * F-42: if `onUpdate` fires before the corresponding `onCreate` has run
+       * for this user (e.g. out-of-order trigger delivery, or a webhook race),
+       * `findExistingByAuthId` finds nothing and this silently no-ops — the
+       * update is dropped rather than queued or retried. The row is created
+       * later by `onCreate`, but using `createDoc`'s snapshot at that later
+       * time, not the fields this update carried. If your projection needs
+       * updates to survive arriving before creation, either make `createDoc`
+       * derive from the latest known user state (not just the `onCreate`
+       * event's payload) or run `rebuild()` periodically to reconcile drift.
+       */
       onUpdate: async (ctx: TCtx, user: TAuthUser, previousUser: TAuthUser) => {
         if (!options.patchDoc) return
 

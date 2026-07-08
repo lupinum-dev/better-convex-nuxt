@@ -265,10 +265,14 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
     const startTime = Date.now()
 
-    if (currentAbortController) {
+    // Guard on the status ref, not `currentAbortController` — the controller
+    // used to be assigned only after the URL-request mutation resolved, so a
+    // second upload() call made during that mutation phase saw a null
+    // controller and slipped through, interleaving with the first call on
+    // the shared status/progress/data refs (F-14). Reject immediately
+    // without touching those refs; they belong to the in-flight upload.
+    if (_status.value === 'pending') {
       const err = new Error('Upload already in progress for this composable instance')
-      _status.value = 'error'
-      error.value = err
       logger.upload({
         name: fnName,
         event: 'error',
@@ -310,6 +314,14 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     error.value = null
     progress.value = 0
 
+    // Create the AbortController before the URL-request mutation (not after
+    // it resolves) so cancel() called during that phase has something to
+    // signal — previously the window between calling upload() and the
+    // mutation resolving had no controller, so cancel() was a no-op and the
+    // upload would later overwrite the reset state with 'success' (F-14).
+    const controller = new AbortController()
+    currentAbortController = controller
+
     try {
       const client = nuxtApp.$convex as ConvexClient | undefined
       if (!client) {
@@ -325,9 +337,15 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         (mutationArgs ?? {}) as FunctionArgs<Mutation>,
       )
 
+      // cancel() may have run while the URL-request mutation was in flight.
+      // The controller has no XHR to abort yet, so check the signal explicitly
+      // and bail out before starting the XHR — cancel() already reset state to
+      // 'idle'; this rethrow (caught below as an AbortError) leaves it there.
+      if (controller.signal.aborted) {
+        throw new DOMException('Upload cancelled', 'AbortError')
+      }
+
       // Step 2: Upload file via XHR for progress tracking
-      const controller = new AbortController()
-      currentAbortController = controller
       const storageId = await uploadFileViaXhr(postUrl, file, {
         signal: controller.signal,
         onProgress: (info) => {
@@ -373,7 +391,12 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       options?.onError?.(err, file)
       throw err
     } finally {
-      currentAbortController = null
+      // Only clear the slot if it's still this call's controller — a
+      // cancel()-during-URL-phase throw can settle after a subsequent
+      // upload() has already started and installed its own controller.
+      if (currentAbortController === controller) {
+        currentAbortController = null
+      }
     }
   }
 

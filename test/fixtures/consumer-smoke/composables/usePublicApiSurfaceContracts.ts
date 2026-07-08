@@ -115,7 +115,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
     checkPermission: (ctx, permission, resource) =>
       ctx?.role === 'admin' || (permission === 'task.delete' && resource?.ownerId === ctx?.userId),
   })
-  assertType<boolean>(usePermissions().can('task.create').value)
+  assertType<boolean>(usePermissions().can('task.create'))
   await usePermissionRedirect({ permission: 'task.delete', resource: { ownerId: 'user_1' } })
 
   createBetterConvexAuthClient<
@@ -125,4 +125,82 @@ export async function usePublicApiSurfaceContracts(file: File) {
       ReturnType<typeof apiKeyClient>,
     ]
   >()
+}
+
+/**
+ * Negative-space call-arity contracts (F-5 / F-23). These calls must NOT
+ * compile; reverting the conditional rest-tuple makes the `@ts-expect-error`
+ * lines fail `check:consumer-smoke`. The function is never invoked at runtime.
+ */
+async function _requiredArgsContracts() {
+  // --- useConvexQuery: required args must be required, wrong shape rejected ---
+  // Positive: no-arg queries accept zero args.
+  void useConvexQuery(api.tasks.list)
+  // Positive: correct required args compile.
+  void useConvexQuery(api.files.getUrl, { storageId: 'file_1' })
+  // @ts-expect-error required args must not be omittable (F-5)
+  void useConvexQuery(api.files.getUrl)
+  // @ts-expect-error wrong arg shape must not compile (F-5)
+  void useConvexQuery(api.files.getUrl, { wrong: 1 })
+  // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
+  void useConvexQuery(api.tasks.list, { initialNumItems: 5 })
+
+  // --- useConvexQuery: all-optional args stay callable (R2-3.3b) ---
+  // Positive: all-optional args accept a populated object.
+  void useConvexQuery(api.tasks.search, { limit: 5 })
+  // Positive: all-optional args accept a partial object.
+  void useConvexQuery(api.tasks.search, { term: 'x' })
+  // Positive: all-optional args may omit the args slot entirely.
+  void useConvexQuery(api.tasks.search)
+  // Positive: all-optional args accept an empty object.
+  void useConvexQuery(api.tasks.search, {})
+  // Positive: all-optional args accept the skip sentinel.
+  void useConvexQuery(api.tasks.search, 'skip')
+  // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
+  void useConvexQuery(api.tasks.search, { limit: 5, wrong: 1 })
+
+  // --- useConvexQuery: union all-optional args stay callable (R2-3.3c) ---
+  // Top-level v.union(...) validators produce union args; each member must be
+  // judged by its own keys, not the union's key intersection.
+  void useConvexQuery(api.tasks.filter, { term: 'x' })
+  void useConvexQuery(api.tasks.filter, { limit: 5 })
+  void useConvexQuery(api.tasks.filter)
+  void useConvexQuery(api.tasks.filter, 'skip')
+  // @ts-expect-error union all-optional args still reject unknown properties (R2-3.3c)
+  void useConvexQuery(api.tasks.filter, { wrong: 1 })
+
+  // --- useConvexPaginatedQuery ---
+  // Positive: paginated query with no extra args accepts zero args.
+  void useConvexPaginatedQuery(api.tasks.listPaginated)
+  // @ts-expect-error options object must not be accepted in the args slot (F-5 follow-up)
+  void useConvexPaginatedQuery(api.tasks.listPaginated, { initialNumItems: 5 })
+  // Positive: correct required extra args compile.
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { owner: 'user_1' })
+  // @ts-expect-error required paginated args must not be omittable (F-5)
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner)
+  // @ts-expect-error wrong paginated arg shape must not compile (F-5)
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { wrong: 1 })
+
+  // --- useConvexUser ---
+  // Positive: no-arg canonical user query accepts zero args.
+  void useConvexUser(api.auth.viewer)
+  // @ts-expect-error required args must not be omittable (F-5)
+  void useConvexUser(api.files.getUrl)
+  // @ts-expect-error wrong arg shape must not compile (F-5)
+  void useConvexUser(api.files.getUrl, { wrong: 1 })
+
+  // --- defineSharedConvexQuery: args field conditionally required ---
+  // Positive: no-arg query may omit the args field.
+  defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list })
+  // @ts-expect-error required args field must not be omittable (F-5)
+  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl })
+  // @ts-expect-error wrong args field shape must not compile (F-5)
+  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl, args: { wrong: 1 } })
+
+  // --- useConvexStorageUrl: query must accept { storageId } and return string | null (F-15) ---
+  // Positive: correctly-typed getUrl query, with optional auth passthrough.
+  void useConvexStorageUrl(api.files.getUrl, 'file_1')
+  void useConvexStorageUrl(api.files.getUrl, 'file_1', { auth: 'auto' })
+  // @ts-expect-error mistyped getUrl query (wrong args/return) must not compile (F-15)
+  void useConvexStorageUrl(api.tasks.list, 'file_1')
 }

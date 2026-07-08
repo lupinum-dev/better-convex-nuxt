@@ -1,9 +1,11 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { computed } from 'vue'
 
-import { toValue } from '#imports'
+import { toValue, useRuntimeConfig } from '#imports'
 
+import type { ConvexQueryRest } from '../utils/args-tuple'
+import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvexAuth, type ConvexUser } from './useConvexAuth'
 import { createConvexQueryState, type ConvexQueryArgs } from './useConvexQuery'
@@ -48,7 +50,7 @@ export interface UseConvexUserReturn<User> {
   pending: ComputedRef<boolean>
   status: ComputedRef<ConvexCallStatus>
   isStale: ComputedRef<boolean>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   source: ComputedRef<ConvexUserSource>
   refresh: () => Promise<void>
   clear: () => void
@@ -64,10 +66,16 @@ export function useConvexUser<
   User = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options: UseConvexUserOptions<FunctionReturnType<Query>, User> = {},
+  ...rest: ConvexQueryRest<
+    FunctionArgs<Query>,
+    MaybeRefOrGetter<NoInfer<Args>>,
+    UseConvexUserOptions<FunctionReturnType<Query>, User>
+  >
 ): UseConvexUserReturn<User> {
+  const [rawArgs, options = {}] = rest
+  const args = rawArgs as MaybeRefOrGetter<Args> | undefined
   const auth = useConvexAuth()
+  const defaults = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).defaults
   const seedFromSession = options.seedFromSession ?? true
   const canonicalSource = options.source ?? 'better-auth'
 
@@ -81,7 +89,7 @@ export function useConvexUser<
     queryArgs,
     {
       server: false,
-      subscribe: options.subscribe ?? true,
+      subscribe: options.subscribe ?? defaults.subscribe,
       keepPreviousData: false,
       transform: options.transform,
     },

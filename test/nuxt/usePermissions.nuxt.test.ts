@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { computed } from 'vue'
 
 import { useRouter, useState } from '#imports'
 
@@ -28,11 +29,16 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        // The permission context query is auth:'auto'; it only subscribes for an
+        // authenticated session (module auth is enabled by default in the harness).
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
         const permissions = usePermissions()
         return {
           ...permissions,
-          canEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
-          canEditOther: permissions.can('post.edit', { ownerId: 'user-2' }),
+          canEditOwn: computed(() => permissions.can('post.edit', { ownerId: 'user-1' })),
+          canEditOther: computed(() => permissions.can('post.edit', { ownerId: 'user-2' })),
+          initialCanEditOwn: permissions.can('post.edit', { ownerId: 'user-1' }),
         }
       },
       { convex },
@@ -40,6 +46,7 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     expect(result.isAuthenticated.value).toBe(false)
     expect(result.role.value).toBeNull()
+    expect(result.initialCanEditOwn).toBe(false)
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
 
@@ -80,31 +87,31 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-	    const { result } = await captureInNuxt(
-	      () => {
-	        const router = useRouter()
-	        const authPending = useState<boolean>('convex:pending')
-	        const token = useState<string | null>('convex:token')
-	        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
-	        authPending.value = true
+    const { result } = await captureInNuxt(
+      () => {
+        const router = useRouter()
+        const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
+        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+        authPending.value = true
 
-	        usePermissionRedirect({
-	          permission: 'org.members',
-	          loginPath: '/auth/signin',
-	        })
+        usePermissionRedirect({
+          permission: 'org.members',
+          loginPath: '/auth/signin',
+        })
 
-	        return { authPending, pushSpy, token }
-	      },
-	      { convex },
-	    )
+        return { authPending, pushSpy, token }
+      },
+      { convex },
+    )
 
-	    expect(result.pushSpy).not.toHaveBeenCalled()
+    expect(result.pushSpy).not.toHaveBeenCalled()
 
-	    result.authPending.value = false
-	    result.token.value = 'test-token'
-	    await waitFor(() => convex.calls.onUpdate.length > 0)
+    result.authPending.value = false
+    result.token.value = 'test-token'
+    await waitFor(() => convex.calls.onUpdate.length > 0)
 
-	    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauth', null)
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauth', null)
 
     await waitFor(() => result.pushSpy.mock.calls.length > 0)
     expect(result.pushSpy).toHaveBeenCalledTimes(1)
@@ -125,6 +132,8 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(
       () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
         const router = useRouter()
         const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
         const permissions = usePermissions()
@@ -141,6 +150,9 @@ describe('usePermissions (Nuxt runtime)', () => {
     )
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
+    await flush()
+    await flush()
+    result.pushSpy.mockClear()
 
     convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',
@@ -152,7 +164,7 @@ describe('usePermissions (Nuxt runtime)', () => {
     await waitFor(() => result.permissions.role.value === 'admin')
     await flush()
     await flush()
-    result.pushSpy.mockClear()
+    expect(result.pushSpy).not.toHaveBeenCalled()
 
     convex.emitQueryResultByPath('auth:getPermissionContext:redirect-authorized', {
       role: 'admin',

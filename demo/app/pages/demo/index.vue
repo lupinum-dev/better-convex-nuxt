@@ -5,8 +5,6 @@ definePageMeta({
 
 const { user, role } = useDemoPermissions()
 const roleBadgeColor = computed(() => {
-  if (role.value === 'owner') return 'warning'
-  if (role.value === 'admin') return 'info'
   if (role.value === 'member') return 'success'
   return 'neutral'
 })
@@ -66,8 +64,9 @@ const demos = [
         Welcome, {{ (user as any)?.displayName || 'Developer' }}!
       </h1>
       <p class="text-muted">
-        You're logged in as <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge
-        >. Use the role switcher in the sidebar to see how permissions affect the UI.
+        You're signed in with the demo permission context
+        <UBadge :color="roleBadgeColor" variant="subtle">{{ role }}</UBadge
+        >.
       </p>
     </div>
 

@@ -8,7 +8,7 @@ type ProjectPermission = 'create' | 'read' | 'update' | 'delete'
 
 async function getBetterAuthHeaders(
   ctx: Parameters<typeof authComponent.getHeaders>[0],
-  sessionTokenForExperiment?: string
+  sessionTokenForExperiment?: string,
 ) {
   if (sessionTokenForExperiment) {
     if (process.env.ALLOW_TEST_RESET !== 'true') {
@@ -26,7 +26,7 @@ async function requireProjectPermission(
     organizationId: string
     permission: ProjectPermission
     sessionTokenForExperiment?: string
-  }
+  },
 ) {
   const headers = await getBetterAuthHeaders(ctx, args.sessionTokenForExperiment)
   const auth = createAuth(ctx)
@@ -58,7 +58,7 @@ async function requireTeamMembership(
     organizationId: string
     teamId: string
     authUserId: string
-  }
+  },
 ) {
   const team = await ctx.runQuery(components.betterAuth.adapter.findOne, {
     model: 'team',
@@ -209,7 +209,7 @@ export const listTeamProjects = query({
     return await ctx.db
       .query('projects')
       .withIndex('by_org_team', (q) =>
-        q.eq('organizationId', args.organizationId).eq('teamId', args.teamId)
+        q.eq('organizationId', args.organizationId).eq('teamId', args.teamId),
       )
       .order('desc')
       .take(100)

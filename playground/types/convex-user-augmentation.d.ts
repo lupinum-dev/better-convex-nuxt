@@ -6,9 +6,7 @@
  */
 declare module '../../src/runtime/utils/types' {
   interface ConvexUser {
-    role?: 'owner' | 'admin' | 'member' | 'viewer'
     authId?: string
-    organizationId?: string
   }
 }
 

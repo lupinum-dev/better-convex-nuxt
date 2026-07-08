@@ -27,8 +27,9 @@ const {
   cancel,
 } = useConvexFileUpload(api.files.generateUploadUrl)
 
-// Get URL for uploaded file
-const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId)
+// getUrl requires ownership (F-9) - attach the caller's auth token.
+const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId, { auth: 'auto' })
+const saveFile = useConvexMutation(api.files.saveFile)
 
 // Track upload counts
 const successCount = ref(0)
@@ -40,7 +41,9 @@ async function handleFileChange(event: Event) {
   if (!file) return
 
   try {
-    await upload(file)
+    const id = await upload(file)
+    // Record ownership so getUrl/deleteFile can authorize this file.
+    await saveFile({ storageId: id })
     successCount.value++
   } catch (e) {
     // Check if it was a cancel

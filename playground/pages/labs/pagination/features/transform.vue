@@ -24,6 +24,7 @@ const { results, status, loadMore } = await useConvexPaginatedQuery(
   {},
   {
     initialNumItems: 3,
+    auth: 'none',
     transform: (items): TransformedNote[] =>
       items.map((item) => ({
         _id: item._id,

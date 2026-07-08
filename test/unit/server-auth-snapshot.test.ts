@@ -41,6 +41,7 @@ const baseOptions = {
   requestId: 'request-1',
   trackWaterfall: true,
   throwOnMisconfig: true,
+  revealAuthErrorDetails: true,
   authCache: { enabled: false, ttl: 60 },
 }
 
@@ -123,6 +124,27 @@ describe('resolveServerAuthSnapshot', () => {
     )
   })
 
+  it('logs a truncated user id, never an email, on successful exchange (F-39)', async () => {
+    decodeUserFromJwtMock.mockReturnValue({
+      id: 'user-abcdefghijklmnop',
+      email: 'private-email@example.com',
+    })
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(200, { token: 'fresh.jwt' }))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-log',
+    })
+
+    const exchangeEvent = snapshot.logEvents.find(
+      (event) => event.phase === 'exchange' && event.outcome === 'success',
+    )
+    expect(exchangeEvent).toBeDefined()
+    expect(exchangeEvent?.details).toEqual({ userId: 'user-abc…' })
+    expect(JSON.stringify(exchangeEvent)).not.toContain('example.com')
+    expect(JSON.stringify(exchangeEvent)).not.toContain('private-email')
+  })
+
   it('treats 401 token exchange as graceful unauthenticated state', async () => {
     fetchWithTimeoutMock.mockResolvedValue(createResponse(401, { error: 'unauthorized' }))
 
@@ -161,6 +183,28 @@ describe('resolveServerAuthSnapshot', () => {
       outcome: 'error',
       details: { status: 500 },
     })
+  })
+
+  it('hydrates a generic authError in production while logging the detailed message (F-11)', async () => {
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      throwOnMisconfig: false,
+      revealAuthErrorDetails: false,
+      cookieHeader: 'better-auth.session_token=session-prod',
+    })
+
+    expect(snapshot.token).toBeNull()
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
+    expect(snapshot.authError).not.toMatch(/BETTER_AUTH_SECRET|convex\/http\.ts|convex\/token/i)
+    expect(snapshot.devError).toBeNull()
+
+    // The detailed diagnostic still reaches server-side logs in prod.
+    const exchangeLog = snapshot.logEvents.find(
+      (event) => event.phase === 'exchange' && event.outcome === 'error',
+    )
+    expect(String(exchangeLog?.details?.message ?? '')).toMatch(/convex\/token|token exchange/i)
   })
 
   it('uses a valid session user fallback when JWT decoding fails', async () => {

@@ -11,11 +11,7 @@ import { agentCapability } from './schema'
 type AgentCapability = 'project:read' | 'project:draft' | 'project:delete'
 type ProjectPermission = 'create' | 'read' | 'delete'
 
-const agentCapabilityOrder: AgentCapability[] = [
-  'project:read',
-  'project:draft',
-  'project:delete',
-]
+const agentCapabilityOrder: AgentCapability[] = ['project:read', 'project:draft', 'project:delete']
 
 type DelegatedRunStartArgs = {
   organizationId: string
@@ -82,10 +78,7 @@ function normalizeAgentName(agentName: string) {
   return normalizedName
 }
 
-function normalizeDelegatedRunShape(args: {
-  agentName: string
-  capabilities: AgentCapability[]
-}) {
+function normalizeDelegatedRunShape(args: { agentName: string; capabilities: AgentCapability[] }) {
   return {
     agentName: normalizeAgentName(args.agentName),
     capabilities: normalizeCapabilities(args.capabilities),

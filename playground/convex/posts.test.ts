@@ -1,323 +1,249 @@
 /**
- * BDD Integration Tests for Posts CRUD
+ * Posts permission tests.
  *
- * Tests full permission flows with convex-test.
+ * Covers the playground's signed-in + ownership authorization model. Better Auth
+ * owns identity; these tests seed only the rebuildable user projection needed by
+ * getUser()/authorize().
  */
 
-import { describe, it, expect } from 'vitest'
+import { convexTest } from 'convex-test'
+import { describe, expect, it } from 'vitest'
 
 import { api } from './_generated/api'
-import { setupTestWithMultipleUsers, setupTestWithTwoOrgs } from './test.helpers'
+import { checkPermission } from './permissions.config'
+import schema from './schema'
+import { modules } from './test.setup'
 
-describe('posts', () => {
-  // ==========================================
-  // Create
-  // ==========================================
+type ConvexTest = ReturnType<typeof convexTest>
 
-  describe('create', () => {
-    it('allows members to create posts', async () => {
-      const { asMember } = await setupTestWithMultipleUsers()
+async function seedUser(t: ConvexTest, authId: string) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('users', {
+      authId,
+      displayName: authId,
+      email: `${authId}@example.test`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+  })
+}
 
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'Test Post',
-        content: 'Content here',
-      })
+async function seedPost(t: ConvexTest, ownerId: string) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert('posts', {
+      title: 'Seeded',
+      content: 'Seeded content',
+      status: 'draft',
+      ownerId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+  })
+}
 
-      expect(postId).toBeDefined()
+async function expectConvexErrorCode(promise: Promise<unknown>, code: string) {
+  await promise.then(
+    () => {
+      throw new Error(`Expected ConvexError code ${code}`)
+    },
+    (error: unknown) => {
+      const data = (error as { data?: unknown }).data
+      const hasDataCode =
+        typeof data === 'object' &&
+        data !== null &&
+        'code' in data &&
+        (data as { code?: unknown }).code === code
+      const message = error instanceof Error ? error.message : String(error)
+      const hasMessageCode = message.includes(`"code":"${code}"`)
+      expect(hasDataCode || hasMessageCode).toBe(true)
+    },
+  )
+}
+
+describe('posts unauthenticated access', () => {
+  it('returns empty list results for signed-out callers', async () => {
+    const t = convexTest(schema, modules)
+    await seedPost(t, 'user_owner')
+
+    const posts = await t.query(api.posts.list, {})
+
+    expect(posts).toEqual([])
+  })
+
+  it('returns an empty paginated result for signed-out callers', async () => {
+    const t = convexTest(schema, modules)
+    await seedPost(t, 'user_owner')
+
+    const page = await t.query(api.posts.listPaginated, {
+      paginationOpts: { numItems: 10, cursor: null },
     })
 
-    it('allows admins to create posts', async () => {
-      const { asAdmin } = await setupTestWithMultipleUsers()
+    expect(page).toEqual({ page: [], isDone: true, continueCursor: '' })
+  })
 
-      const postId = await asAdmin.mutation(api.posts.create, {
-        title: 'Admin Post',
-        content: 'Content',
-      })
+  it('returns null from get for signed-out callers', async () => {
+    const t = convexTest(schema, modules)
+    const postId = await seedPost(t, 'user_owner')
 
-      expect(postId).toBeDefined()
-    })
+    const post = await t.query(api.posts.get, { id: postId })
 
-    it('denies viewers from creating posts', async () => {
-      const { asViewer } = await setupTestWithMultipleUsers()
+    expect(post).toBeNull()
+  })
 
-      await expect(
-        asViewer.mutation(api.posts.create, {
-          title: 'Test Post',
-          content: 'Content here',
-        }),
-      ).rejects.toThrow('Forbidden: post.create')
-    })
+  it('throws structured UNAUTHENTICATED errors for protected mutations', async () => {
+    const t = convexTest(schema, modules)
+    const postId = await seedPost(t, 'user_owner')
 
-    it('denies unauthenticated users', async () => {
-      const { t } = await setupTestWithMultipleUsers()
+    await expectConvexErrorCode(
+      t.mutation(api.posts.create, { title: 'Draft', content: 'Body' }),
+      'UNAUTHENTICATED',
+    )
+    await expectConvexErrorCode(
+      t.mutation(api.posts.update, { id: postId, title: 'Nope' }),
+      'UNAUTHENTICATED',
+    )
+    await expectConvexErrorCode(t.mutation(api.posts.publish, { id: postId }), 'UNAUTHENTICATED')
+    await expectConvexErrorCode(t.mutation(api.posts.remove, { id: postId }), 'UNAUTHENTICATED')
+  })
 
-      await expect(
-        t.mutation(api.posts.create, {
-          title: 'Test',
-          content: 'Content',
-        }),
-      ).rejects.toThrow('Unauthorized')
+  it('treats an identity without a synced user projection as unauthenticated', async () => {
+    const t = convexTest(schema, modules)
+
+    await expectConvexErrorCode(
+      t
+        .withIdentity({ subject: 'missing_projection' })
+        .mutation(api.posts.create, { title: 'Draft', content: 'Body' }),
+      'UNAUTHENTICATED',
+    )
+  })
+})
+
+describe('posts ownership authorization', () => {
+  it('creates posts owned by the signed-in user', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+
+    const postId = await t
+      .withIdentity({ subject: 'user_owner' })
+      .mutation(api.posts.create, { title: 'Draft', content: 'Body' })
+
+    const post = await t.run(async (ctx) => await ctx.db.get(postId))
+    expect(post).toMatchObject({
+      title: 'Draft',
+      content: 'Body',
+      status: 'draft',
+      ownerId: 'user_owner',
     })
   })
 
-  // ==========================================
-  // List
-  // ==========================================
+  it('lists and gets only posts owned by the caller', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+    await seedUser(t, 'user_other')
+    const ownerPostId = await seedPost(t, 'user_owner')
+    await seedPost(t, 'user_other')
 
-  describe('list', () => {
-    it('returns posts in users org only', async () => {
-      const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
+    const asOwner = t.withIdentity({ subject: 'user_owner' })
+    const asOther = t.withIdentity({ subject: 'user_other' })
 
-      // User 1 creates a post
-      const post1Id = await asUser1.mutation(api.posts.create, {
-        title: 'Org 1 Post',
-        content: 'Content',
-      })
-
-      // User 2 creates a post
-      const post2Id = await asUser2.mutation(api.posts.create, {
-        title: 'Org 2 Post',
-        content: 'Content',
-      })
-
-      // User 1 should only see their org's post
-      const user1Posts = await asUser1.query(api.posts.list, {})
-      expect(user1Posts.length).toBe(1)
-      expect(user1Posts[0]!._id).toBe(post1Id)
-
-      // User 2 should only see their org's post
-      const user2Posts = await asUser2.query(api.posts.list, {})
-      expect(user2Posts.length).toBe(1)
-      expect(user2Posts[0]!._id).toBe(post2Id)
-    })
-
-    it('returns empty array for unauthenticated users', async () => {
-      const { t, asMember } = await setupTestWithMultipleUsers()
-
-      // Create a post
-      await asMember.mutation(api.posts.create, {
-        title: 'Test',
-        content: 'Content',
-      })
-
-      // Unauthenticated user sees nothing
-      const posts = await t.query(api.posts.list, {})
-      expect(posts).toEqual([])
-    })
+    const ownerList = await asOwner.query(api.posts.list, {})
+    expect(ownerList.map((post) => post.ownerId)).toEqual(['user_owner'])
+    expect(await asOwner.query(api.posts.get, { id: ownerPostId })).not.toBeNull()
+    expect(await asOther.query(api.posts.get, { id: ownerPostId })).toBeNull()
   })
 
-  // ==========================================
-  // Get
-  // ==========================================
+  it('paginates only posts owned by the caller', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+    await seedUser(t, 'user_other')
+    await seedPost(t, 'user_owner')
+    await seedPost(t, 'user_owner')
+    await seedPost(t, 'user_other')
 
-  describe('get', () => {
-    it('returns post if in same org', async () => {
-      const { asMember, asAdmin } = await setupTestWithMultipleUsers()
-
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'Test',
-        content: 'Content',
-      })
-
-      // Admin in same org can get it
-      const post = await asAdmin.query(api.posts.get, { id: postId })
-      expect(post).not.toBeNull()
-      expect(post?.title).toBe('Test')
+    const page = await t.withIdentity({ subject: 'user_owner' }).query(api.posts.listPaginated, {
+      paginationOpts: { numItems: 10, cursor: null },
     })
 
-    it('returns null for posts in different org', async () => {
-      const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
-
-      // User 1 creates a post
-      const postId = await asUser1.mutation(api.posts.create, {
-        title: 'Org 1 Post',
-        content: 'Content',
-      })
-
-      // User 2 cannot see it
-      const post = await asUser2.query(api.posts.get, { id: postId })
-      expect(post).toBeNull()
-    })
+    expect(page.page).toHaveLength(2)
+    expect(page.page.every((post) => post.ownerId === 'user_owner')).toBe(true)
   })
 
-  // ==========================================
-  // Update
-  // ==========================================
+  it('allows the owner to update, publish, and remove a post', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+    const asOwner = t.withIdentity({ subject: 'user_owner' })
+    const postId = await asOwner.mutation(api.posts.create, { title: 'Draft', content: 'Body' })
 
-  describe('update', () => {
-    it('allows members to update own posts', async () => {
-      const { asMember } = await setupTestWithMultipleUsers()
+    await asOwner.mutation(api.posts.update, { id: postId, title: 'Updated' })
+    await asOwner.mutation(api.posts.publish, { id: postId })
+    const published = await asOwner.query(api.posts.get, { id: postId })
+    expect(published).toMatchObject({ title: 'Updated', status: 'published' })
+    expect(published?.publishedAt).toEqual(expect.any(Number))
 
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'Original',
-        content: 'Content',
-      })
-
-      await asMember.mutation(api.posts.update, {
-        id: postId,
-        title: 'Updated',
-      })
-
-      const post = await asMember.query(api.posts.get, { id: postId })
-      expect(post?.title).toBe('Updated')
-    })
-
-    it('denies members from updating others posts', async () => {
-      const { asMember, asAdmin } = await setupTestWithMultipleUsers()
-
-      // Admin creates post
-      const postId = await asAdmin.mutation(api.posts.create, {
-        title: 'Admin Post',
-        content: 'Content',
-      })
-
-      // Member tries to update
-      await expect(
-        asMember.mutation(api.posts.update, {
-          id: postId,
-          title: 'Hacked!',
-        }),
-      ).rejects.toThrow('Forbidden: post.update')
-    })
-
-    it('allows admins to update any post', async () => {
-      const { asMember, asAdmin } = await setupTestWithMultipleUsers()
-
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'Member Post',
-        content: 'Content',
-      })
-
-      await asAdmin.mutation(api.posts.update, {
-        id: postId,
-        title: 'Admin Updated This',
-      })
-
-      const post = await asAdmin.query(api.posts.get, { id: postId })
-      expect(post?.title).toBe('Admin Updated This')
-    })
-
-    it('denies access to posts in different org', async () => {
-      const { asUser1, asUser2 } = await setupTestWithTwoOrgs()
-
-      const postId = await asUser1.mutation(api.posts.create, {
-        title: 'Org 1 Post',
-        content: 'Content',
-      })
-
-      await expect(
-        asUser2.mutation(api.posts.update, {
-          id: postId,
-          title: 'Trying to update',
-        }),
-      ).rejects.toThrow('Forbidden: post.update')
-    })
+    await asOwner.mutation(api.posts.remove, { id: postId })
+    expect(await asOwner.query(api.posts.get, { id: postId })).toBeNull()
   })
 
-  // ==========================================
-  // Delete
-  // ==========================================
+  it('rejects non-owner update, publish, and remove without changing the post', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+    await seedUser(t, 'user_other')
+    const postId = await seedPost(t, 'user_owner')
+    const asOther = t.withIdentity({ subject: 'user_other' })
 
-  describe('delete', () => {
-    it('allows members to delete own posts', async () => {
-      const { asMember } = await setupTestWithMultipleUsers()
+    await expectConvexErrorCode(
+      asOther.mutation(api.posts.update, { id: postId, title: 'Stolen' }),
+      'FORBIDDEN',
+    )
+    await expectConvexErrorCode(asOther.mutation(api.posts.publish, { id: postId }), 'FORBIDDEN')
+    await expectConvexErrorCode(asOther.mutation(api.posts.remove, { id: postId }), 'FORBIDDEN')
 
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'To Delete',
-        content: 'Content',
-      })
-
-      await asMember.mutation(api.posts.remove, { id: postId })
-
-      const post = await asMember.query(api.posts.get, { id: postId })
-      expect(post).toBeNull()
-    })
-
-    it('denies members from deleting others posts', async () => {
-      const { asMember, asOwner } = await setupTestWithMultipleUsers()
-
-      const postId = await asOwner.mutation(api.posts.create, {
-        title: 'Owner Post',
-        content: 'Content',
-      })
-
-      await expect(asMember.mutation(api.posts.remove, { id: postId })).rejects.toThrow(
-        'Forbidden: post.delete',
-      )
-    })
-
-    it('allows owners to delete any post', async () => {
-      const { asMember, asOwner } = await setupTestWithMultipleUsers()
-
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'Member Post',
-        content: 'Content',
-      })
-
-      await asOwner.mutation(api.posts.remove, { id: postId })
-
-      const post = await asOwner.query(api.posts.get, { id: postId })
-      expect(post).toBeNull()
-    })
+    const post = await t.run(async (ctx) => await ctx.db.get(postId))
+    expect(post).toMatchObject({ title: 'Seeded', status: 'draft', ownerId: 'user_owner' })
   })
 
-  // ==========================================
-  // Publish
-  // ==========================================
-
-  describe('publish', () => {
-    it('allows admins to publish', async () => {
-      const { asAdmin } = await setupTestWithMultipleUsers()
-
-      const postId = await asAdmin.mutation(api.posts.create, {
-        title: 'Post',
-        content: 'Content',
-      })
-
-      await asAdmin.mutation(api.posts.publish, { id: postId })
-
-      const post = await asAdmin.query(api.posts.get, { id: postId })
-      expect(post?.status).toBe('published')
+  it('throws NOT_FOUND before ownership checks for missing posts', async () => {
+    const t = convexTest(schema, modules)
+    await seedUser(t, 'user_owner')
+    const missingId = await seedPost(t, 'user_owner')
+    await t.run(async (ctx) => {
+      await ctx.db.delete(missingId)
     })
+    const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    it('allows owners to publish', async () => {
-      const { asOwner } = await setupTestWithMultipleUsers()
+    await expectConvexErrorCode(
+      asOwner.mutation(api.posts.update, { id: missingId, title: 'Missing' }),
+      'NOT_FOUND',
+    )
+    await expectConvexErrorCode(asOwner.mutation(api.posts.publish, { id: missingId }), 'NOT_FOUND')
+    await expectConvexErrorCode(asOwner.mutation(api.posts.remove, { id: missingId }), 'NOT_FOUND')
+  })
+})
 
-      const postId = await asOwner.mutation(api.posts.create, {
-        title: 'Post',
-        content: 'Content',
-      })
+describe('checkPermission', () => {
+  it('denies every permission without signed-in context', () => {
+    expect(checkPermission(null, 'post.create')).toBe(false)
+    expect(checkPermission(null, 'post.update', { ownerId: 'user_1' })).toBe(false)
+  })
 
-      await asOwner.mutation(api.posts.publish, { id: postId })
+  it('grants signed-in permissions without a resource', () => {
+    expect(checkPermission({ role: 'member', userId: 'user_1' }, 'post.create')).toBe(true)
+    expect(checkPermission({ role: 'member', userId: 'user_1' }, 'post.read')).toBe(true)
+  })
 
-      const post = await asOwner.query(api.posts.get, { id: postId })
-      expect(post?.status).toBe('published')
-    })
+  it('grants ownership permissions only to the resource owner', () => {
+    const ctx = { role: 'member', userId: 'user_1' }
 
-    it('denies members from publishing even their own posts', async () => {
-      const { asMember } = await setupTestWithMultipleUsers()
+    expect(checkPermission(ctx, 'post.update', { ownerId: 'user_1' })).toBe(true)
+    expect(checkPermission(ctx, 'post.delete', { ownerId: 'user_2' })).toBe(false)
+    expect(checkPermission(ctx, 'post.publish')).toBe(false)
+  })
 
-      const postId = await asMember.mutation(api.posts.create, {
-        title: 'My Post',
-        content: 'Content',
-      })
+  it('denies unknown or malformed permissions', () => {
+    const ctx = { role: 'member', userId: 'user_1' }
 
-      await expect(asMember.mutation(api.posts.publish, { id: postId })).rejects.toThrow(
-        'Forbidden: post.publish',
-      )
-    })
-
-    it('denies viewers from publishing', async () => {
-      const { asViewer, asAdmin } = await setupTestWithMultipleUsers()
-
-      const postId = await asAdmin.mutation(api.posts.create, {
-        title: 'Post',
-        content: 'Content',
-      })
-
-      await expect(asViewer.mutation(api.posts.publish, { id: postId })).rejects.toThrow(
-        'Forbidden: post.publish',
-      )
-    })
+    expect(checkPermission(ctx, 'post.archive' as never)).toBe(false)
+    expect(checkPermission(ctx, 'post' as never)).toBe(false)
+    expect(checkPermission(ctx, '.create' as never)).toBe(false)
   })
 })

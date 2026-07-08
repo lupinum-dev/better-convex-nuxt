@@ -5,4 +5,3 @@
 - Do not let client members see sibling clients.
 - Audit whether access was `direct` or `delegated`.
 - Keep all access checks in Convex.
-

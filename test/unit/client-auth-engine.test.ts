@@ -404,7 +404,7 @@ describe('createConvexAuthEngine', () => {
     expect(state.user.value).toBeNull()
   })
 
-  it('clears shared query subscriptions before Better Auth signOut', async () => {
+  it('clears shared query subscriptions only after Better Auth signOut succeeds', async () => {
     const nuxtApp = createNuxtApp()
     const events: string[] = []
     const unsubscribe = vi.fn(() => {
@@ -433,8 +433,73 @@ describe('createConvexAuthEngine', () => {
 
     await engine.signOut()
 
-    expect(events).toEqual(['unsubscribe', 'better-auth-sign-out'])
+    expect(events).toEqual(['better-auth-sign-out', 'unsubscribe'])
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(false)
+  })
+
+  it('keeps identity and subscriptions when Better Auth signOut fails', async () => {
+    const nuxtApp = createNuxtApp()
+    const unsubscribe = vi.fn()
+    const state = createState()
+    state.token.value = 'existing.jwt.token'
+    state.user.value = { id: 'u1', name: 'Ada', email: 'ada@example.com' }
+    const authClient = {
+      signOut: vi.fn(async () => {
+        throw new Error('network down')
+      }),
+      convex: { token: vi.fn() },
+    } as unknown as AuthClientWithConvex
+    const { client } = createClient()
+    const engine = createConvexAuthEngine({
+      nuxtApp,
+      authClient,
+      state,
+      isAuthEnabled: true,
+    })
+
+    acquireQuerySubscription(nuxtApp, 'convex:query:private', () => unsubscribe)
+    engine.attachConvexClient(client as never)
+
+    await expect(engine.signOut()).rejects.toThrow('network down')
+
+    expect(state.token.value).toBe('existing.jwt.token')
+    expect(state.user.value).toEqual({ id: 'u1', name: 'Ada', email: 'ada@example.com' })
+    expect(state.authError.value).toBe('network down')
+    expect(state.pending.value).toBe(false)
+    expect(unsubscribe).not.toHaveBeenCalled()
+    expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(true)
+  })
+
+  it('clears identity even when refreshAuth starts during signOut', async () => {
+    const signOutResult = deferred<{ data: { success: true }; error: null }>()
+    const state = createState()
+    state.token.value = 'existing.jwt.token'
+    state.user.value = { id: 'u1', name: 'Ada', email: 'ada@example.com' }
+    const authClient = {
+      signOut: vi.fn(() => signOutResult.promise),
+      convex: { token: vi.fn() },
+    } as unknown as AuthClientWithConvex
+    const { client, fetchToken } = createClient()
+    const engine = createConvexAuthEngine({
+      nuxtApp: createNuxtApp(),
+      authClient,
+      state,
+      isAuthEnabled: true,
+    })
+
+    engine.attachConvexClient(client as never)
+    const signOut = engine.signOut()
+    await Promise.resolve()
+    const refresh = engine.refreshAuth()
+
+    signOutResult.resolve({ data: { success: true }, error: null })
+    const results = await Promise.allSettled([signOut, refresh])
+
+    expect(results[0].status).toBe('fulfilled')
+    expect(results[1].status).toBe('rejected')
+    expect(state.token.value).toBeNull()
+    expect(state.user.value).toBeNull()
+    await expect(fetchToken()({ forceRefreshToken: false })).resolves.toBeNull()
   })
 })

@@ -168,6 +168,62 @@ describe('createUserSyncTriggers', () => {
     expect(query).toHaveBeenCalledTimes(2)
   })
 
+  it('no-ops onUpdate arriving before onCreate for the same user (F-42)', async () => {
+    // Documents the current, intentional behavior (see the onUpdate JSDoc):
+    // out-of-order delivery (onUpdate before onCreate) finds no existing
+    // projection row and silently drops the update rather than queuing or
+    // retrying it. The row is later created by onCreate, but from that
+    // event's own payload, not the dropped update's fields.
+    const insert = vi.fn(async () => 'new-id')
+    const patch = vi.fn(async () => undefined)
+    const first = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null)
+    const withIndex = vi.fn(() => ({ first }))
+    const query = vi.fn(() => ({ withIndex }))
+
+    const ctx = {
+      db: {
+        insert,
+        patch,
+        delete: vi.fn(),
+        query,
+      },
+    }
+
+    const triggers = createUserSyncTriggers<TestAuthUser, TestProjectionUser>({
+      table: 'users',
+      index: 'by_auth_id',
+      createDoc: ({ user, now }) => ({
+        authId: user._id,
+        email: user.email,
+        createdAt: now,
+        updatedAt: now,
+      }),
+      patchDoc: ({ user, previousUser, now }) => {
+        if (user.email === previousUser.email) return null
+        return { email: user.email, updatedAt: now }
+      },
+    })
+
+    // onUpdate arrives first — no projection row exists yet.
+    await triggers.user.onUpdate(
+      ctx,
+      { _id: 'auth-1', email: 'updated@example.com' },
+      { _id: 'auth-1', email: 'original@example.com' },
+    )
+    expect(patch).not.toHaveBeenCalled()
+    expect(insert).not.toHaveBeenCalled()
+
+    // onCreate arrives afterward, using its own (not the dropped update's) payload.
+    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'original@example.com' })
+    expect(insert).toHaveBeenCalledTimes(1)
+    expect(insert).toHaveBeenCalledWith(
+      'users',
+      expect.objectContaining({ authId: 'auth-1', email: 'original@example.com' }),
+    )
+    // The dropped update's 'updated@example.com' never lands anywhere.
+    expect(patch).not.toHaveBeenCalled()
+  })
+
   it('does not overwrite existing projection rows during rebuild without an explicit rebuild patch', async () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)

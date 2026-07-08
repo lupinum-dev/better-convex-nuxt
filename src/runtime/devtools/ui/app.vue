@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useBridge } from './composables/useBridge'
-import { useQueries } from './composables/useQueries'
-import { useMutations } from './composables/useMutations'
+
 import { useAuth } from './composables/useAuth'
 import { useAuthProxy } from './composables/useAuthProxy'
+import { useBridge } from './composables/useBridge'
+import { useMutations } from './composables/useMutations'
+import { useQueries } from './composables/useQueries'
 
 // Initialize bridge
 useBridge()

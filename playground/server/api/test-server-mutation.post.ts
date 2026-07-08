@@ -2,7 +2,6 @@ import type { H3Event } from 'h3'
 import { defineEventHandler, readBody, createError } from 'h3'
 
 import { api } from '#convex/api'
-
 import { serverConvexMutation } from '#convex/server'
 
 /**

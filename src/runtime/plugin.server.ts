@@ -156,12 +156,21 @@ export default defineNuxtPlugin(async () => {
     requestId,
     trackWaterfall: import.meta.dev,
     throwOnMisconfig: import.meta.dev,
+    // Detailed token-exchange failures (secret/file hints, upstream error
+    // text) are dev-only; production hydrates a generic message (F-11).
+    revealAuthErrorDetails: import.meta.dev,
   })
 
   convexToken.value = snapshot.token
   convexUser.value = snapshot.user
   convexAuthError.value = snapshot.authError
   convexAuthWaterfall.value = snapshot.waterfall
+
+  // A per-user JWT was just serialized into this response's SSR payload.
+  // Never let a shared/CDN cache serve it to a different user (F-10).
+  if (snapshot.token) {
+    event.node.res.setHeader('Cache-Control', 'private, no-store')
+  }
 
   endInit()
   for (const event of snapshot.logEvents) {

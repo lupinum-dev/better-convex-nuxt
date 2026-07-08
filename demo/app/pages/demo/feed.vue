@@ -84,7 +84,7 @@ const typeIcons: Record<string, string> = {
 }
 
 function canDelete(item: { authorId: string }) {
-  return can('feed.delete', { ownerId: item.authorId }).value
+  return can('feed.delete', { ownerId: item.authorId })
 }
 </script>
 
@@ -140,8 +140,8 @@ function canDelete(item: { authorId: string }) {
       icon="i-lucide-lock"
       color="warning"
       variant="subtle"
-      title="Viewer role"
-      description="Switch to Member, Admin, or Owner role to create posts."
+      title="Permission required"
+      description="Sign in with the demo permission context to create posts."
     />
 
     <!-- Feed List -->

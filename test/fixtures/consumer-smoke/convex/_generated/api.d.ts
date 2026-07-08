@@ -5,29 +5,32 @@ export declare const api: {
     viewer: FunctionReference<
       'query',
       'public',
-      Record<string, never>,
+      {},
       { id: string; email: string; role: 'admin' | 'member'; orgId?: string }
     >
-    permissionContext: FunctionReference<
-      'query',
-      'public',
-      Record<string, never>,
-      { userId: string; role: 'admin' | 'member'; orgId?: string } | null
-    >
+    permissionContext: FunctionReference<'query', 'public', {}, { userId: string; role: 'admin' | 'member'; orgId?: string } | null>
   }
   emails: {
     send: FunctionReference<'action', 'public', { to: string; subject: string }, { ok: boolean }>
   }
   files: {
-    generateUploadUrl: FunctionReference<'mutation', 'public', Record<string, never>, string>
+    generateUploadUrl: FunctionReference<'mutation', 'public', {}, string>
     getUrl: FunctionReference<'query', 'public', { storageId: string }, string | null>
   }
   tasks: {
-    list: FunctionReference<'query', 'public', Record<string, never>, string[]>
+    list: FunctionReference<'query', 'public', {}, string[]>
+    search: FunctionReference<'query', 'public', { term?: string; limit?: number }, string[]>
+    filter: FunctionReference<'query', 'public', { term?: string } | { limit?: number }, string[]>
     listPaginated: FunctionReference<
       'query',
       'public',
       { paginationOpts: { numItems: number; cursor: string | null } },
+      PaginationResult<string>
+    >
+    listPaginatedByOwner: FunctionReference<
+      'query',
+      'public',
+      { owner: string; paginationOpts: { numItems: number; cursor: string | null } },
       PaginationResult<string>
     >
     create: FunctionReference<'mutation', 'public', { text: string }, string>

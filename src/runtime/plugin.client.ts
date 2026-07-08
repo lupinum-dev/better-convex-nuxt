@@ -10,6 +10,7 @@ import { defineNuxtPlugin, useRuntimeConfig, useState, useRouter } from '#app'
 
 import { createConvexAuthEngine, type AuthClientWithConvex } from './auth/client-engine'
 import type { AuthWaterfall } from './devtools/types'
+import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
@@ -86,7 +87,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
   // Pending state for auth operations (exposed via useConvexAuth)
   // Start as true - will be set to false after first auth check completes
-  const convexPending = useState('convex:pending', () => true)
+  const convexPending = useConvexAuthPendingState()
 
   logger.auth({
     phase: 'client-init',

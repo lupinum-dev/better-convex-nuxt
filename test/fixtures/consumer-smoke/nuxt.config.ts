@@ -1,3 +1,22 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+// Real consumers (and CI, which installs a packed tarball) resolve
+// `better-convex-nuxt` from node_modules. The linked local fixture has no such
+// entry, so it needs the bare specifier mapped to the package's types entry for
+// the F-22 `declare module 'better-convex-nuxt'` augmentation
+// (types/convex-user.d.ts) to resolve and merge.
+//
+// Only apply that override when the node_modules copy is absent. When it is
+// present, forcing the specifier to the repo's dist splits `ConvexUser` into two
+// distinct copies — the augmentation would target the repo copy while
+// `useConvexAuth().user` (auto-imported from node_modules) uses the other — so
+// the augmentation silently fails to merge. Paths are relative to the generated
+// .nuxt/tsconfig.json; nuxt defu-merges this into its own.
+const hasInstalledModule = existsSync(
+  fileURLToPath(new URL('./node_modules/better-convex-nuxt', import.meta.url)),
+)
+
 export default defineNuxtConfig({
   modules: ['better-convex-nuxt'],
   convex: {
@@ -5,4 +24,17 @@ export default defineNuxtConfig({
     siteUrl: 'https://consumer-smoke.convex.site',
     permissions: true,
   },
+  ...(hasInstalledModule
+    ? {}
+    : {
+        typescript: {
+          tsConfig: {
+            compilerOptions: {
+              paths: {
+                'better-convex-nuxt': ['../../../../dist/types.d.mts'],
+              },
+            },
+          },
+        },
+      }),
 })

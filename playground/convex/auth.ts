@@ -1,13 +1,11 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
-import { v } from 'convex/values'
 
 import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
 import { internalAction, mutation, query } from './_generated/server'
 import authConfig from './auth.config'
-// Note: getUser and buildPermissionContext are available from './lib/permissions' if needed
 
 // Get site URL from environment
 const siteUrl = process.env.SITE_URL!
@@ -15,17 +13,17 @@ const siteUrl = process.env.SITE_URL!
 // Auth functions for triggers
 const authFunctions: AuthFunctions = internal.auth
 
-// Create the auth component client with triggers to sync users
+// Create the auth component client with triggers to sync users.
+// Better Auth owns identity; this table is a rebuildable display projection.
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   authFunctions,
   triggers: {
     user: {
-      // Auto-create user in our table when Better Auth creates one
+      // Auto-create user projection when Better Auth creates one
       onCreate: async (ctx, doc) => {
         const now = Date.now()
         await ctx.db.insert('users', {
           authId: doc._id,
-          role: 'member', // Default role for new users
           displayName: doc.name,
           email: doc.email,
           createdAt: now,
@@ -76,10 +74,9 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
     },
     user: {
-      // Playground-only demo fields to verify Better Auth `additionalFields`
+      // Playground-only demo field to verify Better Auth `additionalFields`
       // typing on the frontend (authClient.useSession()).
       additionalFields: {
-        organizationId: { type: 'string', required: false },
         marketingOptIn: { type: 'boolean', required: false },
       },
     },
@@ -94,12 +91,8 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
             email: user.email,
             emailVerified: user.emailVerified,
             image: user.image ?? undefined,
-            // Custom claims used by the auth lab to verify runtime behavior
+            // Custom claim used by the auth lab to verify runtime behavior
             authId: user.id,
-            // NOTE: Static demo claim. Real app roles should remain sourced from
-            // Convex queries (see /labs/auth "convex db role" section) until
-            // async definePayload is reliably awaited upstream.
-            role: 'member',
           }),
         },
       }),
@@ -127,14 +120,31 @@ export const rotateKeys = internalAction({
 // ============================================
 // GET PERMISSION CONTEXT
 // ============================================
-// Fetched once at app startup.
-// Returns everything the frontend needs to check permissions.
+// Called by createPermissions() on the frontend. Returns the minimal
+// signed-in context (the user's authId) or null when signed out. Matches
+// the strict createPermissions query type: no args, returns TContext | null.
 //
-// The Convex reactivity system will automatically
-// re-run this if the user's role changes.
+// This playground does not enable the Better Auth Organization plugin, so
+// there is no role/org to return — the demo gates on signed-in + ownership.
+// For the full role model, read role/membership from Better Auth (see docs).
 
-// Public mutation to create user on-demand (idempotent)
-// Called by frontend when user exists in Better Auth but not in our DB
+export const getPermissionContext = query({
+  args: {},
+  handler: async (ctx): Promise<{ role: string; userId: string } | null> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    // `role` is a static placeholder — the playground has no org plugin. In a
+    // real app, read the role from Better Auth (member row / hasPermission).
+    return { role: 'member', userId: identity.subject }
+  },
+})
+
+// Public mutation to create the user projection on-demand (idempotent).
+// Called by the frontend when a user exists in Better Auth but the trigger
+// projection has not landed yet.
 export const createUserIfNeeded = mutation({
   args: {},
   handler: async (ctx) => {
@@ -143,7 +153,6 @@ export const createUserIfNeeded = mutation({
       throw new Error('Not authenticated')
     }
 
-    // Check if user already exists
     const existing = await ctx.db
       .query('users')
       .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
@@ -153,11 +162,9 @@ export const createUserIfNeeded = mutation({
       return existing._id
     }
 
-    // Create user with default role 'member' (no org yet)
     const now = Date.now()
     const userId = await ctx.db.insert('users', {
       authId: identity.subject,
-      role: 'member',
       displayName: identity.name,
       email: identity.email,
       createdAt: now,
@@ -165,112 +172,5 @@ export const createUserIfNeeded = mutation({
     })
 
     return userId
-  },
-})
-
-interface DebugInfo {
-  hasIdentity: boolean
-  identitySubject?: string
-  hasUser?: boolean
-  userId?: string
-  orgId?: string
-  role?: string
-  reason?: string
-  context?: Record<string, unknown>
-}
-
-export const getPermissionContext = query({
-  handler: async (ctx) => {
-    // #region agent log
-    const identity = await ctx.auth.getUserIdentity()
-    const debugInfo: DebugInfo = { hasIdentity: !!identity, identitySubject: identity?.subject }
-    // #endregion
-
-    if (!identity) {
-      return null
-    }
-
-    // Look up user in our database
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    // #region agent log
-    debugInfo.hasUser = !!user
-    debugInfo.userId = user?._id
-    debugInfo.orgId = user?.organizationId
-    debugInfo.role = user?.role
-    // #endregion
-
-    // User doesn't exist - frontend will create them via mutation
-    if (!user) {
-      // #region agent log
-      debugInfo.reason = 'user not found in DB, needs to be created'
-      // Return debug info for debugging
-      return { _debug: debugInfo } as { _debug: DebugInfo }
-      // #endregion
-    }
-
-    // Return permission context (even if no orgId - frontend will handle that)
-    // If user has no orgId, return partial context so frontend can show create org form
-    const context: {
-      role: string
-      userId: string
-      displayName?: string
-      email?: string
-      orgId?: string
-    } = {
-      role: user.role,
-      userId: user.authId,
-      displayName: user.displayName,
-      email: user.email,
-    }
-
-    // Only include orgId if user has one
-    if (user.organizationId) {
-      context.orgId = user.organizationId
-    }
-
-    // #region agent log
-    debugInfo.context = context
-    debugInfo.reason = user.organizationId ? 'success' : 'user has no organizationId'
-    // Always attach debug info for debugging
-    return { ...context, _debug: debugInfo }
-    // #endregion
-  },
-})
-
-// Playground-only demo mutation used by /labs/auth to prove the Convex DB role
-// (authoritative app role) is separate from JWT convenience claims.
-export const setOwnRole = mutation({
-  args: {
-    role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user) {
-      throw new Error('User not found in Convex users table')
-    }
-
-    await ctx.db.patch(user._id, {
-      role: args.role,
-      updatedAt: Date.now(),
-    })
-
-    return {
-      ok: true,
-      role: args.role,
-      userId: user._id,
-    }
   },
 })

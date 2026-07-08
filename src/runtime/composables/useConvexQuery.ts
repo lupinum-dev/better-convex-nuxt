@@ -14,6 +14,8 @@ import {
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 
+import type { ConvexQueryRest } from '../utils/args-tuple'
+import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
@@ -22,12 +24,14 @@ import {
   getQueryKey,
   computeQueryStatus,
   fetchAuthToken,
+  registerPayloadKey,
   releaseSubscription,
   acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
   subscribeQueryBridge,
   waitForQueryBridgeData,
+  withAuthDimension,
   type QueryBridgeSnapshot,
   type QuerySubscriptionBridge,
   type ConvexCallStatus,
@@ -87,13 +91,25 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   transform?: (input: RawT) => DataT
   /** Keep the last successful data while args are changing and next request is pending. @default false */
   keepPreviousData?: boolean
-  /** Auth transport mode for this query. Public queries can opt out with "none". @default convex.defaults.auth */
+  /**
+   * Auth transport mode for this query.
+   *
+   * - `'auto'`: the query REQUIRES a signed-in session. While signed out it
+   *   does not run at all — it resolves as `idle` with no data (server and
+   *   client alike). Despite the name, it does not "fall back" to an
+   *   unauthenticated request.
+   * - `'none'`: public query; runs with no auth attached, signed in or out.
+   *   Use this for Convex functions that don't check identity, otherwise
+   *   signed-out visitors see an empty idle state instead of data.
+   *
+   * @default convex.defaults.auth
+   */
   auth?: ConvexQueryAuthMode
 }
 
 export interface UseConvexQueryData<DataT> {
   data: ComputedRef<DataT | null>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   refresh: () => Promise<void>
   clear: () => void
   pending: ComputedRef<boolean>
@@ -147,11 +163,12 @@ export function createConvexQueryState<
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
 
-  // Resolve options from: per-call options → global defaults → built-in defaults
+  // Resolve options from: per-call options → global defaults (already normalized,
+  // never undefined — see NormalizedConvexRuntimeConfig.defaults).
   const defaults = convexConfig.defaults
-  const server = options?.server ?? defaults?.server ?? true // SSR enabled by default
-  const subscribe = options?.subscribe ?? defaults?.subscribe ?? true
-  const authMode = options?.auth ?? defaults?.auth ?? 'auto'
+  const server = options?.server ?? defaults.server
+  const subscribe = options?.subscribe ?? defaults.subscribe
+  const authMode = options?.auth ?? defaults.auth
   const keepPreviousData = options?.keepPreviousData ?? false
 
   // Get function name for cache key and logging
@@ -182,7 +199,7 @@ export function createConvexQueryState<
   // Get cached token state at setup time (synchronously) to avoid Vue context issues
   // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
   const cachedToken = useState<string | null>('convex:token')
-  const authPending = useState<boolean>('convex:pending', () => false)
+  const authPending = useConvexAuthPendingState()
   const executionGate = computed(() =>
     createQueryExecutionGate({
       authEnabled: convexConfig.auth.enabled,
@@ -232,8 +249,34 @@ export function createConvexQueryState<
   // Track whether this component instance has registered with the subscription cache.
   let registeredCacheKey: string | null = null
   let registeredBridge: QuerySubscriptionBridge | null = null
-  const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
+  const cleanupScope = import.meta.client ? currentScope : undefined
   let unsubscribeSharedBridge: (() => void) | null = null
+  let registeredPayloadKey: string | null = null
+  let unregisterPayloadKey: (() => void) | null = null
+
+  const releasePayloadKey = () => {
+    unregisterPayloadKey?.()
+    unregisterPayloadKey = null
+    registeredPayloadKey = null
+  }
+
+  const syncPayloadKeyRegistration = () => {
+    if (!import.meta.client) return
+
+    if (executionGate.value.resolveAsIdle) {
+      releasePayloadKey()
+      return
+    }
+
+    const currentPayloadKey = getCacheKey()
+    if (registeredPayloadKey === currentPayloadKey) {
+      return
+    }
+
+    releasePayloadKey()
+    registeredPayloadKey = currentPayloadKey
+    unregisterPayloadKey = registerPayloadKey(nuxtApp, currentPayloadKey, authMode)
+  }
 
   const cleanupSharedBridgeSubscriber = () => {
     if (unsubscribeSharedBridge) {
@@ -274,8 +317,15 @@ export function createConvexQueryState<
       throw new Error('[useConvexQuery] Convex client not available')
     }
 
-    const currentCacheKey = getCacheKey()
-    if (registeredCacheKey === currentCacheKey && registeredBridge) {
+    if (executionGate.value.resolveAsIdle) {
+      throw new Error(
+        '[useConvexQuery] Internal invariant violated: attempted to subscribe while query is idle',
+      )
+    }
+
+    const currentPayloadKey = getCacheKey()
+    const currentSubscriptionKey = withAuthDimension(currentPayloadKey, authMode)
+    if (registeredCacheKey === currentSubscriptionKey && registeredBridge) {
       return registeredBridge
     }
 
@@ -283,54 +333,58 @@ export function createConvexQueryState<
       releaseRegisteredSubscription()
     }
 
-    const subscription = acquireQuerySubscription(nuxtApp, currentCacheKey, (bridge) =>
-      convex.onUpdate(
-        query,
-        currentArgs,
-        (result: RawT) => {
-          // Subscription-level callback writes to shared bridge only.
-          commitQueryBridgeData(bridge, result)
+    const subscription = acquireQuerySubscription(
+      nuxtApp,
+      currentSubscriptionKey,
+      (bridge) =>
+        convex.onUpdate(
+          query,
+          currentArgs,
+          (result: RawT) => {
+            // Subscription-level callback writes to shared bridge only.
+            commitQueryBridgeData(bridge, result)
 
-          logger.query({
-            name: fnName,
-            event: 'update',
-            count: Array.isArray(result) ? result.length : 1,
-            args: currentArgs,
-            data: result,
-          })
-
-          // DevTools stores raw shared subscription data (not transformed), because
-          // different subscribers may apply different transform() functions.
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.updateQueryStatus(currentCacheKey, {
-              status: 'success',
+            logger.query({
+              name: fnName,
+              event: 'update',
+              count: Array.isArray(result) ? result.length : 1,
+              args: currentArgs,
               data: result,
-              dataSource: 'websocket',
             })
-          }
-        },
-        (err: Error) => {
-          commitQueryBridgeError(bridge, err)
-          void handleUnauthorizedAuthFailure({
-            error: err,
-            source: 'query',
-            functionName: fnName,
-          })
 
-          logger.query({ name: fnName, event: 'error', error: err })
-
-          // Keep DevTools subscription-level error visibility.
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.updateQueryStatus(currentCacheKey, {
-              status: 'error',
-              error: err.message,
+            // DevTools stores raw shared subscription data (not transformed), because
+            // different subscribers may apply different transform() functions.
+            if (import.meta.dev && devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentSubscriptionKey, {
+                status: 'success',
+                data: result,
+                dataSource: 'websocket',
+              })
+            }
+          },
+          (err: Error) => {
+            commitQueryBridgeError(bridge, err)
+            void handleUnauthorizedAuthFailure({
+              error: err,
+              source: 'query',
+              functionName: fnName,
             })
-          }
-        },
-      ),
+
+            logger.query({ name: fnName, event: 'error', error: err })
+
+            // Keep DevTools subscription-level error visibility.
+            if (import.meta.dev && devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentSubscriptionKey, {
+                status: 'error',
+                error: err.message,
+              })
+            }
+          },
+        ),
+      { authMode },
     )
 
-    registeredCacheKey = currentCacheKey
+    registeredCacheKey = currentSubscriptionKey
     registeredBridge = subscription.bridge
 
     logger.query({
@@ -363,12 +417,9 @@ export function createConvexQueryState<
       try {
         // SSR: fetch via HTTP
         if (import.meta.server) {
-          const siteUrl = convexConfig.siteUrl
-
-          const authToken = await fetchAuthToken({
+          const authToken = fetchAuthToken({
             auth: authMode,
             cookieHeader,
-            siteUrl,
             cachedToken,
           })
           if (authMode !== 'none' && !authToken) {
@@ -397,7 +448,9 @@ export function createConvexQueryState<
         }
 
         const bridge = acquireSharedSubscriptionBridge(currentArgs)
-        const result = await waitForQueryBridgeData<RawT>(bridge)
+        const result = await waitForQueryBridgeData<RawT>(bridge, {
+          timeoutMs: defaults.waitTimeoutMs,
+        })
         commitFreshData(result)
         return result
       } catch (error) {
@@ -412,7 +465,14 @@ export function createConvexQueryState<
       lazy: resolveImmediately,
       // Wrap default to handle undefined → null conversion for type compatibility.
       default: () => {
-        if (keepPreviousData && lastSettledData.value !== null) {
+        if (
+          keepPreviousData &&
+          lastSettledData.value !== null &&
+          // Never resurrect data across a signed-out boundary: sign-out purges
+          // asyncData, which re-runs this factory before every watcher ordering
+          // has necessarily cleared lastSettledRawData.
+          executionGate.value.pendingReason !== 'auth-signed-out'
+        ) {
           return lastSettledRawData.value
         }
         const fallbackRaw = resolveInitialData()
@@ -423,6 +483,24 @@ export function createConvexQueryState<
       deep: false,
     },
   )
+
+  if (import.meta.client && cleanupScope) {
+    syncPayloadKeyRegistration()
+
+    watch(
+      () => ({
+        key: cacheKey.value,
+        resolveAsIdle: executionGate.value.resolveAsIdle,
+      }),
+      () => {
+        syncPayloadKeyRegistration()
+      },
+    )
+
+    onScopeDispose(() => {
+      releasePayloadKey()
+    })
+  }
 
   watch(
     () => asyncData.data.value,
@@ -519,7 +597,9 @@ export function createConvexQueryState<
   // Setup WebSocket subscription bridge on client
   if (import.meta.client && subscribe && cleanupScope) {
     const setupSubscription = () => {
-      if (executionGate.value.waitForAuth) {
+      // The execution gate is the single decision point. It is false when skipped,
+      // auth-pending, signed-out-private, or subscribe:false — never acquire in those states.
+      if (!executionGate.value.setupLiveSubscription) {
         return
       }
 
@@ -528,7 +608,7 @@ export function createConvexQueryState<
         return
       }
 
-      const currentCacheKey = getCacheKey()
+      const currentCacheKey = withAuthDimension(getCacheKey(), authMode)
 
       try {
         const bridge = acquireSharedSubscriptionBridge(currentArgs as FunctionArgs<Query>)
@@ -580,6 +660,16 @@ export function createConvexQueryState<
           releaseRegisteredSubscription()
         }
 
+        // Entering signed-out: drop this component's now-unauthorized data.
+        // Real sign-out transitions through auth-pending first, so do not
+        // require the previous state to be 'none'.
+        if (next.pendingReason === 'auth-signed-out' && prev.pendingReason !== 'auth-signed-out') {
+          lastSettledData.value = null
+          lastSettledRawData.value = null
+          lastSettledArgsHash.value = null
+          asyncData.clear()
+        }
+
         // Setup new subscription (data will be updated by useAsyncData's watch)
         if (executionGate.value.setupLiveSubscription) {
           setupSubscription()
@@ -609,8 +699,12 @@ export function createConvexQueryState<
           return
         }
 
-        setupSubscription()
-        await asyncData.refresh()
+        // Auth settled. Signed-in → resubscribe + refetch. Signed-out → stay idle
+        // (setupSubscription self-guards, and refreshing would just write null).
+        if (executionGate.value.setupLiveSubscription) {
+          setupSubscription()
+          await asyncData.refresh()
+        }
       },
     )
 
@@ -661,13 +755,18 @@ export function createConvexQueryState<
     return raw == null ? null : applyTransform(raw as RawT)
   })
 
+  // Nuxt 4 types asyncData.error as Ref<Error | undefined>, but the value domain
+  // we expose is Error | null (bridge code writes literal null). Normalize via a
+  // computed instead of casting a ref whose value can still be undefined (F-19).
+  const error = computed<Error | null>(() => asyncData.error.value ?? null)
+
   // Build result data object with our own pending/status
   const resultData: UseConvexQueryData<DataT> = {
     data,
     pending,
     status,
     isStale,
-    error: asyncData.error as Ref<Error | null>,
+    error,
     refresh: asyncData.refresh,
     clear: asyncData.clear,
   }
@@ -684,10 +783,19 @@ export async function useConvexQuery<
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+  ...rest: ConvexQueryRest<
+    FunctionArgs<Query>,
+    MaybeRefOrGetter<ConvexQueryArgs<NoInfer<Args>>>,
+    UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
+  >
 ): Promise<UseConvexQueryData<DataT>> {
-  const { resultData, resolvePromise } = createConvexQueryState(query, args, options, false)
+  const [args, options] = rest
+  const { resultData, resolvePromise } = createConvexQueryState(
+    query,
+    args as MaybeRefOrGetter<ConvexQueryArgs<Args>> | undefined,
+    options,
+    false,
+  )
   await resolvePromise
   return resultData
 }

@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
+import type { ConvexQueryRest } from '../../utils/args-tuple'
 import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
@@ -10,6 +11,7 @@ import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
+import { exchangeSessionForToken } from './token-exchange'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 
@@ -49,12 +51,12 @@ async function resolveAuthToken(
     return options.authToken
   }
 
-  const policy = options?.auth ?? 'auto'
+  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
+  const policy = options?.auth ?? config.defaults.auth
   if (policy === 'none') {
     return undefined
   }
 
-  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
   const cookieHeader = getCookieHeader(event)
   const sessionToken = getBetterAuthSessionToken(cookieHeader)
   const authCookieHeader = filterBetterAuthCookies(cookieHeader)
@@ -75,34 +77,30 @@ async function resolveAuthToken(
     return undefined
   }
 
-  try {
-    if (config.authCache.enabled && sessionToken) {
-      const cached = await getCachedAuthToken(sessionToken)
-      if (cached) {
-        return cached
-      }
+  if (config.authCache.enabled && sessionToken) {
+    const cached = await getCachedAuthToken(sessionToken)
+    if (cached) {
+      return cached
     }
+  }
 
-    const response = (await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
-      headers: {
-        Cookie: authCookieHeader,
-      },
-    })) as { token?: string } | null
+  // Single shared cookie -> JWT exchange (F-13). Never throws; policy is applied here.
+  const exchange = await exchangeSessionForToken(config.siteUrl, authCookieHeader)
 
-    if (response?.token) {
-      if (config.authCache.enabled && sessionToken) {
-        const ttl = config.authCache.ttl ?? 60
-        await setCachedAuthToken(sessionToken, response.token, ttl)
-      }
-      return response.token
-    }
-  } catch (error) {
+  if (exchange.thrown) {
     if (policy === 'required') {
-      throw error instanceof Error
-        ? error
+      throw exchange.thrown instanceof Error
+        ? exchange.thrown
         : new Error('[serverConvex] Failed to resolve auth token')
     }
     return undefined
+  }
+
+  if (exchange.token) {
+    if (config.authCache.enabled && sessionToken) {
+      await setCachedAuthToken(sessionToken, exchange.token, config.authCache.ttl)
+    }
+    return exchange.token
   }
 
   if (policy === 'required') {
@@ -197,9 +195,9 @@ async function executeConvexOperation<T>(
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
   event: H3Event,
   query: Query,
-  args?: FunctionArgs<Query>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Query>, FunctionArgs<Query>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Query>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(query)
   return await executeConvexOperation<FunctionReturnType<Query>>(
     event,
@@ -213,9 +211,9 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
 export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   event: H3Event,
   mutation: Mutation,
-  args?: FunctionArgs<Mutation>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Mutation>, FunctionArgs<Mutation>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Mutation>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(mutation)
   return await executeConvexOperation<FunctionReturnType<Mutation>>(
     event,
@@ -229,9 +227,9 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
 export async function serverConvexAction<Action extends FunctionReference<'action'>>(
   event: H3Event,
   action: Action,
-  args?: FunctionArgs<Action>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Action>, FunctionArgs<Action>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Action>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(action)
   return await executeConvexOperation<FunctionReturnType<Action>>(
     event,

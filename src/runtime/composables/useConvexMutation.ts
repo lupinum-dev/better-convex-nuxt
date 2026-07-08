@@ -279,16 +279,19 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       const result = await client.mutation(mutation, args, {
         optimisticUpdate: options?.optimisticUpdate,
       })
-      callState.commitSuccess(currentRequestId, result)
+      const committed = callState.commitSuccess(currentRequestId, result)
 
-      try {
-        options?.onSuccess?.(result, args)
-      } catch (callbackError) {
-        logger.mutation({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
+      if (committed) {
+        try {
+          options?.onSuccess?.(result, args)
+        } catch (callbackError) {
+          logger.mutation({
+            name: fnName,
+            event: 'error',
+            error:
+              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+          })
+        }
       }
 
       // Update DevTools
@@ -301,16 +304,19 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     } catch (e) {
       const normalized = normalizeConvexError(e)
       const err = toError(normalized)
-      callState.commitError(currentRequestId, err)
+      const committed = callState.commitError(currentRequestId, err)
 
-      try {
-        options?.onError?.(err, args)
-      } catch (callbackError) {
-        logger.mutation({
-          name: fnName,
-          event: 'error',
-          error: callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-        })
+      if (committed) {
+        try {
+          options?.onError?.(err, args)
+        } catch (callbackError) {
+          logger.mutation({
+            name: fnName,
+            event: 'error',
+            error:
+              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
+          })
+        }
       }
 
       // Update DevTools

@@ -36,25 +36,30 @@ export function acquirePaginatedQuerySubscription<
   query: Query
   args: FunctionArgs<Query>
   functionName: string
+  authMode: 'auto' | 'none'
 }): AcquiredQuerySubscription {
-  const { nuxtApp, subscriptionKey, convex, query, args, functionName } = options
+  const { nuxtApp, subscriptionKey, convex, query, args, functionName, authMode } = options
 
-  return acquireQuerySubscription(nuxtApp, subscriptionKey, (bridge) =>
-    convex.onUpdate(
-      query,
-      args,
-      (result: PaginationResult<Item>) => {
-        commitQueryBridgeData(bridge, result)
-      },
-      (err: Error) => {
-        void handleUnauthorizedAuthFailure({
-          error: err,
-          source: 'query',
-          functionName,
-        })
-        commitQueryBridgeError(bridge, err)
-      },
-    ),
+  return acquireQuerySubscription(
+    nuxtApp,
+    subscriptionKey,
+    (bridge) =>
+      convex.onUpdate(
+        query,
+        args,
+        (result: PaginationResult<Item>) => {
+          commitQueryBridgeData(bridge, result)
+        },
+        (err: Error) => {
+          void handleUnauthorizedAuthFailure({
+            error: err,
+            source: 'query',
+            functionName,
+          })
+          commitQueryBridgeError(bridge, err)
+        },
+      ),
+    { authMode },
   )
 }
 

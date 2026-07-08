@@ -1,4 +1,5 @@
-import { filterBetterAuthCookies, getBetterAuthSessionToken } from './shared-helpers'
+import { CONVEX_MODULE_DEFAULTS } from './config-defaults'
+import { getBetterAuthSessionToken } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -15,6 +16,7 @@ type SubscriptionCacheOwner = object
 // Module-level WeakMap for automatic GC when NuxtApp is destroyed
 // This replaces the previous pattern of patching nuxtApp._convexSubscriptions
 const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
+const payloadKeyRegistry = new WeakMap<object, Map<string, PayloadKeyCounts>>()
 
 // ============================================================================
 // Types
@@ -28,6 +30,13 @@ export interface SubscriptionEntry {
   unsubscribe: () => void
   refCount: number
   queryBridge?: QuerySubscriptionBridge
+  /** Auth transport mode of the query that created this entry. 'none' = public. */
+  authMode: 'auto' | 'none'
+}
+
+export interface PayloadKeyCounts {
+  auto: number
+  none: number
 }
 
 /**
@@ -66,6 +75,59 @@ export interface AcquiredQuerySubscription {
   bridge: QuerySubscriptionBridge
   refCount: number
   release: () => boolean
+}
+
+/**
+ * Subscription-cache keys carry the auth transport mode so the same query+args
+ * can safely be mounted as both auth:'auto' and auth:'none'. Payload keys
+ * deliberately stay auth-agnostic because Nuxt asyncData is keyed by query data.
+ */
+export function withAuthDimension(key: string, authMode: 'auto' | 'none'): string {
+  return `${key}::auth-${authMode}`
+}
+
+export function getPayloadKeyRegistry(owner: object): Map<string, PayloadKeyCounts> {
+  let map = payloadKeyRegistry.get(owner)
+  if (!map) {
+    map = new Map()
+    payloadKeyRegistry.set(owner, map)
+  }
+  return map
+}
+
+export function registerPayloadKey(
+  owner: object,
+  key: string,
+  authMode: 'auto' | 'none',
+): () => void {
+  const map = getPayloadKeyRegistry(owner)
+  const counts = map.get(key) ?? { auto: 0, none: 0 }
+  counts[authMode] += 1
+  map.set(key, counts)
+
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+
+    const current = map.get(key)
+    if (!current) return
+
+    current[authMode] = Math.max(0, current[authMode] - 1)
+    if (current.auto === 0 && current.none === 0) {
+      map.delete(key)
+    }
+  }
+}
+
+export function getPublicOnlyPayloadKeys(owner: object): Set<string> {
+  const keep = new Set<string>()
+  for (const [key, counts] of getPayloadKeyRegistry(owner)) {
+    if (counts.none > 0 && counts.auto === 0) {
+      keep.add(key)
+    }
+  }
+  return keep
 }
 
 export function createQueryBridge(): QuerySubscriptionBridge {
@@ -118,7 +180,7 @@ export function waitForQueryBridgeData<T>(
     return Promise.reject(bridge.snapshot.error)
   }
 
-  const timeoutMs = options.timeoutMs ?? 10_000
+  const timeoutMs = options.timeoutMs ?? CONVEX_MODULE_DEFAULTS.defaults.waitTimeoutMs
 
   return new Promise((resolve, reject) => {
     let settled = false
@@ -192,11 +254,17 @@ export function acquireQuerySubscription(
   nuxtApp: SubscriptionCacheOwner,
   cacheKey: string,
   start: (bridge: QuerySubscriptionBridge) => () => void,
+  meta: { authMode: 'auto' | 'none' } = { authMode: 'auto' },
 ): AcquiredQuerySubscription {
   const cache = getSubscriptionCache(nuxtApp)
   const existing = cache.get(cacheKey)
 
   if (existing) {
+    if (import.meta.dev && existing.authMode !== meta.authMode) {
+      console.warn(
+        `[better-convex-nuxt] subscription ${cacheKey} acquired with mismatched authMode`,
+      )
+    }
     existing.refCount += 1
     return {
       bridge: ensureQueryBridge(existing),
@@ -207,7 +275,12 @@ export function acquireQuerySubscription(
 
   const bridge = createQueryBridge()
   const unsubscribe = start(bridge)
-  const entry: SubscriptionEntry = { unsubscribe, refCount: 1, queryBridge: bridge }
+  const entry: SubscriptionEntry = {
+    unsubscribe,
+    refCount: 1,
+    queryBridge: bridge,
+    authMode: meta.authMode,
+  }
   cache.set(cacheKey, entry)
 
   return {
@@ -226,75 +299,40 @@ export interface FetchAuthTokenOptions {
   auth: 'auto' | 'none'
   /** Cookie header from the request */
   cookieHeader: string
-  /** Site URL for auth endpoint */
-  siteUrl: string | undefined
   /** Cached token state (must be obtained at setup time via useState) */
   cachedToken: { value: string | null }
 }
 
 /**
- * Fetch auth token for SSR queries.
- * Uses caching via the provided cachedToken ref to avoid redundant fetches.
+ * Resolve the SSR auth token for a query.
+ *
+ * This performs NO cookie -> JWT exchange (F-13). `plugin.server.ts` runs before
+ * any route component's setup and already exchanged the session cookie once,
+ * writing the result into `useState('convex:token')`. SSR queries must reuse
+ * that single per-request exchange, never run a second one. This helper simply
+ * returns the plugin-resolved token when a Better Auth session cookie is present.
  *
  * IMPORTANT: The cachedToken parameter must be obtained at component setup time
  * using useState('convex:token') before being passed to this function.
  * Calling useState inside an async function loses Vue context and will fail.
  *
  * @param options - Auth token fetch options
- * @returns The auth token if available, undefined otherwise
- *
- * @example
- * ```ts
- * // At setup time (synchronous):
- * const cachedToken = useState<string | null>('convex:token')
- *
- * // Later, in async context:
- * const authToken = await fetchAuthToken({
- *   auth: 'auto',
- *   cookieHeader: event?.headers.get('cookie') || '',
- *   siteUrl: config.public.convex?.siteUrl,
- *   cachedToken,
- * })
- * ```
+ * @returns The plugin-resolved token if a session exists, undefined otherwise
  */
-export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { auth, cookieHeader, siteUrl, cachedToken } = options
+export function fetchAuthToken(options: FetchAuthTokenOptions): string | undefined {
+  const { auth, cookieHeader, cachedToken } = options
 
   // Skip when auth is explicitly disabled
   if (auth === 'none') {
     return undefined
   }
 
-  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
-  const sessionToken = getBetterAuthSessionToken(cookieHeader)
-
-  if (!authCookieHeader || !sessionToken) {
+  // No Better Auth session cookie -> the plugin resolved no token for this request.
+  if (!getBetterAuthSessionToken(cookieHeader)) {
     return undefined
   }
 
-  // Try cached token first
-  if (cachedToken.value) {
-    return cachedToken.value
-  }
-
-  // Fetch token if we have a site URL
-  if (!siteUrl) {
-    return undefined
-  }
-
-  try {
-    const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: authCookieHeader },
-    })) as { token?: string }
-    if (response?.token) {
-      cachedToken.value = response.token
-      return response.token
-    }
-  } catch {
-    // Auth token fetch failed - continue without auth
-  }
-
-  return undefined
+  return cachedToken.value ?? undefined
 }
 
 // ============================================================================
@@ -368,4 +406,17 @@ export function clearSubscriptionCache(nuxtApp: SubscriptionCacheOwner): void {
   }
 
   cache.clear()
+}
+
+/**
+ * Tear down only auth-carrying subscriptions after sign-out.
+ * Public (auth: 'none') queries are auth-independent and must keep streaming.
+ */
+export function clearAuthSubscriptions(nuxtApp: SubscriptionCacheOwner): void {
+  const cache = getSubscriptionCache(nuxtApp)
+  for (const [key, entry] of cache.entries()) {
+    if (entry.authMode === 'none') continue
+    entry.unsubscribe()
+    cache.delete(key)
+  }
 }

@@ -173,7 +173,9 @@ async function startBetterAuthRun(
     ...(args.maxOrganizationTotalTokens === undefined
       ? {}
       : { maxOrganizationTotalTokens: args.maxOrganizationTotalTokens }),
-    ...(args.maxUserTotalTokens === undefined ? {} : { maxUserTotalTokens: args.maxUserTotalTokens }),
+    ...(args.maxUserTotalTokens === undefined
+      ? {}
+      : { maxUserTotalTokens: args.maxUserTotalTokens }),
   })) as Id<'agentRuns'>
 }
 
@@ -470,13 +472,21 @@ describe('agentic-saas proof invariants', () => {
     const agentToolsSource = readConvexSource('./agentTools.ts')
     const publicExistingRunSurfaces = [
       { source: agentRunsSource, exportName: 'revokeRun', allowedArgs: ['agentRunId'] },
-      { source: agentThreadsSource, exportName: 'listAccessibleMessages', allowedArgs: ['agentRunId'] },
+      {
+        source: agentThreadsSource,
+        exportName: 'listAccessibleMessages',
+        allowedArgs: ['agentRunId'],
+      },
       {
         source: agentThreadsSource,
         exportName: 'syncAccessibleStreams',
         allowedArgs: ['agentRunId', 'streamArgs'],
       },
-      { source: agentToolsSource, exportName: 'generateDraftWithTool', allowedArgs: ['agentRunId'] },
+      {
+        source: agentToolsSource,
+        exportName: 'generateDraftWithTool',
+        allowedArgs: ['agentRunId'],
+      },
       { source: agentToolsSource, exportName: 'streamProjectSummary', allowedArgs: ['agentRunId'] },
       {
         source: agentToolsSource,
@@ -518,7 +528,7 @@ describe('agentic-saas proof invariants', () => {
     expect(projectDraftsSource).toContain('createProductRecordFromDraft(ctx, {')
     expect(deletionRequestsSource).toContain('deleteProductRecordForApproval(ctx, {')
     expect(projectDraftsSource).not.toContain("ctx.db.insert('productRecords'")
-    expect(projectDraftsSource).not.toContain("ctx.db.delete(")
+    expect(projectDraftsSource).not.toContain('ctx.db.delete(')
     expect(deletionRequestsSource).not.toContain("ctx.db.insert('productRecords'")
     expect(deletionRequestsSource).not.toContain('ctx.db.delete(request.productRecordId)')
   })
@@ -599,19 +609,16 @@ describe('agentic-saas proof invariants', () => {
 
     await expect(
       t.run(async (ctx) => {
-        await ctx.db.insert(
-          'productAuditEvents',
-          {
-            organizationId: 'better-auth-org-id',
-            actor: {
-              kind: 'user',
-              authUserId: 'better-auth-user-id',
-            },
-            action: 'projectDrafts.reject',
-            resourceType: 'projectDraft',
-            createdAt: Date.now(),
-          } as never,
-        )
+        await ctx.db.insert('productAuditEvents', {
+          organizationId: 'better-auth-org-id',
+          actor: {
+            kind: 'user',
+            authUserId: 'better-auth-user-id',
+          },
+          action: 'projectDrafts.reject',
+          resourceType: 'projectDraft',
+          createdAt: Date.now(),
+        } as never)
       }),
     ).rejects.toThrow('resourceId')
 
@@ -628,21 +635,18 @@ describe('agentic-saas proof invariants', () => {
           async () => ({ authUserId: 'better-auth-user-id' }),
         )
 
-        await ctx.db.insert(
-          'agentAuditEvents',
-          {
-            organizationId: 'better-auth-org-id',
-            actor: {
-              kind: 'agent',
-              agentRunId,
-              delegatedByAuthUserId: 'better-auth-user-id',
-            },
-            action: 'projectDrafts.create',
-            capability: 'project:draft',
-            resourceType: 'projectDraft',
-            createdAt: Date.now(),
-          } as never,
-        )
+        await ctx.db.insert('agentAuditEvents', {
+          organizationId: 'better-auth-org-id',
+          actor: {
+            kind: 'agent',
+            agentRunId,
+            delegatedByAuthUserId: 'better-auth-user-id',
+          },
+          action: 'projectDrafts.create',
+          capability: 'project:draft',
+          resourceType: 'projectDraft',
+          createdAt: Date.now(),
+        } as never)
       }),
     ).rejects.toThrow('resourceId')
   })
@@ -2538,11 +2542,14 @@ describe('agentic-saas proof invariants', () => {
       capabilities: ['project:delete'],
     })
     await markRunRunningWithThread(t, deleteRunId)
-    const deletionRequestId = await t.mutation(internalApi.projectDeletionRequests.createFromAgent, {
-      agentRunId: deleteRunId,
-      productRecordId: recordId,
-      reason: 'Tenant-bound deletion request',
-    })
+    const deletionRequestId = await t.mutation(
+      internalApi.projectDeletionRequests.createFromAgent,
+      {
+        agentRunId: deleteRunId,
+        productRecordId: recordId,
+        reason: 'Tenant-bound deletion request',
+      },
+    )
 
     await expect(
       t.mutation(publicApi.projectDrafts.approve, {
@@ -2637,11 +2644,14 @@ describe('agentic-saas proof invariants', () => {
       capabilities: ['project:delete'],
     })
     await markRunRunningWithThread(t, deleteRunId)
-    const deletionRequestId = await t.mutation(internalApi.projectDeletionRequests.createFromAgent, {
-      agentRunId: deleteRunId,
-      productRecordId: recordId,
-      reason: 'Review deletion',
-    })
+    const deletionRequestId = await t.mutation(
+      internalApi.projectDeletionRequests.createFromAgent,
+      {
+        agentRunId: deleteRunId,
+        productRecordId: recordId,
+        reason: 'Review deletion',
+      },
+    )
 
     const drafts = await t.query(publicApi.projectDrafts.listPending, {
       organizationId,
@@ -3076,11 +3086,14 @@ describe('agentic-saas proof invariants', () => {
     })
     await markRunRunningWithThread(t, deleteRunId)
 
-    const rejectedRequestId = await t.mutation(internalApi.projectDeletionRequests.createFromAgent, {
-      agentRunId: deleteRunId,
-      productRecordId: rejectedRecordId,
-      reason: 'Reject this deletion',
-    })
+    const rejectedRequestId = await t.mutation(
+      internalApi.projectDeletionRequests.createFromAgent,
+      {
+        agentRunId: deleteRunId,
+        productRecordId: rejectedRecordId,
+        reason: 'Reject this deletion',
+      },
+    )
 
     await expect(
       t.mutation(publicApi.projectDeletionRequests.reject, {
@@ -3124,11 +3137,14 @@ describe('agentic-saas proof invariants', () => {
 
     expect(await t.run(async (ctx) => await ctx.db.get(rejectedRecordId))).not.toBeNull()
 
-    const approvedRequestId = await t.mutation(internalApi.projectDeletionRequests.createFromAgent, {
-      agentRunId: deleteRunId,
-      productRecordId: approvedRecordId,
-      reason: 'Approve once',
-    })
+    const approvedRequestId = await t.mutation(
+      internalApi.projectDeletionRequests.createFromAgent,
+      {
+        agentRunId: deleteRunId,
+        productRecordId: approvedRecordId,
+        reason: 'Approve once',
+      },
+    )
 
     await t.mutation(publicApi.projectDeletionRequests.approve, {
       deletionRequestId: approvedRequestId,

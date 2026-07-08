@@ -1,4 +1,4 @@
-import type { FunctionReference } from 'convex/server'
+import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
 
 import type { ConvexCallStatus, ConvexUser } from './types'
@@ -169,15 +169,18 @@ export function normalizeConvexUser(input: unknown): ConvexUser | null {
  * - { value: T }
  * - T (direct value for primitives)
  *
- * Error formats:
+ * Error format (the Convex HTTP API's actual contract):
  * - { status: 'error', errorMessage: string }
- * - { code: string, message: string }
+ *
+ * Only `status === 'error'` is treated as an error. A payload whose `value`
+ * legitimately contains a `code` field (e.g. `{ status: 'success', value: {
+ * code: 'x' } }`) must not be mistaken for an error response (F-33).
  */
 export function parseConvexResponse<T>(response: unknown): T {
   // Check for error response
   if (response && typeof response === 'object') {
     const resp = response as Record<string, unknown>
-    if (resp.status === 'error' || resp.code) {
+    if (resp.status === 'error') {
       const message = (resp.errorMessage || resp.message || 'Query failed') as string
       throw new Error(message)
     }
@@ -275,7 +278,10 @@ export function hashArgs(args: unknown): string {
 /**
  * Generate a unique cache key for a query + args combination
  */
-export function getQueryKey(query: FunctionReference<'query'>, args?: unknown): string {
+export function getQueryKey<Query extends FunctionReference<'query'>>(
+  query: Query,
+  args?: FunctionArgs<Query>,
+): string {
   const fnName = getFunctionName(query)
   return `convex:${fnName}:${hashArgs(args)}`
 }

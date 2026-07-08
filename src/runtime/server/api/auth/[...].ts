@@ -18,6 +18,8 @@ import {
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
+import { getBetterAuthSessionToken } from '../../../utils/shared-helpers'
+import { serverConvexClearAuthCache } from '../../utils/auth-cache'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import {
   getRequestBodySizeError,
@@ -34,6 +36,14 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
   const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
   await recordAuthProxyRequest(request)
 }
+
+const SESSION_REVOKING_PATHS = new Set([
+  '/sign-out',
+  '/revoke-session',
+  '/revoke-sessions',
+  '/revoke-other-sessions',
+  '/delete-user',
+])
 
 /**
  * Validates if the given origin is allowed.
@@ -67,6 +77,13 @@ export default defineEventHandler(async (event: H3Event) => {
   // Ensure path starts with / to avoid malformed URLs like /api/authtoken
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
+
+  // Detection only: the proxy target keeps the caller's exact path.
+  const detectionPath = normalizedPath.replace(/\/+$/, '') || '/'
+  const isSignOutRequest = SESSION_REVOKING_PATHS.has(detectionPath) && event.method === 'POST'
+  const sessionTokenBeforeProxy = isSignOutRequest
+    ? getBetterAuthSessionToken(event.headers.get('cookie'))
+    : null
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
@@ -143,7 +160,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // Make request to Convex (manual redirect handling).
     // We internally follow only canonical host redirects (same path/query),
     // but preserve intentional redirects to providers (OAuth, etc).
-    const response = await fetchWithCanonicalRedirects({
+    const { response, followedCanonicalRedirect } = await fetchWithCanonicalRedirects({
       target,
       method: event.method,
       headers: forwardHeaders,
@@ -166,6 +183,18 @@ export default defineEventHandler(async (event: H3Event) => {
       })
     }
 
+    // Sign-out revokes the session upstream; proactively clear our cached JWT
+    // for it too so a subsequent request can't reuse a stale cached token for
+    // the rest of the authCache TTL window (F-28).
+    if (
+      isSignOutRequest &&
+      sessionTokenBeforeProxy &&
+      response.ok &&
+      convexConfig.authCache.enabled
+    ) {
+      await serverConvexClearAuthCache(sessionTokenBeforeProxy)
+    }
+
     // Dev mode: log the request
     if (import.meta.dev) {
       await recordAuthProxyRequestInDev({
@@ -184,9 +213,11 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Forward response headers (except some that shouldn't be forwarded)
     // Handle Set-Cookie specially (can have multiple values)
-    const cookies = response.headers.getSetCookie?.() || []
-    for (const cookie of cookies) {
-      appendResponseHeader(event, 'set-cookie', cookie)
+    if (!followedCanonicalRedirect) {
+      const cookies = response.headers.getSetCookie?.() || []
+      for (const cookie of cookies) {
+        appendResponseHeader(event, 'set-cookie', cookie)
+      }
     }
 
     // Forward other headers
@@ -194,6 +225,9 @@ export default defineEventHandler(async (event: H3Event) => {
       if (!shouldSkipProxyResponseHeader(key)) {
         setHeaders(event, { [key]: value })
       }
+    }
+    if (isCriticalAuthEndpoint) {
+      setHeaders(event, { 'cache-control': 'private, no-store' })
     }
 
     // Preserve intentional redirects (OAuth flows, etc).

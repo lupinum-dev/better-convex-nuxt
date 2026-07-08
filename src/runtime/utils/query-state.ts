@@ -6,9 +6,7 @@ export type PaginatedQueryStatus =
   | 'exhausted'
   | 'error'
 
-export type PaginatedFirstPageState =
-  | { state: 'loading' }
-  | { state: 'ready'; isDone: boolean }
+export type PaginatedFirstPageState = { state: 'loading' } | { state: 'ready'; isDone: boolean }
 
 export type PaginatedNextPageState =
   | { state: 'idle' }

@@ -296,8 +296,60 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     }
     expect(enqueueResult.error).toBeInstanceOf(AggregateError)
     expect(enqueueResult.error.message).toMatch(/uploads failed|halted/i)
-    expect(result.queuedCount.value).toBe(2)
+    // F-32: still-queued items are settled to 'cancelled' on halt, not left
+    // dangling in 'queued' (which would let a later enqueue() resurrect them).
+    expect(result.queuedCount.value).toBe(0)
+    expect(result.cancelledCount.value).toBe(2)
     expect(result.isRunning.value).toBe(false)
+  })
+
+  it('does not resurrect halted items when a later enqueue clears the halt (F-32)', async () => {
+    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-halt-resurrect')
+    convex.setMutationHandler('files:generateUploadUrl:queue-halt-resurrect', async (args) => {
+      const id = (args as { id: string }).id
+      return `http://upload.local/${id}`
+    })
+
+    FakeQueueXhr.setPlan('http://upload.local/first', {
+      status: 500,
+      responseText: 'fail',
+      delayMs: 10,
+    })
+    FakeQueueXhr.setPlan('http://upload.local/second', { delayMs: 10 })
+    FakeQueueXhr.setPlan('http://upload.local/third', { delayMs: 10 })
+
+    const { result } = await captureInNuxt(
+      () => useConvexUploadQueue(mutation, { maxConcurrent: 1, continueOnError: false }),
+      { convex },
+    )
+
+    await result
+      .enqueue([
+        { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+        { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
+        { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
+      ])
+      .catch(() => {})
+
+    // Halt already happened: "second" and "third" were settled to 'cancelled'.
+    expect(result.queuedCount.value).toBe(0)
+    expect(result.cancelledCount.value).toBe(2)
+
+    // A later enqueue clears haltedByError (pendingCount is 0) and must only
+    // schedule the newly enqueued item — the old cancelled items must stay
+    // cancelled, not resume as if nothing happened.
+    FakeQueueXhr.setPlan('http://upload.local/fourth', { delayMs: 10 })
+    const storageIds = await result.enqueue([
+      { file: makeFile('fourth.bin', 10), mutationArgs: { id: 'fourth' } },
+    ])
+
+    expect(storageIds).toEqual(['storage:http://upload.local/fourth'])
+    expect(result.cancelledCount.value).toBe(2)
+    expect(result.successCount.value).toBe(1)
+    expect(result.queuedCount.value).toBe(0)
   })
 
   it('enqueue resolves with uploaded storageIds', async () => {

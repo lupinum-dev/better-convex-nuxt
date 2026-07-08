@@ -6,7 +6,7 @@ import { requireCurrentUser } from './users'
 export const create = mutation({
   args: {
     name: v.string(),
-    kind: v.union(v.literal('agency'), v.literal('client'))
+    kind: v.union(v.literal('agency'), v.literal('client')),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim()
@@ -20,7 +20,7 @@ export const create = mutation({
       name,
       kind: args.kind,
       createdBy: user._id,
-      createdAt: now
+      createdAt: now,
     })
 
     await ctx.db.insert('memberships', {
@@ -29,10 +29,9 @@ export const create = mutation({
       role: 'owner',
       status: 'active',
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     })
 
     return organizationId
-  }
+  },
 })
-

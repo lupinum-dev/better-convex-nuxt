@@ -28,6 +28,7 @@
  * ```
  */
 import { computed } from 'vue'
+
 import { useConvexAuth } from '../composables/useConvexAuth'
 
 defineSlots<{

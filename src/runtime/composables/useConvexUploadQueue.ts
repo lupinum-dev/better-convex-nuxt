@@ -2,6 +2,7 @@ import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
 import { toCallResult, type CallResult } from '../utils/call-result'
+import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
 import {
@@ -83,12 +84,6 @@ function createQueueItemId(): string {
   return `upload-item-${Date.now()}-${queueItemSequence}`
 }
 
-function normalizeMaxConcurrent(value: number | undefined): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 3
-  const normalized = Math.trunc(value)
-  return normalized > 0 ? normalized : 1
-}
-
 function isUploadAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
@@ -150,11 +145,20 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const rejectQueuedDeferredsAfterHalt = () => {
-    for (const item of items.value) {
-      if (item.status === 'queued') {
-        rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
+    // Settle still-queued items to 'cancelled' (not just reject their deferreds).
+    // Leaving them 'queued' let a later enqueue() reset haltedByError and hand
+    // them straight back to schedule(), silently resuming uploads the caller
+    // was already told (via the rejected promise) had failed.
+    const now = Date.now()
+    items.value = items.value.map((item) => {
+      if (item.status !== 'queued') return item
+      rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
+      return {
+        ...item,
+        status: 'cancelled',
+        finishedAt: now,
       }
-    }
+    })
   }
 
   const getItemRuntime = (id: string): UploadQueueRuntime => {
