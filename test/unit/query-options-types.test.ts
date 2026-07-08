@@ -95,6 +95,14 @@ declare const optArgQuery: FunctionReference<
   { term?: string; limit?: number },
   string[]
 >
+// Top-level v.union(...) validators produce union args; each all-optional
+// member must be judged by its own keys (R2-3.3c).
+declare const unionOptArgQuery: FunctionReference<
+  'query',
+  'public',
+  { term?: string } | { limit?: number },
+  string[]
+>
 declare const noArgPaginated: FunctionReference<
   'query',
   'public',
@@ -128,6 +136,14 @@ async function _arityContracts() {
   void useConvexQuery(optArgQuery, 'skip') // 'skip' still compiles
   // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
   void useConvexQuery(optArgQuery, { limit: 5, wrong: 1 })
+
+  // --- useConvexQuery: union all-optional args stay callable (R2-3.3c) ---
+  void useConvexQuery(unionOptArgQuery, { term: 'x' }) // first union member compiles
+  void useConvexQuery(unionOptArgQuery, { limit: 5 }) // second union member compiles
+  void useConvexQuery(unionOptArgQuery) // union optional args may omit the args slot
+  void useConvexQuery(unionOptArgQuery, 'skip') // 'skip' still compiles
+  // @ts-expect-error union all-optional args still reject unknown properties (R2-3.3c)
+  void useConvexQuery(unionOptArgQuery, { wrong: 1 })
 
   // --- useConvexPaginatedQuery ---
   void useConvexPaginatedQuery(noArgPaginated) // no extra args accepts zero args

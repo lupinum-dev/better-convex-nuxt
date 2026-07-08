@@ -8,9 +8,15 @@ type StrictEmptyArgs = Record<PropertyKey, never>
  * `Record<PropertyKey, never>` so callers cannot smuggle arbitrary properties
  * into a no-arg function. All-optional args objects like `{ limit?: number }`
  * have declared keys (`keyof` is not `never`) and are left untouched, so they
- * stay callable with `{ limit: 5 }`. Distributes over unions.
+ * stay callable with `{ limit: 5 }`.
+ *
+ * The `T extends unknown` wrapper forces distribution over union args (from a
+ * top-level `v.union(...)` validator) so each member is judged by its own
+ * keys — without it, `keyof (A | B)` is the key *intersection*, which is
+ * `never` for disjoint members and would wrongly collapse the whole union to
+ * the empty-args type.
  */
-type TightenEmptyArgs<T> = keyof T extends never ? StrictEmptyArgs : T
+type TightenEmptyArgs<T> = T extends unknown ? (keyof T extends never ? StrictEmptyArgs : T) : never
 type TightenEmptyArgsParam<T> =
   T extends MaybeRefOrGetter<infer Value> ? MaybeRefOrGetter<TightenEmptyArgs<Value>> : T
 

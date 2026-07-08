@@ -159,6 +159,16 @@ async function _requiredArgsContracts() {
   // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
   void useConvexQuery(api.tasks.search, { limit: 5, wrong: 1 })
 
+  // --- useConvexQuery: union all-optional args stay callable (R2-3.3c) ---
+  // Top-level v.union(...) validators produce union args; each member must be
+  // judged by its own keys, not the union's key intersection.
+  void useConvexQuery(api.tasks.filter, { term: 'x' })
+  void useConvexQuery(api.tasks.filter, { limit: 5 })
+  void useConvexQuery(api.tasks.filter)
+  void useConvexQuery(api.tasks.filter, 'skip')
+  // @ts-expect-error union all-optional args still reject unknown properties (R2-3.3c)
+  void useConvexQuery(api.tasks.filter, { wrong: 1 })
+
   // --- useConvexPaginatedQuery ---
   // Positive: paginated query with no extra args accepts zero args.
   void useConvexPaginatedQuery(api.tasks.listPaginated)
