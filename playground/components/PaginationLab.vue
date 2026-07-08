@@ -20,6 +20,7 @@ const paginatedResult = await useConvexPaginatedQuery(
   {},
   {
     initialNumItems: 3,
+    auth: 'none',
     server: props.serverOption,
   },
 )

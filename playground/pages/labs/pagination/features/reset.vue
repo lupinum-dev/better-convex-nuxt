@@ -14,7 +14,7 @@ definePageMeta({
 const { results, status, isLoading, loadMore, reset, error } = await useConvexPaginatedQuery(
   api.notes.listPaginated,
   {},
-  { initialNumItems: 3 },
+  { initialNumItems: 3, auth: 'none' },
 )
 
 const resetCount = ref(0)

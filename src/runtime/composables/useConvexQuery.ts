@@ -91,7 +91,19 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   transform?: (input: RawT) => DataT
   /** Keep the last successful data while args are changing and next request is pending. @default false */
   keepPreviousData?: boolean
-  /** Auth transport mode for this query. Public queries can opt out with "none". @default convex.defaults.auth */
+  /**
+   * Auth transport mode for this query.
+   *
+   * - `'auto'`: the query REQUIRES a signed-in session. While signed out it
+   *   does not run at all — it resolves as `idle` with no data (server and
+   *   client alike). Despite the name, it does not "fall back" to an
+   *   unauthenticated request.
+   * - `'none'`: public query; runs with no auth attached, signed in or out.
+   *   Use this for Convex functions that don't check identity, otherwise
+   *   signed-out visitors see an empty idle state instead of data.
+   *
+   * @default convex.defaults.auth
+   */
   auth?: ConvexQueryAuthMode
 }
 

@@ -60,13 +60,13 @@ describe('createQueryExecutionGate', () => {
     })
   })
 
-  it('does not pause server-side execution', () => {
+  it('does not pause server-side execution while auth is pending with a token', () => {
     expect(
       createQueryExecutionGate({
         authEnabled: true,
         authMode: 'auto',
         authPending: true,
-        hasAuthToken: false,
+        hasAuthToken: true,
         isClient: false,
         skipped: false,
         subscribe: true,
@@ -76,6 +76,27 @@ describe('createQueryExecutionGate', () => {
       resolveAsIdle: false,
       setupLiveSubscription: true,
     })
+  })
+
+  it('resolves signed-out identically on server and client (SSR hydration parity)', () => {
+    // Regression: the server used to proceed for a signed-out auth query
+    // (baking a permanent "loading" state into SSR HTML) while the client
+    // resolved idle -> hydration text/class mismatches on every signed-out
+    // visit to a page with an auth:'auto' query.
+    const base = {
+      authEnabled: true,
+      authMode: 'auto' as const,
+      authPending: false,
+      hasAuthToken: false,
+      skipped: false,
+      subscribe: true,
+    }
+    const serverGate = createQueryExecutionGate({ ...base, isClient: false })
+    const clientGate = createQueryExecutionGate({ ...base, isClient: true })
+
+    expect(serverGate).toMatchObject({ pendingReason: 'auth-signed-out', resolveAsIdle: true })
+    expect(serverGate.pendingReason).toBe(clientGate.pendingReason)
+    expect(serverGate.resolveAsIdle).toBe(clientGate.resolveAsIdle)
   })
 
   it('does not set up live subscriptions when subscribe is false', () => {
