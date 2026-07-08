@@ -1292,7 +1292,7 @@ Implemented in `refactor-progress.md` under "Round 2 corrections —
 2026-07-08", appended after the original Phase 6 notes so the original review
 history remains visible.
 
-### TODO 6.2 — Full final gate `[ ]`
+### TODO 6.2 — Full final gate `[x]`
 
 Serially:
 
@@ -1306,19 +1306,65 @@ git status                        # expect clean
 
 Record final test count (baseline was 488; expect meaningfully more).
 
-### TODO 6.3 — Restore-and-retest sweep record `[ ]`
+Final gate passed on 2026-07-08:
+
+- `pnpm lint` PASS.
+- `pnpm format:check` PASS.
+- `pnpm test:types` PASS.
+- `pnpm test` PASS: 71 files / 532 tests.
+- `pnpm check:contracts` PASS: API-surface docs, package exports, workspace
+  dependency alignment, consumer-smoke, missing-convex-api, and
+  better-auth-local-component.
+- `pnpm prepack` PASS. It emits the expected local `siteUrl` warning during
+  Nuxt prepare, then validates `dist` exports.
+- `node scripts/check-package-exports.mjs --dist` PASS: 278 files.
+- `rg -n "as any|: any\b|@ts-ignore" src/` zero hits.
+- `rg -n "\.value" docs/content | grep -F "can("` zero hits.
+- `rg -n "organizations: defineTable|role: roleValidator|users\.role|users\.organizationId|Authoritative permissions/business data|authoritative roles/org membership|store/query them in Convex tables" docs/content demo/convex`
+  zero hits.
+- Dist prune assertion PASS:
+  `dist/runtime/devtools/.output`, `dist/runtime/server/tsconfig.json`, and
+  `dist/runtime/devtools/ui/app.vue` are absent; only
+  `dist/runtime/devtools/ui/dist` remains under `dist/runtime/devtools/ui`.
+
+### TODO 6.3 — Restore-and-retest sweep record `[x]`
 
 Consolidate every `X revert -> FAILS: <test>` line from the phase gates into
 one matrix here. Every Phase 1–4 code fix must have an entry. Any fix without
 a failing-test entry is NOT done — go back.
 
-### TODO 6.4 — Runtime smoke (best effort) `[ ]`
+| Fix                                       | Restore-and-retest result                                                                                                                                                                                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1 signed-out keepPreviousData gate      | Revert fails `drops keepPreviousData component data through the real sign-out pending pulse (Part A)`.                                                                                                                                                                                            |
+| 1.2 default-factory resurrection guard    | Revert fails `does not resurrect keepPreviousData when sign-out purge re-runs the default factory`.                                                                                                                                                                                               |
+| 1.3 auth-mode cache key dimension         | Revert fails `does not alias the same query mounted as auth:auto and auth:none` and `does not alias paginated first-page subscriptions mounted as auth:auto and auth:none`.                                                                                                                       |
+| 1.3 auth payload/live-key registry        | Revert fails `keeps only keys consumed exclusively by auth:none queries`, `drops stale private payload keys and keeps mounted public query data`, and `keeps public subscribe:false payloads during sign-out purge`.                                                                              |
+| 1.4 sign-out blanket-clear removal        | Revert fails `clears shared query subscriptions only after Better Auth signOut succeeds` and `keeps identity and subscriptions when Better Auth signOut fails`.                                                                                                                                   |
+| 1.4 serialized generation-gated teardown  | Revert fails `clears identity even when refreshAuth starts during signOut`.                                                                                                                                                                                                                       |
+| 2.1 loadMore during refresh guard         | Revert fails `loadMore() is ignored while refresh() is rebuilding the page chain`.                                                                                                                                                                                                                |
+| 2.1 refresh reentrancy guard              | Revert fails `deduplicates concurrent refresh() calls`.                                                                                                                                                                                                                                           |
+| 2.1 stale refresh catch gate              | Revert fails `does not let stale refresh errors pollute a newer args view` and unauthorized-recovery refresh coverage.                                                                                                                                                                            |
+| 2.2 refresh subscription re-bind          | Revert fails `refresh() re-binds live page subscriptions to fresh chained cursors`.                                                                                                                                                                                                               |
+| 2.3 same-token auth-refresh preservation  | Revert fails `preserves loaded pages across a same-token auth refresh pending pulse`.                                                                                                                                                                                                             |
+| 3.1 primary subscription gate             | Revert fails `does not enter subscription setup while auth:auto is signed out`.                                                                                                                                                                                                                   |
+| 3.3 generated-type optional args contract | Weakening `ConvexQueryRest` to make args always optional fails `pnpm test:types` with the required `@ts-expect-error` contract.                                                                                                                                                                   |
+| 4.1 token-bearing no-store override       | Revert fails `forces no-store on token-bearing auth responses after forwarding upstream headers`.                                                                                                                                                                                                 |
+| 4.2 auth-cache revocation matcher         | Revert fails `clears the cached token for Better Auth revocation route /revoke-session` and `detects trailing-slash revocation without changing the upstream proxy target`.                                                                                                                       |
+| 4.3 redirect credential stripping         | Revert fails `strips the authorization header on a followed cross-origin canonical redirect (F-27)` and `does not forward final Set-Cookie after a followed canonical redirect`.                                                                                                                  |
+| 5.1 boolean permissions API               | Reverting `can()` to `ComputedRef<boolean>` fails `derives auth context and keeps can() reactive across permission updates`; reverting the redirect helper to a setup-time boolean fails `does not redirect when authenticated user is authorized`.                                               |
+| 5.4 config defaults                       | Reverting `useConvexUser()` to `options.subscribe ?? true` fails `uses configured default subscribe:false when no per-call subscribe option is passed`; reverting server utilities to `options?.auth ?? 'auto'` fails `uses configured default auth:none when no per-call auth option is passed`. |
+
+### TODO 6.4 — Runtime smoke (best effort) `[x]`
 
 If `playground/.env.local` + a live Convex deployment are available:
 `pnpm test:e2e`, plus a manual drive of the headline scenario (sign in →
 mount a `keepPreviousData: true` private query → sign out → confirm the data
 blanks; sign in as a different user → confirm no stale data). If no live
 deployment: record "e2e skipped — no deployment" here. Do not fabricate.
+
+E2E skipped — no deployment. `playground/.env.local` is absent in this
+worktree, so there is no live Convex deployment configuration for
+`pnpm test:e2e` or a manual auth/query drive.
 
 ---
 
