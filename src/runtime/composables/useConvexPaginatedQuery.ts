@@ -14,6 +14,7 @@ import {
 
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
+import type { ConvexQueryRest } from '../utils/args-tuple'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
@@ -941,9 +942,13 @@ export async function useConvexPaginatedQuery<
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
+  ...rest: ConvexQueryRest<
+    PaginatedQueryArgs<Query>,
+    MaybeRefOrGetter<Args>,
+    UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>
+  >
 ): Promise<UseConvexPaginatedQueryData<TransformedItem>> {
+  const [args, options] = rest
   const { resultData, resolvePromise } = createConvexPaginatedQueryState(
     query,
     args,

@@ -14,6 +14,7 @@ import {
 
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 
+import type { ConvexQueryRest } from '../utils/args-tuple'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
@@ -708,9 +709,13 @@ export async function useConvexQuery<
   DataT = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>,
+  ...rest: ConvexQueryRest<
+    FunctionArgs<Query>,
+    MaybeRefOrGetter<Args>,
+    UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
+  >
 ): Promise<UseConvexQueryData<DataT>> {
+  const [args, options] = rest
   const { resultData, resolvePromise } = createConvexQueryState(query, args, options, false)
   await resolvePromise
   return resultData

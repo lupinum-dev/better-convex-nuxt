@@ -4,6 +4,7 @@ import { computed } from 'vue'
 
 import { toValue } from '#imports'
 
+import type { ConvexQueryRest } from '../utils/args-tuple'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvexAuth, type ConvexUser } from './useConvexAuth'
 import { createConvexQueryState, type ConvexQueryArgs } from './useConvexQuery'
@@ -64,9 +65,13 @@ export function useConvexUser<
   User = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<Args>,
-  options: UseConvexUserOptions<FunctionReturnType<Query>, User> = {},
+  ...rest: ConvexQueryRest<
+    FunctionArgs<Query>,
+    MaybeRefOrGetter<Args>,
+    UseConvexUserOptions<FunctionReturnType<Query>, User>
+  >
 ): UseConvexUserReturn<User> {
+  const [args, options = {}] = rest
   const auth = useConvexAuth()
   const seedFromSession = options.seedFromSession ?? true
   const canonicalSource = options.source ?? 'better-auth'

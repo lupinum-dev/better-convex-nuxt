@@ -1,9 +1,9 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { effectScope } from 'vue'
-import type { MaybeRefOrGetter } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
+import type { SharedQueryArgsField } from '../utils/args-tuple'
 import { getFunctionName, hashArgs } from '../utils/convex-shared'
 import {
   createConvexQueryState,
@@ -71,20 +71,18 @@ function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryR
   return app._convexSharedQueryRegistry!
 }
 
-export interface DefineSharedConvexQueryOptions<
+export type DefineSharedConvexQueryOptions<
   Query extends FunctionReference<'query'>,
   Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
-> {
+> = {
   /** Stable app-level key used to share a single query state instance. */
   key: string
   /** Convex query reference. */
   query: Query
-  /** Query args (supports refs/getters, including nullable disable semantics). */
-  args?: MaybeRefOrGetter<Args>
   /** Same options as useConvexQuery. */
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, DataT>
-}
+} & SharedQueryArgsField<Query, Args>
 
 /**
  * Create a shared query composable that initializes once per Nuxt app/request.

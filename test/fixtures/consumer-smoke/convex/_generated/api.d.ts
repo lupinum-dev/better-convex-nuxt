@@ -30,6 +30,12 @@ export declare const api: {
       { paginationOpts: { numItems: number; cursor: string | null } },
       PaginationResult<string>
     >
+    listPaginatedByOwner: FunctionReference<
+      'query',
+      'public',
+      { owner: string; paginationOpts: { numItems: number; cursor: string | null } },
+      PaginationResult<string>
+    >
     create: FunctionReference<'mutation', 'public', { text: string }, string>
     remove: FunctionReference<'mutation', 'public', { id: string }, null>
   }

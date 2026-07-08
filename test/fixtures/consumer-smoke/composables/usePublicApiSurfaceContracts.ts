@@ -126,3 +126,46 @@ export async function usePublicApiSurfaceContracts(file: File) {
     ]
   >()
 }
+
+/**
+ * Negative-space call-arity contracts (F-5 / F-23). These calls must NOT
+ * compile; reverting the conditional rest-tuple makes the `@ts-expect-error`
+ * lines fail `check:consumer-smoke`. The function is never invoked at runtime.
+ */
+async function _requiredArgsContracts() {
+  // --- useConvexQuery: required args must be required, wrong shape rejected ---
+  // Positive: no-arg queries accept zero args.
+  void useConvexQuery(api.tasks.list)
+  // Positive: correct required args compile.
+  void useConvexQuery(api.files.getUrl, { storageId: 'file_1' })
+  // @ts-expect-error required args must not be omittable (F-5)
+  void useConvexQuery(api.files.getUrl)
+  // @ts-expect-error wrong arg shape must not compile (F-5)
+  void useConvexQuery(api.files.getUrl, { wrong: 1 })
+
+  // --- useConvexPaginatedQuery ---
+  // Positive: paginated query with no extra args accepts zero args.
+  void useConvexPaginatedQuery(api.tasks.listPaginated)
+  // Positive: correct required extra args compile.
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { owner: 'user_1' })
+  // @ts-expect-error required paginated args must not be omittable (F-5)
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner)
+  // @ts-expect-error wrong paginated arg shape must not compile (F-5)
+  void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { wrong: 1 })
+
+  // --- useConvexUser ---
+  // Positive: no-arg canonical user query accepts zero args.
+  void useConvexUser(api.auth.viewer)
+  // @ts-expect-error required args must not be omittable (F-5)
+  void useConvexUser(api.files.getUrl)
+  // @ts-expect-error wrong arg shape must not compile (F-5)
+  void useConvexUser(api.files.getUrl, { wrong: 1 })
+
+  // --- defineSharedConvexQuery: args field conditionally required ---
+  // Positive: no-arg query may omit the args field.
+  defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list })
+  // @ts-expect-error required args field must not be omittable (F-5)
+  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl })
+  // @ts-expect-error wrong args field shape must not compile (F-5)
+  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl, args: { wrong: 1 } })
+}

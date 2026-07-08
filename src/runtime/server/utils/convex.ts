@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
+import type { ConvexQueryRest } from '../../utils/args-tuple'
 import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
@@ -197,9 +198,9 @@ async function executeConvexOperation<T>(
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
   event: H3Event,
   query: Query,
-  args?: FunctionArgs<Query>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Query>, FunctionArgs<Query>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Query>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(query)
   return await executeConvexOperation<FunctionReturnType<Query>>(
     event,
@@ -213,9 +214,9 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
 export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   event: H3Event,
   mutation: Mutation,
-  args?: FunctionArgs<Mutation>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Mutation>, FunctionArgs<Mutation>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Mutation>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(mutation)
   return await executeConvexOperation<FunctionReturnType<Mutation>>(
     event,
@@ -229,9 +230,9 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
 export async function serverConvexAction<Action extends FunctionReference<'action'>>(
   event: H3Event,
   action: Action,
-  args?: FunctionArgs<Action>,
-  options?: ServerConvexOptions,
+  ...rest: ConvexQueryRest<FunctionArgs<Action>, FunctionArgs<Action>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Action>> {
+  const [args, options] = rest
   const functionPath = getFunctionName(action)
   return await executeConvexOperation<FunctionReturnType<Action>>(
     event,
