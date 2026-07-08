@@ -11,7 +11,7 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
  * useConvexAuth() no longer constructs a throwaway auth engine when
  * `$convexAuthEngine` is missing (F-34) — that provisioning is
  * `plugin.client.ts`'s job in real apps. Tests that want to exercise the
- * *real* client-engine signOut/refreshAuth logic (not a stub) must wire it
+ * real client-engine signOut/refreshAuth logic (not a stub) must wire it
  * up the same way the plugin does: a real engine sharing the composable's
  * own useState-backed token/user/pending/authError refs.
  */
