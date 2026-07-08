@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.4.0...v0.5.0)
+
+### 🩹 Fixes
+
+- Remove unnecessary override for parent workspace in pnpm configuration ([7f6b2bb0](https://github.com/lupinum-dev/better-convex-nuxt/commit/7f6b2bb0))
+
+### 💅 Refactors
+
+- Simplify landing feature syntax in documentation ([eef25d41](https://github.com/lupinum-dev/better-convex-nuxt/commit/eef25d41))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
 ## v0.3.4
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.0...v0.3.4)

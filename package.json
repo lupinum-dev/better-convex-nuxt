@@ -1,6 +1,6 @@
 {
   "name": "better-convex-nuxt",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and permissions",
   "keywords": [
     "authentication",
@@ -65,7 +65,7 @@
     "dev:build": "nuxi build --cwd playground --dotenv .env.local",
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
-    "release": "npm run lint && npm run test:types && npm run check:contracts && npm run test && npm run prepack && git tag -l | xargs git tag -d && git fetch --tags origin && changelogen --release && npm publish && git push --follow-tags",
+    "release": "node scripts/release.mjs",
     "lint": "npm run check:no-legacy-query-api && npm run check:no-legacy-call-api && npm run check:no-legacy-generated-api-imports && npm run check:no-stale-doc-imports && npm run check:no-query-composables-in-middleware && npm run check:no-use-route-in-middleware && npm run check:no-middleware-query-docs && npm run check:no-app-owned-org-docs && npm run check:no-starter-generated-artifacts && eslint .",
     "check:contracts": "npm run check:api-surface-docs && npm run check:package-exports && npm run check:workspace-deps && npm run check:consumer-smoke && npm run check:missing-convex-api && npm run check:better-auth-local-component",
     "check:package-exports": "node scripts/check-package-exports.mjs",
