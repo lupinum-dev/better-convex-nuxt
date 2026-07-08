@@ -844,6 +844,18 @@ Implemented in this slice:
 
 Full §0.1 gate. Record: new posts test count, contracts adjusted in 3.3.
 
+Phase 3 exit gate:
+
+- New posts suite: `playground/convex/posts.test.ts` has 15 tests.
+- 3.3 contracts adjusted: consumer-smoke argless generated API fixture now uses
+  `{}`; consumer-smoke and unit type contracts reject paginated options in the
+  args slot.
+- `pnpm lint` PASS
+- `pnpm format:check` PASS
+- `pnpm test:types` PASS
+- `pnpm test` PASS: 71 files, 522 tests
+- `pnpm check:contracts` PASS
+
 ---
 
 ## Phase 4 — Security surfaces

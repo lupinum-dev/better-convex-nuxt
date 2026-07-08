@@ -83,7 +83,11 @@ type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], Compute
 // `@ts-expect-error` lines fail `test:types`. `_arityContracts` is never called.
 // ============================================================================
 
-declare const noArgQuery: FunctionReference<'query', 'public', {}, string[]>
+// Convex codegen emits `{}` for argless functions.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type ConvexGeneratedEmptyArgs = {}
+
+declare const noArgQuery: FunctionReference<'query', 'public', ConvexGeneratedEmptyArgs, string[]>
 declare const reqArgQuery: FunctionReference<'query', 'public', { id: string }, string>
 declare const noArgPaginated: FunctionReference<
   'query',
