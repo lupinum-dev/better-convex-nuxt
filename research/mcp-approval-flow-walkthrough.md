@@ -41,14 +41,14 @@ Only `projects.delete.execute` is destructive.
 
 The MCP starter should not force every tool into the same flow. Each operation composes only the blocks it needs.
 
-| Operation type | Example | Human sees | Agent sees | Required blocks |
-| --- | --- | --- | --- | --- |
-| Read | list projects | nothing unless app shows activity | data or blocked reason | authz, query |
-| Low-risk write | create project | new project and audit activity | executed result | authz, policy, execute, audit |
-| Previewable write | create project with normalized input | optional preview in chat | normalized input, effects, next action | authz, policy, preview, execute, audit |
-| Reversible soft delete | delete personal note | note in trash with undo | executed result and restore tool | authz, policy, preview, execute, audit, undo |
-| Sensitive delete | delete organization project | approval card, then deleted project | waiting, approved, executed states | authz, policy, preview, approval, execute, audit |
-| Blocked action | delete other user's note | nothing changed | blocked reason and next action | authz, policy |
+| Operation type         | Example                              | Human sees                          | Agent sees                             | Required blocks                                  |
+| ---------------------- | ------------------------------------ | ----------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| Read                   | list projects                        | nothing unless app shows activity   | data or blocked reason                 | authz, query                                     |
+| Low-risk write         | create project                       | new project and audit activity      | executed result                        | authz, policy, execute, audit                    |
+| Previewable write      | create project with normalized input | optional preview in chat            | normalized input, effects, next action | authz, policy, preview, execute, audit           |
+| Reversible soft delete | delete personal note                 | note in trash with undo             | executed result and restore tool       | authz, policy, preview, execute, audit, undo     |
+| Sensitive delete       | delete organization project          | approval card, then deleted project | waiting, approved, executed states     | authz, policy, preview, approval, execute, audit |
+| Blocked action         | delete other user's note             | nothing changed                     | blocked reason and next action         | authz, policy                                    |
 
 The backend decides which row applies. The agent receives structured feedback and follows `nextActions`; it does not decide whether approval is required.
 
@@ -107,7 +107,7 @@ Agent calls:
 
 ```ts
 projects.delete.preview({
-  projectId: "project_123"
+  projectId: 'project_123',
 })
 ```
 
@@ -180,9 +180,9 @@ Agent calls:
 
 ```ts
 projects.delete.requestApproval({
-  projectId: "project_123",
-  reason: "User asked to delete Launch Plan from chat.",
-  requestKey: "chatcmpl_abc_project_123_delete"
+  projectId: 'project_123',
+  reason: 'User asked to delete Launch Plan from chat.',
+  requestKey: 'chatcmpl_abc_project_123_delete',
 })
 ```
 
@@ -315,7 +315,7 @@ App calls Convex:
 
 ```ts
 approvals.approve({
-  approvalRequestId: "approval_456"
+  approvalRequestId: 'approval_456',
 })
 ```
 
@@ -350,7 +350,7 @@ Agent can poll:
 
 ```ts
 approvals.get({
-  approvalRequestId: "approval_456"
+  approvalRequestId: 'approval_456',
 })
 ```
 
@@ -384,8 +384,8 @@ Agent calls:
 
 ```ts
 projects.delete.execute({
-  projectId: "project_123",
-  approvalId: "approval_456"
+  projectId: 'project_123',
+  approvalId: 'approval_456',
 })
 ```
 
@@ -465,8 +465,8 @@ Same as Scenario 1:
 
 ```ts
 projects.delete.requestApproval({
-  projectId: "project_123",
-  reason: "User asked to delete Launch Plan."
+  projectId: 'project_123',
+  reason: 'User asked to delete Launch Plan.',
 })
 ```
 
@@ -499,8 +499,8 @@ App calls:
 
 ```ts
 approvals.reject({
-  approvalRequestId: "approval_456",
-  reason: "This project is still needed for Q3 launch."
+  approvalRequestId: 'approval_456',
+  reason: 'This project is still needed for Q3 launch.',
 })
 ```
 
@@ -521,7 +521,7 @@ Agent calls:
 
 ```ts
 approvals.get({
-  approvalRequestId: "approval_456"
+  approvalRequestId: 'approval_456',
 })
 ```
 
@@ -550,8 +550,8 @@ If the agent still calls execute:
 
 ```ts
 projects.delete.execute({
-  projectId: "project_123",
-  approvalId: "approval_456"
+  projectId: 'project_123',
+  approvalId: 'approval_456',
 })
 ```
 
@@ -595,7 +595,7 @@ The agent calls:
 
 ```ts
 approvals.get({
-  approvalRequestId: "approval_456"
+  approvalRequestId: 'approval_456',
 })
 ```
 
@@ -623,8 +623,8 @@ Agent calls:
 
 ```ts
 projects.delete.execute({
-  projectId: "project_123",
-  approvalId: "approval_456"
+  projectId: 'project_123',
+  approvalId: 'approval_456',
 })
 ```
 
@@ -658,7 +658,7 @@ Agent calls:
 
 ```ts
 projects.delete.preview({
-  projectId: "project_123"
+  projectId: 'project_123',
 })
 ```
 
@@ -722,8 +722,8 @@ Agent calls:
 
 ```ts
 projects.delete.execute({
-  projectId: "project_123",
-  approvalId: "approval_456"
+  projectId: 'project_123',
+  approvalId: 'approval_456',
 })
 ```
 
@@ -767,8 +767,8 @@ Agent retries with same `requestKey`:
 
 ```ts
 projects.delete.requestApproval({
-  projectId: "project_123",
-  requestKey: "chatcmpl_abc_project_123_delete"
+  projectId: 'project_123',
+  requestKey: 'chatcmpl_abc_project_123_delete',
 })
 ```
 
@@ -802,7 +802,7 @@ Agent calls:
 
 ```ts
 projects.create.preview({
-  name: " Launch Plan "
+  name: ' Launch Plan ',
 })
 ```
 
@@ -857,7 +857,7 @@ Agent calls:
 
 ```ts
 projects.create({
-  name: "Launch Plan"
+  name: 'Launch Plan',
 })
 ```
 
@@ -898,7 +898,7 @@ Agent calls:
 
 ```ts
 notes.list({
-  query: "scratch idea"
+  query: 'scratch idea',
 })
 ```
 
@@ -931,7 +931,7 @@ Agent calls:
 
 ```ts
 notes.delete.preview({
-  noteId: "note_123"
+  noteId: 'note_123',
 })
 ```
 
@@ -993,7 +993,7 @@ Agent calls:
 
 ```ts
 notes.delete.soft({
-  noteId: "note_123"
+  noteId: 'note_123',
 })
 ```
 
@@ -1051,7 +1051,7 @@ Agent calls:
 
 ```ts
 projects.delete.requestApproval({
-  projectId: "project_123"
+  projectId: 'project_123',
 })
 ```
 
@@ -1088,8 +1088,8 @@ Agent calls:
 
 ```ts
 projects.delete.execute({
-  projectId: "project_123",
-  approvalId: "fake_approval"
+  projectId: 'project_123',
+  approvalId: 'fake_approval',
 })
 ```
 

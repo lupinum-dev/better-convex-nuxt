@@ -16,9 +16,7 @@ type _HasMemberTable = Assert<HasTable<BetterAuthDataModel, 'member'>>
 type _HasInvitationTable = Assert<HasTable<BetterAuthDataModel, 'invitation'>>
 type _HasApiKeyTable = Assert<HasTable<BetterAuthDataModel, 'apikey'>>
 
-export async function assertLocalComponentHelpersCompile(
-  ctx: Parameters<typeof createAuth>[0],
-) {
+export async function assertLocalComponentHelpersCompile(ctx: Parameters<typeof createAuth>[0]) {
   const { auth, headers } = await authComponent.getAuth(createAuth, ctx)
   const user = await authComponent.safeGetAuthUser(ctx)
 

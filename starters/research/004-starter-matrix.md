@@ -17,14 +17,14 @@ starters/app --preset team --enable-agency --enable-mcp
 
 ## Matrix
 
-| Starter | Auth | Org | Delegated Access | MCP | Agents | Approval | Best For |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `public` | No | No | No | No | No | No | Public CRUD, demos, marketing-backed tools |
-| `personal` | Yes | No | No | No | Optional recipe | No | Solo dashboards and private tools |
-| `team` | Yes | Yes | No | No | Optional recipe | For sensitive app writes | B2B SaaS baseline |
-| `agency` | Yes | Yes | Yes | Optional recipe | Optional recipe | For delegated/sensitive writes | Agencies, client portals |
-| `mcp-agent` | Yes | Yes | Optional | Yes | Yes | Yes | Agent-enabled SaaS |
-| `vertical-ai` | Yes | Usually | Optional | Optional | Yes | Yes | AI-assisted vertical SaaS |
+| Starter       | Auth | Org     | Delegated Access | MCP             | Agents          | Approval                       | Best For                                   |
+| ------------- | ---- | ------- | ---------------- | --------------- | --------------- | ------------------------------ | ------------------------------------------ |
+| `public`      | No   | No      | No               | No              | No              | No                             | Public CRUD, demos, marketing-backed tools |
+| `personal`    | Yes  | No      | No               | No              | Optional recipe | No                             | Solo dashboards and private tools          |
+| `team`        | Yes  | Yes     | No               | No              | Optional recipe | For sensitive app writes       | B2B SaaS baseline                          |
+| `agency`      | Yes  | Yes     | Yes              | Optional recipe | Optional recipe | For delegated/sensitive writes | Agencies, client portals                   |
+| `mcp-agent`   | Yes  | Yes     | Optional         | Yes             | Yes             | Yes                            | Agent-enabled SaaS                         |
+| `vertical-ai` | Yes  | Usually | Optional         | Optional        | Yes             | Yes                            | AI-assisted vertical SaaS                  |
 
 ## Recommended Build Order
 

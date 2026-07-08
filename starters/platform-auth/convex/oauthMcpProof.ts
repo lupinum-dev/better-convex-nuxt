@@ -71,9 +71,7 @@ export const listProjectsForOAuthClient = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query('oauthProjects')
-      .withIndex('createdByOAuthClientId', (q) =>
-        q.eq('createdByOAuthClientId', args.clientId),
-      )
+      .withIndex('createdByOAuthClientId', (q) => q.eq('createdByOAuthClientId', args.clientId))
       .collect()
   },
 })

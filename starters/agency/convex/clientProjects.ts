@@ -7,13 +7,13 @@ import { writeAuditEvent } from './audit'
 export const listForClient = query({
   args: {
     clientOrganizationId: v.id('organizations'),
-    agencyOrganizationId: v.optional(v.id('organizations'))
+    agencyOrganizationId: v.optional(v.id('organizations')),
   },
   handler: async (ctx, args) => {
     if (args.agencyOrganizationId) {
       await requireDelegatedClientAccess(ctx, {
         agencyOrganizationId: args.agencyOrganizationId,
-        clientOrganizationId: args.clientOrganizationId
+        clientOrganizationId: args.clientOrganizationId,
       })
     } else {
       await requireOrgMember(ctx, args.clientOrganizationId)
@@ -24,14 +24,14 @@ export const listForClient = query({
       .withIndex('by_client', (q) => q.eq('clientOrganizationId', args.clientOrganizationId))
       .order('desc')
       .collect()
-  }
+  },
 })
 
 export const createForClient = mutation({
   args: {
     agencyOrganizationId: v.id('organizations'),
     clientOrganizationId: v.id('organizations'),
-    name: v.string()
+    name: v.string(),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim()
@@ -45,7 +45,7 @@ export const createForClient = mutation({
       name,
       createdBy: access.user._id,
       actingFromOrganizationId: args.agencyOrganizationId,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
 
     await writeAuditEvent(ctx, {
@@ -54,10 +54,9 @@ export const createForClient = mutation({
       accessPath: 'delegated',
       action: 'clientProjects.create',
       resourceType: 'clientProject',
-      resourceId: projectId
+      resourceId: projectId,
     })
 
     return projectId
-  }
+  },
 })
-

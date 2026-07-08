@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+
 import type { EnhancedAuthState, AuthWaterfall, ConvexUser } from '../../types'
-import JsonViewer from './JsonViewer.vue'
 import AuthWaterfallComponent from './AuthWaterfall.vue'
+import JsonViewer from './JsonViewer.vue'
 
 const props = defineProps<{
   authState: EnhancedAuthState | null

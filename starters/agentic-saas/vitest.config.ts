@@ -17,4 +17,3 @@ export default defineConfig({
     include: ['convex/**/*.test.ts'],
   },
 })
-

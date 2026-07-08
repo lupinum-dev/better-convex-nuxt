@@ -8,12 +8,12 @@ export default defineConfig({
         module: 'ESNext',
         moduleResolution: 'Bundler',
         strict: true,
-        types: ['vite/client']
-      }
-    }
+        types: ['vite/client'],
+      },
+    },
   },
   test: {
     environment: 'node',
-    include: ['convex/**/*.test.ts']
-  }
+    include: ['convex/**/*.test.ts'],
+  },
 })

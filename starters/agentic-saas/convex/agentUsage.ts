@@ -67,10 +67,7 @@ function requireUsageTokens(args: {
     throw new ConvexError('Agent usage totalTokens must cover prompt and completion tokens')
   }
 
-  if (
-    args.cachedInputTokens !== undefined &&
-    args.cachedInputTokens > args.promptTokens
-  ) {
+  if (args.cachedInputTokens !== undefined && args.cachedInputTokens > args.promptTokens) {
     throw new ConvexError('Agent usage cachedInputTokens cannot exceed promptTokens')
   }
 }

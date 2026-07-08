@@ -13,12 +13,12 @@ async function seedReviewer(t: ReturnType<typeof convexTest>, subject: string) {
       name: subject,
       email: `${subject}@example.com`,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
     const organizationId = await ctx.db.insert('organizations', {
       name: 'Acme',
       createdBy: userId,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     })
     await ctx.db.insert('memberships', {
       organizationId,
@@ -26,7 +26,7 @@ async function seedReviewer(t: ReturnType<typeof convexTest>, subject: string) {
       role: 'reviewer',
       status: 'active',
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     })
     return { userId, organizationId }
   })
@@ -37,7 +37,7 @@ async function seedDraft(t: ReturnType<typeof convexTest>, organizationId: Id<'o
     organizationId,
     title: 'Draft',
     body: 'Draft body',
-    sourceThreadId: 'thread_1'
+    sourceThreadId: 'thread_1',
   })
 }
 
@@ -64,10 +64,12 @@ describe('vertical-ai starter invariants', () => {
     const { organizationId } = await seedReviewer(t, 'reviewer')
     const draftId = await seedDraft(t, organizationId)
 
-    const recordId = await t.withIdentity({ subject: 'reviewer' }).mutation(api.approvals.approveDraft, {
-      organizationId,
-      draftId
-    })
+    const recordId = await t
+      .withIdentity({ subject: 'reviewer' })
+      .mutation(api.approvals.approveDraft, {
+        organizationId,
+        draftId,
+      })
 
     const records = await t.run(async (ctx) => await ctx.db.query('domainRecords').collect())
     expect(records.find((record) => record._id === recordId)?.sourceDraftId).toBe(draftId)
@@ -80,14 +82,14 @@ describe('vertical-ai starter invariants', () => {
 
     await t.withIdentity({ subject: 'reviewer' }).mutation(api.approvals.rejectDraft, {
       organizationId,
-      draftId
+      draftId,
     })
 
     await expect(
       t.withIdentity({ subject: 'reviewer' }).mutation(api.approvals.approveDraft, {
         organizationId,
-        draftId
-      })
+        draftId,
+      }),
     ).rejects.toThrow('Only pending drafts can be approved')
   })
 
@@ -98,7 +100,7 @@ describe('vertical-ai starter invariants', () => {
 
     await t.withIdentity({ subject: 'reviewer' }).mutation(api.approvals.approveDraft, {
       organizationId,
-      draftId
+      draftId,
     })
 
     const events = await t.run(async (ctx) => await ctx.db.query('auditEvents').collect())

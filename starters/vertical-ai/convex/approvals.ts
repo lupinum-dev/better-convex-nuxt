@@ -7,7 +7,7 @@ import { writeAuditEvent } from './audit'
 export const approveDraft = mutation({
   args: {
     organizationId: v.id('organizations'),
-    draftId: v.id('drafts')
+    draftId: v.id('drafts'),
   },
   handler: async (ctx, args) => {
     const { user } = await requireOrgAccess(ctx, args.organizationId, 'reviewer')
@@ -27,12 +27,12 @@ export const approveDraft = mutation({
       body: draft.body,
       sourceDraftId: draft._id,
       approvedBy: user._id,
-      createdAt: now
+      createdAt: now,
     })
 
     await ctx.db.patch(draft._id, {
       status: 'approved',
-      decidedAt: now
+      decidedAt: now,
     })
 
     await writeAuditEvent(ctx, {
@@ -40,17 +40,17 @@ export const approveDraft = mutation({
       actorUserId: user._id,
       action: 'drafts.approve',
       sourceDraftId: draft._id,
-      domainRecordId
+      domainRecordId,
     })
 
     return domainRecordId
-  }
+  },
 })
 
 export const rejectDraft = mutation({
   args: {
     organizationId: v.id('organizations'),
-    draftId: v.id('drafts')
+    draftId: v.id('drafts'),
   },
   handler: async (ctx, args) => {
     const { user } = await requireOrgAccess(ctx, args.organizationId, 'reviewer')
@@ -66,14 +66,14 @@ export const rejectDraft = mutation({
     const now = Date.now()
     await ctx.db.patch(draft._id, {
       status: 'rejected',
-      decidedAt: now
+      decidedAt: now,
     })
 
     await writeAuditEvent(ctx, {
       organizationId: args.organizationId,
       actorUserId: user._id,
       action: 'drafts.reject',
-      sourceDraftId: draft._id
+      sourceDraftId: draft._id,
     })
-  }
+  },
 })

@@ -51,10 +51,7 @@ describe('upload queue state helpers', () => {
 
     expect(
       normalizeUploadQueueEnqueueInput(
-        [
-          { file: first, mutationArgs: { folder: 'first' } },
-          { file: second },
-        ],
+        [{ file: first, mutationArgs: { folder: 'first' } }, { file: second }],
         { folder: 'fallback' },
       ),
     ).toEqual([
@@ -64,9 +61,9 @@ describe('upload queue state helpers', () => {
   })
 
   it('rejects unsupported enqueue input shapes', () => {
-    expect(() =>
-      normalizeUploadQueueEnqueueInput([{ file: 'not-a-file' }] as never),
-    ).toThrow(/valid File/)
+    expect(() => normalizeUploadQueueEnqueueInput([{ file: 'not-a-file' }] as never)).toThrow(
+      /valid File/,
+    )
 
     expect(() => normalizeUploadQueueEnqueueInput({} as never)).toThrow(/Unsupported/)
   })

@@ -7,4 +7,3 @@ Keep this starter public and small.
 - Do not add MCP, agents, background jobs, or generic adapters.
 - Backend validation belongs in Convex functions.
 - UI state may be optimistic, but Convex remains the source of truth.
-

@@ -60,20 +60,20 @@ This library should make those boundaries obvious and boring.
 
 ### Source Of Truth Map
 
-| Concept | Owner | Stored Where | Notes |
-| --- | --- | --- | --- |
-| Auth user | Better Auth | Better Auth Convex component | App `users` table may be a trigger-derived projection only. |
-| Session | Better Auth | Better Auth Convex component | Convex JWT is derived from Better Auth session. |
-| Organization | Better Auth Organization | Better Auth Convex component | No app-owned organization mirror in SaaS templates. |
-| Member | Better Auth Organization | Better Auth Convex component | No app-owned membership mirror. |
-| Invitation | Better Auth Organization | Better Auth Convex component | Invitation lifecycle belongs to Better Auth. |
-| Role | Better Auth Organization | Better Auth component | Static roles by default; dynamic roles only when needed. |
-| API key | Better Auth API Key | Better Auth Convex component | Raw secrets never copied into app tables. |
-| Agent thread/message history | Convex Agent component | Convex Agent component | Useful infrastructure, not product authorization authority. |
-| Agent delegation/run | App | Convex app tables | Binds an agent run to an organization, delegating user, allowed capabilities, and lifecycle. |
-| Product tenant data | App | Convex app tables | Store Better Auth organization ids as strings. |
-| Product authorization | App Convex functions | Convex code calling Better Auth APIs | Frontend checks are display-only. |
-| Product audit log | App | Convex app tables | Immutable product history, including optional membership history events. |
+| Concept                      | Owner                    | Stored Where                         | Notes                                                                                        |
+| ---------------------------- | ------------------------ | ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Auth user                    | Better Auth              | Better Auth Convex component         | App `users` table may be a trigger-derived projection only.                                  |
+| Session                      | Better Auth              | Better Auth Convex component         | Convex JWT is derived from Better Auth session.                                              |
+| Organization                 | Better Auth Organization | Better Auth Convex component         | No app-owned organization mirror in SaaS templates.                                          |
+| Member                       | Better Auth Organization | Better Auth Convex component         | No app-owned membership mirror.                                                              |
+| Invitation                   | Better Auth Organization | Better Auth Convex component         | Invitation lifecycle belongs to Better Auth.                                                 |
+| Role                         | Better Auth Organization | Better Auth component                | Static roles by default; dynamic roles only when needed.                                     |
+| API key                      | Better Auth API Key      | Better Auth Convex component         | Raw secrets never copied into app tables.                                                    |
+| Agent thread/message history | Convex Agent component   | Convex Agent component               | Useful infrastructure, not product authorization authority.                                  |
+| Agent delegation/run         | App                      | Convex app tables                    | Binds an agent run to an organization, delegating user, allowed capabilities, and lifecycle. |
+| Product tenant data          | App                      | Convex app tables                    | Store Better Auth organization ids as strings.                                               |
+| Product authorization        | App Convex functions     | Convex code calling Better Auth APIs | Frontend checks are display-only.                                                            |
+| Product audit log            | App                      | Convex app tables                    | Immutable product history, including optional membership history events.                     |
 
 ### The Main Cutover Rule
 
@@ -753,11 +753,7 @@ export default defineSchema({
       v.literal('revoked'),
       v.literal('failed'),
     ),
-    mode: v.union(
-      v.literal('assistant'),
-      v.literal('delegated'),
-      v.literal('service'),
-    ),
+    mode: v.union(v.literal('assistant'), v.literal('delegated'), v.literal('service')),
     startedByAuthUserId: v.string(),
     actingAsAuthUserId: v.optional(v.string()),
     capabilities: v.array(
@@ -1010,14 +1006,8 @@ async function submit(prompt: string) {
 </script>
 
 <template>
-  <AgentThread
-    v-if="run"
-    :thread-id="run.threadId"
-    @submit="submit"
-  />
-  <button v-else @click="start">
-    Start assistant
-  </button>
+  <AgentThread v-if="run" :thread-id="run.threadId" @submit="submit" />
+  <button v-else @click="start">Start assistant</button>
 </template>
 ```
 
@@ -1077,20 +1067,20 @@ Only add these if they are generic Nuxt integration helpers. They must not encod
 
 ### Agent Security Footguns And Mitigations
 
-| Footgun | Mitigation |
-| --- | --- |
-| Agent tools call internal mutations that bypass normal product checks. | Tools call normal product functions or shared product helpers that enforce org/resource invariants. |
-| Agent run only stores `threadId`, so tools can be replayed against another organization. | Store `organizationId` on `agentRuns` and require every tool arg to match it. |
-| Scheduled/workflow execution assumes `ctx.auth` is still the user. | Store explicit delegation in `agentRuns`; workflows use that record, not ambient auth. |
-| Agent can use every tool registered on the Agent instance. | Pass bounded tools at run/thread/generation time and check `capabilities` inside each tool. |
-| Human approval is treated as authorization. | Approval mutation checks Better Auth org permission before approving. |
-| Prompt injection convinces the model to exfiltrate or mutate data. | Tool schemas and server-side guards define what is possible; prompts are never security boundaries. |
-| Agent messages leak secrets or private resource contents. | Redact tool outputs; return IDs/summaries instead of secrets; keep credentials out of thread history. |
-| Agent keeps acting after the user leaves the org or is demoted. | Re-check Better Auth permission for high-risk actions or revoke active runs on membership/role changes when hooks are available. |
-| Usage billing is attributed only to the thread user. | Usage handler records `organizationId`, `agentRunId`, `startedByAuthUserId`, model, provider, and tokens. |
-| Rate limiting is only per user. | Add per-organization and global token/message limits. |
-| Agent audit looks like a human directly performed the action. | Product audit stores `actor.kind = 'agent'` and `delegatedByAuthUserId`. |
-| Agent thread visibility trusts Agent component metadata only. | App queries verify thread belongs to an active `agentRun` in the requested organization. |
+| Footgun                                                                                  | Mitigation                                                                                                                       |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Agent tools call internal mutations that bypass normal product checks.                   | Tools call normal product functions or shared product helpers that enforce org/resource invariants.                              |
+| Agent run only stores `threadId`, so tools can be replayed against another organization. | Store `organizationId` on `agentRuns` and require every tool arg to match it.                                                    |
+| Scheduled/workflow execution assumes `ctx.auth` is still the user.                       | Store explicit delegation in `agentRuns`; workflows use that record, not ambient auth.                                           |
+| Agent can use every tool registered on the Agent instance.                               | Pass bounded tools at run/thread/generation time and check `capabilities` inside each tool.                                      |
+| Human approval is treated as authorization.                                              | Approval mutation checks Better Auth org permission before approving.                                                            |
+| Prompt injection convinces the model to exfiltrate or mutate data.                       | Tool schemas and server-side guards define what is possible; prompts are never security boundaries.                              |
+| Agent messages leak secrets or private resource contents.                                | Redact tool outputs; return IDs/summaries instead of secrets; keep credentials out of thread history.                            |
+| Agent keeps acting after the user leaves the org or is demoted.                          | Re-check Better Auth permission for high-risk actions or revoke active runs on membership/role changes when hooks are available. |
+| Usage billing is attributed only to the thread user.                                     | Usage handler records `organizationId`, `agentRunId`, `startedByAuthUserId`, model, provider, and tokens.                        |
+| Rate limiting is only per user.                                                          | Add per-organization and global token/message limits.                                                                            |
+| Agent audit looks like a human directly performed the action.                            | Product audit stores `actor.kind = 'agent'` and `delegatedByAuthUserId`.                                                         |
+| Agent thread visibility trusts Agent component metadata only.                            | App queries verify thread belongs to an active `agentRun` in the requested organization.                                         |
 
 ### Scenario Tests
 
@@ -1495,13 +1485,10 @@ import type { DataModel } from './_generated/dataModel'
 import authConfig from './auth.config'
 import authSchema from './betterAuth/schema'
 
-export const authComponent = createClient<DataModel, typeof authSchema>(
-  components.betterAuth,
-  {
-    local: { schema: authSchema },
-    authFunctions: internal.auth,
-  },
-)
+export const authComponent = createClient<DataModel, typeof authSchema>(components.betterAuth, {
+  local: { schema: authSchema },
+  authFunctions: internal.auth,
+})
 
 export const saasAccessControl = createAccessControl({
   organization: ['update', 'delete'],
@@ -1553,8 +1540,7 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
           member: memberRole,
           viewer: viewerRole,
         },
-        requireEmailVerificationOnInvitation:
-          process.env.ALLOW_TEST_RESET !== 'true',
+        requireEmailVerificationOnInvitation: process.env.ALLOW_TEST_RESET !== 'true',
       }),
       convex({ authConfig }),
     ],
@@ -1782,11 +1768,7 @@ const name = ref('')
 
 const projects = await useConvexQuery(
   api.projects.list,
-  computed(() =>
-    organizationId.value
-      ? { organizationId: organizationId.value }
-      : 'skip',
-  ),
+  computed(() => (organizationId.value ? { organizationId: organizationId.value } : 'skip')),
 )
 
 const createProject = useConvexMutation(api.projects.create)
@@ -1884,11 +1866,7 @@ import { apiKeyClient } from '@better-auth/api-key/client'
 import { createBetterConvexAuthClient } from '#imports'
 
 const authClient = createBetterConvexAuthClient({
-  plugins: [
-    organizationClient(),
-    adminClient(),
-    apiKeyClient(),
-  ],
+  plugins: [organizationClient(), adminClient(), apiKeyClient()],
 })
 
 export const useOrganizationActions = createOrganizationActions(authClient)

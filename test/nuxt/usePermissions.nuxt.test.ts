@@ -80,31 +80,31 @@ describe('usePermissions (Nuxt runtime)', () => {
       },
     })
 
-	    const { result } = await captureInNuxt(
-	      () => {
-	        const router = useRouter()
-	        const authPending = useState<boolean>('convex:pending')
-	        const token = useState<string | null>('convex:token')
-	        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
-	        authPending.value = true
+    const { result } = await captureInNuxt(
+      () => {
+        const router = useRouter()
+        const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
+        const pushSpy = vi.spyOn(router, 'push').mockImplementation(async () => undefined as never)
+        authPending.value = true
 
-	        usePermissionRedirect({
-	          permission: 'org.members',
-	          loginPath: '/auth/signin',
-	        })
+        usePermissionRedirect({
+          permission: 'org.members',
+          loginPath: '/auth/signin',
+        })
 
-	        return { authPending, pushSpy, token }
-	      },
-	      { convex },
-	    )
+        return { authPending, pushSpy, token }
+      },
+      { convex },
+    )
 
-	    expect(result.pushSpy).not.toHaveBeenCalled()
+    expect(result.pushSpy).not.toHaveBeenCalled()
 
-	    result.authPending.value = false
-	    result.token.value = 'test-token'
-	    await waitFor(() => convex.calls.onUpdate.length > 0)
+    result.authPending.value = false
+    result.token.value = 'test-token'
+    await waitFor(() => convex.calls.onUpdate.length > 0)
 
-	    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauth', null)
+    convex.emitQueryResultByPath('auth:getPermissionContext:redirect-unauth', null)
 
     await waitFor(() => result.pushSpy.mock.calls.length > 0)
     expect(result.pushSpy).toHaveBeenCalledTimes(1)

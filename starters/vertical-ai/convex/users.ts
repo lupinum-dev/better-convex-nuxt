@@ -19,4 +19,3 @@ export async function requireCurrentUser(ctx: QueryCtx | MutationCtx) {
 
   return user
 }
-

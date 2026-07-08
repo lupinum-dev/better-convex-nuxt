@@ -4,7 +4,7 @@ import { components } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
 const paginationOpts = { cursor: null, numItems: 50 }
-type BetterAuthUpdateManyArgs = typeof components.betterAuth.adapter.updateMany['_args']
+type BetterAuthUpdateManyArgs = (typeof components.betterAuth.adapter.updateMany)['_args']
 
 export const inspectClientState = query({
   args: {

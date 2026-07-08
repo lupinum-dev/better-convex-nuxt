@@ -1,9 +1,5 @@
 import { apiKey } from '@better-auth/api-key'
-import {
-  createClient,
-  type GenericCtx,
-  type AuthFunctions,
-} from '@convex-dev/better-auth'
+import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal'
 import { admin, organization } from 'better-auth/plugins'

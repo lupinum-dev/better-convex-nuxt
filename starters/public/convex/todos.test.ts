@@ -29,12 +29,12 @@ describe('public todos', () => {
       await ctx.db.insert('todos', {
         text: 'first',
         completed: false,
-        createdAt: 1
+        createdAt: 1,
       })
       await ctx.db.insert('todos', {
         text: 'second',
         completed: false,
-        createdAt: 2
+        createdAt: 2,
       })
     })
 

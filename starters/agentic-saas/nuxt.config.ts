@@ -12,7 +12,8 @@ export default {
     },
   },
   convex: {
-    url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? process.env.VITE_CONVEX_URL,
+    url:
+      process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL ?? process.env.VITE_CONVEX_URL,
     siteUrl:
       process.env.NUXT_PUBLIC_CONVEX_SITE_URL ??
       process.env.CONVEX_SITE_URL ??

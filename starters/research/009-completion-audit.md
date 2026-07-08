@@ -7,21 +7,21 @@ begin implementation without rebuilding Trellis or Lupinum.
 
 ## Scope Check
 
-| Requirement | Status | Evidence |
-| --- | --- | --- |
-| Create `starters/research` | Done | This folder and the indexed research files exist. |
-| Use `better-convex-nuxt` as starting point | Done | `001-local-lessons.md`, `007-hosting-and-api-fit.md`, `008-implementation-readiness.md` |
-| Apply Trellis lessons | Done | `001-local-lessons.md`, `005-mcp-and-agents.md` |
-| Apply Lupinum lessons | Done | `001-local-lessons.md`, `006-decisions-and-open-questions.md`, `008-implementation-readiness.md` |
-| Apply `convex-tenants` lessons | Done | `001-local-lessons.md`, `002-external-evidence.md`, `003-requirements.md` |
-| Apply `convex-authz` lessons | Done | `001-local-lessons.md`, `002-external-evidence.md`, `003-requirements.md` |
-| Apply `convex-helpers` lessons | Done | `001-local-lessons.md`, especially the custom function, RLS, zod, trigger, and API-generation notes. |
-| Research Convex Agents | Done | `002-external-evidence.md`, `005-mcp-and-agents.md`, `007-hosting-and-api-fit.md` |
-| Research MCP direction | Done | `002-external-evidence.md`, `005-mcp-and-agents.md`, `007-hosting-and-api-fit.md` |
-| Research B2B / vertical SaaS needs | Done | `002-external-evidence.md`, `003-requirements.md`, `004-starter-matrix.md` |
-| Produce all requirements | Done | `003-requirements.md`, `004-starter-matrix.md`, `008-implementation-readiness.md` |
-| Produce multiple passes | Done | Passes are split across local lessons, external evidence, requirements, MCP/agents, hosting/API fit, and implementation readiness. |
-| Reach actionable confidence | Done | `006-decisions-and-open-questions.md` separates high, medium, and low confidence; `008-implementation-readiness.md` defines file lists and gates. |
+| Requirement                                | Status | Evidence                                                                                                                                          |
+| ------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create `starters/research`                 | Done   | This folder and the indexed research files exist.                                                                                                 |
+| Use `better-convex-nuxt` as starting point | Done   | `001-local-lessons.md`, `007-hosting-and-api-fit.md`, `008-implementation-readiness.md`                                                           |
+| Apply Trellis lessons                      | Done   | `001-local-lessons.md`, `005-mcp-and-agents.md`                                                                                                   |
+| Apply Lupinum lessons                      | Done   | `001-local-lessons.md`, `006-decisions-and-open-questions.md`, `008-implementation-readiness.md`                                                  |
+| Apply `convex-tenants` lessons             | Done   | `001-local-lessons.md`, `002-external-evidence.md`, `003-requirements.md`                                                                         |
+| Apply `convex-authz` lessons               | Done   | `001-local-lessons.md`, `002-external-evidence.md`, `003-requirements.md`                                                                         |
+| Apply `convex-helpers` lessons             | Done   | `001-local-lessons.md`, especially the custom function, RLS, zod, trigger, and API-generation notes.                                              |
+| Research Convex Agents                     | Done   | `002-external-evidence.md`, `005-mcp-and-agents.md`, `007-hosting-and-api-fit.md`                                                                 |
+| Research MCP direction                     | Done   | `002-external-evidence.md`, `005-mcp-and-agents.md`, `007-hosting-and-api-fit.md`                                                                 |
+| Research B2B / vertical SaaS needs         | Done   | `002-external-evidence.md`, `003-requirements.md`, `004-starter-matrix.md`                                                                        |
+| Produce all requirements                   | Done   | `003-requirements.md`, `004-starter-matrix.md`, `008-implementation-readiness.md`                                                                 |
+| Produce multiple passes                    | Done   | Passes are split across local lessons, external evidence, requirements, MCP/agents, hosting/API fit, and implementation readiness.                |
+| Reach actionable confidence                | Done   | `006-decisions-and-open-questions.md` separates high, medium, and low confidence; `008-implementation-readiness.md` defines file lists and gates. |
 
 ## Confidence Result
 

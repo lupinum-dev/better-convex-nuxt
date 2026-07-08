@@ -7,4 +7,3 @@ app.use(betterAuth)
 app.use(agent)
 
 export default app
-

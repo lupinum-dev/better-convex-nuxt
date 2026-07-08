@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+
 import type { QueryRegistryEntry } from '../../query-registry'
 import JsonViewer from './JsonViewer.vue'
 

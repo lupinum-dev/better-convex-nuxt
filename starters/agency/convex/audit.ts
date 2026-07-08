@@ -10,11 +10,10 @@ export async function writeAuditEvent(
     action: string
     resourceType: string
     resourceId?: string
-  }
+  },
 ) {
   await ctx.db.insert('auditEvents', {
     ...args,
-    createdAt: Date.now()
+    createdAt: Date.now(),
   })
 }
-

@@ -5,4 +5,3 @@
 - Rejected drafts cannot be promoted.
 - Approval events must record actor and source draft.
 - Keep agent orchestration in Convex actions; keep product invariants in mutations.
-

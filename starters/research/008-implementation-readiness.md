@@ -260,14 +260,14 @@ Pass criteria:
 
 ## Verification Matrix
 
-| Starter | Typecheck | Unit/Invariants | Browser Smoke | MCP Smoke | Agent Smoke |
-| --- | --- | --- | --- | --- | --- |
-| `public` | Required | Required | Required | No | No |
-| `personal` | Required | Required | Required | No | Optional |
-| `team` | Required | Required | Required | No | Optional |
-| `agency` | Required | Required | Required | Optional | Optional |
-| `mcp-agent` | Required | Required | Required | Required | Required |
-| `vertical-ai` | Required | Required | Required | Optional | Required |
+| Starter       | Typecheck | Unit/Invariants | Browser Smoke | MCP Smoke | Agent Smoke |
+| ------------- | --------- | --------------- | ------------- | --------- | ----------- |
+| `public`      | Required  | Required        | Required      | No        | No          |
+| `personal`    | Required  | Required        | Required      | No        | Optional    |
+| `team`        | Required  | Required        | Required      | No        | Optional    |
+| `agency`      | Required  | Required        | Required      | Optional  | Optional    |
+| `mcp-agent`   | Required  | Required        | Required      | Required  | Required    |
+| `vertical-ai` | Required  | Required        | Required      | Optional  | Required    |
 
 Do not add a Trellis-style doctor in the first implementation. Use normal
 package scripts first. Add diagnostics only when generated artifacts or repeated

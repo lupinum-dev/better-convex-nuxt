@@ -4,29 +4,36 @@ navigation: false
 description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
 ---
 
-::u-page-hero
----
+## ::u-page-hero
+
 orientation: 'horizontal'
 description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and backend-driven permissions.
 ui:
 container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
+
 ---
+
 #title
 Full-stack Nuxt that [feels like cheating]{.text-primary}
 #links
 :::u-button
+
 ---
+
 size: lg
 to: /docs/guide/get-started
 color: warning
 trailing-icon: i-lucide-arrow-right
+
 ---
+
 Get Started
 :::
 :u-input-copy{value="pnpm add better-convex-nuxt"}
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
 :::tabs-item{label="Queries" icon="i-lucide-database"}
+
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
