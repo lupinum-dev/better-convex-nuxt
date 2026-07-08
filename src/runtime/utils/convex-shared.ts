@@ -1,4 +1,4 @@
-import type { FunctionReference } from 'convex/server'
+import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { hash } from 'ohash'
 
 import type { ConvexCallStatus, ConvexUser } from './types'
@@ -278,7 +278,10 @@ export function hashArgs(args: unknown): string {
 /**
  * Generate a unique cache key for a query + args combination
  */
-export function getQueryKey(query: FunctionReference<'query'>, args?: unknown): string {
+export function getQueryKey<Query extends FunctionReference<'query'>>(
+  query: Query,
+  args?: FunctionArgs<Query>,
+): string {
   const fnName = getFunctionName(query)
   return `convex:${fnName}:${hashArgs(args)}`
 }

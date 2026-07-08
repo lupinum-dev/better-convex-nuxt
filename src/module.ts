@@ -36,6 +36,7 @@ import {
   resolveConvexSiteUrl,
 } from './runtime/utils/convex-config'
 import type { LogLevel } from './runtime/utils/logger'
+import type { ConvexQueryAuthMode } from './runtime/utils/query-execution-gate'
 
 // Re-export LogLevel from logger for external use
 export type { LogLevel } from './runtime/utils/logger'
@@ -70,7 +71,7 @@ export interface AuthCacheOptions {
    * Uses Nitro Storage (memory by default, configurable to Redis for multi-instance deployments).
    * @default false
    */
-  enabled: boolean
+  enabled?: boolean
   /**
    * Cache TTL in seconds.
    * Determines how long tokens are cached before requiring a fresh fetch.
@@ -101,7 +102,7 @@ export interface QueryDefaults {
    * - 'none': never attach token
    * @default 'auto'
    */
-  auth?: 'auto' | 'none'
+  auth?: ConvexQueryAuthMode
   /**
    * How long an awaited subscribe-mode query waits (ms) for its first WebSocket
    * result before rejecting. Set 0 to wait indefinitely.

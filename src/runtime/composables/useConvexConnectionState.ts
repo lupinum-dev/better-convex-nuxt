@@ -1,31 +1,13 @@
-import type { ConvexClient } from 'convex/browser'
+import type { ConnectionState, ConvexClient } from 'convex/browser'
 import { ref, readonly, computed, onScopeDispose, getCurrentScope, type Ref } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 
-/**
- * Connection state from the Convex client
- */
-export interface ConnectionState {
-  /** Whether there are pending requests */
-  hasInflightRequests: boolean
-  /** Whether the WebSocket is currently connected */
-  isWebSocketConnected: boolean
-  /** Timestamp of the oldest pending request */
-  timeOfOldestInflightRequest: Date | null
-  /** Whether the client has ever successfully connected */
-  hasEverConnected: boolean
-  /** Number of successful connections */
-  connectionCount: number
-  /** Number of connection retry attempts */
-  connectionRetries: number
-  /** Number of pending mutations */
-  inflightMutations: number
-  /** Number of pending actions */
-  inflightActions: number
-}
+// Re-export for convenience — consumers previously imported this type from
+// here; convex/browser is now the single source of truth (F-36).
+export type { ConnectionState } from 'convex/browser'
 
 const DEFAULT_STATE: ConnectionState = {
   hasInflightRequests: false,
@@ -94,10 +76,10 @@ export function useConvexConnectionState() {
     // First subscriber initializes the connection
     if (store.subscriberCount === 0) {
       // Get initial state
-      store.state.value = client.connectionState() as ConnectionState
+      store.state.value = client.connectionState()
 
       // Subscribe to connection state changes (single subscription for all components)
-      store.unsubscribe = client.subscribeToConnectionState((newState: ConnectionState) => {
+      store.unsubscribe = client.subscribeToConnectionState((newState) => {
         const currentState = store.state
 
         const wasConnected = currentState.value.isWebSocketConnected
@@ -135,7 +117,7 @@ export function useConvexConnectionState() {
     })
   } else if (import.meta.client && client && !currentScope) {
     // Scope-less callers get a snapshot only to avoid leaking global subscriptions.
-    store.state.value = client.connectionState() as ConnectionState
+    store.state.value = client.connectionState()
   }
 
   // Computed shortcuts derived from shared state

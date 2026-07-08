@@ -2,6 +2,7 @@ import type { FunctionReference, PaginationOptions, PaginationResult } from 'con
 import { describe, expect, it } from 'vitest'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 
+import type { AuthCacheOptions, QueryDefaults } from '../../src/module'
 import type { DefineSharedConvexQueryOptions } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type {
   ConvexPaginatedQueryArgs,
@@ -12,6 +13,7 @@ import type {
   UseConvexQueryData,
   UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
+import type { ConvexQueryAuthMode } from '../../src/runtime/utils/query-execution-gate'
 
 // Type-only bindings for the composable functions. `typeof import(...)` is
 // erased at compile time, so these never trigger a runtime `#imports` resolve
@@ -62,6 +64,15 @@ type SharedQueryArgs = DefineSharedConvexQueryOptions<
 type _SharedQueryArgsUseOnlySkipSentinel = Assert<
   IsEqual<SharedQueryArgs, MaybeRefOrGetter<{ id: string } | 'skip'>>
 >
+// F-36: QueryDefaults.auth reuses ConvexQueryAuthMode instead of an inline
+// 'auto' | 'none' literal union duplicate.
+type _QueryDefaultsAuthReusesConvexQueryAuthMode = Assert<
+  IsEqual<QueryDefaults['auth'], ConvexQueryAuthMode | undefined>
+>
+// F-36: AuthCacheOptions.enabled is optional — `{ ttl: 30 }` alone must compile.
+const _authCacheOptionsEnabledIsOptional: AuthCacheOptions = { ttl: 30 }
+void _authCacheOptionsEnabledIsOptional
+
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
 // F-19: error is a computed whose value domain is exactly `Error | null` (never `undefined`).
 type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], ComputedRef<Error | null>>>

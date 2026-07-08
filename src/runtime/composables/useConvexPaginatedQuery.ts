@@ -333,7 +333,7 @@ export function createConvexPaginatedQueryState<
     if (executionGate.value.resolveAsIdle) {
       return `convex-paginated:idle:${fnName}`
     }
-    const currentArgs = getArgs()
+    const currentArgs = getArgs() as ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>>
     if (currentArgs == null || currentArgs === 'skip') return `convex-paginated:idle:${fnName}`
     const stablePaginationOpts = { numItems: initialNumItems, cursor: null }
     return `convex-paginated:${getQueryKey(query, { ...currentArgs, paginationOpts: stablePaginationOpts })}`
@@ -343,7 +343,7 @@ export function createConvexPaginatedQueryState<
     if (executionGate.value.resolveAsIdle) {
       return `paginated:${cacheKey.value}:idle`
     }
-    const currentArgs = getArgs()
+    const currentArgs = getArgs() as ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>>
     if (currentArgs == null || currentArgs === 'skip') {
       return `paginated:${cacheKey.value}:idle`
     }
