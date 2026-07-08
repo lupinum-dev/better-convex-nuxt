@@ -5,6 +5,17 @@ import { useConvexCall } from '../../src/runtime/composables/useConvexCall'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
+const { handleUnauthorizedMock } = vi.hoisted(() => ({
+  handleUnauthorizedMock: vi.fn(),
+}))
+
+// useConvexCall routes failures through the shared unauthorized-recovery
+// pipeline (like useConvexMutation). Stub it so the routing is observable and
+// its default-off recovery never runs during these tests.
+vi.mock('../../src/runtime/utils/auth-unauthorized', () => ({
+  handleUnauthorizedAuthFailure: handleUnauthorizedMock,
+}))
+
 describe('useConvexCall (Nuxt runtime)', () => {
   it('works outside component scope via runWithContext (middleware-style)', async () => {
     const convex = new MockConvexClient()
@@ -12,7 +23,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
     convex.setQueryHandler('testing:rpc-outside-scope', async (args) => ({ ok: true, args }))
 
     const { nuxtApp } = await captureInNuxt(() => true, { convex })
-    const once = await nuxtApp.runWithContext(async () => useConvexCall({ timeoutMs: 100 }))
+    const once = await nuxtApp.runWithContext(async () => useConvexCall())
 
     await expect(once.query(query, { q: 'ok' } as never)).resolves.toEqual({
       ok: true,
@@ -33,7 +44,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => ({
-        once: useConvexCall({ timeoutMs: 100 }),
+        once: useConvexCall(),
         query,
         mutation,
         action,
@@ -55,29 +66,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
     })
   })
 
-  it('supports timeout and safe variants that never throw', async () => {
-    const convex = new MockConvexClient()
-    const slowQuery = mockFnRef<'query'>('testing:once-timeout')
-
-    convex.setQueryHandler('testing:once-timeout', async () => {
-      return await new Promise(() => {
-        // intentionally unresolved
-      })
-    })
-
-    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 5 }), { convex })
-
-    await expect(result.query(slowQuery, {} as never)).rejects.toThrow('timed out')
-
-    const safeResult = await result.querySafe(slowQuery, {} as never)
-    expect(safeResult.ok).toBe(false)
-    if (safeResult.ok) {
-      throw new Error('Expected safe timeout result to fail')
-    }
-    expect(safeResult.error.message).toContain('timed out')
-  })
-
-  it('mutationSafe and actionSafe never throw and return normalized errors', async () => {
+  it('safe variants never throw and return normalized errors', async () => {
     const convex = new MockConvexClient()
     const badMutation = mockFnRef<'mutation'>('testing:once-bad-mutation')
     const badAction = mockFnRef<'action'>('testing:once-bad-action')
@@ -89,7 +78,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
       throw new Error('LIMIT_ACTION_ONCE: Action once limit reached')
     })
 
-    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 20 }), { convex })
+    const { result } = await captureInNuxt(() => useConvexCall(), { convex })
 
     const mutationSafeResult = await result.mutationSafe(badMutation, {} as never)
     const actionSafeResult = await result.actionSafe(badAction, {} as never)
@@ -107,14 +96,21 @@ describe('useConvexCall (Nuxt runtime)', () => {
     expect(actionSafeResult.error.code).toBe('LIMIT_ACTION_ONCE')
   })
 
-  it('treats timeoutMs <= 0 as no timeout', async () => {
+  it('routes failing calls through the unauthorized recovery pipeline', async () => {
+    handleUnauthorizedMock.mockClear()
     const convex = new MockConvexClient()
-    const query = mockFnRef<'query'>('testing:rpc-no-timeout')
-    convex.setQueryHandler('testing:rpc-no-timeout', async () => ({ ok: true }))
+    const mutation = mockFnRef<'mutation'>('testing:once-unauthorized')
+    convex.setMutationHandler('testing:once-unauthorized', async () => {
+      throw new Error('boom')
+    })
 
-    const { result } = await captureInNuxt(() => useConvexCall({ timeoutMs: 0 }), { convex })
+    const { result } = await captureInNuxt(() => useConvexCall(), { convex })
 
-    await expect(result.query(query, {} as never)).resolves.toEqual({ ok: true })
+    // The error still propagates — recovery never swallows or "safely retries" it.
+    await expect(result.mutation(mutation, {} as never)).rejects.toThrow('boom')
+    expect(handleUnauthorizedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'mutation' }),
+    )
   })
 
   it('throws immediately when client is unavailable', async () => {
@@ -122,7 +118,7 @@ describe('useConvexCall (Nuxt runtime)', () => {
       throw new Error('Convex client is unavailable.')
     })
     try {
-      await expect(captureInNuxt(() => useConvexCall({ timeoutMs: 20 }))).rejects.toThrow(
+      await expect(captureInNuxt(() => useConvexCall())).rejects.toThrow(
         /Convex client is unavailable/i,
       )
     } finally {

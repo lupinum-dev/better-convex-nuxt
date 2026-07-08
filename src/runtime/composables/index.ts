@@ -50,7 +50,7 @@ export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
-export { useConvexCall, type UseConvexCallOptions, type UseConvexCallReturn } from './useConvexCall'
+export { useConvexCall, type UseConvexCallReturn } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
   type ConvexPaginatedQueryArgs,
