@@ -289,51 +289,55 @@ export function createConvexQueryState<
       releaseRegisteredSubscription()
     }
 
-    const subscription = acquireQuerySubscription(nuxtApp, currentCacheKey, (bridge) =>
-      convex.onUpdate(
-        query,
-        currentArgs,
-        (result: RawT) => {
-          // Subscription-level callback writes to shared bridge only.
-          commitQueryBridgeData(bridge, result)
+    const subscription = acquireQuerySubscription(
+      nuxtApp,
+      currentCacheKey,
+      (bridge) =>
+        convex.onUpdate(
+          query,
+          currentArgs,
+          (result: RawT) => {
+            // Subscription-level callback writes to shared bridge only.
+            commitQueryBridgeData(bridge, result)
 
-          logger.query({
-            name: fnName,
-            event: 'update',
-            count: Array.isArray(result) ? result.length : 1,
-            args: currentArgs,
-            data: result,
-          })
-
-          // DevTools stores raw shared subscription data (not transformed), because
-          // different subscribers may apply different transform() functions.
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.updateQueryStatus(currentCacheKey, {
-              status: 'success',
+            logger.query({
+              name: fnName,
+              event: 'update',
+              count: Array.isArray(result) ? result.length : 1,
+              args: currentArgs,
               data: result,
-              dataSource: 'websocket',
             })
-          }
-        },
-        (err: Error) => {
-          commitQueryBridgeError(bridge, err)
-          void handleUnauthorizedAuthFailure({
-            error: err,
-            source: 'query',
-            functionName: fnName,
-          })
 
-          logger.query({ name: fnName, event: 'error', error: err })
-
-          // Keep DevTools subscription-level error visibility.
-          if (import.meta.dev && devToolsRegistry) {
-            devToolsRegistry.updateQueryStatus(currentCacheKey, {
-              status: 'error',
-              error: err.message,
+            // DevTools stores raw shared subscription data (not transformed), because
+            // different subscribers may apply different transform() functions.
+            if (import.meta.dev && devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                status: 'success',
+                data: result,
+                dataSource: 'websocket',
+              })
+            }
+          },
+          (err: Error) => {
+            commitQueryBridgeError(bridge, err)
+            void handleUnauthorizedAuthFailure({
+              error: err,
+              source: 'query',
+              functionName: fnName,
             })
-          }
-        },
-      ),
+
+            logger.query({ name: fnName, event: 'error', error: err })
+
+            // Keep DevTools subscription-level error visibility.
+            if (import.meta.dev && devToolsRegistry) {
+              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+                status: 'error',
+                error: err.message,
+              })
+            }
+          },
+        ),
+      { authMode },
     )
 
     registeredCacheKey = currentCacheKey

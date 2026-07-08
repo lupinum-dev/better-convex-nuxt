@@ -28,6 +28,8 @@ export interface SubscriptionEntry {
   unsubscribe: () => void
   refCount: number
   queryBridge?: QuerySubscriptionBridge
+  /** Auth transport mode of the query that created this entry. 'none' = public. */
+  authMode: 'auto' | 'none'
 }
 
 /**
@@ -192,6 +194,7 @@ export function acquireQuerySubscription(
   nuxtApp: SubscriptionCacheOwner,
   cacheKey: string,
   start: (bridge: QuerySubscriptionBridge) => () => void,
+  meta: { authMode: 'auto' | 'none' } = { authMode: 'auto' },
 ): AcquiredQuerySubscription {
   const cache = getSubscriptionCache(nuxtApp)
   const existing = cache.get(cacheKey)
@@ -207,7 +210,12 @@ export function acquireQuerySubscription(
 
   const bridge = createQueryBridge()
   const unsubscribe = start(bridge)
-  const entry: SubscriptionEntry = { unsubscribe, refCount: 1, queryBridge: bridge }
+  const entry: SubscriptionEntry = {
+    unsubscribe,
+    refCount: 1,
+    queryBridge: bridge,
+    authMode: meta.authMode,
+  }
   cache.set(cacheKey, entry)
 
   return {
@@ -368,4 +376,17 @@ export function clearSubscriptionCache(nuxtApp: SubscriptionCacheOwner): void {
   }
 
   cache.clear()
+}
+
+/**
+ * Tear down only auth-carrying subscriptions after sign-out.
+ * Public (auth: 'none') queries are auth-independent and must keep streaming.
+ */
+export function clearAuthSubscriptions(nuxtApp: SubscriptionCacheOwner): void {
+  const cache = getSubscriptionCache(nuxtApp)
+  for (const [key, entry] of cache.entries()) {
+    if (entry.authMode === 'none') continue
+    entry.unsubscribe()
+    cache.delete(key)
+  }
 }

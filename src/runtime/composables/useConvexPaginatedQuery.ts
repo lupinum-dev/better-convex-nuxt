@@ -647,6 +647,7 @@ export function createConvexPaginatedQueryState<
       query,
       args: fullArgs as FunctionArgs<Query>,
       functionName: fnName,
+      authMode,
     })
 
     firstPageSubscriptionKey = subscriptionKey
@@ -702,6 +703,7 @@ export function createConvexPaginatedQueryState<
         query,
         args: fullArgs as FunctionArgs<Query>,
         functionName: fnName,
+        authMode,
       })
       page.unsubscribe = () => {
         bridgeSync?.cleanupPage(pageIndex)

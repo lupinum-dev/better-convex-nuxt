@@ -8,7 +8,7 @@ import {
   buildClientAuthResponseErrorMessage,
   buildMissingSiteUrlMessage,
 } from '../utils/auth-errors'
-import { clearSubscriptionCache } from '../utils/convex-cache'
+import { clearAuthSubscriptions } from '../utils/convex-cache'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
 import { matchesSkipRoute } from '../utils/route-matcher'
@@ -504,7 +504,7 @@ export function createConvexAuthEngine({
     state.authError.value = null
 
     signOutPromise = (async () => {
-      clearSubscriptionCache(nuxtApp)
+      clearAuthSubscriptions(nuxtApp)
       await nextTick()
 
       const result = await authClient.signOut()
@@ -526,7 +526,7 @@ export function createConvexAuthEngine({
           async () => null,
           () => {},
         )
-        clearSubscriptionCache(nuxtApp)
+        clearAuthSubscriptions(nuxtApp)
       }
 
       return result
