@@ -9,4 +9,10 @@ declare module 'better-convex-nuxt' {
   }
 }
 
+declare module '../../../../dist/runtime/utils/types.js' {
+  interface ConvexUser {
+    auditProbeField?: 'yes'
+  }
+}
+
 export {}
