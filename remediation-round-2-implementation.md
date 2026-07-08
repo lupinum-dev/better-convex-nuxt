@@ -450,7 +450,7 @@ identity and subscriptions when Better Auth signOut fails`.
 starts during signOut`.
   - `rg -n "startsWith\('convex'\)" src/` returns no matches.
 
-### TODO 1.5 — End-to-end `engine.signOut()` test suite `[ ]`
+### TODO 1.5 — End-to-end `engine.signOut()` test suite `[x]`
 
 **New file:** `test/nuxt/client-engine.signout-lifecycle.nuxt.test.ts`
 
@@ -474,6 +474,19 @@ Required cases — each maps to a bug and MUST fail if that fix is lone-reverted
 | Same fn+args mounted as both `auth:'none'` and `auth:'auto'`: sign-out kills only the auto entry; public keeps streaming; no double-release refcount corruption                   | A5                   | dimensioned keys: none-entry present, auto-entry gone; post-sign-out emission reaches public consumer |
 | `refreshAuth()` fired while `signOut()` upstream call is in flight (make the stub `authClient.signOut` await a controllable deferred): after both settle, `token`/`user` are null | A6/LD-3              | serialization + unconditional clear                                                                   |
 | Upstream sign-out **fails** (stub rejects): token/user retained, `authError` set, both public and private subscriptions still live and streaming                                  | A7/LD-4              | no teardown happened                                                                                  |
+
+Implemented in `test/nuxt/client-engine.signout-lifecycle.nuxt.test.ts`:
+
+- Success path mounts real query composables plus a real client auth engine,
+  then calls `engine.signOut()` and verifies private plain data blanks, public
+  plain keeps streaming, public `subscribe:false` payload survives, public
+  paginated results survive, and mixed auth-mode subscriptions retain only the
+  public dimension.
+- Failure path stubs upstream sign-out rejection and verifies token/user,
+  authError, public subscription, private subscription, and post-failure
+  streaming remain intact.
+- Race path starts `refreshAuth()` while upstream sign-out is pending and
+  verifies the old token/user are not preserved.
 
 ### TODO 1.6 — Rewrite the manufactured-transition tests `[ ]`
 
