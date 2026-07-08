@@ -592,6 +592,14 @@ export function createConvexQueryState<
           releaseRegisteredSubscription()
         }
 
+        // Entering signed-out: drop this component's now-unauthorized data.
+        if (next.pendingReason === 'auth-signed-out' && prev.pendingReason === 'none') {
+          lastSettledData.value = null
+          lastSettledRawData.value = null
+          lastSettledArgsHash.value = null
+          asyncData.clear()
+        }
+
         // Setup new subscription (data will be updated by useAsyncData's watch)
         if (executionGate.value.setupLiveSubscription) {
           setupSubscription()

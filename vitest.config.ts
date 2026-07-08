@@ -28,6 +28,11 @@ export default defineConfig({
       // Unit Tests: Pure utility function tests
       // Fast (<1s) - run with `pnpm vitest --project=unit`
       {
+        resolve: {
+          alias: {
+            '#app': fileURLToPath(new URL('./test/unit/shims/app.ts', import.meta.url)),
+          },
+        },
         test: {
           name: 'unit',
           include: ['test/unit/**/*.test.ts'],

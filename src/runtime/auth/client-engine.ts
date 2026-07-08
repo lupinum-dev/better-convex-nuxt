@@ -3,12 +3,14 @@ import type { ConvexClient } from 'convex/browser'
 import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 
+import { clearNuxtData } from '#app'
+
 import {
   buildClientAuthRequestFailureMessage,
   buildClientAuthResponseErrorMessage,
   buildMissingSiteUrlMessage,
 } from '../utils/auth-errors'
-import { clearAuthSubscriptions } from '../utils/convex-cache'
+import { clearAuthSubscriptions, getSubscriptionCache } from '../utils/convex-cache'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
 import { matchesSkipRoute } from '../utils/route-matcher'
@@ -527,6 +529,12 @@ export function createConvexAuthEngine({
           () => {},
         )
         clearAuthSubscriptions(nuxtApp)
+
+        // Purge cached Convex query payload so a subsequent session can never read or
+        // hydrate the previous user's data. Keys still present in the subscription
+        // cache belong to live public (auth:'none') queries and keep their data.
+        const liveKeys = new Set(getSubscriptionCache(nuxtApp).keys())
+        clearNuxtData((key) => key.startsWith('convex') && !liveKeys.has(key))
       }
 
       return result

@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
+import { useState } from '#imports'
+
 import { defineSharedConvexQuery } from '../../src/runtime/composables/defineSharedConvexQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
+
+// The shared query defaults to auth:'auto'; module auth is enabled by default in
+// the harness, so a subscription is only acquired for an authenticated session.
+function signIn(): void {
+  useState<boolean>('convex:pending', () => false)
+  useState<string | null>('convex:token', () => 'signed.in.jwt')
+}
 
 describe('defineSharedConvexQuery (Nuxt runtime)', () => {
   it('returns one shared query state per app instance for the same key', async () => {
@@ -18,6 +27,7 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
 
     const { result, wrapper } = await captureInNuxt(
       () => {
+        signIn()
         const first = useSharedUser()
         const second = useSharedUser()
         return { first, second }

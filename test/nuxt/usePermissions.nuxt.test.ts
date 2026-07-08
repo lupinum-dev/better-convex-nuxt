@@ -28,6 +28,10 @@ describe('usePermissions (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
+        // The permission context query is auth:'auto'; it only subscribes for an
+        // authenticated session (module auth is enabled by default in the harness).
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
         const permissions = usePermissions()
         return {
           ...permissions,
