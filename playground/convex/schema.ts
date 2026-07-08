@@ -135,6 +135,15 @@ export default defineSchema({
   }).index('by_user', ['userId']),
 
   // ============================================
+  // FILES (ownership tracking for Convex storage - F-9)
+  // ============================================
+  files: defineTable({
+    storageId: v.id('_storage'),
+    ownerId: v.string(), // Better Auth user ID
+    createdAt: v.number(),
+  }).index('by_storage', ['storageId']),
+
+  // ============================================
   // NOTES (existing - public demo)
   // ============================================
   notes: defineTable({
