@@ -8,6 +8,7 @@
   "experimentalSortImports": {},
   "experimentalSortPackageJson": true,
   "ignorePatterns": [
+    "docs/content/docs/6.advanced/8.api-surface.md",
     "dist",
     ".nuxt",
     ".output",

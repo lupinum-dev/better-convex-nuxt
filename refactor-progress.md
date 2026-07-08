@@ -29,6 +29,10 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 ## Review log (coordinator)
 
 - Phase 0: trivial, self-executed. No review needed.
+- **Phase 1 review: APPROVED with one coordinator fix.** Read the full diff of all 4 commits. Source changes match the cornerstones exactly (the large useConvexQuery.ts hunk is indentation from the added `{ authMode }` argument). All 5 regression tests exercise the real bug conditions (module auth enabled + `auth:'auto'`; F-4 test models true multi-consumer unmount and was verified to fail on the reverted impl). The two existing-test corrections were legitimate — both had pinned the F-1 bug. The `#app` unit shim + vitest alias is accepted (mirrors the existing browser-tier `#imports` shim; real behavior covered in nuxt tier). Independently re-ran the gate: 515/515, types green.
+  - Coordinator fix: `check:api-surface-docs` was red at baseline because P0.2's oxfmt reformatted the generator-owned doc. Resolution: the generator owns that file's bytes — added `docs/content/docs/6.advanced/8.api-surface.md` to `.oxfmtrc.json` ignorePatterns and regenerated. `generate-api-surface --check`, `format:check`, and full `check:contracts` all green now.
+  - Noted (not blocking): F-3 Part B test replicates the sign-out clearing sequence inline rather than driving `engine.signOut` (which needs authClient mocking). Acceptable; if the engine sequence ever drifts from the test, the F-3 nuxt test won't catch it — the unit-tier client-auth-engine tests still pin the engine path.
+  - Noted for later: sign-in transition does a release-then-reacquire churn on the same key (pre-existing, net one subscription). Harmless; revisit only if it causes flicker reports.
 
 ## Deviations
 
