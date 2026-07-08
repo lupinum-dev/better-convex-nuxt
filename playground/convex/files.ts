@@ -33,6 +33,17 @@ export const saveFile = mutation({
       throw new Error('Not authenticated')
     }
 
+    // First registration wins: without this, a second insert for the same
+    // storageId would let another caller contest ownership and would make the
+    // `.unique()` lookups in getUrl/deleteFile throw.
+    const existing = await ctx.db
+      .query('files')
+      .withIndex('by_storage', (q) => q.eq('storageId', args.storageId))
+      .unique()
+    if (existing) {
+      throw new Error('File already registered')
+    }
+
     await ctx.db.insert('files', {
       storageId: args.storageId,
       ownerId: identity.subject,

@@ -56,6 +56,25 @@ describe('files.saveFile', () => {
     })
     expect(file?.ownerId).toBe('user_1')
   })
+
+  it('rejects a second registration of the same storageId (claim-race guard)', async () => {
+    const t = convexTest(schema, modules)
+    const asOwner = t.withIdentity({ subject: 'user_owner' })
+    const asOther = t.withIdentity({ subject: 'user_other' })
+
+    const storageId = await t.run(async (ctx) => {
+      return await ctx.storage.store(new Blob(['content']))
+    })
+    await asOwner.mutation(api.files.saveFile, { storageId })
+
+    await expect(asOther.mutation(api.files.saveFile, { storageId })).rejects.toThrow(
+      'File already registered',
+    )
+
+    // Ownership is unchanged - the original owner still resolves the file.
+    const url = await asOwner.query(api.files.getUrl, { storageId })
+    expect(typeof url).toBe('string')
+  })
 })
 
 describe('files.getUrl', () => {
