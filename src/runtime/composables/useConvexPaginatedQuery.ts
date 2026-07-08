@@ -928,9 +928,10 @@ export function createConvexPaginatedQueryState<
       resolvePromise = Promise.resolve()
     } else if (!server && isInitialHydration) {
       resolvePromise = Promise.resolve()
-    } else if (!subscribeRealtime) {
-      resolvePromise = asyncData.then(() => {})
     } else {
+      // F-34: this branch used to fork on `!subscribeRealtime` vs. the
+      // default case, but both did the exact same thing — wait for the
+      // fetch to settle. Collapsed into one branch.
       resolvePromise = asyncData.then(() => {})
     }
   }
