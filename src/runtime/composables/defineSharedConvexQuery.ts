@@ -73,7 +73,10 @@ function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryR
 
 export type DefineSharedConvexQueryOptions<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  // Public type dialect is 'skip' only (F-35 — matches useConvexQuery's
+  // ConvexQueryArgs). `null`/`undefined` are still accepted at runtime for
+  // back-compat (see isConvexArgsSkipped), just not advertised in the type.
+  Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 > = {
   /** Stable app-level key used to share a single query state instance. */
@@ -89,10 +92,21 @@ export type DefineSharedConvexQueryOptions<
  *
  * Useful for global context data (current user/team/settings) without custom
  * nuxtApp mutation patterns in app code.
+ *
+ * @example Disabling the query conditionally
+ * ```ts
+ * // Pass 'skip' (the same sentinel useConvexQuery uses) to disable the
+ * // query — do not pass null/undefined; only 'skip' is the documented dialect.
+ * const useCurrentTeam = defineSharedConvexQuery({
+ *   key: 'current-team',
+ *   query: api.teams.getCurrent,
+ *   args: () => (teamId.value ? { teamId: teamId.value } : 'skip'),
+ * })
+ * ```
  */
 export function defineSharedConvexQuery<
   Query extends FunctionReference<'query'>,
-  Args extends FunctionArgs<Query> | null | undefined = FunctionArgs<Query>,
+  Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(config: DefineSharedConvexQueryOptions<Query, Args, DataT>): () => UseConvexQueryData<DataT> {
   return () => {

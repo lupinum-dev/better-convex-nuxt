@@ -1,7 +1,8 @@
 import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
 import { describe, expect, it } from 'vitest'
-import type { ComputedRef } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 
+import type { DefineSharedConvexQueryOptions } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type {
   ConvexPaginatedQueryArgs,
   UseConvexPaginatedQueryOptions,
@@ -52,6 +53,15 @@ type _PaginatedHasAuthOption = Assert<
 >
 type _QueryArgsUseOnlySkipSentinel = Assert<IsEqual<QueryArgs, { id: string } | 'skip'>>
 type _PaginatedArgsUseOnlySkipSentinel = Assert<IsEqual<PaginatedArgs, { id: string } | 'skip'>>
+// F-35: defineSharedConvexQuery's public `args` field dialect is 'skip' only —
+// same sentinel as useConvexQuery/useConvexPaginatedQuery, not null/undefined.
+type SharedQueryArgs = DefineSharedConvexQueryOptions<
+  FunctionReference<'query', 'public', { id: string }, string>,
+  { id: string } | 'skip'
+>['args']
+type _SharedQueryArgsUseOnlySkipSentinel = Assert<
+  IsEqual<SharedQueryArgs, MaybeRefOrGetter<{ id: string } | 'skip'>>
+>
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
 // F-19: error is a computed whose value domain is exactly `Error | null` (never `undefined`).
 type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], ComputedRef<Error | null>>>
@@ -109,6 +119,9 @@ async function _arityContracts() {
   defineSharedConvexQuery({ key: 'k3', query: reqArgQuery })
   // @ts-expect-error wrong args field shape must not compile (F-5)
   defineSharedConvexQuery({ key: 'k4', query: reqArgQuery, args: { wrong: 1 } })
+  defineSharedConvexQuery({ key: 'k5', query: reqArgQuery, args: 'skip' }) // 'skip' compiles (F-35)
+  // @ts-expect-error null is accepted at runtime but not in the public type — only 'skip' (F-35)
+  defineSharedConvexQuery({ key: 'k6', query: reqArgQuery, args: null })
 }
 
 describe('query option type contracts', () => {
