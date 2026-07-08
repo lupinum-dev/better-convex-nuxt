@@ -3,6 +3,26 @@
 Branch: `audit-remediation` (note: plan said `refactor/audit-remediation`; a pre-existing `refactor` branch blocks that namespace).
 Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 
+## FINAL STATUS — all 6 phases complete and coordinator-approved
+
+**Every audit finding F-1…F-42 is resolved.** Full gate on HEAD (green):
+`pnpm lint` · `pnpm format:check` · `pnpm test:types` · `pnpm check:contracts` · `pnpm test` **488/488** · `pnpm prepack` · `check-package-exports --dist` (278 files) · zero `as any`/`: any`/`@ts-ignore` in `src/`.
+
+- Tests: 510 baseline → **488** (net: +47 new regression/contract tests added across phases, −72 deleted role/org playground feature tests + 1 deleted-starter allowlist entry; every deletion is a test of deleted code — reconciled in the Phase 5 review).
+- dist: 1.3M → **1.0M** (devtools UI source, duplicate nitro output, and stray tsconfig no longer ship).
+- The two confirmed P1 realtime bugs and the confirmed P1 type hole from the audit now have permanent regression tests that fail on the un-fixed code.
+
+**Deliberately deferred to the audit's "Next" bucket (NOT regressions — scoped out of "Now"):**
+
+1. Rebase `starters/agency` + `starters/mcp-agent` off app-owned Convex org tables onto Better Auth Organization (they're honestly labelled "legacy — pending rebase" in `starters/README.md`; the `starter-organization-ownership` allowlist still grandfathers them).
+2. Align canonical starters (`team`, `agentic-saas`) to throw structured `ConvexError({ code })` matching the now-structured docs + F-24 matcher (currently prose; only affects opt-in, default-off unauthorized-recovery auto-firing).
+3. `starters/platform-auth` deterministic test suite (before any public OAuth/MCP claim).
+4. Regenerate the playground's stale `convex/_generated/api.d.ts` on next live deploy (harmless; playground isn't typechecked).
+
+Not merged/pushed/tagged/published — awaiting owner sign-off.
+
+---
+
 ## Baseline (Phase 0)
 
 - Base commit: `e9969f90` (main + audit report + plan).
@@ -66,6 +86,7 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
   - Accepted (worker-flagged): playground `getPermissionContext` returns a static `role: 'member'` placeholder because the playground has no Better Auth org plugin and `createPermissions` gates on truthy `role`. Documented inline; playground is a primitives demo, not gated. Not worth a module change to `createPermissions`.
   - **TRACKED for final handoff (not fixed — out of Phase-5 scope):** the rewritten docs throw structured `ConvexError({ code })` while the canonical starters `team`/`agentic-saas` still throw prose `ConvexError('Unauthenticated')`. Impact is limited to the opt-in (default-off) unauthorized-recovery auto-firing; enforcement is unaffected. Starter internals are the audit's "Next" bucket — see Roadmap handoff.
   - Note (harmless): playground `convex/_generated/api.d.ts` still lists deleted `organizations`/`invites` modules; playground isn't typechecked and convex-test resolves via module glob; regenerates on next live deploy.
+- **Phase 6 review: APPROVED, no coordinator fixes needed.** Read the behavior-sensitive diffs. P6.1 callback gating is correct (`onSuccess`/`onError` fire only when the requestId committed — superseded calls stay silent). P6.5 upload guard is careful: guards on `_status==='pending'`, creates the AbortController before the URL mutation, re-checks `signal.aborted` after it resolves, and the `finally` only clears the slot if it still holds this call's controller (prevents a late cancel-throw from clobbering a newer upload). P6.9 packaging uses the supported unbuild `build:done` hook and correctly avoids the defu array-concat trap (same lesson as Phase 4/6). The extra `dist/runtime/devtools/.output/` removal (beyond the audit's literal file list) is the same bug class (an unreferenced duplicate static site) and is ACCEPTED as good judgment, not scope creep — verified the same way. The 3 sanctioned test-behavior changes all pin corrected contracts (the `provideRealAuthEngine()` helper for P6.6 is needed precisely because removing the throwaway-engine fallback stopped those tests relying on it accidentally). Independently ran the FULL final gate: lint, format:check, test:types, check:contracts, `pnpm test` 488/488, `pnpm prepack` all green; confirmed the three dist leaks are gone on a real prepack (dist 1.0M); zero `as any`/`: any`/`@ts-ignore` in src/.
 
 ## Deviations
 
