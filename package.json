@@ -36,9 +36,6 @@
       ".": [
         "./dist/types.d.mts"
       ],
-      "composables": [
-        "./dist/runtime/composables/index.d.ts"
-      ],
       "server": [
         "./dist/runtime/server/index.d.ts"
       ],
@@ -51,10 +48,6 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
-    },
-    "./composables": {
-      "types": "./dist/runtime/composables/index.d.ts",
-      "import": "./dist/runtime/composables/index.js"
     },
     "./server": {
       "types": "./dist/runtime/server/index.d.ts",
