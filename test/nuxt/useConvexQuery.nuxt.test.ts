@@ -117,6 +117,11 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
       () => {
         const token = useState<string | null>('convex:token')
         token.value = 'cached.jwt.token'
+        // Signed-in settled state: a real client with a token has auth settled
+        // (pending=false). The unified convex:pending default is import.meta.client
+        // (pending on the client until the engine settles), so model settled here.
+        const authPending = useState<boolean>('convex:pending')
+        authPending.value = false
         return useConvexQueryState(query, {}, { auth: 'auto', subscribe: false })
       },
       { convex: new MockConvexClient(), convexConfig: { defaults: { auth: 'auto' } } },

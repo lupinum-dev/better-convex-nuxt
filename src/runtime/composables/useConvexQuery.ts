@@ -15,6 +15,7 @@ import {
 import { useNuxtApp, useRuntimeConfig, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import type { ConvexQueryRest } from '../utils/args-tuple'
+import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
@@ -184,7 +185,7 @@ export function createConvexQueryState<
   // Get cached token state at setup time (synchronously) to avoid Vue context issues
   // Per Nuxt best practices, useState must be called at setup time, not inside async callbacks
   const cachedToken = useState<string | null>('convex:token')
-  const authPending = useState<boolean>('convex:pending', () => false)
+  const authPending = useConvexAuthPendingState()
   const executionGate = computed(() =>
     createQueryExecutionGate({
       authEnabled: convexConfig.auth.enabled,

@@ -15,6 +15,7 @@ import {
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import type { ConvexQueryRest } from '../utils/args-tuple'
+import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
@@ -296,7 +297,7 @@ export function createConvexPaginatedQueryState<
   const cookieHeader = event?.headers.get('cookie') || ''
 
   const cachedToken = useState<string | null>('convex:token')
-  const authPending = useState<boolean>('convex:pending', () => false)
+  const authPending = useConvexAuthPendingState()
   const executionGate = computed(() =>
     createQueryExecutionGate({
       authEnabled: convexConfig.auth.enabled,

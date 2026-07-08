@@ -5,6 +5,7 @@ import { useState, computed, readonly, useNuxtApp } from '#imports'
 
 import { createConvexAuthEngine, type ConvexAuthEngine } from '../auth/client-engine'
 import { waitForPendingClear } from '../utils/auth-pending'
+import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import type { ConvexUser } from '../utils/types'
 
 // Re-export for convenience
@@ -117,9 +118,7 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  // SSR auth is already settled before render, so default false on server to avoid
-  // hydration mismatches. CSR-first loads still start pending=true until client init.
-  const pending = useState<boolean>('convex:pending', () => import.meta.client)
+  const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
