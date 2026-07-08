@@ -17,7 +17,7 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 | P0.2 format (F-41) | DONE   | 7f684af7 | `pnpm format:check` clean (662 files); tests+types green after                            |
 | P1.1 gate (F-1)    | DONE   | a18c9e82 | new `useConvexQuery.auth-gate` test green; query suites+types green                       |
 | P1.2 clear (F-2)   | DONE   | b5dfec76 | new `useConvexQuery.signout-public` test green; client-auth-engine+paginated+types green  |
-| P1.3 purge (F-3)   | DONE   | (this)   | new `useConvexQuery.signout-purge` test (Part A + Part B) green; full unit+nuxt 418 green |
+| P1.3 purge (F-3)   | DONE   | 16ddf05b | new `useConvexQuery.signout-purge` test (Part A + Part B) green; full unit+nuxt 418 green |
 
 ## Review log (coordinator)
 

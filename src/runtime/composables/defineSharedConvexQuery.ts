@@ -1,4 +1,5 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
+import { effectScope } from 'vue'
 import type { MaybeRefOrGetter } from 'vue'
 
 import { useNuxtApp } from '#imports'
@@ -16,6 +17,7 @@ interface SharedQueryRegistry {
 
 interface SharedQueryRegistryEntry<T> {
   value: T
+  scope: ReturnType<typeof effectScope>
   config: unknown
   queryName: string
   argsFingerprint: string
@@ -123,15 +125,18 @@ export function defineSharedConvexQuery<
       return existing.value as UseConvexQueryData<DataT>
     }
 
-    const created = createConvexQueryState<Query, Args, DataT>(
-      config.query,
-      config.args,
-      config.options,
-      true,
-    ).resultData
+    // Shared state must outlive any individual consumer. A detached scope is owned
+    // by the registry (app lifetime), so the first consumer unmounting cannot
+    // dispose the shared subscription.
+    // scope is stopped never: registry and scope share the nuxt app lifetime.
+    const scope = effectScope(true /* detached */)
+    const created = scope.run(() =>
+      createConvexQueryState<Query, Args, DataT>(config.query, config.args, config.options, true),
+    )!.resultData
 
     registry.entries.set(config.key, {
       value: created,
+      scope,
       config,
       queryName,
       argsFingerprint,
