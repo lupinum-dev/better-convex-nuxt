@@ -746,7 +746,7 @@ Phase 2 exit gate:
 
 ## Phase 3 — Test integrity
 
-### TODO 3.1 — Pin the F-1 primary gate in isolation `[ ]`
+### TODO 3.1 — Pin the F-1 primary gate in isolation `[x]`
 
 Context: F-1 has three redundant layers in `useConvexQuery.ts` — the
 `setupLiveSubscription` gate in the watcher (~606), a gate inside
@@ -761,6 +761,16 @@ assert it is **never called** while `pendingReason === 'auth-pending'` — and
 separately assert no invariant error was thrown (so the test can't pass "via
 the throw"). Restore-and-retest: revert ONLY the watcher gate at ~606; the new
 test must fail while the old ones stay green.
+
+Implemented in this slice:
+
+- Added a primary-gate isolation test that partial-mocks
+  `acquireQuerySubscription` and `getSharedLogger`.
+- The test asserts auth-pending/signed-out transitions do not call subscription
+  acquisition and do not log the idle-subscribe invariant error.
+- Restore-and-retest: removing only the primary `setupLiveSubscription` guard
+  inside `setupSubscription()` fails `does not enter subscription setup while
+auth is still pending` on the invariant-error assertion.
 
 ### TODO 3.2 — Cover `posts.ts` and `checkPermission` `[ ]`
 

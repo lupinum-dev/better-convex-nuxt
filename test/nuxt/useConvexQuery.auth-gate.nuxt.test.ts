@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
@@ -11,11 +11,101 @@ import {
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
+const { acquireQuerySubscriptionMock, queryLogMock, testLogger } = vi.hoisted(() => {
+  const logger = {
+    auth: vi.fn(),
+    query: vi.fn(),
+    mutation: vi.fn(),
+    action: vi.fn(),
+    connection: vi.fn(),
+    upload: vi.fn(),
+    debug: vi.fn(),
+    time: vi.fn(() => vi.fn()),
+  }
+
+  return {
+    acquireQuerySubscriptionMock: vi.fn(),
+    queryLogMock: logger.query,
+    testLogger: logger,
+  }
+})
+
+vi.mock('../../src/runtime/utils/convex-cache', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/runtime/utils/convex-cache')>()
+  const acquireQuerySubscription = (
+    ...args: Parameters<typeof actual.acquireQuerySubscription>
+  ): ReturnType<typeof actual.acquireQuerySubscription> => {
+    acquireQuerySubscriptionMock(...args)
+    return actual.acquireQuerySubscription(...args)
+  }
+
+  return {
+    ...actual,
+    acquireQuerySubscription,
+  }
+})
+
+vi.mock('../../src/runtime/utils/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/runtime/utils/logger')>()
+  return {
+    ...actual,
+    getSharedLogger: () => testLogger,
+  }
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
 // F-1 regression: with module auth ENABLED and an `auth: 'auto'` query, an auth
 // transition that settles signed-out (pending true -> false, no token) must never
 // acquire a WebSocket subscription — least of all under the shared `convex:idle:*`
 // cache key. See AUDIT_REPORT F-1.
 describe('useConvexQuery auth gate (F-1)', () => {
+  it('does not enter subscription setup while auth is still pending', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:auth-pending-primary-gate')
+
+    const { result, flush, wrapper } = await captureInNuxt(
+      () => {
+        const pending = useState<boolean>('convex:pending', () => true)
+        const token = useState<string | null>('convex:token', () => null)
+        const query$ = createConvexQueryState(query, {}, { auth: 'auto' }, true).resultData
+        return { pending, query$, token }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await flush()
+    expect(acquireQuerySubscriptionMock).not.toHaveBeenCalled()
+    expect(queryLogMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'error',
+        error: expect.objectContaining({
+          message: expect.stringContaining('attempted to subscribe while query is idle'),
+        }),
+      }),
+    )
+
+    result.pending.value = false
+    result.token.value = null
+    await flush()
+
+    expect(acquireQuerySubscriptionMock).not.toHaveBeenCalled()
+    expect(queryLogMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'error',
+        error: expect.objectContaining({
+          message: expect.stringContaining('attempted to subscribe while query is idle'),
+        }),
+      }),
+    )
+    wrapper.unmount()
+  })
+
   it('never subscribes when auth settles signed-out, then subscribes exactly once on sign-in', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:auth-gate')
