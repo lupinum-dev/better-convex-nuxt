@@ -62,6 +62,7 @@ function createResponse(status: number, body: unknown): MockResponse {
 
 describe('plugin.server token exchange failure policy', () => {
   const stateStore = new Map<string, { value: unknown }>()
+  const setHeaderMock = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -78,7 +79,7 @@ describe('plugin.server token exchange failure policy', () => {
     useRequestEventMock.mockReturnValue({
       path: '/dashboard',
       method: 'GET',
-      node: { req: { url: '/dashboard' } },
+      node: { req: { url: '/dashboard' }, res: { setHeader: setHeaderMock } },
       headers: new Headers({
         cookie: 'better-auth.session_token=abc',
       }),
@@ -151,5 +152,22 @@ describe('plugin.server token exchange failure policy', () => {
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
+    expect(setHeaderMock).not.toHaveBeenCalled()
+  })
+
+  it('sets Cache-Control: private, no-store when a token is hydrated (F-10)', async () => {
+    decodeUserFromJwtMock.mockReturnValue({ id: 'user-1', email: 'user@example.com' })
+    fetchWithTimeoutMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/api/auth/convex/token')) {
+        return createResponse(200, { token: 'jwt-1' })
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
+    await expect(plugin()).resolves.toBeUndefined()
+
+    expect(stateStore.get('convex:token')?.value).toBe('jwt-1')
+    expect(setHeaderMock).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 })

@@ -166,6 +166,12 @@ export default defineNuxtPlugin(async () => {
   convexAuthError.value = snapshot.authError
   convexAuthWaterfall.value = snapshot.waterfall
 
+  // A per-user JWT was just serialized into this response's SSR payload.
+  // Never let a shared/CDN cache serve it to a different user (F-10).
+  if (snapshot.token) {
+    event.node.res.setHeader('Cache-Control', 'private, no-store')
+  }
+
   endInit()
   for (const event of snapshot.logEvents) {
     logAuth(event.phase, event.outcome, event.details, event.error)
