@@ -97,9 +97,6 @@ const isLoginPage = computed(() => route.path === '/')
 
           <!-- Connection Status -->
           <ConnectionStatus />
-
-          <!-- Role Switcher -->
-          <RoleSwitcher />
         </div>
       </aside>
 

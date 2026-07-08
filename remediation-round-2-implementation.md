@@ -1133,7 +1133,7 @@ Implemented in this slice:
   - `pnpm format:check` PASS
   - `pnpm lint` PASS
 
-### TODO 5.3 — Purge app-owned authoritative-role guidance (E4/E5) `[ ]`
+### TODO 5.3 — Purge app-owned authoritative-role guidance (E4/E5) `[x]`
 
 (a) `docs/content/docs/4.auth-security/1.authentication.md` ~lines 1028-1042:
 the layered-fields table row
@@ -1167,6 +1167,33 @@ cleaned). Suggested:
 **Calibrate it:** the guard MUST fail on the pre-5.3 tree and pass on the
 post-5.3 tree. Check both states explicitly. If a legitimate doc line trips it,
 reword the doc line rather than loosening the pattern.
+
+Implemented in this slice:
+
+- Rewrote the authentication docs field-layer table so app Convex tables are
+  for non-authorization business data, while Better Auth Organization owns roles
+  and membership.
+- Deleted the demo's app-owned `users.role` schema field, `roleValidator`,
+  `setOwnRole` mutation, and role-switcher component.
+- Simplified demo backend authorization to signed-in plus ownership checks. The
+  demo permission context now returns a fixed `member` placeholder and no longer
+  persists an app-owned role.
+- Broadened `check:no-app-owned-org-docs` to scan `docs/content` and
+  `demo/convex` for the stale app-owned role/org patterns.
+- Guard calibration:
+  - `git grep -n -E "organizations: defineTable|role: roleValidator|users\\.role|users\\.organizationId|Authoritative permissions/business data|authoritative roles/org membership|store/query them in Convex tables" f27fc605 -- docs/content demo/convex`
+    found the old `demo/convex/schema.ts` role column and the stale
+    authentication docs table/bullet.
+  - The same pattern on the current tree returns zero matches outside the guard
+    definition itself.
+- Verification:
+  - `pnpm lint` PASS
+  - `pnpm format:check` PASS
+  - `pnpm test:types` PASS
+  - `pnpm --dir demo typecheck` PASS, with the existing siteUrl warning.
+  - `pnpm --dir demo lint` FAILS pre-existing demo lint debt: 405 style /
+    no-explicit-any issues across untouched demo files, so it is not a usable
+    gate for this slice.
 
 ### TODO 5.4 — F-17 consistency batch `[ ]`
 

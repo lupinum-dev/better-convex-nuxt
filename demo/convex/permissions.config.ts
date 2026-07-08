@@ -1,8 +1,8 @@
 /**
  * Permission Configuration for Convex Labs
  *
- * Simplified permission system for demo purposes.
- * Users can change their own role to see how permissions affect the UI.
+ * Simplified permission system for demo purposes. The demo returns a fixed
+ * member context and does not model authoritative roles or organizations.
  */
 
 export const ROLES = ['admin', 'member', 'viewer'] as const

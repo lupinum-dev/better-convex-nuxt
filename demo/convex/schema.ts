@@ -1,11 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-const roleValidator = v.union(v.literal('admin'), v.literal('member'), v.literal('viewer'))
-
-export const roleValues = ['admin', 'member', 'viewer'] as const
-export type Role = (typeof roleValues)[number]
-
 export default defineSchema({
   // ============================================
   // USERS - Simplified for Labs (no organizations)
@@ -15,7 +10,6 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     email: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
-    role: roleValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -180,8 +180,8 @@ function formatFileSize(bytes: number) {
       icon="i-lucide-lock"
       color="warning"
       variant="subtle"
-      title="Viewer role"
-      description="Switch to Member, Admin, or Owner role to upload files."
+      title="Permission required"
+      description="Sign in with the demo permission context to upload files."
     />
 
     <!-- File Gallery -->

@@ -1,11 +1,10 @@
 import { createClient, type GenericCtx, type AuthFunctions } from '@convex-dev/better-auth'
 import { convex } from '@convex-dev/better-auth/plugins'
 import { betterAuth } from 'better-auth'
-import { v } from 'convex/values'
 
 import { components, internal } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
-import { mutation, query } from './_generated/server'
+import { query } from './_generated/server'
 import authConfig from './auth.config'
 
 // Get site URL from environment
@@ -24,7 +23,6 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
         const now = Date.now()
         await ctx.db.insert('users', {
           authId: doc._id,
-          role: 'member', // Default role for new users
           displayName: doc.name,
           email: doc.email,
           avatarUrl: doc.image ?? undefined, // Convert null to undefined
@@ -118,47 +116,14 @@ export const getPermissionContext = query({
       return null
     }
 
-    // Return permission context
     return {
-      role: user.role,
+      // Demo-only placeholder: the demo does not model authoritative roles.
+      role: 'member' as const,
       userId: user.authId,
       displayName: user.displayName,
       email: user.email,
       avatarUrl: user.avatarUrl,
     }
-  },
-})
-
-// ============================================
-// SET OWN ROLE - Demo purposes only
-// ============================================
-// Allows users to change their own role for demo purposes
-
-export const setOwnRole = mutation({
-  args: {
-    role: v.union(v.literal('admin'), v.literal('member'), v.literal('viewer')),
-  },
-  handler: async (ctx, { role }) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_auth_id', (q) => q.eq('authId', identity.subject))
-      .first()
-
-    if (!user) {
-      throw new Error('User not found')
-    }
-
-    await ctx.db.patch(user._id, {
-      role,
-      updatedAt: Date.now(),
-    })
-
-    return { success: true, newRole: role }
   },
 })
 

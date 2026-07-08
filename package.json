@@ -82,7 +82,7 @@
     "check:no-query-composables-in-middleware": "sh -c '! rg -n \"useConvexQuery\\\\(|useConvexPaginatedQuery\\\\(\" playground/middleware playground/plugins'",
     "check:no-use-route-in-middleware": "sh -c '! rg -n \"useRoute\\\\(\" playground/middleware'",
     "check:no-middleware-query-docs": "sh -c '! rg -n \"middleware[^\\n]{0,120}subscribe:\\s*false|subscribe:\\s*false[^\\n]{0,120}middleware\" docs/content/docs'",
-    "check:no-app-owned-org-docs": "sh -c '! rg -n \"organizations: defineTable|role: roleValidator\" docs/content'",
+    "check:no-app-owned-org-docs": "sh -c '! rg -n \"organizations: defineTable|role: roleValidator|users\\\\.role|users\\\\.organizationId|Authoritative permissions/business data|authoritative roles/org membership|store/query them in Convex tables\" docs/content demo/convex'",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run --project=unit --project=convex --project=nuxt --project=browser",
