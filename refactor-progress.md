@@ -20,6 +20,7 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 | P1.3 purge (F-3)     | DONE   | 16ddf05b | new `useConvexQuery.signout-purge` test (Part A + Part B) green; full unit+nuxt 418 green                                                                                                                                                             |
 | P1.4 scope (F-4)     | DONE   | 8706fe97 | new two-consumer unmount-lifecycle test green (verified it fails without the fix); types green                                                                                                                                                        |
 | P2.1 args (F-5+F-23) | DONE   | f95c9080 | plan A conditional tuple `ConvexQueryRest`/`SharedQueryArgsField`; consumer-smoke + query-options-types negatives green; revert of signature fails contracts (verified); check:contracts + missing-convex-api green; 62 query-family nuxt tests green |
+| P2.2 error (F-19)    | DONE   | 19615e2f | `error` now `ComputedRef<Error \| null>` via `computed(() => asyncData.error.value ?? null)`; cast removed; useConvexUser ripple retyped; type test `_QueryErrorIsComputedErrorNull`; types + consumer-smoke + 32 nuxt query/user tests green         |
 
 ## Phase 1 gate
 

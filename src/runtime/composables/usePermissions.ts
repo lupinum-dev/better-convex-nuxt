@@ -19,7 +19,7 @@
  */
 
 import type { FunctionReference } from 'convex/server'
-import { computed, watchEffect, type ComputedRef, type Ref } from 'vue'
+import { computed, watchEffect, type ComputedRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { useRouter, useRuntimeConfig } from '#imports'
@@ -66,7 +66,7 @@ export interface CreatePermissionsOptions<
   TResource extends Resource = Resource,
 > {
   /** Convex query that returns permission context (role, userId, orgId, etc.) */
-  query: FunctionReference<'query'>
+  query: FunctionReference<'query', 'public', Record<string, never>, TContext | null>
   /** Permission checking function from permissions.config.ts */
   checkPermission: CheckPermissionFn<TPermission, TContext, TResource>
 }
@@ -90,7 +90,7 @@ export interface UsePermissionsReturn<
   /** Whether user is authenticated with valid permission context */
   isAuthenticated: ComputedRef<boolean>
   /** Whether permission context is still loading */
-  pending: Ref<boolean>
+  pending: ComputedRef<boolean>
 }
 
 /**
@@ -163,7 +163,7 @@ export function createPermissions<
 
     // Build context object for checkPermission
     const ctx = computed<TContext | null>(() => {
-      const context = permissionContext.value as TContext | null
+      const context = permissionContext.value
       if (!context?.role) return null
       return context
     })
@@ -175,9 +175,9 @@ export function createPermissions<
 
     // Convenience getters
     const isAuthenticated = computed(() => !!ctx.value)
-    const user = computed(() => permissionContext.value as TContext | null)
-    const role = computed(() => (permissionContext.value as TContext | null)?.role ?? null)
-    const orgId = computed(() => (permissionContext.value as TContext | null)?.orgId ?? null)
+    const user = computed(() => permissionContext.value)
+    const role = computed(() => permissionContext.value?.role ?? null)
+    const orgId = computed(() => permissionContext.value?.orgId ?? null)
 
     if (import.meta.dev) {
       let warnedPermissionSetupError = false
