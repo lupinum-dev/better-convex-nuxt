@@ -18,6 +18,8 @@ import {
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
+import { getBetterAuthSessionToken } from '../../../utils/shared-helpers'
+import { serverConvexClearAuthCache } from '../../utils/auth-cache'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import {
   getRequestBodySizeError,
@@ -67,6 +69,13 @@ export default defineEventHandler(async (event: H3Event) => {
   // Ensure path starts with / to avoid malformed URLs like /api/authtoken
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
   const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
+
+  // Better Auth's sign-out endpoint. Detected cheaply from the already-computed
+  // proxy path - no request body inspection needed (F-28).
+  const isSignOutRequest = normalizedPath === '/sign-out' && event.method === 'POST'
+  const sessionTokenBeforeProxy = isSignOutRequest
+    ? getBetterAuthSessionToken(event.headers.get('cookie'))
+    : null
 
   // Handle CORS preflight
   // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
@@ -164,6 +173,18 @@ export default defineEventHandler(async (event: H3Event) => {
           path: normalizedPath,
         },
       })
+    }
+
+    // Sign-out revokes the session upstream; proactively clear our cached JWT
+    // for it too so a subsequent request can't reuse a stale cached token for
+    // the rest of the authCache TTL window (F-28).
+    if (
+      isSignOutRequest &&
+      sessionTokenBeforeProxy &&
+      response.ok &&
+      convexConfig.authCache.enabled
+    ) {
+      await serverConvexClearAuthCache(sessionTokenBeforeProxy)
     }
 
     // Dev mode: log the request
