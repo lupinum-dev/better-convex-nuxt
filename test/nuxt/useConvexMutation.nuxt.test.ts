@@ -175,7 +175,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('testing:safe-fail')
 
     convex.setMutationHandler('testing:safe-fail', async () => {
-      throw new Error('LIMIT_ITEMS: Limit reached')
+      throw new Error('Limit reached')
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
@@ -185,7 +185,10 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     if (safeResult.ok) {
       throw new Error('Expected safe result to be an error')
     }
-    expect(safeResult.error.code).toBe('LIMIT_ITEMS')
+    // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
+    // (F-31: that was an app convention, not core behavior) — the message passes
+    // through verbatim and no code is synthesized from it.
+    expect(safeResult.error.code).toBeUndefined()
     expect(safeResult.error.message).toBe('Limit reached')
     expect(result.status.value).toBe('error')
   })

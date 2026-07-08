@@ -72,10 +72,18 @@ describe('useConvexCall (Nuxt runtime)', () => {
     const badAction = mockFnRef<'action'>('testing:once-bad-action')
 
     convex.setMutationHandler('testing:once-bad-mutation', async () => {
-      throw new Error('LIMIT_MUTATION_ONCE: Mutation once limit reached')
+      const error = new Error('Mutation once limit reached') as Error & {
+        data?: { message: string; code: string }
+      }
+      error.data = { message: 'Mutation once limit reached', code: 'LIMIT_MUTATION_ONCE' }
+      throw error
     })
     convex.setActionHandler('testing:once-bad-action', async () => {
-      throw new Error('LIMIT_ACTION_ONCE: Action once limit reached')
+      const error = new Error('Action once limit reached') as Error & {
+        data?: { message: string; code: string }
+      }
+      error.data = { message: 'Action once limit reached', code: 'LIMIT_ACTION_ONCE' }
+      throw error
     })
 
     const { result } = await captureInNuxt(() => useConvexCall(), { convex })

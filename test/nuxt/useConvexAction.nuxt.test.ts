@@ -173,7 +173,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:safe-action-fail')
     convex.setActionHandler('testing:safe-action-fail', async () => {
-      throw new Error('LIMIT_ACTIONS: Action limit reached')
+      throw new Error('Action limit reached')
     })
 
     const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
@@ -183,7 +183,9 @@ describe('useConvexAction (Nuxt runtime)', () => {
     if (safeResult.ok) {
       throw new Error('Expected safe result to be an error')
     }
-    expect(safeResult.error.code).toBe('LIMIT_ACTIONS')
+    // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
+    // (F-31) — the message passes through verbatim and no code is synthesized.
+    expect(safeResult.error.code).toBeUndefined()
     expect(safeResult.error.message).toBe('Action limit reached')
   })
 

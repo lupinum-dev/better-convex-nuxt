@@ -7,8 +7,6 @@ export interface ConvexCallError {
 
 export type CallResult<T, E = ConvexCallError> = { ok: true; data: T } | { ok: false; error: E }
 
-const LIMIT_ERROR_MARKER = 'LIMIT_'
-
 interface ConvexErrorLike {
   data?: unknown
   message?: unknown
@@ -30,31 +28,6 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-function parseMessageForCode(message: string): { message: string; code?: string } {
-  const markerIndex = message.indexOf(LIMIT_ERROR_MARKER)
-  if (markerIndex < 0) {
-    return { message }
-  }
-
-  const tail = message.slice(markerIndex)
-  const separatorIndex = tail.indexOf(':')
-  if (separatorIndex <= 0) {
-    return { message }
-  }
-
-  const code = tail.slice(0, separatorIndex).trim()
-  if (!code.startsWith(LIMIT_ERROR_MARKER)) {
-    return { message }
-  }
-
-  const normalizedMessage = tail.slice(separatorIndex + 1).trim()
-  if (!normalizedMessage) {
-    return { message, code }
-  }
-
-  return { message: normalizedMessage, code }
-}
-
 function fromStructuredData(data: Record<string, unknown>): ConvexCallError | null {
   const dataMessage = asString(data.message)
   const dataCode = asString(data.code) ?? asString(data.errorCode)
@@ -64,10 +37,9 @@ function fromStructuredData(data: Record<string, unknown>): ConvexCallError | nu
     return null
   }
 
-  const parsed = dataMessage ? parseMessageForCode(dataMessage) : { message: 'Convex call failed' }
   return {
-    message: parsed.message,
-    code: dataCode ?? parsed.code,
+    message: dataMessage ?? 'Convex call failed',
+    code: dataCode,
     status: dataStatus,
     cause: data,
   }
@@ -94,11 +66,9 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
       }
     }
 
-    const message = asString(record.message) ?? fallbackMessage
-    const parsed = parseMessageForCode(message)
     return {
-      message: parsed.message,
-      code: asString(record.code) ?? parsed.code,
+      message: asString(record.message) ?? fallbackMessage,
+      code: asString(record.code),
       status: asNumber(record.status),
       cause: record,
     }
@@ -118,21 +88,16 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
       }
     }
 
-    const message = asString(record.message) ?? fallbackMessage
-    const parsed = parseMessageForCode(message)
     return {
-      message: parsed.message,
-      code: asString(record.code) ?? parsed.code,
+      message: asString(record.message) ?? fallbackMessage,
+      code: asString(record.code),
       status: asNumber(record.status),
       cause: error,
     }
   }
 
-  const message = typeof error === 'string' && error.length > 0 ? error : fallbackMessage
-  const parsed = parseMessageForCode(message)
   return {
-    message: parsed.message,
-    code: parsed.code,
+    message: typeof error === 'string' && error.length > 0 ? error : fallbackMessage,
     cause: error,
   }
 }
