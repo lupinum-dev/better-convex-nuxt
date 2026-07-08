@@ -145,11 +145,20 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const rejectQueuedDeferredsAfterHalt = () => {
-    for (const item of items.value) {
-      if (item.status === 'queued') {
-        rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
+    // Settle still-queued items to 'cancelled' (not just reject their deferreds).
+    // Leaving them 'queued' let a later enqueue() reset haltedByError and hand
+    // them straight back to schedule(), silently resuming uploads the caller
+    // was already told (via the rejected promise) had failed.
+    const now = Date.now()
+    items.value = items.value.map((item) => {
+      if (item.status !== 'queued') return item
+      rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
+      return {
+        ...item,
+        status: 'cancelled',
+        finishedAt: now,
       }
-    }
+    })
   }
 
   const getItemRuntime = (id: string): UploadQueueRuntime => {

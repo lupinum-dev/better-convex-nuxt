@@ -95,6 +95,17 @@ describe('upload queue state helpers', () => {
     expect(computeUploadQueueAggregateProgress(items)).toBe(27)
   })
 
+  it('treats halted items settled to cancelled as distinct from queued (F-32)', () => {
+    // useConvexUploadQueue settles still-queued items to 'cancelled' when the
+    // queue halts after an error (continueOnError: false), specifically so a
+    // later enqueue() cannot mistake them for still-pending work and resume
+    // them. countUploadQueueItems must keep these statuses mutually exclusive.
+    const items = [item('cancelled'), item('cancelled'), item('queued')]
+
+    expect(countUploadQueueItems(items, 'cancelled')).toBe(2)
+    expect(countUploadQueueItems(items, 'queued')).toBe(1)
+  })
+
   it('returns zero for empty or all-zero active work and one hundred for finished zero-byte work', () => {
     expect(computeUploadQueueAggregateProgress([])).toBe(0)
     expect(
