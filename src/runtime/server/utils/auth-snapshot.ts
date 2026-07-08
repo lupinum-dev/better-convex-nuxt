@@ -5,6 +5,7 @@ import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/
 import type { ConvexUser } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
 import { fetchWithTimeout } from './http'
+import { exchangeSessionForToken } from './token-exchange'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 
@@ -214,25 +215,12 @@ export async function resolveServerAuthSnapshot(
     }
 
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    let tokenResponse: { token?: string } | null = null
-    let tokenExchangeStatus: number | undefined
-    let tokenExchangeThrown: unknown
+    const exchange = await exchangeSessionForToken(siteUrl, authCookieHeader, { timeoutMs: 5_000 })
+    const tokenExchangeStatus = exchange.status
+    const tokenExchangeThrown = exchange.thrown
 
-    try {
-      const response = await fetchWithTimeout(`${siteUrl}/api/auth/convex/token`, {
-        headers: { Cookie: authCookieHeader },
-        timeoutMs: 5_000,
-      })
-      tokenExchangeStatus = response.status
-      if (response.ok) {
-        tokenResponse = (await response.json().catch(() => null)) as { token?: string } | null
-      }
-    } catch (error) {
-      tokenExchangeThrown = error
-    }
-
-    if (tokenResponse?.token) {
-      token = tokenResponse.token
+    if (exchange.token) {
+      token = exchange.token
       authError = null
 
       if (trackWaterfall) {

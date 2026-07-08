@@ -367,8 +367,6 @@ export function createConvexPaginatedQueryState<
 
     const functionPath = getFunctionName(query)
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
-    const siteUrl = convexConfig.siteUrl
-
     const fullArgs = {
       ...currentArgs,
       paginationOpts,
@@ -376,10 +374,9 @@ export function createConvexPaginatedQueryState<
 
     let authToken: string | undefined
     if (import.meta.server) {
-      authToken = await fetchAuthToken({
+      authToken = fetchAuthToken({
         auth: authMode,
         cookieHeader,
-        siteUrl,
         cachedToken,
       })
     } else if (authMode !== 'none') {

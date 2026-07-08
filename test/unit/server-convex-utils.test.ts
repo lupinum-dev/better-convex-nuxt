@@ -7,7 +7,7 @@ import {
   serverConvexQuery,
 } from '../../src/runtime/server/utils/convex'
 
-const { useRuntimeConfigMock } = vi.hoisted(() => ({
+const { useRuntimeConfigMock, fetchWithTimeoutMock } = vi.hoisted(() => ({
   useRuntimeConfigMock: vi.fn(() => ({
     public: {
       convex: {
@@ -16,10 +16,18 @@ const { useRuntimeConfigMock } = vi.hoisted(() => ({
       },
     },
   })),
+  fetchWithTimeoutMock: vi.fn(),
 }))
 
 vi.mock('#imports', () => ({
   useRuntimeConfig: useRuntimeConfigMock,
+}))
+
+// The single cookie -> JWT exchange (F-13) goes through
+// server/utils/token-exchange -> fetchWithTimeout. Mock the http layer so the
+// exchange is observable independently of the operation's global fetch.
+vi.mock('../../src/runtime/server/utils/http', () => ({
+  fetchWithTimeout: fetchWithTimeoutMock,
 }))
 
 function createEvent(cookie?: string): H3Event {
@@ -37,6 +45,7 @@ function createEvent(cookie?: string): H3Event {
 describe('server Convex fetch helpers', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    fetchWithTimeoutMock.mockReset()
     useRuntimeConfigMock.mockReturnValue({
       public: {
         convex: {
@@ -177,9 +186,10 @@ describe('server Convex fetch helpers', () => {
           headers: { 'content-type': 'application/json' },
         }),
     )
-    const tokenFetchMock = vi.fn(async () => ({ token: 'auto.jwt.token' }))
+    fetchWithTimeoutMock.mockResolvedValue(
+      new Response(JSON.stringify({ token: 'auto.jwt.token' }), { status: 200 }),
+    )
     vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('$fetch', tokenFetchMock)
 
     await serverConvexQuery(
       createEvent(
@@ -190,12 +200,15 @@ describe('server Convex fetch helpers', () => {
       { auth: 'auto' },
     )
 
-    expect(tokenFetchMock).toHaveBeenCalledTimes(1)
-    expect(tokenFetchMock).toHaveBeenCalledWith('http://127.0.0.1:3220/api/auth/convex/token', {
-      headers: {
-        Cookie: 'better-auth.session_token=session123; __Secure-better-auth.callback=state',
-      },
-    })
+    expect(fetchWithTimeoutMock).toHaveBeenCalledTimes(1)
+    expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:3220/api/auth/convex/token',
+      expect.objectContaining({
+        headers: {
+          Cookie: 'better-auth.session_token=session123; __Secure-better-auth.callback=state',
+        },
+      }),
+    )
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]
@@ -227,9 +240,7 @@ describe('server Convex fetch helpers', () => {
           headers: { 'content-type': 'application/json' },
         }),
     )
-    const tokenFetchMock = vi.fn(async () => ({ token: 'should-not-be-used' }))
     vi.stubGlobal('fetch', fetchMock)
-    vi.stubGlobal('$fetch', tokenFetchMock)
 
     await serverConvexQuery(
       createEvent('better-auth.session_token=session123'),
@@ -238,7 +249,7 @@ describe('server Convex fetch helpers', () => {
       { auth: 'none' },
     )
 
-    expect(tokenFetchMock).not.toHaveBeenCalled()
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
     const firstCall = fetchMock.mock.calls[0]
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]

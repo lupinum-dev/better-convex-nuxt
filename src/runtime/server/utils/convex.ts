@@ -11,6 +11,7 @@ import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexServerAuthMode } from '../../utils/types'
 import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
+import { exchangeSessionForToken } from './token-exchange'
 
 type ConvexOperationType = 'query' | 'mutation' | 'action'
 
@@ -76,33 +77,30 @@ async function resolveAuthToken(
     return undefined
   }
 
-  try {
-    if (config.authCache.enabled && sessionToken) {
-      const cached = await getCachedAuthToken(sessionToken)
-      if (cached) {
-        return cached
-      }
+  if (config.authCache.enabled && sessionToken) {
+    const cached = await getCachedAuthToken(sessionToken)
+    if (cached) {
+      return cached
     }
+  }
 
-    const response = (await $fetch(`${config.siteUrl}/api/auth/convex/token`, {
-      headers: {
-        Cookie: authCookieHeader,
-      },
-    })) as { token?: string } | null
+  // Single shared cookie -> JWT exchange (F-13). Never throws; policy is applied here.
+  const exchange = await exchangeSessionForToken(config.siteUrl, authCookieHeader)
 
-    if (response?.token) {
-      if (config.authCache.enabled && sessionToken) {
-        await setCachedAuthToken(sessionToken, response.token, config.authCache.ttl)
-      }
-      return response.token
-    }
-  } catch (error) {
+  if (exchange.thrown) {
     if (policy === 'required') {
-      throw error instanceof Error
-        ? error
+      throw exchange.thrown instanceof Error
+        ? exchange.thrown
         : new Error('[serverConvex] Failed to resolve auth token')
     }
     return undefined
+  }
+
+  if (exchange.token) {
+    if (config.authCache.enabled && sessionToken) {
+      await setCachedAuthToken(sessionToken, exchange.token, config.authCache.ttl)
+    }
+    return exchange.token
   }
 
   if (policy === 'required') {

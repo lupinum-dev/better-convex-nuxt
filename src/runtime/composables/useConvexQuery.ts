@@ -375,12 +375,9 @@ export function createConvexQueryState<
       try {
         // SSR: fetch via HTTP
         if (import.meta.server) {
-          const siteUrl = convexConfig.siteUrl
-
-          const authToken = await fetchAuthToken({
+          const authToken = fetchAuthToken({
             auth: authMode,
             cookieHeader,
-            siteUrl,
             cachedToken,
           })
           if (authMode !== 'none' && !authToken) {

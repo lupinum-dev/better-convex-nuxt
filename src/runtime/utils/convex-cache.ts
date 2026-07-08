@@ -1,4 +1,4 @@
-import { filterBetterAuthCookies, getBetterAuthSessionToken } from './shared-helpers'
+import { getBetterAuthSessionToken } from './shared-helpers'
 
 // Re-export shared utilities
 export {
@@ -234,75 +234,40 @@ export interface FetchAuthTokenOptions {
   auth: 'auto' | 'none'
   /** Cookie header from the request */
   cookieHeader: string
-  /** Site URL for auth endpoint */
-  siteUrl: string | undefined
   /** Cached token state (must be obtained at setup time via useState) */
   cachedToken: { value: string | null }
 }
 
 /**
- * Fetch auth token for SSR queries.
- * Uses caching via the provided cachedToken ref to avoid redundant fetches.
+ * Resolve the SSR auth token for a query.
+ *
+ * This performs NO cookie -> JWT exchange (F-13). `plugin.server.ts` runs before
+ * any route component's setup and already exchanged the session cookie once,
+ * writing the result into `useState('convex:token')`. SSR queries must reuse
+ * that single per-request exchange, never run a second one. This helper simply
+ * returns the plugin-resolved token when a Better Auth session cookie is present.
  *
  * IMPORTANT: The cachedToken parameter must be obtained at component setup time
  * using useState('convex:token') before being passed to this function.
  * Calling useState inside an async function loses Vue context and will fail.
  *
  * @param options - Auth token fetch options
- * @returns The auth token if available, undefined otherwise
- *
- * @example
- * ```ts
- * // At setup time (synchronous):
- * const cachedToken = useState<string | null>('convex:token')
- *
- * // Later, in async context:
- * const authToken = await fetchAuthToken({
- *   auth: 'auto',
- *   cookieHeader: event?.headers.get('cookie') || '',
- *   siteUrl: config.public.convex?.siteUrl,
- *   cachedToken,
- * })
- * ```
+ * @returns The plugin-resolved token if a session exists, undefined otherwise
  */
-export async function fetchAuthToken(options: FetchAuthTokenOptions): Promise<string | undefined> {
-  const { auth, cookieHeader, siteUrl, cachedToken } = options
+export function fetchAuthToken(options: FetchAuthTokenOptions): string | undefined {
+  const { auth, cookieHeader, cachedToken } = options
 
   // Skip when auth is explicitly disabled
   if (auth === 'none') {
     return undefined
   }
 
-  const authCookieHeader = filterBetterAuthCookies(cookieHeader)
-  const sessionToken = getBetterAuthSessionToken(cookieHeader)
-
-  if (!authCookieHeader || !sessionToken) {
+  // No Better Auth session cookie -> the plugin resolved no token for this request.
+  if (!getBetterAuthSessionToken(cookieHeader)) {
     return undefined
   }
 
-  // Try cached token first
-  if (cachedToken.value) {
-    return cachedToken.value
-  }
-
-  // Fetch token if we have a site URL
-  if (!siteUrl) {
-    return undefined
-  }
-
-  try {
-    const response = (await $fetch(`${siteUrl}/api/auth/convex/token`, {
-      headers: { Cookie: authCookieHeader },
-    })) as { token?: string }
-    if (response?.token) {
-      cachedToken.value = response.token
-      return response.token
-    }
-  } catch {
-    // Auth token fetch failed - continue without auth
-  }
-
-  return undefined
+  return cachedToken.value ?? undefined
 }
 
 // ============================================================================
