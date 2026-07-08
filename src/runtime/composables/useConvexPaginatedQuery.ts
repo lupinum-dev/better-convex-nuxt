@@ -425,6 +425,7 @@ export function createConvexPaginatedQueryState<
 
   const loadMore = (numItems: number) => {
     if (executionGate.value.resolveAsIdle) return
+    if (isManualRefreshPending.value) return
 
     const lastPageResult = getLastLoadedPaginatedResult(
       firstPageRealtimeData.value ?? asyncData.data.value,
@@ -875,6 +876,9 @@ export function createConvexPaginatedQueryState<
     if (executionGate.value.resolveAsIdle) {
       return
     }
+    if (isManualRefreshPending.value) {
+      return
+    }
 
     isManualRefreshPending.value = true
     globalError.value = null
@@ -916,14 +920,23 @@ export function createConvexPaginatedQueryState<
         previousResult = pageResult
       }
 
-      if (currentPaginationId.value === refreshPaginationId && !executionGate.value.resolveAsIdle) {
+      if (
+        currentPaginationId.value === refreshPaginationId &&
+        !executionGate.value.resolveAsIdle &&
+        pages.value.length === loadedPages.length
+      ) {
         firstPageRealtimeData.value = firstPageResult
         pages.value = refreshedPages
         asyncDataError.value = null
         globalError.value = null
+      } else if (import.meta.dev && pages.value.length !== loadedPages.length) {
+        console.warn('[useConvexPaginatedQuery] refresh commit skipped: pages changed mid-refresh')
       }
     } catch (e) {
-      globalError.value = e instanceof Error ? e : new Error(String(e))
+      void handleUnauthorizedAuthFailure({ error: e, source: 'query', functionName: fnName })
+      if (currentPaginationId.value === refreshPaginationId) {
+        globalError.value = e instanceof Error ? e : new Error(String(e))
+      }
     } finally {
       isManualRefreshPending.value = false
     }

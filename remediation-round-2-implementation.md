@@ -552,7 +552,7 @@ Key regions: `loadMore` (~393-445), `refresh` (~828-884),
 `startPageSubscription` (~665), pendingReason watcher (~786-825),
 `cleanupAllSubscriptions` (~758).
 
-### TODO 2.1 — Guard `loadMore` during refresh; reentrancy-guard `refresh` `[ ]`
+### TODO 2.1 — Guard `loadMore` during refresh; reentrancy-guard `refresh` `[x]`
 
 In `loadMore`, immediately after the idle check:
 
@@ -602,6 +602,25 @@ async function refresh(): Promise<void> {
   }
 }
 ```
+
+Implemented in this slice:
+
+- `loadMore()` now no-ops while `refresh()` is rebuilding the page chain.
+- `refresh()` now returns immediately when another manual refresh is already
+  pending.
+- Refresh commits are gated on unchanged pagination id, non-idle state, and the
+  same loaded-page count captured at refresh start.
+- Refresh failures now route through `handleUnauthorizedAuthFailure`, and stale
+  refresh failures only set `globalError` when the original pagination id is
+  still current.
+- Restore-and-retest:
+  - Removing the `loadMore()` pending-refresh guard fails `loadMore() is
+ignored while refresh() is rebuilding the page chain`.
+  - Removing the `refresh()` reentrancy guard fails `deduplicates concurrent
+refresh() calls`.
+  - Restoring the old unconditional catch fails `does not let stale refresh
+errors pollute a newer args view` and `routes refresh() failures through
+unauthorized recovery`.
 
 ### TODO 2.2 — Re-bind page subscriptions after refresh commit (LD-6) `[ ]`
 
