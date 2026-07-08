@@ -12,9 +12,9 @@ import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
-// F-3 regression: sign-out purges cached Convex query payload so a later session
-// cannot read the previous user's data, while live public (auth:'none') query keys
-// are spared. Mirrors the exact clearing sequence in client-engine.signOut.
+// F-3 helper-level regressions for purge predicates and component data clearing.
+// The real engine.signOut() lifecycle is pinned in
+// client-engine.signout-lifecycle.nuxt.test.ts.
 describe('sign-out purges Convex payload but spares live public keys (F-3)', () => {
   it('drops stale private payload keys and keeps mounted public query data', async () => {
     const convex = new MockConvexClient()
@@ -48,7 +48,8 @@ describe('sign-out purges Convex payload but spares live public keys (F-3)', () 
     expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 1 }])
     expect(nuxtApp.payload.data['convex:notes:get:stale-private']).toBeDefined()
 
-    // Exact clearing sequence from client-engine.signOut.
+    // Helper-level purge sequence: clear auth subscriptions, then clear every
+    // module-owned payload key not registered as public-only.
     clearAuthSubscriptions(nuxtApp)
     const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
     clearNuxtData(

@@ -488,7 +488,7 @@ Implemented in `test/nuxt/client-engine.signout-lifecycle.nuxt.test.ts`:
 - Race path starts `refreshAuth()` while upstream sign-out is pending and
   verifies the old token/user are not preserved.
 
-### TODO 1.6 — Rewrite the manufactured-transition tests `[ ]`
+### TODO 1.6 — Rewrite the manufactured-transition tests `[x]`
 
 - `test/nuxt/useConvexQuery.signout-purge.nuxt.test.ts`: the "Part A" case
   currently freezes `convex:pending` at `false` and pokes `token.value = null`
@@ -502,6 +502,16 @@ Implemented in `test/nuxt/client-engine.signout-lifecycle.nuxt.test.ts`:
   helper-level unit for `clearAuthSubscriptions`, but add a comment stating the
   engine path is pinned by `client-engine.signout-lifecycle` (otherwise a
   future reader repeats round 1's mistake of thinking this test covers F-2).
+
+Implemented in this slice:
+
+- `useConvexQuery.signout-purge.nuxt.test.ts` was already using the real
+  pending pulse from TODO 1.1. Its file-level comment now explicitly scopes it
+  to helper-level purge/data-clearing regressions and points at the lifecycle
+  suite for real engine coverage.
+- `useConvexQuery.signout-public.nuxt.test.ts` now explicitly scopes itself to
+  `clearAuthSubscriptions`; engine coverage lives in
+  `client-engine.signout-lifecycle.nuxt.test.ts`.
 
 ### Phase 1 exit gate
 

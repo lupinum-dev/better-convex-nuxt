@@ -12,8 +12,9 @@ import {
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
-// F-2 regression: sign-out clears only auth-carrying subscriptions. Public
-// (auth: 'none') realtime queries are auth-independent and must keep streaming.
+// F-2 helper-level regression: clearAuthSubscriptions clears only auth-carrying
+// subscriptions. The real engine.signOut() path is pinned in
+// client-engine.signout-lifecycle.nuxt.test.ts.
 describe('clearAuthSubscriptions preserves public queries (F-2)', () => {
   it('spares auth:none subscriptions while tearing down auth:auto ones', async () => {
     const convex = new MockConvexClient()
