@@ -1,6 +1,7 @@
 import type { FunctionReference } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRef } from 'vue'
 
+import type { ConvexQueryAuthMode } from '../utils/query-execution-gate'
 import { createConvexQueryState } from './useConvexQuery'
 
 /**
@@ -83,17 +84,27 @@ import { createConvexQueryState } from './useConvexQuery'
  * ```
  */
 export function useConvexStorageUrl(
-  getUrlQuery: FunctionReference<'query'>,
+  getUrlQuery: FunctionReference<'query', 'public', { storageId: string }, string | null>,
   storageId: MaybeRef<string | null | undefined>,
+  options: {
+    /**
+     * Auth transport mode for the getUrl query. Use "auto" when your getUrl
+     * query requires an authenticated user (the common secure pattern).
+     * @default "none"
+     */
+    auth?: ConvexQueryAuthMode
+  } = {},
 ): ComputedRef<string | null> {
   // Build query state directly with non-blocking mode and skip behavior.
+  // Auth defaults to 'none' (behavior-preserving); apps whose getUrl requires
+  // auth can opt in via options.auth so a token is attached.
   const { data } = createConvexQueryState(
     getUrlQuery,
     computed(() => {
       const id = toValue(storageId)
       return id ? { storageId: id } : 'skip'
     }),
-    { auth: 'none' },
+    { auth: options.auth ?? 'none' },
     true,
   ).resultData
 

@@ -168,4 +168,11 @@ async function _requiredArgsContracts() {
   defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl })
   // @ts-expect-error wrong args field shape must not compile (F-5)
   defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl, args: { wrong: 1 } })
+
+  // --- useConvexStorageUrl: query must accept { storageId } and return string | null (F-15) ---
+  // Positive: correctly-typed getUrl query, with optional auth passthrough.
+  void useConvexStorageUrl(api.files.getUrl, 'file_1')
+  void useConvexStorageUrl(api.files.getUrl, 'file_1', { auth: 'auto' })
+  // @ts-expect-error mistyped getUrl query (wrong args/return) must not compile (F-15)
+  void useConvexStorageUrl(api.tasks.list, 'file_1')
 }
