@@ -2,7 +2,7 @@
 
 > **Audience:** an AI coding agent executing this plan without human supervision.
 > **Companion doc:** `remediation-round-2.md` (verification matrix + rationale). This
-> file is the *how*; that file is the *why*. When in doubt about intent, read it.
+> file is the _how_; that file is the _why_. When in doubt about intent, read it.
 > **Base:** branch `audit-remediation` @ `050c7941`. Work on a new branch
 > `remediation-round-2` created from it.
 
@@ -15,7 +15,7 @@
 2. **A fix is DONE only when its restore-and-retest passes** (§0.3). "Tests are
    green" is necessary, not sufficient.
 3. **Never weaken a test to make a gate pass.** If a gate fails after your
-   change, the change is wrong or incomplete. If you believe the *test* is wrong,
+   change, the change is wrong or incomplete. If you believe the _test_ is wrong,
    record it in `remediation-round-2-blockers.md` (create it) and stop that TODO.
 4. **Tests drive real entry points.** Every new lifecycle test in this plan calls
    `engine.signOut()`, `refreshAuth()`, `refresh()`, `loadMore()` — never a
@@ -104,14 +104,14 @@ number-one thing this round exists to prevent.
   `src/runtime/auth/client-engine.ts` (`createConvexAuthEngine`).
 - Gate logic: `src/runtime/utils/query-execution-gate.ts` — pure function
   mapping auth state → `pendingReason: 'none' | 'explicit-skip' |
-  'auth-pending' | 'auth-signed-out'`. **Sign-out always passes through
+'auth-pending' | 'auth-signed-out'`. **Sign-out always passes through
   `auth-pending`** because the engine sets `state.pending = true` first.
 - Subscription dedup cache: `src/runtime/utils/convex-cache.ts` —
   `Map<string, SubscriptionEntry>` per NuxtApp, refcounted,
   `entry.authMode: 'auto' | 'none'`.
 - Query payloads live in Nuxt `useAsyncData` state. Plain payload key =
   `getQueryKey(query, args)` = `convex:<fn>:<argsHash>`. Paginated payload key
-  = `convex-paginated:<getQueryKey(...)>`; paginated *subscription* keys =
+  = `convex-paginated:<getQueryKey(...)>`; paginated _subscription_ keys =
   `paginated:<getQueryKey(...)>` (note: different namespace — this mismatch is
   bug A3).
 - Auth proxy (server): `src/runtime/server/api/auth/[...].ts` + helpers
@@ -123,18 +123,18 @@ number-one thing this round exists to prevent.
 
 ## 2. Locked decisions
 
-| ID | Decision |
-|----|----------|
-| LD-1 | Subscription cache keys gain an auth dimension via helper `withAuthDimension(key, authMode)` → `` `${key}::auth-${authMode}` ``. Payload (asyncData) keys are **unchanged**. |
-| LD-2 | A new per-NuxtApp **payload-key registry** maps each *active* query's payload key → per-authMode refcounts. The sign-out purge consults it instead of prefix-guessing. Purge rule: clear a `convex:`/`convex-paginated:`-prefixed key iff (registered with any `auto` consumer) OR (not registered at all). Keys registered only by `none` consumers survive. |
-| LD-3 | `signOut()` and `refreshAuth()` are **serialized**: each awaits the other's in-flight promise before starting. After upstream sign-out succeeds, identity clearing (token, user, `setAuth(null)`, subscription clear, payload purge) runs **unconditionally** (no `isActiveGeneration` gate). Only cosmetic state (`pending`, `authError`) stays generation-gated. |
-| LD-4 | `clearAuthSubscriptions` moves to **after** upstream sign-out success (no more pre-clearing before the network call). |
-| LD-5 | `loadMore()` no-ops while `isManualRefreshPending` is true. `refresh()` additionally verifies at commit time that `pages.value.length` still equals its snapshot length; on mismatch it aborts the commit (logs in dev). |
-| LD-6 | `refresh()` under `subscribe: true` re-binds page subscriptions: after the atomic commit, call `startPageSubscription(i)` for every page index ≥ 1 whose cursor changed (`startPageSubscription` already unsubscribes the old one first). Page 0 keeps its stable first-page subscription (cursor is always `null`). |
-| LD-7 | `can()` returns **plain `boolean`** (evaluated per call against reactive state — Vue render tracking keeps templates reactive). The `ComputedRef` return is removed, not aliased. Docs then become correct as written. |
-| LD-8 | The F-5 consumer-smoke fixture becomes codegen-faithful (`args: {}` instead of `Record<string, never>` for arg-less functions). Contracts that only held in the stricter fake world are deleted with a comment naming the inherited convex-react typing hole. |
-| LD-9 | `saveFile`'s "first registration wins" capability model is by design. Document it; no code change. |
-| LD-10 | `authCache.enabled` stays optional; the module setup logs a warning when `authCache` is configured but `enabled` is unset. |
+| ID    | Decision                                                                                                                                                                                                                                                                                                                                                           |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| LD-1  | Subscription cache keys gain an auth dimension via helper `withAuthDimension(key, authMode)` → `` `${key}::auth-${authMode}` ``. Payload (asyncData) keys are **unchanged**.                                                                                                                                                                                       |
+| LD-2  | A new per-NuxtApp **payload-key registry** maps each _active_ query's payload key → per-authMode refcounts. The sign-out purge consults it instead of prefix-guessing. Purge rule: clear a `convex:`/`convex-paginated:`-prefixed key iff (registered with any `auto` consumer) OR (not registered at all). Keys registered only by `none` consumers survive.      |
+| LD-3  | `signOut()` and `refreshAuth()` are **serialized**: each awaits the other's in-flight promise before starting. After upstream sign-out succeeds, identity clearing (token, user, `setAuth(null)`, subscription clear, payload purge) runs **unconditionally** (no `isActiveGeneration` gate). Only cosmetic state (`pending`, `authError`) stays generation-gated. |
+| LD-4  | `clearAuthSubscriptions` moves to **after** upstream sign-out success (no more pre-clearing before the network call).                                                                                                                                                                                                                                              |
+| LD-5  | `loadMore()` no-ops while `isManualRefreshPending` is true. `refresh()` additionally verifies at commit time that `pages.value.length` still equals its snapshot length; on mismatch it aborts the commit (logs in dev).                                                                                                                                           |
+| LD-6  | `refresh()` under `subscribe: true` re-binds page subscriptions: after the atomic commit, call `startPageSubscription(i)` for every page index ≥ 1 whose cursor changed (`startPageSubscription` already unsubscribes the old one first). Page 0 keeps its stable first-page subscription (cursor is always `null`).                                               |
+| LD-7  | `can()` returns **plain `boolean`** (evaluated per call against reactive state — Vue render tracking keeps templates reactive). The `ComputedRef` return is removed, not aliased. Docs then become correct as written.                                                                                                                                             |
+| LD-8  | The F-5 consumer-smoke fixture becomes codegen-faithful (`args: {}` instead of `Record<string, never>` for arg-less functions). Contracts that only held in the stricter fake world are deleted with a comment naming the inherited convex-react typing hole.                                                                                                      |
+| LD-9  | `saveFile`'s "first registration wins" capability model is by design. Document it; no code change.                                                                                                                                                                                                                                                                 |
+| LD-10 | `authCache.enabled` stays optional; the module setup logs a warning when `authCache` is configured but `enabled` is unset.                                                                                                                                                                                                                                         |
 
 ---
 
@@ -146,7 +146,7 @@ Everything else waits for this phase. Files:
 `src/runtime/utils/convex-cache.ts`,
 `src/runtime/auth/client-engine.ts`, plus tests.
 
-### TODO 1.1 — Fix the dead Part-A guard `[ ]`
+### TODO 1.1 — Fix the dead Part-A guard `[x]`
 
 **File:** `src/runtime/composables/useConvexQuery.ts` (~line 598)
 
@@ -174,7 +174,12 @@ if (
 ) {
 ```
 
-### TODO 1.2 — Gate the `keepPreviousData` default factory `[ ]`
+Result: fixed in `useConvexQuery.ts`; added a real pending-pulse
+`keepPreviousData` regression. Restore-and-retest passed: reverting only this
+guard fails `drops keepPreviousData component data through the real sign-out
+pending pulse (Part A)`.
+
+### TODO 1.2 — Gate the `keepPreviousData` default factory `[x]`
 
 **File:** `src/runtime/composables/useConvexQuery.ts` (~line 426)
 
@@ -209,6 +214,10 @@ default: () => {
 
 (1.1 clears `lastSettledRawData` on the transition; 1.2 is the second layer for
 any ordering where the factory runs before the watcher.)
+
+Result: fixed in `useConvexQuery.ts`; added an HTTP-mode default-factory
+regression. Restore-and-retest passed: reverting only this guard fails `does not
+resurrect keepPreviousData when sign-out purge re-runs the default factory`.
 
 ### TODO 1.3 — Auth dimension in subscription keys + payload-key registry `[ ]`
 
@@ -330,7 +339,7 @@ Do not delete assertions — translate them.
 **File:** `src/runtime/auth/client-engine.ts` (~lines 495-560), plus
 `refreshAuth` (~line 560+).
 
-Current problems: (1) `clearAuthSubscriptions` runs *before* the upstream call,
+Current problems: (1) `clearAuthSubscriptions` runs _before_ the upstream call,
 so a failed sign-out leaves subscriptions torn down while the user stays
 signed in; (2) all identity clearing is gated on `isActiveGeneration`, so a
 concurrent `refreshAuth()` (documented post-sign-in step) skips the entire
@@ -351,8 +360,7 @@ signOutPromise = (async () => {
   if (inflightRefresh) await inflightRefresh.catch(() => {})
 
   const result = await authClient.signOut()
-  const maybeError =
-    result && typeof result === 'object' && 'error' in result ? result.error : null
+  const maybeError = result && typeof result === 'object' && 'error' in result ? result.error : null
   if (maybeError) {
     throw new Error(getErrorMessage(maybeError, 'Sign out failed'))
   }
@@ -365,9 +373,12 @@ signOutPromise = (async () => {
   lastTokenValidation = 0
   lastNullTokenCheck = Date.now()
   settleAuthReady(false)
-  attachedClient?.setAuth(async () => null, () => {})
+  attachedClient?.setAuth(
+    async () => null,
+    () => {},
+  )
 
-  clearAuthSubscriptions(nuxtApp)   // moved AFTER upstream success (LD-4)
+  clearAuthSubscriptions(nuxtApp) // moved AFTER upstream success (LD-4)
   await nextTick()
 
   // Purge cached payloads via the payload-key registry (LD-2): survive only
@@ -375,9 +386,7 @@ signOutPromise = (async () => {
   // under our namespaces goes — including orphaned keys with no live consumer.
   const keep = getPublicOnlyPayloadKeys(nuxtApp)
   clearNuxtData(
-    (key) =>
-      (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
-      !keep.has(key),
+    (key) => (key.startsWith('convex:') || key.startsWith('convex-paginated:')) && !keep.has(key),
   )
 
   if (isActiveGeneration(operationGeneration)) {
@@ -400,7 +409,7 @@ if (inflightSignOut) await inflightSignOut.catch(() => {})
 
 Leave the `if (state.token.value) return` success-check as is — with
 serialization plus unconditional clearing, a token present after the hook is by
-construction a *fresh* token, not the revoked one.
+construction a _fresh_ token, not the revoked one.
 
 **Purge-prefix note:** the old predicate `key.startsWith('convex')` also nuked
 unrelated app keys like `convexSomething`. The new predicate matches only the
@@ -421,16 +430,16 @@ with a stub `authClient` whose `signOut` resolves `{}` (success) or rejects
 
 Required cases — each maps to a bug and MUST fail if that fix is lone-reverted:
 
-| Case | Pins | Assert |
-|------|------|--------|
-| Public plain query (`auth:'none'`, subscribe) survives `engine.signOut()` and still receives a post-sign-out emission | C1/F-2 engine wiring | subscription entry present; new `emitQueryResult` reaches `data` |
-| Private plain query (`auth:'auto'`) purged | F-3 Part B | payload cleared, status idle, subscription gone |
-| Private query with `keepPreviousData: true` **blanks** after `engine.signOut()` | A1+A2 | `data.value === null` after sign-out settles |
-| Public **paginated** query payload survives sign-out | A3 | `results` still populated after sign-out |
-| Public plain `subscribe:false` query payload survives | A4 | payload still present |
-| Same fn+args mounted as both `auth:'none'` and `auth:'auto'`: sign-out kills only the auto entry; public keeps streaming; no double-release refcount corruption | A5 | dimensioned keys: none-entry present, auto-entry gone; post-sign-out emission reaches public consumer |
-| `refreshAuth()` fired while `signOut()` upstream call is in flight (make the stub `authClient.signOut` await a controllable deferred): after both settle, `token`/`user` are null | A6/LD-3 | serialization + unconditional clear |
-| Upstream sign-out **fails** (stub rejects): token/user retained, `authError` set, both public and private subscriptions still live and streaming | A7/LD-4 | no teardown happened |
+| Case                                                                                                                                                                              | Pins                 | Assert                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Public plain query (`auth:'none'`, subscribe) survives `engine.signOut()` and still receives a post-sign-out emission                                                             | C1/F-2 engine wiring | subscription entry present; new `emitQueryResult` reaches `data`                                      |
+| Private plain query (`auth:'auto'`) purged                                                                                                                                        | F-3 Part B           | payload cleared, status idle, subscription gone                                                       |
+| Private query with `keepPreviousData: true` **blanks** after `engine.signOut()`                                                                                                   | A1+A2                | `data.value === null` after sign-out settles                                                          |
+| Public **paginated** query payload survives sign-out                                                                                                                              | A3                   | `results` still populated after sign-out                                                              |
+| Public plain `subscribe:false` query payload survives                                                                                                                             | A4                   | payload still present                                                                                 |
+| Same fn+args mounted as both `auth:'none'` and `auth:'auto'`: sign-out kills only the auto entry; public keeps streaming; no double-release refcount corruption                   | A5                   | dimensioned keys: none-entry present, auto-entry gone; post-sign-out emission reaches public consumer |
+| `refreshAuth()` fired while `signOut()` upstream call is in flight (make the stub `authClient.signOut` await a controllable deferred): after both settle, `token`/`user` are null | A6/LD-3              | serialization + unconditional clear                                                                   |
+| Upstream sign-out **fails** (stub rejects): token/user retained, `authError` set, both public and private subscriptions still live and streaming                                  | A7/LD-4              | no teardown happened                                                                                  |
 
 ### TODO 1.6 — Rewrite the manufactured-transition tests `[ ]`
 
@@ -456,8 +465,8 @@ Required cases — each maps to a bug and MUST fail if that fix is lone-reverted
   clear). Each lone revert must fail ≥1 named test. Record names below:
 
 ```
-1.1 revert -> FAILS: <test name>
-1.2 revert -> FAILS: <test name>
+1.1 revert -> FAILS: `drops keepPreviousData component data through the real sign-out pending pulse (Part A)`
+1.2 revert -> FAILS: `does not resurrect keepPreviousData when sign-out purge re-runs the default factory`
 1.3 keys revert -> FAILS: <test name>
 1.3 registry revert -> FAILS: <test name>
 1.4 blanket-clear revert -> FAILS: <test name>
@@ -551,7 +560,7 @@ Also fix the `refresh()` JSDoc (~line 190): it currently advertises
 sure the wording matches the implemented behavior (re-chained cursors +
 re-bound subscriptions). Cross-check the plain-query doc that claims
 `refresh()` is a no-op under subscriptions for `useConvexQuery` — that doc
-statement concerns the *plain* composable and stays.
+statement concerns the _plain_ composable and stays.
 
 ### TODO 2.3 — Investigate & fix auth-refresh page collapse (B4) `[ ]`
 
@@ -577,13 +586,13 @@ so a user 5 pages deep collapses to page 1 on every auth refresh.
 Extend `test/nuxt/useConvexPaginatedQuery.nuxt.test.ts` (mirror the existing
 `subscribe:false` gapless test at ~448):
 
-| Test | Pins |
-|------|------|
-| Gapless refresh with `subscribe: true` (default): insert into page-1 range, `refresh()`, then emit on the re-bound page-2 subscription → no gap/duplicate, and the stale-cursor emission does NOT clobber | 2.2 |
-| `loadMore()` called while `refresh()` is awaiting → page count preserved after both settle (loadMore no-op'd; caller retry after settle works) | 2.1 |
-| Two concurrent `refresh()` calls → second returns immediately; exactly one commit | 2.1 |
-| `refresh()` rejection with an unauthorized-shaped error → `handleUnauthorizedAuthFailure` invoked (spy) | 2.1 |
-| `refresh()` racing an args change (bump args mid-refresh) → no `globalError` pollution of the new view | 2.1 |
+| Test                                                                                                                                                                                                      | Pins |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| Gapless refresh with `subscribe: true` (default): insert into page-1 range, `refresh()`, then emit on the re-bound page-2 subscription → no gap/duplicate, and the stale-cursor emission does NOT clobber | 2.2  |
+| `loadMore()` called while `refresh()` is awaiting → page count preserved after both settle (loadMore no-op'd; caller retry after settle works)                                                            | 2.1  |
+| Two concurrent `refresh()` calls → second returns immediately; exactly one commit                                                                                                                         | 2.1  |
+| `refresh()` rejection with an unauthorized-shaped error → `handleUnauthorizedAuthFailure` invoked (spy)                                                                                                   | 2.1  |
+| `refresh()` racing an args change (bump args mid-refresh) → no `globalError` pollution of the new view                                                                                                    | 2.1  |
 
 ### Phase 2 exit gate
 
@@ -651,7 +660,7 @@ than production.
    comment
    `// NOTE: not enforceable — convex-react's {} args accept excess properties (inherited hole).`
 3. Add a new negative contract for the round-1-found hole: the paginated
-   composable must not accept the *options object in the args slot* — if it
+   composable must not accept the _options object in the args slot_ — if it
    compiles, document it as inherited; if a cheap type-level fix in
    `ConvexQueryRest`/paginated arg types closes it without breaking the 488
    suite or consumer-smoke, take it.
@@ -751,7 +760,7 @@ redirect-utils test file (find it via
 `docs/content/docs/4.auth-security/1.authentication.md` (~line 57) recommends
 `skipAuthRoutes` as a cache safe-harbor. It is client-only
 (`src/runtime/plugin.client.ts:141`); `plugin.server.ts` hydrates the JWT into
-SSR HTML regardless. Rewrite the paragraph: `skipAuthRoutes` skips *client*
+SSR HTML regardless. Rewrite the paragraph: `skipAuthRoutes` skips _client_
 auth bootstrapping; it does NOT prevent SSR token hydration, so it is not a
 caching safe-harbor. Mention that SSR responses carrying a token already send
 `Cache-Control: private, no-store`, and that platform-level ISR/route-rule
@@ -958,32 +967,32 @@ deployment: record "e2e skipped — no deployment" here. Do not fabricate.
 
 ## Appendix A — Bug ↔ TODO map
 
-| Bug (see remediation-round-2.md) | TODO |
-|---|---|
-| A1 dead Part-A guard | 1.1 |
-| A2 keepPreviousData resurrection | 1.1 + 1.2 |
-| A3 paginated key-namespace mismatch | 1.3 |
-| A4 over-broad purge (subscribe:false / prefix sweep) | 1.3 + 1.4 |
-| A5 auth-mode-blind cache key | 1.3 |
-| A6 generation-skip race | 1.4 |
-| A7 failed sign-out teardown | 1.4 (LD-4) + 1.5 |
-| B1 refresh/loadMore race | 2.1 |
-| B2 stale-cursor subscriptions after refresh | 2.2 |
-| B3 refresh catch ungated / no 401 recovery | 2.1 |
-| B4 auth-refresh page collapse | 2.3 |
-| C1 F-2 test gap | 1.5 + 1.6 |
-| C2 F-3 manufactured transition | 1.6 |
-| C3 F-1 primary gate unpinned | 3.1 |
-| C4 posts.ts coverage | 3.2 |
-| C5 F-5 fixture fidelity | 3.3 |
-| D1 token endpoint no-store | 4.1 |
-| D2 F-28 sign-out detection | 4.2 |
-| D3 F-27 credential headers | 4.3 |
-| D4 skipAuthRoutes doc | 4.4 |
-| E1/E3 permissions doc breakers | 5.2 |
-| E2 can() ComputedRef footgun | 5.1 |
-| E4/E5 app-owned roles doc + demo schema | 5.3 |
-| E6 F-17 drift batch | 5.4 |
+| Bug (see remediation-round-2.md)                     | TODO             |
+| ---------------------------------------------------- | ---------------- |
+| A1 dead Part-A guard                                 | 1.1              |
+| A2 keepPreviousData resurrection                     | 1.1 + 1.2        |
+| A3 paginated key-namespace mismatch                  | 1.3              |
+| A4 over-broad purge (subscribe:false / prefix sweep) | 1.3 + 1.4        |
+| A5 auth-mode-blind cache key                         | 1.3              |
+| A6 generation-skip race                              | 1.4              |
+| A7 failed sign-out teardown                          | 1.4 (LD-4) + 1.5 |
+| B1 refresh/loadMore race                             | 2.1              |
+| B2 stale-cursor subscriptions after refresh          | 2.2              |
+| B3 refresh catch ungated / no 401 recovery           | 2.1              |
+| B4 auth-refresh page collapse                        | 2.3              |
+| C1 F-2 test gap                                      | 1.5 + 1.6        |
+| C2 F-3 manufactured transition                       | 1.6              |
+| C3 F-1 primary gate unpinned                         | 3.1              |
+| C4 posts.ts coverage                                 | 3.2              |
+| C5 F-5 fixture fidelity                              | 3.3              |
+| D1 token endpoint no-store                           | 4.1              |
+| D2 F-28 sign-out detection                           | 4.2              |
+| D3 F-27 credential headers                           | 4.3              |
+| D4 skipAuthRoutes doc                                | 4.4              |
+| E1/E3 permissions doc breakers                       | 5.2              |
+| E2 can() ComputedRef footgun                         | 5.1              |
+| E4/E5 app-owned roles doc + demo schema              | 5.3              |
+| E6 F-17 drift batch                                  | 5.4              |
 
 ## Appendix B — Things that look like bugs but are NOT (do not "fix")
 
@@ -994,6 +1003,6 @@ deployment: record "e2e skipped — no deployment" here. Do not fabricate.
 - `dist/` occasionally holding a flattened `ConvexQueryRest` mid-review — stale
   artifact; a clean `nuxt-module-build build` emits the correct conditional.
 - The plain-query doc saying `useConvexQuery`'s refresh is subscription-managed
-  — correct for the plain composable; only the *paginated* JSDoc needed 2.2.
+  — correct for the plain composable; only the _paginated_ JSDoc needed 2.2.
 - `code.includes('UNAUTH')` matching `UNAUTHORIZED` in the F-24 matcher —
   accepted as defensible in review; leave unless it causes a concrete failure.

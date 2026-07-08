@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { clearNuxtData, useState } from '#imports'
 
@@ -10,6 +10,7 @@ import {
 } from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { waitFor } from '../helpers/wait-for'
 
 // F-3 regression: sign-out purges cached Convex query payload so a later session
 // cannot read the previous user's data, while live public (auth:'none') query keys
@@ -64,16 +65,21 @@ describe('sign-out purges Convex payload but spares live public keys (F-3)', () 
     expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 2 }])
   })
 
-  it('drops component data when an auth query transitions into signed-out (Part A)', async () => {
+  it('drops keepPreviousData component data through the real sign-out pending pulse (Part A)', async () => {
     const convex = new MockConvexClient()
     const authQuery = mockFnRef<'query'>('notes:list:private-drop')
 
     const { result, flush } = await captureInNuxt(
       () => {
-        useState<boolean>('convex:pending', () => false)
+        const pending = useState<boolean>('convex:pending', () => false)
         const token = useState<string | null>('convex:token', () => 'signed.in.jwt')
-        const authResult = createConvexQueryState(authQuery, {}, { auth: 'auto' }, true).resultData
-        return { authResult, token }
+        const authResult = createConvexQueryState(
+          authQuery,
+          {},
+          { auth: 'auto', keepPreviousData: true },
+          true,
+        ).resultData
+        return { authResult, pending, token }
       },
       {
         convex,
@@ -86,11 +92,71 @@ describe('sign-out purges Convex payload but spares live public keys (F-3)', () 
     await flush()
     expect(result.authResult.data.value).toEqual([{ _id: 'a1', secret: true }])
 
-    // Sign out: token cleared -> gate transitions 'none' -> 'auth-signed-out'.
+    // Real sign-out pulses pending before clearing the token:
+    // 'none' -> 'auth-pending' -> 'auth-signed-out'.
+    result.pending.value = true
+    await flush()
     result.token.value = null
+    await flush()
+    result.pending.value = false
     await flush()
 
     expect(result.authResult.data.value).toBeNull()
     expect(result.authResult.status.value).toBe('idle')
+
+    // A later session must not see the previous session's keepPreviousData
+    // snapshot while it waits for its own first live result.
+    result.pending.value = true
+    await flush()
+    result.token.value = 'new.session.jwt'
+    await flush()
+    result.pending.value = false
+    await flush()
+
+    result.authResult.clear()
+    expect(result.authResult.data.value).toBeNull()
+
+    convex.emitQueryResult(authQuery, {}, [{ _id: 'a2', secret: false }])
+    await flush()
+    expect(result.authResult.data.value).toEqual([{ _id: 'a2', secret: false }])
+  })
+
+  it('does not resurrect keepPreviousData when sign-out purge re-runs the default factory', async () => {
+    const authQuery = mockFnRef<'query'>('notes:list:private-default-purge')
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'a1', secret: true }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const pending = useState<boolean>('convex:pending', () => false)
+        const token = useState<string | null>('convex:token', () => 'signed.in.jwt')
+        const authResult = createConvexQueryState(
+          authQuery,
+          {},
+          { auth: 'auto', keepPreviousData: true, subscribe: false },
+          true,
+        ).resultData
+        return { authResult, pending, token }
+      },
+      {
+        convex: new MockConvexClient(),
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await waitFor(() => result.authResult.data.value?.[0]?._id === 'a1')
+
+    result.pending.value = true
+    await flush()
+    result.token.value = null
+    await flush()
+    result.pending.value = false
+
+    await clearNuxtData((key) => key === getQueryKey(authQuery, {}))
+    result.authResult.clear()
+
+    expect(result.authResult.data.value).toBeNull()
+    await flush()
+    expect(result.authResult.data.value).toBeNull()
   })
 })

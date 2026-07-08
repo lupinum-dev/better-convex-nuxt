@@ -424,7 +424,14 @@ export function createConvexQueryState<
       lazy: resolveImmediately,
       // Wrap default to handle undefined → null conversion for type compatibility.
       default: () => {
-        if (keepPreviousData && lastSettledData.value !== null) {
+        if (
+          keepPreviousData &&
+          lastSettledData.value !== null &&
+          // Never resurrect data across a signed-out boundary: sign-out purges
+          // asyncData, which re-runs this factory before every watcher ordering
+          // has necessarily cleared lastSettledRawData.
+          executionGate.value.pendingReason !== 'auth-signed-out'
+        ) {
           return lastSettledRawData.value
         }
         const fallbackRaw = resolveInitialData()
@@ -595,7 +602,9 @@ export function createConvexQueryState<
         }
 
         // Entering signed-out: drop this component's now-unauthorized data.
-        if (next.pendingReason === 'auth-signed-out' && prev.pendingReason === 'none') {
+        // Real sign-out transitions through auth-pending first, so do not
+        // require the previous state to be 'none'.
+        if (next.pendingReason === 'auth-signed-out' && prev.pendingReason !== 'auth-signed-out') {
           lastSettledData.value = null
           lastSettledRawData.value = null
           lastSettledArgsHash.value = null
