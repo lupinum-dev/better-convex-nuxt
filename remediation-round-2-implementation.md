@@ -1083,7 +1083,7 @@ context and keeps can() reactive across permission updates`.
     search across `docs/content src test playground demo README.md starters`:
     zero matches
 
-### TODO 5.2 — Fix the three permissions-doc breakers `[ ]`
+### TODO 5.2 — Fix the three permissions-doc breakers `[x]`
 
 **File:** `docs/content/docs/4.auth-security/2.permissions.md`
 
@@ -1115,6 +1115,23 @@ not the repo). Both must compile together.
 (c) Sweep the other three permission-doc pages
 (`0.permissions-setup.md`, `1.authentication.md`, `3.*` if present) for the
 same three patterns.
+
+Implemented in this slice:
+
+- Verified
+  `node_modules/@convex-dev/better-auth/dist/component/adapter.d.ts`:
+  `components.betterAuth.adapter.findMany` requires `paginationOpts` and returns
+  `PaginationResult<GenericDocument>`.
+- Updated the permissions reference `findMany` snippet to pass
+  `paginationOpts: { numItems: 200, cursor: null }` and return `result.page`.
+- Updated duplicated permissions guide/setup helper snippets so
+  `getBetterAuthMember()` returns `{ role: Role } | null`, matching the
+  documented `PermissionContext.role` union instead of plain `string`.
+- Verification:
+  - `rg -n "as \\{ role: string \\}|return await ctx\\.runQuery\\(components\\.betterAuth\\.adapter\\.findMany" docs/content/docs/4.auth-security/2.permissions.md docs/content/docs/4.auth-security/0.permissions-setup.md docs/content/docs/1.guide/4.permissions.md`
+    returned zero matches.
+  - `pnpm format:check` PASS
+  - `pnpm lint` PASS
 
 ### TODO 5.3 — Purge app-owned authoritative-role guidance (E4/E5) `[ ]`
 
