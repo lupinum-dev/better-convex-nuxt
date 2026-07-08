@@ -834,13 +834,28 @@ export function createConvexPaginatedQueryState<
         hash: argsHash.value,
         skipped: isSkipped.value,
         pendingReason: executionGate.value.pendingReason,
+        authToken: authMode === 'none' ? null : cachedToken.value,
       }),
       async (next, prev) => {
         if (
           next.hash === prev.hash &&
           next.skipped === prev.skipped &&
-          next.pendingReason === prev.pendingReason
+          next.pendingReason === prev.pendingReason &&
+          next.authToken === prev.authToken
         ) {
+          return
+        }
+
+        const sameTokenAuthRefreshPulse =
+          authMode !== 'none' &&
+          next.hash === prev.hash &&
+          next.skipped === prev.skipped &&
+          next.authToken !== null &&
+          next.authToken === prev.authToken &&
+          ((prev.pendingReason === 'none' && next.pendingReason === 'auth-pending') ||
+            (prev.pendingReason === 'auth-pending' && next.pendingReason === 'none'))
+
+        if (sameTokenAuthRefreshPulse) {
           return
         }
 

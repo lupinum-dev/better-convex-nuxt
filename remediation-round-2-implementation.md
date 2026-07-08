@@ -663,7 +663,7 @@ Implemented in this slice:
 - Restore-and-retest: removing the re-bind loop fails `refresh() re-binds live
   page subscriptions to fresh chained cursors`.
 
-### TODO 2.3 — Investigate & fix auth-refresh page collapse (B4) `[ ]`
+### TODO 2.3 — Investigate & fix auth-refresh page collapse (B4) `[x]`
 
 Claim (single-review, plausible): any `refreshAuth()` pending pulse trips the
 pendingReason watcher (~786-825), which runs `cleanupAllSubscriptions()`, drops
@@ -681,6 +681,18 @@ so a user 5 pages deep collapses to page 1 on every auth refresh.
    Pick the smallest change that passes both this test and the Phase-1 suite.
 3. If it passes on HEAD: record `B4 REFUTED on HEAD` here, keep the test as a
    pin, no code change.
+
+Implemented in this slice:
+
+- B4 is confirmed on HEAD: a same-token `auth-pending -> none` pulse collapsed
+  a two-page live paginated query and left only the first page.
+- The pending watcher now observes the auth token and skips teardown only for
+  unchanged args plus unchanged non-null token transitions between `none` and
+  `auth-pending`.
+- Token loss, token replacement, skip changes, args changes, and signed-out
+  transitions still use the existing teardown path.
+- Restore-and-retest: removing the same-token auth-refresh guard fails
+  `preserves loaded pages across a same-token auth refresh pending pulse`.
 
 ### TODO 2.4 — Live-mode F-26b + race regression tests `[ ]`
 

@@ -240,6 +240,87 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
     await flush()
   })
 
+  it('preserves loaded pages across a same-token auth refresh pending pulse', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:auth-refresh-preserve-pages')
+
+    vi.stubGlobal('$fetch', async () => ({
+      value: {
+        page: [
+          { _id: 'n1', title: 'A' },
+          { _id: 'n2', title: 'B' },
+        ],
+        isDone: false,
+        continueCursor: 'c1',
+      },
+    }))
+
+    const matchesCursor = (cursor: string | null) => {
+      return ({ query: q, args }: { query: unknown; args: unknown }) => {
+        const path = (q as { _path?: string })._path
+        const actualCursor = (args as { paginationOpts?: { cursor?: string | null } })
+          .paginationOpts?.cursor
+        return (
+          path === 'notes:listPaginated:auth-refresh-preserve-pages' && actualCursor === cursor
+        )
+      }
+    }
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const authPending = useState<boolean>('convex:pending')
+        const token = useState<string | null>('convex:token')
+        authPending.value = false
+        token.value = 'same.jwt.token'
+        const queryResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          { auth: 'auto', initialNumItems: 2 },
+        )
+        return { authPending, queryResult, token }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    convex.emitQueryResultWhere(matchesCursor(null), {
+      page: [
+        { _id: 'n1', title: 'A' },
+        { _id: 'n2', title: 'B' },
+      ],
+      isDone: false,
+      continueCursor: 'c1',
+    })
+    await waitFor(() => result.queryResult.results.value.length === 2)
+
+    result.queryResult.loadMore(2)
+    await waitFor(() => convex.activeListenerCountWhere(matchesCursor('c1')) === 1)
+    convex.emitQueryResultWhere(matchesCursor('c1'), {
+      page: [
+        { _id: 'n3', title: 'C' },
+        { _id: 'n4', title: 'D' },
+      ],
+      isDone: true,
+      continueCursor: null,
+    })
+    await waitFor(() => result.queryResult.results.value.length === 4)
+
+    result.authPending.value = true
+    await flush()
+    expect(result.queryResult.results.value).toEqual([])
+
+    result.authPending.value = false
+    await flush()
+
+    await waitFor(() => result.queryResult.results.value.length > 0)
+    expect(
+      (result.queryResult.results.value as Array<{ _id: string }>).map((item) => item._id),
+    ).toEqual(['n1', 'n2', 'n3', 'n4'])
+    expect(convex.activeListenerCountWhere(matchesCursor('c1'))).toBe(1)
+  })
+
   it('does not alias paginated first-page subscriptions mounted as auth:auto and auth:none', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:listPaginated:mixed-auth')
