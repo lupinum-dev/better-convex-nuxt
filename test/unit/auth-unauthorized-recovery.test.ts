@@ -60,7 +60,7 @@ describe('auth unauthorized recovery', () => {
     })
 
     const handled = await handleUnauthorizedAuthFailure({
-      error: new Error('Unauthorized'),
+      error: { status: 401 },
       source: 'query',
       functionName: 'notes:list',
     })
@@ -83,7 +83,7 @@ describe('auth unauthorized recovery', () => {
     })
 
     const handled = await handleUnauthorizedAuthFailure({
-      error: new Error('Unauthorized'),
+      error: { status: 401 },
       source: 'query',
       functionName: 'notes:list',
     })
