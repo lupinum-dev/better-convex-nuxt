@@ -7,6 +7,7 @@ import {
   clearAuthSubscriptions,
   getQueryKey,
   getSubscriptionCache,
+  withAuthDimension,
 } from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -43,8 +44,8 @@ describe('clearAuthSubscriptions preserves public queries (F-2)', () => {
     convex.emitQueryResult(authQuery, {}, [{ _id: 'a1', v: 1 }])
     await flush()
 
-    const publicKey = getQueryKey(publicQuery, {})
-    const authKey = getQueryKey(authQuery, {})
+    const publicKey = withAuthDimension(getQueryKey(publicQuery, {}), 'none')
+    const authKey = withAuthDimension(getQueryKey(authQuery, {}), 'auto')
 
     // Both subscribed before sign-out.
     expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
@@ -60,6 +61,41 @@ describe('clearAuthSubscriptions preserves public queries (F-2)', () => {
 
     // Public query keeps streaming: a later emission still reaches the component.
     convex.emitQueryResult(publicQuery, {}, [{ _id: 'p1', v: 2 }])
+    await flush()
+    expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 2 }])
+  })
+
+  it('does not alias the same query mounted as auth:auto and auth:none', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:mixed-auth')
+
+    const { result, nuxtApp, flush } = await captureInNuxt(
+      () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
+        const authResult = createConvexQueryState(query, {}, { auth: 'auto' }, true).resultData
+        const publicResult = createConvexQueryState(query, {}, { auth: 'none' }, true).resultData
+        return { publicResult, authResult }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await flush()
+
+    const rawKey = getQueryKey(query, {})
+    const authKey = withAuthDimension(rawKey, 'auto')
+    const publicKey = withAuthDimension(rawKey, 'none')
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(true)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    clearAuthSubscriptions(nuxtApp)
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(false)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    convex.emitQueryResult(query, {}, [{ _id: 'p1', v: 2 }])
     await flush()
     expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 2 }])
   })

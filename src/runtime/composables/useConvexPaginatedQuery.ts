@@ -23,7 +23,9 @@ import {
   hashArgs,
   getQueryKey,
   fetchAuthToken,
+  registerPayloadKey,
   waitForQueryBridgeData,
+  withAuthDimension,
   type QuerySubscriptionBridge,
 } from '../utils/convex-cache'
 import {
@@ -320,6 +322,8 @@ export function createConvexPaginatedQueryState<
   let firstPageSubscriptionKey: string | null = null
   let firstPageBridge: QuerySubscriptionBridge | null = null
   let bridgeSync: PaginatedQueryBridgeSync | null = null
+  let registeredPayloadKey: string | null = null
+  let unregisterPayloadKey: (() => void) | null = null
 
   const initialPaginationOpts = computed(() => ({
     numItems: initialNumItems,
@@ -340,20 +344,49 @@ export function createConvexPaginatedQueryState<
   })
 
   const getStablePaginatedSubscriptionKey = (paginationOpts: StablePaginationOpts): string => {
+    let subscriptionKey: string
     if (executionGate.value.resolveAsIdle) {
-      return `paginated:${cacheKey.value}:idle`
+      subscriptionKey = `paginated:${cacheKey.value}:idle`
+    } else {
+      const currentArgs = getArgs() as ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>>
+      if (currentArgs == null || currentArgs === 'skip') {
+        subscriptionKey = `paginated:${cacheKey.value}:idle`
+      } else {
+        subscriptionKey = `paginated:${getQueryKey(query, {
+          ...currentArgs,
+          paginationOpts: {
+            numItems: paginationOpts.numItems,
+            cursor: paginationOpts.cursor,
+          },
+        })}`
+      }
     }
-    const currentArgs = getArgs() as ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>>
-    if (currentArgs == null || currentArgs === 'skip') {
-      return `paginated:${cacheKey.value}:idle`
+
+    return withAuthDimension(subscriptionKey, authMode)
+  }
+
+  const releasePayloadKey = () => {
+    unregisterPayloadKey?.()
+    unregisterPayloadKey = null
+    registeredPayloadKey = null
+  }
+
+  const syncPayloadKeyRegistration = () => {
+    if (!import.meta.client) return
+
+    if (executionGate.value.resolveAsIdle) {
+      releasePayloadKey()
+      return
     }
-    return `paginated:${getQueryKey(query, {
-      ...currentArgs,
-      paginationOpts: {
-        numItems: paginationOpts.numItems,
-        cursor: paginationOpts.cursor,
-      },
-    })}`
+
+    const currentPayloadKey = cacheKey.value
+    if (registeredPayloadKey === currentPayloadKey) {
+      return
+    }
+
+    releasePayloadKey()
+    registeredPayloadKey = currentPayloadKey
+    unregisterPayloadKey = registerPayloadKey(nuxtApp, currentPayloadKey, authMode)
   }
 
   async function fetchPage(paginationOpts: {
@@ -768,6 +801,18 @@ export function createConvexPaginatedQueryState<
   }
 
   if (import.meta.client) {
+    syncPayloadKeyRegistration()
+
+    watch(
+      () => ({
+        key: cacheKey.value,
+        resolveAsIdle: executionGate.value.resolveAsIdle,
+      }),
+      () => {
+        syncPayloadKeyRegistration()
+      },
+    )
+
     const startAllSubscriptions = () => {
       if (!executionGate.value.setupLiveSubscription) {
         return
@@ -820,6 +865,7 @@ export function createConvexPaginatedQueryState<
 
     if (cleanupScope) {
       onScopeDispose(() => {
+        releasePayloadKey()
         cleanupAllSubscriptions()
       })
     }

@@ -16,6 +16,7 @@ type SubscriptionCacheOwner = object
 // Module-level WeakMap for automatic GC when NuxtApp is destroyed
 // This replaces the previous pattern of patching nuxtApp._convexSubscriptions
 const subscriptionRegistry = new WeakMap<object, SubscriptionCache>()
+const payloadKeyRegistry = new WeakMap<object, Map<string, PayloadKeyCounts>>()
 
 // ============================================================================
 // Types
@@ -31,6 +32,11 @@ export interface SubscriptionEntry {
   queryBridge?: QuerySubscriptionBridge
   /** Auth transport mode of the query that created this entry. 'none' = public. */
   authMode: 'auto' | 'none'
+}
+
+export interface PayloadKeyCounts {
+  auto: number
+  none: number
 }
 
 /**
@@ -69,6 +75,59 @@ export interface AcquiredQuerySubscription {
   bridge: QuerySubscriptionBridge
   refCount: number
   release: () => boolean
+}
+
+/**
+ * Subscription-cache keys carry the auth transport mode so the same query+args
+ * can safely be mounted as both auth:'auto' and auth:'none'. Payload keys
+ * deliberately stay auth-agnostic because Nuxt asyncData is keyed by query data.
+ */
+export function withAuthDimension(key: string, authMode: 'auto' | 'none'): string {
+  return `${key}::auth-${authMode}`
+}
+
+export function getPayloadKeyRegistry(owner: object): Map<string, PayloadKeyCounts> {
+  let map = payloadKeyRegistry.get(owner)
+  if (!map) {
+    map = new Map()
+    payloadKeyRegistry.set(owner, map)
+  }
+  return map
+}
+
+export function registerPayloadKey(
+  owner: object,
+  key: string,
+  authMode: 'auto' | 'none',
+): () => void {
+  const map = getPayloadKeyRegistry(owner)
+  const counts = map.get(key) ?? { auto: 0, none: 0 }
+  counts[authMode] += 1
+  map.set(key, counts)
+
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+
+    const current = map.get(key)
+    if (!current) return
+
+    current[authMode] = Math.max(0, current[authMode] - 1)
+    if (current.auto === 0 && current.none === 0) {
+      map.delete(key)
+    }
+  }
+}
+
+export function getPublicOnlyPayloadKeys(owner: object): Set<string> {
+  const keep = new Set<string>()
+  for (const [key, counts] of getPayloadKeyRegistry(owner)) {
+    if (counts.none > 0 && counts.auto === 0) {
+      keep.add(key)
+    }
+  }
+  return keep
 }
 
 export function createQueryBridge(): QuerySubscriptionBridge {
@@ -201,6 +260,11 @@ export function acquireQuerySubscription(
   const existing = cache.get(cacheKey)
 
   if (existing) {
+    if (import.meta.dev && existing.authMode !== meta.authMode) {
+      console.warn(
+        `[better-convex-nuxt] subscription ${cacheKey} acquired with mismatched authMode`,
+      )
+    }
     existing.refCount += 1
     return {
       bridge: ensureQueryBridge(existing),

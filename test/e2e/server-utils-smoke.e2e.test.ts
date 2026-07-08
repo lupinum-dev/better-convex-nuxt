@@ -17,6 +17,10 @@ try {
 }
 
 const maybeDescribe = local ? describe : describe.skip
+const fetchUnknown = $fetch as (
+  request: string,
+  options?: { method?: string; body?: unknown },
+) => Promise<unknown>
 
 maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', async () => {
   afterAll(async () => {
@@ -31,7 +35,7 @@ maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', a
   })
 
   it('round-trips through Nitro API endpoints backed by server fetch helpers', async () => {
-    const queryResponse = (await $fetch('/api/test-server-query?limit=1')) as {
+    const queryResponse = (await fetchUnknown('/api/test-server-query?limit=1')) as {
       success: boolean
       count: number
       totalAvailable: number
@@ -45,7 +49,7 @@ maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', a
     expect(queryResponse.count).toBeLessThanOrEqual(1)
 
     const uniqueTitle = `Server smoke ${Date.now()}`
-    const mutationResponse = (await $fetch('/api/test-server-mutation', {
+    const mutationResponse = (await fetchUnknown('/api/test-server-mutation', {
       method: 'POST',
       body: {
         title: uniqueTitle,

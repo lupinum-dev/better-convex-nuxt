@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { useState } from '#imports'
 
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
-import { getQueryKey, getSubscriptionCache } from '../../src/runtime/utils/convex-cache'
+import {
+  getQueryKey,
+  getSubscriptionCache,
+  withAuthDimension,
+} from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
@@ -55,7 +59,7 @@ describe('useConvexQuery auth gate (F-1)', () => {
     await flush()
 
     expect(convex.activeListenerCount(query, {})).toBe(1)
-    const expectedKey = getQueryKey(query, {})
+    const expectedKey = withAuthDimension(getQueryKey(query, {}), 'auto')
     const keysAfterSignIn = Array.from(getSubscriptionCache(nuxtApp).keys())
     expect(keysAfterSignIn).toEqual([expectedKey])
     expect(keysAfterSignIn.some((key) => key.startsWith('convex:idle:'))).toBe(false)

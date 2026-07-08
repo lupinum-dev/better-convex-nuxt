@@ -10,7 +10,7 @@ import {
   buildClientAuthResponseErrorMessage,
   buildMissingSiteUrlMessage,
 } from '../utils/auth-errors'
-import { clearAuthSubscriptions, getSubscriptionCache } from '../utils/convex-cache'
+import { clearAuthSubscriptions, getPublicOnlyPayloadKeys } from '../utils/convex-cache'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
 import { matchesSkipRoute } from '../utils/route-matcher'
@@ -531,10 +531,14 @@ export function createConvexAuthEngine({
         clearAuthSubscriptions(nuxtApp)
 
         // Purge cached Convex query payload so a subsequent session can never read or
-        // hydrate the previous user's data. Keys still present in the subscription
-        // cache belong to live public (auth:'none') queries and keep their data.
-        const liveKeys = new Set(getSubscriptionCache(nuxtApp).keys())
-        clearNuxtData((key) => key.startsWith('convex') && !liveKeys.has(key))
+        // hydrate the previous user's data. Payload keys consumed exclusively by
+        // public auth:'none' queries are auth-independent and keep their data.
+        const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
+        clearNuxtData(
+          (key) =>
+            (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
+            !publicPayloadKeys.has(key),
+        )
       }
 
       return result

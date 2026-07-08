@@ -219,7 +219,7 @@ Result: fixed in `useConvexQuery.ts`; added an HTTP-mode default-factory
 regression. Restore-and-retest passed: reverting only this guard fails `does not
 resurrect keepPreviousData when sign-out purge re-runs the default factory`.
 
-### TODO 1.3 — Auth dimension in subscription keys + payload-key registry `[ ]`
+### TODO 1.3 — Auth dimension in subscription keys + payload-key registry `[x]`
 
 **File:** `src/runtime/utils/convex-cache.ts`
 
@@ -333,6 +333,22 @@ if (existing) {
 (e.g. `useConvexQuery.signout-public.nuxt.test.ts` uses
 `getSubscriptionCache(nuxtApp).has(publicKey)`) to use `withAuthDimension`.
 Do not delete assertions — translate them.
+
+Implemented in this slice:
+
+- Subscription cache keys now use `withAuthDimension(key, authMode)` while Nuxt
+  asyncData payload keys remain unchanged.
+- Plain and paginated query composables register active payload keys for both
+  live and `subscribe:false` consumers, then unregister on key changes, idle
+  transitions, and scope disposal.
+- Sign-out purge now uses `getPublicOnlyPayloadKeys()` instead of live
+  subscription keys, so public payload survival is based on raw payload keys
+  rather than the subscription namespace.
+- Added registry invariants and mixed-auth regression coverage for plain and
+  paginated subscriptions.
+- Also fixed `test/e2e/server-utils-smoke.e2e.test.ts` by wrapping `$fetch` in
+  a local `unknown` fetch function, avoiding Nuxt typed-route recursion in
+  `vue-tsc` without changing runtime behavior.
 
 ### TODO 1.4 — Rewrite the engine sign-out sequence `[ ]`
 
@@ -467,8 +483,8 @@ Required cases — each maps to a bug and MUST fail if that fix is lone-reverted
 ```
 1.1 revert -> FAILS: `drops keepPreviousData component data through the real sign-out pending pulse (Part A)`
 1.2 revert -> FAILS: `does not resurrect keepPreviousData when sign-out purge re-runs the default factory`
-1.3 keys revert -> FAILS: <test name>
-1.3 registry revert -> FAILS: <test name>
+1.3 keys revert -> FAILS: `does not alias the same query mounted as auth:auto and auth:none`; `does not alias paginated first-page subscriptions mounted as auth:auto and auth:none`
+1.3 registry revert -> FAILS: `keeps only keys consumed exclusively by auth:none queries`; `drops stale private payload keys and keeps mounted public query data`; `keeps public subscribe:false payloads during sign-out purge`
 1.4 blanket-clear revert -> FAILS: <test name>
 1.4 generation-gate revert -> FAILS: <test name>
 ```

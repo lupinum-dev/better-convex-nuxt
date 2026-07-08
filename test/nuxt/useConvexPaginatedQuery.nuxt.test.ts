@@ -14,6 +14,12 @@ import {
   type PaginatedQueryItem,
   type UseConvexPaginatedQueryOptions,
 } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import {
+  clearAuthSubscriptions,
+  getQueryKey,
+  getSubscriptionCache,
+  withAuthDimension,
+} from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -223,6 +229,63 @@ describe('useConvexPaginatedQuery composables (Nuxt runtime)', () => {
 
     result.authPending.value = false
     await flush()
+  })
+
+  it('does not alias paginated first-page subscriptions mounted as auth:auto and auth:none', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:listPaginated:mixed-auth')
+
+    const { result, nuxtApp } = await captureInNuxt(
+      () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
+        const authResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'auto',
+            initialNumItems: 2,
+          },
+        )
+        const publicResult = useConvexPaginatedQueryState(
+          query as never,
+          {},
+          {
+            auth: 'none',
+            initialNumItems: 2,
+          },
+        )
+        return { authResult, publicResult }
+      },
+      {
+        convex,
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+      },
+    )
+
+    await waitFor(() => convex.activeListenerCount() === 2)
+
+    const rawFirstPageKey = `paginated:${getQueryKey(query, {
+      paginationOpts: { numItems: 2, cursor: null },
+    })}`
+    const authKey = withAuthDimension(rawFirstPageKey, 'auto')
+    const publicKey = withAuthDimension(rawFirstPageKey, 'none')
+
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(true)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    clearAuthSubscriptions(nuxtApp)
+    expect(getSubscriptionCache(nuxtApp).has(authKey)).toBe(false)
+    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
+
+    convex.emitQueryResultByPath('notes:listPaginated:mixed-auth', {
+      page: [{ _id: 'p1', title: 'public' }],
+      isDone: true,
+      continueCursor: null,
+    })
+
+    await waitFor(() => result.publicResult.results.value.length === 1)
+    expect(result.publicResult.results.value).toEqual([{ _id: 'p1', title: 'public' }])
   })
 
   it('walks the full status machine: loading-first-page -> ready -> loading-more -> exhausted', async () => {

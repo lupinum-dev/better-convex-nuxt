@@ -6,7 +6,7 @@ import { createConvexQueryState } from '../../src/runtime/composables/useConvexQ
 import {
   clearAuthSubscriptions,
   getQueryKey,
-  getSubscriptionCache,
+  getPublicOnlyPayloadKeys,
 } from '../../src/runtime/utils/convex-cache'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -50,19 +50,65 @@ describe('sign-out purges Convex payload but spares live public keys (F-3)', () 
 
     // Exact clearing sequence from client-engine.signOut.
     clearAuthSubscriptions(nuxtApp)
-    const liveKeys = new Set(getSubscriptionCache(nuxtApp).keys())
-    clearNuxtData((key) => key.startsWith('convex') && !liveKeys.has(key))
+    const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
+    clearNuxtData(
+      (key) =>
+        (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
+        !publicPayloadKeys.has(key),
+    )
     await flush()
 
     // Stale private payload is gone.
     expect(nuxtApp.payload.data['convex:notes:get:stale-private']).toBeUndefined()
 
     // The live public query key was excluded, so its data survives and streams on.
-    expect(liveKeys.has(publicKey)).toBe(true)
+    expect(publicPayloadKeys.has(publicKey)).toBe(true)
     expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 1 }])
     convex.emitQueryResult(publicQuery, {}, [{ _id: 'p1', v: 2 }])
     await flush()
     expect(result.publicResult.data.value).toEqual([{ _id: 'p1', v: 2 }])
+  })
+
+  it('keeps public subscribe:false payloads during sign-out purge', async () => {
+    const publicQuery = mockFnRef<'query'>('notes:list:public-http-purge')
+    const publicKey = getQueryKey(publicQuery, {})
+    const fetchMock = vi.fn(async () => ({ value: [{ _id: 'p-http', v: 1 }] }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result, nuxtApp, flush } = await captureInNuxt(
+      () => {
+        useState<boolean>('convex:pending', () => false)
+        useState<string | null>('convex:token', () => 'signed.in.jwt')
+        const publicResult = createConvexQueryState(
+          publicQuery,
+          {},
+          { auth: 'none', subscribe: false },
+          true,
+        ).resultData
+        return { publicResult }
+      },
+      {
+        convex: new MockConvexClient(),
+        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
+        payloadData: {
+          [publicKey]: [{ _id: 'p-http', v: 1 }],
+          'convex:notes:get:stale-private-http': [{ _id: 'secret', v: 1 }],
+        },
+      },
+    )
+
+    await flush()
+    expect(result.publicResult.data.value).toEqual([{ _id: 'p-http', v: 1 }])
+
+    const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
+    await clearNuxtData(
+      (key) =>
+        (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
+        !publicPayloadKeys.has(key),
+    )
+
+    expect(nuxtApp.payload.data[publicKey]).toEqual([{ _id: 'p-http', v: 1 }])
+    expect(nuxtApp.payload.data['convex:notes:get:stale-private-http']).toBeUndefined()
   })
 
   it('drops keepPreviousData component data through the real sign-out pending pulse (Part A)', async () => {

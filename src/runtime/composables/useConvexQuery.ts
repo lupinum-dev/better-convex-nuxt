@@ -24,12 +24,14 @@ import {
   getQueryKey,
   computeQueryStatus,
   fetchAuthToken,
+  registerPayloadKey,
   releaseSubscription,
   acquireQuerySubscription,
   commitQueryBridgeData,
   commitQueryBridgeError,
   subscribeQueryBridge,
   waitForQueryBridgeData,
+  withAuthDimension,
   type QueryBridgeSnapshot,
   type QuerySubscriptionBridge,
   type ConvexCallStatus,
@@ -235,8 +237,34 @@ export function createConvexQueryState<
   // Track whether this component instance has registered with the subscription cache.
   let registeredCacheKey: string | null = null
   let registeredBridge: QuerySubscriptionBridge | null = null
-  const cleanupScope = import.meta.client && subscribe ? currentScope : undefined
+  const cleanupScope = import.meta.client ? currentScope : undefined
   let unsubscribeSharedBridge: (() => void) | null = null
+  let registeredPayloadKey: string | null = null
+  let unregisterPayloadKey: (() => void) | null = null
+
+  const releasePayloadKey = () => {
+    unregisterPayloadKey?.()
+    unregisterPayloadKey = null
+    registeredPayloadKey = null
+  }
+
+  const syncPayloadKeyRegistration = () => {
+    if (!import.meta.client) return
+
+    if (executionGate.value.resolveAsIdle) {
+      releasePayloadKey()
+      return
+    }
+
+    const currentPayloadKey = getCacheKey()
+    if (registeredPayloadKey === currentPayloadKey) {
+      return
+    }
+
+    releasePayloadKey()
+    registeredPayloadKey = currentPayloadKey
+    unregisterPayloadKey = registerPayloadKey(nuxtApp, currentPayloadKey, authMode)
+  }
 
   const cleanupSharedBridgeSubscriber = () => {
     if (unsubscribeSharedBridge) {
@@ -283,8 +311,9 @@ export function createConvexQueryState<
       )
     }
 
-    const currentCacheKey = getCacheKey()
-    if (registeredCacheKey === currentCacheKey && registeredBridge) {
+    const currentPayloadKey = getCacheKey()
+    const currentSubscriptionKey = withAuthDimension(currentPayloadKey, authMode)
+    if (registeredCacheKey === currentSubscriptionKey && registeredBridge) {
       return registeredBridge
     }
 
@@ -294,7 +323,7 @@ export function createConvexQueryState<
 
     const subscription = acquireQuerySubscription(
       nuxtApp,
-      currentCacheKey,
+      currentSubscriptionKey,
       (bridge) =>
         convex.onUpdate(
           query,
@@ -314,7 +343,7 @@ export function createConvexQueryState<
             // DevTools stores raw shared subscription data (not transformed), because
             // different subscribers may apply different transform() functions.
             if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+              devToolsRegistry.updateQueryStatus(currentSubscriptionKey, {
                 status: 'success',
                 data: result,
                 dataSource: 'websocket',
@@ -333,7 +362,7 @@ export function createConvexQueryState<
 
             // Keep DevTools subscription-level error visibility.
             if (import.meta.dev && devToolsRegistry) {
-              devToolsRegistry.updateQueryStatus(currentCacheKey, {
+              devToolsRegistry.updateQueryStatus(currentSubscriptionKey, {
                 status: 'error',
                 error: err.message,
               })
@@ -343,7 +372,7 @@ export function createConvexQueryState<
       { authMode },
     )
 
-    registeredCacheKey = currentCacheKey
+    registeredCacheKey = currentSubscriptionKey
     registeredBridge = subscription.bridge
 
     logger.query({
@@ -442,6 +471,24 @@ export function createConvexQueryState<
       deep: false,
     },
   )
+
+  if (import.meta.client && cleanupScope) {
+    syncPayloadKeyRegistration()
+
+    watch(
+      () => ({
+        key: cacheKey.value,
+        resolveAsIdle: executionGate.value.resolveAsIdle,
+      }),
+      () => {
+        syncPayloadKeyRegistration()
+      },
+    )
+
+    onScopeDispose(() => {
+      releasePayloadKey()
+    })
+  }
 
   watch(
     () => asyncData.data.value,
@@ -549,7 +596,7 @@ export function createConvexQueryState<
         return
       }
 
-      const currentCacheKey = getCacheKey()
+      const currentCacheKey = withAuthDimension(getCacheKey(), authMode)
 
       try {
         const bridge = acquireSharedSubscriptionBridge(currentArgs as FunctionArgs<Query>)
