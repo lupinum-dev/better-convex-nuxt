@@ -51,12 +51,12 @@ async function resolveAuthToken(
     return options.authToken
   }
 
-  const policy = options?.auth ?? 'auto'
+  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
+  const policy = options?.auth ?? config.defaults.auth
   if (policy === 'none') {
     return undefined
   }
 
-  const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
   const cookieHeader = getCookieHeader(event)
   const sessionToken = getBetterAuthSessionToken(cookieHeader)
   const authCookieHeader = filterBetterAuthCookies(cookieHeader)

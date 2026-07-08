@@ -23,7 +23,7 @@ const AUTH_CACHE_TTL_MAX = DEFAULT_AUTH_CACHE_TTL
 const DEFAULT_MAX_CONCURRENT_UPLOADS = 3
 const DEFAULT_AUTH_PROXY_BODY_LIMIT_BYTES = 1_048_576
 // How long an awaited subscribe-mode query waits for its first WS result before
-// rejecting. 0 (or non-finite) disables the timeout.
+// rejecting. 0 disables the timeout; invalid values fall back to this default.
 const DEFAULT_WAIT_TIMEOUT_MS = 10_000
 
 // --- Frozen defaults object --------------------------------------------------

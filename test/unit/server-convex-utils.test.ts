@@ -258,4 +258,35 @@ describe('server Convex fetch helpers', () => {
     })
     expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
   })
+
+  it('uses configured default auth:none when no per-call auth option is passed', async () => {
+    useRuntimeConfigMock.mockReturnValue({
+      public: {
+        convex: {
+          url: 'http://127.0.0.1:3210',
+          siteUrl: 'http://127.0.0.1:3220',
+          defaults: { auth: 'none' },
+        },
+      },
+    } as never)
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ value: { ok: true } }), {
+          headers: { 'content-type': 'application/json' },
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await serverConvexQuery(
+      createEvent('better-auth.session_token=session123'),
+      { _path: 'notes:list' } as never,
+      {} as never,
+    )
+
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    const firstCall = fetchMock.mock.calls[0]
+    expect(firstCall).toBeDefined()
+    const [, init] = firstCall as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
+  })
 })

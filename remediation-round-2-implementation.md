@@ -1195,7 +1195,7 @@ Implemented in this slice:
     no-explicit-any issues across untouched demo files, so it is not a usable
     gate for this slice.
 
-### TODO 5.4 — F-17 consistency batch `[ ]`
+### TODO 5.4 — F-17 consistency batch `[x]`
 
 Small, independent; verify each claim in code before editing (these are the
 plan's least-verified items):
@@ -1217,6 +1217,40 @@ plan's least-verified items):
 7. LD-9: add a short "storage IDs are unguessable capabilities; ownership binds
    at first registration (`saveFile`)" note to the file-storage doc page
    (locate via `rg -ln "saveFile" docs/content`).
+
+Implemented in this slice:
+
+- `normalizeAuthRoute()` now uses `CONVEX_MODULE_DEFAULTS.authRoute` for both
+  default and empty-route fallback paths.
+- `useConvexUser()` now uses normalized `convex.defaults.subscribe` unless the
+  call passes `subscribe` explicitly.
+- Server Convex helpers now use normalized `convex.defaults.auth` unless the
+  call passes `auth` explicitly.
+- Fixed the `waitTimeoutMs` source comment and documented `waitTimeoutMs` in
+  module config docs.
+- Rewrote the stale `CONVEX_URL` deploy-time sentence: deploy-time `CONVEX_URL`
+  does not override runtime config; use `NUXT_PUBLIC_*` for Nuxt runtime-config
+  overrides.
+- Added the LD-10 setup warning when `authCache` is configured without
+  `authCache.enabled`.
+- Added the LD-9 storage-capability note to the file-storage docs.
+- Restore-and-retest:
+  - Reverting `useConvexUser()` to `options.subscribe ?? true` fails `uses
+configured default subscribe:false when no per-call subscribe option is
+passed`.
+  - Reverting server utilities to `options?.auth ?? 'auto'` fails `uses
+configured default auth:none when no per-call auth option is passed`.
+- Verification:
+  - `pnpm vitest run --project=unit test/unit/convex-config.test.ts test/unit/runtime-config.test.ts test/unit/server-convex-utils.test.ts`
+    PASS: 3 files / 26 tests
+  - `pnpm vitest run --project=nuxt test/nuxt/useConvexUser.nuxt.test.ts` PASS:
+    1 file / 5 tests
+  - `pnpm lint` PASS
+  - `pnpm format:check` PASS
+  - `pnpm test:types` PASS
+  - Targeted stale-hardcode/prose search for old auth-route, auth/subscribe
+    fallbacks, stale timeout comment, and stale CONVEX_URL mismatch sentence:
+    zero matches
 
 ### Phase 5 exit gate
 

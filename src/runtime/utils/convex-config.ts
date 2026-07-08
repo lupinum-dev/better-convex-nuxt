@@ -1,3 +1,5 @@
+import { CONVEX_MODULE_DEFAULTS } from './config-defaults'
+
 export type SiteUrlResolutionSource = 'explicit' | 'derived' | 'missing' | 'invalid-derived'
 
 export interface ResolveConvexSiteUrlInput {
@@ -88,6 +90,7 @@ export function getSiteUrlResolutionHint(url?: string | null): string {
 }
 
 export function normalizeAuthRoute(authRoute?: string | null): string {
-  const raw = authRoute || '/api/auth'
-  return (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '') || '/api/auth'
+  const fallback = CONVEX_MODULE_DEFAULTS.authRoute
+  const raw = authRoute || fallback
+  return (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '') || fallback
 }

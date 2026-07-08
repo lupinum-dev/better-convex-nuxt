@@ -349,6 +349,11 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     const normalizedAuthCacheTtl = normalizeAuthCacheTtl(options.authCache?.ttl)
+    if (options.authCache && options.authCache.enabled === undefined) {
+      logger.warn(
+        'convex.authCache is configured but authCache.enabled is unset. Set authCache.enabled: true to enable SSR auth token caching, or remove authCache to keep it disabled.',
+      )
+    }
     if (
       (options.authCache?.ttl ?? CONVEX_MODULE_DEFAULTS.authCache.ttl) !== normalizedAuthCacheTtl
     ) {

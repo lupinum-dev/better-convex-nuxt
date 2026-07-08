@@ -67,6 +67,40 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     expect(result.status.value).toBe('success')
   })
 
+  it('uses configured default subscribe:false when no per-call subscribe option is passed', async () => {
+    const viewer = mockFnRef<'query'>('users:viewer-default-subscribe')
+    const fetchMock = vi.fn(async () => ({
+      value: { id: 'auth-user-defaults', displayName: 'Configured Default' },
+    }))
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const { result } = await captureInNuxt(
+      () => {
+        const token = useState<string | null>('convex:token')
+        const user = useState('convex:user')
+        const pending = useState<boolean>('convex:pending')
+
+        token.value = 'jwt.token'
+        user.value = {
+          id: 'auth-user-defaults',
+          name: 'Session Name',
+          email: 'session@example.com',
+        }
+        pending.value = false
+
+        return useConvexUser(viewer, {})
+      },
+      { convexConfig: { defaults: { subscribe: false } } },
+    )
+
+    await waitFor(() => result.source.value === 'better-auth')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.data.value).toEqual({
+      id: 'auth-user-defaults',
+      displayName: 'Configured Default',
+    })
+  })
+
   it('marks explicitly derived profile queries as projection sourced', async () => {
     const profile = mockFnRef<'query'>('profiles:viewer')
     vi.stubGlobal(
