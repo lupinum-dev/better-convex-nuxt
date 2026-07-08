@@ -94,7 +94,7 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
 
 export interface UseConvexQueryData<DataT> {
   data: ComputedRef<DataT | null>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   refresh: () => Promise<void>
   clear: () => void
   pending: ComputedRef<boolean>
@@ -686,13 +686,18 @@ export function createConvexQueryState<
     return raw == null ? null : applyTransform(raw as RawT)
   })
 
+  // Nuxt 4 types asyncData.error as Ref<Error | undefined>, but the value domain
+  // we expose is Error | null (bridge code writes literal null). Normalize via a
+  // computed instead of casting a ref whose value can still be undefined (F-19).
+  const error = computed<Error | null>(() => asyncData.error.value ?? null)
+
   // Build result data object with our own pending/status
   const resultData: UseConvexQueryData<DataT> = {
     data,
     pending,
     status,
     isStale,
-    error: asyncData.error as Ref<Error | null>,
+    error,
     refresh: asyncData.refresh,
     clear: asyncData.clear,
   }

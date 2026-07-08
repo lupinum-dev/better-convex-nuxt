@@ -11,14 +11,15 @@ Coordinator/reviewer: Fable. Workers: Opus (heavy), Sonnet (straightforward).
 
 ## Task log
 
-| Task               | Status | Commit   | Evidence                                                                                       |
-| ------------------ | ------ | -------- | ---------------------------------------------------------------------------------------------- |
-| P0.1 baseline      | DONE   | —        | 510/510 green on branch                                                                        |
-| P0.2 format (F-41) | DONE   | 7f684af7 | `pnpm format:check` clean (662 files); tests+types green after                                 |
-| P1.1 gate (F-1)    | DONE   | a18c9e82 | new `useConvexQuery.auth-gate` test green; query suites+types green                            |
-| P1.2 clear (F-2)   | DONE   | b5dfec76 | new `useConvexQuery.signout-public` test green; client-auth-engine+paginated+types green       |
-| P1.3 purge (F-3)   | DONE   | 16ddf05b | new `useConvexQuery.signout-purge` test (Part A + Part B) green; full unit+nuxt 418 green      |
-| P1.4 scope (F-4)   | DONE   | 8706fe97 | new two-consumer unmount-lifecycle test green (verified it fails without the fix); types green |
+| Task                 | Status | Commit   | Evidence                                                                                                                                                                                                                                              |
+| -------------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0.1 baseline        | DONE   | —        | 510/510 green on branch                                                                                                                                                                                                                               |
+| P0.2 format (F-41)   | DONE   | 7f684af7 | `pnpm format:check` clean (662 files); tests+types green after                                                                                                                                                                                        |
+| P1.1 gate (F-1)      | DONE   | a18c9e82 | new `useConvexQuery.auth-gate` test green; query suites+types green                                                                                                                                                                                   |
+| P1.2 clear (F-2)     | DONE   | b5dfec76 | new `useConvexQuery.signout-public` test green; client-auth-engine+paginated+types green                                                                                                                                                              |
+| P1.3 purge (F-3)     | DONE   | 16ddf05b | new `useConvexQuery.signout-purge` test (Part A + Part B) green; full unit+nuxt 418 green                                                                                                                                                             |
+| P1.4 scope (F-4)     | DONE   | 8706fe97 | new two-consumer unmount-lifecycle test green (verified it fails without the fix); types green                                                                                                                                                        |
+| P2.1 args (F-5+F-23) | DONE   | f95c9080 | plan A conditional tuple `ConvexQueryRest`/`SharedQueryArgsField`; consumer-smoke + query-options-types negatives green; revert of signature fails contracts (verified); check:contracts + missing-convex-api green; 62 query-family nuxt tests green |
 
 ## Phase 1 gate
 

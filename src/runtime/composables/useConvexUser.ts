@@ -1,5 +1,5 @@
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
-import type { ComputedRef, MaybeRefOrGetter, Ref } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { computed } from 'vue'
 
 import { toValue } from '#imports'
@@ -49,7 +49,7 @@ export interface UseConvexUserReturn<User> {
   pending: ComputedRef<boolean>
   status: ComputedRef<ConvexCallStatus>
   isStale: ComputedRef<boolean>
-  error: Ref<Error | null>
+  error: ComputedRef<Error | null>
   source: ComputedRef<ConvexUserSource>
   refresh: () => Promise<void>
   clear: () => void

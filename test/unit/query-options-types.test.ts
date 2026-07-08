@@ -53,6 +53,8 @@ type _PaginatedHasAuthOption = Assert<
 type _QueryArgsUseOnlySkipSentinel = Assert<IsEqual<QueryArgs, { id: string } | 'skip'>>
 type _PaginatedArgsUseOnlySkipSentinel = Assert<IsEqual<PaginatedArgs, { id: string } | 'skip'>>
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
+// F-19: error is a computed whose value domain is exactly `Error | null` (never `undefined`).
+type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], ComputedRef<Error | null>>>
 
 // ============================================================================
 // Negative-space call-arity contracts (F-5 / F-23), mirrored against `src`.
