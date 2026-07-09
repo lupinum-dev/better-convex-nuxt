@@ -14,13 +14,13 @@ running side by side after a migration phase passes.
 
 The final system has one clear owner for each type of proof:
 
-| Layer | Runner | Responsibility |
-|---|---|---|
-| L0 | ESLint, TypeScript, Node scripts | Static, package, export, and consumer contracts |
-| L1 | Vitest `unit` | Pure logic, state transitions, parsers, races |
-| L2 | Vitest `convex` | Convex backend business rules with `convex-test` |
-| L3 | Vitest `nuxt` | Nuxt composable and lifecycle orchestration |
-| L4 | Playwright Test | Real Nuxt + real local Convex + real browser boundaries |
+| Layer | Runner                           | Responsibility                                          |
+| ----- | -------------------------------- | ------------------------------------------------------- |
+| L0    | ESLint, TypeScript, Node scripts | Static, package, export, and consumer contracts         |
+| L1    | Vitest `unit`                    | Pure logic, state transitions, parsers, races           |
+| L2    | Vitest `convex`                  | Convex backend business rules with `convex-test`        |
+| L3    | Vitest `nuxt`                    | Nuxt composable and lifecycle orchestration             |
+| L4    | Playwright Test                  | Real Nuxt + real local Convex + real browser boundaries |
 
 The implementation is complete only when the old Vitest `browser` and `e2e`
 projects, their duplicate scripts, and `test/helpers/local-convex.ts` are deleted.
@@ -107,18 +107,64 @@ and packed tarballs. It is never committed.
 
 ## 4. Phase summary and dependencies
 
-| Phase | Outcome | Depends on |
-|---|---|---|
-| 0 | Baseline, migration map, timings | Nothing |
-| 1 | Deterministic tooling and contract checks | Phase 0 |
-| 2 | One working Playwright/Convex stack and migrated old E2E tests | Phase 1 |
-| 3 | Critical query, hydration, auth, and privacy contracts | Phase 2 |
-| 4 | Pagination, writes, upload, packaging, and browser-project removal | Phase 3 |
-| 5 | Resilience, compatibility, and Renovate attribution | Phase 4 |
-| 6 | Release adoption, final deletion, and documentation | Phase 5 |
+| Phase | Outcome                                                            | Depends on |
+| ----- | ------------------------------------------------------------------ | ---------- |
+| 0     | Baseline, migration map, timings                                   | Nothing    |
+| 1     | Deterministic tooling and contract checks                          | Phase 0    |
+| 2     | One working Playwright/Convex stack and migrated old E2E tests     | Phase 1    |
+| 3     | Critical query, hydration, auth, and privacy contracts             | Phase 2    |
+| 4     | Pagination, writes, upload, packaging, and browser-project removal | Phase 3    |
+| 5     | Resilience, compatibility, and Renovate attribution                | Phase 4    |
+| 6     | Release adoption, final deletion, and documentation                | Phase 5    |
 
 Do not start Phase 3 until Phase 2 can start and stop the stack reliably on a
 fresh CI runner.
+
+### Master progress checklist
+
+- [ ] P0.1 Record the clean baseline
+- [ ] P0.2 Create the migration map
+- [ ] P0.3 Capture operation-count regressions
+- [ ] P1.1 Make installs reproducible
+- [ ] P1.2 Replace unsafe negative grep scripts
+- [ ] P1.3 Establish the final command vocabulary
+- [ ] P1.4 Add generated-runtime ignores
+- [ ] P1.5 Add executable timing budgets
+- [ ] P2.1 Simplify runner dependencies
+- [ ] P2.2 Add the Playwright configuration
+- [ ] P2.3 Implement one stack owner
+- [ ] P2.4 Add a real readiness endpoint
+- [ ] P2.5 Harden the existing reset mutation
+- [ ] P2.6 Add Playwright fixtures and diagnostics
+- [ ] P2.7 Create explicit test-only pages
+- [ ] P2.8 Migrate the useful old E2E contracts
+- [ ] P2.9 Remove the old Vitest E2E path
+- [ ] P3.1 Implement Q1
+- [ ] P3.2 Implement Q2 and Q3
+- [ ] P3.3 Implement Q4 and Q5
+- [ ] P3.4 Implement Q6
+- [ ] P3.5 Implement A1–A3
+- [ ] P3.6 Implement A4
+- [ ] P3.7 Complete A5 at the correct tiers
+- [ ] P3.8 Promote L4 core to a required check
+- [ ] P4.1 Implement P1 pagination coverage
+- [ ] P4.2 Implement W1 and W2
+- [ ] P4.3 Implement U1
+- [ ] P4.4 Implement N1
+- [ ] P4.5 Implement N2 and N3
+- [ ] P4.6 Build the demo against the current tarball
+- [ ] P4.7 Remove the Vitest browser project
+- [ ] P5.1 Implement R1 and R2
+- [ ] P5.2 Implement R3
+- [ ] P5.3 Implement R4
+- [ ] P5.4 Prove the declared Nuxt floor
+- [ ] P5.5 Reconfigure Renovate
+- [ ] P5.6 Add latest-supported verification
+- [ ] P6.1 Create one release verifier
+- [ ] P6.2 Install the final CI structure
+- [ ] P6.3 Delete migration residue
+- [ ] P6.4 Rewrite the operating guide
+- [ ] P6.5 Run final acceptance
 
 ---
 
@@ -161,17 +207,17 @@ Record the following in a new section at the bottom of `test/TESTING.md` named
 Add this mapping to `test/TESTING.md` during the migration and remove it in Phase
 6 after all rows are complete:
 
-| Existing file | New owner | Replacement |
-|---|---|---|
-| `test/e2e/auth-loop.e2e.test.ts` | L4 core | `auth.spec.ts` A2/A3 |
-| `test/e2e/auth-proxy-plugin-routes.e2e.test.ts` | L4 core | `module-and-server.spec.ts` N3 |
-| `test/e2e/connection-state.e2e.test.ts` | L3 + L4 resilience | connection shape runtime test + R3 |
-| `test/e2e/plugin-server-misconfig-overlay.e2e.test.ts` | L1 | existing plugin-server failure-policy tests, expanded if needed |
-| `test/e2e/realtime-subscription.e2e.test.ts` | L4 core | `query.spec.ts` Q1 |
-| `test/e2e/route-protection.e2e.test.ts` | L4 core | `routing.spec.ts` N2 |
-| `test/e2e/server-utils-smoke.e2e.test.ts` | L4 core | `module-and-server.spec.ts` N3 |
-| `test/e2e/smoke-ssr.e2e.test.ts` | L0/L4 core | packed consumer N1 |
-| `test/browser/ConvexAuthComponents.browser.test.ts` | L3 | Nuxt component/runtime tests |
+| Existing file                                          | New owner          | Replacement                                                     |
+| ------------------------------------------------------ | ------------------ | --------------------------------------------------------------- |
+| `test/e2e/auth-loop.e2e.test.ts`                       | L4 core            | `auth.spec.ts` A2/A3                                            |
+| `test/e2e/auth-proxy-plugin-routes.e2e.test.ts`        | L4 core            | `module-and-server.spec.ts` N3                                  |
+| `test/e2e/connection-state.e2e.test.ts`                | L3 + L4 resilience | connection shape runtime test + R3                              |
+| `test/e2e/plugin-server-misconfig-overlay.e2e.test.ts` | L1                 | existing plugin-server failure-policy tests, expanded if needed |
+| `test/e2e/realtime-subscription.e2e.test.ts`           | L4 core            | `query.spec.ts` Q1                                              |
+| `test/e2e/route-protection.e2e.test.ts`                | L4 core            | `routing.spec.ts` N2                                            |
+| `test/e2e/server-utils-smoke.e2e.test.ts`              | L4 core            | `module-and-server.spec.ts` N3                                  |
+| `test/e2e/smoke-ssr.e2e.test.ts`                       | L0/L4 core         | packed consumer N1                                              |
+| `test/browser/ConvexAuthComponents.browser.test.ts`    | L3                 | Nuxt component/runtime tests                                    |
 
 Do not preserve a test merely because it already exists. Preserve its useful
 contract at the lowest adequate layer.
@@ -314,17 +360,23 @@ selected deployment.
 
 Add CI job timeouts and record command durations in the job summary:
 
-| Command | Ceiling |
-|---|---|
-| `pnpm test:unit` | 20 seconds locally |
-| `pnpm test:convex` | 30 seconds locally |
-| `pnpm test:nuxt` | 90 seconds locally |
-| `pnpm test:fullstack` | 8 minutes in CI |
-| `pnpm test:resilience` | 12 minutes in CI |
-| full release verification | 30 minutes |
+| Command                   | Ceiling            |
+| ------------------------- | ------------------ |
+| `pnpm test:unit`          | 20 seconds locally |
+| `pnpm test:convex`        | 30 seconds locally |
+| `pnpm test:nuxt`          | 90 seconds locally |
+| `pnpm test:fullstack`     | 8 minutes in CI    |
+| `pnpm test:resilience`    | 12 minutes in CI   |
+| full release verification | 30 minutes         |
 
 Do not fail on small per-run timing variance. The CI job timeout is the hard
 guard; the documented baseline is the trend reference.
+
+**Verification criteria**
+
+- Every CI job has an explicit timeout.
+- The measured baseline and ceiling are present in `test/TESTING.md`.
+- A deliberately hung test is terminated by the owning job timeout.
 
 **Phase 1 exit gate**
 
@@ -354,6 +406,12 @@ After the old Vitest browser project is deleted in Phase 4, remove:
   project.
 
 Do not remove those packages before their last caller is migrated.
+
+**Verification criteria**
+
+- `pnpm why @playwright/test` shows one full-stack runner dependency.
+- No dependency is removed while a tracked source/config file imports it.
+- After Phase 4, repository search finds no Vitest Browser Mode imports.
 
 ### P2.2 Add the Playwright configuration
 
@@ -534,6 +592,13 @@ must be deliberately plain and stable:
 Do not create one query-param-driven mega page. Each page pins one public contract
 and can be understood without reading a mode generator.
 
+**Verification criteria**
+
+- Every page has one named contract and stable readiness marker.
+- Every button/input used by a test has a semantic locator or `data-testid`.
+- No `setTimeout`, animation-dependent assertion, or mode query parser is added.
+- `pnpm exec nuxi typecheck --cwd playground` passes.
+
 ### P2.8 Migrate the useful old E2E contracts
 
 Before adding new coverage, move the existing useful contracts:
@@ -556,6 +621,13 @@ The plugin misconfiguration overlay test is deleted after its production/dev
 policy and secret-redaction assertions are explicitly covered at L1. Do not start
 a second Nuxt server solely to retain that test.
 
+**Verification criteria**
+
+- Every migration-map row points to a green replacement test.
+- Each replacement has a recorded red proof from disabling the guarded behavior.
+- No old test remains after its replacement is green.
+- Test count output shows no conditional infrastructure skips.
+
 ### P2.9 Remove the old Vitest E2E path
 
 After every `test/e2e/*.e2e.test.ts` row has a verified owner:
@@ -566,6 +638,13 @@ After every `test/e2e/*.e2e.test.ts` row has a verified owner:
 - delete `test:e2e` and `test:e2e:full` scripts;
 - remove `CONVEX_E2E_AUTO_START` documentation and code references;
 - update `test/TESTING.md`.
+
+**Verification criteria**
+
+- `vitest.config.ts` has no `e2e` project.
+- `test/e2e`, `local-convex.ts`, and old E2E scripts do not exist.
+- `pnpm test` and `pnpm test:fullstack` both pass from a clean checkout.
+- Missing local-backend readiness fails L4 instead of skipping tests.
 
 **Phase 2 exit gate**
 
@@ -637,6 +716,13 @@ Q3 assertions:
 - one explicit refresh updates it;
 - refresh is not called automatically.
 
+**Verification criteria**
+
+- Q2 raw HTML excludes seeded query data and the hydrated page eventually shows it.
+- Q2 receives exactly one visible update for one later mutation.
+- Q3 stays unchanged after a backend mutation until refresh.
+- Adding an automatic Q3 refresh or subscription makes the owning assertion fail.
+
 ### P3.3 Implement Q4 and Q5: args/skip and shared ownership
 
 Files:
@@ -654,6 +740,13 @@ The exact underlying listener count remains an L3 assertion using
 - after one of two consumers unmounts, the other still updates;
 - after the final consumer unmounts, remounting creates a single current stream,
   not duplicate visible deliveries.
+
+**Verification criteria**
+
+- L3 asserts exact listener counts for Q4/Q5.
+- L4 asserts old args and unmounted consumers never receive visible updates.
+- Disabling final release makes the L3 test fail.
+- Releasing on first-consumer unmount makes both L3 and L4 ownership tests fail.
 
 ### P3.4 Implement Q6: client-navigation blocking
 
@@ -675,6 +768,13 @@ showing updates.
 
 Do not assert millisecond timing. Assert event order and visible states.
 
+**Verification criteria**
+
+- Uncached navigation records the required event order.
+- Cached navigation has no loading flash.
+- Back/forward produces one current visible stream.
+- A target render before `target-data-ready` makes the test fail.
+
 ### P3.5 Implement A1–A3: anonymous, authenticated SSR, and sign-out
 
 Files:
@@ -695,6 +795,14 @@ Requirements:
 - protected navigation redirects with the return target.
 
 Use a unique email derived from `testId`, not `Date.now()`.
+
+**Verification criteria**
+
+- Anonymous HTML contains neither a JWT-shaped value nor private user content.
+- Authenticated SSR returns `private, no-store` and the expected user content.
+- Sign-out removes private content and retains live public content.
+- Removing the cache header or private purge makes the owning test fail.
+- The test does not log or attach raw cookies/tokens.
 
 ### P3.6 Implement A4: cross-session isolation
 
@@ -726,6 +834,14 @@ At L4, assert an invalid/expired real session never leaks upstream response text
 or a token into HTML. Do not add a special runtime failure switch solely for this
 test.
 
+**Verification criteria**
+
+- Every documented 401/404/5xx/network branch has a deterministic L1 assertion.
+- Production assertions compare against the generic public error only.
+- Seeded cookie/token sentinel strings never appear in rendered HTML or public
+  errors.
+- No new runtime configuration switch exists solely to force failures.
+
 ### P3.8 Promote L4 core to a required check
 
 Initially add `fullstack-core` to CI as advisory. After 20 consecutive green CI
@@ -735,6 +851,13 @@ executions:
 - retain zero retries;
 - archive traces only on failure;
 - record the measured median and slowest run in `test/TESTING.md`.
+
+**Verification criteria**
+
+- CI history shows 20 consecutive retry-free green executions.
+- Branch protection requires the `fullstack-core` check.
+- A red L4 core run blocks merge and release verification.
+- Median and slowest measured durations remain below the 8-minute ceiling.
 
 **Phase 3 exit gate**
 
@@ -767,6 +890,13 @@ Test:
 Keep exhaustive insertion/refresh permutations in L2/L3. L4 owns one vertical
 representative path.
 
+**Verification criteria**
+
+- Raw SSR HTML contains the first page.
+- Loaded IDs are unique across initial and continuation pages.
+- Realtime insertion preserves documented order.
+- Breaking cursor chaining makes L2/L3 fail and the representative L4 path red.
+
 ### P4.2 Implement W1 and W2: real writes and optimistic rollback
 
 Create `writes.vue` and `writes.spec.ts`.
@@ -785,6 +915,13 @@ W2:
 - assert immediate optimistic state;
 - assert exact rollback to the captured data;
 - assert one surfaced error and no repeated request/update loop.
+
+**Verification criteria**
+
+- Real mutation and action results are asserted, not only button state.
+- Optimistic data appears before backend rejection settles.
+- Rollback deep-equals the captured pre-mutation value.
+- Disabling rollback or firing the error callback twice makes the test fail.
 
 ### P4.3 Implement U1: real upload lifecycle
 
@@ -805,6 +942,13 @@ Use a small deterministic binary fixture created in test memory. Test:
 Assert `useConvexStorageUrl` returns immediately in pending state and later
 settles. Cancellation and concurrent-upload races stay in L1/L3.
 
+**Verification criteria**
+
+- Downloaded bytes and content type equal the uploaded fixture.
+- The storage URL composable exposes pending before success.
+- Deleted storage is no longer fetchable.
+- Backend reset leaves `_storage` empty after the test.
+
 ### P4.4 Implement N1: packed external consumer
 
 Create `scripts/pack-consumer-fixture.mjs` so local and CI use one implementation.
@@ -823,6 +967,14 @@ proof.
 
 Create `test/fixtures/nuxt-floor` by copying only the minimal source/config needed
 from `consumer-smoke`, not its generated output.
+
+**Verification criteria**
+
+- The fixture installs the tarball path printed by `pnpm pack`.
+- Removing a required exported file makes import/build verification fail.
+- Prepare, typecheck, build, start, and SSR request all pass outside workspace
+  resolution.
+- The isolated fixture directory is generated under `test/.runtime`.
 
 ### P4.5 Implement N2 and N3
 
@@ -844,6 +996,15 @@ N3 in `module-and-server.spec.ts`:
 Use a guarded playground Convex HTTP probe route for the catch-all contract rather
 than launching a second fake upstream server.
 
+**Verification criteria**
+
+- N2 proves both signed-out rejection and authenticated admission.
+- Protected component mount count remains zero during pending redirect.
+- N3 proves root/server imports and real helper round trips.
+- The proxy probe receives allowed auth cookies but not a seeded private app
+  cookie.
+- The probe route returns 404 when `IS_TEST` is absent.
+
 ### P4.6 Build the demo against the current tarball
 
 Add a CI step that copies `demo/` to an ignored runtime directory, replaces only
@@ -853,6 +1014,13 @@ installs, typechecks, and builds.
 Do not rewrite and commit `demo/package.json` during CI. Separately decide whether
 the checked-in demo should track the latest published stable version; that is a
 release policy, not evidence for current source.
+
+**Verification criteria**
+
+- CI logs show the copied demo installed the current tarball.
+- Demo typecheck and build pass.
+- The tracked `demo/package.json` and lockfile remain unchanged after the check.
+- Breaking a current public import makes the demo-against-tarball check fail.
 
 ### P4.7 Remove the Vitest browser project
 
@@ -864,6 +1032,13 @@ mounting. After they pass:
 - remove its aliases/plugins/imports;
 - remove browser-only dependencies listed in P2.1 when unused;
 - remove `test:browser` and old `test:full` scripts.
+
+**Verification criteria**
+
+- All four auth component contracts pass in L3.
+- `test/browser` and the Vitest `browser` project are absent.
+- `pnpm install --frozen-lockfile`, `pnpm test`, and `pnpm test:fullstack` pass.
+- No removed browser dependency remains in the lockfile because of this project.
 
 **Phase 4 exit gate**
 
@@ -898,6 +1073,13 @@ Use deterministic control:
 
 R2 must prove a late auth result cannot restore private data after sign-out.
 
+**Verification criteria**
+
+- Deferred-promise L1/L3 tests control the exact resolution order.
+- L4 confirms the real sign-out path remains signed out after delayed work settles.
+- No fixed delay or production-only failure toggle is introduced.
+- Removing the generation guard makes the deterministic race test fail.
+
 ### P5.2 Implement R3: WebSocket loss and recovery
 
 Create `websocket-recovery.spec.ts` using Cornerstone C8.
@@ -914,6 +1096,13 @@ Test:
 Do not assert Convex's private frame schema. Inspect frame counts and connection
 lifecycle only for diagnostics.
 
+**Verification criteria**
+
+- The test intercepts and connects to the real socket before closing it.
+- Connection state visibly leaves and later returns to connected.
+- Existing data remains visible during disconnection.
+- One post-recovery mutation creates one visible update.
+
 ### P5.3 Implement R4: navigation soak
 
 Create `navigation-soak.spec.ts`:
@@ -926,6 +1115,14 @@ Create `navigation-soak.spec.ts`:
 
 Do not expose internal listener counts from production runtime for this test. L3
 already owns the exact refcount.
+
+**Verification criteria**
+
+- All 20 cycles complete within the resilience budget.
+- Each cycle's monotonic value renders exactly once.
+- Diagnostics contain no growing failure/error sequence.
+- Deliberately retaining the final subscription makes the owning L3 proof fail and
+  causes duplicate soak delivery where observable.
 
 ### P5.4 Prove the declared Nuxt floor
 
@@ -944,6 +1141,13 @@ outcomes:
 2. raise `peerDependencies.nuxt` to the actual supported floor.
 
 Do not leave a knowingly false peer range.
+
+**Verification criteria**
+
+- The fixture manifest pins the exact declared floor.
+- Packed install, prepare, typecheck, build, start, and SSR request pass.
+- The lane fails with a deliberately incompatible fixture.
+- `peerDependencies.nuxt` matches the lowest version the lane proves.
 
 ### P5.5 Reconfigure the existing Renovate bot
 
@@ -964,6 +1168,14 @@ Required attribution rules:
 Renovate already supplies individual attribution by default. Prefer fewer groups
 for high-risk dependencies.
 
+**Verification criteria**
+
+- Renovate configuration validation passes.
+- A Convex update is not grouped with unrelated dependencies.
+- High-risk production updates cannot automerge without L4 core.
+- No allowed-version rule contradicts the current manifest.
+- No Dependabot configuration is added.
+
 ### P5.6 Add latest-supported verification
 
 Add a weekly non-blocking workflow that:
@@ -976,6 +1188,13 @@ Add a weekly non-blocking workflow that:
 6. uploads logs and reports on failure.
 
 It must not test unsupported majors and must not rewrite the main branch.
+
+**Verification criteria**
+
+- Manual workflow dispatch prints a version diff and runs all three commands.
+- The workflow produces no commit or push.
+- A failing update uploads reports and identifies the changed dependency versions.
+- Manifest constraints prevent unsupported majors from entering the lane.
 
 **Phase 5 exit gate**
 
@@ -1011,6 +1230,13 @@ inside `scripts/release.mjs`; call `pnpm run verify:release` once.
 Add a release dry-run option that stops before version bump, commit, tag, publish,
 or push. The dry-run must execute the complete verifier.
 
+**Verification criteria**
+
+- `pnpm run verify:release` runs the seven ordered steps exactly once.
+- The release script contains one verifier invocation, not copied steps.
+- Dry-run changes no version, changelog, commit, tag, registry, or remote branch.
+- A forced failure stops before every release mutation.
+
 ### P6.2 Final CI structure
 
 Required PR/main jobs:
@@ -1029,6 +1255,14 @@ Nightly additionally runs:
 Use job-level timeouts and upload Playwright reports only on failure. Chromium is
 the only browser installed.
 
+**Verification criteria**
+
+- PR/main workflow exposes the four required check names.
+- Nightly workflow exposes all three extended lanes.
+- Only Chromium is installed.
+- Successful jobs do not upload bulky Playwright traces/reports.
+- Required jobs use frozen installs and explicit timeouts.
+
 ### P6.3 Delete migration residue
 
 Delete or remove:
@@ -1044,6 +1278,15 @@ Delete or remove:
 - manually maintained status/streak logs.
 
 Run repository searches for each deleted concept.
+
+**Verification criteria**
+
+- Searches for old E2E scripts, helpers, project names, and env flags return no
+  active references.
+- `pnpm install --frozen-lockfile` proves the lockfile is clean after dependency
+  removal.
+- No empty migration-only directory remains.
+- All final commands in section 9 of the RFC exist and pass.
 
 ### P6.4 Rewrite the operating guide
 
@@ -1061,6 +1304,13 @@ Rewrite `test/TESTING.md` to contain only:
 
 Keep the RFC and this implementation plan as historical design documents. The
 operating guide is the daily source of truth.
+
+**Verification criteria**
+
+- A new contributor can select the owning test layer from the decision guide.
+- Every documented command exists in `package.json` and exits as described.
+- No removed command, helper, or path appears in the guide.
+- Artifact and quarantine instructions point to real paths/workflows.
 
 ### P6.5 Final acceptance run
 
@@ -1154,10 +1404,7 @@ export default defineConfig({
   retries: 0,
   forbidOnly: Boolean(process.env.CI),
   reporter: process.env.CI
-    ? [
-        ['github'],
-        ['html', { outputFolder: 'test/.runtime/playwright-report', open: 'never' }],
-      ]
+    ? [['github'], ['html', { outputFolder: 'test/.runtime/playwright-report', open: 'never' }]]
     : [['list'], ['html', { outputFolder: 'test/.runtime/playwright-report', open: 'never' }]],
   use: {
     baseURL: appUrl,
@@ -1225,14 +1472,15 @@ function parseEnvFile(file) {
 }
 
 function spawnOwned(command, args, options) {
+  const { name, ...spawnOptions } = options
   const child = spawn(command, args, {
-    ...options,
+    ...spawnOptions,
     detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   children.add(child)
-  child.stdout.on('data', (chunk) => process.stdout.write(`[${options.name}] ${chunk}`))
-  child.stderr.on('data', (chunk) => process.stderr.write(`[${options.name}] ${chunk}`))
+  child.stdout.on('data', (chunk) => process.stdout.write(`[${name}] ${chunk}`))
+  child.stderr.on('data', (chunk) => process.stderr.write(`[${name}] ${chunk}`))
   child.once('exit', () => children.delete(child))
   return child
 }
@@ -1256,26 +1504,43 @@ function waitForPort(port, timeoutMs) {
   })
 }
 
+async function waitForConvexEnv(timeoutMs) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const values = parseEnvFile(convexEnvFile)
+    if (values.CONVEX_URL && values.CONVEX_SITE_URL) return values
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`Convex did not write deployment URLs to ${convexEnvFile}`)
+}
+
 function setConvexEnv(name, value) {
-  execFileSync(
-    'pnpm',
-    ['exec', 'convex', 'env', 'set', name, value, '--env-file', convexEnvFile],
-    { cwd: playground, stdio: 'inherit' },
-  )
+  execFileSync('pnpm', ['exec', 'convex', 'env', 'set', name, value, '--env-file', convexEnvFile], {
+    cwd: playground,
+    stdio: 'inherit',
+  })
 }
 
 async function stop() {
   if (shuttingDown) return
   shuttingDown = true
+  const exits = []
   for (const child of children) {
     if (child.exitCode !== null || child.pid === undefined) continue
+    exits.push(new Promise((resolve) => child.once('exit', resolve)))
     if (process.platform === 'win32') child.kill('SIGTERM')
     else process.kill(-child.pid, 'SIGTERM')
   }
+  await Promise.race([Promise.all(exits), new Promise((resolve) => setTimeout(resolve, 3_000))])
+  for (const child of children) {
+    if (child.exitCode !== null || child.pid === undefined) continue
+    if (process.platform === 'win32') child.kill('SIGKILL')
+    else process.kill(-child.pid, 'SIGKILL')
+  }
 }
 
-process.once('SIGINT', () => void stop())
-process.once('SIGTERM', () => void stop())
+process.once('SIGINT', () => void stop().finally(() => process.exit(130)))
+process.once('SIGTERM', () => void stop().finally(() => process.exit(143)))
 process.once('exit', () => {
   for (const child of children) {
     if (child.exitCode === null && child.pid !== undefined) child.kill('SIGKILL')
@@ -1293,10 +1558,11 @@ const convex = spawnOwned(
 )
 
 convex.once('exit', (code) => {
-  if (!shuttingDown) process.exit(code ?? 1)
+  if (!shuttingDown) void stop().finally(() => process.exit(code ?? 1))
 })
 
 await waitForPort(3214, 45_000)
+await waitForConvexEnv(45_000)
 setConvexEnv('SITE_URL', appUrl)
 setConvexEnv('BETTER_AUTH_SECRET', authSecret)
 setConvexEnv('IS_TEST', 'true')
@@ -1329,7 +1595,7 @@ const nuxt = spawnOwned(
 )
 
 nuxt.once('exit', (code) => {
-  if (!shuttingDown) process.exit(code ?? 1)
+  if (!shuttingDown) void stop().finally(() => process.exit(code ?? 1))
 })
 
 await new Promise((resolve) => {
@@ -1349,6 +1615,7 @@ parser and acceptance test together; do not fall back to the developer's
 ```ts
 import { api } from '#convex/api'
 import { serverConvexQuery } from '#convex/server'
+import { useRuntimeConfig } from '#imports'
 import { createError, defineEventHandler } from 'h3'
 
 export default defineEventHandler(async (event) => {
@@ -1405,7 +1672,7 @@ export const clearAllData = mutation({
       throw new Error('Invalid test reset token')
     }
 
-    const deleted = {}
+    const deleted: Record<string, number> = {}
     for (const table of ALL_TABLES) {
       const documents = await ctx.db.query(table).collect()
       for (const document of documents) await ctx.db.delete(document._id)
@@ -1414,13 +1681,13 @@ export const clearAllData = mutation({
 
     for (const table of BETTER_AUTH_TABLES) {
       let tableDeleted = 0
-      let cursor = null
+      let cursor: string | null = null
       let done = false
       while (!done) {
         const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
           input: { model: table, where: [] },
           paginationOpts: { numItems: 100, cursor },
-        })
+        } as never)
         tableDeleted += result.count
         cursor = result.continueCursor
         done = result.isDone
@@ -1469,10 +1736,15 @@ type StackRuntime = {
 
 type Diagnostics = {
   allowConsole: (pattern: RegExp) => void
+  allowPageError: (pattern: RegExp) => void
+  allowRequestFailure: (pattern: RegExp) => void
 }
 
-type Fixtures = {
+type WorkerFixtures = {
   stack: StackRuntime
+}
+
+type TestFixtures = {
   testId: string
   diagnostics: Diagnostics
   newSession: () => Promise<BrowserContext>
@@ -1480,16 +1752,19 @@ type Fixtures = {
 }
 
 function readStack(): StackRuntime {
-  const value = JSON.parse(readFileSync('test/.runtime/stack.json', 'utf8'))
+  const value = JSON.parse(readFileSync('test/.runtime/stack.json', 'utf8')) as Record<
+    string,
+    unknown
+  >
   for (const key of ['appUrl', 'convexUrl', 'convexSiteUrl', 'resetToken']) {
     if (typeof value[key] !== 'string' || value[key].length === 0) {
       throw new Error(`Invalid test stack field: ${key}`)
     }
   }
-  return value
+  return value as StackRuntime
 }
 
-export const test = base.extend<Fixtures>({
+export const test = base.extend<TestFixtures, WorkerFixtures>({
   stack: [async ({}, use) => use(readStack()), { scope: 'worker' }],
 
   testId: async ({}, use, testInfo) => {
@@ -1501,53 +1776,74 @@ export const test = base.extend<Fixtures>({
     async ({ stack }, use) => {
       const client = new ConvexHttpClient(stack.convexUrl)
       await client.mutation(api.testing.clearAllData, { resetToken: stack.resetToken })
-      await use()
+      await use(undefined)
     },
     { auto: true },
   ],
 
-  diagnostics: async ({ page }, use, testInfo) => {
-    const allowed = []
-    const messages = []
-    const pageErrors = []
-    const requestFailures = []
+  diagnostics: [
+    async ({ page }, use, testInfo) => {
+      const allowedConsole: RegExp[] = []
+      const allowedPageErrors: RegExp[] = []
+      const allowedRequestFailures: RegExp[] = []
+      const messages: string[] = []
+      const pageErrors: string[] = []
+      const requestFailures: string[] = []
 
-    const onConsole = (message: ConsoleMessage) => {
-      if (message.type() === 'error' || message.type() === 'warning') {
-        messages.push(`[${message.type()}] ${message.text()}`)
+      const onConsole = (message: ConsoleMessage) => {
+        if (message.type() === 'error' || message.type() === 'warning') {
+          messages.push(`[${message.type()}] ${message.text()}`)
+        }
       }
-    }
-    page.on('console', onConsole)
-    page.on('pageerror', (error) => pageErrors.push(error.stack || error.message))
-    page.on('requestfailed', (request) => {
-      requestFailures.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText}`)
-    })
-
-    await use({ allowConsole: (pattern) => allowed.push(pattern) })
-
-    const unexpectedConsole = messages.filter(
-      (message) => !allowed.some((pattern) => pattern.test(message)),
-    )
-    const report = { unexpectedConsole, pageErrors, requestFailures }
-    if (unexpectedConsole.length || pageErrors.length || requestFailures.length) {
-      await testInfo.attach('browser-diagnostics.json', {
-        body: Buffer.from(JSON.stringify(report, null, 2)),
-        contentType: 'application/json',
+      page.on('console', onConsole)
+      page.on('pageerror', (error) => pageErrors.push(error.stack || error.message))
+      page.on('requestfailed', (request) => {
+        requestFailures.push(
+          `${request.method()} ${request.url()}: ${request.failure()?.errorText}`,
+        )
       })
-    }
-    if (testInfo.status === testInfo.expectedStatus && unexpectedConsole.length) {
-      throw new Error(`Unexpected browser console output:\n${unexpectedConsole.join('\n')}`)
-    }
-    if (testInfo.status === testInfo.expectedStatus && pageErrors.length) {
-      throw new Error(`Uncaught page error:\n${pageErrors.join('\n')}`)
-    }
-    if (testInfo.status === testInfo.expectedStatus && requestFailures.length) {
-      throw new Error(`Failed browser request:\n${requestFailures.join('\n')}`)
-    }
-  },
+
+      await use({
+        allowConsole: (pattern) => allowedConsole.push(pattern),
+        allowPageError: (pattern) => allowedPageErrors.push(pattern),
+        allowRequestFailure: (pattern) => allowedRequestFailures.push(pattern),
+      })
+
+      const unexpectedConsole = messages.filter(
+        (message) => !allowedConsole.some((pattern) => pattern.test(message)),
+      )
+      const unexpectedPageErrors = pageErrors.filter(
+        (message) => !allowedPageErrors.some((pattern) => pattern.test(message)),
+      )
+      const unexpectedRequestFailures = requestFailures.filter(
+        (message) => !allowedRequestFailures.some((pattern) => pattern.test(message)),
+      )
+      const report = { unexpectedConsole, unexpectedPageErrors, unexpectedRequestFailures }
+      if (
+        unexpectedConsole.length ||
+        unexpectedPageErrors.length ||
+        unexpectedRequestFailures.length
+      ) {
+        await testInfo.attach('browser-diagnostics.json', {
+          body: Buffer.from(JSON.stringify(report, null, 2)),
+          contentType: 'application/json',
+        })
+      }
+      if (testInfo.status === testInfo.expectedStatus && unexpectedConsole.length) {
+        throw new Error(`Unexpected browser console output:\n${unexpectedConsole.join('\n')}`)
+      }
+      if (testInfo.status === testInfo.expectedStatus && unexpectedPageErrors.length) {
+        throw new Error(`Uncaught page error:\n${unexpectedPageErrors.join('\n')}`)
+      }
+      if (testInfo.status === testInfo.expectedStatus && unexpectedRequestFailures.length) {
+        throw new Error(`Failed browser request:\n${unexpectedRequestFailures.join('\n')}`)
+      }
+    },
+    { auto: true },
+  ],
 
   newSession: async ({ browser, stack }, use) => {
-    const contexts = []
+    const contexts: BrowserContext[] = []
     await use(async () => {
       const context = await browser.newContext({ baseURL: stack.appUrl })
       contexts.push(context)
@@ -1560,9 +1856,8 @@ export const test = base.extend<Fixtures>({
 export { expect } from '@playwright/test'
 ```
 
-The final implementation should add explicit TypeScript types to the arrays. The
-important behavior is automatic reset, narrow allowances, diagnostics attachment,
-and preserving the original failure when the test is already red.
+The critical behavior is automatic reset, narrow allowances, diagnostics
+attachment, and preserving the original failure when the test is already red.
 
 ### C7 — Auth helper uses web-first assertions and deterministic identities
 
@@ -1636,21 +1931,12 @@ disrupting the real connection. Install the route before navigation.
 ```ts
 import type { ConvexClient } from 'convex/browser'
 
+import { MockConvexClient } from '../helpers/mock-convex-client'
+
 type RuntimeConvexClient = Pick<
   ConvexClient,
   'action' | 'connectionState' | 'mutation' | 'onUpdate' | 'query' | 'subscribeToConnectionState'
 >
-
-export class MockConvexClient implements RuntimeConvexClient {
-  readonly calls = {
-    action: [],
-    mutation: [],
-    onUpdate: [],
-    query: [],
-  }
-
-  // Keep the existing explicit handler and listener implementation here.
-}
 
 const structuralContract: RuntimeConvexClient = new MockConvexClient()
 void structuralContract
