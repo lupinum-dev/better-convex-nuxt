@@ -4,7 +4,7 @@
 
 This document is the implementation specification for the internal cleanup that accompanies the breaking vNext release.
 
-Implementation status: **senior Phase 0 only**. Broad implementation is blocked until the final `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` contracts are reconciled and every Phase 0 proof in section 20 passes.
+Implementation status: **senior Phase 0 only**. The `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` contracts were reconciled on 2026-07-09 and are now expressed in `vNext.md` (§5.4 and §5.1). Broad implementation remains blocked until every Phase 0 proof in section 20 passes.
 
 It complements `vNext.md`:
 
@@ -85,7 +85,7 @@ The implementation team must use this evidence, not the unverified claims in pri
 - Convex 1.32 and 1.38 deduplicate identical subscriptions by function and arguments and release the wire query after the final listener, so Better Convex Nuxt's parallel registry is deletable.
 - Convex client-local query identity does not include the authenticated user. A fresh listener can receive a resident result produced for a previous identity. Identity-keyed Vue state and stale-promise guards alone are insufficient.
 - Structural isolation therefore requires one replaceable current primary client on stable identity-key change; same-user token rotation retains the client.
-- The original raw `useConvex(): ConvexClient` contract conflicts with replaceable clients. Current `vNext.md` has replaced it with `ConvexClientHandle`, whose final narrow method set still requires the targeted Phase 0 review below.
+- The original raw `useConvex(): ConvexClient` contract conflicts with replaceable clients. Current `vNext.md` has replaced it with `ConvexClientHandle`; the targeted review (2026-07-09) fixed the surface at `query | mutation | action | onUpdate` — `onUpdate` retained for Ginko's Studio bridge and contingent on the `vNext.md` §5.8 rebinding proof; `connectionState` removed.
 - Vue app unmount starts synchronous callbacks and does not await returned promises. Nuxt SSR does not mount/unmount a browser app. Browser, SSR request, and HMR lifetimes need distinct rules.
 - Convex's default browser client installs a `beforeunload` listener; every library-created browser client must disable it explicitly.
 - The root typecheck excludes the server program, and the current line-oriented package checker cannot prove multiline imports or built-entry purity.
@@ -175,6 +175,7 @@ Required constraints:
 - The anonymous client is created lazily.
 - The primary browser client is identity-scoped. Replace it when the stable identity key changes between anonymous and authenticated identities or between two users. Retain it for same-user token rotation.
 - The runtime client owner creates, epochs, publishes, and closes client instances. The auth context supplies the candidate initialization handshake; the client owner does not interpret tokens or auth results.
+- The connection-state store lives inside the runtime client owner. Today's implementation is a module-level `WeakMap` partitioned per app (`useConvexConnectionState.ts`); the deletion rationale is single ownership, not leakage.
 - Replacement is latest-revision-wins. At switch start, mark replacement in flight and retire the public/current primary handle so imperative dispatch waits. After initialization and immediately before commit, synchronously check `isCurrent()` and disposed state; a stale candidate closes without incrementing epoch or publishing. No await occurs between the final guard and publication.
 - There is one current primary client, not a user-indexed pool. Unsubscribe identity-sensitive work from the previous client and close it after the replacement is published.
 - Every browser `ConvexClient` is constructed with `unsavedChangesWarning: false`; the dependency's default `beforeunload` listener is not acceptable for replaceable or HMR-tested clients.
@@ -232,23 +233,24 @@ Do not create `utils/core` or perform a mass move to match a target tree. A rema
 
 The original public `useConvex(): ConvexClient` contract conflicts with structural client replacement. Code that captures the raw primary client receives a closed, stale instance after anonymous ↔ user or user A ↔ user B. A stable proxy pretending to be a complete `ConvexClient` would have to own raw subscription migration, `setAuth`, `clearAuth`, `close`, receiver identity, and third-party `instanceof` behavior, recreating the machinery this cleanup deletes.
 
-Before Phase 1, amend `vNext.md`, generated Nuxt-app types, Ginko's Studio bridge contract, and the client-access documentation to the recommended single imperative contract:
+The targeted review (2026-07-09) resolved this. The contract in `vNext.md` §5.4 is authoritative:
 
 ```ts
 export interface ConvexClientHandle {
   query: ConvexClient['query']
   mutation: ConvexClient['mutation']
   action: ConvexClient['action']
+  onUpdate: ConvexClient['onUpdate']
 }
 
 declare function useConvex(): ConvexClientHandle
 ```
 
-The stable handle exposes receiver-preserving wrappers with stable function identity. Each invocation uses the current primary client and epoch; when an identity replacement is already in progress, it awaits that captured replacement and never dispatches to the superseded client. Replacement failure throws the normalized auth error. It does not expose `onUpdate`, `connectionState`, `setAuth`, `clearAuth`, or `close`. High-level query composables own subscriptions; `useConvexConnectionState` owns connection observation. This is the one direct imperative replacement for the deleted `useConvexCall`, without duplicating `.safe()` methods or stateful composables.
+The stable handle exposes receiver-preserving wrappers with stable function identity. Each invocation uses the current primary client and epoch; when an identity replacement is already in progress, it awaits that captured replacement and never dispatches to the superseded client. Replacement failure throws the normalized auth error. It does not expose `connectionState`, `setAuth`, `clearAuth`, or `close`. `useConvexConnectionState` owns connection observation; high-level query composables remain the normal subscription API. `onUpdate` is retained solely because Ginko's standalone Studio subscribes through `bridge.convexClient.onUpdate` and has no composable-based alternative; the owner rebinds active listeners A→B before publishing B, keeps the returned unsubscribe function stable, and must pass the `vNext.md` §5.8 rebinding proof. If that proof fails, the handle narrows to `query | mutation | action` and Phase 5 gains a funded Studio subscription-migration work item. This is the one direct imperative replacement for the deleted `useConvexCall`, without duplicating `.safe()` methods or stateful composables.
 
 An invocation dispatched immediately before a switch captures its identity generation. After awaiting the Convex operation, it returns the result only if the epoch is still current and no replacement began. Otherwise it discards the value and throws `ConvexCallError({ kind: 'authentication', code: 'IDENTITY_CHANGED' })` without placing the old result in `data` or `cause`. A stale mutation/action may already have committed under the original identity, so this error is not safe-retry evidence.
 
-Current `vNext.md` presents `onUpdate` and `connectionState` only as a proof-contingent starting surface. The targeted Phase 0 API review should remove them as shown above: transparent `onUpdate` rebinding recreates subscription ownership, and a retained connection snapshot already has the dedicated `useConvexConnectionState` path. If either method is declared non-negotiable, stop and obtain a senior-approved migration owner plus isolation proof before widening `ConvexClientHandle`. Returning a raw client, an undocumented epoch snapshot, or relying on same-client cached-emission timing is not acceptable.
+Returning a raw client, an undocumented epoch snapshot, or relying on same-client cached-emission timing is not acceptable. The rebinding proof is the sole gate on `onUpdate`; widening beyond the four methods requires a new senior-approved review.
 
 ## 5. Configuration and module construction
 
@@ -429,14 +431,12 @@ Integrated sign-in and sign-up resolve only after the auth context has synchroni
 
 ### 6.6 Route skipping and unauthorized recovery
 
-Current `vNext.md` retains `auth.skipRoutes` and `auth.unauthorized`, but neither has a complete implementable contract:
+Prior drafts of `vNext.md` retained `auth.skipRoutes` and `auth.unauthorized`, but neither had a complete implementable contract:
 
 - `skipRoutes` does not define SSR settlement, initial client settlement, navigation onto/off a matched route, `required`/`optional` behavior, or interaction with route protection. Any route-dependent identity settlement contradicts the one-identity and optional-waits rules.
 - `unauthorized.includeQueries` requires a query-origin authorization signal, while the error contract correctly forbids message/data guessing and keeps product `ConvexError` values as `server`. A definitive auth-engine rejection has no meaningful `includeQueries` dimension.
 
-The simplest correction is a Phase 0 amendment to `vNext.md` that deletes `auth.skipRoutes`, `auth.unauthorized`, old `skipAuthRoutes`, page-meta `skipConvexAuth`, `auth-unauthorized-core.ts`, `auth-unauthorized.ts`, per-call recovery branches, and their docs/tests/config. Public operations use query-level `none`; Convex-only applications use `auth: false`; protected-route navigation uses `routeProtection`; applications own redirects caused by business authorization.
-
-Do not implement these options until that public amendment lands. If maintainers insist on retaining either surface, stop and write its complete SSR/navigation/trigger matrix plus a mechanically structured signal before Phase 1; a junior must not infer semantics.
+That Phase 0 amendment landed in `vNext.md` §5.1 on 2026-07-09: `auth.skipRoutes`, `auth.unauthorized`, old `skipAuthRoutes`, page-meta `skipConvexAuth`, `auth-unauthorized-core.ts`, `auth-unauthorized.ts`, per-call recovery branches, and their docs/tests/config are deleted in Phase 1. Public operations use query-level `none`; Convex-only applications use `auth: false`; protected-route navigation uses `routeProtection`; applications own redirects caused by business authorization.
 
 Definitive auth-engine token rejection or session revocation must clear token and user and transition to anonymous. Application authorization errors remain application errors.
 
@@ -469,7 +469,7 @@ If the fixture passes, delete:
 
 If any proof fails, stop. A senior must document the exact missing Convex behavior and approve the smallest compensating owner. The junior must not preserve the entire existing cache speculatively.
 
-Deleting the payload registry does not delete sign-out cleanup. The replacement source of truth is the library-owned payload-key grammar: scan only Better Convex Nuxt's payload namespace and remove keys whose auth dimension is `required` or `optional`; retain `none`. Delete `clearAuthSubscriptions` only in the same change that makes every composable release its own listener on execution/identity invalidation. No phase-boundary commit may contain neither mechanism.
+Deleting the payload registry does not delete sign-out cleanup. The replacement source of truth is the library-owned payload-key grammar, produced only by `createConvexQueryKey` plus `withAuthDimension` (vNext Phase 3): `convex:<functionName>:<argsHash>:auth:<mode>:<identityKey>` for `required`/`optional`, `convex:<functionName>:<argsHash>:auth:none` for `none`, and the same shapes under the `convex-paginated:` namespace. Sign-out/identity purge scans only these two namespaces and removes keys whose `:auth:` mode segment is `required` or `optional`; `none` keys are retained; no registry or count is consulted; keys outside these namespaces are never touched. Delete `clearAuthSubscriptions` only in the same change that makes every composable release its own listener on execution/identity invalidation. No phase-boundary commit may contain neither mechanism.
 
 ### 7.2 Small query execution plan
 
@@ -483,6 +483,8 @@ interface AuthIdentityPort {
     identityKey: ConvexIdentityKey | null
     authEpoch: number
     identityGeneration: number
+    /** Non-null only when initial resolution failed without usable identity; feeds the `state: 'error'` execution plan. */
+    error: ConvexCallError | null
   }
   waitForInitialSettlement(): Promise<void>
   subscribe(listener: () => void): () => void
@@ -490,7 +492,7 @@ interface AuthIdentityPort {
 }
 ```
 
-Phase 1 adapts the existing auth engine to this port. Phase 3 replaces only the adapter/provider with the final auth coordinator. Query composables and the client owner must not learn Better Auth session shapes or be redesigned again in Phase 3.
+Phase 1 adapts the existing auth engine to this port. The adapter is the sole publisher of `authEpoch` and `identityGeneration`; the legacy engine's internal `authGeneration` never crosses the port, and no query or client-owner code may read engine state except through `AuthIdentityPort`. Phase 3 replaces only the adapter/provider with the final auth coordinator. Query composables and the client owner must not learn Better Auth session shapes or be redesigned again in Phase 3.
 
 Extract only the invariants shared by regular and paginated queries:
 
@@ -542,6 +544,8 @@ type QueryExecutionPlan =
           }
     }
 ```
+
+The browser anonymous transport is created once per app and never replaced, so its `transportEpoch` has exactly one value per app lifetime; it exists only to distinguish browser-anonymous from `'server'` and to keep the tag shape uniform. Do not implement anonymous-client replacement to justify it.
 
 The shared query foundation may own:
 
@@ -1038,7 +1042,7 @@ Critical auth, SSR, identity isolation, error serialization, and auth-disabled t
 - Keep publication human-controlled and separate from verification.
 - Prepare version/changelog first, then from the prepared clean tree clean `dist`, build once, and pack once.
 - Extract and verify that tarball, recording a content manifest of path, mode, size, and SHA-256.
-- Publish that exact tarball path; `npm publish` must not rebuild or repack it.
+- Publish that exact tarball path; `npm publish` must not rebuild or repack it. `release.mjs` must pass the verified tarball file to `npm publish <tarball>.tgz`: publishing from the package directory is forbidden because npm re-runs the `prepack` lifecycle during directory publish, producing artifacts different from those verified (current defect: `scripts/release.mjs` publish step and its dist-rebuild resume branch). A resume re-verifies or re-packs, never publishes an unverified build. Record the content manifest (path, mode, size, SHA-256) as release evidence; do not fail releases on manifest diffs alone.
 - Assert invariant/path-class allowlists and reject DevTools raw output, generated build debris, historical research, local absolute paths, and unplanned source files. Compare extracted content manifests rather than archive bytes or fixed hashed filenames.
 
 ## 17. Test architecture
@@ -1140,7 +1144,7 @@ Enable explicit project rules for unsafe TypeScript escapes, banned comments, an
 - `createBetterConvexAuthClient` and its generated/public references.
 - Old standalone server call public exports/docs in Phase 1; their private implementations after atomic replacement in Phase 4.
 - Old auth vocabulary, old skip dialects, and compatibility aliases.
-- `auth.skipRoutes`, `auth.unauthorized`, and their recovery internals after the required Phase 0 `vNext.md` amendment.
+- `auth.skipRoutes`, `auth.unauthorized`, and their recovery internals — the enabling `vNext.md` §5.1 amendment landed 2026-07-09; delete in Phase 1 per section 6.6.
 - Plain-error conversion paths replaced by `ConvexCallError`.
 - Stale `useConvexRpc` and `useAuthClient` documentation/lint references.
 
@@ -1173,16 +1177,20 @@ The public six-phase order remains authoritative. Internal work is woven into th
 
 Complete before assigning broad implementation:
 
-- complete the targeted API review for the root-exported `ConvexClientHandle`, public `useConvex()`, generated Nuxt-app types, and Ginko Studio bridge; use section 4.4's narrow stable handle unless a senior approves and funds subscription migration;
-- amend `vNext.md` to delete semantically incomplete `auth.skipRoutes` and `auth.unauthorized`, or stop and supply their complete SSR/navigation/structured-trigger contracts before implementation;
-- align proof fixtures to the exact dependency stack pinned in `vNext.md`;
+- completed 2026-07-09: the targeted `ConvexClientHandle` API review; the contract is `vNext.md` §5.4 (`query | mutation | action | onUpdate`, `onUpdate` contingent on the rebinding proof), and generated Nuxt-app types plus the Ginko Studio bridge follow it;
+- completed 2026-07-09: the `vNext.md` amendment deleting `auth.skipRoutes` and `auth.unauthorized` (`vNext.md` §5.1); implement the deletion in Phase 1;
+- FIRST TASK: upgrade this repository's development dependencies (currently Nuxt 4.3.1, Convex 1.32.0, Better Auth 1.6.20, `@convex-dev/better-auth` 0.12.4) and all proof fixtures to the exact stack pinned in `vNext.md`, then re-verify every dependency-behavior claim (optimistic-update retention across `setAuth`, the unchanged-token refetch dead-end, the unhandled token-fetcher rejection, the `convex` plugin ID, the `setAuth` socket pause) against the pinned versions;
+- replace every `npx TOOL@latest` and nypm install in `.github/workflows/` with Corepack-pinned `pnpm install --frozen-lockfile` and version-pinned tool invocations; declare `engines.node`, pin `@types/node`, and test the minimum supported Node plus current LTS; every later phase gate assumes this deterministic baseline;
+- build the table-driven Node vocabulary checker (section 16.3) with its per-name activation schedule before any Phase 1 vocabulary ban is added;
+- fix `release.mjs` to publish the verified tarball file (section 16.5);
 - packed typed Better Auth client fixture covering API-key plugins, the typed empty fallback, mutable merged plugin tuple, explicit Nuxt-layer definition, two builds in one process, actual HMR, packed install, and output path scans;
 - Convex native subscription wire fixture, same-client A → B leak reproduction, replacement-primary isolation fixture, and same-user token-rotation fixture;
 - live anonymous-client identity fixture;
 - exact auth-revision, `ready()`, total-token-fetcher, transient-retry, and concurrent-session fixtures;
+- epoch-scoped refresh-deduplication, retired-client hygiene (`IDENTITY_CHANGED` rejection, no unsaved-changes dialog, no `beforeunload` accumulation), and candidate-confirmation-without-`expectAuth` fixtures (`vNext.md` §5.8 proofs 8–10);
 - browser unmount, same-app reevaluation, app replacement, two-app isolation, SSR request cleanup, and disposal-versus-initialization fixtures;
 - `ConvexCallError` full Nuxt reducer/reviver and fatal-SSR redaction fixtures;
-- repository install-root and starter classification;
+- repository install-root and starter classification, including the binding keep/delete decision for each starter, so Phase 1 vocabulary rewrites are performed only on starters that survive; deleted starters are removed in Phase 1 before the vocabulary gate covers `starters/`;
 - baseline AST boundary, server typecheck, and aggregate check commands.
 
 These are decisions and proof programs, not production rewrites.
@@ -1197,7 +1205,7 @@ Include:
 - final regular/shared/paginated query decomposition, execution plan, tagged identity isolation, pagination controller, and native-subscription deletion;
 - deletion of locked public surfaces and stale generated metadata, while keeping the old server trio private until Phase 4;
 - deletion of route-skip and automatic unauthorized-recovery surfaces/internals after their Phase 0 public amendment;
-- portable vocabulary checker before any vocabulary gate is trusted;
+- activate Phase 1 vocabulary bans only through the Phase 0-built table-driven checker (section 16.3);
 - architecture ownership document.
 
 Implement foundations and their consumers atomically inside Phase 1. Branch-local scaffolding may exist while a commit is being assembled, but no phase-boundary commit or packed artifact may contain old and new internal paths side by side.
@@ -1386,7 +1394,7 @@ No two branches may independently change the same state owner. One maintainer ow
 - `/server` has no Vue or browser dependency.
 - Root, server, and packed-fixture type programs pass.
 - Packed exports match the exact vNext allowlist.
-- The package root exports the targeted-review-approved `ConvexClientHandle`; under the recommended surface it contains exactly `query`, `mutation`, and `action`, while `onUpdate`, `connectionState`, auth, and lifecycle methods fail typechecking. `useConvex()` and Ginko's Studio bridge use that stable handle rather than `ConvexClient`.
+- The package root exports the reviewed `ConvexClientHandle` containing exactly `query`, `mutation`, `action`, and `onUpdate` (or exactly `query`, `mutation`, and `action` if the `vNext.md` §5.8 rebinding proof fails per section 4.4, together with the funded Studio migration), while `connectionState`, auth, and lifecycle methods fail typechecking. `useConvex()` and Ginko's Studio bridge use that stable handle rather than `ConvexClient`.
 - The built-in no-definition auth-client fallback has a concrete typed declaration and does not degrade to `any`; API-key methods fail typechecking in that fallback.
 - The merged plugin tuple preserves consumer plugin methods without readonly-tuple incompatibility, and packed Nuxt-layer/two-build fixtures infer independently.
 
@@ -1420,10 +1428,12 @@ The implementing developer must stop and escalate when:
 12. Ginko requires product authorization policy to move into Better Convex Nuxt.
 13. An intermediate phase can compile only by publishing old and new APIs together.
 14. A critical acceptance test depends exclusively on an unavailable external service.
-15. The targeted `ConvexClientHandle` review cannot prove a replacement-safe surface without raw-client exposure or a second subscription owner.
-16. `auth.skipRoutes` or `auth.unauthorized` remains public without the complete Phase 0 contract required by section 6.6.
+15. The `vNext.md` §5.8 `onUpdate` rebinding proof cannot demonstrate a replacement-safe surface without raw-client exposure or a second subscription owner (in which case the handle narrows to `query | mutation | action` per section 4.4 together with the funded Studio-migration work item).
+16. `auth.skipRoutes` or `auth.unauthorized` remains public after Phase 1 despite the landed `vNext.md` §5.1 deletion amendment (section 6.6).
 17. The same-client A → B resident-cache leak cannot be reproduced, or replacement-primary isolation cannot be proven, on the pinned stack.
 18. Browser, SSR, or HMR resources cannot be assigned one deterministic disposer.
+19. A pinned-stack re-verification contradicts the installed-version findings that motivate the architecture — in particular optimistic-update retention across `setAuth` or the unchanged-token refetch dead-end.
+20. The packed node_modules-resident auth-client definition cannot be typed through the generated registry and the Ginko template escape hatch also fails.
 
 The junior may choose local names and file splits within the ownership rules. The junior must not improvise identity semantics, auth settlement, cache ownership, error classification, retry policy, package exports, server credential precedence, or deletion retention decisions.
 
