@@ -1,646 +1,699 @@
-# RFC: Testing Harness — Closing the Fidelity Gap
+# RFC: Testing Architecture for Long-Term Confidence
 
-> **Status:** Draft for adoption. **Owner:** maintainers. **Created:** 2026-07-09.
->
-> **This file is an executable spec**: every judgment call has a ruling (§4),
-> every task has an ID with acceptance criteria (§5), and progress is
-> recorded append-only in the Status Log (§9). Companion spec:
-> `ginko-content/testing-harness-rfc.md` shares the tier philosophy, the
-> both-directions discipline, and the harness-runner/agentic conventions —
-> this RFC does not restate them, it applies them to this repo's specific
-> risk profile.
+> **Status:** Proposed
+> **Owner:** Maintainers
+> **Decision type:** Greenfield hard cutover
+> **Last revised:** 2026-07-09
 
----
+## 1. Decision
 
-## 0. Mission and thesis
+Adopt a five-layer testing architecture with one responsibility per layer:
 
-This library's product **is the integration seam**: SSR HTTP fetch →
-hydration → WebSocket upgrade, cookie → JWT exchange, subscription
-refcounting, sign-out purging. Today that seam is tested exclusively through
-stand-ins: `MockConvexClient` (our own fake), `convex-test` (an in-memory
-simulated runtime), and happy-dom. The real-backend e2e tier exists
-(`test/e2e/` + `test/helpers/local-convex.ts`) and is good — but it is
-manual-only, excluded from CI, **and excluded from the release gate**
-(`scripts/release.mjs` runs format/lint/types/contracts/test/prepack — never
-`test:e2e`). A release can ship with the core value proposition never once
-exercised against a real Convex process.
+1. static and package contracts;
+2. pure unit tests;
+3. Convex function tests with `convex-test`;
+4. Nuxt runtime integration tests with a small test double at the Convex client boundary;
+5. full-stack browser tests with Playwright Test, a real Nuxt server, and a real local Convex backend.
 
-**Mission:** every release is proven against a real local Convex backend —
-real JWTs, real WebSockets, real wire format — without reintroducing the
-flakiness that made the project retreat from browser E2E in the first place
-(`test/TESTING.md` "Why this layout").
+Vitest owns layers 1–4. Playwright Test owns layer 5. The current Vitest `e2e`
+project and the Vitest browser project are removed after their useful scenarios
+have moved to the new owners. The old and new full-stack paths do not remain in
+parallel.
 
-**The strategy, three pillars:** don't write more tests against mocks, and
-don't duplicate mock-tier tests into e2e — instead (a) put the existing
-real-backend tier into CI on a non-PR lane with a graduation path,
-(b) make the mocks *provably faithful* to the real client with a shared
-conformance suite so the fast tiers stay trustworthy, and (c) make the
-invisible failure modes **countable**: a test-mode operation ledger
-(Phase I) plus a generated behavior-mode matrix (Phase B) asserting, for
-every supported combination of server/client × blocking/lazy × auth mode ×
-navigation type, not just the final state but the exact operations
-performed — fetch counts, subscription balance, token exchanges, purge
-events, hydration payload reuse. The hard regressions in this library are
-wrong *operation sequences* with correct-looking final states; only
-counting catches them. And because operation counts are externally
-observable behavior (not internals), those tests survive rewrites of the
-implementation — which is what makes the harness hold up for years, not
-months.
+The live suite is not a duplicate of the runtime suite. Runtime tests prove
+precise lifecycle decisions deterministically. Full-stack tests prove the
+small set of boundaries that mocks cannot prove: SSR, hydration, real HTTP wire
+format, real JWTs, real WebSockets, browser navigation, and process lifecycle.
 
----
+This is the testing architecture for the project, not an optional additional
+harness.
 
-## 1. Current state (verified 2026-07-09)
+## 2. Goal
 
-### 1.1 What exists and is genuinely good — do not rebuild
+The library owns a high-risk integration seam:
 
-| Layer | What | Where |
-|---|---|---|
-| Deterministic tiers | 5 vitest projects: `unit` (~55 files, pure logic), `convex` (convex-test on edge-runtime against `playground/convex`), `nuxt` (composables in Nuxt runtime + `MockConvexClient`), `browser` (Chromium component rendering), `e2e` (real backend, serial) | `vitest.config.ts`, `test/TESTING.md` |
-| Real-backend plumbing | Spawns `npx convex dev --local` with port-wait, `.env.local` parsing, retain/release refcounting, Better-Auth readiness preflight | `test/helpers/local-convex.ts` |
-| E2E scenarios | Cross-tab realtime sync, auth loop, auth-proxy routes, connection state, route protection, SSR smoke, server-utils, misconfig overlay | `test/e2e/*.test.ts` (8 files) |
-| Contract battery | api-surface generation check, package-exports check, workspace-dep alignment, consumer-smoke (pack → install → resolve → build → typecheck), missing-convex-api fixture, ~9 `check:no-legacy-*` rg greps | `scripts/*.mjs`, `package.json` `lint`/`check:contracts` |
-| CI | lint, mocked-tier tests (incl. browser project), prepack + vue-tsc + `pkg-pr-new` preview release, consumer-smoke — on every PR/push | `.github/workflows/ci.yml` |
-| Release script | Branch/tree/tag hygiene, format/lint/types/contracts/test/prepack, changelogen, publish | `scripts/release.mjs` |
-| Hardening breadcrumbs | `F-##` audit-remediation comments in runtime code, each marking a decision a test guards | `src/runtime/**` |
-| Test-design rules | No fixed sleeps, reactive-state assertions over body-text scraping, backend logic belongs in convex-test | `test/TESTING.md` |
+```text
+request cookie
+  -> server auth snapshot / JWT exchange
+  -> SSR Convex HTTP query
+  -> Nuxt payload serialization
+  -> browser hydration
+  -> Convex WebSocket subscription
+  -> navigation / args / auth transitions
+  -> subscription teardown and private-data purge
+```
 
-### 1.2 The gaps (ranked by regression-escape likelihood)
+The test system must let maintainers change this seam quickly while detecting:
 
-1. **The release gate never touches a real backend.** `release.mjs` line
-   ~110–115: format, lint, types, contracts, `npm run test`, prepack.
-   `test:e2e` is absent. The SSR→WS handoff, token lifecycle, and sign-out
-   purge ship on mock evidence alone.
-2. **Real-backend e2e is invisible in CI.** Not on any schedule, any lane.
-   Worse, the suites **skip silently** when `CONVEX_URL` is unset — a lane
-   that "passed" may have run zero tests (see C-8).
-3. **Mock fidelity is unproven.** `test/helpers/mock-convex-client.ts`
-   re-implements `onUpdate`/`query`/`mutation`/connection-state by hand.
-   Nothing checks it behaves like the real `ConvexClient`. If the mock
-   drifts (or was subtly wrong from day one), the entire `nuxt` tier is
-   green paint over the actual behavior.
-4. **`convex` is a hard dependency (`^1.32.0`) with deep coupling** — the
-   module uses `Symbol.for('functionName')` (a Convex client internal), the
-   `/api/query` HTTP contract, JWT response shapes, and
-   `subscribeToConnectionState`. A minor Convex release can break all of it;
-   nothing tests against convex@latest before Renovate lands it. Same class
-   of risk: `better-auth` + `@convex-dev/better-auth` (the
-   `/api/auth/convex/token` contract), `h3` pinned exact at 1.15.5.
-5. **The `! rg` contract checks pass vacuously on error.** Verified:
-   `sh -c '! rg … <bad-path>'` exits 0 when rg errors (exit 2) or is missing
-   (exit 127) — inversion can't distinguish "no matches" (exit 1, the only
-   legitimate pass) from "rg never ran". ~9 lint guards share this hole, and
-   none has a positive control proving it still catches its pattern.
-6. **Security invariants are asserted only in unit tests.** The
-   `Cache-Control: private, no-store` guard (F-10 — prevents one user's JWT
-   being CDN-cached for another), single-token-exchange-per-request (F-13),
-   and cross-user sign-out purge isolation deserve real-server, two-session
-   proof.
-7. **`demo/` pins `better-convex-nuxt@0.4.0`** (plus older better-auth) while
-   the repo is at 0.5.0 — the public showcase silently diverges from the
-   module it advertises.
-8. **CI matrix:** Node 20 / ubuntu only; nuxt peer is `^4.0.0` but every
-   test runs against 4.3.x — the declared floor is never exercised.
-9. **Nothing observes operation sequences.** All current assertions are on
-   final state (data rendered, status value, header present). The seam's
-   worst regressions — a second fetch after hydration, a subscription
-   surviving unmount, a second token exchange per request, a sign-out purge
-   that silently no-ops — leave the final state *correct*. No current tier
-   can fail on them.
+- incorrect results;
+- correct results produced by an incorrect operation sequence;
+- private data surviving an auth boundary;
+- duplicate HTTP work after hydration;
+- duplicate or leaked subscriptions;
+- stale asynchronous auth results winning a race;
+- incompatibility with supported Nuxt, Convex, and Better Auth versions;
+- package output that works in the repository but not for a consumer.
 
-### 1.3 Researched facts that shape the plan (2026-07-09)
+The target is high confidence with predictable feedback, not the highest test
+count.
 
-- **Non-interactive CI bootstrap is officially supported.** In
-  non-interactive shells, `npx convex` never prompts for login: with no
-  configured deployment and no `CONVEX_DEPLOY_KEY`, the CLI auto-provisions
-  an **anonymous local deployment**. So Phase L is CLI-first; the
-  self-hosted Docker images/compose from `get-convex/convex-backend` remain
-  the fallback (both are the same open-source backend). Sources:
-  [Testing: local backend](https://docs.convex.dev/testing/convex-backend),
-  [Local deployments](https://docs.convex.dev/cli/local-deployments),
-  [Agent mode](https://docs.convex.dev/cli/agent-mode),
-  [Anonymous development](https://stack.convex.dev/anonymous-development),
-  [Self-hosted README](https://github.com/get-convex/convex-backend/blob/main/self-hosted/README.md).
-- **The Convex team's own local-OSS testing pattern**: one persistent
-  backend per run, serial execution, and an `IS_TEST`-guarded
-  `testingMutation` **`clearAll`** that wipes all schema tables, cancels
-  scheduled jobs, and deletes stored files between tests — adopted here as
-  R-13/L-6 (upgrades our isolation from convention to enforcement). Source:
-  [Testing with the local OSS backend](https://stack.convex.dev/testing-with-local-oss-backend).
-- **Local OSS backend limitations**: no built-in time mocking and no
-  randomness control — so backend logic depending on either stays in
-  `convex-test` (R-14). Same source.
+## 3. Evidence behind the decision
 
----
+### 3.1 Repository facts
 
-## 2. Target tiers
+- `useConvexQuery` and `useConvexPaginatedQuery` are public async/blocking
+  composables. `lazy` is not a public option and is not a test-matrix dimension.
+- The meaningful public query dimensions are `server`, `subscribe`, `auth`,
+  session state, entry/navigation mode, and args lifecycle.
+- Exact subscription acquisition and release are already observable through the
+  runtime client boundary. They do not require production runtime telemetry.
+- The existing `test/e2e` directory mixes backend-independent Nuxt E2E with
+  real-Convex scenarios. This makes its prerequisite and skip semantics unclear.
+- `playground/convex/testing.ts` already exposes guarded data reset. It should be
+  hardened and reused, not replaced by a second reset mechanism.
+- CI currently installs `corepack@latest` and `nypm@latest`, despite the repository
+  declaring an exact pnpm version. A regression gate must first be reproducible.
 
-Same tier discipline as the ginko RFC: every check lives in exactly one
-tier, each tier has a budget, growth in a tier must fit its budget.
+### 3.2 First-party guidance and capabilities
 
-| Tier | Trigger | Budget | Contents | Question it answers |
-|---|---|---|---|---|
-| **T-fast** | local iteration | ≤ 2 min | `unit` + `convex` + `nuxt` projects | "Is the logic right, per the mocks?" |
-| **T-pr** | every PR (current CI) | ≤ 15 min | T-fast + `browser` + lint/contract battery + prepack/types + consumer-smoke + preview release | "Does it build, type, pack, and render?" |
-| **T-live** | nightly cron + push to main + **mandatory before release** | ≤ 25 min | real local Convex backend: existing `test/e2e/` + operation-ledger invariants + behavior-mode matrix + mock-conformance real driver + security/timing invariants (Phases L/I/B/M/S) | "Does the real integration seam work — and do the operation counts prove it?" |
-| **T-canary** | weekly cron, non-blocking | ≤ 30 min/leg | T-pr + T-live against dep attribution matrix (convex, better-auth, @convex-dev/better-auth, nuxt alone-at-latest; all-latest; min-peers nuxt@4.0.0) | "Which upstream release will break us, and is our peer floor honest?" |
+- Convex recommends `convex-test` for fast backend logic and a real local backend
+  when real runtime limits, wire behavior, or client/backend integration matters.
+  The local backend runs the same backend code as production when kept current,
+  but it cannot control time, randomness, external fetches, or every dependency.
+  Sources: [Convex testing overview](https://docs.convex.dev/testing/overview),
+  [convex-test](https://docs.convex.dev/testing/convex-test),
+  [testing the local backend](https://docs.convex.dev/testing/convex-backend).
+- Convex supports anonymous local provisioning in non-interactive shells. The CLI
+  can start a frontend alongside `convex dev`, and the local backend exits with
+  the CLI process. Sources: [agent mode](https://docs.convex.dev/cli/agent-mode),
+  [`convex dev` reference](https://docs.convex.dev/cli/reference/dev),
+  [local deployments](https://docs.convex.dev/cli/local-deployments).
+- Nuxt explicitly separates runtime tests from E2E tests and supports Playwright
+  Test as a first-class E2E runner for modules. Source:
+  [Nuxt testing guide](https://nuxt.com/docs/4.x/getting-started/testing).
+- Playwright can own local web-server lifecycle, create isolated browser contexts,
+  inspect WebSocket frames, intercept or close real WebSocket connections, and
+  retain traces for failed tests. Sources:
+  [web server](https://playwright.dev/docs/test-webserver),
+  [network and WebSockets](https://playwright.dev/docs/network),
+  [WebSocketRoute](https://playwright.dev/docs/api/class-websocketroute),
+  [best practices](https://playwright.dev/docs/best-practices).
+- Vitest projects and global setup are appropriate for separate deterministic
+  environments and suite-owned setup/teardown. Source:
+  [Vitest global setup](https://vitest.dev/config/globalsetup).
 
-**Non-goals** (rejected as poor confidence-per-hour; admission ticket = a
-concrete escaped regression):
-- Convex **cloud** deployments in CI (secrets, cost, network flake — the
-  local open-source backend is the same core; cloud stays exclusive to the
-  `demo/` deploy workflow).
-- Multi-browser matrix (Chromium only; this module's risk is the wire and
-  lifecycle, not CSS).
-- Visual regression, load testing, coverage-percentage gates.
-- Porting the `nuxt`-tier test suite wholesale into e2e (see R-3 — the
-  conformance suite is the anti-duplication mechanism).
-- Re-testing backend business logic in e2e (`convex-test` owns it — R-4).
+## 4. Design principles
 
----
+### 4.1 One owner per behavior
 
-## 3. Principles
+Every invariant has one primary test tier. A broader tier may smoke-test the
+same path, but it must not reproduce all lower-tier cases.
 
-1. **Fidelity over duplication.** When mock and reality can disagree, the
-   fix is a conformance suite that runs the *same scenarios* against both —
-   not two hand-maintained test suites drifting independently.
-2. **A skipped suite must be loud.** Any lane whose tests can
-   conditionally skip asserts, in CI, that it actually ran N > 0 tests.
-3. **Graduation, not big-bang.** This project already retreated from flaky
-   e2e once. New live checks earn PR-blocking status only via a recorded
-   stability streak (R-1); until then they block releases, not PRs.
-4. **Both-directions proof** for every new check (break it → red, fix it →
-   green), recorded in §9.
-5. **Every negative grep needs a positive control** and a sound pass
-   condition (only "ran and found nothing" passes — see gap #5).
+### 4.2 Observe at the narrowest stable boundary
 
----
+Use the closest stable observation point:
 
-## 4. Rulings (pre-made decisions — do not re-litigate)
+| Invariant                                      | Primary observation                                            |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| HTTP request construction and response parsing | Unit test around `executeQueryHttp` / server helper            |
+| Token exchange count and error policy          | Unit test around the token-exchange HTTP boundary              |
+| Subscription refcount and auth-dimension keys  | Nuxt runtime test using the client double                      |
+| Stale promise or generation races              | Unit/runtime test with controlled promises                     |
+| SSR output and cache headers                   | Playwright/API response from the real Nuxt server              |
+| Hydration reuse                                | SSR output + browser request log + status DOM + console errors |
+| Real realtime delivery                         | Two pages/contexts and a real Convex mutation                  |
+| Connection loss and recovery                   | Playwright `routeWebSocket` against the real connection        |
+| Cross-session privacy                          | Two isolated browser contexts with distinct real sessions      |
+| Package usability                              | Install the packed tarball in a consumer fixture               |
 
-- **R-1 — Lane placement and graduation.** T-live runs nightly + on push to
-  main + inside the release script. It does **not** block PRs. After **14
-  consecutive green scheduled runs** (recorded in §9), the stable subset
-  (smoke-ssr, auth-loop, realtime-subscription) may be promoted to PRs;
-  any test that flakes twice in the streak restarts its own counter.
-- **R-2 — Local backend only in CI.** `npx convex dev --local`
-  (open-source local backend) is the only backend CI touches. If
-  non-interactive bootstrap proves impossible on runners, the fallback is
-  the self-hosted `convex-backend` Docker image — never a cloud deployment,
-  never a shared long-lived instance.
-- **R-3 — Conformance beats duplication.** The mock-conformance suite (Phase
-  M) is a small set of scenario specs (~10–15) written once and executed by
-  two drivers: `MockConvexClient` (in the `nuxt` project, every PR) and the
-  real `ConvexClient` against the local backend (T-live). `nuxt`-tier tests
-  are NOT copied into e2e; e2e asserts only what mocks cannot: wire, auth,
-  process lifecycle.
-- **R-4 — Backend logic stays in `convex-test`.** T-live never asserts
-  business behavior of `playground/convex` functions; it asserts the seam.
-- **R-5 — No fixed sleeps, no retries in blocking tiers.** Existing
-  TESTING.md rule, now with teeth: a blocking-tier test that passes on
-  retry gets an issue within 24h and is fixed or demoted within a week
-  (flake ledger, Phase H). Event/state-based waits only.
-- **R-6 — Canary attributes, never blocks.** One matrix leg per high-risk
-  dep bumped alone (`convex`, `better-auth`, `@convex-dev/better-auth`,
-  `nuxt`), one all-latest leg, one min-peers leg (`nuxt@4.0.0`). Failure →
-  one issue per dep with version diff + failing step + release-notes link.
-- **R-7 — Grep guards must distinguish "clean" from "didn't run".** Every
-  `check:no-legacy-*` goes through one shared wrapper whose pass condition
-  is exactly rg exit code 1; exit 0 (match found), 2 (error), 127 (missing)
-  all fail with distinct messages. Each guard gets a positive-control
-  fixture proving its pattern is still caught.
-- **R-8 — `demo/` tracks the current module.** The demo consumes the
-  `pkg-pr-new` preview (or a `file:` pack) in CI checks; a pinned old
-  version in `demo/package.json` is a red `check:workspace-deps` finding,
-  not a shrug.
-- **R-9 — One release gate.** `scripts/release.mjs` grows exactly one new
-  step: T-live. No parallel "full" script that drifts from the real one.
-- **R-10 — Reuse the ginko agentic conventions.** Escalation ladder in
-  repo agent docs, narrowest-rerun-command failure reports, scope reduction
-  local-only, thin-orchestrator constraints — adopt as written in
-  `ginko-content/testing-harness-rfc.md` (R-13/R-14/C-16/C-17 there); do
-  not fork the philosophy.
-- **R-11 — Assert operations, not just outcomes, at the seam.** For any
-  change touching `useConvexQuery`, `convex-cache`, `client-engine`,
-  `plugin.server`, or the token exchange, passing final-state tests is not
-  sufficient evidence — the ledger invariants (fetch counts, subscription
-  balance, exchange count, purge events) are the review-blocking tests.
-  This is the codified answer to "double fetch / leaked subscription /
-  silent purge no-op look green".
-- **R-12 — Instrumentation never ships and never perturbs.** The ledger is
-  enabled only via a test-only option in fixture configs, lives behind a
-  build-time flag, records synchronously (append to an array — no awaits,
-  no I/O on hot paths), and a packaging check proves `dist/` contains none
-  of it. If instrumentation would change timing, it doesn't go in.
-- **R-13 — Test isolation by `clearAll`, not convention.** Adopt the
-  Convex-team pattern (§1.3): an `IS_TEST`-guarded `testingMutation`
-  `clearAll` wipes tables, scheduled jobs, and stored files between e2e
-  files; per-test namespacing remains for within-file isolation.
-- **R-14 — Time/randomness-dependent backend logic stays in
-  `convex-test`.** The local OSS backend cannot mock time or randomness
-  (§1.3); a T-live test that depends on either is a flake by construction
-  and gets rejected in review.
-- **R-15 — The matrix is generated, cells are individual tests.** The
-  behavior-mode matrix is data (`modes.ts`) driving dynamically registered
-  tests — one named test per cell, never a loop inside one `it()`. Adding a
-  composable option means adding a dimension or an exclusion rule in one
-  place, with the diff showing exactly which cells appeared.
+Do not add a generic test ledger, test-only runtime endpoint, or shipped event
+bus. Those become a second implementation to trust and expose internal events as
+contracts. Add a narrow test hook only when a critical invariant cannot be
+observed at an existing boundary, and remove it if the underlying design later
+makes the invariant directly observable.
 
----
+### 4.3 Outcomes and sequences are both contracts
 
-## 5. Phases and tasks
+Where an operation count is the behavior—one shared subscription, no second
+client HTTP query after hydration, one auth exchange per request—the test states
+the count explicitly. Counts are asserted only where the boundary can measure
+them reliably; they are not inferred from a generic internal trace.
 
-### Phase L — T-live: real backend into CI and the release gate
+### 4.4 Determinism before breadth
 
-- **L-1** Prove non-interactive bootstrap on a fresh CI runner: script the
-  `test/TESTING.md` bootstrap (`convex dev --local --once`, `convex env set
-  SITE_URL/BETTER_AUTH_SECRET`) end-to-end with no TTY. If the Convex CLI
-  insists on prompts on a cold machine, implement the R-2 Docker fallback
-  instead. Deliverable: `scripts/e2e-bootstrap.mjs` that goes from clean
-  checkout → ready local backend, idempotently. *Gate:* green run on a
-  GitHub-hosted runner, wall time recorded in §9.
-- **L-2** `.github/workflows/live.yml`: nightly `schedule` + push to main +
-  `workflow_dispatch`; ubuntu, Node 20; steps: install → `dev:prepare` →
-  L-1 bootstrap → `CONVEX_E2E_AUTO_START=true npm run test:e2e`. *Gate:*
-  green dispatch run.
-- **L-3** Anti-skip assertion (P-2, C-8): the lane fails if the e2e project
-  reports 0 executed tests or any file skipped for missing `CONVEX_URL`
-  (parse vitest's JSON reporter output — count only). *Gate:* both
-  directions — unset the env in a branch, watch the lane fail loudly.
-- **L-4** Wire T-live into `scripts/release.mjs` between `test` and
-  `prepack` (R-9): run L-1 bootstrap + `test:e2e`; abort release on red.
-  *Gate:* dry-run of the release script (stop before publish) shows the
-  step executing.
-- **L-5** Start the R-1 graduation ledger in §9 (date, run URL, green/red,
-  flaked test if any). *Gate:* first 3 nightly entries recorded.
-- **L-6** Isolation upgrade (R-13): add an `IS_TEST`-guarded `clearAll`
-  testing mutation to `playground/convex` (wipe schema tables, cancel
-  scheduled jobs, delete stored files — extend the existing `testing.ts`
-  pattern) and call it between e2e files. *Gate:* a test that seeds data,
-  clears, and asserts emptiness — plus proof `clearAll` throws when
-  `IS_TEST` is unset (never callable in a real deployment).
+- Use the repository-pinned package manager and lockfile.
+- Use local installed CLIs through `pnpm exec`; do not download `latest` tools in
+  blocking CI.
+- Use event- and state-based assertions; never fixed sleeps.
+- Run the stateful live suite with one worker until measured runtime requires a
+  more complex isolation model.
+- Use zero automatic retries in blocking suites. A retry may collect diagnostics,
+  but it may not turn red into green.
+- A blocking test may not conditionally skip because infrastructure is absent.
 
-### Phase I — Operation ledger (the instrument that sees silent regressions)
+### 4.5 Hard cutover
 
-The seam's worst regressions are wrong operation sequences with
-correct-looking final states (gap #9). This phase builds the counter.
+Once a new owner is green:
 
-- **I-1** Test-mode instrumentation: when the fixture sets a test-only
-  module option (playground/e2e configs only, R-12), install wrappers that
-  append every operation to a ledger. Server side: `/api/query` executions
-  (function name, args hash, auth dimension), token exchanges, auth
-  snapshot cache hits/misses, payload keys serialized. Client side: WS
-  `subscribe`/`unsubscribe` (with query key), client-side HTTP queries,
-  `setAuth` calls, purge events, hydration payload hits vs refetches.
-  Server ledger exposed per-request via a test-only endpoint; client ledger
-  on `window.__convexLedger`. *Gate:* recorder unit tests against scripted
-  operation sequences (a recorder that drops records produces false-green
-  invariants — it needs its own tests), plus a `check:contracts` step
-  proving `dist/` contains no instrumentation code.
-- **I-2** Invariant helpers:
-  `expectLedger(page, { ssrQueries: 1, clientRefetches: 0, tokenExchanges: 1, subscribeBalance: 0, purges: [...] })`
-  with failure messages that print the full recorded sequence (the ledger
-  doubles as the debugging trace an agent needs). *Gate:* helper unit
-  tests.
-- **I-3** Retrofit the existing e2e smokes with the three highest-value
-  invariants: exactly **one** token exchange per SSR request (F-13 becomes
-  a count, not a comment), **zero** client refetches of SSR-delivered data
-  (hydration honesty), and **zero** net subscriptions after navigating
-  away (refcount balance). *Gate:* both directions for each — e.g.
-  duplicate the exchange call locally, watch the count assertion go red.
+- delete the old test;
+- delete the old helper or script when its last caller moves;
+- delete duplicate package scripts;
+- update `test/TESTING.md` in the same change.
 
-### Phase B — Behavior-mode matrix (client × server × blocking × lazy × auth)
+No compatibility wrapper is required for test infrastructure.
 
-This is the direct answer to "it has to work client side and server side,
-blocking and non-blocking". Hand-written tests sample this space; the
-matrix enumerates it.
+## 5. Target test layers
 
-- **B-1** Read the option types of `useConvexQuery` and
-  `useConvexPaginatedQuery` and encode the real dimensions as data in
-  `test/e2e/matrix/modes.ts`: at minimum `server` on/off, blocking vs
-  `lazy`, auth `auto`/`none`, session authed/anonymous, and entry mode
-  (hard SSR load, client-side navigation, back/forward) — plus explicit
-  exclusion rules for invalid combinations. *Gate:* dimension list reviewed
-  against the actual option types, not the docs.
-- **B-2** One matrix page per composable in the playground, driven by query
-  params (`/matrix/query?server=1&lazy=0&auth=auto`), so a single page
-  component serves every cell. Per-cell invariants asserted via the ledger
-  and the DOM: expected SSR query count; blocking cells render data in the
-  SSR HTML, lazy cells render a stable placeholder (and hydrate without
-  mismatch); zero client refetch when a payload exists; exactly one live
-  subscription after mount and zero after unmount; legal status
-  transitions (`idle→pending→success`, no `success→pending` flash on
-  hydration, `keepPreviousData` honored on args change); anonymous cells
-  carry no token material in HTML. One dynamically registered, named test
-  per cell (R-15). *Gate:* both-directions proofs for three representative
-  regressions — a forced double fetch, a leaked subscription, a hydration
-  mismatch — each failing with the cell name in the test title.
-- **B-3** Run the full matrix in T-live (target < 5 min for ~24–48 cells —
-  cells share the page and the backend; the cost is navigation, not
-  build). Promotion to T-pr follows R-1 like everything else. *Gate:*
-  wall time recorded in §9.
-- **B-4** Soak cell for leak detection: 50 client-side navigations across
-  matrix pages; the ledger must balance (subscribes == unsubscribes, no
-  monotonically growing counter). Refcount leaks (C-2) only manifest under
-  repetition — no single-mount test can see them. *Gate:* both directions
-  via a deliberately skipped `releaseSubscription`.
+### L0 — Static and package contracts
 
-### Phase M — Mock conformance (makes the fast tiers trustworthy)
+**Owner:** ESLint, TypeScript, small Node scripts, package consumer fixtures.
 
-- **M-1** `test/conformance/scenarios.ts`: driver-agnostic scenario specs,
-  each `{ name, steps, expectations }` over an abstract client interface —
-  covering at minimum: subscribe → server-side change → update delivered;
-  unsubscribe stops delivery; two subscribers to the same query share one
-  subscription and both update; args change swaps subscription without a
-  gap or a leak; `setAuth` → authed query result changes; sign-out →
-  authed subscriptions terminate, public ones survive; connection drop →
-  state transitions → resubscribe on reconnect; mutation → dependent query
-  updates; error result surfaces as error, and a success payload containing
-  a `code` field does NOT (F-33).
-- **M-2** Mock driver: run scenarios against `MockConvexClient` in the
-  `nuxt` project (T-pr). Real driver: run the same scenarios against
-  `ConvexClient` + local backend in T-live, using small dedicated
-  `playground/convex` functions where needed (a `conformance.ts` module —
-  data plumbing only, R-4). *Gate:* both drivers green; **every future
-  `MockConvexClient` change requires a green real-driver run** (note in the
-  mock's header comment).
-- **M-3** Divergence protocol: when the real driver fails a scenario the
-  mock passes, the fix is to make the mock match reality and keep the
-  scenario — never to fork the scenario per driver. Record each divergence
-  found in §9 (these are the harness's proof of value). *Gate:* protocol
-  documented in `test/TESTING.md`.
+**Proves:** source constraints, public types, generated API/docs agreement,
+exports, packaged resolution, buildability, and forbidden legacy patterns.
 
-### Phase S — Security and lifecycle invariants on the real stack
+Rules:
 
-- **S-1** Cache-safety (F-10): in T-live, fetch an SSR page as an
-  authenticated user; assert `Cache-Control: private, no-store` on every
-  response whose HTML embeds a token, and that an unauthenticated fetch of
-  the same route carries no token material. *Gate:* both directions —
-  disable the header guard locally, watch it fail.
-- **S-2** Cross-session isolation: two independent browser contexts, users
-  A and B; assert B's page/payloads never contain A's user document, JWT,
-  or private query data — before sign-in, after sign-in, and **after A
-  signs out** (purge proof: A's authed data gone from A's client state,
-  public data retained — pins `clearAuthSubscriptions` +
-  `getPublicOnlyPayloadKeys`). *Gate:* both directions via a deliberate
-  purge-skip patch.
-- **S-3** Token lifecycle races (real JWTs, mock clock where possible):
-  expiry inside the safety buffer triggers refresh before a request goes
-  out stale; a slow `fetchToken` resolving after sign-out is dropped
-  (generation counter); one page load performs exactly **one**
-  cookie→JWT exchange (F-13 — count requests to
-  `/api/auth/convex/token`). *Gate:* each pinned by a test that fails when
-  its guard (buffer, generation check, snapshot cache) is disabled.
-- **S-4** SSR/hydration honesty: `smoke-ssr` extended to assert the
-  server-rendered HTML contains real query data (not a loading shell), the
-  client upgrades to WS without refetch-flicker (no intermediate `pending`
-  after hydration), and zero console errors / hydration warnings on the
-  visited pages. *Gate:* both directions via a forced hydration mismatch.
-- **S-5** Deterministic timing injection (not fuzzing — three targeted
-  scenarios via Playwright route interception): (a) delay
-  `/api/auth/convex/token` by several seconds → UI stays in auth-loading
-  with no unauthenticated flash, and the ledger still shows exactly one
-  exchange; (b) delay the post-hydration WS upgrade → SSR data remains
-  rendered with no flicker, upgrade completes, no duplicate fetch; (c)
-  sever the WS mid-session (offline emulation / route abort) → connection
-  state transitions correctly, resubscription on recovery adds no
-  duplicate subscription (ledger balance). These are the races users hit
-  on slow networks; on localhost without injected latency they never
-  occur, so CI would never see them. *Gate:* both directions each.
-- **S-6** Optimistic rollback against real rejection: a mutation with an
-  optimistic update targeting the intentional-failure function
-  (`playground/convex/testing.ts`) → assert query data rolls back to the
-  exact pre-mutation state and the error surfaces; ledger confirms no
-  orphaned subscription or refetch storm. *Gate:* both directions via
-  disabling the rollback path locally.
+- Replace shell `! rg` commands with one Node wrapper that treats only ripgrep
+  exit code 1 as clean. Exit 0 is a violation; every other exit is a harness
+  failure.
+- One compact meta-test proves the wrapper's clean, violation, invalid-path, and
+  missing-binary behavior. Do not maintain one positive-control file per grep.
+- Consumer checks install the actual packed tarball; workspace resolution is not
+  evidence.
+- The demo is built against the current packed tarball in CI. It does not pin an
+  older released version as evidence for the current source tree.
 
-### Phase D — Dependency attribution canary
+**Budget:** 5 minutes, parallel CI jobs allowed.
 
-- **D-1** `.github/workflows/deps-canary.yml`: weekly; matrix legs per R-6.
-  Each leg: bump per mode → install → `npm run test` + `check:contracts` +
-  T-live (bootstrap + `test:e2e`). Reuses the ginko bump-script design
-  (`scripts/deps-canary-bump.mjs`, manifest-edit only, C-18 there).
-  *Gate:* green dispatch; a known-bad pin in a branch files the per-dep
-  issue with all elements.
-- **D-2** Convex-internal tripwires as fast tests (cheaper than waiting for
-  canary): unit tests that fail if `Symbol.for('functionName')` no longer
-  yields function names from the generated api object, or if
-  `parseConvexResponse` no longer matches the `/api/query` response shape
-  fixtures (captured from a real local backend in T-live and committed as
-  fixtures — refreshed by a `--update` flag, reviewed like goldens).
-  *Gate:* fixture capture script exists; tripwires fail on a mutated fixture.
-- **D-3** Demo drift (R-8): extend `check:workspace-deps` to fail when
-  `demo/package.json` pins a `better-convex-nuxt` version older than the
-  repo's; add a canary leg (or a step in D-1's all-latest leg) that builds
-  `demo/` against the current pack. *Gate:* check red today (0.4.0 vs
-  0.5.0), green after the demo bump.
+### L1 — Pure unit tests
 
-### Phase H — Harness hygiene (small, do early, mostly one sitting)
+**Owner:** Vitest `unit` project in Node.
 
-- **H-1** Fix the `! rg` vacuous pass (gap #5, R-7): replace every inline
-  `sh -c '! rg …'` with `node scripts/check-forbidden-pattern.mjs
-  <pattern> <paths…>` that treats rg exit 1 as pass, 0 as "found
-  violations" (printing them), anything else as harness failure. *Gate:*
-  three-way proof — clean tree passes; seeded violation fails; renamed rg
-  binary fails with "rg missing", not a pass.
-- **H-2** Positive controls: one fixture file per `check:no-legacy-*`
-  pattern under `test/fixtures/lint-controls/`, plus a meta-check that each
-  guard flags its control when pointed at it. *Gate:* meta-check green.
-- **H-3** Flake ledger `meta/flake-log.md` + the R-5 policy paragraph in
-  `test/TESTING.md`. *Gate:* referenced from TESTING.md.
-- **H-4** Escalation ladder for agents (R-10) in the repo's agent docs:
-  change in `src/runtime/composables/**` → `test:nuxt` first;
-  `playground/convex/**` → `vitest --project=convex`; auth/server utils →
-  `unit` + the matching e2e file name for later; `scripts/**` or exports →
-  `check:contracts`. Full `npm run test` once before PR; T-live is never
-  run per-iteration locally unless the change touches the seam. *Gate:*
-  every row's command verified runnable.
-- **H-5** Budget baselines: record current wall times (T-fast, T-pr jobs,
-  first T-live run) in §8. *Gate:* table filled.
-- **H-6** F-## traceability check: `scripts/check-audit-traceability.mjs`
-  scans `src/runtime/**` for `F-##` audit markers and fails if any marker
-  has no test file referencing the same `F-##`. The audit remediation
-  encoded years of judgment in those comments; this makes every one of
-  them enforceable instead of archaeological, and any future `F-##` added
-  during a fix automatically demands its regression test. *Gate:* runs in
-  `check:contracts`; currently-orphaned markers either get tests or an
-  explicit allowlist entry with a reason.
+**Proves:** pure state transitions, parsers, key construction, auth policy,
+timeouts, error mapping, stale-result guards, upload state, pagination merge
+logic, and option semantics.
 
-### Phase Z — Explicitly deferred (do NOT do now)
+Rules:
 
-Cloud-backed CI e2e, multi-browser matrix, visual regression, load/perf
-testing, Windows CI legs (revisit if a Windows consumer bug ever arrives),
-mutation testing, coverage gates, full network fuzzing (S-5's three
-deterministic scenarios are the sweet spot; randomized chaos buys flake,
-not confidence, at this scale). Admission ticket: a concrete escaped
-regression the deferred item would have caught; record it in §9.
+- Time and randomness are injected as function inputs where behavior depends on
+  them.
+- Async races use deferred promises and explicit resolution order.
+- Tests assert public results and critical side effects, not private line-by-line
+  implementation.
+- Use table tests for true input/output domains. Do not turn unrelated scenarios
+  into generated matrices.
 
-**Recommended order:** H (hours, closes a live hole) → L (the thesis) →
-I (the instrument) → B (the matrix) → M → S → D. L before everything
-live-backed because they all need the L-1 bootstrap; I before B because
-the matrix asserts through the ledger.
+**Budget:** 20 seconds locally.
 
----
+### L2 — Convex function tests
 
-## 6. Gates
+**Owner:** Vitest `convex` project with `convex-test` and the schema.
 
-| Gate | Command | When |
-|---|---|---|
-| G-fast | `npm run test` | after every task |
-| G-lint | `npm run lint && npm run check:contracts` | before every commit |
-| G-live | L-1 bootstrap + `npm run test:e2e` | after any change to `src/runtime/**`, `test/e2e/**`, `test/helpers/**`, `playground/convex/**` |
-| G-budget | compare vs §8 | end of every phase |
+**Proves:** schema validation, permissions, backend domain rules, function
+composition, scheduled-function logic when invoked explicitly, and database
+invariants.
 
-Both-directions proof mandatory for every new check; one task = one commit
-(`test|ci|chore(scope): summary [TH-<task-id>]`).
+Rules:
 
----
+- Initialize a new `convexTest` instance per test.
+- Test backend business logic here, not through a browser.
+- Do not assert exact real-backend error text, generated IDs, search ranking, or
+  production limits that `convex-test` does not model.
+- A small live smoke may prove a backend feature unavailable in `convex-test`, but
+  the browser suite does not become a second backend test suite.
 
-## 7. Cornerstones — code that is easy to get wrong
+**Budget:** 30 seconds locally.
 
-- **C-1 — `src/runtime/composables/useConvexQuery.ts` (the seam itself).**
-  ~800 lines orchestrating SSR fetch → `useAsyncData` hydration → WS
-  upgrade, the auth execution gate (`auto`/`none`), `keepPreviousData`,
-  sign-out purge hooks, nested watchers for args/auth changes. The failure
-  modes are all *silent*: a leaked subscription (works, but N grows), a
-  double-fetch after hydration (works, but flickers and bills twice), stale
-  data across a sign-out (works, but leaks). Every refactor here needs the
-  conformance suite (Phase M) and S-4 green — unit tests alone cannot see
-  these.
-- **C-2 — `src/runtime/utils/convex-cache.ts` refcounting.**
-  `acquireQuerySubscription`/`releaseSubscription` + per-NuxtApp `WeakMap`
-  + `withAuthDimension` keying. Off-by-one in release → dead subscriptions
-  accumulate per navigation (memory + billing, invisible to tests that
-  mount once). Wrong auth-dimension key → an `auth: 'none'` subscriber is
-  handed authed data. The purge split (`clearAuthSubscriptions` vs
-  `getPublicOnlyPayloadKeys`) has both failure directions: too much purged
-  (public data flashes away on sign-out) and too little (private data
-  survives) — S-2 pins both.
-- **C-3 — `src/runtime/auth/client-engine.ts` token races.** Positive and
-  negative token caches (`TOKEN_CACHE_MS`, `NULL_TOKEN_CACHE_MS`), the
-  JWT-expiry safety buffer, and generation counters that drop stale async
-  results. The generation check is the classic deletion target ("this
-  counter seems unused") — removing it reintroduces the
-  sign-out-then-stale-token-arrives bug. S-3 exists to make that deletion
-  red.
-- **C-4 — `src/runtime/plugin.server.ts` Cache-Control guard (F-10).** When
-  a per-user JWT is embedded in SSR state, the response must carry
-  `private, no-store`. This is a one-line `setHeader` a refactor can drop
-  with zero test failures today; the blast radius is one user's session
-  cached by a CDN and served to another. S-1 is its regression test —
-  security-critical, never weaken.
-- **C-5 — `src/runtime/server/utils/token-exchange.ts` (F-13).** Must be
-  the *single* cookie→JWT exchange per request, and must never throw
-  (returns `thrown`/`status`). A second call site "for convenience"
-  doubles auth latency and can produce split-brain sessions; a raised
-  exception turns every SSR page into a 500 when Better Auth hiccups.
-- **C-6 — `src/runtime/utils/convex-shared.ts` triple hazard.** (a)
-  `hashArgs`/`getQueryKey` via `ohash` — an ohash major bump silently
-  changes every cache key (payload mismatch on hydrate = full refetch, or
-  worse, cross-key collision); pin and test key stability with committed
-  expected hashes. (b) `parseConvexResponse` F-33 — a success payload whose
-  *value* contains `code` must not be classified as an error. (c)
-  `Symbol.for('functionName')` — a Convex client internal, no semver
-  contract; D-2's tripwire is the early warning.
-- **C-7 — `test/helpers/mock-convex-client.ts` is load-bearing paint.**
-  Every `nuxt`-tier green depends on this fake matching reality. Its header
-  must say: changes here require a green conformance real-driver run (M-2).
-  Never add mock behavior that no conformance scenario exercises — that's
-  fiction with test coverage.
-- **C-8 — `test/helpers/local-convex.ts` silent-skip gate.** Without
-  `CONVEX_URL`/`CONVEX_E2E_AUTO_START`, e2e suites skip immediately — by
-  design locally, catastrophic in CI (a green lane that ran nothing).
-  L-3's executed-count assertion is the guard; keep it when touching the
-  helper. Also: retain/release refcounting mirrors C-2 — a leaked handle
-  keeps `convex dev` alive and hangs the CI job until timeout.
-- **C-9 — `sh -c '! rg …'` inversion (verified live).** Only rg exit 1 may
-  pass. Exit 2 (bad pattern after an edit!) and 127 (no rg) currently pass
-  vacuously — a syntax typo in one of these ~9 patterns disables that guard
-  forever with no signal. H-1's wrapper is the fix; never add a new bare
-  `! rg` script.
-- **C-10 — Packaging triple agreement.** `package.json` `exports` +
-  `typesVersions` + what `nuxt-module-build` actually emits to `dist/` must
-  agree; `check:package-exports` checks the map, but only consumer-smoke
-  proves resolution from outside (its `node -e "import(...)"` step is the
-  real test — workspace `node_modules` hides missing-file bugs). New
-  subpath ⇒ all three updated + consumer-smoke green in the same PR.
-- **C-11 — `edge-runtime` VM for the `convex` project.** `convex-test`
-  runs backend code in an edge VM to approximate the Convex runtime.
-  Node-only APIs added to `playground/convex` code pass in dev tooling and
-  explode only in this project (or worse, only in production Convex).
-  Don't "fix" such a failure by moving the test to the node environment —
-  the environment mismatch IS the finding.
-- **C-12 — Serial e2e + shared local backend.** The e2e project is serial
-  and all files share one `convex dev` instance with mutable data. Until
-  L-6 lands, isolation is by convention (per-test data namespacing) — a
-  test that writes without namespacing flakes *other* files
-  non-deterministically. After L-6, `clearAll` runs between files, but two
-  hazards remain: `clearAll` itself must be impossible outside `IS_TEST`
-  (it deletes every table), and within-file tests still rely on
-  namespacing. Any new e2e file copies the pattern of
-  `realtime-subscription`.
-- **C-13 — The ledger must not perturb what it measures.** Two failure
-  directions: observer effect (an `await`, a network call, or heavy
-  serialization on the hot path changes the very timing the S-5 tests
-  probe — record synchronously into arrays, serialize only when a test
-  reads the ledger) and shipping (instrumentation in `dist/` is dead
-  weight and an information leak — the I-1 packaging grep is mandatory,
-  release-blocking). Third, subtler: a recorder bug that silently drops
-  records turns every invariant false-green, which is why the recorder has
-  its own unit tests against scripted sequences.
-- **C-14 — Matrix cells must be individually attributable.** A runner that
-  loops cells inside one `it()` turns "cell `server=1 lazy=0 auth=auto
-  nav=client` broke" into "the matrix broke", invites a blanket skip, and
-  hides partial regressions. One dynamically registered test per cell
-  (R-15), named by its dimensions; skipped cells are counted with an
-  L-3-style anti-skip cap so exclusion rules can't quietly eat the matrix.
-- **C-15 — Ledger invariant numbers encode design decisions.** `ssrQueries:
-  1` and `tokenExchanges: 1` are not arbitrary expectations — they ARE the
-  contract (F-13 etc.). When such an assertion fails after a refactor, the
-  fix is never to bump the expected count to make it pass; that's the
-  moment the harness is paying for itself. Changing a count requires the
-  same rigor as changing a public API: a ruling, a changelog note, and a
-  §9 entry.
+### L3 — Nuxt runtime integration tests
 
----
+**Owner:** Vitest `nuxt` project.
 
-## 8. Wall-time budgets (fill in H-5)
+**Proves:** composable state and orchestration inside Nuxt: subscription acquire
+and release, deduplication, args changes, skip, auth gating, sign-out purge,
+transform isolation, pending/status semantics, and stale async results.
 
-| Lane | Baseline | Ceiling | Action on breach |
-|---|---|---|---|
-| T-fast (unit+convex+nuxt) | _record_ | 2 min | split/trim slowest files |
-| T-pr `test` job | _record_ | 15 min | move newest check to T-live |
-| T-live (bootstrap + e2e + matrix) | _record_ | 25 min | trim matrix cells before scenarios, never add retries |
-| T-canary per leg | _record_ | 30 min | reduce leg contents, keep matrix |
+The test double represents only the Convex client methods consumed by the
+runtime. It is not a simulated Convex backend.
 
----
+Rules for the test double:
 
-## 9. Status Log (append-only)
+- Keep it in `test/helpers`; it never ships.
+- Keep a compile-time structural contract for the consumed Convex client surface.
+- It records calls, active listeners, and connection subscribers because those
+  are the boundary outputs under test.
+- Test code explicitly emits a result, error, or connection state. Do not add
+  speculative automatic behavior.
+- If a runtime test requires database semantics, move that proof to L2 or L4.
+- Do not build a dual-driver conformance framework. Real-client assumptions are
+  proven by focused L4 vertical tests.
 
-> Format: `- YYYY-MM-DD — [TH-task] summary; gates: …; proofs: …; deviations: …`
+The current Vitest browser project is removed. Pure component visibility belongs
+in L3; real browser behavior belongs in L4.
 
-- 2026-07-09 — RFC drafted from verified repo state. Confirmed live:
-  release script omits `test:e2e`; `! rg` inversion passes on rg exit
-  2/127; demo pins better-convex-nuxt@0.4.0 against repo 0.5.0. No tasks
-  executed yet.
-- 2026-07-09 — Major revision after research + operation-sequence
-  analysis: added third pillar (operation ledger, Phase I) and
-  behavior-mode matrix (Phase B) — the direct answer to
-  client/server × blocking/lazy coverage; added timing-injection S-5,
-  optimistic-rollback S-6, `clearAll` isolation L-6, F-## traceability
-  H-6; rulings R-11–R-15; cornerstones C-13–C-15; gap #9 recorded.
-  Research confirmed (§1.3): non-interactive `npx convex` auto-provisions
-  an anonymous local deployment (CLI-first bootstrap is viable in CI;
-  Docker fallback stands), Convex-team clearAll isolation pattern adopted,
-  local OSS backend cannot mock time/randomness (R-14).
+**Budget:** 90 seconds locally.
 
-## 10. Definition of Done
+### L4 — Full-stack browser contracts
 
-- [ ] H: rg wrapper with three-way proof; positive controls + meta-check; flake ledger; escalation ladder; F-## traceability check in check:contracts; budgets baselined
-- [ ] L: non-interactive bootstrap green on a hosted runner; nightly+main lane live; anti-skip assertion proven both directions; release script runs T-live; `clearAll` isolation with IS_TEST guard proof; graduation ledger started
-- [ ] I: operation ledger recording server+client operations; recorder unit-tested; dist-exclusion check in check:contracts; the three retrofit invariants (one exchange, zero refetch, zero net subscriptions) proven both directions
-- [ ] B: mode dimensions encoded from the real option types; one named test per cell; full matrix green in T-live within budget; soak cell catches a deliberately leaked subscription; three representative both-directions proofs recorded
-- [ ] M: conformance scenarios green under BOTH drivers; divergence protocol documented; mock header rule in place
-- [ ] S: cache-safety, cross-session isolation, token races, SSR-honesty, the three timing-injection scenarios, and optimistic rollback green with recorded both-directions proofs
-- [ ] D: attribution canary dispatched green; per-dep issue path proven; convex-internal tripwires with committed wire fixtures; demo drift check red→green
-- [ ] R-1 graduation decision recorded (promoted subset, or explicit stay-on-release-gate)
-- [ ] §8 budgets hold on the final full run
+**Owner:** Playwright Test against one real Nuxt server and one real local Convex
+backend.
+
+**Proves:** the integration seam that lower tiers cannot prove.
+
+Two Playwright projects share the same runner and fixtures:
+
+- `core`: critical product contracts, every PR and every release;
+- `resilience`: disruption, repetition, and longer security scenarios, nightly
+  and every release.
+
+Both use Chromium. Browser diversity is not a primary risk for this library.
+
+**Budgets:** core 8 minutes; resilience 12 minutes; full L4 20 minutes.
+
+## 6. Full-stack harness architecture
+
+### 6.1 One stack owner
+
+Add `scripts/start-test-stack.mjs`. It is the only process orchestrator for L4.
+It:
+
+1. selects or creates the anonymous local deployment;
+2. sets test-only Convex environment variables;
+3. deploys the playground functions once;
+4. starts `convex dev` and the Nuxt test application;
+5. waits for explicit Convex, Better Auth, and Nuxt health checks;
+6. forwards child logs with source prefixes;
+7. terminates the whole process group on exit or signal.
+
+Playwright `webServer` starts this command and waits on the Nuxt health endpoint.
+Tests never start or retain Convex themselves. Delete per-file
+`ensureLocalConvex` startup and reference counting after cutover.
+
+In CI, an occupied port is a failure. Locally, reuse is disabled by default so a
+developer does not accidentally test against an unrelated process.
+
+### 6.2 Isolation
+
+- L4 starts with a clean local deployment in CI.
+- Playwright uses one worker initially.
+- A worker-scoped fixture calls the existing guarded reset mutation before every
+  test.
+- Harden reset so it fails if any app table or Better Auth table cannot be
+  cleared. Clear scheduled jobs and stored files when the fixture begins using
+  them.
+- The reset function requires both a test-only backend environment variable and
+  an unguessable run token generated by the stack owner. The token is passed only
+  through the test process environment.
+- Test data also carries a per-test ID so failures remain diagnosable.
+
+Parallel workers are admitted only when the core suite exceeds its budget. The
+required design is one isolated backend per worker, not shared parallel mutation
+of one database.
+
+### 6.3 Playwright fixtures
+
+Create a small fixture module with:
+
+- `page`: fails the test on unapproved `pageerror`, hydration warnings, or console
+  errors;
+- `requestLog`: records browser-visible HTTP requests and responses;
+- `webSocketLog`: records socket open/close and frames when a test requests it;
+- `testId`: unique data namespace;
+- `convex`: a narrow admin helper for reset/seed/mutate operations needed by
+  scenarios;
+- `newSession`: creates an isolated browser context and cleans it up.
+
+Fixtures collect facts. Scenario assertions remain in the test that owns the
+contract. Do not create a generic `expectEverythingIsHealthy` assertion that
+hides which invariant failed.
+
+### 6.4 Failure diagnostics
+
+Playwright configuration:
+
+- `retries: 0`;
+- `workers: 1` for L4;
+- `forbidOnly: true` in CI;
+- `trace: 'retain-on-failure'`;
+- screenshot on failure;
+- no video by default;
+- backend and Nuxt log tails attached on failure.
+
+Blocking L4 directories prohibit committed `test.skip`, `test.fixme`, and
+conditional environment skips. A temporarily quarantined test moves to an
+explicit non-blocking quarantine project with a linked issue and expiry date; it
+does not remain silently skipped in `core` or `resilience`.
+
+## 7. Critical contract catalogue
+
+These are scenarios, not a Cartesian product. Each exists because it crosses a
+meaningful boundary or pins a high-impact lifecycle transition.
+
+### Query, SSR, and hydration — `core`
+
+**Q1 — SSR to realtime handoff**
+
+- Public query with `server:true`, `subscribe:true`.
+- Initial HTML contains the real data.
+- Hydration produces no warning and no pending/loading flash.
+- The browser performs no client HTTP query for the hydrated key.
+- A mutation from a second page arrives through the real subscription.
+
+**Q2 — Client-only query**
+
+- `server:false`, `subscribe:true`.
+- SSR contains the documented stable placeholder, never private or stale data.
+- The client shows the documented pending state and then data.
+- Exactly one live subscription remains after settlement.
+
+**Q3 — HTTP-only query**
+
+- `server:true`, `subscribe:false`.
+- SSR data hydrates.
+- A backend mutation does not update the page until explicit `refresh()`.
+- Refresh performs one request and updates the data.
+
+**Q4 — Args and skip lifecycle**
+
+- Active args -> different active args -> `skip` -> active.
+- No result from the previous args overwrites the current state.
+- `skip` is idle and receives no updates.
+- Reactivation produces one current subscription.
+
+**Q5 — Shared ownership**
+
+- Two consumers of one query share one underlying subscription in L3.
+- Removing the first consumer preserves updates for the second.
+- Removing the final consumer releases it.
+- L4 proves the observable behavior across mount/unmount/navigation, not the
+  internal refcount.
+
+**Q6 — Client-navigation blocking contract**
+
+- Navigate through `NuxtLink` to an uncached page that awaits `useConvexQuery`.
+- The route follows the documented blocking behavior until the first result is
+  available; it does not briefly render the destination with incomplete state.
+- Cached navigation resolves without an unnecessary loading flash.
+- Back/forward navigation does not create duplicate visible updates or retain
+  the abandoned route's subscription.
+
+### Authentication and privacy — `core`
+
+**A1 — Anonymous private query**
+
+- `auth:'auto'` while signed out remains idle.
+- No private query result or token material appears in HTML.
+- Public `auth:'none'` data still works.
+
+**A2 — Authenticated SSR**
+
+- A real signup/sign-in produces a real session and Convex JWT.
+- Private SSR data is present for that user.
+- The response is `Cache-Control: private, no-store`.
+- Hydration keeps the same user and data without an unauthenticated flash.
+
+**A3 — Sign-out boundary**
+
+- An authenticated page contains both public and private query data.
+- Sign-out removes private payload/state/subscriptions.
+- Public data and its live updates remain.
+- Protected navigation redirects with the intended return URL.
+
+**A4 — Cross-session isolation**
+
+- Two browser contexts sign in as distinct users.
+- Each sees only its private data before and after realtime mutations.
+- Signing out one context does not affect the other.
+
+**A5 — Auth failure safety**
+
+- Missing or failing token exchange follows the documented development and
+  production policies.
+- Production-visible HTML and errors contain no secret, cookie, raw token, or
+  upstream implementation detail.
+
+### Pagination and writes — `core`
+
+**P1 — Paginated hydration and continuation**
+
+- First page is SSR-rendered and hydrated without duplicate items.
+- `loadMore` continues from the real cursor with no gap or duplicate.
+- A relevant realtime change preserves ordering and cursor integrity.
+
+**W1 — Real mutation and action**
+
+- A mutation updates a subscribed query.
+- An action round-trips through the real backend.
+- Errors surface through the documented result/error contract.
+
+**W2 — Optimistic rejection**
+
+- An optimistic mutation updates immediately.
+- Real backend rejection restores the exact previous query state.
+- The error is surfaced once and does not start a refetch storm.
+
+**U1 — File lifecycle**
+
+- Generate upload URL -> upload bytes -> resolve storage URL -> fetch the same
+  bytes.
+- `useConvexStorageUrl` exercises its intentionally non-blocking state contract:
+  it returns immediately, reports pending, and settles to the real URL.
+- Cancellation and concurrent-call state remain L1/L3 concerns.
+
+### Module and package integration — `core`
+
+**N1 — Module installation and SSR smoke**
+
+- Install the packed tarball into a minimal external Nuxt fixture.
+- Prepare, typecheck, build, start, and render a page using the public API.
+
+**N2 — Route protection**
+
+- Open routes remain open.
+- Protected routes do not mount protected content while auth is pending.
+- Signed-out redirect preserves the return target.
+
+**N3 — Server helpers**
+
+- Packed public server exports resolve from an external fixture.
+- Query, mutation, and action use the real `/api/*` wire contract.
+
+### Disruption and repetition — `resilience`
+
+**R1 — Delayed token exchange**
+
+- Deterministically hold the token response.
+- UI remains in auth-loading without an anonymous/private-data flash.
+- Releasing the response settles once.
+
+**R2 — Stale token after sign-out**
+
+- The precise stale-promise ordering is proven in L1/L3.
+- One L4 scenario confirms the real sign-out path does not restore a session when
+  a delayed auth response completes.
+
+**R3 — WebSocket loss and recovery**
+
+- Intercept the real WebSocket with `routeWebSocket`.
+- Close it mid-session.
+- Existing data remains stable, connection state changes, and reconnect restores
+  updates without duplicate visible deliveries.
+
+**R4 — Navigation soak**
+
+- Repeat a representative mount -> update -> unmount navigation 20 times.
+- Each update is rendered once.
+- Browser, page, and backend diagnostics show no growing listeners, errors, or
+  stuck requests.
+- Increase the iteration count only if the measured runtime remains inside the
+  resilience budget.
+
+## 8. Compatibility strategy
+
+The lockfile answers “does the repository work with the selected versions?” It
+does not prove the declared peer range or future dependency updates.
+
+### Required compatibility lanes
+
+1. **Locked:** every PR; exact lockfile; all L0–L3 and L4 core.
+2. **Nuxt floor:** every PR or daily if runtime is excessive; install the lowest
+   declared Nuxt 4 version in the consumer fixture; typecheck, build, and run N1.
+3. **Dependency update PRs:** the repository's existing Renovate configuration
+   opens attributable PRs. Keep `convex` separate. Group `better-auth` and
+   `@convex-dev/better-auth` only if independent upgrades are not supported. Each
+   production-dependency PR runs L4 core.
+4. **Latest supported:** weekly, non-blocking; update within declared semver ranges
+   and run L0–L4 core. This predicts the next lockfile update without testing
+   unsupported majors.
+5. **Upcoming majors:** manual or scheduled informational lane only when an actual
+   prerelease exists and adoption is planned.
+
+Do not maintain a custom six-leg manifest mutator and issue bot until dependency
+PRs fail to provide adequate attribution.
+
+Convex wire tripwires remain cheap unit/consumer tests:
+
+- generated function references yield the function path expected by the module;
+- committed real-backend success/error fixtures parse correctly;
+- `/api/query`, mutation, and action request bodies match captured supported wire
+  shapes.
+
+Fixture refresh is an explicit reviewed command. CI never rewrites fixtures.
+
+## 9. CI and developer commands
+
+The final command surface is intentionally small:
+
+```text
+pnpm test                 # L1 + L2 + L3
+pnpm test:unit            # L1
+pnpm test:convex          # L2
+pnpm test:nuxt            # L3
+pnpm test:fullstack       # L4 core
+pnpm test:resilience      # L4 resilience
+pnpm check                # format + lint + types + contracts + package checks
+pnpm verify:release       # check + test + fullstack + resilience + packed consumer
+```
+
+CI uses:
+
+```text
+corepack enable
+pnpm install --frozen-lockfile
+pnpm exec playwright install --with-deps chromium
+```
+
+No blocking job invokes `npx <tool>@latest`.
+
+### Required checks
+
+| Trigger         | Required                                                     |
+| --------------- | ------------------------------------------------------------ |
+| Local iteration | narrow owning project                                        |
+| Pull request    | `check`, `test`, packed consumer, L4 `core`                  |
+| Push to main    | same as PR                                                   |
+| Nightly         | PR checks + L4 `resilience` + latest-supported compatibility |
+| Release         | `verify:release` on the exact commit and locked dependencies |
+
+The L4 core check may begin as advisory only while the new runner is being built.
+It becomes required after 20 consecutive green CI executions with zero retry
+passes. CI history is the evidence; no manual streak log is maintained.
+
+## 10. Flake policy
+
+A flaky blocking test is a product defect in the harness.
+
+- No automatic retries in required checks.
+- First failure retains trace, screenshot, console, request, WebSocket, Nuxt, and
+  Convex diagnostics.
+- A test that passes unchanged on rerun is recorded as flaky and fixed promptly.
+- If it cannot be fixed immediately, move it to the explicit quarantine project
+  with an issue, owner, reason, and expiry no longer than 14 days.
+- Quarantine never satisfies a release criterion.
+- Fixed sleeps are rejected. Poll an observable state with a bounded timeout.
+
+## 11. Coverage policy
+
+There is no global line-coverage percentage gate. It rewards low-value tests and
+does not prove the integration seam.
+
+Coverage is reviewed by risk:
+
+- every exported runtime composable has success, error, and relevant cancellation
+  or auth-boundary coverage in L1/L3;
+- every critical catalogue scenario has one owning automated test;
+- every escaped regression adds a test at the lowest tier that would have caught
+  it, plus a broader smoke only when the escape crossed a real boundary;
+- removal of a critical scenario requires an RFC change, not merely deleting a
+  test.
+
+Mutation testing, visual snapshots, load testing, multi-browser CI, cloud Convex
+CI, and randomized chaos are deferred. They require an escaped defect or measured
+risk that the existing architecture could not detect.
+
+## 12. Implementation plan
+
+### Phase 0 — Freeze behavior and measure
+
+- Record current commands, pass counts, and wall times.
+- Run the existing suite green before structural changes.
+- Classify each existing browser/E2E test by its new owner.
+
+**Exit:** migration map reviewed; no behavior is silently dropped.
+
+### Phase 1 — Deterministic foundation
+
+- Replace latest installer invocations with pinned pnpm and frozen lockfile.
+- Fix forbidden-pattern exit handling with one wrapper and meta-test.
+- Define the final package scripts from section 9.
+- Add budgets and CI timeouts.
+
+**Exit:** two clean CI runs install the same dependency graph; seeded forbidden
+pattern and missing-ripgrep failures are red.
+
+### Phase 2 — Playwright hard cutover
+
+- Add Playwright config and fixtures.
+- Add `start-test-stack.mjs` with health checks and process-group teardown.
+- Harden the existing reset mutation and use it before each L4 test.
+- Move backend-independent E2E scenarios and real-backend scenarios to Playwright.
+- Enable failure traces and log attachments.
+- Delete the Vitest `e2e` project, `ensureLocalConvex`, and duplicate E2E scripts.
+
+**Exit:** all migrated scenarios pass under one Playwright command; missing Convex
+or Nuxt readiness fails loudly; no old E2E path remains.
+
+### Phase 3 — Critical seam contracts
+
+- Implement Q1–Q6 and A1–A5.
+- Add exact lower-tier sequence assertions at their owning boundaries.
+- Prove red -> green for duplicate hydration fetch, leaked final subscription,
+  stale private data after sign-out, and missing cache header.
+
+**Exit:** L4 core is below 8 minutes and has 20 consecutive green advisory runs;
+make it a required PR check.
+
+### Phase 4 — Remaining vertical contracts
+
+- Implement P1, W1, W2, U1, and N1–N3.
+- Build the demo against the packed current module.
+- Remove the Vitest browser project after its component contracts are owned by L3
+  or L4.
+
+**Exit:** every public integration surface has at least one real vertical proof;
+no duplicate browser runner remains.
+
+### Phase 5 — Resilience and compatibility
+
+- Implement R1–R4.
+- Add Nuxt-floor consumer verification.
+- Configure attributable dependency update PRs.
+- Add latest-supported weekly verification.
+
+**Exit:** resilience stays below 12 minutes; a deliberately incompatible fixture
+or dependency version fails the expected owning lane.
+
+### Phase 6 — Release adoption and cleanup
+
+- Make `verify:release` the only release verification entry point.
+- Remove stale test labs, duplicate helpers, obsolete scripts, and obsolete RFC
+  status machinery.
+- Rewrite `test/TESTING.md` as the concise operating manual for the final system.
+
+**Exit:** a release dry run executes the exact locked production gate; repository
+search finds no old E2E startup, skip, or duplicate full-test path.
+
+## 13. Definition of done
+
+- [ ] Vitest owns only L1–L3; Playwright owns all full-stack browser tests.
+- [ ] L4 has one process owner, one reset path, one fixture system, and no
+      conditional infrastructure skips.
+- [ ] Required CI uses pinned tooling and a frozen lockfile.
+- [ ] Q1–Q6, A1–A5, P1, W1–W2, U1, N1–N3 are green in `core`.
+- [ ] R1–R4 are green in `resilience`.
+- [ ] The packed consumer and demo build against the current tarball.
+- [ ] The declared Nuxt floor is proven.
+- [ ] Production dependency updates run L4 core in attributable PRs.
+- [ ] Core, resilience, and release budgets hold.
+- [ ] Required tests have zero retries, no fixed sleeps, and no committed skips.
+- [ ] Old E2E/browser projects, helpers, scripts, and duplicate tests are deleted.
+- [ ] `test/TESTING.md` describes only the final architecture.
