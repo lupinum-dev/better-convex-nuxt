@@ -2,7 +2,7 @@
 
 ## Hard-cutover implementation specification for Better Auth, Convex, Nuxt, and Ginko CMS
 
-Status: architecture accepted; junior implementation is blocked until the pre-implementation proof gate passes
+Status: corrected architecture accepted for senior proof implementation; junior implementation is blocked until every pre-implementation proof gate passes and the replacement-safe client contract receives a targeted senior review
 
 Target: the next unreleased Better Convex Nuxt release and the matching Ginko CMS migration
 
@@ -78,11 +78,15 @@ The root keeps the Nuxt module as its runtime default export and exports stable 
 ```ts
 import betterConvexNuxt from 'better-convex-nuxt'
 import type {
+  BaseAuthClient,
   ConvexAuthMode,
   ConvexAuthOptions,
+  ConvexAuthClientRegistry,
   ConvexAuthStatus,
   ConvexCallErrorKind,
+  ConvexClientHandle,
   ConvexRuntimeConfig,
+  InferRegisteredConvexAuthClient,
   ModuleOptions,
   ServerConvexOptions,
   UseConvexAuthReturn,
@@ -93,6 +97,8 @@ import type {
 ```
 
 Do not export the raw `ConvexPublicRuntimeConfig`. Consumers read the normalized config returned by `useConvexConfig()`.
+
+`ServerConvexOptions` is defined once in `better-convex-nuxt/server` and re-exported as a type from the root. The root does not contain a second definition.
 
 ### 4.2 App auto-imports
 
@@ -123,6 +129,12 @@ Delete:
 - `createPermissions`
 - the `permissions` module option
 - `createBetterConvexAuthClient`
+- `resolveBetterConvexAuthBaseURL`
+- `BetterConvexAuthClientOptions`
+- `BetterConvexAuthClientPluginList`
+- root runtime re-exports of `ConvexCallError`, `normalizeConvexError`, and `CallResult`; their sole runtime/type home is `/errors`
+
+`useConvex()` no longer returns the identity-owning raw `ConvexClient`. It returns one stable `ConvexClientHandle` for the Nuxt app. The handle delegates each operation to the current primary client, rejects stale-generation completions, and survives an authenticated-client replacement. It does not expose `setAuth`, `clearAuth`, or `close`; transport ownership stays inside the module. Stateful query and pagination composables remain the normal subscription API.
 
 ### 4.3 Framework-free auth-client definition
 
@@ -309,13 +321,17 @@ Public behavior:
 
 Race and invalidation invariants:
 
-- Every auth engine owns a monotonically increasing identity generation.
-- Refresh results may mutate token, user, error, status, or Convex transport only when their captured generation remains current.
-- Sign-out and definitive revocation increment the generation before awaiting in-flight work.
-- A 401/403 or definitive Convex token rejection clears token and user and transitions to `anonymous`.
+- Every auth engine owns two monotonically increasing counters. `authEpoch` invalidates stale auth-operation work. `identityGeneration` changes only when `getConvexIdentityKey` changes and invalidates identity-owned transport and application state. Same-user token rotation changes `authEpoch` but not `identityGeneration`.
+- Token exchange stages a private `{ token, user, identityKey }` candidate. Public token, user, identity key, and authenticated status are published atomically only after Convex confirms the candidate through its auth callback.
+- Refresh results may mutate token, user, error, status, or Convex transport only when their captured `authEpoch` remains current. Identity-owned callbacks may commit only while their captured `identityGeneration` remains current.
+- Integrated sign-in, sign-up, and sign-out share one per-Nuxt-app serial identity-operation queue. Concurrent calls execute in invocation order. Background refresh remains separately deduplicated and cannot commit across `authEpoch`.
+- Sign-out and definitive revocation increment `authEpoch` before awaiting in-flight work.
+- A 401/403 or definitive Convex token rejection clears token, user, and `error` in one synchronous publish and transitions to `anonymous`.
 - A timeout, network failure, or upstream 5xx during background refresh retains an already usable identity, records the error, and keeps `status === 'authenticated'`.
+- If no usable identity exists and initial resolution fails, preserve the normalized error and settle `error`; `optional` and `required` surface that error without executing anonymously.
 - A settled token without a non-empty Better Auth `user.id` is an authentication error. Discard it and never install it into Convex.
-- Direct A→B replacement increments the generation and clears A-owned local query state before publishing B's identity.
+- Every stable identity-key change—anonymous→A, A→anonymous, or A→B—increments `identityGeneration`, synchronously hides and clears prior identity-owned library state, and retires the prior primary client. Authenticate or clear a fresh primary client and publish the new settled identity only after the transport reaches that state. Direct A→B has no settled-anonymous interlude.
+- The token fetcher passed to Convex never rejects. A transient background failure returns a still-usable current token and records a transport error; without a usable token it returns `null` and settles `error`.
 - Sign-in is legal from `error`; it does not require a preliminary `refresh()`.
 
 `ready()` has exact snapshot semantics:
@@ -356,8 +372,26 @@ The identity dimension applies to every identity-varying state holder:
 - shared-query keys;
 - paginated first-page keys and page generations;
 - component-local settled data, errors, and subscription bridge snapshots.
+- mutation and action call data, errors, pending status, callbacks, and optimistic updates;
+- upload queue tasks, results, pending state, and callbacks;
+- cached advanced-client handles and connection-state listeners.
 
-On an identity-key change, synchronously clear local data, local errors, bridge snapshots, and paginated pages before acquiring work for the new identity. `keepPreviousData` never crosses an identity boundary. Ignore HTTP responses and subscription updates captured under a stale identity generation.
+On an identity-key change, synchronously clear local data, local errors, bridge snapshots, paginated pages, mutation/action/upload state, and optimistic state before acquiring work for the new identity. `keepPreviousData` never crosses an identity boundary. Ignore HTTP responses, subscription updates, callbacks, and locally applied work captured under a stale identity generation.
+
+Convex 1.38 privately retains and reapplies pending optimistic updates. Clearing only Nuxt payloads and query state is therefore insufficient. Retire and close the primary `ConvexClient` on every stable identity-key change, including sign-in, sign-out/revocation, and direct user replacement; never import private Convex modules to purge it. Same-user token rotation retains the current client.
+
+The per-app client owner is the single source of truth for the current primary and lazy anonymous clients. `useConvex()` returns its stable `ConvexClientHandle`, not a raw client. The handle exposes only replacement-safe operations required by consumers. A call captures the current identity generation and must reject or discard completion after replacement. Subscription behavior beyond the existing stateful composables must not be added to the handle unless the senior proof demonstrates transparent replacement without stale observations.
+
+The starting public surface is deliberately narrow and uses Convex's own method types:
+
+```ts
+export type ConvexClientHandle = Pick<
+  ConvexClient,
+  'query' | 'mutation' | 'action' | 'onUpdate' | 'connectionState'
+>
+```
+
+The owner rebinds every active `onUpdate` listener to the fresh primary client during A→B before publishing B and unsubscribes it from A. The returned unsubscribe function remains stable and removes whichever underlying subscription is current. If this cannot be proved without exposing additional raw-client behavior, stop and reduce the handle surface; do not return the raw client or build a generic proxy over every `ConvexClient` property.
 
 ### 5.5 Query arguments and skip
 
@@ -391,7 +425,7 @@ useConvexQuery(api.settings.get, null)
 useConvexQuery(api.settings.get, { server: false })
 ```
 
-For a truly empty Convex argument object, tighten the public argument type to an exact empty type such as `Record<string, never>`. The compile-fail tests are authoritative if a different TypeScript formulation is needed.
+For a truly empty Convex argument object, use the repository's distributive `TightenEmptyArgs` formulation with `Record<PropertyKey, never>`. The compile-fail tests remain authoritative; do not replace it with a naive `keyof` conditional that breaks union arguments.
 
 `defineSharedConvexQuery` always requires its `args` field, including `{}` for a no-argument query. `useConvexUser` remains a canonical/profile query helper—not an alias for `useConvexAuth().user`—and follows the same positional explicit-args grammar.
 
@@ -463,29 +497,34 @@ The selected proof/release stack is explicit:
 
 Update Better Convex Nuxt's development fixtures and Ginko's compatibility/release stack to these versions before running the proofs. Runtime dependency ranges may remain semver-compatible where appropriate, but CI and packed-consumer fixtures use the exact versions above. Better Convex Nuxt's `check:workspace-deps` guards its own graph; Ginko's registry verification must separately assert that the installed release stack resolves these compatible versions without duplicate incompatible copies.
 
-Prove all four risks with minimal executable fixtures:
+Prove all seven risks with minimal executable fixtures:
 
-1. A packed Nuxt consumer imports a plugin-typed `useConvexAuth().client` from a generated definition, including `apiKey.create`, while a base fixture exposes only the base client.
+1. A packed Nuxt consumer narrows a non-null plugin-typed `useConvexAuth().client` from a generated definition and receives `apiKey.create`, while a base fixture exposes only the base client after the same narrowing. Retain this as a permanent real-package `nuxi prepare`/`nuxi typecheck` fixture; a disposable TypeScript micro-proof is not the release gate.
 2. An authenticated browser can run a live `none` query through a separate anonymous Convex client and receive `ctx.auth.getUserIdentity() === null` without disturbing authenticated queries.
-3. An SSR `ConvexCallError` can hydrate through a Nuxt payload reducer/reviver with class identity and public fields intact while excluding `cause` and secrets.
-4. A mounted `keepPreviousData: true` query can switch directly from user A to user B without exposing A's data, error, pages, or bridge snapshot at any observation point.
+3. A real SSR-rendered Nuxt app in which a query fails server-side hydrates `useConvexQuery(...).error.value` as `instanceof ConvexCallError` with equal `kind`, `message`, `code`, `status`, and `data`, while a sentinel secret present only in `cause` appears in neither rendered HTML nor the payload. A bare reducer/reviver round-trip is insufficient.
+4. A mounted `keepPreviousData: true` query switches directly A→B while an A-owned optimistic mutation remains in flight and a consumer retains the object returned by `useConvex()`. After `identityGeneration` changes, no A data, error, page, bridge snapshot, optimistic value, mutation/action/upload state, callback, HTTP result, WebSocket update, `useConvexUser.seedFromSession` value, or advanced-handle observation may appear. The A primary client is closed, the retained handle delegates to B, and the anonymous client is unchanged.
+5. Query, mutation, and action server calls receiving a non-OK upstream body containing a sentinel secret expose only the generic public boundary error. The sentinel is absent from `message`, `toJSON()`, logs, and Nuxt payloads.
+6. Concurrent token-bearing sign-ins execute serially in invocation order and each resolves only after its own identity is confirmed by Convex. Deferred B-then-C completion must leave C as the final identity.
+7. Credential-bearing token exchange rejects redirects and never sends the credential to a redirect target.
 
 Also verify the installed `@convex-dev/better-auth` version exposes the Convex client plugin's stable ID. The currently inspected package declares `id: 'convex'`; pin that expectation with a fixture rather than relying on recollection.
 
 Local feasibility audit already verified:
 
-- the definition generic compiles against Better Auth `1.6.20` and `1.6.23` with `BetterAuthClientPlugin`, preserves `apiKey.create`, and rejects consumer `baseURL`/`fetchOptions`;
+- the definition generic compiles against Better Auth `1.6.20` and `1.6.23` with `BetterAuthClientPlugin`, preserves `apiKey.create`, and rejects consumer `baseURL`/`basePath`/`fetchOptions`;
 - `apiKey.create` accepts Ginko's `name`, `expiresIn`, and `metadata` input and returns typed `id` and `key` fields;
 - Better Auth email sign-in exposes `data.token`, sign-up exposes `data.token: string | null`, and redirect-only social results have no token;
 - the Convex client plugin ID is `convex`, and the API-key plugin ID is `api-key` in the pinned packages;
 - independent `ConvexClient` instances own independent auth and expose `close(): Promise<void>`; Vue 3.5 exposes `vueApp.onUnmount` for cleanup;
-- Nuxt 4.3.1 and 4.4.7 expose `definePayloadPlugin`, `definePayloadReducer`, `definePayloadReviver`, and ordered plugins; a direct devalue reducer/reviver round-trip preserved class identity without serializing `cause`;
+- Nuxt 4.3.1 and 4.4.7 expose `definePayloadPlugin`, `definePayloadReducer`, `definePayloadReviver`, and ordered plugins; a direct devalue reducer/reviver round-trip preserved class identity without serializing `cause`, but Nuxt `useAsyncData` wraps handler rejections in `H3Error`, so this does not prove the real query path;
 - `ConvexHttpClient` supports constructor-injected fetch, `setAuth`, and typed query/mutation/action methods and reconstructs `ConvexError.data` from `errorData`;
 - Convex 1.32 and 1.38 expose no stable argument-validation marker, so the public `validation` kind was removed;
 - Convex's UDF-failure HTTP status constant is not exported from `convex/browser`, so vNext does not depend on it or guess classifications from it;
 - Nuxt module-dependency defaults preserve an explicit host `auth: false` under `defu`.
 
-These checks prove API feasibility, not the four cross-system behaviors above. The packed Nuxt augmentation, live anonymous identity, full Nuxt SSR payload path, and mounted A→B observation test remain mandatory proof fixtures.
+The latest executable audit also proved that Convex 1.38 reapplies an A-owned pending optimistic update after B's server result when one primary client is reused. It also proved that `ConvexHttpClient` may expose an arbitrary non-OK upstream response body as `Error.message`. Those failures are why client retirement and server-boundary sanitization are mandatory rather than optional hardening.
+
+These checks prove API feasibility, not the seven cross-system behaviors above. Current proof status is: the disposable typing spike passed; live anonymous `none` and the real SSR path are not yet implemented; the reuse-one-client A→B approach failed and has been replaced by the retirement design; the added race/redaction/redirect gates remain unimplemented. No junior implementation starts until all seven pass and the replacement-safe `useConvex()` handle receives a targeted senior API review.
 
 If any proof fails, stop the release and update the design with evidence. Failure does not authorize retaining `createBetterConvexAuthClient`, adding another public client, weakening anonymous `none`, or weakening cross-user isolation.
 
@@ -502,7 +541,7 @@ Land the breaking vocabulary together with the transport and isolation semantics
 - `src/runtime/plugin.client.ts`, reduced to the auth-free core client plugin
 - `src/runtime/plugin.server.ts`, split so auth code is conditionally registered
 - a new auth-enabled-only client plugin
-- a new per-Nuxt-app client registry/anonymous-client helper
+- a new per-Nuxt-app client owner that owns primary-client replacement, the lazy anonymous client, and one stable public handle
 - `src/runtime/utils/config-defaults.ts`
 - `src/runtime/utils/auth-config.ts`
 - `src/runtime/utils/query-execution-gate.ts`
@@ -510,6 +549,7 @@ Land the breaking vocabulary together with the transport and isolation semantics
 - `src/runtime/utils/args-tuple.ts`
 - `src/runtime/utils/convex-cache.ts`
 - `src/runtime/composables/useConvexQuery.ts`
+- `src/runtime/composables/useConvex.ts`
 - `src/runtime/composables/useConvexPaginatedQuery.ts`
 - `src/runtime/composables/defineSharedConvexQuery.ts`
 - `src/runtime/composables/useConvexAuth.ts`
@@ -540,11 +580,14 @@ Delete:
 - [ ] Replace `auth.cache.enabled` and `auth.unauthorized.enabled` with false-or-options values; delete the configure-without-enabled warning.
 - [ ] Delete the old top-level `authRoute`, `trustedOrigins`, `skipAuthRoutes`, `authCache`, `authProxy`, and auth-only `debug` inputs after moving their values under `auth`.
 - [ ] Split the core client/server plugins from conditionally registered auth plugins so auth-disabled build graphs contain no Better Auth runtime.
+- [ ] Delete the process-global development auth-healthcheck cache in `plugin.server.ts`; diagnostics must not create process-scoped application state.
 - [ ] Publish the normalized `useConvexConfig()` contract and the complete two-dimensional auth status contract in §5.3.
 - [ ] Register `useConvexAuth()` unconditionally; implement its stable disabled result without importing the auth engine into an auth-disabled build.
 - [ ] Add `ConvexIdentityKey` and use the single stable-user-ID extraction function everywhere identity-varying state is keyed.
 - [ ] Route live `none` regular and paginated queries through the per-app anonymous client proved in §5.8; reuse the primary client only when auth is disabled.
-- [ ] Clear local data, errors, bridges, and pages synchronously on identity change and reject stale-generation commits.
+- [ ] Replace the primary client on every stable identity-key change (anonymous↔user and user↔different user). Keep same-user token rotation on the current client and keep the dedicated `none` anonymous client untouched.
+- [ ] Return one stable replacement-safe `ConvexClientHandle` from `useConvex()`; do not expose or re-provide the replaceable raw primary client.
+- [ ] Clear all identity-owned state named in §5.4 synchronously on identity change and reject stale-generation commits, including optimistic, mutation/action, upload, callback, and `useConvexUser.seedFromSession` state.
 - [ ] Replace client `auto` behavior with `required`.
 - [ ] Replace server `auto` behavior with `optional`; the server trio remains temporarily internal until Phase 4 but no public docs should use it.
 - [ ] Set the fixed query default to `optional`.
@@ -564,14 +607,12 @@ Delete:
 
 ### Required execution-gate behavior
 
-Extend the gate input so it knows whether identity has settled and whether a stable identity key exists.
+Drive the gate from the canonical auth status and stable identity key. `isPending` is deliberately absent because background work must not idle an already usable identity.
 
 ```ts
 export interface QueryExecutionGateInput {
-  authEnabled: boolean
+  authStatus: ConvexAuthStatus
   authMode: ConvexAuthMode
-  authPending: boolean
-  authSettled: boolean
   identityKey: ConvexIdentityKey | null
   skipped: boolean
   subscribe: boolean
@@ -582,13 +623,13 @@ Decision order:
 
 1. Explicit `'skip'` resolves idle.
 2. `none` executes without waiting and uses `anonymous` cache dimension.
-3. With auth disabled, `required` resolves idle and `optional` executes anonymously without waiting.
-4. An auth-enabled `required` or `optional` query waits while identity is unsettled.
-5. Settled `required` without an identity resolves idle.
-6. Settled `optional` without an identity executes anonymously.
-7. Settled `required` or `optional` with an identity executes with `user:<id>`.
+3. With `disabled`, `required` resolves idle and `optional` executes anonymously without waiting.
+4. With `loading`, `required` and `optional` wait.
+5. With `error`, `required` and `optional` surface the auth error without a network request. They do not silently downgrade to anonymous.
+6. With `anonymous`, `required` resolves idle and `optional` executes anonymously.
+7. With `authenticated`, `required` and `optional` require a non-null matching `user:<id>` key and execute with that identity.
 
-In Phase 1, `authSettled` maps to the existing engine's `hasResolvedInitialAuth`/`awaitAuthReady()` lifecycle, with SSR state seeded by the server plugin before render. The `convex-auth-ready.ts` mutation/action helper consumes that engine signal but is not itself the source of truth. `identityKey` derives from the existing `convex:user` state through the new extractor. Preserve the current auth-generation guard while changing this wiring.
+In Phase 1, map the existing engine's `hasResolvedInitialAuth`/`awaitAuthReady()` lifecycle into the canonical status, with SSR state seeded by the server plugin before render. The `convex-auth-ready.ts` mutation/action helper consumes that engine signal but is not itself the source of truth. `identityKey` derives from the existing `convex:user` state through the new extractor. Introduce the two-counter contract now; do not preserve the insufficient single auth-generation model.
 
 `src/runtime/utils/identity-key.ts` and the anonymous-client helper are new files. `query-execution-gate.ts`, `args-tuple.ts`, and `convex-cache.ts` are existing files modified in place.
 
@@ -644,7 +685,9 @@ Runtime assertions must include:
 
 - an authenticated `none` live query observes no Convex identity while `optional` and `required` observe the signed-in subject;
 - sign-in, sign-out, and same-user token rotation do not reacquire a mounted `none` subscription;
+- anonymous→A and A→anonymous each retire the prior primary client without carrying public/private optimistic state across the boundary;
 - direct A→B replacement with `keepPreviousData: true` never exposes A's local data, error, bridge snapshot, or paginated page to B;
+- an A-owned optimistic mutation remains in flight during direct A→B; the A client closes, the stable `useConvex()` handle delegates to B, and no A-owned optimistic/call/upload/callback state is observable;
 - stale HTTP and WebSocket results captured under A's generation cannot commit after B becomes current;
 - awaited settled-anonymous `required` resolves idle without consuming `waitTimeoutMs`;
 - awaited `none` reaches its terminal result without reading auth state;
@@ -666,7 +709,7 @@ pnpm vitest run --project=unit test/unit/auth-config.test.ts test/unit/auth-stat
 pnpm vitest run --project=nuxt test/nuxt/useConvexQuery.auth-gate.nuxt.test.ts test/nuxt/useConvexQuery.identity.nuxt.test.ts test/nuxt/useConvexQuery.anonymous-transport.nuxt.test.ts test/nuxt/useConvexPaginatedQuery.nuxt.test.ts
 ```
 
-Phase 1 is complete only when removed spellings fail source checks, removed imports fail the consumer typecheck, anonymous `none` transport is proven in an authenticated app, and the mounted A→B isolation fixture passes without retaining previous data.
+Phase 1 is complete only when removed spellings fail source checks, removed imports fail the consumer typecheck, anonymous `none` transport is proven in an authenticated app, and the mounted A→B isolation fixture passes with an in-flight optimistic update, a retained stable handle, and confirmed closure of A's primary client.
 
 ## 7. Phase 2 — public error contract
 
@@ -770,7 +813,7 @@ Implement every referenced helper in the same framework-free module or an adjace
 
 The pure normalizer does not classify arbitrary `TypeError` values as `transport`; it cannot know whether user code or a network API created them. Fetch, XHR, timeout, abort, oversized-response, and malformed-response boundaries construct `ConvexCallError({ kind: 'transport', ... })` while the boundary still knows the source. Re-normalizing that instance passes it through unchanged. Convex query subscriptions do not turn a reconnectable socket disconnect into a query failure, so do not invent a WebSocket call error from connection-state changes.
 
-`isConvexApplicationError` accepts `instanceof ConvexError` and the cross-package marker `Symbol.for('ConvexError') in error`, matching Convex's installed implementation. This keeps structured application errors recognizable when the host and library resolve different physical Convex copies. Preserve `error.data` verbatim.
+`isConvexApplicationError` accepts `instanceof ConvexError` or exact cross-package marker equality, `error[Symbol.for('ConvexError')] === true`, matching Convex's installed implementation. Mere property presence is insufficient. This keeps structured application errors recognizable when the host and library resolve different physical Convex copies. Preserve `error.data` verbatim.
 
 The pinned Convex 1.32 and 1.38 packages expose no stable argument-validation class or structured marker. Therefore vNext has no `validation` kind and never classifies from message text. Remote failures with `errorData` are `server`; unstructured argument-validation failures are `unknown`. Add a new public kind only if a future pinned Convex release provides a mechanically testable signal.
 
@@ -785,6 +828,15 @@ The pinned Convex 1.32 and 1.38 packages expose no stable argument-validation cl
 - [ ] Ensure logs redact or omit raw causes; do not stringify credential-bearing objects.
 - [ ] Delete the plain-`Error` `toError` conversion; throwing paths throw `ConvexCallError` directly.
 - [ ] Add an unshifted universal Nuxt payload plugin with a `ConvexCallError` reducer and reviver. The framework-free `/errors` entry remains unaware of Nuxt.
+
+Nuxt's `useAsyncData` wraps handler rejections with `createError()`, producing an `H3Error` before the module payload reducer can observe the original class. Query and paginated-query composables therefore must not expose normalized failures through `asyncData.error`:
+
+- catch inside the handler and normalize exactly once;
+- store the `ConvexCallError` in library-owned, identity-partitioned payload state;
+- make the composable's public `error` ref read that state, never `asyncData.error`;
+- resolve the handler with `null` data rather than rejecting, so Nuxt does not manufacture an `H3Error`;
+- clear that state synchronously on identity change;
+- keep mutation, action, and upload throwing paths direct because they are consumed in context rather than through Nuxt payload `_errors`.
 
 The payload plugin follows Nuxt's installed API and is registered with an explicit negative `order` so revival exists before payload parsing:
 
@@ -834,7 +886,7 @@ Cover exactly:
 - string and object unknown errors;
 - an existing `ConvexCallError` passed through unchanged.
 
-For equivalent raw failures, throwing and safe calls must produce equal `toJSON()` results and both values must be `instanceof ConvexCallError`. An SSR round-trip must revive `instanceof ConvexCallError` with equal `kind`, `message`, `code`, `status`, and `data`, while a secret present only in `cause` is absent from rendered HTML, payload JSON, logs, and `JSON.stringify(error)`.
+For equivalent raw failures, throwing and safe calls must produce equal `toJSON()` results and both values must be `instanceof ConvexCallError`. A real SSR query failure—not a synthetic reducer call—must revive through the composable-owned error state as `instanceof ConvexCallError` with equal `kind`, `message`, `code`, `status`, and `data`, while a secret present only in `cause` is absent from rendered HTML, payload JSON, logs, and `JSON.stringify(error)`.
 
 ### Purity guard
 
@@ -847,6 +899,8 @@ Inspect both source and built output. Fail when the errors entry imports:
 - `#app`
 - `nitropack/runtime`
 - browser-only or Node-only built-ins
+
+`convex/values` is explicitly allowed because the framework-free normalizer needs `instanceof ConvexError`.
 
 ### Phase verification
 
@@ -867,7 +921,7 @@ Create one typed Better Auth client per Nuxt app, make `useConvexAuth()` stable 
 
 - `src/runtime/auth-client/index.ts`: framework-free definition helper and types
 - extend Phase 1's `useConvexConfig.ts` and `auth-status.ts` only where typed-client integration requires it
-- a generated `#build/convex-auth-client` template created by `src/module.ts`
+- a generated `#convex/auth-client` template created by `src/module.ts`
 - generated consumer type augmentation for the resolved auth-client definition
 
 ### Package export
@@ -910,11 +964,10 @@ Default resolution order:
 
 Path rules are exact:
 
-- absolute paths are used directly;
-- `#` and `~` aliases resolve through Nuxt;
-- relative paths resolve from `rootDir`;
+- resolve explicit `auth.client` with Nuxt Kit `resolvePath` using `cwd: nuxt.options.rootDir` and `alias: nuxt.options.alias`;
+- require the resolved file to exist and include the original specifier in configuration errors;
 - convention discovery searches only the host application's `srcDir`;
-- Nuxt layers and reusable modules provide an explicit resolved path and are never convention-scanned.
+- Nuxt layers and reusable modules provide an already resolved absolute path and are never convention-scanned.
 
 Do not inspect multiple convention filenames. One default filename is enough.
 
@@ -929,7 +982,7 @@ type AuthClientPlugins = readonly BetterAuthClientPlugin[]
 
 export type ConvexAuthClientDefinitionOptions<Plugins extends AuthClientPlugins> = Omit<
   BetterAuthClientOptions,
-  'baseURL' | 'plugins' | 'fetchOptions'
+  'baseURL' | 'basePath' | 'plugins' | 'fetchOptions'
 > & {
   plugins?: Plugins
 }
@@ -947,8 +1000,8 @@ export function defineConvexAuthClient<const Plugins extends AuthClientPlugins =
 
 The pinned Better Auth type proof compiles with the constraints above. Preserve these rules:
 
-- the consumer cannot set `baseURL`;
-- the consumer cannot set `fetchOptions.credentials`;
+- the consumer cannot set `baseURL` or `basePath`; normalized `auth.route` is the single route source;
+- the consumer cannot set `fetchOptions`; the library owns credentials and request transport;
 - the consumer supplies additional client plugins only;
 - the library prepends exactly one Convex client plugin;
 - the definition contains no app or process singleton.
@@ -975,10 +1028,10 @@ const authClientTemplate = addTemplate({
   getContents: () => `export { default } from ${JSON.stringify(resolvedAuthClientDefinitionPath)}`,
 })
 
-nuxt.options.alias['#build/convex-auth-client'] = authClientTemplate.dst
+nuxt.options.alias['#convex/auth-client'] = authClientTemplate.dst
 ```
 
-Use Nuxt kit utilities appropriate to the installed Nuxt version when a direct alias assignment is insufficient. The generated file must be imported only from `plugin.client.ts`.
+Do not use a `#build/*` alias key: Nuxt's built-in `#build` prefix resolves independently of this template destination. `#convex/*` is the module's established namespace. The generated file must be imported only from the auth-enabled client plugin.
 
 ### Generated type registry
 
@@ -1007,7 +1060,9 @@ addTypeTemplate({
 
 Implement `InferRegisteredConvexAuthClient` so `useConvexAuth().client` exposes plugin methods when a definition exists and falls back to the base Better Auth client type otherwise.
 
-`BaseAuthClient` means the inferred `createAuthClient` return type for the library-owned options with no consumer plugins.
+`InferRegisteredConvexAuthClient` extracts the plugins tuple from the registered definition value. Never reconstruct generic plugin types with `ReturnType<typeof pluginFactory>`; factories such as `organizationClient` lose route inference under that formulation. Pin this with a compile test.
+
+`BaseAuthClient` means the inferred `createAuthClient` return type for the library-owned options with no consumer plugins. Infer it and the registered type from the same Better Auth entry used by runtime instantiation—currently `better-auth/vue`, not `better-auth/client`—so session and plugin shapes cannot drift.
 
 The packed proof in §5.8 is a prerequisite, not a fallback decision inside this phase. If the generated registry stops satisfying that fixture, stop the release. Delete `createBetterConvexAuthClient`; do not retain it or add a second client API.
 
@@ -1021,8 +1076,8 @@ Module augmentation is TypeScript-program-global. The supported isolation contra
 
 In the auth-enabled-only client plugin:
 
-1. Import the definition from `#build/convex-auth-client`.
-2. Runtime-validate the definition for JavaScript/untyped consumers. Reject forbidden own keys `baseURL` and `fetchOptions`, a non-array `plugins` value, malformed plugins, and an additional plugin whose stable `id` is `convex`.
+1. Import the definition from `#convex/auth-client`.
+2. Runtime-validate the definition for JavaScript/untyped consumers. Reject forbidden own keys `baseURL`, `basePath`, and `fetchOptions`, a non-array `plugins` value, malformed plugins, and an additional plugin whose stable `id` is `convex`.
 3. Create one Better Auth client for that Nuxt app.
 4. Set the module-owned `baseURL`.
 5. Prepend `convexClient()` once.
@@ -1031,6 +1086,8 @@ In the auth-enabled-only client plugin:
 8. Pass the same instance to the auth engine.
 
 Do not create or mutate module-level registration state. A second Nuxt app in the same process receives a separate instance. Store the instance and engine on `nuxtApp`; plugin reevaluation under HMR reuses that app's existing values rather than creating duplicates.
+
+The unconditionally imported `useConvexAuth` composable and auth-status components must not runtime-import Better Auth, the Convex Better Auth plugin, the auth engine, or the generated definition. They read one optional per-app integration slot. Only the auth-enabled plugin imports the auth graph.
 
 ### Always-available auth composable
 
@@ -1096,7 +1153,7 @@ function createIntegratedAuthNamespace<T extends object>(
           cachedProperties.set(property, wrapped)
           return wrapped
         }
-        if (value && typeof value === 'object') {
+        if (isPlainNamespaceObject(value)) {
           const wrapped = wrapObject(value)
           cachedProperties.set(property, wrapped)
           return wrapped
@@ -1114,6 +1171,8 @@ function createIntegratedAuthNamespace<T extends object>(
 
 The wrapper above applies a method with its containing object as `this` and caches functions as well as nested proxies, so `auth.signIn.email === auth.signIn.email`. Add a test plugin whose method fails when its receiver is lost.
 
+Wrap only callables and plain namespace objects. Arrays, class instances, and store atoms or subscription-bearing values pass through unchanged. Wrapped functions intentionally do not preserve arbitrary own properties of the source function. Pin these boundaries with fixtures; do not turn the wrapper into a generic deep proxy.
+
 `shouldSynchronizeAfterAuthResult` rules:
 
 - no sync after a thrown operation;
@@ -1121,7 +1180,8 @@ The wrapper above applies a method with its containing object as `this` and cach
 - sync only after a successful Better Auth client result contains a non-empty `result.data.token` string;
 - social/redirect operations rely on the return navigation and SSR cookie exchange when the browser leaves the page;
 - successful account creation without a session remains successful and does not become a refresh failure;
-- `refresh()` uses the existing per-Nuxt-app deduplication promise.
+- token-bearing identity-changing calls enter the serial identity-operation queue and resolve only after their candidate identity is confirmed by Convex;
+- background `refresh()` uses its separate per-Nuxt-app deduplication promise.
 
 Do not expose a `runAuthOperation` wrapper.
 
@@ -1130,7 +1190,10 @@ The pinned Better Auth types confirm email sign-in returns a token, email sign-u
 ```ts
 function shouldSynchronizeAfterAuthResult(result: unknown): boolean {
   if (!result || typeof result !== 'object') return false
-  const response = result as { error?: unknown; data?: { token?: unknown } | null }
+  const response = result as {
+    error?: unknown
+    data?: { token?: unknown } | null
+  }
   return (
     !response.error && typeof response.data?.token === 'string' && response.data.token.length > 0
   )
@@ -1189,7 +1252,9 @@ function deriveAuthStatus(input: {
 
 During hydration, seed `settled`, token, and user from the SSR snapshot before components observe the composable.
 
-Retain and harden the existing monotonically increasing auth generation; a pending counter is not a replacement for stale-result rejection. Implement the race and invalidation invariants in §5.3 before changing sign-out or refresh orchestration.
+A definitive 401/403 or token revocation clears token, user, and `error` in one synchronous publish, so this derivation returns `anonymous`. A failed initial resolution retains `error` and returns `error`. A failed background refresh over a usable identity retains token/user and therefore remains `authenticated` while exposing the last operation error.
+
+Replace the existing single generation with the `authEpoch` and `identityGeneration` contract in §5.3; a pending counter is not a replacement for stale-result rejection. Stage candidates privately and publish only after Convex confirmation.
 
 ### Verify identity-partitioned query integration
 
@@ -1342,6 +1407,7 @@ export async function exchangeConvexToken(input: {
       {
         method: 'GET',
         headers,
+        redirect: 'error',
         timeoutMs: input.timeoutMs ?? 5_000,
       },
     )
@@ -1387,7 +1453,9 @@ export async function exchangeConvexToken(input: {
 
 `siteUrl` means the Convex site origin, such as `https://example.convex.site`, not a URL already ending in `/api/auth`. Implement `normalizeSiteUrl`, `readBoundedJson`, and `readToken` in the server-only source. Never log credential values or the request headers.
 
-The exchange is `GET /api/auth/convex/token`, matching the installed `@convex-dev/better-auth` endpoint and the current internal exchange. Pin method and path in a fixture. `normalizeSiteUrl` rejects credentials, query strings, fragments, and non-root paths; allow plain HTTP only for localhost and test fixtures. Cancel or fully drain an oversized response before returning the bounded-response error.
+The exchange is `GET /api/auth/convex/token`, matching the installed `@convex-dev/better-auth` endpoint and the current internal exchange. Pin method and path in a fixture. `normalizeSiteUrl` rejects credentials, query strings, fragments, and non-root paths. It accepts `http:` only for hostname `localhost`, a `*.localhost` subdomain, IPv4 loopback in `127.0.0.0/8`, or `[::1]`; every other origin requires `https:`. There is no runtime "test fixture" exemption. Cancel or fully drain an oversized response before returning the bounded-response error.
+
+`validateServerConvexOptions` and `exchangeConvexToken` reject credential values containing ASCII control characters, including CR and LF, before network access. Credential-bearing exchange uses `redirect: 'error'` and never follows a redirect. These are validation/security outcomes, not transport failures.
 
 ### Caller-owned token promise
 
@@ -1451,7 +1519,17 @@ export function serverConvex(
 
 Use the official `ConvexHttpClient` generic overloads in the real implementation instead of the condensed `any` indexing shown above. One caller owns one lazy token promise and one lazy HTTP client; call `setAuth` at most once. The rejected token or client promise remains rejected for that caller. Retrying requires creating a new caller. Do not store either promise on the event or hash options.
 
-`normalizeServerConvexBoundaryError` passes through existing `ConvexCallError` values, constructs `transport` only from failures tagged at a known HTTP boundary, and constructs `authentication` only from missing/rejected credentials during the caller's required token-resolution path. An application `ConvexError` with `data.code === 'UNAUTHORIZED'` remains `server`.
+`normalizeServerConvexBoundaryError` passes through existing `ConvexCallError` values, preserves mechanically recognized `ConvexError` values as `server`, constructs `transport` only from failures tagged at a known HTTP boundary, and constructs `authentication` only from missing/rejected credentials during the caller's required token-resolution path. Every other error thrown by `ConvexHttpClient` becomes an opaque safe error:
+
+```ts
+new ConvexCallError({
+  kind: 'unknown',
+  message: 'Convex server call failed',
+  cause: error,
+})
+```
+
+Never copy an unstructured client error's message, code, status, or data into the public error. `ConvexHttpClient` may place an arbitrary non-OK upstream body in `Error.message`. The raw object may exist only as the non-serialized cause and must never be logged. An application `ConvexError` with `data.code === 'UNAUTHORIZED'` remains `server`.
 
 Implement `createClassifiedConvexFetch` so the official client does not erase transport context:
 
@@ -1472,6 +1550,8 @@ function createClassifiedConvexFetch(): typeof fetch {
 ```
 
 Do not intercept non-OK responses in this wrapper. Convex uses a private HTTP status/protocol path to reconstruct function failures, and its status constant is not exported from the public `convex/browser` entry. Let `ConvexHttpClient` consume responses. A non-structured error it returns is `unknown`, not a guessed transport or authentication error. An explicit opaque `authToken` is treated as the caller's chosen snapshot; if Convex later rejects it without a public mechanical marker, preserve the resulting `server`/`unknown` classification.
+
+For auth-enabled SSR responses, append `Vary: Cookie`. A request carrying a recognized Better Auth cookie, and any response that serializes a token, receives `Cache-Control: private, no-store`. Pin header merging so existing `Vary` values are preserved.
 
 ### Cookie resolution
 
@@ -1506,7 +1586,10 @@ Mandatory tests:
 - 401 and 403 become authentication results;
 - timeout, fetch failure, HTTP 500, oversized response, and malformed JSON become transport results;
 - site URL validation rejects credentials, query, fragment, and non-root paths and drains/cancels oversized bodies;
+- HTTP is accepted only for the exact loopback rules above; control-character credentials and redirects fail before credentials can reach another origin;
 - secrets do not appear in captured logs at any level;
+- sentinel upstream bodies from query, mutation, and action are absent from public messages, JSON, logs, and payloads;
+- SSR auth responses merge `Vary: Cookie` and apply the required private/no-store policy;
 - multi-call caller creates one token promise, one `ConvexHttpClient`, and calls `setAuth` at most once;
 - failed caller does not retry its token promise;
 - a new caller can retry;
@@ -1544,8 +1627,11 @@ Update in one commit-sized change:
 
 - root `package.json`
 - `packages/cms/package.json`
+- `packages/convex/package.json`
 - `playground/package.json`
 - `packages/cms/compatibility.json`
+- `vitest.config.ts`
+- `scripts/package-e2e.mjs`
 - `pnpm-lock.yaml`
 - `MAINTAINING.md`
 - `CHANGELOG.md`
@@ -1554,9 +1640,9 @@ Remove the previous Better Convex Nuxt version from the supported matrix. Do not
 
 Add `@better-auth/api-key` to `packages/cms/package.json` runtime dependencies because the shipped Ginko auth-client definition imports it. Add a compatible `better-auth` peer dependency to that package as well; the API-key package requires Better Auth as a peer, and relying on Better Convex Nuxt's transitive installation would make published-consumer resolution package-manager-dependent.
 
-Align and pin the tested Better Auth, `@better-auth/api-key`, and `@convex-dev/better-auth` release stack used by both repositories' proof fixtures. Do not let the library proof and Ginko registry verification silently exercise different plugin contracts.
+Bump `@convex-dev/better-auth` from `^0.12.2` to exact `0.12.5` in `packages/cms/package.json`, `packages/convex/package.json`, and every release-stack, tracked, and consumer section of `packages/cms/compatibility.json`. Ginko currently resolves both 0.12.2 and 0.12.5 physically; registry verification must recursively assert exactly one 0.12.5 copy and the full pinned tuple from §5.8. Better Auth, `@better-auth/api-key`, Nuxt, and Convex are already at the pinned stack in Ginko's manifests. Raise Better Convex Nuxt's own development dependencies to the same stack before running the proofs.
 
-Correct `packages/convex/test/better-auth-api-key-convex-token.test.ts` to import `getAuthConfigProvider` from the exported `@convex-dev/better-auth/auth-config` subpath, not the package root. Add that package-level integration test to a real Ginko verification script; the current root Vitest include pattern does not execute `packages/convex/test/**`.
+Correct `packages/convex/test/better-auth-api-key-convex-token.test.ts` to import `getAuthConfigProvider` from the exported `@convex-dev/better-auth/auth-config` subpath, not the package root. Extend ordinary root Vitest inclusion to execute `packages/convex/test/**/*.test.ts`; do not hide this contract behind a release-only command.
 
 ### 10.2 Register Ginko's typed Better Auth client
 
@@ -1622,7 +1708,7 @@ Explicit host configuration and the host convention always beat Ginko's fallback
 
 > Ginko CMS requires `apiKeyClient()` from `@better-auth/api-key/client`. Add it to your `convex-auth.ts` client definition.
 
-At build/doctor time, import the inert resolved definition and verify that its plugin list contains the pinned API-key plugin ID `api-key`. At browser runtime, verify the required method surface before use. Fixtures cover: no host definition uses Ginko's fallback; a host definition with `apiKeyClient()` works; a host definition without it reports the exact actionable error. If the installed API-key package changes its stable ID, update the pinned dependency and proof fixture deliberately.
+Better Convex Nuxt alone resolves and imports the definition. Ginko must not implement a second path/convention/layer loader for build or doctor. At browser runtime, verify the required method surface before use. Packed fixtures cover: no host definition uses Ginko's fallback; a host definition with `apiKeyClient()` works; a host definition without it reports the exact actionable error; and `auth: false` loads no definition. If the installed API-key package changes its stable ID, update the pinned dependency and proof fixture deliberately.
 
 Ginko runtime code must not access `.apiKey` before narrowing the possibly host-defined base client. Implement one Ginko-owned `requireGinkoApiKeyClient(client: unknown)` capability guard that validates the exact methods Ginko calls and returns a narrow type derived from the installed API-key client typings. Do not cast the global client or duplicate the entire Better Auth client type.
 
@@ -1719,13 +1805,10 @@ Current behavior passes `nuxtApp` so the SPA can read `$convex`. Replace it with
 
 ```ts
 export interface GinkoCmsStudioHostBridge {
-  convexClient?: ConvexClient
+  convexClient?: ConvexClientHandle
   config: GinkoCmsPublicConfig
   api?: GinkoCmsStudioHostApi
-  auth?: Pick<
-    UseConvexAuthReturn,
-    'status' | 'isPending' | 'isAuthenticated' | 'token' | 'user'
-  > | null
+  auth?: Pick<UseConvexAuthReturn, 'status' | 'isPending' | 'isAuthenticated' | 'user'> | null
   mcpApiKeys?: GinkoCmsStudioMcpApiKeys
   onSignOut: () => void | Promise<void>
 }
@@ -1735,10 +1818,10 @@ Delete:
 
 - `nuxtApp` from the bridge;
 - unused `convexUrl`;
-- redundant `getAuthToken` when the live token ref already crosses the same-context bridge;
+- `getAuthToken`, the raw token ref, and the Studio `getJwt()` method; no Studio consumer should receive the Convex JWT;
 - `isAnonymous` when it is derivable from status.
 
-The Studio host context reads `bridge.convexClient` directly.
+The Studio host context reads `bridge.convexClient` directly. It retains the stable replacement-safe handle, never the current raw primary client.
 
 ### 10.7 Make the Studio API allowlist real
 
@@ -1827,7 +1910,7 @@ const normalized = normalizeConvexError(error)
 const category = categoryFromGinkoCode(normalized.data)
 ```
 
-The library determines transport/server/unknown shape. Ginko determines conflict, not-found, rate-limit, authorization, and workflow-specific meaning. Apply this boundary to regular queries, paginated queries, mutations, and Convex-backed upload mutations in `packages/cms/studio-app/src/composables/useStudioConvex.ts`.
+The library determines transport/server/unknown shape. Ginko determines conflict, not-found, rate-limit, authorization, and workflow-specific meaning. Apply this boundary in `packages/cms/studio-app/src/composables/useCmsStudioQuery.ts`, `useCmsStudioPaginatedQuery.ts`, and the mutation/action/upload wrappers in `useStudioConvex.ts`. Delete embedded-JSON and message-substring classification.
 
 ### 10.9 Collapse MCP token exchange and use the server caller
 
@@ -1835,16 +1918,16 @@ Update both `packages/cms/src/server/middleware/mcp-auth.ts` and `packages/cms/s
 
 ```ts
 export interface ExchangedMcpCredential {
-  token: string
   apiKeyId: string
   ownerUserId: string
+  caller: Pick<ServerConvexCaller, 'query' | 'mutation' | 'action'>
 }
 
 export interface AuthenticateDeps {
   exchangeCredential: (credential: string) => Promise<ExchangedMcpCredential | null>
   resolveCredentialAccess: (
     apiKeyId: string,
-    convexAuthToken: string,
+    caller: ExchangedMcpCredential['caller'],
   ) => Promise<ResolvedMcpCredentialAccess | null>
   // existing failure-budget, storage, clock, and error dependencies remain
 }
@@ -1857,14 +1940,16 @@ export interface AuthenticateDeps {
 3. Call `exchangeConvexToken` once.
 4. Use status 401/403 to record an invalid credential.
 5. Use transport errors to return service unavailable without recording a bad-secret failure.
-6. Decode the returned JWT claims once in Ginko to obtain API-key ID and user subject.
-7. Construct `serverConvex(event, { authToken: result.token })`.
-8. Resolve Ginko credential settings through the caller.
-9. Store the verified token and caller identity in request context.
+6. Decode the returned JWT claims once inside the exchange dependency to obtain API-key ID and user subject. A malformed JWT or missing/non-string `sessionId` or `sub` is infrastructure failure: return 503 and do not charge the failure budget.
+7. Construct one `serverConvex(event, { authToken: result.token })`, narrow it to the allowed MCP operations, and return that caller—not the JWT—from `exchangeCredential`.
+8. Resolve Ginko credential settings through the returned caller. Require resolved `apiKeyId` and `ownerUserId` to equal the decoded claims; null or mismatch records exactly one failure and returns 401.
+9. Store validated claims and the narrow caller in request context. Never store the raw JWT.
 
-Delete `packages/cms/src/server/mcp/_shared/convex-caller.ts` after every MCP tool uses `ServerConvexCaller` or a Ginko-owned narrow alias of it.
+Delete `packages/cms/src/server/mcp/_shared/convex-caller.ts` after every MCP tool uses the Ginko-owned narrow caller alias. Delete obsolete API-key verifier helpers in `_shared/better-auth-api-key.ts` after the single exchange owns validation; keep only the small bearer parser private to `request-auth.ts` if it is still needed. Update `_shared/agent-tools.ts` to use `/errors` and remove embedded-JSON/message guessing.
 
-Migrate `packages/cms/src/server/routes/public-api.ts` to `serverConvex(event, { auth: 'none' })`. CLI commands without an H3 event keep constructing `ConvexHttpClient` directly.
+Replace Ginko's Better Auth base-path helper with a site-origin helper. An input ending in exactly `/api/auth` may normalize to its origin for the current deployment contract; reject every other non-root path before calling `exchangeConvexToken`.
+
+Migrate `packages/cms/src/server/routes/public-api.ts` to `serverConvex(event, { auth: 'none' })`. Thread the existing H3 event through event-backed calls in `packages/cms/src/nuxt-provider.mjs` and use `serverConvex(event, { auth: 'none' })`; its current provider methods receive an event but discard it before constructing raw clients. Genuinely eventless prerender/build and CLI paths keep constructing direct anonymous `ConvexHttpClient` instances.
 
 Keep in Ginko:
 
@@ -1887,8 +1972,10 @@ Update or add:
 - Studio bridge test proving no `nuxtApp`, `convexUrl`, or unlisted API functions cross the bridge;
 - Studio error mapping tests using `ConvexCallError`;
 - MCP tests proving exactly one `/convex/token` request for valid, invalid, and unavailable-service outcomes;
+- MCP tests proving request context contains no JWT, malformed claims produce 503 without failure-budget charge, and claim/access mismatch produces one 401 charge;
 - MCP fixtures updated for the single `exchangeCredential` dependency in `request-auth.ts`;
 - MCP invalid-credential versus unavailable-service tests;
+- event-backed `nuxt-provider.mjs` tests proving the supplied H3 event reaches one anonymous `serverConvex` caller, while eventless build/CLI fixtures retain direct clients;
 - package boundary test banning deleted Better Convex Nuxt imports and old names;
 - registry package e2e against the released Better Convex Nuxt version.
 
@@ -1898,9 +1985,16 @@ Phase 5's explicit search-and-update scope includes:
 - `packages/cms/src/runtime/pages/studio-host.vue`;
 - every Studio bridge consumer;
 - `packages/cms/studio-app/src/composables/useStudioConvex.ts`;
+- `packages/cms/studio-app/src/composables/useCmsStudioQuery.ts`;
+- `packages/cms/studio-app/src/composables/useCmsStudioPaginatedQuery.ts`;
 - `packages/cms/src/server/middleware/mcp-auth.ts`;
 - `packages/cms/src/server/mcp/_shared/request-auth.ts` and its tests;
+- `packages/cms/src/server/mcp/_shared/agent-tools.ts`;
+- `packages/cms/src/server/mcp/_shared/better-auth-api-key.ts`;
 - `packages/cms/src/server/routes/public-api.ts`;
+- `packages/cms/src/nuxt-provider.mjs` event-backed paths;
+- `scripts/package-e2e.mjs`, whose generated consumer still imports the deleted server trio;
+- `packages/convex/package.json`, `vitest.config.ts`, docs, package READMEs, and `scripts/check-docs-install-story.mjs` inputs;
 - every mock of `createConvexAuthCaller`, `verifyApiKey`, or `getConvexAuthToken`.
 
 ### Ginko verification
@@ -1933,6 +2027,7 @@ Update all guides and examples to teach these rules:
 8. `serverConvex` is the only server call API.
 9. Better Auth client plugins are registered in `convex-auth.ts` through `defineConvexAuthClient`.
 10. Permission rules remain application and Convex policy.
+11. `useConvex()` returns a stable replacement-safe handle; transport auth and client lifecycle remain library-owned.
 
 ### Source locks
 
@@ -1953,6 +2048,9 @@ Add checks that fail on active-source or documentation references to:
 - nullable query skip examples
 - omitted query args examples
 - `createBetterConvexAuthClient`
+- `resolveBetterConvexAuthBaseURL`
+- `BetterConvexAuthClientOptions`
+- `BetterConvexAuthClientPluginList`
 - `auth.enabled`
 - `auth.cache.enabled`
 - `auth.unauthorized.enabled`
@@ -2000,7 +2098,7 @@ The consumer output must show the intended Better Convex Nuxt version and must c
 
 ## 12. Implementation order and commit boundaries
 
-Complete and record the senior-owned §5.8 proof gate before commit 1. Then use these commit boundaries unless a failing test requires an even smaller change:
+Before commit 1, a senior implements the smallest disposable/permanent proof owner required by §5.8, passes all seven gates, records commands and evidence, and performs the targeted `ConvexClientHandle` API review. Only then assign implementation phases to a junior. Use these commit boundaries unless a failing test requires an even smaller change:
 
 1. `refactor!: simplify auth installation, normalized config, status, and runtime topology`
 2. `refactor!: unify query auth modes with anonymous transport and identity isolation`
@@ -2027,8 +2125,9 @@ The entire vNext program is complete only when every statement below is true.
 - [ ] Optional and required queries wait for initial auth settlement.
 - [ ] Authenticated live `none` queries use anonymous transport and never observe a Convex identity.
 - [ ] Same-user token rotation causes no query reacquisition.
-- [ ] Cross-user payload reuse is structurally impossible, and local settled state cannot cross an identity generation.
-- [ ] Stale auth, HTTP, and subscription work cannot mutate a newer identity generation.
+- [ ] Every stable identity-key change retires the old primary client while the public handle and dedicated anonymous client remain stable.
+- [ ] Cross-user payload reuse is structurally impossible, and no query, paginated, optimistic, mutation/action, upload, callback, bridge, or seeded-profile state crosses an identity generation.
+- [ ] Stale auth, HTTP, subscription, callback, and locally optimistic work cannot mutate or overlay a newer identity generation.
 - [ ] Query args are always explicit and `'skip'` is the sole skip sentinel.
 - [ ] `useConvexAuth()` is available with auth enabled and disabled.
 - [ ] `auth.enabled` is deleted; omitted/options-object auth installs authentication and `auth: false` is the only off switch.
@@ -2040,6 +2139,7 @@ The entire vNext program is complete only when every statement below is true.
 - [ ] `/auth-client` and `/errors` have no framework dependencies.
 - [ ] `ConvexCallError` is used by throwing and safe paths.
 - [ ] SSR error hydration preserves `ConvexCallError` identity and public fields without serializing `cause`.
+- [ ] Unstructured upstream response bodies cannot appear in public errors, logs, or payloads.
 - [ ] `serverConvex` is the only public server caller.
 - [ ] Cookie and bearer token exchanges are bounded and never log secrets.
 - [ ] `useConvexCall` and permissions runtime are deleted.
@@ -2052,11 +2152,12 @@ The entire vNext program is complete only when every statement below is true.
 - [ ] No raw browser API-key HTTP implementation remains.
 - [ ] Ginko declares `@better-auth/api-key` and verifies the host API-key client capability with an actionable error.
 - [ ] No `runtimeConfig.public.convex` structural casts remain in client components.
-- [ ] The Studio bridge passes a Convex client, not the Nuxt app.
-- [ ] Unused `convexUrl`, redundant token getter, and duplicated auth booleans are deleted from the bridge.
+- [ ] The Studio bridge passes a replacement-safe Convex handle, not the Nuxt app or a raw client.
+- [ ] Unused `convexUrl`, raw token/JWT access, redundant token getter, and duplicated auth booleans are deleted from the bridge.
 - [ ] The Studio runtime API contains only explicitly listed functions.
 - [ ] Generic error normalization comes from `/errors`; product classification remains Ginko-owned.
 - [ ] MCP performs one credential-to-token exchange per authentication attempt.
+- [ ] MCP request context stores no raw JWT; it stores validated claims and one narrow server caller.
 - [ ] `request-auth.ts` exposes one credential-exchange dependency rather than separate verification and token callbacks.
 - [ ] The custom MCP Convex transport wrapper is deleted.
 - [ ] Failure budgets, redaction, claims, capability, and product authorization remain Ginko-owned.
@@ -2068,7 +2169,7 @@ Stop the current subtask and document the evidence before proceeding when any of
 
 1. Packed plugin inference cannot flow from the convention definition into consumer `useConvexAuth().client` typing.
 2. A live authenticated application cannot provide genuinely anonymous `none` subscriptions without disturbing authenticated subscriptions.
-3. A mounted A→B query can expose A-owned local data after the identity generation changes.
+3. A mounted A→B flow can expose any A-owned local, optimistic, call, upload, callback, bridge, seeded-profile, HTTP, WebSocket, or raw-client observation after `identityGeneration` changes.
 4. Optional auth cannot avoid anonymous-first execution during hydration.
 5. Same-user token refresh necessarily forces query reacquisition in Convex's client.
 6. `ConvexCallError` cannot cross Nitro serialization without losing required public fields or exposing `cause`.
@@ -2076,6 +2177,10 @@ Stop the current subtask and document the evidence before proceeding when any of
 8. Exact-empty query args cannot reject options-shaped objects without breaking valid optional or union args.
 9. Ginko cannot supply its auth-client fallback without overriding a host-owned definition or breaking an auth-disabled consumer.
 10. The installed Convex Better Auth client plugin no longer exposes the pinned stable `convex` plugin ID.
+11. A replacement-safe `useConvex()` handle cannot preserve active consumer subscriptions across primary-client retirement without exposing the raw client or importing Convex private modules.
+12. An unstructured non-OK upstream response body cannot be prevented from reaching public errors, logs, or payloads.
+13. Credential-bearing exchange follows a redirect or sends credentials outside the validated origin.
+14. Concurrent token-bearing identity operations cannot be serialized and confirmed deterministically.
 
 For a stop condition, capture:
 
