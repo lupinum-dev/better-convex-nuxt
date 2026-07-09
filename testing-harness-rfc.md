@@ -30,11 +30,22 @@ real JWTs, real WebSockets, real wire format — without reintroducing the
 flakiness that made the project retreat from browser E2E in the first place
 (`test/TESTING.md` "Why this layout").
 
-**The one-sentence strategy:** don't write more tests against mocks, and
+**The strategy, three pillars:** don't write more tests against mocks, and
 don't duplicate mock-tier tests into e2e — instead (a) put the existing
-real-backend tier into CI on a non-PR lane with a graduation path, and
+real-backend tier into CI on a non-PR lane with a graduation path,
 (b) make the mocks *provably faithful* to the real client with a shared
-conformance suite, so the fast tiers stay trustworthy.
+conformance suite so the fast tiers stay trustworthy, and (c) make the
+invisible failure modes **countable**: a test-mode operation ledger
+(Phase I) plus a generated behavior-mode matrix (Phase B) asserting, for
+every supported combination of server/client × blocking/lazy × auth mode ×
+navigation type, not just the final state but the exact operations
+performed — fetch counts, subscription balance, token exchanges, purge
+events, hydration payload reuse. The hard regressions in this library are
+wrong *operation sequences* with correct-looking final states; only
+counting catches them. And because operation counts are externally
+observable behavior (not internals), those tests survive rewrites of the
+implementation — which is what makes the harness hold up for years, not
+months.
 
 ---
 
@@ -89,6 +100,35 @@ conformance suite, so the fast tiers stay trustworthy.
    module it advertises.
 8. **CI matrix:** Node 20 / ubuntu only; nuxt peer is `^4.0.0` but every
    test runs against 4.3.x — the declared floor is never exercised.
+9. **Nothing observes operation sequences.** All current assertions are on
+   final state (data rendered, status value, header present). The seam's
+   worst regressions — a second fetch after hydration, a subscription
+   surviving unmount, a second token exchange per request, a sign-out purge
+   that silently no-ops — leave the final state *correct*. No current tier
+   can fail on them.
+
+### 1.3 Researched facts that shape the plan (2026-07-09)
+
+- **Non-interactive CI bootstrap is officially supported.** In
+  non-interactive shells, `npx convex` never prompts for login: with no
+  configured deployment and no `CONVEX_DEPLOY_KEY`, the CLI auto-provisions
+  an **anonymous local deployment**. So Phase L is CLI-first; the
+  self-hosted Docker images/compose from `get-convex/convex-backend` remain
+  the fallback (both are the same open-source backend). Sources:
+  [Testing: local backend](https://docs.convex.dev/testing/convex-backend),
+  [Local deployments](https://docs.convex.dev/cli/local-deployments),
+  [Agent mode](https://docs.convex.dev/cli/agent-mode),
+  [Anonymous development](https://stack.convex.dev/anonymous-development),
+  [Self-hosted README](https://github.com/get-convex/convex-backend/blob/main/self-hosted/README.md).
+- **The Convex team's own local-OSS testing pattern**: one persistent
+  backend per run, serial execution, and an `IS_TEST`-guarded
+  `testingMutation` **`clearAll`** that wipes all schema tables, cancels
+  scheduled jobs, and deletes stored files between tests — adopted here as
+  R-13/L-6 (upgrades our isolation from convention to enforcement). Source:
+  [Testing with the local OSS backend](https://stack.convex.dev/testing-with-local-oss-backend).
+- **Local OSS backend limitations**: no built-in time mocking and no
+  randomness control — so backend logic depending on either stays in
+  `convex-test` (R-14). Same source.
 
 ---
 
@@ -101,7 +141,7 @@ tier, each tier has a budget, growth in a tier must fit its budget.
 |---|---|---|---|---|
 | **T-fast** | local iteration | ≤ 2 min | `unit` + `convex` + `nuxt` projects | "Is the logic right, per the mocks?" |
 | **T-pr** | every PR (current CI) | ≤ 15 min | T-fast + `browser` + lint/contract battery + prepack/types + consumer-smoke + preview release | "Does it build, type, pack, and render?" |
-| **T-live** | nightly cron + push to main + **mandatory before release** | ≤ 20 min | real local Convex backend: existing `test/e2e/` + mock-conformance suite + security invariants (Phases L/M/S) | "Does the real integration seam work?" |
+| **T-live** | nightly cron + push to main + **mandatory before release** | ≤ 25 min | real local Convex backend: existing `test/e2e/` + operation-ledger invariants + behavior-mode matrix + mock-conformance real driver + security/timing invariants (Phases L/I/B/M/S) | "Does the real integration seam work — and do the operation counts prove it?" |
 | **T-canary** | weekly cron, non-blocking | ≤ 30 min/leg | T-pr + T-live against dep attribution matrix (convex, better-auth, @convex-dev/better-auth, nuxt alone-at-latest; all-latest; min-peers nuxt@4.0.0) | "Which upstream release will break us, and is our peer floor honest?" |
 
 **Non-goals** (rejected as poor confidence-per-hour; admission ticket = a
@@ -179,6 +219,31 @@ concrete escaped regression):
   local-only, thin-orchestrator constraints — adopt as written in
   `ginko-content/testing-harness-rfc.md` (R-13/R-14/C-16/C-17 there); do
   not fork the philosophy.
+- **R-11 — Assert operations, not just outcomes, at the seam.** For any
+  change touching `useConvexQuery`, `convex-cache`, `client-engine`,
+  `plugin.server`, or the token exchange, passing final-state tests is not
+  sufficient evidence — the ledger invariants (fetch counts, subscription
+  balance, exchange count, purge events) are the review-blocking tests.
+  This is the codified answer to "double fetch / leaked subscription /
+  silent purge no-op look green".
+- **R-12 — Instrumentation never ships and never perturbs.** The ledger is
+  enabled only via a test-only option in fixture configs, lives behind a
+  build-time flag, records synchronously (append to an array — no awaits,
+  no I/O on hot paths), and a packaging check proves `dist/` contains none
+  of it. If instrumentation would change timing, it doesn't go in.
+- **R-13 — Test isolation by `clearAll`, not convention.** Adopt the
+  Convex-team pattern (§1.3): an `IS_TEST`-guarded `testingMutation`
+  `clearAll` wipes tables, scheduled jobs, and stored files between e2e
+  files; per-test namespacing remains for within-file isolation.
+- **R-14 — Time/randomness-dependent backend logic stays in
+  `convex-test`.** The local OSS backend cannot mock time or randomness
+  (§1.3); a T-live test that depends on either is a flake by construction
+  and gets rejected in review.
+- **R-15 — The matrix is generated, cells are individual tests.** The
+  behavior-mode matrix is data (`modes.ts`) driving dynamically registered
+  tests — one named test per cell, never a loop inside one `it()`. Adding a
+  composable option means adding a dimension or an exclusion rule in one
+  place, with the diff showing exactly which cells appeared.
 
 ---
 
@@ -207,6 +272,77 @@ concrete escaped regression):
   step executing.
 - **L-5** Start the R-1 graduation ledger in §9 (date, run URL, green/red,
   flaked test if any). *Gate:* first 3 nightly entries recorded.
+- **L-6** Isolation upgrade (R-13): add an `IS_TEST`-guarded `clearAll`
+  testing mutation to `playground/convex` (wipe schema tables, cancel
+  scheduled jobs, delete stored files — extend the existing `testing.ts`
+  pattern) and call it between e2e files. *Gate:* a test that seeds data,
+  clears, and asserts emptiness — plus proof `clearAll` throws when
+  `IS_TEST` is unset (never callable in a real deployment).
+
+### Phase I — Operation ledger (the instrument that sees silent regressions)
+
+The seam's worst regressions are wrong operation sequences with
+correct-looking final states (gap #9). This phase builds the counter.
+
+- **I-1** Test-mode instrumentation: when the fixture sets a test-only
+  module option (playground/e2e configs only, R-12), install wrappers that
+  append every operation to a ledger. Server side: `/api/query` executions
+  (function name, args hash, auth dimension), token exchanges, auth
+  snapshot cache hits/misses, payload keys serialized. Client side: WS
+  `subscribe`/`unsubscribe` (with query key), client-side HTTP queries,
+  `setAuth` calls, purge events, hydration payload hits vs refetches.
+  Server ledger exposed per-request via a test-only endpoint; client ledger
+  on `window.__convexLedger`. *Gate:* recorder unit tests against scripted
+  operation sequences (a recorder that drops records produces false-green
+  invariants — it needs its own tests), plus a `check:contracts` step
+  proving `dist/` contains no instrumentation code.
+- **I-2** Invariant helpers:
+  `expectLedger(page, { ssrQueries: 1, clientRefetches: 0, tokenExchanges: 1, subscribeBalance: 0, purges: [...] })`
+  with failure messages that print the full recorded sequence (the ledger
+  doubles as the debugging trace an agent needs). *Gate:* helper unit
+  tests.
+- **I-3** Retrofit the existing e2e smokes with the three highest-value
+  invariants: exactly **one** token exchange per SSR request (F-13 becomes
+  a count, not a comment), **zero** client refetches of SSR-delivered data
+  (hydration honesty), and **zero** net subscriptions after navigating
+  away (refcount balance). *Gate:* both directions for each — e.g.
+  duplicate the exchange call locally, watch the count assertion go red.
+
+### Phase B — Behavior-mode matrix (client × server × blocking × lazy × auth)
+
+This is the direct answer to "it has to work client side and server side,
+blocking and non-blocking". Hand-written tests sample this space; the
+matrix enumerates it.
+
+- **B-1** Read the option types of `useConvexQuery` and
+  `useConvexPaginatedQuery` and encode the real dimensions as data in
+  `test/e2e/matrix/modes.ts`: at minimum `server` on/off, blocking vs
+  `lazy`, auth `auto`/`none`, session authed/anonymous, and entry mode
+  (hard SSR load, client-side navigation, back/forward) — plus explicit
+  exclusion rules for invalid combinations. *Gate:* dimension list reviewed
+  against the actual option types, not the docs.
+- **B-2** One matrix page per composable in the playground, driven by query
+  params (`/matrix/query?server=1&lazy=0&auth=auto`), so a single page
+  component serves every cell. Per-cell invariants asserted via the ledger
+  and the DOM: expected SSR query count; blocking cells render data in the
+  SSR HTML, lazy cells render a stable placeholder (and hydrate without
+  mismatch); zero client refetch when a payload exists; exactly one live
+  subscription after mount and zero after unmount; legal status
+  transitions (`idle→pending→success`, no `success→pending` flash on
+  hydration, `keepPreviousData` honored on args change); anonymous cells
+  carry no token material in HTML. One dynamically registered, named test
+  per cell (R-15). *Gate:* both-directions proofs for three representative
+  regressions — a forced double fetch, a leaked subscription, a hydration
+  mismatch — each failing with the cell name in the test title.
+- **B-3** Run the full matrix in T-live (target < 5 min for ~24–48 cells —
+  cells share the page and the backend; the cost is navigation, not
+  build). Promotion to T-pr follows R-1 like everything else. *Gate:*
+  wall time recorded in §9.
+- **B-4** Soak cell for leak detection: 50 client-side navigations across
+  matrix pages; the ledger must balance (subscribes == unsubscribes, no
+  monotonically growing counter). Refcount leaks (C-2) only manifest under
+  repetition — no single-mount test can see them. *Gate:* both directions
+  via a deliberately skipped `releaseSubscription`.
 
 ### Phase M — Mock conformance (makes the fast tiers trustworthy)
 
@@ -259,6 +395,23 @@ concrete escaped regression):
   client upgrades to WS without refetch-flicker (no intermediate `pending`
   after hydration), and zero console errors / hydration warnings on the
   visited pages. *Gate:* both directions via a forced hydration mismatch.
+- **S-5** Deterministic timing injection (not fuzzing — three targeted
+  scenarios via Playwright route interception): (a) delay
+  `/api/auth/convex/token` by several seconds → UI stays in auth-loading
+  with no unauthenticated flash, and the ledger still shows exactly one
+  exchange; (b) delay the post-hydration WS upgrade → SSR data remains
+  rendered with no flicker, upgrade completes, no duplicate fetch; (c)
+  sever the WS mid-session (offline emulation / route abort) → connection
+  state transitions correctly, resubscription on recovery adds no
+  duplicate subscription (ledger balance). These are the races users hit
+  on slow networks; on localhost without injected latency they never
+  occur, so CI would never see them. *Gate:* both directions each.
+- **S-6** Optimistic rollback against real rejection: a mutation with an
+  optimistic update targeting the intentional-failure function
+  (`playground/convex/testing.ts`) → assert query data rolls back to the
+  exact pre-mutation state and the error surfaces; ledger confirms no
+  orphaned subscription or refetch storm. *Gate:* both directions via
+  disabling the rollback path locally.
 
 ### Phase D — Dependency attribution canary
 
@@ -303,17 +456,28 @@ concrete escaped regression):
   every row's command verified runnable.
 - **H-5** Budget baselines: record current wall times (T-fast, T-pr jobs,
   first T-live run) in §8. *Gate:* table filled.
+- **H-6** F-## traceability check: `scripts/check-audit-traceability.mjs`
+  scans `src/runtime/**` for `F-##` audit markers and fails if any marker
+  has no test file referencing the same `F-##`. The audit remediation
+  encoded years of judgment in those comments; this makes every one of
+  them enforceable instead of archaeological, and any future `F-##` added
+  during a fix automatically demands its regression test. *Gate:* runs in
+  `check:contracts`; currently-orphaned markers either get tests or an
+  explicit allowlist entry with a reason.
 
-### Phase X — Explicitly deferred (do NOT do now)
+### Phase Z — Explicitly deferred (do NOT do now)
 
 Cloud-backed CI e2e, multi-browser matrix, visual regression, load/perf
 testing, Windows CI legs (revisit if a Windows consumer bug ever arrives),
-mutation testing, coverage gates. Admission ticket: a concrete escaped
+mutation testing, coverage gates, full network fuzzing (S-5's three
+deterministic scenarios are the sweet spot; randomized chaos buys flake,
+not confidence, at this scale). Admission ticket: a concrete escaped
 regression the deferred item would have caught; record it in §9.
 
 **Recommended order:** H (hours, closes a live hole) → L (the thesis) →
-M → S → D. L before M because the conformance real-driver needs the L-1
-bootstrap.
+I (the instrument) → B (the matrix) → M → S → D. L before everything
+live-backed because they all need the L-1 bootstrap; I before B because
+the matrix asserts through the ledger.
 
 ---
 
@@ -406,11 +570,36 @@ Both-directions proof mandatory for every new check; one task = one commit
   Don't "fix" such a failure by moving the test to the node environment —
   the environment mismatch IS the finding.
 - **C-12 — Serial e2e + shared local backend.** The e2e project is serial
-  and all files share one `convex dev` instance with mutable data. Test
-  isolation is by convention (per-test data namespacing), not enforcement;
-  a test that writes without namespacing flakes *other* files
-  non-deterministically. Any new e2e file copies the namespacing pattern
-  of `realtime-subscription`.
+  and all files share one `convex dev` instance with mutable data. Until
+  L-6 lands, isolation is by convention (per-test data namespacing) — a
+  test that writes without namespacing flakes *other* files
+  non-deterministically. After L-6, `clearAll` runs between files, but two
+  hazards remain: `clearAll` itself must be impossible outside `IS_TEST`
+  (it deletes every table), and within-file tests still rely on
+  namespacing. Any new e2e file copies the pattern of
+  `realtime-subscription`.
+- **C-13 — The ledger must not perturb what it measures.** Two failure
+  directions: observer effect (an `await`, a network call, or heavy
+  serialization on the hot path changes the very timing the S-5 tests
+  probe — record synchronously into arrays, serialize only when a test
+  reads the ledger) and shipping (instrumentation in `dist/` is dead
+  weight and an information leak — the I-1 packaging grep is mandatory,
+  release-blocking). Third, subtler: a recorder bug that silently drops
+  records turns every invariant false-green, which is why the recorder has
+  its own unit tests against scripted sequences.
+- **C-14 — Matrix cells must be individually attributable.** A runner that
+  loops cells inside one `it()` turns "cell `server=1 lazy=0 auth=auto
+  nav=client` broke" into "the matrix broke", invites a blanket skip, and
+  hides partial regressions. One dynamically registered test per cell
+  (R-15), named by its dimensions; skipped cells are counted with an
+  L-3-style anti-skip cap so exclusion rules can't quietly eat the matrix.
+- **C-15 — Ledger invariant numbers encode design decisions.** `ssrQueries:
+  1` and `tokenExchanges: 1` are not arbitrary expectations — they ARE the
+  contract (F-13 etc.). When such an assertion fails after a refactor, the
+  fix is never to bump the expected count to make it pass; that's the
+  moment the harness is paying for itself. Changing a count requires the
+  same rigor as changing a public API: a ruling, a changelog note, and a
+  §9 entry.
 
 ---
 
@@ -420,7 +609,7 @@ Both-directions proof mandatory for every new check; one task = one commit
 |---|---|---|---|
 | T-fast (unit+convex+nuxt) | _record_ | 2 min | split/trim slowest files |
 | T-pr `test` job | _record_ | 15 min | move newest check to T-live |
-| T-live (bootstrap + e2e) | _record_ | 20 min | trim scenario count, never add retries |
+| T-live (bootstrap + e2e + matrix) | _record_ | 25 min | trim matrix cells before scenarios, never add retries |
 | T-canary per leg | _record_ | 30 min | reduce leg contents, keep matrix |
 
 ---
@@ -433,13 +622,25 @@ Both-directions proof mandatory for every new check; one task = one commit
   release script omits `test:e2e`; `! rg` inversion passes on rg exit
   2/127; demo pins better-convex-nuxt@0.4.0 against repo 0.5.0. No tasks
   executed yet.
+- 2026-07-09 — Major revision after research + operation-sequence
+  analysis: added third pillar (operation ledger, Phase I) and
+  behavior-mode matrix (Phase B) — the direct answer to
+  client/server × blocking/lazy coverage; added timing-injection S-5,
+  optimistic-rollback S-6, `clearAll` isolation L-6, F-## traceability
+  H-6; rulings R-11–R-15; cornerstones C-13–C-15; gap #9 recorded.
+  Research confirmed (§1.3): non-interactive `npx convex` auto-provisions
+  an anonymous local deployment (CLI-first bootstrap is viable in CI;
+  Docker fallback stands), Convex-team clearAll isolation pattern adopted,
+  local OSS backend cannot mock time/randomness (R-14).
 
 ## 10. Definition of Done
 
-- [ ] H: rg wrapper with three-way proof; positive controls + meta-check; flake ledger; escalation ladder; budgets baselined
-- [ ] L: non-interactive bootstrap green on a hosted runner; nightly+main lane live; anti-skip assertion proven both directions; release script runs T-live; graduation ledger started
+- [ ] H: rg wrapper with three-way proof; positive controls + meta-check; flake ledger; escalation ladder; F-## traceability check in check:contracts; budgets baselined
+- [ ] L: non-interactive bootstrap green on a hosted runner; nightly+main lane live; anti-skip assertion proven both directions; release script runs T-live; `clearAll` isolation with IS_TEST guard proof; graduation ledger started
+- [ ] I: operation ledger recording server+client operations; recorder unit-tested; dist-exclusion check in check:contracts; the three retrofit invariants (one exchange, zero refetch, zero net subscriptions) proven both directions
+- [ ] B: mode dimensions encoded from the real option types; one named test per cell; full matrix green in T-live within budget; soak cell catches a deliberately leaked subscription; three representative both-directions proofs recorded
 - [ ] M: conformance scenarios green under BOTH drivers; divergence protocol documented; mock header rule in place
-- [ ] S: cache-safety, cross-session isolation, token races, and SSR-honesty tests green with recorded both-directions proofs
+- [ ] S: cache-safety, cross-session isolation, token races, SSR-honesty, the three timing-injection scenarios, and optimistic rollback green with recorded both-directions proofs
 - [ ] D: attribution canary dispatched green; per-dep issue path proven; convex-internal tripwires with committed wire fixtures; demo drift check red→green
 - [ ] R-1 graduation decision recorded (promoted subset, or explicit stay-on-release-gate)
 - [ ] §8 budgets hold on the final full run
