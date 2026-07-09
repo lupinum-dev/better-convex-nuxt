@@ -172,12 +172,12 @@ export interface ConvexAuthOptions {
 
 Semantics:
 
-| Input | Meaning |
-| --- | --- |
-| omitted | Install authentication with defaults |
-| `{}` | Install authentication with defaults |
-| `{ routeProtection: ... }` | Install authentication with those options |
-| `false` | Convex-only build; do not install the auth engine, client, proxy, or middleware |
+| Input                      | Meaning                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| omitted                    | Install authentication with defaults                                            |
+| `{}`                       | Install authentication with defaults                                            |
+| `{ routeProtection: ... }` | Install authentication with those options                                       |
+| `false`                    | Convex-only build; do not install the auth engine, client, proxy, or middleware |
 
 Do not support `auth: true`. It adds no information because authentication is already the default. Do not infer disabled auth from a missing URL, missing definition file, or missing environment variable; configuration mistakes must remain visible.
 
@@ -348,6 +348,7 @@ Land the breaking vocabulary and remove duplicate APIs before building new behav
 - `src/module.ts`
 - `src/module-api-surface.ts`
 - `src/runtime/utils/config-defaults.ts`
+- `src/runtime/utils/auth-config.ts`
 - `src/runtime/utils/query-execution-gate.ts`
 - `src/runtime/utils/identity-key.ts`
 - `src/runtime/utils/args-tuple.ts`
@@ -368,6 +369,9 @@ Delete:
 ### Implementation checklist
 
 - [ ] Introduce the shared `ConvexAuthMode` type with exactly three literals.
+- [ ] Replace the nested `auth.enabled` input with `auth?: false | ConvexAuthOptions`; omitted or object-valued auth installs authentication.
+- [ ] Normalize auth to the `false | NormalizedConvexAuthOptions` runtime union and derive any internal `authEnabled` boolean from that value.
+- [ ] Reject auth-only build options when `auth: false` instead of silently ignoring them.
 - [ ] Add `ConvexIdentityKey` and the single stable-user-ID extraction function; cache integration lands in Phase 3.
 - [ ] Replace client `auto` behavior with `required`.
 - [ ] Replace server `auto` behavior with `optional`; the server trio remains temporarily internal until Phase 4 but no public docs should use it.
@@ -402,16 +406,18 @@ Decision order:
 
 1. Explicit `'skip'` resolves idle.
 2. `none` executes without waiting and uses `anonymous` cache dimension.
-3. An auth-enabled `required` or `optional` query waits while identity is unsettled.
-4. Settled `required` without an identity resolves idle.
-5. Settled `optional` without an identity executes anonymously.
-6. Settled `required` or `optional` with an identity executes with `user:<id>`.
+3. With auth disabled, `required` resolves idle and `optional` executes anonymously without waiting.
+4. An auth-enabled `required` or `optional` query waits while identity is unsettled.
+5. Settled `required` without an identity resolves idle.
+6. Settled `optional` without an identity executes anonymously.
+7. Settled `required` or `optional` with an identity executes with `user:<id>`.
 
 ### Tests
 
 Create or update:
 
 - `test/unit/query-execution-gate.test.ts`
+- `test/unit/auth-config.test.ts`
 - `test/unit/query-options-types.test.ts`
 - `test/fixtures/consumer-smoke/composables/usePublicApiSurfaceContracts.ts`
 - `test/nuxt/useConvexQuery.auth-gate.nuxt.test.ts`
@@ -434,6 +440,14 @@ void useConvexQuery(api.tasks.list, null)
 void useConvexQuery(api.tasks.list, { server: false })
 ```
 
+Auth-configuration assertions must include:
+
+- omitted auth and `auth: {}` normalize to the same enabled configuration;
+- `auth: false` installs no auth runtime and cannot be combined with `authClient`;
+- `{ auth: { enabled: false } }` fails the module-options typecheck;
+- disabled-auth `optional` queries execute anonymously without a loading state;
+- disabled-auth `required` queries remain idle.
+
 ### Phase verification
 
 Run:
@@ -442,7 +456,7 @@ Run:
 pnpm run lint
 pnpm run test:types
 pnpm run check:consumer-smoke
-pnpm vitest run --project=unit test/unit/query-execution-gate.test.ts test/unit/query-options-types.test.ts
+pnpm vitest run --project=unit test/unit/auth-config.test.ts test/unit/query-execution-gate.test.ts test/unit/query-options-types.test.ts
 pnpm vitest run --project=nuxt test/nuxt/useConvexQuery.auth-gate.nuxt.test.ts test/nuxt/useConvexPaginatedQuery.nuxt.test.ts
 ```
 
@@ -879,7 +893,7 @@ Keep underlying refs for token, user, pending work, initial settlement, and last
 
 ```ts
 function deriveAuthStatus(input: {
-  enabled: boolean
+  authEnabled: boolean
   settled: boolean
   token: string | null
   user: ConvexUser | null
