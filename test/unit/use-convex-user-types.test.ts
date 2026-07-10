@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ConvexUser } from '../../src/module'
-import type { ConvexUserState } from '../../src/runtime/composables'
+import type { ConvexUserState } from '../../src/runtime/composables/useConvexUser'
 
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
