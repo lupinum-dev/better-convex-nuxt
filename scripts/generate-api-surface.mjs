@@ -111,11 +111,6 @@ const composableMeta = {
     purpose: 'Defines a reusable shared query contract for multiple consumers.',
     guide: '/docs/data-fetching/caching-reuse',
   },
-  createBetterConvexAuthClient: {
-    kind: 'Factory',
-    purpose: 'Creates a plugin-typed Better Auth client with Convex token sync.',
-    guide: '/docs/auth-security/authentication',
-  },
   setQueryData: {
     kind: 'Helper',
     purpose: 'Replaces cached query data with a new value.',
@@ -309,7 +304,7 @@ import { createUserSyncTriggers } from 'better-convex-nuxt/server/createUserSync
 
 ## Composable Auto-Imports
 
-\`useConvexAuth\`, \`useConvexUser\`, \`createBetterConvexAuthClient\`, and the global auth components are available when module auth is enabled.
+\`useConvexAuth\`, \`useConvexUser\`, and the global auth components are available when module auth is enabled. The typed Better Auth client is defined with \`defineConvexAuthClient\` from \`better-convex-nuxt/auth-client\` and read back through \`useConvexAuth().client\`.
 
 | Name | Kind | Purpose | Learn More |
 | ---- | ---- | ------- | ---------- |

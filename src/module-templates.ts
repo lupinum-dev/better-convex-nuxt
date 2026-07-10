@@ -39,13 +39,10 @@ import type { ConvexAuthPageMeta } from ${authPageMetaImportSpecifier}
 
 // The public \`$convex\` and \`$auth\` Nuxt-app property augmentations are deleted
 // (vNext §5.4): consumers use the \`useConvex()\` handle and the auth composables,
-// never a raw replaceable client. Only the route-protection page meta and the
-// auth-refresh hook remain part of the generated public surface.
+// never a raw replaceable client. The auth-refresh hook command bus is deleted
+// (internal §6.3); only the route-protection page meta remains part of the
+// generated public surface.
 declare module '#app' {
-  interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
-  }
-
   interface PageMeta {
     /**
      * Opt-in route protection powered by better-convex-nuxt.

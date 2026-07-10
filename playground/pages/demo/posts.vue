@@ -171,8 +171,6 @@ definePageMeta({
 })
 
 const { isAuthenticated, user } = useConvexAuth()
-const nuxtApp = useNuxtApp()
-
 // Query posts with real-time updates
 const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 
@@ -221,12 +219,14 @@ function canDelete(post: { ownerId: string }) {
   return user.value.authId === post.ownerId
 }
 
+// useConvex() is client-only; the handle is used exclusively from browser
+// event handlers, so capture it during client setup and guard SSR.
+const convexHandle = import.meta.client ? useConvex() : null
 function getConvexClient() {
-  const client = nuxtApp.$convex
-  if (!client) {
+  if (!convexHandle) {
     throw new Error('Convex client unavailable')
   }
-  return client
+  return convexHandle
 }
 
 // Create post

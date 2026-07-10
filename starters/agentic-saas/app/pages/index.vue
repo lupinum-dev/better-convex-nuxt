@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { organizationClient } from 'better-auth/client/plugins'
-
 import { api } from '#convex/api'
 
 defineOptions({ name: 'AgentApprovalQueuePage' })
@@ -10,12 +8,10 @@ type AuthOrganizationResult = {
   id?: string
 }
 
-const authClient = import.meta.client
-  ? createBetterConvexAuthClient({
-      plugins: [organizationClient()] as const,
-    })
-  : null
-const { signUp, refreshAuth } = useConvexAuth()
+// The typed Better Auth client comes from `useConvexAuth().client`, itself typed
+// from `app/convex-auth.ts` (the `<srcDir>/convex-auth.ts` convention definition
+// with `organizationClient()`). Null during SSR / when auth is disabled.
+const { signUp, refreshAuth, client: authClient } = useConvexAuth()
 
 const organizationId = ref('')
 const queueArgs = computed(() =>

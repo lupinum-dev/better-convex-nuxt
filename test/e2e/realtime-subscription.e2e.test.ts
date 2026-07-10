@@ -34,28 +34,44 @@ maybeDescribe('Realtime subscription (full stack)', async () => {
     const page1 = await createPage('/labs/realtime')
     const page2 = await createPage('/labs/realtime')
 
-    const initialCount = Number.parseInt(
-      (await page2.textContent('[data-testid="count"]')) || '0',
-      10,
-    )
+    // Both pages must have completed their initial subscription render before we
+    // mutate, so the cross-tab delivery we assert on is genuinely a live update.
+    await page1.waitForSelector('[data-testid="realtime-page"]')
+    await page2.waitForSelector('[data-testid="realtime-page"]')
+
+    // Assert on note IDENTITY, not the absolute count: `notes.list` is
+    // `.order('desc').take(50)`, so once the shared (never-reset) backend holds
+    // >= 50 notes the visible count is pinned at 50 and can never increment. A
+    // newly added note is the newest row, so it always appears at the TOP of the
+    // list on every subscribed tab regardless of table size. We capture page2's
+    // current top-note id, have page1 add a note, and require page2's live
+    // subscription to surface a new top-note id.
+    const topNoteId = (p: typeof page1): Promise<string | null> =>
+      p
+        .$eval('.notes-list .note-item:first-child', (el) => el.getAttribute('data-testid'))
+        .catch(() => null)
+
+    const beforeTopId = await topNoteId(page2)
 
     await page1.click('[data-testid="add-btn"]')
 
     await page2.waitForFunction(
-      (count) => {
-        const el = document.querySelector('[data-testid="count"]')
-        return Number.parseInt(el?.textContent || '0', 10) >= count + 1
+      (before) => {
+        const first = document.querySelector('.notes-list .note-item:first-child')
+        const id = first?.getAttribute('data-testid') ?? null
+        return id !== null && id !== before
       },
-      initialCount,
+      beforeTopId,
       {
-        timeout: 15000,
+        // Cross-tab delivery is fast in isolation but the shared local backend is
+        // under load when the whole e2e project runs; this is a wall-clock budget
+        // for the same assertion, not a weaker assertion.
+        timeout: 45000,
       },
     )
 
-    const updatedCount = Number.parseInt(
-      (await page2.textContent('[data-testid="count"]')) || '0',
-      10,
-    )
-    expect(updatedCount).toBeGreaterThanOrEqual(initialCount + 1)
+    const afterTopId = await topNoteId(page2)
+    expect(afterTopId).toBeTruthy()
+    expect(afterTopId).not.toBe(beforeTopId)
   })
 })

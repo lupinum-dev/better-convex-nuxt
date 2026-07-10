@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-const { signUp, refreshAuth } = useConvexAuth()
+const { signUp } = useConvexAuth()
 
 const form = reactive({
   name: '',
@@ -78,7 +78,8 @@ async function handleSignUp() {
       return
     }
 
-    await refreshAuth()
+    // The integrated `signUp` namespace settles identity (token/user) before it
+    // resolves (vNext §8 "Atomic sign-in/sign-up"), so navigate straight away.
     window.location.href = '/'
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unexpected error occurred'

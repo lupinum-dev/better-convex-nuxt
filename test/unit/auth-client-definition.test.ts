@@ -1,0 +1,179 @@
+// vNext §8 typed auth-client contract (deliverable: unit-level compile + runtime
+// proofs). The end-to-end packed proof (published `/auth-client` entry + a real
+// module-generated registry, both the plugin-typed and empty-fallback programs)
+// lives in `test/fixtures/auth-client-typing/`; this file pins the same typing
+// mechanism against the source entry plus the runtime validation helper.
+
+import type { apiKeyClient } from '@better-auth/api-key/client'
+import { apiKeyClient as apiKeyClientRuntime } from '@better-auth/api-key/client'
+import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client'
+import { describe, expect, it } from 'vitest'
+
+import {
+  defineConvexAuthClient,
+  type BaseAuthClient,
+  type ConvexAuthClientDefinition,
+  type ConvexAuthClientDefinitionOptions,
+  type InferRegisteredConvexAuthClient,
+} from '../../src/runtime/auth-client'
+import {
+  ConvexAuthClientDefinitionError,
+  validateConvexAuthClientDefinition,
+} from '../../src/runtime/auth/validate-auth-client-definition'
+
+// --- tiny type-assertion kit ---------------------------------------------------
+type IsAny<T> = 0 extends 1 & T ? true : false
+type Expect<T extends true> = T
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+
+// -----------------------------------------------------------------------------
+// Register an apiKey-plugin definition in the GLOBAL registry for this program.
+// `InferRegisteredConvexAuthClient` reads the registry; `BaseAuthClient` is the
+// no-plugin client and is independent of it, so both the plugin-typed path and
+// the base-fallback path are provable in one TypeScript program (the packed
+// fixture proves the true empty-registry fallback in a separate program).
+// -----------------------------------------------------------------------------
+const _apiKeyDefinition = defineConvexAuthClient({ plugins: [apiKeyClientRuntime()] })
+
+declare module '../../src/runtime/auth-client' {
+  interface ConvexAuthClientRegistry {
+    definition: typeof _apiKeyDefinition
+  }
+}
+
+// (a) The registered apiKey definition makes the narrowed non-null client expose
+//     apiKey.create with typed params/return — not `any`.
+declare const registeredClient: InferRegisteredConvexAuthClient | null
+export function _assertPluginClient() {
+  if (!registeredClient) return
+
+  type CreateFn = typeof registeredClient.apiKey.create
+  type _createNotAny = Expect<Equal<IsAny<CreateFn>, false>>
+
+  const created = registeredClient.apiKey.create({
+    name: 'ci-key',
+    expiresIn: 60 * 60 * 24,
+    metadata: { scope: 'ci' },
+  })
+  void created.then((res) => {
+    if (res.data) {
+      const id: string = res.data.id
+      const key: string = res.data.key
+      void id
+      void key
+    }
+  })
+
+  // Params are typed (not any): an unknown field is rejected.
+  // @ts-expect-error `notAField` is not part of apiKey.create input.
+  void registeredClient.apiKey.create({ name: 'x', notAField: true })
+}
+
+// (b) The base fallback client exposes only the base surface — apiKey is absent.
+type _baseNotAny = Expect<Equal<IsAny<BaseAuthClient>, false>>
+type _baseHasNoApiKey = Expect<Equal<'apiKey' extends keyof BaseAuthClient ? true : false, false>>
+declare const baseClient: BaseAuthClient
+export function _assertBaseClient() {
+  // Base client still carries core Better Auth surface (proves it is not empty).
+  const _signIn = baseClient.signIn
+  void _signIn
+  // @ts-expect-error the base client has no apiKey namespace.
+  baseClient.apiKey.create({ name: 'x' })
+}
+
+// (c) The definition generic preserves the plugin tuple, and the merged
+//     [convexPlugin, ...consumerPlugins] array is MUTABLE (spread of a readonly
+//     tuple) so it stays assignable to better-auth's mutable `plugins` slot.
+type ApiKeyPlugin = ReturnType<typeof apiKeyClient>
+type ConvexPluginStandIn = BetterAuthClientPlugin
+type PluginsSlot = NonNullable<BetterAuthClientOptions['plugins']>
+type MergedMutable = [ConvexPluginStandIn, ApiKeyPlugin]
+type _mergedAssignable = Expect<MergedMutable extends PluginsSlot ? true : false>
+// A readonly tuple must NOT be silently accepted where the mutable array is
+// required — the spread (MutablePlugins) is what makes it mutable.
+type _readonlyRejected = Expect<
+  Equal<readonly [ConvexPluginStandIn, ApiKeyPlugin] extends PluginsSlot ? true : false, false>
+>
+// The definition holds the tuple; extracting it back yields the same tuple.
+type _defTuple = Expect<
+  Equal<
+    typeof _apiKeyDefinition extends ConvexAuthClientDefinition<infer P> ? P : never,
+    readonly [ApiKeyPlugin]
+  >
+>
+
+describe('defineConvexAuthClient', () => {
+  it('returns a frozen definition wrapping frozen options (no client instance)', () => {
+    const definition = defineConvexAuthClient({ plugins: [] })
+    expect(Object.isFrozen(definition)).toBe(true)
+    expect(Object.isFrozen(definition.options)).toBe(true)
+    expect(definition.options.plugins).toEqual([])
+    // No instantiation: the definition is a plain data descriptor.
+    expect(Object.keys(definition)).toEqual(['options'])
+  })
+
+  it('defaults to an empty definition when called with no arguments', () => {
+    const definition = defineConvexAuthClient()
+    expect(definition.options).toEqual({})
+    // Type: an empty definition is ConvexAuthClientDefinition<[]>.
+    const _typed: ConvexAuthClientDefinition<[]> = definition
+    void _typed
+  })
+
+  it('preserves the plugin tuple through a mutable merged array', () => {
+    const definition = defineConvexAuthClient({ plugins: [apiKeyClientRuntime()] })
+    const convexStandIn = { id: 'convex' } as unknown as BetterAuthClientPlugin
+    // The resolved plugins array is [convexPlugin, ...consumerPlugins] — a
+    // MUTABLE array, so `push` works after the merge (tuple mutability is pinned
+    // at the type level by `_mergedAssignable` / `_readonlyRejected` below).
+    const consumerPlugins = Array.from(definition.options.plugins ?? [])
+    const merged: BetterAuthClientPlugin[] = [convexStandIn, ...consumerPlugins]
+    merged.push({ id: 'later' } as unknown as BetterAuthClientPlugin)
+    expect(merged).toHaveLength(3)
+    expect(merged[0]?.id).toBe('convex')
+
+    // Type: the merged tuple is assignable to better-auth's mutable plugins slot.
+    const _mutableOptions: ConvexAuthClientDefinitionOptions<[ApiKeyPlugin]> = {
+      plugins: [apiKeyClientRuntime()],
+    }
+    void _mutableOptions
+  })
+})
+
+describe('validateConvexAuthClientDefinition', () => {
+  const ok = (options: Record<string, unknown>) => validateConvexAuthClientDefinition({ options })
+
+  it('accepts a valid definition and returns its options', () => {
+    const options = { plugins: [{ id: 'organization' }] }
+    expect(ok(options)).toBe(options)
+    expect(validateConvexAuthClientDefinition({ options: {} })).toEqual({})
+  })
+
+  it('rejects a non-definition value', () => {
+    expect(() => validateConvexAuthClientDefinition(null)).toThrow(ConvexAuthClientDefinitionError)
+    expect(() => validateConvexAuthClientDefinition({})).toThrow(ConvexAuthClientDefinitionError)
+  })
+
+  it.each(['baseURL', 'basePath', 'fetchOptions'])('rejects the module-owned own key %s', (key) => {
+    expect(() => ok({ [key]: 'x' })).toThrow(ConvexAuthClientDefinitionError)
+  })
+
+  it('rejects a non-array plugins value', () => {
+    expect(() => ok({ plugins: {} })).toThrow(ConvexAuthClientDefinitionError)
+    expect(() => ok({ plugins: 'nope' })).toThrow(ConvexAuthClientDefinitionError)
+  })
+
+  it('rejects a malformed plugin (missing string id)', () => {
+    expect(() => ok({ plugins: [{}] })).toThrow(ConvexAuthClientDefinitionError)
+    expect(() => ok({ plugins: [{ id: 123 }] })).toThrow(ConvexAuthClientDefinitionError)
+    expect(() => ok({ plugins: [null] })).toThrow(ConvexAuthClientDefinitionError)
+  })
+
+  it('rejects a consumer plugin that reuses the reserved convex id', () => {
+    expect(() => ok({ plugins: [{ id: 'convex' }] })).toThrow(ConvexAuthClientDefinitionError)
+    expect(() => ok({ plugins: [{ id: 'organization' }, { id: 'convex' }] })).toThrow(
+      /reserved id `convex`/,
+    )
+  })
+})

@@ -61,7 +61,7 @@ const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
 
 /** Phases whose table entries are deep-checked (export shape, purity, packed probe). */
-const ACTIVE_PHASES = ['phase0', 'phase2']
+const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3']
 
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
@@ -88,7 +88,11 @@ const allowedVirtualImports = new Set([
   '#components',
   'nitropack/runtime',
 ])
-const allowedVirtualPrefixes = ['#app/', '#build/', '#components/']
+// `#convex/*` is the module's own generated-template alias namespace (vNext
+// §8 "Do not use a `#build/*` alias key... `#convex/*` is the module's
+// established namespace"), resolved via `nuxt.options.alias` the same way
+// `#app`/`#build`/`#components` are — never a real npm package.
+const allowedVirtualPrefixes = ['#app/', '#build/', '#components/', '#convex/']
 const allowedFrameworkPackages = new Set(['vue', 'vue-router'])
 const checkedExtensions = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.vue'])
 const EXCLUDED_DIR_NAMES = new Set(['node_modules', '.nuxt', '.git', 'dist'])
@@ -359,6 +363,7 @@ const ENTRIES = [
       ],
       allowedBareSpecifiers: new Set(),
     },
+    packedProbe: probeAuthClientTyping,
   },
   {
     subpath: './server',
@@ -783,6 +788,38 @@ function probeErrorsEntry(ctx) {
   } finally {
     rmSync(join(fixtureDir, 'node_modules'), { recursive: true, force: true })
     rmSync(join(fixtureDir, 'dist'), { recursive: true, force: true })
+    rmSync(localTarball, { force: true })
+    rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+  }
+}
+
+/**
+ * `/auth-client` probe: the permanent §5.8 proof-1 release gate. Installs the
+ * packed tarball into the committed `test/fixtures/auth-client-typing` fixture
+ * so the module and consumer share ONE `better-auth` copy, then:
+ *   - `nuxi prepare` generates the REAL registry declaration from the fixture's
+ *     `convex-auth.ts` (apiKeyClient) definition;
+ *   - `nuxi typecheck` proves the narrowed `InferRegisteredConvexAuthClient`
+ *     exposes `apiKey.create` typed (criteria a + c + d);
+ *   - `tsc` over the separate `base-fallback` program proves the empty-fallback
+ *     registration exposes only the base client, no `apiKey` (criterion b).
+ */
+function probeAuthClientTyping(ctx) {
+  const fixtureDir = p('test/fixtures/auth-client-typing')
+  const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
+  copyFileSync(ctx.tarballPath, localTarball)
+
+  try {
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'typecheck:base-fallback'], { cwd: fixtureDir })
+  } catch (error) {
+    ctx.failures.push(`[./auth-client] packed auth-client-typing probe failed: ${error.message}`)
+  } finally {
+    rmSync(join(fixtureDir, 'node_modules'), { recursive: true, force: true })
+    rmSync(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
   }

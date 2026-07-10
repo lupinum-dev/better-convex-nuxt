@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ACTIVE_PHASES, expandPathPattern, RULES } from '../../scripts/check-vocabulary.mjs'
 
-const KNOWN_PHASES = ['phase0', 'phase1', 'phase4', 'phase6']
+const KNOWN_PHASES = ['phase0', 'phase1', 'phase3', 'phase4', 'phase6']
 
 describe('vocabulary checker rule table integrity (internal §16.3)', () => {
   it('has at least one active phase and one rule', () => {

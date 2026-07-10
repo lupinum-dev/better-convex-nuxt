@@ -190,11 +190,20 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
+const {
+  isAuthenticated,
+  isPending,
+  token,
+  user,
+  signOut: authSignOut,
+  client: authClient,
+} = useConvexAuth()
 const pluginInitError = ref('')
 
-type ExtendedAuthClient = NonNullable<ReturnType<typeof useExtendedAuthClient>>
-type ExtendedSessionData = ExtendedAuthClient['$Infer']['Session']
+// The typed Better Auth client now comes from `useConvexAuth().client`, itself
+// typed from `playground/convex-auth.ts` (the `<srcDir>/convex-auth.ts`
+// convention definition with `inferAdditionalFields<AppAuth>()`).
+type ExtendedAuthClient = NonNullable<typeof authClient>
 
 const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
 const extendedSessionStore = shallowRef<unknown>(null)
@@ -218,7 +227,7 @@ const permissionUserId = computed(() =>
 
 onMounted(() => {
   try {
-    const client = useExtendedAuthClient()
+    const client = authClient
     extendedAuthClient.value = client
     const sessionState = client?.useSession()
     if (sessionState && typeof sessionState === 'object' && 'value' in sessionState) {
@@ -233,7 +242,7 @@ onMounted(() => {
       pluginInitError.value = ''
     }
     const sessionStore = extendedSessionStore.value as {
-      value?: { data?: ExtendedSessionData | null }
+      value?: { data?: { user?: { marketingOptIn?: boolean } } | null }
     } | null
     void sessionStore?.value?.data?.user?.marketingOptIn
   } catch (error) {

@@ -1,5 +1,5 @@
-import type { apiKeyClient } from '@better-auth/api-key/client'
-import type { adminClient, organizationClient } from 'better-auth/client/plugins'
+import { defineConvexAuthClient } from 'better-convex-nuxt/auth-client'
+import type { ConvexAuthClientDefinition } from 'better-convex-nuxt/auth-client'
 import type { OptimisticLocalStore } from 'convex/browser'
 import type { ComputedRef, Ref } from 'vue'
 
@@ -14,8 +14,15 @@ export async function usePublicApiSurfaceContracts(file: File) {
 
   const config = useConvexConfig()
   assertType<string | undefined>(config.url)
+  // @ts-expect-error `useConvexConfig()` returns a read-only projection
+  // (vNext §8) — every field is `readonly`, so assignment must not compile.
+  config.url = 'https://mutated.convex.cloud'
   if (config.auth !== false) {
     assertType<string>(config.auth.route)
+    // @ts-expect-error `auth.client` is build-only and never reaches runtime config.
+    void config.auth.client
+    // @ts-expect-error nested auth fields are also read-only.
+    config.auth.route = '/mutated'
   }
 
   // Canonical/profile user helper: positional args are required, even for a
@@ -127,13 +134,14 @@ export async function usePublicApiSurfaceContracts(file: File) {
   assertType<string[]>(await queue.enqueue(file))
   assertType<boolean>((await queue.enqueueSafe(file)).ok)
 
-  createBetterConvexAuthClient<
-    [
-      ReturnType<typeof adminClient<Record<never, never>>>,
-      ReturnType<typeof organizationClient<Record<never, never>>>,
-      ReturnType<typeof apiKeyClient>,
-    ]
-  >()
+  // Typed-client definition surface (vNext §8): the framework-free
+  // `defineConvexAuthClient` from `better-convex-nuxt/auth-client` is the public
+  // replacement for the deleted `createBetterConvexAuthClient` factory. The
+  // plugin-typed narrowing of `useConvexAuth().client` is proven end-to-end in
+  // the single-`better-auth`-copy packed fixture `test/fixtures/auth-client-typing`;
+  // this linked smoke only pins the value + empty-definition type surface.
+  const emptyDefinition = defineConvexAuthClient()
+  assertType<ConvexAuthClientDefinition<[]>>(emptyDefinition)
 }
 
 /**

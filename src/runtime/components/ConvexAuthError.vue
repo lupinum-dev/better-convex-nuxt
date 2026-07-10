@@ -12,12 +12,13 @@
  * ```
  */
 import { useConvexAuth } from '../composables/useConvexAuth'
+import type { ConvexCallError } from '../errors'
 
 defineSlots<{
-  default(props: { retry: () => void; error: string | null }): unknown
+  default(props: { retry: () => void; error: ConvexCallError | null }): unknown
 }>()
 
-const { status, authError } = useConvexAuth()
+const { status, error } = useConvexAuth()
 
 /** Retry authentication by reloading the page. */
 function retry() {
@@ -26,5 +27,5 @@ function retry() {
 </script>
 
 <template>
-  <slot v-if="status === 'error'" :retry="retry" :error="authError" />
+  <slot v-if="status === 'error'" :retry="retry" :error="error" />
 </template>

@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Phases whose rules actually execute. Extend as later phases land rules. */
-const ACTIVE_PHASES = ['phase0', 'phase1']
+const ACTIVE_PHASES = ['phase0', 'phase1', 'phase3']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([
@@ -72,7 +72,7 @@ const BINARY_EXTENSIONS = new Set([
  * @property {string} description - human-readable summary shown on failure
  * @property {RegExp[]} patterns - line-oriented; a line matches the rule if any pattern matches it
  * @property {string[]} paths - repo-root-relative paths (files, dirs, or single-`*`-segment globs)
- * @property {'phase0'|'phase1'|'phase4'|'phase6'} phase - activation schedule gate, see ACTIVE_PHASES
+ * @property {'phase0'|'phase1'|'phase3'|'phase4'|'phase6'} phase - activation schedule gate, see ACTIVE_PHASES
  */
 
 /** @type {Rule[]} */
@@ -252,6 +252,19 @@ const RULES = [
     patterns: [/auth\s*:\s*\{\s*enabled\s*:/],
     paths: ['src', 'playground', 'docs/content', 'starters'],
     phase: 'phase1',
+  },
+  {
+    name: 'no-create-better-convex-auth-client',
+    description:
+      'Forbid the deleted `createBetterConvexAuthClient` factory and its ' +
+      '`resolveBetterConvexAuthBaseURL` helper; the single typed-client surface is ' +
+      '`defineConvexAuthClient` from `better-convex-nuxt/auth-client` (vNext §8). ' +
+      '(The packed-root negative-space contract proving these names never re-enter ' +
+      'the package export surface lives in scripts/check-package-exports.mjs ' +
+      'forbiddenNames, so `test` is out of scope for this rule.)',
+    patterns: [/\bcreateBetterConvexAuthClient\b|\bresolveBetterConvexAuthBaseURL\b/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase3',
   },
 ]
 

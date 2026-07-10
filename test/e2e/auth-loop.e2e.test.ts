@@ -16,7 +16,7 @@ try {
   await assertLocalAuthReady({
     cwd: playgroundCwd,
     env: local.env,
-    origin: 'http://localhost:3000',
+    origin: 'http://localhost:3050',
   })
 } catch (error) {
   console.warn(
@@ -38,12 +38,12 @@ maybeDescribe('Auth loop (full stack)', async () => {
   await setup({
     rootDir: playgroundCwd,
     env: local?.env,
-    port: 3000,
+    port: 3050,
   })
 
   it('completes signup -> authenticated dashboard -> signout -> protected redirect', async () => {
     const page = await createPage('/')
-    await page.goto('http://localhost:3000/auth/signup')
+    await page.goto('http://localhost:3050/auth/signup')
 
     const uniqueEmail = `e2e+${Date.now()}@example.com`
 
@@ -69,7 +69,7 @@ maybeDescribe('Auth loop (full stack)', async () => {
       throw new Error(`Signup did not establish a session${signupError ? `: ${signupError}` : ''}`)
     }
 
-    await page.goto('http://localhost:3000/demo/dashboard')
+    await page.goto('http://localhost:3050/demo/dashboard')
     await page.waitForSelector('h2', { timeout: 30_000 })
 
     const headings = await page.$$eval('h2', (nodes) =>
@@ -88,7 +88,7 @@ maybeDescribe('Auth loop (full stack)', async () => {
     await page.click('button.btn-signout')
     await page.waitForURL((url) => new URL(url).pathname === '/', { timeout: 30_000 })
 
-    await page.goto('http://localhost:3000/labs/guard-protected')
+    await page.goto('http://localhost:3050/labs/guard-protected')
     await page.waitForURL(/\/auth\/signin/, { timeout: 15_000 })
 
     const redirectUrl = new URL(page.url())

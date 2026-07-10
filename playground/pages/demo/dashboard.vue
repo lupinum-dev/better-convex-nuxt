@@ -84,8 +84,6 @@ definePageMeta({
 })
 
 const { isAuthenticated, isPending, token, signOut: convexSignOut } = useConvexAuth()
-const nuxtApp = useNuxtApp()
-
 const isSigningOut = ref(false)
 const isTestingConvex = ref(false)
 const convexResult = ref<string | null>(null)
@@ -99,12 +97,14 @@ const tokenPreview = computed(() => {
   return token.value.substring(0, 20) + '...'
 })
 
+// useConvex() is client-only; the handle is used exclusively from browser
+// event handlers, so capture it during client setup and guard SSR.
+const convexHandle = import.meta.client ? useConvex() : null
 function getConvexClient() {
-  const client = nuxtApp.$convex
-  if (!client) {
+  if (!convexHandle) {
     throw new Error('Convex client unavailable')
   }
-  return client
+  return convexHandle
 }
 
 async function handleSignOut() {

@@ -1,6 +1,9 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 
+import { useNuxtApp } from '#imports'
+
+import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -14,6 +17,21 @@ function deferred<T>() {
     reject = nextReject
   })
   return { promise, resolve, reject }
+}
+
+/**
+ * Provide a fake `$convexAuthCoordinator` (Phase 3: `ensureConvexAuthReady`
+ * awaits `coordinator.ready()` — a single snapshot call, not the retired
+ * `$convexAuthEngine` `awaitAuthReady`/`refreshAuth` pair).
+ */
+function provideFakeCoordinator(ready: () => Promise<unknown>) {
+  const app = useNuxtApp()
+  const coordinator = { ready } as unknown as ConvexAuthCoordinator
+  Object.defineProperty(app, '$convexAuthCoordinator', {
+    configurable: true,
+    value: coordinator,
+  })
+  return coordinator
 }
 
 describe('useConvexMutation (Nuxt runtime)', () => {
@@ -55,49 +73,48 @@ describe('useConvexMutation (Nuxt runtime)', () => {
   it('waits for Convex auth confirmation before sending mutations', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:auth-ready')
-    const authReady = deferred<boolean>()
+    const authReady = deferred<'authenticated'>()
     convex.setMutationHandler('testing:auth-ready', async (args) => {
       const { value } = args as { value: string }
       return { value }
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
-      convex,
-      authEngine: {
-        awaitAuthReady: () => authReady.promise,
+    const { result } = await captureInNuxt(
+      () => {
+        provideFakeCoordinator(() => authReady.promise)
+        return useConvexMutation(mutation)
       },
-    })
+      { convex },
+    )
 
     const promise = result({ value: 'delayed' } as never)
     await Promise.resolve()
     expect(convex.calls.mutation).toHaveLength(0)
 
-    authReady.resolve(true)
+    authReady.resolve('authenticated')
 
     await expect(promise).resolves.toEqual({ value: 'delayed' })
     expect(convex.calls.mutation).toHaveLength(1)
   })
 
-  it('refreshes Convex auth once when auth readiness is stale', async () => {
+  it('calls coordinator.ready() exactly once per dispatch (snapshot semantics)', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:auth-refresh')
     convex.setMutationHandler('testing:auth-refresh', async (args) => args)
 
-    const awaitAuthReady = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
-    const refreshAuth = vi.fn(async () => {})
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
-      convex,
-      authEngine: {
-        awaitAuthReady,
-        refreshAuth,
+    const ready = vi.fn(async () => 'authenticated' as const)
+    const { result } = await captureInNuxt(
+      () => {
+        provideFakeCoordinator(ready)
+        return useConvexMutation(mutation)
       },
-    })
+      { convex },
+    )
 
     await expect(result({ value: 'after-refresh' } as never)).resolves.toEqual({
       value: 'after-refresh',
     })
-    expect(refreshAuth).toHaveBeenCalledTimes(1)
-    expect(awaitAuthReady).toHaveBeenCalledTimes(2)
+    expect(ready).toHaveBeenCalledTimes(1)
     expect(convex.calls.mutation).toHaveLength(1)
   })
 

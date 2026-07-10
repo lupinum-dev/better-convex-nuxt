@@ -9,6 +9,7 @@
     "research/better-auth-proofs",
     "starters",
     "test/fixtures/consumer-smoke",
+    "test/fixtures/auth-client-typing",
     "test/fixtures/missing-convex-api",
     "test/fixtures/auth-disabled",
     "test/proofs/ssr-errors/app",

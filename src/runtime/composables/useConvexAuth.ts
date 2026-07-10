@@ -1,12 +1,10 @@
-import type { createAuthClient } from 'better-auth/vue'
 import type { ComputedRef, Ref } from 'vue'
 
-import { useState, computed, readonly, useNuxtApp } from '#imports'
+import { useState, computed, readonly, ref, useNuxtApp } from '#imports'
 
-import type { ConvexAuthEngine } from '../auth/client-engine'
+import type { BaseAuthClient, InferRegisteredConvexAuthClient } from '../auth-client'
+import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import { ConvexCallError } from '../errors'
-import { waitForPendingClear } from '../utils/auth-pending'
-import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -15,97 +13,104 @@ import type { ConvexUser } from '../utils/types'
 // Re-export for convenience
 export type { ConvexUser } from '../utils/types'
 
-type AuthClient = ReturnType<typeof createAuthClient>
+/** The integrated `signIn` namespace type — structurally the client's own. */
+export type IntegratedSignIn<Client extends BaseAuthClient = BaseAuthClient> = Client['signIn']
+/** The integrated `signUp` namespace type — structurally the client's own. */
+export type IntegratedSignUp<Client extends BaseAuthClient = BaseAuthClient> = Client['signUp']
 
-function createClientOnlyMethodProxy<T>(name: 'signIn' | 'signUp'): T {
-  const buildProxy = (path: string[]): unknown => {
+/**
+ * The Convex authentication contract (vNext §5.3). `status` describes current
+ * usable identity; `isPending` describes auth work in flight — deliberately
+ * independent.
+ */
+export interface UseConvexAuthReturn<Client extends BaseAuthClient = BaseAuthClient> {
+  status: ComputedRef<ConvexAuthStatus>
+  isPending: ComputedRef<boolean>
+  isAuthenticated: ComputedRef<boolean>
+  user: Readonly<Ref<ConvexUser | null>>
+  token: Readonly<Ref<string | null>>
+  error: Readonly<Ref<ConvexCallError | null>>
+  signIn: IntegratedSignIn<Client>
+  signUp: IntegratedSignUp<Client>
+  signOut: () => Promise<unknown>
+  refresh: () => Promise<void>
+  ready: (options?: { timeoutMs?: number }) => Promise<ConvexAuthStatus>
+  client: Client | null
+}
+
+function createAuthDisabledError(): ConvexCallError {
+  return new ConvexCallError({
+    kind: 'authentication',
+    message:
+      '[useConvexAuth] Authentication is disabled for this build (auth: false). Enable auth to use signIn/signUp/signOut/refresh.',
+  })
+}
+
+/**
+ * A namespace whose every callable rejects. Used for the disabled build and as
+ * the client-only fallback before the auth client exists.
+ */
+function createInertAuthNamespace<T>(name: 'signIn' | 'signUp', message: string): T {
+  const build = (path: string[]): unknown => {
     const fn = () => {}
     return new Proxy(fn, {
-      get(_target, prop) {
+      get(_t, prop) {
         if (prop === 'then') return undefined
         if (typeof prop === 'symbol') return undefined
-        return buildProxy([...path, prop])
+        return build([...path, prop])
       },
       apply() {
-        const methodPath = path.join('.')
-        const message = `[useConvexAuth] \`${methodPath}\` is client-only. Call it from a browser event handler and ensure auth is enabled.`
-        if (import.meta.dev) {
-          console.warn(message)
-        }
+        if (import.meta.dev) console.warn(message)
         return Promise.reject(new Error(message))
       },
     })
   }
-
-  return buildProxy([name]) as T
+  return build([name]) as T
 }
 
-export interface UseConvexAuthReturn {
-  /**
-   * Canonical current-identity status (vNext §5.3), including `'disabled'` for a
-   * Convex-only build. Orthogonal to {@link isPending}.
-   */
-  status: ComputedRef<ConvexAuthStatus>
-  /** The JWT token for Convex authentication (readonly) */
-  token: Readonly<Ref<string | null>>
-  /** The authenticated user data (readonly) */
-  user: Readonly<Ref<ConvexUser | null>>
-  /** Whether the user is authenticated */
-  isAuthenticated: ComputedRef<boolean>
-  /** Whether an auth operation is pending */
-  isPending: Readonly<Ref<boolean>>
-  /** Auth error message if authentication failed (e.g., 401/403) */
-  authError: Readonly<Ref<string | null>>
-  /** Signs out of both Better Auth and Convex. Resolves null when auth is disabled. */
-  signOut: () => Promise<
-    ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
-  >
-  /** Force refresh Convex auth state after login. No-op when auth is disabled. */
-  refreshAuth: () => Promise<void>
-  /** Wait until initial auth bootstrap settles; returns the settled auth boolean. */
-  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
-  /** Raw Better Auth client for advanced/plugin-specific APIs. Null during SSR / disabled. */
-  client: AuthClient | null
-  /** Better Auth sign-in methods (client-only). */
-  signIn: AuthClient['signIn']
-  /** Better Auth sign-up methods (client-only). */
-  signUp: AuthClient['signUp']
-}
+// Module-scoped immutable disabled refs (vNext §8): they hold no app-specific
+// state and never mutate, so one shared instance per module is allowed.
+const DISABLED_STATUS = computed<ConvexAuthStatus>(() => 'disabled')
+const DISABLED_IS_PENDING = computed(() => false)
+const DISABLED_IS_AUTHENTICATED = computed(() => false)
+const DISABLED_USER = readonly(ref<ConvexUser | null>(null))
+const DISABLED_TOKEN = readonly(ref<string | null>(null))
+const DISABLED_ERROR = readonly(ref<ConvexCallError | null>(null))
+const DISABLED_SIGN_IN = createInertAuthNamespace<UseConvexAuthReturn['signIn']>(
+  'signIn',
+  '[useConvexAuth] signIn is unavailable because auth is disabled for this build.',
+)
+const DISABLED_SIGN_UP = createInertAuthNamespace<UseConvexAuthReturn['signUp']>(
+  'signUp',
+  '[useConvexAuth] signUp is unavailable because auth is disabled for this build.',
+)
 
-/**
- * Build the stable `disabled` auth contract (vNext §5.3) WITHOUT importing the
- * auth engine or Better Auth runtime. Registered unconditionally so
- * `useConvexAuth()` is always available; a Convex-only build gets this result.
- */
 function createDisabledAuthResult(): UseConvexAuthReturn {
-  const status = computed<ConvexAuthStatus>(() => 'disabled')
-  const token = readonly(useState<string | null>('convex:token', () => null))
-  const user = readonly(useState<ConvexUser | null>('convex:user', () => null))
-  const authError = readonly(useState<string | null>('convex:authError', () => null))
-  const isPending = readonly(useState<boolean>('convex:disabledPending', () => false))
-
   return {
-    status,
-    token,
-    user,
-    isAuthenticated: computed(() => false),
-    isPending,
-    authError,
-    signOut: async () => null,
-    refreshAuth: async () => {},
-    awaitAuthReady: async () => false,
+    status: DISABLED_STATUS,
+    isPending: DISABLED_IS_PENDING,
+    isAuthenticated: DISABLED_IS_AUTHENTICATED,
+    user: DISABLED_USER,
+    token: DISABLED_TOKEN,
+    error: DISABLED_ERROR,
+    signIn: DISABLED_SIGN_IN,
+    signUp: DISABLED_SIGN_UP,
+    signOut: async () => {
+      throw createAuthDisabledError()
+    },
+    refresh: async () => {
+      throw createAuthDisabledError()
+    },
+    ready: async () => 'disabled',
     client: null,
-    signIn: createClientOnlyMethodProxy<AuthClient['signIn']>('signIn'),
-    signUp: createClientOnlyMethodProxy<AuthClient['signUp']>('signUp'),
   }
 }
 
 /**
- * Access Convex authentication state (vNext §5.3). Auto-imported unconditionally.
- *
- * - Auth-disabled builds return the stable `disabled` contract.
- * - Auth-enabled builds derive the canonical `status` from the hydrated/engine
- *   state and delegate sign-out/refresh to the lazily resolved engine.
+ * Access Convex authentication state (vNext §5.3). Auto-imported unconditionally
+ * and safe to call before the auth plugin runs (SSR / early setup): reactive
+ * state comes from the SSR-seeded `useState` refs, and operations delegate to the
+ * per-app coordinator when it exists (browser only).
  *
  * @example
  * ```vue
@@ -114,25 +119,24 @@ function createDisabledAuthResult(): UseConvexAuthReturn {
  * </script>
  * ```
  */
-export function useConvexAuth(): UseConvexAuthReturn {
-  const nuxtApp = useNuxtApp()
+export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthClient> {
   const authEnabled = getConvexRuntimeConfig().auth !== false
   if (!authEnabled) {
-    return createDisabledAuthResult()
+    return createDisabledAuthResult() as UseConvexAuthReturn<InferRegisteredConvexAuthClient>
   }
 
+  const nuxtApp = useNuxtApp()
   const token = useState<string | null>('convex:token', () => null)
   const user = useState<ConvexUser | null>('convex:user', () => null)
-  const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
+  const pending = useState<boolean>('convex:pending', () => import.meta.client)
 
-  const isAuthenticated = computed(() => !!token.value && !!user.value)
-  // The public `$auth` augmentation is deleted (vNext §5.4); the auth plugin
-  // still provides it internally, so read it through a local cast.
-  const client = ((nuxtApp as { $auth?: AuthClient }).$auth ?? null) as AuthClient | null
+  const coordinator = (nuxtApp as { $convexAuthCoordinator?: ConvexAuthCoordinator })
+    .$convexAuthCoordinator
+  const client = ((nuxtApp as { $auth?: unknown }).$auth ??
+    null) as InferRegisteredConvexAuthClient | null
 
   const status = computed<ConvexAuthStatus>(() => {
-    if (pending.value) return 'loading'
     let identityKey: ConvexIdentityKey | null
     try {
       identityKey = getConvexIdentityKey(user.value)
@@ -141,55 +145,56 @@ export function useConvexAuth(): UseConvexAuthReturn {
     }
     return deriveConvexAuthStatus({
       authEnabled: true,
-      settled: true,
+      settled: !pending.value,
       identityKey,
       error: authError.value
         ? new ConvexCallError({ kind: 'authentication', message: authError.value })
         : null,
     })
   })
+  const isAuthenticated = computed(() => Boolean(token.value) && Boolean(user.value))
+  const isPending = coordinator ? coordinator.isPending : computed(() => pending.value)
+  const error = computed<ConvexCallError | null>(() =>
+    authError.value
+      ? new ConvexCallError({ kind: 'authentication', message: authError.value })
+      : null,
+  )
 
-  // `$convexAuthEngine` is provided by the auth client plugin only — it never
-  // exists during SSR. Resolve it lazily (only when signOut()/refreshAuth() are
-  // actually called) instead of constructing a throwaway engine per call.
-  const getAuthEngine = (): ConvexAuthEngine => {
-    const engine = nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined
-    if (!engine) {
+  const requireCoordinator = (label: string): ConvexAuthCoordinator => {
+    if (!coordinator) {
       throw new Error(
-        '[useConvexAuth] Convex auth engine is unavailable. signOut()/refreshAuth() are client-only — call them from a browser event handler after the module has initialized.',
+        `[useConvexAuth] ${label} is client-only — call it from a browser event handler after the auth plugin has initialized.`,
       )
     }
-    return engine
+    return coordinator
   }
 
-  const signOut = async () => {
-    return await getAuthEngine().signOut()
-  }
-
-  const refreshAuth = async (): Promise<void> => {
-    return await getAuthEngine().refreshAuth()
-  }
-
-  const awaitAuthReady = async (options?: { timeoutMs?: number }): Promise<boolean> => {
-    if (!import.meta.client) {
-      return isAuthenticated.value
-    }
-    await waitForPendingClear(pending, { timeoutMs: options?.timeoutMs ?? 5_000 })
-    return isAuthenticated.value
-  }
+  const signIn = (coordinator?.integratedSignIn ??
+    createInertAuthNamespace(
+      'signIn',
+      '[useConvexAuth] signIn is client-only; call it from a browser event handler.',
+    )) as IntegratedSignIn<InferRegisteredConvexAuthClient>
+  const signUp = (coordinator?.integratedSignUp ??
+    createInertAuthNamespace(
+      'signUp',
+      '[useConvexAuth] signUp is client-only; call it from a browser event handler.',
+    )) as IntegratedSignUp<InferRegisteredConvexAuthClient>
 
   return {
     status,
-    token: readonly(token),
-    user: readonly(user),
+    isPending,
     isAuthenticated,
-    isPending: readonly(pending),
-    authError: readonly(authError),
-    signOut,
-    refreshAuth,
-    awaitAuthReady,
+    user: readonly(user),
+    token: readonly(token),
+    error: error as Readonly<Ref<ConvexCallError | null>>,
+    signIn,
+    signUp,
+    signOut: () => requireCoordinator('signOut()').signOut(),
+    refresh: () => requireCoordinator('refresh()').refresh(),
+    ready: async (options) => {
+      if (!coordinator) return status.value
+      return coordinator.ready(options)
+    },
     client,
-    signIn: client?.signIn ?? createClientOnlyMethodProxy<AuthClient['signIn']>('signIn'),
-    signUp: client?.signUp ?? createClientOnlyMethodProxy<AuthClient['signUp']>('signUp'),
   }
 }

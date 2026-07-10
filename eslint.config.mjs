@@ -26,6 +26,7 @@ export default createConfigForNuxt({
         'test/proofs/packed-typing/**',
         'test/proofs/harnesses/hmr/fixture/**',
         'test/fixtures/ssr-errors-consumer/**',
+        'test/fixtures/auth-client-typing/**',
       ],
     },
   )

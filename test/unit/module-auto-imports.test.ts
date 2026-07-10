@@ -13,12 +13,15 @@ describe('module auto-import surface', () => {
       [...composableAutoImports, ...authAutoImports].map((entry) => entry.name),
     )
 
-    expect(autoImportNames).toContain('createBetterConvexAuthClient')
+    expect(autoImportNames).toContain('useConvexAuth')
     expect(autoImportNames).toContain('useConvexUser')
     expect(autoImportNames).not.toContain('useConvexRpc')
     expect(autoImportNames).not.toContain('useConvexCall')
     expect(autoImportNames).not.toContain('getQueryKey')
     expect(autoImportNames).not.toContain('createPermissions')
+    // The deleted typed-client factory is no longer auto-imported; the typed
+    // client comes from `better-convex-nuxt/auth-client` + `useConvexAuth().client`.
+    expect(autoImportNames).not.toContain('createBetterConvexAuthClient')
   })
 
   it('registers the #convex runtime and type aliases', () => {

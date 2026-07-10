@@ -5,11 +5,13 @@ import {
   addPlugin,
   createResolver,
   addTemplate,
+  addTypeTemplate,
   addImports,
   addServerHandler,
   addServerImports,
   addComponentsDir,
   addRouteMiddleware,
+  resolvePath,
   useLogger,
 } from '@nuxt/kit'
 import type { Nuxt } from '@nuxt/schema'
@@ -76,6 +78,51 @@ function resolveModuleImports(
     name: entry.name,
     from: resolver.resolve(entry.from),
   }))
+}
+
+/** The one convention filename searched in the host application's `srcDir`. */
+const AUTH_CLIENT_CONVENTION_FILENAME = 'convex-auth.ts'
+
+/**
+ * Resolve the single auth-client definition module (vNext §8 "Module option").
+ *
+ * Resolution order is exact:
+ *   1. explicit `auth.client` — resolved with Nuxt Kit `resolvePath` using the
+ *      host `rootDir` as `cwd` and the host `alias` table, and required to exist
+ *      (configuration errors include the original specifier);
+ *   2. `<srcDir>/convex-auth.ts` — the one convention filename, searched only in
+ *      the host application's `srcDir` (layers/reusable modules always provide an
+ *      already-resolved absolute path via explicit `auth.client`, so they are
+ *      never convention-scanned);
+ *   3. the built-in empty definition shipped with the module.
+ */
+async function resolveAuthClientDefinitionPath(
+  authOptions: ConvexAuthOptions,
+  nuxt: Nuxt,
+  resolver: ReturnType<typeof createResolver>,
+): Promise<string> {
+  const explicit = typeof authOptions.client === 'string' ? authOptions.client.trim() : ''
+  if (explicit) {
+    const resolved = await resolvePath(explicit, {
+      cwd: nuxt.options.rootDir,
+      alias: nuxt.options.alias,
+    })
+    if (!existsSync(resolved)) {
+      throw new Error(
+        `[better-convex-nuxt] auth.client "${explicit}" could not be resolved to an existing file ` +
+          `(resolved to "${resolved}"). Provide a path or alias to a module that default-exports a ` +
+          `defineConvexAuthClient(...) definition.`,
+      )
+    }
+    return resolved
+  }
+
+  const conventionPath = resolver.resolve(nuxt.options.srcDir, AUTH_CLIENT_CONVENTION_FILENAME)
+  if (existsSync(conventionPath)) {
+    return conventionPath
+  }
+
+  return resolver.resolve('./runtime/auth-client/empty-definition')
 }
 
 /**
@@ -151,7 +198,7 @@ export default defineNuxtModule<ModuleOptions>({
     defaults: { ...CONVEX_MODULE_DEFAULTS.defaults },
     upload: { ...CONVEX_MODULE_DEFAULTS.upload },
   },
-  setup(options, nuxt) {
+  async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url)
     const generatedConvexApiAlias = resolver.resolve(nuxt.options.rootDir, 'convex/_generated/api')
     const missingConvexApiTemplate = addTemplate({
@@ -235,6 +282,59 @@ export default defineNuxtModule<ModuleOptions>({
     //    Better Auth client, engine, proxy handler, or middleware to the build
     //    graph (vNext §5.1 / internal §5.3).
     if (isAuthEnabled && authRoute) {
+      // Typed auth-client definition plumbing (vNext §8). Resolve the single
+      // definition module, expose it to the auth-enabled client plugin through
+      // the `#convex/auth-client` virtual module, and generate the consumer type
+      // registry so `useConvexAuth().client` is typed to the resolved plugins.
+      //
+      // `options.auth` is an object here (isAuthEnabled ⇒ `auth !== false`); the
+      // build-only `auth.client` path is resolved for templates only and never
+      // reaches `runtimeConfig` (it was excluded from `convexConfig` above).
+      const authClientDefinitionPath = await resolveAuthClientDefinitionPath(
+        (options.auth === false ? {} : (options.auth ?? {})) as ConvexAuthOptions,
+        nuxt,
+        resolver,
+      )
+
+      // Re-export the resolved definition. Aliased as `#convex/auth-client`
+      // (the module's established namespace), NOT `#build/*`: Nuxt's built-in
+      // `#build` prefix resolves independently of this template destination.
+      const authClientTemplate = addTemplate({
+        filename: 'better-convex-nuxt/auth-client.mjs',
+        write: true,
+        getContents: () => `export { default } from ${JSON.stringify(authClientDefinitionPath)}\n`,
+      })
+      nuxt.options.alias['#convex/auth-client'] = authClientTemplate.dst
+
+      // Register a declaration that augments the auth-client registry with the
+      // resolved definition's type (vNext §8 "Generated type registry"). The
+      // augmentation targets `better-convex-nuxt/auth-client` — the module where
+      // `ConvexAuthClientRegistry` and `InferRegisteredConvexAuthClient` are
+      // declared — so the inference reads the merged registry (matching the §5.8
+      // packed-typing proof). `addTypeTemplate` registers the reference for us.
+      addTypeTemplate({
+        filename: 'types/better-convex-nuxt-auth-client.d.ts',
+        getContents: () =>
+          [
+            `import type definition from ${JSON.stringify(authClientDefinitionPath)}`,
+            ``,
+            `declare module 'better-convex-nuxt/auth-client' {`,
+            `  interface ConvexAuthClientRegistry {`,
+            `    definition: typeof definition`,
+            `  }`,
+            `}`,
+            ``,
+          ].join('\n'),
+      })
+
+      // Make `#convex/auth-client` resolvable for the TypeScript program too, so
+      // the auth-enabled client plugin's import typechecks in consumer projects.
+      nuxt.hook('prepare:types', (opts) => {
+        opts.tsConfig.compilerOptions ??= {}
+        opts.tsConfig.compilerOptions.paths ??= {}
+        opts.tsConfig.compilerOptions.paths['#convex/auth-client'] = [authClientTemplate.dst]
+      })
+
       // Auth-enabled-only server plugin resolves SSR identity.
       addPlugin({
         src: resolver.resolve('./runtime/plugin.server'),

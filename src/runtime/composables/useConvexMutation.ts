@@ -9,7 +9,7 @@ import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import type { ConvexAuthEngine } from '../auth/client-engine'
+import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import type { AuthIdentityPort } from '../auth/identity-port'
 import type { ConvexClientOwner } from '../client/client-owner'
 import type { ConvexCallError, CallResult } from '../utils/call-result'
@@ -263,7 +263,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
           )
         }
         await ensureConvexAuthReady(
-          nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+          nuxtApp.$convexAuthCoordinator as ConvexAuthCoordinator | undefined,
           'useConvexMutation',
         )
         return (await owner.handle.mutation(mutation, args as never, {

@@ -47,10 +47,6 @@ export const composableAutoImports = [
 export const authAutoImports = [
   { name: 'useConvexAuth', from: './runtime/composables/useConvexAuth' },
   { name: 'useConvexUser', from: './runtime/composables/useConvexUser' },
-  {
-    name: 'createBetterConvexAuthClient',
-    from: './runtime/composables/createBetterConvexAuthClient',
-  },
 ] as const satisfies readonly ModuleImportRegistration[]
 
 export const serverAutoImports = [

@@ -35,6 +35,9 @@
       ".": [
         "./dist/types.d.mts"
       ],
+      "auth-client": [
+        "./dist/runtime/auth-client/index.d.ts"
+      ],
       "errors": [
         "./dist/runtime/errors/index.d.ts"
       ],
@@ -50,6 +53,10 @@
     ".": {
       "types": "./dist/types.d.mts",
       "import": "./dist/module.mjs"
+    },
+    "./auth-client": {
+      "types": "./dist/runtime/auth-client/index.d.ts",
+      "import": "./dist/runtime/auth-client/index.js"
     },
     "./errors": {
       "types": "./dist/runtime/errors/index.d.ts",

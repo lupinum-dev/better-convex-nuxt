@@ -6,12 +6,6 @@ export {
   type UseConvexUserOptions,
   type UseConvexUserReturn,
 } from './useConvexUser'
-export {
-  createBetterConvexAuthClient,
-  resolveBetterConvexAuthBaseURL,
-  type BetterConvexAuthClientOptions,
-  type BetterConvexAuthClientPluginList,
-} from './createBetterConvexAuthClient'
 export { useConvex } from './useConvex'
 export { type CallResult, type ConvexCallError, normalizeConvexError } from '../utils/call-result'
 export { useConvexConnectionState, type ConnectionState } from './useConvexConnectionState'

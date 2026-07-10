@@ -8,7 +8,7 @@ import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
-import type { ConvexAuthEngine } from '../auth/client-engine'
+import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import type { AuthIdentityPort } from '../auth/identity-port'
 import type { ConvexClientOwner } from '../client/client-owner'
 import type { ConvexCallError, CallResult } from '../utils/call-result'
@@ -150,7 +150,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
           )
         }
         await ensureConvexAuthReady(
-          nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+          nuxtApp.$convexAuthCoordinator as ConvexAuthCoordinator | undefined,
           'useConvexAction',
         )
         return (await owner.handle.action(action, args as never)) as Result

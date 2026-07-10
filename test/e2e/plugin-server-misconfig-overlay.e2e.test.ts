@@ -7,7 +7,7 @@ describe('plugin.server dev misconfig overlay', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
     dev: true,
-    port: 3000,
+    port: 3051,
     nuxtConfig: {
       devtools: { enabled: false },
     },

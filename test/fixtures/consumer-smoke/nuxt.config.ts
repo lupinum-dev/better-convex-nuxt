@@ -31,6 +31,13 @@ export default defineNuxtConfig({
             compilerOptions: {
               paths: {
                 'better-convex-nuxt': ['../../../../dist/types.d.mts'],
+                // The published `./auth-client` subpath (imported by the API
+                // surface contract) has no node_modules copy in the linked
+                // fixture, so map it to the built entry. Installed CI resolves it
+                // through the package `exports` map instead.
+                'better-convex-nuxt/auth-client': [
+                  '../../../../dist/runtime/auth-client/index.d.ts',
+                ],
               },
             },
           },
