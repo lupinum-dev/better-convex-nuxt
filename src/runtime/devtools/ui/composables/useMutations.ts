@@ -1,10 +1,7 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 import type { MutationEntry } from '../../types'
-import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
-
-const mutations = ref<MutationEntry[]>([])
-const expandedIds = ref<Set<string>>(new Set())
+import type { DevtoolsBridgeController } from './useBridge'
 
 function mergeMutationsById(current: MutationEntry[], nextItems: MutationEntry[]): MutationEntry[] {
   const currentById = new Map(current.map((item) => [item.id, item]))
@@ -19,20 +16,23 @@ function mergeMutationsById(current: MutationEntry[], nextItems: MutationEntry[]
 /**
  * Composable for managing mutation data from the DevTools bridge.
  */
-export function useMutations() {
+export function useMutations(bridge: DevtoolsBridgeController) {
+  const mutations = ref<MutationEntry[]>([])
+  const expandedIds = ref<Set<string>>(new Set())
   let cleanup: (() => void) | null = null
 
-  onMounted(async () => {
-    // Fetch initial data
+  const refresh = async () => {
+    if (!bridge.boundInstanceId.value) return
     try {
-      const initial = (await callBridge<MutationEntry[]>('getMutations')) || []
+      const initial = (await bridge.call<MutationEntry[]>('getMutations')) || []
       mutations.value = mergeMutationsById(mutations.value, initial)
     } catch {
       // Ignore initial fetch errors
     }
+  }
 
-    // Listen for real-time updates
-    const transport = getBridgeTransport()
+  onMounted(() => {
+    const transport = bridge.getTransport()
     if (transport) {
       const handler = (event: { data: unknown }) => {
         const data = event.data
@@ -43,8 +43,7 @@ export function useMutations() {
           instanceId?: string | null
         }
         if (message.type === 'CONVEX_DEVTOOLS_MUTATIONS') {
-          const boundInstanceId = getBoundBridgeInstanceId()
-          if (boundInstanceId && message.instanceId !== boundInstanceId) return
+          if (message.instanceId !== bridge.boundInstanceId.value) return
           mutations.value = mergeMutationsById(mutations.value, message.mutations || [])
         }
       }
@@ -52,6 +51,16 @@ export function useMutations() {
       cleanup = () => transport.removeEventListener('message', handler)
     }
   })
+
+  watch(
+    bridge.boundInstanceId,
+    () => {
+      mutations.value = []
+      expandedIds.value = new Set()
+      void refresh()
+    },
+    { flush: 'post' },
+  )
 
   onUnmounted(() => {
     cleanup?.()

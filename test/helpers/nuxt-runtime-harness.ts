@@ -3,10 +3,15 @@ import { defineComponent, h, nextTick, type ComponentPublicInstance } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 
+import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
+import type { ConvexClientOwner } from '../../src/runtime/client/client-owner'
+import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
+
 let previousWrapper: { unmount: () => void } | null = null
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
 let currentOwnerTarget: Record<PropertyKey, unknown> | null = null
+let currentAuthCoordinator: ConvexAuthCoordinator | null = null
 
 const convexProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
@@ -42,10 +47,27 @@ const ownerProxy = new Proxy<Record<PropertyKey, unknown>>(
       const target = currentOwnerTarget
       if (!target) return undefined
       const value = target[key]
+      if (value === undefined && key === 'getDevtoolsSink') return () => null
+      if (value === undefined && key === 'attachDevtoolsSink') return () => null
       return typeof value === 'function' ? value.bind(target) : value
     },
   },
 )
+
+// Nuxt provides values once per application, while this harness reuses one
+// application across captures. Keep the provided context stable and replace
+// only its test-owned targets between captures.
+const runtimeProxy: ConvexRuntimeContext = {
+  get owner() {
+    return currentOwnerTarget
+      ? (ownerProxy as unknown as ConvexClientOwner)
+      : (undefined as unknown as ConvexClientOwner)
+  },
+  getAuthCoordinator: () => currentAuthCoordinator,
+  attachAuthCoordinator: (coordinator) => {
+    currentAuthCoordinator = coordinator
+  },
+}
 
 interface CaptureOptions {
   convex?: unknown
@@ -79,7 +101,12 @@ function createSyntheticOwner(): Record<PropertyKey, unknown> {
     get handle() {
       const c = currentConvexTarget
       return c
-        ? { query: c.query, mutation: c.mutation, action: c.action, onUpdate: c.onUpdate }
+        ? {
+            query: c.query,
+            mutation: c.mutation,
+            action: c.action,
+            onUpdate: c.onUpdate,
+          }
         : undefined
     },
     getPrimary: () => {
@@ -94,6 +121,8 @@ function createSyntheticOwner(): Record<PropertyKey, unknown> {
       addConsumer: () => () => {},
     },
     addDisposer: () => {},
+    getDevtoolsSink: () => null,
+    attachDevtoolsSink: () => null,
     dispose: async () => {},
   }
 }
@@ -139,6 +168,11 @@ export async function captureInNuxt<T>(
         useState<string | null>('convex:token', () => null).value = null
         useState<unknown>('convex:user', () => null).value = null
         useState<string | null>('convex:authError', () => null).value = null
+        currentAuthCoordinator = null
+
+        if (!nuxtApp.$convexRuntime) {
+          nuxtApp.provide('convexRuntime', runtimeProxy)
+        }
 
         if (options.convex === undefined) {
           currentConvexTarget = null
@@ -159,9 +193,6 @@ export async function captureInNuxt<T>(
           if (!(nuxtApp as typeof nuxtApp & { $convex?: unknown }).$convex) {
             nuxtApp.provide('convex', convexProxy)
           }
-          if (!(nuxtApp as typeof nuxtApp & { $convexClientOwner?: unknown }).$convexClientOwner) {
-            nuxtApp.provide('convexClientOwner', ownerProxy)
-          }
         }
 
         if (options.auth !== undefined) {
@@ -173,9 +204,6 @@ export async function captureInNuxt<T>(
 
         if (options.owner !== undefined) {
           currentOwnerTarget = options.owner as Record<PropertyKey, unknown>
-          if (!(nuxtApp as typeof nuxtApp & { $convexClientOwner?: unknown }).$convexClientOwner) {
-            nuxtApp.provide('convexClientOwner', ownerProxy)
-          }
         }
 
         const runtimeConfigMutable = runtimeConfig as unknown as {

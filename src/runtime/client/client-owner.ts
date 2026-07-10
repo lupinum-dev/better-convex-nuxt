@@ -2,7 +2,9 @@ import type { ConnectionState, ConvexClient } from 'convex/browser'
 import { shallowRef, readonly, type Ref } from 'vue'
 
 import type { AuthIdentityPort } from '../auth/identity-port'
+import type { DevtoolsSink } from '../devtools/sink'
 import type { ConvexIdentityKey } from '../utils/identity-key'
+import { createLogger, type Logger } from '../utils/logger'
 import { createIdentityChangedError } from './identity-changed-error'
 
 /**
@@ -26,6 +28,8 @@ import { createIdentityChangedError } from './identity-changed-error'
  * {@link attachAuthPort} (internal §7.4). The owner interprets no tokens.
  */
 export interface ConvexClientOwner {
+  /** Immutable logger owned by this Nuxt application. */
+  readonly logger: Logger
   /** Stable replacement-safe public handle returned by `useConvex()`. */
   readonly handle: ConvexClientHandle
   /** The current primary and its identity generation, or null if none exists. */
@@ -55,6 +59,10 @@ export interface ConvexClientOwner {
   }
   /** Register a teardown callback run by {@link dispose}. */
   addDisposer(dispose: () => void): void
+  /** Current per-app diagnostics sink, present only while DevTools is active. */
+  getDevtoolsSink(): DevtoolsSink | null
+  /** Attach the per-app diagnostics sink; returns a detach function or null after disposal. */
+  attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null
   /** Idempotent teardown: closes primary + anonymous, drops all listeners. */
   dispose(): Promise<void>
 }
@@ -116,6 +124,8 @@ export interface CreateConvexClientOwnerInput {
    * build so `getAnonymous()` reuses the already-anonymous primary (vNext §7.5).
    */
   anonymousFactory?: () => OwnedConvexClient
+  /** Per-app logger. Tests and silent consumers default to the no-op logger. */
+  logger?: Logger
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {
@@ -144,7 +154,7 @@ interface PendingCall {
 }
 
 export function createConvexClientOwner(input: CreateConvexClientOwnerInput): ConvexClientOwner {
-  const { primaryFactory, anonymousFactory } = input
+  const { primaryFactory, anonymousFactory, logger = createLogger(false) } = input
 
   let primary: OwnedConvexClient | null = primaryFactory()
   let currentIdentityGeneration = 0
@@ -152,6 +162,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   let disposed = false
   let disposePromise: Promise<void> | null = null
   let replacementInFlight: Promise<OwnedConvexClient> | null = null
+  let devtoolsSink: DevtoolsSink | null = null
 
   const listeners = new Set<OnUpdateEntry>()
   const pendingCalls = new Set<PendingCall>()
@@ -345,6 +356,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       rebindListeners(candidate)
       currentIdentityGeneration = replaceInput.identityGeneration
       resetConnectionForReplacement()
+      devtoolsSink?.clearIdentityOwned()
       rejectPendingForGeneration(previousGeneration)
       if (previous && previous !== candidate) void previous.close()
       return candidate
@@ -404,6 +416,20 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     disposers.add(dispose)
   }
 
+  function attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null {
+    if (disposed) {
+      sink.dispose()
+      return null
+    }
+    devtoolsSink?.dispose()
+    devtoolsSink = sink
+    return () => {
+      if (devtoolsSink !== sink) return
+      devtoolsSink = null
+      sink.dispose()
+    }
+  }
+
   function dispose(): Promise<void> {
     if (disposePromise) return disposePromise
     disposed = true // marked before the first await so no late attach mutates state
@@ -423,6 +449,8 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       }
       listeners.clear()
       rejectAllPending()
+      devtoolsSink?.dispose()
+      devtoolsSink = null
       const clients = new Set<OwnedConvexClient>()
       if (primary) clients.add(primary)
       if (anonymous) clients.add(anonymous)
@@ -435,6 +463,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
   return {
     handle,
+    logger,
     getPrimary() {
       if (!primary) return null
       return { client: primary, identityGeneration: currentIdentityGeneration }
@@ -457,6 +486,8 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       },
     },
     addDisposer,
+    getDevtoolsSink: () => devtoolsSink,
+    attachDevtoolsSink,
     dispose,
   }
 }

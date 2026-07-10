@@ -19,16 +19,14 @@ function deferred<T>() {
 }
 
 /**
- * Provide a fake `$convexAuthCoordinator` (Phase 3: `ensureConvexAuthReady`
- * awaits `coordinator.ready()` — a single snapshot call, not a polling loop).
+ * Attach a fake coordinator to the application runtime. `ensureConvexAuthReady`
+ * awaits `coordinator.ready()` once rather than polling reactive state.
  */
 function provideFakeCoordinator(ready: () => Promise<unknown>) {
   const app = useNuxtApp()
   const coordinator = { ready } as unknown as ConvexAuthCoordinator
-  Object.defineProperty(app, '$convexAuthCoordinator', {
-    configurable: true,
-    value: coordinator,
-  })
+  if (!app.$convexRuntime) throw new Error('Convex runtime was not installed')
+  app.$convexRuntime.attachAuthCoordinator(coordinator)
   return coordinator
 }
 
@@ -51,7 +49,9 @@ describe('useConvexAction (Nuxt runtime)', () => {
       return { ok: true, args }
     })
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
 
     expect(typeof result).toBe('function')
     expect('execute' in result).toBe(false)
@@ -118,9 +118,13 @@ describe('useConvexAction (Nuxt runtime)', () => {
   it('calls argless actions with empty args', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:argless-action')
-    convex.setActionHandler('testing:argless-action', async (args) => ({ args }))
+    convex.setActionHandler('testing:argless-action', async (args) => ({
+      args,
+    }))
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
 
     await expect(result()).resolves.toEqual({ args: {} })
     expect(convex.calls.action.at(-1)?.args).toEqual({})
@@ -133,7 +137,9 @@ describe('useConvexAction (Nuxt runtime)', () => {
       throw new Error('boom')
     })
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
 
     await expect(result({} as never)).rejects.toThrow('boom')
     expect(result.status.value).toBe('error')
@@ -192,7 +198,9 @@ describe('useConvexAction (Nuxt runtime)', () => {
       throw new Error('Action limit reached')
     })
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
     const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
@@ -215,7 +223,9 @@ describe('useConvexAction (Nuxt runtime)', () => {
       }
     })
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
     const direct = await result({} as never)
     const wrapped = await result.safe({} as never)
 
@@ -235,7 +245,11 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:race-action')
     convex.setActionHandler('testing:race-action', async (args) => {
-      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      const input = args as {
+        value: string
+        delayMs: number
+        shouldFail?: boolean
+      }
       await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
@@ -243,9 +257,15 @@ describe('useConvexAction (Nuxt runtime)', () => {
       return { value: input.value }
     })
 
-    const { result } = await captureInNuxt(() => useConvexAction(action), { convex })
+    const { result } = await captureInNuxt(() => useConvexAction(action), {
+      convex,
+    })
 
-    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const slowFail = result({
+      value: 'first',
+      delayMs: 30,
+      shouldFail: true,
+    } as never)
     const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
@@ -262,7 +282,11 @@ describe('useConvexAction (Nuxt runtime)', () => {
     const action = mockFnRef<'action'>('testing:superseded-action')
 
     convex.setActionHandler('testing:superseded-action', async (args) => {
-      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      const input = args as {
+        value: string
+        delayMs: number
+        shouldFail?: boolean
+      }
       await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
@@ -277,7 +301,11 @@ describe('useConvexAction (Nuxt runtime)', () => {
       convex,
     })
 
-    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const slowFail = result({
+      value: 'first',
+      delayMs: 30,
+      shouldFail: true,
+    } as never)
     const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })

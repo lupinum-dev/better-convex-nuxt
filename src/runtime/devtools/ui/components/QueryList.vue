@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { QueryRegistryEntry } from '../../query-registry'
+import type { QueryRegistryEntry } from '../../types'
 
 defineProps<{
   queries: QueryRegistryEntry[]
@@ -19,7 +19,7 @@ function getStatusClass(status: string): string {
 function getSourceLabel(source: string): string {
   if (source === 'ssr') return 'SSR'
   if (source === 'websocket') return 'WS'
-  return 'Cache'
+  return 'Client'
 }
 </script>
 

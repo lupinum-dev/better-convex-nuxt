@@ -50,13 +50,14 @@ describe('devtools useBridge instance binding', () => {
     document.body.innerHTML = ''
   })
 
-  it('ignores responses from non-bound instances after READY binding', async () => {
+  it('requires explicit selection and ignores responses from other instances', async () => {
     const bridgeModule = await import('../../src/runtime/devtools/ui/composables/useBridge')
+    let bridge!: ReturnType<typeof bridgeModule.useBridge>
 
     const app = createApp(
       defineComponent({
         setup() {
-          bridgeModule.useBridge()
+          bridge = bridgeModule.useBridge()
           return () => h('div')
         },
       }),
@@ -69,8 +70,12 @@ describe('devtools useBridge instance binding', () => {
     expect(fakeTransport.postMessage).toHaveBeenCalledWith({ type: 'CONVEX_DEVTOOLS_INIT' })
 
     fakeTransport.emit({ type: 'CONVEX_DEVTOOLS_READY', instanceId: 'tab-a' })
+    fakeTransport.emit({ type: 'CONVEX_DEVTOOLS_READY', instanceId: 'tab-b' })
+    expect(bridge.availableInstanceIds.value).toEqual(['tab-a', 'tab-b'])
+    expect(bridge.boundInstanceId.value).toBeNull()
+    bridge.selectInstance('tab-a')
 
-    const requestPromise = bridgeModule.callBridge('getQueries')
+    const requestPromise = bridge.call('getQueries')
     const requestMessage = fakeTransport.postMessage.mock.calls.find(
       ([msg]) =>
         msg &&
@@ -114,5 +119,30 @@ describe('devtools useBridge instance binding', () => {
 
     app.unmount()
     expect(fakeTransport.close).toHaveBeenCalled()
+  })
+
+  it('rejects pending requests and closes the transport on UI teardown', async () => {
+    const bridgeModule = await import('../../src/runtime/devtools/ui/composables/useBridge')
+    let bridge!: ReturnType<typeof bridgeModule.useBridge>
+    const app = createApp(
+      defineComponent({
+        setup() {
+          bridge = bridgeModule.useBridge()
+          return () => h('div')
+        },
+      }),
+    )
+    const root = document.createElement('div')
+    document.body.appendChild(root)
+    app.mount(root)
+
+    fakeTransport.emit({ type: 'CONVEX_DEVTOOLS_READY', instanceId: 'tab-a' })
+    bridge.selectInstance('tab-a')
+    const pending = bridge.call('getQueries')
+    app.unmount()
+
+    await expect(pending).rejects.toThrow('disposed')
+    expect(fakeTransport.removeEventListener).toHaveBeenCalledTimes(1)
+    expect(fakeTransport.close).toHaveBeenCalledTimes(1)
   })
 })

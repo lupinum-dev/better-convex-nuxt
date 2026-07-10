@@ -7,16 +7,15 @@ import type {
 } from 'convex/server'
 import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp } from '#imports'
 
-import type { ConvexAuthCoordinator } from '../auth/client-engine'
-import type { AuthIdentityPort } from '../auth/identity-port'
-import type { ConvexClientOwner } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexCallError, CallResult } from '../utils/call-result'
 import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { createLogger } from '../utils/logger'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexCallStatus } from '../utils/types'
 
 // Re-export optimistic update helpers
@@ -236,15 +235,15 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   type Args = FunctionArgs<Mutation>
   type Result = FunctionReturnType<Mutation>
 
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(mutation)
   const hasOptimisticUpdate = !!options?.optimisticUpdate
 
   const nuxtApp = useNuxtApp()
-  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
-  const port = (nuxtApp as { $convexAuthPort?: AuthIdentityPort }).$convexAuthPort
+  const runtime = readConvexRuntimeContext(nuxtApp)
+  const owner = runtime?.owner
+  const coordinator = runtime?.getAuthCoordinator() ?? undefined
+  const port = coordinator?.port
+  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle (vNext §5.4), never
   // the raw replaceable `$convex` seam: after an identity switch a captured raw
@@ -255,6 +254,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     fnName,
     hasOptimisticUpdate,
     getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
+    getDevtoolsSink: () => owner?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
         if (!owner) {
@@ -262,10 +262,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
             '[useConvexMutation] Convex client is unavailable. Call mutations from the browser after configuring a Convex URL.',
           )
         }
-        await ensureConvexAuthReady(
-          nuxtApp.$convexAuthCoordinator as ConvexAuthCoordinator | undefined,
-          'useConvexMutation',
-        )
+        await ensureConvexAuthReady(coordinator, 'useConvexMutation')
         return (await owner.handle.mutation(mutation, args as never, {
           optimisticUpdate: options?.optimisticUpdate,
         })) as Result

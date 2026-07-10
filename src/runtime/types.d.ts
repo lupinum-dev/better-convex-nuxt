@@ -1,7 +1,5 @@
 import type { AuthClientPlugins, ConvexAuthClientDefinition } from './auth-client'
-import type { ConvexAuthCoordinator } from './auth/client-engine'
-import type { AuthIdentityPort } from './auth/identity-port'
-import type { ConvexClientOwner } from './client/client-owner'
+import type { ConvexRuntimeContext } from './runtime-context'
 import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
 
 // The public `$convex` and `$auth` Nuxt-app property augmentations are deleted
@@ -9,7 +7,7 @@ import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
 // composables, never a raw replaceable client or a generic proxy. The auth plugin
 // still `provide('auth', …)` for internal use, read via a local cast, never a
 // published typed property. The augmentations below are INTERNAL inter-plugin
-// seams (browser-only).
+// seam (browser-only).
 declare module '#app' {
   interface NuxtApp {
     /**
@@ -18,11 +16,7 @@ declare module '#app' {
      * returns its stable handle and `useConvexConnectionState()` observes its
      * connection store. Provided by the core client plugin (browser only).
      */
-    $convexClientOwner?: ConvexClientOwner
-    /** The per-app auth coordinator (Phase 3). Auth-enabled builds only. */
-    $convexAuthCoordinator?: ConvexAuthCoordinator
-    /** Frozen auth identity port published by the coordinator; auth builds only. */
-    $convexAuthPort?: AuthIdentityPort
+    $convexRuntime?: ConvexRuntimeContext
   }
   interface PageMeta {
     convexAuth?: ConvexAuthPageMeta

@@ -384,6 +384,21 @@ const RULES = [
     paths: ['src', 'build.config.ts', 'playground', 'docs', 'test', 'starters', 'README.md'],
     phase: 'phase6',
   },
+  {
+    name: 'no-split-runtime-attachments',
+    description:
+      'Forbid retired per-service Nuxt attachments and browser debug globals. Runtime services ' +
+      'must be reached through the single application-owned `$convexRuntime` context.',
+    patterns: [
+      /\$convexClientOwner\b/,
+      /\$convexAuthCoordinator\b/,
+      /\$convexAuthPort\b/,
+      /__convex_client__\b/,
+      /__auth_client__\b/,
+    ],
+    paths: ['src', 'playground', 'docs/content', 'starters', 'test'],
+    phase: 'phase6',
+  },
 ]
 
 class ConfigError extends Error {}

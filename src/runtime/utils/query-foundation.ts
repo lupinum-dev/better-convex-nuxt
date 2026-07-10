@@ -6,6 +6,7 @@ import { useState } from '#imports'
 import type { AuthIdentityPort } from '../auth/identity-port'
 import type { OwnedConvexClient, ConvexClientOwner } from '../client/client-owner'
 import { ConvexCallError } from '../errors'
+import { readConvexRuntimeContext } from '../runtime-context'
 import { useConvexAuthPendingState } from './auth-pending-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from './auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from './identity-key'
@@ -43,16 +44,16 @@ function safeIdentityKey(user: ConvexUser | null): ConvexIdentityKey {
   }
 }
 
-export function createConvexQueryAuthContext(nuxtApp: {
-  $convexAuthPort?: AuthIdentityPort
-}): ConvexQueryAuthContext {
+export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthContext {
   const authEnabled = getConvexRuntimeConfig().auth !== false
 
   const user = useState<ConvexUser | null>('convex:user', () => null)
   const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
-  const port = authEnabled ? nuxtApp.$convexAuthPort : undefined
+  const port: AuthIdentityPort | undefined = authEnabled
+    ? readConvexRuntimeContext(nuxtApp)?.getAuthCoordinator()?.port
+    : undefined
 
   // Mirror the port's monotonic identity generation reactively. Subscribing keeps
   // masking correct across A->B primary replacement even when the identity key

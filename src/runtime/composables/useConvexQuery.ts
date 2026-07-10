@@ -11,10 +11,10 @@ import {
   type MaybeRefOrGetter,
 } from 'vue'
 
-import { useNuxtApp, useRequestEvent, useAsyncData, useState, useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
-import type { AuthIdentityPort } from '../auth/identity-port'
-import type { ConvexClientOwner } from '../client/client-owner'
+import type { QueryDataSource, QueryStatus } from '../devtools/types'
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import type { ConvexAuthMode } from '../utils/auth-status'
 import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
@@ -29,7 +29,7 @@ import {
   type ConvexCallStatus,
 } from '../utils/convex-cache'
 import type { ConvexIdentityKey } from '../utils/identity-key'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { createLogger } from '../utils/logger'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp } from '../utils/query-execution'
 import { createQueryExecutionGate } from '../utils/query-execution-gate'
@@ -116,9 +116,8 @@ export function createConvexQueryState<
   type RawT = FunctionReturnType<Query>
 
   const nuxtApp = useNuxtApp()
-  const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
-  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
+  const owner = readConvexRuntimeContext(nuxtApp)?.owner
 
   const defaults = convexConfig.defaults
   const server = options?.server ?? defaults.server
@@ -128,15 +127,14 @@ export function createConvexQueryState<
 
   const fnName = getFunctionName(query)
 
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
+  const logger = owner?.logger ?? createLogger(convexConfig.logging)
 
   const normalizedArgs = computed((): Args => normalizeConvexArgs(args) as Args)
   const getArgs = (): Args => normalizedArgs.value
   const isSkipped = computed(() => isConvexArgsSkipped(normalizedArgs.value))
   const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
-  const authCtx = createConvexQueryAuthContext(nuxtApp as { $convexAuthPort?: AuthIdentityPort })
+  const authCtx = createConvexQueryAuthContext(nuxtApp)
 
   const gate = computed(() =>
     createQueryExecutionGate({
@@ -240,32 +238,58 @@ export function createConvexQueryState<
   }
 
   function teardownLive() {
+    const previousKey = liveKey
     if (liveUnsub) {
       liveUnsub()
       liveUnsub = null
     }
     liveKey = null
+    if (previousKey) owner?.getDevtoolsSink()?.removeQuery(previousKey)
   }
 
-  function commitLiveResult(raw: RawT, tag: IsolationTag) {
+  function recordQuery(
+    queryStatus: QueryStatus,
+    data: unknown,
+    dataSource: QueryDataSource,
+    hasSubscription: boolean,
+    queryError?: string,
+  ) {
+    const currentArgs = getArgs()
+    if (currentArgs === 'skip') return
+    owner?.getDevtoolsSink()?.upsertQuery({
+      id: asyncDataKey.value,
+      name: fnName,
+      args: currentArgs,
+      status: queryStatus,
+      dataSource,
+      data,
+      error: queryError,
+      hasSubscription,
+      options: { immediate: resolveImmediately, server, subscribe, auth: authMode },
+    })
+  }
+
+  function commitLiveResult(raw: RawT, tag: IsolationTag): boolean {
     // Reject a stale-generation commit: a WebSocket result captured under a
     // superseded identity generation must not commit after the switch (§5.4).
-    if (!sameTag(tag, currentTag.value)) return
+    if (!sameTag(tag, currentTag.value)) return false
     setBoundaryError(null)
     ;(asyncData.data as Ref<RawT | null>).value = raw
     commitLastSettled(raw)
     triggerRef(asyncData.data)
     firstValue?.resolve(raw)
+    return true
   }
 
-  function commitLiveError(err: Error, tag: IsolationTag) {
-    if (!sameTag(tag, currentTag.value)) return
+  function commitLiveError(err: Error, tag: IsolationTag): boolean {
+    if (!sameTag(tag, currentTag.value)) return false
     // Only surface an error while there is no data to keep showing. A live
     // subscription failure is normalized once at this boundary (§9.2): a
     // reconnectable socket disconnect is connection state, not a call error, so
     // Convex only invokes this path for a genuine query failure.
     if (asyncData.data.value == null) setBoundaryError(normalizeConvexError(err))
     firstValue?.reject(err)
+    return true
   }
 
   function setupSubscription() {
@@ -297,21 +321,24 @@ export function createConvexQueryState<
       query,
       currentArgs,
       (result: unknown) => {
+        if (!commitLiveResult(result as RawT, tag)) return
         logger.query({
           name: fnName,
           event: 'update',
           count: Array.isArray(result) ? result.length : 1,
           args: currentArgs,
         })
-        commitLiveResult(result as RawT, tag)
+        recordQuery('success', result, 'websocket', true)
       },
       (err: Error) => {
+        if (!commitLiveError(err, tag)) return
         logger.query({ name: fnName, event: 'error', error: err })
-        commitLiveError(err, tag)
+        recordQuery('error', null, 'websocket', true, err.message)
       },
     )
     liveUnsub = unsubscribe
     logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
+    recordQuery('pending', null, 'websocket', true)
   }
 
   // ---- Nuxt useAsyncData: SSR + hydration + first client result -----------
@@ -350,6 +377,7 @@ export function createConvexQueryState<
 
         // Client HTTP-only mode (subscribe: false).
         if (!subscribe) {
+          recordQuery('pending', null, 'client', false)
           const client = selectLiveQueryClient(owner, g)
           let result: RawT
           if (client) {
@@ -362,6 +390,7 @@ export function createConvexQueryState<
             result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           }
           commitLastSettled(result)
+          recordQuery('success', result, 'client', false)
           return result
         }
 
@@ -410,7 +439,11 @@ export function createConvexQueryState<
         // Normalize exactly once at the query boundary and store in the
         // library-owned error state; resolve `null` data so Nuxt never
         // manufactures an H3Error from a handler rejection (vNext §7).
-        setBoundaryError(normalizeConvexError(rawError))
+        const normalized = normalizeConvexError(rawError)
+        setBoundaryError(normalized)
+        if (import.meta.client && !subscribe) {
+          recordQuery('error', null, 'client', false, normalized.message)
+        }
         return null
       }
     },
@@ -477,6 +510,7 @@ export function createConvexQueryState<
 
     onScopeDispose(() => {
       teardownLive()
+      owner?.getDevtoolsSink()?.removeQuery(asyncDataKey.value)
     })
   }
 

@@ -20,16 +20,14 @@ function deferred<T>() {
 }
 
 /**
- * Provide a fake `$convexAuthCoordinator` (Phase 3: `ensureConvexAuthReady`
- * awaits `coordinator.ready()` — a single snapshot call, not a polling loop).
+ * Attach a fake coordinator to the application runtime. `ensureConvexAuthReady`
+ * awaits `coordinator.ready()` once rather than polling reactive state.
  */
 function provideFakeCoordinator(ready: () => Promise<unknown>) {
   const app = useNuxtApp()
   const coordinator = { ready } as unknown as ConvexAuthCoordinator
-  Object.defineProperty(app, '$convexAuthCoordinator', {
-    configurable: true,
-    value: coordinator,
-  })
+  if (!app.$convexRuntime) throw new Error('Convex runtime was not installed')
+  app.$convexRuntime.attachAuthCoordinator(coordinator)
   return coordinator
 }
 
@@ -53,7 +51,9 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       return { id: 'new-id', value }
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
 
     expect(typeof result).toBe('function')
     expect('execute' in result).toBe(false)
@@ -122,7 +122,9 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('testing:argless')
     convex.setMutationHandler('testing:argless', async (args) => ({ args }))
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
 
     await expect(result()).resolves.toEqual({ args: {} })
     expect(convex.calls.mutation.at(-1)?.args).toEqual({})
@@ -135,7 +137,9 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       throw new Error('mutation failed')
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
 
     await expect(result({} as never)).rejects.toThrow('mutation failed')
     expect(result.status.value).toBe('error')
@@ -195,7 +199,9 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       throw new Error('Limit reached')
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
     const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
@@ -218,10 +224,16 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     // structured extraction — `kind: 'server'` with `data` preserved verbatim and
     // `code`/`status`/`message` surfaced from the structured payload.
     convex.setMutationHandler('testing:safe-structured-fail', async () => {
-      throw new ConvexError({ message: 'Structured failure', code: 'STRUCTURED', status: 422 })
+      throw new ConvexError({
+        message: 'Structured failure',
+        code: 'STRUCTURED',
+        status: 422,
+      })
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
     const safeResult = await result.safe({} as never)
 
     expect(safeResult.ok).toBe(false)
@@ -248,11 +260,16 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     convex.setMutationHandler('testing:safe-domain-result', async () => {
       return {
         ok: false,
-        error: { message: 'Domain validation failed', code: 'DOMAIN_VALIDATION' },
+        error: {
+          message: 'Domain validation failed',
+          code: 'DOMAIN_VALIDATION',
+        },
       }
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
     const direct = await result({} as never)
     const wrapped = await result.safe({} as never)
 
@@ -273,7 +290,11 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('testing:race-mutation')
 
     convex.setMutationHandler('testing:race-mutation', async (args) => {
-      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      const input = args as {
+        value: string
+        delayMs: number
+        shouldFail?: boolean
+      }
       await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
@@ -281,9 +302,15 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       return { value: input.value }
     })
 
-    const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
+    const { result } = await captureInNuxt(() => useConvexMutation(mutation), {
+      convex,
+    })
 
-    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const slowFail = result({
+      value: 'first',
+      delayMs: 30,
+      shouldFail: true,
+    } as never)
     const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })
@@ -300,7 +327,11 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const mutation = mockFnRef<'mutation'>('testing:superseded-mutation')
 
     convex.setMutationHandler('testing:superseded-mutation', async (args) => {
-      const input = args as { value: string; delayMs: number; shouldFail?: boolean }
+      const input = args as {
+        value: string
+        delayMs: number
+        shouldFail?: boolean
+      }
       await new Promise((resolve) => setTimeout(resolve, input.delayMs))
       if (input.shouldFail) {
         throw new Error(`failed:${input.value}`)
@@ -318,7 +349,11 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       },
     )
 
-    const slowFail = result({ value: 'first', delayMs: 30, shouldFail: true } as never)
+    const slowFail = result({
+      value: 'first',
+      delayMs: 30,
+      shouldFail: true,
+    } as never)
     const fastSuccess = result({ value: 'second', delayMs: 5 } as never)
 
     await expect(fastSuccess).resolves.toEqual({ value: 'second' })

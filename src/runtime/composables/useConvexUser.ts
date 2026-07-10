@@ -2,10 +2,10 @@ import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 import { computed } from 'vue'
 
-import { toValue, useRuntimeConfig } from '#imports'
+import { toValue } from '#imports'
 
 import type { ConvexQueryRest } from '../utils/args-tuple'
-import { normalizeConvexRuntimeConfig } from '../utils/runtime-config'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexCallStatus } from '../utils/types'
 import { useConvexAuth, type ConvexUser } from './useConvexAuth'
 import { createConvexQueryState, type ConvexQueryArgs } from './useConvexQuery'
@@ -75,7 +75,7 @@ export function useConvexUser<
   const [rawArgs, options = {}] = rest
   const args = rawArgs as MaybeRefOrGetter<Args> | undefined
   const auth = useConvexAuth()
-  const defaults = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).defaults
+  const defaults = getConvexRuntimeConfig().defaults
   const seedFromSession = options.seedFromSession ?? true
   const canonicalSource = options.source ?? 'better-auth'
 

@@ -11,14 +11,11 @@ import { ConvexClient } from 'convex/browser'
 import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 
 import { createConvexClientOwner, type OwnedConvexClient } from './client/client-owner'
+import { createConvexRuntimeContext, readConvexRuntimeContext } from './runtime-context'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
-
-type ConvexDebugWindow = Window & {
-  __convex_client__?: ConvexClient
-}
 
 export default defineNuxtPlugin({
   // Named so the auth-enabled client plugin can declare an explicit `dependsOn`.
@@ -35,8 +32,9 @@ export default defineNuxtPlugin({
     const endInit = logger.time('plugin:init (client core)')
 
     // HMR-safe initialization: reuse the live owner on plugin reevaluation.
-    if (nuxtApp.$convexClientOwner) {
+    if (readConvexRuntimeContext(nuxtApp)) {
       logger.debug('plugin:init (client core) skipped; already initialized')
+      endInit()
       return
     }
 
@@ -71,9 +69,9 @@ export default defineNuxtPlugin({
     const owner = createConvexClientOwner({
       primaryFactory: makeClient,
       ...(isAuthEnabled ? { anonymousFactory: makeClient } : {}),
+      logger,
     })
-
-    const primary = owner.getPrimary()?.client as ConvexClient | undefined
+    const runtime = createConvexRuntimeContext(owner)
 
     // Pending state for auth operations. Auth-disabled builds settle immediately;
     // the auth plugin owns settlement when auth is enabled.
@@ -82,29 +80,46 @@ export default defineNuxtPlugin({
       convexPending.value = false
     }
 
-    nuxtApp.provide('convexClientOwner', owner)
+    nuxtApp.provide('convexRuntime', runtime)
     // The public raw-client augmentation is deleted (vNext §5.4): consumers use the
     // useConvex() handle. The auth plugin reads the current primary through the
-    // owner (`getPrimary()`), and DevTools uses the local `primary` below, so no
+    // owner (`getPrimary()`), and DevTools reads through that owner too, so no
     // `$convex` provide is needed.
 
-    // Expose for debugging and wire the DevTools bridge (dev only).
-    if (typeof window !== 'undefined' && import.meta.dev && primary) {
-      ;(window as ConvexDebugWindow).__convex_client__ = primary
+    // Wire the per-app DevTools bridge in development only.
+    if (typeof window !== 'undefined' && import.meta.dev && owner.getPrimary()) {
       const convexAuthWaterfall = useState('convex:authWaterfall', () => null)
       const convexDevtoolsInstanceId = useState<string>(
         'convex:devtoolsInstanceId',
         () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
       )
-      void import('./devtools/bridge-setup').then(({ setupDevToolsBridge }) => {
-        void setupDevToolsBridge(
-          primary,
-          convexToken,
-          convexUser,
-          convexAuthWaterfall,
-          convexDevtoolsInstanceId.value,
-        )
-      })
+      void Promise.all([import('./devtools/bridge-setup'), import('./devtools/sink')])
+        .then(async ([{ setupDevToolsBridge }, { createDevtoolsSink }]) => {
+          const sink = createDevtoolsSink()
+          const detachSink = owner.attachDevtoolsSink(sink)
+          if (!detachSink) return
+          let disposeBridge: () => void
+          try {
+            disposeBridge = await setupDevToolsBridge(
+              owner,
+              sink,
+              convexToken,
+              convexUser,
+              convexAuthWaterfall,
+              convexDevtoolsInstanceId.value,
+            )
+          } catch (error) {
+            detachSink()
+            throw error
+          }
+          owner.addDisposer(() => {
+            disposeBridge()
+            detachSink()
+          })
+        })
+        .catch((error) => {
+          logger.debug('DevTools bridge setup failed', error)
+        })
     }
 
     // App-lifetime teardown. Vue 3.5 exposes the hook on the app instance, not as a

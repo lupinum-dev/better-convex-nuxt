@@ -6,16 +6,15 @@ import type {
 } from 'convex/server'
 import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp } from '#imports'
 
-import type { ConvexAuthCoordinator } from '../auth/client-engine'
-import type { AuthIdentityPort } from '../auth/identity-port'
-import type { ConvexClientOwner } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexCallError, CallResult } from '../utils/call-result'
 import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { createLogger } from '../utils/logger'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexCallStatus } from '../utils/types'
 
 /**
@@ -125,14 +124,14 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   type Args = FunctionArgs<Action>
   type Result = FunctionReturnType<Action>
 
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(action)
 
   const nuxtApp = useNuxtApp()
-  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
-  const port = (nuxtApp as { $convexAuthPort?: AuthIdentityPort }).$convexAuthPort
+  const runtime = readConvexRuntimeContext(nuxtApp)
+  const owner = runtime?.owner
+  const coordinator = runtime?.getAuthCoordinator() ?? undefined
+  const port = coordinator?.port
+  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle (vNext §5.4), never
   // the raw replaceable `$convex` seam. A retired-generation in-flight action
@@ -142,6 +141,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     fnName,
     hasOptimisticUpdate: false,
     getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
+    getDevtoolsSink: () => owner?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
         if (!owner) {
@@ -149,10 +149,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
             '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
           )
         }
-        await ensureConvexAuthReady(
-          nuxtApp.$convexAuthCoordinator as ConvexAuthCoordinator | undefined,
-          'useConvexAction',
-        )
+        await ensureConvexAuthReady(coordinator, 'useConvexAction')
         return (await owner.handle.action(action, args as never)) as Result
       },
       onSuccess: options?.onSuccess,

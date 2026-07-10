@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { QueryRegistryEntry } from '../../query-registry'
+import type { QueryRegistryEntry } from '../../types'
 import JsonViewer from './JsonViewer.vue'
 
 const props = defineProps<{

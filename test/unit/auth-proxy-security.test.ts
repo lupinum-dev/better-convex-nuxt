@@ -69,8 +69,11 @@ describe('auth proxy security helpers', () => {
       expect('/api/auth.v2/convex/token'.replace(pattern, '')).toBe('/convex/token')
     })
 
-    it('caches compiled regex instances per route', () => {
-      expect(getAuthRoutePattern('/api/auth')).toBe(getAuthRoutePattern('/api/auth'))
+    it('compiles independently without process-wide request state', () => {
+      const first = getAuthRoutePattern('/api/auth')
+      const second = getAuthRoutePattern('/api/auth')
+      expect(first).not.toBe(second)
+      expect(first.source).toBe(second.source)
     })
   })
 })

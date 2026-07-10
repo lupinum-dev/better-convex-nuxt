@@ -82,12 +82,6 @@ export function isOriginAllowed(
   return false
 }
 
-const authRoutePatternCache = new Map<string, RegExp>()
-
 export function getAuthRoutePattern(authRoute: string): RegExp {
-  const cached = authRoutePatternCache.get(authRoute)
-  if (cached) return cached
-  const pattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
-  authRoutePatternCache.set(authRoute, pattern)
-  return pattern
+  return new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
 }

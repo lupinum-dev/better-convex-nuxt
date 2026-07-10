@@ -79,16 +79,6 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject }
 }
 
-let queueItemSequence = 1
-
-function createQueueItemId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  queueItemSequence += 1
-  return `upload-item-${Date.now()}-${queueItemSequence}`
-}
-
 function isUploadAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
@@ -111,8 +101,17 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   const items = ref<QueueItem[]>([])
   const haltedByError = ref(false)
   const runtimeById = new Map<string, UploadQueueRuntime>()
+  let queueItemSequence = 0
   let scheduling = false
   let hasBeenBusy = false
+
+  const createQueueItemId = (): string => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID()
+    }
+    queueItemSequence += 1
+    return `upload-item-${Date.now()}-${queueItemSequence}`
+  }
 
   const queuedCount = computed(() => countUploadQueueItems(items.value, 'queued'))
   const pendingCount = computed(() => countUploadQueueItems(items.value, 'pending'))

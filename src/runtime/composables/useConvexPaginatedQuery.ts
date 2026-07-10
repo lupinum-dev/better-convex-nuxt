@@ -13,8 +13,8 @@ import {
 
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
-import type { AuthIdentityPort } from '../auth/identity-port'
-import type { ConvexClientOwner, OwnedConvexClient } from '../client/client-owner'
+import type { OwnedConvexClient } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import type { ConvexAuthMode } from '../utils/auth-status'
 import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
@@ -144,7 +144,7 @@ export function createConvexPaginatedQueryState<
 
   const nuxtApp = useNuxtApp()
   const convexConfig = getConvexRuntimeConfig()
-  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
+  const owner = readConvexRuntimeContext(nuxtApp)?.owner
 
   const defaults = convexConfig.defaults
   const initialNumItems = options?.initialNumItems ?? 10
@@ -162,7 +162,7 @@ export function createConvexPaginatedQueryState<
   const isSkipped = computed(() => isConvexArgsSkipped(normalizedArgs.value))
   const argsHash = computed(() => hashArgs(normalizedArgs.value))
 
-  const authCtx = createConvexQueryAuthContext(nuxtApp as { $convexAuthPort?: AuthIdentityPort })
+  const authCtx = createConvexQueryAuthContext(nuxtApp)
   const gate = computed(() =>
     createQueryExecutionGate({
       authStatus: authCtx.status.value,

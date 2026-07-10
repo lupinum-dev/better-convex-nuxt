@@ -36,21 +36,6 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
-  const enableServerAuthTrace =
-    logLevel === 'debug' && (authConfig.debug.authFlow || authConfig.debug.serverAuthFlow)
-  const rawAuthLog = logger.auth.bind(logger)
-  logger.auth = (event) => {
-    rawAuthLog(event)
-    if (enableServerAuthTrace) {
-      console.log('[BCN_AUTH][server]', {
-        phase: event.phase,
-        outcome: event.outcome,
-        ...event.details,
-        error: event.error ? event.error.message : null,
-      })
-    }
-  }
-
   const event = useRequestEvent()
   if (!event) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })

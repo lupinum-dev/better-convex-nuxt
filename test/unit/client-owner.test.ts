@@ -7,6 +7,7 @@ import {
   type OwnedConvexClient,
 } from '../../src/runtime/client/client-owner'
 import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
+import { createDevtoolsSink } from '../../src/runtime/devtools/sink'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 /**
@@ -116,6 +117,32 @@ describe('createConvexClientOwner', () => {
   })
 
   describe('replacePrimary', () => {
+    it('clears identity-owned diagnostics when publishing a replacement', async () => {
+      resetCounts()
+      const o = owner()
+      const sink = createDevtoolsSink()
+      o.attachDevtoolsSink(sink)
+      sink.registerMutation({
+        name: 'notes:create',
+        type: 'mutation',
+        args: {},
+        state: 'pending',
+        hasOptimisticUpdate: false,
+        startedAt: 1,
+      })
+
+      await o.replacePrimary({
+        identity: 'user:alice',
+        authEpoch: 1,
+        identityGeneration: 1,
+        isCurrent: () => true,
+        initialize: async () => {},
+      })
+
+      expect(sink.getMutations()).toEqual([])
+      await o.dispose()
+    })
+
     it('creates B, publishes it, closes A, and advances the generation (create/close balance)', async () => {
       resetCounts()
       const o = owner()
@@ -351,6 +378,38 @@ describe('createConvexClientOwner', () => {
   })
 
   describe('dispose', () => {
+    it('disposes the attached diagnostics sink and rejects late attachment', async () => {
+      resetCounts()
+      const o = owner()
+      const attached = createDevtoolsSink()
+      expect(o.attachDevtoolsSink(attached)).toBeTypeOf('function')
+
+      await o.dispose()
+      expect(
+        attached.registerMutation({
+          name: 'after-dispose',
+          type: 'mutation',
+          args: {},
+          state: 'pending',
+          hasOptimisticUpdate: false,
+          startedAt: 1,
+        }),
+      ).toBe('')
+
+      const late = createDevtoolsSink()
+      expect(o.attachDevtoolsSink(late)).toBeNull()
+      expect(
+        late.registerMutation({
+          name: 'late',
+          type: 'mutation',
+          args: {},
+          state: 'pending',
+          hasOptimisticUpdate: false,
+          startedAt: 2,
+        }),
+      ).toBe('')
+    })
+
     it('closes every allocated client and is idempotent (create/close balance)', async () => {
       resetCounts()
       const o = owner()

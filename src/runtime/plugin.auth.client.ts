@@ -20,20 +20,16 @@ import {
   type ConvexAuthCoordinator,
 } from './auth/client-engine'
 import { validateConvexAuthClientDefinition } from './auth/validate-auth-client-definition'
-import type { ConvexClientOwner } from './client/client-owner'
 import type { AuthWaterfall } from './devtools/types'
+import { readConvexRuntimeContext } from './runtime-context'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { readAuthMode } from './utils/convex-cache'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 import type { ConvexUser } from './utils/types'
 
-type AuthDebugWindow = Window & {
-  __auth_client__?: AuthClientWithConvex
-}
-
 export default defineNuxtPlugin({
-  // Must run AFTER `plugin.client` provides `$convexClientOwner`: this plugin
+  // Must run AFTER `plugin.client` provides `$convexRuntime`: this plugin
   // attaches the auth coordinator to the owner's primary. The async module
   // `setup` registers the core plugin first but Nuxt does not preserve that
   // order across the `await` between `addPlugin` calls, so pin it explicitly.
@@ -45,12 +41,13 @@ export default defineNuxtPlugin({
     const authConfig = convexConfig.auth
     if (authConfig === false) return // Defensive: module never registers this when disabled.
 
+    const runtime = readConvexRuntimeContext(nuxtApp)
     const publicConvex = config.public.convex as Record<string, unknown> | undefined
-    const logger = createLogger(getLogLevel(publicConvex))
+    const logger = runtime?.owner.logger ?? createLogger(getLogLevel(publicConvex))
     const endInit = logger.time('plugin:init (client auth)')
 
     // HMR-safe: the coordinator is provided only by this plugin. Reuse per-app.
-    if (nuxtApp.$convexAuthCoordinator) {
+    if (runtime?.getAuthCoordinator()) {
       logger.debug('plugin:init (client auth) skipped; already initialized')
       endInit()
       return
@@ -58,9 +55,9 @@ export default defineNuxtPlugin({
 
     // Read the current primary through the per-app client owner (the public
     // `$convex` augmentation is deleted, vNext §5.4).
-    const clientOwner = nuxtApp.$convexClientOwner as ConvexClientOwner | undefined
+    const clientOwner = runtime?.owner
     const client = clientOwner?.getPrimary()?.client as ConvexClient | undefined
-    if (!clientOwner || !client) {
+    if (!runtime || !clientOwner || !client) {
       logger.debug('Core Convex client owner is unavailable; auth plugin cannot initialize')
       endInit()
       return
@@ -127,8 +124,7 @@ export default defineNuxtPlugin({
 
     // 7. Provide the instance on nuxtApp; 8. the coordinator got the same instance.
     nuxtApp.provide('auth', authClient)
-    nuxtApp.provide('convexAuthCoordinator', coordinator)
-    nuxtApp.provide('convexAuthPort', coordinator.port)
+    runtime.attachAuthCoordinator(coordinator)
 
     // Install the initial setAuth on the owner's primary and drive settlement.
     coordinator.attachPrimary(client)
@@ -137,10 +133,6 @@ export default defineNuxtPlugin({
     // identity-scoped primary on every stable identity-key change (vNext §5.4).
     clientOwner.attachAuthPort(coordinator.port)
     clientOwner.addDisposer(() => coordinator.dispose())
-
-    if (typeof window !== 'undefined' && import.meta.dev && authClient) {
-      ;(window as AuthDebugWindow).__auth_client__ = authClient
-    }
 
     endInit()
   },

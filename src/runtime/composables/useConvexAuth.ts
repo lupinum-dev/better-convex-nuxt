@@ -5,6 +5,7 @@ import { useState, computed, readonly, ref, useNuxtApp } from '#imports'
 import type { BaseAuthClient, InferRegisteredConvexAuthClient } from '../auth-client'
 import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import { ConvexCallError } from '../errors'
+import { readConvexRuntimeContext } from '../runtime-context'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -131,8 +132,7 @@ export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthCl
   const authError = useState<string | null>('convex:authError', () => null)
   const pending = useState<boolean>('convex:pending', () => import.meta.client)
 
-  const coordinator = (nuxtApp as { $convexAuthCoordinator?: ConvexAuthCoordinator })
-    .$convexAuthCoordinator
+  const coordinator = readConvexRuntimeContext(nuxtApp)?.getAuthCoordinator() ?? undefined
   const client = ((nuxtApp as { $auth?: unknown }).$auth ??
     null) as InferRegisteredConvexAuthClient | null
 

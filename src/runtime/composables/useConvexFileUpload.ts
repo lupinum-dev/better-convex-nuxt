@@ -7,13 +7,14 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp } from '#imports'
 
-import type { ConvexClientOwner } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
@@ -219,13 +220,11 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   generateUploadUrlMutation: Mutation,
   options?: UseConvexFileUploadOptions,
 ): UseConvexFileUploadReturn<Mutation> {
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
   const nuxtApp = useNuxtApp()
-  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
+  const owner = readConvexRuntimeContext(nuxtApp)?.owner
+  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Internal state
   const _status = ref<UploadStatus>('idle')

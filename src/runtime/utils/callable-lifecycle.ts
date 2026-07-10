@@ -4,15 +4,11 @@ import {
   createIdentityChangedError,
   isIdentityChangedError,
 } from '../client/identity-changed-error'
+import type { DevtoolsSink } from '../devtools/sink'
 import type { ConvexCallError } from '../errors'
 import { normalizeConvexError } from '../errors'
 import type { CallResult } from './call-result'
 import { createConvexCallState } from './call-state'
-import {
-  registerDevToolsEntry,
-  updateDevToolsError,
-  updateDevToolsSuccess,
-} from './devtools-helpers'
 import type { ConvexCallStatus } from './types'
 
 /**
@@ -57,6 +53,7 @@ export interface CallableLifecycleInput<Args, Result> {
   hasOptimisticUpdate: boolean
   /** Current identity generation from the frozen auth port (0 when auth-disabled). */
   getIdentityGeneration: () => number
+  getDevtoolsSink?: () => DevtoolsSink | null
   handlers: CallableLifecycleHandlers<Args, Result>
 }
 
@@ -79,7 +76,14 @@ export interface CallableLifecycle<Args, Result> {
 export function createCallableLifecycle<Args, Result>(
   input: CallableLifecycleInput<Args, Result>,
 ): CallableLifecycle<Args, Result> {
-  const { devtoolsKind, fnName, hasOptimisticUpdate, getIdentityGeneration, handlers } = input
+  const {
+    devtoolsKind,
+    fnName,
+    hasOptimisticUpdate,
+    getIdentityGeneration,
+    getDevtoolsSink,
+    handlers,
+  } = input
 
   const callState = createConvexCallState<Result>()
   let lastSeenGeneration = getIdentityGeneration()
@@ -96,7 +100,15 @@ export function createCallableLifecycle<Args, Result>(
     const startTime = Date.now()
     const requestId = callState.start()
     const generation = getIdentityGeneration()
-    const devToolsId = registerDevToolsEntry(fnName, devtoolsKind, args, hasOptimisticUpdate)
+    const devtools = getDevtoolsSink?.() ?? null
+    const devToolsId = devtools?.registerMutation({
+      name: fnName,
+      type: devtoolsKind,
+      args,
+      state: devtoolsKind === 'mutation' && hasOptimisticUpdate ? 'optimistic' : 'pending',
+      hasOptimisticUpdate,
+      startedAt: startTime,
+    })
     handlers.onStart?.(args)
 
     try {
@@ -112,7 +124,15 @@ export function createCallableLifecycle<Args, Result>(
       const committed = callState.commitSuccess(requestId, result)
       if (committed) {
         if (handlers.onSuccess) runCallback(() => handlers.onSuccess!(result, args))
-        updateDevToolsSuccess(devToolsId, startTime, result)
+        if (devToolsId) {
+          const settledAt = Date.now()
+          devtools?.updateMutation(devToolsId, {
+            state: 'success',
+            result,
+            settledAt,
+            duration: settledAt - startTime,
+          })
+        }
         handlers.logSuccess?.(args, Date.now() - startTime)
       }
       return result
@@ -131,7 +151,15 @@ export function createCallableLifecycle<Args, Result>(
       const committed = callState.commitError(requestId, normalized)
       if (committed) {
         if (handlers.onError) runCallback(() => handlers.onError!(normalized, args))
-        updateDevToolsError(devToolsId, startTime, normalized.message)
+        if (devToolsId) {
+          const settledAt = Date.now()
+          devtools?.updateMutation(devToolsId, {
+            state: 'error',
+            error: normalized.message,
+            settledAt,
+            duration: settledAt - startTime,
+          })
+        }
         handlers.logError?.(args, Date.now() - startTime, normalized)
       }
       throw normalized

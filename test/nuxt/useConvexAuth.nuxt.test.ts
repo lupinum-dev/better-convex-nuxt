@@ -28,7 +28,7 @@ function makeJwt(sub: string): string {
  * Phase 3: `useConvexAuth()` derives its reactive contract (status/isPending/
  * isAuthenticated/user/token/error) from the SSR-seeded `useState` refs and
  * delegates operations (signOut/refresh/ready) plus the integrated signIn/signUp
- * namespaces to the per-app coordinator on `$convexAuthCoordinator`.
+ * namespaces to the coordinator owned by the per-app runtime context.
  */
 function provideFakeCoordinator(
   nuxtApp: ReturnType<typeof useNuxtApp>,
@@ -53,10 +53,8 @@ function provideFakeCoordinator(
     ...overrides,
   } as unknown as ConvexAuthCoordinator
 
-  Object.defineProperty(nuxtApp, '$convexAuthCoordinator', {
-    configurable: true,
-    value: coordinator,
-  })
+  if (!nuxtApp.$convexRuntime) throw new Error('Convex runtime was not installed')
+  nuxtApp.$convexRuntime.attachAuthCoordinator(coordinator)
   return coordinator
 }
 
@@ -123,7 +121,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
 
   it('delegates signOut/refresh/ready to the injected coordinator', async () => {
     let coordinator!: ConvexAuthCoordinator
-    const { result, nuxtApp } = await captureInNuxt(
+    const { result } = await captureInNuxt(
       () => {
         const app = useNuxtApp()
         coordinator = provideFakeCoordinator(app)
@@ -138,13 +136,13 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     expect(coordinator.signOut).toHaveBeenCalledTimes(1)
     expect(coordinator.refresh).toHaveBeenCalledTimes(1)
     expect(coordinator.ready).toHaveBeenCalledTimes(1)
-
-    delete (nuxtApp as typeof nuxtApp & { $convexAuthCoordinator?: unknown }).$convexAuthCoordinator
   })
 
   it('exposes the coordinator integrated signIn/signUp namespaces', async () => {
-    const signInNamespace = { email: async () => ({ data: { token: 't' }, error: null }) }
-    const { result, nuxtApp } = await captureInNuxt(
+    const signInNamespace = {
+      email: async () => ({ data: { token: 't' }, error: null }),
+    }
+    const { result } = await captureInNuxt(
       () => {
         const app = useNuxtApp()
         provideFakeCoordinator(app, {
@@ -156,8 +154,6 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     )
 
     expect(result.signIn).toBe(signInNamespace)
-
-    delete (nuxtApp as typeof nuxtApp & { $convexAuthCoordinator?: unknown }).$convexAuthCoordinator
   })
 
   it('SSR-authenticated hydration never exposes "loading" (vNext §5.3 stated exception)', async () => {
@@ -178,7 +174,10 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
         authError.value = null
 
         const auth = useConvexAuth()
-        watch(auth.status, (value) => observed.push(value), { immediate: true, flush: 'sync' })
+        watch(auth.status, (value) => observed.push(value), {
+          immediate: true,
+          flush: 'sync',
+        })
         return auth
       },
       { convexConfig: { auth: {} } },
@@ -198,7 +197,9 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     // synchronously, but `status` must never observe `loading` in between.
     const observed: string[] = []
     const authClient = {
-      convex: { token: async () => ({ data: { token: makeJwt('A') }, error: null }) },
+      convex: {
+        token: async () => ({ data: { token: makeJwt('A') }, error: null }),
+      },
       signIn: {},
       signUp: {},
     } as unknown as AuthClientWithConvex
@@ -214,7 +215,12 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
         pending.value = false
         authError.value = null
 
-        const state: ConvexAuthCoordinatorState = { token, user, pending, authError }
+        const state: ConvexAuthCoordinatorState = {
+          token,
+          user,
+          pending,
+          authError,
+        }
         const coordinator = createConvexAuthCoordinator({ authClient, state })
         watch(coordinator.status, (value) => observed.push(value), {
           immediate: true,
@@ -240,10 +246,9 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
   })
 
   it('HMR-safe: reevaluating the auth plugin on the same app reuses the existing coordinator', async () => {
-    // Models `plugin.auth.client.ts`'s idempotency guard (`if
-    // (nuxtApp.$convexAuthCoordinator) return`) directly against the real
-    // coordinator factory: a second "plugin run" on the SAME nuxtApp must not
-    // create a second coordinator instance (internal §17.3 HMR reuse).
+    // Models `plugin.auth.client.ts`'s runtime-context idempotency guard against
+    // the real coordinator factory. A second run on the same application must
+    // reuse the existing coordinator (internal §17.3 HMR reuse).
     let createCount = 0
     const authClient = {
       convex: { token: async () => ({ data: null, error: null }) },
@@ -252,9 +257,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     } as unknown as AuthClientWithConvex
 
     function runPluginOnce(nuxtApp: ReturnType<typeof useNuxtApp>) {
-      const existing = (
-        nuxtApp as typeof nuxtApp & { $convexAuthCoordinator?: ConvexAuthCoordinator }
-      ).$convexAuthCoordinator
+      const existing = nuxtApp.$convexRuntime?.getAuthCoordinator()
       if (existing) return existing
       createCount += 1
       const state: ConvexAuthCoordinatorState = {
@@ -264,14 +267,11 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
         authError: useState('convex:authError', () => null),
       }
       const coordinator = createConvexAuthCoordinator({ authClient, state })
-      Object.defineProperty(nuxtApp, '$convexAuthCoordinator', {
-        configurable: true,
-        value: coordinator,
-      })
+      nuxtApp.$convexRuntime?.attachAuthCoordinator(coordinator)
       return coordinator
     }
 
-    const { nuxtApp } = await captureInNuxt(
+    await captureInNuxt(
       () => {
         const app = useNuxtApp()
         const first = runPluginOnce(app)
@@ -281,8 +281,6 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
       },
       { convexConfig: { auth: {} } },
     )
-
     expect(createCount).toBe(1)
-    delete (nuxtApp as typeof nuxtApp & { $convexAuthCoordinator?: unknown }).$convexAuthCoordinator
   })
 })

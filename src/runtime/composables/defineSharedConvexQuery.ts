@@ -3,7 +3,7 @@ import { effectScope } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import type { ConvexClientOwner } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { SharedQueryArgsField } from '../utils/args-tuple'
 import {
   createConvexQueryState,
@@ -72,7 +72,7 @@ export function defineSharedConvexQuery<
     states.set(nuxtApp, { value, scope })
 
     if (import.meta.client) {
-      const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
+      const owner = readConvexRuntimeContext(nuxtApp)?.owner
       owner?.addDisposer(() => scope.stop())
     }
 

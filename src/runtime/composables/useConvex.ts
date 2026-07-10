@@ -1,6 +1,7 @@
 import { useNuxtApp } from '#imports'
 
-import type { ConvexClientHandle, ConvexClientOwner } from '../client/client-owner'
+import type { ConvexClientHandle } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 
 export type { ConvexClientHandle } from '../client/client-owner'
 
@@ -40,7 +41,7 @@ export type { ConvexClientHandle } from '../client/client-owner'
  */
 export function useConvex(): ConvexClientHandle {
   const nuxtApp = useNuxtApp()
-  const owner = nuxtApp.$convexClientOwner as ConvexClientOwner | undefined
+  const owner = readConvexRuntimeContext(nuxtApp)?.owner
 
   if (!owner) {
     throw new Error(

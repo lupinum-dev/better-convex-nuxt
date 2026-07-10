@@ -1,10 +1,32 @@
+import type { ConvexAuthMode } from '../utils/auth-status'
 import type { ConvexUser } from '../utils/types'
 /**
  * DevTools types and interfaces.
  */
-import type { QueryRegistryEntry } from './query-registry'
 
 export type { ConvexUser } from '../utils/types'
+
+export type QueryStatus = 'pending' | 'success' | 'error' | 'idle'
+export type QueryDataSource = 'ssr' | 'websocket' | 'client'
+
+export interface QueryRegistryEntry {
+  id: string
+  name: string
+  args: unknown
+  status: QueryStatus
+  dataSource: QueryDataSource
+  data: unknown
+  error?: string
+  lastUpdated: number
+  hasSubscription: boolean
+  updateCount: number
+  options?: {
+    immediate: boolean
+    server: boolean
+    subscribe: boolean
+    auth: ConvexAuthMode
+  }
+}
 
 // ============================================================================
 // Mutation Types
@@ -190,12 +212,6 @@ export interface ConvexDevToolsBridge {
   getAuthProxyStats: () => Promise<AuthProxyStats | null>
   /** Version of the bridge API */
   version: string
-}
-
-declare global {
-  interface Window {
-    __CONVEX_DEVTOOLS__?: ConvexDevToolsBridge
-  }
 }
 
 export {}

@@ -2,7 +2,7 @@ import { ref, readonly, computed, onScopeDispose, getCurrentScope } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
-import type { ConvexClientOwner } from '../client/client-owner'
+import { readConvexRuntimeContext } from '../runtime-context'
 
 // Re-export for convenience — convex/browser is the single source of truth.
 export type { ConnectionState } from 'convex/browser'
@@ -27,9 +27,7 @@ export type { ConnectionState } from 'convex/browser'
  */
 export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()
-  const owner = import.meta.client
-    ? (nuxtApp.$convexClientOwner as ConvexClientOwner | undefined)
-    : undefined
+  const owner = import.meta.client ? readConvexRuntimeContext(nuxtApp)?.owner : undefined
   const currentScope = getCurrentScope()
 
   // The owner-owned connection state, or a static disconnected default on the
