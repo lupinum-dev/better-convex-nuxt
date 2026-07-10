@@ -50,8 +50,7 @@ export const authAutoImports = [
 ] as const satisfies readonly ModuleImportRegistration[]
 
 export const serverAutoImports = [
-  { name: 'serverConvexQuery', from: './runtime/server/utils/convex' },
-  { name: 'serverConvexMutation', from: './runtime/server/utils/convex' },
-  { name: 'serverConvexAction', from: './runtime/server/utils/convex' },
+  { name: 'serverConvex', from: './runtime/server/utils/server-convex-caller' },
+  { name: 'exchangeConvexToken', from: './runtime/server/utils/token-exchange' },
   { name: 'serverConvexClearAuthCache', from: './runtime/server/utils/auth-cache' },
 ] as const satisfies readonly ModuleImportRegistration[]

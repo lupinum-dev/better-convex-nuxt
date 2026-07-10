@@ -1,0 +1,17 @@
+{
+  "name": "server-consumer",
+  "private": true,
+  "description": "Packed-probe consumer for better-convex-nuxt/server (vNext §9 'a server subpath consumer typecheck fixture'; internal §16.2). Imports ONLY the /server subpath from a real node_modules-resident install of the packed tarball, and proves the deleted server trio is gone via @ts-expect-error.",
+  "type": "module",
+  "scripts": {
+    "prepare:types": "nuxi prepare",
+    "typecheck": "nuxi typecheck"
+  },
+  "devDependencies": {
+    "better-convex-nuxt": "file:./better-convex-nuxt.tgz",
+    "convex": "1.38.0",
+    "nuxt": "4.4.7",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.2.5"
+  }
+}

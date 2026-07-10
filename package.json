@@ -92,6 +92,7 @@
     "check:better-auth-local-component": "tsc --noEmit -p test/fixtures/better-auth-local-component/tsconfig.json",
     "check:platform-auth-oauth-proof": "tsc --noEmit -p test/fixtures/platform-auth-oauth-proof/tsconfig.json",
     "check:boundaries": "node scripts/check-boundaries.mjs",
+    "benchmark:server-auth-cache": "node scripts/benchmark-server-auth-cache.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck:module && npm run typecheck:server && npm run check:boundaries && npm run test",
     "typecheck:module": "nuxt-module-build prepare && vue-tsc --noEmit",
     "typecheck:server": "tsc --noEmit -p src/runtime/server/tsconfig.json",

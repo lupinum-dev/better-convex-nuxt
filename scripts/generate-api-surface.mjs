@@ -184,25 +184,21 @@ const composableMeta = {
 }
 
 const serverMeta = {
-  serverConvexAction: {
+  serverConvex: {
     kind: 'Server helper',
-    purpose: 'Runs a Convex action from server routes/handlers.',
+    purpose:
+      'Creates a request-scoped server caller with query/mutation/action for server routes and handlers.',
+    guide: '/docs/server-side/server-routes',
+  },
+  exchangeConvexToken: {
+    kind: 'Server helper',
+    purpose: 'Exchanges a cookie/bearer credential for a Convex JWT (never-throwing outcome).',
     guide: '/docs/server-side/server-routes',
   },
   serverConvexClearAuthCache: {
     kind: 'Server helper',
     purpose: 'Clears cached auth token state used by server calls.',
     guide: '/docs/server-side/ssr-hydration',
-  },
-  serverConvexMutation: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex mutation from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
-  },
-  serverConvexQuery: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex query from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
   },
 }
 
@@ -293,7 +289,7 @@ Before Convex codegen creates \`convex/_generated/api\`, this alias points to a 
 Use \`#convex/server\` when an explicit server import is clearer than relying on Nuxt auto-imports, or for exports that are intentionally not auto-imported:
 
 \`\`\`ts
-import { serverConvexQuery } from '#convex/server'
+import { serverConvex } from '#convex/server'
 \`\`\`
 
 \`createUserSyncTriggers\` runs inside your \`convex/\` functions, where Nuxt aliases do not exist. Import it from its dedicated subpath instead:

@@ -61,7 +61,7 @@ const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
 
 /** Phases whose table entries are deep-checked (export shape, purity, packed probe). */
-const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3']
+const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3', 'phase4']
 
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
@@ -267,7 +267,8 @@ function collectExportTargets(value) {
  * @property {string[]} [additionalExpectedDeclaredNames] - extra names (types) the .d.ts must also declare
  * @property {string[]} forbiddenNames - names that must be absent from BOTH the JS and the .d.ts
  * @property {PurityRule} [purity] - if present, every file under `distDir` is scanned for forbidden imports
- * @property {string} [distDir] - dist-relative directory purity scanning walks (defaults to dirname(distJs))
+ * @property {string} [distDir] - dist-relative directory (or single file) purity scanning walks (defaults to dirname(distJs))
+ * @property {string} [sourceDir] - repo-relative source directory (or single file) purity scanning walks (defaults to `src/runtime/<subpath>`)
  * @property {(ctx: ProbeContext) => void} [packedProbe] - packed consumer probe, run against the extracted tarball
  */
 
@@ -370,18 +371,92 @@ const ENTRIES = [
     phase: 'phase4',
     distJs: 'dist/runtime/server/index.js',
     distDts: 'dist/runtime/server/index.d.ts',
-    expectedValueExports: [],
-    additionalExpectedDeclaredNames: [],
-    forbiddenNames: [],
+    expectedValueExports: [
+      'serverConvex',
+      'createClassifiedConvexFetch',
+      'normalizeServerConvexBoundaryError',
+      'exchangeConvexToken',
+      'normalizeSiteUrl',
+      'serverConvexClearAuthCache',
+    ],
+    additionalExpectedDeclaredNames: [
+      'ServerConvexCaller',
+      'ServerConvexOptions',
+      'ConvexCredential',
+      'ConvexTokenExchangeResult',
+    ],
+    // vNext §9 / internal §19.1 deletion ledger: the temporary server call
+    // trio this phase replaces must never leak back into the entry surface.
+    forbiddenNames: [
+      'serverConvexQuery',
+      'serverConvexMutation',
+      'serverConvexAction',
+      'fetchQuery',
+      'fetchMutation',
+      'fetchAction',
+    ],
+    purity: {
+      // Boundary rule for `/server` (internal §16.2): no composables, Vue, or
+      // client-side plugin code. `h3`, `convex`/`convex/browser`/`convex/server`,
+      // and the Nitro virtual `#imports` alias are legitimate server-side
+      // dependencies and are intentionally NOT forbidden here.
+      forbiddenSpecifierPatterns: [
+        /^vue$/,
+        /^@vue\//,
+        /^vue-router$/,
+        /^nuxt$/,
+        /^@nuxt\//,
+        /^#app\b/,
+        /^#components\b/,
+      ],
+      allowedBareSpecifiers: new Set(),
+    },
+    // `dist/runtime/server` is NOT bundled into `index.js` (mkdist copies the
+    // directory file-for-file, unlike the bundled `/errors`/`/auth-client`
+    // entries) — scope the scan to `utils/`, the subtree actually reachable
+    // from `index.ts`, so this entry's rules never see `createUserSyncTriggers`
+    // or the Nitro route handlers under `api/auth/*` (neither published under
+    // this subpath's `exports` mapping).
+    distDir: 'dist/runtime/server/utils',
+    sourceDir: 'src/runtime/server/utils',
+    packedProbe: probeServerEntry,
   },
   {
     subpath: './server/createUserSyncTriggers',
     phase: 'phase4',
     distJs: 'dist/runtime/server/createUserSyncTriggers.js',
     distDts: 'dist/runtime/server/createUserSyncTriggers.d.ts',
-    expectedValueExports: [],
-    additionalExpectedDeclaredNames: [],
+    expectedValueExports: ['createUserSyncTriggers'],
+    additionalExpectedDeclaredNames: [
+      'BetterAuthUserDocLike',
+      'CreateUserSyncTriggersOptions',
+      'UserSyncRebuildResult',
+    ],
     forbiddenNames: [],
+    purity: {
+      // Framework-free: this entry has no Convex/H3/Nitro imports of its own
+      // (it only takes user-supplied ctx/db shapes as generics), so any Vue,
+      // Nuxt, or Nitro import here would be an accidental coupling.
+      forbiddenSpecifierPatterns: [
+        /^vue$/,
+        /^@vue\//,
+        /^vue-router$/,
+        /^nuxt$/,
+        /^@nuxt\//,
+        /^#app\b/,
+        /^#components\b/,
+        /^#imports$/,
+        /^nitropack\b/,
+        /^h3$/,
+      ],
+      allowedBareSpecifiers: new Set(),
+    },
+    // Single-file entry with zero imports of its own — scope the scan to
+    // exactly this file so it is never affected by unrelated siblings sharing
+    // the same `dist/runtime/server` directory.
+    distDir: 'dist/runtime/server/createUserSyncTriggers.js',
+    sourceDir: 'src/runtime/server/createUserSyncTriggers.ts',
+    packedProbe: probeCreateUserSyncTriggersEntry,
   },
 ]
 
@@ -530,7 +605,8 @@ function checkEntryPurity(entry, failures) {
   if (!entry.purity) return
   const distDir = p(entry.distDir ?? dirname(entry.distJs))
   const sourceDir = p(
-    entry.subpath === '.' ? 'src/module.ts' : `src/runtime/${entry.subpath.replace('./', '')}`,
+    entry.sourceDir ??
+      (entry.subpath === '.' ? 'src/module.ts' : `src/runtime/${entry.subpath.replace('./', '')}`),
   )
 
   const filesToScan = [
@@ -820,6 +896,64 @@ function probeAuthClientTyping(ctx) {
     rmSync(join(fixtureDir, 'node_modules'), { recursive: true, force: true })
     rmSync(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
+    rmSync(localTarball, { force: true })
+    rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+  }
+}
+
+/**
+ * `/server` probe: installs the packed tarball into the committed
+ * `test/fixtures/server-consumer` fixture (vNext §9 "a server subpath
+ * consumer typecheck fixture") and runs `nuxi prepare` (proves the Nuxt
+ * module still installs cleanly from the packed tarball) then `nuxi
+ * typecheck` (proves type resolution of the real `better-convex-nuxt/server`
+ * subpath, plus the `@ts-expect-error` negative-space contract proving the
+ * deleted server trio no longer typechecks there — vNext §9 mandatory test
+ * "old trio imports fail typecheck").
+ */
+function probeServerEntry(ctx) {
+  const fixtureDir = p('test/fixtures/server-consumer')
+  const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
+  copyFileSync(ctx.tarballPath, localTarball)
+
+  try {
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
+  } catch (error) {
+    ctx.failures.push(`[./server] packed server-consumer probe failed: ${error.message}`)
+  } finally {
+    rmSync(join(fixtureDir, 'node_modules'), { recursive: true, force: true })
+    rmSync(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
+    rmSync(localTarball, { force: true })
+    rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+  }
+}
+
+/**
+ * `/server/createUserSyncTriggers` probe: this entry is framework-free (no
+ * Nuxt/H3/Convex import of its own), so — like `/errors` — it is proved with
+ * a standalone Node consumer rather than a full Nuxt fixture: installs the
+ * packed tarball into `test/fixtures/user-sync-triggers-consumer` and runs its
+ * `build` (type resolution via `tsc`) and `start` (runtime resolution).
+ */
+function probeCreateUserSyncTriggersEntry(ctx) {
+  const fixtureDir = p('test/fixtures/user-sync-triggers-consumer')
+  const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
+  copyFileSync(ctx.tarballPath, localTarball)
+
+  try {
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'build'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'start'], { cwd: fixtureDir })
+  } catch (error) {
+    ctx.failures.push(
+      `[./server/createUserSyncTriggers] packed user-sync-triggers-consumer probe failed: ${error.message}`,
+    )
+  } finally {
+    rmSync(join(fixtureDir, 'node_modules'), { recursive: true, force: true })
+    rmSync(join(fixtureDir, 'dist'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
   }

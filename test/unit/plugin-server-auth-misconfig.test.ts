@@ -79,7 +79,10 @@ describe('plugin.server token exchange failure policy', () => {
     useRequestEventMock.mockReturnValue({
       path: '/dashboard',
       method: 'GET',
-      node: { req: { url: '/dashboard' }, res: { setHeader: setHeaderMock } },
+      node: {
+        req: { url: '/dashboard' },
+        res: { setHeader: setHeaderMock, getHeader: vi.fn().mockReturnValue(undefined) },
+      },
       headers: new Headers({
         cookie: 'better-auth.session_token=abc',
       }),
@@ -158,7 +161,10 @@ describe('plugin.server token exchange failure policy', () => {
     expect(stateStore.get('convex:authError')?.value).toBeNull()
     expect(stateStore.get('convex:token')?.value).toBeNull()
     expect(stateStore.get('convex:user')?.value).toBeNull()
-    expect(setHeaderMock).not.toHaveBeenCalled()
+    // Auth-enabled SSR responses always vary by cookie, but a no-token response
+    // must NOT be marked private/no-store (vNext §9).
+    expect(setHeaderMock).toHaveBeenCalledWith('Vary', 'Cookie')
+    expect(setHeaderMock).not.toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 
   it('sets Cache-Control: private, no-store when a token is hydrated (F-10)', async () => {

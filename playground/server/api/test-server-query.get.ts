@@ -2,22 +2,22 @@ import type { H3Event } from 'h3'
 import { defineEventHandler, createError, getQuery } from 'h3'
 
 import { api } from '#convex/api'
-import { serverConvexQuery } from '#convex/server'
+import { serverConvex } from '#convex/server'
 
 /**
- * Test API endpoint that demonstrates server-side queries using serverConvexQuery.
+ * Test API endpoint that demonstrates server-side queries using serverConvex.
  *
  * This endpoint fetches notes using the Convex query from the server.
- * It shows how you can use serverConvexQuery in API routes or server middleware.
+ * It shows how you can use serverConvex in API routes or server middleware.
  */
 export default defineEventHandler(async (event: H3Event) => {
   const query = getQuery(event)
   const limit = Number(query.limit) || 5
 
   try {
-    // Use the new serverConvexQuery utility!
+    // Use the new serverConvex caller!
     // This is the key feature being tested - server-side queries
-    const notes = await serverConvexQuery(event, api.notes.list, {})
+    const notes = await serverConvex(event).query(api.notes.list, {})
 
     // Take only the requested limit
     const limitedNotes = notes.slice(0, limit)
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event: H3Event) => {
     if (
       import.meta.dev &&
       error instanceof Error &&
-      error.message.includes('Convex URL not configured')
+      error.message.includes('Convex URL is not configured')
     ) {
       throw createError({ statusCode: 500, message: error.message })
     }

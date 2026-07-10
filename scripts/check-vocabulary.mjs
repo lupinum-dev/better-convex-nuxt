@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Phases whose rules actually execute. Extend as later phases land rules. */
-const ACTIVE_PHASES = ['phase0', 'phase1', 'phase3']
+const ACTIVE_PHASES = ['phase0', 'phase1', 'phase3', 'phase4']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([
@@ -265,6 +265,17 @@ const RULES = [
     patterns: [/\bcreateBetterConvexAuthClient\b|\bresolveBetterConvexAuthBaseURL\b/],
     paths: ['src', 'playground', 'docs/content', 'starters'],
     phase: 'phase3',
+  },
+  {
+    name: 'no-server-convex-trio',
+    description:
+      'Forbid the deleted server call trio `serverConvexQuery`/`serverConvexMutation`/`serverConvexAction`; ' +
+      'the single server call API is the `serverConvex(event)` caller (vNext §9). ' +
+      '(The `docs/content` rewrite lands in Phase 6, and the negative-space export assertions live ' +
+      'in test/unit/server-index-exports.test.ts, so `docs/content` and `test` are out of scope here.)',
+    patterns: [/\bserverConvex(?:Query|Mutation|Action)\b/],
+    paths: ['src', 'playground', 'starters'],
+    phase: 'phase4',
   },
 ]
 

@@ -22,7 +22,7 @@ const fetchUnknown = $fetch as (
   options?: { method?: string; body?: unknown },
 ) => Promise<unknown>
 
-maybeDescribe('Server helpers smoke (serverConvexQuery/serverConvexMutation)', async () => {
+maybeDescribe('Server caller smoke (serverConvex query/mutation)', async () => {
   afterAll(async () => {
     if (local) {
       await local.release()

@@ -14,9 +14,16 @@ type StrictEmptyArgs = Record<PropertyKey, never>
  * keys — without it, `keyof (A | B)` is the key *intersection*, which is
  * `never` for disjoint members and would wrongly collapse the whole union to
  * the empty-args type.
+ *
+ * Exported for the `serverConvex` caller, which applies the same no-argument
+ * tightening as the client contract: a no-arg server call must still pass `{}`,
+ * and an options-shaped object can never occupy the args slot.
  */
-type EmptyArgs = Record<string, never>
-type TightenEmptyArgs<T> = T extends unknown ? (keyof T extends never ? StrictEmptyArgs : T) : never
+export type TightenEmptyArgs<T> = T extends unknown
+  ? keyof T extends never
+    ? StrictEmptyArgs
+    : T
+  : never
 type TightenEmptyArgsParam<T> =
   T extends MaybeRefOrGetter<infer Value> ? MaybeRefOrGetter<TightenEmptyArgs<Value>> : T
 
@@ -36,16 +43,6 @@ export type ConvexQueryRest<_ArgsObject, ArgsParam, Options> = [
   args: TightenEmptyArgsParam<ArgsParam>,
   options?: Options,
 ]
-
-/**
- * The server-caller `(args, options)` call shape. Unlike the client contract,
- * the server trio (internal until Phase 4) keeps the Convex `OptionalRestArgs`
- * rule: functions satisfiable by `{}` keep args optional; everything else makes
- * args required. This preserves the pre-cutover server ergonomics.
- */
-export type ServerConvexRest<ArgsObject, ArgsParam, Options> = EmptyArgs extends ArgsObject
-  ? [args?: TightenEmptyArgsParam<ArgsParam>, options?: Options]
-  : [args: ArgsParam, options?: Options]
 
 /**
  * The always-required `args` field for object-config composables

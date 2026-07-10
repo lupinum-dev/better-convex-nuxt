@@ -16,6 +16,8 @@
     "test/proofs/packed-typing",
     "test/fixtures/ssr-errors-consumer",
     "test/fixtures/errors-consumer",
+    "test/fixtures/server-consumer",
+    "test/fixtures/user-sync-triggers-consumer",
     "src/runtime/server"
   ]
 }

@@ -2,15 +2,15 @@
   <div class="container">
     <h1>Server Actions Lab</h1>
     <p class="description">
-      Test <code>serverConvexQuery</code> and <code>serverConvexMutation</code> utilities for
+      Test the <code>serverConvex</code> caller (<code>.query</code> / <code>.mutation</code>) for
       server-side Convex operations. These work in API routes, server middleware, and background
       jobs.
     </p>
 
     <div class="sections">
-      <!-- serverConvexQuery Section -->
+      <!-- serverConvex().query Section -->
       <section class="section">
-        <h2>serverConvexQuery</h2>
+        <h2>serverConvex().query</h2>
         <p class="section-desc">Fetch data from Convex on the server side.</p>
 
         <div class="controls">
@@ -19,7 +19,7 @@
             <input v-model.number="queryLimit" type="number" min="1" max="20" />
           </label>
           <button :disabled="isQueryLoading" @click="testFetchQuery">
-            {{ isQueryLoading ? 'Loading...' : 'Test serverConvexQuery' }}
+            {{ isQueryLoading ? 'Loading...' : 'Test serverConvex().query' }}
           </button>
         </div>
 
@@ -34,16 +34,16 @@
         </div>
       </section>
 
-      <!-- serverConvexMutation Section -->
+      <!-- serverConvex().mutation Section -->
       <section class="section">
-        <h2>serverConvexMutation</h2>
+        <h2>serverConvex().mutation</h2>
         <p class="section-desc">Execute mutations on Convex from the server side.</p>
 
         <div class="controls">
           <input v-model="noteTitle" type="text" placeholder="Note title" />
           <input v-model="noteContent" type="text" placeholder="Note content" />
           <button :disabled="isMutationLoading" @click="testFetchMutation">
-            {{ isMutationLoading ? 'Creating...' : 'Test serverConvexMutation' }}
+            {{ isMutationLoading ? 'Creating...' : 'Test serverConvex().mutation' }}
           </button>
         </div>
 
@@ -63,30 +63,23 @@
         <h2>Usage in API Routes</h2>
         <div class="code-example">
           <h3>Server Query (GET /api/test-server-query)</h3>
-          <pre><code>import { serverConvexQuery } from '#convex/server'
+          <pre><code>import { serverConvex } from '#convex/server'
 import { api } from '#convex/api'
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
-  const notes = await serverConvexQuery(
-    config.public.convex.url,
-    api.notes.list,
-    {}
-  )
+  const notes = await serverConvex(event).query(api.notes.list, {})
   return { notes }
 })</code></pre>
         </div>
 
         <div class="code-example">
           <h3>Server Mutation (POST /api/test-server-mutation)</h3>
-          <pre><code>import { serverConvexMutation } from '#convex/server'
+          <pre><code>import { serverConvex } from '#convex/server'
 import { api } from '#convex/api'
 
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
   const body = await readBody(event)
-  const noteId = await serverConvexMutation(
-    config.public.convex.url,
+  const noteId = await serverConvex(event).mutation(
     api.notes.add,
     { title: body.title, content: body.content }
   )
