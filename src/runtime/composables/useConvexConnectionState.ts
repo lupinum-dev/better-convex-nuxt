@@ -1,4 +1,5 @@
-import { ref, readonly, computed, onScopeDispose, getCurrentScope } from 'vue'
+import type { ConnectionState } from 'convex/browser'
+import { ref, computed, onMounted, onScopeDispose, getCurrentScope } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
@@ -6,6 +7,17 @@ import { readConvexRuntimeContext } from '../runtime-context'
 
 // Re-export for convenience — convex/browser is the single source of truth.
 export type { ConnectionState } from 'convex/browser'
+
+const DISCONNECTED_CONNECTION_STATE: Readonly<ConnectionState> = Object.freeze({
+  hasInflightRequests: false,
+  isWebSocketConnected: false,
+  timeOfOldestInflightRequest: null,
+  hasEverConnected: false,
+  connectionCount: 0,
+  connectionRetries: 0,
+  inflightMutations: 0,
+  inflightActions: 0,
+})
 
 /**
  * Monitor the Convex WebSocket connection state (vNext §5.4).
@@ -29,29 +41,25 @@ export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()
   const owner = import.meta.client ? readConvexRuntimeContext(nuxtApp)?.owner : undefined
   const currentScope = getCurrentScope()
+  const mounted = ref(false)
 
-  // The owner-owned connection state, or a static disconnected default on the
-  // server / when no owner exists.
-  const state = owner
-    ? owner.connection.state
-    : readonly(
-        ref({
-          hasInflightRequests: false,
-          isWebSocketConnected: false,
-          timeOfOldestInflightRequest: null,
-          hasEverConnected: false,
-          connectionCount: 0,
-          connectionRetries: 0,
-          inflightMutations: 0,
-          inflightActions: 0,
-        }),
-      )
+  // Always expose the disconnected snapshot during SSR and the initial client
+  // render. Reading the owner store only after mount prevents connection timing
+  // from changing hydration output.
+  const state = computed<Readonly<ConnectionState>>(() =>
+    mounted.value && owner ? owner.connection.state.value : DISCONNECTED_CONNECTION_STATE,
+  )
 
   if (import.meta.client && owner && currentScope) {
-    // Register this scope as a connection consumer; the owner handles the single
-    // underlying subscription and its rebinding across primary replacement.
-    const removeConsumer = owner.connection.addConsumer()
-    onScopeDispose(removeConsumer)
+    let removeConsumer: (() => void) | null = null
+    // Subscribe after hydration so the first client render matches the static
+    // disconnected SSR snapshot. The owner still shares one underlying
+    // subscription and rebinds it across primary replacement.
+    onMounted(() => {
+      removeConsumer = owner.connection.addConsumer()
+      mounted.value = true
+    })
+    onScopeDispose(() => removeConsumer?.())
   }
 
   const isConnected = computed(() => state.value.isWebSocketConnected)
@@ -67,8 +75,6 @@ export function useConvexConnectionState() {
     hydrationTimer = setTimeout(() => {
       isHydratingConnection.value = false
     }, 500)
-  } else {
-    isHydratingConnection.value = false
   }
 
   if (currentScope) {

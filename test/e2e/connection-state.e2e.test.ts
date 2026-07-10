@@ -31,7 +31,16 @@ maybeDescribe('Connection state (full stack)', async () => {
   })
 
   it('renders connection telemetry with expected state shape', async () => {
-    const page = await createPage('/labs/connection')
+    const page = await createPage('/')
+    await page.waitForLoadState('networkidle')
+    const hydrationDiagnostics: string[] = []
+    page.on('console', (message) => {
+      const text = message.text()
+      if (/hydration.*mismatch/i.test(text)) {
+        hydrationDiagnostics.push(text)
+      }
+    })
+    await page.goto(`${new URL(page.url()).origin}/labs/connection`)
     await page.waitForSelector('.raw-state pre', { timeout: 15000 })
 
     const heading = await page.textContent('.container h1')
@@ -47,5 +56,6 @@ maybeDescribe('Connection state (full stack)', async () => {
     expect(parsed).toHaveProperty('hasInflightRequests')
     expect(parsed).toHaveProperty('isWebSocketConnected')
     expect(parsed).toHaveProperty('connectionRetries')
+    expect(hydrationDiagnostics).toEqual([])
   })
 })
