@@ -64,7 +64,7 @@ describe('createConvexCallState', () => {
     expect(state.error.value).toBeNull()
   })
 
-  it('returns a commit signal callers must use to gate result callbacks (F-30)', () => {
+  it('returns a commit signal callers must use to gate result callbacks', () => {
     // Consumers (useConvexMutation/useConvexAction) must only invoke onSuccess/onError
     // when commitSuccess/commitError report the commit actually landed. A superseded
     // or reset request must fire neither callback.

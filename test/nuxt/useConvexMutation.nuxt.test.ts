@@ -203,7 +203,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
       throw new Error('Expected safe result to be an error')
     }
     // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
-    // (F-31: that was an app convention, not core behavior) — the message passes
+    // (that was an app convention, not core behavior) — the message passes
     // through verbatim and no code is synthesized from it.
     expect(safeResult.error.code).toBeUndefined()
     expect(safeResult.error.message).toBe('Limit reached')
@@ -295,7 +295,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.error.value).toBeNull()
   })
 
-  it('does not fire onSuccess/onError for a superseded call (F-30)', async () => {
+  it('does not fire onSuccess/onError for a superseded call', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:superseded-mutation')
 

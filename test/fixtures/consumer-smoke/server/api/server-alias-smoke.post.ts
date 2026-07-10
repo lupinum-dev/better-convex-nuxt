@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
 })
 
 /**
- * Negative-space call-arity contracts (F-5 / F-23) for the server caller.
+ * Negative-space call-arity contracts for the server caller.
  * These must NOT compile; reverting the exact-empty args tightening makes the
  * `@ts-expect-error` lines fail `check:consumer-smoke`. Never invoked.
  */
@@ -25,13 +25,13 @@ async function _serverRequiredArgsContracts(event: Parameters<typeof serverConve
   await caller.query(api.tasks.list, {})
   // Positive: correct required args compile.
   await caller.query(api.files.getUrl, { storageId: 'file_1' })
-  // @ts-expect-error the args object is required, even for a no-arg query (F-5)
+  // @ts-expect-error the args object is required, even for a no-arg query
   await caller.query(api.tasks.list)
-  // @ts-expect-error `{}` must not satisfy a query with required args (F-5)
+  // @ts-expect-error `{}` must not satisfy a query with required args
   await caller.query(api.files.getUrl, {})
-  // @ts-expect-error wrong arg shape must not compile (F-5)
+  // @ts-expect-error wrong arg shape must not compile
   await caller.query(api.files.getUrl, { wrong: 1 })
-  // @ts-expect-error required mutation args are not omittable (F-5)
+  // @ts-expect-error required mutation args are not omittable
   await caller.mutation(api.tasks.create)
 }
 

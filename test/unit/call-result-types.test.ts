@@ -72,7 +72,7 @@ describe('CallResult type contracts', () => {
     expect(true).toBe(true)
   })
 
-  it('does not special-case a LIMIT_* message prefix into a code (F-31)', () => {
+  it('does not special-case a LIMIT_* message prefix into a code', () => {
     // The normalizer never classifies from message text. A plain Error that
     // happens to start with LIMIT_ passes through verbatim as `unknown`, and no
     // code is synthesized from it.

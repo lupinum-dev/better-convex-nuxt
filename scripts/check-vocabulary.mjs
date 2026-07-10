@@ -53,6 +53,14 @@ const EXCLUDED_DIR_NAMES = new Set([
   'reports',
 ])
 
+/** Historical design records document deleted APIs and must not define current vocabulary. */
+const EXCLUDED_PATH_PREFIXES = ['docs/architecture/vnext/']
+
+function isExcludedPath(absolutePath) {
+  const repoRelativePath = relative(repoRoot, absolutePath).split('\\').join('/')
+  return EXCLUDED_PATH_PREFIXES.some((prefix) => repoRelativePath.startsWith(prefix))
+}
+
 /** File extensions skipped because they are not meaningfully text/regex-searchable. */
 const BINARY_EXTENSIONS = new Set([
   '.png',
@@ -368,6 +376,14 @@ const RULES = [
     paths: ['src', 'docs/content', 'starters', 'playground'],
     phase: 'phase6',
   },
+  {
+    name: 'no-review-finding-markers',
+    description:
+      'Forbid temporary review finding identifiers in maintained code, tests, fixtures, and docs.',
+    patterns: [/\bF-\d+\b/],
+    paths: ['src', 'build.config.ts', 'playground', 'docs', 'test', 'starters', 'README.md'],
+    phase: 'phase6',
+  },
 ]
 
 class ConfigError extends Error {}
@@ -437,7 +453,9 @@ function collectFiles(absolutePath) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
         if (EXCLUDED_DIR_NAMES.has(entry.name)) continue
-        stack.push(join(dir, entry.name))
+        const childDirectory = join(dir, entry.name)
+        if (isExcludedPath(childDirectory + '/')) continue
+        stack.push(childDirectory)
         continue
       }
       if (!entry.isFile()) continue

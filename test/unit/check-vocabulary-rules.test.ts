@@ -78,6 +78,7 @@ describe('vocabulary checker rule table integrity (internal §16.3)', () => {
         'no-legacy-auth-dotted-flags',
         'no-legacy-auth-client-type-names',
         'no-omitted-query-args',
+        'no-review-finding-markers',
       ].sort(),
     )
   })

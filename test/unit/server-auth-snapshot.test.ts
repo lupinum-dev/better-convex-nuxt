@@ -124,7 +124,7 @@ describe('resolveServerAuthSnapshot', () => {
     )
   })
 
-  it('logs a truncated user id, never an email, on successful exchange (F-39)', async () => {
+  it('logs a truncated user id, never an email, on successful exchange', async () => {
     decodeUserFromJwtMock.mockReturnValue({
       id: 'user-abcdefghijklmnop',
       email: 'private-email@example.com',
@@ -185,7 +185,7 @@ describe('resolveServerAuthSnapshot', () => {
     })
   })
 
-  it('hydrates a generic authError in production while logging the detailed message (F-11)', async () => {
+  it('hydrates a generic authError in production while logging the detailed message', async () => {
     fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
 
     const snapshot = await resolveServerAuthSnapshot({

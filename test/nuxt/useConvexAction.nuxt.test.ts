@@ -200,7 +200,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
       throw new Error('Expected safe result to be an error')
     }
     // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
-    // (F-31) — the message passes through verbatim and no code is synthesized.
+    // — the message passes through verbatim and no code is synthesized.
     expect(safeResult.error.code).toBeUndefined()
     expect(safeResult.error.message).toBe('Action limit reached')
   })
@@ -257,7 +257,7 @@ describe('useConvexAction (Nuxt runtime)', () => {
     expect(result.error.value).toBeNull()
   })
 
-  it('does not fire onSuccess/onError for a superseded call (F-30)', async () => {
+  it('does not fire onSuccess/onError for a superseded call', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:superseded-action')
 

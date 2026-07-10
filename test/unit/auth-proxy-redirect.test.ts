@@ -89,7 +89,7 @@ describe('auth proxy canonical redirect handling', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
-    it('strips credential headers on a followed cross-origin canonical redirect (F-27)', async () => {
+    it('strips credential headers on a followed cross-origin canonical redirect', async () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(
@@ -125,7 +125,7 @@ describe('auth proxy canonical redirect handling', () => {
       expect(secondHeaders['content-type']).toBe('text/plain')
     })
 
-    it('strips the authorization header on a followed cross-origin canonical redirect (F-27)', async () => {
+    it('strips the authorization header on a followed cross-origin canonical redirect', async () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(

@@ -136,7 +136,7 @@ describe('plugin.server token exchange failure policy', () => {
         /convex\/token|token exchange/i,
       )
     } else {
-      // Prod (F-11): never leak secret/file hints or raw upstream text to the client.
+      // Prod: never leak secret/file hints or raw upstream text to the client.
       await expect(run).resolves.toBeUndefined()
       expect(stateStore.get('convex:authError')?.value).toBe(
         'Authentication is temporarily unavailable',
@@ -167,7 +167,7 @@ describe('plugin.server token exchange failure policy', () => {
     expect(setHeaderMock).not.toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 
-  it('sets Cache-Control: private, no-store when a token is hydrated (F-10)', async () => {
+  it('sets Cache-Control: private, no-store when a token is hydrated', async () => {
     decodeUserFromJwtMock.mockReturnValue({ id: 'user-1', email: 'user@example.com' })
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/api/auth/convex/token')) {

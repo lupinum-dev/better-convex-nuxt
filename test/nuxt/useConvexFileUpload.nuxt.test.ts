@@ -150,7 +150,7 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     expect(result.data.value).toBeUndefined()
   })
 
-  it('rejects a second concurrent upload() while one is pending (F-14)', async () => {
+  it('rejects a second concurrent upload() while one is pending', async () => {
     globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     FakeXhr.delayMs = 20
 
@@ -182,7 +182,7 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     expect(result.error.value).toBeNull()
   })
 
-  it('cancel() during the URL-request phase prevents the XHR and leaves state idle (F-14)', async () => {
+  it('cancel() during the URL-request phase prevents the XHR and leaves state idle', async () => {
     globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     const sendSpy = vi.spyOn(FakeXhr.prototype, 'send')
 

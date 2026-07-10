@@ -60,7 +60,7 @@ export default defineSchema({
   }).index('by_user', ['userId']),
 
   // ============================================
-  // FILES (ownership tracking for Convex storage - F-9)
+  // FILES (ownership tracking for Convex storage)
   // ============================================
   files: defineTable({
     storageId: v.id('_storage'),

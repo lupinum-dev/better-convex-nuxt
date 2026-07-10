@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 // Real consumers (and CI, which installs a packed tarball) resolve
 // `better-convex-nuxt` from node_modules. The linked local fixture has no such
 // entry, so it needs the bare specifier mapped to the package's types entry for
-// the F-22 `declare module 'better-convex-nuxt'` augmentation
+// the `declare module 'better-convex-nuxt'` augmentation
 // (types/convex-user.d.ts) to resolve and merge.
 //
 // Only apply that override when the node_modules copy is absent. When it is

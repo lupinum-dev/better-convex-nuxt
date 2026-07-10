@@ -169,7 +169,7 @@ function _removedApiSurfaceContracts() {
 void _removedApiSurfaceContracts
 
 /**
- * Negative-space call-arity contracts (F-5 / F-23 / vNext §5.5 decision 9).
+ * Negative-space call-arity contracts (vNext §5.5 decision 9).
  * These calls must NOT compile; reverting the always-required positional args
  * slot makes the `@ts-expect-error` lines fail `check:consumer-smoke`. The
  * function is never invoked at runtime.
@@ -189,9 +189,9 @@ async function _requiredArgsContracts() {
   void useConvexQuery(api.tasks.list, undefined)
   // Positive: correct required args compile.
   void useConvexQuery(api.files.getUrl, { storageId: 'file_1' })
-  // @ts-expect-error required args must not be omittable (F-5)
+  // @ts-expect-error required args must not be omittable
   void useConvexQuery(api.files.getUrl)
-  // @ts-expect-error wrong arg shape must not compile (F-5)
+  // @ts-expect-error wrong arg shape must not compile
   void useConvexQuery(api.files.getUrl, { wrong: 1 })
   // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
   void useConvexQuery(api.tasks.list, { initialNumItems: 5 })
@@ -230,13 +230,13 @@ async function _requiredArgsContracts() {
   void useConvexPaginatedQuery(api.tasks.listPaginated, {})
   // @ts-expect-error paginated queries never omit the args slot either
   void useConvexPaginatedQuery(api.tasks.listPaginated)
-  // @ts-expect-error options object must not be accepted in the args slot (F-5 follow-up)
+  // @ts-expect-error options object must not be accepted in the args slot (follow-up)
   void useConvexPaginatedQuery(api.tasks.listPaginated, { initialNumItems: 5 })
   // Positive: correct required extra args compile.
   void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { owner: 'user_1' })
-  // @ts-expect-error required paginated args must not be omittable (F-5)
+  // @ts-expect-error required paginated args must not be omittable
   void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner)
-  // @ts-expect-error wrong paginated arg shape must not compile (F-5)
+  // @ts-expect-error wrong paginated arg shape must not compile
   void useConvexPaginatedQuery(api.tasks.listPaginatedByOwner, { wrong: 1 })
 
   // --- useConvexUser: canonical/profile query helper follows the same
@@ -246,9 +246,9 @@ async function _requiredArgsContracts() {
   void useConvexUser(api.auth.viewer, {})
   // @ts-expect-error canonical user queries require positional args
   void useConvexUser(api.auth.viewer)
-  // @ts-expect-error required args must not be omittable (F-5)
+  // @ts-expect-error required args must not be omittable
   void useConvexUser(api.files.getUrl)
-  // @ts-expect-error wrong arg shape must not compile (F-5)
+  // @ts-expect-error wrong arg shape must not compile
   void useConvexUser(api.files.getUrl, { wrong: 1 })
 
   // --- defineSharedConvexQuery: args field always required, including `{}`
@@ -256,16 +256,16 @@ async function _requiredArgsContracts() {
   defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list, args: {} })
   // @ts-expect-error shared queries always declare args, even for no-arg queries
   defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list })
-  // @ts-expect-error required args field must not be omittable (F-5)
+  // @ts-expect-error required args field must not be omittable
   defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl })
-  // @ts-expect-error wrong args field shape must not compile (F-5)
+  // @ts-expect-error wrong args field shape must not compile
   defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl, args: { wrong: 1 } })
 
-  // --- useConvexStorageUrl: query must accept { storageId } and return string | null (F-15) ---
+  // --- useConvexStorageUrl: query must accept { storageId } and return string | null ---
   // Positive: correctly-typed getUrl query, with optional auth passthrough.
   void useConvexStorageUrl(api.files.getUrl, 'file_1')
   void useConvexStorageUrl(api.files.getUrl, 'file_1', { auth: 'required' })
-  // @ts-expect-error mistyped getUrl query (wrong args/return) must not compile (F-15)
+  // @ts-expect-error mistyped getUrl query (wrong args/return) must not compile
   void useConvexStorageUrl(api.tasks.list, 'file_1')
 }
 void _requiredArgsContracts

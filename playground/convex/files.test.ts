@@ -1,7 +1,7 @@
 /**
  * Files (Convex Storage) Tests
  *
- * Backend example for the file-storage docs (F-9 audit finding): verifies
+ * Backend example for the file-storage docs: verifies
  * generateUploadUrl/getUrl/deleteFile enforce authentication + ownership.
  */
 

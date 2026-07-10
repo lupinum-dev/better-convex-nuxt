@@ -168,7 +168,7 @@ describe('createUserSyncTriggers', () => {
     expect(query).toHaveBeenCalledTimes(2)
   })
 
-  it('no-ops onUpdate arriving before onCreate for the same user (F-42)', async () => {
+  it('no-ops onUpdate arriving before onCreate for the same user', async () => {
     // Documents the current, intentional behavior (see the onUpdate JSDoc):
     // out-of-order delivery (onUpdate before onCreate) finds no existing
     // projection row and silently drops the update rather than queuing or

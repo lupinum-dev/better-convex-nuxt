@@ -7,7 +7,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// fetchAuthToken performs NO cookie -> JWT exchange (F-13). plugin.server.ts
+// fetchAuthToken performs NO cookie -> JWT exchange. plugin.server.ts
 // runs the single per-request exchange before any route component setup and
 // writes the result into useState('convex:token'); SSR queries only read it.
 describe('fetchAuthToken', () => {

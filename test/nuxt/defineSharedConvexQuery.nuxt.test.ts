@@ -48,7 +48,7 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     wrapper.unmount()
   })
 
-  it('shared subscription survives the first consumer unmounting (F-4)', async () => {
+  it('shared subscription survives the first consumer unmounting', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('users:get-current:shared-lifetime')
 

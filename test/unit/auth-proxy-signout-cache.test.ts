@@ -77,7 +77,7 @@ function createEvent(
   }
 }
 
-describe('auth proxy sign-out cache invalidation (F-28)', () => {
+describe('auth proxy sign-out cache invalidation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getConvexRuntimeConfigMock.mockReturnValue({

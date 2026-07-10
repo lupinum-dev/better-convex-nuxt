@@ -3,7 +3,7 @@ import { lstat, readdir, rm } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 
 /**
- * Post-build dist cleanup (F-37).
+ * Post-build dist cleanup.
  *
  * @nuxt/module-builder's `runtime` mkdist entry (in its own hardcoded config)
  * copies the entire `src/runtime/` tree into `dist/runtime/`, including
