@@ -69,7 +69,9 @@ export function buildContentManifest(packageDir) {
 
   walk(packageDir)
   const packedPackageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
-  return { version: packedPackageJson.version, generatedAt: new Date().toISOString(), files }
+  // This is release-content evidence, so it must describe only reproducible
+  // package inputs. Recording wall-clock time would make equal builds differ.
+  return { version: packedPackageJson.version, files }
 }
 
 export function checkPackedPathClasses(manifest, failures) {
