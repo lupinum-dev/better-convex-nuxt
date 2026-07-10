@@ -11,7 +11,7 @@ type AuthOrganizationResult = {
 // The typed Better Auth client comes from `useConvexAuth().client`, itself typed
 // from `app/convex-auth.ts` (the `<srcDir>/convex-auth.ts` convention definition
 // with `organizationClient()`). Null during SSR / when auth is disabled.
-const { signUp, refreshAuth, client: authClient } = useConvexAuth()
+const { signUp, refresh, client: authClient } = useConvexAuth()
 
 const organizationId = ref('')
 const queueArgs = computed(() =>
@@ -74,7 +74,7 @@ async function signUpOwner() {
       throw new Error(error.message || 'Sign up failed')
     }
 
-    await refreshAuth()
+    await refresh()
     return 'Owner session ready'
   })
 }
@@ -100,7 +100,7 @@ async function createOrganization() {
     }
 
     organizationId.value = organization.id
-    await refreshAuth()
+    await refresh()
     return 'Organization ready'
   })
 }

@@ -249,6 +249,61 @@ function collectExportTargets(value) {
   return Object.values(value).flatMap((next) => collectExportTargets(next))
 }
 
+/**
+ * vNext §11 "Package checks": `files: ["dist"]` must include every `exports`
+ * target, and `typesVersions` must have exactly one entry per non-root
+ * `exports` subpath (so `./foo` resolves under both moduleResolution
+ * `Bundler`/`NodeNext` and the legacy `node10` typesVersions fallback path).
+ * A drift here is a real published-package defect, not a style nit, so it is
+ * a hard failure rather than a manual review note.
+ */
+function checkPackageJsonManifestConsistency() {
+  const failures = []
+  const exportsMap = packageJson.exports ?? {}
+  const declaredFiles = packageJson.files ?? []
+
+  // `files: ["dist"]` (a bare directory entry) covers every `./dist/...`
+  // target by construction; only flag an export target that escapes `dist/`
+  // entirely and isn't otherwise covered by a declared `files` entry.
+  const filesCoversDist = declaredFiles.includes('dist')
+  for (const [subpath, exportValue] of Object.entries(exportsMap)) {
+    for (const target of collectExportTargets(exportValue)) {
+      if (!target.startsWith('./')) continue
+      const stripped = target.slice(2)
+      const coveredByDist = filesCoversDist && stripped.startsWith('dist/')
+      const coveredExplicitly = declaredFiles.some(
+        (entry) => stripped === entry || stripped.startsWith(`${entry.replace(/\/$/, '')}/`),
+      )
+      if (!coveredByDist && !coveredExplicitly) {
+        failures.push(
+          `package.json exports["${subpath}"] target "${target}" is not covered by "files": ${JSON.stringify(declaredFiles)}`,
+        )
+      }
+    }
+  }
+
+  // `typesVersions["*"]` must have exactly one key per non-root `exports`
+  // subpath (the subpath with its leading "./" stripped), and vice versa.
+  const typesVersionsStar = packageJson.typesVersions?.['*'] ?? {}
+  const exportSubpaths = new Set(
+    Object.keys(exportsMap).map((subpath) => (subpath === '.' ? '.' : subpath.slice(2))),
+  )
+  const typesVersionsKeys = new Set(Object.keys(typesVersionsStar))
+
+  for (const subpath of exportSubpaths) {
+    if (!typesVersionsKeys.has(subpath)) {
+      failures.push(`typesVersions["*"] is missing an entry for exports subpath "${subpath}"`)
+    }
+  }
+  for (const key of typesVersionsKeys) {
+    if (!exportSubpaths.has(key)) {
+      failures.push(`typesVersions["*"]["${key}"] has no matching exports subpath`)
+    }
+  }
+
+  return failures
+}
+
 // ---------------------------------------------------------------------------
 // Table-driven entries (internal §16.2)
 // ---------------------------------------------------------------------------
@@ -797,6 +852,38 @@ function probeRootEntry(ctx) {
     [
       "import mod from 'better-convex-nuxt'",
       "if (typeof mod !== 'function' && typeof mod !== 'object') throw new Error('default export did not resolve')",
+      '',
+      '// vNext §11 "Package checks" negative-resolution assertions: deleted named',
+      '// exports must not resolve from the packed root, even via a dynamic import',
+      '// namespace object (which — unlike a static `import { X } from ...` — would',
+      '// silently omit the property rather than throw, so this must check for its',
+      '// absence explicitly rather than rely on a parse/link failure).',
+      "const rootNamespace = await import('better-convex-nuxt')",
+      'const forbiddenRootNames = [',
+      "  'usePermissions',",
+      "  'createPermissions',",
+      "  'createBetterConvexAuthClient',",
+      "  'resolveBetterConvexAuthBaseURL',",
+      "  'useConvexCall',",
+      "  'getQueryKey',",
+      ']',
+      'for (const name of forbiddenRootNames) {',
+      '  if (name in rootNamespace) {',
+      '    throw new Error(`forbidden export "${name}" resolved from the packed package root`)',
+      '  }',
+      '}',
+      '',
+      '// The deleted `better-convex-nuxt/composables` subpath must not resolve at all.',
+      'let composablesSubpathResolved = true',
+      'try {',
+      "  await import('better-convex-nuxt/composables')",
+      '} catch {',
+      '  composablesSubpathResolved = false',
+      '}',
+      'if (composablesSubpathResolved) {',
+      '  throw new Error(\'deleted subpath "better-convex-nuxt/composables" resolved but must not\')',
+      '}',
+      '',
       "console.log('root-entry-probe runtime OK')",
       '',
     ].join('\n'),
@@ -810,6 +897,16 @@ function probeRootEntry(ctx) {
       'const _opts: ModuleOptions | undefined = undefined',
       'void mod',
       'void _opts',
+      '',
+      '// vNext §11 "Package checks" negative-resolution assertions: these named',
+      '// imports must fail to typecheck against the packed root — if any of them',
+      '// starts compiling, a deleted export has silently come back.',
+      '// @ts-expect-error "createBetterConvexAuthClient" is not an export of the packed root',
+      "import { createBetterConvexAuthClient } from 'better-convex-nuxt'",
+      '// @ts-expect-error "getQueryKey" is not an export of the packed root',
+      "import { getQueryKey } from 'better-convex-nuxt'",
+      'void createBetterConvexAuthClient',
+      'void getQueryKey',
       '',
     ].join('\n'),
   )
@@ -978,6 +1075,7 @@ function main() {
 
   const sourceScan = runSourceScan()
   failures.push(...sourceScan.failures)
+  failures.push(...checkPackageJsonManifestConsistency())
 
   requireDistBuilt()
 

@@ -79,6 +79,7 @@
     "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare --cwd playground --dotenv .env.local",
     "docs:api-surface": "node scripts/generate-api-surface.mjs",
     "release": "node scripts/release.mjs",
+    "release:verify": "npm run check && npm run check:contracts && npm run prepack",
     "lint": "npm run check:vocabulary && npm run check:no-starter-generated-artifacts && eslint .",
     "check:contracts": "npm run check:api-surface-docs && npm run check:package-exports && npm run check:workspace-deps && npm run check:consumer-smoke && npm run check:missing-convex-api && npm run check:better-auth-local-component && npm run check:platform-auth-oauth-proof",
     "check:package-exports": "node scripts/check-package-exports.mjs",

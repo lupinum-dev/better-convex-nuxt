@@ -190,7 +190,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Sign-out revokes the session upstream; proactively clear our cached JWT
     // for it too so a subsequent request can't reuse a stale cached token for
-    // the rest of the authCache TTL window (F-28).
+    // the rest of the authCache TTL window.
     if (isSignOutRequest && sessionTokenBeforeProxy && response.ok && authCacheEnabled) {
       await serverConvexClearAuthCache(sessionTokenBeforeProxy)
     }

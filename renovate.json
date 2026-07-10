@@ -32,12 +32,12 @@
       "automerge": true
     },
     {
-      "matchPackagePatterns": ["^@nuxt/", "^nuxt$", "^@nuxtjs/"],
+      "matchPackageNames": ["/^@nuxt\\//", "/^nuxt$/", "/^@nuxtjs\\//"],
       "groupName": "nuxt ecosystem",
       "automerge": false
     },
     {
-      "matchPackagePatterns": ["^convex", "^@convex-dev/"],
+      "matchPackageNames": ["/^convex/", "/^@convex-dev\\//"],
       "groupName": "convex ecosystem",
       "automerge": false
     },

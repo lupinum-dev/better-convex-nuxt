@@ -5,7 +5,7 @@ const { message } = defineProps<{
   message: string
 }>()
 
-const { signIn, signUp, refreshAuth } = useConvexAuth()
+const { signIn, signUp, refresh } = useConvexAuth()
 const route = useRoute()
 
 const mode = ref<'signIn' | 'signUp'>('signUp')
@@ -70,7 +70,7 @@ async function submitAuth() {
       }
 
       password.value = ''
-      await refreshAuth()
+      await refresh()
       info.value = 'Check your email for a verification link.'
       return
     }
@@ -95,7 +95,7 @@ async function submitAuth() {
     }
 
     password.value = ''
-    await refreshAuth()
+    await refresh()
     info.value =
       'Signed in. If your email is not verified yet, check your inbox for a verification link.'
   } catch (e) {

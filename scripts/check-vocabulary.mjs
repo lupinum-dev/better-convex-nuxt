@@ -22,8 +22,15 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
-/** Phases whose rules actually execute. Extend as later phases land rules. */
-const ACTIVE_PHASES = ['phase0', 'phase1', 'phase3', 'phase4']
+/**
+ * Phases whose rules actually execute.
+ *
+ * FROZEN at Phase 6 (vNext §11 "Source locks", final activation): this table
+ * is the complete, permanent vocabulary lock for the 0.x cutover. There is no
+ * later phase to schedule against — any further ban is a new entry in RULES
+ * reusing `phase6` (or one of the already-active phases), not a new phase tag.
+ */
+const ACTIVE_PHASES = ['phase0', 'phase1', 'phase3', 'phase4', 'phase6']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([
@@ -271,11 +278,95 @@ const RULES = [
     description:
       'Forbid the deleted server call trio `serverConvexQuery`/`serverConvexMutation`/`serverConvexAction`; ' +
       'the single server call API is the `serverConvex(event)` caller (vNext §9). ' +
-      '(The `docs/content` rewrite lands in Phase 6, and the negative-space export assertions live ' +
-      'in test/unit/server-index-exports.test.ts, so `docs/content` and `test` are out of scope here.)',
+      '(Phase 6 rewrote `docs/content` onto the caller API, so docs are now in scope too. The ' +
+      'negative-space export assertions proving the trio no longer resolves live in ' +
+      'test/unit/server-index-exports.test.ts, so `test` stays out of scope here.)',
     patterns: [/\bserverConvex(?:Query|Mutation|Action)\b/],
-    paths: ['src', 'playground', 'starters'],
+    paths: ['src', 'playground', 'starters', 'docs/content'],
     phase: 'phase4',
+  },
+
+  // ---- Phase 6 rules (vNext §11 "Source locks", final activation) ----------
+
+  {
+    name: 'no-legacy-auth-engine-api',
+    description:
+      'Forbid the deleted `refreshAuth`/`awaitAuthReady` composable-surface spellings; ' +
+      '`useConvexAuth()` exposes `refresh()` (advanced raw-client/claim-change flows only) and ' +
+      'settlement is internal (vNext §8). signIn/signUp synchronize Convex automatically, so app ' +
+      'code should rarely need `refresh()` at all.',
+    patterns: [/\brefreshAuth\b/, /\bawaitAuthReady\b/],
+    paths: [
+      'src',
+      'README.md',
+      'docs/content',
+      'starters',
+      'playground',
+      'test/TESTING.md',
+      'test/browser',
+      'test/e2e',
+      'test/fixtures',
+      'test/helpers',
+      'test/nuxt',
+      'test/unit',
+    ],
+    phase: 'phase6',
+  },
+  {
+    name: 'no-defaults-auth-escape-hatch',
+    description:
+      'Forbid the internal `defaults.auth` merge-defaults escape hatch surfacing in app-facing ' +
+      'code/docs; module options set `auth: false | {...}` directly — there is no separate ' +
+      'defaults object to reach into. (The historical prototype proving the merge behavior lives ' +
+      'in test/proofs/packed-typing/defu-merge-proof.mjs, so `test` is out of scope for this rule.)',
+    patterns: [/\bdefaults\.auth\b/],
+    paths: ['src', 'README.md', 'docs/content', 'starters', 'playground'],
+    phase: 'phase6',
+  },
+  {
+    name: 'no-permissions-module-option',
+    description:
+      'Forbid the deleted `permissions` module option in either boolean state (`permissions: true` ' +
+      'and `permissions: false` are both retired spellings); permission rules stay ' +
+      'application/Convex policy, not a module toggle.',
+    patterns: [/\bpermissions\s*:\s*(?:true|false)\b/],
+    paths: ['src', 'README.md', 'docs/content', 'starters', 'playground'],
+    phase: 'phase6',
+  },
+  {
+    name: 'no-legacy-auth-dotted-flags',
+    description:
+      'Forbid the deleted dotted config-path spellings `auth.enabled`, `auth.cache.enabled`, and ' +
+      '`auth.unauthorized.enabled`; the auth input is `auth: false | {...}` with no nested ' +
+      '`enabled` flag anywhere in its shape (vNext §11).',
+    patterns: [/\bauth\.unauthorized\.enabled\b/, /\bauth\.cache\.enabled\b/, /\bauth\.enabled\b/],
+    paths: ['src', 'README.md', 'docs/content', 'starters', 'playground'],
+    phase: 'phase6',
+  },
+  {
+    name: 'no-legacy-auth-client-type-names',
+    description:
+      'Forbid the deleted `BetterConvexAuthClientOptions`/`BetterConvexAuthClientPluginList` type ' +
+      'names; the current typed-client surface exports `ConvexAuthClientDefinitionOptions` and ' +
+      '`AuthClientPlugins` from `better-convex-nuxt/auth-client` (vNext §8).',
+    patterns: [/\bBetterConvexAuthClientOptions\b|\bBetterConvexAuthClientPluginList\b/],
+    paths: ['src', 'README.md', 'docs/content', 'starters', 'playground'],
+    phase: 'phase6',
+  },
+  {
+    name: 'no-omitted-query-args',
+    description:
+      'Forbid app-facing examples that omit the args slot on a query composable call; the final ' +
+      "API always takes an explicit args object or the `'skip'` sentinel, even for a no-argument " +
+      'query (decision 9). (The required @ts-expect-error negative-space contracts proving the ' +
+      'omitted form fails to typecheck live in test/fixtures/consumer-smoke, so `test` is out of ' +
+      'scope for this rule.)',
+    patterns: [
+      /\buseConvexQuery\(\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\)/,
+      /\buseConvexPaginatedQuery\(\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\)/,
+    ],
+    paths: ['src', 'docs/content', 'starters', 'playground'],
+    phase: 'phase6',
   },
 ]
 

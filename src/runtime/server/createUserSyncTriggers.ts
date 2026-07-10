@@ -139,7 +139,7 @@ export function createUserSyncTriggers<
       /**
        * Patches the projected row for a Better Auth user update.
        *
-       * F-42: if `onUpdate` fires before the corresponding `onCreate` has run
+       * If `onUpdate` fires before the corresponding `onCreate` has run
        * for this user (e.g. out-of-order trigger delivery, or a webhook race),
        * `findExistingByAuthId` finds nothing and this silently no-ops — the
        * update is dropped rather than queued or retried. The row is created

@@ -11,6 +11,13 @@ describe('vocabulary checker rule table integrity (internal §16.3)', () => {
     expect(RULES.length).toBeGreaterThan(0)
   })
 
+  it('is frozen at Phase 6 (vNext §11 final activation): every known phase is active', () => {
+    // The table stops scheduling once Phase 6 lands — there is no later phase
+    // to extend ACTIVE_PHASES for, so it must equal the full known-phase set.
+    expect([...ACTIVE_PHASES].sort()).toEqual([...KNOWN_PHASES].sort())
+    expect(ACTIVE_PHASES).toContain('phase6')
+  })
+
   it('gives every rule a unique name, a description, and a known phase', () => {
     const names = new Set<string>()
     for (const rule of RULES) {
@@ -57,6 +64,22 @@ describe('vocabulary checker rule table integrity (internal §16.3)', () => {
       ACTIVE_PHASES.includes(rule.phase),
     )
     expect(activeRules.length).toBeGreaterThan(0)
+  })
+
+  it('locks in the full Phase 6 source-lock rule set (vNext §11)', () => {
+    const phase6Names = RULES.filter((rule: { phase: string }) => rule.phase === 'phase6').map(
+      (rule: { name: string }) => rule.name,
+    )
+    expect(phase6Names.sort()).toEqual(
+      [
+        'no-legacy-auth-engine-api',
+        'no-defaults-auth-escape-hatch',
+        'no-permissions-module-option',
+        'no-legacy-auth-dotted-flags',
+        'no-legacy-auth-client-type-names',
+        'no-omitted-query-args',
+      ].sort(),
+    )
   })
 
   it('reports missing rule paths as a configuration error rather than silently passing', () => {

@@ -77,22 +77,4 @@ export default defineSchema({
     createdAt: v.number(),
     userId: v.optional(v.string()),
   }),
-
-  // ============================================
-  // PROOF SUPPORT (vNext Phase 0 harness - proofSupport.ts)
-  // ============================================
-  // Backing store for the tiny counter used by subscription / optimistic /
-  // wire-protocol proof fixtures. Not part of the product schema — owned by
-  // the harness bootstrap only. See proofSupport.ts.
-  proofCounters: defineTable({
-    key: v.string(),
-    value: v.number(),
-    updatedAt: v.number(),
-  }).index('by_key', ['key']),
-
-  proofCounterEvents: defineTable({
-    key: v.string(),
-    value: v.number(),
-    createdAt: v.number(),
-  }).index('by_key', ['key']),
 })

@@ -3,7 +3,7 @@ import { api } from '#convex/api'
 
 const route = useRoute()
 const invitationId = computed(() => route.params.invitationId as string)
-const { isAuthenticated, isPending, refreshAuth, user } = useConvexAuth()
+const { isAuthenticated, isPending, refresh, user } = useConvexAuth()
 const acceptInvitation = useConvexMutation(api.invitations.accept)
 const rejectInvitation = useConvexMutation(api.invitations.reject)
 const shouldLoadInvitation = computed(
@@ -55,7 +55,7 @@ async function accept() {
     const result = await acceptInvitation({
       invitationId: invitationId.value,
     })
-    await refreshAuth()
+    await refresh()
     await navigateTo(`/organizations/${result.organizationId}`)
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : 'Invitation was not accepted'

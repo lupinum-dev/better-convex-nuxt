@@ -174,7 +174,7 @@ export function normalizeConvexUser(input: unknown): ConvexUser | null {
  *
  * Only `status === 'error'` is treated as an error. A payload whose `value`
  * legitimately contains a `code` field (e.g. `{ status: 'success', value: {
- * code: 'x' } }`) must not be mistaken for an error response (F-33).
+ * code: 'x' } }`) must not be mistaken for an error response.
  */
 export function parseConvexResponse<T>(response: unknown): T {
   // Check for error response

@@ -10,7 +10,7 @@ function readValidationMessage(result: {
 }
 
 export function useMcpDemoAuth(args: { onSignedIn: () => Promise<void>; onSignedOut: () => void }) {
-  const { user, isAuthenticated, isPending, signIn, signUp, signOut, refreshAuth, authError } =
+  const { user, isAuthenticated, isPending, signIn, signUp, signOut, refresh, authError } =
     useConvexAuth()
 
   const mode = ref<AuthMode>('signUp')
@@ -93,7 +93,7 @@ export function useMcpDemoAuth(args: { onSignedIn: () => Promise<void>; onSigned
       }
 
       password.value = ''
-      await refreshAuth()
+      await refresh()
       await args.onSignedIn()
       authMessage.value = 'Signed in and app user bootstrapped'
     } catch (error) {

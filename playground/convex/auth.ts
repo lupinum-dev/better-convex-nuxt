@@ -105,11 +105,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       siteUrl,
       'http://localhost:3000',
       'http://127.0.0.1:3000',
-      // vNext Phase 0 proof harness: parallel proof groups each boot the
-      // playground Nuxt server on their own assigned port (see
-      // test/proofs/support/acquire-token.mjs + proofs-harness.md port
-      // ranges). Wildcard-match any localhost/127.0.0.1 port rather than
-      // enumerating every port so groups never need to touch this file.
+      // The e2e suite (test/e2e/**) boots this playground app through
+      // @nuxt/test-utils/e2e's `setup()`, which assigns each run an arbitrary
+      // free port. Wildcard-match any localhost/127.0.0.1 port rather than
+      // enumerating every port so new e2e files never need to touch this file.
       'http://localhost:*',
       'http://127.0.0.1:*',
     ],

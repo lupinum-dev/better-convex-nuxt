@@ -21,8 +21,7 @@ function deferred<T>() {
 
 /**
  * Provide a fake `$convexAuthCoordinator` (Phase 3: `ensureConvexAuthReady`
- * awaits `coordinator.ready()` — a single snapshot call, not the retired
- * `$convexAuthEngine` `awaitAuthReady`/`refreshAuth` pair).
+ * awaits `coordinator.ready()` — a single snapshot call, not a polling loop).
  */
 function provideFakeCoordinator(ready: () => Promise<unknown>) {
   const app = useNuxtApp()

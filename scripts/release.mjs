@@ -210,11 +210,15 @@ try {
 
 run('npm', ['whoami'])
 if (!releasePrepared) {
-  run('npm', ['run', 'format:check'])
-  run('npm', ['run', 'lint'])
-  run('npm', ['run', 'test:types'])
+  // `check` is the one authoritative PR command (format, lint, module/server
+  // types, source boundaries, and the full test suite). `release:verify`
+  // (`check` + `check:contracts` + `prepack`) is a reproducible superset of
+  // it. `prepack` runs again below via `buildPackAndVerify`, so it is
+  // deliberately not repeated here — this must never re-list a hand-picked
+  // subset of `check`'s own steps, or the two gates can silently drift apart
+  // (internal §16.4 "one authoritative check command" / §16.5 `release:verify`).
+  run('npm', ['run', 'check'])
   run('npm', ['run', 'check:contracts'])
-  run('npm', ['run', 'test'])
 
   run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
   run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])

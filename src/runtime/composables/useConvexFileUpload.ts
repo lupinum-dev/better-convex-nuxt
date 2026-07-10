@@ -271,7 +271,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     // used to be assigned only after the URL-request mutation resolved, so a
     // second upload() call made during that mutation phase saw a null
     // controller and slipped through, interleaving with the first call on
-    // the shared status/progress/data refs (F-14). Reject immediately
+    // the shared status/progress/data refs. Reject immediately
     // without touching those refs; they belong to the in-flight upload.
     if (_status.value === 'pending') {
       const err = new ConvexCallError({
@@ -327,7 +327,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     // it resolves) so cancel() called during that phase has something to
     // signal — previously the window between calling upload() and the
     // mutation resolving had no controller, so cancel() was a no-op and the
-    // upload would later overwrite the reset state with 'success' (F-14).
+    // upload would later overwrite the reset state with 'success'.
     const controller = new AbortController()
     currentAbortController = controller
 

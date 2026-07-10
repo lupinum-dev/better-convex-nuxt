@@ -18,7 +18,7 @@ type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 const GENERIC_AUTH_ERROR_MESSAGE = 'Authentication is temporarily unavailable'
 
 /**
- * Truncate a user id for debug logs (F-39). Log events are debug-gated but
+ * Truncate a user id for debug logs. Log events are debug-gated but
  * still land in server logs / log aggregators; a full email is PII that
  * doesn't need to be there just to correlate log lines to a session.
  */

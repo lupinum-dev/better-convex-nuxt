@@ -95,6 +95,34 @@ jobs:
       - name: Publish preview release
         run: npx pkg-pr-new publish --pnpm
 
+  # Tier 2 (internal §16.4 "Package pull-request job"): clean dist, build once,
+  # pack once, then run the full deterministic contract suite — packed
+  # type/export/purity/consumer probes (`check:package-exports`), API-surface
+  # doc freshness, workspace dependency-band alignment, and the fixture
+  # typecheck contracts. This is the same `check:contracts` command the Full
+  # Better Convex Nuxt gate (vNext §11) and `release:verify` run.
+  contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build module
+        run: nuxt-module-build prepare && npm run build:devtools && nuxt-module-build build
+
+      - name: Contract checks
+        run: npm run check:contracts
+
   consumer-smoke:
     runs-on: ubuntu-latest
 

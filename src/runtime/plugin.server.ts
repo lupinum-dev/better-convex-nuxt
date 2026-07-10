@@ -104,7 +104,7 @@ export default defineNuxtPlugin(async () => {
     trackWaterfall: import.meta.dev,
     throwOnMisconfig: import.meta.dev,
     // Detailed token-exchange failures are dev-only; production hydrates a
-    // generic message (F-11).
+    // generic message.
     revealAuthErrorDetails: import.meta.dev,
   })
 
@@ -116,7 +116,7 @@ export default defineNuxtPlugin(async () => {
   // This is an auth-enabled SSR response, so it always varies by cookie. When a
   // recognized Better Auth cookie is present AND a per-user JWT was serialized
   // into the SSR payload, also forbid shared/CDN caching so it never reaches a
-  // different user (vNext §9, F-10). Existing `Vary` values are preserved.
+  // different user (vNext §9). Existing `Vary` values are preserved.
   applyConvexAuthSsrHeaders(event, {
     authEnabled: true,
     hasBetterAuthCookie: getBetterAuthSessionToken(cookieHeader) !== null,

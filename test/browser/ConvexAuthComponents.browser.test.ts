@@ -29,7 +29,7 @@ test('<ConvexAuthenticated> renders slot only when authenticated and not pending
     isPending: ref(false),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthenticated, {
@@ -48,7 +48,7 @@ test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pen
     isPending: ref(false),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexUnauthenticated, {
@@ -67,7 +67,7 @@ test('<ConvexAuthLoading> renders slot while pending', async () => {
     isPending: ref(true),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthLoading, {
@@ -86,7 +86,7 @@ test('<ConvexAuthError> renders slot when auth is not pending and has explicit a
     isPending: ref(false),
     authError: ref('Unauthorized'),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthError, {

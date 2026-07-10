@@ -135,3 +135,92 @@ ADR records status, context, decision, consequences, and the guarding test.
   grammar, not a registry consult.
 - **Guarding test:** the permanent Convex wire fixture (internal §7.1) _(Phase 1:
   W2/W3 finalize deletion)_.
+
+## ADR-003 — Epoch-scoped refresh deduplication
+
+- **Status:** Accepted (vNext §5.3, §5.8 proof 8; internal §6.5).
+- **Context:** Background token refresh and integrated sign-in/sign-up/sign-out
+  share one identity timeline. A slow in-flight refresh must never win a race
+  against a later, faster identity operation and must never silently apply a
+  stale result after a newer identity has already committed.
+- **Decision:** `authEpoch` is a monotonic counter bumped by every identity
+  operation (including same-user token rotation) at dequeue time, before it
+  awaits Better Auth or performs its effect — never at invocation time.
+  `refresh()` (`src/runtime/auth/client-engine.ts`) captures the current
+  `authEpoch` and deduplicates concurrent callers only while that epoch is
+  still current (`refreshEpoch === authEpoch`); a caller observing a newer
+  epoch starts a fresh refresh instead of awaiting a stale one. A refresh's
+  result may only commit (`installSetAuth`/`commitTransition`) when its
+  captured epoch still equals the live `authEpoch`; otherwise it is discarded.
+  The serial identity-operation queue (`src/runtime/auth/serial-queue.ts`)
+  keeps sign-in/sign-up/sign-out in one FIFO chain that survives individual
+  rejections, so refresh dedup only has to arbitrate against the queue's
+  current epoch, not against reordering within the queue itself.
+- **Consequences:** A background refresh can never overwrite a completing
+  sign-in/sign-out with stale data, and same-user rotation never triggers a
+  redundant refresh storm. The cost is that every commit site must re-check
+  its captured epoch before writing shared state — there is no single choke
+  point that makes this automatic.
+- **Guarding test:** `test/unit/auth-generation-races.test.ts` (`same-user token
+rotation bumps authEpoch but not identityGeneration`, `deferred refresh
+cannot commit across a completing sign-out`, `does not independently wait for
+a concurrent sign-in unless its refresh was captured`); historically proved
+  live against a real `ConvexClient` by the deleted Phase 0 prototype
+  `test/proofs/auth-races/proof8-epoch-refresh-dedup.mjs`.
+
+## ADR-004 — Server-boundary sanitization of the credential exchange
+
+- **Status:** Accepted (vNext §5.8 proofs 5 and 7; internal §10).
+- **Context:** `serverConvex`'s cookie/bearer-to-Convex-token exchange
+  (`src/runtime/server/utils/token-exchange.ts`) talks to an upstream HTTP
+  endpoint that is not fully trusted: it can return an oversized, malformed, or
+  non-OK body, and — if naively followed — a redirect could carry the
+  credential to a different origin. Any of these must never leak a raw
+  credential or unstructured upstream response body into a public error, log
+  line, or payload.
+- **Decision:** `exchangeConvexToken` validates the credential shape
+  synchronously before any network access; issues the fetch with
+  `redirect: 'error'` so a redirect can never be followed with the credential
+  attached; bounds and drains oversized/malformed/missing-token/timeout
+  responses into one classified `transport` failure instead of surfacing the
+  raw body; and never interpolates the credential or raw response text into a
+  thrown error, a log call, or `ConvexCallError.data`.
+- **Consequences:** Every upstream failure mode collapses to the same public,
+  secret-free `ConvexCallError` shape; adding a new upstream failure mode must
+  route through the same classification rather than adding an ad hoc
+  passthrough.
+- **Guarding test:** `test/unit/token-exchange.test.ts` (HTTP failure
+  classification, redirect-safety, and "secrets never appear in logs" describe
+  blocks) — the permanent successor explicitly modeled on the retained Phase 0
+  fixture `test/proofs/server-security/` (proofs 5 and 7), which stays in the
+  tree as the release-gate reference for this contract.
+
+## ADR-005 — The four-method replacement-safe `useConvex()` handle
+
+- **Status:** Accepted (vNext §5.4, §5.8 proof 11; internal §4.4; stop
+  condition 11).
+- **Context:** The primary `ConvexClient` is retired and replaced on every
+  identity-key change (ADR-001). A consumer that held a raw client reference
+  across that swap would either keep talking to a closed client or need to
+  re-subscribe manually. Ginko's standalone Studio bridge also subscribes
+  through `bridge.convexClient.onUpdate` with no composable alternative
+  (vNext §10.6), so the handle cannot shed `onUpdate` without breaking that
+  consumer.
+- **Decision:** `useConvex()` returns one stable object exposing exactly
+  `query | mutation | action | onUpdate`, never the raw `ConvexClient`. Calls
+  dispatch to whichever client is current at call time (`src/runtime/auth/
+client-owner.ts`); `onUpdate` rebinds an active listener from the outgoing
+  client to the incoming one across a primary replacement with a stable
+  unsubscribe identity and never more than one live subscription for that
+  listener, and in-flight consumer-held calls on a retired client reject with
+  `ConvexCallError({ kind: 'authentication', code: 'IDENTITY_CHANGED' })`
+  rather than hanging.
+- **Consequences:** The handle's surface is intentionally frozen at these four
+  methods; reducing it requires the funded Studio-migration decision in
+  §5.8 proof 11, not a silent surface reduction (vNext §14 stop condition 11).
+  No caller may import Convex private modules to work around the handle.
+- **Guarding test:** `test/unit/client-owner.test.ts` ("onUpdate rebinding
+  (proof 11 mechanics)" and "rejects an in-flight consumer-held mutation with
+  IDENTITY_CHANGED on retirement" describe blocks); historically proved live
+  against a real `ConvexClient` by the deleted Phase 0 prototype
+  `test/proofs/onupdate-rebinding/onupdate-rebinding.proof.mjs`.

@@ -1,0 +1,85 @@
+name: starters
+
+# Path-filtered starters matrix (internal §16.4 tier 3 on change, tier 4
+# nightly for the full set; vNext §11 Phase 0 funding-gap resolution). Each of
+# the five supported starters (`public`, `team`, `agentic-saas`, `agency`,
+# `mcp-agent`) is an independent install root with its own `pnpm-lock.yaml`
+# resolving `better-convex-nuxt` against this repo's workspace source, not a
+# packed tarball — that packed-consumer proof lives in the root `ci.yml`
+# `package`/`consumer-smoke` jobs instead.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'starters/**'
+      - '.github/workflows/starters.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'starters/**'
+      - '.github/workflows/starters.yml'
+  schedule:
+    # Nightly full-matrix run regardless of changed paths (tier 4) — path
+    # filters above only apply to push/pull_request, never to schedule.
+    - cron: '17 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  starters:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        starter:
+          - public
+          - team
+          - agentic-saas
+          - agency
+          - mcp-agent
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install starter dependencies
+        working-directory: starters/${{ matrix.starter }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: starters/${{ matrix.starter }}
+        run: pnpm run typecheck
+
+      - name: Build
+        working-directory: starters/${{ matrix.starter }}
+        run: pnpm run build
+
+      - name: Invariant test
+        working-directory: starters/${{ matrix.starter }}
+        run: pnpm run test
+
+  generated-artifact-allowlist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Starter generated-artifact allowlist check
+        # Pure node:fs scan over starters/** — no install required (internal
+        # §15.4). Also covered by the always-on root `lint` job; run again
+        # here so this workflow is a complete, self-contained starters gate.
+        run: node scripts/check-no-starter-generated-artifacts.mjs

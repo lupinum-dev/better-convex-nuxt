@@ -6,13 +6,7 @@ import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 let previousWrapper: { unmount: () => void } | null = null
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
-let currentAuthEngineTarget: Record<PropertyKey, unknown> | null = null
 let currentOwnerTarget: Record<PropertyKey, unknown> | null = null
-
-const defaultAuthEngineTarget: Record<PropertyKey, unknown> = {
-  awaitAuthReady: async () => true,
-  refreshAuth: async () => {},
-}
 
 const convexProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
@@ -38,18 +32,6 @@ const authProxy = new Proxy<Record<PropertyKey, unknown>>(
   },
 )
 
-const authEngineProxy = new Proxy<Record<PropertyKey, unknown>>(
-  {},
-  {
-    get(_target, key) {
-      const target = currentAuthEngineTarget
-      if (!target) return undefined
-      const value = target[key]
-      return typeof value === 'function' ? value.bind(target) : value
-    },
-  },
-)
-
 // The per-app client owner (vNext §5.4) — provided once as a stable proxy so a
 // whole test file (which shares one implicit vueApp under @nuxt/test-utils) can
 // swap the backing owner per test despite Nuxt's one-time `provide`.
@@ -68,7 +50,6 @@ const ownerProxy = new Proxy<Record<PropertyKey, unknown>>(
 interface CaptureOptions {
   convex?: unknown
   auth?: unknown
-  authEngine?: unknown
   owner?: unknown
   convexConfig?: Record<string, unknown>
   payloadData?: Record<string, unknown>
@@ -165,9 +146,6 @@ export async function captureInNuxt<T>(
         if (options.auth === undefined) {
           currentAuthTarget = null
         }
-        if (options.authEngine === undefined) {
-          currentAuthEngineTarget = defaultAuthEngineTarget
-        }
         if (options.owner === undefined) {
           // Synthesize a per-app client owner from the convex mock so query
           // composables (which reach transport through the owner) work without
@@ -197,16 +175,6 @@ export async function captureInNuxt<T>(
           currentOwnerTarget = options.owner as Record<PropertyKey, unknown>
           if (!(nuxtApp as typeof nuxtApp & { $convexClientOwner?: unknown }).$convexClientOwner) {
             nuxtApp.provide('convexClientOwner', ownerProxy)
-          }
-        }
-
-        if (options.authEngine !== undefined) {
-          currentAuthEngineTarget = {
-            ...defaultAuthEngineTarget,
-            ...(options.authEngine as Record<PropertyKey, unknown>),
-          }
-          if (!(nuxtApp as typeof nuxtApp & { $convexAuthEngine?: unknown }).$convexAuthEngine) {
-            nuxtApp.provide('convexAuthEngine', authEngineProxy)
           }
         }
 

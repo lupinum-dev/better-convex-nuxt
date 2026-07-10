@@ -86,12 +86,12 @@ await createTask({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signOut, signIn, refreshAuth } = useConvexAuth()
+const { isAuthenticated, user, signOut, signIn } = useConvexAuth()
 
 async function handleLogin(email: string, password: string) {
   const { error } = await signIn.email({ email, password })
   if (!error) {
-    await refreshAuth()
+    // signIn synchronizes Convex auth automatically
     navigateTo('/dashboard')
   }
 }

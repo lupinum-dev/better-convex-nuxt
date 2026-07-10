@@ -3,7 +3,7 @@ import type { Ref } from 'vue'
 import { useState } from '#imports'
 
 /**
- * Single source for the `convex:pending` auth-readiness state (F-25).
+ * Single source for the `convex:pending` auth-readiness state.
  *
  * The client starts pending — auth is unknown until the client engine settles —
  * while the server starts settled, because `plugin.server` writes the resolved

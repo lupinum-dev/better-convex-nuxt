@@ -44,10 +44,10 @@ export function getCanonicalRedirectTarget(
  * Canonical redirects followed here are always cross-origin by construction
  * (getCanonicalRedirectTarget only returns a target when the origin
  * differs). Strip credential headers before re-issuing the request so a
- * Better Auth session cookie or bearer token never crosses an origin boundary
- * (F-27) - even though today's caller (same registrable-domain apex<->www
- * hops) is low-risk, this holds even if the upstream host is ever compromised
- * or misconfigured into redirecting somewhere else.
+ * Better Auth session cookie or bearer token never crosses an origin boundary.
+ * Even though today's caller (same registrable-domain apex<->www hops) is
+ * low-risk, this holds even if the upstream host is ever compromised or
+ * misconfigured into redirecting somewhere else.
  */
 function withoutCredentialHeaders(headers: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {}
