@@ -65,8 +65,8 @@
           <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card new">
             <span class="icon">G</span>
             <div>
-              <strong>Middleware Query Guard</strong>
-              <p>useConvexQuery inside route middleware</p>
+              <strong>Middleware Caller Guard</strong>
+              <p>One-shot client and SSR query callers</p>
             </div>
           </NuxtLink>
           <NuxtLink to="/labs/pagination" class="link-card new">
@@ -125,7 +125,7 @@
               >Query Refresh</NuxtLink
             >
             <NuxtLink to="/labs/query-features/middleware-permission-context" class="link-card-mini"
-              >Middleware Query Guard</NuxtLink
+              >Middleware Caller Guard</NuxtLink
             >
             <NuxtLink to="/labs/realtime" class="link-card-mini">Realtime</NuxtLink>
             <NuxtLink to="/labs/optimistic" class="link-card-mini">Optimistic</NuxtLink>

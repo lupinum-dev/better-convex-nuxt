@@ -151,8 +151,11 @@ const RULES = [
     name: 'no-middleware-query-docs',
     description:
       'Forbid documenting `subscribe: false` alongside middleware usage in the same vicinity.',
-    patterns: [/middleware[^\n]{0,120}subscribe:\s*false|subscribe:\s*false[^\n]{0,120}middleware/],
-    paths: ['docs/content/docs'],
+    patterns: [
+      /middleware[^\n]{0,120}subscribe:\s*false|subscribe:\s*false[^\n]{0,120}middleware/,
+      /useConvexQuery (?:inside route middleware|in defineNuxtRouteMiddleware)/,
+    ],
+    paths: ['docs/content/docs', 'playground/pages'],
     phase: 'phase0',
   },
   {
