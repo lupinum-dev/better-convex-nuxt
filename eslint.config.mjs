@@ -32,6 +32,10 @@ export default createConfigForNuxt({
   .append(
     {
       files: ['src/module.ts', 'src/runtime/**/*.ts', 'test/**/*.ts'],
+      // Standalone consumer fixtures resolve this package through generated
+      // dist entries and own dedicated typecheck programs. Keep base linting,
+      // but do not attach the repository project service to those programs.
+      ignores: ['test/fixtures/**'],
       languageOptions: {
         parserOptions: {
           projectService: true,
