@@ -1,4 +1,4 @@
-import type { ConvexCallError } from '../errors'
+import type { CallResult } from '../errors'
 import { normalizeConvexError } from '../errors'
 
 /**
@@ -19,7 +19,7 @@ export {
   type SerializedConvexCallError,
 } from '../errors'
 
-export type CallResult<T, E = ConvexCallError> = { ok: true; data: T } | { ok: false; error: E }
+export type { CallResult } from '../errors'
 
 /**
  * Run a throwing call and capture any failure as the normalized

@@ -59,6 +59,17 @@ export type { ConvexAuthMode, ConvexAuthStatus } from './runtime/utils/auth-stat
 export type { ConvexClientHandle } from './runtime/client/client-owner'
 export type { ConvexIdentityKey } from './runtime/utils/identity-key'
 export type { ConvexRuntimeConfig } from './runtime/utils/runtime-config'
+export type {
+  BaseAuthClient,
+  ConvexAuthClientRegistry,
+  InferRegisteredConvexAuthClient,
+} from './runtime/auth-client'
+export type { ConvexCallErrorKind } from './runtime/errors'
+export type { ServerConvexOptions } from './runtime/server'
+export type { UseConvexAuthReturn } from './runtime/composables/useConvexAuth'
+export type { UseConvexMutationOptions } from './runtime/composables/useConvexMutation'
+export type { UseConvexPaginatedQueryOptions } from './runtime/composables/useConvexPaginatedQuery'
+export type { UseConvexQueryOptions } from './runtime/composables/useConvexQuery'
 
 const logger = useLogger('better-convex-nuxt')
 

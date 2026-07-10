@@ -5,9 +5,8 @@ import {
   isIdentityChangedError,
 } from '../client/identity-changed-error'
 import type { DevtoolsSink } from '../devtools/sink'
-import type { ConvexCallError } from '../errors'
+import type { CallResult, ConvexCallError } from '../errors'
 import { normalizeConvexError } from '../errors'
-import type { CallResult } from './call-result'
 import { createConvexCallState } from './call-state'
 import type { ConvexCallStatus } from './types'
 

@@ -56,6 +56,8 @@ import { fileURLToPath } from 'node:url'
 
 import ts from 'typescript'
 
+import { packageEntries } from './package-entry-manifest.mjs'
+
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
@@ -295,6 +297,30 @@ function checkPackageJsonManifestConsistency() {
   const exportsMap = packageJson.exports ?? {}
   const declaredFiles = packageJson.files ?? []
 
+  const contractSubpaths = new Set(packageEntries.map((entry) => entry.subpath))
+  for (const entry of packageEntries) {
+    const packageEntry = exportsMap[entry.subpath]
+    if (!packageEntry) {
+      failures.push(`package.json exports is missing manifest entry "${entry.subpath}"`)
+      continue
+    }
+    if (packageEntry.import !== `./${entry.distJs}`) {
+      failures.push(
+        `package.json exports["${entry.subpath}"].import must be "./${entry.distJs}" (manifest source of truth)`,
+      )
+    }
+    if (packageEntry.types !== `./${entry.distDts}`) {
+      failures.push(
+        `package.json exports["${entry.subpath}"].types must be "./${entry.distDts}" (manifest source of truth)`,
+      )
+    }
+  }
+  for (const subpath of Object.keys(exportsMap)) {
+    if (!contractSubpaths.has(subpath)) {
+      failures.push(`package.json exports contains undeclared manifest entry "${subpath}"`)
+    }
+  }
+
   // `files: ["dist"]` (a bare directory entry) covers every `./dist/...`
   // target by construction; only flag an export target that escapes `dist/`
   // entirely and isn't otherwise covered by a declared `files` entry.
@@ -361,7 +387,7 @@ function checkPackageJsonManifestConsistency() {
  */
 
 /** @type {Entry[]} */
-const ENTRIES = [
+const CHECKER_ENTRY_RULES = [
   {
     subpath: '.',
     phase: 'phase0',
@@ -547,6 +573,21 @@ const ENTRIES = [
     packedProbe: probeCreateUserSyncTriggersEntry,
   },
 ]
+
+// Join checker-only probes and purity constraints onto the canonical package
+// contract. Export paths and public names are always read from the manifest.
+const ENTRIES = packageEntries.map((contract) => {
+  const rules = CHECKER_ENTRY_RULES.find((entry) => entry.subpath === contract.subpath)
+  if (!rules) throw new Error(`Missing checker rules for package entry ${contract.subpath}`)
+  return {
+    ...rules,
+    distJs: contract.distJs,
+    distDts: contract.distDts,
+    expectedValueExports: contract.valueExports,
+    additionalExpectedDeclaredNames: contract.typeExports,
+    forbiddenNames: contract.forbiddenNames,
+  }
+})
 
 // ---------------------------------------------------------------------------
 // AST export-shape extraction
@@ -979,12 +1020,26 @@ function probeRootEntry(ctx) {
   writeFile(
     join(dir, 'index.ts'),
     [
-      "import type { ModuleOptions } from 'better-convex-nuxt'",
+      'import type {',
+      '  BaseAuthClient, ConvexAuthMode, ConvexAuthOptions, ConvexAuthClientRegistry,',
+      '  ConvexAuthStatus, ConvexCallErrorKind, ConvexClientHandle, ConvexRuntimeConfig,',
+      '  InferRegisteredConvexAuthClient, ModuleOptions, ServerConvexOptions,',
+      '  UseConvexAuthReturn, UseConvexMutationOptions, UseConvexPaginatedQueryOptions,',
+      '  UseConvexQueryOptions,',
+      "} from 'better-convex-nuxt'",
       "import mod from 'better-convex-nuxt'",
       '',
       'const _opts: ModuleOptions | undefined = undefined',
+      'type PublicContract = [',
+      '  BaseAuthClient, ConvexAuthMode, ConvexAuthOptions, ConvexAuthClientRegistry,',
+      '  ConvexAuthStatus, ConvexCallErrorKind, ConvexClientHandle, ConvexRuntimeConfig,',
+      '  InferRegisteredConvexAuthClient, ServerConvexOptions, UseConvexAuthReturn,',
+      '  UseConvexMutationOptions<never>, UseConvexPaginatedQueryOptions, UseConvexQueryOptions<unknown>,',
+      ']',
+      'const _contract: PublicContract | undefined = undefined',
       'void mod',
       'void _opts',
+      'void _contract',
       '',
       '// vNext §11 "Package checks" negative-resolution assertions: these named',
       '// imports must fail to typecheck against the packed root — if any of them',
@@ -993,8 +1048,11 @@ function probeRootEntry(ctx) {
       "import { createBetterConvexAuthClient } from 'better-convex-nuxt'",
       '// @ts-expect-error "getQueryKey" is not an export of the packed root',
       "import { getQueryKey } from 'better-convex-nuxt'",
+      '// @ts-expect-error raw runtime config must remain private',
+      "import type { ConvexPublicRuntimeConfig } from 'better-convex-nuxt'",
       'void createBetterConvexAuthClient',
       'void getQueryKey',
+      'type _NoRawConfig = ConvexPublicRuntimeConfig',
       '',
     ].join('\n'),
   )

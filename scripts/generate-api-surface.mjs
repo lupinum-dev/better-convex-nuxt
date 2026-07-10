@@ -5,6 +5,8 @@ import vm from 'node:vm'
 
 import ts from 'typescript'
 
+import { packageEntries } from './package-entry-manifest.mjs'
+
 const rootDir = process.cwd()
 const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
@@ -70,6 +72,23 @@ const composableImports = [
   ...extractNamesFromRegistry('authAutoImports'),
 ].sort((a, b) => a.localeCompare(b))
 const serverImports = extractNamesFromRegistry('serverAutoImports')
+const packageContract = packageEntries.map(({ subpath, valueExports, typeExports }) => ({
+  subpath,
+  valueExports,
+  typeExports,
+}))
+
+function toPackageEntryRows(entries) {
+  return entries
+    .map(({ subpath, valueExports, typeExports }) => {
+      const specifier =
+        subpath === '.' ? 'better-convex-nuxt' : `better-convex-nuxt/${subpath.slice(2)}`
+      const values = valueExports.map((name) => `\`${name}\``).join(', ')
+      const types = typeExports.map((name) => `\`${name}\``).join(', ')
+      return `| \`${specifier}\` | ${values || '—'} | ${types || '—'} |`
+    })
+    .join('\n')
+}
 const componentNames = readdirSync(componentsDir)
   .filter((name) => name.endsWith('.vue'))
   .map((name) => name.replace(/\.vue$/, ''))
@@ -255,7 +274,7 @@ This page is generated from module entrypoints and runtime component files.
 
 Source of truth:
 - [src/module-api-surface.ts](${repoBase}/blob/main/src/module-api-surface.ts)
-- [src/runtime/composables/index.ts](${repoBase}/blob/main/src/runtime/composables/index.ts)
+- [scripts/package-entry-manifest.mjs](${repoBase}/blob/main/scripts/package-entry-manifest.mjs)
 - [src/runtime/server/utils](${repoBase}/tree/main/src/runtime/server/utils)
 - [src/runtime/components](${repoBase}/tree/main/src/runtime/components)
 
@@ -285,6 +304,12 @@ import { api } from '#convex/api'
 \`\`\`
 
 Before Convex codegen creates \`convex/_generated/api\`, this alias points to a typed placeholder that keeps imports working and fails with a codegen message if accessed.
+
+## Published Package Entries
+
+| Import Specifier | Runtime Exports | Type Exports |
+| ---------------- | --------------- | ------------ |
+${toPackageEntryRows(packageContract)}
 
 Use \`#convex/server\` when an explicit server import is clearer than relying on Nuxt auto-imports, or for exports that are intentionally not auto-imported:
 

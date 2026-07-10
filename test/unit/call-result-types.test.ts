@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
 import type { UseConvexMutationReturn } from '../../src/runtime/composables/useConvexMutation'
-import { normalizeConvexError, type CallResult } from '../../src/runtime/utils/call-result'
+import { type CallResult } from '../../src/runtime/errors'
+import { normalizeConvexError } from '../../src/runtime/utils/call-result'
 
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false

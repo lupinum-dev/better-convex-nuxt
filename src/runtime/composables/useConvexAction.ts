@@ -8,8 +8,8 @@ import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue
 
 import { useNuxtApp } from '#imports'
 
+import type { ConvexCallError, CallResult } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
-import type { ConvexCallError, CallResult } from '../utils/call-result'
 import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'

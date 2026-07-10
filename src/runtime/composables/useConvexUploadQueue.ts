@@ -1,12 +1,8 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
-import {
-  normalizeConvexError,
-  toCallResult,
-  type CallResult,
-  type ConvexCallError,
-} from '../utils/call-result'
+import type { CallResult, ConvexCallError } from '../errors'
+import { normalizeConvexError, toCallResult } from '../utils/call-result'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
