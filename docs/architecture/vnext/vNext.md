@@ -2,11 +2,28 @@
 
 ## Hard-cutover implementation specification for Better Auth, Convex, Nuxt, and Ginko CMS
 
-Status: corrected architecture accepted; the targeted `ConvexClientHandle` review was completed on 2026-07-09 (handle is `query | mutation | action | onUpdate`, confirmed by the passed §5.8 rebinding proof — the handle retains `onUpdate`); the Phase 0 proof gate passed on 2026-07-10 and junior implementation of Phase 1 may proceed
+> **ARCHIVED — IMPLEMENTATION PLAN COMPLETED**
+>
+> This specification governed the unreleased vNext hard cutover. Its phased work is no longer awaiting assignment. The implementation has moved to executable package contracts, invariant tests, and release gates. This file is retained as an architecture decision record; unchecked boxes below are historical planning notation, not pending work or release status.
+
+Status: archived on 2026-07-10 after implementation of the six-phase cutover. Release-candidate certification remains owned by the current repository gates and coordinated downstream verification, not by this document.
 
 Target: the next unreleased Better Convex Nuxt release and the matching Ginko CMS migration
 
 Compatibility policy: hard cutover; do not retain aliases, shims, deprecated overloads, or dual APIs for the removed surfaces
+
+### Closeout evidence
+
+| Decision area | Authoritative executable evidence |
+| --- | --- |
+| Package surface and removed imports | `scripts/package-entry-manifest.mjs`, package-export checks, packed-consumer fixtures |
+| Identity isolation and query behavior | Query, pagination, client-owner, and identity-boundary invariant tests |
+| Authentication topology and lifecycle | Enabled/disabled consumer fixtures, auth coordinator tests, build-graph checks |
+| Error and server-call contracts | `/errors` and `/server` contract fixtures, SSR serialization and security tests |
+| Ginko migration | Ginko package checks, production audit, and exact-tarball consumer verification |
+| Release readiness | `pnpm run release:verify` plus the coordinated Ginko release-candidate gate |
+
+Any disagreement between historical checklist text and an executable contract is resolved by the accepted public API, package manifest, and invariant tests. A changed decision requires a new ADR and corresponding executable proof rather than editing this archive in place.
 
 This document is the implementation authority for the vNext cutover. It is intentionally detailed enough for an engineer who is new to the repositories to work phase by phase without inventing missing behavior.
 

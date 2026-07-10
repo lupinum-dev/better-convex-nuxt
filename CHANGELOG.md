@@ -80,7 +80,9 @@ consumers will need source changes.
   with the credential attached, and never logs secrets.
 - Removed the built-in `permissions` module option (both the `true` and
   `false` states) and the `createPermissions` permissions runtime. Permission
-  rules are application/Convex policy, not library machinery.
+  rules are application/Convex policy, not library machinery. Replace package
+  permission helpers with an application-owned UI capability composable backed
+  by Convex queries, and continue enforcing authorization inside Convex handlers.
 
 ### 🧹 Cleanup
 
@@ -99,7 +101,8 @@ consumers will need source changes.
 
 - Rewrote guides and examples onto the final vNext API (explicit query args,
   `optional`-by-default auth modes, `serverConvex`, `defineConvexAuthClient`,
-  the replacement-safe `useConvex()` handle).
+  the replacement-safe `useConvex()` handle, structured error classification,
+  and application-owned UI capabilities).
 
 ## v0.5.0
 

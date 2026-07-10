@@ -147,8 +147,8 @@ const composableMeta = {
   },
   useConvex: {
     kind: 'Composable',
-    purpose: 'Gives direct access to the underlying Convex client.',
-    guide: '/docs/guide/basics',
+    purpose: 'Returns the stable replacement-safe handle for imperative Convex calls.',
+    guide: '/docs/advanced/client-access',
   },
   useConvexAction: {
     kind: 'Composable',
@@ -325,7 +325,7 @@ import { createUserSyncTriggers } from 'better-convex-nuxt/server/createUserSync
 
 ## Composable Auto-Imports
 
-\`useConvexAuth\`, \`useConvexUser\`, and the global auth components are available when module auth is enabled. The typed Better Auth client is defined with \`defineConvexAuthClient\` from \`better-convex-nuxt/auth-client\` and read back through \`useConvexAuth().client\`.
+\`useConvexAuth\`, \`useConvexUser\`, and the global auth components are always available. With \`auth: false\`, they expose the documented disabled-auth state without loading Better Auth. The typed Better Auth client for an enabled build is defined with \`defineConvexAuthClient\` from \`better-convex-nuxt/auth-client\` and read through \`useConvexAuth().client\`.
 
 | Name | Kind | Purpose | Learn More |
 | ---- | ---- | ------- | ---------- |

@@ -117,7 +117,8 @@ async function handleOAuth() {
 
 ```vue
 <script setup lang="ts">
-const { can, role } = usePermissions()
+// Application-owned UI capability helper; authorization remains in Convex.
+const { can, role } = useAppCapabilities()
 const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 </script>
 

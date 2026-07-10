@@ -2,9 +2,25 @@
 
 ## Status and authority
 
-This document is the implementation specification for the internal cleanup that accompanies the breaking vNext release.
+> **ARCHIVED — INTERNAL CUTOVER COMPLETED**
+>
+> The phased cleanup described here is no longer awaiting implementation assignment. This document is retained as an internal architecture decision record. Checklist markers and future-tense phase instructions below are historical planning notation; current conformance is determined by executable boundaries, invariant tests, and release gates.
 
-Implementation status: **Phase 0 gate passed (2026-07-10); Phase 1 may be assigned.** The `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` contracts were reconciled on 2026-07-09 and are now expressed in `vNext.md` (§5.4 and §5.1). All section-20/§5.8 proofs pass on the pinned stack with recorded evidence under `test/proofs/`. Phase 0 notes: the two-app harness uses low-level `createNuxtApp` (`mountSuspended` cannot host two concurrent apps) and the HMR harness uses a middleware-mode Vite dev server (the client HMR engine is genuine Vite); both are accepted Phase 0 substrates. The §16 SSR-detached-scope proof remains deferred and is required only if an implementation phase introduces a detached SSR scope.
+This document was the implementation specification for the internal cleanup that accompanied the breaking vNext release.
+
+Implementation status: **archived on 2026-07-10 after completion of the internal cutover phases.** The `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` decisions are expressed in `vNext.md` (§5.4 and §5.1). The permanent proof suites, boundary checker, vocabulary checker, package contract, and release verification now own conformance. Release-candidate status must be established from those current gates rather than inferred from this archive.
+
+### Closeout evidence
+
+| Internal invariant | Authoritative executable evidence |
+| --- | --- |
+| Dependency and ownership boundaries | `scripts/check-boundaries.mjs` and architecture tests |
+| Removed vocabulary and hard cutover | `scripts/check-vocabulary.mjs` and negative package fixtures |
+| App isolation, HMR, identity, and teardown | Permanent proof and runtime invariant suites |
+| Packed package shape | Declarative entry manifest, tarball inspection, and consumer probes |
+| Release-candidate health | Repository release verification and coordinated Ginko checks |
+
+Uncompleted-looking phase prose below does not reopen work. New deviations or requirements must be recorded in a new ADR and backed by a failing-then-passing executable proof.
 
 It complements `vNext.md`:
 
