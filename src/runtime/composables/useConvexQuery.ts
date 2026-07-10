@@ -17,6 +17,7 @@ import type { AuthIdentityPort } from '../auth/identity-port'
 import type { ConvexClientOwner } from '../client/client-owner'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import type { ConvexAuthMode } from '../utils/auth-status'
+import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
   getFunctionName,
@@ -73,7 +74,7 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
 
 export interface UseConvexQueryData<DataT> {
   data: ComputedRef<DataT | null>
-  error: ComputedRef<Error | null>
+  error: ComputedRef<ConvexCallError | null>
   refresh: () => Promise<void>
   clear: () => void
   pending: ComputedRef<boolean>
@@ -193,10 +194,31 @@ export function createConvexQueryState<
   const currentScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexQuery', import.meta.client, currentScope)
 
-  // Composable-owned live error (never routed through asyncData rejection so it
-  // is not H3Error-wrapped; §7.3 / decision 8). SSR/HTTP errors still hydrate
-  // through asyncData.error for parity until the Phase 2 ConvexCallError path.
-  const liveError = ref<Error | null>(null)
+  // Library-owned, identity-partitioned error state (vNext §7, internal §7.3,
+  // decision 8). Failures are normalized to `ConvexCallError` exactly once and
+  // stored here — never routed through `asyncData.error`, which Nuxt wraps into
+  // an H3Error before the payload reducer can preserve the class. The store is
+  // `useState`-backed so a real SSR failure serializes and revives as an
+  // `instanceof ConvexCallError` (the payload plugin reduces/revives each nested
+  // instance), and it is keyed by the identity-partitioned `asyncDataKey` so
+  // identity B structurally never reads identity A's error.
+  const errorStore = useState<Record<string, ConvexCallError | null>>(
+    'convex:query-errors',
+    () => ({}),
+  )
+  const setBoundaryError = (err: ConvexCallError | null) => {
+    const key = asyncDataKey.value
+    const store = errorStore.value
+    if (err) {
+      errorStore.value = { ...store, [key]: err }
+    } else if (key in store) {
+      const { [key]: _omitted, ...next } = store
+      errorStore.value = next
+    }
+  }
+  const liveError = computed<ConvexCallError | null>(
+    () => errorStore.value[asyncDataKey.value] ?? null,
+  )
 
   // ---- single composable-owned live subscription --------------------------
   let liveUnsub: (() => void) | null = null
@@ -229,7 +251,7 @@ export function createConvexQueryState<
     // Reject a stale-generation commit: a WebSocket result captured under a
     // superseded identity generation must not commit after the switch (§5.4).
     if (!sameTag(tag, currentTag.value)) return
-    liveError.value = null
+    setBoundaryError(null)
     ;(asyncData.data as Ref<RawT | null>).value = raw
     commitLastSettled(raw)
     triggerRef(asyncData.data)
@@ -238,8 +260,11 @@ export function createConvexQueryState<
 
   function commitLiveError(err: Error, tag: IsolationTag) {
     if (!sameTag(tag, currentTag.value)) return
-    // Only surface an error while there is no data to keep showing.
-    if (asyncData.data.value == null) liveError.value = err
+    // Only surface an error while there is no data to keep showing. A live
+    // subscription failure is normalized once at this boundary (§9.2): a
+    // reconnectable socket disconnect is connection state, not a call error, so
+    // Convex only invokes this path for a genuine query failure.
+    if (asyncData.data.value == null) setBoundaryError(normalizeConvexError(err))
     firstValue?.reject(err)
   }
 
@@ -296,83 +321,98 @@ export function createConvexQueryState<
       const g = gate.value
       if (g.resolveAsIdle) return null
       if (g.waitForAuth) return null
-      // Auth resolution failed without a usable identity: surface idle here and
-      // let the composable-owned error carry it; never throw an auth error
-      // through asyncData (H3Error wrap hazard).
+      // Auth resolution failed without a usable identity: surface it through the
+      // composable-owned error state, never by throwing (H3Error wrap hazard).
       if (g.surfaceAuthError) {
-        liveError.value = new Error(authCtx.error.value?.message ?? 'Authentication error')
+        setBoundaryError(
+          authCtx.error.value ??
+            new ConvexCallError({ kind: 'authentication', message: 'Authentication error' }),
+        )
         return null
       }
 
-      const convexUrl = convexConfig.url
-      if (!convexUrl) throw new Error('[useConvexQuery] Convex URL not configured')
-      const currentArgs = getArgs() as FunctionArgs<Query>
+      // A fresh fetch attempt clears any prior boundary error for this key.
+      setBoundaryError(null)
 
-      // SSR: one-shot HTTP; never a WebSocket client.
-      if (import.meta.server) {
-        const authToken = fetchAuthToken({ auth: authMode, cookieHeader, cachedToken })
-        if (authMode !== 'none' && g.cacheIdentity !== 'anonymous' && !authToken) return null
-        const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-        commitLastSettled(result)
-        return result
-      }
+      try {
+        const convexUrl = convexConfig.url
+        if (!convexUrl) throw new Error('[useConvexQuery] Convex URL not configured')
+        const currentArgs = getArgs() as FunctionArgs<Query>
 
-      // Client HTTP-only mode (subscribe: false).
-      if (!subscribe) {
-        const client = selectLiveQueryClient(owner, g)
-        let result: RawT
-        if (client) {
-          result = (await (client.query as (f: unknown, a: unknown) => Promise<unknown>)(
-            query,
-            currentArgs,
-          )) as RawT
-        } else {
-          const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
-          result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+        // SSR: one-shot HTTP; never a WebSocket client.
+        if (import.meta.server) {
+          const authToken = fetchAuthToken({ auth: authMode, cookieHeader, cachedToken })
+          if (authMode !== 'none' && g.cacheIdentity !== 'anonymous' && !authToken) return null
+          const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+          commitLastSettled(result)
+          return result
         }
-        commitLastSettled(result)
-        return result
-      }
 
-      // Client live mode: wait for the first subscription result, with a timer
-      // that is cleared on settle so no reject fires after the query resolves.
-      firstValue = makeDeferred()
-      setupSubscription()
-      const timeoutMs = defaults.waitTimeoutMs
-      const pending = firstValue
-      const first = await new Promise<RawT>((resolve, reject) => {
-        let done = false
-        const timer =
-          timeoutMs > 0 && Number.isFinite(timeoutMs)
-            ? setTimeout(() => {
-                if (done) return
-                done = true
-                reject(
-                  new Error(
-                    `[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`,
-                  ),
-                )
-              }, timeoutMs)
-            : null
-        pending.promise.then(
-          (v) => {
-            if (done) return
-            done = true
-            if (timer) clearTimeout(timer)
-            resolve(v)
-          },
-          (e) => {
-            if (done) return
-            done = true
-            if (timer) clearTimeout(timer)
-            reject(e)
-          },
-        )
-      })
-      // Do not re-commit here: `commitLiveResult` already committed the
-      // keepPreviousData snapshot with the correct args at emit time. Committing
-      // again after this await can mis-tag it if the args changed meanwhile.
-      return first
+        // Client HTTP-only mode (subscribe: false).
+        if (!subscribe) {
+          const client = selectLiveQueryClient(owner, g)
+          let result: RawT
+          if (client) {
+            result = (await (client.query as (f: unknown, a: unknown) => Promise<unknown>)(
+              query,
+              currentArgs,
+            )) as RawT
+          } else {
+            const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
+            result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
+          }
+          commitLastSettled(result)
+          return result
+        }
+
+        // Client live mode: wait for the first subscription result, with a timer
+        // that is cleared on settle so no reject fires after the query resolves.
+        firstValue = makeDeferred()
+        setupSubscription()
+        const timeoutMs = defaults.waitTimeoutMs
+        const pending = firstValue
+        const first = await new Promise<RawT>((resolve, reject) => {
+          let done = false
+          const timer =
+            timeoutMs > 0 && Number.isFinite(timeoutMs)
+              ? setTimeout(() => {
+                  if (done) return
+                  done = true
+                  reject(
+                    new ConvexCallError({
+                      kind: 'transport',
+                      code: 'TIMEOUT',
+                      message: `[useConvexQuery] Timed out waiting for subscription result after ${timeoutMs}ms`,
+                    }),
+                  )
+                }, timeoutMs)
+              : null
+          pending.promise.then(
+            (v) => {
+              if (done) return
+              done = true
+              if (timer) clearTimeout(timer)
+              resolve(v)
+            },
+            (e) => {
+              if (done) return
+              done = true
+              if (timer) clearTimeout(timer)
+              reject(e)
+            },
+          )
+        })
+        // Do not re-commit here: `commitLiveResult` already committed the
+        // keepPreviousData snapshot with the correct args at emit time. Committing
+        // again after this await can mis-tag it if the args changed meanwhile.
+        return first
+      } catch (rawError) {
+        // Normalize exactly once at the query boundary and store in the
+        // library-owned error state; resolve `null` data so Nuxt never
+        // manufactures an H3Error from a handler rejection (vNext §7).
+        setBoundaryError(normalizeConvexError(rawError))
+        return null
+      }
     },
     {
       server,
@@ -408,7 +448,7 @@ export function createConvexQueryState<
       (next, prev) => {
         if (prev && !sameTag(next, prev)) {
           teardownLive()
-          liveError.value = null
+          setBoundaryError(null)
           lastSettledRaw.value = null
           lastSettledArgsHash.value = null
           lastSettledTag.value = null
@@ -459,7 +499,9 @@ export function createConvexQueryState<
     })
   })
 
-  const error = computed<Error | null>(() => liveError.value ?? asyncData.error.value ?? null)
+  // Public error reads ONLY the library-owned state, never `asyncData.error`
+  // (Nuxt would have H3Error-wrapped a handler rejection there; §7.3).
+  const error = computed<ConvexCallError | null>(() => liveError.value)
 
   const status = computed((): ConvexCallStatus => {
     // Genuine idle is skip or a settled `required`-without-identity; while waiting
@@ -492,7 +534,7 @@ export function createConvexQueryState<
 
   const clear = () => {
     teardownLive()
-    liveError.value = null
+    setBoundaryError(null)
     lastSettledRaw.value = null
     lastSettledArgsHash.value = null
     lastSettledTag.value = null

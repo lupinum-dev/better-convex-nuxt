@@ -4,6 +4,7 @@ import type { ComputedRef, Ref } from 'vue'
 import { useState, computed, readonly, useNuxtApp } from '#imports'
 
 import type { ConvexAuthEngine } from '../auth/client-engine'
+import { ConvexCallError } from '../errors'
 import { waitForPendingClear } from '../utils/auth-pending'
 import { useConvexAuthPendingState } from '../utils/auth-pending-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
@@ -126,7 +127,9 @@ export function useConvexAuth(): UseConvexAuthReturn {
   const authError = useState<string | null>('convex:authError', () => null)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const client = (nuxtApp.$auth as AuthClient | undefined) ?? null
+  // The public `$auth` augmentation is deleted (vNext §5.4); the auth plugin
+  // still provides it internally, so read it through a local cast.
+  const client = ((nuxtApp as { $auth?: AuthClient }).$auth ?? null) as AuthClient | null
 
   const status = computed<ConvexAuthStatus>(() => {
     if (pending.value) return 'loading'
@@ -140,7 +143,9 @@ export function useConvexAuth(): UseConvexAuthReturn {
       authEnabled: true,
       settled: true,
       identityKey,
-      error: authError.value ? { kind: 'authentication', message: authError.value } : null,
+      error: authError.value
+        ? new ConvexCallError({ kind: 'authentication', message: authError.value })
+        : null,
     })
   })
 

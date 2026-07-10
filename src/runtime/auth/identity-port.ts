@@ -1,25 +1,17 @@
 import type { ConvexClient } from 'convex/browser'
 import { watch, type Ref } from 'vue'
 
+import { ConvexCallError } from '../errors'
 import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
 import type { ConvexUser } from '../utils/types'
 
-/**
- * PLACEHOLDER error contract (vNext §5.6, decision 8).
- *
- * Phase 1 freezes the field shape only; Phase 2 replaces this interface with the
- * real framework-free `ConvexCallError` class shipped from `better-convex-nuxt/errors`.
- * Do not add behavior here — it exists solely so the frozen {@link AuthIdentityPort}
- * and status derivation can reference `ConvexCallError | null` before the class lands.
- */
-export interface ConvexCallError {
-  kind: 'authentication' | 'transport' | 'server' | 'unknown'
-  message: string
-  code?: string
-  status?: number
-  data?: unknown
-  cause?: unknown
-}
+// Re-export the real framework-free class (vNext §7, decision 8) so existing
+// consumers keep importing `ConvexCallError` from this port. Phase 1's
+// placeholder interface is retired; the adapter below now publishes real
+// instances. Constructing an `authentication` instance requires the class value,
+// which `scripts/check-boundaries.mjs` confirms is a legal browser-runtime →
+// `/errors` edge.
+export { ConvexCallError }
 
 /**
  * The frozen private auth port consumed by query gating and client replacement
@@ -156,7 +148,7 @@ export function createEngineAuthIdentityPort(input: {
     const hasUsableIdentity = identityKey !== null && identityKey !== 'anonymous'
     const error: ConvexCallError | null =
       settled && !hasUsableIdentity && state.authError.value
-        ? { kind: 'authentication', message: state.authError.value }
+        ? new ConvexCallError({ kind: 'authentication', message: state.authError.value })
         : null
 
     return {

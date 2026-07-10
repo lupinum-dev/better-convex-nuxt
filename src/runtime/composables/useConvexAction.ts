@@ -1,24 +1,20 @@
-import type { ConvexClient } from 'convex/browser'
 import type {
   FunctionArgs,
   FunctionReference,
   FunctionReturnType,
   OptionalRestArgs,
 } from 'convex/server'
-import type { Ref, ComputedRef } from 'vue'
+import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import type { ConvexAuthEngine } from '../auth/client-engine'
-import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
-import { createConvexCallState } from '../utils/call-state'
+import type { AuthIdentityPort } from '../auth/identity-port'
+import type { ConvexClientOwner } from '../client/client-owner'
+import type { ConvexCallError, CallResult } from '../utils/call-result'
+import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-cache'
-import {
-  registerDevToolsEntry,
-  updateDevToolsSuccess,
-  updateDevToolsError,
-} from '../utils/devtools-helpers'
 import { getSharedLogger, getLogLevel } from '../utils/logger'
 import type { ConvexCallStatus } from '../utils/types'
 
@@ -52,11 +48,10 @@ export type UseConvexActionReturn<Action extends FunctionReference<'action'>> = 
   pending: ComputedRef<boolean>
 
   /**
-   * Shorthand for error state.
-   * Error from the last action attempt.
+   * Error from the last action attempt as the normalized {@link ConvexCallError}.
    * null if no error or action hasn't been called.
    */
-  error: Ref<Error | null>
+  error: Ref<ConvexCallError | null>
 
   /**
    * Reset action state back to idle.
@@ -75,10 +70,10 @@ export interface UseConvexActionOptions<Args, Result> {
    */
   onSuccess?: (result: Result, args: Args) => void
   /**
-   * Called after a failed action.
+   * Called after a failed action with the normalized {@link ConvexCallError}.
    * Errors thrown here are logged and ignored.
    */
-  onError?: (error: Error, args: Args) => void
+  onError?: (error: ConvexCallError, args: Args) => void
 }
 
 /**
@@ -136,91 +131,56 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const fnName = getFunctionName(action)
 
   const nuxtApp = useNuxtApp()
-  const callState = createConvexCallState<Result>()
+  const owner = (nuxtApp as { $convexClientOwner?: ConvexClientOwner }).$convexClientOwner
+  const port = (nuxtApp as { $convexAuthPort?: AuthIdentityPort }).$convexAuthPort
 
-  // The execute function
-  const execute = async (...callArgs: OptionalRestArgs<Action>): Promise<Result> => {
-    const args = (callArgs[0] ?? {}) as Args
-    const startTime = Date.now()
-    const currentRequestId = callState.start()
-
-    // Register with DevTools
-    const actionId = registerDevToolsEntry(fnName, 'action', args, false)
-
-    try {
-      const client = nuxtApp.$convex as ConvexClient | undefined
-      if (!client) {
-        throw new Error(
-          '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
+  // Route through the per-app client owner's stable handle (vNext §5.4), never
+  // the raw replaceable `$convex` seam. A retired-generation in-flight action
+  // rejects with IDENTITY_CHANGED rather than resolving under a new identity.
+  const lifecycle = createCallableLifecycle<Args, Result>({
+    devtoolsKind: 'action',
+    fnName,
+    hasOptimisticUpdate: false,
+    getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
+    handlers: {
+      invoke: async (args) => {
+        if (!owner) {
+          throw new Error(
+            '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
+          )
+        }
+        await ensureConvexAuthReady(
+          nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
+          'useConvexAction',
         )
-      }
+        return (await owner.handle.action(action, args as never)) as Result
+      },
+      onSuccess: options?.onSuccess,
+      onError: options?.onError,
+      logSuccess: (_args, duration) => logger.action({ name: fnName, event: 'success', duration }),
+      logError: (_args, duration, error) =>
+        logger.action({ name: fnName, event: 'error', duration, error }),
+      logCallbackError: (error) => logger.action({ name: fnName, event: 'error', error }),
+    },
+  })
 
-      await ensureConvexAuthReady(
-        nuxtApp.$convexAuthEngine as ConvexAuthEngine | undefined,
-        'useConvexAction',
-      )
-
-      const result = await client.action(action, args)
-      const committed = callState.commitSuccess(currentRequestId, result)
-
-      if (committed) {
-        try {
-          options?.onSuccess?.(result, args)
-        } catch (callbackError) {
-          logger.action({
-            name: fnName,
-            event: 'error',
-            error:
-              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-          })
-        }
-      }
-
-      // Update DevTools
-      updateDevToolsSuccess(actionId, startTime, result)
-
-      const duration = Date.now() - startTime
-      logger.action({ name: fnName, event: 'success', duration })
-
-      return result
-    } catch (e) {
-      const normalized = normalizeConvexError(e)
-      const err = toError(normalized)
-      const committed = callState.commitError(currentRequestId, err)
-
-      if (committed) {
-        try {
-          options?.onError?.(err, args)
-        } catch (callbackError) {
-          logger.action({
-            name: fnName,
-            event: 'error',
-            error:
-              callbackError instanceof Error ? callbackError : new Error(String(callbackError)),
-          })
-        }
-      }
-
-      // Update DevTools
-      updateDevToolsError(actionId, startTime, err.message)
-
-      const duration = Date.now() - startTime
-      logger.action({ name: fnName, event: 'error', duration, error: err })
-
-      throw err
-    }
+  // Mask retained state synchronously on identity change (internal §8, §5.4).
+  if (port && getCurrentScope()) {
+    onScopeDispose(port.subscribe(() => lifecycle.onIdentityMaybeChanged()))
   }
 
-  const safe = async (...callArgs: OptionalRestArgs<Action>): Promise<CallResult<Result>> => {
-    return await toCallResult(() => execute(...callArgs))
-  }
+  const execute = (...callArgs: OptionalRestArgs<Action>): Promise<Result> =>
+    lifecycle.run((callArgs[0] ?? {}) as Args)
+
+  const safe = (...callArgs: OptionalRestArgs<Action>): Promise<CallResult<Result>> =>
+    lifecycle.safe((callArgs[0] ?? {}) as Args)
 
   return Object.assign(execute, {
     safe,
-    data: callState.data,
-    status: callState.status,
-    pending: callState.pending,
-    error: callState.error,
-    reset: callState.reset,
+    data: lifecycle.data,
+    status: lifecycle.status,
+    pending: lifecycle.pending,
+    error: lifecycle.error,
+    reset: lifecycle.reset,
   })
 }

@@ -242,6 +242,11 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     method: 'query' | 'mutation' | 'action',
     fn: unknown,
     args: unknown,
+    // The optional third argument (`mutation`'s optimistic-update option) is
+    // forwarded verbatim to the current primary so routing through the handle
+    // never silently drops it (vNext §5.4 handle stays behaviourally equal to
+    // the raw client for the four supported operations).
+    options?: unknown,
   ): Promise<unknown> {
     const client = await primaryForDispatch()
     const generation = currentIdentityGeneration
@@ -255,7 +260,9 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     // The underlying promise may never settle after `close()` (retired-client
     // hygiene); attach a no-op catch so a late rejection after we've raced away
     // via `aborted` never becomes an unhandled rejection.
-    const underlying = (client[method] as (f: unknown, a: unknown) => Promise<unknown>)(fn, args)
+    const underlying = (
+      client[method] as (f: unknown, a: unknown, o?: unknown) => Promise<unknown>
+    )(fn, args, options)
     underlying.catch(() => {})
 
     try {
@@ -271,8 +278,8 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
   const handle: ConvexClientHandle = {
     query: ((fn: unknown, args: unknown) => dispatch('query', fn, args)) as ConvexClient['query'],
-    mutation: ((fn: unknown, args: unknown) =>
-      dispatch('mutation', fn, args)) as ConvexClient['mutation'],
+    mutation: ((fn: unknown, args: unknown, options?: unknown) =>
+      dispatch('mutation', fn, args, options)) as ConvexClient['mutation'],
     action: ((fn: unknown, args: unknown) =>
       dispatch('action', fn, args)) as ConvexClient['action'],
     onUpdate: ((

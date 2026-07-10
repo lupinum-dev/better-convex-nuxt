@@ -29,7 +29,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const p = (...segments) => resolve(repoRoot, ...segments)
 
 /** Phases whose rules actually execute. Extend as later phases land boundaries. */
-const ACTIVE_PHASES = ['phase0']
+const ACTIVE_PHASES = ['phase0', 'phase2']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([

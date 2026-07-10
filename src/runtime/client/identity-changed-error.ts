@@ -1,4 +1,4 @@
-import type { ConvexCallError } from '../auth/identity-port'
+import { ConvexCallError } from '../errors'
 
 /**
  * Stable `code` for the identity-boundary rejection (vNext §5.4).
@@ -11,20 +11,20 @@ import type { ConvexCallError } from '../auth/identity-port'
 export const IDENTITY_CHANGED = 'IDENTITY_CHANGED' as const
 
 /**
- * Phase 1 stand-in for `ConvexCallError({ kind: 'authentication', code:
- * 'IDENTITY_CHANGED' })`. The real framework-free {@link ConvexCallError} class
- * ships in Phase 2; until then this returns a real `Error` carrying the frozen
- * placeholder fields so consumers and tests can branch on `kind`/`code` today.
- * The old result is never placed in `data` or `cause` (vNext §5.4).
+ * The identity-boundary rejection as the real framework-free
+ * {@link ConvexCallError} (`kind: 'authentication'`, `code: 'IDENTITY_CHANGED'`).
+ * The old result is never placed in `data` or `cause` (vNext §5.4): a stale
+ * settlement must never be presented as a safely retryable value.
  */
-export function createIdentityChangedError(operation?: string): Error & ConvexCallError {
+export function createIdentityChangedError(operation?: string): ConvexCallError {
   const message = operation
     ? `Convex ${operation} rejected: the auth identity changed before it settled (${IDENTITY_CHANGED}).`
     : `Convex operation rejected: the auth identity changed (${IDENTITY_CHANGED}).`
-  const error = new Error(message) as Error & ConvexCallError
-  error.kind = 'authentication'
-  error.code = IDENTITY_CHANGED
-  return error
+  return new ConvexCallError({
+    kind: 'authentication',
+    code: IDENTITY_CHANGED,
+    message,
+  })
 }
 
 /** True when an error is the identity-boundary rejection above. */

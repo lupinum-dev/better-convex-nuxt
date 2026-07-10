@@ -3,8 +3,9 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef } from 'vue'
 
 import { useState } from '#imports'
 
-import type { AuthIdentityPort, ConvexCallError } from '../auth/identity-port'
+import type { AuthIdentityPort } from '../auth/identity-port'
 import type { OwnedConvexClient, ConvexClientOwner } from '../client/client-owner'
+import { ConvexCallError } from '../errors'
 import { useConvexAuthPendingState } from './auth-pending-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from './auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from './identity-key'
@@ -70,7 +71,9 @@ export function createConvexQueryAuthContext(nuxtApp: {
 
   const error = computed<ConvexCallError | null>(() => {
     if (!authEnabled) return null
-    return authError.value ? { kind: 'authentication', message: authError.value } : null
+    return authError.value
+      ? new ConvexCallError({ kind: 'authentication', message: authError.value })
+      : null
   })
 
   const status = computed<ConvexAuthStatus>(() => {

@@ -13,6 +13,8 @@
     "test/fixtures/auth-disabled",
     "test/proofs/ssr-errors/app",
     "test/proofs/packed-typing",
+    "test/fixtures/ssr-errors-consumer",
+    "test/fixtures/errors-consumer",
     "src/runtime/server"
   ]
 }

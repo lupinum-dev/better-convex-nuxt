@@ -4,7 +4,8 @@ import type { H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 
 import type { ServerConvexRest } from '../../utils/args-tuple'
-import { normalizeConvexError, toError } from '../../utils/call-result'
+import type { ConvexCallError } from '../../utils/call-result'
+import { normalizeConvexError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
@@ -187,12 +188,29 @@ async function executeConvexOperation<T>(
 
     return result
   } catch (error) {
-    const normalized = normalizeConvexError(error)
-    const err = toError(normalized)
+    const err = toPlainServerError(normalizeConvexError(error))
     const duration = Date.now() - startTime
     logError(err, duration)
     throw err
   }
+}
+
+/**
+ * Convert a normalized {@link ConvexCallError} back into a plain `Error` for the
+ * temporary server trio. Server-call errors do not adopt the `ConvexCallError`
+ * public contract until `serverConvex()` lands in Phase 4 (internal §10, §20);
+ * this keeps the current throw shape unchanged rather than integrating one phase
+ * early. The class's runtime-only `cause` is preserved for local diagnostics.
+ */
+function toPlainServerError(error: ConvexCallError): Error {
+  const err = new Error(
+    error.message,
+    error.cause === undefined ? undefined : { cause: error.cause },
+  )
+  const augmented = err as Error & { code?: string; status?: number }
+  augmented.code = error.code
+  augmented.status = error.status
+  return err
 }
 
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(

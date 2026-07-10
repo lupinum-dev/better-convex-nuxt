@@ -221,6 +221,16 @@ export default defineNuxtModule<ModuleOptions>({
     // 1. Core client plugin — always installed, imports no Better Auth code.
     addPlugin(resolver.resolve('./runtime/plugin.client'))
 
+    // Universal ConvexCallError payload plugin (vNext §7). Registered on both
+    // server and client with a negative order so the reviver is installed before
+    // Nuxt parses the SSR payload. The framework-free `/errors` entry stays
+    // unaware of Nuxt; this Nuxt-aware plugin bridges the two.
+    addPlugin({
+      src: resolver.resolve('./runtime/plugins/convex-call-error-payload'),
+      mode: 'all',
+      order: -50,
+    })
+
     // 2. Auth-enabled-only plugins. When auth is disabled the module adds NO
     //    Better Auth client, engine, proxy handler, or middleware to the build
     //    graph (vNext §5.1 / internal §5.3).

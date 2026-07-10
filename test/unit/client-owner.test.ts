@@ -399,4 +399,29 @@ describe('createConvexClientOwner', () => {
       expect(CountingClient.closed).toBe(3)
     })
   })
+
+  describe('handle argument forwarding', () => {
+    it('forwards the optional mutation options (optimistic update) through the handle to the current client', async () => {
+      // Phase 2 gate advisory: the handle must not silently drop mutation's
+      // third argument, or optimistic updates die at the dispatch seam.
+      const received: Array<{ args: unknown; options: unknown }> = []
+      class RecordingClient extends MockConvexClient {
+        override mutation = async (fn: unknown, args: unknown, options?: unknown) => {
+          received.push({ args, options })
+          return 'done' as never
+        }
+
+        close = async (): Promise<void> => {}
+      }
+      const o = createConvexClientOwner({
+        primaryFactory: () => new RecordingClient() as unknown as OwnedConvexClient,
+      })
+      const optimisticUpdate = () => {}
+      await o.handle.mutation(mockFnRef<'mutation'>('m'), { key: 'k' }, { optimisticUpdate })
+      expect(received).toHaveLength(1)
+      expect(received[0]!.args).toEqual({ key: 'k' })
+      expect(received[0]!.options).toEqual({ optimisticUpdate })
+      await o.dispose()
+    })
+  })
 })

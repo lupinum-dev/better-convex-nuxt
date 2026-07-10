@@ -1,7 +1,12 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
-import { toCallResult, type CallResult } from '../utils/call-result'
+import {
+  normalizeConvexError,
+  toCallResult,
+  type CallResult,
+  type ConvexCallError,
+} from '../utils/call-result'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
@@ -240,7 +245,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         }))
         rejectItemDeferred(itemId, new Error('Upload cancelled'))
       } else {
-        const normalizedError = error instanceof Error ? error : new Error(String(error))
+        const normalizedError = normalizeConvexError(error)
         const erroredItem = mutateItem(itemId, (current) => ({
           ...current,
           status: 'error',
@@ -318,15 +323,13 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     )
 
     const storageIds: string[] = []
-    const failures: Error[] = []
+    const failures: ConvexCallError[] = []
 
     for (const result of settled) {
       if (result.status === 'fulfilled') {
         storageIds.push(result.value)
       } else {
-        failures.push(
-          result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
-        )
+        failures.push(normalizeConvexError(result.reason))
       }
     }
 

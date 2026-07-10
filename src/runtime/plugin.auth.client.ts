@@ -61,9 +61,13 @@ export default defineNuxtPlugin((nuxtApp) => {
     return
   }
 
-  const client = nuxtApp.$convex as ConvexClient | undefined
-  if (!client) {
-    logger.debug('Core Convex client is unavailable; auth plugin cannot initialize')
+  // Read the current primary through the per-app client owner (the public
+  // `$convex` augmentation is deleted, vNext §5.4). The engine attaches to this
+  // client; the owner will later replace it on identity change via the port.
+  const clientOwner = nuxtApp.$convexClientOwner as ConvexClientOwner | undefined
+  const client = clientOwner?.getPrimary()?.client as ConvexClient | undefined
+  if (!clientOwner || !client) {
+    logger.debug('Core Convex client owner is unavailable; auth plugin cannot initialize')
     endInit()
     return
   }
@@ -132,8 +136,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   // user↔user'); same-user token rotation keeps the current client (vNext §5.4,
   // internal §7.4). The owner drives replacement via the port's server-confirmed
   // candidate handshake; it interprets no tokens itself.
-  const clientOwner = nuxtApp.$convexClientOwner as ConvexClientOwner | undefined
-  clientOwner?.attachAuthPort(authPort)
+  clientOwner.attachAuthPort(authPort)
 
   if (typeof window !== 'undefined' && import.meta.dev && authClient) {
     ;(window as AuthDebugWindow).__auth_client__ = authClient

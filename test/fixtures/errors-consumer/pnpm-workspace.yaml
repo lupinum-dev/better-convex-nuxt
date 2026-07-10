@@ -1,0 +1,4 @@
+# Isolated single-package pnpm workspace root for this packed-probe consumer
+# (same pattern as test/proofs/packed-typing/consumer) so the repo-root
+# workspace overrides do not leak in and the fixture installs deterministically
+# from the packed tarball copied in as ./better-convex-nuxt.tgz.

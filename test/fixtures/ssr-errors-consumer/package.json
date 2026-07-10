@@ -1,0 +1,5 @@
+{
+  "name": "ssr-errors-consumer",
+  "private": true,
+  "type": "module"
+}

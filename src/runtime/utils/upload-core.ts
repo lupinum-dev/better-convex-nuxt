@@ -1,6 +1,8 @@
 import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 
+import { ConvexCallError } from '../errors'
+
 export interface UploadProgressInfo {
   loaded: number
   total: number
@@ -14,6 +16,24 @@ export interface UploadFileViaXhrOptions {
 
 function createAbortError(): Error {
   return new DOMException('Upload cancelled', 'AbortError')
+}
+
+// The XHR upload endpoint is a library-owned HTTP boundary (internal §9.2): it
+// knows the source, so it constructs `transport` errors directly. Network
+// failures, unexpected upstream statuses, and unusable/malformed responses are
+// all transport. Cancellation stays a DOMException so the composable can treat
+// it as a non-error cancel rather than a call failure.
+function createUploadTransportError(
+  message: string,
+  extra?: { status?: number; code?: string; cause?: unknown },
+): ConvexCallError {
+  return new ConvexCallError({
+    kind: 'transport',
+    message,
+    status: extra?.status,
+    code: extra?.code,
+    cause: extra?.cause,
+  })
 }
 
 export async function requestUploadUrl<Mutation extends FunctionReference<'mutation'>>(
@@ -92,20 +112,28 @@ export function uploadFileViaXhr(
         try {
           const response = JSON.parse(xhr.responseText) as { storageId?: unknown }
           if (typeof response?.storageId !== 'string' || response.storageId.length === 0) {
-            reject(new Error('Upload endpoint response missing valid storageId'))
+            reject(createUploadTransportError('Upload endpoint response missing valid storageId'))
             return
           }
           resolve(response.storageId)
-        } catch {
-          reject(new Error('Invalid response from upload endpoint'))
+        } catch (parseError) {
+          reject(
+            createUploadTransportError('Invalid response from upload endpoint', {
+              cause: parseError,
+            }),
+          )
         }
       } else {
-        reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`))
+        reject(
+          createUploadTransportError(`Upload failed: ${xhr.status} ${xhr.statusText}`, {
+            status: xhr.status,
+          }),
+        )
       }
     }
 
     xhr.onerror = () => {
-      fail(new Error('Network error during upload'))
+      fail(createUploadTransportError('Network error during upload'))
     }
 
     xhr.onabort = () => {

@@ -1,6 +1,7 @@
 import type { PaginationResult } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ConvexCallError } from '../../src/runtime/errors'
 import {
   commitPaginatedPageError,
   commitPaginatedPageResult,
@@ -64,7 +65,13 @@ describe('paginated query page state', () => {
 
     expect(nextPages).not.toBe(pages)
     expect(nextPages[0]?.result).toBe(result)
-    expect(nextPages[0]?.error).toBe(error)
+    // Page errors are normalized to ConvexCallError at the boundary (vNext §7);
+    // a plain Error stays `unknown` with its message preserved and the raw error
+    // retained as the runtime-only cause.
+    expect(nextPages[0]?.error).toBeInstanceOf(ConvexCallError)
+    expect(nextPages[0]?.error?.kind).toBe('unknown')
+    expect(nextPages[0]?.error?.message).toBe('boom')
+    expect(nextPages[0]?.error?.cause).toBe(error)
     expect(nextPages[0]?.pending).toBe(false)
   })
 

@@ -17,6 +17,7 @@ import type { AuthIdentityPort } from '../auth/identity-port'
 import type { ConvexClientOwner, OwnedConvexClient } from '../client/client-owner'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import type { ConvexAuthMode } from '../utils/auth-status'
+import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import {
   getFunctionName,
@@ -103,7 +104,7 @@ export interface UseConvexPaginatedQueryData<Item> {
   isStale: ComputedRef<boolean>
   hasNextPage: ComputedRef<boolean>
   loadMore: (numItems: number) => void
-  error: Readonly<Ref<Error | null>>
+  error: Readonly<Ref<ConvexCallError | null>>
   refresh: () => Promise<void>
   reset: () => Promise<void>
 }
@@ -187,7 +188,6 @@ export function createConvexPaginatedQueryState<
   const currentPaginationId = ref(generatePaginationId())
   const pages = shallowRef<PaginatedPageState<Item>[]>([])
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
-  const globalError = ref<Error | null>(null)
   const isManualRefreshPending = ref(false)
   let firstPageUnsub: (() => void) | null = null
 
@@ -209,6 +209,29 @@ export function createConvexPaginatedQueryState<
     )
     return withAuthDimension(base, authMode, gate.value.cacheIdentity)
   })
+
+  // Library-owned, identity-partitioned error state (vNext §7, decision 8). Same
+  // payload-backed store as the regular query: normalized to ConvexCallError
+  // exactly once, keyed by the identity-partitioned `asyncDataKey`, and revived
+  // as an `instanceof ConvexCallError` after SSR. Per-page errors live on the
+  // client-only page state; this holds the first-page / auth / SSR error.
+  const errorStore = useState<Record<string, ConvexCallError | null>>(
+    'convex:query-errors',
+    () => ({}),
+  )
+  const setBoundaryError = (err: ConvexCallError | null) => {
+    const key = asyncDataKey.value
+    const store = errorStore.value
+    if (err) {
+      errorStore.value = { ...store, [key]: err }
+    } else if (key in store) {
+      const { [key]: _omitted, ...next } = store
+      errorStore.value = next
+    }
+  }
+  const boundaryError = computed<ConvexCallError | null>(
+    () => errorStore.value[asyncDataKey.value] ?? null,
+  )
 
   const selectClient = (): OwnedConvexClient | null => selectLiveQueryClient(owner, gate.value)
 
@@ -266,11 +289,11 @@ export function createConvexPaginatedQueryState<
       (result: unknown) => {
         if (!sameTag(tag, currentTag.value)) return
         firstPageRealtimeData.value = result as PaginationResult<Item>
-        globalError.value = null
+        setBoundaryError(null)
       },
       (err: Error) => {
         if (!sameTag(tag, currentTag.value)) return
-        globalError.value = err
+        setBoundaryError(normalizeConvexError(err))
       },
     )
   }
@@ -334,13 +357,24 @@ export function createConvexPaginatedQueryState<
       if (g.resolveAsIdle) return null
       if (g.waitForAuth) return null
       if (g.surfaceAuthError) {
-        globalError.value = new Error(authCtx.error.value?.message ?? 'Authentication error')
+        setBoundaryError(
+          authCtx.error.value ??
+            new ConvexCallError({ kind: 'authentication', message: 'Authentication error' }),
+        )
         return null
       }
       // Client live mode: the first page arrives through the composable-owned
       // subscription (`firstPageRealtimeData`), not a one-shot fetch here.
       if (import.meta.client && subscribe && g.setupLiveSubscription) return null
-      return fetchPage(initialPaginationOpts.value)
+      setBoundaryError(null)
+      try {
+        return await fetchPage(initialPaginationOpts.value)
+      } catch (rawError) {
+        // Normalize once and store in the library-owned state; resolve null so
+        // Nuxt never manufactures an H3Error from a handler rejection (§7).
+        setBoundaryError(normalizeConvexError(rawError))
+        return null
+      }
     },
     {
       server,
@@ -349,7 +383,6 @@ export function createConvexPaginatedQueryState<
       deep: false,
     },
   )
-  const asyncDataError = asyncData.error as unknown as Ref<Error | null>
 
   // ---- derived results / status -------------------------------------------
   const applyTransform = (items: Item[]): TransformedItem[] =>
@@ -383,10 +416,7 @@ export function createConvexPaginatedQueryState<
     return computePaginatedQueryStatus({
       disabled: gate.value.resolveAsIdle,
       refresh: isManualRefreshPending.value ? 'pending' : 'idle',
-      hasError:
-        globalError.value != null ||
-        asyncData.error.value != null ||
-        pages.value.some((page) => page.error != null),
+      hasError: boundaryError.value != null || pages.value.some((page) => page.error != null),
       firstPage,
       nextPage,
     })
@@ -431,11 +461,11 @@ export function createConvexPaginatedQueryState<
   })
   const hasNextPage = computed(() => status.value === 'ready')
 
-  const error = computed((): Error | null => {
-    if (globalError.value) return globalError.value
-    const asyncError = asyncData.error.value
-    if (asyncError != null)
-      return asyncError instanceof Error ? asyncError : new Error(String(asyncError))
+  // Reads ONLY library-owned state (never `asyncData.error`, which Nuxt would
+  // have H3Error-wrapped): the first-page/auth/SSR boundary error, then any
+  // failed later page.
+  const error = computed((): ConvexCallError | null => {
+    if (boundaryError.value) return boundaryError.value
     for (const page of pages.value) {
       if (page.error) return page.error
     }
@@ -496,8 +526,7 @@ export function createConvexPaginatedQueryState<
   async function refresh(): Promise<void> {
     if (gate.value.resolveAsIdle || isManualRefreshPending.value) return
     isManualRefreshPending.value = true
-    globalError.value = null
-    asyncDataError.value = null
+    setBoundaryError(null)
 
     const refreshPaginationId = currentPaginationId.value
     const loadedPages = [...pages.value]
@@ -544,12 +573,11 @@ export function createConvexPaginatedQueryState<
             }
           }
         }
-        asyncDataError.value = null
-        globalError.value = null
+        setBoundaryError(null)
       }
     } catch (e) {
       if (currentPaginationId.value === refreshPaginationId) {
-        globalError.value = e instanceof Error ? e : new Error(String(e))
+        setBoundaryError(normalizeConvexError(e))
       }
     } finally {
       isManualRefreshPending.value = false
@@ -562,8 +590,7 @@ export function createConvexPaginatedQueryState<
     firstPageRealtimeData.value = null
     currentPaginationId.value = generatePaginationId()
     pages.value = []
-    globalError.value = null
-    asyncDataError.value = null
+    setBoundaryError(null)
     try {
       await asyncData.refresh()
     } finally {
@@ -584,7 +611,7 @@ export function createConvexPaginatedQueryState<
           teardownAllSubscriptions()
           firstPageRealtimeData.value = null
           pages.value = []
-          globalError.value = null
+          setBoundaryError(null)
           lastSettledResults.value = []
           lastSettledArgsHash.value = null
         }
@@ -601,12 +628,12 @@ export function createConvexPaginatedQueryState<
         firstPageRealtimeData.value = null
         if (gate.value.resolveAsIdle) {
           pages.value = []
-          globalError.value = null
+          setBoundaryError(null)
           return
         }
         currentPaginationId.value = generatePaginationId()
         pages.value = []
-        globalError.value = null
+        setBoundaryError(null)
         if (next.live) subscribeFirstPage()
         await asyncData.refresh()
       },

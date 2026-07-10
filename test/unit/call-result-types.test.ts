@@ -1,4 +1,5 @@
 import type { FunctionReference } from 'convex/server'
+import { ConvexError } from 'convex/values'
 import { describe, expect, it } from 'vitest'
 
 import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
@@ -72,22 +73,34 @@ describe('CallResult type contracts', () => {
   })
 
   it('does not special-case a LIMIT_* message prefix into a code (F-31)', () => {
-    // call-result.ts is a general-purpose module; parsing an app convention
-    // (LIMIT_*: message) out of the error message is not its job. A message
-    // that happens to start with LIMIT_ is passed through verbatim, and no
+    // The normalizer never classifies from message text. A plain Error that
+    // happens to start with LIMIT_ passes through verbatim as `unknown`, and no
     // code is synthesized from it.
     const normalized = normalizeConvexError(new Error('LIMIT_ITEMS: Limit reached'))
+    expect(normalized.kind).toBe('unknown')
     expect(normalized.message).toBe('LIMIT_ITEMS: Limit reached')
     expect(normalized.code).toBeUndefined()
   })
 
-  it('still derives code from structured data.code, independent of the message', () => {
-    const error = new Error('fallback message') as Error & {
+  it('derives code from a Convex application error, preserving its data verbatim', () => {
+    // Structured extraction requires the pinned ConvexError contract (vNext §7):
+    // a plain Error carrying a `.data` bag is NOT treated as a Convex application
+    // error and stays `unknown`. A real ConvexError becomes `server` with its
+    // `data.code` surfaced and its data preserved.
+    const plain = new Error('fallback message') as Error & {
       data?: { message: string; code: string }
     }
-    error.data = { message: 'Limit reached', code: 'LIMIT_ITEMS' }
-    const normalized = normalizeConvexError(error)
-    expect(normalized.message).toBe('Limit reached')
-    expect(normalized.code).toBe('LIMIT_ITEMS')
+    plain.data = { message: 'Limit reached', code: 'LIMIT_ITEMS' }
+    const plainNormalized = normalizeConvexError(plain)
+    expect(plainNormalized.kind).toBe('unknown')
+    expect(plainNormalized.message).toBe('fallback message')
+    expect(plainNormalized.code).toBeUndefined()
+
+    const structured = normalizeConvexError(
+      new ConvexError({ message: 'Limit reached', code: 'LIMIT_ITEMS' }),
+    )
+    expect(structured.kind).toBe('server')
+    expect(structured.code).toBe('LIMIT_ITEMS')
+    expect(structured.data).toEqual({ message: 'Limit reached', code: 'LIMIT_ITEMS' })
   })
 })

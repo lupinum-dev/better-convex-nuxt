@@ -76,10 +76,10 @@ export default defineNuxtPlugin((nuxtApp) => {
   }
 
   nuxtApp.provide('convexClientOwner', owner)
-  // Raw-client handoff for the auth plugin's initial engine attach and DevTools.
-  // The public raw-client contract is removed; consumers use the useConvex()
-  // handle (vNext §5.4). This internal provide is a Phase 1 inter-plugin seam.
-  if (primary) nuxtApp.provide('convex', primary)
+  // The public raw-client augmentation is deleted (vNext §5.4): consumers use the
+  // useConvex() handle. The auth plugin reads the current primary through the
+  // owner (`getPrimary()`), and DevTools uses the local `primary` below, so no
+  // `$convex` provide is needed.
 
   // Expose for debugging and wire the DevTools bridge (dev only).
   if (typeof window !== 'undefined' && import.meta.dev && primary) {

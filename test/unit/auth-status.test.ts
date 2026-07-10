@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { ConvexCallError } from '../../src/runtime/errors'
 import { deriveConvexAuthStatus } from '../../src/runtime/utils/auth-status'
 import { getConvexIdentityKey } from '../../src/runtime/utils/identity-key'
 
-const authErr = { kind: 'authentication' as const, message: 'boom' }
+const authErr = new ConvexCallError({ kind: 'authentication', message: 'boom' })
 
 describe('deriveConvexAuthStatus (vNext §5.3 precedence: disabled > loading > authenticated > error > anonymous)', () => {
   it('disabled outranks everything, including a settled authenticated-looking input', () => {

@@ -13,6 +13,7 @@ import type {
   UseConvexQueryData,
   UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
+import type { ConvexCallError } from '../../src/runtime/errors'
 import type { ConvexAuthMode } from '../../src/runtime/utils/auth-status'
 
 // Type-only bindings for the composable functions. `typeof import(...)` is
@@ -69,7 +70,9 @@ const _authCacheOptionsEnabledIsOptional: AuthCacheOptions = { ttl: 30 }
 void _authCacheOptionsEnabledIsOptional
 
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
-type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], ComputedRef<Error | null>>>
+type _QueryErrorIsComputedErrorNull = Assert<
+  IsEqual<QueryData['error'], ComputedRef<ConvexCallError | null>>
+>
 
 // ============================================================================
 // Negative-space call-arity contracts (decision 9), mirrored against `src`.

@@ -11,6 +11,7 @@ import {
   type ConvexQueryArgs,
   type UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
+import { ConvexCallError } from '../../src/runtime/errors'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
@@ -29,6 +30,24 @@ function useConvexQueryState<
 }
 
 describe('useConvexQuery composables (Nuxt runtime)', () => {
+  it('surfaces a live query failure as a ConvexCallError through composable-owned error state', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:live-failure')
+
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, {}), { convex })
+
+    await waitFor(() => convex.calls.onUpdate.length > 0)
+    // A genuine query failure (not a reconnectable disconnect) is normalized once
+    // at the boundary and stored in the library-owned error state (vNext §7).
+    convex.emitQueryError(query, {}, new Error('query exploded'))
+    await waitFor(() => result.error.value != null)
+
+    expect(result.error.value).toBeInstanceOf(ConvexCallError)
+    expect(result.error.value?.kind).toBe('unknown')
+    expect(result.error.value?.message).toBe('query exploded')
+    expect(result.status.value).toBe('error')
+  })
+
   it('useConvexQuery blocks until first value arrives', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:list:blocking-default')

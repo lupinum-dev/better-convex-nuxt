@@ -1,3 +1,4 @@
+import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
@@ -193,16 +194,15 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(result.status.value).toBe('error')
   })
 
-  it('safe prefers structured ConvexError payloads when present', async () => {
+  it('safe preserves structured ConvexError payloads as server errors', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
 
+    // vNext §7: only a real Convex application error (ConvexError) yields
+    // structured extraction — `kind: 'server'` with `data` preserved verbatim and
+    // `code`/`status`/`message` surfaced from the structured payload.
     convex.setMutationHandler('testing:safe-structured-fail', async () => {
-      const error = new Error('fallback message') as Error & {
-        data?: { message: string; code: string; status: number }
-      }
-      error.data = { message: 'Structured failure', code: 'STRUCTURED', status: 422 }
-      throw error
+      throw new ConvexError({ message: 'Structured failure', code: 'STRUCTURED', status: 422 })
     })
 
     const { result } = await captureInNuxt(() => useConvexMutation(mutation), { convex })
@@ -212,9 +212,17 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     if (safeResult.ok) {
       throw new Error('Expected safe result to be an error')
     }
+    expect(safeResult.error.kind).toBe('server')
     expect(safeResult.error.code).toBe('STRUCTURED')
-    expect(safeResult.error.message).toBe('Structured failure')
+    // ConvexError's own `message` is the serialized payload; structured fields
+    // are surfaced from `data`, never guessed from message text.
+    expect(safeResult.error.message).toContain('Structured failure')
     expect(safeResult.error.status).toBe(422)
+    expect(safeResult.error.data).toEqual({
+      message: 'Structured failure',
+      code: 'STRUCTURED',
+      status: 422,
+    })
   })
 
   it('safe wraps domain CallResult values without flattening them', async () => {
