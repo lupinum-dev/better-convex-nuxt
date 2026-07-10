@@ -71,6 +71,7 @@ function fakePort(initial: Partial<AuthIdentitySnapshot> = {}) {
   }
   const listeners = new Set<() => void>()
   const initializePrimary = vi.fn(async () => {})
+  const failPrimary = vi.fn()
   const port: AuthIdentityPort = {
     snapshot: () => snap,
     waitForInitialSettlement: () => Promise.resolve(),
@@ -79,12 +80,13 @@ function fakePort(initial: Partial<AuthIdentitySnapshot> = {}) {
       return () => listeners.delete(l)
     },
     initializePrimary,
+    failPrimary,
   }
   const emit = (next: Partial<AuthIdentitySnapshot>) => {
     snap = { ...snap, ...next }
     for (const l of [...listeners]) l()
   }
-  return { port, emit, initializePrimary, current: () => snap }
+  return { port, emit, initializePrimary, failPrimary, current: () => snap }
 }
 
 describe('createConvexClientOwner', () => {
@@ -183,7 +185,7 @@ describe('createConvexClientOwner', () => {
       await assertion
     })
 
-    it('closes the candidate when initialize() rejects, keeps the previous primary, and rethrows (no orphaned WebSocket)', async () => {
+    it('closes the candidate and leaves no prior principal dispatchable when initialize rejects', async () => {
       resetCounts()
       const o = owner()
       const a = o.getPrimary()!.client as unknown as CountingClient
@@ -201,40 +203,38 @@ describe('createConvexClientOwner', () => {
         }),
       ).rejects.toBe(failure)
 
-      // Owner still on the previous primary; generation unchanged.
-      expect(o.getPrimary()!.client).toBe(a as unknown as OwnedConvexClient)
-      expect(o.getPrimary()!.identityGeneration).toBe(0)
+      expect(o.getPrimary()).toBeNull()
+      await expect(o.handle.query(mockFnRef<'query'>('q'), {})).rejects.toMatchObject({
+        code: IDENTITY_CHANGED,
+      })
 
       // create/close balance: A (still open) + candidate B (created then closed).
       expect(CountingClient.created).toBe(2)
-      expect(CountingClient.closed).toBe(1)
-      expect(a.closeCalls).toBe(0)
+      expect(CountingClient.closed).toBe(2)
+      expect(a.closeCalls).toBe(1)
 
       // Dispose still exits clean afterward.
       await o.dispose()
-      expect(CountingClient.closed).toBe(2) // A closes on dispose; B stays closed once
+      expect(CountingClient.closed).toBe(2)
     })
 
     it('a stale candidate (isCurrent=false) is closed and never published', async () => {
       resetCounts()
       const o = owner()
       const a = o.getPrimary()!.client as unknown as CountingClient
-      const result = await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
-        identityGeneration: 1,
-        isCurrent: () => false, // superseded before commit
-        initialize: async () => {},
-      })
-      expect(result).toBe(a) // previous stays current
-      expect(o.getPrimary()!.client).toBe(a as unknown as OwnedConvexClient)
-      expect(o.getPrimary()!.identityGeneration).toBe(0) // generation NOT advanced
-      const candidate = result as unknown as CountingClient
-      void candidate
-      // A remained; the candidate (ordinal 2) was closed.
+      await expect(
+        o.replacePrimary({
+          identity: 'user:alice',
+          authEpoch: 1,
+          identityGeneration: 1,
+          isCurrent: () => false,
+          initialize: async () => {},
+        }),
+      ).rejects.toMatchObject({ code: IDENTITY_CHANGED })
+      expect(o.getPrimary()).toBeNull()
       expect(CountingClient.created).toBe(2)
-      expect(CountingClient.closed).toBe(1)
-      expect(a.closeCalls).toBe(0)
+      expect(CountingClient.closed).toBe(2)
+      expect(a.closeCalls).toBe(1)
     })
   })
 
@@ -284,6 +284,46 @@ describe('createConvexClientOwner', () => {
       const b = o.getPrimary()!.client as unknown as CountingClient
       b.emitQueryResultByPath('q', 42)
       expect(cb).toHaveBeenCalledWith(42)
+    })
+
+    it('drops an already queued callback from the retired client', async () => {
+      resetCounts()
+      const o = owner()
+      const a = o.getPrimary()!.client as unknown as CountingClient
+      const cb = vi.fn()
+      o.handle.onUpdate(mockFnRef<'query'>('q'), {}, cb)
+      const deliverQueuedAResult = a.queuedQueryResultByPath('q', 'stale')
+
+      await o.replacePrimary({
+        identity: 'user:alice',
+        authEpoch: 1,
+        identityGeneration: 1,
+        isCurrent: () => true,
+        initialize: async () => {},
+      })
+      deliverQueuedAResult()
+
+      expect(cb).not.toHaveBeenCalled()
+    })
+
+    it('settles a pending replacement and closes its candidate during disposal', async () => {
+      resetCounts()
+      const o = owner()
+      const replacement = o.replacePrimary({
+        identity: 'user:alice',
+        authEpoch: 1,
+        identityGeneration: 1,
+        isCurrent: () => true,
+        initialize: () => new Promise<void>(() => {}),
+      })
+
+      await o.dispose()
+
+      await expect(replacement).rejects.toMatchObject({
+        code: IDENTITY_CHANGED,
+      })
+      expect(CountingClient.created).toBe(2)
+      expect(CountingClient.closed).toBeGreaterThanOrEqual(2)
     })
   })
 
@@ -482,5 +522,27 @@ describe('createConvexClientOwner', () => {
       expect(received[0]!.options).toEqual({ optimisticUpdate })
       await o.dispose()
     })
+  })
+
+  it('retries the same identity generation after candidate confirmation fails', async () => {
+    resetCounts()
+    const { port, emit, initializePrimary, failPrimary } = fakePort()
+    initializePrimary.mockRejectedValueOnce(new Error('temporary confirmation failure'))
+    const o = owner()
+    o.attachAuthPort(port)
+
+    emit({ identityKey: 'user:alice', identityGeneration: 1, authEpoch: 1 })
+    await vi.waitFor(() => expect(initializePrimary).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(o.getPrimary()).toBeNull())
+    await vi.waitFor(() => expect(failPrimary).toHaveBeenCalledWith(1, expect.any(Error)))
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    // An epoch notification for the unchanged generation is sufficient to retry;
+    // the failed attempt did not incorrectly advance the committed generation.
+    emit({ authEpoch: 2 })
+    await vi.waitFor(() => expect(initializePrimary).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(o.getPrimary()?.identityGeneration).toBe(1))
+
+    await o.dispose()
   })
 })

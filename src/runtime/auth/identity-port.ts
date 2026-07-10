@@ -20,6 +20,7 @@ export interface AuthIdentityPort {
   waitForInitialSettlement(): Promise<void>
   subscribe(listener: () => void): () => void
   initializePrimary(candidate: ConvexClient, authEpoch: number): Promise<void>
+  failPrimary(identityGeneration: number, error: unknown): void
 }
 
 export interface AuthIdentitySnapshot {
@@ -52,5 +53,6 @@ export function createDisabledAuthIdentityPort(): AuthIdentityPort {
     waitForInitialSettlement: () => Promise.resolve(),
     subscribe: () => () => {},
     initializePrimary: () => Promise.resolve(),
+    failPrimary: () => {},
   }
 }

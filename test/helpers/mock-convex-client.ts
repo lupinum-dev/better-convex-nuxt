@@ -55,7 +55,9 @@ export class MockConvexClient {
   private mutationHandlers = new Map<string, (args: unknown) => unknown | Promise<unknown>>()
   private actionHandlers = new Map<string, (args: unknown) => unknown | Promise<unknown>>()
   private connectionSubscribers = new Set<(state: MockConnectionState) => void>()
-  private currentConnectionState: MockConnectionState = { ...DEFAULT_CONNECTION_STATE }
+  private currentConnectionState: MockConnectionState = {
+    ...DEFAULT_CONNECTION_STATE,
+  }
 
   readonly calls = {
     onUpdate: [] as Array<{ query: unknown; args: unknown }>,
@@ -159,6 +161,16 @@ export class MockConvexClient {
       if (fnPath(listener.query) === path) {
         listener.onResult(value)
       }
+    }
+  }
+
+  /** Capture callbacks now and invoke them later, modelling an already queued event. */
+  queuedQueryResultByPath(path: string, value: unknown): () => void {
+    const callbacks = [...this.listeners.values()]
+      .filter((listener) => fnPath(listener.query) === path)
+      .map((listener) => listener.onResult)
+    return () => {
+      for (const callback of callbacks) callback(value)
     }
   }
 

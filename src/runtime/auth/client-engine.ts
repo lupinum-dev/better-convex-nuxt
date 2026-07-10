@@ -143,14 +143,20 @@ export function createConvexAuthCoordinator(input: {
       settled: !state.pending.value,
       identityKey: safeIdentityKey(state.user.value),
       error: state.authError.value
-        ? new ConvexCallError({ kind: 'authentication', message: state.authError.value })
+        ? new ConvexCallError({
+            kind: 'authentication',
+            message: state.authError.value,
+          })
         : null,
     }),
   )
   const isAuthenticated = computed(() => Boolean(state.token.value) && Boolean(state.user.value))
   const error = computed<ConvexCallError | null>(() =>
     state.authError.value
-      ? new ConvexCallError({ kind: 'authentication', message: state.authError.value })
+      ? new ConvexCallError({
+          kind: 'authentication',
+          message: state.authError.value,
+        })
       : null,
   )
 
@@ -493,7 +499,11 @@ export function createConvexAuthCoordinator(input: {
       initialSettlement.resolve()
       resolveSettlementWaiters()
       installSetAuth(client, authEpoch, null)
-      logAuth({ phase: 'hydrate', outcome: 'success', details: { source: 'ssr' } })
+      logAuth({
+        phase: 'hydrate',
+        outcome: 'success',
+        details: { source: 'ssr' },
+      })
       return
     }
 
@@ -539,11 +549,17 @@ export function createConvexAuthCoordinator(input: {
   }
 
   function dispose(): void {
+    if (disposed) return
     disposed = true
     clearRetry()
-    listeners.clear()
-    settlementWaiters.clear()
+    // Teardown is a cancellation boundary, not a reason to abandon promises.
+    // Every waiter is released so sign-in/out/refresh and ready({ timeoutMs: 0 })
+    // cannot remain pending after the owning Nuxt application is disposed.
+    initialSettlement.resolve()
+    resolveSettlementWaiters()
+    for (const confirmation of pendingConfirmations.values()) confirmation.resolve()
     pendingConfirmations.clear()
+    listeners.clear()
   }
 
   // ---- port ----------------------------------------------------------------
@@ -555,7 +571,10 @@ export function createConvexAuthCoordinator(input: {
       const hasUsableIdentity = identityKey !== null && identityKey !== 'anonymous'
       const portError: ConvexCallError | null =
         settledNow && !hasUsableIdentity && state.authError.value
-          ? new ConvexCallError({ kind: 'authentication', message: state.authError.value })
+          ? new ConvexCallError({
+              kind: 'authentication',
+              message: state.authError.value,
+            })
           : null
       return {
         authEnabled: true,
@@ -598,6 +617,23 @@ export function createConvexAuthCoordinator(input: {
       const done = pendingConfirmations.get(gen)?.promise
       installSetAuth(candidate, epoch, gen)
       if (done) await done
+    },
+    failPrimary(generation, failure) {
+      if (disposed || generation !== identityGeneration) return
+      const normalized =
+        failure instanceof ConvexCallError
+          ? failure
+          : new ConvexCallError({
+              kind: 'authentication',
+              code: 'PRIMARY_INITIALIZATION_FAILED',
+              message: 'Convex authentication could not be initialized',
+              cause: failure,
+            })
+      stagedToken = null
+      stagedUser = null
+      stagedKey = 'anonymous'
+      publishAnonymous(normalized.message)
+      resolveConfirmation(generation)
     },
   }
 
