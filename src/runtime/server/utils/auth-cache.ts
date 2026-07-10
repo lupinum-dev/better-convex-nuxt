@@ -1,5 +1,7 @@
 import { hash } from 'ohash'
 
+import { getJwtTimeUntilExpiryMs } from '../../utils/convex-shared'
+
 /**
  * Storage namespace for auth token cache.
  * Can be configured in nuxt.config.ts nitro.storage['cache:convex:auth']
@@ -72,4 +74,42 @@ export async function setCachedAuthToken(
   const storage = await getStorage()
   const cacheKey = `jwt:${hash(sessionToken)}`
   await storage.setItem(cacheKey, jwtToken, { ttl })
+}
+
+/**
+ * Read a session's cached JWT only when its `exp` claim is still usable.
+ * Tokens without a readable `exp` remain bounded by the storage driver's TTL.
+ */
+export async function getUsableCachedAuthToken(sessionToken: string): Promise<string | null> {
+  const token = await getCachedAuthToken(sessionToken)
+  if (!token) return null
+  return isAuthTokenUsable(token) ? token : null
+}
+
+export function isAuthTokenUsable(token: string): boolean {
+  const untilExpiryMs = getJwtTimeUntilExpiryMs(token)
+  return untilExpiryMs === null || untilExpiryMs > 0
+}
+
+export function effectiveAuthCacheTtlSeconds(
+  jwtToken: string,
+  configuredTtlSeconds: number,
+): number {
+  const untilExpiryMs = getJwtTimeUntilExpiryMs(jwtToken)
+  return untilExpiryMs === null
+    ? configuredTtlSeconds
+    : Math.min(configuredTtlSeconds, Math.floor(untilExpiryMs / 1000))
+}
+
+/**
+ * Cache a JWT for no longer than either the configured TTL or its remaining
+ * lifetime. Already-expired tokens are never written.
+ */
+export async function cacheUsableAuthToken(
+  sessionToken: string,
+  jwtToken: string,
+  configuredTtlSeconds: number,
+): Promise<void> {
+  const ttl = effectiveAuthCacheTtlSeconds(jwtToken, configuredTtlSeconds)
+  if (ttl > 0) await setCachedAuthToken(sessionToken, jwtToken, ttl)
 }

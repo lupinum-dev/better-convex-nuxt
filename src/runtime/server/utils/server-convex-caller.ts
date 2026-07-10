@@ -6,10 +6,9 @@ import { useRuntimeConfig } from '#imports'
 
 import type { TightenEmptyArgs } from '../../utils/args-tuple'
 import { ConvexCallError, normalizeConvexError } from '../../utils/call-result'
-import { getJwtTimeUntilExpiryMs } from '../../utils/convex-shared'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
-import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
+import { cacheUsableAuthToken, getUsableCachedAuthToken } from './auth-cache'
 import {
   validateServerConvexOptions,
   type ConvexCredential,
@@ -70,7 +69,11 @@ function readCookieHeader(event: H3Event): string | null {
     return directHeader.get('cookie')
   }
   const nodeHeaders = (
-    event as { node?: { req?: { headers?: Record<string, string | string[] | undefined> } } }
+    event as {
+      node?: {
+        req?: { headers?: Record<string, string | string[] | undefined> }
+      }
+    }
   ).node?.req?.headers
   const raw = nodeHeaders?.cookie
   if (Array.isArray(raw)) return raw.join('; ')
@@ -156,27 +159,6 @@ function throwExchangeFailure(result: ConvexTokenExchangeResult): never {
   )
 }
 
-/**
- * Effective cache TTL for a freshly exchanged token: the smaller of the
- * configured TTL and the token's remaining lifetime from its `exp` claim. A
- * token without a readable `exp` keeps the configured TTL; an already-expired
- * token yields `0` and is not stored (vNext §9 step 8, decision 5).
- */
-function effectiveCacheTtlSeconds(configuredTtlSeconds: number, token: string): number {
-  const untilExpiryMs = getJwtTimeUntilExpiryMs(token)
-  if (untilExpiryMs === null) return configuredTtlSeconds
-  const remainingSeconds = Math.floor(untilExpiryMs / 1000)
-  return Math.min(configuredTtlSeconds, remainingSeconds)
-}
-
-/** A cached token is only usable while its `exp` claim is still in the future. */
-function isCachedTokenUsable(token: string): boolean {
-  const untilExpiryMs = getJwtTimeUntilExpiryMs(token)
-  // Unreadable exp -> trust the storage TTL that bounded it; readable exp must be
-  // strictly in the future (never returned at or after expiry).
-  return untilExpiryMs === null || untilExpiryMs > 0
-}
-
 async function resolveServerToken(
   event: H3Event,
   normalized: NormalizedServerConvexOptions,
@@ -221,8 +203,8 @@ async function resolveServerToken(
 
   const cacheEnabled = authCache !== false
   if (cacheEnabled) {
-    const cached = await getCachedAuthToken(sessionToken)
-    if (cached && isCachedTokenUsable(cached)) return cached
+    const cached = await getUsableCachedAuthToken(sessionToken)
+    if (cached) return cached
   }
 
   const result = await exchangeConvexToken({
@@ -232,8 +214,7 @@ async function resolveServerToken(
 
   if (result.token) {
     if (cacheEnabled) {
-      const ttl = effectiveCacheTtlSeconds(authCache.ttl, result.token)
-      if (ttl > 0) await setCachedAuthToken(sessionToken, result.token, ttl)
+      await cacheUsableAuthToken(sessionToken, result.token, authCache.ttl)
     }
     return result.token
   }

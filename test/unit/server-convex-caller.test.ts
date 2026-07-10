@@ -56,8 +56,8 @@ vi.mock('../../src/runtime/server/utils/token-exchange', () => ({
 }))
 
 vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getCachedAuthToken: mocks.getCachedMock,
-  setCachedAuthToken: mocks.setCachedMock,
+  getUsableCachedAuthToken: mocks.getCachedMock,
+  cacheUsableAuthToken: mocks.setCachedMock,
 }))
 
 vi.mock('#imports', () => ({
@@ -130,7 +130,11 @@ const actionRef = { _path: 'notes:run' } as unknown as FunctionReference<
 
 describe('serverConvex caller-scoped invariants', () => {
   it('creates one token promise, one ConvexHttpClient, and calls setAuth at most once across calls', async () => {
-    mocks.exchangeMock.mockResolvedValue({ token: 'jwt-token', status: 200, error: null })
+    mocks.exchangeMock.mockResolvedValue({
+      token: 'jwt-token',
+      status: 200,
+      error: null,
+    })
     mocks.queryMock.mockResolvedValue(['a'])
     mocks.mutationMock.mockResolvedValue('id_1')
 
@@ -147,12 +151,19 @@ describe('serverConvex caller-scoped invariants', () => {
   })
 
   it('constructs ConvexHttpClient with logger:false and a fetch function', async () => {
-    mocks.exchangeMock.mockResolvedValue({ token: 'jwt-token', status: 200, error: null })
+    mocks.exchangeMock.mockResolvedValue({
+      token: 'jwt-token',
+      status: 200,
+      error: null,
+    })
     mocks.queryMock.mockResolvedValue(null)
 
     await serverConvex(createEvent(AUTH_COOKIE)).query(queryRef, {})
 
-    const options = mocks.ctorCalls[0]?.options as { logger: unknown; fetch: unknown }
+    const options = mocks.ctorCalls[0]?.options as {
+      logger: unknown
+      fetch: unknown
+    }
     expect(options.logger).toBe(false)
     expect(typeof options.fetch).toBe('function')
   })
@@ -161,7 +172,11 @@ describe('serverConvex caller-scoped invariants', () => {
     mocks.exchangeMock.mockResolvedValue({
       token: null,
       status: 401,
-      error: new ConvexCallError({ kind: 'authentication', message: 'nope', status: 401 }),
+      error: new ConvexCallError({
+        kind: 'authentication',
+        message: 'nope',
+        status: 401,
+      }),
     })
 
     const caller = serverConvex(createEvent(AUTH_COOKIE), { auth: 'required' })
@@ -169,7 +184,9 @@ describe('serverConvex caller-scoped invariants', () => {
     await expect(caller.getToken()).rejects.toBeInstanceOf(ConvexCallError)
     expect(mocks.exchangeMock).toHaveBeenCalledTimes(1)
 
-    const retryCaller = serverConvex(createEvent(AUTH_COOKIE), { auth: 'required' })
+    const retryCaller = serverConvex(createEvent(AUTH_COOKIE), {
+      auth: 'required',
+    })
     await expect(retryCaller.getToken()).rejects.toBeInstanceOf(ConvexCallError)
     expect(mocks.exchangeMock).toHaveBeenCalledTimes(2)
   })
@@ -208,7 +225,9 @@ describe('serverConvex auth-mode resolution', () => {
   it('optional anonymous caller executes without auth', async () => {
     mocks.queryMock.mockResolvedValue('anon')
 
-    const result = await serverConvex(createEvent(), { auth: 'optional' }).query(queryRef, {})
+    const result = await serverConvex(createEvent(), {
+      auth: 'optional',
+    }).query(queryRef, {})
 
     expect(result).toBe('anon')
     expect(mocks.setAuthCalls).toEqual([])
@@ -221,14 +240,17 @@ describe('serverConvex auth-mode resolution', () => {
       mocks.exchangeMock.mockResolvedValue({
         token: null,
         status,
-        error: new ConvexCallError({ kind: 'authentication', message: 'x', status }),
+        error: new ConvexCallError({
+          kind: 'authentication',
+          message: 'x',
+          status,
+        }),
       })
       mocks.queryMock.mockResolvedValue('anon')
 
-      const result = await serverConvex(createEvent(AUTH_COOKIE), { auth: 'optional' }).query(
-        queryRef,
-        {},
-      )
+      const result = await serverConvex(createEvent(AUTH_COOKIE), {
+        auth: 'optional',
+      }).query(queryRef, {})
       expect(result).toBe('anon')
       expect(mocks.setAuthCalls).toEqual([])
     }
@@ -239,7 +261,11 @@ describe('serverConvex auth-mode resolution', () => {
       mocks.exchangeMock.mockResolvedValue({
         token: null,
         status,
-        error: new ConvexCallError({ kind: 'transport', message: 'boom', status }),
+        error: new ConvexCallError({
+          kind: 'transport',
+          message: 'boom',
+          status,
+        }),
       })
       await expect(
         serverConvex(createEvent(AUTH_COOKIE), { auth: 'optional' }).query(queryRef, {}),
@@ -250,7 +276,11 @@ describe('serverConvex auth-mode resolution', () => {
     mocks.exchangeMock.mockResolvedValue({
       token: null,
       status: 200,
-      error: new ConvexCallError({ kind: 'transport', message: 'no token', status: 200 }),
+      error: new ConvexCallError({
+        kind: 'transport',
+        message: 'no token',
+        status: 200,
+      }),
     })
     await expect(
       serverConvex(createEvent(AUTH_COOKIE), { auth: 'optional' }).query(queryRef, {}),
@@ -261,20 +291,30 @@ describe('serverConvex auth-mode resolution', () => {
     mocks.exchangeMock.mockResolvedValue({
       token: null,
       status: 403,
-      error: new ConvexCallError({ kind: 'authentication', message: 'x', status: 403 }),
+      error: new ConvexCallError({
+        kind: 'authentication',
+        message: 'x',
+        status: 403,
+      }),
     })
 
     const caller = serverConvex(createEvent(), {
       credential: { type: 'bearer', value: 'api-key' },
     })
-    await expect(caller.query(queryRef, {})).rejects.toMatchObject({ kind: 'authentication' })
+    await expect(caller.query(queryRef, {})).rejects.toMatchObject({
+      kind: 'authentication',
+    })
     expect(mocks.queryMock).not.toHaveBeenCalled()
   })
 })
 
 describe('serverConvex SSR auth cache', () => {
   it('serves a still-valid cached token without exchanging', async () => {
-    setConfig({ url: CONVEX_URL, siteUrl: SITE_URL, auth: { cache: { ttl: 100_000 } } })
+    setConfig({
+      url: CONVEX_URL,
+      siteUrl: SITE_URL,
+      auth: { cache: { ttl: 100_000 } },
+    })
     const validToken = makeJwt(Math.floor(Date.now() / 1000) + 3600)
     mocks.getCachedMock.mockResolvedValue(validToken)
     mocks.queryMock.mockResolvedValue('ok')
@@ -286,11 +326,20 @@ describe('serverConvex SSR auth cache', () => {
   })
 
   it('never serves a cached token at or after its exp, even with a longer TTL', async () => {
-    setConfig({ url: CONVEX_URL, siteUrl: SITE_URL, auth: { cache: { ttl: 100_000 } } })
-    const expiredToken = makeJwt(Math.floor(Date.now() / 1000) - 10)
+    setConfig({
+      url: CONVEX_URL,
+      siteUrl: SITE_URL,
+      auth: { cache: { ttl: 100_000 } },
+    })
     const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600)
-    mocks.getCachedMock.mockResolvedValue(expiredToken)
-    mocks.exchangeMock.mockResolvedValue({ token: freshToken, status: 200, error: null })
+    // The centralized cache policy filters the expired storage entry before the
+    // caller sees it.
+    mocks.getCachedMock.mockResolvedValue(null)
+    mocks.exchangeMock.mockResolvedValue({
+      token: freshToken,
+      status: 200,
+      error: null,
+    })
     mocks.queryMock.mockResolvedValue('ok')
 
     await serverConvex(createEvent(AUTH_COOKIE)).query(queryRef, {})
@@ -366,7 +415,10 @@ describe('serverConvex boundary error sanitization', () => {
   })
 
   it('passes a classified transport error through unchanged', async () => {
-    const transport = new ConvexCallError({ kind: 'transport', message: 'net down' })
+    const transport = new ConvexCallError({
+      kind: 'transport',
+      message: 'net down',
+    })
     mocks.queryMock.mockRejectedValue(transport)
 
     await expect(serverConvex(createEvent(), { auth: 'none' }).query(queryRef, {})).rejects.toBe(

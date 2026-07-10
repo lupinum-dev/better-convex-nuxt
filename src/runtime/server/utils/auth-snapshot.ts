@@ -3,9 +3,9 @@ import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
 import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
-import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
+import { cacheUsableAuthToken, getUsableCachedAuthToken } from './auth-cache'
 import { fetchWithTimeout } from './http'
-import { exchangeSessionForToken } from './token-exchange'
+import { exchangeConvexToken } from './token-exchange'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 
@@ -173,7 +173,7 @@ export async function resolveServerAuthSnapshot(
   try {
     if (authCache.enabled) {
       const cacheStart = trackWaterfall ? Date.now() : 0
-      token = await getCachedAuthToken(sessionToken)
+      token = await getUsableCachedAuthToken(sessionToken)
       if (token) {
         cacheHit = true
         if (trackWaterfall) {
@@ -199,7 +199,11 @@ export async function resolveServerAuthSnapshot(
           )
         }
 
-        logEvents.push({ phase: 'cache', outcome: 'success', details: { source: 'cache' } })
+        logEvents.push({
+          phase: 'cache',
+          outcome: 'success',
+          details: { source: 'cache' },
+        })
         return {
           token,
           user,
@@ -225,9 +229,13 @@ export async function resolveServerAuthSnapshot(
     }
 
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    const exchange = await exchangeSessionForToken(siteUrl, authCookieHeader, { timeoutMs: 5_000 })
+    const exchange = await exchangeConvexToken({
+      siteUrl,
+      credential: { type: 'cookie', value: authCookieHeader },
+      timeoutMs: 5_000,
+    })
     const tokenExchangeStatus = exchange.status
-    const tokenExchangeThrown = exchange.thrown
+    const tokenExchangeThrown = exchange.status === undefined ? exchange.error : undefined
 
     if (exchange.token) {
       token = exchange.token
@@ -266,7 +274,7 @@ export async function resolveServerAuthSnapshot(
 
       if (authCache.enabled && token) {
         const storeStart = trackWaterfall ? Date.now() : 0
-        await setCachedAuthToken(sessionToken, token, authCache.ttl)
+        await cacheUsableAuthToken(sessionToken, token, authCache.ttl)
         if (trackWaterfall) {
           phases.push(
             buildPhase(

@@ -19,8 +19,8 @@ vi.mock('../../src/runtime/server/utils/http', () => ({
 }))
 
 vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getCachedAuthToken: getCachedAuthTokenMock,
-  setCachedAuthToken: setCachedAuthTokenMock,
+  getUsableCachedAuthToken: getCachedAuthTokenMock,
+  cacheUsableAuthToken: setCachedAuthTokenMock,
 }))
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
@@ -85,7 +85,10 @@ describe('resolveServerAuthSnapshot', () => {
     })
 
     expect(snapshot.token).toBe('cached.jwt')
-    expect(snapshot.user).toEqual({ id: 'user-1', email: 'cached@example.com' })
+    expect(snapshot.user).toEqual({
+      id: 'user-1',
+      email: 'cached@example.com',
+    })
     expect(snapshot.authError).toBeNull()
     expect(snapshot.waterfall?.cacheHit).toBe(true)
     expect(snapshot.logEvents.at(-1)).toEqual({
@@ -211,7 +214,9 @@ describe('resolveServerAuthSnapshot', () => {
     fetchWithTimeoutMock
       .mockResolvedValueOnce(createResponse(200, { token: 'fresh.jwt' }))
       .mockResolvedValueOnce(
-        createResponse(200, { user: { id: 'user-session', email: 'session@example.com' } }),
+        createResponse(200, {
+          user: { id: 'user-session', email: 'session@example.com' },
+        }),
       )
 
     const snapshot = await resolveServerAuthSnapshot({
@@ -220,7 +225,10 @@ describe('resolveServerAuthSnapshot', () => {
     })
 
     expect(snapshot.token).toBe('fresh.jwt')
-    expect(snapshot.user).toEqual({ id: 'user-session', email: 'session@example.com' })
+    expect(snapshot.user).toEqual({
+      id: 'user-session',
+      email: 'session@example.com',
+    })
     expect(fetchWithTimeoutMock).toHaveBeenNthCalledWith(
       2,
       'https://demo.convex.site/api/auth/get-session',
