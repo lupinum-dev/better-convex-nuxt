@@ -4,7 +4,7 @@
 
 This document is the implementation specification for the internal cleanup that accompanies the breaking vNext release.
 
-Implementation status: **senior Phase 0 only**. The `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` contracts were reconciled on 2026-07-09 and are now expressed in `vNext.md` (§5.4 and §5.1). Broad implementation remains blocked until every Phase 0 proof in section 20 passes.
+Implementation status: **Phase 0 gate passed (2026-07-10); Phase 1 may be assigned.** The `ConvexClientHandle`, `auth.skipRoutes`, and `auth.unauthorized` contracts were reconciled on 2026-07-09 and are now expressed in `vNext.md` (§5.4 and §5.1). All section-20/§5.8 proofs pass on the pinned stack with recorded evidence under `test/proofs/`. Phase 0 notes: the two-app harness uses low-level `createNuxtApp` (`mountSuspended` cannot host two concurrent apps) and the HMR harness uses a middleware-mode Vite dev server (the client HMR engine is genuine Vite); both are accepted Phase 0 substrates. The §16 SSR-detached-scope proof remains deferred and is required only if an implementation phase introduces a detached SSR scope.
 
 It complements `vNext.md`:
 

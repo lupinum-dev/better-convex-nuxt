@@ -14,9 +14,18 @@ export default createConfigForNuxt({
   },
 })
   .prepend(
-    // Ignore demo and docs folders - they have their own eslint configs
+    // Ignore demo and docs folders - they have their own eslint configs.
+    // Standalone proof-fixture apps own their own TS programs/toolchains and
+    // are not part of the repo eslint project service (internal §15.4).
     {
-      ignores: ['demo/**', 'docs/**', '**/convex/**/_generated/**'],
+      ignores: [
+        'demo/**',
+        'docs/**',
+        '**/convex/**/_generated/**',
+        'test/proofs/ssr-errors/app/**',
+        'test/proofs/packed-typing/**',
+        'test/proofs/harnesses/hmr/fixture/**',
+      ],
     },
   )
   .append(

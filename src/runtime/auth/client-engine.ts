@@ -28,7 +28,7 @@ export type AuthClientWithConvex = AuthClient & {
 
 type AuthEngineNuxtApp = {
   _convexRefreshAuthPromise?: Promise<void> | null
-  callHook: (name: 'better-convex:auth:refresh') => Promise<void>
+  callHook: (name: 'better-convex:auth:refresh') => unknown
   hook: (name: 'better-convex:auth:refresh', callback: () => void | Promise<void>) => void
 }
 

@@ -4,3 +4,7 @@ ignoredBuiltDependencies:
   - esbuild
   - unrs-resolver
   - vue-demi
+overrides:
+  '@nuxt/schema': 4.4.7
+  vite: 7.3.6
+  c12: 3.3.4

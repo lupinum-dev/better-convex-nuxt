@@ -42,12 +42,6 @@
       "automerge": false
     },
     {
-      "description": "Temporary guardrail until @convex-dev/better-auth supports better-auth 1.5+.",
-      "matchPackageNames": ["better-auth"],
-      "allowedVersions": "<1.5.0",
-      "automerge": false
-    },
-    {
       "description": "Stay on h3 v1 while Nuxt/Nitro remains on the 1.x line.",
       "matchPackageNames": ["h3"],
       "allowedVersions": "<2.0.0",

@@ -101,7 +101,18 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
     },
-    trustedOrigins: [siteUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    trustedOrigins: [
+      siteUrl,
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      // vNext Phase 0 proof harness: parallel proof groups each boot the
+      // playground Nuxt server on their own assigned port (see
+      // test/proofs/support/acquire-token.mjs + proofs-harness.md port
+      // ranges). Wildcard-match any localhost/127.0.0.1 port rather than
+      // enumerating every port so groups never need to touch this file.
+      'http://localhost:*',
+      'http://127.0.0.1:*',
+    ],
   })
 }
 

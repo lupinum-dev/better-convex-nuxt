@@ -10,6 +10,8 @@
     "starters",
     "test/fixtures/consumer-smoke",
     "test/fixtures/missing-convex-api",
+    "test/proofs/ssr-errors/app",
+    "test/proofs/packed-typing",
     "src/runtime/server"
   ]
 }

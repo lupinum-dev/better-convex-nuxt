@@ -17,30 +17,46 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint
 
+      - name: Type check (server)
+        run: npm run typecheck:server
+
+      - name: Boundary check
+        run: npm run check:boundaries
+
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version:
+          - '22.12.0'
+          - '24'
 
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -59,12 +75,13 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
         run: npm run dev:prepare
@@ -86,12 +103,13 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Pack module
         id: pack
@@ -102,11 +120,11 @@ jobs:
 
       - name: Install fixture dependencies
         working-directory: test/fixtures/consumer-smoke
-        run: npx nypm@latest i
+        run: pnpm install --no-frozen-lockfile --ignore-workspace
 
       - name: Install packed module in fixture
         working-directory: test/fixtures/consumer-smoke
-        run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
+        run: pnpm add --ignore-workspace "${{ steps.pack.outputs.tarball_path }}"
 
       - name: Verify packed module resolves
         working-directory: test/fixtures/consumer-smoke

@@ -24,7 +24,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: demo/pnpm-lock.yaml
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
 
       - name: Deploy Convex functions
         run: npx convex deploy

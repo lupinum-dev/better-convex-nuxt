@@ -57,7 +57,7 @@ export default defineConfig({
       await defineVitestProject({
         test: {
           name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts'],
+          include: ['test/nuxt/**/*.test.ts', 'test/proofs/harnesses/**/*.nuxt.test.ts'],
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
@@ -66,6 +66,20 @@ export default defineConfig({
           },
         },
       }),
+
+      // Phase 0 lifecycle/two-app/HMR harnesses (internal §17.3, §20): plain
+      // Node environment, no Nuxt/Vue context needed. Serial because the HMR
+      // harness boots a real Vite dev server + headless browser on a fixed
+      // port range (4640-4649, see proofs-harness.md).
+      {
+        test: {
+          name: 'proofs-harnesses',
+          include: ['test/proofs/harnesses/**/*.harness.test.ts'],
+          environment: 'node',
+          testTimeout: 60000,
+          fileParallelism: false,
+        },
+      },
 
       // Browser Component Tests: native browser rendering for Vue components
       {

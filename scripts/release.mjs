@@ -1,5 +1,17 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, relative, sep } from 'node:path'
 
 const version = process.argv
   .slice(2)
@@ -19,6 +31,7 @@ if (!version || !versionPattern.test(version)) {
 const tag = `v${version}`
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
+const repoRoot = process.cwd()
 
 function run(command, args, options = {}) {
   console.log(`\n> ${[command, ...args].join(' ')}`)
@@ -57,6 +70,96 @@ function ensureAllowedWorkingTree() {
   }
 }
 
+// Builds once, packs once, extracts the resulting tarball, and records a
+// path/mode/size/SHA-256 content manifest as release evidence. Returns the
+// absolute path of the exact verified tarball that must be published.
+function buildPackAndVerify() {
+  const distDir = join(repoRoot, 'dist')
+  rmSync(distDir, { recursive: true, force: true })
+
+  // Build once. `prepack` also runs `check:package-exports -- --dist`, which
+  // validates the freshly built `dist` directory before it is packed.
+  run('npm', ['run', 'prepack'])
+
+  // Pack once, from the prepared clean tree, straight to a tarball file.
+  // `--ignore-scripts` is required here: `npm pack` on a local directory
+  // otherwise reruns the `prepack` lifecycle script itself, which would
+  // rebuild `dist` a second time and pack something that was never verified.
+  const artifactsDir = join(repoRoot, 'release-artifacts')
+  mkdirSync(artifactsDir, { recursive: true })
+  const packJson = output('npm', [
+    'pack',
+    '--json',
+    '--ignore-scripts',
+    '--pack-destination',
+    artifactsDir,
+  ])
+  const [packResult] = JSON.parse(packJson)
+  const tarballPath = join(artifactsDir, packResult.filename)
+
+  if (!existsSync(tarballPath)) {
+    console.error(`Expected pack artifact missing: ${tarballPath}`)
+    process.exit(1)
+  }
+
+  // Extract that exact tarball (never the source directory) to verify it.
+  const extractDir = mkdtempSync(join(tmpdir(), 'better-convex-nuxt-release-'))
+  run('tar', ['xf', tarballPath, '-C', extractDir])
+  const packageDir = join(extractDir, 'package')
+
+  const entryPoint = join(packageDir, 'dist/module.mjs')
+  if (!existsSync(entryPoint)) {
+    console.error(`Packed tarball is missing its entry point: ${entryPoint}`)
+    process.exit(1)
+  }
+
+  const packedPkg = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
+  if (packedPkg.version !== version) {
+    console.error(
+      `Packed tarball version ${packedPkg.version} does not match release version ${version}.`,
+    )
+    process.exit(1)
+  }
+
+  const manifest = buildContentManifest(packageDir)
+  const manifestPath = join(artifactsDir, `${tag}.manifest.json`)
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  console.log(`\nVerified tarball: ${tarballPath}`)
+  console.log(`Content manifest: ${manifestPath}`)
+
+  rmSync(extractDir, { recursive: true, force: true })
+
+  return tarballPath
+}
+
+// Records path, mode, size, and SHA-256 for every file in the extracted
+// package. This is evidence, not a release gate: manifest diffs alone must
+// not fail a release.
+function buildContentManifest(packageDir) {
+  const entries = []
+
+  function walk(dir) {
+    for (const name of readdirSync(dir).sort()) {
+      const absolutePath = join(dir, name)
+      const stats = statSync(absolutePath)
+      if (stats.isDirectory()) {
+        walk(absolutePath)
+        continue
+      }
+      const relativePath = relative(packageDir, absolutePath).split(sep).join('/')
+      entries.push({
+        path: relativePath,
+        mode: (stats.mode & 0o777).toString(8).padStart(3, '0'),
+        size: stats.size,
+        sha256: createHash('sha256').update(readFileSync(absolutePath)).digest('hex'),
+      })
+    }
+  }
+
+  walk(packageDir)
+  return { version, generatedAt: new Date().toISOString(), files: entries }
+}
+
 ensureAllowedWorkingTree()
 
 const branch = output('git', ['branch', '--show-current'])
@@ -87,7 +190,7 @@ if (localHead !== remoteHead && releasePrepared) {
     )
     process.exit(1)
   }
-  console.log(`\nResuming prepared ${tag} release at publish/push.`)
+  console.log(`\nResuming prepared ${tag} release at build/pack/publish.`)
 }
 
 if (tagTarget && !releasePrepared) {
@@ -112,17 +215,19 @@ if (!releasePrepared) {
   run('npm', ['run', 'test:types'])
   run('npm', ['run', 'check:contracts'])
   run('npm', ['run', 'test'])
-  run('npm', ['run', 'prepack'])
 
   run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
   run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])
   run('git', ['commit', '-m', `chore(release): ${tag}`])
   run('git', ['tag', '-a', tag, '-m', tag])
-} else if (!existsSync(new URL('../dist/module.mjs', import.meta.url))) {
-  run('npm', ['run', 'prepack'])
 }
 
-run('npm', ['publish', ...(otp ? ['--otp', otp] : [])])
+// Every run — fresh or resumed — rebuilds, repacks, and re-verifies from the
+// prepared clean tree before publish. A resume path may re-verify or re-pack,
+// but it never publishes a build that was not verified in this same run.
+const tarballPath = buildPackAndVerify()
+
+run('npm', ['publish', tarballPath, ...(otp ? ['--otp', otp] : [])])
 run('git', ['push', 'origin', 'main', '--follow-tags'])
 
 console.log(`\nReleased ${pkg.name}@${version}.`)
