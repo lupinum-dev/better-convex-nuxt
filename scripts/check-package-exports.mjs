@@ -13,18 +13,17 @@
  *      undeclared-dependency leaks — no build required;
  *   2. requires `dist/` to already exist (built by `nuxt-module-build build`,
  *      as `prepack` does) and fails loudly, not vacuously, if it is missing;
- *   3. packs the current tree with `pnpm pack --config.ignore-scripts=true`
- *      (skips the `prepack` lifecycle hook so this does not recurse when
- *      `prepack` itself invokes this script) and extracts that exact tarball
- *      — the real published artifact, not the local `dist/` tree — to a
- *      scratch directory;
- *   4. scans the extracted tarball for source-machine absolute paths and
- *      undeclared bare-specifier dependencies (internal §16.2);
+ *   3. in the default mode, packs the current tree once and extracts that
+ *      exact tarball; release verification instead supplies its already-packed
+ *      artifact with `--tarball`, while `prepack` uses `--dist-only` to avoid
+ *      recursively packing during the build lifecycle;
+ *   4. scans the extracted tarball for invalid path classes, generated debris,
+ *      source-machine absolute paths, and undeclared dependencies;
  *   5. for each ACTIVE table entry, uses the installed TypeScript compiler to
  *      prove the entry's dist files export exactly the expected names, no
  *      forbidden names, and (where declared) import nothing outside the
  *      entry's purity allowlist;
- *   6. for each ACTIVE entry with a packed consumer fixture, runs a clean
+ *   6. for each ACTIVE entry with a packed consumer fixture, runs an isolated
  *      install of that fixture against the freshly packed tarball and proves
  *      runtime resolution (`node`) and type resolution (`tsc`).
  *
@@ -38,6 +37,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   copyFileSync,
   existsSync,
@@ -59,6 +59,39 @@ import ts from 'typescript'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
+const cliArgs = process.argv.slice(2).filter((argument) => argument !== '--')
+
+function readOption(name) {
+  const inline = cliArgs.find((argument) => argument.startsWith(`${name}=`))
+  if (inline) return inline.slice(name.length + 1)
+  const index = cliArgs.indexOf(name)
+  return index >= 0 ? cliArgs[index + 1] : undefined
+}
+
+const distOnly = cliArgs.includes('--dist-only')
+const suppliedTarball = readOption('--tarball')
+const manifestOutput = readOption('--manifest')
+
+for (let index = 0; index < cliArgs.length; index += 1) {
+  const argument = cliArgs[index]
+  if (argument === '--dist-only') continue
+  if (argument === '--tarball' || argument === '--manifest') {
+    if (!cliArgs[index + 1] || cliArgs[index + 1].startsWith('--')) {
+      console.error(`${argument} requires a path.`)
+      process.exit(1)
+    }
+    index += 1
+    continue
+  }
+  if (argument.startsWith('--tarball=') || argument.startsWith('--manifest=')) continue
+  console.error(`Unknown package-check option: ${argument}`)
+  process.exit(1)
+}
+
+if (distOnly && (suppliedTarball || manifestOutput)) {
+  console.error('--dist-only cannot be combined with --tarball or --manifest.')
+  process.exit(1)
+}
 
 /** Phases whose table entries are deep-checked (export shape, purity, packed probe). */
 const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3', 'phase4']
@@ -564,9 +597,9 @@ function collectExportedNames(sourceFile, warnings) {
   return names
 }
 
-function checkEntryExportShape(entry, failures, warnings) {
-  const jsPath = p(entry.distJs)
-  const dtsPath = p(entry.distDts)
+function checkEntryExportShape(entry, failures, warnings, artifactRoot = repoRoot) {
+  const jsPath = resolve(artifactRoot, entry.distJs)
+  const dtsPath = resolve(artifactRoot, entry.distDts)
   if (!existsSync(jsPath)) {
     failures.push(`[${entry.subpath}] expected dist file missing: ${entry.distJs}`)
     return
@@ -656,9 +689,9 @@ function walkDir(dir, extensions) {
   return files
 }
 
-function checkEntryPurity(entry, failures) {
+function checkEntryPurity(entry, failures, artifactRoot = repoRoot) {
   if (!entry.purity) return
-  const distDir = p(entry.distDir ?? dirname(entry.distJs))
+  const distDir = resolve(artifactRoot, entry.distDir ?? dirname(entry.distJs))
   const sourceDir = p(
     entry.sourceDir ??
       (entry.subpath === '.' ? 'src/module.ts' : `src/runtime/${entry.subpath.replace('./', '')}`),
@@ -710,7 +743,61 @@ const ALIAS_RE = /(?:^|["'`(\s])(~~?\/[^"'`)\s]*|\$lib\/[^"'`)\s]*|\$app\/[^"'`)
 const BARE_IMPORT_RE =
   /\bfrom\s+["']([^"'.][^"']*)["']|\brequire\(\s*["']([^"'.][^"']*)["']\s*\)|\bimport\(\s*["']([^"'.][^"']*)["']\s*\)|^\s*import\s+["']([^"'.][^"']*)["']/gm
 
-function scanExtractedTarball(packageDir, failures) {
+const ALLOWED_PACKAGE_ROOT_FILES = new Set(['LICENSE', 'README.md', 'package.json'])
+
+function buildContentManifest(packageDir) {
+  const files = []
+
+  function walk(dir) {
+    for (const name of readdirSync(dir).sort()) {
+      const absolutePath = join(dir, name)
+      const stats = statSync(absolutePath)
+      if (stats.isDirectory()) {
+        walk(absolutePath)
+        continue
+      }
+      files.push({
+        path: relative(packageDir, absolutePath).split('\\').join('/'),
+        mode: (stats.mode & 0o777).toString(8).padStart(3, '0'),
+        size: stats.size,
+        sha256: createHash('sha256').update(readFileSync(absolutePath)).digest('hex'),
+      })
+    }
+  }
+
+  walk(packageDir)
+  const packedPackageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
+  return { version: packedPackageJson.version, generatedAt: new Date().toISOString(), files }
+}
+
+function checkPackedPathClasses(manifest, failures) {
+  for (const { path } of manifest.files) {
+    if (!path.startsWith('dist/') && !ALLOWED_PACKAGE_ROOT_FILES.has(path)) {
+      failures.push(`packed tarball contains an unplanned root path: ${path}`)
+    }
+    if (path.includes('/.output/') || path.startsWith('.output/')) {
+      failures.push(`packed tarball contains raw build output: ${path}`)
+    }
+    if (
+      path.startsWith('dist/runtime/devtools/ui/') &&
+      !path.startsWith('dist/runtime/devtools/ui/dist/')
+    ) {
+      failures.push(`packed tarball contains raw DevTools UI source: ${path}`)
+    }
+    if (path.startsWith('dist/runtime/devtools/ui/dist/') && /\.d\.(?:m|c)?ts$/.test(path)) {
+      failures.push(`packed tarball contains a declaration generated for a static asset: ${path}`)
+    }
+    if (
+      path === 'dist/runtime/server/tsconfig.json' ||
+      /(?:^|\/)tsconfig\.tsbuildinfo$/.test(path)
+    ) {
+      failures.push(`packed tarball contains generated build configuration: ${path}`)
+    }
+  }
+}
+
+function scanExtractedTarball(packageDir, failures, manifest) {
+  checkPackedPathClasses(manifest, failures)
   const distDir = join(packageDir, 'dist')
   const files = walkDir(
     distDir,
@@ -773,27 +860,28 @@ function requireDistBuilt() {
 }
 
 /** @returns {{ scratchDir: string, tarballPath: string, packageDir: string }} the scratch directory holding the pack, the tarball's absolute path, and the extracted package directory */
-function packAndExtract() {
+function packAndExtract(tarballInput) {
   const scratchDir = mkdtempSync(join(tmpdir(), 'bcn-packed-entry-'))
-  let parsed
-  try {
-    const out = run('pnpm', [
-      'pack',
-      '--json',
-      '--config.ignore-scripts=true',
-      '--pack-destination',
-      scratchDir,
-    ])
-    parsed = JSON.parse(out)
-  } catch (error) {
-    console.error(`\`pnpm pack\` failed: ${error.message}`)
-    process.exit(1)
+  let tarballPath = tarballInput ? resolve(repoRoot, tarballInput) : undefined
+  if (!tarballPath) {
+    let parsed
+    try {
+      const out = run('pnpm', [
+        'pack',
+        '--json',
+        '--config.ignore-scripts=true',
+        '--pack-destination',
+        scratchDir,
+      ])
+      parsed = JSON.parse(out)
+    } catch (error) {
+      console.error(`\`pnpm pack\` failed: ${error.message}`)
+      process.exit(1)
+    }
+    tarballPath = parsed.filename
   }
-  const tarballPath = parsed.filename
   if (!tarballPath || !existsSync(tarballPath)) {
-    console.error(
-      `\`pnpm pack\` did not produce the expected tarball (got: ${JSON.stringify(parsed)}).`,
-    )
+    console.error(`Expected tarball does not exist: ${tarballPath ?? '<missing path>'}.`)
     process.exit(1)
   }
 
@@ -1082,24 +1170,45 @@ function main() {
   const activeEntries = ENTRIES.filter((entry) => ACTIVE_PHASES.includes(entry.phase))
   const scheduledEntries = ENTRIES.filter((entry) => !ACTIVE_PHASES.includes(entry.phase))
 
-  for (const entry of activeEntries) {
-    checkEntryExportShape(entry, failures, warnings)
-    checkEntryPurity(entry, failures)
-  }
-
-  console.log('Packing and extracting the current tree for packed-probe evidence…')
-  const { scratchDir, tarballPath, packageDir } = packAndExtract()
-  try {
-    scanExtractedTarball(packageDir, failures)
-
-    const ctx = { tarballPath, packageDir, failures }
+  if (distOnly) {
     for (const entry of activeEntries) {
-      if (!entry.packedProbe) continue
-      console.log(`Running packed probe for "${entry.subpath}"…`)
-      entry.packedProbe(ctx)
+      checkEntryExportShape(entry, failures, warnings)
+      checkEntryPurity(entry, failures)
     }
-  } finally {
-    rmSync(scratchDir, { recursive: true, force: true })
+  } else {
+    console.log(
+      suppliedTarball
+        ? `Extracting the supplied tarball for packed-probe evidence: ${suppliedTarball}`
+        : 'Packing and extracting the current tree for packed-probe evidence…',
+    )
+    const { scratchDir, tarballPath, packageDir } = packAndExtract(suppliedTarball)
+    try {
+      const manifest = buildContentManifest(packageDir)
+      scanExtractedTarball(packageDir, failures, manifest)
+
+      for (const entry of activeEntries) {
+        checkEntryExportShape(entry, failures, warnings, packageDir)
+        checkEntryPurity(entry, failures, packageDir)
+      }
+
+      if (failures.length === 0) {
+        const ctx = { tarballPath, packageDir, failures }
+        for (const entry of activeEntries) {
+          if (!entry.packedProbe) continue
+          console.log(`Running packed probe for "${entry.subpath}"…`)
+          entry.packedProbe(ctx)
+        }
+      }
+
+      if (manifestOutput && failures.length === 0) {
+        const outputPath = resolve(repoRoot, manifestOutput)
+        mkdirSync(dirname(outputPath), { recursive: true })
+        writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`)
+        console.log(`Content manifest: ${outputPath}`)
+      }
+    } finally {
+      rmSync(scratchDir, { recursive: true, force: true })
+    }
   }
 
   for (const warning of warnings) {
@@ -1116,7 +1225,7 @@ function main() {
   }
 
   console.log(
-    `✓ packed-entry gate passed (${sourceScan.filesScanned} source file(s) scanned, ${activeEntries.length} active entr${activeEntries.length === 1 ? 'y' : 'ies'} deep-checked).`,
+    `✓ ${distOnly ? 'dist-entry' : 'packed-entry'} gate passed (${sourceScan.filesScanned} source file(s) scanned, ${activeEntries.length} active entr${activeEntries.length === 1 ? 'y' : 'ies'} deep-checked).`,
   )
   if (scheduledEntries.length > 0) {
     console.log(
@@ -1125,4 +1234,8 @@ function main() {
   }
 }
 
-main()
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+}
+
+export { checkPackedPathClasses }

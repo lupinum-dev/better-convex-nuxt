@@ -1,35 +1,48 @@
 import { execFileSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, relative, sep } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
-const version = process.argv
-  .slice(2)
-  .map((arg) => arg.replace(/^--(?=\d)/, ''))
-  .find((arg) => arg !== '--')
-const otpIndex = process.argv.indexOf('--otp')
-const otp =
-  process.argv.find((arg) => arg.startsWith('--otp='))?.slice('--otp='.length) ??
-  (otpIndex >= 0 ? process.argv[otpIndex + 1] : undefined)
+const args = process.argv.slice(2).filter((argument) => argument !== '--')
+const positional = []
+let otp
+let verifyOnly = false
+
+for (let index = 0; index < args.length; index += 1) {
+  const argument = args[index]
+  if (argument === '--verify-only') {
+    verifyOnly = true
+  } else if (argument === '--otp') {
+    if (!args[index + 1] || args[index + 1].startsWith('--')) {
+      console.error('--otp requires a code.')
+      process.exit(1)
+    }
+    otp = args[index + 1]
+    index += 1
+  } else if (argument.startsWith('--otp=')) {
+    otp = argument.slice('--otp='.length)
+  } else if (argument.startsWith('--') && !/^--\d/.test(argument)) {
+    console.error(`Unknown release option: ${argument}`)
+    process.exit(1)
+  } else {
+    positional.push(argument.replace(/^--(?=\d)/, ''))
+  }
+}
+
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+const version = positional[0] ?? (verifyOnly ? pkg.version : undefined)
 const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\dA-Z.-]+)?$/i
 
-if (!version || !versionPattern.test(version)) {
-  console.error('Usage: pnpm run release -- <version>')
+if (positional.length > 1 || !version || !versionPattern.test(version)) {
+  console.error('Usage: pnpm run release -- [<version>] [--verify-only] [--otp <code>]')
+  process.exit(1)
+}
+
+if (verifyOnly && otp) {
+  console.error('--otp is only valid when publishing.')
   process.exit(1)
 }
 
 const tag = `v${version}`
-const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
 const repoRoot = process.cwd()
 
@@ -53,20 +66,11 @@ function tryOutput(command, args) {
   }
 }
 
-function ensureAllowedWorkingTree() {
-  const allowed = new Set(['package.json', 'scripts/release.mjs'])
+function ensureCleanWorkingTree() {
   const status = run('git', ['status', '--porcelain'], { capture: true })
   if (status) {
-    const unexpected = status
-      .trimEnd()
-      .split('\n')
-      .map((line) => line.slice(3).replace(/^"|"$/g, ''))
-      .filter((file) => !allowed.has(file))
-
-    if (unexpected.length > 0) {
-      console.error(`Working tree has unrelated changes:\n${unexpected.join('\n')}`)
-      process.exit(1)
-    }
+    console.error(`Release verification requires a clean working tree:\n${status.trimEnd()}`)
+    process.exit(1)
   }
 }
 
@@ -77,15 +81,15 @@ function buildPackAndVerify() {
   const distDir = join(repoRoot, 'dist')
   rmSync(distDir, { recursive: true, force: true })
 
-  // Build once. `prepack` also runs `check:package-exports -- --dist`, which
-  // validates the freshly built `dist` directory before it is packed.
+  // Build once. `prepack` runs only the dist-level export and purity checks;
+  // the packed consumer checks run below against the exact release artifact.
   run('npm', ['run', 'prepack'])
 
   // Pack once, from the prepared clean tree, straight to a tarball file.
   // `--ignore-scripts` is required here: `npm pack` on a local directory
   // otherwise reruns the `prepack` lifecycle script itself, which would
   // rebuild `dist` a second time and pack something that was never verified.
-  const artifactsDir = join(repoRoot, 'release-artifacts')
+  const artifactsDir = join(repoRoot, '.release-artifacts')
   mkdirSync(artifactsDir, { recursive: true })
   const packJson = output('npm', [
     'pack',
@@ -102,65 +106,42 @@ function buildPackAndVerify() {
     process.exit(1)
   }
 
-  // Extract that exact tarball (never the source directory) to verify it.
-  const extractDir = mkdtempSync(join(tmpdir(), 'better-convex-nuxt-release-'))
-  run('tar', ['xf', tarballPath, '-C', extractDir])
-  const packageDir = join(extractDir, 'package')
-
-  const entryPoint = join(packageDir, 'dist/module.mjs')
-  if (!existsSync(entryPoint)) {
-    console.error(`Packed tarball is missing its entry point: ${entryPoint}`)
-    process.exit(1)
-  }
-
-  const packedPkg = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
-  if (packedPkg.version !== version) {
+  const manifestPath = join(artifactsDir, `${tag}.manifest.json`)
+  run('node', [
+    'scripts/check-package-exports.mjs',
+    '--tarball',
+    tarballPath,
+    '--manifest',
+    manifestPath,
+  ])
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  if (manifest.version !== version) {
     console.error(
-      `Packed tarball version ${packedPkg.version} does not match release version ${version}.`,
+      `Packed tarball version ${manifest.version} does not match release version ${version}.`,
     )
     process.exit(1)
   }
-
-  const manifest = buildContentManifest(packageDir)
-  const manifestPath = join(artifactsDir, `${tag}.manifest.json`)
-  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
   console.log(`\nVerified tarball: ${tarballPath}`)
   console.log(`Content manifest: ${manifestPath}`)
-
-  rmSync(extractDir, { recursive: true, force: true })
 
   return tarballPath
 }
 
-// Records path, mode, size, and SHA-256 for every file in the extracted
-// package. This is evidence, not a release gate: manifest diffs alone must
-// not fail a release.
-function buildContentManifest(packageDir) {
-  const entries = []
+ensureCleanWorkingTree()
 
-  function walk(dir) {
-    for (const name of readdirSync(dir).sort()) {
-      const absolutePath = join(dir, name)
-      const stats = statSync(absolutePath)
-      if (stats.isDirectory()) {
-        walk(absolutePath)
-        continue
-      }
-      const relativePath = relative(packageDir, absolutePath).split(sep).join('/')
-      entries.push({
-        path: relativePath,
-        mode: (stats.mode & 0o777).toString(8).padStart(3, '0'),
-        size: stats.size,
-        sha256: createHash('sha256').update(readFileSync(absolutePath)).digest('hex'),
-      })
-    }
+if (verifyOnly) {
+  if (pkg.version !== version) {
+    console.error(
+      `Verification version ${version} does not match package.json version ${pkg.version}.`,
+    )
+    process.exit(1)
   }
-
-  walk(packageDir)
-  return { version, generatedAt: new Date().toISOString(), files: entries }
+  run('npm', ['run', 'check'])
+  run('npm', ['run', 'check:contract-fixtures'])
+  buildPackAndVerify()
+  console.log(`\nVerified ${pkg.name}@${version} without publishing.`)
+  process.exit(0)
 }
-
-ensureAllowedWorkingTree()
 
 const branch = output('git', ['branch', '--show-current'])
 if (branch !== 'main') {
@@ -211,14 +192,12 @@ try {
 run('npm', ['whoami'])
 if (!releasePrepared) {
   // `check` is the one authoritative PR command (format, lint, module/server
-  // types, source boundaries, and the full test suite). `release:verify`
-  // (`check` + `check:contracts` + `prepack`) is a reproducible superset of
-  // it. `prepack` runs again below via `buildPackAndVerify`, so it is
-  // deliberately not repeated here — this must never re-list a hand-picked
-  // subset of `check`'s own steps, or the two gates can silently drift apart
-  // (internal §16.4 "one authoritative check command" / §16.5 `release:verify`).
+  // types, source boundaries, and the full test suite). The fixture command
+  // owns the non-package contracts; buildPackAndVerify owns the one build, one
+  // pack, and exact-artifact checks. Keeping those tiers named prevents this
+  // script from duplicating a hand-picked list that can drift from CI.
   run('npm', ['run', 'check'])
-  run('npm', ['run', 'check:contracts'])
+  run('npm', ['run', 'check:contract-fixtures'])
 
   run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
   run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])

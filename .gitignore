@@ -16,6 +16,7 @@ node_modules
 
 # Generated dirs
 dist
+.release-artifacts
 
 # Nuxt
 .nuxt
