@@ -92,6 +92,12 @@ interface IsolationTag {
   identityGeneration: number
 }
 
+interface QueryOperationContext extends IsolationTag {
+  argsHash: string
+  boundaryKey: string
+  operationId: number
+}
+
 function sameTag(a: IsolationTag, b: IsolationTag): boolean {
   return a.identityKey === b.identityKey && a.identityGeneration === b.identityGeneration
 }
@@ -160,7 +166,7 @@ export function createConvexQueryState<
   // Identity-partitioned async-data / payload key. A new identity yields a new
   // key, so B never reads A's payload (structural isolation, no token keys).
   const asyncDataKey = computed((): string => {
-    if (gate.value.resolveAsIdle) return `convex:idle:${fnName}`
+    if (gate.value.outcome !== 'execute') return `convex:${gate.value.outcome}:${fnName}`
     const base = createConvexQueryKey(query, getArgs() as FunctionArgs<Query>)
     return withAuthDimension(base, authMode, gate.value.cacheIdentity)
   })
@@ -179,10 +185,29 @@ export function createConvexQueryState<
   const lastSettledArgsHash = ref<string | null>(null)
   const lastSettledTag = ref<IsolationTag | null>(null)
 
-  const commitLastSettled = (raw: RawT) => {
+  let operationRevision = 0
+  const beginOperation = (): QueryOperationContext => {
+    const tag = currentTag.value
+    return {
+      ...tag,
+      argsHash: argsHash.value,
+      boundaryKey: asyncDataKey.value,
+      operationId: operationRevision,
+    }
+  }
+  const invalidateOperations = () => {
+    operationRevision += 1
+  }
+  const isOperationCurrent = (operation: QueryOperationContext): boolean =>
+    operation.operationId === operationRevision &&
+    operation.argsHash === argsHash.value &&
+    operation.boundaryKey === asyncDataKey.value &&
+    sameTag(operation, currentTag.value)
+
+  const commitLastSettled = (raw: RawT, operation?: QueryOperationContext) => {
     lastSettledRaw.value = raw
-    lastSettledArgsHash.value = argsHash.value
-    lastSettledTag.value = currentTag.value
+    lastSettledArgsHash.value = operation?.argsHash ?? argsHash.value
+    lastSettledTag.value = operation ?? currentTag.value
   }
 
   const event = import.meta.server ? useRequestEvent() : null
@@ -204,8 +229,7 @@ export function createConvexQueryState<
     'convex:query-errors',
     () => ({}),
   )
-  const setBoundaryError = (err: ConvexCallError | null) => {
-    const key = asyncDataKey.value
+  const setBoundaryError = (err: ConvexCallError | null, key = asyncDataKey.value) => {
     const store = errorStore.value
     if (err) {
       errorStore.value = { ...store, [key]: err }
@@ -269,20 +293,20 @@ export function createConvexQueryState<
     })
   }
 
-  function commitLiveResult(raw: RawT, tag: IsolationTag): boolean {
+  function commitLiveResult(raw: RawT, operation: QueryOperationContext): boolean {
     // Reject a stale-generation commit: a WebSocket result captured under a
     // superseded identity generation must not commit after the switch (§5.4).
-    if (!sameTag(tag, currentTag.value)) return false
+    if (!isOperationCurrent(operation)) return false
     setBoundaryError(null)
     ;(asyncData.data as Ref<RawT | null>).value = raw
-    commitLastSettled(raw)
+    commitLastSettled(raw, operation)
     triggerRef(asyncData.data)
     firstValue?.resolve(raw)
     return true
   }
 
-  function commitLiveError(err: Error, tag: IsolationTag): boolean {
-    if (!sameTag(tag, currentTag.value)) return false
+  function commitLiveError(err: Error, operation: QueryOperationContext): boolean {
+    if (!isOperationCurrent(operation)) return false
     // Only surface an error while there is no data to keep showing. A live
     // subscription failure is normalized once at this boundary (§9.2): a
     // reconnectable socket disconnect is connection state, not a call error, so
@@ -294,7 +318,7 @@ export function createConvexQueryState<
 
   function setupSubscription() {
     if (!import.meta.client || !subscribe) return
-    if (!gate.value.setupLiveSubscription) return
+    if (gate.value.outcome !== 'execute' || !gate.value.subscribe) return
     const currentArgs = getArgs()
     if (currentArgs == null || currentArgs === 'skip') return
 
@@ -306,7 +330,7 @@ export function createConvexQueryState<
     const client = selectLiveQueryClient(owner, gate.value)
     if (!client) return
 
-    const tag = currentTag.value
+    const operation = beginOperation()
     liveKey = key
     firstValue = firstValue ?? makeDeferred()
 
@@ -321,7 +345,7 @@ export function createConvexQueryState<
       query,
       currentArgs,
       (result: unknown) => {
-        if (!commitLiveResult(result as RawT, tag)) return
+        if (!commitLiveResult(result as RawT, operation)) return
         logger.query({
           name: fnName,
           event: 'update',
@@ -331,7 +355,7 @@ export function createConvexQueryState<
         recordQuery('success', result, 'websocket', true)
       },
       (err: Error) => {
-        if (!commitLiveError(err, tag)) return
+        if (!commitLiveError(err, operation)) return
         logger.query({ name: fnName, event: 'error', error: err })
         recordQuery('error', null, 'websocket', true, err.message)
       },
@@ -339,6 +363,7 @@ export function createConvexQueryState<
     liveUnsub = unsubscribe
     logger.query({ name: fnName, event: 'subscribe', args: currentArgs })
     recordQuery('pending', null, 'websocket', true)
+    return operation
   }
 
   // ---- Nuxt useAsyncData: SSR + hydration + first client result -----------
@@ -346,11 +371,10 @@ export function createConvexQueryState<
     asyncDataKey,
     async () => {
       const g = gate.value
-      if (g.resolveAsIdle) return null
-      if (g.waitForAuth) return null
+      if (g.outcome === 'idle' || g.outcome === 'wait') return null
       // Auth resolution failed without a usable identity: surface it through the
       // composable-owned error state, never by throwing (H3Error wrap hazard).
-      if (g.surfaceAuthError) {
+      if (g.outcome === 'error') {
         setBoundaryError(
           authCtx.error.value ??
             new ConvexCallError({ kind: 'authentication', message: 'Authentication error' }),
@@ -360,6 +384,7 @@ export function createConvexQueryState<
 
       // A fresh fetch attempt clears any prior boundary error for this key.
       setBoundaryError(null)
+      let operation: QueryOperationContext | null = null
 
       try {
         const convexUrl = convexConfig.url
@@ -368,15 +393,18 @@ export function createConvexQueryState<
 
         // SSR: one-shot HTTP; never a WebSocket client.
         if (import.meta.server) {
+          operation = beginOperation()
           const authToken = fetchAuthToken({ auth: authMode, cookieHeader, cachedToken })
           if (authMode !== 'none' && g.cacheIdentity !== 'anonymous' && !authToken) return null
           const result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
-          commitLastSettled(result)
+          if (!isOperationCurrent(operation)) return null
+          commitLastSettled(result, operation)
           return result
         }
 
         // Client HTTP-only mode (subscribe: false).
         if (!subscribe) {
+          operation = beginOperation()
           recordQuery('pending', null, 'client', false)
           const client = selectLiveQueryClient(owner, g)
           let result: RawT
@@ -389,7 +417,8 @@ export function createConvexQueryState<
             const authToken = authMode === 'none' ? undefined : (cachedToken.value ?? undefined)
             result = await executeQueryHttp<RawT>(convexUrl, fnName, currentArgs, authToken)
           }
-          commitLastSettled(result)
+          if (!isOperationCurrent(operation)) return null
+          commitLastSettled(result, operation)
           recordQuery('success', result, 'client', false)
           return result
         }
@@ -397,7 +426,7 @@ export function createConvexQueryState<
         // Client live mode: wait for the first subscription result, with a timer
         // that is cleared on settle so no reject fires after the query resolves.
         firstValue = makeDeferred()
-        setupSubscription()
+        operation = setupSubscription() ?? null
         const timeoutMs = defaults.waitTimeoutMs
         const pending = firstValue
         const first = await new Promise<RawT>((resolve, reject) => {
@@ -440,7 +469,8 @@ export function createConvexQueryState<
         // library-owned error state; resolve `null` data so Nuxt never
         // manufactures an H3Error from a handler rejection (vNext §7).
         const normalized = normalizeConvexError(rawError)
-        setBoundaryError(normalized)
+        if (!operation || !isOperationCurrent(operation)) return null
+        setBoundaryError(normalized, operation.boundaryKey)
         if (import.meta.client && !subscribe) {
           recordQuery('error', null, 'client', false, normalized.message)
         }
@@ -477,11 +507,12 @@ export function createConvexQueryState<
     // effective identity dimension changes, drop this component's now-stale data
     // and previous-data snapshot before acquiring work for the new identity.
     watch(
-      () => currentTag.value,
+      () => ({ tag: currentTag.value, key: asyncDataKey.value }),
       (next, prev) => {
-        if (prev && !sameTag(next, prev)) {
+        if (prev && !sameTag(next.tag, prev.tag)) {
+          invalidateOperations()
           teardownLive()
-          setBoundaryError(null)
+          setBoundaryError(null, prev.key)
           lastSettledRaw.value = null
           lastSettledArgsHash.value = null
           lastSettledTag.value = null
@@ -499,9 +530,14 @@ export function createConvexQueryState<
     // Re-key on args / identity / gate transitions: tear down the old listener
     // and re-subscribe / refetch under the new key.
     watch(
-      () => ({ key: asyncDataKey.value, live: gate.value.setupLiveSubscription }),
+      () => ({
+        key: asyncDataKey.value,
+        live: gate.value.outcome === 'execute' && gate.value.subscribe,
+      }),
       (next, prev) => {
         if (next.key === prev.key && next.live === prev.live) return
+        invalidateOperations()
+        setBoundaryError(null, prev.key)
         teardownLive()
         firstValue = null
         if (next.live) setupSubscription()
@@ -521,7 +557,7 @@ export function createConvexQueryState<
     return computeConvexQueryPending({
       // Genuine idle only — a query waiting for initial auth settlement is
       // pending, not idle.
-      isSkipped: gate.value.resolveAsIdle && !gate.value.waitForAuth,
+      isSkipped: gate.value.outcome === 'idle',
       hasData,
       hasSettled,
       server,
@@ -529,7 +565,7 @@ export function createConvexQueryState<
       isServer: import.meta.server,
       isClient: import.meta.client,
       asyncDataPending: asyncData.pending.value,
-      isAuthPending: gate.value.waitForAuth,
+      isAuthPending: gate.value.outcome === 'wait',
     })
   })
 
@@ -540,7 +576,7 @@ export function createConvexQueryState<
   const status = computed((): ConvexCallStatus => {
     // Genuine idle is skip or a settled `required`-without-identity; while waiting
     // for initial auth settlement the query is pending, not idle.
-    const isIdle = gate.value.resolveAsIdle && !gate.value.waitForAuth
+    const isIdle = gate.value.outcome === 'idle'
     return computeQueryStatus(
       isIdle,
       error.value != null,
@@ -552,7 +588,7 @@ export function createConvexQueryState<
   const isStale = computed((): boolean =>
     computeConvexQueryStale({
       keepPreviousData,
-      isSkipped: gate.value.resolveAsIdle,
+      isSkipped: gate.value.outcome === 'idle',
       hasLastSettledData: lastSettledRaw.value !== null,
       hasLastSettledArgsHash: lastSettledArgsHash.value !== null,
       pending: pending.value,
@@ -587,7 +623,7 @@ export function createConvexQueryState<
 
   // ---- terminal-decision awaitability (§5.5) ------------------------------
   let resolvePromise: Promise<void>
-  if (gate.value.resolveAsIdle) {
+  if (gate.value.outcome === 'idle') {
     // Skip, or a settled-anonymous `required` query: resolve idle immediately
     // without consuming the wait timeout.
     resolvePromise = Promise.resolve()
@@ -597,7 +633,7 @@ export function createConvexQueryState<
     const hasExistingData = asyncData.data.value != null
     if (hasExistingData || resolveImmediately) {
       resolvePromise = Promise.resolve()
-    } else if (gate.value.waitForAuth) {
+    } else if (gate.value.outcome === 'wait') {
       // Wait for initial auth settlement, then for the async data.
       resolvePromise = authCtx.waitForInitialSettlement().then(() => asyncData.refresh())
     } else {

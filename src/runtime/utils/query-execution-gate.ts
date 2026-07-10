@@ -46,34 +46,26 @@ export type QueryExecutionReason =
   | 'auth-error'
   | 'required-idle'
 
-export interface QueryExecutionGate {
-  outcome: QueryExecutionOutcome
-  /** Resolve the query idle (skip, or a `required` query with no usable identity). */
-  resolveAsIdle: boolean
-  /** Wait for initial auth settlement before a terminal decision (`loading`). */
-  waitForAuth: boolean
-  /** Surface the settled auth error without a network request (`error`). */
-  surfaceAuthError: boolean
-  /** Open a live subscription — only when executing and `subscribe` is requested. */
-  setupLiveSubscription: boolean
-  /**
-   * Route transport through the per-Nuxt-app anonymous client. True only for
-   * `none` under an auth-enabled build; an auth-disabled build's primary client
-   * is already permanently anonymous so it is reused (vNext §7.5).
-   */
-  useAnonymousClient: boolean
+interface QueryExecutionDecisionBase {
   /** The identity dimension for the cache / payload / subscription key. */
   cacheIdentity: ConvexIdentityKey
   reason: QueryExecutionReason
 }
 
+export type QueryExecutionGate =
+  | (QueryExecutionDecisionBase & { outcome: 'idle' })
+  | (QueryExecutionDecisionBase & { outcome: 'wait' })
+  | (QueryExecutionDecisionBase & { outcome: 'error' })
+  | (QueryExecutionDecisionBase & {
+      outcome: 'execute'
+      /** Open a live subscription when the caller requested subscriptions. */
+      subscribe: boolean
+      /** Route through the dedicated never-authenticated client. */
+      useAnonymousClient: boolean
+    })
+
 const IDLE = {
   outcome: 'idle',
-  resolveAsIdle: true,
-  waitForAuth: false,
-  surfaceAuthError: false,
-  setupLiveSubscription: false,
-  useAnonymousClient: false,
 } as const
 
 /**
@@ -99,10 +91,7 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
   if (authMode === 'none') {
     return {
       outcome: 'execute',
-      resolveAsIdle: false,
-      waitForAuth: false,
-      surfaceAuthError: false,
-      setupLiveSubscription: subscribe,
+      subscribe,
       useAnonymousClient: authStatus !== 'disabled',
       cacheIdentity: 'anonymous',
       reason: 'executing',
@@ -121,11 +110,6 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
   if (authStatus === 'loading') {
     return {
       outcome: 'wait',
-      resolveAsIdle: true,
-      waitForAuth: true,
-      surfaceAuthError: false,
-      setupLiveSubscription: false,
-      useAnonymousClient: false,
       cacheIdentity: identityDimension(authMode, identityKey),
       reason: 'auth-loading',
     }
@@ -135,11 +119,6 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
   if (authStatus === 'error') {
     return {
       outcome: 'error',
-      resolveAsIdle: false,
-      waitForAuth: false,
-      surfaceAuthError: true,
-      setupLiveSubscription: false,
-      useAnonymousClient: false,
       cacheIdentity: identityDimension(authMode, identityKey),
       reason: 'auth-error',
     }
@@ -160,11 +139,6 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
   if (!isAuthenticatedIdentityKey(identityKey)) {
     return {
       outcome: 'wait',
-      resolveAsIdle: true,
-      waitForAuth: true,
-      surfaceAuthError: false,
-      setupLiveSubscription: false,
-      useAnonymousClient: false,
       cacheIdentity: 'anonymous',
       reason: 'auth-loading',
     }
@@ -172,10 +146,7 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
 
   return {
     outcome: 'execute',
-    resolveAsIdle: false,
-    waitForAuth: false,
-    surfaceAuthError: false,
-    setupLiveSubscription: subscribe,
+    subscribe,
     useAnonymousClient: false,
     cacheIdentity: identityKey,
     reason: 'executing',
@@ -185,10 +156,7 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
 function executeAnonymously(subscribe: boolean): QueryExecutionGate {
   return {
     outcome: 'execute',
-    resolveAsIdle: false,
-    waitForAuth: false,
-    surfaceAuthError: false,
-    setupLiveSubscription: subscribe,
+    subscribe,
     useAnonymousClient: false,
     cacheIdentity: 'anonymous',
     reason: 'executing',

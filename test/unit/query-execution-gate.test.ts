@@ -32,11 +32,6 @@ describe('createQueryExecutionGate', () => {
           const g = gate({ skipped: true, authStatus, authMode })
           expect(g).toMatchObject({
             outcome: 'idle',
-            resolveAsIdle: true,
-            waitForAuth: false,
-            surfaceAuthError: false,
-            setupLiveSubscription: false,
-            useAnonymousClient: false,
             reason: 'explicit-skip',
           })
         })
@@ -53,20 +48,26 @@ describe('createQueryExecutionGate', () => {
         const g = gate({ authMode: 'none', authStatus, identityKey: USER })
         expect(g).toMatchObject({
           outcome: 'execute',
-          resolveAsIdle: false,
-          waitForAuth: false,
-          surfaceAuthError: false,
+          subscribe: true,
           cacheIdentity: 'anonymous',
           reason: 'executing',
         })
+        expect(g.outcome).toBe('execute')
+        if (g.outcome !== 'execute') throw new Error('none must execute')
         // Uses the dedicated anonymous client only when auth is enabled.
         expect(g.useAnonymousClient).toBe(authStatus !== 'disabled')
       })
     }
 
     it('none respects subscribe=false (no live subscription)', () => {
-      expect(gate({ authMode: 'none', subscribe: false }).setupLiveSubscription).toBe(false)
-      expect(gate({ authMode: 'none', subscribe: true }).setupLiveSubscription).toBe(true)
+      expect(gate({ authMode: 'none', subscribe: false })).toMatchObject({
+        outcome: 'execute',
+        subscribe: false,
+      })
+      expect(gate({ authMode: 'none', subscribe: true })).toMatchObject({
+        outcome: 'execute',
+        subscribe: true,
+      })
     })
 
     it('none never inspects identity — authenticated key still keys anonymous', () => {
@@ -91,7 +92,6 @@ describe('createQueryExecutionGate', () => {
         }),
       ).toMatchObject({
         outcome: 'idle',
-        resolveAsIdle: true,
         cacheIdentity: 'anonymous',
         reason: 'required-idle',
       })
@@ -106,8 +106,6 @@ describe('createQueryExecutionGate', () => {
         }),
       ).toMatchObject({
         outcome: 'execute',
-        resolveAsIdle: false,
-        waitForAuth: false,
         useAnonymousClient: false,
         cacheIdentity: 'anonymous',
         reason: 'executing',
@@ -121,10 +119,6 @@ describe('createQueryExecutionGate', () => {
       it(`${authMode} waits under loading`, () => {
         expect(gate({ authStatus: 'loading', authMode, identityKey: null })).toMatchObject({
           outcome: 'wait',
-          resolveAsIdle: true,
-          waitForAuth: true,
-          surfaceAuthError: false,
-          setupLiveSubscription: false,
           reason: 'auth-loading',
         })
       })
@@ -137,11 +131,6 @@ describe('createQueryExecutionGate', () => {
       it(`${authMode} surfaces auth error`, () => {
         expect(gate({ authStatus: 'error', authMode, identityKey: null })).toMatchObject({
           outcome: 'error',
-          resolveAsIdle: false,
-          waitForAuth: false,
-          surfaceAuthError: true,
-          setupLiveSubscription: false,
-          useAnonymousClient: false,
           reason: 'auth-error',
         })
       })
@@ -159,7 +148,6 @@ describe('createQueryExecutionGate', () => {
         }),
       ).toMatchObject({
         outcome: 'idle',
-        resolveAsIdle: true,
         cacheIdentity: 'anonymous',
         reason: 'required-idle',
       })
@@ -187,9 +175,7 @@ describe('createQueryExecutionGate', () => {
       it(`${authMode} executes with the user identity`, () => {
         expect(gate({ authStatus: 'authenticated', authMode, identityKey: USER })).toMatchObject({
           outcome: 'execute',
-          resolveAsIdle: false,
-          waitForAuth: false,
-          surfaceAuthError: false,
+          subscribe: true,
           useAnonymousClient: false,
           cacheIdentity: USER,
           reason: 'executing',
@@ -204,7 +190,7 @@ describe('createQueryExecutionGate', () => {
           authMode: 'optional',
           subscribe: false,
         }),
-      ).toMatchObject({ outcome: 'execute', setupLiveSubscription: false })
+      ).toMatchObject({ outcome: 'execute', subscribe: false })
     })
 
     it('defensively waits when authenticated but the identity key is not a concrete user', () => {
@@ -218,7 +204,6 @@ describe('createQueryExecutionGate', () => {
         }),
       ).toMatchObject({
         outcome: 'wait',
-        waitForAuth: true,
         cacheIdentity: 'anonymous',
         reason: 'auth-loading',
       })
@@ -230,7 +215,6 @@ describe('createQueryExecutionGate', () => {
         }),
       ).toMatchObject({
         outcome: 'wait',
-        waitForAuth: true,
       })
     })
   })
@@ -244,20 +228,18 @@ describe('createQueryExecutionGate', () => {
     it('none beats loading (does not wait for auth)', () => {
       expect(gate({ authMode: 'none', authStatus: 'loading' })).toMatchObject({
         outcome: 'execute',
-        waitForAuth: false,
       })
     })
 
     it('none beats error (does not surface auth error)', () => {
       expect(gate({ authMode: 'none', authStatus: 'error' })).toMatchObject({
         outcome: 'execute',
-        surfaceAuthError: false,
       })
     })
   })
 
-  // setupLiveSubscription is only ever true when executing.
-  it('never sets up a live subscription unless executing', () => {
+  // Execution-only transport fields are structurally absent otherwise.
+  it('only execute decisions carry transport fields', () => {
     for (const authStatus of STATUSES) {
       for (const authMode of MODES) {
         const g = gate({
@@ -267,7 +249,8 @@ describe('createQueryExecutionGate', () => {
           identityKey: USER,
         })
         if (g.outcome !== 'execute') {
-          expect(g.setupLiveSubscription).toBe(false)
+          expect('subscribe' in g).toBe(false)
+          expect('useAnonymousClient' in g).toBe(false)
         }
       }
     }

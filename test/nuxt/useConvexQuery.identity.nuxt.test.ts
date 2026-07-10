@@ -15,6 +15,47 @@ afterEach(() => {
 // identity change, keepPreviousData never crosses an identity boundary, and a
 // result captured under a stale identity cannot commit after the switch.
 describe('useConvexQuery identity isolation', () => {
+  it('drops a deferred one-shot result resolved during the synchronous A-to-B window', async () => {
+    const primary = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:deferred-once')
+    let resolveA!: (value: unknown) => void
+    let calls = 0
+    primary.setQueryHandler('notes:deferred-once', () => {
+      calls += 1
+      return calls === 1
+        ? new Promise((resolve) => (resolveA = resolve))
+        : Promise.resolve({ owner: 'B' })
+    })
+
+    const { result, flush, wrapper } = await captureInNuxt(
+      () => {
+        const pending = useState<boolean>('convex:pending', () => false)
+        const user = useState<{ id: string } | null>('convex:user', () => ({ id: 'A' }))
+        pending.value = false
+        user.value = { id: 'A' }
+        const q = createConvexQueryState(
+          query,
+          {},
+          { auth: 'optional', subscribe: false },
+          true,
+        ).resultData
+        return { q, user }
+      },
+      { owner: makeMockOwner(primary) },
+    )
+
+    const refresh = result.q.refresh()
+    await Promise.resolve()
+    result.user.value = { id: 'B' }
+    resolveA({ owner: 'A' })
+    await refresh
+    expect(result.q.data.value).not.toEqual({ owner: 'A' })
+    expect(result.q.error.value).toBeNull()
+
+    await flush()
+    wrapper.unmount()
+  })
+
   it('clears data on A->B and never carries keepPreviousData across the boundary', async () => {
     const primary = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:mine')

@@ -13,6 +13,40 @@ afterEach(() => {
 
 // vNext §6 execution-gate behavior driven by canonical auth status + mode.
 describe('useConvexQuery auth execution gate', () => {
+  it('keeps the returned promise pending until auth settles and the query completes', async () => {
+    const primary = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:await-auth')
+    primary.setQueryHandler('notes:await-auth', async () => ({ owner: 'u1' }))
+
+    const { result, flush } = await captureInNuxt(
+      () => {
+        const pending = useState<boolean>('convex:pending', () => true)
+        const user = useState<{ id: string } | null>('convex:user', () => null)
+        pending.value = true
+        user.value = null
+        const state = createConvexQueryState(query, {}, { auth: 'required', subscribe: false })
+        return { state, pending, user }
+      },
+      { owner: makeMockOwner(primary) },
+    )
+
+    let resolved = false
+    void result.state.resolvePromise.then(() => {
+      resolved = true
+    })
+    await Promise.resolve()
+    expect(resolved).toBe(false)
+    expect(result.state.resultData.status.value).toBe('pending')
+
+    result.user.value = { id: 'u1' }
+    result.pending.value = false
+    await flush()
+    await result.state.resolvePromise
+    expect(resolved).toBe(true)
+    expect(primary.calls.query.length).toBeGreaterThan(0)
+    expect(result.state.resultData.status.value).not.toBe('pending')
+  })
+
   it('required waits while auth is loading, then subscribes with the signed-in identity', async () => {
     const primary = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:required')

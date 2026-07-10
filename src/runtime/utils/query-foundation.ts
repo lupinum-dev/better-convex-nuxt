@@ -114,7 +114,7 @@ export function selectLiveQueryClient(
   owner: ConvexClientOwner | undefined,
   gate: QueryExecutionGate,
 ): OwnedConvexClient | null {
-  if (!owner) return null
+  if (!owner || gate.outcome !== 'execute') return null
   if (gate.useAnonymousClient) return owner.getAnonymous()
   return owner.getPrimary()?.client ?? null
 }
