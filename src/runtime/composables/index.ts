@@ -39,7 +39,6 @@ export {
 } from './useConvexAction'
 export {
   useConvexQuery,
-  getQueryKey,
   type ConvexQueryArgs,
   type ConvexQuerySkip,
   type UseConvexQueryData,
@@ -50,7 +49,6 @@ export {
   defineSharedConvexQuery,
   type DefineSharedConvexQueryOptions,
 } from './defineSharedConvexQuery'
-export { useConvexCall, type UseConvexCallReturn } from './useConvexCall'
 export {
   useConvexPaginatedQuery,
   type ConvexPaginatedQueryArgs,
@@ -93,14 +91,3 @@ export {
 } from './useConvexUploadQueue'
 
 export { useConvexStorageUrl } from './useConvexStorageUrl'
-
-// Permission composables (opt-in via module config)
-export {
-  createPermissions,
-  type PermissionContext,
-  type Resource,
-  type CheckPermissionFn,
-  type CreatePermissionsOptions,
-  type UsePermissionsReturn,
-  type UsePermissionRedirectOptions,
-} from './usePermissions'

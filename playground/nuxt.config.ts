@@ -13,7 +13,5 @@ export default defineNuxtConfig({
     strict: true,
   },
 
-  convex: {
-    permissions: true,
-  },
+  convex: {},
 })

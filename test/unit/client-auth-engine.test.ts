@@ -6,10 +6,6 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthEngineState,
 } from '../../src/runtime/auth/client-engine'
-import {
-  acquireQuerySubscription,
-  getSubscriptionCache,
-} from '../../src/runtime/utils/convex-cache'
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf-8')
@@ -95,29 +91,6 @@ describe('createConvexAuthEngine', () => {
 
     expect(state.pending.value).toBe(false)
     expect(client.setAuth).not.toHaveBeenCalled()
-  })
-
-  it('does not call Better Auth token endpoint for skipped routes', async () => {
-    const state = createState()
-    const authClient = {
-      signOut: vi.fn(),
-      convex: { token: vi.fn() },
-    } as unknown as AuthClientWithConvex
-    const { client, fetchToken } = createClient()
-    const engine = createConvexAuthEngine({
-      nuxtApp: createNuxtApp(),
-      authClient,
-      state,
-      isAuthEnabled: true,
-      getRoute: () => ({ path: '/public', meta: { skipConvexAuth: true } }),
-    })
-
-    engine.attachConvexClient(client as never)
-    const token = await fetchToken()({ forceRefreshToken: false })
-
-    expect(token).toBeNull()
-    expect(authClient.convex.token).not.toHaveBeenCalled()
-    expect(state.pending.value).toBe(false)
   })
 
   it('commits token and user state from the Better Auth Convex token endpoint', async () => {
@@ -404,12 +377,9 @@ describe('createConvexAuthEngine', () => {
     expect(state.user.value).toBeNull()
   })
 
-  it('clears shared query subscriptions only after Better Auth signOut succeeds', async () => {
+  it('signs out of Better Auth and clears identity', async () => {
     const nuxtApp = createNuxtApp()
     const events: string[] = []
-    const unsubscribe = vi.fn(() => {
-      events.push('unsubscribe')
-    })
     const state = createState()
     state.token.value = 'existing.jwt.token'
     state.user.value = { id: 'u1', name: 'Ada', email: 'ada@example.com' }
@@ -428,19 +398,19 @@ describe('createConvexAuthEngine', () => {
       isAuthEnabled: true,
     })
 
-    acquireQuerySubscription(nuxtApp, 'convex:query:private', () => unsubscribe)
     engine.attachConvexClient(client as never)
 
     await engine.signOut()
 
-    expect(events).toEqual(['better-auth-sign-out', 'unsubscribe'])
-    expect(unsubscribe).toHaveBeenCalledTimes(1)
-    expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(false)
+    // Live-subscription teardown on sign-out is now the client owner's job
+    // (identity-scoped primary retirement); the engine only clears identity.
+    expect(events).toEqual(['better-auth-sign-out'])
+    expect(state.token.value).toBeNull()
+    expect(state.user.value).toBeNull()
   })
 
-  it('keeps identity and subscriptions when Better Auth signOut fails', async () => {
+  it('keeps identity when Better Auth signOut fails', async () => {
     const nuxtApp = createNuxtApp()
-    const unsubscribe = vi.fn()
     const state = createState()
     state.token.value = 'existing.jwt.token'
     state.user.value = { id: 'u1', name: 'Ada', email: 'ada@example.com' }
@@ -458,7 +428,6 @@ describe('createConvexAuthEngine', () => {
       isAuthEnabled: true,
     })
 
-    acquireQuerySubscription(nuxtApp, 'convex:query:private', () => unsubscribe)
     engine.attachConvexClient(client as never)
 
     await expect(engine.signOut()).rejects.toThrow('network down')
@@ -467,8 +436,6 @@ describe('createConvexAuthEngine', () => {
     expect(state.user.value).toEqual({ id: 'u1', name: 'Ada', email: 'ada@example.com' })
     expect(state.authError.value).toBe('network down')
     expect(state.pending.value).toBe(false)
-    expect(unsubscribe).not.toHaveBeenCalled()
-    expect(getSubscriptionCache(nuxtApp).has('convex:query:private')).toBe(true)
   })
 
   it('clears identity even when refreshAuth starts during signOut', async () => {

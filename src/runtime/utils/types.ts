@@ -41,4 +41,4 @@ export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error'
 /**
  * Server-side auth mode for server helper calls.
  */
-export type ConvexServerAuthMode = 'auto' | 'required' | 'none'
+export type ConvexServerAuthMode = 'optional' | 'required' | 'none'

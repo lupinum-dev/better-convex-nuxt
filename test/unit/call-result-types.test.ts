@@ -2,7 +2,6 @@ import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
 import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
-import type { UseConvexCallReturn } from '../../src/runtime/composables/useConvexCall'
 import type { UseConvexMutationReturn } from '../../src/runtime/composables/useConvexMutation'
 import { normalizeConvexError, type CallResult } from '../../src/runtime/utils/call-result'
 
@@ -24,7 +23,6 @@ type ActionRef<Args extends ConvexArgs, Result> = FunctionReference<
   Args,
   Result
 >
-type QueryRef<Args extends ConvexArgs, Result> = FunctionReference<'query', 'public', Args, Result>
 type Argless = Record<string, never>
 
 type MutationReturn = UseConvexMutationReturn<MutationRef<{ id: string }, { id: string }>>
@@ -67,25 +65,6 @@ type _ArglessActionCallableArgs = Assert<
 >
 type _ActionHasNoExecute = Assert<IsEqual<HasKey<ActionReturn, 'execute'>, false>>
 type _ActionHasNoExecuteSafe = Assert<IsEqual<HasKey<ActionReturn, 'executeSafe'>, false>>
-
-function assertUseConvexCallReturnTypes(
-  calls: UseConvexCallReturn,
-  queryRef: QueryRef<{ id: string }, { id: string }>,
-  arglessQueryRef: QueryRef<Argless, string>,
-  mutationRef: MutationRef<{ id: string }, { ok: true }>,
-) {
-  const _queryPromise = calls.query(queryRef, { id: '1' })
-  type _CallQueryReturn = Assert<IsEqual<Awaited<typeof _queryPromise>, { id: string }>>
-
-  const _arglessQueryPromise = calls.query(arglessQueryRef)
-  type _CallArglessQueryReturn = Assert<IsEqual<Awaited<typeof _arglessQueryPromise>, string>>
-
-  const _safeMutationPromise = calls.mutationSafe(mutationRef, { id: '1' })
-  type _CallSafeReturn = Assert<
-    IsEqual<Awaited<typeof _safeMutationPromise>, CallResult<{ ok: true }>>
-  >
-}
-void assertUseConvexCallReturnTypes
 
 describe('CallResult type contracts', () => {
   it('keeps nested safe result typing for domain CallResult endpoints', () => {

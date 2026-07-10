@@ -10,7 +10,6 @@ import type { Ref, ComputedRef } from 'vue'
 import { useNuxtApp, useRuntimeConfig } from '#imports'
 
 import type { ConvexAuthEngine } from '../auth/client-engine'
-import { handleUnauthorizedAuthFailure } from '../utils/auth-unauthorized'
 import { normalizeConvexError, toCallResult, toError, type CallResult } from '../utils/call-result'
 import { createConvexCallState } from '../utils/call-state'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
@@ -207,7 +206,6 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
       const duration = Date.now() - startTime
       logger.action({ name: fnName, event: 'error', duration, error: err })
-      void handleUnauthorizedAuthFailure({ error: err, source: 'action', functionName: fnName })
 
       throw err
     }

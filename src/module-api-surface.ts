@@ -5,15 +5,14 @@ export interface ModuleImportRegistration {
 
 export const composableAutoImports = [
   { name: 'useConvex', from: './runtime/composables/useConvex' },
+  { name: 'useConvexConfig', from: './runtime/composables/useConvexConfig' },
   { name: 'useConvexMutation', from: './runtime/composables/useConvexMutation' },
   { name: 'useConvexAction', from: './runtime/composables/useConvexAction' },
   { name: 'useConvexQuery', from: './runtime/composables/useConvexQuery' },
-  { name: 'getQueryKey', from: './runtime/composables/useConvexQuery' },
   {
     name: 'defineSharedConvexQuery',
     from: './runtime/composables/defineSharedConvexQuery',
   },
-  { name: 'useConvexCall', from: './runtime/composables/useConvexCall' },
   {
     name: 'useConvexPaginatedQuery',
     from: './runtime/composables/useConvexPaginatedQuery',
@@ -52,10 +51,6 @@ export const authAutoImports = [
     name: 'createBetterConvexAuthClient',
     from: './runtime/composables/createBetterConvexAuthClient',
   },
-] as const satisfies readonly ModuleImportRegistration[]
-
-export const permissionAutoImports = [
-  { name: 'createPermissions', from: './runtime/composables/usePermissions' },
 ] as const satisfies readonly ModuleImportRegistration[]
 
 export const serverAutoImports = [

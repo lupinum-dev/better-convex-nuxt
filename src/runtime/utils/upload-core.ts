@@ -17,7 +17,9 @@ function createAbortError(): Error {
 }
 
 export async function requestUploadUrl<Mutation extends FunctionReference<'mutation'>>(
-  client: ConvexClient | null,
+  // Accepts the replacement-safe `useConvex()` handle (vNext §5.4), which exposes
+  // `mutation` with a stable identity, not only the raw `ConvexClient`.
+  client: Pick<ConvexClient, 'mutation'> | null,
   mutation: Mutation,
   mutationArgs: FunctionArgs<Mutation>,
 ): Promise<string> {

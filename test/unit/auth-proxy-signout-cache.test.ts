@@ -83,12 +83,13 @@ describe('auth proxy sign-out cache invalidation (F-28)', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      trustedOrigins: [],
-      authRoute: '/api/auth',
-      authCache: { enabled: true, ttl: 60 },
-      authProxy: {
-        maxRequestBodyBytes: 1024 * 1024,
-        maxResponseBodyBytes: 1024 * 1024,
+      auth: {
+        route: '/api/auth',
+        trustedOrigins: [],
+        cache: { ttl: 60 },
+        proxy: { maxRequestBodyBytes: 1024 * 1024, maxResponseBodyBytes: 1024 * 1024 },
+        debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
+        routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
       },
     })
     fetchWithCanonicalRedirectsMock.mockResolvedValue({
@@ -144,12 +145,13 @@ describe('auth proxy sign-out cache invalidation (F-28)', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      trustedOrigins: [],
-      authRoute: '/api/auth',
-      authCache: { enabled: false, ttl: 60 },
-      authProxy: {
-        maxRequestBodyBytes: 1024 * 1024,
-        maxResponseBodyBytes: 1024 * 1024,
+      auth: {
+        route: '/api/auth',
+        trustedOrigins: [],
+        cache: false,
+        proxy: { maxRequestBodyBytes: 1024 * 1024, maxResponseBodyBytes: 1024 * 1024 },
+        debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
+        routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
       },
     })
     getRequestURLMock.mockReturnValue(new URL('https://app.example.com/api/auth/sign-out'))

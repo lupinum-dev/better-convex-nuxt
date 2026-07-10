@@ -10,10 +10,9 @@ import {
   buildClientAuthResponseErrorMessage,
   buildMissingSiteUrlMessage,
 } from '../utils/auth-errors'
-import { clearAuthSubscriptions, getPublicOnlyPayloadKeys } from '../utils/convex-cache'
+import { readAuthMode } from '../utils/convex-cache'
 import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
 import type { Logger } from '../utils/logger'
-import { matchesSkipRoute } from '../utils/route-matcher'
 import type { ConvexUser } from '../utils/types'
 
 type AuthClient = ReturnType<typeof createAuthClient>
@@ -34,7 +33,6 @@ type AuthEngineNuxtApp = {
 
 type AuthEngineRoute = {
   path: string
-  meta?: { skipConvexAuth?: boolean }
 }
 
 const TOKEN_CACHE_MS = 10000
@@ -75,8 +73,7 @@ export function createConvexAuthEngine({
   convexUrl,
   isAuthEnabled = Boolean(authClient),
   authRoute = '/api/auth',
-  skipRoutes = [],
-  getRoute = () => ({ path: '/', meta: {} }),
+  getRoute = () => ({ path: '/' }),
   wasServerRendered = () => false,
 }: {
   nuxtApp: AuthEngineNuxtApp
@@ -87,7 +84,6 @@ export function createConvexAuthEngine({
   convexUrl?: string
   isAuthEnabled?: boolean
   authRoute?: string
-  skipRoutes?: string[]
   getRoute?: () => AuthEngineRoute
   wasServerRendered?: () => boolean
 }): ConvexAuthEngine {
@@ -175,26 +171,6 @@ export function createConvexAuthEngine({
           path: routePath,
         },
       })
-      return null
-    }
-
-    if (route.meta?.skipConvexAuth === true) {
-      logAuth({
-        phase: 'client-fetchToken:skip',
-        outcome: 'skip',
-        details: { traceId: currentTraceId, reason: 'page-meta-skip', path: routePath },
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    if (matchesSkipRoute(routePath, skipRoutes)) {
-      logAuth({
-        phase: 'client-fetchToken:skip',
-        outcome: 'skip',
-        details: { traceId: currentTraceId, reason: 'skip-auth-route', path: routePath },
-      })
-      resolveInitialAuth(operationGeneration)
       return null
     }
 
@@ -528,18 +504,18 @@ export function createConvexAuthEngine({
         async () => null,
         () => {},
       )
-      clearAuthSubscriptions(nuxtApp)
       await nextTick()
 
-      // Purge cached Convex query payload so a subsequent session can never read or
-      // hydrate the previous user's data. Payload keys consumed exclusively by
-      // public auth:'none' queries are auth-independent and keep their data.
-      const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
-      clearNuxtData(
-        (key) =>
-          (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
-          !publicPayloadKeys.has(key),
-      )
+      // Identity purge (internal §7.1): the primary client is retired on the
+      // identity change (its live subscriptions die with it) and every mounted
+      // composable clears its own state, so there is no subscription registry to
+      // sweep. Scan only the two Convex payload namespaces via the key grammar
+      // and drop `required`/`optional` keys; `none` keys are identity-independent
+      // and are retained. No registry or count is consulted.
+      clearNuxtData((key) => {
+        const mode = readAuthMode(key)
+        return mode === 'required' || mode === 'optional'
+      })
 
       if (isActiveGeneration(operationGeneration)) {
         state.authError.value = null

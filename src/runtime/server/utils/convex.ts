@@ -3,7 +3,7 @@ import type { H3Event } from 'h3'
 
 import { useRuntimeConfig } from '#imports'
 
-import type { ConvexQueryRest } from '../../utils/args-tuple'
+import type { ServerConvexRest } from '../../utils/args-tuple'
 import { normalizeConvexError, toError } from '../../utils/call-result'
 import { parseConvexResponse, getFunctionName } from '../../utils/convex-shared'
 import { createLogger, getLogLevel } from '../../utils/logger'
@@ -18,13 +18,13 @@ type ConvexOperationType = 'query' | 'mutation' | 'action'
 export interface ServerConvexOptions {
   /**
    * Auth policy for this call.
-   * - 'auto': use session cookie when available (default)
+   * - 'optional': use session cookie when available (default)
    * - 'required': throw when auth token cannot be resolved
    * - 'none': never attach auth
    */
   auth?: ConvexServerAuthMode
   /**
-   * Explicit auth token override. When provided, skips auto resolution.
+   * Explicit auth token override. When provided, skips optional resolution.
    */
   authToken?: string
 }
@@ -52,7 +52,10 @@ async function resolveAuthToken(
   }
 
   const config = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex)
-  const policy = options?.auth ?? config.defaults.auth
+  // TODO(Phase 4): the server trio stays internal until Phase 4, which reworks
+  // the server auth-mode enum. Default server policy remains 'optional' here.
+  const policy = options?.auth ?? 'optional'
+  const authCache = config.auth === false ? false : config.auth.cache
   if (policy === 'none') {
     return undefined
   }
@@ -77,7 +80,7 @@ async function resolveAuthToken(
     return undefined
   }
 
-  if (config.authCache.enabled && sessionToken) {
+  if (authCache && sessionToken) {
     const cached = await getCachedAuthToken(sessionToken)
     if (cached) {
       return cached
@@ -97,8 +100,8 @@ async function resolveAuthToken(
   }
 
   if (exchange.token) {
-    if (config.authCache.enabled && sessionToken) {
-      await setCachedAuthToken(sessionToken, exchange.token, config.authCache.ttl)
+    if (authCache && sessionToken) {
+      await setCachedAuthToken(sessionToken, exchange.token, authCache.ttl)
     }
     return exchange.token
   }
@@ -195,7 +198,7 @@ async function executeConvexOperation<T>(
 export async function serverConvexQuery<Query extends FunctionReference<'query'>>(
   event: H3Event,
   query: Query,
-  ...rest: ConvexQueryRest<FunctionArgs<Query>, FunctionArgs<Query>, ServerConvexOptions>
+  ...rest: ServerConvexRest<FunctionArgs<Query>, FunctionArgs<Query>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Query>> {
   const [args, options] = rest
   const functionPath = getFunctionName(query)
@@ -211,7 +214,7 @@ export async function serverConvexQuery<Query extends FunctionReference<'query'>
 export async function serverConvexMutation<Mutation extends FunctionReference<'mutation'>>(
   event: H3Event,
   mutation: Mutation,
-  ...rest: ConvexQueryRest<FunctionArgs<Mutation>, FunctionArgs<Mutation>, ServerConvexOptions>
+  ...rest: ServerConvexRest<FunctionArgs<Mutation>, FunctionArgs<Mutation>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Mutation>> {
   const [args, options] = rest
   const functionPath = getFunctionName(mutation)
@@ -227,7 +230,7 @@ export async function serverConvexMutation<Mutation extends FunctionReference<'m
 export async function serverConvexAction<Action extends FunctionReference<'action'>>(
   event: H3Event,
   action: Action,
-  ...rest: ConvexQueryRest<FunctionArgs<Action>, FunctionArgs<Action>, ServerConvexOptions>
+  ...rest: ServerConvexRest<FunctionArgs<Action>, FunctionArgs<Action>, ServerConvexOptions>
 ): Promise<FunctionReturnType<Action>> {
   const [args, options] = rest
   const functionPath = getFunctionName(action)

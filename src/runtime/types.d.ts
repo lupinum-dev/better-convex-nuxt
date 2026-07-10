@@ -2,80 +2,38 @@ import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 
 import type { ConvexAuthEngine } from './auth/client-engine'
-import type { ConvexAuthConfigInput } from './utils/auth-config'
+import type { AuthIdentityPort } from './auth/identity-port'
+import type { ConvexClientOwner } from './client/client-owner'
 import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
-import type { LogLevel } from './utils/logger'
 
 type AuthClient = ReturnType<typeof createAuthClient>
 
-/**
- * Convex module public runtime config
- */
-export interface ConvexPublicRuntimeConfig {
-  /** Convex deployment URL (WebSocket) */
-  url?: string
-  /** Convex site URL (HTTP/Auth) */
-  siteUrl?: string
-  /** Auth integration config */
-  auth?: ConvexAuthConfigInput
-  /** Auth proxy route path */
-  authRoute?: string
-  /** Additional trusted origins for auth proxy CORS */
-  trustedOrigins?: string[]
-  /** Routes that should skip auth checks */
-  skipAuthRoutes?: string[]
-  /** Whether permissions helper mode is enabled */
-  permissions?: boolean
-  /** Logging level */
-  logging?: LogLevel
-  /** SSR auth cache config */
-  authCache?: {
-    enabled?: boolean
-    ttl?: number
-  }
-  /** Global query defaults */
-  defaults?: {
-    server?: boolean
-    subscribe?: boolean
-    auth?: 'auto' | 'none'
-    waitTimeoutMs?: number
-  }
-  /** Upload defaults */
-  upload?: {
-    maxConcurrent?: number
-  }
-  /** Auth proxy body-size defaults */
-  authProxy?: {
-    maxRequestBodyBytes?: number
-    maxResponseBodyBytes?: number
-  }
-  /** Optional debug channels for high-verbosity traces */
-  debug?: {
-    authFlow?: boolean
-    clientAuthFlow?: boolean
-    serverAuthFlow?: boolean
-  }
-}
-
 declare module '#app' {
   interface NuxtApp {
+    /**
+     * The primary Convex client, provided by the core client plugin. Phase 1
+     * inter-plugin handoff; the Phase 3 client owner replaces this raw handoff
+     * and the `useConvex()` handle contract removes the public raw client.
+     */
     $convex?: ConvexClient
+    /**
+     * The per-Nuxt-app client owner (vNext §5.4, internal §4.1). Sole source of
+     * truth for the replaceable primary and lazy anonymous clients; `useConvex()`
+     * returns its stable handle and `useConvexConnectionState()` observes its
+     * connection store. Provided by the core client plugin (browser only).
+     */
+    $convexClientOwner?: ConvexClientOwner
     $auth?: AuthClient
     $convexAuthEngine?: ConvexAuthEngine
-    /** Internal dedupe state for unauthorized query/action/mutation recovery */
-    _bcnUnauthorizedRecoveryState?: {
-      activeRecovery: Promise<void> | null
-      lastRedirectKey: string | null
-      lastRedirectAt: number
-    }
-    /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
+    /** Frozen auth identity port (adapter over the engine); auth builds only. */
+    $convexAuthPort?: AuthIdentityPort
+    /** Internal in-flight promise for the engine's refreshAuth() dedupe. */
     _convexRefreshAuthPromise?: Promise<void> | null
   }
   interface RuntimeNuxtHooks {
     'better-convex:auth:refresh': () => void | Promise<void>
   }
   interface PageMeta {
-    skipConvexAuth?: boolean
     convexAuth?: ConvexAuthPageMeta
   }
 }

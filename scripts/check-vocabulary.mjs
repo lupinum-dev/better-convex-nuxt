@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 /** Phases whose rules actually execute. Extend as later phases land rules. */
-const ACTIVE_PHASES = ['phase0']
+const ACTIVE_PHASES = ['phase0', 'phase1']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([
@@ -153,6 +153,106 @@ const RULES = [
 
   // Phase 1/4/6 rules are added here as scheduled entries and flipped on by
   // extending ACTIVE_PHASES — no other structural change is needed.
+  {
+    name: 'no-auto-auth-mode',
+    description:
+      'Forbid the deleted `auto` auth-mode spelling; the mode grammar is required/optional/none.',
+    patterns: [
+      // `auth: 'auto'` / `auth?: 'auto'` property values (client, server, storage-url options).
+      /\bauth\??\s*:\s*['"]auto['"]/,
+      // Union type literals that still enumerate 'auto' as a member.
+      /['"]auto['"]\s*\|\s*['"](?:required|optional|none)['"]|['"](?:required|optional|none)['"]\s*\|\s*['"]auto['"]/,
+    ],
+    paths: ['src', 'playground', 'docs/content', 'starters', 'test'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-nullable-skip-sentinel',
+    description:
+      "Forbid `null` as a query skip value in app-facing code; 'skip' is the only skip sentinel. " +
+      '(Required @ts-expect-error negative-space contracts proving this deliberately live in ' +
+      'test/unit and test/fixtures, so those paths are out of scope for this rule.)',
+    patterns: [
+      /use(?:Convex(?:Paginated)?Query|ConvexUser)\([^,()]*,\s*null\s*[,)]/,
+      /defineSharedConvexQuery\(\s*\{[^}]*args:\s*null\b/,
+    ],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-get-query-key',
+    description:
+      'Forbid the deleted public `getQueryKey` export/auto-import/usage. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/fixtures/consumer-smoke, so `test` is out of scope for this rule.)',
+    patterns: [/\bgetQueryKey\s*\(|import\s*\{[^}]*\bgetQueryKey\b[^}]*\}/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-use-convex-call',
+    description:
+      'Forbid the deleted `useConvexCall` composable; use `useConvex()` instead. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/fixtures/consumer-smoke, so `test` is out of scope for this rule.)',
+    patterns: [/\buseConvexCall\s*\(|import\s*\{[^}]*\buseConvexCall\b[^}]*\}/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-create-permissions',
+    description:
+      'Forbid the deleted `createPermissions` factory/module option. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/fixtures/consumer-smoke, so `test` is out of scope for this rule.)',
+    patterns: [
+      /\bcreatePermissions\s*[(<]|import\s*\{[^}]*\bcreatePermissions\b[^}]*\}|\bpermissions\s*:\s*true\b/,
+    ],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-package-owned-use-permissions',
+    description:
+      'Forbid the package re-introducing `usePermissions`/`usePermissionRedirect` as its own export; ' +
+      'app-owned composables of that name (built on `useConvexQuery`) are the supported pattern and are ' +
+      'intentionally out of this rule’s scope.',
+    patterns: [
+      /export\s*\{[^}]*\busePermissions\b[^}]*\}|export\s+function\s+usePermissions\b|export\s+const\s+\{\s*usePermissions\b/,
+    ],
+    paths: ['src'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-skip-auth-routes',
+    description:
+      'Forbid the deleted `skipAuthRoutes` config input and `skipConvexAuth` page meta. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/unit/auth-config.test.ts, so `test` is out of scope for this rule.)',
+    patterns: [/\bskipAuthRoutes\b|\bskipConvexAuth\b/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-auth-unauthorized-option',
+    description:
+      'Forbid the deleted `auth.unauthorized` config option and its recovery pipeline. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/unit/auth-config.test.ts, so `test` is out of scope for this rule.)',
+    patterns: [/\bunauthorized\s*:\s*\{|auth\.unauthorized\b/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
+  {
+    name: 'no-auth-enabled-flag',
+    description:
+      'Forbid the deleted nested `auth: { enabled: ... }` input; use `auth: false | {...}`. ' +
+      '(The required @ts-expect-error negative-space contract proving this lives in ' +
+      'test/unit/auth-config.test.ts, so `test` is out of scope for this rule.)',
+    patterns: [/auth\s*:\s*\{\s*enabled\s*:/],
+    paths: ['src', 'playground', 'docs/content', 'starters'],
+    phase: 'phase1',
+  },
 ]
 
 class ConfigError extends Error {}

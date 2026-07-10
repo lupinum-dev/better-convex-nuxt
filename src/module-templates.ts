@@ -53,11 +53,6 @@ declare module '#app' {
 
   interface PageMeta {
     /**
-     * Skip Convex auth check for this page.
-     * Useful for marketing pages that don't need authentication.
-     */
-    skipConvexAuth?: boolean
-    /**
      * Opt-in route protection powered by better-convex-nuxt.
      * true = require auth (default redirect), object = custom redirect.
      */

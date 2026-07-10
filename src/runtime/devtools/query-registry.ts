@@ -27,7 +27,7 @@ export interface QueryOptions {
   /** Whether the query has an active subscription */
   subscribe: boolean
   /** Auth token behavior for the query. */
-  auth: 'auto' | 'none'
+  auth: 'required' | 'optional' | 'none'
 }
 
 export interface QueryRegistryEntry {

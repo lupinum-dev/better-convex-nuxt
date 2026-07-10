@@ -1,10 +1,10 @@
 /**
  * Permission Configuration
  *
- * Shared checkPermission() used by both frontend (createPermissions) and
- * backend (authorize). This playground does not enable the Better Auth
- * Organization plugin, so the demo uses a minimal "signed-in + ownership"
- * model instead of org roles:
+ * Shared checkPermission() used by both frontend (the app-owned
+ * usePermissions() composable) and backend (authorize). This playground does
+ * not enable the Better Auth Organization plugin, so the demo uses a minimal
+ * "signed-in + ownership" model instead of org roles:
  *
  *   - any signed-in user can create/read posts
  *   - only the owner can update/delete/publish
@@ -41,10 +41,9 @@ export type Permission = PostPermission
 // PERMISSION CONTEXT
 // ============================================
 // The minimal context returned by the permission-context query. `role` is a
-// static placeholder ('member' for every signed-in user) so the context
-// satisfies the module's createPermissions contract — this playground has no
-// org plugin, so there is no real role. In a real app, read role from Better
-// Auth (see the permissions docs), never from an app-owned table.
+// static placeholder ('member' for every signed-in user) — this playground
+// has no org plugin, so there is no real role. In a real app, read role from
+// Better Auth (see the permissions docs), never from an app-owned table.
 
 export interface PermissionContext {
   role: string

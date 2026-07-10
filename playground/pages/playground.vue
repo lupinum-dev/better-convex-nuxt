@@ -112,30 +112,9 @@
       </div>
     </section>
 
-    <!-- Section 4: useNuxtData (Cache Access) -->
-    <section class="section">
-      <h2>4. useNuxtData (Cache Access)</h2>
-      <p class="description">Read cached data without triggering a new fetch</p>
-
-      <div class="code-block">
-        <pre>
-// Access cached notes list using native Nuxt pattern
-const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
-// Count: {{ cachedNotes?.length ?? 'undefined' }}</pre
-        >
-      </div>
-
-      <div v-if="cachedNotes !== undefined">
-        <span class="badge success">Cache hit: {{ cachedNotes.length }} notes</span>
-      </div>
-      <div v-else>
-        <span class="badge muted">Cache miss (undefined)</span>
-      </div>
-    </section>
-
     <!-- Section 5: Options Demo -->
     <section class="section">
-      <h2>5. Query Options</h2>
+      <h2>4. Query Options</h2>
       <p class="description">Different configuration options</p>
 
       <div class="options-grid">
@@ -167,7 +146,7 @@ const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
 
     <!-- Section 6: Logging -->
     <section class="section">
-      <h2>6. Module Logging</h2>
+      <h2>5. Module Logging</h2>
       <p class="description">
         Enable <code>convex.logging</code> in <code>nuxt.config.ts</code> to inspect lifecycle logs
       </p>
@@ -282,9 +261,6 @@ const { data: skipDemoData, pending: skipDemoPending } = await useConvexQuery(
   skipArgs,
 )
 
-// ========== Section 4: useNuxtData (Cache Access) ==========
-const { data: cachedNotes } = useNuxtData(getQueryKey(api.notes.list, {}))
-
 // ========== Section 5: Options Demo ==========
 
 // Client-only query example
@@ -319,7 +295,6 @@ const debugInfo = computed(() => ({
     dataCount: skipDemoData.value?.length ?? 'undefined',
     pending: skipDemoPending.value,
   },
-  cachedNotes: cachedNotes.value?.length ?? 'undefined',
   lazyData: lazyData.value?.length ?? 'undefined',
   clientOnlyData: clientOnlyData.value?.length ?? 'undefined',
 }))

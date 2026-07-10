@@ -53,10 +53,15 @@ const SESSION_REVOKING_PATHS = new Set([
  */
 export default defineEventHandler(async (event: H3Event) => {
   const convexConfig = getConvexRuntimeConfig()
+  const auth = convexConfig.auth
   const siteUrl = convexConfig.siteUrl
-  const trustedOrigins = convexConfig.trustedOrigins
-  const authRoute = convexConfig.authRoute
-  const authProxy = convexConfig.authProxy
+  const trustedOrigins = auth === false ? [] : [...auth.trustedOrigins]
+  const authRoute = auth === false ? '/api/auth' : auth.route
+  const authProxy =
+    auth === false
+      ? { maxRequestBodyBytes: 1_048_576, maxResponseBodyBytes: 1_048_576 }
+      : auth.proxy
+  const authCacheEnabled = auth !== false && auth.cache !== false
 
   // Dev mode: track request timing
   const startTime = import.meta.dev ? Date.now() : 0
@@ -186,12 +191,7 @@ export default defineEventHandler(async (event: H3Event) => {
     // Sign-out revokes the session upstream; proactively clear our cached JWT
     // for it too so a subsequent request can't reuse a stale cached token for
     // the rest of the authCache TTL window (F-28).
-    if (
-      isSignOutRequest &&
-      sessionTokenBeforeProxy &&
-      response.ok &&
-      convexConfig.authCache.enabled
-    ) {
+    if (isSignOutRequest && sessionTokenBeforeProxy && response.ok && authCacheEnabled) {
       await serverConvexClearAuthCache(sessionTokenBeforeProxy)
     }
 

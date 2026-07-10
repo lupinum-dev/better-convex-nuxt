@@ -28,7 +28,7 @@ const {
 } = useConvexFileUpload(api.files.generateUploadUrl)
 
 // getUrl requires ownership (F-9) - attach the caller's auth token.
-const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId, { auth: 'auto' })
+const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId, { auth: 'optional' })
 const saveFile = useConvexMutation(api.files.saveFile)
 
 // Track upload counts

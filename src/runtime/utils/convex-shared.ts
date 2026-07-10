@@ -276,12 +276,20 @@ export function hashArgs(args: unknown): string {
 }
 
 /**
- * Generate a unique cache key for a query + args combination
+ * Build the identity-blind base key for a query + args combination (internal
+ * §7.1). This is the `convex:<functionName>:<argsHash>` (or
+ * `convex-paginated:<functionName>:<argsHash>`) prefix; the auth/identity
+ * dimension is appended separately by {@link withAuthDimension} so the same base
+ * can be partitioned per identity.
+ *
+ * Renamed from the deleted public `getQueryKey` (vNext §6): the base key is
+ * library-internal and must never resurface as a public auto-import.
  */
-export function getQueryKey<Query extends FunctionReference<'query'>>(
+export function createConvexQueryKey<Query extends FunctionReference<'query'>>(
   query: Query,
   args?: FunctionArgs<Query>,
+  namespace: 'convex' | 'convex-paginated' = 'convex',
 ): string {
   const fnName = getFunctionName(query)
-  return `convex:${fnName}:${hashArgs(args)}`
+  return `${namespace}:${fnName}:${hashArgs(args)}`
 }

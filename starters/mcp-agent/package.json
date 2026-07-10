@@ -17,14 +17,14 @@
     "verify:full": "pnpm verify && pnpm verify:browser && pnpm verify:browser:mobile"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.4",
+    "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/rate-limiter": "^0.3.2",
     "@nuxtjs/mcp-toolkit": "^0.17.2",
-    "better-auth": "^1.6.20",
+    "better-auth": "1.6.23",
     "better-convex-nuxt": "^0.4.0",
-    "convex": "^1.32.0",
+    "convex": "1.38.0",
     "h3": "^1.15.5",
-    "nuxt": "^4.3.1",
+    "nuxt": "4.4.7",
     "vue": "^3.5.25",
     "zod": "^4.2.0"
   },

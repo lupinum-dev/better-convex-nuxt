@@ -131,9 +131,9 @@ export const rotateKeys = internalAction({
 // ============================================
 // GET PERMISSION CONTEXT
 // ============================================
-// Called by createPermissions() on the frontend. Returns the minimal
-// signed-in context (the user's authId) or null when signed out. Matches
-// the strict createPermissions query type: no args, returns TContext | null.
+// Called by the app-owned usePermissions() composable on the frontend.
+// Returns the minimal signed-in context (the user's authId) or null when
+// signed out: no args, returns PermissionContext | null.
 //
 // This playground does not enable the Better Auth Organization plugin, so
 // there is no role/org to return — the demo gates on signed-in + ownership.

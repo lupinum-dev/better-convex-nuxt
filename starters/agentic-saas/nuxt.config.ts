@@ -18,8 +18,6 @@ export default {
       process.env.NUXT_PUBLIC_CONVEX_SITE_URL ??
       process.env.CONVEX_SITE_URL ??
       process.env.VITE_CONVEX_SITE_URL,
-    auth: {
-      enabled: true,
-    },
+    auth: {},
   },
 }

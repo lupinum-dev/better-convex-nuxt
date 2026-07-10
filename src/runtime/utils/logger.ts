@@ -26,9 +26,8 @@ export interface AuthEvent {
 
 export interface QueryEvent {
   name: string
-  event: 'subscribe' | 'update' | 'unsubscribe' | 'error' | 'share'
+  event: 'subscribe' | 'update' | 'unsubscribe' | 'error'
   count?: number // item count for updates
-  refCount?: number // for subscription sharing
   args?: unknown
   data?: unknown // only logged in debug mode
   error?: Error
@@ -206,9 +205,6 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
           break
         case 'unsubscribe':
           msg += `  ${ANSI.dim}unsubscribe${ANSI.reset}`
-          break
-        case 'share':
-          msg += `  ${ANSI.dim}share (refCount: ${event.refCount})${ANSI.reset}`
           break
         case 'error':
           msg += `  ${ANSI.red}error${ANSI.reset}`
@@ -390,9 +386,6 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (event.event === 'update' && event.count !== undefined) {
         label += `%c (${event.count} items)`
-        styles.push(CSS.dim)
-      } else if (event.event === 'share' && event.refCount !== undefined) {
-        label += `%c (shared, refCount: ${event.refCount})`
         styles.push(CSS.dim)
       } else if (event.event !== 'update') {
         label += `%c ${event.event}`

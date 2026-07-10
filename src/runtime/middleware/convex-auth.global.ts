@@ -11,17 +11,9 @@ const PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS = 5_000
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authConfig = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).auth
-  if (!authConfig.enabled) return
+  if (authConfig === false) return
 
-  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta; skipConvexAuth?: boolean }
-
-  if (import.meta.dev && pageMeta.skipConvexAuth === true && pageMeta.convexAuth) {
-    console.warn(
-      '[better-convex-nuxt] Page sets both `skipConvexAuth: true` and `convexAuth`. ' +
-        '`skipConvexAuth` only skips auth checks for query token fetches; `convexAuth` protects the route.',
-      { path: to.fullPath },
-    )
-  }
+  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta }
 
   const { isAuthenticated, isPending, awaitAuthReady } = useConvexAuth()
 

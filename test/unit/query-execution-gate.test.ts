@@ -1,138 +1,275 @@
 import { describe, expect, it } from 'vitest'
 
-import { createQueryExecutionGate } from '../../src/runtime/utils/query-execution-gate'
+import type { ConvexAuthMode, ConvexAuthStatus } from '../../src/runtime/utils/auth-status'
+import type { ConvexIdentityKey } from '../../src/runtime/utils/identity-key'
+import {
+  createQueryExecutionGate,
+  type QueryExecutionGateInput,
+} from '../../src/runtime/utils/query-execution-gate'
+
+const USER: ConvexIdentityKey = 'user:alice'
+
+function gate(overrides: Partial<QueryExecutionGateInput> = {}) {
+  const base: QueryExecutionGateInput = {
+    authStatus: 'authenticated',
+    authMode: 'optional',
+    identityKey: USER,
+    skipped: false,
+    subscribe: true,
+  }
+  return createQueryExecutionGate({ ...base, ...overrides })
+}
+
+const MODES: ConvexAuthMode[] = ['required', 'optional', 'none']
+const STATUSES: ConvexAuthStatus[] = ['disabled', 'loading', 'anonymous', 'authenticated', 'error']
 
 describe('createQueryExecutionGate', () => {
-  it('treats explicit skip as idle without waiting for auth', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'auto',
-        authPending: true,
-        hasAuthToken: false,
-        isClient: true,
-        skipped: true,
-        subscribe: true,
-      }),
-    ).toEqual({
-      pendingReason: 'explicit-skip',
-      resolveAsIdle: true,
-      setupLiveSubscription: false,
-      waitForAuth: false,
-    })
-  })
-
-  it('pauses private client queries while auth is pending', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'auto',
-        authPending: true,
-        hasAuthToken: false,
-        isClient: true,
-        skipped: false,
-        subscribe: true,
-      }),
-    ).toEqual({
-      pendingReason: 'auth-pending',
-      resolveAsIdle: true,
-      setupLiveSubscription: false,
-      waitForAuth: true,
-    })
-  })
-
-  it('does not pause public auth:none queries', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'none',
-        authPending: true,
-        hasAuthToken: false,
-        isClient: true,
-        skipped: false,
-        subscribe: true,
-      }),
-    ).toEqual({
-      pendingReason: 'none',
-      resolveAsIdle: false,
-      setupLiveSubscription: true,
-      waitForAuth: false,
-    })
-  })
-
-  it('does not pause server-side execution while auth is pending with a token', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'auto',
-        authPending: true,
-        hasAuthToken: true,
-        isClient: false,
-        skipped: false,
-        subscribe: true,
-      }),
-    ).toMatchObject({
-      pendingReason: 'none',
-      resolveAsIdle: false,
-      setupLiveSubscription: true,
-    })
-  })
-
-  it('resolves signed-out identically on server and client (SSR hydration parity)', () => {
-    // Regression: the server used to proceed for a signed-out auth query
-    // (baking a permanent "loading" state into SSR HTML) while the client
-    // resolved idle -> hydration text/class mismatches on every signed-out
-    // visit to a page with an auth:'auto' query.
-    const base = {
-      authEnabled: true,
-      authMode: 'auto' as const,
-      authPending: false,
-      hasAuthToken: false,
-      skipped: false,
-      subscribe: true,
+  // 1. Explicit skip resolves idle regardless of status/mode.
+  describe('step 1 — explicit skip', () => {
+    for (const authStatus of STATUSES) {
+      for (const authMode of MODES) {
+        it(`skip idles for ${authMode}/${authStatus}`, () => {
+          const g = gate({ skipped: true, authStatus, authMode })
+          expect(g).toMatchObject({
+            outcome: 'idle',
+            resolveAsIdle: true,
+            waitForAuth: false,
+            surfaceAuthError: false,
+            setupLiveSubscription: false,
+            useAnonymousClient: false,
+            reason: 'explicit-skip',
+          })
+        })
+      }
     }
-    const serverGate = createQueryExecutionGate({ ...base, isClient: false })
-    const clientGate = createQueryExecutionGate({ ...base, isClient: true })
-
-    expect(serverGate).toMatchObject({ pendingReason: 'auth-signed-out', resolveAsIdle: true })
-    expect(serverGate.pendingReason).toBe(clientGate.pendingReason)
-    expect(serverGate.resolveAsIdle).toBe(clientGate.resolveAsIdle)
   })
 
-  it('does not set up live subscriptions when subscribe is false', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'auto',
-        authPending: false,
-        hasAuthToken: true,
-        isClient: true,
-        skipped: false,
-        subscribe: false,
-      }),
-    ).toMatchObject({
-      pendingReason: 'none',
-      resolveAsIdle: false,
-      setupLiveSubscription: false,
+  // 2. `none` executes without waiting, anonymous cache dimension, anonymous
+  //    transport (except in an auth-disabled build where the primary is already
+  //    anonymous).
+  describe('step 2 — none executes anonymously without waiting', () => {
+    for (const authStatus of STATUSES) {
+      it(`none executes for status ${authStatus}`, () => {
+        const g = gate({ authMode: 'none', authStatus, identityKey: USER })
+        expect(g).toMatchObject({
+          outcome: 'execute',
+          resolveAsIdle: false,
+          waitForAuth: false,
+          surfaceAuthError: false,
+          cacheIdentity: 'anonymous',
+          reason: 'executing',
+        })
+        // Uses the dedicated anonymous client only when auth is enabled.
+        expect(g.useAnonymousClient).toBe(authStatus !== 'disabled')
+      })
+    }
+
+    it('none respects subscribe=false (no live subscription)', () => {
+      expect(gate({ authMode: 'none', subscribe: false }).setupLiveSubscription).toBe(false)
+      expect(gate({ authMode: 'none', subscribe: true }).setupLiveSubscription).toBe(true)
+    })
+
+    it('none never inspects identity — authenticated key still keys anonymous', () => {
+      expect(
+        gate({
+          authMode: 'none',
+          authStatus: 'authenticated',
+          identityKey: USER,
+        }),
+      ).toMatchObject({ cacheIdentity: 'anonymous', outcome: 'execute' })
     })
   })
 
-  it('idles signed-out private client queries', () => {
-    expect(
-      createQueryExecutionGate({
-        authEnabled: true,
-        authMode: 'auto',
-        authPending: false,
-        hasAuthToken: false,
-        isClient: true,
-        skipped: false,
-        subscribe: true,
-      }),
-    ).toEqual({
-      pendingReason: 'auth-signed-out',
-      resolveAsIdle: true,
-      setupLiveSubscription: false,
-      waitForAuth: false,
+  // 3. Auth disabled.
+  describe('step 3 — disabled', () => {
+    it('required idles under disabled', () => {
+      expect(
+        gate({
+          authStatus: 'disabled',
+          authMode: 'required',
+          identityKey: null,
+        }),
+      ).toMatchObject({
+        outcome: 'idle',
+        resolveAsIdle: true,
+        cacheIdentity: 'anonymous',
+        reason: 'required-idle',
+      })
     })
+
+    it('optional executes anonymously without waiting under disabled', () => {
+      expect(
+        gate({
+          authStatus: 'disabled',
+          authMode: 'optional',
+          identityKey: null,
+        }),
+      ).toMatchObject({
+        outcome: 'execute',
+        resolveAsIdle: false,
+        waitForAuth: false,
+        useAnonymousClient: false,
+        cacheIdentity: 'anonymous',
+        reason: 'executing',
+      })
+    })
+  })
+
+  // 4. Loading — both wait.
+  describe('step 4 — loading waits', () => {
+    for (const authMode of ['required', 'optional'] as const) {
+      it(`${authMode} waits under loading`, () => {
+        expect(gate({ authStatus: 'loading', authMode, identityKey: null })).toMatchObject({
+          outcome: 'wait',
+          resolveAsIdle: true,
+          waitForAuth: true,
+          surfaceAuthError: false,
+          setupLiveSubscription: false,
+          reason: 'auth-loading',
+        })
+      })
+    }
+  })
+
+  // 5. Error — surface without a network request; never downgrade to anonymous.
+  describe('step 5 — error surfaces without a request', () => {
+    for (const authMode of ['required', 'optional'] as const) {
+      it(`${authMode} surfaces auth error`, () => {
+        expect(gate({ authStatus: 'error', authMode, identityKey: null })).toMatchObject({
+          outcome: 'error',
+          resolveAsIdle: false,
+          waitForAuth: false,
+          surfaceAuthError: true,
+          setupLiveSubscription: false,
+          useAnonymousClient: false,
+          reason: 'auth-error',
+        })
+      })
+    }
+  })
+
+  // 6. Anonymous — required idles, optional executes anonymously.
+  describe('step 6 — settled anonymous', () => {
+    it('required idles under anonymous', () => {
+      expect(
+        gate({
+          authStatus: 'anonymous',
+          authMode: 'required',
+          identityKey: 'anonymous',
+        }),
+      ).toMatchObject({
+        outcome: 'idle',
+        resolveAsIdle: true,
+        cacheIdentity: 'anonymous',
+        reason: 'required-idle',
+      })
+    })
+
+    it('optional executes anonymously under anonymous', () => {
+      expect(
+        gate({
+          authStatus: 'anonymous',
+          authMode: 'optional',
+          identityKey: 'anonymous',
+        }),
+      ).toMatchObject({
+        outcome: 'execute',
+        cacheIdentity: 'anonymous',
+        useAnonymousClient: false,
+        reason: 'executing',
+      })
+    })
+  })
+
+  // 7. Authenticated — both execute with the concrete user identity.
+  describe('step 7 — authenticated', () => {
+    for (const authMode of ['required', 'optional'] as const) {
+      it(`${authMode} executes with the user identity`, () => {
+        expect(gate({ authStatus: 'authenticated', authMode, identityKey: USER })).toMatchObject({
+          outcome: 'execute',
+          resolveAsIdle: false,
+          waitForAuth: false,
+          surfaceAuthError: false,
+          useAnonymousClient: false,
+          cacheIdentity: USER,
+          reason: 'executing',
+        })
+      })
+    }
+
+    it('subscribe=false suppresses the live subscription while still executing', () => {
+      expect(
+        gate({
+          authStatus: 'authenticated',
+          authMode: 'optional',
+          subscribe: false,
+        }),
+      ).toMatchObject({ outcome: 'execute', setupLiveSubscription: false })
+    })
+
+    it('defensively waits when authenticated but the identity key is not a concrete user', () => {
+      // Never manufacture user:undefined (vNext §5.4). A settled-authenticated
+      // status without a usable id waits rather than executing.
+      expect(
+        gate({
+          authStatus: 'authenticated',
+          authMode: 'required',
+          identityKey: null,
+        }),
+      ).toMatchObject({
+        outcome: 'wait',
+        waitForAuth: true,
+        cacheIdentity: 'anonymous',
+        reason: 'auth-loading',
+      })
+      expect(
+        gate({
+          authStatus: 'authenticated',
+          authMode: 'optional',
+          identityKey: 'anonymous',
+        }),
+      ).toMatchObject({
+        outcome: 'wait',
+        waitForAuth: true,
+      })
+    })
+  })
+
+  // Precedence: skip beats everything, including none/loading/error.
+  describe('precedence', () => {
+    it('skip beats none', () => {
+      expect(gate({ skipped: true, authMode: 'none' }).reason).toBe('explicit-skip')
+    })
+
+    it('none beats loading (does not wait for auth)', () => {
+      expect(gate({ authMode: 'none', authStatus: 'loading' })).toMatchObject({
+        outcome: 'execute',
+        waitForAuth: false,
+      })
+    })
+
+    it('none beats error (does not surface auth error)', () => {
+      expect(gate({ authMode: 'none', authStatus: 'error' })).toMatchObject({
+        outcome: 'execute',
+        surfaceAuthError: false,
+      })
+    })
+  })
+
+  // setupLiveSubscription is only ever true when executing.
+  it('never sets up a live subscription unless executing', () => {
+    for (const authStatus of STATUSES) {
+      for (const authMode of MODES) {
+        const g = gate({
+          authStatus,
+          authMode,
+          subscribe: true,
+          identityKey: USER,
+        })
+        if (g.outcome !== 'execute') {
+          expect(g.setupLiveSubscription).toBe(false)
+        }
+      }
+    }
   })
 })

@@ -19,12 +19,12 @@
     "verify:full": "pnpm verify:release && pnpm verify:browser"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.4",
+    "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/rate-limiter": "^0.3.2",
-    "better-auth": "^1.6.20",
+    "better-auth": "1.6.23",
     "better-convex-nuxt": "^0.4.0",
-    "convex": "^1.32.0",
-    "nuxt": "^4.3.1",
+    "convex": "1.38.0",
+    "nuxt": "4.4.7",
     "vue": "^3.5.25",
     "zod": "^4.4.3"
   },

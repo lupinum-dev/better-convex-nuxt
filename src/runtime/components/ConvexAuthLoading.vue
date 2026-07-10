@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Renders slot content only while auth state is being determined.
- * Useful for showing loading spinners during auth check.
+ * Renders slot content only when auth status is `loading` (vNext §4.2).
  *
  * @example
  * ```vue
@@ -16,9 +15,9 @@ defineSlots<{
   default(): unknown
 }>()
 
-const { isPending } = useConvexAuth()
+const { status } = useConvexAuth()
 </script>
 
 <template>
-  <slot v-if="isPending" />
+  <slot v-if="status === 'loading'" />
 </template>

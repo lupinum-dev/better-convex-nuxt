@@ -96,8 +96,14 @@ describe('plugin.server token exchange failure policy', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      auth: { enabled: true },
-      authCache: { enabled: false, ttl: 60 },
+      auth: {
+        route: '/api/auth',
+        trustedOrigins: [],
+        cache: false,
+        proxy: { maxRequestBodyBytes: 1024 * 1024, maxResponseBodyBytes: 1024 * 1024 },
+        debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
+        routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
+      },
     })
 
     getCachedAuthTokenMock.mockResolvedValue(null)

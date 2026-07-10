@@ -179,7 +179,7 @@ describe('server Convex fetch helpers', () => {
     expect(paths).toEqual(['symbol:path', 'path:field', 'function:path', 'unknown'])
   })
 
-  it('auth:auto exchanges cookie for token and attaches bearer header', async () => {
+  it('auth:optional exchanges cookie for token and attaches bearer header', async () => {
     const fetchMock = vi.fn(
       async () =>
         new Response(JSON.stringify({ value: { ok: true } }), {
@@ -187,7 +187,7 @@ describe('server Convex fetch helpers', () => {
         }),
     )
     fetchWithTimeoutMock.mockResolvedValue(
-      new Response(JSON.stringify({ token: 'auto.jwt.token' }), { status: 200 }),
+      new Response(JSON.stringify({ token: 'optional.jwt.token' }), { status: 200 }),
     )
     vi.stubGlobal('fetch', fetchMock)
 
@@ -197,7 +197,7 @@ describe('server Convex fetch helpers', () => {
       ),
       { _path: 'notes:list' } as never,
       {} as never,
-      { auth: 'auto' },
+      { auth: 'optional' },
     )
 
     expect(fetchWithTimeoutMock).toHaveBeenCalledTimes(1)
@@ -213,7 +213,7 @@ describe('server Convex fetch helpers', () => {
     expect(firstCall).toBeDefined()
     const [, init] = firstCall as unknown as [string, RequestInit]
     expect(init.headers).toMatchObject({
-      Authorization: 'Bearer auto.jwt.token',
+      Authorization: 'Bearer optional.jwt.token',
     })
   })
 
@@ -259,34 +259,7 @@ describe('server Convex fetch helpers', () => {
     expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
   })
 
-  it('uses configured default auth:none when no per-call auth option is passed', async () => {
-    useRuntimeConfigMock.mockReturnValue({
-      public: {
-        convex: {
-          url: 'http://127.0.0.1:3210',
-          siteUrl: 'http://127.0.0.1:3220',
-          defaults: { auth: 'none' },
-        },
-      },
-    } as never)
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ value: { ok: true } }), {
-          headers: { 'content-type': 'application/json' },
-        }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    await serverConvexQuery(
-      createEvent('better-auth.session_token=session123'),
-      { _path: 'notes:list' } as never,
-      {} as never,
-    )
-
-    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
-    const firstCall = fetchMock.mock.calls[0]
-    expect(firstCall).toBeDefined()
-    const [, init] = firstCall as unknown as [string, RequestInit]
-    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
-  })
+  // Note: the public `defaults.auth` server knob was removed in Phase 1 (vNext
+  // §5.2). The server trio stays internal until Phase 4, where its default policy
+  // and auth-mode enum are reworked. Per-call `auth: 'none'` skip is covered above.
 })

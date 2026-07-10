@@ -3,10 +3,10 @@
     <header class="header">
       <h1>Permissions Demo</h1>
       <p class="subtitle">
-        <code>createPermissions()</code> with a minimal signed-in + ownership context. This
-        playground does not enable the Better Auth Organization plugin, so there are no org roles —
-        <code>can()</code> gates on being signed in and owning the resource. See the docs for the
-        full Better Auth org model.
+        A userland <code>usePermissions()</code> composable built on <code>useConvexQuery</code> —
+        this module ships no permissions runtime. This playground does not enable the Better Auth
+        Organization plugin, so there are no org roles — <code>can()</code> gates on being signed in
+        and owning the resource. See the docs for the full Better Auth org model.
       </p>
     </header>
 

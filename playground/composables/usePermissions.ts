@@ -1,13 +1,13 @@
 /**
- * Permission Composable
+ * Permission Composable (userland pattern, no package permission runtime)
  *
- * Uses createPermissions() from the module against the minimal signed-in +
- * ownership context query (the playground has no Better Auth Organization
- * plugin). See convex/permissions.config.ts.
+ * This module ships no permissions runtime (vNext §6). This composable is a
+ * thin wrapper around a plain `useConvexQuery` call plus the app-owned
+ * `checkPermission()` from `convex/permissions.config.ts`. See the
+ * "Auth Guards and Permissions" recipe in the docs for the general pattern.
  */
 
 import { api } from '#convex/api'
-import { createPermissions } from '#imports'
 import {
   checkPermission,
   type Permission,
@@ -19,25 +19,64 @@ import {
 export type { Permission, Resource }
 
 // ============================================
-// CREATE COMPOSABLES FROM MODULE
+// USE PERMISSIONS
 // ============================================
 //
 //   const { can, user, isAuthenticated, pending } = usePermissions()
 //   <button v-if="can('post.update', post)">Edit</button>
 
-export const { usePermissions, usePermissionRedirect: baseUsePermissionRedirect } =
-  createPermissions<Permission, PermissionContext, Resource>({
-    query: api.auth.getPermissionContext,
-    checkPermission,
-  })
+export function usePermissions() {
+  const { data: context, status } = useConvexQuery(api.auth.getPermissionContext, {})
+
+  function can(permission: Permission, resource?: Resource): boolean {
+    return checkPermission(
+      (context.value ?? null) as PermissionContext | null,
+      permission,
+      resource,
+    )
+  }
+
+  return {
+    can,
+    user: computed(() => context.value ?? null),
+    role: computed(() => context.value?.role ?? null),
+    isAuthenticated: computed(() => Boolean(context.value)),
+    pending: computed(() => status.value === 'pending'),
+  }
+}
 
 // ============================================
 // USE PERMISSION REDIRECT
 // ============================================
 
-export function usePermissionRedirect(options: Parameters<typeof baseUsePermissionRedirect>[0]) {
-  return baseUsePermissionRedirect({
-    loginPath: '/auth/signin',
-    ...options,
+export function usePermissionRedirect(options: {
+  permission: Permission
+  redirectTo?: string
+  resource?: Resource
+  loginPath?: string
+}) {
+  const { permission, redirectTo = '/', resource, loginPath = '/auth/signin' } = options
+  const { can, pending, isAuthenticated } = usePermissions()
+  const router = useRouter()
+
+  let pendingRedirect = false
+
+  watchEffect(() => {
+    if (pending.value || pendingRedirect) return
+
+    if (!isAuthenticated.value) {
+      pendingRedirect = true
+      void router.push(loginPath).finally(() => {
+        pendingRedirect = false
+      })
+      return
+    }
+
+    if (!can(permission, resource)) {
+      pendingRedirect = true
+      void router.push(redirectTo).finally(() => {
+        pendingRedirect = false
+      })
+    }
   })
 }

@@ -31,7 +31,7 @@ describe('fetchAuthToken', () => {
 
     const cachedToken = { value: 'plugin.resolved.jwt' as string | null }
     const token = fetchAuthToken({
-      auth: 'auto',
+      auth: 'required',
       cookieHeader: 'private_app_cookie=secret; better-auth.session_token=abc',
       cachedToken,
     })
@@ -46,7 +46,7 @@ describe('fetchAuthToken', () => {
   it('recognizes secure Better Auth session cookies', () => {
     const cachedToken = { value: 'plugin.resolved.secure.jwt' as string | null }
     const token = fetchAuthToken({
-      auth: 'auto',
+      auth: 'required',
       cookieHeader: 'private_app_cookie=secret; __Secure-better-auth.session_token=secure-abc',
       cachedToken,
     })
@@ -59,7 +59,7 @@ describe('fetchAuthToken', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const token = fetchAuthToken({
-      auth: 'auto',
+      auth: 'required',
       cookieHeader: 'better-auth.session_token=abc',
       cachedToken: { value: null },
     })
@@ -70,7 +70,7 @@ describe('fetchAuthToken', () => {
 
   it('returns undefined when there is no Better Auth session cookie', () => {
     const token = fetchAuthToken({
-      auth: 'auto',
+      auth: 'required',
       cookieHeader: 'private_app_cookie=secret',
       cachedToken: { value: 'stale.jwt' },
     })

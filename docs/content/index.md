@@ -1,13 +1,13 @@
 ---
 title: 'Real-time Nuxt apps with Convex.'
 navigation: false
-description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.'
+description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, and authentication.'
 ---
 
 ## ::u-page-hero
 
 orientation: 'horizontal'
-description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, authentication, and backend-driven permissions.
+description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, and authentication.
 ui:
 container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
 
@@ -158,7 +158,7 @@ Built-in features for building production-ready apps
 
 ::landing-feature{title="Authentication" description="Better Auth integration with email/password, OAuth, and magic links. SSR-compatible." icon="i-lucide-lock" to="/docs/auth-security/authentication"}
 
-::landing-feature{title="Permissions" description="Role-based access control with ownership rules. Backend enforces, frontend displays." icon="i-lucide-shield" to="/docs/auth-security/permissions"}
+::landing-feature{title="Permissions" description="Role-based access control with ownership rules. Backend enforces, frontend displays." icon="i-lucide-shield" to="/docs/recipes/auth-guards-and-permissions"}
 
 ::landing-feature{title="SSR Support" description="Server-side rendering with hydration. Fast initial loads, then real-time updates." icon="i-lucide-server" to="/docs/server-side/ssr-hydration"}
 

@@ -68,7 +68,6 @@ function extractNamesFromRegistry(registryName) {
 const composableImports = [
   ...extractNamesFromRegistry('composableAutoImports'),
   ...extractNamesFromRegistry('authAutoImports'),
-  ...extractNamesFromRegistry('permissionAutoImports'),
 ].sort((a, b) => a.localeCompare(b))
 const serverImports = extractNamesFromRegistry('serverAutoImports')
 const componentNames = readdirSync(componentsDir)
@@ -77,11 +76,6 @@ const componentNames = readdirSync(componentsDir)
   .sort((a, b) => a.localeCompare(b))
 
 const composableMeta = {
-  createPermissions: {
-    kind: 'Factory',
-    purpose: 'Builds a typed permission API for app-level capability checks.',
-    guide: '/docs/auth-security/permissions',
-  },
   deleteFromPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a paginated query cache.',
@@ -91,11 +85,6 @@ const composableMeta = {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a regular query cache.',
     guide: '/docs/mutations/optimistic-updates',
-  },
-  getQueryKey: {
-    kind: 'Helper',
-    purpose: 'Creates a stable query cache key for invalidation and updates.',
-    guide: '/docs/data-fetching/caching-reuse',
   },
   insertAtBottomIfLoaded: {
     kind: 'Helper',
@@ -156,11 +145,6 @@ const composableMeta = {
     kind: 'Composable',
     purpose: 'Tracks auth state and user/session information in Nuxt.',
     guide: '/docs/auth-security/authentication',
-  },
-  useConvexCall: {
-    kind: 'Composable',
-    purpose: 'Runs one-shot Convex calls from client middleware, plugins, and effects.',
-    guide: '/docs/advanced/client-access',
   },
   useConvexConnectionState: {
     kind: 'Composable',
@@ -325,7 +309,7 @@ import { createUserSyncTriggers } from 'better-convex-nuxt/server/createUserSync
 
 ## Composable Auto-Imports
 
-\`useConvexAuth\`, \`useConvexUser\`, \`createBetterConvexAuthClient\`, and the global auth components are available when module auth is enabled. \`createPermissions\` is available when the module \`permissions\` option is enabled.
+\`useConvexAuth\`, \`useConvexUser\`, \`createBetterConvexAuthClient\`, and the global auth components are available when module auth is enabled.
 
 | Name | Kind | Purpose | Learn More |
 | ---- | ---- | ------- | ---------- |

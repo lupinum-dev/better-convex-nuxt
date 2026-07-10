@@ -34,9 +34,7 @@ export default {
   convex: {
     url: convexUrl,
     siteUrl: convexSiteUrl,
-    auth: {
-      enabled: true,
-    },
+    auth: {},
   },
   mcp: {
     route: '/mcp',

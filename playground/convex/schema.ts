@@ -27,7 +27,7 @@ export default defineSchema({
   // ============================================
   // POSTS (permission system demo)
   // ============================================
-  // Demonstrates createPermissions() with a signed-in + ownership model.
+  // Demonstrates a userland usePermissions() composable with a signed-in + ownership model.
   // The playground does not enable the Better Auth Organization plugin, so
   // the demo shows the minimal context (signed-in + resource ownership)
   // rather than org roles. See the docs for the full Better Auth org model.

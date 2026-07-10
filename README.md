@@ -5,7 +5,7 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, authentication, and permissions.
+Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, and authentication.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
 
@@ -20,7 +20,6 @@ Contributions and PRs to help improve the library, playground or docs are highly
 - **Real-time Queries** - Fetch data with SSR, then upgrade to WebSocket subscriptions
 - **Optimistic Updates** - Instant UI feedback with automatic rollback on failure
 - **Authentication** - Better Auth integration with email/password, OAuth, and magic links
-- **Permissions** - Role-based access control with ownership rules
 - **SSR Support** - Server-side rendering with hydration
 - **Type Safety** - Full TypeScript inference from your Convex schema
 
@@ -80,11 +79,10 @@ await createTask({ text: 'Ship my app' })
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user } = useConvexAuth()
-const authClient = useAuthClient()
+const { isAuthenticated, user, signIn } = useConvexAuth()
 
 async function handleLogin() {
-  await authClient.signIn.social({ provider: 'github' })
+  await signIn.social({ provider: 'github' })
 }
 </script>
 
@@ -108,8 +106,7 @@ async function handleLogin() {
 | `useConvexAuth`            | Authentication state (user, token, isAuthenticated)  |
 | `useConvexUser`            | Current-user query seeded from auth session data     |
 | `useConvexConnectionState` | WebSocket connection status                          |
-| `createPermissions`        | Build app-specific permission composables            |
-| `useConvex`                | Access raw ConvexClient instance                     |
+| `useConvex`                | Access the stable Convex client handle               |
 
 ## Components
 
@@ -127,7 +124,6 @@ Visit [better-convex-nuxt.vercel.app](https://better-convex-nuxt.vercel.app) for
 - [Installation & Setup](https://better-convex-nuxt.vercel.app/getting-started/installation)
 - [SSR Patterns](https://better-convex-nuxt.vercel.app/patterns/ssr-patterns)
 - [Optimistic Updates](https://better-convex-nuxt.vercel.app/patterns/optimistic-updates)
-- [Permissions](https://better-convex-nuxt.vercel.app/patterns/permissions)
 - [Server Utilities](https://better-convex-nuxt.vercel.app/server/server-utilities)
 
 ## Contributing

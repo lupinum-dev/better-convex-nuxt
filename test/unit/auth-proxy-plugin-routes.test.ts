@@ -77,11 +77,13 @@ describe('auth proxy Better Auth plugin routes', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      trustedOrigins: [],
-      authRoute: '/api/auth',
-      authProxy: {
-        maxRequestBodyBytes: 1024 * 1024,
-        maxResponseBodyBytes: 1024 * 1024,
+      auth: {
+        route: '/api/auth',
+        trustedOrigins: [],
+        cache: false,
+        proxy: { maxRequestBodyBytes: 1024 * 1024, maxResponseBodyBytes: 1024 * 1024 },
+        debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
+        routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
       },
     })
     fetchWithCanonicalRedirectsMock.mockResolvedValue({

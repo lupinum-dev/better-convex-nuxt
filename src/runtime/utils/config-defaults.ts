@@ -30,7 +30,6 @@ const DEFAULT_WAIT_TIMEOUT_MS = 10_000
 
 export const CONVEX_MODULE_DEFAULTS = Object.freeze({
   authRoute: DEFAULT_AUTH_ROUTE,
-  permissions: false,
   logging: false as LogLevel | false,
   debug: Object.freeze({
     authFlow: false,
@@ -38,13 +37,11 @@ export const CONVEX_MODULE_DEFAULTS = Object.freeze({
     serverAuthFlow: false,
   }),
   authCache: Object.freeze({
-    enabled: false,
     ttl: DEFAULT_AUTH_CACHE_TTL,
   }),
   defaults: Object.freeze({
     server: true,
     subscribe: true,
-    auth: 'auto' as 'auto' | 'none',
     waitTimeoutMs: DEFAULT_WAIT_TIMEOUT_MS,
   }),
   upload: Object.freeze({

@@ -1,64 +1,77 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  getPayloadKeyRegistry,
-  getPublicOnlyPayloadKeys,
-  registerPayloadKey,
+  createConvexQueryKey,
+  purgeConvexIdentityPayloadKeys,
+  readAuthMode,
   withAuthDimension,
 } from '../../src/runtime/utils/convex-cache'
 
-describe('payload key registry', () => {
-  it('keeps only keys consumed exclusively by auth:none queries', () => {
-    const owner = {}
+// The custom subscription/payload registries were deleted (internal §7.1). The
+// only library-owned key machinery is the identity-partitioned payload-key
+// grammar (decision 7) and the namespace-scan sign-out purge.
 
-    const releasePublic = registerPayloadKey(owner, 'convex:notes:list:{}', 'none')
-    const releasePrivate = registerPayloadKey(owner, 'convex:notes:get:{}', 'auto')
-    const releaseMixedPublic = registerPayloadKey(owner, 'convex:notes:mixed:{}', 'none')
-    const releaseMixedPrivate = registerPayloadKey(owner, 'convex:notes:mixed:{}', 'auto')
+const noArgs = {} as never
 
-    expect(getPublicOnlyPayloadKeys(owner)).toEqual(new Set(['convex:notes:list:{}']))
-
-    releasePrivate()
-    expect(getPublicOnlyPayloadKeys(owner)).toEqual(new Set(['convex:notes:list:{}']))
-
-    releaseMixedPrivate()
-    expect(getPublicOnlyPayloadKeys(owner)).toEqual(
-      new Set(['convex:notes:list:{}', 'convex:notes:mixed:{}']),
-    )
-
-    releasePublic()
-    releaseMixedPublic()
-    expect(getPayloadKeyRegistry(owner).size).toBe(0)
+describe('identity-partitioned payload-key grammar (decision 7)', () => {
+  it('appends a static none suffix for none mode (identity-independent)', () => {
+    const base = createConvexQueryKey({ _path: 'notes.list' } as never, noArgs)
+    expect(withAuthDimension(base, 'none', 'anonymous')).toBe(`${base}:auth:none`)
+    // none is identity-blind: a signed-in identity does not change the key.
+    expect(withAuthDimension(base, 'none', 'user:u1')).toBe(`${base}:auth:none`)
   })
 
-  it('tracks duplicate consumers and unregisters idempotently', () => {
-    const owner = {}
+  it('partitions required/optional keys by identity', () => {
+    const base = createConvexQueryKey({ _path: 'notes.list' } as never, noArgs)
+    expect(withAuthDimension(base, 'required', 'user:u1')).toBe(`${base}:auth:required:user:u1`)
+    expect(withAuthDimension(base, 'optional', 'user:u2')).toBe(`${base}:auth:optional:user:u2`)
+    expect(withAuthDimension(base, 'optional', 'anonymous')).toBe(`${base}:auth:optional:anonymous`)
+  })
 
-    const releaseA = registerPayloadKey(owner, 'convex:notes:list:{}', 'none')
-    const releaseB = registerPayloadKey(owner, 'convex:notes:list:{}', 'none')
+  it('uses the convex-paginated namespace for paginated base keys', () => {
+    const base = createConvexQueryKey({ _path: 'notes.list' } as never, noArgs, 'convex-paginated')
+    expect(base.startsWith('convex-paginated:')).toBe(true)
+  })
 
-    expect(getPayloadKeyRegistry(owner).get('convex:notes:list:{}')).toEqual({
-      auto: 0,
-      none: 2,
-    })
-
-    releaseA()
-    releaseA()
-    expect(getPayloadKeyRegistry(owner).get('convex:notes:list:{}')).toEqual({
-      auto: 0,
-      none: 1,
-    })
-
-    releaseB()
-    expect(getPayloadKeyRegistry(owner).has('convex:notes:list:{}')).toBe(false)
+  it('reads the auth mode segment back out', () => {
+    expect(readAuthMode('convex:notes:list:h:auth:none')).toBe('none')
+    expect(readAuthMode('convex:notes:list:h:auth:required:user:u1')).toBe('required')
+    expect(readAuthMode('convex-paginated:notes:list:h:auth:optional:anonymous')).toBe('optional')
+    expect(readAuthMode('convex:idle:notes')).toBeNull()
+    expect(readAuthMode('unrelated-key')).toBeNull()
   })
 })
 
-describe('withAuthDimension', () => {
-  it('separates auth transport modes for the same raw cache key', () => {
-    const rawKey = 'convex:notes:list:{}'
+describe('sign-out identity purge (namespace scan, no registry)', () => {
+  it('drops required/optional keys, retains none keys, ignores foreign keys', () => {
+    const nuxtApp = {
+      payload: {
+        data: {
+          'convex:notes:list:h:auth:required:user:u1': 1,
+          'convex:notes:list:h:auth:optional:anonymous': 2,
+          'convex:notes:public:h:auth:none': 3,
+          'convex-paginated:feed:h:auth:optional:user:u1': 4,
+          'convex-paginated:feed:h:auth:none': 5,
+          'some.other.key': 6,
+        } as Record<string, unknown>,
+      },
+    }
 
-    expect(withAuthDimension(rawKey, 'auto')).toBe('convex:notes:list:{}::auth-auto')
-    expect(withAuthDimension(rawKey, 'none')).toBe('convex:notes:list:{}::auth-none')
+    const purged = purgeConvexIdentityPayloadKeys(nuxtApp)
+
+    expect(purged.sort()).toEqual(
+      [
+        'convex:notes:list:h:auth:required:user:u1',
+        'convex:notes:list:h:auth:optional:anonymous',
+        'convex-paginated:feed:h:auth:optional:user:u1',
+      ].sort(),
+    )
+    expect(Object.keys(nuxtApp.payload.data).sort()).toEqual(
+      [
+        'convex:notes:public:h:auth:none',
+        'convex-paginated:feed:h:auth:none',
+        'some.other.key',
+      ].sort(),
+    )
   })
 })
