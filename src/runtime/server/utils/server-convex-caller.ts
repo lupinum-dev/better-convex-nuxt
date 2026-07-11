@@ -2,6 +2,8 @@ import { ConvexHttpClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
+import { useRuntimeConfig } from '#imports'
+
 import type { TightenEmptyArgs } from '../../utils/args-tuple'
 import { ConvexCallError, normalizeConvexError } from '../../utils/call-result'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config-normalize'
@@ -47,11 +49,7 @@ export interface ServerConvexCaller {
 // ---------------------------------------------------------------------------
 
 function readCallerConfig(event: H3Event) {
-  const context = event.context as {
-    nitro?: { runtimeConfig?: { public?: { convex?: unknown } } }
-    runtimeConfig?: { public?: { convex?: unknown } }
-  }
-  const runtimeConfig = context.nitro?.runtimeConfig ?? context.runtimeConfig
+  const runtimeConfig = useRuntimeConfig(event)
   return normalizeConvexRuntimeConfig(runtimeConfig?.public?.convex)
 }
 

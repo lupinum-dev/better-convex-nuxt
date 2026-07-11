@@ -28,6 +28,14 @@ maybeDescribe('Realtime subscription (full stack)', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
     env: local ? local.env : undefined,
+    nuxtConfig: local
+      ? {
+          convex: {
+            url: local.env.NUXT_PUBLIC_CONVEX_URL,
+            siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
+          },
+        }
+      : undefined,
   })
 
   it('syncs added note across tabs', async () => {

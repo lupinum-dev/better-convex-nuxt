@@ -32,6 +32,14 @@ maybeDescribe('Server caller smoke (serverConvex query/mutation)', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
     env: local?.env,
+    nuxtConfig: local
+      ? {
+          convex: {
+            url: local.env.NUXT_PUBLIC_CONVEX_URL,
+            siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
+          },
+        }
+      : undefined,
   })
 
   it('round-trips through Nitro API endpoints backed by server fetch helpers', async () => {
@@ -41,9 +49,11 @@ maybeDescribe('Server caller smoke (serverConvex query/mutation)', async () => {
       totalAvailable: number
       notes: unknown[]
       executedOn: string
+      message?: string
+      error?: string
     }
 
-    expect(queryResponse.success).toBe(true)
+    expect(queryResponse.success, JSON.stringify(queryResponse)).toBe(true)
     expect(queryResponse.executedOn).toBe('server')
     expect(Array.isArray(queryResponse.notes)).toBe(true)
     expect(queryResponse.count).toBeLessThanOrEqual(1)
@@ -59,9 +69,11 @@ maybeDescribe('Server caller smoke (serverConvex query/mutation)', async () => {
       success: boolean
       noteId?: string
       meta?: { title?: string; executedOn?: string }
+      message?: string
+      error?: string
     }
 
-    expect(mutationResponse.success).toBe(true)
+    expect(mutationResponse.success, JSON.stringify(mutationResponse)).toBe(true)
     expect(mutationResponse.noteId).toBeTruthy()
     expect(mutationResponse.meta?.title).toBe(uniqueTitle)
     expect(mutationResponse.meta?.executedOn).toBe('server')

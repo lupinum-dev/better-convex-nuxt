@@ -39,6 +39,14 @@ maybeDescribe('Auth loop (full stack)', async () => {
     rootDir: playgroundCwd,
     env: local?.env,
     port: 3050,
+    nuxtConfig: local
+      ? {
+          convex: {
+            url: local.env.NUXT_PUBLIC_CONVEX_URL,
+            siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
+          },
+        }
+      : undefined,
   })
 
   it('completes signup -> authenticated dashboard -> signout -> protected redirect', async () => {
