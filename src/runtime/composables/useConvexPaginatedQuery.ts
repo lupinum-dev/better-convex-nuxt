@@ -161,6 +161,7 @@ export function createConvexPaginatedQueryState<
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
+  let disposed = false
 
   const fnName = getFunctionName(query)
 
@@ -302,7 +303,13 @@ export function createConvexPaginatedQueryState<
 
   // ---- live page subscriptions (composable-owned, one per page) -----------
   function subscribeFirstPage() {
-    if (!import.meta.client || gate.value.outcome !== 'execute' || !gate.value.subscribe) return
+    if (
+      disposed ||
+      !import.meta.client ||
+      gate.value.outcome !== 'execute' ||
+      !gate.value.subscribe
+    )
+      return
     const client = selectClient()
     if (!client) return
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
@@ -333,7 +340,13 @@ export function createConvexPaginatedQueryState<
   }
 
   function subscribePage(pageIndex: number) {
-    if (!import.meta.client || gate.value.outcome !== 'execute' || !gate.value.subscribe) return
+    if (
+      disposed ||
+      !import.meta.client ||
+      gate.value.outcome !== 'execute' ||
+      !gate.value.subscribe
+    )
+      return
     const page = pages.value[pageIndex]
     if (!page) return
     const client = selectClient()
@@ -648,6 +661,7 @@ export function createConvexPaginatedQueryState<
     } finally {
       isManualRefreshPending.value = false
     }
+    if (disposed) return
     if (import.meta.client && gate.value.outcome === 'execute' && gate.value.subscribe)
       subscribeFirstPage()
   }
@@ -701,6 +715,8 @@ export function createConvexPaginatedQueryState<
     )
 
     onScopeDispose(() => {
+      disposed = true
+      invalidateOperations()
       teardownAllSubscriptions()
     })
   }

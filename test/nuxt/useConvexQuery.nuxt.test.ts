@@ -74,6 +74,31 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(resolved.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
   })
 
+  it('settles an awaited live query when its scope is disposed before the first value', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:list:disposed-before-first-value')
+
+    const { result, wrapper } = await captureInNuxt(
+      () => useConvexQuery(query, {}, { auth: 'none' }),
+      {
+        convex,
+        convexConfig: { defaults: { waitTimeoutMs: 0 } },
+      },
+    )
+
+    let settled = false
+    const completion = result.then(() => {
+      settled = true
+    })
+
+    await waitFor(() => convex.activeListenerCount(query, {}) === 1)
+    wrapper.unmount()
+
+    await waitFor(() => settled, { timeoutMs: 250 })
+    await completion
+    expect(convex.activeListenerCount(query, {})).toBe(0)
+  })
+
   it('returns idle + pending=false immediately for skipped args', async () => {
     const query = mockFnRef<'query'>('notes:list:disabled-static')
     const { result } = await captureInNuxt(() => useConvexQueryState(query, 'skip'), {

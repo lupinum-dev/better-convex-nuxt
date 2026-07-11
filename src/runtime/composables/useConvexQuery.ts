@@ -246,15 +246,15 @@ export function createConvexQueryState<
   let liveUnsub: (() => void) | null = null
   let liveKey: string | null = null
   let firstValue: {
-    promise: Promise<RawT>
-    resolve: (v: RawT) => void
+    promise: Promise<RawT | null>
+    resolve: (v: RawT | null) => void
     reject: (e: unknown) => void
   } | null = null
 
   function makeDeferred() {
-    let resolve!: (v: RawT) => void
+    let resolve!: (v: RawT | null) => void
     let reject!: (e: unknown) => void
-    const promise = new Promise<RawT>((res, rej) => {
+    const promise = new Promise<RawT | null>((res, rej) => {
       resolve = res
       reject = rej
     })
@@ -267,6 +267,12 @@ export function createConvexQueryState<
       liveUnsub()
       liveUnsub = null
     }
+    // A live query's public thenable waits on this deferred until the first
+    // subscription value. Teardown must settle that wait as well as releasing
+    // the listener, otherwise an unmounted scope can remain pending forever
+    // when waitTimeoutMs is disabled.
+    firstValue?.resolve(null)
+    firstValue = null
     liveKey = null
     if (previousKey) owner?.getDevtoolsSink()?.removeQuery(previousKey)
   }
@@ -425,11 +431,11 @@ export function createConvexQueryState<
 
         // Client live mode: wait for the first subscription result, with a timer
         // that is cleared on settle so no reject fires after the query resolves.
-        firstValue = makeDeferred()
         operation = setupSubscription() ?? null
         const timeoutMs = defaults.waitTimeoutMs
         const pending = firstValue
-        const first = await new Promise<RawT>((resolve, reject) => {
+        if (!pending) return null
+        const first = await new Promise<RawT | null>((resolve, reject) => {
           let done = false
           const timer =
             timeoutMs > 0 && Number.isFinite(timeoutMs)
@@ -550,6 +556,7 @@ export function createConvexQueryState<
     )
 
     onScopeDispose(() => {
+      invalidateOperations()
       teardownLive()
       owner?.getDevtoolsSink()?.removeQuery(asyncDataKey.value)
     })
@@ -608,6 +615,7 @@ export function createConvexQueryState<
   })
 
   const clear = () => {
+    invalidateOperations()
     teardownLive()
     setBoundaryError(null)
     lastSettledRaw.value = null

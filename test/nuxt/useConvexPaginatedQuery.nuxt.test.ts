@@ -20,6 +20,28 @@ function page<T>(items: T[], isDone: boolean, cursor: string | null): Pagination
 // acquisition through composable-owned listeners, and clears its pages on an
 // identity change.
 describe('useConvexPaginatedQuery controller', () => {
+  it('does not reacquire the first-page subscription when reset finishes after disposal', async () => {
+    const primary = new MockConvexClient()
+    const query = mockFnRef<'query'>('feed:reset-after-disposal')
+
+    const { result, flush, wrapper } = await captureInNuxt(
+      () =>
+        createConvexPaginatedQueryState(query, {}, { auth: 'none', initialNumItems: 2 }, true)
+          .resultData,
+      { owner: makeMockOwner(primary) },
+    )
+
+    await flush()
+    expect(primary.activeListenerCount()).toBe(1)
+
+    const reset = result.reset()
+    expect(primary.activeListenerCount()).toBe(0)
+    wrapper.unmount()
+    await reset
+
+    expect(primary.activeListenerCount()).toBe(0)
+  })
+
   it('drops a deferred refresh resolved during the synchronous A-to-B window', async () => {
     const primary = new MockConvexClient()
     const query = mockFnRef<'query'>('feed:deferred-refresh')
