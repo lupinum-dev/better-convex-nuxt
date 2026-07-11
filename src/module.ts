@@ -9,6 +9,7 @@ import {
   addImports,
   addServerHandler,
   addServerImports,
+  addServerPlugin,
   addComponentsDir,
   addRouteMiddleware,
   resolvePath,
@@ -276,6 +277,7 @@ export default defineNuxtModule<ModuleOptions>({
     )
     nuxt.options.runtimeConfig.public.convex = convexConfig
     registerConvexAliases({ nuxt, resolver, convexApiAlias })
+    addServerPlugin(resolver.resolve('./runtime/server/plugins/runtime-config'))
 
     // 1. Core client plugin — always installed, imports no Better Auth code.
     addPlugin(resolver.resolve('./runtime/plugin.client'))
