@@ -83,7 +83,7 @@ function buildPackAndVerify() {
 
   // Build once. `prepack` runs only the dist-level export and purity checks;
   // the packed consumer checks run below against the exact release artifact.
-  run('npm', ['run', 'prepack'])
+  run('pnpm', ['run', 'prepack'])
 
   // Pack once, from the prepared clean tree, straight to a tarball file.
   // `--ignore-scripts` is required here: `npm pack` on a local directory
@@ -136,8 +136,8 @@ if (verifyOnly) {
     )
     process.exit(1)
   }
-  run('npm', ['run', 'check'])
-  run('npm', ['run', 'check:contract-fixtures'])
+  run('pnpm', ['run', 'check'])
+  run('pnpm', ['run', 'check:contract-fixtures'])
   buildPackAndVerify()
   console.log(`\nVerified ${pkg.name}@${version} without publishing.`)
   process.exit(0)
@@ -196,8 +196,8 @@ if (!releasePrepared) {
   // owns the non-package contracts; buildPackAndVerify owns the one build, one
   // pack, and exact-artifact checks. Keeping those tiers named prevents this
   // script from duplicating a hand-picked list that can drift from CI.
-  run('npm', ['run', 'check'])
-  run('npm', ['run', 'check:contract-fixtures'])
+  run('pnpm', ['run', 'check'])
+  run('pnpm', ['run', 'check:contract-fixtures'])
 
   run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
   run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])
