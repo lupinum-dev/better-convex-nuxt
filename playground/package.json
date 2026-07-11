@@ -11,7 +11,7 @@
     "@convex-dev/better-auth": "0.12.5",
     "better-auth": "1.6.23",
     "convex": "1.38.0",
-    "nuxt": "4.4.7"
+    "nuxt": "4.4.8"
   },
   "packageManager": "pnpm@10.30.3"
 }

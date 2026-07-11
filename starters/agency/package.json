@@ -16,7 +16,7 @@
     "better-auth": "1.6.23",
     "better-convex-nuxt": "^0.4.0",
     "convex": "1.38.0",
-    "nuxt": "4.4.7",
+    "nuxt": "4.4.8",
     "vue": "^3.5.25"
   },
   "devDependencies": {
