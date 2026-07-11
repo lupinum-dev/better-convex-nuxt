@@ -11,6 +11,7 @@ export default defineNuxtConfig({
   ssr: true,
   telemetry: false,
   devtools: { enabled: false },
+  vite: { server: { hmr: { port: 24699 } } },
   experimental: {
     payloadExtraction: true,
   },

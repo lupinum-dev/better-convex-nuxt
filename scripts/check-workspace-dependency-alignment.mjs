@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 const rootDir = process.cwd()
 const rootPackage = readPackage('package.json')
 
-const alignedDependencies = ['@convex-dev/better-auth', 'better-auth', 'convex', 'nuxt']
+const alignedDependencies = ['@convex-dev/better-auth', 'better-auth', 'convex', 'nuxt', 'vue-tsc']
 
 const rootSpecifiers = new Map(
   alignedDependencies.flatMap((name) => {
@@ -15,10 +15,13 @@ const rootSpecifiers = new Map(
 )
 
 const manifestPaths = [
+  'demo/package.json',
   'playground/package.json',
   ...readdirSync(resolve(rootDir, 'starters'), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => `starters/${entry.name}/package.json`),
+  ...packageManifestsIn('test/fixtures'),
+  ...packageManifestsIn('test/proofs', 'consumer'),
 ].filter((path) => existsSync(resolve(rootDir, path)))
 
 const failures = []
@@ -27,7 +30,7 @@ for (const manifestPath of manifestPaths) {
   const packageJson = readPackage(manifestPath)
   for (const [name, expected] of rootSpecifiers) {
     const actual = dependencySpecifier(packageJson, name)
-    if (actual && actual !== expected) {
+    if (actual && normalizeSpecifier(actual) !== normalizeSpecifier(expected)) {
       failures.push(`${manifestPath} declares ${name}@${actual}; expected ${expected}`)
     }
   }
@@ -55,4 +58,14 @@ function dependencySpecifier(packageJson, name) {
     packageJson.devDependencies?.[name] ??
     packageJson.peerDependencies?.[name]
   )
+}
+
+function normalizeSpecifier(specifier) {
+  return specifier.replace(/^[~^]/, '')
+}
+
+function packageManifestsIn(parent, child) {
+  return readdirSync(resolve(rootDir, parent), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => [parent, entry.name, child, 'package.json'].filter(Boolean).join('/'))
 }

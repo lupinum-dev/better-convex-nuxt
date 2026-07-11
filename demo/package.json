@@ -18,14 +18,14 @@
     "better-auth": "1.6.23",
     "better-convex-nuxt": "0.4.0",
     "convex": "1.38.0",
-    "nuxt": "4.4.7"
+    "nuxt": "4.4.8"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
     "@types/node": "^25.3.2",
     "eslint": "^9.39.4",
     "typescript": "^5.9.3",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.3.7"
   },
   "packageManager": "pnpm@10.30.3"
 }

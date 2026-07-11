@@ -38,7 +38,7 @@
     "vite": "^7.2.7",
     "vitest": "^4.0.18",
     "vue-router": "^5.1.0",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.3.7"
   },
   "packageManager": "pnpm@10.30.3"
 }
