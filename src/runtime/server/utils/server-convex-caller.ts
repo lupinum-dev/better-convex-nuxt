@@ -2,11 +2,9 @@ import { ConvexHttpClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
-import { useRuntimeConfig } from '#imports'
-
 import type { TightenEmptyArgs } from '../../utils/args-tuple'
 import { ConvexCallError, normalizeConvexError } from '../../utils/call-result'
-import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config'
+import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config-normalize'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import { cacheUsableAuthToken, getUsableCachedAuthToken } from './auth-cache'
 import {
@@ -49,7 +47,12 @@ export interface ServerConvexCaller {
 // ---------------------------------------------------------------------------
 
 function readCallerConfig(event: H3Event) {
-  return normalizeConvexRuntimeConfig(useRuntimeConfig(event).public.convex)
+  const context = event.context as {
+    nitro?: { runtimeConfig?: { public?: { convex?: unknown } } }
+    runtimeConfig?: { public?: { convex?: unknown } }
+  }
+  const runtimeConfig = context.nitro?.runtimeConfig ?? context.runtimeConfig
+  return normalizeConvexRuntimeConfig(runtimeConfig?.public?.convex)
 }
 
 function readRequiredConvexUrl(event: H3Event): string {

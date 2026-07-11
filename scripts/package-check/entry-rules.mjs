@@ -78,10 +78,10 @@ const CHECKER_ENTRY_RULES = [
     subpath: './server',
     phase: 'phase4',
     purity: {
-      // Boundary rule for `/server` (internal §16.2): no composables, Vue, or
-      // client-side plugin code. `h3`, `convex`/`convex/browser`/`convex/server`,
-      // and the Nitro virtual `#imports` alias are legitimate server-side
-      // dependencies and are intentionally NOT forbidden here.
+      // Boundary rule for `/server` (internal §16.2): the public entry must be
+      // directly importable by Node because server integrations can load it at
+      // request time, outside Nuxt's transform pipeline. Lazy Nitro runtime
+      // APIs remain valid for authenticated cache operations after import.
       forbiddenSpecifierPatterns: [
         /^vue$/,
         /^@vue\//,
@@ -90,6 +90,7 @@ const CHECKER_ENTRY_RULES = [
         /^@nuxt\//,
         /^#app\b/,
         /^#components\b/,
+        /^#imports$/,
       ],
       allowedBareSpecifiers: new Set(),
     },

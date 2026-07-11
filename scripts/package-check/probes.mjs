@@ -230,6 +230,15 @@ export function probeServerEntry(ctx) {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
     run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
     run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
+    run(
+      'node',
+      [
+        '--input-type=module',
+        '--eval',
+        "const server = await import('better-convex-nuxt/server'); if (typeof server.serverConvex !== 'function') process.exit(1)",
+      ],
+      { cwd: fixtureDir },
+    )
   } catch (error) {
     ctx.failures.push(`[./server] packed server-consumer probe failed: ${error.message}`)
   } finally {

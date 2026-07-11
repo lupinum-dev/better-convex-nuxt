@@ -81,6 +81,7 @@ function setConfig(convex: Record<string, unknown>) {
 
 function createEvent(cookie?: string): H3Event {
   return {
+    context: { nitro: { runtimeConfig: mocks.useRuntimeConfigMock() } },
     node: { req: { headers: { ...(cookie ? { cookie } : {}) } } },
   } as unknown as H3Event
 }
