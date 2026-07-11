@@ -71,15 +71,7 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       await flush()
 
       if (mode === 'optional') {
-        // NOTE: useConvexQuery.ts's own useAsyncData executor calls
-        // setupSubscription() on refetch AND the explicit key/live watch
-        // unconditionally tears down + resubscribes on the same identity-key
-        // transition, so ONE settlement currently yields TWO onUpdate()
-        // acquisitions (one release + reacquire pair beyond the first). This is
-        // pre-existing Phase 1 query-composable behavior, not a Phase 3 auth
-        // concern; flagged for a follow-up rather than "fixed" here since
-        // Phase 1 execution/listener ownership is out of Phase 3's scope.
-        expect(primary.calls.onUpdate.length).toBe(2)
+        expect(primary.calls.onUpdate.length).toBe(1)
       } else {
         expect(primary.calls.onUpdate.length).toBe(0) // required: stays idle
         expect(result.status.value).toBe('idle')

@@ -536,11 +536,16 @@ export function createConvexQueryState<
       }),
       (next, prev) => {
         if (next.key === prev.key && next.live === prev.live) return
-        invalidateOperations()
         setBoundaryError(null, prev.key)
-        teardownLive()
-        firstValue = null
-        if (next.live) setupSubscription()
+        // The async-data executor and this watcher observe the same key change.
+        // If the executor already acquired the target listener, keep it; tearing
+        // it down here would create a redundant release/reacquire cycle.
+        if (liveKey !== next.key) {
+          invalidateOperations()
+          teardownLive()
+          firstValue = null
+          if (next.live) setupSubscription()
+        }
       },
     )
 
