@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   createConvexClientOwner,
@@ -20,8 +20,19 @@ function ownerFor(convex: MockConvexClient) {
 }
 
 describe('useConvexConnectionState (Nuxt runtime)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   it('suppresses offline UI during hydration grace window', async () => {
-    vi.useFakeTimers()
+    const realSetTimeout = globalThis.setTimeout
+    let finishHydration: (() => void) | undefined
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler, delay, ...args) => {
+      if (delay === 500 && typeof handler === 'function') {
+        finishHydration = () => handler(...args)
+        return 1 as unknown as ReturnType<typeof setTimeout>
+      }
+
+      return realSetTimeout(handler, delay, ...args)
+    })
     const convex = new MockConvexClient()
     const owner = ownerFor(convex)
 
@@ -29,12 +40,12 @@ describe('useConvexConnectionState (Nuxt runtime)', () => {
 
     expect(result.shouldShowOfflineUi.value).toBe(false)
 
-    vi.advanceTimersByTime(500)
+    expect(finishHydration).toBeTypeOf('function')
+    finishHydration?.()
     await Promise.resolve()
 
     expect(result.shouldShowOfflineUi.value).toBe(true)
     wrapper.unmount()
-    vi.useRealTimers()
   })
 
   it('shares one connection-state subscription for multiple consumers', async () => {

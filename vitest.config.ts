@@ -84,6 +84,9 @@ export default defineConfig({
       // Browser Component Tests: native browser rendering for Vue components
       {
         plugins: [vue()],
+        optimizeDeps: {
+          include: ['convex/values', 'vue'],
+        },
         resolve: {
           alias: {
             '#imports': fileURLToPath(new URL('./test/browser/shims/imports.ts', import.meta.url)),
