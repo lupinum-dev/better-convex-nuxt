@@ -18,11 +18,11 @@ export async function usePublicApiSurfaceContracts(file: File) {
   // (vNext §8) — every field is `readonly`, so assignment must not compile.
   config.url = 'https://mutated.convex.cloud'
   if (config.auth !== false) {
-    assertType<string>(config.auth.route)
+    assertType<string>(config.auth.proxy.trustedClientIpHeader)
     // @ts-expect-error `auth.client` is build-only and never reaches runtime config.
     void config.auth.client
     // @ts-expect-error nested auth fields are also read-only.
-    config.auth.route = '/mutated'
+    config.auth.proxy.trustedClientIpHeader = 'mutated'
   }
 
   // Canonical/profile user helper: positional args are required, even for a

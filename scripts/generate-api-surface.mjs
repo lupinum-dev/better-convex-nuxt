@@ -214,11 +214,6 @@ const serverMeta = {
     purpose: 'Exchanges a cookie/bearer credential for a Convex JWT (never-throwing outcome).',
     guide: '/docs/server-side/server-routes',
   },
-  serverConvexClearAuthCache: {
-    kind: 'Server helper',
-    purpose: 'Clears cached auth token state used by server calls.',
-    guide: '/docs/server-side/ssr-hydration',
-  },
 }
 
 const componentMeta = {

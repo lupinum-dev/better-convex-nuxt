@@ -15,7 +15,7 @@ describe('server entrypoint exports', () => {
     expect(serverApi).toHaveProperty('serverConvex')
     expect(serverApi).toHaveProperty('exchangeConvexToken')
     expect(serverApi).toHaveProperty('normalizeSiteUrl')
-    expect(serverApi).toHaveProperty('serverConvexClearAuthCache')
+    expect(serverApi).not.toHaveProperty('serverConvexClearAuthCache')
   })
 
   it('does not expose the deleted server trio or legacy helper names', () => {

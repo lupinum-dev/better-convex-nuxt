@@ -1,13 +1,13 @@
 import type { H3Event } from 'h3'
 import {
+  appendResponseHeader,
+  createError,
   defineEventHandler,
+  getRequestURL,
+  getRequestWebStream,
+  send,
   setHeaders,
   setResponseStatus,
-  createError,
-  getRequestWebStream,
-  getRequestURL,
-  send,
-  appendResponseHeader,
 } from 'h3'
 
 import type { AuthProxyRequest } from '../../../devtools/types'
@@ -18,8 +18,7 @@ import {
   buildMissingSiteUrlMessage,
 } from '../../../utils/auth-errors'
 import { getConvexRuntimeConfig } from '../../../utils/runtime-config'
-import { getBetterAuthSessionToken } from '../../../utils/shared-helpers'
-import { serverConvexClearAuthCache } from '../../utils/auth-cache'
+import { normalizeConvexSiteUrl } from '../../../utils/site-url'
 import { DEFAULT_SERVER_FETCH_TIMEOUT_MS } from '../../utils/http'
 import {
   getRequestBodySizeError,
@@ -28,8 +27,10 @@ import {
   readResponseBodyWithLimit,
 } from './body-size'
 import { buildAuthProxyForwardHeaders, shouldSkipProxyResponseHeader } from './headers'
-import { fetchWithCanonicalRedirects } from './redirect-utils'
-import { getAuthRoutePattern, isOriginAllowed } from './security'
+import { isSameOrigin } from './security'
+
+const AUTH_ROUTE = '/api/auth'
+const ALLOWED_METHODS = new Set(['GET', 'POST'])
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
@@ -37,248 +38,143 @@ async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<v
   await recordAuthProxyRequest(request)
 }
 
-const SESSION_REVOKING_PATHS = new Set([
-  '/sign-out',
-  '/revoke-session',
-  '/revoke-sessions',
-  '/revoke-other-sessions',
-  '/delete-user',
-])
-
-/**
- * Validates if the given origin is allowed.
- * Same-origin requests are always allowed.
- * Cross-origin requests must match a trustedOrigins pattern.
- * Supports wildcard patterns (e.g., 'https://preview-*.vercel.app').
- */
 export default defineEventHandler(async (event: H3Event) => {
-  const convexConfig = getConvexRuntimeConfig()
-  const auth = convexConfig.auth
-  const siteUrl = convexConfig.siteUrl
-  const trustedOrigins = auth === false ? [] : [...auth.trustedOrigins]
-  const authRoute = auth === false ? '/api/auth' : auth.route
-  const authProxy =
-    auth === false
-      ? { maxRequestBodyBytes: 1_048_576, maxResponseBodyBytes: 1_048_576 }
-      : auth.proxy
-  const authCacheEnabled = auth !== false && auth.cache !== false
-
-  // Dev mode: track request timing
-  const startTime = import.meta.dev ? Date.now() : 0
+  const startedAt = Date.now()
   const requestId = import.meta.dev ? crypto.randomUUID() : ''
   const requestUrl = getRequestURL(event)
+  const config = getConvexRuntimeConfig()
+  const auth = config.auth
 
-  if (!siteUrl) {
+  if (auth === false) {
+    throw createError({ statusCode: 404, message: 'Authentication is disabled' })
+  }
+  if (!ALLOWED_METHODS.has(event.method)) {
+    throw createError({ statusCode: 405, message: 'Auth proxy permits only GET and POST' })
+  }
+
+  const origin = event.headers.get('origin')
+  if (origin && !isSameOrigin(origin, requestUrl.origin)) {
+    throw createError({
+      statusCode: 403,
+      message: buildBlockedOriginMessage(origin, requestUrl.host),
+      data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED' },
+    })
+  }
+
+  if (!config.siteUrl) {
     throw createError({
       statusCode: 500,
-      message: buildMissingSiteUrlMessage(convexConfig.url),
+      message: buildMissingSiteUrlMessage(config.url),
       data: { code: 'BCN_AUTH_PROXY_SITE_URL_MISSING' },
     })
   }
 
-  // Use configured authRoute for path stripping (escape special regex chars)
-  const authRoutePattern = getAuthRoutePattern(authRoute)
-  const path = requestUrl.pathname.replace(authRoutePattern, '') || '/'
-  // Ensure path starts with / to avoid malformed URLs like /api/authtoken
+  const siteUrl = normalizeConvexSiteUrl(config.siteUrl)
+  const path = requestUrl.pathname.startsWith(AUTH_ROUTE)
+    ? requestUrl.pathname.slice(AUTH_ROUTE.length) || '/'
+    : '/'
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
-  const target = `${siteUrl}/api/auth${normalizedPath}${requestUrl.search}`
-
-  // Detection only: the proxy target keeps the caller's exact path.
-  const detectionPath = normalizedPath.replace(/\/+$/, '') || '/'
-  const isSignOutRequest = SESSION_REVOKING_PATHS.has(detectionPath) && event.method === 'POST'
-  const sessionTokenBeforeProxy = isSignOutRequest
-    ? getBetterAuthSessionToken(event.headers.get('cookie'))
-    : null
-
-  // Handle CORS preflight
-  // Security: Only allow CORS for validated origins (same-origin or trustedOrigins)
-  if (event.method === 'OPTIONS') {
-    const origin = event.headers.get('origin')
-    if (!origin || !isOriginAllowed(origin, requestUrl.origin, trustedOrigins)) {
-      throw createError({
-        statusCode: 403,
-        message: buildBlockedOriginMessage(origin, requestUrl.host),
-        data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
-      })
-    }
-    setHeaders(event, {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Max-Age': '86400',
-    })
-    setResponseStatus(event, 204)
-    return null
-  }
-
-  // Set CORS headers for the response (only for validated origins)
-  const origin = event.headers.get('origin')
-  const isAllowedOrigin = origin ? isOriginAllowed(origin, requestUrl.origin, trustedOrigins) : true
-  if (origin && isAllowedOrigin) {
-    setHeaders(event, {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Credentials': 'true',
-      'Access-Control-Expose-Headers': 'Set-Cookie',
-    })
-  }
-
-  // Enforce origin checks for non-preflight requests
-  if (origin && !isAllowedOrigin) {
-    throw createError({
-      statusCode: 403,
-      message: buildBlockedOriginMessage(origin, requestUrl.host),
-      data: { code: 'BCN_AUTH_PROXY_ORIGIN_BLOCKED', origin },
-    })
-  }
+  const target = `${siteUrl}${AUTH_ROUTE}${normalizedPath}${requestUrl.search}`
+  const controller = new AbortController()
+  const timeout = setTimeout(
+    () => controller.abort(new Error('Auth proxy deadline exceeded')),
+    DEFAULT_SERVER_FETCH_TIMEOUT_MS,
+  )
 
   try {
     const forwardHeaders = buildAuthProxyForwardHeaders(event, {
       requestUrl,
-      originalHost: event.headers.get('host'),
+      trustedClientIpHeader: auth.proxy.trustedClientIpHeader,
     })
-
-    // Get request body for POST/PUT/PATCH
-    let body: string | undefined
-    if (['POST', 'PUT', 'PATCH'].includes(event.method)) {
-      const requestBodySizeError = getRequestBodySizeError(
+    let body: Uint8Array | undefined
+    if (event.method === 'POST') {
+      const sizeError = getRequestBodySizeError(
         event.headers.get('content-length'),
-        authProxy.maxRequestBodyBytes,
+        auth.proxy.maxRequestBodyBytes,
       )
-      if (requestBodySizeError) {
-        throw createError({
-          statusCode: requestBodySizeError.statusCode,
-          message: requestBodySizeError.message,
-          data: {
-            code: requestBodySizeError.code,
-            contentLengthBytes: requestBodySizeError.contentLengthBytes,
-            maxBytes: requestBodySizeError.maxBytes,
-          },
-        })
-      }
+      if (sizeError)
+        throw createError({ statusCode: 413, message: sizeError.message, data: sizeError })
       body = await readRequestBodyWithLimit(
         getRequestWebStream(event),
-        authProxy.maxRequestBodyBytes,
+        auth.proxy.maxRequestBodyBytes,
+        controller.signal,
       )
     }
 
-    // Make request to Convex (manual redirect handling).
-    // We internally follow only canonical host redirects (same path/query),
-    // but preserve intentional redirects to providers (OAuth, etc).
-    const { response, followedCanonicalRedirect } = await fetchWithCanonicalRedirects({
-      target,
+    const response = await fetch(target, {
       method: event.method,
       headers: forwardHeaders,
-      body,
-      timeoutMs: DEFAULT_SERVER_FETCH_TIMEOUT_MS,
+      body: body
+        ? (body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer)
+        : undefined,
+      redirect: 'manual',
+      signal: controller.signal,
     })
 
-    // Common misconfig path: Convex site URL reachable, but Better Auth routes are missing.
-    const isCriticalAuthEndpoint =
-      normalizedPath === '/convex/token' || normalizedPath === '/get-session'
-    if (isCriticalAuthEndpoint && (response.status === 404 || response.status >= 500)) {
+    const critical = normalizedPath === '/convex/token' || normalizedPath === '/get-session'
+    if (critical && (response.status === 404 || response.status >= 500)) {
       throw createError({
         statusCode: 502,
         message: buildAuthProxyUpstreamStatusMessage(siteUrl, normalizedPath, response.status),
-        data: {
-          code: 'BCN_AUTH_PROXY_UPSTREAM_STATUS',
-          upstreamStatus: response.status,
-          path: normalizedPath,
-        },
+        data: { code: 'BCN_AUTH_PROXY_UPSTREAM_STATUS', upstreamStatus: response.status },
       })
     }
 
-    // Sign-out revokes the session upstream; proactively clear our cached JWT
-    // for it too so a subsequent request can't reuse a stale cached token for
-    // the rest of the authCache TTL window.
-    if (isSignOutRequest && sessionTokenBeforeProxy && response.ok && authCacheEnabled) {
-      await serverConvexClearAuthCache(sessionTokenBeforeProxy)
-    }
-
-    // Dev mode: log the request
-    if (import.meta.dev) {
-      await recordAuthProxyRequestInDev({
-        id: requestId,
-        path,
-        method: event.method,
-        timestamp: startTime,
-        status: response.status,
-        duration: Date.now() - startTime,
-        success: response.ok,
-      })
-    }
-
-    // Forward response status
-    setResponseStatus(event, response.status, response.statusText)
-
-    // Forward response headers (except some that shouldn't be forwarded)
-    // Handle Set-Cookie specially (can have multiple values)
-    if (!followedCanonicalRedirect) {
-      const cookies = response.headers.getSetCookie?.() || []
-      for (const cookie of cookies) {
-        appendResponseHeader(event, 'set-cookie', cookie)
-      }
-    }
-
-    // Forward other headers
-    for (const [key, value] of response.headers.entries()) {
-      if (!shouldSkipProxyResponseHeader(key)) {
-        setHeaders(event, { [key]: value })
-      }
-    }
-    if (isCriticalAuthEndpoint) {
-      setHeaders(event, { 'cache-control': 'private, no-store' })
-    }
-
-    // Preserve intentional redirects (OAuth flows, etc).
-    if (response.status >= 300 && response.status < 400) {
-      return ''
-    }
-
-    // Forward response body
-    const responseBodySizeError = getResponseBodySizeError(
+    const responseSizeError = getResponseBodySizeError(
       response.headers.get('content-length'),
-      authProxy.maxResponseBodyBytes,
+      auth.proxy.maxResponseBodyBytes,
     )
-    if (responseBodySizeError) {
+    if (responseSizeError) {
       throw createError({
-        statusCode: responseBodySizeError.statusCode,
-        message: responseBodySizeError.message,
-        data: {
-          code: responseBodySizeError.code,
-          contentLengthBytes: responseBodySizeError.contentLengthBytes,
-          maxBytes: responseBodySizeError.maxBytes,
-        },
+        statusCode: 502,
+        message: responseSizeError.message,
+        data: responseSizeError,
       })
     }
-    const responseBody = await readResponseBodyWithLimit(response, authProxy.maxResponseBodyBytes)
+    const responseBody = await readResponseBodyWithLimit(
+      response,
+      auth.proxy.maxResponseBodyBytes,
+      controller.signal,
+    )
+
+    setResponseStatus(event, response.status, response.statusText)
+    for (const cookie of response.headers.getSetCookie?.() ?? []) {
+      appendResponseHeader(event, 'set-cookie', cookie)
+    }
+    for (const [key, value] of response.headers.entries()) {
+      if (!shouldSkipProxyResponseHeader(key)) setHeaders(event, { [key]: value })
+    }
+    setHeaders(event, { 'cache-control': 'private, no-store' })
+
+    await recordAuthProxyRequestInDev({
+      id: requestId,
+      path: normalizedPath,
+      method: event.method,
+      timestamp: startedAt,
+      status: response.status,
+      duration: Date.now() - startedAt,
+      success: response.ok,
+    })
     return send(event, responseBody)
   } catch (error) {
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error
-    }
-
-    // Dev mode: log the failed request
-    if (import.meta.dev) {
-      await recordAuthProxyRequestInDev({
-        id: requestId,
-        path,
-        method: event.method,
-        timestamp: startTime,
-        duration: Date.now() - startTime,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      })
-    }
-
-    // Security: Don't leak internal error details in production
-    const errorMessage = import.meta.dev
-      ? buildAuthProxyUnreachableMessage(siteUrl, error)
-      : 'Failed to proxy request to Convex auth server'
+    if (error && typeof error === 'object' && 'statusCode' in error) throw error
+    await recordAuthProxyRequestInDev({
+      id: requestId,
+      path: normalizedPath,
+      method: event.method,
+      timestamp: startedAt,
+      duration: Date.now() - startedAt,
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    })
     throw createError({
       statusCode: 502,
-      message: errorMessage,
+      message: import.meta.dev
+        ? buildAuthProxyUnreachableMessage(siteUrl, error)
+        : 'Failed to proxy request to Convex auth server',
       data: { code: 'BCN_AUTH_PROXY_UNREACHABLE' },
     })
+  } finally {
+    clearTimeout(timeout)
   }
 })

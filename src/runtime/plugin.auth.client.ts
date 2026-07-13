@@ -1,6 +1,7 @@
 import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
+import { effectScope } from 'vue'
 
 /**
  * Auth-enabled-only client plugin (vNext §5.1 / §8 "Client instantiation").
@@ -19,6 +20,7 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthCoordinator,
 } from './auth/client-engine'
+import { observeBetterAuthSession } from './auth/session-observer'
 import { validateConvexAuthClientDefinition } from './auth/validate-auth-client-definition'
 import type { AuthWaterfall } from './devtools/types'
 import { readConvexRuntimeContext } from './runtime-context'
@@ -77,11 +79,8 @@ export default defineNuxtPlugin({
 
     let authClient: AuthClientWithConvex | null = null
     if (resolvedSiteUrl) {
-      // 4. Module-owned baseURL from the single normalized `auth.route`.
-      const authBaseURL =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}${authConfig.route}`
-          : authConfig.route
+      // Fixed same-origin proxy contract.
+      const authBaseURL = `${window.location.origin}/api/auth`
       // 3/5/6. One client per app; prepend exactly one Convex client plugin;
       // library owns credentials.
       const { plugins: consumerPlugins, ...baseOptions } = definitionOptions
@@ -129,10 +128,25 @@ export default defineNuxtPlugin({
     // Install the initial setAuth on the owner's primary and drive settlement.
     coordinator.attachPrimary(client)
 
+    // Better Auth's public session hook is the sole live session source. Raw
+    // plugin calls, MFA completion, expiry, and cross-tab logout all converge
+    // through this watcher; wrappers are ergonomics only.
+    const sessionScope = effectScope()
+    if (authClient) {
+      sessionScope.run(() => {
+        observeBetterAuthSession(authClient, (present, errorMessage) => {
+          void coordinator.reconcileSession(present, errorMessage)
+        })
+      })
+    }
+
     // Hand the client owner the frozen port so it retires and replaces the
     // identity-scoped primary on every stable identity-key change (vNext §5.4).
     clientOwner.attachAuthPort(coordinator.port)
-    clientOwner.addDisposer(() => coordinator.dispose())
+    clientOwner.addDisposer(() => {
+      sessionScope.stop()
+      coordinator.dispose()
+    })
 
     endInit()
   },

@@ -1,13 +1,12 @@
 import {
   normalizeConvexAuthConfig,
-  type AuthCacheOptions,
-  type AuthProxyDefaults,
   type ConvexRouteProtectionConfig,
   type NormalizedConvexAuthConfig,
 } from './auth-config'
 import { normalizeMaxConcurrent, normalizeWaitTimeoutMs } from './config-defaults'
 import { resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
+import { normalizeConvexSiteUrl } from './site-url'
 
 /**
  * Fixed query defaults (vNext §5.2/§5.7). There is no `auth` default: query auth
@@ -48,10 +47,11 @@ export interface ConvexRuntimeConfig {
   readonly auth:
     | false
     | {
-        readonly route: string
-        readonly trustedOrigins: readonly string[]
-        readonly cache: false | Readonly<Required<AuthCacheOptions>>
-        readonly proxy: Readonly<Required<AuthProxyDefaults>>
+        readonly proxy: Readonly<{
+          maxRequestBodyBytes: number
+          maxResponseBodyBytes: number
+          trustedClientIpHeader: string
+        }>
         readonly routeProtection: Readonly<ConvexRouteProtectionConfig>
       }
   readonly defaults: {
@@ -80,7 +80,8 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
   const explicitSiteUrl =
     typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
-  const resolvedSiteUrl = resolveConvexSiteUrl({ url, siteUrl: explicitSiteUrl }).siteUrl
+  const candidateSiteUrl = resolveConvexSiteUrl({ url, siteUrl: explicitSiteUrl }).siteUrl
+  const resolvedSiteUrl = candidateSiteUrl ? normalizeConvexSiteUrl(candidateSiteUrl) : undefined
 
   return {
     url,
@@ -109,9 +110,6 @@ export function toPublicConvexRuntimeConfig(
     internal.auth === false
       ? (false as const)
       : {
-          route: internal.auth.route,
-          trustedOrigins: internal.auth.trustedOrigins,
-          cache: internal.auth.cache,
           proxy: internal.auth.proxy,
           routeProtection: internal.auth.routeProtection,
         }

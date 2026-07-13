@@ -7,8 +7,6 @@ const {
   useStateMock,
   getConvexRuntimeConfigMock,
   fetchWithTimeoutMock,
-  getCachedAuthTokenMock,
-  setCachedAuthTokenMock,
   decodeUserFromJwtMock,
 } = vi.hoisted(() => ({
   defineNuxtPluginMock: vi.fn((fn: unknown) => fn),
@@ -17,8 +15,6 @@ const {
   useStateMock: vi.fn(),
   getConvexRuntimeConfigMock: vi.fn(),
   fetchWithTimeoutMock: vi.fn(),
-  getCachedAuthTokenMock: vi.fn(),
-  setCachedAuthTokenMock: vi.fn(),
   decodeUserFromJwtMock: vi.fn(),
 }))
 
@@ -35,11 +31,6 @@ vi.mock('../../src/runtime/utils/runtime-config', () => ({
 
 vi.mock('../../src/runtime/server/utils/http', () => ({
   fetchWithTimeout: fetchWithTimeoutMock,
-}))
-
-vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getCachedAuthToken: getCachedAuthTokenMock,
-  setCachedAuthToken: setCachedAuthTokenMock,
 }))
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
@@ -100,17 +91,16 @@ describe('plugin.server token exchange failure policy', () => {
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
       auth: {
-        route: '/api/auth',
-        trustedOrigins: [],
-        cache: false,
-        proxy: { maxRequestBodyBytes: 1024 * 1024, maxResponseBodyBytes: 1024 * 1024 },
+        proxy: {
+          maxRequestBodyBytes: 1024 * 1024,
+          maxResponseBodyBytes: 1024 * 1024,
+          trustedClientIpHeader: '',
+        },
         debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
         routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
       },
     })
 
-    getCachedAuthTokenMock.mockResolvedValue(null)
-    setCachedAuthTokenMock.mockResolvedValue(undefined)
     decodeUserFromJwtMock.mockReturnValue(null)
   })
 

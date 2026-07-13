@@ -67,6 +67,9 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Production dependency audit
+        run: pnpm audit --prod
+
   build:
     runs-on: ubuntu-latest
 

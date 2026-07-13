@@ -29,7 +29,7 @@ export type AuthClientPlugins = readonly BetterAuthClientPlugin[]
  * Consumer-facing options for a Convex auth-client definition (vNext §8).
  *
  * The consumer supplies additional client plugins only. `baseURL`/`basePath`
- * (the module owns the single normalized `auth.route`), `plugins` (the library
+ * (the module owns fixed same-origin `/api/auth`), `plugins` (the library
  * prepends exactly one Convex client plugin), and `fetchOptions` (the library
  * owns credentials and request transport) are all removed from the surface.
  */

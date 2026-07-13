@@ -21,7 +21,6 @@ describe('auth proxy header helpers', () => {
 
     const headers = buildAuthProxyForwardHeaders(event, {
       requestUrl: new URL('https://app.example.com/api/auth/convex/token'),
-      originalHost: 'app.example.com',
     })
 
     expect(headers.cookie).toBe(
@@ -36,16 +35,44 @@ describe('auth proxy header helpers', () => {
     expect(headers.host).toBeUndefined()
   })
 
-  it('injects forwarded host and proto', () => {
-    const event = { headers: new Headers() } as never
+  it('replaces proxy controls with authoritative Better Auth markers', () => {
+    const event = {
+      headers: new Headers({
+        'x-better-auth-forwarded-host': 'evil.test',
+        'x-forwarded-for': '10.0.0.1',
+      }),
+    } as never
     const headers = buildAuthProxyForwardHeaders(event, {
       requestUrl: new URL('https://preview.example.com/api/auth/get-session?x=1'),
-      originalHost: 'app.example.com:3000',
     })
 
-    expect(headers['x-forwarded-host']).toBe('app.example.com:3000')
-    expect(headers['x-forwarded-proto']).toBe('https')
+    expect(headers['x-better-auth-forwarded-host']).toBe('preview.example.com')
+    expect(headers['x-better-auth-forwarded-proto']).toBe('https')
+    expect(headers['x-forwarded-for']).toBeUndefined()
   })
+
+  it('accepts one IP only from the configured trusted ingress header', () => {
+    const event = { headers: new Headers({ 'cf-connecting-ip': '203.0.113.4' }) } as never
+    const headers = buildAuthProxyForwardHeaders(event, {
+      requestUrl: new URL('https://app.example.com/api/auth/get-session'),
+      trustedClientIpHeader: 'cf-connecting-ip',
+    })
+    expect(headers['x-forwarded-for']).toBe('203.0.113.4')
+    expect(headers['cf-connecting-ip']).toBeUndefined()
+  })
+
+  it.each(['203.0.113.4, 10.0.0.1', '203.0.113.4 forwarded', '999.0.0.1'])(
+    'rejects an invalid trusted ingress IP value: %s',
+    (value) => {
+      const event = { headers: new Headers({ 'cf-connecting-ip': value }) } as never
+      const headers = buildAuthProxyForwardHeaders(event, {
+        requestUrl: new URL('https://app.example.com/api/auth/get-session'),
+        trustedClientIpHeader: 'cf-connecting-ip',
+      })
+      expect(headers['x-forwarded-for']).toBeUndefined()
+      expect(headers['cf-connecting-ip']).toBeUndefined()
+    },
+  )
 
   it('skips unsafe proxy response headers', () => {
     expect(shouldSkipProxyResponseHeader('set-cookie')).toBe(true)

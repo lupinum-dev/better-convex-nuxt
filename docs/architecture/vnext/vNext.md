@@ -2249,3 +2249,4 @@ Before merging the final release candidate, a maintainer must answer yes to each
 13. Did packed, registry-style consumer verification pass?
 
 If any answer is no, the release is not feature-complete.
+> Historical design record for the `0.6.0` cutover. The `0.7.0` security hardening supersedes its configurable auth route, cross-origin proxy, and cross-request auth-cache sections. Current contracts live in `src/ARCHITECTURE.md`, `SECURITY.md`, and the generated API reference.

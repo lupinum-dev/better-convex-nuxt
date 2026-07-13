@@ -18,37 +18,37 @@ Every important concept has exactly one owner. No implementation may add a secon
 registry, inferred reconstruction path, or cache for a row without a
 senior-approved amendment.
 
-| Concept                                                      | Sole owner after vNext                             | Phase |
-| ------------------------------------------------------------ | -------------------------------------------------- | ----- |
-| Effective build configuration                                | Pure module build-plan resolver (`src/module.ts`)  | 1     |
-| Normalized public runtime configuration                      | Per-Nuxt-app runtime context / `useConvexConfig()` | 1     |
-| Server secrets and server-only limits                        | Nitro private runtime config                       | 4     |
-| Auth identity, auth epoch, identity generation, public error | Per-app auth context (behind `AuthIdentityPort`)   | 1→3   |
-| Auth operation progress count                                | Per-app pending-operation tracker                  | 3     |
-| Primary client for the current identity generation           | Per-app runtime client owner                       | 1→3   |
-| Query wire dedup and per-transport local cache               | Current `ConvexClient` instance                    | 1     |
-| SSR payload reuse                                            | Nuxt payload and async-data key                    | 1     |
-| Mounted query result and transform                           | Individual composable instance                     | 1     |
-| Explicit Vue state sharing                                   | One `defineSharedConvexQuery` definition per app   | 1     |
-| Pagination page and cursor generation                        | One pagination controller per composable instance  | 1     |
-| Connection-state snapshot                                    | Per-app runtime client owner                       | 1→3   |
-| Server credential snapshot                                   | One `ServerConvexCaller` instance                  | 4     |
-| Cross-request auth-token cache                               | Server cookie-resolution cache owner               | 4     |
-| Generic call-error representation                            | Framework-free `/errors` entry                     | 2     |
-| Product authorization interpretation                         | Consumer application                               | —     |
-| Logger instance and sanitization policy                      | Per-app runtime context                            | 1→3   |
-| DevTools state                                               | One bounded per-app `DevtoolsSink`                 | 3     |
-| App-lifetime resource cleanup                                | Per-app runtime disposer                           | 3     |
-| Component query-listener cleanup                             | Owning Vue effect scope                            | 1     |
-| SSR detached-resource cleanup                                | Request-scoped disposer (only if unavoidable)      | 4     |
+| Concept                                               | Sole owner after vNext                             | Phase |
+| ----------------------------------------------------- | -------------------------------------------------- | ----- |
+| Effective build configuration                         | Pure module build-plan resolver (`src/module.ts`)  | 1     |
+| Normalized public runtime configuration               | Per-Nuxt-app runtime context / `useConvexConfig()` | 1     |
+| Server secrets and server-only limits                 | Nitro private runtime config                       | 4     |
+| Better Auth session truth                             | Better Auth public `useSession()` result           | 3     |
+| Convex identity, auth epoch, generation, public error | Per-app auth context (behind `AuthIdentityPort`)   | 1→3   |
+| Auth operation progress count                         | Per-app pending-operation tracker                  | 3     |
+| Primary client for the current identity generation    | Per-app runtime client owner                       | 1→3   |
+| Query wire dedup and per-transport local cache        | Current `ConvexClient` instance                    | 1     |
+| SSR payload reuse                                     | Nuxt payload and async-data key                    | 1     |
+| Mounted query result and transform                    | Individual composable instance                     | 1     |
+| Explicit Vue state sharing                            | One `defineSharedConvexQuery` definition per app   | 1     |
+| Pagination page and cursor generation                 | One pagination controller per composable instance  | 1     |
+| Connection-state snapshot                             | Per-app runtime client owner                       | 1→3   |
+| Server credential snapshot                            | One `ServerConvexCaller` instance                  | 4     |
+| Generic call-error representation                     | Framework-free `/errors` entry                     | 2     |
+| Product authorization interpretation                  | Consumer application                               | —     |
+| Logger instance and sanitization policy               | Per-app runtime context                            | 1→3   |
+| DevTools state                                        | One bounded per-app `DevtoolsSink`                 | 3     |
+| App-lifetime resource cleanup                         | Per-app runtime disposer                           | 3     |
+| Component query-listener cleanup                      | Owning Vue effect scope                            | 1     |
+| SSR detached-resource cleanup                         | Request-scoped disposer (only if unavoidable)      | 4     |
 
 ## 2. Dependency direction (internal §3.2)
 
 - Nuxt owns app instances, SSR payloads, plugin order, runtime config, teardown.
 - Convex owns query transport, wire dedup, local query caching, function refs,
   and official HTTP execution.
-- Better Auth owns session operations and plugin client methods.
-- Better Convex Nuxt owns deterministic coordination between those systems.
+- Better Auth owns session truth, cookies, session operations, and plugin client methods.
+- Better Convex Nuxt observes Better Auth's public session state and owns deterministic Convex coordination.
 - Applications own authorization policy, redirects from business errors, roles,
   permissions, and product workflows.
 

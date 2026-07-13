@@ -67,7 +67,9 @@ describe('auth proxy body size guards', () => {
   })
 
   it('returns exact bounded request and response bodies', async () => {
-    await expect(readRequestBodyWithLimit(streamFromText('abc'), 3)).resolves.toBe('abc')
+    await expect(readRequestBodyWithLimit(streamFromText('abc'), 3)).resolves.toEqual(
+      new TextEncoder().encode('abc'),
+    )
 
     const response = new Response(streamFromText('abc'))
     await expect(readResponseBodyWithLimit(response, 3)).resolves.toEqual(

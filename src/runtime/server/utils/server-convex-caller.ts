@@ -6,7 +6,6 @@ import type { TightenEmptyArgs } from '../../utils/args-tuple'
 import { ConvexCallError, normalizeConvexError } from '../../utils/call-result'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config-normalize'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
-import { cacheUsableAuthToken, getUsableCachedAuthToken } from './auth-cache'
 import {
   validateServerConvexOptions,
   type ConvexCredential,
@@ -171,7 +170,6 @@ async function resolveServerToken(
   }
 
   const config = readCallerConfig(event)
-  const authCache = config.auth === false ? false : config.auth.cache
   const required = normalized.auth === 'required'
 
   // Explicit cookie/bearer credential: always exchanged, always `required`. A
@@ -203,23 +201,12 @@ async function resolveServerToken(
     return null
   }
 
-  const cacheEnabled = authCache !== false
-  if (cacheEnabled) {
-    const cached = await getUsableCachedAuthToken(sessionToken)
-    if (cached) return cached
-  }
-
   const result = await exchangeConvexToken({
     siteUrl: config.siteUrl,
     credential: { type: 'cookie', value: authCookieHeader },
   })
 
-  if (result.token) {
-    if (cacheEnabled) {
-      await cacheUsableAuthToken(sessionToken, result.token, authCache.ttl)
-    }
-    return result.token
-  }
+  if (result.token) return result.token
 
   // No token. 401/403 -> anonymous for optional, authentication for required.
   // Every other failure (transport, 5xx, oversized, malformed) throws transport

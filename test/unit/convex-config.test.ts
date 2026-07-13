@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { CONVEX_MODULE_DEFAULTS } from '../../src/runtime/utils/config-defaults'
 import {
   deriveConvexSiteUrl,
   getSiteUrlResolutionHint,
-  normalizeAuthRoute,
   resolveConvexSiteUrl,
 } from '../../src/runtime/utils/convex-config'
 
@@ -40,11 +38,5 @@ describe('convex config helpers', () => {
       siteUrl: 'https://api.example.com',
       source: 'explicit',
     })
-  })
-
-  it('normalizes auth route consistently', () => {
-    expect(normalizeAuthRoute()).toBe(CONVEX_MODULE_DEFAULTS.authRoute)
-    expect(normalizeAuthRoute('api/auth/')).toBe('/api/auth')
-    expect(normalizeAuthRoute('/custom/auth///')).toBe('/custom/auth')
   })
 })

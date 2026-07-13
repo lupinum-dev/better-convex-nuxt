@@ -1,22 +1,12 @@
-import { normalizeAuthCacheTtl, normalizeAuthProxyBodyLimit } from './config-defaults'
-import { normalizeAuthRoute } from './convex-config'
+import { normalizeAuthProxyBodyLimit } from './config-defaults'
 
 // ============================================================================
 // Public auth-only build option types (vNext §5.1)
 //
 // Every auth-only build option lives inside `ConvexAuthOptions` so that
 // `auth: false` structurally excludes them. There is no top-level `authRoute`,
-// `trustedOrigins`, `authCache`, `authProxy`, or auth-only `debug` input.
+// cross-origin, cache, custom-route, or top-level auth-only inputs.
 // ============================================================================
-
-/** SSR auth-token cache. Omitted/`false` disables it; an object enables it. */
-export interface AuthCacheOptions {
-  /**
-   * Cache TTL in seconds. Clamped to [1, 60].
-   * @default 60
-   */
-  ttl?: number
-}
 
 /** Auth proxy body-size limits. */
 export interface AuthProxyDefaults {
@@ -30,6 +20,8 @@ export interface AuthProxyDefaults {
    * @default 1_048_576 (1 MiB)
    */
   maxResponseBodyBytes?: number
+  /** Trusted ingress-owned header containing exactly one client IP address. */
+  trustedClientIpHeader?: string
 }
 
 /** High-verbosity auth trace channels (require `logging: 'debug'`). */
@@ -58,12 +50,6 @@ export interface ConvexRouteProtectionConfig {
 export interface ConvexAuthOptions {
   /** Build-only path to the single client definition. Never copied to runtime config. */
   client?: string
-  /** Auth proxy route path. @default '/api/auth' */
-  route?: string
-  /** Additional trusted origins for auth proxy CORS. @default [] */
-  trustedOrigins?: string[]
-  /** SSR auth-token cache. Omitted/`false` disables it; an object enables it. */
-  cache?: false | AuthCacheOptions
   /** Auth proxy body-size limits. */
   proxy?: AuthProxyDefaults
   /** High-verbosity auth trace channels. */
@@ -80,10 +66,11 @@ export interface ConvexAuthOptions {
 export type NormalizedConvexAuthConfig =
   | false
   | {
-      route: string
-      trustedOrigins: readonly string[]
-      cache: false | Readonly<Required<AuthCacheOptions>>
-      proxy: Readonly<Required<AuthProxyDefaults>>
+      proxy: Readonly<{
+        maxRequestBodyBytes: number
+        maxResponseBodyBytes: number
+        trustedClientIpHeader: string
+      }>
       debug: Readonly<Required<ConvexDebugOptions>>
       routeProtection: ConvexRouteProtectionConfig
     }
@@ -93,18 +80,21 @@ const DEFAULT_ROUTE_PROTECTION: ConvexRouteProtectionConfig = {
   preserveReturnTo: true,
 }
 
-function normalizeCache(input: unknown): false | Readonly<Required<AuthCacheOptions>> {
-  // Omitted/false disables the cache; an object enables it with a clamped ttl.
-  if (input === undefined || input === false || input === null) return false
-  const cache = typeof input === 'object' ? (input as AuthCacheOptions) : {}
-  return Object.freeze({ ttl: normalizeAuthCacheTtl(cache.ttl) })
-}
-
-function normalizeProxy(input: unknown): Readonly<Required<AuthProxyDefaults>> {
+function normalizeProxy(input: unknown) {
   const proxy = (input && typeof input === 'object' ? input : {}) as AuthProxyDefaults
+  const trustedClientIpHeader =
+    typeof proxy.trustedClientIpHeader === 'string' ? proxy.trustedClientIpHeader.trim() : ''
+  if (trustedClientIpHeader) {
+    try {
+      new Headers().set(trustedClientIpHeader, 'validation')
+    } catch {
+      throw new TypeError('auth.proxy.trustedClientIpHeader must be a valid HTTP header name')
+    }
+  }
   return Object.freeze({
     maxRequestBodyBytes: normalizeAuthProxyBodyLimit(proxy.maxRequestBodyBytes),
     maxResponseBodyBytes: normalizeAuthProxyBodyLimit(proxy.maxResponseBodyBytes),
+    trustedClientIpHeader: trustedClientIpHeader.toLowerCase(),
   })
 }
 
@@ -145,11 +135,6 @@ export function normalizeConvexAuthConfig(
   const options = (input && typeof input === 'object' ? input : {}) as ConvexAuthOptions
 
   return {
-    route: normalizeAuthRoute(typeof options.route === 'string' ? options.route : undefined),
-    trustedOrigins: Array.isArray(options.trustedOrigins)
-      ? options.trustedOrigins.filter((v): v is string => typeof v === 'string')
-      : [],
-    cache: normalizeCache(options.cache),
     proxy: normalizeProxy(options.proxy),
     debug: normalizeDebug(options.debug),
     routeProtection: normalizeRouteProtection(options.routeProtection),

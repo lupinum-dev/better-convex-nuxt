@@ -22,8 +22,6 @@ const mocks = vi.hoisted(() => ({
   mutationMock: vi.fn(),
   actionMock: vi.fn(),
   exchangeMock: vi.fn(),
-  getCachedMock: vi.fn(),
-  setCachedMock: vi.fn(),
   useRuntimeConfigMock: vi.fn(),
 }))
 
@@ -55,11 +53,6 @@ vi.mock('../../src/runtime/server/utils/token-exchange', () => ({
   exchangeConvexToken: mocks.exchangeMock,
 }))
 
-vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getUsableCachedAuthToken: mocks.getCachedMock,
-  cacheUsableAuthToken: mocks.setCachedMock,
-}))
-
 vi.mock('#imports', () => ({
   useRuntimeConfig: mocks.useRuntimeConfigMock,
 }))
@@ -86,15 +79,6 @@ function createEvent(cookie?: string): H3Event {
   } as unknown as H3Event
 }
 
-function base64url(value: object): string {
-  return Buffer.from(JSON.stringify(value)).toString('base64url')
-}
-
-/** Build an unsigned JWT whose payload carries the given `exp` (seconds). */
-function makeJwt(expSeconds: number): string {
-  return `${base64url({ alg: 'none' })}.${base64url({ exp: expSeconds })}.sig`
-}
-
 const AUTH_COOKIE = 'better-auth.session_token=session123'
 
 beforeEach(() => {
@@ -104,8 +88,6 @@ beforeEach(() => {
   mocks.mutationMock.mockReset()
   mocks.actionMock.mockReset()
   mocks.exchangeMock.mockReset()
-  mocks.getCachedMock.mockReset().mockResolvedValue(null)
-  mocks.setCachedMock.mockReset().mockResolvedValue(undefined)
   setConfig({ url: CONVEX_URL, siteUrl: SITE_URL, auth: {} })
 })
 
@@ -306,48 +288,6 @@ describe('serverConvex auth-mode resolution', () => {
       kind: 'authentication',
     })
     expect(mocks.queryMock).not.toHaveBeenCalled()
-  })
-})
-
-describe('serverConvex SSR auth cache', () => {
-  it('serves a still-valid cached token without exchanging', async () => {
-    setConfig({
-      url: CONVEX_URL,
-      siteUrl: SITE_URL,
-      auth: { cache: { ttl: 100_000 } },
-    })
-    const validToken = makeJwt(Math.floor(Date.now() / 1000) + 3600)
-    mocks.getCachedMock.mockResolvedValue(validToken)
-    mocks.queryMock.mockResolvedValue('ok')
-
-    await serverConvex(createEvent(AUTH_COOKIE)).query(queryRef, {})
-
-    expect(mocks.exchangeMock).not.toHaveBeenCalled()
-    expect(mocks.setAuthCalls).toEqual([validToken])
-  })
-
-  it('never serves a cached token at or after its exp, even with a longer TTL', async () => {
-    setConfig({
-      url: CONVEX_URL,
-      siteUrl: SITE_URL,
-      auth: { cache: { ttl: 100_000 } },
-    })
-    const freshToken = makeJwt(Math.floor(Date.now() / 1000) + 3600)
-    // The centralized cache policy filters the expired storage entry before the
-    // caller sees it.
-    mocks.getCachedMock.mockResolvedValue(null)
-    mocks.exchangeMock.mockResolvedValue({
-      token: freshToken,
-      status: 200,
-      error: null,
-    })
-    mocks.queryMock.mockResolvedValue('ok')
-
-    await serverConvex(createEvent(AUTH_COOKIE)).query(queryRef, {})
-
-    // Expired cache entry ignored; a fresh exchange happens and its token is used.
-    expect(mocks.exchangeMock).toHaveBeenCalledTimes(1)
-    expect(mocks.setAuthCalls).toEqual([freshToken])
   })
 })
 

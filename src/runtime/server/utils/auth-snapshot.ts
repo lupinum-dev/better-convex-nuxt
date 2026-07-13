@@ -3,7 +3,6 @@ import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
 import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
-import { cacheUsableAuthToken, getUsableCachedAuthToken } from './auth-cache'
 import { fetchWithTimeout } from './http'
 import { exchangeConvexToken } from './token-exchange'
 
@@ -37,10 +36,6 @@ export interface ServerAuthLogEvent {
 export interface ResolveServerAuthSnapshotOptions {
   siteUrl: string
   cookieHeader: string | null
-  authCache: {
-    enabled: boolean
-    ttl: number
-  }
   requestId: string
   trackWaterfall: boolean
   throwOnMisconfig: boolean
@@ -102,7 +97,6 @@ export async function resolveServerAuthSnapshot(
   const {
     siteUrl,
     cookieHeader,
-    authCache,
     requestId,
     trackWaterfall,
     throwOnMisconfig,
@@ -111,7 +105,7 @@ export async function resolveServerAuthSnapshot(
   const waterfallStart = trackWaterfall ? Date.now() : 0
   const phases: AuthWaterfallPhase[] = []
   const logEvents: ServerAuthLogEvent[] = []
-  let cacheHit = false
+  const cacheHit = false
   let token: string | null = null
   let user: ConvexUser | null = null
   let authError: string | null = null
@@ -143,7 +137,6 @@ export async function resolveServerAuthSnapshot(
     details: {
       hasCookieHeader: Boolean(cookieHeader),
       hasSessionToken: Boolean(sessionToken),
-      cacheEnabled: authCache.enabled,
     },
   })
 
@@ -171,53 +164,7 @@ export async function resolveServerAuthSnapshot(
   }
 
   try {
-    if (authCache.enabled) {
-      const cacheStart = trackWaterfall ? Date.now() : 0
-      token = await getUsableCachedAuthToken(sessionToken)
-      if (token) {
-        cacheHit = true
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'),
-          )
-        }
-
-        const decodeStart = trackWaterfall ? Date.now() : 0
-        user = decodeUserFromJwt(token)
-        if (!user) {
-          user = await fetchSessionUser(siteUrl, authCookieHeader)
-        }
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              user ? 'success' : 'error',
-              user ? undefined : 'Cache hit decode fallback failed',
-            ),
-          )
-        }
-
-        logEvents.push({
-          phase: 'cache',
-          outcome: 'success',
-          details: { source: 'cache' },
-        })
-        return {
-          token,
-          user,
-          authError: null,
-          waterfall: buildWaterfall('authenticated'),
-          logEvents,
-          devError: null,
-        }
-      }
-
-      if (trackWaterfall) {
-        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'miss', 'Cache miss'))
-      }
-    } else if (trackWaterfall) {
+    if (trackWaterfall) {
       phases.push({
         name: 'cache-lookup',
         start: 0,
@@ -270,22 +217,6 @@ export async function resolveServerAuthSnapshot(
         }
       } else if (trackWaterfall) {
         phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
-      }
-
-      if (authCache.enabled && token) {
-        const storeStart = trackWaterfall ? Date.now() : 0
-        await cacheUsableAuthToken(sessionToken, token, authCache.ttl)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'cache-store',
-              storeStart,
-              waterfallStart,
-              'success',
-              `TTL: ${authCache.ttl}s`,
-            ),
-          )
-        }
       }
 
       logEvents.push({

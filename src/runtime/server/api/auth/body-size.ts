@@ -113,10 +113,30 @@ function chunkToUint8Array(chunk: unknown): Uint8Array {
   throw new TypeError('[better-convex-nuxt] Auth proxy body stream yielded an unsupported chunk.')
 }
 
+async function readNextChunk(
+  reader: ReadableStreamDefaultReader<unknown>,
+  signal?: AbortSignal,
+): Promise<ReadableStreamReadResult<unknown>> {
+  if (!signal) return await reader.read()
+  if (signal.aborted) throw signal.reason
+  return await new Promise((resolve, reject) => {
+    const abort = () => {
+      void reader.cancel(signal.reason).catch(() => {})
+      reject(signal.reason)
+    }
+    signal.addEventListener('abort', abort, { once: true })
+    reader
+      .read()
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', abort))
+  })
+}
+
 async function readStreamWithLimit(
   stream: ReadableStream<unknown> | null | undefined,
   maxBytes: number,
   createSizeError: (observedBytes: number, maxBytes: number) => ProxyBodySizeErrorShape,
+  signal?: AbortSignal,
 ): Promise<Uint8Array | undefined> {
   if (!stream) return undefined
 
@@ -126,7 +146,7 @@ async function readStreamWithLimit(
 
   try {
     while (true) {
-      const { done, value } = await reader.read()
+      const { done, value } = await readNextChunk(reader, signal)
       if (done) break
 
       const chunk = chunkToUint8Array(value)
@@ -153,18 +173,18 @@ async function readStreamWithLimit(
 export async function readRequestBodyWithLimit(
   stream: ReadableStream<unknown> | null | undefined,
   maxBytes: number = DEFAULT_MAX_PROXY_REQUEST_BODY_BYTES,
-): Promise<string | undefined> {
-  const body = await readStreamWithLimit(stream, maxBytes, createRequestBodySizeError)
-  if (!body || body.byteLength === 0) return undefined
-  return new TextDecoder().decode(body)
+  signal?: AbortSignal,
+): Promise<Uint8Array | undefined> {
+  return await readStreamWithLimit(stream, maxBytes, createRequestBodySizeError, signal)
 }
 
 export async function readResponseBodyWithLimit(
   response: Response,
   maxBytes: number = DEFAULT_MAX_PROXY_RESPONSE_BODY_BYTES,
+  signal?: AbortSignal,
 ): Promise<Uint8Array> {
   return (
-    (await readStreamWithLimit(response.body, maxBytes, createResponseBodySizeError)) ??
+    (await readStreamWithLimit(response.body, maxBytes, createResponseBodySizeError, signal)) ??
     new Uint8Array()
   )
 }

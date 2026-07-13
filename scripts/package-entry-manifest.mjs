@@ -76,7 +76,6 @@ export const packageEntries = [
       'normalizeServerConvexBoundaryError',
       'exchangeConvexToken',
       'normalizeSiteUrl',
-      'serverConvexClearAuthCache',
     ],
     typeExports: [
       'ServerConvexCaller',

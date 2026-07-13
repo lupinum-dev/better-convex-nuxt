@@ -40,6 +40,22 @@ export default defineConfig({
         },
       },
 
+      // Security regression tests are a mandatory release gate.
+      {
+        resolve: {
+          alias: {
+            '#app': fileURLToPath(new URL('./test/unit/shims/app.ts', import.meta.url)),
+          },
+        },
+        test: {
+          name: 'security',
+          include: ['test/security/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 20_000,
+        },
+      },
+
       // Convex Tests: Backend function tests
       // Uses convex-test with edge-runtime
       // Fast (~5s) - run with `pnpm test`

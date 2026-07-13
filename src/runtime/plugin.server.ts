@@ -80,11 +80,6 @@ export default defineNuxtPlugin(async () => {
   const snapshot = await resolveServerAuthSnapshot({
     siteUrl,
     cookieHeader,
-    // The normalized cache is false-or-options; adapt to the snapshot's shape.
-    authCache: {
-      enabled: authConfig.cache !== false,
-      ttl: authConfig.cache === false ? 60 : authConfig.cache.ttl,
-    },
     requestId,
     trackWaterfall: import.meta.dev,
     throwOnMisconfig: import.meta.dev,

@@ -16,28 +16,12 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({})
     expect(config.auth).not.toBe(false)
     if (config.auth === false) throw new Error('expected auth enabled')
-    expect(config.auth.route).toBe('/api/auth')
-    // Omitted cache is disabled (false-or-options grammar).
-    expect(config.auth.cache).toBe(false)
+    expect(config.auth.proxy.trustedClientIpHeader).toBe('')
   })
 
   it('disables auth entirely when auth is false', () => {
     const config = normalizeConvexRuntimeConfig({ auth: false })
     expect(config.auth).toBe(false)
-  })
-
-  it('enables the auth cache with a clamped ttl when an object is supplied', () => {
-    const enabled = normalizeConvexRuntimeConfig({ auth: { cache: {} } })
-    if (enabled.auth === false) throw new Error('expected auth enabled')
-    expect(enabled.auth.cache).toEqual({ ttl: 60 })
-
-    const low = normalizeConvexRuntimeConfig({ auth: { cache: { ttl: 0 } } })
-    if (low.auth === false) throw new Error('expected auth enabled')
-    expect(low.auth.cache).toEqual({ ttl: 1 })
-
-    const high = normalizeConvexRuntimeConfig({ auth: { cache: { ttl: 999 } } })
-    if (high.auth === false) throw new Error('expected auth enabled')
-    expect(high.auth.cache).toEqual({ ttl: 60 })
   })
 
   it('uses explicit upload maxConcurrent when valid', () => {

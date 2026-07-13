@@ -2,25 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveServerAuthSnapshot } from '../../src/runtime/server/utils/auth-snapshot'
 
-const {
-  fetchWithTimeoutMock,
-  getCachedAuthTokenMock,
-  setCachedAuthTokenMock,
-  decodeUserFromJwtMock,
-} = vi.hoisted(() => ({
+const { fetchWithTimeoutMock, decodeUserFromJwtMock } = vi.hoisted(() => ({
   fetchWithTimeoutMock: vi.fn(),
-  getCachedAuthTokenMock: vi.fn(),
-  setCachedAuthTokenMock: vi.fn(),
   decodeUserFromJwtMock: vi.fn(),
 }))
 
 vi.mock('../../src/runtime/server/utils/http', () => ({
   fetchWithTimeout: fetchWithTimeoutMock,
-}))
-
-vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getUsableCachedAuthToken: getCachedAuthTokenMock,
-  cacheUsableAuthToken: setCachedAuthTokenMock,
 }))
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
@@ -42,14 +30,11 @@ const baseOptions = {
   trackWaterfall: true,
   throwOnMisconfig: true,
   revealAuthErrorDetails: true,
-  authCache: { enabled: false, ttl: 60 },
 }
 
 describe('resolveServerAuthSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    getCachedAuthTokenMock.mockResolvedValue(null)
-    setCachedAuthTokenMock.mockResolvedValue(undefined)
     decodeUserFromJwtMock.mockReturnValue(null)
   })
 
@@ -71,35 +56,7 @@ describe('resolveServerAuthSnapshot', () => {
     expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
   })
 
-  it('uses a cached token and decoded user without token exchange', async () => {
-    getCachedAuthTokenMock.mockResolvedValue('cached.jwt')
-    decodeUserFromJwtMock.mockReturnValue({
-      id: 'user-1',
-      email: 'cached@example.com',
-    })
-
-    const snapshot = await resolveServerAuthSnapshot({
-      ...baseOptions,
-      authCache: { enabled: true, ttl: 30 },
-      cookieHeader: 'better-auth.session_token=session-1',
-    })
-
-    expect(snapshot.token).toBe('cached.jwt')
-    expect(snapshot.user).toEqual({
-      id: 'user-1',
-      email: 'cached@example.com',
-    })
-    expect(snapshot.authError).toBeNull()
-    expect(snapshot.waterfall?.cacheHit).toBe(true)
-    expect(snapshot.logEvents.at(-1)).toEqual({
-      phase: 'cache',
-      outcome: 'success',
-      details: { source: 'cache' },
-    })
-    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
-  })
-
-  it('exchanges a session cookie for a token and stores it when cache is enabled', async () => {
+  it('exchanges a session cookie for a fresh token on every request', async () => {
     decodeUserFromJwtMock.mockReturnValue({
       id: 'user-2',
       email: 'fresh@example.com',
@@ -108,7 +65,6 @@ describe('resolveServerAuthSnapshot', () => {
 
     const snapshot = await resolveServerAuthSnapshot({
       ...baseOptions,
-      authCache: { enabled: true, ttl: 45 },
       cookieHeader:
         'private_app_cookie=secret; __Secure-better-auth.session_token=session-2; better-auth.callback=state',
     })
@@ -116,7 +72,6 @@ describe('resolveServerAuthSnapshot', () => {
     expect(snapshot.token).toBe('fresh.jwt')
     expect(snapshot.user).toEqual({ id: 'user-2', email: 'fresh@example.com' })
     expect(snapshot.authError).toBeNull()
-    expect(setCachedAuthTokenMock).toHaveBeenCalledWith('session-2', 'fresh.jwt', 45)
     expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
       'https://demo.convex.site/api/auth/convex/token',
       expect.objectContaining({

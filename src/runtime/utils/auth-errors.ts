@@ -15,7 +15,7 @@ export function buildMissingSiteUrlMessage(url?: string | null): string {
 export function buildBlockedOriginMessage(origin: string | null, requestHost: string): string {
   const originLabel = origin || '(missing origin header)'
   return prefix(
-    `Cross-origin auth request blocked from ${originLabel}. Add the origin to \`convex.trustedOrigins\` in \`nuxt.config.ts\` or use same-origin requests via the Nuxt auth proxy on ${requestHost}.`,
+    `Cross-origin auth request blocked from ${originLabel}. Use the same-origin Nuxt auth proxy on ${requestHost}.`,
   )
 }
 

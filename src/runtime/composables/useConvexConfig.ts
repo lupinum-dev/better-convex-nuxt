@@ -18,7 +18,7 @@ export type { ConvexRuntimeConfig } from '../utils/runtime-config'
  * ```ts
  * const config = useConvexConfig()
  * if (config.auth !== false) {
- *   console.log(config.auth.route)
+ *   console.log(config.auth.proxy.maxRequestBodyBytes)
  * }
  * ```
  */

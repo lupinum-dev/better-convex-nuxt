@@ -41,6 +41,7 @@ import {
   resolveConvexSiteUrl,
 } from './runtime/utils/convex-config'
 import type { LogLevel } from './runtime/utils/logger'
+import { normalizeConvexSiteUrl } from './runtime/utils/site-url'
 
 // Re-exported public types (vNext §4.1). The root default export is the module;
 // stable public types are re-exported here. Do not export the raw
@@ -50,7 +51,6 @@ export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 export type { ConvexUser } from './runtime/utils/types'
 export type {
   ConvexAuthOptions,
-  AuthCacheOptions,
   AuthProxyDefaults,
   ConvexDebugOptions,
   ConvexRouteProtectionConfig,
@@ -236,17 +236,12 @@ export default defineNuxtModule<ModuleOptions>({
     })
     const resolvedSiteUrl = siteUrlResolution.siteUrl
 
-    if (resolvedSiteUrl && !isValidAbsoluteUrl(resolvedSiteUrl)) {
-      logger.warn(
-        `Invalid Convex site URL format: "${resolvedSiteUrl}". Expected a valid URL like "https://your-app.convex.site"`,
-      )
-    }
+    if (resolvedSiteUrl) normalizeConvexSiteUrl(resolvedSiteUrl)
 
     // Single build-time auth resolution: one discriminated value drives every
     // plugin/handler/middleware registration decision (internal §5.1).
     const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
     const isAuthEnabled = isConvexAuthEnabled(normalizedAuthConfig)
-    const authRoute = normalizedAuthConfig === false ? undefined : normalizedAuthConfig.route
 
     if (isAuthEnabled && !resolvedSiteUrl) {
       logger.warn(
@@ -255,7 +250,8 @@ export default defineNuxtModule<ModuleOptions>({
     }
 
     // Public runtime config. Auth-only build options live under `auth`; no
-    // top-level authRoute/trustedOrigins/authCache/authProxy/debug remain.
+    // Auth-only build options remain nested under `auth`; the proxy route,
+    // origin policy, and no-cache behavior are fixed security invariants.
     const convexConfig = defu(
       nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
       {
@@ -295,7 +291,7 @@ export default defineNuxtModule<ModuleOptions>({
     // 2. Auth-enabled-only plugins. When auth is disabled the module adds NO
     //    Better Auth client, engine, proxy handler, or middleware to the build
     //    graph (vNext §5.1 / internal §5.3).
-    if (isAuthEnabled && authRoute) {
+    if (isAuthEnabled) {
       // Typed auth-client definition plumbing (vNext §8). Resolve the single
       // definition module, expose it to the auth-enabled client plugin through
       // the `#convex/auth-client` virtual module, and generate the consumer type
@@ -370,11 +366,11 @@ export default defineNuxtModule<ModuleOptions>({
       // Auth proxy: register both exact and wildcard routes so requests without a
       // trailing slash are not missed by the /** glob in Nitro.
       addServerHandler({
-        route: authRoute,
+        route: '/api/auth',
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
       addServerHandler({
-        route: `${authRoute}/**`,
+        route: '/api/auth/**',
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
     }

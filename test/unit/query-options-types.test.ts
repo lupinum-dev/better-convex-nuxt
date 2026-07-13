@@ -2,7 +2,6 @@ import type { FunctionReference, PaginationOptions, PaginationResult } from 'con
 import { describe, expect, it } from 'vitest'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 
-import type { AuthCacheOptions } from '../../src/module'
 import type { DefineSharedConvexQueryOptions } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type {
   ConvexPaginatedQueryArgs,
@@ -65,9 +64,6 @@ type SharedQueryArgs = DefineSharedConvexQueryOptions<
 type _SharedQueryArgsUseOnlySkipSentinel = Assert<
   IsEqual<SharedQueryArgs, MaybeRefOrGetter<{ id: string } | 'skip'>>
 >
-// AuthCacheOptions.enabled is optional — `{ ttl: 30 }` alone must compile.
-const _authCacheOptionsEnabledIsOptional: AuthCacheOptions = { ttl: 30 }
-void _authCacheOptionsEnabledIsOptional
 
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
 type _QueryErrorIsComputedErrorNull = Assert<

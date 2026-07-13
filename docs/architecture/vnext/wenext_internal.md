@@ -1474,3 +1474,4 @@ The internal cleanup is complete only when all of the following are true:
 - A clean checkout can run the complete verification with pinned tooling and produce the same verified tarball.
 
 The desired long-term result is a smaller integration layer that delegates transport and caching to Convex, session operations to Better Auth, lifecycle to Nuxt, and authorization policy to applications. Better Convex Nuxt should own only the deterministic coordination those systems cannot own independently.
+> Historical implementation record for the `0.6.0` cutover. The `0.7.0` security hardening supersedes its configurable auth route, cross-origin proxy, and cross-request auth-cache sections. Current contracts live in `src/ARCHITECTURE.md` and `SECURITY.md`.

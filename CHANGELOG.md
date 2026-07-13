@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Security hardening (breaking)
+
+- Fixed the auth proxy to one same-origin `/api/auth` route, GET/POST only, with one validated upstream request and no server-side redirect following.
+- Removed cross-origin CORS/trusted-origin options, custom proxy routes, and the cross-request JWT cache and clear helper.
+- Stripped caller-controlled proxy headers, preserved request bytes, and kept one deadline through complete response consumption.
+- Made Better Auth's public reactive session the canonical client identity source, including raw/plugin operations, MFA, expiry, and cross-tab logout.
+- Serialized complete sign-in, sign-up, and sign-out operations and added mandatory security regression tests.
+
 ## v0.6.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.5.0...v0.6.0)

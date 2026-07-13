@@ -57,6 +57,7 @@ export function shouldSynchronizeAfterAuthResult(result: unknown): boolean {
 export function createIntegratedAuthNamespace<T extends object>(
   namespace: T,
   synchronizeIdentity: () => Promise<void>,
+  execute: (operation: () => Promise<unknown>) => Promise<unknown> = (operation) => operation(),
 ): T {
   const proxyCache = new WeakMap<object, object>()
   const propertyCache = new WeakMap<object, Map<PropertyKey, unknown>>()
@@ -74,14 +75,16 @@ export function createIntegratedAuthNamespace<T extends object>(
         const value = Reflect.get(currentTarget, property, receiver)
         if (typeof value === 'function') {
           const wrapped = async (...args: unknown[]) => {
-            // Apply with the ORIGINAL target as `this` so plugin methods that
-            // read their receiver keep working after wrapping.
-            const result = await Reflect.apply(value, currentTarget, args)
-            const error = readBetterAuthResultError(result)
-            if (!error && shouldSynchronizeAfterAuthResult(result)) {
-              await synchronizeIdentity()
-            }
-            return result
+            return await execute(async () => {
+              // Apply with the ORIGINAL target as `this` so plugin methods that
+              // read their receiver keep working after wrapping.
+              const result = await Reflect.apply(value, currentTarget, args)
+              const error = readBetterAuthResultError(result)
+              if (!error && shouldSynchronizeAfterAuthResult(result)) {
+                await synchronizeIdentity()
+              }
+              return result
+            })
           }
           cachedProperties.set(property, wrapped)
           return wrapped

@@ -1,4 +1,5 @@
 import { ConvexCallError } from '../../utils/call-result'
+import { normalizeConvexSiteUrl } from '../../utils/site-url'
 import { fetchWithTimeout } from './http'
 import type { ConvexCredential } from './server-convex-options'
 import { assertCredentialValueSafe, ServerConvexValidationError } from './server-convex-options'
@@ -31,22 +32,6 @@ export interface ConvexTokenExchangeResult {
 // normalizeSiteUrl (vNext §9)
 // ---------------------------------------------------------------------------
 
-function isIpv4Loopback(hostname: string): boolean {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname)
-  if (!match) return false
-  const octets = match.slice(1).map(Number)
-  if (octets.some((octet) => octet > 255)) return false
-  // 127.0.0.0/8
-  return octets[0] === 127
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  const host = hostname.toLowerCase()
-  if (host === 'localhost' || host.endsWith('.localhost')) return true
-  if (host === '[::1]' || host === '::1') return true
-  return isIpv4Loopback(host)
-}
-
 /**
  * Normalize a Convex site origin (e.g. `https://example.convex.site`) to its
  * bare origin, rejecting anything that could redirect a credential elsewhere or
@@ -58,33 +43,13 @@ function isLoopbackHost(hostname: string): boolean {
  * runtime "test fixture" exemption.
  */
 export function normalizeSiteUrl(siteUrl: string): string {
-  let url: URL
   try {
-    url = new URL(siteUrl)
-  } catch {
-    throw new ServerConvexValidationError('siteUrl is not a valid URL')
+    return normalizeConvexSiteUrl(siteUrl)
+  } catch (error) {
+    throw new ServerConvexValidationError(
+      error instanceof Error ? error.message : 'invalid siteUrl',
+    )
   }
-  if (url.username || url.password) {
-    throw new ServerConvexValidationError('siteUrl must not contain embedded credentials')
-  }
-  if (url.search) {
-    throw new ServerConvexValidationError('siteUrl must not contain a query string')
-  }
-  if (url.hash) {
-    throw new ServerConvexValidationError('siteUrl must not contain a fragment')
-  }
-  if (url.pathname !== '/' && url.pathname !== '') {
-    throw new ServerConvexValidationError('siteUrl must not contain a non-root path')
-  }
-  const isHttps = url.protocol === 'https:'
-  const isHttp = url.protocol === 'http:'
-  if (!isHttps && !isHttp) {
-    throw new ServerConvexValidationError('siteUrl must use http or https')
-  }
-  if (isHttp && !isLoopbackHost(url.hostname)) {
-    throw new ServerConvexValidationError('http siteUrl is permitted only for loopback hosts')
-  }
-  return url.origin
 }
 
 // ---------------------------------------------------------------------------

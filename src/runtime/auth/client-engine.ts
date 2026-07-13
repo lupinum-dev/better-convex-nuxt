@@ -63,6 +63,8 @@ export interface ConvexAuthCoordinator {
   readonly integratedSignUp: object | null
   ready(options?: { timeoutMs?: number }): Promise<ConvexAuthStatus>
   refresh(): Promise<void>
+  /** Reconcile one canonical Better Auth session revision. */
+  reconcileSession(sessionPresent: boolean, errorMessage?: string | null): Promise<void>
   signOut(): Promise<unknown>
   /** Install the initial `setAuth` on the owner's primary and resolve settlement. */
   attachPrimary(client: ConvexClient): void
@@ -114,6 +116,7 @@ export function createConvexAuthCoordinator(input: {
   const initialSettlement = createDeferred()
   let refreshPromise: Promise<void> | null = null
   let refreshEpoch = -1
+  let sessionRevision = 0
 
   // ---- retry (coalesced) ---------------------------------------------------
   let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -334,36 +337,64 @@ export function createConvexAuthCoordinator(input: {
   }
 
   // ---- integrated sign-in/sign-up synchronization --------------------------
-  function synchronizeIdentity(): Promise<void> {
-    return queue.enqueue(() =>
-      pending.run(async () => {
-        const epoch = (authEpoch += 1)
-        clearRetry()
-        const source = authClient
-        if (!source) return
-        const outcome = await fetchConvexToken(source)
-        if (disposed || epoch !== authEpoch) return
-        if (outcome.identity) {
-          await commitTransition(
-            toAuthenticatedIdentity(outcome.identity.token, outcome.identity.user),
-            epoch,
-          )
-        } else if (outcome.authError) {
-          // A token-bearing Better Auth result that fails the Convex exchange keeps
-          // a still-usable identity on a transient failure; otherwise surfaces the
-          // error over an anonymous transition.
-          if (identity.status === 'authenticated' && !outcome.definitive) {
-            state.authError.value = outcome.authError
-            notify()
-          } else {
-            state.authError.value = outcome.authError
-            await commitTransition(ANONYMOUS_IDENTITY, epoch)
-          }
-        } else {
-          await commitTransition(ANONYMOUS_IDENTITY, epoch)
-        }
-      }),
-    )
+  async function synchronizeIdentity(): Promise<void> {
+    const epoch = (authEpoch += 1)
+    clearRetry()
+    const source = authClient
+    if (!source) return
+    const outcome = await fetchConvexToken(source)
+    if (disposed || epoch !== authEpoch) return
+    if (outcome.identity) {
+      await commitTransition(
+        toAuthenticatedIdentity(outcome.identity.token, outcome.identity.user),
+        epoch,
+      )
+    } else if (outcome.authError) {
+      // A token-bearing Better Auth result that fails the Convex exchange keeps
+      // a still-usable identity on a transient failure; otherwise surfaces the
+      // error over an anonymous transition.
+      if (identity.status === 'authenticated' && !outcome.definitive) {
+        state.authError.value = outcome.authError
+        notify()
+      } else {
+        state.authError.value = outcome.authError
+        await commitTransition(ANONYMOUS_IDENTITY, epoch)
+      }
+    } else {
+      await commitTransition(ANONYMOUS_IDENTITY, epoch)
+    }
+  }
+
+  function executeIntegratedOperation(operation: () => Promise<unknown>): Promise<unknown> {
+    return pending.run(() => queue.enqueue(operation))
+  }
+
+  async function reconcileSession(
+    sessionPresent: boolean,
+    errorMessage: string | null = null,
+  ): Promise<void> {
+    const revision = (sessionRevision += 1)
+    const epoch = (authEpoch += 1)
+    clearRetry()
+    if (!sessionPresent || errorMessage) {
+      state.authError.value = errorMessage
+      await commitTransition(ANONYMOUS_IDENTITY, epoch)
+      return
+    }
+    await pending.run(async () => {
+      if (!authClient) return
+      const outcome = await fetchConvexToken(authClient)
+      if (disposed || revision !== sessionRevision || epoch !== authEpoch) return
+      if (outcome.identity) {
+        await commitTransition(
+          toAuthenticatedIdentity(outcome.identity.token, outcome.identity.user),
+          epoch,
+        )
+      } else {
+        state.authError.value = outcome.authError
+        await commitTransition(ANONYMOUS_IDENTITY, epoch)
+      }
+    })
   }
 
   // ---- background refresh (epoch-scoped dedup) -----------------------------
@@ -429,8 +460,8 @@ export function createConvexAuthCoordinator(input: {
 
   // ---- sign-out (identity-queue op) ----------------------------------------
   function signOut(): Promise<unknown> {
-    return queue.enqueue(() =>
-      pending.run(async () => {
+    return pending.run(() =>
+      queue.enqueue(async () => {
         if (!authClient) {
           const message =
             '[useConvexAuth] Cannot sign out because Better Auth client is unavailable'
@@ -638,7 +669,7 @@ export function createConvexAuthCoordinator(input: {
   }
 
   function wrapNamespace<T extends object>(namespace: T): T {
-    return createIntegratedAuthNamespace(namespace, synchronizeIdentity)
+    return createIntegratedAuthNamespace(namespace, synchronizeIdentity, executeIntegratedOperation)
   }
 
   // Memoize the integrated namespaces once so `auth.signIn === auth.signIn`
@@ -659,6 +690,7 @@ export function createConvexAuthCoordinator(input: {
     integratedSignUp,
     ready,
     refresh,
+    reconcileSession,
     signOut,
     attachPrimary,
     dispose,

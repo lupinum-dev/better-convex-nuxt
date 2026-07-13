@@ -8,9 +8,7 @@ describe('auth config normalization (vNext §5.1)', () => {
     const auth = normalizeConvexAuthConfig(undefined)
     expect(auth).not.toBe(false)
     if (auth === false) throw new Error('expected enabled')
-    expect(auth.route).toBe('/api/auth')
-    expect(auth.trustedOrigins).toEqual([])
-    expect(auth.cache).toBe(false)
+    expect(auth.proxy.trustedClientIpHeader).toBe('')
     expect(auth.routeProtection).toEqual({ redirectTo: '/auth/signin', preserveReturnTo: true })
     expect(isConvexAuthEnabled(auth)).toBe(true)
   })
@@ -25,28 +23,15 @@ describe('auth config normalization (vNext §5.1)', () => {
     expect(isConvexAuthEnabled(auth)).toBe(false)
   })
 
-  it('omitted/false cache is disabled; {} enables it with defaults', () => {
-    const off = normalizeConvexAuthConfig({ cache: false })
-    if (off === false) throw new Error('expected enabled')
-    expect(off.cache).toBe(false)
-
-    const on = normalizeConvexAuthConfig({ cache: {} })
-    if (on === false) throw new Error('expected enabled')
-    expect(on.cache).toEqual({ ttl: 60 })
-  })
-
   it('materializes proxy, debug, and routeProtection overrides', () => {
     const auth = normalizeConvexAuthConfig({
-      route: 'custom/auth',
-      trustedOrigins: ['https://a.example'],
-      proxy: { maxRequestBodyBytes: 10 },
+      proxy: { maxRequestBodyBytes: 10, trustedClientIpHeader: 'CF-Connecting-IP' },
       debug: { clientAuthFlow: true },
       routeProtection: { redirectTo: '/login', preserveReturnTo: false },
     })
     if (auth === false) throw new Error('expected enabled')
-    expect(auth.route).toBe('/custom/auth')
-    expect(auth.trustedOrigins).toEqual(['https://a.example'])
     expect(auth.proxy.maxRequestBodyBytes).toBe(10)
+    expect(auth.proxy.trustedClientIpHeader).toBe('cf-connecting-ip')
     expect(auth.debug).toEqual({ authFlow: false, clientAuthFlow: true, serverAuthFlow: false })
     expect(auth.routeProtection).toEqual({ redirectTo: '/login', preserveReturnTo: false })
   })
@@ -55,6 +40,12 @@ describe('auth config normalization (vNext §5.1)', () => {
     const auth = normalizeConvexAuthConfig({ client: './auth-client.ts' })
     if (auth === false) throw new Error('expected enabled')
     expect('client' in auth).toBe(false)
+  })
+
+  it('rejects malformed trusted ingress header names', () => {
+    expect(() =>
+      normalizeConvexAuthConfig({ proxy: { trustedClientIpHeader: 'bad\nheader' } }),
+    ).toThrow('valid HTTP header name')
   })
 })
 
@@ -74,6 +65,7 @@ function _moduleOptionsTypeContracts() {
   assertModuleOptions({})
   assertModuleOptions({ auth: {} })
   assertModuleOptions({ auth: { routeProtection: { redirectTo: '/login' } } })
+  assertModuleOptions({ auth: { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } } })
   // Positive: `auth: false` is a Convex-only build.
   assertModuleOptions({ auth: false })
 
@@ -83,14 +75,20 @@ function _moduleOptionsTypeContracts() {
   assertModuleOptions({ auth: { unauthorized: {} } })
   // @ts-expect-error there is no `enabled` toggle; the grammar is `false | options`
   assertModuleOptions({ auth: { enabled: false } })
+  // @ts-expect-error route is fixed at /api/auth
+  assertModuleOptions({ auth: { route: '/custom/auth' } })
+  // @ts-expect-error the browser proxy is same-origin only
+  assertModuleOptions({ auth: { trustedOrigins: ['https://a.example'] } })
+  // @ts-expect-error the cross-request JWT cache was removed
+  assertModuleOptions({ auth: { cache: {} } })
 
-  // @ts-expect-error the old top-level authRoute is deleted; use auth.route
+  // @ts-expect-error the old top-level authRoute is deleted; the route is fixed
   assertModuleOptions({ authRoute: '/api/auth' })
-  // @ts-expect-error the old top-level trustedOrigins is deleted; use auth.trustedOrigins
+  // @ts-expect-error cross-origin proxy configuration is deleted
   assertModuleOptions({ trustedOrigins: ['https://a.example'] })
   // @ts-expect-error the old top-level skipAuthRoutes is deleted (vNext §5.1)
   assertModuleOptions({ skipAuthRoutes: ['/public'] })
-  // @ts-expect-error the old top-level authCache is deleted; use auth.cache
+  // @ts-expect-error the cross-request auth cache is deleted
   assertModuleOptions({ authCache: { enabled: true } })
   // @ts-expect-error the old top-level authProxy is deleted; use auth.proxy
   assertModuleOptions({ authProxy: { maxRequestBodyBytes: 10 } })
@@ -105,10 +103,10 @@ function _moduleOptionsTypeContracts() {
 // an options object with a redundant `enabled` toggle).
 function _authFalseBranchExcludesNestedFields(auth: ModuleOptions['auth']) {
   if (auth === false) {
-    // @ts-expect-error the `false` branch has no `route` (or any auth-only) field
-    return auth.route
+    // @ts-expect-error the `false` branch has no `proxy` (or any auth-only) field
+    return auth.proxy
   }
-  return auth?.route
+  return auth?.proxy
 }
 void _authFalseBranchExcludesNestedFields
 

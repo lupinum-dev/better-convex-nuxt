@@ -50,11 +50,45 @@ export async function fetchWithTimeout(
 
   const { signal, cleanup } = createTimeoutSignal(timeoutMs, parentSignal ?? undefined)
   try {
-    return await fetchImpl(input, {
+    const response = await fetchImpl(input, {
       ...init,
       signal,
     })
-  } finally {
+    if (!response.body) {
+      cleanup()
+      return response
+    }
+    const reader = response.body.getReader()
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const next = await reader.read()
+          if (next.done) {
+            cleanup()
+            reader.releaseLock()
+            controller.close()
+          } else {
+            controller.enqueue(next.value)
+          }
+        } catch (error) {
+          cleanup()
+          reader.releaseLock()
+          controller.error(error)
+        }
+      },
+      async cancel(reason) {
+        cleanup()
+        await reader.cancel(reason)
+        reader.releaseLock()
+      },
+    })
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    })
+  } catch (error) {
     cleanup()
+    throw error
   }
 }

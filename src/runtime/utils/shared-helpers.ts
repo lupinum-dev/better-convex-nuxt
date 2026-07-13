@@ -199,10 +199,11 @@ export function getCookie(cookieHeader: string | null | undefined, name: string)
 }
 
 export function getBetterAuthSessionToken(cookieHeader: string | null | undefined): string | null {
-  return (
-    getCookie(cookieHeader, BETTER_AUTH_SECURE_SESSION_COOKIE_NAME) ||
-    getCookie(cookieHeader, BETTER_AUTH_SESSION_COOKIE_NAME)
-  )
+  const cookies = parseCookies(cookieHeader)
+  if (Object.prototype.hasOwnProperty.call(cookies, BETTER_AUTH_SECURE_SESSION_COOKIE_NAME)) {
+    return cookies[BETTER_AUTH_SECURE_SESSION_COOKIE_NAME] ?? null
+  }
+  return cookies[BETTER_AUTH_SESSION_COOKIE_NAME] ?? null
 }
 
 export function filterBetterAuthCookies(cookieHeader: string | null | undefined): string | null {

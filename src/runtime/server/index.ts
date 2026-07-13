@@ -11,4 +11,3 @@ export {
   normalizeSiteUrl,
   type ConvexTokenExchangeResult,
 } from './utils/token-exchange'
-export { serverConvexClearAuthCache } from './utils/auth-cache'
