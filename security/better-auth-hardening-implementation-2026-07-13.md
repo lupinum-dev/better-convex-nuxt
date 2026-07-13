@@ -6,7 +6,7 @@
 
 ## Decision
 
-The eight locally reproducible blocker groups from the baseline audit have been remediated in source, tests, public configuration, and active documentation. The implementation is suitable for release-candidate review. It is not a proof of complete security and is not yet an unconditional production-security approval because the external release gates listed below have not run against a deployed candidate.
+The eight locally reproducible blocker groups from the baseline audit have been remediated in source, tests, public configuration, active documentation, and release automation. The implementation is suitable for release-candidate review. It is not a proof of complete security and is not an unconditional production-security approval because the external release gates listed below must run against the actual deployed candidate.
 
 ## Implemented controls
 
@@ -23,33 +23,35 @@ The normal browser contract is fixed same-origin `/api/auth`, GET/POST only, pri
 
 ## Verification evidence
 
-| Gate                        | Result                                                                                                     |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `pnpm check`                | Passed: format, lint, types, boundaries, 85 files and 718 tests                                            |
-| Mandatory security project  | Passed: proxy, session, queue, cookie/config, and full-body deadline regressions                           |
-| `pnpm check:contracts`      | Passed, including packed package-entry probes                                                              |
-| `pnpm audit --prod`         | No known vulnerabilities                                                                                   |
-| Isolated proxy E2E          | Passed against a real Nuxt/Nitro server and local upstream                                                 |
-| Isolated full auth-loop E2E | Passed: signup, authenticated dashboard, signout, protected redirect                                       |
-| Aggregate `pnpm test:e2e`   | Harness blocked: serial Nuxt fixtures contend for Vite HMR port `24678` and lose the dev-server IPC socket |
+| Gate                             | Result                                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `pnpm check`                     | Passed: format, lint, module/server types, boundaries, 87 files and 730 tests                                     |
+| Mandatory security project       | Passed: proxy, session, queue, cookie/config, plugin contracts, property regressions, and full-body deadlines     |
+| `pnpm check:contracts`           | Passed, including MFA/OAuth client typing and five packed package-entry probes                                    |
+| `pnpm check:asvs`                | Passed: all 253 OWASP ASVS 5.0.0 Level 1/2 controls have unique IDs, ownership, disposition, and evidence         |
+| `pnpm check:sbom`                | Passed: CycloneDX 1.6 model contains 262 production components and the required auth/Convex dependencies          |
+| `pnpm audit --prod`              | Passed: no known production dependency vulnerabilities                                                            |
+| Deterministic core E2E           | Passed three consecutive runs: eight isolated files per run with no provider/environment skips                    |
+| Extended auth session E2E        | Passed: raw Better Auth logout across two tabs, Convex identity clearing, logout, and account switching           |
+| Real Nitro proxy security probes | Passed: method/origin rejection before upstream, forwarding-header removal, schema-changing plugin route, cookies |
 
-The aggregate-runner failure is reproducible infrastructure evidence, not an observed auth assertion failure. The security-relevant proxy and full local auth-loop files pass in fresh isolated Vitest processes.
+The former aggregate-runner port collision was removed by using one fresh Vitest/Nuxt process per E2E file. The dev-overlay-only fixture was deleted because its nested Vite dev server was the conflicting duplicate path; equivalent configuration redaction and failure behavior remains covered deterministically by the security project.
 
 ## Confidence and severity reassessment
 
-Confidence that the eight audited implementation defects are addressed by this branch is **high (approximately 90–95%)**, based on direct code-path removal, deterministic regression tests, real Nuxt proxy execution, a full local auth loop, type/contract probes, and dependency audit.
+Confidence that the eight audited implementation defects are addressed by this branch is **high (approximately 90–95%)**, based on direct code-path removal, deterministic and seeded regression tests, real Nuxt/Nitro execution, full local auth loops, cross-tab identity testing, type/packed-package contract probes, exact ASVS bookkeeping, dependency audit, and SBOM validation.
 
 Confidence cannot honestly be 100%. Unknown vulnerabilities, deployment mistakes, upstream defects, OAuth-provider behavior, and controls outside this library remain possible. Stateless Convex JWTs also remain valid until expiry; deployments needing immediate revocation must shorten lifetime or add application-level server revalidation.
 
-## Remaining release gates
+## Remaining external and deployment release gates
 
 Before promoting a release as security-hardened:
 
-1. Repair or isolate the aggregate E2E fixture runner, then run the full serial matrix without skipped provider-dependent cases.
-2. Run the added CodeQL workflow on the release candidate and disposition every result.
-3. Run proxy fuzzing/DAST against a deployed candidate, including malformed framing, slow bodies, header confusion, origin variants, and redirect responses.
-4. Exercise configured OAuth, MFA/OTP/TOTP/backup codes, cross-tab logout, expiry, account switching, and revocation with production-like secrets and ingress.
-5. Obtain an independent penetration test and close or explicitly accept its findings.
-6. Finalize exact OWASP ASVS 5 Level 2 control identifiers and evidence with the independent assessor.
+1. Run the pinned CodeQL and TruffleHog workflows on the release-candidate commit and disposition every result.
+2. Run the scheduled Nuxt `4.4.0`/latest compatibility matrix and the extended E2E workflow in clean GitHub-hosted runners.
+3. Run proxy fuzzing/DAST against the deployed candidate and real ingress, including malformed framing, slow bodies, header confusion, origin variants, and redirect responses.
+4. Exercise the application's configured OAuth providers and MFA/OTP/TOTP/backup-code flows with production-like provider credentials and secrets. Local contract simulations verify library integration shape, not external provider behavior.
+5. Confirm production cookie, TLS, trusted-ingress, CSP, rate-limit, monitoring, secret-rotation, backup, and incident-response configuration owned by the consumer/deployment.
+6. Obtain an independent penetration test and have an independent assessor review the ASVS responsibility/evidence decisions; close or explicitly accept every finding.
 
 The defensible claim after those gates pass is: **security-hardened and reviewed against the documented supported contract and threat model**. Do not claim that the library is completely secure, universally OWASP-compliant, or immune to bad actors.

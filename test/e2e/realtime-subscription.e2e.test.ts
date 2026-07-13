@@ -5,37 +5,24 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import { ensureLocalConvex } from '../helpers/local-convex'
 
-let local: Awaited<ReturnType<typeof ensureLocalConvex>> | null = null
-try {
-  local = await ensureLocalConvex({
-    cwd: fileURLToPath(new URL('../../playground', import.meta.url)),
-  })
-} catch (error) {
-  console.warn(
-    `[e2e] Skipping realtime subscription suite: ${error instanceof Error ? error.message : String(error)}`,
-  )
-}
+const local = await ensureLocalConvex({
+  cwd: fileURLToPath(new URL('../../playground', import.meta.url)),
+})
 
-const maybeDescribe = local ? describe : describe.skip
-
-maybeDescribe('Realtime subscription (full stack)', async () => {
+describe('Realtime subscription (full stack)', async () => {
   afterAll(async () => {
-    if (local) {
-      await local.release()
-    }
+    await local.release()
   })
 
   await setup({
     rootDir: fileURLToPath(new URL('../../playground', import.meta.url)),
-    env: local ? local.env : undefined,
-    nuxtConfig: local
-      ? {
-          convex: {
-            url: local.env.NUXT_PUBLIC_CONVEX_URL,
-            siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
-          },
-        }
-      : undefined,
+    env: local.env,
+    nuxtConfig: {
+      convex: {
+        url: local.env.NUXT_PUBLIC_CONVEX_URL,
+        siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
+      },
+    },
   })
 
   it('syncs added note across tabs', async () => {

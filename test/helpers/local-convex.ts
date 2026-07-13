@@ -89,6 +89,28 @@ async function terminateChild(child: ChildProcessWithoutNullStreams): Promise<vo
   clearTimeout(timer)
 }
 
+async function setLocalConvexEnvironment(cwd: string, name: string, value: string): Promise<void> {
+  const child = spawn('npx', ['convex', 'env', 'set', name, value, '--env-file', '.env.local'], {
+    cwd,
+    env: process.env,
+    stdio: 'pipe',
+  })
+  const getOutput = createChildOutputReader(child)
+  const [code] = await once(child, 'exit')
+  if (code !== 0) {
+    throw new Error(`Failed to configure local Convex ${name}: ${getOutput()}`)
+  }
+}
+
+async function configureLocalAuthEnvironment(cwd: string): Promise<void> {
+  await setLocalConvexEnvironment(cwd, 'SITE_URL', 'http://localhost:3050')
+  await setLocalConvexEnvironment(
+    cwd,
+    'BETTER_AUTH_SECRET',
+    'better-convex-nuxt-e2e-only-secret-32-bytes-minimum',
+  )
+}
+
 async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
   try {
     const envPath = path.join(cwd, '.env.local')
@@ -485,6 +507,7 @@ export async function ensureLocalConvex(
 
     try {
       await waitForLocalConvexStart(child, port, timeoutMs, getOutput)
+      await configureLocalAuthEnvironment(cwd)
     } catch (error) {
       if (activeHandle?.process === child) {
         activeHandle = null

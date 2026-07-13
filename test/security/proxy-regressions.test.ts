@@ -105,6 +105,33 @@ describe('auth proxy security regressions', () => {
     expect(headers['x-better-auth-forwarded-proto']).toBe('https')
   })
 
+  it('forwards independent cookies, removes unsafe response framing, and forces no-store', async () => {
+    const responseHeaders = new Headers({
+      'content-length': '999',
+      'content-encoding': 'gzip',
+      'content-type': 'application/json',
+    })
+    responseHeaders.append('set-cookie', 'better-auth.session_token=one; Path=/; HttpOnly')
+    responseHeaders.append('set-cookie', 'better-auth.callback=two; Path=/; HttpOnly')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { headers: responseHeaders })),
+    )
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (input: ReturnType<typeof event>) => Promise<Uint8Array>
+    await handler(event())
+    expect(mocks.responseCookie).toHaveBeenCalledTimes(2)
+    expect(mocks.responseHeaders).not.toHaveBeenCalledWith(expect.anything(), {
+      'content-length': expect.anything(),
+    })
+    expect(mocks.responseHeaders).not.toHaveBeenCalledWith(expect.anything(), {
+      'content-encoding': expect.anything(),
+    })
+    expect(mocks.responseHeaders).toHaveBeenCalledWith(expect.anything(), {
+      'cache-control': 'private, no-store',
+    })
+  })
+
   it('rejects cross-origin and non-GET/POST requests before fetch', async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -141,5 +168,21 @@ describe('auth proxy security regressions', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('redacts upstream failure details in production responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('secret-upstream-host.internal:8443')
+      }),
+    )
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (input: ReturnType<typeof event>) => Promise<Uint8Array>
+    await expect(handler(event())).rejects.toMatchObject({
+      statusCode: 502,
+      message: 'Failed to proxy request to Convex auth server',
+    })
+    await expect(handler(event())).rejects.not.toThrow(/secret-upstream-host/)
   })
 })

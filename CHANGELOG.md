@@ -9,6 +9,10 @@
 - Stripped caller-controlled proxy headers, preserved request bytes, and kept one deadline through complete response consumption.
 - Made Better Auth's public reactive session the canonical client identity source, including raw/plugin operations, MFA, expiry, and cross-tab logout.
 - Serialized complete sign-in, sign-up, and sign-out operations and added mandatory security regression tests.
+- Added deterministic isolated E2E execution, real Nitro proxy probes, seeded proxy property tests, and a two-tab session/account-switch matrix.
+- Added a machine-checked OWASP ASVS 5.0.0 Level 2 responsibility/evidence ledger covering all 253 applicable Level 1/2 controls.
+- Added production dependency auditing, CycloneDX SBOM generation, secret scanning, CodeQL, pinned CI actions, Dependabot, and security release gates.
+- Narrowed the supported Nuxt peer range to `^4.4.0`; Better Auth and its Convex adapter remain exact-version integration dependencies.
 
 ## v0.6.0
 

@@ -1,0 +1,42 @@
+name: security-extended
+
+on:
+  schedule:
+    - cron: '41 2 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extended-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: npx playwright install --with-deps chromium
+      - run: pnpm test:e2e:full
+      - run: pnpm test:dast:proxy
+
+  nuxt-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        nuxt-version: ['4.4.0', 'latest']
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Select Nuxt compatibility target
+        run: pnpm update "nuxt@${{ matrix.nuxt-version }}" "@nuxt/kit@${{ matrix.nuxt-version }}" "@nuxt/schema@${{ matrix.nuxt-version }}" --lockfile=false
+      - run: pnpm check

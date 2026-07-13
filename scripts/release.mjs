@@ -124,6 +124,10 @@ function buildPackAndVerify() {
   console.log(`\nVerified tarball: ${tarballPath}`)
   console.log(`Content manifest: ${manifestPath}`)
 
+  const sbomPath = join(artifactsDir, `${tag}.sbom.cdx.json`)
+  run('node', ['scripts/generate-sbom.mjs', '--output', sbomPath])
+  console.log(`CycloneDX SBOM: ${sbomPath}`)
+
   return tarballPath
 }
 
@@ -136,8 +140,7 @@ if (verifyOnly) {
     )
     process.exit(1)
   }
-  run('pnpm', ['run', 'check'])
-  run('pnpm', ['run', 'check:contract-fixtures'])
+  run('pnpm', ['run', 'security:verify'])
   buildPackAndVerify()
   console.log(`\nVerified ${pkg.name}@${version} without publishing.`)
   process.exit(0)
@@ -196,8 +199,7 @@ if (!releasePrepared) {
   // owns the non-package contracts; buildPackAndVerify owns the one build, one
   // pack, and exact-artifact checks. Keeping those tiers named prevents this
   // script from duplicating a hand-picked list that can drift from CI.
-  run('pnpm', ['run', 'check'])
-  run('pnpm', ['run', 'check:contract-fixtures'])
+  run('pnpm', ['run', 'security:verify'])
 
   run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
   run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])

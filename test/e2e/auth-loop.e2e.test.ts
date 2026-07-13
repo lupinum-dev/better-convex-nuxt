@@ -19,16 +19,11 @@ try {
     origin: 'http://localhost:3050',
   })
 } catch (error) {
-  console.warn(
-    `[e2e] Skipping auth-loop suite: ${error instanceof Error ? error.message : String(error)}`,
-  )
   await local?.release()
-  local = null
+  throw error
 }
 
-const maybeDescribe = local ? describe : describe.skip
-
-maybeDescribe('Auth loop (full stack)', async () => {
+describe('Auth loop (full stack)', async () => {
   afterAll(async () => {
     if (local) {
       await local.release()
@@ -78,12 +73,7 @@ maybeDescribe('Auth loop (full stack)', async () => {
     }
 
     await page.goto('http://localhost:3050/demo/dashboard')
-    await page.waitForSelector('h2', { timeout: 30_000 })
-
-    const headings = await page.$$eval('h2', (nodes) =>
-      nodes.map((node) => node.textContent?.trim() || ''),
-    )
-    expect(headings).toContain('Your Profile')
+    await page.waitForSelector('h2:has-text("Your Profile")', { timeout: 30_000 })
 
     const cookies = await page.context().cookies()
     const hasSessionCookie = cookies.some(

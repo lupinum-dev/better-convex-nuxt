@@ -107,4 +107,31 @@ describe('auth proxy plugin routes', async () => {
       slug: 'trellis-labs',
     })
   })
+
+  it('rejects cross-origin and unsupported-method requests at the real Nitro boundary', async () => {
+    const requestCount = capturedRequests.length
+    await expect(
+      $fetch('/api/auth/get-session', {
+        headers: { origin: 'https://evil.example.test' },
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect($fetch('/api/auth/get-session', { method: 'DELETE' })).rejects.toMatchObject({
+      statusCode: 405,
+    })
+    expect(capturedRequests).toHaveLength(requestCount)
+  })
+
+  it('removes attacker forwarding controls before the real upstream request', async () => {
+    await $fetch('/api/auth/get-session', {
+      headers: {
+        'x-forwarded-for': '10.0.0.1',
+        'x-forwarded-host': 'evil.example.test',
+        'x-better-auth-forwarded-host': 'evil.example.test',
+      },
+    })
+    const request = capturedRequests.at(-1)
+    expect(request?.headers['x-forwarded-for']).toBeUndefined()
+    expect(request?.headers['x-forwarded-host']).toBeUndefined()
+    expect(request?.headers['x-better-auth-forwarded-host']).not.toBe('evil.example.test')
+  })
 })
