@@ -416,6 +416,37 @@ function installResolvedLocalEnv(url: string, siteUrl: string): Record<string, s
   })
 }
 
+async function waitForLocalAuthDeployment(
+  cwd: string,
+  url: string,
+  siteUrl: string,
+  timeoutMs: number,
+): Promise<void> {
+  const started = Date.now()
+  let lastError: unknown
+
+  while (Date.now() - started <= timeoutMs) {
+    try {
+      await assertLocalAuthReady({
+        cwd,
+        env: { CONVEX_SITE_URL: siteUrl, CONVEX_URL: url },
+        timeoutMs: 1000,
+      })
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+  }
+
+  throw new Error(
+    [
+      `Timed out waiting for the local Better Auth deployment after ${timeoutMs}ms.`,
+      `- last readiness error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+    ].join('\n'),
+  )
+}
+
 function retainLocalConvex(handle: LocalConvexHandle): () => Promise<void> {
   retainers += 1
   let released = false
@@ -440,6 +471,7 @@ async function startLocalConvex(cwd: string, timeoutMs: number): Promise<LocalCo
   try {
     const selected = await waitForLocalConvexStart(child, cwd, timeoutMs, getOutput)
     await configureLocalAuthEnvironment(cwd)
+    await waitForLocalAuthDeployment(cwd, selected.url, selected.siteUrl, timeoutMs)
 
     const handle: LocalConvexHandle = {
       cwd,
