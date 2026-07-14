@@ -962,21 +962,25 @@ Phase status: `BLOCKED` — the local structural and documentation review is com
 
 # Phase 9 — Final verification, independent review, and signoff
 
-Phase status: `BLOCKED` — all locally runnable source, contract, supply-chain, browser, isolated E2E, and exact working-tree artifact gates pass. A clean committed candidate, its final release artifact, candidate deployment, and the external ceremonies recorded below are still required for release signoff.
+Phase status: `BLOCKED` — all locally runnable source, contract,
+supply-chain, browser, isolated E2E, clean-candidate, and exact-artifact gates
+pass. Candidate deployment, credentialed Agency codegen freshness, and the
+external review/operations ceremonies recorded below remain release signoff
+requirements.
 
 ## Required verification
 
-- [ ] Run formatting, lint, type checking, unit, security, browser, Convex, Nuxt, packed-consumer, starter, documentation, ASVS, SBOM, production audit, E2E, and release verification gates.
+- [x] Run formatting, lint, type checking, unit, security, browser, Convex, Nuxt, packed-consumer, starter, documentation, ASVS, SBOM, production audit, E2E, and release verification gates.
 - [ ] Repeat the core identity-switch and proxy experiments multiple times.
 - [ ] Run tests from a clean checkout of the exact candidate commit.
-- [ ] Build the exact publishable tarball once.
-- [ ] Record the tarball manifest and SHA-256.
-- [ ] Install that tarball into clean consumers using the supported tuple.
-- [ ] Verify the artifact, not a rebuilt working directory.
+- [x] Build the exact publishable tarball once.
+- [x] Record the tarball manifest and SHA-256.
+- [x] Install that tarball into clean consumers using the supported tuple.
+- [x] Verify the artifact, not a rebuilt working directory.
 - [ ] Review every skipped, retried, flaky, quarantined, or environment-dependent test.
 - [ ] Review every finding and exception.
 - [ ] Have an independent reviewer challenge the threat model, evidence, conclusions, and wording.
-- [ ] Produce a final report and public-safe security summary.
+- [x] Produce a final report and public-safe security summary.
 
 ## Current verification evidence (2026-07-14)
 
@@ -987,12 +991,16 @@ Phase status: `BLOCKED` — all locally runnable source, contract, supply-chain,
 - `pnpm audit --prod`: PASS — no known production vulnerabilities reported.
 - `pnpm test:e2e`: PASS — 9 isolated files / 30 tests. The runner prepares both root module and playground generated types from a clean generated state.
 - `pnpm check:candidate-apps`: PASS — the demo and all five maintained starters were copied outside the repository, frozen-installed from one exact packed 0.6.0 tarball, typechecked, tested where applicable, and production-built. Installed package bytes matched the tarball in every app. Credentialed Agency live codegen freshness remains an external CI/release check.
-- Working-tree review tarball: PASS — `.audit/candidate-review/better-convex-nuxt-0.6.0.tgz`, SHA-256 `4b9430cd595e0fd786a02b0789edf02d097d1089094795a09b786034dec77ad4`. This hash proves the one artifact used by the six-app matrix; it is not the final release hash because the reviewed tree is not yet a clean commit.
+- Final release tarball: PASS —
+  `.release-artifacts/better-convex-nuxt-0.6.0.tgz`, SHA-256
+  `900ec5864123ece25a3bb0ebd56119b98eb232bcf7c72e9b8567370c53918d86`.
+  The content manifest is `.release-artifacts/v0.6.0.manifest.json`; this exact
+  tarball passed all packed-entry, contract, and six-app candidate gates.
 - Strict maintainability review: PASS — extracted session revision/barrier ownership from the 1,102-line auth engine into one canonical synchronization manager, separated its public type contract, then deleted a duplicate publication path, leaving the formatted engine at 966 lines; made one maintained-app list canonical for candidate validation and lock refresh; made that six-lock refresh atomic and rollback-safe; and replaced an Agentic historical deletion-request scan plus unused index with the already bounded pending-request result. No compatibility path, projection, cache, table, job, or feature flag was added.
 - `git diff --check`: PASS.
-- `pnpm release:prepare`: pending the final clean committed candidate. It builds
-  once, packs once, verifies that exact artifact, and never publishes or changes
-  Git state.
+- `pnpm release:prepare`: PASS from a clean committed candidate. It built once,
+  packed once, verified that exact artifact, recorded its manifest and SHA-256,
+  and did not publish or change Git state.
 
 ## Release-blocking conditions
 

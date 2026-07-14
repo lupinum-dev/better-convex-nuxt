@@ -1,9 +1,9 @@
 # Better Auth integration: second release-gate review
 
-**Review date:** 2026-07-13  
-**Branch:** `audit/better-auth-security-verification`  
-**Reviewed HEAD:** `e3ef9e4c`  
-**Production source revision:** `fb238d96` (`0.6.0`)  
+**Review date:** 2026-07-13
+**Branch:** `audit/better-auth-security-verification`
+**Reviewed HEAD:** `e3ef9e4c`
+**Production source revision:** `fb238d96` (`0.6.0`)
 **Decision:** **RELEASE BLOCKED — do not promote this revision as secure.**
 
 ## Executive decision

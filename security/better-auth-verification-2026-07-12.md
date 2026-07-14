@@ -1,9 +1,9 @@
 # Better Auth integration security verification
 
-**Review date:** 2026-07-12  
-**Repository:** `better-convex-nuxt`  
-**Reviewed branch:** `audit/better-auth-security-verification`  
-**Reviewed repository commit:** `fb238d96` (`0.6.0`)  
+**Review date:** 2026-07-12
+**Repository:** `better-convex-nuxt`
+**Reviewed branch:** `audit/better-auth-security-verification`
+**Reviewed repository commit:** `fb238d96` (`0.6.0`)
 **Verdict:** release-block until the proxy trust-boundary and client session-lifecycle findings are fixed and their characterization tests are inverted into fail-closed regression tests.
 
 ## Executive conclusion

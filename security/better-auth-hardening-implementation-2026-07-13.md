@@ -1,7 +1,7 @@
 # Better Auth hardening implementation report
 
-**Implementation date:** 2026-07-13  
-**Branch:** `fix/better-auth-security-hardening`  
+**Implementation date:** 2026-07-13
+**Branch:** `fix/better-auth-security-hardening`
 **Baseline audit:** `security/better-auth-second-release-gate-2026-07-13.md`
 
 ## Decision
