@@ -2,18 +2,6 @@
 
 ## Unreleased
 
-### Security hardening (breaking)
-
-- Fixed the auth proxy to one same-origin `/api/auth` route, GET/POST only, with one validated upstream request and no server-side redirect following.
-- Removed cross-origin CORS/trusted-origin options, custom proxy routes, and the cross-request JWT cache and clear helper.
-- Stripped caller-controlled proxy headers, preserved request bytes, and kept one deadline through complete response consumption.
-- Made Better Auth's public reactive session the canonical client identity source, including raw/plugin operations, MFA, expiry, and cross-tab logout.
-- Serialized complete sign-in, sign-up, and sign-out operations and added mandatory security regression tests.
-- Added deterministic isolated E2E execution, real Nitro proxy probes, seeded proxy property tests, and a two-tab session/account-switch matrix.
-- Added a machine-checked OWASP ASVS 5.0.0 Level 2 responsibility/evidence ledger covering all 253 applicable Level 1/2 controls.
-- Added production dependency auditing, CycloneDX SBOM generation, secret scanning, CodeQL, pinned CI actions, Dependabot, and security release gates.
-- Narrowed the supported Nuxt peer range to `^4.4.0`; Better Auth and its Convex adapter remain exact-version integration dependencies.
-
 ## v0.6.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.5.0...v0.6.0)
@@ -22,6 +10,41 @@ This is the vNext hard cutover. It replaces the pre-0.6 auth, query-argument,
 error, and server-call surfaces outright — there is no compatibility shim and
 no deprecation period. Upgrading requires reading the sections below; most
 consumers will need source changes.
+
+### 🔒 Security hardening
+
+- Fixed authentication to one same-origin `/api/auth` proxy, GET/POST only,
+  with one validated upstream request, no server-side redirect following, and
+  no caller-controlled forwarding headers.
+- Preserved request bytes and one deadline through complete response
+  consumption, including bounded request/response bodies and deterministic
+  stream cancellation.
+- Made Better Auth's public reactive session the canonical client identity
+  source across built-in, raw, and plugin operations, MFA settlement, expiry,
+  cross-tab logout, and account switching.
+- Serialized complete sign-in, sign-up, and sign-out operations so stale work
+  cannot publish a superseded identity.
+- Removed cross-origin CORS/trusted-origin configuration, custom proxy routes,
+  the cross-request JWT cache, and its public clear helper.
+- Hardened maintained demo and starter Convex functions with server-side
+  authorization, tenant ownership checks, bounded reads/writes, pagination,
+  body limits, and invariant tests.
+- Narrowed supported Nuxt versions to `^4.4.0`; Better Auth, its Convex adapter,
+  and Convex use exact tested peer versions.
+
+### ✅ Release assurance
+
+- Added deterministic isolated E2E execution, real Nitro proxy probes, seeded
+  proxy property tests, browser identity lifecycle coverage, and a two-tab
+  session/account-switch matrix.
+- Added a machine-checked OWASP ASVS 5.0.0 Level 2 responsibility/evidence
+  ledger covering all 253 applicable Level 1/2 controls.
+- Added production dependency auditing, CycloneDX SBOM generation, secret
+  scanning, CodeQL, pinned CI actions, Dependabot, and exact-tarball release
+  gates across the demo and all five maintained starters.
+- Release preparation now builds and packs once, verifies that exact immutable
+  tarball, records its manifest and SHA-256, and leaves npm publication and Git
+  tagging as explicit operator actions.
 
 ### 💥 Breaking changes
 

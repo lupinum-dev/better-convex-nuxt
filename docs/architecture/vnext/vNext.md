@@ -21,7 +21,7 @@ Compatibility policy: hard cutover; do not retain aliases, shims, deprecated ove
 | Authentication topology and lifecycle | Enabled/disabled consumer fixtures, auth coordinator tests, build-graph checks |
 | Error and server-call contracts | `/errors` and `/server` contract fixtures, SSR serialization and security tests |
 | Ginko migration | Ginko package checks, production audit, and exact-tarball consumer verification |
-| Release readiness | `pnpm run release:verify` plus the coordinated Ginko release-candidate gate |
+| Release readiness | `pnpm run release:prepare` plus the coordinated Ginko release-candidate gate |
 
 Any disagreement between historical checklist text and an executable contract is resolved by the accepted public API, package manifest, and invariant tests. A changed decision requires a new ADR and corresponding executable proof rather than editing this archive in place.
 
@@ -1411,7 +1411,8 @@ Validation rules:
 - `authToken` and `credential` are mutually exclusive.
 - Providing either changes an omitted `auth` to `required`.
 - Explicit `authToken` or `credential` may be combined only with omitted auth or `required`; reject both `optional` and `none` rather than silently downgrading a rejected explicit principal.
-- An empty token or credential is a validation error.
+- An empty token or credential is a validation error; an explicit cookie
+  credential must contain a non-empty supported Better Auth session cookie.
 - Cookie-based event resolution uses fixed `optional` by default.
 
 ### Never-throwing exchange primitive
