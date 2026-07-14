@@ -15,7 +15,8 @@
   lint-staged 17, oxfmt 0.59, and the latest compatible stable supporting
   packages.
 - Updated pinned GitHub Actions for checkout, Node setup, pnpm setup, and
-  TruffleHog; the TruffleHog binary input now matches the pinned action.
+  TruffleHog; the TruffleHog binary input now matches the pinned action, and
+  checkout credentials are not persisted into subsequent job steps.
 - Kept TypeScript on the latest compatible 5.9 release because TypeScript 7 is
   outside the current Nuxt, ESLint, and Convex peer ranges.
 
