@@ -157,11 +157,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build module
-        run: nuxt-module-build prepare && npm run build:devtools && nuxt-module-build build
-
       - name: Contract checks
-        run: npm run check:contracts
+        run: pnpm run check:contracts
 
   consumer-smoke:
     runs-on: ubuntu-latest
