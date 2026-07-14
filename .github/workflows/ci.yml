@@ -66,8 +66,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Enable Corepack
-        run: corepack enable
+      # Node 22.12 bundles Corepack with stale package-signing keys.
+      - name: Update and enable Corepack
+        run: npm install --global corepack@0.34.5 && corepack enable
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
