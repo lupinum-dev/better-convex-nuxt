@@ -133,7 +133,7 @@
     "@convex-dev/better-auth": "0.12.5",
     "@edge-runtime/vm": "^5.0.0",
     "@nuxt/devtools": "^3.2.4",
-    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/module-builder": "^1.0.2",
     "@nuxt/schema": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
