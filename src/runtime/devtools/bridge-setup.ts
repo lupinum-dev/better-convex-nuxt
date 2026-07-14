@@ -5,10 +5,12 @@
  * and the DevTools iframe using BroadcastChannel.
  */
 
-import type { ConvexClient } from 'convex/browser'
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
+import type { ConvexClientOwner } from '../client/client-owner'
+import { decodeJwtPayload } from '../utils/convex-shared'
+import type { DevtoolsSink } from './sink'
 import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'
 import type {
   ConvexDevToolsBridge,
@@ -29,42 +31,37 @@ type HotImportMeta = ImportMeta & {
  * Setup the DevTools bridge on the window object.
  * Only called in dev mode from plugin.client.ts.
  *
- * @param client - The Convex WebSocket client
+ * @param owner - Per-app owner used to read the current replaceable client
+ * @param sink - Per-app bounded diagnostics store
  * @param convexToken - Ref to the current auth token
  * @param convexUser - Ref to the current user data
  * @param convexAuthWaterfall - Ref to the SSR auth waterfall timing data
+ * @param providedInstanceId - Stable application identifier used for explicit UI selection
  */
 export async function setupDevToolsBridge(
-  client: ConvexClient,
+  owner: ConvexClientOwner,
+  sink: DevtoolsSink,
   convexToken: Ref<string | null>,
   convexUser: Ref<unknown>,
   convexAuthWaterfall: Ref<AuthWaterfall | null>,
   providedInstanceId?: string,
-): Promise<void> {
-  // Dynamically import DevTools modules to avoid bundling in production
-  const [queryRegistry, mutationRegistry, convexShared] = await Promise.all([
-    import('./query-registry'),
-    import('./mutation-registry'),
-    import('../utils/convex-shared'),
-  ])
-
-  // Use shared JWT decoder
+): Promise<() => void> {
   const decodeJWT = (token: string): JWTClaims | null => {
-    return convexShared.decodeJwtPayload(token) as JWTClaims | null
+    return decodeJwtPayload(token) as JWTClaims | null
   }
 
   const bridge: ConvexDevToolsBridge = {
     version: '1.1.0',
 
-    getQueries: () => queryRegistry.getActiveQueries(),
+    getQueries: () => sink.getQueries(),
 
-    getQueryDetail: (id: string) => queryRegistry.getQuery(id),
+    getQueryDetail: (id: string) => sink.getQuery(id),
 
-    subscribeToQueries: (callback) => queryRegistry.subscribeToQueries(callback),
+    subscribeToQueries: (callback) => sink.subscribeToQueries(callback),
 
-    getMutations: () => mutationRegistry.getMutations(),
+    getMutations: () => sink.getMutations(),
 
-    subscribeToMutations: (callback) => mutationRegistry.subscribeToMutations(callback),
+    subscribeToMutations: (callback) => sink.subscribeToMutations(callback),
 
     getAuthState: (): AuthState => {
       // Use toRaw to unwrap Vue proxy (BroadcastChannel can't clone proxies)
@@ -114,12 +111,12 @@ export async function setupDevToolsBridge(
 
     getConnectionState: () => {
       // Get connection state from the Convex client
-      const state = client.connectionState()
+      const state = owner.getPrimary()?.client.connectionState()
       return {
-        isConnected: state.isWebSocketConnected,
-        hasEverConnected: state.hasInflightRequests || state.isWebSocketConnected,
+        isConnected: state?.isWebSocketConnected ?? false,
+        hasEverConnected: !!(state?.hasInflightRequests || state?.isWebSocketConnected),
         connectionRetries: 0, // Not exposed by Convex client
-        inflightRequests: state.hasInflightRequests ? 1 : 0, // Simplified
+        inflightRequests: state?.hasInflightRequests ? 1 : 0, // Simplified
       }
     },
 
@@ -143,9 +140,6 @@ export async function setupDevToolsBridge(
       }
     },
   }
-
-  // Expose on window for direct access (same-origin)
-  window.__CONVEX_DEVTOOLS__ = bridge
 
   // Generate a unique instance ID for this tab/window to prevent cross-tab interference
   const instanceId = providedInstanceId ?? Math.random().toString(36).slice(2, 10)
@@ -235,7 +229,7 @@ export async function setupDevToolsBridge(
 
   // Subscribe to mutations and forward to DevTools via BroadcastChannel
   // Capture unsubscribe handle for HMR cleanup
-  const unsubscribeMutations = mutationRegistry.subscribeToMutations((mutations) => {
+  const unsubscribeMutations = sink.subscribeToMutations((mutations) => {
     transport.postMessage({
       type: 'CONVEX_DEVTOOLS_MUTATIONS',
       mutations,
@@ -246,7 +240,7 @@ export async function setupDevToolsBridge(
 
   // Subscribe to queries and forward to DevTools via BroadcastChannel
   // Capture unsubscribe handle for HMR cleanup
-  const unsubscribeQueries = queryRegistry.subscribeToQueries((queries) => {
+  const unsubscribeQueries = sink.subscribeToQueries((queries) => {
     transport.postMessage({
       type: 'CONVEX_DEVTOOLS_QUERIES',
       queries,
@@ -257,13 +251,17 @@ export async function setupDevToolsBridge(
 
   // HMR cleanup: close the BroadcastChannel and unsubscribe when module is hot-replaced
   // This prevents ghost instances from responding to messages and subscription leaks
-  const hot = (import.meta as HotImportMeta).hot
-  if (hot) {
-    hot.dispose(() => {
-      unsubscribeMutations()
-      unsubscribeQueries()
-      transport.removeEventListener('message', onMessage)
-      transport.close()
-    })
+  let disposed = false
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    unsubscribeMutations()
+    unsubscribeQueries()
+    transport.removeEventListener('message', onMessage)
+    transport.close()
   }
+
+  const hot = (import.meta as HotImportMeta).hot
+  hot?.dispose(dispose)
+  return dispose
 }

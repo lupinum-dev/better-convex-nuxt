@@ -9,7 +9,6 @@ import {
   seedBetterAuthOrganization,
   seedBetterAuthTeam,
   signUpBetterAuthUser,
-  verifyBetterAuthUserEmail,
 } from './testHelpers'
 
 describe('team starter memberships and invitations', () => {
@@ -36,9 +35,15 @@ describe('team starter memberships and invitations', () => {
       userId: ownerSeed.authUserId,
       sessionId: ownerSeed.sessionId,
     })
-    const teamMembers = await owner.query(api.teams.listMemberIds, { teamId })
+    const teamMembers = await owner.query(api.organizations.listMembers, {
+      organizationId,
+      teamId,
+      paginationOpts: { cursor: null, numItems: 50 },
+    })
 
-    expect(teamMembers).toEqual([memberSeed.authUserId])
+    expect(
+      teamMembers.page.filter((member) => member.isTeamMember).map((member) => member.userId),
+    ).toEqual([memberSeed.authUserId])
   })
 
   it('lists teams by organization scope and visibility rules', async () => {
@@ -133,9 +138,10 @@ describe('team starter memberships and invitations', () => {
 
     const members = await owner.query(api.organizations.listMembers, {
       organizationId,
+      paginationOpts: { cursor: null, numItems: 50 },
     })
 
-    expect(members).toEqual(
+    expect(members.page).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           organizationId,
@@ -186,8 +192,9 @@ describe('team starter memberships and invitations', () => {
 
     const memberRows = await owner.query(api.organizations.listMembers, {
       organizationId,
+      paginationOpts: { cursor: null, numItems: 50 },
     })
-    const memberRow = memberRows.find((row) => row.userId === memberSeed.authUserId)
+    const memberRow = memberRows.page.find((row) => row.userId === memberSeed.authUserId)
     if (!memberRow) {
       throw new Error('Expected member row to exist')
     }
@@ -268,16 +275,6 @@ describe('team starter memberships and invitations', () => {
       userId: inviteeSeed.authUserId,
       sessionId: inviteeSeed.sessionId,
     })
-    await expect(
-      invitee.query(api.invitations.get, {
-        invitationId,
-      }),
-    ).rejects.toThrow(/Verify your email/)
-
-    await verifyBetterAuthUserEmail(t, {
-      userId: inviteeSeed.authUserId,
-    })
-
     const invitation = await invitee.query(api.invitations.get, {
       invitationId,
     })
@@ -365,9 +362,6 @@ describe('team starter memberships and invitations', () => {
       userId: inviteeSeed.authUserId,
       sessionId: inviteeSeed.sessionId,
     })
-    await verifyBetterAuthUserEmail(t, {
-      userId: inviteeSeed.authUserId,
-    })
     await invitee.mutation(api.invitations.reject, {
       invitationId,
     })
@@ -383,6 +377,62 @@ describe('team starter memberships and invitations', () => {
     })
 
     expect(memberRow).toBeNull()
+  })
+
+  it('does not reveal whether an invitation belongs to another recipient or is missing', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_oracle' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_recipient_oracle',
+      organizationId,
+      role: 'owner',
+    })
+    const inviteeSeed = await signUpBetterAuthUser(t, {
+      label: 'invitee_recipient_oracle',
+    })
+    const otherUserSeed = await signUpBetterAuthUser(t, {
+      label: 'other_recipient_oracle',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+
+    await owner.mutation(api.organizations.inviteMember, {
+      organizationId,
+      email: 'invitee_recipient_oracle@example.com',
+      role: 'member',
+    })
+    const invitationId = await t.run(async (ctx) => {
+      const invitation = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: 'invitation',
+        where: [
+          { field: 'organizationId', value: organizationId },
+          { field: 'email', value: 'invitee_recipient_oracle@example.com' },
+        ],
+      })) as { _id?: string; id?: string } | null
+
+      return invitation?.id ?? invitation?._id ?? null
+    })
+    if (!invitationId) {
+      throw new Error('Expected invitation row to exist')
+    }
+
+    const invitee = asActor(t, {
+      userId: inviteeSeed.authUserId,
+      sessionId: inviteeSeed.sessionId,
+    })
+    const otherUser = asActor(t, {
+      userId: otherUserSeed.authUserId,
+      sessionId: otherUserSeed.sessionId,
+    })
+
+    await expect(otherUser.query(api.invitations.get, { invitationId })).rejects.toThrow(
+      'Invitation is unavailable',
+    )
+    await expect(
+      invitee.query(api.invitations.get, { invitationId: 'missing-invitation' }),
+    ).rejects.toThrow('Invitation is unavailable')
   })
 
   it('lists and cancels pending invitations without exposing invitation ids', async () => {
@@ -406,15 +456,16 @@ describe('team starter memberships and invitations', () => {
 
     const invitations = await owner.query(api.organizations.listInvitations, {
       organizationId,
+      paginationOpts: { cursor: null, numItems: 50 },
     })
-    expect(invitations).toEqual([
+    expect(invitations.page).toEqual([
       expect.objectContaining({
         email: 'pending_cancel@example.com',
         role: 'admin',
         status: 'pending',
       }),
     ])
-    expect('id' in invitations[0]!).toBe(false)
+    expect('id' in invitations.page[0]!).toBe(false)
 
     await owner.mutation(api.organizations.cancelInvitation, {
       organizationId,
@@ -423,8 +474,50 @@ describe('team starter memberships and invitations', () => {
 
     const remainingInvitations = await owner.query(api.organizations.listInvitations, {
       organizationId,
+      paginationOpts: { cursor: null, numItems: 50 },
     })
-    expect(remainingInvitations).toEqual([])
+    expect(remainingInvitations.page).toEqual([])
+  })
+
+  it('authorizes invitation cancellation before revealing whether a row exists', async () => {
+    const t = initConvexTest()
+    const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_oracle' })
+    const ownerSeed = await seedBetterAuthActor(t, {
+      label: 'owner_invite_oracle',
+      organizationId,
+      role: 'owner',
+    })
+    const memberSeed = await seedBetterAuthActor(t, {
+      label: 'member_invite_oracle',
+      organizationId,
+      role: 'member',
+    })
+    const owner = asActor(t, {
+      userId: ownerSeed.authUserId,
+      sessionId: ownerSeed.sessionId,
+    })
+    const member = asActor(t, {
+      userId: memberSeed.authUserId,
+      sessionId: memberSeed.sessionId,
+    })
+
+    await owner.mutation(api.organizations.inviteMember, {
+      organizationId,
+      email: 'exists@example.com',
+      role: 'member',
+    })
+
+    for (const email of ['exists@example.com', 'absent@example.com']) {
+      await expect(
+        member.mutation(api.organizations.cancelInvitation, { organizationId, email }),
+      ).rejects.toThrow('Missing member:update permission')
+    }
+
+    const invitations = await owner.query(api.organizations.listInvitations, {
+      organizationId,
+      paginationOpts: { cursor: null, numItems: 50 },
+    })
+    expect(invitations.page).toHaveLength(1)
   })
 
   it('adds and removes team members through the Convex teams API', async () => {
@@ -466,7 +559,14 @@ describe('team starter memberships and invitations', () => {
       teamId,
       userId: memberSeed.authUserId,
     })
-    expect(await owner.query(api.teams.listMemberIds, { teamId })).toEqual([memberSeed.authUserId])
+    let members = await owner.query(api.organizations.listMembers, {
+      organizationId,
+      teamId,
+      paginationOpts: { cursor: null, numItems: 50 },
+    })
+    expect(members.page.find((member) => member.userId === memberSeed.authUserId)).toMatchObject({
+      isTeamMember: true,
+    })
 
     await expect(
       outsider.mutation(api.teams.addMember, {
@@ -479,6 +579,13 @@ describe('team starter memberships and invitations', () => {
       teamId,
       userId: memberSeed.authUserId,
     })
-    expect(await owner.query(api.teams.listMemberIds, { teamId })).toEqual([])
+    members = await owner.query(api.organizations.listMembers, {
+      organizationId,
+      teamId,
+      paginationOpts: { cursor: null, numItems: 50 },
+    })
+    expect(members.page.find((member) => member.userId === memberSeed.authUserId)).toMatchObject({
+      isTeamMember: false,
+    })
   })
 })

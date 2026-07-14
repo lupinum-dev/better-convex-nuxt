@@ -8,7 +8,7 @@ import {
   requireMcpServerCall,
   requireOrganizationMembership,
   requireServiceActor,
-  writeServiceAudit,
+  writeAuditEvent,
 } from './access'
 import { organizationUserKey, rateLimiter, serviceActorProjectKey } from './rateLimits'
 import { parseWithConvexError } from './validation'
@@ -20,10 +20,12 @@ type ProjectCreator =
 async function listProjectsForOrganization(ctx: QueryCtx, organizationId: Id<'organizations'>) {
   const projects = await ctx.db
     .query('projects')
-    .withIndex('by_org', (q) => q.eq('organizationId', organizationId))
+    .withIndex('by_org_status', (q) =>
+      q.eq('organizationId', organizationId).eq('status', 'active'),
+    )
     .order('desc')
-    .collect()
-  return projects.filter((project) => project.status !== 'deleted')
+    .take(100)
+  return projects
 }
 
 async function createProject(
@@ -169,11 +171,20 @@ export const createForCurrentUser = mutation({
       key: organizationUserKey(args.organizationId, user._id),
       throws: true,
     })
-    return await createProject(ctx, {
+    const projectId = await createProject(ctx, {
       organizationId: args.organizationId,
       name: args.name,
       createdBy: { kind: 'user', userId: user._id },
     })
+    await writeAuditEvent(ctx, {
+      organizationId: args.organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'projects.create',
+      resourceType: 'project',
+      source: 'human',
+      resourceId: projectId,
+    })
+    return projectId
   },
 })
 
@@ -273,11 +284,12 @@ export const createFromServiceActor = mutation({
       createdBy: { kind: 'serviceActor', serviceActorId: actor._id },
     })
 
-    await writeServiceAudit(ctx, {
+    await writeAuditEvent(ctx, {
       organizationId,
-      serviceActorId: actor._id,
+      actor: { kind: 'serviceActor', serviceActorId: actor._id },
       action: 'projects.create',
       resourceType: 'project',
+      source: 'mcp',
       resourceId: projectId,
     })
 
@@ -310,13 +322,21 @@ export const requestDeleteApprovalFromServiceActor = mutation({
     const target = await requireProjectDeleteTarget(ctx, args)
     const now = Date.now()
     const trimmedRequestKey = args.requestKey?.trim()
+    const requestedReason = args.reason?.trim()
+    if (trimmedRequestKey && trimmedRequestKey.length > 120) {
+      throw new ConvexError('Request key must be 120 characters or less')
+    }
+    if (requestedReason && requestedReason.length > 1_000) {
+      throw new ConvexError('Approval reason must be 1000 characters or less')
+    }
 
     if (trimmedRequestKey) {
       const existing = await ctx.db
         .query('approvals')
-        .withIndex('by_request_key', (q) =>
+        .withIndex('by_actor_request_key', (q) =>
           q
             .eq('organizationId', target.organizationId)
+            .eq('requestedBy', target.actor._id)
             .eq('operation', 'projects.delete')
             .eq('resourceId', args.projectId)
             .eq('requestKey', trimmedRequestKey),
@@ -362,7 +382,7 @@ export const requestDeleteApprovalFromServiceActor = mutation({
       resourceId: args.projectId,
       status: 'pending',
       requestedBy: target.actor._id,
-      requestedReason: args.reason?.trim() || 'MCP agent requested project deletion.',
+      requestedReason: requestedReason || 'MCP agent requested project deletion.',
       requestKey: trimmedRequestKey || undefined,
       preview: {
         resourceLabel: target.project.name,
@@ -382,6 +402,14 @@ export const requestDeleteApprovalFromServiceActor = mutation({
       },
       expiresAt,
       createdAt: now,
+    })
+    await writeAuditEvent(ctx, {
+      organizationId: target.organizationId,
+      actor: { kind: 'serviceActor', serviceActorId: target.actor._id },
+      action: 'approvals.request',
+      resourceType: 'approval',
+      source: 'mcp',
+      resourceId: approvalRequestId,
     })
 
     return toWaitingForApprovalResponse({
@@ -415,6 +443,7 @@ export const deleteWithApproval = mutation({
     if (
       !approval ||
       approval.organizationId !== organizationId ||
+      approval.requestedBy !== actorId ||
       approval.operation !== 'projects.delete' ||
       approval.resourceId !== args.projectId ||
       approval.status !== 'approved' ||
@@ -432,11 +461,12 @@ export const deleteWithApproval = mutation({
       status: 'used',
       usedAt: now,
     })
-    await writeServiceAudit(ctx, {
+    await writeAuditEvent(ctx, {
       organizationId,
-      serviceActorId: actorId,
+      actor: { kind: 'serviceActor', serviceActorId: actorId },
       action: 'projects.delete',
       resourceType: 'project',
+      source: 'mcp',
       resourceId: args.projectId,
     })
 

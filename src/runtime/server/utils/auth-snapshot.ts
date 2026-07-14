@@ -1,11 +1,9 @@
 import type { AuthWaterfall, AuthWaterfallPhase } from '../../devtools/types'
 import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
-import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
+import { decodeUserFromJwt, isJwtUsable } from '../../utils/convex-shared'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
-import { getCachedAuthToken, setCachedAuthToken } from './auth-cache'
-import { fetchWithTimeout } from './http'
-import { exchangeSessionForToken } from './token-exchange'
+import { exchangeConvexToken } from './token-exchange'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 
@@ -18,7 +16,7 @@ type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
 const GENERIC_AUTH_ERROR_MESSAGE = 'Authentication is temporarily unavailable'
 
 /**
- * Truncate a user id for debug logs (F-39). Log events are debug-gated but
+ * Truncate a user id for debug logs. Log events are debug-gated but
  * still land in server logs / log aggregators; a full email is PII that
  * doesn't need to be there just to correlate log lines to a session.
  */
@@ -37,10 +35,6 @@ export interface ServerAuthLogEvent {
 export interface ResolveServerAuthSnapshotOptions {
   siteUrl: string
   cookieHeader: string | null
-  authCache: {
-    enabled: boolean
-    ttl: number
-  }
   requestId: string
   trackWaterfall: boolean
   throwOnMisconfig: boolean
@@ -80,29 +74,12 @@ function buildPhase(
   }
 }
 
-async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<ConvexUser | null> {
-  try {
-    const sessionFetch = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader },
-      timeoutMs: 5_000,
-    })
-    if (!sessionFetch.ok) return null
-    const sessionResponse = (await sessionFetch.json().catch(() => null)) as {
-      user?: unknown
-    } | null
-    return normalizeConvexUser(sessionResponse?.user)
-  } catch {
-    return null
-  }
-}
-
 export async function resolveServerAuthSnapshot(
   options: ResolveServerAuthSnapshotOptions,
 ): Promise<ServerAuthSnapshot> {
   const {
     siteUrl,
     cookieHeader,
-    authCache,
     requestId,
     trackWaterfall,
     throwOnMisconfig,
@@ -111,7 +88,7 @@ export async function resolveServerAuthSnapshot(
   const waterfallStart = trackWaterfall ? Date.now() : 0
   const phases: AuthWaterfallPhase[] = []
   const logEvents: ServerAuthLogEvent[] = []
-  let cacheHit = false
+  const cacheHit = false
   let token: string | null = null
   let user: ConvexUser | null = null
   let authError: string | null = null
@@ -143,7 +120,6 @@ export async function resolveServerAuthSnapshot(
     details: {
       hasCookieHeader: Boolean(cookieHeader),
       hasSessionToken: Boolean(sessionToken),
-      cacheEnabled: authCache.enabled,
     },
   })
 
@@ -171,49 +147,7 @@ export async function resolveServerAuthSnapshot(
   }
 
   try {
-    if (authCache.enabled) {
-      const cacheStart = trackWaterfall ? Date.now() : 0
-      token = await getCachedAuthToken(sessionToken)
-      if (token) {
-        cacheHit = true
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase('cache-lookup', cacheStart, waterfallStart, 'hit', 'Token from cache'),
-          )
-        }
-
-        const decodeStart = trackWaterfall ? Date.now() : 0
-        user = decodeUserFromJwt(token)
-        if (!user) {
-          user = await fetchSessionUser(siteUrl, authCookieHeader)
-        }
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              user ? 'success' : 'error',
-              user ? undefined : 'Cache hit decode fallback failed',
-            ),
-          )
-        }
-
-        logEvents.push({ phase: 'cache', outcome: 'success', details: { source: 'cache' } })
-        return {
-          token,
-          user,
-          authError: null,
-          waterfall: buildWaterfall('authenticated'),
-          logEvents,
-          devError: null,
-        }
-      }
-
-      if (trackWaterfall) {
-        phases.push(buildPhase('cache-lookup', cacheStart, waterfallStart, 'miss', 'Cache miss'))
-      }
-    } else if (trackWaterfall) {
+    if (trackWaterfall) {
       phases.push({
         name: 'cache-lookup',
         start: 0,
@@ -225,11 +159,16 @@ export async function resolveServerAuthSnapshot(
     }
 
     const exchangeStart = trackWaterfall ? Date.now() : 0
-    const exchange = await exchangeSessionForToken(siteUrl, authCookieHeader, { timeoutMs: 5_000 })
+    const exchange = await exchangeConvexToken({
+      siteUrl,
+      credential: { type: 'cookie', value: authCookieHeader },
+      timeoutMs: 5_000,
+    })
     const tokenExchangeStatus = exchange.status
-    const tokenExchangeThrown = exchange.thrown
+    const tokenExchangeThrown = exchange.status === undefined ? exchange.error : undefined
+    const unusableHydrationToken = Boolean(exchange.token && !isJwtUsable(exchange.token))
 
-    if (exchange.token) {
+    if (exchange.token && !unusableHydrationToken) {
       token = exchange.token
       authError = null
 
@@ -248,36 +187,12 @@ export async function resolveServerAuthSnapshot(
       const decodeStart = trackWaterfall ? Date.now() : 0
       user = decodeUserFromJwt(token)
       if (!user) {
-        user = await fetchSessionUser(siteUrl, authCookieHeader)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              'success',
-              'Fallback to session endpoint',
-            ),
-          )
-        }
-      } else if (trackWaterfall) {
-        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
+        // Keep this fail-closed assertion at the display boundary; do not
+        // create a second identity path through /get-session.
+        throw new Error('Convex token exchange returned an invalid display identity')
       }
-
-      if (authCache.enabled && token) {
-        const storeStart = trackWaterfall ? Date.now() : 0
-        await setCachedAuthToken(sessionToken, token, authCache.ttl)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'cache-store',
-              storeStart,
-              waterfallStart,
-              'success',
-              `TTL: ${authCache.ttl}s`,
-            ),
-          )
-        }
+      if (trackWaterfall) {
+        phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
       }
 
       logEvents.push({
@@ -295,22 +210,26 @@ export async function resolveServerAuthSnapshot(
       }
     }
 
-    const likelyMisconfig =
-      Boolean(tokenExchangeThrown) ||
-      tokenExchangeStatus === 404 ||
-      (tokenExchangeStatus !== undefined && tokenExchangeStatus >= 500)
+    const isDefinitiveAuthMiss = tokenExchangeStatus === 401 || tokenExchangeStatus === 403
+    const isExchangeFailure =
+      unusableHydrationToken || (exchange.error !== null && !isDefinitiveAuthMiss)
 
     // Full diagnostic (secret names, file hints, raw upstream error text) -
     // safe for server logs/dev error pages, never for the client in prod.
-    const detailedExchangeError = likelyMisconfig
+    const detailedExchangeError = isExchangeFailure
       ? buildTokenExchangeFailureMessage({
           siteUrl,
           status: tokenExchangeStatus,
-          error: tokenExchangeThrown,
+          error:
+            tokenExchangeThrown ??
+            exchange.error ??
+            (unusableHydrationToken
+              ? new Error('Convex token exchange returned an expired or malformed token')
+              : undefined),
         })
       : null
 
-    authError = likelyMisconfig
+    authError = isExchangeFailure
       ? revealAuthErrorDetails
         ? detailedExchangeError
         : GENERIC_AUTH_ERROR_MESSAGE
@@ -322,14 +241,14 @@ export async function resolveServerAuthSnapshot(
           'token-exchange',
           exchangeStart,
           waterfallStart,
-          likelyMisconfig ? 'error' : 'miss',
+          isExchangeFailure ? 'error' : 'miss',
           tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
         ),
       )
     }
 
     devError =
-      throwOnMisconfig && likelyMisconfig
+      throwOnMisconfig && isExchangeFailure
         ? new Error(detailedExchangeError ?? 'Convex auth token exchange failed')
         : null
 
@@ -339,7 +258,7 @@ export async function resolveServerAuthSnapshot(
 
     logEvents.push({
       phase: 'exchange',
-      outcome: likelyMisconfig ? 'error' : 'miss',
+      outcome: isExchangeFailure ? 'error' : 'miss',
       // Detailed message always lands in server logs, regardless of env.
       details: detailedExchangeError
         ? { ...(exchangeLogDetails ?? {}), message: detailedExchangeError }

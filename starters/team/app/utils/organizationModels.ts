@@ -23,6 +23,7 @@ export type Member = {
     name: string
     image?: string
   }
+  isTeamMember: boolean
 }
 
 export type PendingInvitation = {

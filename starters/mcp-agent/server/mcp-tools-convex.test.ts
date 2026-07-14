@@ -11,11 +11,36 @@ import {
   createListProjectsTool,
   createPreviewCreateProjectTool,
   createPreviewDeleteProjectTool,
+  createProjectToolClient,
   createRequestDeleteProjectApprovalTool,
   hashBearerSecret,
 } from './utils/mcpProjectTools'
 
-const proofServerSecret = 'mcp-agent-local-server-secret'
+const proofServerSecret = 'mcp-agent-local-proof-server-secret-1234'
+
+describe('MCP Convex client boundary', () => {
+  it.each([
+    'https://user:password@example.convex.cloud',
+    'https://example.convex.cloud/path',
+    'https://example.convex.cloud?redirect=https://evil.example',
+    'https://example.convex.cloud#fragment',
+    'http://example.convex.cloud',
+    'file:///tmp/convex',
+  ])('rejects credential-unsafe Convex URL %s before client construction', (url) => {
+    expect(() => createProjectToolClient(url)).toThrow(
+      /Convex URL (?:is invalid|must be one credential-free HTTPS origin)/,
+    )
+  })
+
+  it.each([
+    'https://example.convex.cloud',
+    'http://127.0.0.1:3210',
+    'http://[::1]:3210',
+    'http://worker.localhost:3210',
+  ])('accepts exact HTTPS and loopback origins %s', (url) => {
+    expect(() => createProjectToolClient(url)).not.toThrow()
+  })
+})
 
 function convexTest(_schema = schema, _modules = modules) {
   return initConvexTest()
@@ -48,13 +73,13 @@ async function seedServiceActor(t: TestConvex, role: 'admin' | 'member' | 'viewe
   })
 }
 
-function createTools(t: TestConvex) {
+function createTools(t: TestConvex, getServerSecret = () => proofServerSecret) {
   const args = {
     getClient: () => ({
       query: (query, args) => t.query(query, args),
       mutation: (mutation, args) => t.mutation(mutation, args),
     }),
-    getServerSecret: () => proofServerSecret,
+    getServerSecret,
   }
   return {
     listProjects: createListProjectsTool(args),
@@ -100,6 +125,19 @@ describe('MCP project tool adapters with Convex functions', () => {
 
     expect(result.content).toEqual([{ type: 'text', text: '[]' }])
   })
+
+  it.each(['', 'short', ` ${proofServerSecret}`, `${proofServerSecret} `])(
+    'rejects an unsafe server-side MCP secret before calling Convex: %j',
+    async (configuredSecret) => {
+      const t = convexTest(schema, modules)
+      await seedServiceActor(t, 'viewer')
+      const { listProjects } = createTools(t, () => configuredSecret)
+
+      await expect(listProjects.handler({}, mcpExtra())).rejects.toThrow(
+        'MCP_SERVER_SECRET must be at least 32 characters with no surrounding space',
+      )
+    },
+  )
 
   it('hashes MCP bearer metadata and writes through the real Convex mutation', async () => {
     const t = convexTest(schema, modules)
@@ -187,7 +225,9 @@ describe('MCP project tool adapters with Convex functions', () => {
     const foreignProjects = await t.run(async (ctx) => {
       return await ctx.db
         .query('projects')
-        .withIndex('by_org', (q) => q.eq('organizationId', foreignOrganizationId))
+        .withIndex('by_org_status', (q) =>
+          q.eq('organizationId', foreignOrganizationId).eq('status', 'active'),
+        )
         .collect()
     })
     const credentialProjects = await t.query(api.projects.listForServiceActor, {
@@ -259,6 +299,7 @@ describe('MCP project tool adapters with Convex functions', () => {
         operation: 'projects.delete',
         resourceId: projectId,
         status: 'approved',
+        requestedBy: serviceActorId,
         approvedBy,
         expiresAt: Date.now() + 60_000,
         createdAt: Date.now(),
@@ -313,6 +354,7 @@ describe('MCP project tool adapters with Convex functions', () => {
         operation: 'projects.delete',
         resourceId: otherProjectId,
         status: 'approved',
+        requestedBy: serviceActorId,
         approvedBy,
         expiresAt: Date.now() + 60_000,
         createdAt: Date.now(),

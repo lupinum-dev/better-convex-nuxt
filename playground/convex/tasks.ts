@@ -2,24 +2,6 @@ import { v } from 'convex/values'
 
 import { query, mutation } from './_generated/server'
 
-// Public stats - no auth required
-// Used to test the `public` option in useConvexQuery
-export const publicStats = query({
-  args: {},
-  handler: async (ctx) => {
-    // This query doesn't check auth - it's truly public
-    const totalTasks = await ctx.db.query('tasks').collect()
-    const completedTasks = totalTasks.filter((t) => t.completed)
-
-    return {
-      total: totalTasks.length,
-      completed: completedTasks.length,
-      pending: totalTasks.length - completedTasks.length,
-      timestamp: Date.now(),
-    }
-  },
-})
-
 // Get all tasks for the current user
 export const list = query({
   args: {},
@@ -35,7 +17,7 @@ export const list = query({
       .query('tasks')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .order('desc')
-      .collect()
+      .take(100)
 
     return tasks
   },
@@ -51,10 +33,14 @@ export const add = mutation({
     }
 
     const userId = identity.subject
+    const title = args.title.trim()
+    if (!title || title.length > 120) {
+      throw new Error('Task title must be between 1 and 120 characters')
+    }
 
     const taskId = await ctx.db.insert('tasks', {
       userId,
-      title: args.title,
+      title,
       completed: false,
       createdAt: Date.now(),
     })

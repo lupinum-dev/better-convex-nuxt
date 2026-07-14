@@ -1,5 +1,5 @@
 /**
- * F-22 contract: the `ConvexUser` augmentation declared in
+ * Contract: the `ConvexUser` augmentation declared in
  * `types/convex-user.d.ts` must reach `useConvexAuth().user`. The assignment to
  * a `'yes' | undefined` slot type-asserts the augmented field is visible;
  * deleting the augmentation file makes `user.value?.auditProbeField` an unknown

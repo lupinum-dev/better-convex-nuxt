@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-const { signIn, refreshAuth } = useConvexAuth()
+const { signIn } = useConvexAuth()
 
 const form = reactive({
   email: '',
@@ -54,6 +54,8 @@ const form = reactive({
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+const signInFailure =
+  'Sign in could not be completed. Check your credentials and verify your email if required.'
 
 async function handleSignIn() {
   isLoading.value = true
@@ -66,14 +68,15 @@ async function handleSignIn() {
     })
 
     if (result.error) {
-      error.value = result.error.message || 'Invalid email or password'
+      error.value = signInFailure
       return
     }
 
-    await refreshAuth()
+    // The integrated `signIn` namespace settles identity (token/user) before it
+    // resolves (vNext §8 "Atomic sign-in/sign-up"), so navigate straight away.
     window.location.href = '/'
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'An unexpected error occurred'
+  } catch {
+    error.value = signInFailure
   } finally {
     isLoading.value = false
   }

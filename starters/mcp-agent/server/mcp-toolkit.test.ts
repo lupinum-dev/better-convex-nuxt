@@ -1,5 +1,10 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { createServer, type IncomingMessage, type Server } from 'node:http'
+import {
+  createServer,
+  request as createHttpRequest,
+  type IncomingMessage,
+  type Server,
+} from 'node:http'
 import { fileURLToPath } from 'node:url'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -18,7 +23,7 @@ type ConvexRequest = {
 const convexRequests: ConvexRequest[] = []
 const proofToken = 'proof-token'
 const proofTokenHash = hashBearerSecret(proofToken)
-const proofServerSecret = 'mcp-agent-local-server-secret'
+const proofServerSecret = 'mcp-agent-local-proof-server-secret-1234'
 const expectedToolNames = [
   'approvals.get',
   'projects.create',
@@ -54,6 +59,19 @@ async function startFakeConvexServer() {
       path: body.path,
       args: body.args,
     })
+    const credentials = body.args[0] as
+      | { bearerToken?: unknown; serverSecret?: unknown }
+      | undefined
+    if (credentials?.bearerToken !== proofToken || credentials.serverSecret !== proofServerSecret) {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(
+        JSON.stringify({
+          status: 'error',
+          errorMessage: 'Service actor credential denied',
+        }),
+      )
+      return
+    }
 
     let value: unknown = 'project-2'
     if (body.path === 'projects:listForServiceActor') {
@@ -138,6 +156,40 @@ function mcpUrl() {
   return new URL('/mcp', url('/'))
 }
 
+async function postChunked(path: string, chunks: string[]) {
+  const target = new URL(path, url('/'))
+
+  return await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
+    const request = createHttpRequest(
+      target,
+      {
+        method: 'POST',
+        headers: {
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${proofToken}`,
+          connection: 'close',
+          'content-type': 'application/json',
+        },
+      },
+      (response) => {
+        const responseChunks: Buffer[] = []
+        response.on('data', (chunk) => {
+          responseChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+        response.once('end', () => {
+          resolve({
+            statusCode: response.statusCode ?? 0,
+            body: Buffer.concat(responseChunks).toString('utf8'),
+          })
+        })
+      },
+    )
+    request.once('error', reject)
+    for (const chunk of chunks) request.write(chunk)
+    request.end()
+  })
+}
+
 function readSource(path: string) {
   return readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
 }
@@ -203,6 +255,13 @@ describe('Nuxt MCP Toolkit transport', async () => {
     await client?.close()
     client = undefined
     convexRequests.length = 0
+  })
+
+  it('renders the starter page through the built Nuxt server', async () => {
+    const html = await $fetch<string>('/')
+
+    expect(html).toContain('MCP agent starter')
+    expect(html).toContain('data-testid="auth-form"')
   })
 
   it('keeps public OAuth MCP out of the private service-actor starter', () => {
@@ -377,9 +436,10 @@ describe('Nuxt MCP Toolkit transport', async () => {
     })
   })
 
-  it('lets the starter UI demo route create a project through the real MCP endpoint', async () => {
+  it('lets the starter UI demo route reuse the MCP tool without a Host-derived loopback request', async () => {
     const response = await $fetch<{ content: string[] }>('/api/demo/mcp-projects', {
       method: 'POST',
+      headers: { host: 'attacker.invalid' },
       body: {
         bearerToken: proofToken,
         name: 'From UI demo',
@@ -401,6 +461,10 @@ describe('Nuxt MCP Toolkit transport', async () => {
         },
       ],
     })
+
+    const routeSource = readSource('./api/demo/mcp-projects.post.ts')
+    expect(routeSource).not.toContain('getRequestURL')
+    expect(routeSource).not.toContain('StreamableHTTPClientTransport')
   })
 
   it('uses the shared project validation message in the demo MCP route', async () => {
@@ -419,6 +483,22 @@ describe('Nuxt MCP Toolkit transport', async () => {
     })
     expect(convexRequests).toHaveLength(0)
   })
+
+  it.each(['/mcp', '/api/demo/mcp-projects'])(
+    'rejects an oversized chunked request at %s before body parsing or Convex access',
+    async (path) => {
+      const response = await postChunked(path, [
+        '{"padding":"',
+        'x'.repeat(40 * 1024),
+        'x'.repeat(40 * 1024),
+        '"}',
+      ])
+
+      expect(response.statusCode).toBe(413)
+      expect(response.body).not.toContain(proofToken)
+      expect(convexRequests).toHaveLength(0)
+    },
+  )
 
   it('rejects undeclared tool calls through the MCP server', async () => {
     client = await createClient()
@@ -479,6 +559,22 @@ describe('Nuxt MCP Toolkit transport', async () => {
     expect(result.isError).toBe(true)
     expect(JSON.stringify(result.content)).toContain('Bearer token required')
     expect(convexRequests).toHaveLength(0)
+  })
+
+  it('rejects a well-formed but invalid bearer through the Convex credential boundary', async () => {
+    client = await createClient('invalid-proof-token')
+
+    const result = await client.callTool({
+      name: 'projects.list',
+      arguments: {},
+    })
+
+    expect(result.isError).toBe(true)
+    const serialized = JSON.stringify(result.content)
+    expect(serialized).toContain('Service actor credential denied')
+    expect(serialized).not.toContain('invalid-proof-token')
+    expect(serialized).not.toContain(proofServerSecret)
+    expect(convexRequests).toHaveLength(1)
   })
 
   it('rejects cross-origin Streamable HTTP requests', async () => {

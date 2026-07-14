@@ -69,7 +69,7 @@ async function add() {
             variant="ghost"
             size="xs"
             class="opacity-0 group-hover:opacity-100"
-            @click="deleteTask({ id: task._id })"
+            @click="void deleteTask({ id: task._id })"
           />
         </li>
       </ul>
@@ -83,7 +83,7 @@ async function add() {
             variant="ghost"
             size="xs"
             :loading="clearStatus === 'pending'"
-            @click="clearTasks({})"
+            @click="void clearTasks({})"
           >
             Clear all
           </UButton>

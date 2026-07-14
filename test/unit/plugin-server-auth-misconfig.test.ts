@@ -7,9 +7,8 @@ const {
   useStateMock,
   getConvexRuntimeConfigMock,
   fetchWithTimeoutMock,
-  getCachedAuthTokenMock,
-  setCachedAuthTokenMock,
   decodeUserFromJwtMock,
+  isJwtUsableMock,
 } = vi.hoisted(() => ({
   defineNuxtPluginMock: vi.fn((fn: unknown) => fn),
   useRuntimeConfigMock: vi.fn(),
@@ -17,9 +16,8 @@ const {
   useStateMock: vi.fn(),
   getConvexRuntimeConfigMock: vi.fn(),
   fetchWithTimeoutMock: vi.fn(),
-  getCachedAuthTokenMock: vi.fn(),
-  setCachedAuthTokenMock: vi.fn(),
   decodeUserFromJwtMock: vi.fn(),
+  isJwtUsableMock: vi.fn(),
 }))
 
 vi.mock('#app', () => ({
@@ -29,35 +27,29 @@ vi.mock('#app', () => ({
   useState: useStateMock,
 }))
 
+vi.mock('#imports', () => ({
+  useState: useStateMock,
+}))
+
 vi.mock('../../src/runtime/utils/runtime-config', () => ({
   getConvexRuntimeConfig: getConvexRuntimeConfigMock,
 }))
 
-vi.mock('../../src/runtime/server/utils/http', () => ({
+vi.mock('../../src/runtime/server/utils/http', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/runtime/server/utils/http')>()),
   fetchWithTimeout: fetchWithTimeoutMock,
-}))
-
-vi.mock('../../src/runtime/server/utils/auth-cache', () => ({
-  getCachedAuthToken: getCachedAuthTokenMock,
-  setCachedAuthToken: setCachedAuthTokenMock,
 }))
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
   decodeUserFromJwt: decodeUserFromJwtMock,
+  isJwtUsable: isJwtUsableMock,
 }))
 
-type MockResponse = {
-  status: number
-  ok: boolean
-  json: () => Promise<unknown>
-}
-
-function createResponse(status: number, body: unknown): MockResponse {
-  return {
+function createResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
     status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-  }
+    headers: { 'content-type': 'application/json' },
+  })
 }
 
 describe('plugin.server token exchange failure policy', () => {
@@ -79,7 +71,15 @@ describe('plugin.server token exchange failure policy', () => {
     useRequestEventMock.mockReturnValue({
       path: '/dashboard',
       method: 'GET',
-      node: { req: { url: '/dashboard' }, res: { setHeader: setHeaderMock } },
+      node: {
+        req: { url: '/dashboard' },
+        res: {
+          getHeader: vi.fn().mockReturnValue(undefined),
+          getHeaders: vi.fn().mockReturnValue({}),
+          removeHeader: vi.fn(),
+          setHeader: setHeaderMock,
+        },
+      },
       headers: new Headers({
         cookie: 'better-auth.session_token=abc',
       }),
@@ -96,13 +96,19 @@ describe('plugin.server token exchange failure policy', () => {
     getConvexRuntimeConfigMock.mockReturnValue({
       url: 'https://demo.convex.cloud',
       siteUrl: 'https://demo.convex.site',
-      auth: { enabled: true },
-      authCache: { enabled: false, ttl: 60 },
+      auth: {
+        proxy: {
+          maxRequestBodyBytes: 1024 * 1024,
+          maxResponseBodyBytes: 1024 * 1024,
+          trustedClientIpHeader: '',
+        },
+        debug: { authFlow: false, clientAuthFlow: false, serverAuthFlow: false },
+        routeProtection: { redirectTo: '/auth/signin', preserveReturnTo: true },
+      },
     })
 
-    getCachedAuthTokenMock.mockResolvedValue(null)
-    setCachedAuthTokenMock.mockResolvedValue(undefined)
     decodeUserFromJwtMock.mockReturnValue(null)
+    isJwtUsableMock.mockReturnValue(true)
   })
 
   it('treats 500 token exchange as misconfig (dev throw + detailed error, prod generic error)', async () => {
@@ -127,12 +133,43 @@ describe('plugin.server token exchange failure policy', () => {
         /convex\/token|token exchange/i,
       )
     } else {
-      // Prod (F-11): never leak secret/file hints or raw upstream text to the client.
+      // Prod: never leak secret/file hints or raw upstream text to the client.
       await expect(run).resolves.toBeUndefined()
       expect(stateStore.get('convex:authError')?.value).toBe(
         'Authentication is temporarily unavailable',
       )
     }
+  })
+
+  it('isolates a non-session Better Auth cookie response when siteUrl is missing', async () => {
+    const runtimeConfig = getConvexRuntimeConfigMock()
+    getConvexRuntimeConfigMock.mockReturnValue({ ...runtimeConfig, siteUrl: undefined })
+    useRequestEventMock.mockReturnValue({
+      ...useRequestEventMock(),
+      headers: new Headers({ cookie: 'better-auth.oauth_state=opaque-state' }),
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
+    await expect(plugin()).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    expect(setHeaderMock).toHaveBeenCalledWith('Vary', 'Cookie')
+    expect(setHeaderMock).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
+  })
+
+  it('isolates a non-session Better Auth cookie on the normal SSR path', async () => {
+    useRequestEventMock.mockReturnValue({
+      ...useRequestEventMock(),
+      headers: new Headers({ cookie: 'better-auth.oauth_state=opaque-state' }),
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
+    await expect(plugin()).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:identity')?.value).toEqual({ status: 'anonymous' })
+    expect(setHeaderMock).toHaveBeenCalledWith('Vary', 'Cookie')
+    expect(setHeaderMock).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 
   it('keeps 401 token exchange as graceful unauthenticated (no throw)', async () => {
@@ -150,12 +187,13 @@ describe('plugin.server token exchange failure policy', () => {
     await expect(plugin()).resolves.toBeUndefined()
 
     expect(stateStore.get('convex:authError')?.value).toBeNull()
-    expect(stateStore.get('convex:token')?.value).toBeNull()
-    expect(stateStore.get('convex:user')?.value).toBeNull()
-    expect(setHeaderMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:identity')?.value).toEqual({ status: 'anonymous' })
+    // Invalid/revoked auth cookies still make the response request-specific.
+    expect(setHeaderMock).toHaveBeenCalledWith('Vary', 'Cookie')
+    expect(setHeaderMock).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 
-  it('sets Cache-Control: private, no-store when a token is hydrated (F-10)', async () => {
+  it('sets Cache-Control: private, no-store when a token is hydrated', async () => {
     decodeUserFromJwtMock.mockReturnValue({ id: 'user-1', email: 'user@example.com' })
     fetchWithTimeoutMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/api/auth/convex/token')) {
@@ -167,7 +205,12 @@ describe('plugin.server token exchange failure policy', () => {
     const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
     await expect(plugin()).resolves.toBeUndefined()
 
-    expect(stateStore.get('convex:token')?.value).toBe('jwt-1')
+    expect(stateStore.get('convex:identity')?.value).toEqual({
+      status: 'authenticated',
+      token: 'jwt-1',
+      user: { id: 'user-1', email: 'user@example.com' },
+      key: 'user:user-1',
+    })
     expect(setHeaderMock).toHaveBeenCalledWith('Cache-Control', 'private, no-store')
   })
 })

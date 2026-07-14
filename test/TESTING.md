@@ -63,27 +63,57 @@ pnpm test:full
 
 ## E2E local requirements
 
-1. Run local Convex backend (or export `CONVEX_URL` + `CONVEX_SITE_URL`).
+1. Run a local Convex backend (or export its `CONVEX_URL` + `CONVEX_SITE_URL`).
 2. Configure Better Auth in local Convex env:
    - `BETTER_AUTH_SECRET`
-   - `SITE_URL` (must include `http://localhost:3000` for strict auth-loop E2E)
+   - `SITE_URL` (must be `http://localhost:3050` for the auth-loop E2E)
 3. Keep E2E manual/local (`pnpm test:e2e`), not part of CI gate.
 
-Without `CONVEX_URL`, local Convex-backed suites skip immediately. Set
-`CONVEX_E2E_AUTO_START=true` to let the helper spawn `npx convex dev --local`
-for the current run after the local Convex project has been initialized. If the
-Convex CLI needs to ask what to configure, run the bootstrap commands below
-first; non-interactive test runs cannot answer CLI prompts.
+`pnpm test:e2e` sets `CONVEX_E2E_AUTO_START=true`. The helper launches the root
+workspace's pinned Convex CLI directly with the same `convex dev` command shown
+below, reads the URLs written by the CLI, configures the two E2E-only Better Auth
+values, and stops only the backend process it started. It does not assume fixed
+ports.
+
+This is the supported Convex 1.40 ceremony. In a clean non-interactive checkout,
+`convex dev` provisions an anonymous local deployment automatically. If
+`.env.local` already selects a local deployment, the same command starts that
+deployment. The removed `convex dev --local` flag is not supported by Convex
+1.40. The first clean start needs network access to download the local backend
+binary.
 
 ### Auth-loop bootstrap
 
+The automatic path needs no separate bootstrap:
+
+```bash
+pnpm test:e2e
+```
+
+To run the backend yourself, keep this command running in one terminal:
+
 ```bash
 cd playground
-npx convex dev --local --once
-npx convex env set SITE_URL http://localhost:3000 --env-file .env.local
-npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
+pnpm exec convex dev
+```
+
+Then configure and run the suite from another terminal:
+
+```bash
+cd playground
+pnpm exec convex env set SITE_URL http://localhost:3050 --env-file .env.local
+pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local
 cd ..
-pnpm test:e2e
+CONVEX_E2E_AUTO_START=false pnpm test:e2e
+```
+
+For an account-linked project whose local deployment is not currently selected,
+select it once before starting the backend:
+
+```bash
+cd playground
+pnpm exec convex deployment select local
+pnpm exec convex dev
 ```
 
 ## Regression workflow

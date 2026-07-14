@@ -11,6 +11,8 @@
  * - Browser: CSS badges + collapsed groups for clean dev tools
  */
 
+import { sanitizeDiagnosticValue } from './sanitize-diagnostic'
+
 export type LogLevel = false | 'info' | 'debug'
 
 // ============================================================================
@@ -21,17 +23,16 @@ export interface AuthEvent {
   phase: string // 'session-check', 'cache', 'exchange', 'hydrate', 'login', 'logout'
   outcome: 'success' | 'error' | 'skip' | 'miss'
   details?: Record<string, unknown> // user, duration, cache status, etc.
-  error?: Error
+  error?: unknown
 }
 
 export interface QueryEvent {
   name: string
-  event: 'subscribe' | 'update' | 'unsubscribe' | 'error' | 'share'
+  event: 'subscribe' | 'update' | 'unsubscribe' | 'error'
   count?: number // item count for updates
-  refCount?: number // for subscription sharing
   args?: unknown
   data?: unknown // only logged in debug mode
-  error?: Error
+  error?: unknown
 }
 
 export interface MutationEvent {
@@ -39,14 +40,14 @@ export interface MutationEvent {
   event: 'optimistic' | 'success' | 'error'
   args?: unknown
   duration?: number
-  error?: Error
+  error?: unknown
 }
 
 export interface ActionEvent {
   name: string
   event: 'success' | 'error'
   duration?: number
-  error?: Error
+  error?: unknown
 }
 
 export interface ConnectionEvent {
@@ -60,7 +61,7 @@ export interface UploadEvent {
   filename?: string
   size?: number // bytes
   duration?: number
-  error?: Error | string
+  error?: unknown
 }
 
 // ============================================================================
@@ -87,7 +88,7 @@ export interface Logger {
 // No-op Logger
 // ============================================================================
 
-const noopLogger: Logger = {
+const noopLogger: Logger = Object.freeze({
   auth: () => {},
   query: () => {},
   mutation: () => {},
@@ -96,7 +97,7 @@ const noopLogger: Logger = {
   upload: () => {},
   debug: () => {},
   time: () => () => {},
-}
+})
 
 // ============================================================================
 // ANSI Colors (Server)
@@ -207,9 +208,6 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
         case 'unsubscribe':
           msg += `  ${ANSI.dim}unsubscribe${ANSI.reset}`
           break
-        case 'share':
-          msg += `  ${ANSI.dim}share (refCount: ${event.refCount})${ANSI.reset}`
-          break
         case 'error':
           msg += `  ${ANSI.red}error${ANSI.reset}`
           break
@@ -311,7 +309,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       } else {
         msg += `  ${ANSI.red}error${ANSI.reset}`
         if (event.error) {
-          const errMsg = typeof event.error === 'string' ? event.error : event.error.message
+          const errMsg = typeof event.error === 'string' ? event.error : JSON.stringify(event.error)
           msg += ` ${ANSI.red}${errMsg}${ANSI.reset}`
         }
       }
@@ -390,9 +388,6 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (event.event === 'update' && event.count !== undefined) {
         label += `%c (${event.count} items)`
-        styles.push(CSS.dim)
-      } else if (event.event === 'share' && event.refCount !== undefined) {
-        label += `%c (shared, refCount: ${event.refCount})`
         styles.push(CSS.dim)
       } else if (event.event !== 'update') {
         label += `%c ${event.event}`
@@ -552,37 +547,56 @@ export function createLogger(level: LogLevel): Logger {
   if (!level) return noopLogger
 
   // Use ANSI on server, CSS in browser
-  if (!isBrowserRuntime()) {
-    return createServerLogger(level)
-  }
-  return createBrowserLogger(level)
-}
+  const sink = !isBrowserRuntime() ? createServerLogger(level) : createBrowserLogger(level)
 
-const sharedServerLoggers = new Map<Exclude<LogLevel, false>, Logger>()
-const sharedBrowserLoggers = new Map<Exclude<LogLevel, false>, Logger>()
+  const sanitizeEvent = <
+    T extends {
+      phase?: string
+      name?: string
+      filename?: string
+      args?: unknown
+      data?: unknown
+      details?: unknown
+      error?: unknown
+    },
+  >(
+    event: T,
+  ): T =>
+    ({
+      ...event,
+      ...(event.phase === undefined ? {} : { phase: String(sanitizeDiagnosticValue(event.phase)) }),
+      ...(event.name === undefined ? {} : { name: String(sanitizeDiagnosticValue(event.name)) }),
+      ...(event.filename === undefined
+        ? {}
+        : { filename: String(sanitizeDiagnosticValue(event.filename)) }),
+      ...(event.args === undefined ? {} : { args: '[Omitted]' }),
+      ...(event.data === undefined ? {} : { data: '[Omitted]' }),
+      ...(event.details === undefined ? {} : { details: sanitizeDiagnosticValue(event.details) }),
+      ...(event.error === undefined ? {} : { error: sanitizeDiagnosticValue(event.error) }),
+    }) as T
+
+  const safeLogger: Logger = {
+    auth: (event) => sink.auth(sanitizeEvent(event)),
+    query: (event) => sink.query(sanitizeEvent(event)),
+    mutation: (event) => sink.mutation(sanitizeEvent(event)),
+    action: (event) => sink.action(sanitizeEvent(event)),
+    connection: (event) => sink.connection(event),
+    upload: (event) => sink.upload(sanitizeEvent(event)),
+    debug: (message, data) =>
+      sink.debug(
+        String(sanitizeDiagnosticValue(message)),
+        data === undefined ? undefined : sanitizeDiagnosticValue(data),
+      ),
+    time: (label) => sink.time(String(sanitizeDiagnosticValue(label))),
+  }
+  return Object.freeze(safeLogger)
+}
 
 function isBrowserRuntime(): boolean {
   return (
     typeof globalThis !== 'undefined' &&
     typeof (globalThis as { window?: unknown }).window !== 'undefined'
   )
-}
-
-/**
- * Shared logger cache for hot composable paths.
- * Do not mutate the returned logger methods.
- */
-export function getSharedLogger(level: LogLevel): Logger {
-  if (!level) return noopLogger
-
-  const cache = isBrowserRuntime() ? sharedBrowserLoggers : sharedServerLoggers
-  const typedLevel = level as Exclude<LogLevel, false>
-  const existing = cache.get(typedLevel)
-  if (existing) return existing
-
-  const logger = createLogger(level)
-  cache.set(typedLevel, logger)
-  return logger
 }
 
 /**

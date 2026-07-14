@@ -153,8 +153,11 @@ function requireBearerToken(extra: RequestExtra, toolName: string) {
 
 function requireServerSecret(args: ProjectToolArgs) {
   const serverSecret = args.getServerSecret()
-  if (!serverSecret) {
-    throw createError({ statusCode: 500, statusMessage: 'MCP_SERVER_SECRET is required' })
+  if (!serverSecret || serverSecret.trim() !== serverSecret || serverSecret.length < 32) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'MCP_SERVER_SECRET must be at least 32 characters with no surrounding space',
+    })
   }
 
   return serverSecret
@@ -162,6 +165,46 @@ function requireServerSecret(args: ProjectToolArgs) {
 
 function toConvexId<TableName extends TableNames>(value: string) {
   return value as Id<TableName>
+}
+
+function isLoopbackHostname(hostname: string) {
+  const host = hostname.toLowerCase()
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '[::1]' || host === '::1') {
+    return true
+  }
+
+  const octets = host.split('.').map(Number)
+  return (
+    octets.length === 4 &&
+    octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255) &&
+    octets[0] === 127
+  )
+}
+
+function normalizeProjectToolConvexUrl(value: string) {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw createError({ statusCode: 500, statusMessage: 'Convex URL is invalid' })
+  }
+
+  const invalid =
+    Boolean(url.username) ||
+    Boolean(url.password) ||
+    Boolean(url.search) ||
+    Boolean(url.hash) ||
+    (url.pathname !== '' && url.pathname !== '/') ||
+    (url.protocol !== 'https:' && url.protocol !== 'http:') ||
+    (url.protocol === 'http:' && !isLoopbackHostname(url.hostname))
+  if (invalid) {
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Convex URL must be one credential-free HTTPS origin (HTTP loopback allowed)',
+    })
+  }
+
+  return url.origin
 }
 
 export function createProjectToolClient(configuredConvexUrl?: string) {
@@ -177,7 +220,19 @@ export function createProjectToolClient(configuredConvexUrl?: string) {
     })
   }
 
-  return new ConvexHttpClient(convexUrl)
+  return new ConvexHttpClient(normalizeProjectToolConvexUrl(convexUrl))
+}
+
+export async function createProjectForServiceActor(
+  args: ProjectToolArgs,
+  input: { bearerToken: string; name: string },
+) {
+  const client = args.getClient()
+  return await client.mutation(api.projects.createFromServiceActor, {
+    serverSecret: requireServerSecret(args),
+    bearerToken: input.bearerToken,
+    name: input.name,
+  })
 }
 
 function toProjectDto(project: Doc<'projects'>): ProjectDto {
@@ -223,9 +278,7 @@ export function createCreateProjectTool(args: ProjectToolArgs): McpToolDefinitio
     handler: async (input, extra) => {
       const parsedInput = parseToolInput('projects.create', createProjectInputSchema, input)
       const bearerToken = requireBearerToken(extra, 'projects.create')
-      const client = args.getClient()
-      const projectId = await client.mutation(api.projects.createFromServiceActor, {
-        serverSecret: requireServerSecret(args),
+      const projectId = await createProjectForServiceActor(args, {
         bearerToken,
         name: parsedInput.name,
       })

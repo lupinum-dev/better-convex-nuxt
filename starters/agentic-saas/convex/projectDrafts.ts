@@ -1,9 +1,14 @@
 import { ConvexError, v } from 'convex/values'
 
 import { internalMutation, mutation, query } from './_generated/server'
-import { requireAgentCapability } from './agentRuns'
+import { requireDelegatingUserCurrentProjectPermission } from './agentRuns'
 import { requireBetterAuthProjectPermissions } from './betterAuthPermissions'
 import { createProductRecordFromDraft } from './productRecords'
+import {
+  maxDraftBodyLength,
+  maxDraftTitleLength,
+  maxPendingReviewsPerQueue,
+} from './resourceBounds'
 
 export const createFromAgent = internalMutation({
   args: {
@@ -12,16 +17,38 @@ export const createFromAgent = internalMutation({
     body: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.title.length > maxDraftTitleLength) {
+      throw new ConvexError(`Draft title must be ${maxDraftTitleLength} characters or less`)
+    }
+    if (args.body.length > maxDraftBodyLength) {
+      throw new ConvexError(`Draft body must be ${maxDraftBodyLength} characters or less`)
+    }
     const title = args.title.trim()
     const body = args.body.trim()
     if (!title || !body) {
       throw new ConvexError('Draft title and body are required')
     }
 
-    const { actor, run } = await requireAgentCapability(ctx, {
+    const run = await ctx.db.get(args.agentRunId)
+    if (!run) {
+      throw new ConvexError('Agent run not found')
+    }
+
+    const { actor } = await requireDelegatingUserCurrentProjectPermission(ctx, {
       agentRunId: args.agentRunId,
+      organizationId: run.organizationId,
       capability: 'project:draft',
+      permission: 'create',
     })
+    const pendingDrafts = await ctx.db
+      .query('projectDrafts')
+      .withIndex('by_org_status', (q) =>
+        q.eq('organizationId', run.organizationId).eq('status', 'pending'),
+      )
+      .take(maxPendingReviewsPerQueue)
+    if (pendingDrafts.length >= maxPendingReviewsPerQueue) {
+      throw new ConvexError('Draft review queue is full')
+    }
 
     const draftId = await ctx.db.insert('projectDrafts', {
       organizationId: run.organizationId,
@@ -63,7 +90,7 @@ export const listPending = query({
         q.eq('organizationId', args.organizationId).eq('status', 'pending'),
       )
       .order('desc')
-      .collect()
+      .take(maxPendingReviewsPerQueue)
   },
 })
 

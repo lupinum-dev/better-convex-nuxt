@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
+import { ConvexCallError } from '../../src/runtime/errors'
 import { createConvexCallState } from '../../src/runtime/utils/call-state'
+
+const callError = (message: string) => new ConvexCallError({ kind: 'unknown', message })
 
 describe('createConvexCallState', () => {
   it('tracks pending, success, error, and reset state', () => {
@@ -21,7 +24,7 @@ describe('createConvexCallState', () => {
     expect(state.data.value).toBe('ok')
 
     const second = state.start()
-    const error = new Error('boom')
+    const error = callError('boom')
     expect(state.commitError(second, error)).toBe(true)
     expect(state.status.value).toBe('error')
     expect(state.error.value).toBe(error)
@@ -44,7 +47,7 @@ describe('createConvexCallState', () => {
     expect(state.status.value).toBe('pending')
     expect(state.data.value).toBeUndefined()
 
-    expect(state.commitError(stale, new Error('stale'))).toBe(false)
+    expect(state.commitError(stale, callError('stale'))).toBe(false)
     expect(state.status.value).toBe('pending')
     expect(state.error.value).toBeNull()
 
@@ -55,13 +58,13 @@ describe('createConvexCallState', () => {
     state.reset()
 
     expect(state.commitSuccess(resetStale, 'after-reset')).toBe(false)
-    expect(state.commitError(resetStale, new Error('after-reset'))).toBe(false)
+    expect(state.commitError(resetStale, callError('after-reset'))).toBe(false)
     expect(state.status.value).toBe('idle')
     expect(state.data.value).toBeUndefined()
     expect(state.error.value).toBeNull()
   })
 
-  it('returns a commit signal callers must use to gate result callbacks (F-30)', () => {
+  it('returns a commit signal callers must use to gate result callbacks', () => {
     // Consumers (useConvexMutation/useConvexAction) must only invoke onSuccess/onError
     // when commitSuccess/commitError report the commit actually landed. A superseded
     // or reset request must fire neither callback.
@@ -76,7 +79,7 @@ describe('createConvexCallState', () => {
     if (state.commitSuccess(superseded, 'stale-success')) {
       onSuccessCalls += 1
     }
-    if (state.commitError(superseded, new Error('stale-error'))) {
+    if (state.commitError(superseded, callError('stale-error'))) {
       onErrorCalls += 1
     }
 

@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import {
+  ANONYMOUS_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
 import { useConvexUser } from '../../src/runtime/composables/useConvexUser'
 import { mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -20,16 +25,14 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      const user = useState('convex:user')
+      const identity = useState<AuthIdentity>('convex:identity')
       const pending = useState<boolean>('convex:pending')
 
-      token.value = 'jwt.token'
-      user.value = {
+      identity.value = toAuthenticatedIdentity('jwt.token', {
         id: 'auth-user-1',
         name: 'Session Name',
         email: 'session@example.com',
-      }
+      })
       pending.value = false
 
       return useConvexUser(viewer, {}, { subscribe: false })
@@ -76,16 +79,14 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(
       () => {
-        const token = useState<string | null>('convex:token')
-        const user = useState('convex:user')
+        const identity = useState<AuthIdentity>('convex:identity')
         const pending = useState<boolean>('convex:pending')
 
-        token.value = 'jwt.token'
-        user.value = {
+        identity.value = toAuthenticatedIdentity('jwt.token', {
           id: 'auth-user-defaults',
           name: 'Session Name',
           email: 'session@example.com',
-        }
+        })
         pending.value = false
 
         return useConvexUser(viewer, {})
@@ -111,16 +112,14 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     )
 
     const { result } = await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      const user = useState('convex:user')
+      const identity = useState<AuthIdentity>('convex:identity')
       const pending = useState<boolean>('convex:pending')
 
-      token.value = 'jwt.token'
-      user.value = {
+      identity.value = toAuthenticatedIdentity('jwt.token', {
         id: 'auth-user-2',
         name: 'Session Name',
         email: 'session@example.com',
-      }
+      })
       pending.value = false
 
       return useConvexUser(profile, {}, { source: 'projection', subscribe: false })
@@ -140,12 +139,10 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      const user = useState('convex:user')
+      const identity = useState<AuthIdentity>('convex:identity')
       const pending = useState<boolean>('convex:pending')
 
-      token.value = null
-      user.value = null
+      identity.value = ANONYMOUS_IDENTITY
       pending.value = false
 
       return useConvexUser(viewer, {}, { subscribe: false })
@@ -172,29 +169,25 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
     )
 
     const { result } = await captureInNuxt(() => {
-      const token = useState<string | null>('convex:token')
-      const user = useState('convex:user')
+      const identity = useState<AuthIdentity>('convex:identity')
       const pending = useState<boolean>('convex:pending')
 
-      token.value = 'jwt.token'
-      user.value = {
+      identity.value = toAuthenticatedIdentity('jwt.token', {
         id: 'auth-user-3',
         name: 'Session Name',
         email: 'session@example.com',
-      }
+      })
       pending.value = false
 
       return {
-        token,
-        sessionUser: user,
+        identity,
         currentUser: useConvexUser(viewer, {}, { subscribe: false }),
       }
     })
 
     await waitFor(() => Boolean(resolveFetch))
 
-    result.token.value = null
-    result.sessionUser.value = null
+    result.identity.value = ANONYMOUS_IDENTITY
     resolveFetch?.({ value: { id: 'auth-user-3', displayName: 'Late Result' } })
 
     await Promise.resolve()

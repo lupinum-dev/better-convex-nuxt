@@ -154,75 +154,112 @@ export function compareJsonValues(a: unknown, b: unknown): number {
 export const BETTER_AUTH_SESSION_COOKIE_NAME = 'better-auth.session_token'
 export const BETTER_AUTH_SECURE_SESSION_COOKIE_NAME = '__Secure-better-auth.session_token'
 
-/**
- * Parse a cookie header string into a key-value object.
- * Handles URL-encoded values and edge cases properly.
- *
- * @param cookieHeader - The Cookie header string
- * @returns Object mapping cookie names to values
- */
-export function parseCookies(cookieHeader: string | null | undefined): Record<string, string> {
-  if (!cookieHeader) return {}
+const COOKIE_NAME_PATTERN = /^[!#$%&'*+\-.^`|~\w]+$/
+const COOKIE_VALUE_PATTERN = /^[\x20\x21\x23-\x3A\x3C-\x5B\x5D-\x7E]*$/
 
-  const cookies: Record<string, string> = {}
-
-  for (const cookie of cookieHeader.split(';')) {
-    const [rawName, ...valueParts] = cookie.split('=')
-    const name = rawName?.trim()
-    if (!name) continue
-
-    // Join back in case value contains '='
-    const value = valueParts.join('=').trim()
-
-    try {
-      // Decode URL-encoded values
-      cookies[name] = decodeURIComponent(value)
-    } catch {
-      // If decoding fails, use raw value
-      cookies[name] = value
-    }
-  }
-
-  return cookies
+interface ParsedCookiePair {
+  name: string
+  value: string
+  wire: string
 }
 
-/**
- * Get a specific cookie value from a cookie header string.
- *
- * @param cookieHeader - The Cookie header string
- * @param name - The cookie name to retrieve
- * @returns The cookie value or null if not found
- */
-export function getCookie(cookieHeader: string | null | undefined, name: string): string | null {
-  const cookies = parseCookies(cookieHeader)
-  return cookies[name] ?? null
+// This file also ships in the auth-disabled runtime graph, so importing Better
+// Auth's parser here would make Better Auth mandatory. Keep the supported
+// boundary small and verify this parser against the pinned Better Auth parser.
+
+function trimOptionalWhitespace(value: string): string {
+  let start = 0
+  let end = value.length
+  while (start < end && (value.charCodeAt(start) === 0x20 || value.charCodeAt(start) === 0x09)) {
+    start += 1
+  }
+  while (
+    end > start &&
+    (value.charCodeAt(end - 1) === 0x20 || value.charCodeAt(end - 1) === 0x09)
+  ) {
+    end -= 1
+  }
+  return start === 0 && end === value.length ? value : value.slice(start, end)
+}
+
+function parseCookiePair(input: string): ParsedCookiePair | null {
+  const wire = trimOptionalWhitespace(input)
+  const separator = wire.indexOf('=')
+  if (separator < 1) return null
+
+  const name = trimOptionalWhitespace(wire.slice(0, separator))
+  let encodedValue = trimOptionalWhitespace(wire.slice(separator + 1))
+  if (encodedValue.length >= 2 && encodedValue.startsWith('"') && encodedValue.endsWith('"')) {
+    encodedValue = encodedValue.slice(1, -1)
+  }
+  if (!COOKIE_NAME_PATTERN.test(name) || !COOKIE_VALUE_PATTERN.test(encodedValue)) return null
+
+  let value = encodedValue
+  if (encodedValue.includes('%')) {
+    try {
+      value = decodeURIComponent(encodedValue)
+    } catch {
+      // Match Better Auth: malformed percent encoding remains an opaque value.
+    }
+  }
+  return { name, value, wire }
+}
+
+function parseCookiePairs(cookieHeader: string | null | undefined): ParsedCookiePair[] {
+  const parsed: ParsedCookiePair[] = []
+  if (!cookieHeader) return parsed
+  for (const chunk of cookieHeader.split(';')) {
+    const pair = parseCookiePair(chunk)
+    if (pair) parsed.push(pair)
+  }
+  return parsed
+}
+
+function parseCookieHeader(cookieHeader: string | null | undefined): Map<string, ParsedCookiePair> {
+  return new Map(parseCookiePairs(cookieHeader).map((pair) => [pair.name, pair]))
+}
+
+/** The only cookie namespace supported by the Nuxt auth boundary. */
+export function isBetterAuthCookieName(name: string): boolean {
+  if (!COOKIE_NAME_PATTERN.test(name)) return false
+  const unprefixed = name.startsWith('__Secure-') ? name.slice('__Secure-'.length) : name
+  return unprefixed.startsWith('better-auth.') && unprefixed.length > 'better-auth.'.length
 }
 
 export function getBetterAuthSessionToken(cookieHeader: string | null | undefined): string | null {
-  return (
-    getCookie(cookieHeader, BETTER_AUTH_SECURE_SESSION_COOKIE_NAME) ||
-    getCookie(cookieHeader, BETTER_AUTH_SESSION_COOKIE_NAME)
-  )
+  const cookies = parseCookieHeader(cookieHeader)
+  if (cookies.has(BETTER_AUTH_SECURE_SESSION_COOKIE_NAME)) {
+    return cookies.get(BETTER_AUTH_SECURE_SESSION_COOKIE_NAME)?.value ?? null
+  }
+  return cookies.get(BETTER_AUTH_SESSION_COOKIE_NAME)?.value ?? null
 }
 
 export function filterBetterAuthCookies(cookieHeader: string | null | undefined): string | null {
-  if (!cookieHeader) return null
-
-  const isBetterAuthCookie = (name: string): boolean =>
-    name === BETTER_AUTH_SESSION_COOKIE_NAME ||
-    name === BETTER_AUTH_SECURE_SESSION_COOKIE_NAME ||
-    name.startsWith('better-auth.') ||
-    name.startsWith('__Secure-better-auth.')
-
-  const authCookies = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .filter((part) => {
-      const name = part.split('=', 1)[0]?.trim()
-      return name ? isBetterAuthCookie(name) : false
-    })
+  const authCookies = parseCookiePairs(cookieHeader)
+    .filter((pair) => isBetterAuthCookieName(pair.name))
+    .map((pair) => pair.wire)
 
   return authCookies.length > 0 ? authCookies.join('; ') : null
+}
+
+/** Whether a raw Set-Cookie field belongs to the supported Better Auth namespace. */
+export function isBetterAuthSetCookie(setCookie: string): boolean {
+  const cookiePair = parseCookiePair(setCookie.split(';', 1)[0] ?? '')
+  return cookiePair ? isBetterAuthCookieName(cookiePair.name) : false
+}
+
+/** Domain cookies are outside the supported host-only Better Auth contract. */
+export function hasSetCookieDomainAttribute(setCookie: string): boolean {
+  const segments = setCookie.split(';')
+  for (let index = 1; index < segments.length; index += 1) {
+    const attribute = trimOptionalWhitespace(segments[index] ?? '')
+    const separator = attribute.indexOf('=')
+    const name = trimOptionalWhitespace(
+      separator === -1 ? attribute : attribute.slice(0, separator),
+    ).toLowerCase()
+    if (name === 'domain') return true
+  }
+  return false
 }
 
 // ============================================================================

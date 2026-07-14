@@ -29,13 +29,13 @@ const {
   <div data-testid="middleware-permission-context-page" class="page">
     <h1>Route Middleware + Permission Context</h1>
     <p class="description">
-      This page is protected by a route middleware that calls
-      <code>useConvexQuery(api.auth.getPermissionContext, {}, { subscribe: false })</code> (strict
-      HTTP-only mode).
+      This page is protected by a one-shot route guard: <code>useConvex().query()</code> handles
+      client navigation and <code>serverConvex(event).query()</code> handles SSR. The page-level
+      <code>useConvexQuery()</code> below is reactive display state, not guard orchestration.
     </p>
 
     <div class="card success">
-      <strong>Middleware query ran successfully.</strong>
+      <strong>Middleware caller ran successfully.</strong>
       <p>
         You reached this page because the middleware was able to query Convex and got a non-null
         permission context.
@@ -82,13 +82,11 @@ const {
     <div class="card">
       <h2>Admin-Only Middleware Variant (Example)</h2>
       <pre><code>export default defineNuxtRouteMiddleware(async () => {
-  const { data: context } = await useConvexQuery(
-    api.auth.getPermissionContext,
-    {},
-    { server: true, subscribe: false }
-  )
+  const context = import.meta.server
+    ? await serverConvex(useRequestEvent()!).query(api.auth.getPermissionContext, {})
+    : await useConvex().query(api.auth.getPermissionContext, {})
 
-  if (!context.value || context.value.role !== 'admin') {
+  if (!context || context.role !== 'admin') {
     return navigateTo('/')
   }
 })</code></pre>

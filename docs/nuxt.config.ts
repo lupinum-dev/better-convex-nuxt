@@ -5,7 +5,6 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
     '@nuxt/image',
-    '@nuxt/scripts',
     '@nuxt/ui',
     '@nuxtjs/sitemap',
     '@nuxt/content',
@@ -108,15 +107,6 @@ export default defineNuxtConfig({
 
       nitroConfig.prerender = nitroConfig.prerender || {}
       nitroConfig.prerender.routes = [...(nitroConfig.prerender.routes || []), ...rawRoutes]
-    },
-  },
-
-  eslint: {
-    config: {
-      stylistic: {
-        commaDangle: 'never',
-        braceStyle: '1tbs',
-      },
     },
   },
 

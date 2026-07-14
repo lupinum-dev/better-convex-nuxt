@@ -27,8 +27,8 @@
             id="password"
             v-model="form.password"
             type="password"
-            placeholder="Min 8 characters"
-            minlength="8"
+            placeholder="Min 15 characters"
+            minlength="15"
             required
           />
         </div>
@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-const { signUp, refreshAuth } = useConvexAuth()
+const { signUp } = useConvexAuth()
 
 const form = reactive({
   name: '',
@@ -74,12 +74,14 @@ async function handleSignUp() {
     })
 
     if (result.error) {
-      error.value = result.error.message || 'Sign up failed'
+      error.value = 'Sign up could not be completed'
       return
     }
 
-    await refreshAuth()
-    window.location.href = '/'
+    // Signup intentionally creates no session, avoiding the pinned default's
+    // immediate duplicate status/token disclosure. Continue through sign-in;
+    // the broader enumeration limitation remains documented in SECURITY.md.
+    await navigateTo('/auth/signin')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unexpected error occurred'
   } finally {

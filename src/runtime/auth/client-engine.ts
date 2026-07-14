@@ -1,640 +1,966 @@
-import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
-import { nextTick } from 'vue'
-import type { Ref } from 'vue'
+import { computed } from 'vue'
 
-import { clearNuxtData } from '#app'
-
-import {
-  buildClientAuthRequestFailureMessage,
-  buildClientAuthResponseErrorMessage,
-  buildMissingSiteUrlMessage,
-} from '../utils/auth-errors'
-import { clearAuthSubscriptions, getPublicOnlyPayloadKeys } from '../utils/convex-cache'
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
+import { createIdentityChangedError } from '../client/identity-changed-error'
+import { ConvexCallError } from '../errors'
+import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
+import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
 import type { Logger } from '../utils/logger'
-import { matchesSkipRoute } from '../utils/route-matcher'
 import type { ConvexUser } from '../utils/types'
+import {
+  ANONYMOUS_IDENTITY,
+  identityKeyOf,
+  identityToken,
+  identityUser,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from './auth-identity'
+import type {
+  AuthClientWithConvex,
+  ConvexAuthCoordinator,
+  ConvexAuthCoordinatorState,
+} from './client-engine-types'
+import type { AuthIdentityPort, AuthIdentitySnapshot } from './identity-port'
+import { createIntegratedAuthNamespace } from './integrated-namespace'
+import { createPendingOperations } from './pending-operations'
+import { createSerialQueue } from './serial-queue'
+import { createSessionSynchronization } from './session-synchronization'
+import { fetchConvexToken, isTokenUsable, RETRY_BACKOFF_MS } from './token-fetcher'
 
-type AuthClient = ReturnType<typeof createAuthClient>
-interface TokenResponse {
-  data?: { token: string } | null
-  error?: unknown
+export type {
+  AuthClientWithConvex,
+  ConvexAuthCoordinator,
+  ConvexAuthCoordinatorState,
+} from './client-engine-types'
+
+/**
+ * Total budget for Convex to fetch a token and confirm it on the transport.
+ * The token fetcher owns a five-second inner deadline, so this outer boundary
+ * must leave time for the subsequent WebSocket authentication round trip.
+ */
+const AUTH_CONFIRMATION_TIMEOUT_MS = 10_000
+/** Bound for a successful auth action to produce a public session revision. */
+const SESSION_RECONCILIATION_TIMEOUT_MS = 5_000
+
+interface VoidDeferred {
+  promise: Promise<void>
+  resolve: () => void
 }
 
-export type AuthClientWithConvex = AuthClient & {
-  convex: { token: (options?: unknown) => Promise<TokenResponse> }
+function createDeferred(): VoidDeferred {
+  let resolve!: () => void
+  const promise = new Promise<void>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
 }
 
-type AuthEngineNuxtApp = {
-  _convexRefreshAuthPromise?: Promise<void> | null
-  callHook: (name: 'better-convex:auth:refresh') => Promise<void>
-  hook: (name: 'better-convex:auth:refresh', callback: () => void | Promise<void>) => void
+export function createConvexAuthCoordinator(input: {
+  authClient: AuthClientWithConvex | null
+  state: ConvexAuthCoordinatorState
+  /** Purge identity-owned SSR payloads on a stable identity-key change. */
+  purgeIdentityPayloads?: () => void
+  logger?: Pick<Logger, 'auth'>
+}): ConvexAuthCoordinator {
+  const { authClient, state } = input
+  const purgeIdentityPayloads = input.purgeIdentityPayloads ?? (() => {})
+  const logAuth = input.logger?.auth ?? (() => {})
+
+  // ---- counters (internal §6.5) --------------------------------------------
+  let authEpoch = 0
+  let identityGeneration = 0
+
+  // ---- published identity + staged candidate -------------------------------
+  let settled = false
+  // The private candidate served by `setAuth`; published only after confirmation.
+  let stagedToken: string | null = null
+  let stagedUser: ConvexUser | null = null
+  let stagedKey: ConvexIdentityKey = 'anonymous'
+
+  // ---- current primary + confirmation handshakes ---------------------------
+  let currentClient: ConvexClient | null = null
+  const pendingConfirmations = new Map<number, VoidDeferred>()
+  const activeConfirmationCancellations = new Set<() => void>()
+  const pendingConfirmationByClient = new WeakMap<ConvexClient, () => void>()
+  const activeAuthConfiguration = new WeakMap<ConvexClient, object>()
+
+  // ---- initial settlement + refresh dedup ----------------------------------
+  const initialSettlement = createDeferred()
+  let refreshPromise: Promise<void> | null = null
+  let refreshEpoch = -1
+
+  // ---- retry (coalesced) ---------------------------------------------------
+  let retryTimer: ReturnType<typeof setTimeout> | null = null
+  let retryIndex = 0
+
+  // ---- port fan-out --------------------------------------------------------
+  const listeners = new Set<() => void>()
+  const settlementWaiters = new Set<() => void>()
+  let disposed = false
+  let resolveDisposal!: () => void
+  const disposalController = new AbortController()
+  const disposalSignal = new Promise<void>((resolve) => {
+    resolveDisposal = resolve
+  })
+
+  const pending = createPendingOperations()
+  const queue = createSerialQueue()
+
+  const notify = () => {
+    for (const listener of [...listeners]) listener()
+  }
+
+  const resolveSettlementWaiters = () => {
+    for (const resolve of [...settlementWaiters]) resolve()
+    settlementWaiters.clear()
+  }
+
+  // ---- public reactive surface ---------------------------------------------
+  const status = computed<ConvexAuthStatus>(() =>
+    deriveConvexAuthStatus({
+      authEnabled: true,
+      settled: !state.pending.value,
+      identityKey: identityKeyOf(state.identity.value),
+      error: state.authError.value
+        ? new ConvexCallError({
+            kind: 'authentication',
+            message: state.authError.value,
+          })
+        : null,
+    }),
+  )
+  const token = computed(() => identityToken(state.identity.value))
+  const user = computed(() => identityUser(state.identity.value))
+  const isAuthenticated = computed(() => state.identity.value.status === 'authenticated')
+  const error = computed<ConvexCallError | null>(() =>
+    state.authError.value
+      ? new ConvexCallError({
+          kind: 'authentication',
+          message: state.authError.value,
+        })
+      : null,
+  )
+
+  // ---- publish helpers -----------------------------------------------------
+  function markSettled() {
+    if (settled) return
+    settled = true
+    state.pending.value = false
+    initialSettlement.resolve()
+  }
+
+  function publishAuthenticated(token: string, user: ConvexUser) {
+    const nextIdentity = toAuthenticatedIdentity(token, user)
+    if (nextIdentity.status === 'authenticated') {
+      state.identity.value = nextIdentity
+      state.authError.value = null
+    } else {
+      // A token without a usable user id is not a settled identity.
+      publishAnonymous(null)
+      return
+    }
+    markSettled()
+    resolveSettlementWaiters()
+    notify()
+  }
+
+  function publishAnonymous(errorMessage: string | null) {
+    state.identity.value = ANONYMOUS_IDENTITY
+    stagedToken = null
+    stagedUser = null
+    stagedKey = 'anonymous'
+    state.authError.value = errorMessage
+    markSettled()
+    resolveSettlementWaiters()
+    notify()
+  }
+
+  // ---- setAuth token fetcher (TOTAL — never rejects) -----------------------
+  function makeSetAuthFetcher(epoch: number) {
+    return async ({
+      forceRefreshToken,
+    }: {
+      forceRefreshToken: boolean
+    }): Promise<string | null> => {
+      if (disposed || epoch !== authEpoch) {
+        // A retired A configuration must never borrow the globally staged B.
+        return null
+      }
+      if (!forceRefreshToken && isTokenUsable(stagedToken)) return stagedToken
+      if (!authClient) return isTokenUsable(stagedToken) ? stagedToken : null
+
+      const outcome = await fetchConvexToken(authClient, {
+        signal: disposalController.signal,
+      })
+      if (disposed || epoch !== authEpoch) {
+        // The exchange may have settled after an identity transition.
+        return null
+      }
+      if (outcome.identity) {
+        const nextKey = safeIdentityKey(outcome.identity.user)
+        if (!settled || (nextKey === stagedKey && nextKey !== 'anonymous')) {
+          // Initial settlement establishes the first identity; after settlement
+          // only a same-user token rotation may be applied in place here.
+          stagedToken = outcome.identity.token
+          stagedUser = outcome.identity.user
+          stagedKey = nextKey
+          clearRetry()
+          return stagedToken
+        }
+        // An identity-KEY change after settlement cannot be applied from inside
+        // setAuth; keep the usable token and let a queued/refresh op drive it.
+        return isTokenUsable(stagedToken) ? stagedToken : null
+      }
+      // A definitive no-session/invalid-token verdict revokes the cached
+      // credential immediately. Only a transient failure may retain a token
+      // that is still inside its usable lifetime.
+      if (outcome.definitive) {
+        clearRetry()
+        return null
+      }
+      if (isTokenUsable(stagedToken)) {
+        scheduleRetry(epoch)
+        return stagedToken
+      }
+      return null
+    }
+  }
+
+  function clearRetry() {
+    if (retryTimer) clearTimeout(retryTimer)
+    retryTimer = null
+    retryIndex = 0
+  }
+
+  function scheduleRetry(epoch: number) {
+    if (retryTimer || disposed) return
+    const delay = RETRY_BACKOFF_MS[Math.min(retryIndex, RETRY_BACKOFF_MS.length - 1)]
+    retryTimer = setTimeout(() => {
+      retryTimer = null
+      retryIndex += 1
+      if (disposed || epoch !== authEpoch || !currentClient) return
+      if (!isTokenUsable(stagedToken)) return
+      // Re-invoke setAuth to force Convex to re-fetch (the pinned client does not
+      // re-fetch on an unchanged token). Confirmation callbacks publish as usual.
+      void confirmCurrentClient(currentClient, epoch)
+    }, delay)
+  }
+
+  // ---- confirmation ordering -----------------------------------------------
+  async function transitionConfirmedClientToAnonymous(
+    client: ConvexClient,
+    expectedEpoch: number,
+    errorMessage: string | null,
+  ): Promise<void> {
+    if (disposed || expectedEpoch !== authEpoch || currentClient !== client) return
+
+    // Invalidate this long-lived callback before advancing the epoch. A queued
+    // duplicate from the retired configuration can no longer start a second
+    // anonymous transition.
+    activeAuthConfiguration.set(client, {})
+    const epoch = (authEpoch += 1)
+    clearRetry()
+    state.authError.value = errorMessage
+    try {
+      await commitTransition(ANONYMOUS_IDENTITY, epoch)
+    } catch {
+      if (disposed || epoch !== authEpoch) return
+      // `commitTransition` has already advanced the generation and purged
+      // identity-owned state before notifying the owner. If an internal
+      // listener itself throws, the Convex client has still rejected/cleared
+      // auth, so publish the same fail-closed state without leaking the throw.
+      publishAnonymous(errorMessage)
+    }
+  }
+
+  function installSetAuth(client: ConvexClient, epoch: number, gen: number | null): Promise<void> {
+    // A newer setAuth call on the same client supersedes any first-confirmation
+    // wait still in flight. Its configuration token below also makes queued
+    // callbacks from the older call inert.
+    pendingConfirmationByClient.get(client)?.()
+    const configuration = {}
+    activeAuthConfiguration.set(client, configuration)
+
+    return new Promise<void>((resolve, reject) => {
+      let confirmationObserved = false
+      let promiseSettled = false
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      const stopTimer = () => {
+        if (timer !== null) clearTimeout(timer)
+        timer = null
+      }
+      const cleanupPromise = () => {
+        stopTimer()
+        activeConfirmationCancellations.delete(cancel)
+        if (pendingConfirmationByClient.get(client) === cancel) {
+          pendingConfirmationByClient.delete(client)
+        }
+      }
+      const settleResolve = () => {
+        if (promiseSettled) return
+        promiseSettled = true
+        cleanupPromise()
+        resolve()
+      }
+      const settleReject = (failure: ConvexCallError) => {
+        if (promiseSettled) return
+        promiseSettled = true
+        cleanupPromise()
+        reject(failure)
+      }
+      const cancel = () => {
+        settleResolve()
+      }
+
+      activeConfirmationCancellations.add(cancel)
+      pendingConfirmationByClient.set(client, cancel)
+      timer = setTimeout(() => {
+        if (promiseSettled || confirmationObserved) return
+        if (
+          disposed ||
+          epoch !== authEpoch ||
+          activeAuthConfiguration.get(client) !== configuration
+        ) {
+          if (gen !== null) resolveConfirmation(gen)
+          settleResolve()
+          return
+        }
+
+        // Supersede the indefinite Convex auth configuration with a total
+        // anonymous fetcher. This resumes its paused auth lifecycle without
+        // trusting a token whose server transition was never confirmed.
+        activeAuthConfiguration.set(client, {})
+        try {
+          client.setAuth(
+            async () => null,
+            () => {},
+          )
+        } catch {
+          // The owner closes replacement candidates; the initial/current path
+          // publishes a fail-closed error below. Never mask the timeout itself.
+        }
+        settleReject(
+          new ConvexCallError({
+            kind: 'authentication',
+            code: 'AUTH_CONFIRMATION_TIMEOUT',
+            message: 'Convex authentication confirmation timed out',
+          }),
+        )
+      }, AUTH_CONFIRMATION_TIMEOUT_MS)
+
+      try {
+        client.setAuth(makeSetAuthFetcher(epoch), (isAuthenticated) => {
+          if (
+            disposed ||
+            epoch !== authEpoch ||
+            activeAuthConfiguration.get(client) !== configuration
+          ) {
+            return
+          }
+
+          if (!confirmationObserved) {
+            confirmationObserved = true
+            stopTimer()
+            if (!isAuthenticated) {
+              // The first server result definitively rejected this token. A
+              // private replacement has already crossed the generation
+              // boundary, so it can publish as the now-anonymous candidate.
+              // An initial/current client must perform that boundary now.
+              activeAuthConfiguration.set(client, {})
+              if (gen !== null) {
+                publishAnonymous(null)
+                resolveConfirmation(gen)
+                settleResolve()
+              } else if (state.identity.value.status === 'authenticated') {
+                void transitionConfirmedClientToAnonymous(client, epoch, null).then(settleResolve)
+              } else {
+                publishAnonymous(null)
+                settleResolve()
+              }
+              return
+            }
+
+            if (stagedKey !== 'anonymous' && stagedToken && stagedUser) {
+              publishAuthenticated(stagedToken, stagedUser)
+            } else {
+              publishAnonymous(null)
+            }
+            if (gen !== null) resolveConfirmation(gen)
+            settleResolve()
+            return
+          }
+
+          if (isAuthenticated) {
+            // Convex normally reports `true` only for the first transition, but
+            // treating a duplicate as an idempotent same-identity publication
+            // keeps a refreshed staged token coherent without re-opening the
+            // one-shot confirmation promise.
+            if (stagedKey !== 'anonymous' && stagedToken && stagedUser) {
+              publishAuthenticated(stagedToken, stagedUser)
+            }
+            return
+          }
+
+          // The callback intentionally outlives first confirmation: Convex uses
+          // this same function to report later scheduled-refresh revocation.
+          void transitionConfirmedClientToAnonymous(client, epoch, null)
+        })
+      } catch (cause) {
+        if (activeAuthConfiguration.get(client) === configuration) {
+          activeAuthConfiguration.set(client, {})
+        }
+        settleReject(
+          new ConvexCallError({
+            kind: 'authentication',
+            code: 'AUTH_CONFIRMATION_FAILED',
+            message: 'Convex authentication could not be initialized',
+            cause,
+          }),
+        )
+      }
+    })
+  }
+
+  async function confirmCurrentClient(client: ConvexClient, epoch: number): Promise<void> {
+    try {
+      await installSetAuth(client, epoch, null)
+    } catch (failure) {
+      if (disposed || epoch !== authEpoch || currentClient !== client) return
+      const message =
+        failure instanceof Error
+          ? failure.message
+          : 'Convex authentication could not be initialized'
+      if (state.identity.value.status === 'authenticated') {
+        await transitionConfirmedClientToAnonymous(client, epoch, message)
+        return
+      }
+      publishAnonymous(message)
+    }
+  }
+
+  function resolveConfirmation(gen: number) {
+    const deferred = pendingConfirmations.get(gen)
+    if (deferred) {
+      pendingConfirmations.delete(gen)
+      deferred.resolve()
+    }
+  }
+
+  function supersedeCrossedGeneration(): boolean {
+    if (pendingConfirmations.size === 0) return false
+
+    // The prior principal was already retired for this generation, so a newer
+    // revision cannot use the published identity's same-key in-place path. Make
+    // the private candidate inert, release its initializer, and force a fresh
+    // generation for the latest target below.
+    if (currentClient) {
+      activeAuthConfiguration.set(currentClient, {})
+      pendingConfirmationByClient.get(currentClient)?.()
+    }
+    for (const confirmation of pendingConfirmations.values()) confirmation.resolve()
+    pendingConfirmations.clear()
+    return true
+  }
+
+  // ---- core transition (post-settlement) -----------------------------------
+  async function commitTransition(target: AuthIdentity, epoch: number): Promise<void> {
+    if (disposed || epoch !== authEpoch) return
+    const crossedGeneration = supersedeCrossedGeneration()
+    const targetKey = identityKeyOf(target)
+    const currentKey = identityKeyOf(state.identity.value)
+
+    // Stage the candidate the fetcher / owner will confirm.
+    if (target.status === 'authenticated') {
+      stagedToken = target.token
+      stagedUser = target.user
+      stagedKey = target.key
+    } else {
+      stagedToken = null
+      stagedUser = null
+      stagedKey = 'anonymous'
+    }
+
+    if (targetKey === currentKey && !crossedGeneration) {
+      // Same identity key. Anonymous→anonymous publishes directly; same-user
+      // token rotation re-confirms the token on the CURRENT client in place.
+      if (target.status === 'authenticated' && currentClient) {
+        await confirmCurrentClient(currentClient, epoch)
+      } else {
+        publishAnonymous(state.authError.value)
+      }
+      return
+    }
+
+    // Stable identity-key change between two settled identities: retire the prior
+    // primary through the owner. Purge identity-owned payloads synchronously, bump
+    // identityGeneration, notify the owner (it replaces and calls
+    // initializePrimary), and await the confirmation the owner's handshake drives.
+    purgeIdentityPayloads()
+    const gen = (identityGeneration += 1)
+    const confirmation = createDeferred()
+    pendingConfirmations.set(gen, confirmation)
+    notify()
+    await confirmation.promise
+  }
+
+  // ---- integrated operation scheduling -------------------------------------
+  function executeIntegratedOperation(operation: () => Promise<unknown>): Promise<unknown> {
+    return pending.run(() =>
+      queue.enqueue(async () => {
+        if (disposed) throw createIdentityChangedError('authentication operation')
+        const underlying = operation()
+        // The Better Auth call may not support cancellation. Its late settlement
+        // is abandoned after teardown and must never become unhandled.
+        underlying.catch(() => {})
+        return await Promise.race([
+          underlying,
+          disposalSignal.then(() => {
+            throw createIdentityChangedError('authentication operation')
+          }),
+        ])
+      }),
+    )
+  }
+
+  async function failClosedSessionSynchronization(failure: ConvexCallError): Promise<void> {
+    if (disposed) return
+    const epoch = (authEpoch += 1)
+    clearRetry()
+    state.authError.value = failure.message
+    await commitTransition(ANONYMOUS_IDENTITY, epoch)
+  }
+
+  const sessionSynchronization = createSessionSynchronization({
+    timeoutMs: SESSION_RECONCILIATION_TIMEOUT_MS,
+    isDisposed: () => disposed,
+    failClosed: failClosedSessionSynchronization,
+  })
+
+  async function reconcileSession(
+    sessionToken: string | null,
+    errorMessage: string | null = null,
+  ): Promise<void> {
+    if (disposed) return
+    const sessionPresent = sessionToken !== null
+    const revision = sessionSynchronization.advance()
+    const epoch = (authEpoch += 1)
+    clearRetry()
+    try {
+      if (!sessionPresent || errorMessage) {
+        state.authError.value = errorMessage
+        await commitTransition(ANONYMOUS_IDENTITY, epoch)
+        return
+      }
+      await pending.run(async () => {
+        if (!authClient) return
+        const outcome = await fetchConvexToken(authClient, {
+          signal: disposalController.signal,
+        })
+        if (disposed || !sessionSynchronization.isCurrent(revision) || epoch !== authEpoch) return
+        if (outcome.identity) {
+          await commitTransition(
+            toAuthenticatedIdentity(outcome.identity.token, outcome.identity.user),
+            epoch,
+          )
+        } else {
+          state.authError.value = outcome.authError
+          await commitTransition(ANONYMOUS_IDENTITY, epoch)
+        }
+      })
+    } finally {
+      // An errored observation is not evidence of either the reported stale
+      // session token or canonical absence. Do not let it satisfy sign-in or
+      // sign-out correlation; the bounded wrapper will fail closed instead.
+      if (errorMessage === null) sessionSynchronization.complete(revision, sessionToken)
+    }
+  }
+
+  // ---- background refresh (epoch-scoped dedup) -----------------------------
+  function refresh(): Promise<void> {
+    if (disposed) return Promise.resolve()
+    // Deduplicate per authEpoch: a caller holding a newer epoch starts a fresh
+    // refresh instead of awaiting a stale one (decision 3).
+    if (refreshPromise && refreshEpoch === authEpoch) return refreshPromise
+
+    const epoch = authEpoch
+    refreshEpoch = epoch
+    refreshPromise = pending
+      .run(async () => {
+        const source = authClient
+        if (!source) return
+        const outcome = await fetchConvexToken(source, {
+          signal: disposalController.signal,
+        })
+        // Commit only while the captured epoch remains current (cannot commit
+        // across authEpoch).
+        if (disposed || epoch !== authEpoch) return
+        if (outcome.identity) {
+          const target = toAuthenticatedIdentity(outcome.identity.token, outcome.identity.user)
+          const targetKey = identityKeyOf(target)
+          if (targetKey === identityKeyOf(state.identity.value) && targetKey !== 'anonymous') {
+            // Same-user rotation: authEpoch advances, identityGeneration does not.
+            authEpoch += 1
+            stagedToken = target.status === 'authenticated' ? target.token : null
+            stagedUser = target.status === 'authenticated' ? target.user : null
+            if (target.status === 'authenticated' && currentClient) {
+              await confirmCurrentClient(currentClient, authEpoch)
+            }
+          } else {
+            authEpoch += 1
+            await commitTransition(target, authEpoch)
+          }
+        } else if (outcome.authError) {
+          if (
+            state.identity.value.status === 'authenticated' &&
+            isTokenUsable(stagedToken) &&
+            !outcome.definitive
+          ) {
+            // Transient failure over a usable identity: keep it, record error.
+            state.authError.value = outcome.authError
+            notify()
+          } else {
+            // Definitive 401/403 or no usable identity: transition to anonymous.
+            authEpoch += 1
+            await commitTransition(ANONYMOUS_IDENTITY, authEpoch)
+          }
+        } else if (state.identity.value.status === 'authenticated' || state.authError.value) {
+          // Clean anonymous outcome (no session, no error). If a still-usable
+          // identity or a stale error was previously published, clear it — this
+          // is the required `authenticated -> anonymous` and `error -> anonymous`
+          // background-refresh transitions (vNext §5.3). Clear the stale error
+          // BEFORE the same-identity-key anonymous->anonymous publish path
+          // (which otherwise republishes whatever `state.authError` still holds).
+          state.authError.value = null
+          authEpoch += 1
+          await commitTransition(ANONYMOUS_IDENTITY, authEpoch)
+        }
+      })
+      .finally(() => {
+        if (refreshEpoch === epoch) {
+          refreshPromise = null
+        }
+      })
+    return refreshPromise
+  }
+
+  // ---- sign-out (identity-queue op) ----------------------------------------
+  async function recoverFailedSignOut(epoch: number, message: string): Promise<void> {
+    if (disposed || epoch !== authEpoch) return
+
+    // A failed Better Auth response does not prove that the session cookie was
+    // preserved. Validate it once before re-arming the newer epoch; otherwise a
+    // partially completed logout could keep serving the old cached JWT.
+    const outcome = authClient
+      ? await fetchConvexToken(authClient, { signal: disposalController.signal })
+      : null
+    if (disposed || epoch !== authEpoch) return
+
+    let retainCurrentIdentity = false
+    if (state.identity.value.status === 'authenticated' && outcome?.identity) {
+      const nextKey = safeIdentityKey(outcome.identity.user)
+      if (nextKey === state.identity.value.key) {
+        stagedToken = outcome.identity.token
+        stagedUser = outcome.identity.user
+        stagedKey = nextKey
+        retainCurrentIdentity = true
+      }
+    } else if (
+      state.identity.value.status === 'authenticated' &&
+      outcome !== null &&
+      !outcome.definitive &&
+      isTokenUsable(stagedToken)
+    ) {
+      // A transient validation failure does not revoke a still-usable token.
+      retainCurrentIdentity = true
+    }
+
+    if (retainCurrentIdentity && currentClient) {
+      await confirmCurrentClient(currentClient, epoch)
+    } else if (state.identity.value.status === 'authenticated') {
+      state.authError.value = message
+      await commitTransition(ANONYMOUS_IDENTITY, epoch)
+    }
+
+    if (!disposed && epoch === authEpoch && state.identity.value.status === 'authenticated') {
+      state.authError.value = message
+      notify()
+    }
+  }
+
+  function signOut(): Promise<unknown> {
+    return executeIntegratedOperation(async () => {
+      if (!authClient) {
+        const message = '[useConvexAuth] Cannot sign out because Better Auth client is unavailable'
+        state.authError.value = message
+        throw new Error(message)
+      }
+      // Advance authEpoch AT DEQUEUE, before awaiting Better Auth (decision 3).
+      const epoch = (authEpoch += 1)
+      clearRetry()
+      const barrier = sessionSynchronization.createBarrier()
+      let result: unknown
+      try {
+        result = await authClient.signOut()
+      } catch (error) {
+        barrier.cancel()
+        await recoverFailedSignOut(epoch, normalizeError(error, 'Sign out failed'))
+        throw error
+      }
+      const maybeError =
+        result && typeof result === 'object' && 'error' in result
+          ? (result as { error?: unknown }).error
+          : null
+      if (maybeError) {
+        barrier.cancel()
+        // Failed sign-out retains the existing identity under the newer epoch.
+        const message = normalizeError(maybeError, 'Sign out failed')
+        await recoverFailedSignOut(epoch, message)
+        throw new Error(message)
+      }
+      if (disposed) {
+        barrier.cancel()
+        return result
+      }
+      await barrier.wait(null)
+      return result
+    })
+  }
+
+  // ---- ready() (snapshot semantics, internal §6.4) -------------------------
+  async function ready(options?: { timeoutMs?: number }): Promise<ConvexAuthStatus> {
+    const timeoutMs = options?.timeoutMs ?? 0
+    const captured: Array<Promise<unknown>> = []
+    if (!settled) captured.push(initialSettlement.promise)
+    if (refreshPromise) captured.push(refreshPromise)
+    if (captured.length === 0) return status.value
+
+    const wait = Promise.allSettled(captured)
+    if (timeoutMs === 0) {
+      await wait
+      return status.value
+    }
+    let timer: ReturnType<typeof setTimeout> | null = null
+    try {
+      await Promise.race([
+        wait,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs)
+        }),
+      ])
+    } finally {
+      if (timer !== null) clearTimeout(timer)
+    }
+    return status.value
+  }
+
+  // ---- initial settlement --------------------------------------------------
+  function attachPrimary(client: ConvexClient): void {
+    if (disposed) return
+    currentClient = client
+    const hydratedIdentity = state.identity.value
+
+    if (hydratedIdentity.status === 'authenticated') {
+      // SSR hydration may render the display identity, but it is not a usable
+      // browser identity until this client's server transition confirms it.
+      stagedToken = hydratedIdentity.token
+      stagedUser = hydratedIdentity.user
+      stagedKey = hydratedIdentity.key
+      void pending.run(async () => {
+        await confirmCurrentClient(client, authEpoch)
+        if (!disposed && settled) {
+          logAuth({
+            phase: 'hydrate',
+            outcome: 'success',
+            details: { source: 'ssr-confirmed' },
+          })
+        }
+      })
+      return
+    }
+
+    // No hydrated session: resolve the initial identity explicitly (total fetch),
+    // then confirm the primary. A definitive failure without a usable identity
+    // settles `error`; a clean anonymous result settles `anonymous`.
+    void pending.run(async () => {
+      const epoch = authEpoch
+      if (!authClient) {
+        publishAnonymous(state.authError.value)
+        return
+      }
+      const outcome = await fetchConvexToken(authClient, {
+        signal: disposalController.signal,
+      })
+      if (disposed || epoch !== authEpoch) return
+      if (outcome.identity) {
+        stagedToken = outcome.identity.token
+        stagedUser = outcome.identity.user
+        stagedKey = safeIdentityKey(outcome.identity.user)
+        await confirmCurrentClient(client, epoch)
+      } else if (outcome.authError) {
+        publishAnonymous(outcome.authError)
+      } else {
+        publishAnonymous(null)
+      }
+    })
+  }
+
+  function dispose(): void {
+    if (disposed) return
+    disposed = true
+    disposalController.abort()
+    resolveDisposal()
+    clearRetry()
+    // Teardown is a cancellation boundary, not a reason to abandon promises.
+    // Every waiter is released so sign-in/out/refresh and ready({ timeoutMs: 0 })
+    // cannot remain pending after the owning Nuxt application is disposed.
+    initialSettlement.resolve()
+    resolveSettlementWaiters()
+    for (const cancel of [...activeConfirmationCancellations]) cancel()
+    activeConfirmationCancellations.clear()
+    for (const confirmation of pendingConfirmations.values()) confirmation.resolve()
+    pendingConfirmations.clear()
+    sessionSynchronization.dispose()
+    listeners.clear()
+  }
+
+  // ---- port ----------------------------------------------------------------
+  const port: AuthIdentityPort = {
+    snapshot(): AuthIdentitySnapshot {
+      const usableIdentity =
+        stagedKey !== 'anonymous' ? stagedKey : identityKeyOf(state.identity.value)
+      const settledNow = settled
+      const identityKey = settledNow ? usableIdentity : null
+      const hasUsableIdentity = identityKey !== null && identityKey !== 'anonymous'
+      const portError: ConvexCallError | null =
+        settledNow && !hasUsableIdentity && state.authError.value
+          ? new ConvexCallError({
+              kind: 'authentication',
+              message: state.authError.value,
+            })
+          : null
+      return {
+        authEnabled: true,
+        settled: settledNow,
+        identityKey,
+        authEpoch,
+        identityGeneration,
+        error: portError,
+      }
+    },
+    waitForInitialSettlement() {
+      if (settled) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        settlementWaiters.add(resolve)
+      })
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    async initializePrimary(candidate) {
+      if (disposed) throw createIdentityChangedError('primary initialization')
+      // Owner-driven replacement: capture the fresh candidate, install setAuth,
+      // and await the confirmation that publishes the staged identity. For an
+      // anonymous target a fresh client is already anonymous → publish + resolve.
+      // commitTransition's epoch guard serializes generation bumps, so the
+      // current epoch/generation are exactly the transition that requested this
+      // one candidate. The port does not duplicate those values as inputs.
+      currentClient = candidate
+      const epoch = authEpoch
+      const gen = identityGeneration
+      if (stagedKey === 'anonymous') {
+        publishAnonymous(state.authError.value)
+        resolveConfirmation(gen)
+        return
+      }
+      const done = pendingConfirmations.get(gen)?.promise
+      await installSetAuth(candidate, epoch, gen)
+      if (done) await done
+    },
+    failPrimary(generation, failure) {
+      if (disposed || generation !== identityGeneration) return
+      const failedAuthenticatedTarget = stagedKey !== 'anonymous'
+      const normalized =
+        failure instanceof ConvexCallError
+          ? failure
+          : new ConvexCallError({
+              kind: 'authentication',
+              code: 'PRIMARY_INITIALIZATION_FAILED',
+              message: 'Convex authentication could not be initialized',
+              cause: failure,
+            })
+      state.identity.value = ANONYMOUS_IDENTITY
+      state.authError.value = normalized.message
+      if (failedAuthenticatedTarget) {
+        // This generation's authenticated candidate is unusable and its prior
+        // principal was already retired. Let commitTransition supersede that
+        // crossed generation and create exactly one fresh anonymous candidate.
+        const epoch = (authEpoch += 1)
+        void commitTransition(ANONYMOUS_IDENTITY, epoch).catch(() => {
+          if (!disposed && epoch === authEpoch) publishAnonymous(normalized.message)
+        })
+        return
+      }
+
+      // Failure of the one anonymous recovery candidate is terminal. Publish
+      // the fail-closed state and release the generation without retrying.
+      stagedToken = null
+      stagedUser = null
+      stagedKey = 'anonymous'
+      publishAnonymous(normalized.message)
+      resolveConfirmation(generation)
+    },
+  }
+
+  function wrapNamespace<T extends object>(namespace: T): T {
+    return createIntegratedAuthNamespace(
+      namespace,
+      sessionSynchronization.createBarrier,
+      executeIntegratedOperation,
+    )
+  }
+
+  // Memoize the integrated namespaces once so `auth.signIn === auth.signIn`
+  // across composable calls (referential stability, vNext §8).
+  const integratedSignIn = authClient ? wrapNamespace(authClient.signIn as object) : null
+  const integratedSignUp = authClient ? wrapNamespace(authClient.signUp as object) : null
+
+  return {
+    port,
+    status,
+    isPending: pending.isPending,
+    isAuthenticated,
+    token,
+    user,
+    error,
+    wrapNamespace,
+    integratedSignIn,
+    integratedSignUp,
+    ready,
+    refresh,
+    reconcileSession,
+    signOut,
+    attachPrimary,
+    dispose,
+  }
 }
 
-type AuthEngineRoute = {
-  path: string
-  meta?: { skipConvexAuth?: boolean }
+function safeIdentityKey(user: ConvexUser | null): ConvexIdentityKey {
+  try {
+    return getConvexIdentityKey(user)
+  } catch {
+    return 'anonymous'
+  }
 }
 
-const TOKEN_CACHE_MS = 10000
-const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
-const NULL_TOKEN_CACHE_MS = 5000
-
-export interface ConvexAuthEngineState {
-  token: Ref<string | null>
-  user: Ref<ConvexUser | null>
-  pending: Ref<boolean>
-  authError: Ref<string | null>
-}
-
-export interface ConvexAuthEngine {
-  attachConvexClient: (client: ConvexClient) => void
-  signOut: () => Promise<
-    ReturnType<AuthClient['signOut']> extends Promise<infer T> ? T | null : null
-  >
-  refreshAuth: () => Promise<void>
-  awaitAuthReady: (options?: { timeoutMs?: number }) => Promise<boolean>
-}
-
-const getErrorMessage = (value: unknown, fallback: string): string => {
+function normalizeError(value: unknown, fallback: string): string {
   if (value instanceof Error) return value.message
   if (value && typeof value === 'object' && 'message' in value) {
     return String((value as { message: unknown }).message)
   }
   if (typeof value === 'string' && value.length > 0) return value
   return fallback
-}
-
-export function createConvexAuthEngine({
-  nuxtApp,
-  authClient,
-  state,
-  logger,
-  traceId,
-  convexUrl,
-  isAuthEnabled = Boolean(authClient),
-  authRoute = '/api/auth',
-  skipRoutes = [],
-  getRoute = () => ({ path: '/', meta: {} }),
-  wasServerRendered = () => false,
-}: {
-  nuxtApp: AuthEngineNuxtApp
-  authClient: AuthClientWithConvex | AuthClient | null
-  state: ConvexAuthEngineState
-  logger?: Pick<Logger, 'auth'>
-  traceId?: Ref<string> | (() => string) | string
-  convexUrl?: string
-  isAuthEnabled?: boolean
-  authRoute?: string
-  skipRoutes?: string[]
-  getRoute?: () => AuthEngineRoute
-  wasServerRendered?: () => boolean
-}): ConvexAuthEngine {
-  let hasResolvedInitialAuth = false
-  let lastTokenValidation = Date.now()
-  let lastNullTokenCheck = 0
-  let authGeneration = 0
-  let signOutPromise: ReturnType<ConvexAuthEngine['signOut']> | null = null
-  let attachedClient: ConvexClient | null = null
-  let authReadyPromise: Promise<boolean> | null = null
-  let resolveAuthReady: ((isAuthenticated: boolean) => void) | null = null
-
-  const getTraceId = () => {
-    if (!traceId) return undefined
-    if (typeof traceId === 'function') return traceId()
-    if (typeof traceId === 'string') return traceId
-    return traceId.value
-  }
-
-  const isActiveGeneration = (generation: number) => generation === authGeneration
-
-  const nextGeneration = () => {
-    authGeneration += 1
-    return authGeneration
-  }
-
-  const resetAuthReady = () => {
-    authReadyPromise = new Promise<boolean>((resolve) => {
-      resolveAuthReady = resolve
-    })
-  }
-
-  const settleAuthReady = (isAuthenticated: boolean) => {
-    resolveAuthReady?.(isAuthenticated)
-    resolveAuthReady = null
-    authReadyPromise = Promise.resolve(isAuthenticated)
-  }
-
-  const resolveInitialAuth = (generation = authGeneration) => {
-    if (isActiveGeneration(generation) && !hasResolvedInitialAuth) {
-      hasResolvedInitialAuth = true
-      state.pending.value = false
-    }
-  }
-
-  const logAuth = logger?.auth ?? (() => {})
-
-  const getConvexAuthClient = (): AuthClientWithConvex | null => {
-    const maybeAuthClient = authClient as Partial<AuthClientWithConvex> | null
-    if (typeof maybeAuthClient?.convex?.token !== 'function') return null
-    return maybeAuthClient as AuthClientWithConvex
-  }
-
-  const fetchToken = async ({
-    forceRefreshToken,
-    signal,
-  }: {
-    forceRefreshToken: boolean
-    signal?: AbortSignal
-  }) => {
-    const operationGeneration = authGeneration
-    const route = getRoute()
-    const routePath = route.path
-    const currentTraceId = getTraceId()
-
-    logAuth({
-      phase: 'client-fetchToken:start',
-      outcome: 'success',
-      details: {
-        traceId: currentTraceId,
-        path: routePath,
-        forceRefreshToken,
-        hasHydratedToken: Boolean(state.token.value),
-        hasHydratedUser: Boolean(state.user.value),
-      },
-    })
-
-    if (signal?.aborted) {
-      logAuth({
-        phase: 'client-fetchToken:abort',
-        outcome: 'skip',
-        details: {
-          traceId: currentTraceId,
-          reason: 'signal-aborted-before-start',
-          path: routePath,
-        },
-      })
-      return null
-    }
-
-    if (route.meta?.skipConvexAuth === true) {
-      logAuth({
-        phase: 'client-fetchToken:skip',
-        outcome: 'skip',
-        details: { traceId: currentTraceId, reason: 'page-meta-skip', path: routePath },
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    if (matchesSkipRoute(routePath, skipRoutes)) {
-      logAuth({
-        phase: 'client-fetchToken:skip',
-        outcome: 'skip',
-        details: { traceId: currentTraceId, reason: 'skip-auth-route', path: routePath },
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    if (state.token.value && !forceRefreshToken) {
-      lastTokenValidation = Date.now()
-      logAuth({
-        phase: 'client-fetchToken:cache',
-        outcome: 'success',
-        details: { traceId: currentTraceId, source: 'hydrated-token', path: routePath },
-      })
-      resolveInitialAuth(operationGeneration)
-      return state.token.value
-    }
-
-    const timeSinceValidation = Date.now() - lastTokenValidation
-    if (state.token.value && forceRefreshToken && timeSinceValidation < TOKEN_CACHE_MS) {
-      const tokenTimeUntilExpiryMs = getJwtTimeUntilExpiryMs(state.token.value)
-      if (
-        tokenTimeUntilExpiryMs !== null &&
-        tokenTimeUntilExpiryMs <= TOKEN_EXPIRY_SAFETY_BUFFER_MS
-      ) {
-        logAuth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'skip',
-          details: {
-            traceId: currentTraceId,
-            reason: 'token-expiring',
-            timeUntilExpiryMs: tokenTimeUntilExpiryMs,
-            path: routePath,
-          },
-        })
-      } else if (
-        tokenTimeUntilExpiryMs === null ||
-        timeSinceValidation <
-          Math.min(
-            TOKEN_CACHE_MS,
-            Math.max(0, tokenTimeUntilExpiryMs - TOKEN_EXPIRY_SAFETY_BUFFER_MS),
-          )
-      ) {
-        logAuth({
-          phase: 'client-fetchToken:cache',
-          outcome: 'success',
-          details: {
-            traceId: currentTraceId,
-            source: 'recent-token-cache',
-            ageMs: timeSinceValidation,
-            path: routePath,
-          },
-        })
-        resolveInitialAuth(operationGeneration)
-        return state.token.value
-      }
-    }
-
-    if (wasServerRendered() && !state.token.value && !state.user.value && !forceRefreshToken) {
-      logAuth({
-        phase: 'client-fetchToken:skip',
-        outcome: 'skip',
-        details: {
-          traceId: currentTraceId,
-          reason: 'ssr-rendered-no-hydrated-session',
-          path: routePath,
-        },
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    const timeSinceNullCheck = Date.now() - lastNullTokenCheck
-    if (!state.token.value && timeSinceNullCheck < NULL_TOKEN_CACHE_MS) {
-      logAuth({
-        phase: 'client-fetchToken:cache',
-        outcome: 'miss',
-        details: {
-          traceId: currentTraceId,
-          source: 'negative-cache',
-          ageMs: timeSinceNullCheck,
-          path: routePath,
-        },
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    const convexAuthClient = getConvexAuthClient()
-    if (!convexAuthClient) {
-      if (!isActiveGeneration(operationGeneration)) return null
-      state.authError.value = buildClientAuthRequestFailureMessage(
-        new Error('Better Auth Convex client plugin is unavailable'),
-      )
-      state.token.value = null
-      state.user.value = null
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-
-    try {
-      logAuth({
-        phase: 'client-fetchToken:request',
-        outcome: 'success',
-        details: {
-          traceId: currentTraceId,
-          endpoint: `${authRoute}/convex/token`,
-          path: routePath,
-        },
-      })
-      const response = await convexAuthClient.convex.token({
-        fetchOptions: { throw: false },
-      })
-
-      if (signal?.aborted) {
-        logAuth({
-          phase: 'client-fetchToken:abort',
-          outcome: 'skip',
-          details: {
-            traceId: currentTraceId,
-            reason: 'signal-aborted-after-request',
-            path: routePath,
-          },
-        })
-        return null
-      }
-
-      if (!isActiveGeneration(operationGeneration)) {
-        logAuth({
-          phase: 'client-fetchToken:stale',
-          outcome: 'skip',
-          details: { traceId: currentTraceId, path: routePath },
-        })
-        return null
-      }
-
-      if (response.error || !response.data?.token) {
-        state.token.value = null
-        state.user.value = null
-        if (response.error) {
-          state.authError.value = buildClientAuthResponseErrorMessage(
-            getErrorMessage(response.error, 'Authentication failed'),
-          )
-        } else {
-          state.authError.value = null
-        }
-        lastNullTokenCheck = Date.now()
-        logAuth({
-          phase: 'client-fetchToken:response',
-          outcome: 'miss',
-          details: { traceId: currentTraceId, path: routePath, hasError: Boolean(response.error) },
-        })
-        resolveInitialAuth(operationGeneration)
-        return null
-      }
-
-      const token = response.data.token
-      state.token.value = token
-      state.authError.value = null
-      lastTokenValidation = Date.now()
-      state.user.value = decodeUserFromJwt(token)
-
-      logAuth({
-        phase: 'client-fetchToken:response',
-        outcome: 'success',
-        details: {
-          traceId: currentTraceId,
-          path: routePath,
-          userHydrated: Boolean(state.user.value),
-        },
-      })
-      resolveInitialAuth(operationGeneration)
-      return token
-    } catch (error) {
-      if (signal?.aborted) {
-        logAuth({
-          phase: 'client-fetchToken:abort',
-          outcome: 'skip',
-          details: {
-            traceId: currentTraceId,
-            reason: 'signal-aborted-after-error',
-            path: routePath,
-          },
-        })
-        return null
-      }
-
-      if (!isActiveGeneration(operationGeneration)) {
-        logAuth({
-          phase: 'client-fetchToken:stale',
-          outcome: 'skip',
-          details: {
-            traceId: currentTraceId,
-            path: routePath,
-            reason: 'stale-error',
-          },
-        })
-        return null
-      }
-
-      state.token.value = null
-      state.user.value = null
-      state.authError.value = buildClientAuthRequestFailureMessage(error)
-      lastNullTokenCheck = Date.now()
-      logAuth({
-        phase: 'client-fetchToken:response',
-        outcome: 'error',
-        details: { traceId: currentTraceId, path: routePath },
-        error: error instanceof Error ? error : new Error('Authentication request failed'),
-      })
-      resolveInitialAuth(operationGeneration)
-      return null
-    }
-  }
-
-  const attachConvexClient = (client: ConvexClient) => {
-    attachedClient = client
-
-    if (!isAuthEnabled) {
-      state.pending.value = false
-      settleAuthReady(true)
-      return
-    }
-
-    if (!getConvexAuthClient()) {
-      state.authError.value = buildMissingSiteUrlMessage(convexUrl ?? 'the configured Convex URL')
-      state.pending.value = false
-      settleAuthReady(false)
-      nuxtApp.hook('better-convex:auth:refresh', async () => {
-        throw new Error(state.authError.value ?? buildMissingSiteUrlMessage(convexUrl ?? ''))
-      })
-      logAuth({
-        phase: 'client-init',
-        outcome: 'error',
-        error: new Error(state.authError.value),
-        details: { traceId: getTraceId() },
-      })
-      return
-    }
-
-    resetAuthReady()
-    client.setAuth(fetchToken, (isAuthenticated) => {
-      if (isAuthenticated) {
-        state.authError.value = null
-      } else if (state.token.value) {
-        state.authError.value = 'Convex authentication token was rejected by the server'
-      }
-      state.pending.value = false
-      settleAuthReady(isAuthenticated)
-      logAuth({
-        phase: 'client-setAuth',
-        outcome: 'success',
-        details: {
-          traceId: getTraceId(),
-          state: isAuthenticated ? 'authenticated' : 'unauthenticated',
-          hasToken: Boolean(state.token.value),
-          hasUser: Boolean(state.user.value),
-        },
-      })
-    })
-
-    nuxtApp.hook('better-convex:auth:refresh', async () => {
-      logAuth({
-        phase: 'client-refresh',
-        outcome: 'success',
-        details: { traceId: getTraceId() },
-      })
-      lastTokenValidation = 0
-      lastNullTokenCheck = 0
-
-      const isAuthenticated = await new Promise<boolean>((resolve) => {
-        resetAuthReady()
-        client.setAuth(fetchToken, (nextIsAuthenticated) => {
-          if (nextIsAuthenticated) {
-            state.authError.value = null
-          } else if (state.token.value) {
-            state.authError.value = 'Convex authentication token was rejected by the server'
-          }
-          state.pending.value = false
-          settleAuthReady(nextIsAuthenticated)
-          resolve(nextIsAuthenticated)
-        })
-      })
-
-      if (state.authError.value) {
-        throw new Error(state.authError.value)
-      }
-      if (!isAuthenticated) {
-        state.authError.value = 'Convex authentication did not complete'
-        throw new Error(state.authError.value)
-      }
-      if (!state.token.value) {
-        throw new Error('Authentication refresh completed without a token')
-      }
-    })
-  }
-
-  const signOut: ConvexAuthEngine['signOut'] = async () => {
-    if (signOutPromise) {
-      return signOutPromise
-    }
-
-    if (!authClient) {
-      const error = new Error(
-        '[useConvexAuth] Cannot sign out because Better Auth client is unavailable',
-      )
-      state.authError.value = error.message
-      throw error
-    }
-
-    const operationGeneration = nextGeneration()
-    state.pending.value = true
-    state.authError.value = null
-
-    signOutPromise = (async () => {
-      const inflightRefresh = nuxtApp._convexRefreshAuthPromise
-      if (inflightRefresh) {
-        await inflightRefresh.catch(() => {})
-      }
-
-      const result = await authClient.signOut()
-      const maybeError =
-        result && typeof result === 'object' && 'error' in result ? result.error : null
-
-      if (maybeError) {
-        throw new Error(getErrorMessage(maybeError, 'Sign out failed'))
-      }
-
-      state.token.value = null
-      state.user.value = null
-      lastTokenValidation = 0
-      lastNullTokenCheck = Date.now()
-      settleAuthReady(false)
-      attachedClient?.setAuth(
-        async () => null,
-        () => {},
-      )
-      clearAuthSubscriptions(nuxtApp)
-      await nextTick()
-
-      // Purge cached Convex query payload so a subsequent session can never read or
-      // hydrate the previous user's data. Payload keys consumed exclusively by
-      // public auth:'none' queries are auth-independent and keep their data.
-      const publicPayloadKeys = getPublicOnlyPayloadKeys(nuxtApp)
-      clearNuxtData(
-        (key) =>
-          (key.startsWith('convex:') || key.startsWith('convex-paginated:')) &&
-          !publicPayloadKeys.has(key),
-      )
-
-      if (isActiveGeneration(operationGeneration)) {
-        state.authError.value = null
-      }
-
-      return result
-    })()
-
-    try {
-      return await signOutPromise
-    } catch (e) {
-      const error = e instanceof Error ? e : new Error(String(e))
-      if (isActiveGeneration(operationGeneration)) {
-        state.authError.value = error.message
-      }
-      throw error
-    } finally {
-      if (isActiveGeneration(operationGeneration)) {
-        state.pending.value = false
-      }
-      signOutPromise = null
-    }
-  }
-
-  const refreshAuth = async (): Promise<void> => {
-    if (nuxtApp._convexRefreshAuthPromise) {
-      return nuxtApp._convexRefreshAuthPromise
-    }
-
-    nuxtApp._convexRefreshAuthPromise = (async () => {
-      const inflightSignOut = signOutPromise
-      if (inflightSignOut) {
-        await inflightSignOut.catch(() => {})
-      }
-
-      const operationGeneration = nextGeneration()
-      state.pending.value = true
-      state.authError.value = null
-
-      try {
-        await Promise.race([
-          nuxtApp.callHook('better-convex:auth:refresh'),
-          new Promise<never>((_resolve, reject) => {
-            setTimeout(() => {
-              reject(new Error('Authentication refresh timed out after 5 seconds'))
-            }, 5000)
-          }),
-        ])
-
-        if (!isActiveGeneration(operationGeneration)) {
-          return
-        }
-        if (state.token.value) {
-          return
-        }
-        if (state.authError.value) {
-          throw new Error(state.authError.value)
-        }
-
-        state.authError.value = 'Authentication refresh completed without a token'
-        throw new Error(state.authError.value)
-      } catch (error) {
-        if (isActiveGeneration(operationGeneration)) {
-          state.authError.value = getErrorMessage(error, 'Authentication refresh failed')
-        }
-        throw error
-      } finally {
-        if (isActiveGeneration(operationGeneration)) {
-          state.pending.value = false
-        }
-        nuxtApp._convexRefreshAuthPromise = null
-      }
-    })()
-
-    return nuxtApp._convexRefreshAuthPromise
-  }
-
-  const awaitAuthReady: ConvexAuthEngine['awaitAuthReady'] = async (options) => {
-    if (!isAuthEnabled) return true
-    if (!getConvexAuthClient()) return false
-    if (!state.token.value) return true
-
-    const timeoutMs = options?.timeoutMs ?? 5_000
-    return await Promise.race([
-      authReadyPromise ?? Promise.resolve(Boolean(state.token.value)),
-      new Promise<boolean>((resolve) => {
-        setTimeout(() => resolve(false), timeoutMs)
-      }),
-    ])
-  }
-
-  return {
-    attachConvexClient,
-    signOut,
-    refreshAuth,
-    awaitAuthReady,
-  }
 }

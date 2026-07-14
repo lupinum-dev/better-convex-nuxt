@@ -19,8 +19,12 @@ describe('createUserSyncTriggers', () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
     const remove = vi.fn(async () => undefined)
-    const first = vi.fn()
-    const withIndex = vi.fn(() => ({ first }))
+    const collect = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ _id: 'user-1' }])
+      .mockResolvedValueOnce([{ _id: 'user-1' }])
+    const withIndex = vi.fn(() => ({ collect }))
     const query = vi.fn(() => ({ withIndex }))
 
     const ctx = {
@@ -57,7 +61,6 @@ describe('createUserSyncTriggers', () => {
       expect.objectContaining({ authId: 'auth-1', email: 'a@example.com' }),
     )
 
-    first.mockResolvedValueOnce({ _id: 'user-1' })
     await triggers.user.onUpdate(
       ctx,
       { _id: 'auth-1', email: 'b@example.com' },
@@ -70,7 +73,6 @@ describe('createUserSyncTriggers', () => {
       expect.objectContaining({ email: 'b@example.com' }),
     )
 
-    first.mockResolvedValueOnce({ _id: 'user-1' })
     await triggers.user.onDelete(ctx, { _id: 'auth-1' })
     expect(remove).toHaveBeenCalledWith('user-1')
   })
@@ -78,12 +80,12 @@ describe('createUserSyncTriggers', () => {
   it('rebuilds user projections from Better Auth users', async () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
-    const first = vi
+    const collect = vi
       .fn()
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ _id: 'user-2', authId: 'auth-2', email: 'old@example.com' })
-      .mockResolvedValueOnce({ _id: 'user-3', authId: 'auth-3', email: 'c@example.com' })
-    const withIndex = vi.fn(() => ({ first }))
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ _id: 'user-2', authId: 'auth-2', email: 'old@example.com' }])
+      .mockResolvedValueOnce([{ _id: 'user-3', authId: 'auth-3', email: 'c@example.com' }])
+    const withIndex = vi.fn(() => ({ collect }))
     const query = vi.fn(() => ({ withIndex }))
 
     const ctx = {
@@ -133,11 +135,11 @@ describe('createUserSyncTriggers', () => {
   it('does not insert duplicate projection rows for repeated create events', async () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
-    const first = vi
+    const collect = vi
       .fn()
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ _id: 'user-1', authId: 'auth-1', email: 'a@example.com' })
-    const withIndex = vi.fn(() => ({ first }))
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ _id: 'user-1', authId: 'auth-1', email: 'a@example.com' }])
+    const withIndex = vi.fn(() => ({ collect }))
     const query = vi.fn(() => ({ withIndex }))
 
     const ctx = {
@@ -168,7 +170,52 @@ describe('createUserSyncTriggers', () => {
     expect(query).toHaveBeenCalledTimes(2)
   })
 
-  it('no-ops onUpdate arriving before onCreate for the same user (F-42)', async () => {
+  it('collapses duplicate projections and deletes every copy with the auth user', async () => {
+    const insert = vi.fn(async () => 'new-id')
+    const patch = vi.fn(async () => undefined)
+    const remove = vi.fn(async () => undefined)
+    const duplicates = [
+      { _id: 'user-1', authId: 'auth-1', email: 'stale@example.com' },
+      { _id: 'user-2', authId: 'auth-1', email: 'copied@example.com' },
+    ]
+    const collect = vi
+      .fn()
+      .mockResolvedValueOnce(duplicates)
+      .mockResolvedValueOnce(duplicates)
+      .mockResolvedValueOnce(duplicates)
+    const withIndex = vi.fn(() => ({ collect }))
+    const ctx = {
+      db: {
+        insert,
+        patch,
+        delete: remove,
+        query: vi.fn(() => ({ withIndex })),
+      },
+    }
+
+    const triggers = createUserSyncTriggers<TestAuthUser, TestProjectionUser>({
+      table: 'users',
+      index: 'by_auth_id',
+      createDoc: ({ user }) => ({ authId: user._id, email: user.email }),
+      patchDoc: ({ user }) => ({ email: user.email }),
+      rebuildDoc: ({ user }) => ({ email: user.email }),
+    })
+
+    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'canonical@example.com' })
+    expect(remove).toHaveBeenCalledWith('user-2')
+    expect(insert).not.toHaveBeenCalled()
+
+    remove.mockClear()
+    await triggers.user.rebuild(ctx, [{ _id: 'auth-1', email: 'canonical@example.com' }])
+    expect(remove).toHaveBeenCalledWith('user-2')
+    expect(patch).toHaveBeenCalledWith('user-1', { email: 'canonical@example.com' })
+
+    remove.mockClear()
+    await triggers.user.onDelete(ctx, { _id: 'auth-1' })
+    expect(remove.mock.calls).toEqual([['user-1'], ['user-2']])
+  })
+
+  it('no-ops onUpdate arriving before onCreate for the same user', async () => {
     // Documents the current, intentional behavior (see the onUpdate JSDoc):
     // out-of-order delivery (onUpdate before onCreate) finds no existing
     // projection row and silently drops the update rather than queuing or
@@ -176,8 +223,8 @@ describe('createUserSyncTriggers', () => {
     // event's own payload, not the dropped update's fields.
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
-    const first = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null)
-    const withIndex = vi.fn(() => ({ first }))
+    const collect = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([])
+    const withIndex = vi.fn(() => ({ collect }))
     const query = vi.fn(() => ({ withIndex }))
 
     const ctx = {
@@ -227,8 +274,8 @@ describe('createUserSyncTriggers', () => {
   it('does not overwrite existing projection rows during rebuild without an explicit rebuild patch', async () => {
     const insert = vi.fn(async () => 'new-id')
     const patch = vi.fn(async () => undefined)
-    const first = vi.fn().mockResolvedValueOnce({ _id: 'user-1', authId: 'auth-1' })
-    const withIndex = vi.fn(() => ({ first }))
+    const collect = vi.fn().mockResolvedValueOnce([{ _id: 'user-1', authId: 'auth-1' }])
+    const withIndex = vi.fn(() => ({ collect }))
     const query = vi.fn(() => ({ withIndex }))
 
     const ctx = {

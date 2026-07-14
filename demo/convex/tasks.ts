@@ -14,6 +14,10 @@ import { mutation, query } from './_generated/server'
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
     const tasks = await ctx.db.query('demoTasks').order('desc').take(100)
 
     return tasks
@@ -53,9 +57,13 @@ export const add = mutation({
     if (!identity) {
       throw new Error('Not authenticated')
     }
+    const title = args.title.trim()
+    if (!title || title.length > 120) {
+      throw new Error('Task title must be between 1 and 120 characters')
+    }
 
     const taskId = await ctx.db.insert('demoTasks', {
-      title: args.title,
+      title,
       completed: false,
       userId: identity.subject,
       createdAt: Date.now(),
@@ -120,7 +128,7 @@ export const remove = mutation({
 })
 
 /**
- * Clear all own tasks (for demo reset)
+ * Clear one bounded batch of the current user's tasks.
  */
 export const clearAll = mutation({
   args: {},
@@ -133,12 +141,12 @@ export const clearAll = mutation({
     const tasks = await ctx.db
       .query('demoTasks')
       .withIndex('by_user', (q) => q.eq('userId', identity.subject))
-      .collect()
+      .take(100)
 
     for (const task of tasks) {
       await ctx.db.delete(task._id)
     }
 
-    return { deleted: tasks.length }
+    return { deleted: tasks.length, hasMore: tasks.length === 100 }
   },
 })

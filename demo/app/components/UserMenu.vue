@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { user, isAuthenticated, isPending, signOut: convexSignOut } = useConvexAuth()
-const { user: permissionUser } = useDemoPermissions()
+const { user: permissionUser } = await useDemoPermissions()
 const router = useRouter()
 
 // Get avatar URL from permission context (fetched from Convex, includes GitHub avatar)

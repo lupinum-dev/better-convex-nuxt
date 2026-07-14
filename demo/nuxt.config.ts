@@ -14,12 +14,7 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  convex: {
-    auth: {
-      enabled: true,
-    },
-    permissions: true,
-  },
+  convex: {},
 
   compatibilityDate: '2025-01-15',
 

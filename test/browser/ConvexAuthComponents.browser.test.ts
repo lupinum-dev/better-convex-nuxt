@@ -22,13 +22,14 @@ afterEach(() => {
 
 test('<ConvexAuthenticated> renders slot only when authenticated and not pending', async () => {
   useConvexAuthMock.mockReturnValue({
+    status: ref('authenticated'),
     token: ref('jwt'),
     user: ref({ id: 'u1' }),
     isAuthenticated: ref(true),
     isPending: ref(false),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthenticated, {
@@ -40,13 +41,14 @@ test('<ConvexAuthenticated> renders slot only when authenticated and not pending
 
 test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pending', async () => {
   useConvexAuthMock.mockReturnValue({
+    status: ref('anonymous'),
     token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(false),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexUnauthenticated, {
@@ -58,13 +60,14 @@ test('<ConvexUnauthenticated> renders slot only when unauthenticated and not pen
 
 test('<ConvexAuthLoading> renders slot while pending', async () => {
   useConvexAuthMock.mockReturnValue({
+    status: ref('loading'),
     token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(true),
     authError: ref(null),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthLoading, {
@@ -76,13 +79,14 @@ test('<ConvexAuthLoading> renders slot while pending', async () => {
 
 test('<ConvexAuthError> renders slot when auth is not pending and has explicit auth error', async () => {
   useConvexAuthMock.mockReturnValue({
+    status: ref('error'),
     token: ref(null),
     user: ref(null),
     isAuthenticated: ref(false),
     isPending: ref(false),
     authError: ref('Unauthorized'),
     signOut: vi.fn(),
-    refreshAuth: vi.fn(),
+    refresh: vi.fn(),
   })
 
   render(ConvexAuthError, {

@@ -57,33 +57,15 @@ export async function seedBetterAuthActor(
     teamIds?: string[]
   },
 ) {
-  return await t.run(async (ctx) => {
-    const auth = createAuth(ctx)
-    const signedUp = await auth.api.signUpEmail({
-      body: {
-        email: `${args.label}@example.com`,
-        password: 'password123',
-        name: args.label,
-      },
-    })
-    if (!signedUp.token) {
-      throw new Error('Better Auth signup did not return a session token')
-    }
+  const user = await signUpBetterAuthUser(t, { label: args.label })
 
-    const session = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: 'session',
-      where: [{ field: 'token', value: signedUp.token }],
-    })) as { _id: string } | null
-    if (!session) {
-      throw new Error('Better Auth session row was not created')
-    }
-
+  await t.run(async (ctx) => {
     await ctx.runMutation(components.betterAuth.adapter.create, {
       input: {
         model: 'member',
         data: {
           organizationId: args.organizationId,
-          userId: signedUp.user.id,
+          userId: user.authUserId,
           role: args.role,
           createdAt: now,
         },
@@ -96,18 +78,18 @@ export async function seedBetterAuthActor(
           model: 'teamMember',
           data: {
             teamId,
-            userId: signedUp.user.id,
+            userId: user.authUserId,
             createdAt: now,
           },
         },
       })
     }
-
-    return {
-      authUserId: signedUp.user.id,
-      sessionId: session._id,
-    }
   })
+
+  return {
+    authUserId: user.authUserId,
+    sessionId: user.sessionId,
+  }
 }
 
 export async function signUpBetterAuthUser(
@@ -118,20 +100,48 @@ export async function signUpBetterAuthUser(
 ) {
   return await t.run(async (ctx) => {
     const auth = createAuth(ctx)
-    const signedUp = await auth.api.signUpEmail({
-      body: {
-        email: `${args.label}@example.com`,
-        password: 'password123',
-        name: args.label,
-      },
-    })
-    if (!signedUp.token) {
-      throw new Error('Better Auth signup did not return a session token')
+    const email = `${args.label}@example.com`
+    const password = 'Password123456!'
+    const verificationPrefix = `[team-starter] Verification link ${email}: `
+    let verificationUrl: string | null = null
+    const originalConsoleInfo = console.info
+    console.info = (...values: unknown[]) => {
+      const message = values.map(String).join(' ')
+      if (message.startsWith(verificationPrefix)) {
+        verificationUrl = message.slice(verificationPrefix.length)
+      }
     }
 
+    let signedUp: Awaited<ReturnType<typeof auth.api.signUpEmail>>
+    try {
+      signedUp = await auth.api.signUpEmail({
+        body: {
+          email,
+          password,
+          name: args.label,
+        },
+      })
+    } finally {
+      console.info = originalConsoleInfo
+    }
+
+    if (!verificationUrl) {
+      throw new Error('Better Auth signup did not emit a local verification link')
+    }
+    const verificationToken = new URL(verificationUrl).searchParams.get('token')
+    if (!verificationToken) {
+      throw new Error('Better Auth verification link did not contain a token')
+    }
+    await auth.api.verifyEmail({
+      query: { token: verificationToken },
+    })
+
+    const signedIn = await auth.api.signInEmail({
+      body: { email, password },
+    })
     const session = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
       model: 'session',
-      where: [{ field: 'token', value: signedUp.token }],
+      where: [{ field: 'token', value: signedIn.token }],
     })) as { _id: string } | null
     if (!session) {
       throw new Error('Better Auth session row was not created')
@@ -140,7 +150,7 @@ export async function signUpBetterAuthUser(
     return {
       authUserId: signedUp.user.id,
       sessionId: session._id,
-      token: signedUp.token,
+      token: signedIn.token,
     }
   })
 }
@@ -167,25 +177,6 @@ export async function seedBetterAuthTeam(
     })) as { _id: string }
 
     return team._id
-  })
-}
-
-export async function verifyBetterAuthUserEmail(
-  t: ReturnType<typeof initConvexTest>,
-  args: {
-    userId: string
-  },
-) {
-  await t.run(async (ctx) => {
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: 'user',
-        where: [{ field: '_id', value: args.userId }],
-        update: {
-          emailVerified: true,
-        },
-      },
-    })
   })
 }
 

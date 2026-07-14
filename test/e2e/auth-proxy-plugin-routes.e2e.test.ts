@@ -1,7 +1,12 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http'
 import { fileURLToPath } from 'node:url'
 
-import { $fetch, setup } from '@nuxt/test-utils/e2e'
+import { $fetch, setup, url } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 type CapturedRequest = {
@@ -58,6 +63,34 @@ async function startAuthUpstream() {
 
 const upstream = await startAuthUpstream()
 
+function requestNitro(
+  path: string,
+  options: {
+    body?: string
+    headers?: Record<string, string> | string[]
+    method?: string
+  } = {},
+): Promise<number> {
+  const target = new URL(url(path))
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      {
+        hostname: target.hostname,
+        port: target.port,
+        path: `${target.pathname}${target.search}`,
+        method: options.method || 'GET',
+        headers: options.headers,
+      },
+      (response) => {
+        response.resume()
+        response.on('end', () => resolve(response.statusCode || 0))
+      },
+    )
+    request.on('error', reject)
+    request.end(options.body)
+  })
+}
+
 describe('auth proxy plugin routes', async () => {
   await setup({
     rootDir: fileURLToPath(new URL('../fixtures/basic', import.meta.url)),
@@ -106,5 +139,135 @@ describe('auth proxy plugin routes', async () => {
       name: 'Trellis Labs',
       slug: 'trellis-labs',
     })
+  })
+
+  it('rejects cross-origin and unsupported-method requests at the real Nitro boundary', async () => {
+    const requestCount = capturedRequests.length
+    await expect(
+      $fetch('/api/auth/get-session', {
+        headers: { origin: 'https://evil.example.test' },
+      }),
+    ).rejects.toMatchObject({ statusCode: 403 })
+    await expect($fetch('/api/auth/get-session', { method: 'DELETE' })).rejects.toMatchObject({
+      statusCode: 405,
+    })
+    expect(capturedRequests).toHaveLength(requestCount)
+  })
+
+  it('removes attacker forwarding controls before the real upstream request', async () => {
+    await $fetch('/api/auth/get-session', {
+      headers: {
+        'x-forwarded-for': '10.0.0.1',
+        'x-forwarded-host': 'evil.example.test',
+        'x-better-auth-forwarded-host': 'evil.example.test',
+      },
+    })
+    const request = capturedRequests.at(-1)
+    expect(request?.headers['x-forwarded-for']).toBeUndefined()
+    expect(request?.headers['x-forwarded-host']).toBeUndefined()
+    expect(request?.headers['x-better-auth-forwarded-host']).toBeUndefined()
+    expect(request?.headers['x-better-auth-forwarded-proto']).toBeUndefined()
+  })
+
+  it('removes Connection-nominated and transport-owned request headers', async () => {
+    const status = await requestNitro('/api/auth/plugin/action', {
+      body: '{}',
+      headers: {
+        'accept-encoding': 'unknown',
+        connection: 'keep-alive, x-hop',
+        'content-encoding': 'identity',
+        'content-length': '2',
+        'content-type': 'application/json',
+        'proxy-connection': 'keep-alive',
+        'x-hop': 'must-not-forward',
+      },
+      method: 'POST',
+    })
+    expect(status).toBe(201)
+
+    const request = capturedRequests.at(-1)
+    expect(request?.headers['accept-encoding']).not.toBe('unknown')
+    expect(request?.headers['content-encoding']).toBeUndefined()
+    expect(request?.headers['proxy-connection']).toBeUndefined()
+    expect(request?.headers['x-hop']).toBeUndefined()
+    expect(request?.body).toBe('{}')
+  })
+
+  it('never converts forged or duplicate public-host inputs into upstream controls', async () => {
+    const firstStatus = await requestNitro('/api/auth/get-session', {
+      headers: {
+        host: 'evil.example.test',
+        origin: 'https://evil.example.test',
+        forwarded: 'for=10.0.0.1;host=forwarded.example;proto=http',
+        'x-forwarded-for': '10.0.0.2',
+        'x-forwarded-host': 'x-forwarded.example',
+        'x-forwarded-proto': 'https',
+        'x-real-ip': '10.0.0.3',
+        'x-original-host': 'original.example',
+        'x-vercel-forwarded-host': 'vercel.example',
+        'x-better-auth-forwarded-host': 'marker.example',
+        'x-better-auth-forwarded-proto': 'http',
+      },
+    })
+    expect(firstStatus).toBe(201)
+
+    const duplicateStatus = await requestNitro('/api/auth/get-session', {
+      headers: [
+        'Host',
+        'first.example.test',
+        'Host',
+        'second.example.test',
+        'Origin',
+        'http://first.example.test',
+      ],
+    })
+    expect(duplicateStatus).toBe(201)
+
+    for (const request of capturedRequests.slice(-2)) {
+      expect(request.headers.host).toBe(new URL(upstream.url).host)
+      expect(request.headers.forwarded).toBeUndefined()
+      expect(request.headers['x-forwarded-for']).toBeUndefined()
+      expect(request.headers['x-forwarded-host']).toBeUndefined()
+      expect(request.headers['x-forwarded-proto']).toBeUndefined()
+      expect(request.headers['x-real-ip']).toBeUndefined()
+      expect(request.headers['x-original-host']).toBeUndefined()
+      expect(request.headers['x-vercel-forwarded-host']).toBeUndefined()
+      expect(request.headers['x-better-auth-forwarded-host']).toBeUndefined()
+      expect(request.headers['x-better-auth-forwarded-proto']).toBeUndefined()
+    }
+  })
+
+  it('blocks cross-site POST evidence but preserves the exact core form_post callback', async () => {
+    const start = capturedRequests.length
+    const targetOrigin = new URL(url('/')).origin
+
+    expect(
+      await requestNitro('/api/auth/sign-in/social', {
+        headers: { referer: 'https://evil.example/form' },
+        method: 'POST',
+      }),
+    ).toBe(403)
+    expect(
+      await requestNitro('/api/auth/sign-in/social', {
+        headers: { origin: targetOrigin, 'sec-fetch-site': 'same-site' },
+        method: 'POST',
+      }),
+    ).toBe(403)
+    expect(capturedRequests).toHaveLength(start)
+
+    expect(
+      await requestNitro('/api/auth/callback/apple', {
+        body: 'code=opaque&state=opaque',
+        headers: {
+          'content-length': '24',
+          'content-type': 'application/x-www-form-urlencoded',
+          origin: 'https://appleid.apple.com',
+          referer: 'https://appleid.apple.com/',
+          'sec-fetch-site': 'cross-site',
+        },
+        method: 'POST',
+      }),
+    ).toBe(201)
+    expect(capturedRequests.at(-1)?.url).toBe('/api/auth/callback/apple')
   })
 })

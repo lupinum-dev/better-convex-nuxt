@@ -4,8 +4,14 @@ import { components } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { internalMutation, internalQuery, mutation } from './_generated/server'
+import { getTokenBudgetError } from './agentUsage'
 import { organizationPermissionOptions } from './auth'
 import { requireBetterAuthProjectPermissions } from './betterAuthPermissions'
+import {
+  maxAgentNameLength,
+  maxAgentThreadIdLength,
+  maxPendingReviewsPerQueue,
+} from './resourceBounds'
 import { agentCapability } from './schema'
 
 type AgentCapability = 'project:read' | 'project:draft' | 'project:delete'
@@ -20,8 +26,6 @@ type DelegatedRunStartArgs = {
   capabilities: AgentCapability[]
   expiresAt?: number
   maxTotalTokens?: number
-  maxOrganizationTotalTokens?: number
-  maxUserTotalTokens?: number
 }
 
 type RequireRunStartPermission = (
@@ -70,6 +74,9 @@ function normalizeCapabilities(capabilities: AgentCapability[]) {
 }
 
 function normalizeAgentName(agentName: string) {
+  if (agentName.length > maxAgentNameLength) {
+    throw new ConvexError(`Agent run agentName must be ${maxAgentNameLength} characters or less`)
+  }
   const normalizedName = agentName.trim()
   if (!normalizedName) {
     throw new ConvexError('Agent run agentName is required')
@@ -95,19 +102,12 @@ function requirePositiveInteger(value: number | undefined, field: string) {
   }
 }
 
-function requireDelegatedRunBounds(args: {
-  expiresAt?: number
-  maxTotalTokens?: number
-  maxOrganizationTotalTokens?: number
-  maxUserTotalTokens?: number
-}) {
+function requireDelegatedRunBounds(args: { expiresAt?: number; maxTotalTokens?: number }) {
   if (args.expiresAt !== undefined && args.expiresAt <= Date.now()) {
     throw new ConvexError('Agent run expiry must be in the future')
   }
 
   requirePositiveInteger(args.maxTotalTokens, 'maxTotalTokens')
-  requirePositiveInteger(args.maxOrganizationTotalTokens, 'maxOrganizationTotalTokens')
-  requirePositiveInteger(args.maxUserTotalTokens, 'maxUserTotalTokens')
 }
 
 function roleHasProjectPermission(role: string, permission: ProjectPermission) {
@@ -133,8 +133,43 @@ async function insertDelegatedRun(ctx: MutationCtx, args: DelegatedRunStartArgs)
     updatedAt: now,
     expiresAt: args.expiresAt,
     maxTotalTokens: args.maxTotalTokens,
-    maxOrganizationTotalTokens: args.maxOrganizationTotalTokens,
-    maxUserTotalTokens: args.maxUserTotalTokens,
+  })
+}
+
+async function failRunAndRejectPendingReviews(
+  ctx: MutationCtx,
+  agentRunId: Id<'agentRuns'>,
+  now: number,
+) {
+  const pendingDrafts = await ctx.db
+    .query('projectDrafts')
+    .withIndex('by_agent_run_status', (q) =>
+      q.eq('sourceAgentRunId', agentRunId).eq('status', 'pending'),
+    )
+    .take(maxPendingReviewsPerQueue)
+  const pendingDeletionRequests = await ctx.db
+    .query('projectDeletionRequests')
+    .withIndex('by_agent_run_status', (q) =>
+      q.eq('sourceAgentRunId', agentRunId).eq('status', 'pending'),
+    )
+    .take(maxPendingReviewsPerQueue)
+
+  for (const draft of pendingDrafts) {
+    await ctx.db.patch(draft._id, {
+      status: 'rejected',
+      decidedAt: now,
+    })
+  }
+  for (const request of pendingDeletionRequests) {
+    await ctx.db.patch(request._id, {
+      status: 'rejected',
+      decidedAt: now,
+    })
+  }
+
+  await ctx.db.patch(agentRunId, {
+    status: 'failed',
+    updatedAt: now,
   })
 }
 
@@ -266,15 +301,32 @@ export const claimRunExecutionByDelegatingUser = internalMutation({
     }
 
     const now = Date.now()
+    const budgetError = await getTokenBudgetError(ctx, {
+      run,
+      agentRunId: args.agentRunId,
+      nextTokens: 0,
+      preflight: true,
+    })
+    if (budgetError) {
+      await failRunAndRejectPendingReviews(ctx, args.agentRunId, now)
+      return {
+        kind: 'budget-denied' as const,
+        message: budgetError,
+      }
+    }
+
     await ctx.db.patch(args.agentRunId, {
       status: 'running',
       updatedAt: now,
     })
 
     return {
-      ...run,
-      status: 'running' as const,
-      updatedAt: now,
+      kind: 'claimed' as const,
+      run: {
+        ...run,
+        status: 'running' as const,
+        updatedAt: now,
+      },
     }
   },
 })
@@ -320,8 +372,6 @@ export const startDelegatedRunWithBetterAuth = mutation({
     capabilities: v.array(agentCapability),
     expiresAt: v.optional(v.number()),
     maxTotalTokens: v.optional(v.number()),
-    maxOrganizationTotalTokens: v.optional(v.number()),
-    maxUserTotalTokens: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const normalizedArgs = {
@@ -343,8 +393,6 @@ export const startDelegatedRunWithBetterAuth = mutation({
       capabilities: normalizedArgs.capabilities,
       expiresAt: normalizedArgs.expiresAt,
       maxTotalTokens: normalizedArgs.maxTotalTokens,
-      maxOrganizationTotalTokens: normalizedArgs.maxOrganizationTotalTokens,
-      maxUserTotalTokens: normalizedArgs.maxUserTotalTokens,
     })
   },
 })
@@ -390,37 +438,7 @@ export const failRun = internalMutation({
       throw new ConvexError('Agent run is not active')
     }
 
-    const now = Date.now()
-    const pendingDrafts = await ctx.db
-      .query('projectDrafts')
-      .withIndex('by_agent_run', (q) => q.eq('sourceAgentRunId', args.agentRunId))
-      .filter((q) => q.eq(q.field('status'), 'pending'))
-      .collect()
-    const pendingDeletionRequests = await ctx.db
-      .query('projectDeletionRequests')
-      .withIndex('by_agent_run', (q) => q.eq('sourceAgentRunId', args.agentRunId))
-      .filter((q) => q.eq(q.field('status'), 'pending'))
-      .collect()
-
-    await Promise.all([
-      ...pendingDrafts.map((draft) =>
-        ctx.db.patch(draft._id, {
-          status: 'rejected',
-          decidedAt: now,
-        }),
-      ),
-      ...pendingDeletionRequests.map((request) =>
-        ctx.db.patch(request._id, {
-          status: 'rejected',
-          decidedAt: now,
-        }),
-      ),
-    ])
-
-    await ctx.db.patch(args.agentRunId, {
-      status: 'failed',
-      updatedAt: now,
-    })
+    await failRunAndRejectPendingReviews(ctx, args.agentRunId, Date.now())
   },
 })
 
@@ -451,6 +469,9 @@ export const attachThread = internalMutation({
     threadId: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.threadId.length > maxAgentThreadIdLength) {
+      throw new ConvexError(`Agent thread id must be ${maxAgentThreadIdLength} characters or less`)
+    }
     const threadId = args.threadId.trim()
     if (!threadId) {
       throw new ConvexError('Agent thread id is required')

@@ -1,3 +1,5 @@
+import type { ConvexCallError } from './call-result'
+
 export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
 
 export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
@@ -9,7 +11,7 @@ export interface UploadQueueItem<MutationArgs = Record<string, unknown>> {
   loadedBytes: number
   totalBytes: number
   storageId?: string
-  error: Error | null
+  error: ConvexCallError | null
   createdAt: number
   startedAt: number | null
   finishedAt: number | null

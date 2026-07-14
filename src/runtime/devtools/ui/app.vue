@@ -7,13 +7,12 @@ import { useBridge } from './composables/useBridge'
 import { useMutations } from './composables/useMutations'
 import { useQueries } from './composables/useQueries'
 
-// Initialize bridge
-useBridge()
+const bridge = useBridge()
 
 // Data composables
-const { queries, selectedQueryId, selectQuery, getSelectedQuery } = useQueries()
-const { mutations, toggleExpanded, isExpanded } = useMutations()
-const { authState, connectionState, authWaterfall } = useAuth()
+const { queries, selectedQueryId, selectQuery, getSelectedQuery } = useQueries(bridge)
+const { mutations, toggleExpanded, isExpanded } = useMutations(bridge)
+const { authState, connectionState, authWaterfall } = useAuth(bridge)
 const { proxyStats, isLoading: proxyLoading, clear: clearProxyStats } = useAuthProxy()
 
 // UI state
@@ -30,6 +29,10 @@ onMounted(() => {
 function switchTab(tab: typeof activeTab.value) {
   activeTab.value = tab
 }
+
+function selectApplication(event: Event) {
+  bridge.selectInstance((event.target as HTMLSelectElement).value)
+}
 </script>
 
 <template>
@@ -43,6 +46,17 @@ function switchTab(tab: typeof activeTab.value) {
         </div>
       </div>
       <div class="status-bar">
+        <select
+          class="instance-select"
+          :value="bridge.boundInstanceId.value || ''"
+          aria-label="Application instance"
+          @change="selectApplication"
+        >
+          <option value="" disabled>Select application</option>
+          <option v-for="id in bridge.availableInstanceIds.value" :key="id" :value="id">
+            {{ id }}
+          </option>
+        </select>
         <div class="status-item">
           <span
             class="status-dot"

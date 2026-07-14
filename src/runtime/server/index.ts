@@ -1,7 +1,13 @@
 export {
-  serverConvexQuery,
-  serverConvexMutation,
-  serverConvexAction,
+  serverConvex,
+  createClassifiedConvexFetch,
+  normalizeServerConvexBoundaryError,
+  type ServerConvexCaller,
   type ServerConvexOptions,
-} from './utils/convex'
-export { serverConvexClearAuthCache } from './utils/auth-cache'
+  type ConvexCredential,
+} from './utils/server-convex-caller'
+export {
+  exchangeConvexToken,
+  normalizeSiteUrl,
+  type ConvexTokenExchangeResult,
+} from './utils/token-exchange'

@@ -7,8 +7,6 @@ export default {
     strict: true,
   },
   convex: {
-    auth: {
-      enabled: true,
-    },
+    auth: {},
   },
 }

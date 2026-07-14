@@ -11,8 +11,6 @@ import {
   deepEqual,
   argsMatch,
   compareJsonValues,
-  parseCookies,
-  getCookie,
   generatePaginationId,
 } from '../../src/runtime/utils/shared-helpers'
 
@@ -294,68 +292,6 @@ describe('compareJsonValues', () => {
         compareJsonValues({ $integer: '9007199254740992' }, { $integer: '9007199254740993' }),
       ).toBeLessThan(0)
     })
-  })
-})
-
-// ============================================================================
-// Cookie Parsing Tests
-// ============================================================================
-
-describe('parseCookies', () => {
-  it('parses single cookie', () => {
-    expect(parseCookies('name=value')).toEqual({ name: 'value' })
-  })
-
-  it('parses multiple cookies', () => {
-    expect(parseCookies('a=1; b=2; c=3')).toEqual({ a: '1', b: '2', c: '3' })
-  })
-
-  it('handles URL-encoded values', () => {
-    expect(parseCookies('name=hello%20world')).toEqual({ name: 'hello world' })
-  })
-
-  it('handles values with equals signs', () => {
-    expect(parseCookies('token=abc=def=ghi')).toEqual({ token: 'abc=def=ghi' })
-  })
-
-  it('returns empty object for null', () => {
-    expect(parseCookies(null)).toEqual({})
-  })
-
-  it('returns empty object for undefined', () => {
-    expect(parseCookies(undefined)).toEqual({})
-  })
-
-  it('returns empty object for empty string', () => {
-    expect(parseCookies('')).toEqual({})
-  })
-
-  it('trims whitespace from names and values', () => {
-    expect(parseCookies('  name  =  value  ')).toEqual({ name: 'value' })
-  })
-
-  it('handles malformed cookies gracefully', () => {
-    expect(parseCookies(';;;')).toEqual({})
-    expect(parseCookies('=value')).toEqual({})
-  })
-
-  it('handles cookies with invalid URL encoding', () => {
-    // %ZZ is invalid encoding, should fall back to raw value
-    expect(parseCookies('name=%ZZ')).toEqual({ name: '%ZZ' })
-  })
-})
-
-describe('getCookie', () => {
-  it('returns cookie value when present', () => {
-    expect(getCookie('a=1; b=2', 'b')).toBe('2')
-  })
-
-  it('returns null when cookie not found', () => {
-    expect(getCookie('a=1', 'b')).toBeNull()
-  })
-
-  it('returns null for null header', () => {
-    expect(getCookie(null, 'name')).toBeNull()
   })
 })
 

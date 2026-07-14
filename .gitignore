@@ -16,6 +16,8 @@ node_modules
 
 # Generated dirs
 dist
+.release-artifacts
+.audit
 
 # Nuxt
 .nuxt
@@ -31,6 +33,7 @@ dist
 # Testing
 reports
 coverage
+.vitest-attachments
 *.lcov
 .nyc_output
 
@@ -55,3 +58,6 @@ coverage
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Proof-fixture run artifacts
+test/proofs/**/evidence.jsonl

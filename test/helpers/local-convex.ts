@@ -3,11 +3,13 @@ import { once } from 'node:events'
 import { readFile } from 'node:fs/promises'
 import net from 'node:net'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 interface LocalConvexHandle {
+  cwd: string
   process: ChildProcessWithoutNullStreams
   url: string
-  port: number
+  siteUrl: string
 }
 
 interface LocalConvexEnv {
@@ -30,6 +32,7 @@ export interface LocalAuthPreflightOptions {
 let activeHandle: LocalConvexHandle | null = null
 let retainers = 0
 const startupFailures = new Map<string, Error>()
+const convexCli = fileURLToPath(new URL('../../node_modules/convex/bin/main.js', import.meta.url))
 
 function startupKey(cwd: string, url: string): string {
   return `${cwd}:${url}`
@@ -89,6 +92,32 @@ async function terminateChild(child: ChildProcessWithoutNullStreams): Promise<vo
   clearTimeout(timer)
 }
 
+function spawnConvex(cwd: string, args: string[]): ChildProcessWithoutNullStreams {
+  return spawn(process.execPath, [convexCli, ...args], {
+    cwd,
+    env: process.env,
+    stdio: 'pipe',
+  })
+}
+
+async function setLocalConvexEnvironment(cwd: string, name: string, value: string): Promise<void> {
+  const child = spawnConvex(cwd, ['env', 'set', name, value, '--env-file', '.env.local'])
+  const getOutput = createChildOutputReader(child)
+  const [code] = await once(child, 'exit')
+  if (code !== 0) {
+    throw new Error(`Failed to configure local Convex ${name}: ${getOutput()}`)
+  }
+}
+
+async function configureLocalAuthEnvironment(cwd: string): Promise<void> {
+  await setLocalConvexEnvironment(cwd, 'SITE_URL', 'http://localhost:3050')
+  await setLocalConvexEnvironment(
+    cwd,
+    'BETTER_AUTH_SECRET',
+    'better-convex-nuxt-e2e-only-secret-32-bytes-minimum',
+  )
+}
+
 async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
   try {
     const envPath = path.join(cwd, '.env.local')
@@ -136,14 +165,36 @@ function deriveSiteUrlFromConvexUrl(urlString: string): string | null {
   }
 }
 
+function localPortFromUrl(urlString: string): number | null {
+  try {
+    const url = new URL(urlString)
+    const isLoopback =
+      url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '[::1]'
+    if (!isLoopback || !url.port) return null
+
+    const port = Number.parseInt(url.port, 10)
+    return Number.isNaN(port) ? null : port
+  } catch {
+    return null
+  }
+}
+
+function isLoopbackUrl(urlString: string): boolean {
+  try {
+    const { hostname } = new URL(urlString)
+    return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+}
+
 function buildManualAuthSetupHelp(cwd: string): string {
   return [
     '[e2e][auth-loop] Local Better Auth setup is incomplete.',
-    'Run these commands and retry:',
+    'With `pnpm exec convex dev` running in another terminal, run:',
     `  cd ${cwd}`,
-    '  npx convex dev --local --once',
-    '  npx convex env set SITE_URL http://localhost:3000 --env-file .env.local',
-    '  npx convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
+    '  pnpm exec convex env set SITE_URL http://localhost:3050 --env-file .env.local',
+    '  pnpm exec convex env set BETTER_AUTH_SECRET <strong-random-secret> --env-file .env.local',
     '  cd .. && pnpm test:e2e',
   ].join('\n')
 }
@@ -153,9 +204,9 @@ function buildLocalConvexSetupHelp(cwd: string): string {
     '[e2e] Local Convex backend is not configured.',
     'Either export CONVEX_URL and CONVEX_SITE_URL, or run:',
     `  cd ${cwd}`,
-    '  npx convex dev --local --once',
+    '  pnpm exec convex dev',
     '  cd .. && pnpm test:e2e',
-    'To let the e2e helper spawn `npx convex dev --local`, set CONVEX_E2E_AUTO_START=true.',
+    'To let the e2e helper spawn `pnpm exec convex dev`, set CONVEX_E2E_AUTO_START=true.',
   ].join('\n')
 }
 
@@ -195,33 +246,50 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
 
 async function waitForLocalConvexStart(
   child: ChildProcessWithoutNullStreams,
-  port: number,
+  cwd: string,
   timeoutMs: number,
   getOutput: () => string,
-): Promise<void> {
-  try {
-    await Promise.race([
-      waitForPort(port, timeoutMs),
-      once(child, 'exit').then(([code, signal]) => {
-        throw new Error(
-          [
-            `Local Convex exited before opening port ${port}.`,
-            `- exit code: ${code ?? 'none'}`,
-            `- signal: ${signal ?? 'none'}`,
-            'Captured Convex output:',
-            getOutput(),
-          ].join('\n'),
-        )
-      }),
-    ])
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (message.includes('Captured Convex output:')) {
-      throw toError(error)
+): Promise<{ url: string; siteUrl: string }> {
+  const started = Date.now()
+
+  while (Date.now() - started <= timeoutMs) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(
+        [
+          'Local Convex exited before its configured backend became reachable.',
+          `- exit code: ${child.exitCode ?? 'none'}`,
+          `- signal: ${child.signalCode ?? 'none'}`,
+          'Captured Convex output:',
+          getOutput(),
+        ].join('\n'),
+      )
     }
 
-    throw new Error([message, '', 'Captured Convex output:', getOutput()].join('\n'))
+    const selected = await readLocalConvexEnv(cwd)
+    if (selected.url) {
+      const siteUrl = selected.siteUrl ?? deriveSiteUrlFromConvexUrl(selected.url)
+      const port = localPortFromUrl(selected.url)
+      if (siteUrl && port !== null) {
+        try {
+          await waitForPort(port, 500)
+          return { url: selected.url, siteUrl }
+        } catch {
+          // The CLI writes .env.local before the backend is ready. Keep polling.
+        }
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
   }
+
+  throw new Error(
+    [
+      `Timed out waiting for Convex to publish and start its local deployment after ${timeoutMs}ms.`,
+      '',
+      'Captured Convex output:',
+      getOutput(),
+    ].join('\n'),
+  )
 }
 
 async function fetchWithTimeout(
@@ -274,7 +342,8 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
     )
   }
 
-  const origin = options.origin ?? 'http://localhost:3000'
+  const origin = options.origin ?? 'http://localhost:3050'
+  const originUrl = new URL(origin)
   const getSessionEndpoint = `${siteUrl.replace(/\/$/, '')}/api/auth/get-session`
 
   let response: Response
@@ -285,8 +354,8 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         method: 'GET',
         headers: {
           origin,
-          'x-forwarded-host': 'localhost:3000',
-          'x-forwarded-proto': 'http',
+          'x-forwarded-host': originUrl.host,
+          'x-forwarded-proto': originUrl.protocol.slice(0, -1),
         },
         redirect: 'manual',
       },
@@ -319,7 +388,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         `[e2e][auth-loop] Better Auth origin validation failed (403) at ${getSessionEndpoint}.`,
         `- attempted origin: ${origin}`,
         `- response: ${body || '(empty body)'}`,
-        '- likely cause: SITE_URL/trusted origins do not include http://localhost:3000.',
+        `- likely cause: SITE_URL/trusted origins do not include ${origin}.`,
         buildManualAuthSetupHelp(cwd),
       ].join('\n'),
     )
@@ -338,200 +407,191 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
   }
 }
 
+function installResolvedLocalEnv(url: string, siteUrl: string): Record<string, string> {
+  return installLocalConvexEnv({
+    CONVEX_URL: url,
+    NUXT_PUBLIC_CONVEX_URL: url,
+    CONVEX_SITE_URL: siteUrl,
+    NUXT_PUBLIC_CONVEX_SITE_URL: siteUrl,
+  })
+}
+
+async function waitForLocalAuthDeployment(
+  cwd: string,
+  url: string,
+  siteUrl: string,
+  timeoutMs: number,
+): Promise<void> {
+  const started = Date.now()
+  let lastError: unknown
+
+  while (Date.now() - started <= timeoutMs) {
+    try {
+      await assertLocalAuthReady({
+        cwd,
+        env: { CONVEX_SITE_URL: siteUrl, CONVEX_URL: url },
+        timeoutMs: 1000,
+      })
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+  }
+
+  throw new Error(
+    [
+      `Timed out waiting for the local Better Auth deployment after ${timeoutMs}ms.`,
+      `- last readiness error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+    ].join('\n'),
+  )
+}
+
+function retainLocalConvex(handle: LocalConvexHandle): () => Promise<void> {
+  retainers += 1
+  let released = false
+
+  return async () => {
+    if (released) return
+    released = true
+
+    if (activeHandle?.process !== handle.process) return
+    retainers -= 1
+    if (retainers > 0) return
+
+    activeHandle = null
+    await terminateChild(handle.process)
+  }
+}
+
+async function startLocalConvex(cwd: string, timeoutMs: number): Promise<LocalConvexHandle> {
+  const child = spawnConvex(cwd, ['dev'])
+  const getOutput = createChildOutputReader(child)
+
+  try {
+    const selected = await waitForLocalConvexStart(child, cwd, timeoutMs, getOutput)
+    await configureLocalAuthEnvironment(cwd)
+    await waitForLocalAuthDeployment(cwd, selected.url, selected.siteUrl, timeoutMs)
+
+    const handle: LocalConvexHandle = {
+      cwd,
+      process: child,
+      url: selected.url,
+      siteUrl: selected.siteUrl,
+    }
+    activeHandle = handle
+    child.once('exit', () => {
+      if (activeHandle?.process === child) {
+        activeHandle = null
+        retainers = 0
+      }
+    })
+    return handle
+  } catch (error) {
+    await terminateChild(child)
+    throw error
+  }
+}
+
+function assertRequiredLocalUrls(cwd: string, url: string, siteUrl: string): void {
+  if (process.env.BCN_E2E_REQUIRE_LOCAL !== 'true') return
+  if (isLoopbackUrl(url) && isLoopbackUrl(siteUrl)) return
+
+  throw new Error(
+    [
+      '[e2e] BCN_E2E_REQUIRE_LOCAL=true, but the configured Convex URLs are not loopback URLs.',
+      `- CONVEX_URL: ${url}`,
+      `- CONVEX_SITE_URL: ${siteUrl}`,
+      buildLocalConvexSetupHelp(cwd),
+    ].join('\n'),
+  )
+}
+
 export async function ensureLocalConvex(
-  options: { port?: number; cwd?: string; timeoutMs?: number } = {},
+  options: { cwd?: string; timeoutMs?: number } = {},
 ): Promise<EnsureLocalConvexResult> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
   const timeoutMs = options.timeoutMs ?? 25_000
-  const envFile = await readLocalConvexEnv(cwd)
-  const explicitUrl = process.env.CONVEX_URL ?? envFile.url
+  const autoStart = process.env.CONVEX_E2E_AUTO_START === 'true'
 
-  if (explicitUrl) {
-    const key = startupKey(cwd, explicitUrl)
-    const previousFailure = startupFailures.get(key)
-    if (previousFailure) throw previousFailure
-
-    const explicitSiteUrl =
-      process.env.CONVEX_SITE_URL ?? envFile.siteUrl ?? deriveSiteUrlFromConvexUrl(explicitUrl)
-
-    let explicitPort: number | null = null
-    try {
-      const parsed = new URL(explicitUrl)
-      if (parsed.port) {
-        const numeric = Number.parseInt(parsed.port, 10)
-        if (!Number.isNaN(numeric)) {
-          explicitPort = numeric
-        }
-      }
-    } catch {
-      explicitPort = null
+  if (activeHandle) {
+    if (activeHandle.cwd !== cwd) {
+      throw new Error(
+        `A local Convex backend is already managed for ${activeHandle.cwd}; cannot also manage ${cwd}.`,
+      )
     }
-
-    if (!activeHandle && explicitPort) {
-      try {
-        await waitForPort(explicitPort, 1500)
-      } catch {
-        const child = spawn('npx', ['convex', 'dev', '--local'], {
-          cwd,
-          env: {
-            ...process.env,
-          },
-          stdio: 'pipe',
-        })
-
-        const getOutput = createChildOutputReader(child)
-
-        child.once('exit', (code) => {
-          if (code !== null && code !== 0 && activeHandle?.process === child) {
-            activeHandle = null
-          }
-        })
-
-        activeHandle = {
-          process: child,
-          url: explicitUrl,
-          port: explicitPort,
-        }
-
-        try {
-          await waitForLocalConvexStart(child, explicitPort, timeoutMs, getOutput)
-        } catch (error) {
-          if (activeHandle?.process === child) {
-            activeHandle = null
-          }
-          await terminateChild(child)
-          throw cacheStartupFailure(
-            key,
-            [
-              error instanceof Error ? error.message : String(error),
-              '',
-              buildLocalConvexSetupHelp(cwd),
-            ].join('\n'),
-          )
-        }
-      }
-    }
-
-    if (activeHandle && activeHandle.url === explicitUrl) {
-      retainers += 1
-    }
-
-    const release = async () => {
-      if (!activeHandle) return
-      retainers -= 1
-      if (retainers > 0) return
-
-      const child = activeHandle.process
-      activeHandle = null
-      child.kill('SIGTERM')
-
-      const timer = setTimeout(() => {
-        if (!child.killed) {
-          child.kill('SIGKILL')
-        }
-      }, 3000)
-
-      await once(child, 'exit').catch(() => {})
-      clearTimeout(timer)
-    }
-
-    const env = installLocalConvexEnv({
-      CONVEX_URL: explicitUrl,
-      NUXT_PUBLIC_CONVEX_URL: explicitUrl,
-      ...(explicitSiteUrl ? { CONVEX_SITE_URL: explicitSiteUrl } : {}),
-      ...(explicitSiteUrl ? { NUXT_PUBLIC_CONVEX_SITE_URL: explicitSiteUrl } : {}),
-      ALLOW_TEST_RESET: process.env.ALLOW_TEST_RESET ?? 'true',
-    })
 
     return {
-      env,
-      release,
+      env: installResolvedLocalEnv(activeHandle.url, activeHandle.siteUrl),
+      release: retainLocalConvex(activeHandle),
     }
   }
 
-  const port = options.port ?? 3214
-  const url = `http://127.0.0.1:${port}`
-  const key = startupKey(cwd, url)
+  const envFile = await readLocalConvexEnv(cwd)
+  const explicitUrl = process.env.CONVEX_URL ?? envFile.url
+  const explicitSiteUrl = explicitUrl
+    ? (process.env.CONVEX_SITE_URL ??
+      envFile.siteUrl ??
+      deriveSiteUrlFromConvexUrl(explicitUrl) ??
+      undefined)
+    : undefined
+  const key = startupKey(cwd, explicitUrl ?? 'auto')
   const previousFailure = startupFailures.get(key)
   if (previousFailure) throw previousFailure
 
-  if (process.env.CONVEX_E2E_AUTO_START !== 'true') {
-    throw cacheStartupFailure(key, new Error(buildLocalConvexSetupHelp(cwd)))
-  }
+  if (explicitUrl && explicitSiteUrl) {
+    assertRequiredLocalUrls(cwd, explicitUrl, explicitSiteUrl)
+    const port = localPortFromUrl(explicitUrl)
 
-  if (!activeHandle) {
-    const child = spawn('npx', ['convex', 'dev', '--local'], {
-      cwd,
-      env: {
-        ...process.env,
-        CONVEX_LOCAL_BACKEND_PORT: String(port),
-      },
-      stdio: 'pipe',
-    })
-
-    const getOutput = createChildOutputReader(child)
-
-    child.once('exit', (code) => {
-      if (code !== null && code !== 0 && activeHandle?.process === child) {
-        activeHandle = null
+    if (port === null) {
+      return {
+        env: installResolvedLocalEnv(explicitUrl, explicitSiteUrl),
+        release: async () => {},
       }
-    })
-
-    activeHandle = {
-      process: child,
-      url,
-      port,
     }
 
     try {
-      await waitForLocalConvexStart(child, port, timeoutMs, getOutput)
+      await waitForPort(port, 1500)
+      if (autoStart) {
+        await configureLocalAuthEnvironment(cwd)
+      }
+      return {
+        env: installResolvedLocalEnv(explicitUrl, explicitSiteUrl),
+        release: async () => {},
+      }
     } catch (error) {
-      if (activeHandle?.process === child) {
-        activeHandle = null
+      if (!autoStart) {
+        throw cacheStartupFailure(
+          key,
+          new Error(
+            [
+              `Configured local Convex backend is not reachable at ${explicitUrl}.`,
+              `- cause: ${error instanceof Error ? error.message : String(error)}`,
+              buildLocalConvexSetupHelp(cwd),
+            ].join('\n'),
+          ),
+        )
       }
-      await terminateChild(child)
-      throw cacheStartupFailure(
-        key,
-        [
-          error instanceof Error ? error.message : String(error),
-          '',
-          buildLocalConvexSetupHelp(cwd),
-        ].join('\n'),
-      )
     }
+  } else if (!autoStart) {
+    throw cacheStartupFailure(key, new Error(buildLocalConvexSetupHelp(cwd)))
   }
 
-  retainers += 1
-
-  const release = async () => {
-    retainers -= 1
-    if (retainers > 0) return
-    if (!activeHandle) return
-
-    const child = activeHandle.process
-    activeHandle = null
-    child.kill('SIGTERM')
-
-    const timer = setTimeout(() => {
-      if (!child.killed) {
-        child.kill('SIGKILL')
-      }
-    }, 3000)
-
-    await once(child, 'exit').catch(() => {})
-    clearTimeout(timer)
-  }
-
-  const env = installLocalConvexEnv({
-    CONVEX_URL: activeHandle.url,
-    NUXT_PUBLIC_CONVEX_URL: activeHandle.url,
-    CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-    NUXT_PUBLIC_CONVEX_SITE_URL: `http://127.0.0.1:${activeHandle.port + 1}`,
-    ALLOW_TEST_RESET: 'true',
-  })
-
-  return {
-    env,
-    release,
+  try {
+    const handle = await startLocalConvex(cwd, timeoutMs)
+    assertRequiredLocalUrls(cwd, handle.url, handle.siteUrl)
+    return {
+      env: installResolvedLocalEnv(handle.url, handle.siteUrl),
+      release: retainLocalConvex(handle),
+    }
+  } catch (error) {
+    throw cacheStartupFailure(
+      key,
+      [
+        error instanceof Error ? error.message : String(error),
+        '',
+        buildLocalConvexSetupHelp(cwd),
+      ].join('\n'),
+    )
   }
 }

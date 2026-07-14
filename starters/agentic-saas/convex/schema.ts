@@ -42,7 +42,7 @@ export default defineSchema({
     decidedAt: v.optional(v.number()),
   })
     .index('by_org_status', ['organizationId', 'status'])
-    .index('by_agent_run', ['sourceAgentRunId']),
+    .index('by_agent_run_status', ['sourceAgentRunId', 'status']),
 
   productRecords: defineTable({
     organizationId: v.string(),
@@ -63,8 +63,7 @@ export default defineSchema({
     decidedAt: v.optional(v.number()),
   })
     .index('by_org_status', ['organizationId', 'status'])
-    .index('by_agent_run', ['sourceAgentRunId'])
-    .index('by_record', ['productRecordId']),
+    .index('by_agent_run_status', ['sourceAgentRunId', 'status']),
 
   productAuditEvents: defineTable({
     organizationId: v.string(),
@@ -97,8 +96,6 @@ export default defineSchema({
     updatedAt: v.number(),
     expiresAt: v.optional(v.number()),
     maxTotalTokens: v.optional(v.number()),
-    maxOrganizationTotalTokens: v.optional(v.number()),
-    maxUserTotalTokens: v.optional(v.number()),
   })
     .index('by_thread', ['threadId'])
     .index('by_organization', ['organizationId'])
@@ -131,8 +128,5 @@ export default defineSchema({
     reasoningTokens: v.optional(v.number()),
     cachedInputTokens: v.optional(v.number()),
     createdAt: v.number(),
-  })
-    .index('by_org_created', ['organizationId', 'createdAt'])
-    .index('by_agent_run', ['agentRunId'])
-    .index('by_thread', ['threadId']),
+  }).index('by_agent_run', ['agentRunId']),
 })

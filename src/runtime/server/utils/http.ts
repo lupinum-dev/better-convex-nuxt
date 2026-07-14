@@ -1,4 +1,8 @@
+import { CONVEX_MODULE_DEFAULTS } from '../../utils/config-defaults'
+
 export const DEFAULT_SERVER_FETCH_TIMEOUT_MS = 8_000
+export const MAX_SERVER_AUTH_RESPONSE_BODY_BYTES =
+  CONVEX_MODULE_DEFAULTS.authProxy.maxResponseBodyBytes
 
 interface FetchWithTimeoutOptions extends RequestInit {
   timeoutMs?: number
@@ -50,11 +54,111 @@ export async function fetchWithTimeout(
 
   const { signal, cleanup } = createTimeoutSignal(timeoutMs, parentSignal ?? undefined)
   try {
-    return await fetchImpl(input, {
+    const response = await fetchImpl(input, {
       ...init,
       signal,
     })
-  } finally {
+    if (!response.body) {
+      cleanup()
+      return response
+    }
+    const reader = response.body.getReader()
+    let bodyController: ReadableStreamDefaultController<Uint8Array> | undefined
+    let settled = false
+    const finish = () => {
+      if (settled) return false
+      settled = true
+      signal.removeEventListener('abort', abortBody)
+      cleanup()
+      reader.releaseLock()
+      return true
+    }
+    const cancelBody = (reason: unknown) => {
+      if (settled) return
+      try {
+        void reader.cancel(reason).catch(() => {})
+      } finally {
+        finish()
+      }
+    }
+    const abortBody = () => {
+      if (settled) return
+      const reason = signal.reason ?? new Error('Request was aborted')
+      cancelBody(reason)
+      bodyController?.error(reason)
+    }
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        bodyController = controller
+        signal.addEventListener('abort', abortBody, { once: true })
+        if (signal.aborted) abortBody()
+      },
+      async pull(controller) {
+        if (settled) return
+        try {
+          const next = await reader.read()
+          if (settled) return
+          if (next.done) {
+            finish()
+            controller.close()
+          } else {
+            controller.enqueue(next.value)
+          }
+        } catch (error) {
+          if (finish()) controller.error(error)
+        }
+      },
+      cancel(reason) {
+        cancelBody(reason)
+      },
+    })
+    return new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    })
+  } catch (error) {
     cleanup()
+    throw error
   }
+}
+
+/**
+ * Consume one JSON response within an explicit byte limit.
+ *
+ * The caller's fetch deadline remains active while this reads the wrapped body.
+ * Empty, malformed, and oversized bodies reject; oversized streams are cancelled
+ * before returning control to the caller.
+ */
+export async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
+  const body = response.body
+  if (!body) throw new SyntaxError('Response body is empty')
+
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!value) continue
+
+      total += value.byteLength
+      if (total > maxBytes) {
+        await reader.cancel('Response body exceeded the size limit')
+        throw new Error('Response body exceeded the size limit')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const merged = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    merged.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return JSON.parse(new TextDecoder().decode(merged))
 }

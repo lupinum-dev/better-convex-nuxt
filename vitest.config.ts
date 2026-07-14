@@ -40,15 +40,42 @@ export default defineConfig({
         },
       },
 
+      // Security regression tests are a mandatory release gate.
+      {
+        resolve: {
+          alias: {
+            '#app': fileURLToPath(new URL('./test/unit/shims/app.ts', import.meta.url)),
+          },
+        },
+        test: {
+          name: 'security',
+          include: ['test/security/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 20_000,
+        },
+      },
+
       // Convex Tests: Backend function tests
       // Uses convex-test with edge-runtime
       // Fast (~5s) - run with `pnpm test`
       {
+        resolve: {
+          alias: {
+            'better-convex-nuxt/server/createUserSyncTriggers': fileURLToPath(
+              new URL('./src/runtime/server/createUserSyncTriggers.ts', import.meta.url),
+            ),
+          },
+        },
         test: {
           name: 'convex',
-          include: ['playground/convex/**/*.test.ts'],
+          include: ['playground/convex/**/*.test.ts', 'demo/convex/**/*.test.ts'],
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
+          // Registering the Better Auth component can approach five seconds per
+          // file on a cold, parallel full-suite run. Keep a real failure bound
+          // without turning normal module initialization into a flaky timeout.
+          testTimeout: 20_000,
         },
       },
 
@@ -57,7 +84,7 @@ export default defineConfig({
       await defineVitestProject({
         test: {
           name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts'],
+          include: ['test/nuxt/**/*.test.ts', 'test/proofs/harnesses/**/*.nuxt.test.ts'],
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
@@ -67,9 +94,26 @@ export default defineConfig({
         },
       }),
 
+      // Phase 0 lifecycle/two-app/HMR harnesses (internal §17.3, §20): plain
+      // Node environment, no Nuxt/Vue context needed. Serial because the HMR
+      // harness boots a real Vite dev server + headless browser on a fixed
+      // port range (4640-4649, see proofs-harness.md).
+      {
+        test: {
+          name: 'proofs-harnesses',
+          include: ['test/proofs/harnesses/**/*.harness.test.ts'],
+          environment: 'node',
+          testTimeout: 60000,
+          fileParallelism: false,
+        },
+      },
+
       // Browser Component Tests: native browser rendering for Vue components
       {
         plugins: [vue()],
+        optimizeDeps: {
+          include: ['convex/values', 'vue'],
+        },
         resolve: {
           alias: {
             '#imports': fileURLToPath(new URL('./test/browser/shims/imports.ts', import.meta.url)),

@@ -1,7 +1,6 @@
-import type { FunctionArgs, FunctionReference } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import type { MaybeRefOrGetter } from 'vue'
 
-type EmptyArgs = Record<string, never>
 type StrictEmptyArgs = Record<PropertyKey, never>
 /**
  * Tighten *only* an exactly-empty args object (`{}`, i.e. no declared keys) to
@@ -15,32 +14,40 @@ type StrictEmptyArgs = Record<PropertyKey, never>
  * keys — without it, `keyof (A | B)` is the key *intersection*, which is
  * `never` for disjoint members and would wrongly collapse the whole union to
  * the empty-args type.
+ *
+ * Exported for the `serverConvex` caller, which applies the same no-argument
+ * tightening as the client contract: a no-arg server call must still pass `{}`,
+ * and an options-shaped object can never occupy the args slot.
  */
-type TightenEmptyArgs<T> = T extends unknown ? (keyof T extends never ? StrictEmptyArgs : T) : never
+export type TightenEmptyArgs<T> = T extends unknown
+  ? keyof T extends never
+    ? StrictEmptyArgs
+    : T
+  : never
 type TightenEmptyArgsParam<T> =
   T extends MaybeRefOrGetter<infer Value> ? MaybeRefOrGetter<TightenEmptyArgs<Value>> : T
 
 /**
- * Mirrors convex's OptionalRestArgs rule for our `(args, options)` call shape:
- * functions whose args are satisfiable by `{}` keep args optional; everything
- * else makes args required at the type level. Runtime behavior is unchanged.
+ * The client `(args, options)` call shape (vNext §5.5, decision 9). The args
+ * slot is ALWAYS required and positional — even a no-argument Convex function
+ * must be called with `{}`. A truly empty args object is tightened to
+ * `Record<PropertyKey, never>` so an options-shaped object can never occupy the
+ * args slot; all-optional and union-optional args are left callable.
  *
- * `ArgsObject` is the concrete Convex args object that drives the optionality
- * decision — `FunctionArgs<Query>` for standard queries/mutations/actions, or
- * the `paginationOpts`-stripped args object for paginated queries. `ArgsParam`
- * is what the caller actually passes (often wrapped in `MaybeRefOrGetter`), and
- * `Options` is the trailing options object type.
+ * `ArgsObject` is retained for call-site symmetry (paginated composables strip
+ * `paginationOpts` before passing it) but no longer selects optionality — the
+ * args slot is unconditionally required. `ArgsParam` is what the caller passes
+ * (often `MaybeRefOrGetter`); `Options` is the trailing options object.
  */
-export type ConvexQueryRest<ArgsObject, ArgsParam, Options> = EmptyArgs extends ArgsObject
-  ? [args?: TightenEmptyArgsParam<ArgsParam>, options?: Options]
-  : [args: ArgsParam, options?: Options]
+export type ConvexQueryRest<_ArgsObject, ArgsParam, Options> = [
+  args: TightenEmptyArgsParam<ArgsParam>,
+  options?: Options,
+]
 
 /**
- * Conditionally-required `args` field for object-config composables
- * (`defineSharedConvexQuery`). Same "satisfiable by `{}`" optionality rule as
- * {@link ConvexQueryRest}, expressed as an object member instead of a tuple.
+ * The always-required `args` field for object-config composables
+ * (`defineSharedConvexQuery`). A no-argument query must still declare `args: {}`.
  */
-export type SharedQueryArgsField<Query extends FunctionReference<'query'>, Args> =
-  EmptyArgs extends FunctionArgs<Query>
-    ? { args?: MaybeRefOrGetter<Args> }
-    : { args: MaybeRefOrGetter<Args> }
+export type SharedQueryArgsField<_Query extends FunctionReference<'query'>, Args> = {
+  args: MaybeRefOrGetter<TightenEmptyArgs<Args>>
+}

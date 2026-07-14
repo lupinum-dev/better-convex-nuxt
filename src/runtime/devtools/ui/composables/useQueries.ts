@@ -1,10 +1,7 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 
-import type { QueryRegistryEntry } from '../../query-registry'
-import { callBridge, getBridgeTransport, getBoundBridgeInstanceId } from './useBridge'
-
-const queries = ref<QueryRegistryEntry[]>([])
-const selectedQueryId = ref<string | null>(null)
+import type { QueryRegistryEntry } from '../../types'
+import type { DevtoolsBridgeController } from './useBridge'
 
 function mergeQueriesById(
   current: QueryRegistryEntry[],
@@ -22,20 +19,23 @@ function mergeQueriesById(
 /**
  * Composable for managing query data from the DevTools bridge.
  */
-export function useQueries() {
+export function useQueries(bridge: DevtoolsBridgeController) {
+  const queries = ref<QueryRegistryEntry[]>([])
+  const selectedQueryId = ref<string | null>(null)
   let cleanup: (() => void) | null = null
 
-  onMounted(async () => {
-    // Fetch initial data
+  const refresh = async () => {
+    if (!bridge.boundInstanceId.value) return
     try {
-      const initial = (await callBridge<QueryRegistryEntry[]>('getQueries')) || []
+      const initial = (await bridge.call<QueryRegistryEntry[]>('getQueries')) || []
       queries.value = mergeQueriesById(queries.value, initial)
     } catch {
       // Ignore initial fetch errors
     }
+  }
 
-    // Listen for real-time updates
-    const transport = getBridgeTransport()
+  onMounted(() => {
+    const transport = bridge.getTransport()
     if (transport) {
       const handler = (event: { data: unknown }) => {
         const data = event.data
@@ -46,8 +46,7 @@ export function useQueries() {
           instanceId?: string | null
         }
         if (message.type === 'CONVEX_DEVTOOLS_QUERIES') {
-          const boundInstanceId = getBoundBridgeInstanceId()
-          if (boundInstanceId && message.instanceId !== boundInstanceId) return
+          if (message.instanceId !== bridge.boundInstanceId.value) return
           queries.value = mergeQueriesById(queries.value, message.queries || [])
         }
       }
@@ -55,6 +54,16 @@ export function useQueries() {
       cleanup = () => transport.removeEventListener('message', handler)
     }
   })
+
+  watch(
+    bridge.boundInstanceId,
+    () => {
+      queries.value = []
+      selectedQueryId.value = null
+      void refresh()
+    },
+    { flush: 'post' },
+  )
 
   onUnmounted(() => {
     cleanup?.()

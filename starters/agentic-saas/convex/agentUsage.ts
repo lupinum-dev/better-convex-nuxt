@@ -2,25 +2,13 @@ import { ConvexError, v } from 'convex/values'
 
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
-import { internalMutation, internalQuery } from './_generated/server'
-
-async function requireActiveBudgetRun(
-  ctx: QueryCtx | MutationCtx,
-  args: {
-    agentRunId: Id<'agentRuns'>
-  },
-): Promise<Doc<'agentRuns'>> {
-  const run = await ctx.db.get(args.agentRunId)
-  if (!run || run.status !== 'active') {
-    throw new ConvexError('Agent run is not active')
-  }
-
-  if (run.expiresAt !== undefined && run.expiresAt <= Date.now()) {
-    throw new ConvexError('Agent run is expired')
-  }
-
-  return run
-}
+import { internalMutation } from './_generated/server'
+import {
+  maxAgentThreadIdLength,
+  maxUsageEventsPerRun,
+  maxUsageLabelLength,
+  retentionPageSize,
+} from './resourceBounds'
 
 async function requireRunningUsageRun(
   ctx: QueryCtx | MutationCtx,
@@ -73,6 +61,9 @@ function requireUsageTokens(args: {
 }
 
 function requireUsageLabel(value: string, field: string) {
+  if (value.length > maxUsageLabelLength) {
+    throw new ConvexError(`Agent usage ${field} must be ${maxUsageLabelLength} characters or less`)
+  }
   const normalized = value.trim()
   if (!normalized) {
     throw new ConvexError(`Agent usage ${field} is required`)
@@ -81,39 +72,46 @@ function requireUsageLabel(value: string, field: string) {
   return normalized
 }
 
-async function sumRunTokens(ctx: QueryCtx | MutationCtx, agentRunId: Id<'agentRuns'>) {
-  const events = await ctx.db
+function requireUsageThreadId(value: string) {
+  if (!value) {
+    throw new ConvexError('Agent usage threadId is required')
+  }
+  if (value.length > maxAgentThreadIdLength) {
+    throw new ConvexError(
+      `Agent usage threadId must be ${maxAgentThreadIdLength} characters or less`,
+    )
+  }
+}
+
+async function listRunUsageEvents(ctx: QueryCtx | MutationCtx, agentRunId: Id<'agentRuns'>) {
+  return await ctx.db
     .query('agentUsageEvents')
     .withIndex('by_agent_run', (q) => q.eq('agentRunId', agentRunId))
-    .collect()
-  return events.reduce((total, event) => total + event.totalTokens, 0)
+    .take(maxUsageEventsPerRun)
 }
 
-async function sumOrganizationTokens(ctx: QueryCtx | MutationCtx, organizationId: string) {
-  const events = await ctx.db
-    .query('agentUsageEvents')
-    .withIndex('by_org_created', (q) => q.eq('organizationId', organizationId))
-    .collect()
-  return events.reduce((total, event) => total + event.totalTokens, 0)
-}
-
-async function sumDelegatingUserTokens(
-  ctx: QueryCtx | MutationCtx,
-  args: {
-    organizationId: string
-    startedByAuthUserId: string
-  },
+function getTokenBudgetErrorForEvents(
+  run: Doc<'agentRuns'>,
+  events: Doc<'agentUsageEvents'>[],
+  nextTokens: number,
+  preflight: boolean,
 ) {
-  const events = await ctx.db
-    .query('agentUsageEvents')
-    .withIndex('by_org_created', (q) => q.eq('organizationId', args.organizationId))
-    .collect()
-  return events
-    .filter((event) => event.startedByAuthUserId === args.startedByAuthUserId)
-    .reduce((total, event) => total + event.totalTokens, 0)
+  if (run.maxTotalTokens === undefined) {
+    return null
+  }
+
+  const spentTokens = events.reduce((total, event) => total + event.totalTokens, 0)
+  if (
+    spentTokens + nextTokens > run.maxTotalTokens ||
+    (preflight && spentTokens >= run.maxTotalTokens)
+  ) {
+    return 'Agent run token budget exceeded'
+  }
+
+  return null
 }
 
-async function enforceTokenBudget(
+export async function getTokenBudgetError(
   ctx: QueryCtx | MutationCtx,
   args: {
     run: Doc<'agentRuns'>
@@ -122,56 +120,13 @@ async function enforceTokenBudget(
     preflight: boolean
   },
 ) {
-  if (args.run.maxTotalTokens !== undefined) {
-    const spentTokens = await sumRunTokens(ctx, args.agentRunId)
-    if (
-      spentTokens + args.nextTokens > args.run.maxTotalTokens ||
-      (args.preflight && spentTokens >= args.run.maxTotalTokens)
-    ) {
-      throw new ConvexError('Agent run token budget exceeded')
-    }
+  if (args.run.maxTotalTokens === undefined) {
+    return null
   }
 
-  if (args.run.maxOrganizationTotalTokens !== undefined) {
-    const spentTokens = await sumOrganizationTokens(ctx, args.run.organizationId)
-    if (
-      spentTokens + args.nextTokens > args.run.maxOrganizationTotalTokens ||
-      (args.preflight && spentTokens >= args.run.maxOrganizationTotalTokens)
-    ) {
-      throw new ConvexError('Organization agent token budget exceeded')
-    }
-  }
-
-  if (args.run.maxUserTotalTokens !== undefined) {
-    const spentTokens = await sumDelegatingUserTokens(ctx, {
-      organizationId: args.run.organizationId,
-      startedByAuthUserId: args.run.startedByAuthUserId,
-    })
-    if (
-      spentTokens + args.nextTokens > args.run.maxUserTotalTokens ||
-      (args.preflight && spentTokens >= args.run.maxUserTotalTokens)
-    ) {
-      throw new ConvexError('User agent token budget exceeded')
-    }
-  }
+  const events = await listRunUsageEvents(ctx, args.agentRunId)
+  return getTokenBudgetErrorForEvents(args.run, events, args.nextTokens, args.preflight)
 }
-
-export const assertBudgetAvailable = internalQuery({
-  args: {
-    agentRunId: v.id('agentRuns'),
-  },
-  handler: async (ctx, args) => {
-    const run = await requireActiveBudgetRun(ctx, args)
-    await enforceTokenBudget(ctx, {
-      run,
-      agentRunId: args.agentRunId,
-      nextTokens: 0,
-      preflight: true,
-    })
-
-    return true
-  },
-})
 
 export const recordUsage = internalMutation({
   args: {
@@ -187,6 +142,7 @@ export const recordUsage = internalMutation({
   },
   handler: async (ctx, args) => {
     requireUsageTokens(args)
+    requireUsageThreadId(args.threadId)
     const model = requireUsageLabel(args.model, 'model')
     const provider = requireUsageLabel(args.provider, 'provider')
     const run = await requireRunningUsageRun(ctx, args)
@@ -199,12 +155,14 @@ export const recordUsage = internalMutation({
       throw new ConvexError('Agent usage thread mismatch')
     }
 
-    await enforceTokenBudget(ctx, {
-      run,
-      agentRunId: args.agentRunId,
-      nextTokens: args.totalTokens,
-      preflight: false,
-    })
+    const usageEvents = await listRunUsageEvents(ctx, args.agentRunId)
+    if (usageEvents.length >= maxUsageEventsPerRun) {
+      throw new ConvexError('Agent run usage event limit reached')
+    }
+    const budgetError = getTokenBudgetErrorForEvents(run, usageEvents, args.totalTokens, false)
+    if (budgetError) {
+      throw new ConvexError(budgetError)
+    }
 
     return await ctx.db.insert('agentUsageEvents', {
       organizationId: run.organizationId,
@@ -238,17 +196,18 @@ export const deleteForRun = internalMutation({
     if (!run.threadId) {
       throw new ConvexError('Agent run has no thread')
     }
-    const threadId = run.threadId
-
     const events = await ctx.db
       .query('agentUsageEvents')
       .withIndex('by_agent_run', (q) => q.eq('agentRunId', args.agentRunId))
-      .collect()
-    const matchingEvents = events.filter(
-      (event) => event.organizationId === run.organizationId && event.threadId === threadId,
-    )
-    await Promise.all(matchingEvents.map((event) => ctx.db.delete(event._id)))
+      .take(retentionPageSize + 1)
+    const batch = events.slice(0, retentionPageSize)
+    for (const event of batch) {
+      await ctx.db.delete(event._id)
+    }
 
-    return matchingEvents.length
+    return {
+      deletedCount: batch.length,
+      hasMore: events.length > batch.length,
+    }
   },
 })

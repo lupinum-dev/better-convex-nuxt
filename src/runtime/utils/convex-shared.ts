@@ -6,6 +6,154 @@ import type { ConvexCallStatus, ConvexUser } from './types'
 // Convex stores function names using this Symbol
 const functionNameSymbol = Symbol.for('functionName')
 
+/**
+ * Local JWT parsing exists only to derive provisional display state. Convex is
+ * still the sole signature/issuer/audience/algorithm verifier. Keep this bound
+ * well above normal Better Auth tokens while preventing an upstream response
+ * from becoming an unbounded SSR/browser object graph.
+ */
+const MAX_LOCAL_JWT_LENGTH = 65_536
+const MAX_DISPLAY_STRING_LENGTH = 4_096
+const MAX_DISPLAY_PROPERTY_NAME_LENGTH = 256
+const MAX_DISPLAY_COLLECTION_ENTRIES = 64
+const MAX_DISPLAY_CLAIM_DEPTH = 4
+
+/** Milliseconds before `exp` at which a locally retained token is unusable. */
+export const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
+
+const INVALID_DISPLAY_CLAIM = Symbol('INVALID_DISPLAY_CLAIM')
+const UNSAFE_PROPERTY_NAMES = new Set(['__proto__', 'constructor', 'prototype'])
+const RESERVED_USER_CLAIMS = new Set([
+  'sub',
+  'id',
+  'userId',
+  'name',
+  'email',
+  'emailVerified',
+  'image',
+  'createdAt',
+  'updatedAt',
+  'iss',
+  'aud',
+  'exp',
+  'nbf',
+  'iat',
+  'jti',
+  // Added by @convex-dev/better-auth for backend identity correlation. It is
+  // not browser display data and must not be copied into ConvexUser.
+  'sessionId',
+])
+
+type SafeDisplayClaim =
+  | string
+  | number
+  | boolean
+  | null
+  | SafeDisplayClaim[]
+  | { [key: string]: SafeDisplayClaim }
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function isSafePropertyName(key: string): boolean {
+  return (
+    key.length > 0 &&
+    key.length <= MAX_DISPLAY_PROPERTY_NAME_LENGTH &&
+    !UNSAFE_PROPERTY_NAMES.has(key)
+  )
+}
+
+function defineSafeProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    configurable: true,
+    writable: true,
+  })
+}
+
+/**
+ * Clone one JSON claim into a normal, property-safe object graph. Unsupported,
+ * too-large, or too-deep values are omitted rather than partially exposed.
+ * Special prototype-mutating property names are omitted at every depth.
+ */
+function sanitizeDisplayClaim(
+  value: unknown,
+  depth: number,
+): SafeDisplayClaim | typeof INVALID_DISPLAY_CLAIM {
+  if (value === null || typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    return value.length <= MAX_DISPLAY_STRING_LENGTH ? value : INVALID_DISPLAY_CLAIM
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : INVALID_DISPLAY_CLAIM
+  }
+  if (!value || typeof value !== 'object' || depth >= MAX_DISPLAY_CLAIM_DEPTH) {
+    return INVALID_DISPLAY_CLAIM
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length > MAX_DISPLAY_COLLECTION_ENTRIES) return INVALID_DISPLAY_CLAIM
+    const output: SafeDisplayClaim[] = []
+    for (const item of value) {
+      const sanitized = sanitizeDisplayClaim(item, depth + 1)
+      if (sanitized === INVALID_DISPLAY_CLAIM) return INVALID_DISPLAY_CLAIM
+      output.push(sanitized)
+    }
+    return output
+  }
+
+  if (!isPlainRecord(value)) return INVALID_DISPLAY_CLAIM
+  const entries = Object.entries(value)
+  if (entries.length > MAX_DISPLAY_COLLECTION_ENTRIES) return INVALID_DISPLAY_CLAIM
+
+  const output: Record<string, SafeDisplayClaim> = {}
+  for (const [key, item] of entries) {
+    if (!isSafePropertyName(key)) continue
+    const sanitized = sanitizeDisplayClaim(item, depth + 1)
+    if (sanitized === INVALID_DISPLAY_CLAIM) return INVALID_DISPLAY_CLAIM
+    defineSafeProperty(output, key, sanitized)
+  }
+  return output
+}
+
+function copySafeCustomClaims(
+  target: Record<string, unknown>,
+  input: Record<string, unknown>,
+): void {
+  let copied = 0
+  for (const [key, value] of Object.entries(input)) {
+    if (copied >= MAX_DISPLAY_COLLECTION_ENTRIES) break
+    if (RESERVED_USER_CLAIMS.has(key) || !isSafePropertyName(key)) continue
+
+    const sanitized = sanitizeDisplayClaim(value, 0)
+    if (sanitized === INVALID_DISPLAY_CLAIM) continue
+    defineSafeProperty(target, key, sanitized)
+    copied += 1
+  }
+}
+
+function readDisplayString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return typeof value === 'string' && value.length <= MAX_DISPLAY_STRING_LENGTH ? value : undefined
+}
+
+function copyNormalizedDisplayFields(
+  target: Record<string, unknown>,
+  input: Record<string, unknown>,
+): void {
+  for (const key of ['name', 'email', 'image', 'createdAt', 'updatedAt'] as const) {
+    const value = readDisplayString(input[key])
+    if (value !== undefined) defineSafeProperty(target, key, value)
+  }
+  if (typeof input.emailVerified === 'boolean') {
+    defineSafeProperty(target, 'emailVerified', input.emailVerified)
+  }
+}
+
 // ============================================================================
 // JWT Decoding (Unified Implementation)
 // ============================================================================
@@ -16,6 +164,10 @@ const functionNameSymbol = Symbol.for('functionName')
  * Handles URL-safe base64 encoding (RFC 4648) with proper UTF-8 support.
  */
 function base64UrlDecode(str: string): string {
+  // An unpadded base64url value can never have one trailing character. Node's
+  // Buffer decoder accepts that input, so reject it before decoding.
+  if (str.length % 4 === 1) throw new Error('Invalid base64url length')
+
   // Convert URL-safe base64 to standard base64
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/')
 
@@ -25,18 +177,41 @@ function base64UrlDecode(str: string): string {
     base64 += '='.repeat(4 - padding)
   }
 
-  // Use Buffer in Node.js, atob + TextDecoder in browser
+  // Use Buffer in Node.js, atob in the browser, then the same strict UTF-8
+  // decoder in both environments. Replacement characters would turn malformed
+  // JWT bytes into a different, locally accepted JSON payload.
+  let bytes: Uint8Array
   if (typeof Buffer !== 'undefined') {
-    return Buffer.from(base64, 'base64').toString('utf-8')
+    bytes = Buffer.from(base64, 'base64')
+  } else {
+    const binaryString = atob(base64)
+    bytes = new Uint8Array(binaryString.length)
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i)
+    }
   }
 
-  // Browser: proper UTF-8 decode (atob alone corrupts multi-byte characters)
-  const binaryString = atob(base64)
-  const bytes = new Uint8Array(binaryString.length)
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i)
+  // Buffer also ignores non-zero padding bits (for example `e31` decodes to
+  // the same bytes as canonical `e30`). JWT compact serialization uses the
+  // canonical unpadded base64url representation, so round-trip the payload.
+  let canonical: string
+  if (typeof Buffer !== 'undefined') {
+    canonical = Buffer.from(bytes).toString('base64url')
+  } else {
+    let binaryString = ''
+    for (const byte of bytes) binaryString += String.fromCharCode(byte)
+    canonical = btoa(binaryString).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   }
-  return new TextDecoder('utf-8').decode(bytes)
+  if (canonical !== str) throw new Error('Non-canonical base64url encoding')
+
+  return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+}
+
+function isBase64UrlSegment(value: string): boolean {
+  // Local code decodes only the payload. Convex performs canonical JWS parsing
+  // and verification, so the other opaque segments need only be non-empty
+  // base64url characters here.
+  return value.length > 0 && /^[\w-]+$/.test(value)
 }
 
 /**
@@ -48,14 +223,25 @@ function base64UrlDecode(str: string): string {
  */
 export function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
+    if (token.length === 0 || token.length > MAX_LOCAL_JWT_LENGTH) return null
     const parts = token.split('.')
     if (parts.length !== 3) return null
 
-    const payload = parts[1]
-    if (!payload) return null
+    const [header, payload, signature] = parts
+    if (
+      !header ||
+      !payload ||
+      !signature ||
+      !isBase64UrlSegment(header) ||
+      !isBase64UrlSegment(payload) ||
+      !isBase64UrlSegment(signature)
+    ) {
+      return null
+    }
 
     const decoded = base64UrlDecode(payload)
-    return JSON.parse(decoded)
+    const parsed: unknown = JSON.parse(decoded)
+    return isPlainRecord(parsed) ? parsed : null
   } catch {
     return null
   }
@@ -70,7 +256,20 @@ export function getJwtTimeUntilExpiryMs(token: string, nowMs = Date.now()): numb
   if (!payload) return null
   const exp = payload.exp
   if (typeof exp !== 'number' || !Number.isFinite(exp)) return null
-  return exp * 1000 - nowMs
+  const expiryMs = exp * 1000
+  if (!Number.isFinite(expiryMs)) return null
+  return expiryMs - nowMs
+}
+
+/**
+ * A locally retained token must have a finite `exp` beyond the safety window.
+ * This is a lifecycle guard, not JWT verification: Convex still verifies the
+ * signature, algorithm, key, issuer, audience, subject, and temporal claims.
+ */
+export function isJwtUsable(token: string | null, nowMs = Date.now()): token is string {
+  if (!token) return false
+  const timeUntilExpiry = getJwtTimeUntilExpiryMs(token, nowMs)
+  return timeUntilExpiry !== null && timeUntilExpiry > TOKEN_EXPIRY_SAFETY_BUFFER_MS
 }
 
 /**
@@ -84,73 +283,22 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
   const payload = decodeJwtPayload(token)
   if (!payload) return null
 
-  // Check for required identifiers
-  if (!payload.sub && !payload.userId && !payload.email) {
+  // @convex-dev/better-auth always signs Better Auth user.id as `sub`, and
+  // Convex uses that same subject for backend identity. Never let a display
+  // claim choose a different principal or coerce an object/number into an id.
+  const subject = payload.sub
+  if (
+    typeof subject !== 'string' ||
+    subject.length === 0 ||
+    subject.length > MAX_DISPLAY_STRING_LENGTH
+  ) {
     return null
   }
 
-  const user = {
-    id: String(payload.sub || payload.userId || ''),
-    name: String(payload.name || ''),
-    email: String(payload.email || ''),
-    emailVerified: typeof payload.emailVerified === 'boolean' ? payload.emailVerified : undefined,
-    image: typeof payload.image === 'string' ? payload.image : undefined,
-  }
-
-  if (!user.id) {
-    return null
-  }
-
-  // Preserve custom claims for consumers who augment ConvexUser.
-  // Skip standard JWT claims and the normalized fields we already mapped above.
-  for (const [key, value] of Object.entries(payload)) {
-    if (
-      key === 'sub' ||
-      key === 'userId' ||
-      key === 'name' ||
-      key === 'email' ||
-      key === 'emailVerified' ||
-      key === 'image' ||
-      key === 'iss' ||
-      key === 'aud' ||
-      key === 'exp' ||
-      key === 'nbf' ||
-      key === 'iat' ||
-      key === 'jti'
-    ) {
-      continue
-    }
-
-    // Claims are JSON-safe values from JWT payload; attach as-is for augmented types.
-    ;(user as Record<string, unknown>)[key] = value
-  }
-
-  return user as ConvexUser
-}
-
-export function normalizeConvexUser(input: unknown): ConvexUser | null {
-  if (!input || typeof input !== 'object') return null
-
-  const value = input as Record<string, unknown>
-  const id = value.id
-  if (typeof id !== 'string' || id.length === 0) return null
-
-  return {
-    ...value,
-    id,
-    name: typeof value.name === 'string' || value.name === null ? value.name : undefined,
-    email: typeof value.email === 'string' || value.email === null ? value.email : undefined,
-    emailVerified: typeof value.emailVerified === 'boolean' ? value.emailVerified : undefined,
-    image: typeof value.image === 'string' || value.image === null ? value.image : undefined,
-    createdAt:
-      typeof value.createdAt === 'string' || value.createdAt instanceof Date
-        ? value.createdAt
-        : undefined,
-    updatedAt:
-      typeof value.updatedAt === 'string' || value.updatedAt instanceof Date
-        ? value.updatedAt
-        : undefined,
-  } as ConvexUser
+  const user: ConvexUser & Record<string, unknown> = { id: subject }
+  copyNormalizedDisplayFields(user, payload)
+  copySafeCustomClaims(user, payload)
+  return user
 }
 
 // ============================================================================
@@ -174,7 +322,7 @@ export function normalizeConvexUser(input: unknown): ConvexUser | null {
  *
  * Only `status === 'error'` is treated as an error. A payload whose `value`
  * legitimately contains a `code` field (e.g. `{ status: 'success', value: {
- * code: 'x' } }`) must not be mistaken for an error response (F-33).
+ * code: 'x' } }`) must not be mistaken for an error response.
  */
 export function parseConvexResponse<T>(response: unknown): T {
   // Check for error response
@@ -276,12 +424,20 @@ export function hashArgs(args: unknown): string {
 }
 
 /**
- * Generate a unique cache key for a query + args combination
+ * Build the identity-blind base key for a query + args combination (internal
+ * §7.1). This is the `convex:<functionName>:<argsHash>` (or
+ * `convex-paginated:<functionName>:<argsHash>`) prefix; the auth/identity
+ * dimension is appended separately by {@link withAuthDimension} so the same base
+ * can be partitioned per identity.
+ *
+ * Renamed from the deleted public `getQueryKey` (vNext §6): the base key is
+ * library-internal and must never resurface as a public auto-import.
  */
-export function getQueryKey<Query extends FunctionReference<'query'>>(
+export function createConvexQueryKey<Query extends FunctionReference<'query'>>(
   query: Query,
   args?: FunctionArgs<Query>,
+  namespace: 'convex' | 'convex-paginated' = 'convex',
 ): string {
   const fnName = getFunctionName(query)
-  return `convex:${fnName}:${hashArgs(args)}`
+  return `${namespace}:${fnName}:${hashArgs(args)}`
 }

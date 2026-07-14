@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { registerConvexAliases } from '../../src/module-aliases'
-import {
-  authAutoImports,
-  composableAutoImports,
-  permissionAutoImports,
-} from '../../src/module-api-surface'
+import { authAutoImports, composableAutoImports } from '../../src/module-api-surface'
 import {
   getMissingConvexApiTemplateContents,
   getTypeAugmentationTemplateContents,
@@ -14,16 +10,18 @@ import {
 describe('module auto-import surface', () => {
   it('includes stable public composable auto-imports', () => {
     const autoImportNames = new Set(
-      [...composableAutoImports, ...authAutoImports, ...permissionAutoImports].map(
-        (entry) => entry.name,
-      ),
+      [...composableAutoImports, ...authAutoImports].map((entry) => entry.name),
     )
 
-    expect(autoImportNames).toContain('useConvexCall')
-    expect(autoImportNames).toContain('getQueryKey')
-    expect(autoImportNames).toContain('createBetterConvexAuthClient')
+    expect(autoImportNames).toContain('useConvexAuth')
     expect(autoImportNames).toContain('useConvexUser')
     expect(autoImportNames).not.toContain('useConvexRpc')
+    expect(autoImportNames).not.toContain('useConvexCall')
+    expect(autoImportNames).not.toContain('getQueryKey')
+    expect(autoImportNames).not.toContain('createPermissions')
+    // The deleted typed-client factory is no longer auto-imported; the typed
+    // client comes from `better-convex-nuxt/auth-client` + `useConvexAuth().client`.
+    expect(autoImportNames).not.toContain('createBetterConvexAuthClient')
   })
 
   it('registers the #convex runtime and type aliases', () => {

@@ -3,83 +3,27 @@ import { effectScope } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
+import { readConvexRuntimeContext } from '../runtime-context'
 import type { SharedQueryArgsField } from '../utils/args-tuple'
-import { getFunctionName, hashArgs } from '../utils/convex-shared'
 import {
   createConvexQueryState,
   type UseConvexQueryData,
   type UseConvexQueryOptions,
 } from './useConvexQuery'
 
-interface SharedQueryRegistry {
-  entries: Map<string, SharedQueryRegistryEntry<unknown>>
-}
-
-interface SharedQueryRegistryEntry<T> {
-  value: T
+interface SharedState<DataT> {
+  value: UseConvexQueryData<DataT>
   scope: ReturnType<typeof effectScope>
-  config: unknown
-  queryName: string
-  argsFingerprint: string
-  optionsFingerprint: string
-}
-
-function isDynamicFingerprint(fingerprint: string): boolean {
-  return fingerprint.startsWith('dynamic:')
-}
-
-function getFingerprint(value: unknown): string {
-  if (value === undefined) return 'undefined'
-  if (value === null) return 'null'
-
-  if (typeof value === 'function') {
-    return 'dynamic:function'
-  }
-
-  if (typeof value !== 'object') {
-    return `primitive:${String(value)}`
-  }
-
-  const objectValue = value as Record<string, unknown>
-  if (
-    '__v_isRef' in objectValue ||
-    '__v_isReadonly' in objectValue ||
-    '__v_isReactive' in objectValue ||
-    'effect' in objectValue
-  ) {
-    return 'dynamic:vue-reactive'
-  }
-
-  try {
-    return `hash:${hashArgs(value)}`
-  } catch {
-    return 'dynamic:object'
-  }
-}
-
-function getSharedRegistry(nuxtApp: ReturnType<typeof useNuxtApp>): SharedQueryRegistry {
-  const app = nuxtApp as typeof nuxtApp & {
-    _convexSharedQueryRegistry?: SharedQueryRegistry
-  }
-
-  if (!app._convexSharedQueryRegistry) {
-    app._convexSharedQueryRegistry = {
-      entries: new Map<string, SharedQueryRegistryEntry<unknown>>(),
-    }
-  }
-
-  return app._convexSharedQueryRegistry!
 }
 
 export type DefineSharedConvexQueryOptions<
   Query extends FunctionReference<'query'>,
-  // Public type dialect is 'skip' only (F-35 — matches useConvexQuery's
-  // ConvexQueryArgs). `null`/`undefined` are still accepted at runtime for
-  // back-compat (see isConvexArgsSkipped), just not advertised in the type.
+  // Public dialect is `'skip'` only (decision 9); `null`/`undefined` are not
+  // advertised skip sentinels.
   Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 > = {
-  /** Stable app-level key used to share a single query state instance. */
+  /** Stable app-level key for this definition (diagnostics; identity is the closure). */
   key: string
   /** Convex query reference. */
   query: Query
@@ -88,15 +32,15 @@ export type DefineSharedConvexQueryOptions<
 } & SharedQueryArgsField<Query, Args>
 
 /**
- * Create a shared query composable that initializes once per Nuxt app/request.
+ * Create a shared query composable that initializes once per Nuxt app (internal
+ * §7.7). The returned closure is the canonical definition identity: it owns one
+ * `WeakMap<NuxtApp, SharedState>`; there is no caller-key registry, no config
+ * fingerprinting, no duplicate-key collision check, and no mutation of the Nuxt
+ * app object. The shared state inherits the same identity isolation as a
+ * non-shared query, so it clears on identity change.
  *
- * Useful for global context data (current user/team/settings) without custom
- * nuxtApp mutation patterns in app code.
- *
- * @example Disabling the query conditionally
+ * @example
  * ```ts
- * // Pass 'skip' (the same sentinel useConvexQuery uses) to disable the
- * // query — do not pass null/undefined; only 'skip' is the documented dialect.
  * const useCurrentTeam = defineSharedConvexQuery({
  *   key: 'current-team',
  *   query: api.teams.getCurrent,
@@ -109,51 +53,29 @@ export function defineSharedConvexQuery<
   Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 >(config: DefineSharedConvexQueryOptions<Query, Args, DataT>): () => UseConvexQueryData<DataT> {
+  const states = new WeakMap<object, SharedState<DataT>>()
+
   return () => {
     const nuxtApp = useNuxtApp()
-    const registry = getSharedRegistry(nuxtApp)
-    const queryName = getFunctionName(config.query)
-    const argsFingerprint = getFingerprint(config.args)
-    const optionsFingerprint = getFingerprint(config.options)
 
-    const existing = registry.entries.get(config.key)
-    if (existing) {
-      const queryMismatch = existing.queryName !== queryName
-      const staticArgsMismatch =
-        !isDynamicFingerprint(existing.argsFingerprint) &&
-        !isDynamicFingerprint(argsFingerprint) &&
-        existing.argsFingerprint !== argsFingerprint
-      const staticOptionsMismatch =
-        !isDynamicFingerprint(existing.optionsFingerprint) &&
-        !isDynamicFingerprint(optionsFingerprint) &&
-        existing.optionsFingerprint !== optionsFingerprint
+    const existing = states.get(nuxtApp)
+    if (existing) return existing.value
 
-      if (queryMismatch || staticArgsMismatch || staticOptionsMismatch) {
-        throw new Error(
-          `[defineSharedConvexQuery] Duplicate key "${config.key}" registered with a different config object. ` +
-            `Use unique keys per query definition.`,
-        )
-      }
-      return existing.value as UseConvexQueryData<DataT>
-    }
-
-    // Shared state must outlive any individual consumer. A detached scope is owned
-    // by the registry (app lifetime), so the first consumer unmounting cannot
-    // dispose the shared subscription.
-    // scope is stopped never: registry and scope share the nuxt app lifetime.
-    const scope = effectScope(true /* detached */)
-    const created = scope.run(() =>
+    // Shared state must outlive any individual consumer, so it runs in a detached
+    // scope owned by this closure. Browser scopes register with the per-app
+    // disposer; SSR uses request scope and no detached WebSocket resource.
+    const scope = effectScope(true)
+    const value = scope.run(() =>
       createConvexQueryState<Query, Args, DataT>(config.query, config.args, config.options, true),
     )!.resultData
 
-    registry.entries.set(config.key, {
-      value: created,
-      scope,
-      config,
-      queryName,
-      argsFingerprint,
-      optionsFingerprint,
-    })
-    return created
+    states.set(nuxtApp, { value, scope })
+
+    if (import.meta.client) {
+      const owner = readConvexRuntimeContext(nuxtApp)?.owner
+      owner?.addDisposer(() => scope.stop())
+    }
+
+    return value
   }
 }

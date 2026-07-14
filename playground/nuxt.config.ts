@@ -5,6 +5,14 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
+  // Keep the playground independent from Nuxt's globally shared default HMR
+  // port so it can run alongside other local Nuxt applications and E2E apps.
+  vite: {
+    server: {
+      hmr: { port: 24699 },
+    },
+  },
+
   compatibilityDate: '2026-02-26',
 
   routeRules: {},
@@ -14,6 +22,7 @@ export default defineNuxtConfig({
   },
 
   convex: {
-    permissions: true,
+    url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL,
+    siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL ?? process.env.CONVEX_SITE_URL,
   },
 })

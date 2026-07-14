@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 
 import {
@@ -25,9 +26,11 @@ import {
 import {
   getBetterAuthMember,
   getBetterAuthPendingInvitationByEmail,
-  listBetterAuthOrganizationInvitations,
-  listBetterAuthOrganizationMembers,
+  getBetterAuthTeam,
+  listBetterAuthOrganizationInvitationsPage,
+  listBetterAuthOrganizationMembersPage,
 } from './lib/betterAuthRows'
+import { requireBoundedPageSize } from './lib/pagination'
 import { organizationActorRateLimitKey, rateLimiter } from './lib/rateLimits'
 import { parseWithConvexError } from './lib/validation'
 
@@ -51,6 +54,7 @@ function memberDto(member: {
     name: string
     image?: string
   }
+  isTeamMember?: boolean
 }) {
   if (!isOrganizationRole(member.role)) {
     throw new ConvexError('Member response had an invalid role')
@@ -62,6 +66,7 @@ function memberDto(member: {
     userId: member.userId,
     role: member.role,
     user: member.user,
+    isTeamMember: member.isTeamMember ?? false,
   }
 }
 
@@ -277,8 +282,11 @@ export const createTeam = mutation({
 export const listMembers = query({
   args: {
     organizationId: v.string(),
+    teamId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    requireBoundedPageSize(args.paginationOpts.numItems)
     const { auth, headers } = await getAppAuth(ctx)
     await requireOrgMembership(ctx, { organizationId: args.organizationId })
     const allowed = await hasOrganizationPermissions(auth, headers, args.organizationId, {
@@ -288,16 +296,28 @@ export const listMembers = query({
       throw new ConvexError('Missing member:update permission')
     }
 
-    const members = await listBetterAuthOrganizationMembers(ctx, args.organizationId)
-    return members.map(memberDto)
+    if (args.teamId) {
+      const team = await getBetterAuthTeam(ctx, { teamId: args.teamId })
+      if (team?.organizationId !== args.organizationId) {
+        throw new ConvexError('Team not found')
+      }
+    }
+
+    const members = await listBetterAuthOrganizationMembersPage(ctx, args)
+    return {
+      ...members,
+      page: members.page.map(memberDto),
+    }
   },
 })
 
 export const listInvitations = query({
   args: {
     organizationId: v.string(),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    requireBoundedPageSize(args.paginationOpts.numItems)
     const { auth, headers } = await getAppAuth(ctx)
     await requireOrgMembership(ctx, { organizationId: args.organizationId })
     const allowed = await hasOrganizationPermissions(auth, headers, args.organizationId, {
@@ -307,11 +327,15 @@ export const listInvitations = query({
       throw new ConvexError('Missing member:update permission')
     }
 
-    const invitations = await listBetterAuthOrganizationInvitations(ctx, args.organizationId)
-    return invitations
-      .filter((invitation) => invitation.status === 'pending')
-      .map(invitationDto)
-      .sort((left, right) => right.createdAt - left.createdAt)
+    const invitations = await listBetterAuthOrganizationInvitationsPage(
+      ctx,
+      args.organizationId,
+      args.paginationOpts,
+    )
+    return {
+      ...invitations,
+      page: invitations.page.map(invitationDto),
+    }
   },
 })
 
@@ -355,6 +379,13 @@ export const cancelInvitation = mutation({
   handler: async (ctx, args) => {
     const { auth, headers } = await requireAuthenticatedSession(ctx)
     const input = parseWithConvexError(cancelInvitationInputSchema, args)
+    await requireOrgMembership(ctx, { organizationId: input.organizationId })
+    const allowed = await hasOrganizationPermissions(auth, headers, input.organizationId, {
+      member: ['update'],
+    })
+    if (!allowed) {
+      throw new ConvexError('Missing member:update permission')
+    }
     const invitation = await getBetterAuthPendingInvitationByEmail(ctx, {
       organizationId: input.organizationId,
       email: input.email,

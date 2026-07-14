@@ -32,6 +32,10 @@ const typeIcons: Record<string, string> = {
   task: 'i-lucide-check-square',
   event: 'i-lucide-calendar',
 }
+
+function selectType(type: FeedType | undefined) {
+  selectedType.value = type
+}
 </script>
 
 <template>
@@ -72,7 +76,7 @@ const typeIcons: Record<string, string> = {
               :variant="selectedType === option.value ? 'solid' : 'outline'"
               :color="selectedType === option.value ? 'primary' : 'neutral'"
               size="sm"
-              @click="selectedType = option.value"
+              @click="selectType(option.value)"
             >
               <UIcon :name="option.icon" class="w-4 h-4 mr-1.5" />
               {{ option.label }}

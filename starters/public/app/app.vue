@@ -40,7 +40,7 @@ async function addTodo() {
       </header>
 
       <form class="composer" @submit.prevent="addTodo">
-        <input v-model="newText" placeholder="Add a todo" aria-label="Todo text" />
+        <input v-model="newText" maxlength="200" placeholder="Add a todo" aria-label="Todo text" />
         <button :disabled="isCreating || !newText.trim()">Add</button>
       </form>
 

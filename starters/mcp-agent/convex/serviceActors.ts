@@ -2,7 +2,7 @@ import { ConvexError, v } from 'convex/values'
 
 import { createServiceActorInputSchema } from '../shared/inputSchemas'
 import { mutation, query } from './_generated/server'
-import { requireServiceCredentialManager } from './access'
+import { requireServiceCredentialManager, writeAuditEvent } from './access'
 import { organizationUserKey, rateLimiter } from './rateLimits'
 import { serviceActorRoleValidator } from './schema'
 import { parseWithConvexError } from './validation'
@@ -59,6 +59,14 @@ export const create = mutation({
       status: 'active',
       createdAt: now,
     })
+    await writeAuditEvent(ctx, {
+      organizationId: args.organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'serviceActors.create',
+      resourceType: 'serviceActor',
+      source: 'human',
+      resourceId: serviceActorId,
+    })
 
     return { serviceActorId, bearerToken }
   },
@@ -74,7 +82,7 @@ export const listForOrganization = query({
     const actors = await ctx.db
       .query('serviceActors')
       .withIndex('by_org', (q) => q.eq('organizationId', args.organizationId))
-      .collect()
+      .take(100)
 
     return actors.map((actor) => ({
       id: actor._id,

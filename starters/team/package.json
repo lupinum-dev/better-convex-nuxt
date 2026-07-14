@@ -10,7 +10,7 @@
     "convex:codegen": "convex codegen",
     "convex:local:once": "convex dev --once --typecheck try --typecheck-components",
     "lint": "../../node_modules/.bin/oxfmt --check app server convex/*.ts convex/lib/*.ts convex/betterAuth/*.ts scripts test package.json README.md",
-    "test": "vitest run",
+    "test": "nuxi prepare && vitest run",
     "typecheck": "nuxt typecheck",
     "verify": "pnpm lint && pnpm test && pnpm convex:codegen && pnpm typecheck && pnpm build",
     "verify:release": "pnpm verify && pnpm convex:local:once",
@@ -19,13 +19,13 @@
     "verify:full": "pnpm verify:release && pnpm verify:browser"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.4",
+    "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/rate-limiter": "^0.3.2",
-    "better-auth": "^1.6.20",
-    "better-convex-nuxt": "^0.4.0",
-    "convex": "^1.32.0",
-    "nuxt": "^4.3.1",
-    "vue": "^3.5.25",
+    "better-auth": "1.6.23",
+    "better-convex-nuxt": "0.6.0",
+    "convex": "1.40.0",
+    "nuxt": "4.4.8",
+    "vue": "3.5.39",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -38,7 +38,7 @@
     "vite": "^7.2.7",
     "vitest": "^4.0.18",
     "vue-router": "^5.1.0",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.3.7"
   },
   "packageManager": "pnpm@10.30.3"
 }

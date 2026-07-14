@@ -17,7 +17,7 @@ describe('parseConvexResponse', () => {
     )
   })
 
-  it('does not throw when a success value legitimately contains a code field (F-33)', () => {
+  it('does not throw when a success value legitimately contains a code field', () => {
     // A query returning domain data shaped like `{ code: 'x' }` must not be
     // mistaken for a Convex error response — only status === 'error' is an error.
     const result = parseConvexResponse({ status: 'success', value: { code: 'x' } })

@@ -296,14 +296,14 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     }
     expect(enqueueResult.error).toBeInstanceOf(AggregateError)
     expect(enqueueResult.error.message).toMatch(/uploads failed|halted/i)
-    // F-32: still-queued items are settled to 'cancelled' on halt, not left
+    // still-queued items are settled to 'cancelled' on halt, not left
     // dangling in 'queued' (which would let a later enqueue() resurrect them).
     expect(result.queuedCount.value).toBe(0)
     expect(result.cancelledCount.value).toBe(2)
     expect(result.isRunning.value).toBe(false)
   })
 
-  it('does not resurrect halted items when a later enqueue clears the halt (F-32)', async () => {
+  it('does not resurrect halted items when a later enqueue clears the halt', async () => {
     globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
 
     const convex = new MockConvexClient()

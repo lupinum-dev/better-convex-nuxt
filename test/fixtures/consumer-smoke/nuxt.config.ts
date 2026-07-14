@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 // Real consumers (and CI, which installs a packed tarball) resolve
 // `better-convex-nuxt` from node_modules. The linked local fixture has no such
 // entry, so it needs the bare specifier mapped to the package's types entry for
-// the F-22 `declare module 'better-convex-nuxt'` augmentation
+// the `declare module 'better-convex-nuxt'` augmentation
 // (types/convex-user.d.ts) to resolve and merge.
 //
 // Only apply that override when the node_modules copy is absent. When it is
@@ -22,7 +22,6 @@ export default defineNuxtConfig({
   convex: {
     url: 'https://consumer-smoke.convex.cloud',
     siteUrl: 'https://consumer-smoke.convex.site',
-    permissions: true,
   },
   ...(hasInstalledModule
     ? {}
@@ -32,6 +31,13 @@ export default defineNuxtConfig({
             compilerOptions: {
               paths: {
                 'better-convex-nuxt': ['../../../../dist/types.d.mts'],
+                // The published `./auth-client` subpath (imported by the API
+                // surface contract) has no node_modules copy in the linked
+                // fixture, so map it to the built entry. Installed CI resolves it
+                // through the package `exports` map instead.
+                'better-convex-nuxt/auth-client': [
+                  '../../../../dist/runtime/auth-client/index.d.ts',
+                ],
               },
             },
           },

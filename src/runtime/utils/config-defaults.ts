@@ -15,11 +15,6 @@ import type { LogLevel } from './logger'
 
 // --- Named literals (each config default appears exactly once) ---------------
 
-const DEFAULT_AUTH_ROUTE = '/api/auth'
-const DEFAULT_AUTH_CACHE_TTL = 60
-const AUTH_CACHE_TTL_MIN = 1
-// The clamp ceiling equals the default TTL by design.
-const AUTH_CACHE_TTL_MAX = DEFAULT_AUTH_CACHE_TTL
 const DEFAULT_MAX_CONCURRENT_UPLOADS = 3
 const DEFAULT_AUTH_PROXY_BODY_LIMIT_BYTES = 1_048_576
 // How long an awaited subscribe-mode query waits for its first WS result before
@@ -29,22 +24,15 @@ const DEFAULT_WAIT_TIMEOUT_MS = 10_000
 // --- Frozen defaults object --------------------------------------------------
 
 export const CONVEX_MODULE_DEFAULTS = Object.freeze({
-  authRoute: DEFAULT_AUTH_ROUTE,
-  permissions: false,
   logging: false as LogLevel | false,
   debug: Object.freeze({
     authFlow: false,
     clientAuthFlow: false,
     serverAuthFlow: false,
   }),
-  authCache: Object.freeze({
-    enabled: false,
-    ttl: DEFAULT_AUTH_CACHE_TTL,
-  }),
   defaults: Object.freeze({
     server: true,
     subscribe: true,
-    auth: 'auto' as 'auto' | 'none',
     waitTimeoutMs: DEFAULT_WAIT_TIMEOUT_MS,
   }),
   upload: Object.freeze({
@@ -57,15 +45,6 @@ export const CONVEX_MODULE_DEFAULTS = Object.freeze({
 })
 
 // --- Shared normalizers ------------------------------------------------------
-
-/** Clamp the SSR auth-cache TTL (seconds) into the allowed [1, 60] range. */
-export function normalizeAuthCacheTtl(input: unknown): number {
-  if (typeof input !== 'number' || !Number.isFinite(input)) return DEFAULT_AUTH_CACHE_TTL
-  const normalized = Math.trunc(input)
-  if (normalized < AUTH_CACHE_TTL_MIN) return AUTH_CACHE_TTL_MIN
-  if (normalized > AUTH_CACHE_TTL_MAX) return AUTH_CACHE_TTL_MAX
-  return normalized
-}
 
 /** Clamp the upload-queue concurrency to a positive integer (default 3, min 1). */
 export function normalizeMaxConcurrent(input: unknown): number {

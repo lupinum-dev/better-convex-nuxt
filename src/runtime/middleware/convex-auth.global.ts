@@ -11,19 +11,11 @@ const PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS = 5_000
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authConfig = normalizeConvexRuntimeConfig(useRuntimeConfig().public.convex).auth
-  if (!authConfig.enabled) return
+  if (authConfig === false) return
 
-  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta; skipConvexAuth?: boolean }
+  const pageMeta = to.meta as { convexAuth?: ConvexAuthPageMeta }
 
-  if (import.meta.dev && pageMeta.skipConvexAuth === true && pageMeta.convexAuth) {
-    console.warn(
-      '[better-convex-nuxt] Page sets both `skipConvexAuth: true` and `convexAuth`. ' +
-        '`skipConvexAuth` only skips auth checks for query token fetches; `convexAuth` protects the route.',
-      { path: to.fullPath },
-    )
-  }
-
-  const { isAuthenticated, isPending, awaitAuthReady } = useConvexAuth()
+  const { isAuthenticated, isPending, ready } = useConvexAuth()
 
   const decision = resolveRouteProtectionDecision({
     meta: pageMeta.convexAuth,
@@ -37,10 +29,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // For protected routes, wait for auth state to settle to avoid protected-content flashes.
   if (import.meta.client && isPending.value) {
-    const authed = await awaitAuthReady({
+    const settledStatus = await ready({
       timeoutMs: PROTECTED_ROUTE_AUTH_SETTLE_TIMEOUT_MS,
     })
-    if (authed) return
+    if (settledStatus === 'authenticated') return
   }
 
   if (import.meta.server && isPending.value) {

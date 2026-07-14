@@ -2,6 +2,10 @@ import { v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
 
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+const ALLOWED_IMAGE_TYPES = new Set(['image/gif', 'image/jpeg', 'image/png'])
+const IMAGE_POLICY_MESSAGE = 'File must be a GIF, JPEG, or PNG no larger than 5 MB'
+
 /**
  * Generate a signed upload URL for file storage.
  * This is required by useConvexFileUpload.
@@ -44,11 +48,40 @@ export const saveFile = mutation({
       throw new Error('File already registered')
     }
 
-    await ctx.db.insert('files', {
+    // Browser-provided metadata is only an early UX check. The storage row is
+    // the canonical record of the bytes Convex accepted.
+    const stored = await ctx.db.system.get('_storage', args.storageId)
+    if (!stored) {
+      return {
+        status: 'rejected' as const,
+        reason: 'not_found' as const,
+        message: 'Uploaded file was not found',
+      }
+    }
+
+    const contentType = stored.contentType?.toLowerCase()
+    if (
+      stored.size > MAX_IMAGE_SIZE_BYTES ||
+      !contentType ||
+      !ALLOWED_IMAGE_TYPES.has(contentType)
+    ) {
+      // Return instead of throwing: Convex rolls back mutation writes on a
+      // thrown error, including this cleanup deletion.
+      await ctx.storage.delete(args.storageId)
+      return {
+        status: 'rejected' as const,
+        reason: 'invalid_file' as const,
+        message: IMAGE_POLICY_MESSAGE,
+      }
+    }
+
+    const fileId = await ctx.db.insert('files', {
       storageId: args.storageId,
       ownerId: identity.subject,
       createdAt: Date.now(),
     })
+
+    return { status: 'registered' as const, fileId }
   },
 })
 

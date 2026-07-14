@@ -152,6 +152,17 @@ body {
   font-size: 12px;
 }
 
+.instance-select {
+  max-width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border-solid);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text);
+  font: inherit;
+}
+
 .status-item {
   display: flex;
   align-items: center;

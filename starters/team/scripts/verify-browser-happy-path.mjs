@@ -241,7 +241,7 @@ async function submitSignUpForm(page, args) {
     await form.waitFor({ state: 'visible', timeout: 20_000 })
     await form.getByPlaceholder('Your name').fill(args.name)
     await form.getByPlaceholder('you@example.com').fill(args.email)
-    await form.getByPlaceholder('Min 8 characters').fill(args.password)
+    await form.getByPlaceholder('Min 15 characters').fill(args.password)
 
     try {
       await waitForEnabled(submit, 'Create account button', 5_000)
@@ -259,7 +259,7 @@ async function submitSignInForm(page, args) {
   await page.getByRole('button', { name: 'Sign in' }).click()
   await form.getByPlaceholder('Your name').waitFor({ state: 'detached', timeout: 10_000 })
   await form.getByPlaceholder('you@example.com').fill(args.email)
-  await form.getByPlaceholder('Min 8 characters').fill(args.password)
+  await form.getByPlaceholder('Min 15 characters').fill(args.password)
   const submit = form.getByRole('button', { name: 'Sign in' })
   await waitForEnabled(submit, 'Sign in button')
   await submit.click()

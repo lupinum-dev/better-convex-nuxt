@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import type { QueryRegistryEntry } from '../../query-registry'
+import type { QueryRegistryEntry } from '../../types'
 import JsonViewer from './JsonViewer.vue'
 
 const props = defineProps<{
@@ -24,7 +24,7 @@ const options = computed<{
   immediate?: boolean
   server?: boolean
   subscribe?: boolean
-  auth?: 'auto' | 'none'
+  auth?: 'required' | 'optional' | 'none'
 }>(() => props.query?.options || {})
 </script>
 
@@ -146,7 +146,7 @@ const options = computed<{
             <span>subscribe</span>
           </div>
           <div class="option-item">
-            <span class="detail-value">auth: {{ options.auth || 'auto' }}</span>
+            <span class="detail-value">auth: {{ options.auth || 'optional' }}</span>
           </div>
         </div>
       </div>

@@ -9,7 +9,23 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_TYPES = ['image/']
+const ALLOWED_TYPES = new Set(['image/gif', 'image/jpeg', 'image/png'])
+const MAX_FILENAME_LENGTH = 255
+
+function normalizeFilename(filename: string) {
+  const normalized = filename.trim()
+  if (
+    !normalized ||
+    normalized.length > MAX_FILENAME_LENGTH ||
+    [...normalized].some((character) => {
+      const code = character.charCodeAt(0)
+      return code <= 31 || code === 127
+    })
+  ) {
+    throw new Error('Filename must be 1-255 visible characters')
+  }
+  return normalized
+}
 
 /**
  * Generate a URL for uploading a file
@@ -33,8 +49,6 @@ export const save = mutation({
   args: {
     storageId: v.id('_storage'),
     filename: v.string(),
-    mimeType: v.string(),
-    size: v.number(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -42,24 +56,31 @@ export const save = mutation({
       throw new Error('Not authenticated')
     }
 
-    // Validate file size
-    if (args.size > MAX_FILE_SIZE) {
-      await ctx.storage.delete(args.storageId)
-      throw new Error('File size must be less than 5MB')
+    const existing = await ctx.db
+      .query('files')
+      .withIndex('by_storage', (q) => q.eq('storageId', args.storageId))
+      .unique()
+    if (existing) {
+      throw new Error('File is already registered')
     }
 
-    // Validate file type - must be an image
-    const isAllowedType = ALLOWED_TYPES.some((type) => args.mimeType.startsWith(type))
-    if (!isAllowedType) {
-      await ctx.storage.delete(args.storageId)
-      throw new Error('Only image files are allowed')
+    const metadata = await ctx.db.system.get('_storage', args.storageId)
+    if (!metadata) {
+      throw new Error('Uploaded file was not found')
     }
+    if (metadata.size > MAX_FILE_SIZE) {
+      throw new Error('File size must be less than 5MB')
+    }
+    if (!metadata.contentType || !ALLOWED_TYPES.has(metadata.contentType.toLowerCase())) {
+      throw new Error('Only GIF, JPEG, and PNG images are allowed')
+    }
+    const filename = normalizeFilename(args.filename)
 
     const fileId = await ctx.db.insert('files', {
       storageId: args.storageId,
-      filename: args.filename,
-      mimeType: args.mimeType,
-      size: args.size,
+      filename,
+      mimeType: metadata.contentType,
+      size: metadata.size,
       uploadedBy: identity.subject,
       createdAt: Date.now(),
     })
@@ -76,6 +97,19 @@ export const getUrl = query({
     storageId: v.id('_storage'),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    const file = await ctx.db
+      .query('files')
+      .withIndex('by_storage', (q) => q.eq('storageId', args.storageId))
+      .unique()
+    if (!file || file.uploadedBy !== identity.subject) {
+      return null
+    }
+
     return await ctx.storage.getUrl(args.storageId)
   },
 })
@@ -86,7 +120,15 @@ export const getUrl = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const files = await ctx.db.query('files').withIndex('by_created').order('desc').take(50)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+    const files = await ctx.db
+      .query('files')
+      .withIndex('by_uploaded_by', (q) => q.eq('uploadedBy', identity.subject))
+      .order('desc')
+      .take(50)
 
     // Fetch uploader info for each file
     const filesWithUploader = await Promise.all(

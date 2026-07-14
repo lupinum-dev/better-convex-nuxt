@@ -12,6 +12,19 @@ function readStarterFile(starter: string, path: string): string {
 }
 
 describe('starter organization ownership', () => {
+  it('requires verified email ownership before accepting organization invitations', () => {
+    const starterAuth = readStarterFile('agentic-saas', 'convex/auth.ts')
+    const architectureGuide = readFileSync(
+      join(repoRoot, 'docs/content/docs/8.architecture/1.saas-kit-direction.md'),
+      'utf8',
+    )
+
+    expect(starterAuth).toContain('requireEmailVerificationOnInvitation: true')
+    expect(architectureGuide).toContain('requireEmailVerificationOnInvitation: true')
+    expect(starterAuth).not.toContain('requireEmailVerificationOnInvitation: false')
+    expect(architectureGuide).not.toMatch(/requireEmailVerificationOnInvitation:\s*process\.env/)
+  })
+
   it('team uses Better Auth Organization as the organization source of truth', () => {
     const schema = readStarterFile('team', 'convex/schema.ts')
     const readme = readStarterFile('team', 'README.md')

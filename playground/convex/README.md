@@ -1,5 +1,16 @@
 # Welcome to your Convex functions directory!
 
+## User projection maintenance
+
+Better Auth is the canonical user source. The app-owned `users` table is a
+display-only projection and must not authorize requests.
+`auth:rebuildUserProjectionBatch` reconciles one page of 100 canonical users at
+a time: it inserts missing rows, refreshes stale display fields, and removes
+duplicate copies. Call this internal mutation from operator-only maintenance
+code with a `null` cursor, then repeat with `continueCursor` until `isDone` is
+true. The Better Auth delete trigger removes every copied row, including its PII
+fields.
+
 Write your Convex functions here.
 See https://docs.convex.dev/functions for more.
 

@@ -1,16 +1,18 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, nextTick, type ComponentPublicInstance } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 
+import { ANONYMOUS_IDENTITY, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
+import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
+import type { ConvexClientOwner } from '../../src/runtime/client/client-owner'
+import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
+
+let previousWrapper: { unmount: () => void } | null = null
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
 let currentAuthTarget: Record<PropertyKey, unknown> | null = null
-let currentAuthEngineTarget: Record<PropertyKey, unknown> | null = null
-
-const defaultAuthEngineTarget: Record<PropertyKey, unknown> = {
-  awaitAuthReady: async () => true,
-  refreshAuth: async () => {},
-}
+let currentOwnerTarget: Record<PropertyKey, unknown> | null = null
+let currentAuthCoordinator: ConvexAuthCoordinator | null = null
 
 const convexProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
@@ -36,25 +38,96 @@ const authProxy = new Proxy<Record<PropertyKey, unknown>>(
   },
 )
 
-const authEngineProxy = new Proxy<Record<PropertyKey, unknown>>(
+// The per-app client owner (vNext §5.4) — provided once as a stable proxy so a
+// whole test file (which shares one implicit vueApp under @nuxt/test-utils) can
+// swap the backing owner per test despite Nuxt's one-time `provide`.
+const ownerProxy = new Proxy<Record<PropertyKey, unknown>>(
   {},
   {
     get(_target, key) {
-      const target = currentAuthEngineTarget
+      const target = currentOwnerTarget
       if (!target) return undefined
       const value = target[key]
+      if (value === undefined && key === 'getDevtoolsSink') return () => null
+      if (value === undefined && key === 'attachDevtoolsSink') return () => null
       return typeof value === 'function' ? value.bind(target) : value
     },
   },
 )
 
+// Nuxt provides values once per application, while this harness reuses one
+// application across captures. Keep the provided context stable and replace
+// only its test-owned targets between captures.
+const runtimeProxy: ConvexRuntimeContext = {
+  get owner() {
+    return currentOwnerTarget
+      ? (ownerProxy as unknown as ConvexClientOwner)
+      : (undefined as unknown as ConvexClientOwner)
+  },
+  getAuthCoordinator: () => currentAuthCoordinator,
+  attachAuthCoordinator: (coordinator) => {
+    currentAuthCoordinator = coordinator
+  },
+}
+
 interface CaptureOptions {
   convex?: unknown
   auth?: unknown
-  authEngine?: unknown
+  owner?: unknown
   convexConfig?: Record<string, unknown>
   payloadData?: Record<string, unknown>
 }
+
+const DEFAULT_OWNER_CONNECTION_STATE = {
+  hasInflightRequests: false,
+  isWebSocketConnected: false,
+  timeOfOldestInflightRequest: null,
+  hasEverConnected: false,
+  connectionCount: 0,
+  connectionRetries: 0,
+  inflightMutations: 0,
+  inflightActions: 0,
+}
+
+/**
+ * A minimal per-app client owner (vNext §5.4) synthesized from the provided
+ * `convex` mock when a test does not pass an explicit `owner`. The query
+ * composables reach their transport through the owner (`getPrimary` /
+ * `getAnonymous`), so a single-client mock is exposed as both. Tests that need a
+ * distinct `none` anonymous client pass an explicit `owner`.
+ */
+function createSyntheticOwner(): Record<PropertyKey, unknown> {
+  const primary = () => currentConvexTarget
+  return {
+    get handle() {
+      const c = currentConvexTarget
+      return c
+        ? {
+            query: c.query,
+            mutation: c.mutation,
+            action: c.action,
+            onUpdate: c.onUpdate,
+          }
+        : undefined
+    },
+    getPrimary: () => {
+      const c = currentConvexTarget
+      return c ? { client: c, identityGeneration: 0 } : null
+    },
+    getAnonymous: () => primary(),
+    replacePrimary: async () => primary(),
+    attachAuthPort: () => {},
+    connection: {
+      state: { value: { ...DEFAULT_OWNER_CONNECTION_STATE } },
+      addConsumer: () => () => {},
+    },
+    addDisposer: () => {},
+    getDevtoolsSink: () => null,
+    attachDevtoolsSink: () => null,
+    dispose: async () => {},
+  }
+}
+const syntheticOwner: Record<PropertyKey, unknown> = createSyntheticOwner()
 
 export async function captureInNuxt<T>(
   factory: () => T,
@@ -68,6 +141,19 @@ export async function captureInNuxt<T>(
   let result: T | undefined
   let nuxtAppRef: ReturnType<typeof useNuxtApp> | undefined
 
+  // Unmount the previous capture's component so its still-alive query watchers
+  // do not react to this test's shared `useState`/`$fetch` state (identity-
+  // reactive composables refetch on `convex:identity` changes). Tests that need two
+  // live components at once pass them to a single capture.
+  if (previousWrapper) {
+    try {
+      previousWrapper.unmount()
+    } catch {
+      // ignore teardown errors from an already-unmounted wrapper
+    }
+    previousWrapper = null
+  }
+
   const wrapper = await mountSuspended(
     defineComponent({
       setup() {
@@ -76,14 +162,31 @@ export async function captureInNuxt<T>(
 
         nuxtAppRef = nuxtApp
 
+        // A whole test file shares one implicit Nuxt app, so `useState` auth keys
+        // leak between tests. Reset them to a clean slate before the factory runs
+        // (composables key identity off `convex:identity`, so a leaked signed-in user
+        // would spuriously trigger identity transitions and refetches).
+        useState<AuthIdentity>('convex:identity', () => ANONYMOUS_IDENTITY).value =
+          ANONYMOUS_IDENTITY
+        useState<string | null>('convex:authError', () => null).value = null
+        currentAuthCoordinator = null
+
+        if (!nuxtApp.$convexRuntime) {
+          nuxtApp.provide('convexRuntime', runtimeProxy)
+        }
+
         if (options.convex === undefined) {
           currentConvexTarget = null
         }
         if (options.auth === undefined) {
           currentAuthTarget = null
         }
-        if (options.authEngine === undefined) {
-          currentAuthEngineTarget = defaultAuthEngineTarget
+        if (options.owner === undefined) {
+          // Synthesize a per-app client owner from the convex mock so query
+          // composables (which reach transport through the owner) work without
+          // every test constructing one. Tests needing a distinct `none`
+          // anonymous client pass an explicit `owner`.
+          currentOwnerTarget = options.convex !== undefined ? syntheticOwner : null
         }
 
         if (options.convex !== undefined) {
@@ -100,14 +203,8 @@ export async function captureInNuxt<T>(
           }
         }
 
-        if (options.authEngine !== undefined) {
-          currentAuthEngineTarget = {
-            ...defaultAuthEngineTarget,
-            ...(options.authEngine as Record<PropertyKey, unknown>),
-          }
-          if (!(nuxtApp as typeof nuxtApp & { $convexAuthEngine?: unknown }).$convexAuthEngine) {
-            nuxtApp.provide('convexAuthEngine', authEngineProxy)
-          }
+        if (options.owner !== undefined) {
+          currentOwnerTarget = options.owner as Record<PropertyKey, unknown>
         }
 
         const runtimeConfigMutable = runtimeConfig as unknown as {
@@ -138,10 +235,14 @@ export async function captureInNuxt<T>(
     throw new Error('Failed to capture Nuxt composable result')
   }
 
+  previousWrapper = wrapper as unknown as { unmount: () => void }
+
   return {
     result,
     nuxtApp: nuxtAppRef,
-    wrapper: wrapper as unknown as ComponentPublicInstance & { unmount: () => void },
+    wrapper: wrapper as unknown as ComponentPublicInstance & {
+      unmount: () => void
+    },
     flush,
   }
 }

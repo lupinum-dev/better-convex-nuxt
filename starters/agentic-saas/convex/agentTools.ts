@@ -1,12 +1,12 @@
 import { Agent, createTool, mockModel, stepCountIs } from '@convex-dev/agent'
 import type { UsageHandler } from '@convex-dev/agent'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { z } from 'zod'
 
 import { components, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import type { ActionCtx } from './_generated/server'
 import { action } from './_generated/server'
+import { retentionPageSize } from './resourceBounds'
 
 const draftToolInput = z.object({
   title: z.string(),
@@ -104,23 +104,6 @@ function createUsageHandler(args: RunArgs): UsageHandler {
   }
 }
 
-function isAgentBudgetError(error: unknown) {
-  return String(error).includes('token budget exceeded')
-}
-
-async function assertAgentBudgetAvailable(ctx: ActionCtx, args: { agentRunId: Id<'agentRuns'> }) {
-  try {
-    await ctx.runQuery(internal.agentUsage.assertBudgetAvailable, args)
-  } catch (error) {
-    if (isAgentBudgetError(error)) {
-      await ctx.runMutation(internal.agentRuns.failRun, {
-        agentRunId: args.agentRunId,
-      })
-    }
-    throw error
-  }
-}
-
 export const generateDraftWithTool = action({
   args: {
     agentRunId: v.id('agentRuns'),
@@ -176,11 +159,14 @@ export const generateDraftWithTool = action({
       storageOptions: { saveMessages: 'all' },
     })
 
-    await assertAgentBudgetAvailable(ctx, { agentRunId: args.agentRunId })
-    const run = (await ctx.runMutation(internal.agentRuns.claimRunExecutionByDelegatingUser, {
+    const claim = (await ctx.runMutation(internal.agentRuns.claimRunExecutionByDelegatingUser, {
       agentRunId: args.agentRunId,
       capability: 'project:draft',
-    })) as Doc<'agentRuns'>
+    })) as { kind: 'claimed'; run: Doc<'agentRuns'> } | { kind: 'budget-denied'; message: string }
+    if (claim.kind === 'budget-denied') {
+      throw new ConvexError(claim.message)
+    }
+    const run = claim.run
 
     let thread: AgentThread | undefined
     let result
@@ -254,11 +240,14 @@ export const streamProjectSummary = action({
       storageOptions: { saveMessages: 'all' },
     })
 
-    await assertAgentBudgetAvailable(ctx, { agentRunId: args.agentRunId })
-    const run = (await ctx.runMutation(internal.agentRuns.claimRunExecutionByDelegatingUser, {
+    const claim = (await ctx.runMutation(internal.agentRuns.claimRunExecutionByDelegatingUser, {
       agentRunId: args.agentRunId,
       capability: 'project:read',
-    })) as Doc<'agentRuns'>
+    })) as { kind: 'claimed'; run: Doc<'agentRuns'> } | { kind: 'budget-denied'; message: string }
+    if (claim.kind === 'budget-denied') {
+      throw new ConvexError(claim.message)
+    }
+    const run = claim.run
 
     let thread: AgentThread | undefined
     try {
@@ -292,7 +281,12 @@ export const streamProjectSummary = action({
       })) as { kind: string } | undefined
       const streamMessages: Array<{ streamId: string }> =
         streamList?.kind === 'list'
-          ? (streamList as { kind: 'list'; messages: Array<{ streamId: string }> }).messages
+          ? (
+              streamList as {
+                kind: 'list'
+                messages: Array<{ streamId: string }>
+              }
+            ).messages
           : []
       const deltas =
         streamMessages.length === 0
@@ -339,9 +333,8 @@ export const deleteThreadForRetention = action({
     ctx,
     args,
   ): Promise<{
-    beforeMessageCount: number
-    afterMessageCount: number
     deletedUsageEvents: number
+    hasMoreUsageEvents: boolean
   }> => {
     const agent = new Agent(components.agent, {
       name: 'project-assistant',
@@ -360,30 +353,18 @@ export const deleteThreadForRetention = action({
       agentRunId: args.agentRunId,
     })
 
-    const beforeMessages = await agent.listMessages(ctx, {
+    await agent.deleteThreadAsync(ctx, {
       threadId,
-      paginationOpts: { cursor: null, numItems: 50 },
-      statuses: ['success'],
+      pageSize: retentionPageSize,
     })
 
-    await agent.deleteThreadSync(ctx, {
-      threadId,
-    })
-
-    const deletedUsageEvents: number = await ctx.runMutation(internal.agentUsage.deleteForRun, {
+    const usageCleanup = (await ctx.runMutation(internal.agentUsage.deleteForRun, {
       agentRunId: args.agentRunId,
-    })
-
-    const afterMessages = await agent.listMessages(ctx, {
-      threadId,
-      paginationOpts: { cursor: null, numItems: 50 },
-      statuses: ['success'],
-    })
+    })) as { deletedCount: number; hasMore: boolean }
 
     return {
-      beforeMessageCount: beforeMessages.page.length,
-      afterMessageCount: afterMessages.page.length,
-      deletedUsageEvents,
+      deletedUsageEvents: usageCleanup.deletedCount,
+      hasMoreUsageEvents: usageCleanup.hasMore,
     }
   },
 })

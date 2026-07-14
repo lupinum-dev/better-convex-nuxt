@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { mutation } from './_generated/server'
-import { requireServiceCredentialManager } from './access'
+import { requireServiceCredentialManager, writeAuditEvent } from './access'
 import { organizationUserKey, rateLimiter } from './rateLimits'
 
 export const revoke = mutation({
@@ -22,6 +22,14 @@ export const revoke = mutation({
     await ctx.db.patch(args.credentialId, {
       status: 'revoked',
       revokedAt: Date.now(),
+    })
+    await writeAuditEvent(ctx, {
+      organizationId: credential.organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'agentCredentials.revoke',
+      resourceType: 'agentCredential',
+      source: 'human',
+      resourceId: args.credentialId,
     })
   },
 })

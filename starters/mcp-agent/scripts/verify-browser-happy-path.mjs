@@ -13,7 +13,7 @@ const convexCloudPort = Number(process.env.STARTER_CONVEX_CLOUD_PORT ?? 3210)
 const convexSitePort = Number(process.env.STARTER_CONVEX_SITE_PORT ?? 3211)
 const nuxtPort = Number(new URL(rootUrl).port || 80)
 const defaultAuthSecret = 'mcp-agent-browser-smoke-secret-local-only-32chars'
-const defaultMcpServerSecret = 'mcp-agent-local-server-secret'
+const defaultMcpServerSecret = 'mcp-agent-local-proof-server-secret-1234'
 const browserViewport = process.argv.includes('--mobile')
   ? 'mobile'
   : (process.env.STARTER_BROWSER_VIEWPORT ?? 'desktop')
@@ -379,6 +379,14 @@ async function runBrowserHappyPath() {
     await fillTestId(page, 'auth-password', password)
     await clickTestId(page, 'auth-submit', 'Create account button')
 
+    await page.getByTestId('auth-name').waitFor({ state: 'detached', timeout: 40_000 })
+    await waitForEnabled(
+      page.getByTestId('auth-submit'),
+      'Sign in after account creation button',
+      40_000,
+    )
+    await fillTestId(page, 'auth-password', password)
+    await clickTestId(page, 'auth-submit', 'Sign in after account creation button')
     await page.getByTestId('sign-out').waitFor({ state: 'visible', timeout: 40_000 })
     allowAuthToken401 = false
     await waitForText(page, 'No organization yet')

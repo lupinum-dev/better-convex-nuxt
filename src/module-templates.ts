@@ -35,40 +35,20 @@ export function getTypeAugmentationTemplateContents(authPageMetaTypeImport: stri
   const authPageMetaImportSpecifier = JSON.stringify(authPageMetaTypeImport)
 
   return `
-import type { ConvexClient } from 'convex/browser'
-import type { createAuthClient } from 'better-auth/vue'
 import type { ConvexAuthPageMeta } from ${authPageMetaImportSpecifier}
 
-type AuthClient = ReturnType<typeof createAuthClient>
-
+// The public \`$convex\` and \`$auth\` Nuxt-app property augmentations are deleted
+// (vNext §5.4): consumers use the \`useConvex()\` handle and the auth composables,
+// never a raw replaceable client. The auth-refresh hook command bus is deleted
+// (internal §6.3); only the route-protection page meta remains part of the
+// generated public surface.
 declare module '#app' {
-  interface NuxtApp {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
-
-  interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
-  }
-
   interface PageMeta {
-    /**
-     * Skip Convex auth check for this page.
-     * Useful for marketing pages that don't need authentication.
-     */
-    skipConvexAuth?: boolean
     /**
      * Opt-in route protection powered by better-convex-nuxt.
      * true = require auth (default redirect), object = custom redirect.
      */
     convexAuth?: ConvexAuthPageMeta
-  }
-}
-
-declare module 'vue' {
-  interface ComponentCustomProperties {
-    $convex?: ConvexClient
-    $auth?: AuthClient
   }
 }
 

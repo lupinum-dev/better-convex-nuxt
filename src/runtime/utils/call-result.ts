@@ -1,115 +1,32 @@
-export interface ConvexCallError {
-  message: string
-  code?: string
-  status?: number
-  cause?: unknown
-}
-
-export type CallResult<T, E = ConvexCallError> = { ok: true; data: T } | { ok: false; error: E }
-
-interface ConvexErrorLike {
-  data?: unknown
-  message?: unknown
-  status?: unknown
-  code?: unknown
-  cause?: unknown
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object') return null
-  return value as Record<string, unknown>
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
-}
-
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-function fromStructuredData(data: Record<string, unknown>): ConvexCallError | null {
-  const dataMessage = asString(data.message)
-  const dataCode = asString(data.code) ?? asString(data.errorCode)
-  const dataStatus = asNumber(data.status)
-
-  if (!dataMessage && !dataCode && dataStatus === undefined) {
-    return null
-  }
-
-  return {
-    message: dataMessage ?? 'Convex call failed',
-    code: dataCode,
-    status: dataStatus,
-    cause: data,
-  }
-}
+import type { CallResult } from '../errors'
+import { normalizeConvexError } from '../errors'
 
 /**
- * Normalize unknown thrown values from Convex, fetch, or user code
- * into a stable, serializable error object.
+ * The library's error surface is the single framework-free {@link ConvexCallError}
+ * class (vNext §7, internal §9). This module re-exports it plus the shared
+ * `CallResult` envelope and the `.safe()` adapter so existing consumers keep
+ * importing from `../utils/call-result`. The old serializable interface, the
+ * message-guessing normalizer, and the plain-`Error` `toError` conversion are
+ * deleted: throwing paths now throw `ConvexCallError` directly and `.safe()`
+ * passes the SAME normalizer, so equivalent raw failures yield an equal
+ * `toJSON()` on both paths.
  */
-export function normalizeConvexError(error: unknown): ConvexCallError {
-  const fallbackMessage = 'Unknown Convex error'
+export {
+  ConvexCallError,
+  normalizeConvexError,
+  type ConvexCallErrorInput,
+  type ConvexCallErrorKind,
+  type SerializedConvexCallError,
+} from '../errors'
 
-  if (error instanceof Error) {
-    const record = error as Error & ConvexErrorLike
-    const structured = asRecord(record.data)
-    if (structured) {
-      const fromData = fromStructuredData(structured)
-      if (fromData) {
-        return {
-          ...fromData,
-          status: fromData.status ?? asNumber(record.status),
-          cause: record,
-        }
-      }
-    }
+export type { CallResult } from '../errors'
 
-    return {
-      message: asString(record.message) ?? fallbackMessage,
-      code: asString(record.code),
-      status: asNumber(record.status),
-      cause: record,
-    }
-  }
-
-  const record = asRecord(error)
-  if (record) {
-    const structured = asRecord(record.data)
-    if (structured) {
-      const fromData = fromStructuredData(structured)
-      if (fromData) {
-        return {
-          ...fromData,
-          status: fromData.status ?? asNumber(record.status),
-          cause: error,
-        }
-      }
-    }
-
-    return {
-      message: asString(record.message) ?? fallbackMessage,
-      code: asString(record.code),
-      status: asNumber(record.status),
-      cause: error,
-    }
-  }
-
-  return {
-    message: typeof error === 'string' && error.length > 0 ? error : fallbackMessage,
-    cause: error,
-  }
-}
-
-export function toError(error: ConvexCallError): Error {
-  const err = new Error(error.message)
-  ;(err as Error & ConvexErrorLike).code = error.code
-  ;(err as Error & ConvexErrorLike).status = error.status
-  ;(err as Error & ConvexErrorLike).cause = error.cause
-  return err
-}
-
+/**
+ * Run a throwing call and capture any failure as the normalized
+ * {@link ConvexCallError}. Because throwing paths already throw a
+ * `ConvexCallError`, re-normalizing here passes that instance through unchanged,
+ * guaranteeing `.safe()`/throwing equivalence.
+ */
 export async function toCallResult<T>(call: () => Promise<T>): Promise<CallResult<T>> {
   try {
     const data = await call()

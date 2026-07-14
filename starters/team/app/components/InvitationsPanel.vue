@@ -14,10 +14,12 @@ const props = defineProps<{
   invitations: PendingInvitation[]
   invitationsPending: boolean
   invitationsError: string | null
+  hasMore: boolean
   invitePending: boolean
   inviteError: string | null
   onInvite: (email: string, role: InviteRole) => Promise<boolean> | boolean
   onCancelInvitation: (email: string) => Promise<void> | void
+  onLoadMore: () => void
 }>()
 
 function formatRole(role: InviteRole) {
@@ -68,5 +70,6 @@ async function inviteMember() {
       </li>
     </ul>
     <section v-else class="empty">No pending invitations.</section>
+    <button v-if="hasMore" class="button" type="button" @click="onLoadMore">Load more</button>
   </section>
 </template>

@@ -2,15 +2,14 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 import type { AuthProxyStats } from '../../types'
 
-const proxyStats = ref<AuthProxyStats | null>(null)
-const isLoading = ref(false)
-const error = ref<string | null>(null)
-
 /**
  * Composable for fetching auth proxy stats from the DevTools server endpoint.
  * The auth proxy runs on the Nitro server, so we poll the endpoint directly.
  */
 export function useAuthProxy() {
+  const proxyStats = ref<AuthProxyStats | null>(null)
+  const isLoading = ref(false)
+  const error = ref<string | null>(null)
   let intervalId: ReturnType<typeof setInterval> | null = null
 
   async function fetchProxyStats() {

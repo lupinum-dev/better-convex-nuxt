@@ -3,7 +3,12 @@ import { ConvexError, v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { mutation, query } from './_generated/server'
-import { requireMcpServerCall, requireOrganizationAdmin, requireServiceActor } from './access'
+import {
+  requireMcpServerCall,
+  requireOrganizationAdmin,
+  requireServiceActor,
+  writeAuditEvent,
+} from './access'
 import { organizationUserKey, rateLimiter } from './rateLimits'
 
 function publicApprovalStatus(approval: {
@@ -46,24 +51,25 @@ export const listPending = query({
     await requireOrganizationAdmin(ctx, args.organizationId)
     const approvals = await ctx.db
       .query('approvals')
-      .withIndex('by_org_status', (q) =>
-        q.eq('organizationId', args.organizationId).eq('status', 'pending'),
+      .withIndex('by_org_status_expires', (q) =>
+        q
+          .eq('organizationId', args.organizationId)
+          .eq('status', 'pending')
+          .gt('expiresAt', Date.now()),
       )
       .order('desc')
-      .collect()
+      .take(100)
 
-    return approvals
-      .filter((approval) => publicApprovalStatus(approval) === 'pending')
-      .map((approval) => ({
-        id: approval._id,
-        operation: approval.operation,
-        resourceId: approval.resourceId,
-        status: 'pending' as const,
-        requestedReason: approval.requestedReason ?? null,
-        preview: approval.preview ?? null,
-        expiresAt: approval.expiresAt,
-        createdAt: approval.createdAt,
-      }))
+    return approvals.map((approval) => ({
+      id: approval._id,
+      operation: approval.operation,
+      resourceId: approval.resourceId,
+      status: 'pending' as const,
+      requestedReason: approval.requestedReason ?? null,
+      preview: approval.preview ?? null,
+      expiresAt: approval.expiresAt,
+      createdAt: approval.createdAt,
+    }))
   },
 })
 
@@ -75,9 +81,13 @@ export const getForServiceActor = query({
   },
   handler: async (ctx, args) => {
     requireMcpServerCall(args.serverSecret)
-    const { organizationId } = await requireServiceActor(ctx, args)
+    const { actor, organizationId } = await requireServiceActor(ctx, args)
     const approval = await ctx.db.get(args.approvalRequestId)
-    if (!approval || approval.organizationId !== organizationId) {
+    if (
+      !approval ||
+      approval.organizationId !== organizationId ||
+      approval.requestedBy !== actor._id
+    ) {
       throw new ConvexError('Approval request not found')
     }
 
@@ -130,6 +140,14 @@ export const approveProjectDelete = mutation({
       approvedBy: user._id,
       approvedAt: now,
     })
+    await writeAuditEvent(ctx, {
+      organizationId: approval.organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'approvals.approve',
+      resourceType: 'approval',
+      source: 'human',
+      resourceId: args.approvalRequestId,
+    })
 
     return args.approvalRequestId
   },
@@ -141,13 +159,25 @@ export const rejectProjectDelete = mutation({
     reason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { user } = await requirePendingApprovalAdmin(ctx, args)
+    const { approval, user } = await requirePendingApprovalAdmin(ctx, args)
+    const rejectionReason = args.reason?.trim()
+    if (rejectionReason && rejectionReason.length > 1_000) {
+      throw new ConvexError('Rejection reason must be 1000 characters or less')
+    }
     const now = Date.now()
     await ctx.db.patch(args.approvalRequestId, {
       status: 'rejected',
       rejectedBy: user._id,
       rejectedAt: now,
-      rejectionReason: args.reason?.trim() || undefined,
+      rejectionReason: rejectionReason || undefined,
+    })
+    await writeAuditEvent(ctx, {
+      organizationId: approval.organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'approvals.reject',
+      resourceType: 'approval',
+      source: 'human',
+      resourceId: args.approvalRequestId,
     })
 
     return args.approvalRequestId

@@ -9,38 +9,69 @@ on:
       - main
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+      - uses: trufflesecurity/trufflehog@466da5b0bb161144f6afca9afe5d57975828c410 # v3.90.8
+        with:
+          path: ./
+          base: ''
+          head: HEAD
+          version: 3.90.8
+          extra_args: --only-verified
+
   lint:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: npm run format:check
 
       - name: Lint
         run: npm run lint
 
+      - name: Type check (server)
+        run: npm run typecheck:server
+
+      - name: Boundary check
+        run: npm run check:boundaries
+
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version:
+          - '22.12.0'
+          - '24'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      # Node 22.12 bundles Corepack with stale package-signing keys.
+      - name: Update and enable Corepack
+        run: npm install --global corepack@0.34.5 && corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
@@ -51,20 +82,47 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Production dependency audit
+        run: pnpm audit --prod
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Security verification
+        run: pnpm security:verify
+
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare
         run: npm run dev:prepare
@@ -78,20 +136,46 @@ jobs:
       - name: Publish preview release
         run: npx pkg-pr-new publish --pnpm
 
+  # Tier 2 (internal §16.4 "Package pull-request job"): clean dist, build once,
+  # pack once, then run the full deterministic contract suite — packed
+  # type/export/purity/consumer probes (`check:package-exports`), API-surface
+  # doc freshness, workspace dependency-band alignment, and the fixture
+  # typecheck contracts. This is the same `check:contracts` command the Full
+  # Better Convex Nuxt gate (vNext §11) and `release:prepare` run.
+  contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Contract checks
+        run: pnpm run check:contracts
+
   consumer-smoke:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 20
+          node-version: 24
 
-      - run: npm i -g --force corepack@latest && corepack enable
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npx nypm@latest i
+        run: pnpm install --frozen-lockfile
 
       - name: Pack module
         id: pack
@@ -102,11 +186,11 @@ jobs:
 
       - name: Install fixture dependencies
         working-directory: test/fixtures/consumer-smoke
-        run: npx nypm@latest i
+        run: pnpm install --no-frozen-lockfile --ignore-workspace
 
       - name: Install packed module in fixture
         working-directory: test/fixtures/consumer-smoke
-        run: npx nypm@latest add "${{ steps.pack.outputs.tarball_path }}"
+        run: pnpm add --ignore-workspace "${{ steps.pack.outputs.tarball_path }}"
 
       - name: Verify packed module resolves
         working-directory: test/fixtures/consumer-smoke

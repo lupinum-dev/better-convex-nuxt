@@ -42,8 +42,6 @@ export default defineNuxtConfig({
   convex: {
     url: convexUrl,
     siteUrl: convexSiteUrl,
-    auth: {
-      enabled: true,
-    },
+    auth: {},
   },
 })

@@ -1,5 +1,146 @@
 # Changelog
 
+## Unreleased
+
+## v0.6.0
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.5.0...v0.6.0)
+
+This is the vNext hard cutover. It replaces the pre-0.6 auth, query-argument,
+error, and server-call surfaces outright — there is no compatibility shim and
+no deprecation period. Upgrading requires reading the sections below; most
+consumers will need source changes.
+
+### 🔒 Security hardening
+
+- Fixed authentication to one same-origin `/api/auth` proxy, GET/POST only,
+  with one validated upstream request, no server-side redirect following, and
+  no caller-controlled forwarding headers.
+- Preserved request bytes and one deadline through complete response
+  consumption, including bounded request/response bodies and deterministic
+  stream cancellation.
+- Made Better Auth's public reactive session the canonical client identity
+  source across built-in, raw, and plugin operations, MFA settlement, expiry,
+  cross-tab logout, and account switching.
+- Serialized complete sign-in, sign-up, and sign-out operations so stale work
+  cannot publish a superseded identity.
+- Removed cross-origin CORS/trusted-origin configuration, custom proxy routes,
+  the cross-request JWT cache, and its public clear helper.
+- Hardened maintained demo and starter Convex functions with server-side
+  authorization, tenant ownership checks, bounded reads/writes, pagination,
+  body limits, and invariant tests.
+- Narrowed supported Nuxt versions to `^4.4.0`; Better Auth, its Convex adapter,
+  and Convex use exact tested peer versions.
+
+### ✅ Release assurance
+
+- Added deterministic isolated E2E execution, real Nitro proxy probes, seeded
+  proxy property tests, browser identity lifecycle coverage, and a two-tab
+  session/account-switch matrix.
+- Added a machine-checked OWASP ASVS 5.0.0 Level 2 responsibility/evidence
+  ledger covering all 253 applicable Level 1/2 controls.
+- Added production dependency auditing, CycloneDX SBOM generation, secret
+  scanning, CodeQL, pinned CI actions, Dependabot, and exact-tarball release
+  gates across the demo and all five maintained starters.
+- Release preparation now builds and packs once, verifies that exact immutable
+  tarball, records its manifest and SHA-256, and leaves npm publication and Git
+  tagging as explicit operator actions.
+
+### 💥 Breaking changes
+
+**Auth installation, config, and runtime topology**
+
+- Removed `auth.enabled` as a separate boolean. Authentication now installs by
+  default (or via an options object); pass `auth: false` as the sole
+  off-switch. `defaults.auth` no longer exists.
+- Removed `auth.cache.enabled` and `auth.unauthorized.enabled`/`auth.unauthorized`.
+  The auth cache option is now a plain `false | options` value with no nested
+  `enabled` flag, and unauthorized-route recovery no longer exists in module
+  options, runtime config, or source.
+- Removed `auth: 'auto'`. Query auth modes are exactly `required | optional | none`,
+  with identical meaning on client and server. The default mode is `optional`.
+
+**Query modes and cross-identity isolation**
+
+- `optional`/`required` queries now wait for initial auth settlement before
+  running, and are partitioned by the caller's stable identity key plus an
+  `identityGeneration` counter — no query, paginated page, optimistic update,
+  mutation/action result, upload, callback, or seeded-profile state can leak
+  across a sign-in/sign-out/user-switch boundary.
+- `none` queries always use a dedicated, permanently anonymous transport and
+  never observe a Convex identity, even when the app is otherwise signed in.
+- Same-user token rotation (refresh) no longer forces query reacquisition.
+- Every identity-key change (anonymous↔user, user↔user) retires and closes the
+  previous primary `ConvexClient` and replaces it; the public `useConvex()`
+  handle and the dedicated anonymous client stay stable across the swap.
+
+**Explicit query arguments; surface removal**
+
+- Queries must always be called with an explicit args object or the literal
+  string `'skip'`. Omitted-argument calls (e.g. `useConvexQuery(api.x.y)`) are
+  no longer accepted.
+- Removed `getQueryKey` and the `better-convex-nuxt/composables` subpath.
+  Public types are imported from the package root.
+
+**`ConvexCallError`**
+
+- Introduced `ConvexCallError` as the one public error type for both throwing
+  and safe (`{ data, error }`-style) call paths. It survives Nitro/SSR
+  serialization with its identity and public fields (`kind`, `code`, `message`,
+  `status`, `data`) intact; `cause` is never serialized or logged.
+- Unstructured upstream response bodies can no longer reach public errors,
+  logs, or payloads.
+
+**Typed Better Auth client**
+
+- Better Auth client plugins are now registered once per Nuxt app through
+  `defineConvexAuthClient` in a project's `convex-auth.ts`, using the
+  framework-free `better-convex-nuxt/auth-client` entry. Removed
+  `createBetterConvexAuthClient`, `resolveBetterConvexAuthBaseURL`, and the
+  `BetterConvexAuthClientOptions`/`BetterConvexAuthClientPluginList` types.
+
+**Atomic sign-in/sign-up**
+
+- `signIn`/`signUp` now synchronize the Convex identity automatically as part
+  of the call; there is no manual post-sign-in/sign-up refresh step. `refresh()`
+  remains available only for advanced raw-client or claim-change flows.
+- `useConvexAuth()` is available both when auth is enabled and when it is
+  disabled (module option `auth: false`), reporting status `'disabled'` in the
+  latter case.
+
+**Server caller and credential exchange**
+
+- `serverConvex` is now the only public server call API. Removed
+  `serverConvexQuery`, `serverConvexMutation`, `serverConvexAction`, and
+  `useConvexCall`.
+- Cookie and bearer credential exchange is bounded, never follows a redirect
+  with the credential attached, and never logs secrets.
+- Removed the built-in `permissions` module option (both the `true` and
+  `false` states) and the `createPermissions` permissions runtime. Permission
+  rules are application/Convex policy, not library machinery. Replace package
+  permission helpers with an application-owned UI capability composable backed
+  by Convex queries, and continue enforcing authorization inside Convex handlers.
+
+### 🧹 Cleanup
+
+- Deleted `research/` and `experiments/` (concluded Phase 0 exploration,
+  distilled into `src/ARCHITECTURE.md` and ADRs where durable; retained only in
+  Git history).
+- Removed the Phase 0 `test/proofs/auth-races`, `test/proofs/isolation`,
+  `test/proofs/onupdate-rebinding`, and `test/proofs/ssr-errors` prototype
+  fixtures; their guarantees are now covered by permanent unit, Nuxt, and e2e
+  tests (`test/unit/auth-generation-races.test.ts`, `test/unit/client-owner.test.ts`,
+  `test/nuxt/auth-two-app-isolation.nuxt.test.ts`,
+  `test/e2e/ssr-errors-consumer.e2e.test.ts`, and related identity/anonymous-
+  transport Nuxt tests).
+
+### 📖 Documentation
+
+- Rewrote guides and examples onto the final vNext API (explicit query args,
+  `optional`-by-default auth modes, `serverConvex`, `defineConvexAuthClient`,
+  the replacement-safe `useConvex()` handle, structured error classification,
+  and application-owned UI capabilities).
+
 ## v0.5.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.4.0...v0.5.0)
@@ -11,6 +152,34 @@
 ### 💅 Refactors
 
 - Simplify landing feature syntax in documentation ([eef25d41](https://github.com/lupinum-dev/better-convex-nuxt/commit/eef25d41))
+
+### ❤️ Contributors
+
+- Mat4m0 <matthias.amon@me.com>
+
+## v0.4.0
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.3.4...v0.4.0)
+
+Reconstructed from the tagged commit range and the published `0.4.0` npm
+release; this section was missing from the changelog until the vNext Phase 6
+repair. No new facts beyond what the commit range and the release itself
+show — see the [`v0.4.0` GitHub release](https://github.com/lupinum-dev/better-convex-nuxt/releases/tag/v0.4.0)
+and the [published package](https://www.npmjs.com/package/better-convex-nuxt/v/0.4.0)
+for the authoritative record if this summary is ever in question.
+
+### 🚀 Enhancements
+
+- Export `ConvexUser` from the module entrypoint ([c78b6926](https://github.com/lupinum-dev/better-convex-nuxt/commit/c78b6926))
+- Harden starters and add the MCP approval flow, including Convex Nuxt runtime
+  contract hardening, SSR-safe mutation callables, extracted server auth
+  snapshot/shared-query/upload-queue/paginated-query internals, unified live
+  query subscriptions, and a Better Auth Organization-backed team starter
+  ([6fbf0bd5](https://github.com/lupinum-dev/better-convex-nuxt/commit/6fbf0bd5))
+
+### 🩹 Fixes
+
+- Prepare starters and demo for the `0.4.0` release ([d18763fb](https://github.com/lupinum-dev/better-convex-nuxt/commit/d18763fb))
 
 ### ❤️ Contributors
 

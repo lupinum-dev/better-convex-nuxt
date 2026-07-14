@@ -6,10 +6,15 @@
     "playground",
     "docs",
     "demo",
-    "research/better-auth-proofs",
     "starters",
     "test/fixtures/consumer-smoke",
+    "test/fixtures/auth-client-typing",
     "test/fixtures/missing-convex-api",
+    "test/fixtures/auth-disabled",
+    "test/fixtures/ssr-errors-consumer",
+    "test/fixtures/errors-consumer",
+    "test/fixtures/server-consumer",
+    "test/fixtures/user-sync-triggers-consumer",
     "src/runtime/server"
   ]
 }

@@ -4,15 +4,17 @@
  * Inspired by nuxt-convex by @onmax (https://github.com/onmax/nuxt-convex)
  */
 
-import type { ConvexClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp } from '#imports'
 
+import { readConvexRuntimeContext } from '../runtime-context'
+import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { getFunctionName } from '../utils/convex-cache'
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
+import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
@@ -64,10 +66,10 @@ export interface UseConvexFileUploadReturn<Mutation extends FunctionReference<'m
   progress: Ref<number>
 
   /**
-   * Error from the last upload attempt.
+   * Error from the last upload attempt as the normalized {@link ConvexCallError}.
    * null if no error or upload hasn't been called.
    */
-  error: Ref<Error | null>
+  error: Ref<ConvexCallError | null>
 
   /**
    * Cancel any in-progress upload and reset state.
@@ -85,9 +87,9 @@ export interface UseConvexFileUploadOptions {
    */
   onSuccess?: (storageId: string, file: File) => void
   /**
-   * Callback when an error occurs.
+   * Callback when an error occurs, receiving the normalized {@link ConvexCallError}.
    */
-  onError?: (error: Error, file: File) => void
+  onError?: (error: ConvexCallError, file: File) => void
   /**
    * Callback for upload progress updates.
    * Called when the browser reports computable upload progress.
@@ -218,16 +220,15 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   generateUploadUrlMutation: Mutation,
   options?: UseConvexFileUploadOptions,
 ): UseConvexFileUploadReturn<Mutation> {
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
   const fnName = getFunctionName(generateUploadUrlMutation)
 
   const nuxtApp = useNuxtApp()
+  const owner = readConvexRuntimeContext(nuxtApp)?.owner
+  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Internal state
   const _status = ref<UploadStatus>('idle')
-  const error = ref<Error | null>(null) as Ref<Error | null>
+  const error = ref<ConvexCallError | null>(null) as Ref<ConvexCallError | null>
   const data = ref<string | undefined>(undefined) as Ref<string | undefined>
   const progress = ref(0)
 
@@ -269,10 +270,13 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     // used to be assigned only after the URL-request mutation resolved, so a
     // second upload() call made during that mutation phase saw a null
     // controller and slipped through, interleaving with the first call on
-    // the shared status/progress/data refs (F-14). Reject immediately
+    // the shared status/progress/data refs. Reject immediately
     // without touching those refs; they belong to the in-flight upload.
     if (_status.value === 'pending') {
-      const err = new Error('Upload already in progress for this composable instance')
+      const err = new ConvexCallError({
+        kind: 'unknown',
+        message: 'Upload already in progress for this composable instance',
+      })
       logger.upload({
         name: fnName,
         event: 'error',
@@ -285,7 +289,10 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
 
     // Client-side validation before uploading
     if (options?.maxSize && file.size > options.maxSize) {
-      const err = new Error(`File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`)
+      const err = new ConvexCallError({
+        kind: 'unknown',
+        message: `File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`,
+      })
       _status.value = 'error'
       error.value = err
       logger.upload({
@@ -300,9 +307,10 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     }
 
     if (options?.allowedTypes && !isFileTypeAllowed(file.type, options.allowedTypes)) {
-      const err = new Error(
-        `File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`,
-      )
+      const err = new ConvexCallError({
+        kind: 'unknown',
+        message: `File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`,
+      })
       _status.value = 'error'
       error.value = err
       logger.upload({ name: fnName, event: 'error', filename: file.name, error: err })
@@ -318,21 +326,24 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     // it resolves) so cancel() called during that phase has something to
     // signal — previously the window between calling upload() and the
     // mutation resolving had no controller, so cancel() was a no-op and the
-    // upload would later overwrite the reset state with 'success' (F-14).
+    // upload would later overwrite the reset state with 'success'.
     const controller = new AbortController()
     currentAbortController = controller
 
     try {
-      const client = nuxtApp.$convex as ConvexClient | undefined
-      if (!client) {
-        throw new Error(
-          '[useConvexFileUpload] Convex client is unavailable. Upload files from the browser after configuring a Convex URL.',
-        )
+      if (!owner) {
+        throw new ConvexCallError({
+          kind: 'unknown',
+          message:
+            '[useConvexFileUpload] Convex client is unavailable. Upload files from the browser after configuring a Convex URL.',
+        })
       }
 
-      // Step 1: Get upload URL from Convex
+      // Step 1: Get upload URL from Convex through the stable owner handle
+      // (vNext §5.4, §11 — upload ownership is unchanged; only the transport
+      // seam moves off the raw replaceable `$convex`).
       const postUrl = await requestUploadUrl(
-        client,
+        owner.handle,
         generateUploadUrlMutation,
         (mutationArgs ?? {}) as FunctionArgs<Mutation>,
       )
@@ -374,7 +385,9 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         throw e
       }
 
-      const err = e instanceof Error ? e : new Error(String(e))
+      // Normalize at the upload boundary (vNext §7): transport failures from the
+      // XHR layer pass through unchanged; anything else is classified once.
+      const err = normalizeConvexError(e)
       _status.value = 'error'
       error.value = err
 

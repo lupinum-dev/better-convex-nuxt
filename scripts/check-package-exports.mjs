@@ -1,33 +1,114 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+/**
+ * Packed-entry gate (vNext §7 "packed-entry check"; internal §16.2).
+ *
+ * The command name `check:package-exports` is retained from the earlier
+ * line-oriented checker, but the implementation described here replaces it
+ * entirely. A regex/line scan can miss multiline imports and cannot prove
+ * entry purity or that a published tarball actually resolves for a real
+ * consumer. This script instead:
+ *
+ *   1. runs a fast source-level scan (kept from the original checker) over
+ *      `src/module.ts` and `src/runtime/**` for alias/absolute-path/
+ *      undeclared-dependency leaks — no build required;
+ *   2. requires `dist/` to already exist (built by `nuxt-module-build build`,
+ *      as `prepack` does) and fails loudly, not vacuously, if it is missing;
+ *   3. in the default mode, packs the current tree once and extracts that
+ *      exact tarball; release verification instead supplies its already-packed
+ *      artifact with `--tarball`, while `prepack` uses `--dist-only` to avoid
+ *      recursively packing during the build lifecycle;
+ *   4. scans the extracted tarball for invalid path classes, generated debris,
+ *      source-machine absolute paths, and undeclared dependencies;
+ *   5. for each ACTIVE table entry, uses the installed TypeScript compiler to
+ *      prove the entry's dist files export exactly the expected names, no
+ *      forbidden names, and (where declared) import nothing outside the
+ *      entry's purity allowlist;
+ *   6. for each ACTIVE entry with a packed consumer fixture, runs an isolated
+ *      install of that fixture against the freshly packed tarball and proves
+ *      runtime resolution (`node`) and type resolution (`tsc`).
+ *
+ * Public paths and export names come exclusively from
+ * `package-entry-manifest.mjs`. Checker modules add implementation-specific
+ * purity rules and packed consumer probes without redefining that contract.
+ */
+
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { builtinModules } from 'node:module'
 import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const rootDir = process.cwd()
-const checkDist = process.argv.includes('--dist')
-const packageJson = JSON.parse(readFileSync(resolve(rootDir, 'package.json'), 'utf8'))
+import { checkEntryExportShape } from './package-check/declarations.mjs'
+import { entries } from './package-check/entry-rules.mjs'
+import { checkEntryPurity } from './package-check/purity.mjs'
+import {
+  buildContentManifest,
+  checkPackedPathClasses,
+  packAndExtract,
+  requireDistBuilt,
+  scanExtractedTarball,
+} from './package-check/tarball.mjs'
+import { packageEntries } from './package-entry-manifest.mjs'
+
+const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+const p = (...segments) => resolve(repoRoot, ...segments)
+const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
+const cliArgs = process.argv.slice(2).filter((argument) => argument !== '--')
+
+function readOption(name) {
+  const inline = cliArgs.find((argument) => argument.startsWith(`${name}=`))
+  if (inline) return inline.slice(name.length + 1)
+  const index = cliArgs.indexOf(name)
+  return index >= 0 ? cliArgs[index + 1] : undefined
+}
+
+const distOnly = cliArgs.includes('--dist-only')
+const suppliedTarball = readOption('--tarball')
+const manifestOutput = readOption('--manifest')
+
+for (let index = 0; index < cliArgs.length; index += 1) {
+  const argument = cliArgs[index]
+  if (argument === '--dist-only') continue
+  if (argument === '--tarball' || argument === '--manifest') {
+    if (!cliArgs[index + 1] || cliArgs[index + 1].startsWith('--')) {
+      console.error(`${argument} requires a path.`)
+      process.exit(1)
+    }
+    index += 1
+    continue
+  }
+  if (argument.startsWith('--tarball=') || argument.startsWith('--manifest=')) continue
+  console.error(`Unknown package-check option: ${argument}`)
+  process.exit(1)
+}
+
+if (distOnly && (suppliedTarball || manifestOutput)) {
+  console.error('--dist-only cannot be combined with --tarball or --manifest.')
+  process.exit(1)
+}
+
+/** Phases whose table entries are deep-checked (export shape, purity, packed probe). */
+const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3', 'phase4']
+
+const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
+
+// ---------------------------------------------------------------------------
+// 1. Fast source-level scan (kept from the original checker; no build needed)
+// ---------------------------------------------------------------------------
+
 const sourceDeclaredPackages = new Set([
   ...Object.keys(packageJson.dependencies ?? {}),
   ...Object.keys(packageJson.peerDependencies ?? {}),
   ...Object.keys(packageJson.optionalDependencies ?? {}),
   ...Object.keys(packageJson.devDependencies ?? {}),
 ])
-const runtimeDeclaredPackages = new Set([
-  ...Object.keys(packageJson.dependencies ?? {}),
-  ...Object.keys(packageJson.peerDependencies ?? {}),
-  ...Object.keys(packageJson.optionalDependencies ?? {}),
-])
-const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
-
-const sourceRoots = [resolve(rootDir, 'src/module.ts'), resolve(rootDir, 'src/runtime')]
-const builtRoots = checkDist
-  ? [
-      resolve(rootDir, 'dist/module.mjs'),
-      resolve(rootDir, 'dist/types.d.mts'),
-      resolve(rootDir, 'dist/runtime'),
-    ].filter(existsSync)
-  : []
-
 const allowedVirtualImports = new Set([
   '#app',
   '#imports',
@@ -35,21 +116,23 @@ const allowedVirtualImports = new Set([
   '#components',
   'nitropack/runtime',
 ])
-const allowedVirtualPrefixes = ['#app/', '#build/', '#components/']
+// `#convex/*` is the module's own generated-template alias namespace (vNext
+// §8 "Do not use a `#build/*` alias key... `#convex/*` is the module's
+// established namespace"), resolved via `nuxt.options.alias` the same way
+// `#app`/`#build`/`#components` are — never a real npm package.
+const allowedVirtualPrefixes = ['#app/', '#build/', '#components/', '#convex/']
 const allowedFrameworkPackages = new Set(['vue', 'vue-router'])
 const checkedExtensions = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.vue'])
-
-const failures = []
+const EXCLUDED_DIR_NAMES = new Set(['node_modules', '.nuxt', '.git', 'dist'])
 
 function collectFiles(target) {
   if (!existsSync(target)) return []
   const stat = statSync(target)
   if (stat.isFile()) return checkedExtensions.has(extname(target)) ? [target] : []
   if (!stat.isDirectory()) return []
-
   const files = []
   for (const entry of readdirSync(target)) {
-    if (entry === 'node_modules' || entry === '.nuxt') continue
+    if (EXCLUDED_DIR_NAMES.has(entry)) continue
     files.push(...collectFiles(join(target, entry)))
   }
   return files
@@ -120,9 +203,8 @@ function extractSpecifiers(line) {
   return specifiers
 }
 
-function validateSpecifier(file, specifier, lineNumber) {
-  const location = `${relative(rootDir, file)}:${lineNumber}`
-  const isBuiltFile = relative(rootDir, file).startsWith('dist/')
+function validateSourceSpecifier(file, specifier, lineNumber, failures) {
+  const location = `${relative(repoRoot, file)}:${lineNumber}`
 
   if (
     specifier.startsWith('$lib') ||
@@ -132,18 +214,16 @@ function validateSpecifier(file, specifier, lineNumber) {
   ) {
     failures.push(`${location} imports app-specific alias "${specifier}"`)
   }
-
   if (specifier.includes('/Users/') || specifier.startsWith('/Users/')) {
     failures.push(`${location} imports local machine path "${specifier}"`)
   }
-
   if (/\b(?:playground|demo|starters)\b/.test(specifier)) {
     failures.push(`${location} imports non-package workspace path "${specifier}"`)
   }
 
   if (isRelativeSpecifier(specifier)) {
     const resolved = resolve(dirname(file), specifier)
-    const relativeToRoot = relative(rootDir, resolved)
+    const relativeToRoot = relative(repoRoot, resolved)
     if (relativeToRoot.startsWith('..') || isAbsolute(relativeToRoot)) {
       failures.push(`${location} imports outside package root via "${specifier}"`)
     }
@@ -151,63 +231,214 @@ function validateSpecifier(file, specifier, lineNumber) {
   }
 
   if (nodeBuiltins.has(specifier) || isAllowedVirtualSpecifier(specifier)) return
-
   const packageName = rootPackageName(specifier)
   if (allowedFrameworkPackages.has(packageName)) return
-
-  const declaredPackages = isBuiltFile ? runtimeDeclaredPackages : sourceDeclaredPackages
-  if (!declaredPackages.has(packageName)) {
+  if (!sourceDeclaredPackages.has(packageName)) {
     failures.push(`${location} imports undeclared package "${packageName}" via "${specifier}"`)
   }
 }
 
-function collectExportTargets(value) {
-  if (typeof value === 'string') {
-    return [value]
+function runSourceScan() {
+  const failures = []
+  const sourceRoots = [p('src/module.ts'), p('src/runtime')]
+  const files = sourceRoots.flatMap(collectFiles)
+
+  for (const file of files) {
+    const source = readFileSync(file, 'utf8')
+    const lines = source.split(/\r?\n/)
+    lines.forEach((line, index) => {
+      if (isIgnoredLine(line)) return
+      for (const specifier of extractSpecifiers(line)) {
+        validateSourceSpecifier(file, specifier, index + 1, failures)
+      }
+    })
   }
-  if (!value || typeof value !== 'object') {
-    return []
-  }
 
-  return Object.values(value).flatMap((next) => collectExportTargets(next))
-}
-
-function validatePackageExportTargets() {
-  if (!checkDist) return
-
+  // package.json exports must at least point at files that exist in source form
+  // or will exist once built; a stale export table entry is a real defect.
   for (const [subpath, exportValue] of Object.entries(packageJson.exports ?? {})) {
     for (const target of collectExportTargets(exportValue)) {
       if (!target.startsWith('./')) continue
-      if (!existsSync(resolve(rootDir, target))) {
+      // Built files do not exist pre-build; only flag paths that are neither a
+      // dist path nor resolvable at all (i.e. clearly a typo).
+      if (target.startsWith('./dist/')) continue
+      if (!existsSync(resolve(repoRoot, target))) {
         failures.push(`package.json exports["${subpath}"] points to missing file "${target}"`)
       }
     }
   }
+
+  return { failures, filesScanned: files.length }
 }
 
-function validateFile(file) {
-  const source = readFileSync(file, 'utf8')
-  const lines = source.split(/\r?\n/)
-  lines.forEach((line, index) => {
-    if (isIgnoredLine(line)) return
-    for (const specifier of extractSpecifiers(line)) {
-      validateSpecifier(file, specifier, index + 1)
+function collectExportTargets(value) {
+  if (typeof value === 'string') return [value]
+  if (!value || typeof value !== 'object') return []
+  return Object.values(value).flatMap((next) => collectExportTargets(next))
+}
+
+/**
+ * vNext §11 "Package checks": `files: ["dist"]` must include every `exports`
+ * target, and `typesVersions` must have exactly one entry per non-root
+ * `exports` subpath (so `./foo` resolves under both moduleResolution
+ * `Bundler`/`NodeNext` and the legacy `node10` typesVersions fallback path).
+ * A drift here is a real published-package defect, not a style nit, so it is
+ * a hard failure rather than a manual review note.
+ */
+function checkPackageJsonManifestConsistency() {
+  const failures = []
+  const exportsMap = packageJson.exports ?? {}
+  const declaredFiles = packageJson.files ?? []
+
+  const contractSubpaths = new Set(packageEntries.map((entry) => entry.subpath))
+  for (const entry of packageEntries) {
+    const packageEntry = exportsMap[entry.subpath]
+    if (!packageEntry) {
+      failures.push(`package.json exports is missing manifest entry "${entry.subpath}"`)
+      continue
     }
-  })
-}
-
-const files = [...sourceRoots, ...builtRoots].flatMap(collectFiles)
-for (const file of files) {
-  validateFile(file)
-}
-validatePackageExportTargets()
-
-if (failures.length > 0) {
-  console.error(`Package export validation failed with ${failures.length} issue(s):`)
-  for (const failure of failures) {
-    console.error(`- ${failure}`)
+    if (packageEntry.import !== `./${entry.distJs}`) {
+      failures.push(
+        `package.json exports["${entry.subpath}"].import must be "./${entry.distJs}" (manifest source of truth)`,
+      )
+    }
+    if (packageEntry.types !== `./${entry.distDts}`) {
+      failures.push(
+        `package.json exports["${entry.subpath}"].types must be "./${entry.distDts}" (manifest source of truth)`,
+      )
+    }
   }
-  process.exitCode = 1
-} else {
-  console.log(`Package export validation passed (${files.length} file(s) checked).`)
+  for (const subpath of Object.keys(exportsMap)) {
+    if (!contractSubpaths.has(subpath)) {
+      failures.push(`package.json exports contains undeclared manifest entry "${subpath}"`)
+    }
+  }
+
+  // `files: ["dist"]` (a bare directory entry) covers every `./dist/...`
+  // target by construction; only flag an export target that escapes `dist/`
+  // entirely and isn't otherwise covered by a declared `files` entry.
+  const filesCoversDist = declaredFiles.includes('dist')
+  for (const [subpath, exportValue] of Object.entries(exportsMap)) {
+    for (const target of collectExportTargets(exportValue)) {
+      if (!target.startsWith('./')) continue
+      const stripped = target.slice(2)
+      const coveredByDist = filesCoversDist && stripped.startsWith('dist/')
+      const coveredExplicitly = declaredFiles.some(
+        (entry) => stripped === entry || stripped.startsWith(`${entry.replace(/\/$/, '')}/`),
+      )
+      if (!coveredByDist && !coveredExplicitly) {
+        failures.push(
+          `package.json exports["${subpath}"] target "${target}" is not covered by "files": ${JSON.stringify(declaredFiles)}`,
+        )
+      }
+    }
+  }
+
+  // `typesVersions["*"]` must have exactly one key per non-root `exports`
+  // subpath (the subpath with its leading "./" stripped), and vice versa.
+  const typesVersionsStar = packageJson.typesVersions?.['*'] ?? {}
+  const exportSubpaths = new Set(
+    Object.keys(exportsMap).map((subpath) => (subpath === '.' ? '.' : subpath.slice(2))),
+  )
+  const typesVersionsKeys = new Set(Object.keys(typesVersionsStar))
+
+  for (const subpath of exportSubpaths) {
+    if (!typesVersionsKeys.has(subpath)) {
+      failures.push(`typesVersions["*"] is missing an entry for exports subpath "${subpath}"`)
+    }
+  }
+  for (const key of typesVersionsKeys) {
+    if (!exportSubpaths.has(key)) {
+      failures.push(`typesVersions["*"]["${key}"] has no matching exports subpath`)
+    }
+  }
+
+  return failures
 }
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+function main() {
+  const failures = []
+  const warnings = []
+
+  const sourceScan = runSourceScan()
+  failures.push(...sourceScan.failures)
+  failures.push(...checkPackageJsonManifestConsistency())
+
+  requireDistBuilt()
+
+  const activeEntries = entries.filter((entry) => ACTIVE_PHASES.includes(entry.phase))
+  const scheduledEntries = entries.filter((entry) => !ACTIVE_PHASES.includes(entry.phase))
+
+  if (distOnly) {
+    for (const entry of activeEntries) {
+      checkEntryExportShape(entry, failures, warnings)
+      checkEntryPurity(entry, failures)
+    }
+  } else {
+    console.log(
+      suppliedTarball
+        ? `Extracting the supplied tarball for packed-probe evidence: ${suppliedTarball}`
+        : 'Packing and extracting the current tree for packed-probe evidence…',
+    )
+    const { scratchDir, tarballPath, packageDir } = packAndExtract(suppliedTarball)
+    try {
+      const manifest = buildContentManifest(packageDir)
+      scanExtractedTarball(packageDir, failures, manifest)
+
+      for (const entry of activeEntries) {
+        checkEntryExportShape(entry, failures, warnings, packageDir)
+        checkEntryPurity(entry, failures, packageDir)
+      }
+
+      if (failures.length === 0) {
+        const ctx = { tarballPath, packageDir, failures }
+        for (const entry of activeEntries) {
+          if (!entry.packedProbe) continue
+          console.log(`Running packed probe for "${entry.subpath}"…`)
+          entry.packedProbe(ctx)
+        }
+      }
+
+      if (manifestOutput && failures.length === 0) {
+        const outputPath = resolve(repoRoot, manifestOutput)
+        mkdirSync(dirname(outputPath), { recursive: true })
+        writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`)
+        console.log(`Content manifest: ${outputPath}`)
+      }
+    } finally {
+      rmSync(scratchDir, { recursive: true, force: true })
+    }
+  }
+
+  for (const warning of warnings) {
+    console.warn(`⚠ ${warning}`)
+  }
+
+  if (failures.length > 0) {
+    console.error(`\nPackage export validation failed with ${failures.length} issue(s):`)
+    for (const failure of failures) {
+      console.error(`- ${failure}`)
+    }
+    process.exitCode = 1
+    return
+  }
+
+  console.log(
+    `✓ ${distOnly ? 'dist-entry' : 'packed-entry'} gate passed (${sourceScan.filesScanned} source file(s) scanned, ${activeEntries.length} active entr${activeEntries.length === 1 ? 'y' : 'ies'} deep-checked).`,
+  )
+  if (scheduledEntries.length > 0) {
+    console.log(
+      `  scheduled (inactive): ${scheduledEntries.map((e) => `${e.subpath} [${e.phase}]`).join(', ')}`,
+    )
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main()
+}
+
+export { checkPackedPathClasses }

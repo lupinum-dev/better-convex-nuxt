@@ -1,15 +1,14 @@
-import type { ConnectionState, ConvexClient } from 'convex/browser'
-import { ref, readonly, computed, onScopeDispose, getCurrentScope, type Ref } from 'vue'
+import type { ConnectionState } from 'convex/browser'
+import { ref, computed, onMounted, onScopeDispose, getCurrentScope } from 'vue'
 
-import { useNuxtApp, useRuntimeConfig } from '#imports'
+import { useNuxtApp } from '#imports'
 
-import { getSharedLogger, getLogLevel } from '../utils/logger'
+import { readConvexRuntimeContext } from '../runtime-context'
 
-// Re-export for convenience — consumers previously imported this type from
-// here; convex/browser is now the single source of truth (F-36).
+// Re-export for convenience — convex/browser is the single source of truth.
 export type { ConnectionState } from 'convex/browser'
 
-const DEFAULT_STATE: ConnectionState = {
+const DISCONNECTED_CONNECTION_STATE: Readonly<ConnectionState> = Object.freeze({
   hasInflightRequests: false,
   isWebSocketConnected: false,
   timeOfOldestInflightRequest: null,
@@ -18,124 +17,64 @@ const DEFAULT_STATE: ConnectionState = {
   connectionRetries: 0,
   inflightMutations: 0,
   inflightActions: 0,
-}
-
-interface ConnectionStateStore {
-  state: Ref<ConnectionState>
-  unsubscribe: (() => void) | null
-  subscriberCount: number
-  disconnectedAt: number | null
-}
-
-const connectionStateStores = new WeakMap<object, ConnectionStateStore>()
-
-function getConnectionStateStore(app: object): ConnectionStateStore {
-  const existing = connectionStateStores.get(app)
-  if (existing) return existing
-  const created: ConnectionStateStore = {
-    state: ref<ConnectionState>({ ...DEFAULT_STATE }),
-    unsubscribe: null,
-    subscriberCount: 0,
-    disconnectedAt: null,
-  }
-  connectionStateStores.set(app, created)
-  return created
-}
+})
 
 /**
- * Monitor the Convex WebSocket connection state.
- * Useful for showing offline/reconnecting UI.
+ * Monitor the Convex WebSocket connection state (vNext §5.4).
  *
- * Uses a singleton pattern to avoid creating multiple listeners
- * on the ConvexClient when multiple components use this composable.
+ * `connectionState` is deliberately NOT on the `useConvex()` handle; this is the
+ * only connection-observation API. The connection store lives inside the per-app
+ * client owner (internal §4.1 single ownership), so this composable observes the
+ * CURRENT primary client through the owner: on primary-client replacement the
+ * owner resets the store to its disconnected default and rebinds the
+ * subscription to the replacement. Each mounted consumer registers with the
+ * owner; the owner subscribes on the first consumer and unsubscribes on the last.
  *
  * @example
  * ```vue
  * <script setup>
  * const { isConnected, isReconnecting, connectionRetries } = useConvexConnectionState()
  * </script>
- *
- * <template>
- *   <div v-if="isReconnecting" class="offline-banner">
- *     Reconnecting... (attempt {{ connectionRetries }})
- *   </div>
- * </template>
  * ```
  */
 export function useConvexConnectionState() {
   const nuxtApp = useNuxtApp()
-  const client = import.meta.client ? (nuxtApp.$convex as ConvexClient | undefined) : undefined
+  const owner = import.meta.client ? readConvexRuntimeContext(nuxtApp)?.owner : undefined
   const currentScope = getCurrentScope()
-  const config = useRuntimeConfig()
-  const logLevel = getLogLevel(config.public.convex ?? {})
-  const logger = getSharedLogger(logLevel)
-  const store = getConnectionStateStore(nuxtApp)
+  const mounted = ref(false)
 
-  // Only subscribe on client
-  if (import.meta.client && client && currentScope) {
-    // First subscriber initializes the connection
-    if (store.subscriberCount === 0) {
-      // Get initial state
-      store.state.value = client.connectionState()
+  // Always expose the disconnected snapshot during SSR and the initial client
+  // render. Reading the owner store only after mount prevents connection timing
+  // from changing hydration output.
+  const state = computed<Readonly<ConnectionState>>(() =>
+    mounted.value && owner ? owner.connection.state.value : DISCONNECTED_CONNECTION_STATE,
+  )
 
-      // Subscribe to connection state changes (single subscription for all components)
-      store.unsubscribe = client.subscribeToConnectionState((newState) => {
-        const currentState = store.state
-
-        const wasConnected = currentState.value.isWebSocketConnected
-        const nowConnected = newState.isWebSocketConnected
-
-        if (wasConnected !== nowConnected) {
-          if (nowConnected) {
-            // Reconnected
-            const offlineDuration = store.disconnectedAt
-              ? Date.now() - store.disconnectedAt
-              : undefined
-            logger.connection({ event: 'restored', offlineDuration })
-            store.disconnectedAt = null
-          } else {
-            // Disconnected
-            store.disconnectedAt = Date.now()
-            logger.connection({ event: 'lost' })
-          }
-        }
-
-        currentState.value = newState
-      })
-    }
-
-    // Increment subscriber count
-    store.subscriberCount++
-
-    // Decrement on unmount, cleanup when last subscriber leaves
-    onScopeDispose(() => {
-      store.subscriberCount--
-      if (store.subscriberCount === 0 && store.unsubscribe) {
-        store.unsubscribe()
-        store.unsubscribe = null
-      }
+  if (import.meta.client && owner && currentScope) {
+    let removeConsumer: (() => void) | null = null
+    // Subscribe after hydration so the first client render matches the static
+    // disconnected SSR snapshot. The owner still shares one underlying
+    // subscription and rebinds it across primary replacement.
+    onMounted(() => {
+      removeConsumer = owner.connection.addConsumer()
+      mounted.value = true
     })
-  } else if (import.meta.client && client && !currentScope) {
-    // Scope-less callers get a snapshot only to avoid leaking global subscriptions.
-    store.state.value = client.connectionState()
+    onScopeDispose(() => removeConsumer?.())
   }
 
-  // Computed shortcuts derived from shared state
-  const state = store.state
   const isConnected = computed(() => state.value.isWebSocketConnected)
   const isReconnecting = computed(
     () => state.value.hasEverConnected && !state.value.isWebSocketConnected,
   )
   const pendingMutations = computed(() => state.value.inflightMutations)
   const pendingActions = computed(() => state.value.inflightActions)
+
   const isHydratingConnection = ref(true)
   let hydrationTimer: ReturnType<typeof setTimeout> | null = null
   if (import.meta.client) {
     hydrationTimer = setTimeout(() => {
       isHydratingConnection.value = false
     }, 500)
-  } else {
-    isHydratingConnection.value = false
   }
 
   if (currentScope) {
@@ -151,7 +90,7 @@ export function useConvexConnectionState() {
 
   return {
     /** Full connection state object */
-    state: readonly(state),
+    state,
     /** Whether WebSocket is currently connected */
     isConnected,
     /** Whether client is reconnecting (was connected, now disconnected) */

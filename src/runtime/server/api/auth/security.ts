@@ -1,93 +1,64 @@
-/**
- * Same-origin is strict (protocol + host + port), not host-only.
- */
-function isOriginPatternUrl(url: URL): boolean {
-  return !url.username && !url.password && !url.search && !url.hash && url.pathname === '/'
-}
-
-function escapeRegex(input: string): string {
-  return input.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function hostnameLabelMatches(patternLabel: string, actualLabel: string): boolean {
-  if (patternLabel === '*') {
-    return actualLabel.length > 0
-  }
-
-  if (!patternLabel.includes('*')) {
-    return patternLabel === actualLabel
-  }
-
-  const pattern = `^${escapeRegex(patternLabel).replace(/\*/g, '[^.]*')}$`
-  return new RegExp(pattern).test(actualLabel)
-}
-
-function hostnameMatchesPattern(patternHostname: string, actualHostname: string): boolean {
-  const patternLabels = patternHostname.split('.')
-  const actualLabels = actualHostname.split('.')
-
-  if (patternLabels.length !== actualLabels.length) {
-    return false
-  }
-
-  for (let i = 0; i < patternLabels.length; i++) {
-    const patternLabel = patternLabels[i]
-    const actualLabel = actualLabels[i]
-    if (!patternLabel || !actualLabel) return false
-    if (!hostnameLabelMatches(patternLabel, actualLabel)) {
-      return false
-    }
-  }
-
-  return true
-}
-
-function trustedOriginPatternMatches(origin: string, trustedPattern: string): boolean {
-  let originUrl: URL
-  let trustedUrl: URL
+export function isSameOrigin(origin: string, requestOrigin: string): boolean {
   try {
-    originUrl = new URL(origin)
-    trustedUrl = new URL(trustedPattern)
+    return new URL(origin).origin === requestOrigin && origin === new URL(origin).origin
   } catch {
     return false
   }
-
-  // Trusted entries are origin patterns only (scheme + host + optional port).
-  if (!isOriginPatternUrl(trustedUrl)) {
-    return false
-  }
-
-  if (trustedUrl.protocol !== originUrl.protocol) return false
-  if (trustedUrl.port !== originUrl.port) return false
-
-  return hostnameMatchesPattern(trustedUrl.hostname, originUrl.hostname)
 }
 
-export function isOriginAllowed(
-  origin: string,
+function hasCrossSiteFetchMetadata(value: string | null): boolean {
+  return (value || '')
+    .split(',')
+    .some((entry) => ['cross-site', 'same-site'].includes(entry.trim().toLowerCase()))
+}
+
+function isSameOriginReferer(referer: string, requestOrigin: string): boolean {
+  try {
+    const url = new URL(referer)
+    return !url.username && !url.password && url.origin === requestOrigin
+  } catch {
+    return false
+  }
+}
+
+function isCoreOAuthPostCallbackPath(path: string): boolean {
+  const match = /^\/callback\/([^/]+)$/.exec(path)
+  if (!match?.[1]) return false
+  try {
+    const providerId = decodeURIComponent(match[1])
+    return (
+      providerId.length > 0 &&
+      providerId !== '.' &&
+      providerId !== '..' &&
+      !providerId.includes('/') &&
+      !providerId.includes('\\') &&
+      ![...providerId].some((character) => {
+        const code = character.charCodeAt(0)
+        return code <= 31 || code === 127
+      })
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Reject explicit cross-origin browser evidence without excluding headerless server clients. */
+export function isCrossOriginAuthRequest(
+  headers: Headers,
+  method: string,
   requestOrigin: string,
-  trustedOrigins: string[],
+  authPath: string,
 ): boolean {
-  try {
-    const originUrl = new URL(origin)
-    if (originUrl.origin === requestOrigin) return true
-  } catch {
-    // Invalid origin URL
-  }
+  // Core social providers such as Apple POST their OAuth result cross-site.
+  // Better Auth owns the state/PKCE ceremony on this one exact endpoint shape.
+  if (method === 'POST' && isCoreOAuthPostCallbackPath(authPath)) return false
 
-  for (const trusted of trustedOrigins) {
-    if (trustedOriginPatternMatches(origin, trusted)) return true
-  }
+  const origin = headers.get('origin')
+  if (origin !== null && !isSameOrigin(origin, requestOrigin)) return true
 
-  return false
-}
+  if (method !== 'POST') return false
+  if (hasCrossSiteFetchMetadata(headers.get('sec-fetch-site'))) return true
 
-const authRoutePatternCache = new Map<string, RegExp>()
-
-export function getAuthRoutePattern(authRoute: string): RegExp {
-  const cached = authRoutePatternCache.get(authRoute)
-  if (cached) return cached
-  const pattern = new RegExp(`^${authRoute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
-  authRoutePatternCache.set(authRoute, pattern)
-  return pattern
+  const referer = headers.get('referer')
+  return origin === null && referer !== null && !isSameOriginReferer(referer, requestOrigin)
 }

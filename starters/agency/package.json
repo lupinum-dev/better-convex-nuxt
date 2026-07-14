@@ -12,11 +12,11 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@convex-dev/better-auth": "^0.12.4",
-    "better-auth": "^1.6.20",
-    "better-convex-nuxt": "^0.4.0",
-    "convex": "^1.32.0",
-    "nuxt": "^4.3.1",
+    "@convex-dev/better-auth": "0.12.5",
+    "better-auth": "1.6.23",
+    "better-convex-nuxt": "0.6.0",
+    "convex": "1.40.0",
+    "nuxt": "4.4.8",
     "vue": "^3.5.25"
   },
   "devDependencies": {
@@ -25,7 +25,7 @@
     "typescript": "~5.9.3",
     "vite": "^7.2.7",
     "vitest": "^4.0.18",
-    "vue-tsc": "^3.2.5"
+    "vue-tsc": "^3.3.7"
   },
   "packageManager": "pnpm@10.30.3"
 }

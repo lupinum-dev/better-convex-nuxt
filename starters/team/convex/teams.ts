@@ -3,13 +3,12 @@ import { ConvexError, v } from 'convex/values'
 import { renameTeamInputSchema, teamMembershipInputSchema } from '../shared/inputSchemas'
 import { query, mutation } from './_generated/server'
 import {
-  getAppAuth,
   hasOrganizationPermissions,
   requireAuthenticatedSession,
   requireOrgMembership,
   requireTeamAccess,
 } from './lib/authz'
-import { getBetterAuthTeam, listBetterAuthTeamMembers } from './lib/betterAuthRows'
+import { getBetterAuthTeam } from './lib/betterAuthRows'
 import { parseWithConvexError } from './lib/validation'
 
 export const getCapabilities = query({
@@ -95,37 +94,6 @@ export const rename = mutation({
       name: team.name,
       organizationId: team.organizationId,
     }
-  },
-})
-
-export const listMemberIds = query({
-  args: {
-    teamId: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const team = await getBetterAuthTeam(ctx, { teamId: args.teamId })
-    if (!team?.organizationId) {
-      throw new ConvexError('Team not found')
-    }
-
-    const { auth, headers } = await getAppAuth(ctx)
-    const { actor } = await requireOrgMembership(ctx, {
-      organizationId: team.organizationId,
-    })
-    const allowed = await hasOrganizationPermissions(auth, headers, team.organizationId, {
-      member: ['update'],
-    })
-    if (!allowed) {
-      throw new ConvexError('Missing member:update permission')
-    }
-    await requireTeamAccess(ctx, {
-      organizationId: team.organizationId,
-      teamId: args.teamId,
-      authUserId: actor.authUserId,
-    })
-
-    const members = await listBetterAuthTeamMembers(ctx, args.teamId)
-    return members.map((member) => member.userId)
   },
 })
 

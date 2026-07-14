@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref, type Ref } from 'vue'
 
 import { createUiDevtoolsTransport, type DevtoolsTransport } from '../../transport'
 import type { ConvexDevToolsBridge } from '../../types'
@@ -6,63 +6,76 @@ import type { ConvexDevToolsBridge } from '../../types'
 type BridgeMethod = keyof Omit<ConvexDevToolsBridge, 'version'>
 
 interface PendingRequest {
-  resolve: (value: unknown) => void
   reject: (error: Error) => void
+  resolve: (value: unknown) => void
+  timeout: ReturnType<typeof setTimeout>
 }
 
-const transportRef = ref<DevtoolsTransport | null>(null)
-const connected = ref(false)
-const pendingRequests = new Map<number, PendingRequest>()
-let messageId = 0
-// The instance ID we're bound to (first instance that responds with READY)
-let boundInstanceId: string | null = null
-let cleanupBridgeListener: (() => void) | null = null
+export interface DevtoolsBridgeController {
+  readonly availableInstanceIds: Ref<string[]>
+  readonly boundInstanceId: Ref<string | null>
+  readonly connected: Ref<boolean>
+  call<T = unknown>(method: BridgeMethod, ...args: unknown[]): Promise<T>
+  getTransport(): DevtoolsTransport | null
+  selectInstance(instanceId: string): void
+}
 
-/**
- * Call a method on the DevTools bridge transport.
- */
-export async function callBridge<T = unknown>(
-  method: BridgeMethod,
-  ...args: unknown[]
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    if (!transportRef.value) {
-      reject(new Error('Bridge not connected'))
-      return
-    }
+/** Create one bridge controller for the current DevTools UI application. */
+export function useBridge(): DevtoolsBridgeController {
+  const availableInstanceIds = ref<string[]>([])
+  const boundInstanceId = ref<string | null>(null)
+  const connected = ref(false)
+  const transport = ref<DevtoolsTransport | null>(null)
 
-    const id = ++messageId
-    pendingRequests.set(id, { resolve: resolve as (value: unknown) => void, reject })
+  const pendingRequests = new Map<number, PendingRequest>()
+  let messageId = 0
+  let cleanupListener: (() => void) | null = null
 
-    transportRef.value.postMessage({
-      type: 'CONVEX_DEVTOOLS_REQUEST',
-      id,
-      method,
-      args,
-      instanceId: boundInstanceId,
+  const call = async <T = unknown>(method: BridgeMethod, ...args: unknown[]): Promise<T> =>
+    new Promise((resolve, reject) => {
+      const selectedInstanceId = boundInstanceId.value
+      if (!transport.value || !selectedInstanceId) {
+        reject(new Error('Select an application instance before calling the bridge'))
+        return
+      }
+
+      const id = ++messageId
+      const timeout = setTimeout(() => {
+        const pending = pendingRequests.get(id)
+        if (!pending) return
+        pendingRequests.delete(id)
+        pending.reject(new Error('Request timeout'))
+      }, 5000)
+      pendingRequests.set(id, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeout,
+      })
+
+      transport.value.postMessage({
+        type: 'CONVEX_DEVTOOLS_REQUEST',
+        id,
+        method,
+        args,
+        instanceId: selectedInstanceId,
+      })
     })
 
-    // Timeout after 5 seconds
-    setTimeout(() => {
-      if (pendingRequests.has(id)) {
-        pendingRequests.delete(id)
-        reject(new Error('Request timeout'))
-      }
-    }, 5000)
-  })
-}
+  const selectInstance = (instanceId: string): void => {
+    if (!availableInstanceIds.value.includes(instanceId)) {
+      throw new Error(`Unknown application instance: ${instanceId}`)
+    }
+    boundInstanceId.value = instanceId
+    connected.value = true
+  }
 
-/**
- * Initialize the DevTools bridge connection.
- */
-export function useBridge() {
   onMounted(() => {
-    transportRef.value = createUiDevtoolsTransport('convex-devtools')
+    const currentTransport = createUiDevtoolsTransport('convex-devtools')
+    transport.value = currentTransport
 
     const handler = (event: { data: unknown }) => {
-      const data = event.data
-      if (!data || typeof data !== 'object') return
-      const message = data as {
+      if (!event.data || typeof event.data !== 'object') return
+      const message = event.data as {
         type?: string
         id?: number
         error?: string
@@ -70,75 +83,55 @@ export function useBridge() {
         instanceId?: string | null
       }
 
-      if (message.type === 'CONVEX_DEVTOOLS_RESPONSE') {
-        // Only accept responses from the bound instance to prevent cross-tab interference
-        if (boundInstanceId && message.instanceId !== boundInstanceId) {
-          return
+      if (message.type === 'CONVEX_DEVTOOLS_READY' && message.instanceId) {
+        if (!availableInstanceIds.value.includes(message.instanceId)) {
+          availableInstanceIds.value = [...availableInstanceIds.value, message.instanceId].sort()
         }
-
-        if (typeof message.id !== 'number') return
-        const pending = pendingRequests.get(message.id)
-        if (pending) {
-          pendingRequests.delete(message.id)
-          if (message.error) {
-            pending.reject(new Error(message.error))
-          } else {
-            pending.resolve(message.result)
-          }
-        }
-      } else if (message.type === 'CONVEX_DEVTOOLS_READY') {
-        // Bind to the first instance that responds with a valid instanceId
-        if (!boundInstanceId && message.instanceId) {
-          boundInstanceId = message.instanceId
-        }
-        connected.value = true
+        return
       }
+
+      if (
+        message.type !== 'CONVEX_DEVTOOLS_RESPONSE' ||
+        typeof message.id !== 'number' ||
+        message.instanceId !== boundInstanceId.value
+      ) {
+        return
+      }
+
+      const pending = pendingRequests.get(message.id)
+      if (!pending) return
+      pendingRequests.delete(message.id)
+      clearTimeout(pending.timeout)
+      if (message.error) pending.reject(new Error(message.error))
+      else pending.resolve(message.result)
     }
 
-    transportRef.value.addEventListener('message', handler)
-
-    // Request connection
-    transportRef.value.postMessage({ type: 'CONVEX_DEVTOOLS_INIT' })
-
-    // Mark as connected after timeout (fallback if READY message not received)
-    setTimeout(() => {
-      connected.value = true
-    }, 2000)
-
-    // Replace transport cleanup with closure to ensure listener removed
-    cleanupBridgeListener = () => {
-      transportRef.value?.removeEventListener('message', handler)
-    }
+    currentTransport.addEventListener('message', handler)
+    cleanupListener = () => currentTransport.removeEventListener('message', handler)
+    currentTransport.postMessage({ type: 'CONVEX_DEVTOOLS_INIT' })
   })
 
   onUnmounted(() => {
-    cleanupBridgeListener?.()
-    cleanupBridgeListener = null
-    if (transportRef.value) {
-      transportRef.value.close()
-      transportRef.value = null
+    cleanupListener?.()
+    cleanupListener = null
+    for (const pending of pendingRequests.values()) {
+      clearTimeout(pending.timeout)
+      pending.reject(new Error('DevTools bridge disposed'))
     }
     pendingRequests.clear()
-    boundInstanceId = null
+    transport.value?.close()
+    transport.value = null
+    availableInstanceIds.value = []
+    boundInstanceId.value = null
+    connected.value = false
   })
 
   return {
+    availableInstanceIds,
+    boundInstanceId,
     connected,
-    callBridge,
+    call,
+    getTransport: () => transport.value,
+    selectInstance,
   }
-}
-
-/**
- * Get the current devtools bridge transport instance.
- */
-export function getBridgeTransport(): DevtoolsTransport | null {
-  return transportRef.value
-}
-
-export function getBroadcastChannel(): DevtoolsTransport | null {
-  return transportRef.value
-}
-
-export function getBoundBridgeInstanceId(): string | null {
-  return boundInstanceId
 }

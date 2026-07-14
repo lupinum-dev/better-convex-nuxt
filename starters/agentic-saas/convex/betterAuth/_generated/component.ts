@@ -31,16 +31,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
-                  banExpires?: null | number;
-                  banReason?: null | string;
-                  banned?: null | boolean;
                   createdAt: number;
                   email: string;
                   emailVerified: boolean;
                   image?: null | string;
                   name: string;
-                  role?: null | string;
                   updatedAt: number;
+                  userId?: null | string;
                 };
                 model: "user";
               }
@@ -49,7 +46,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeOrganizationId?: null | string;
                   createdAt: number;
                   expiresAt: number;
-                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   token: string;
                   updatedAt: number;
@@ -99,16 +95,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 data: {
                   createdAt: number;
                   organizationId: string;
-                  permission: string;
-                  role: string;
-                  updatedAt?: null | number;
-                };
-                model: "organizationRole";
-              }
-            | {
-                data: {
-                  createdAt: number;
-                  organizationId: string;
                   role: string;
                   userId: string;
                 };
@@ -129,6 +115,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   createdAt: number;
+                  expiresAt?: null | number;
                   privateKey: string;
                   publicKey: string;
                 };
@@ -156,10 +143,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "image"
                     | "createdAt"
                     | "updatedAt"
-                    | "role"
-                    | "banned"
-                    | "banReason"
-                    | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -195,7 +179,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "ipAddress"
                     | "userAgent"
                     | "userId"
-                    | "impersonatedBy"
                     | "activeOrganizationId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
@@ -301,41 +284,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "slug"
                     | "logo"
+                    | "createdAt"
                     | "metadata"
-                    | "createdAt"
-                    | "_id";
-                  mode?: "sensitive" | "insensitive";
-                  operator?:
-                    | "lt"
-                    | "lte"
-                    | "gt"
-                    | "gte"
-                    | "eq"
-                    | "in"
-                    | "not_in"
-                    | "ne"
-                    | "contains"
-                    | "starts_with"
-                    | "ends_with";
-                  value:
-                    | string
-                    | number
-                    | boolean
-                    | Array<string>
-                    | Array<number>
-                    | null;
-                }>;
-              }
-            | {
-                model: "organizationRole";
-                where?: Array<{
-                  connector?: "AND" | "OR";
-                  field:
-                    | "organizationId"
-                    | "role"
-                    | "permission"
-                    | "createdAt"
-                    | "updatedAt"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -430,7 +380,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "jwks";
                 where?: Array<{
                   connector?: "AND" | "OR";
-                  field: "publicKey" | "privateKey" | "createdAt" | "_id";
+                  field:
+                    | "publicKey"
+                    | "privateKey"
+                    | "createdAt"
+                    | "expiresAt"
+                    | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"
@@ -482,10 +437,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "image"
                     | "createdAt"
                     | "updatedAt"
-                    | "role"
-                    | "banned"
-                    | "banReason"
-                    | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -521,7 +473,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "ipAddress"
                     | "userAgent"
                     | "userId"
-                    | "impersonatedBy"
                     | "activeOrganizationId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
@@ -627,41 +578,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "slug"
                     | "logo"
+                    | "createdAt"
                     | "metadata"
-                    | "createdAt"
-                    | "_id";
-                  mode?: "sensitive" | "insensitive";
-                  operator?:
-                    | "lt"
-                    | "lte"
-                    | "gt"
-                    | "gte"
-                    | "eq"
-                    | "in"
-                    | "not_in"
-                    | "ne"
-                    | "contains"
-                    | "starts_with"
-                    | "ends_with";
-                  value:
-                    | string
-                    | number
-                    | boolean
-                    | Array<string>
-                    | Array<number>
-                    | null;
-                }>;
-              }
-            | {
-                model: "organizationRole";
-                where?: Array<{
-                  connector?: "AND" | "OR";
-                  field:
-                    | "organizationId"
-                    | "role"
-                    | "permission"
-                    | "createdAt"
-                    | "updatedAt"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -756,7 +674,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "jwks";
                 where?: Array<{
                   connector?: "AND" | "OR";
-                  field: "publicKey" | "privateKey" | "createdAt" | "_id";
+                  field:
+                    | "publicKey"
+                    | "privateKey"
+                    | "createdAt"
+                    | "expiresAt"
+                    | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"
@@ -796,7 +719,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "account"
             | "verification"
             | "organization"
-            | "organizationRole"
             | "member"
             | "invitation"
             | "jwks";
@@ -850,7 +772,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "account"
             | "verification"
             | "organization"
-            | "organizationRole"
             | "member"
             | "invitation"
             | "jwks";
@@ -891,16 +812,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
-                  banExpires?: null | number;
-                  banReason?: null | string;
-                  banned?: null | boolean;
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
                   name?: string;
-                  role?: null | string;
                   updatedAt?: number;
+                  userId?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -911,10 +829,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "image"
                     | "createdAt"
                     | "updatedAt"
-                    | "role"
-                    | "banned"
-                    | "banReason"
-                    | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -944,7 +859,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeOrganizationId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
-                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   token?: string;
                   updatedAt?: number;
@@ -961,7 +875,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "ipAddress"
                     | "userAgent"
                     | "userId"
-                    | "impersonatedBy"
                     | "activeOrganizationId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
@@ -1095,48 +1008,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "slug"
                     | "logo"
+                    | "createdAt"
                     | "metadata"
-                    | "createdAt"
-                    | "_id";
-                  mode?: "sensitive" | "insensitive";
-                  operator?:
-                    | "lt"
-                    | "lte"
-                    | "gt"
-                    | "gte"
-                    | "eq"
-                    | "in"
-                    | "not_in"
-                    | "ne"
-                    | "contains"
-                    | "starts_with"
-                    | "ends_with";
-                  value:
-                    | string
-                    | number
-                    | boolean
-                    | Array<string>
-                    | Array<number>
-                    | null;
-                }>;
-              }
-            | {
-                model: "organizationRole";
-                update: {
-                  createdAt?: number;
-                  organizationId?: string;
-                  permission?: string;
-                  role?: string;
-                  updatedAt?: null | number;
-                };
-                where?: Array<{
-                  connector?: "AND" | "OR";
-                  field:
-                    | "organizationId"
-                    | "role"
-                    | "permission"
-                    | "createdAt"
-                    | "updatedAt"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1246,12 +1119,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "jwks";
                 update: {
                   createdAt?: number;
+                  expiresAt?: null | number;
                   privateKey?: string;
                   publicKey?: string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
-                  field: "publicKey" | "privateKey" | "createdAt" | "_id";
+                  field:
+                    | "publicKey"
+                    | "privateKey"
+                    | "createdAt"
+                    | "expiresAt"
+                    | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"
@@ -1295,16 +1174,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
-                  banExpires?: null | number;
-                  banReason?: null | string;
-                  banned?: null | boolean;
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
                   name?: string;
-                  role?: null | string;
                   updatedAt?: number;
+                  userId?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1315,10 +1191,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "image"
                     | "createdAt"
                     | "updatedAt"
-                    | "role"
-                    | "banned"
-                    | "banReason"
-                    | "banExpires"
+                    | "userId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1348,7 +1221,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeOrganizationId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
-                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   token?: string;
                   updatedAt?: number;
@@ -1365,7 +1237,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "ipAddress"
                     | "userAgent"
                     | "userId"
-                    | "impersonatedBy"
                     | "activeOrganizationId"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
@@ -1499,48 +1370,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "name"
                     | "slug"
                     | "logo"
+                    | "createdAt"
                     | "metadata"
-                    | "createdAt"
-                    | "_id";
-                  mode?: "sensitive" | "insensitive";
-                  operator?:
-                    | "lt"
-                    | "lte"
-                    | "gt"
-                    | "gte"
-                    | "eq"
-                    | "in"
-                    | "not_in"
-                    | "ne"
-                    | "contains"
-                    | "starts_with"
-                    | "ends_with";
-                  value:
-                    | string
-                    | number
-                    | boolean
-                    | Array<string>
-                    | Array<number>
-                    | null;
-                }>;
-              }
-            | {
-                model: "organizationRole";
-                update: {
-                  createdAt?: number;
-                  organizationId?: string;
-                  permission?: string;
-                  role?: string;
-                  updatedAt?: null | number;
-                };
-                where?: Array<{
-                  connector?: "AND" | "OR";
-                  field:
-                    | "organizationId"
-                    | "role"
-                    | "permission"
-                    | "createdAt"
-                    | "updatedAt"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1650,12 +1481,18 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "jwks";
                 update: {
                   createdAt?: number;
+                  expiresAt?: null | number;
                   privateKey?: string;
                   publicKey?: string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
-                  field: "publicKey" | "privateKey" | "createdAt" | "_id";
+                  field:
+                    | "publicKey"
+                    | "privateKey"
+                    | "createdAt"
+                    | "expiresAt"
+                    | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
                     | "lt"

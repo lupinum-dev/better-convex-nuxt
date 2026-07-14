@@ -21,12 +21,32 @@ export const approvalStatusValidator = v.union(
   v.literal('rejected'),
   v.literal('used'),
 )
-export const serviceAuditActionValidator = v.union(
+export const auditActionValidator = v.union(
+  v.literal('organizations.create'),
   v.literal('projects.create'),
   v.literal('projects.delete'),
+  v.literal('serviceActors.create'),
+  v.literal('agentCredentials.revoke'),
+  v.literal('approvals.request'),
+  v.literal('approvals.approve'),
+  v.literal('approvals.reject'),
 )
-export const serviceAuditResourceTypeValidator = v.literal('project')
-export const serviceAuditSourceValidator = v.union(v.literal('mcp'), v.literal('agent'))
+export const auditResourceTypeValidator = v.union(
+  v.literal('organization'),
+  v.literal('project'),
+  v.literal('serviceActor'),
+  v.literal('agentCredential'),
+  v.literal('approval'),
+)
+export const auditSourceValidator = v.union(
+  v.literal('human'),
+  v.literal('mcp'),
+  v.literal('agent'),
+)
+export const auditActorValidator = v.union(
+  v.object({ kind: v.literal('user'), userId: v.id('users') }),
+  v.object({ kind: v.literal('serviceActor'), serviceActorId: v.id('serviceActors') }),
+)
 export const projectCreatorValidator = v.union(
   v.object({
     kind: v.literal('user'),
@@ -62,7 +82,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_org_user', ['organizationId', 'userId'])
-    .index('by_user', ['userId']),
+    .index('by_user_status', ['userId', 'status']),
 
   serviceActors: defineTable({
     organizationId: v.id('organizations'),
@@ -88,18 +108,18 @@ export default defineSchema({
     organizationId: v.id('organizations'),
     name: v.string(),
     createdBy: projectCreatorValidator,
-    status: v.optional(v.union(v.literal('active'), v.literal('deleted'))),
+    status: v.union(v.literal('active'), v.literal('deleted')),
     deletedAt: v.optional(v.number()),
     deletedBy: v.optional(v.id('serviceActors')),
     createdAt: v.number(),
-  }).index('by_org', ['organizationId']),
+  }).index('by_org_status', ['organizationId', 'status']),
 
   approvals: defineTable({
     organizationId: v.id('organizations'),
     operation: approvalOperationValidator,
     resourceId: v.string(),
     status: approvalStatusValidator,
-    requestedBy: v.optional(v.id('serviceActors')),
+    requestedBy: v.id('serviceActors'),
     requestedReason: v.optional(v.string()),
     requestKey: v.optional(v.string()),
     preview: v.optional(
@@ -126,15 +146,21 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
   })
     .index('by_operation_resource', ['operation', 'resourceId'])
-    .index('by_org_status', ['organizationId', 'status'])
-    .index('by_request_key', ['organizationId', 'operation', 'resourceId', 'requestKey']),
+    .index('by_org_status_expires', ['organizationId', 'status', 'expiresAt'])
+    .index('by_actor_request_key', [
+      'organizationId',
+      'requestedBy',
+      'operation',
+      'resourceId',
+      'requestKey',
+    ]),
 
   auditEvents: defineTable({
     organizationId: v.id('organizations'),
-    serviceActorId: v.id('serviceActors'),
-    action: serviceAuditActionValidator,
-    resourceType: serviceAuditResourceTypeValidator,
-    source: serviceAuditSourceValidator,
+    actor: auditActorValidator,
+    action: auditActionValidator,
+    resourceType: auditResourceTypeValidator,
+    source: auditSourceValidator,
     resourceId: v.optional(v.string()),
     createdAt: v.number(),
   }).index('by_org_created', ['organizationId', 'createdAt']),

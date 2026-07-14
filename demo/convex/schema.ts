@@ -25,7 +25,9 @@ export default defineSchema({
     authorId: v.string(),
     authorName: v.optional(v.string()),
     createdAt: v.number(),
-  }).index('by_created', ['createdAt']),
+  })
+    .index('by_created', ['createdAt'])
+    .index('by_type_created', ['type', 'createdAt']),
 
   // ============================================
   // DEMO TASKS - Optimistic updates demo
@@ -35,7 +37,9 @@ export default defineSchema({
     completed: v.boolean(),
     userId: v.string(),
     createdAt: v.number(),
-  }).index('by_user', ['userId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_created', ['createdAt']),
 
   // ============================================
   // MESSAGES - Pagination demo
@@ -59,5 +63,6 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_uploaded_by', ['uploadedBy'])
+    .index('by_storage', ['storageId'])
     .index('by_created', ['createdAt']),
 })

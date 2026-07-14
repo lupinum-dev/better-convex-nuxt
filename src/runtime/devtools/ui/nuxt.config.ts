@@ -2,6 +2,9 @@ const config = {
   ssr: false,
   srcDir: '.',
   buildDir: '../../../../node_modules/.cache/nuxt/devtools-ui',
+  // Nuxt otherwise generates a UUID for every static build, making the
+  // package tarball differ even when its source and dependencies are equal.
+  buildId: 'better-convex-nuxt-devtools',
   devtools: { enabled: false },
 
   app: {

@@ -122,6 +122,7 @@ export async function useMcpDemoWorkspace() {
   )
 
   watch(selectedOrganizationId, async (organizationId) => {
+    serviceActorSecret.value = ''
     if (!organizationId || !appUserReady.value) return
 
     await nextTick()

@@ -2,7 +2,6 @@ import type { FunctionReference, PaginationOptions, PaginationResult } from 'con
 import { describe, expect, it } from 'vitest'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 
-import type { AuthCacheOptions, QueryDefaults } from '../../src/module'
 import type { DefineSharedConvexQueryOptions } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type {
   ConvexPaginatedQueryArgs,
@@ -13,7 +12,8 @@ import type {
   UseConvexQueryData,
   UseConvexQueryOptions,
 } from '../../src/runtime/composables/useConvexQuery'
-import type { ConvexQueryAuthMode } from '../../src/runtime/utils/query-execution-gate'
+import type { ConvexCallError } from '../../src/runtime/errors'
+import type { ConvexAuthMode } from '../../src/runtime/utils/auth-status'
 
 // Type-only bindings for the composable functions. `typeof import(...)` is
 // erased at compile time, so these never trigger a runtime `#imports` resolve
@@ -49,14 +49,14 @@ type _QueryHasNoDeepUnrefArgsOption = Assert<IsEqual<HasKey<QueryOptions, 'deepU
 type _PaginatedHasNoDeepUnrefArgsOption = Assert<
   IsEqual<HasKey<PaginatedOptions, 'deepUnrefArgs'>, false>
 >
-type _QueryHasAuthOption = Assert<IsEqual<QueryOptions['auth'], 'auto' | 'none' | undefined>>
-type _PaginatedHasAuthOption = Assert<
-  IsEqual<PaginatedOptions['auth'], 'auto' | 'none' | undefined>
->
+// The auth option is the three-literal ConvexAuthMode (vNext §5.2): the legacy
+// two-literal dialect (auto-mode plus none) is gone.
+type _QueryHasAuthOption = Assert<IsEqual<QueryOptions['auth'], ConvexAuthMode | undefined>>
+type _PaginatedHasAuthOption = Assert<IsEqual<PaginatedOptions['auth'], ConvexAuthMode | undefined>>
+type _AuthModeLiterals = Assert<IsEqual<ConvexAuthMode, 'required' | 'optional' | 'none'>>
 type _QueryArgsUseOnlySkipSentinel = Assert<IsEqual<QueryArgs, { id: string } | 'skip'>>
 type _PaginatedArgsUseOnlySkipSentinel = Assert<IsEqual<PaginatedArgs, { id: string } | 'skip'>>
-// F-35: defineSharedConvexQuery's public `args` field dialect is 'skip' only —
-// same sentinel as useConvexQuery/useConvexPaginatedQuery, not null/undefined.
+// defineSharedConvexQuery's public `args` field dialect is 'skip' only.
 type SharedQueryArgs = DefineSharedConvexQueryOptions<
   FunctionReference<'query', 'public', { id: string }, string>,
   { id: string } | 'skip'
@@ -64,23 +64,17 @@ type SharedQueryArgs = DefineSharedConvexQueryOptions<
 type _SharedQueryArgsUseOnlySkipSentinel = Assert<
   IsEqual<SharedQueryArgs, MaybeRefOrGetter<{ id: string } | 'skip'>>
 >
-// F-36: QueryDefaults.auth reuses ConvexQueryAuthMode instead of an inline
-// 'auto' | 'none' literal union duplicate.
-type _QueryDefaultsAuthReusesConvexQueryAuthMode = Assert<
-  IsEqual<QueryDefaults['auth'], ConvexQueryAuthMode | undefined>
->
-// F-36: AuthCacheOptions.enabled is optional — `{ ttl: 30 }` alone must compile.
-const _authCacheOptionsEnabledIsOptional: AuthCacheOptions = { ttl: 30 }
-void _authCacheOptionsEnabledIsOptional
 
 type _QueryDataIsReadonlyComputed = Assert<IsEqual<QueryData['data'], ComputedRef<string | null>>>
-// F-19: error is a computed whose value domain is exactly `Error | null` (never `undefined`).
-type _QueryErrorIsComputedErrorNull = Assert<IsEqual<QueryData['error'], ComputedRef<Error | null>>>
+type _QueryErrorIsComputedErrorNull = Assert<
+  IsEqual<QueryData['error'], ComputedRef<ConvexCallError | null>>
+>
 
 // ============================================================================
-// Negative-space call-arity contracts (F-5 / F-23), mirrored against `src`.
-// These calls must NOT compile; reverting the conditional rest-tuple makes the
-// `@ts-expect-error` lines fail `test:types`. `_arityContracts` is never called.
+// Negative-space call-arity contracts (decision 9), mirrored against `src`.
+// These lines exercise the always-required positional args slot; reverting the
+// rest-tuple change breaks the `@ts-expect-error` lines. `_arityContracts` is
+// never called.
 // ============================================================================
 
 // Convex codegen emits `{}` for argless functions.
@@ -96,7 +90,7 @@ declare const optArgQuery: FunctionReference<
   string[]
 >
 // Top-level v.union(...) validators produce union args; each all-optional
-// member must be judged by its own keys (R2-3.3c).
+// member must be judged by its own keys.
 declare const unionOptArgQuery: FunctionReference<
   'query',
   'public',
@@ -117,65 +111,85 @@ declare const reqArgPaginated: FunctionReference<
 >
 
 async function _arityContracts() {
-  // --- useConvexQuery ---
-  void useConvexQuery(noArgQuery) // no-arg query accepts zero args
-  void useConvexQuery(reqArgQuery, { id: 'x' }) // correct args compile
-  void useConvexQuery(reqArgQuery, 'skip') // 'skip' still compiles
-  // @ts-expect-error required args must not be omittable (F-5)
+  // --- vNext §6 type-contract block --------------------------------------
+  void useConvexQuery(noArgQuery, {})
+  void useConvexQuery(noArgQuery, 'skip')
+  // @ts-expect-error args are always positional
+  void useConvexQuery(noArgQuery)
+  // @ts-expect-error null is not the skip sentinel
+  void useConvexQuery(noArgQuery, null)
+  // @ts-expect-error options cannot occupy an exact-empty args slot
+  void useConvexQuery(noArgQuery, { server: false })
+  // @ts-expect-error shared queries always declare args
+  void defineSharedConvexQuery({ key: 'settings', query: noArgQuery })
+  // @ts-expect-error canonical user queries require positional args
+  void useConvexUser(noArgQuery)
+
+  // --- useConvexQuery: required / wrong-shape ----------------------------
+  void useConvexQuery(reqArgQuery, { id: 'x' })
+  void useConvexQuery(reqArgQuery, 'skip')
+  // @ts-expect-error required args must not be omittable
   void useConvexQuery(reqArgQuery)
-  // @ts-expect-error wrong arg shape must not compile (F-5)
+  // @ts-expect-error wrong arg shape must not compile
   void useConvexQuery(reqArgQuery, { wrong: 1 })
-  // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
+  // @ts-expect-error no-arg functions must reject arbitrary properties
   void useConvexQuery(noArgQuery, { initialNumItems: 5 })
 
-  // --- useConvexQuery: all-optional args stay callable (R2-3.3b) ---
-  void useConvexQuery(optArgQuery, { limit: 5 }) // populated optional args compile
-  void useConvexQuery(optArgQuery, { term: 'x' }) // partial optional args compile
-  void useConvexQuery(optArgQuery) // optional args may omit the args slot
-  void useConvexQuery(optArgQuery, {}) // optional args accept an empty object
-  void useConvexQuery(optArgQuery, 'skip') // 'skip' still compiles
-  // @ts-expect-error all-optional args still reject unknown properties (R2-3.3b)
+  // --- useConvexQuery: all-optional args still require the slot -----------
+  void useConvexQuery(optArgQuery, { limit: 5 })
+  void useConvexQuery(optArgQuery, { term: 'x' })
+  void useConvexQuery(optArgQuery, {})
+  void useConvexQuery(optArgQuery, 'skip')
+  // @ts-expect-error all-optional args no longer omit the args slot (decision 9)
+  void useConvexQuery(optArgQuery)
+  // @ts-expect-error all-optional args still reject unknown properties
   void useConvexQuery(optArgQuery, { limit: 5, wrong: 1 })
 
-  // --- useConvexQuery: union all-optional args stay callable (R2-3.3c) ---
-  void useConvexQuery(unionOptArgQuery, { term: 'x' }) // first union member compiles
-  void useConvexQuery(unionOptArgQuery, { limit: 5 }) // second union member compiles
-  void useConvexQuery(unionOptArgQuery) // union optional args may omit the args slot
-  void useConvexQuery(unionOptArgQuery, 'skip') // 'skip' still compiles
-  // @ts-expect-error union all-optional args still reject unknown properties (R2-3.3c)
+  // --- useConvexQuery: union all-optional args ---------------------------
+  void useConvexQuery(unionOptArgQuery, { term: 'x' })
+  void useConvexQuery(unionOptArgQuery, { limit: 5 })
+  void useConvexQuery(unionOptArgQuery, 'skip')
+  // @ts-expect-error union all-optional args no longer omit the args slot
+  void useConvexQuery(unionOptArgQuery)
+  // @ts-expect-error union all-optional args still reject unknown properties
   void useConvexQuery(unionOptArgQuery, { wrong: 1 })
 
-  // --- useConvexPaginatedQuery ---
-  void useConvexPaginatedQuery(noArgPaginated) // no extra args accepts zero args
-  // @ts-expect-error options object must not be accepted in the args slot (F-5 follow-up)
+  // --- useConvexPaginatedQuery -------------------------------------------
+  void useConvexPaginatedQuery(noArgPaginated, {})
+  // @ts-expect-error no-arg paginated queries still require the args slot
+  void useConvexPaginatedQuery(noArgPaginated)
+  // @ts-expect-error options object must not be accepted in the args slot
   void useConvexPaginatedQuery(noArgPaginated, { initialNumItems: 5 })
-  void useConvexPaginatedQuery(reqArgPaginated, { owner: 'x' }) // correct extra args compile
-  // @ts-expect-error required paginated args must not be omittable (F-5)
+  void useConvexPaginatedQuery(reqArgPaginated, { owner: 'x' })
+  // @ts-expect-error required paginated args must not be omittable
   void useConvexPaginatedQuery(reqArgPaginated)
-  // @ts-expect-error wrong paginated arg shape must not compile (F-5)
+  // @ts-expect-error wrong paginated arg shape must not compile
   void useConvexPaginatedQuery(reqArgPaginated, { wrong: 1 })
 
-  // --- useConvexUser ---
-  void useConvexUser(noArgQuery) // no-arg query accepts zero args
-  // @ts-expect-error required args must not be omittable (F-5)
+  // --- useConvexUser -----------------------------------------------------
+  void useConvexUser(reqArgQuery, { id: 'x' })
+  // @ts-expect-error required args must not be omittable
   void useConvexUser(reqArgQuery)
-  // @ts-expect-error wrong arg shape must not compile (F-5)
+  // @ts-expect-error wrong arg shape must not compile
   void useConvexUser(reqArgQuery, { wrong: 1 })
 
-  // --- defineSharedConvexQuery: args field conditionally required ---
-  defineSharedConvexQuery({ key: 'k1', query: noArgQuery }) // no-arg may omit args
+  // --- defineSharedConvexQuery: args field always required ---------------
+  defineSharedConvexQuery({ key: 'k1', query: noArgQuery, args: {} })
   defineSharedConvexQuery({ key: 'k2', query: reqArgQuery, args: { id: 'x' } })
-  // @ts-expect-error required args field must not be omittable (F-5)
+  // @ts-expect-error no-arg shared queries still declare args
+  defineSharedConvexQuery({ key: 'k1b', query: noArgQuery })
+  // @ts-expect-error required args field must not be omittable
   defineSharedConvexQuery({ key: 'k3', query: reqArgQuery })
-  // @ts-expect-error wrong args field shape must not compile (F-5)
+  // @ts-expect-error wrong args field shape must not compile
   defineSharedConvexQuery({ key: 'k4', query: reqArgQuery, args: { wrong: 1 } })
-  defineSharedConvexQuery({ key: 'k5', query: reqArgQuery, args: 'skip' }) // 'skip' compiles (F-35)
-  // @ts-expect-error null is accepted at runtime but not in the public type — only 'skip' (F-35)
+  defineSharedConvexQuery({ key: 'k5', query: reqArgQuery, args: 'skip' })
+  // @ts-expect-error null is not the skip sentinel (decision 9)
   defineSharedConvexQuery({ key: 'k6', query: reqArgQuery, args: null })
 }
 
 describe('query option type contracts', () => {
   it('uses initialData and skip args instead of legacy option aliases', () => {
     expect(true).toBe(true)
+    void _arityContracts
   })
 })

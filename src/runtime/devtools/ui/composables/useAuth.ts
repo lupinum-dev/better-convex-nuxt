@@ -1,11 +1,7 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 import type { EnhancedAuthState, ConnectionState, AuthWaterfall } from '../../types'
-import { callBridge } from './useBridge'
-
-const authState = ref<EnhancedAuthState | null>(null)
-const connectionState = ref<ConnectionState | null>(null)
-const authWaterfall = ref<AuthWaterfall | null>(null)
+import type { DevtoolsBridgeController } from './useBridge'
 
 /**
  * Keys to ignore when comparing auth state (these change frequently but don't affect UI)
@@ -45,12 +41,15 @@ function hasChanged<T extends object>(
 /**
  * Composable for managing auth and connection state from the DevTools bridge.
  */
-export function useAuth() {
+export function useAuth(bridge: DevtoolsBridgeController) {
+  const authState = ref<EnhancedAuthState | null>(null)
+  const connectionState = ref<ConnectionState | null>(null)
+  const authWaterfall = ref<AuthWaterfall | null>(null)
   let intervalId: ReturnType<typeof setInterval> | null = null
 
   async function updateConnectionState() {
     try {
-      const newState = await callBridge<ConnectionState>('getConnectionState')
+      const newState = await bridge.call<ConnectionState>('getConnectionState')
       // Only update if changed to prevent unnecessary re-renders
       if (hasChanged(connectionState.value, newState)) {
         connectionState.value = newState
@@ -62,7 +61,7 @@ export function useAuth() {
 
   async function updateAuthState() {
     try {
-      const newState = await callBridge<EnhancedAuthState>('getEnhancedAuthState')
+      const newState = await bridge.call<EnhancedAuthState>('getEnhancedAuthState')
       // Only update if changed to prevent flickering
       // Ignore volatile keys like expiresInSeconds that change every second
       if (hasChanged(authState.value, newState, VOLATILE_AUTH_KEYS)) {
@@ -75,7 +74,7 @@ export function useAuth() {
 
   async function updateAuthWaterfall() {
     try {
-      authWaterfall.value = await callBridge<AuthWaterfall | null>('getAuthWaterfall')
+      authWaterfall.value = await bridge.call<AuthWaterfall | null>('getAuthWaterfall')
     } catch {
       // Ignore errors
     }
@@ -90,6 +89,15 @@ export function useAuth() {
       void updateConnectionState()
       void updateAuthState()
     }, 2000) // Increased to 2 seconds
+  })
+
+  watch(bridge.boundInstanceId, () => {
+    authState.value = null
+    connectionState.value = null
+    authWaterfall.value = null
+    if (bridge.boundInstanceId.value) {
+      void Promise.all([updateConnectionState(), updateAuthState(), updateAuthWaterfall()])
+    }
   })
 
   onUnmounted(() => {

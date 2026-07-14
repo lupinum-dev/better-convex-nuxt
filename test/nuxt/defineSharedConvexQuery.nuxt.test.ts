@@ -4,17 +4,20 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 
 import { useState } from '#imports'
 
+import { toAuthenticatedIdentity, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import { defineSharedConvexQuery } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type { UseConvexQueryData } from '../../src/runtime/composables/useConvexQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
-// The shared query defaults to auth:'auto'; module auth is enabled by default in
-// the harness, so a subscription is only acquired for an authenticated session.
+// The shared query defaults to auth:'optional'; module auth is enabled by default
+// in the harness, so a subscription is only acquired for an authenticated session.
 function signIn(): void {
-  useState<boolean>('convex:pending', () => false)
-  useState<string | null>('convex:token', () => 'signed.in.jwt')
+  useState<boolean>('convex:pending', () => false).value = false
+  useState<AuthIdentity>('convex:identity').value = toAuthenticatedIdentity('signed.in.jwt', {
+    id: 'u1',
+  })
 }
 
 describe('defineSharedConvexQuery (Nuxt runtime)', () => {
@@ -48,7 +51,7 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     wrapper.unmount()
   })
 
-  it('shared subscription survives the first consumer unmounting (F-4)', async () => {
+  it('shared subscription survives the first consumer unmounting', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('users:get-current:shared-lifetime')
 
@@ -85,11 +88,10 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     // $convex proxy target). Then mount the parent/children in that same app.
     await captureInNuxt(
       () => {
-        useState<boolean>('convex:pending', () => false).value = false
-        useState<string | null>('convex:token', () => 'signed.in.jwt').value = 'signed.in.jwt'
+        signIn()
         return null
       },
-      { convex, convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } } },
+      { convex, convexConfig: { auth: {} } },
     )
 
     await mountSuspended(
@@ -140,7 +142,10 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     expect(result.first).not.toBe(result.second)
   })
 
-  it('reuses existing shared state for equivalent duplicate key registration', async () => {
+  // Internal §7.7: the closure IS the definition identity, so two separate
+  // `defineSharedConvexQuery` calls own independent state even with the same
+  // `key` — there is no caller-key registry and no duplicate-key collision check.
+  it('gives separate closures independent state even with the same key', async () => {
     const query = mockFnRef<'query'>('users:get-current:shared:equivalent')
 
     const useSharedA = defineSharedConvexQuery({
@@ -162,10 +167,10 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       { convex: new MockConvexClient() },
     )
 
-    expect(result.first).toBe(result.second)
+    expect(result.first).not.toBe(result.second)
   })
 
-  it('throws when same key is registered with a different config object', async () => {
+  it('does not throw when different closures reuse a key with divergent config', async () => {
     const queryA = mockFnRef<'query'>('users:get-current:shared:collision-a')
     const queryB = mockFnRef<'query'>('users:get-current:shared:collision-b')
 
@@ -180,41 +185,11 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       args: {},
     })
 
-    await expect(
-      captureInNuxt(
-        () => {
-          void useSharedA()
-          void useSharedB()
-          return null
-        },
-        { convex: new MockConvexClient() },
-      ),
-    ).rejects.toThrow(/duplicate key/i)
-  })
-
-  it('throws when same key and query use different static args', async () => {
-    const query = mockFnRef<'query'>('users:get-current:shared:args-collision')
-
-    const useSharedA = defineSharedConvexQuery({
-      key: 'current-user:args-collision',
-      query,
-      args: { a: 1 },
-    })
-    const useSharedB = defineSharedConvexQuery({
-      key: 'current-user:args-collision',
-      query,
-      args: { a: 2 },
+    const { result } = await captureInNuxt(() => ({ a: useSharedA(), b: useSharedB() }), {
+      convex: new MockConvexClient(),
     })
 
-    await expect(
-      captureInNuxt(
-        () => {
-          void useSharedA()
-          void useSharedB()
-          return null
-        },
-        { convex: new MockConvexClient() },
-      ),
-    ).rejects.toThrow(/duplicate key/i)
+    // No collision check: each closure is its own definition identity.
+    expect(result.a).not.toBe(result.b)
   })
 })

@@ -9,6 +9,9 @@ export const roleValidator = v.union(
 )
 
 export default defineSchema({
+  // App-owned domain actors keyed by Better Auth subject. Name/email are a
+  // rebuildable display projection; the row remains after auth deletion so
+  // organization ownership and audit references never dangle.
   users: defineTable({
     subject: v.string(),
     name: v.optional(v.string()),
@@ -43,7 +46,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index('by_agency', ['agencyOrganizationId'])
+    .index('by_agency_status', ['agencyOrganizationId', 'status'])
     .index('by_agency_client', ['agencyOrganizationId', 'clientOrganizationId'])
     .index('by_client', ['clientOrganizationId']),
 

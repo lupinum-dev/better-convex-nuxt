@@ -2,6 +2,9 @@ import { signInInputSchema, signUpInputSchema } from '~~/shared/inputSchemas'
 
 type AuthMode = 'signUp' | 'signIn'
 
+const signInFailure =
+  'Sign in could not be completed. Check your credentials and verify your email if required.'
+
 function readValidationMessage(result: {
   success: false
   error: { issues: Array<{ message: string }> }
@@ -10,16 +13,16 @@ function readValidationMessage(result: {
 }
 
 export function useMcpDemoAuth(args: { onSignedIn: () => Promise<void>; onSignedOut: () => void }) {
-  const { user, isAuthenticated, isPending, signIn, signUp, signOut, refreshAuth, authError } =
-    useConvexAuth()
+  const { user, isAuthenticated, isPending, signIn, signUp, signOut, error } = useConvexAuth()
 
   const mode = ref<AuthMode>('signUp')
   const name = ref('Agent Owner')
   const email = ref(`mcp-owner-${Date.now()}@example.com`)
-  const password = ref('password123')
+  const password = ref('')
   const authMessage = ref<string | null>(null)
   const authFormError = ref<string | null>(null)
   const authBusy = ref(false)
+  const authError = computed(() => error.value?.message ?? null)
 
   const userEmail = computed(() => user.value?.email ?? null)
   const canSubmitAuth = computed(() => {
@@ -76,7 +79,10 @@ export function useMcpDemoAuth(args: { onSignedIn: () => Promise<void>; onSigned
         const result = await signUp.email({
           ...parsed.data,
         })
-        if (result.error) throw new Error(result.error.message || 'Sign up failed')
+        if (result.error) throw new Error('Sign up could not be completed')
+        mode.value = 'signIn'
+        await nextTick()
+        authMessage.value = 'Account request complete. Sign in with your credentials.'
       } else {
         const parsed = signInInputSchema.safeParse({
           email: email.value,
@@ -89,13 +95,11 @@ export function useMcpDemoAuth(args: { onSignedIn: () => Promise<void>; onSigned
         const result = await signIn.email({
           ...parsed.data,
         })
-        if (result.error) throw new Error(result.error.message || 'Sign in failed')
+        if (result.error) throw new Error(signInFailure)
+        authMessage.value = 'Signed in'
       }
 
       password.value = ''
-      await refreshAuth()
-      await args.onSignedIn()
-      authMessage.value = 'Signed in and app user bootstrapped'
     } catch (error) {
       authFormError.value = error instanceof Error ? error.message : 'Authentication failed'
     } finally {

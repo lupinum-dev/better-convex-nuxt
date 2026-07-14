@@ -1,5 +1,3 @@
-import { CONVEX_MODULE_DEFAULTS } from './config-defaults'
-
 export type SiteUrlResolutionSource = 'explicit' | 'derived' | 'missing' | 'invalid-derived'
 
 export interface ResolveConvexSiteUrlInput {
@@ -10,16 +8,6 @@ export interface ResolveConvexSiteUrlInput {
 export interface ResolveConvexSiteUrlResult {
   siteUrl?: string
   source: SiteUrlResolutionSource
-}
-
-export function isValidAbsoluteUrl(url: string | undefined | null): boolean {
-  if (!url) return false
-  try {
-    new URL(url)
-    return true
-  } catch {
-    return false
-  }
 }
 
 /**
@@ -87,10 +75,4 @@ export function getSiteUrlResolutionHint(url?: string | null): string {
   }
 
   return 'Set `convex.siteUrl` explicitly to your Convex HTTP Actions host (for example `https://your-app.convex.site`).'
-}
-
-export function normalizeAuthRoute(authRoute?: string | null): string {
-  const fallback = CONVEX_MODULE_DEFAULTS.authRoute
-  const raw = authRoute || fallback
-  return (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '') || fallback
 }

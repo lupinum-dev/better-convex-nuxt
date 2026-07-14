@@ -1,90 +1,35 @@
-import type { createAuthClient } from 'better-auth/vue'
-import type { ConvexClient } from 'convex/browser'
-
-import type { ConvexAuthEngine } from './auth/client-engine'
-import type { ConvexAuthConfigInput } from './utils/auth-config'
+import type { AuthClientPlugins, ConvexAuthClientDefinition } from './auth-client'
+import type { ConvexRuntimeContext } from './runtime-context'
 import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
-import type { LogLevel } from './utils/logger'
 
-type AuthClient = ReturnType<typeof createAuthClient>
-
-/**
- * Convex module public runtime config
- */
-export interface ConvexPublicRuntimeConfig {
-  /** Convex deployment URL (WebSocket) */
-  url?: string
-  /** Convex site URL (HTTP/Auth) */
-  siteUrl?: string
-  /** Auth integration config */
-  auth?: ConvexAuthConfigInput
-  /** Auth proxy route path */
-  authRoute?: string
-  /** Additional trusted origins for auth proxy CORS */
-  trustedOrigins?: string[]
-  /** Routes that should skip auth checks */
-  skipAuthRoutes?: string[]
-  /** Whether permissions helper mode is enabled */
-  permissions?: boolean
-  /** Logging level */
-  logging?: LogLevel
-  /** SSR auth cache config */
-  authCache?: {
-    enabled?: boolean
-    ttl?: number
-  }
-  /** Global query defaults */
-  defaults?: {
-    server?: boolean
-    subscribe?: boolean
-    auth?: 'auto' | 'none'
-    waitTimeoutMs?: number
-  }
-  /** Upload defaults */
-  upload?: {
-    maxConcurrent?: number
-  }
-  /** Auth proxy body-size defaults */
-  authProxy?: {
-    maxRequestBodyBytes?: number
-    maxResponseBodyBytes?: number
-  }
-  /** Optional debug channels for high-verbosity traces */
-  debug?: {
-    authFlow?: boolean
-    clientAuthFlow?: boolean
-    serverAuthFlow?: boolean
-  }
-}
-
+// The public `$convex` and `$auth` Nuxt-app property augmentations are deleted
+// (vNext §5.4): consumers use the stable `useConvex()` handle and the auth
+// composables, never a raw replaceable client or a generic proxy. The auth plugin
+// still `provide('auth', …)` for internal use, read via a local cast, never a
+// published typed property. The augmentations below are INTERNAL inter-plugin
+// seam (browser-only).
 declare module '#app' {
   interface NuxtApp {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-    $convexAuthEngine?: ConvexAuthEngine
-    /** Internal dedupe state for unauthorized query/action/mutation recovery */
-    _bcnUnauthorizedRecoveryState?: {
-      activeRecovery: Promise<void> | null
-      lastRedirectKey: string | null
-      lastRedirectAt: number
-    }
-    /** Internal in-flight promise for useConvexAuth().refreshAuth() dedupe */
-    _convexRefreshAuthPromise?: Promise<void> | null
-  }
-  interface RuntimeNuxtHooks {
-    'better-convex:auth:refresh': () => void | Promise<void>
+    /**
+     * The per-Nuxt-app client owner (vNext §5.4, internal §4.1). Sole source of
+     * truth for the replaceable primary and lazy anonymous clients; `useConvex()`
+     * returns its stable handle and `useConvexConnectionState()` observes its
+     * connection store. Provided by the core client plugin (browser only).
+     */
+    $convexRuntime?: ConvexRuntimeContext
   }
   interface PageMeta {
-    skipConvexAuth?: boolean
     convexAuth?: ConvexAuthPageMeta
   }
 }
 
-declare module 'vue' {
-  interface ComponentCustomProperties {
-    $convex?: ConvexClient
-    $auth?: AuthClient
-  }
+// The generated `#convex/auth-client` virtual module re-exports the resolved
+// definition (default export). `src/module.ts` sets the alias for consumer builds
+// and the tsConfig path; this ambient declaration lets the module's OWN source
+// typecheck resolve the import.
+declare module '#convex/auth-client' {
+  const definition: ConvexAuthClientDefinition<AuthClientPlugins>
+  export default definition
 }
 
 export {}

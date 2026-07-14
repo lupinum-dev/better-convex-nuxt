@@ -1,0 +1,21 @@
+{
+  "name": "auth-client-typing",
+  "private": true,
+  "description": "Permanent §5.8 proof-1 release gate: a packed consumer whose convex-auth.ts (apiKeyClient) definition makes the module-generated registry type the narrowed client with apiKey.create, plus a separate base-fallback program proving apiKey is absent. Uses the REAL published better-convex-nuxt/auth-client entry.",
+  "type": "module",
+  "scripts": {
+    "prepare:types": "nuxi prepare",
+    "typecheck": "nuxi typecheck",
+    "typecheck:base-fallback": "tsc -p base-fallback/tsconfig.base-fallback.json"
+  },
+  "devDependencies": {
+    "@better-auth/api-key": "1.6.23",
+    "@convex-dev/better-auth": "0.12.5",
+    "better-auth": "1.6.23",
+    "better-convex-nuxt": "file:./better-convex-nuxt.tgz",
+    "convex": "1.40.0",
+    "nuxt": "4.4.8",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.7"
+  }
+}

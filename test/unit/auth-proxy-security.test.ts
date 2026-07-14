@@ -1,76 +1,140 @@
 import { describe, expect, it } from 'vitest'
 
-import { getAuthRoutePattern, isOriginAllowed } from '../../src/runtime/server/api/auth/security'
+import { isCrossOriginAuthRequest, isSameOrigin } from '../../src/runtime/server/api/auth/security'
 
-describe('auth proxy security helpers', () => {
-  describe('isOriginAllowed', () => {
-    it('allows exact same origin', () => {
-      expect(isOriginAllowed('https://example.com', 'https://example.com', [])).toBe(true)
-    })
+const INIT_PATH = '/sign-in/social'
 
-    it('rejects same host with different scheme', () => {
-      expect(isOriginAllowed('http://example.com', 'https://example.com', [])).toBe(false)
-    })
-
-    it('rejects same host with different port', () => {
-      expect(isOriginAllowed('https://example.com:444', 'https://example.com:443', [])).toBe(false)
-    })
-
-    it('allows trusted exact origins', () => {
-      expect(
-        isOriginAllowed('https://preview.example.com', 'https://app.example.com', [
-          'https://preview.example.com',
-        ]),
-      ).toBe(true)
-    })
-
-    it('allows trusted wildcard origins', () => {
-      expect(
-        isOriginAllowed('https://preview-123.vercel.app', 'https://app.example.com', [
-          'https://preview-*.vercel.app',
-        ]),
-      ).toBe(true)
-    })
-
-    it('rejects wildcard suffix-trick domains', () => {
-      expect(
-        isOriginAllowed('https://preview-123.vercel.app.evil.com', 'https://app.example.com', [
-          'https://preview-*.vercel.app',
-        ]),
-      ).toBe(false)
-    })
-
-    it('rejects extra subdomain depth when wildcard only matches one label', () => {
-      expect(
-        isOriginAllowed('https://foo.bar.example.com', 'https://app.example.com', [
-          'https://*.example.com',
-        ]),
-      ).toBe(false)
-    })
-
-    it('rejects trusted origin entries with paths (not origin patterns)', () => {
-      expect(
-        isOriginAllowed('https://preview.example.com', 'https://app.example.com', [
-          'https://preview.example.com/path',
-        ]),
-      ).toBe(false)
-    })
-
-    it('fails closed on malformed trusted origin patterns', () => {
-      expect(
-        isOriginAllowed('https://preview.example.com', 'https://app.example.com', ['not-a-url']),
-      ).toBe(false)
-    })
+describe('auth proxy origin boundary', () => {
+  it('accepts only one exact serialized origin', () => {
+    expect(isSameOrigin('https://app.example.com', 'https://app.example.com')).toBe(true)
+    expect(isSameOrigin('http://app.example.com', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('https://app.example.com:444', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('https://app.example.com:443', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('https://APP.example.com', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('https://app.example.com.', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('https://app.example.com/path', 'https://app.example.com')).toBe(false)
+    expect(isSameOrigin('not-an-origin', 'https://app.example.com')).toBe(false)
   })
 
-  describe('getAuthRoutePattern', () => {
-    it('escapes regex characters and strips configured auth route prefix', () => {
-      const pattern = getAuthRoutePattern('/api/auth.v2')
-      expect('/api/auth.v2/convex/token'.replace(pattern, '')).toBe('/convex/token')
-    })
+  it('allows headerless server clients and ignores callback Referer metadata on GET', () => {
+    expect(
+      isCrossOriginAuthRequest(new Headers(), 'POST', 'https://app.example.com', INIT_PATH),
+    ).toBe(false)
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({
+          referer: 'https://provider.example/callback',
+          'sec-fetch-site': 'cross-site',
+        }),
+        'GET',
+        'https://app.example.com',
+        '/callback/github',
+      ),
+    ).toBe(false)
+  })
 
-    it('caches compiled regex instances per route', () => {
-      expect(getAuthRoutePattern('/api/auth')).toBe(getAuthRoutePattern('/api/auth'))
+  it.each(['https://evil.example', 'null', '', 'not-an-origin'])(
+    'rejects a present non-matching Origin: %s',
+    (origin) => {
+      expect(
+        isCrossOriginAuthRequest(
+          new Headers({ origin }),
+          'GET',
+          'https://app.example.com',
+          INIT_PATH,
+        ),
+      ).toBe(true)
+    },
+  )
+
+  it.each(['cross-site', 'same-site', 'same-origin, cross-site', 'CROSS-SITE'])(
+    'rejects explicit non-same-origin POST Fetch Metadata: %s',
+    (site) => {
+      expect(
+        isCrossOriginAuthRequest(
+          new Headers({ origin: 'https://app.example.com', 'sec-fetch-site': site }),
+          'POST',
+          'https://app.example.com',
+          INIT_PATH,
+        ),
+      ).toBe(true)
+    },
+  )
+
+  it('uses Referer only as a POST fallback when Origin is absent', () => {
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({
+          origin: 'https://app.example.com',
+          referer: 'https://evil.example/path',
+        }),
+        'POST',
+        'https://app.example.com',
+        INIT_PATH,
+      ),
+    ).toBe(false)
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({ referer: 'https://app.example.com:443/path?query=1' }),
+        'POST',
+        'https://app.example.com',
+        INIT_PATH,
+      ),
+    ).toBe(false)
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({ referer: 'https://evil.example/path' }),
+        'POST',
+        'https://app.example.com',
+        INIT_PATH,
+      ),
+    ).toBe(true)
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({ referer: 'https://user@app.example.com/path' }),
+        'POST',
+        'https://app.example.com',
+        INIT_PATH,
+      ),
+    ).toBe(true)
+    expect(
+      isCrossOriginAuthRequest(
+        new Headers({ referer: 'not-a-url' }),
+        'POST',
+        'https://app.example.com',
+        INIT_PATH,
+      ),
+    ).toBe(true)
+  })
+
+  it('exempts only one well-formed core OAuth POST callback segment', () => {
+    const providerPost = new Headers({
+      origin: 'https://appleid.apple.com',
+      referer: 'https://appleid.apple.com/',
+      'sec-fetch-site': 'cross-site',
     })
+    expect(
+      isCrossOriginAuthRequest(providerPost, 'POST', 'https://app.example.com', '/callback/apple'),
+    ).toBe(false)
+
+    for (const path of [
+      '/callback/',
+      '/callback/apple/extra',
+      '/callback/%2Fupstream-owned',
+      '/callback/%5Cupstream-owned',
+      '/callback/%2e%2e',
+      '/callback/%00apple',
+      '/callback/%',
+      '/oauth2/callback/apple',
+      '/plugin/callback/apple',
+    ]) {
+      expect(
+        isCrossOriginAuthRequest(providerPost, 'POST', 'https://app.example.com', path),
+        path,
+      ).toBe(true)
+    }
+    expect(
+      isCrossOriginAuthRequest(providerPost, 'GET', 'https://app.example.com', '/callback/apple'),
+    ).toBe(true)
   })
 })

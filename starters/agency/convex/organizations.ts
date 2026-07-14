@@ -1,6 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 
 import { mutation } from './_generated/server'
+import { writeAuditEvent } from './audit'
 import { requireCurrentUser } from './users'
 
 export const create = mutation({
@@ -10,8 +11,8 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const name = args.name.trim()
-    if (!name) {
-      throw new ConvexError('Organization name is required')
+    if (!name || name.length > 120) {
+      throw new ConvexError('Organization name must be between 1 and 120 characters')
     }
 
     const user = await requireCurrentUser(ctx)
@@ -30,6 +31,15 @@ export const create = mutation({
       status: 'active',
       createdAt: now,
       updatedAt: now,
+    })
+
+    await writeAuditEvent(ctx, {
+      organizationId,
+      actorUserId: user._id,
+      accessPath: 'direct',
+      action: 'organizations.create',
+      resourceType: 'organization',
+      resourceId: organizationId,
     })
 
     return organizationId

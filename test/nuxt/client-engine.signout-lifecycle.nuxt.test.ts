@@ -1,295 +1,239 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 
-import { useNuxtApp, useState } from '#imports'
+import { useState } from '#imports'
 
+import { LOADING_IDENTITY } from '../../src/runtime/auth/auth-identity'
 import {
-  createConvexAuthEngine,
+  createConvexAuthCoordinator,
   type AuthClientWithConvex,
-  type ConvexAuthEngine,
+  type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
-import { createConvexPaginatedQueryState } from '../../src/runtime/composables/useConvexPaginatedQuery'
-import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import {
-  getQueryKey,
-  getSubscriptionCache,
-  withAuthDimension,
-} from '../../src/runtime/utils/convex-cache'
-import type { ConvexUser } from '../../src/runtime/utils/types'
-import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
+  createConvexClientOwner,
+  type OwnedConvexClient,
+} from '../../src/runtime/client/client-owner'
+import { MockConvexClient } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((nextResolve, nextReject) => {
-    resolve = nextResolve
-    reject = nextReject
-  })
-  return { promise, resolve, reject }
+/**
+ * Integration test for the REAL auth coordinator wired to the REAL client owner
+ * (vNext §8 "per-app auth context and pure transitions" + internal §7.4
+ * structural cross-user isolation). Phase 1's owner/query ports are reviewers
+ * here (`test/unit/client-owner.test.ts` already covers owner mechanics against
+ * a synthetic port) — this test proves Phase 3's coordinator drives the REAL
+ * owner correctly end to end: sign-out lifecycle, client retirement, payload
+ * purge, and two-app isolation.
+ */
+
+// ---- JWT helpers (mirrors test/unit/auth-generation-races.test.ts) ---------
+function toBase64Url(value: string): string {
+  return Buffer.from(value, 'utf-8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+function makeJwt(sub: string, expOffsetSec = 3600): string {
+  const payload = { sub, email: `${sub}@test`, exp: Math.floor(Date.now() / 1000) + expOffsetSec }
+  return `${toBase64Url(JSON.stringify({ alg: 'none' }))}.${toBase64Url(JSON.stringify(payload))}.sig`
 }
 
-function createAuthClient(signOut: () => Promise<unknown>): AuthClientWithConvex {
-  return {
-    signOut: vi.fn(signOut),
-    convex: { token: vi.fn() },
-  } as unknown as AuthClientWithConvex
-}
+/** Counting ConvexClient double: records close()/setAuth() (internal §17.2). */
+class CountingClient extends MockConvexClient {
+  static created = 0
+  static closed = 0
+  closeCalls = 0
+  rejectedTokens: Set<string>
 
-function createEngine(authClient: AuthClientWithConvex): ConvexAuthEngine {
-  const nuxtApp = useNuxtApp()
-  const token = useState<string | null>('convex:token', () => 'old.jwt')
-  const user = useState<ConvexUser | null>('convex:user', () => ({
-    id: 'old-user',
-    name: 'Old User',
-    email: 'old@example.com',
-  }))
-  const pending = useState<boolean>('convex:pending', () => false)
-  const authError = useState<string | null>('convex:error', () => null)
-
-  token.value = 'old.jwt'
-  user.value = {
-    id: 'old-user',
-    name: 'Old User',
-    email: 'old@example.com',
+  constructor(rejectedTokens: Set<string> = new Set()) {
+    super()
+    this.rejectedTokens = rejectedTokens
+    CountingClient.created += 1
   }
-  pending.value = false
-  authError.value = null
 
-  return createConvexAuthEngine({
-    nuxtApp,
-    authClient,
-    state: { token, user, pending, authError },
-    isAuthEnabled: true,
+  close = async (): Promise<void> => {
+    this.closeCalls += 1
+    CountingClient.closed += 1
+  }
+
+  setAuth = (
+    fetcher: (opts: { forceRefreshToken: boolean }) => Promise<string | null>,
+    onChange: (isAuthenticated: boolean) => void,
+  ): void => {
+    void Promise.resolve(fetcher({ forceRefreshToken: false })).then((token) => {
+      onChange(Boolean(token) && !this.rejectedTokens.has(token as string))
+    })
+  }
+}
+
+function resetCounts() {
+  CountingClient.created = 0
+  CountingClient.closed = 0
+}
+
+type TokenResponse = { data?: { token: string } | null; error?: unknown }
+
+interface SignOutScript {
+  value: TokenResponse
+}
+
+function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
+  resetCounts()
+  const responses: TokenResponse[] = []
+  // `attachPrimary`'s no-hydration path calls `authClient.convex.token()`
+  // SYNCHRONOUSLY (no leading await inside the mock), so any initial token must
+  // be queued BEFORE the coordinator is constructed below, not after.
+  if (initial) responses.push(initial)
+  const rejected = new Set<string>()
+  const signOutScript: SignOutScript = { value: { data: { token: '' }, error: null } }
+  let reconcileObservedSession: ((sessionToken: string | null) => void) | null = null
+
+  const authClient = {
+    convex: {
+      token: async (): Promise<TokenResponse> => responses.shift() ?? { data: null, error: null },
+    },
+    signOut: async (): Promise<TokenResponse> => {
+      const result = signOutScript.value
+      if (!result.error) {
+        setTimeout(() => reconcileObservedSession?.(null), 0)
+      }
+      return result
+    },
+    signIn: { email: async () => ({ data: { token: 'trigger' }, error: null }) },
+    signUp: { email: async () => ({ data: { token: 'trigger' }, error: null }) },
+  } as unknown as AuthClientWithConvex
+
+  const owner = createConvexClientOwner({
+    primaryFactory: () => new CountingClient(rejected) as unknown as OwnedConvexClient,
+    anonymousFactory: () => new CountingClient(rejected) as unknown as OwnedConvexClient,
   })
+
+  const state: ConvexAuthCoordinatorState = {
+    identity: ref(LOADING_IDENTITY),
+    pending: pendingRef as ConvexAuthCoordinatorState['pending'],
+    authError: ref<string | null>(null),
+  }
+
+  const purged: string[] = []
+  const coordinator = createConvexAuthCoordinator({
+    authClient,
+    state,
+    purgeIdentityPayloads: () => {
+      purged.push('purged')
+    },
+  })
+  reconcileObservedSession = (sessionToken) => {
+    void coordinator.reconcileSession(sessionToken)
+  }
+
+  owner.attachAuthPort(coordinator.port)
+  coordinator.attachPrimary(
+    owner.getPrimary()!.client as unknown as import('convex/browser').ConvexClient,
+  )
+
+  return {
+    owner,
+    coordinator,
+    signOutScript,
+    pushToken: (token: string) => responses.push({ data: { token }, error: null }),
+    pushAnonymous: () => responses.push({ data: null, error: null }),
+    purged,
+    rejected,
+    settle: () => coordinator.ready({ timeoutMs: 0 }),
+  }
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllGlobals()
+  vi.clearAllMocks()
 })
 
-describe('client auth engine sign-out lifecycle (Nuxt runtime)', () => {
-  it('purges private data while preserving public live and HTTP-only consumers', async () => {
-    const convex = new MockConvexClient()
-    const publicQuery = mockFnRef<'query'>('notes:lifecycle:public')
-    const privateQuery = mockFnRef<'query'>('notes:lifecycle:private')
-    const privateKeepQuery = mockFnRef<'query'>('notes:lifecycle:private-keep')
-    const publicHttpQuery = mockFnRef<'query'>('notes:lifecycle:public-http')
-    const publicPaginatedQuery = mockFnRef<'query'>('notes:lifecycle:public-paginated')
-    const mixedQuery = mockFnRef<'query'>('notes:lifecycle:mixed')
-    const publicHttpKey = getQueryKey(publicHttpQuery, {})
-
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = (init?.body ?? {}) as { path?: string }
-      if (body.path === 'notes:lifecycle:public-http') {
-        return { value: [{ _id: 'http-public', v: 1 }] }
-      }
-      throw new Error(`unexpected fetch: ${body.path ?? '<missing>'}`)
-    })
-    vi.stubGlobal('$fetch', fetchMock)
-
-    const authClient = createAuthClient(async () => ({ data: { success: true }, error: null }))
-
-    const { result, nuxtApp, flush } = await captureInNuxt(
+describe('client-engine sign-out lifecycle (real coordinator + real owner)', () => {
+  it('sign-out clears identity and purges identity-owned payloads', async () => {
+    const { result: harness, wrapper } = await captureInNuxt(
       () => {
-        const engine = createEngine(authClient)
-        const publicResult = createConvexQueryState(
-          publicQuery,
-          {},
-          { auth: 'none' },
-          true,
-        ).resultData
-        const privateResult = createConvexQueryState(
-          privateQuery,
-          {},
-          { auth: 'auto' },
-          true,
-        ).resultData
-        const privateKeepResult = createConvexQueryState(
-          privateKeepQuery,
-          {},
-          { auth: 'auto', keepPreviousData: true },
-          true,
-        ).resultData
-        const publicHttpResult = createConvexQueryState(
-          publicHttpQuery,
-          {},
-          { auth: 'none', subscribe: false },
-          true,
-        ).resultData
-        const publicPaginatedResult = createConvexPaginatedQueryState(
-          publicPaginatedQuery as never,
-          {},
-          { auth: 'none', initialNumItems: 2 },
-          true,
-        ).resultData
-        const mixedPrivateResult = createConvexQueryState(
-          mixedQuery,
-          {},
-          { auth: 'auto' },
-          true,
-        ).resultData
-        const mixedPublicResult = createConvexQueryState(
-          mixedQuery,
-          {},
-          { auth: 'none' },
-          true,
-        ).resultData
-        return {
-          engine,
-          publicResult,
-          privateResult,
-          privateKeepResult,
-          publicHttpResult,
-          publicPaginatedResult,
-          mixedPrivateResult,
-          mixedPublicResult,
-        }
+        const pending = useState<boolean>('convex:pending', () => true)
+        pending.value = true
+        return buildHarness(pending, { data: { token: makeJwt('A') }, error: null })
       },
-      {
-        convex,
-        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
-        payloadData: {
-          [publicHttpKey]: [{ _id: 'http-public', v: 1 }],
-        },
-      },
+      { convexConfig: { auth: {} } },
     )
 
-    await flush()
-    convex.emitQueryResult(publicQuery, {}, [{ _id: 'public', v: 1 }])
-    convex.emitQueryResult(privateQuery, {}, [{ _id: 'private', secret: true }])
-    convex.emitQueryResult(privateKeepQuery, {}, [{ _id: 'private-keep', secret: true }])
-    convex.emitQueryResult(mixedQuery, {}, [{ _id: 'mixed', v: 1 }])
-    convex.emitQueryResultByPath('notes:lifecycle:public-paginated', {
-      page: [{ _id: 'page-public', v: 1 }],
-      isDone: true,
-      continueCursor: null,
-    })
-    await flush()
+    await harness.settle()
+    expect(harness.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(harness.coordinator.status.value).toBe('authenticated')
 
-    expect(result.publicResult.data.value).toEqual([{ _id: 'public', v: 1 }])
-    expect(result.privateResult.data.value).toEqual([{ _id: 'private', secret: true }])
-    expect(result.privateKeepResult.data.value).toEqual([{ _id: 'private-keep', secret: true }])
-    expect(result.publicHttpResult.data.value).toEqual([{ _id: 'http-public', v: 1 }])
-    expect(result.publicPaginatedResult.results.value).toEqual([{ _id: 'page-public', v: 1 }])
-    expect(result.mixedPublicResult.data.value).toEqual([{ _id: 'mixed', v: 1 }])
+    await harness.coordinator.signOut()
+    expect(harness.purged.length).toBeGreaterThan(0)
+    expect(harness.coordinator.user.value).toBeNull()
+    expect(harness.coordinator.token.value).toBeNull()
+    expect(harness.coordinator.status.value).toBe('anonymous')
 
-    await result.engine.signOut()
-    await flush()
-
-    const publicKey = withAuthDimension(getQueryKey(publicQuery, {}), 'none')
-    const privateKey = withAuthDimension(getQueryKey(privateQuery, {}), 'auto')
-    const mixedRawKey = getQueryKey(mixedQuery, {})
-    const mixedPublicKey = withAuthDimension(mixedRawKey, 'none')
-    const mixedPrivateKey = withAuthDimension(mixedRawKey, 'auto')
-
-    expect(getSubscriptionCache(nuxtApp).has(publicKey)).toBe(true)
-    expect(getSubscriptionCache(nuxtApp).has(privateKey)).toBe(false)
-    expect(getSubscriptionCache(nuxtApp).has(mixedPublicKey)).toBe(true)
-    expect(getSubscriptionCache(nuxtApp).has(mixedPrivateKey)).toBe(false)
-
-    expect(result.privateResult.data.value).toBeNull()
-    expect(result.privateResult.status.value).toBe('idle')
-    expect(result.privateKeepResult.data.value).toBeNull()
-    expect(result.publicHttpResult.data.value).toEqual([{ _id: 'http-public', v: 1 }])
-    expect(nuxtApp.payload.data[publicHttpKey]).toEqual([{ _id: 'http-public', v: 1 }])
-    expect(result.publicPaginatedResult.results.value).toEqual([{ _id: 'page-public', v: 1 }])
-
-    convex.emitQueryResult(publicQuery, {}, [{ _id: 'public', v: 2 }])
-    convex.emitQueryResult(mixedQuery, {}, [{ _id: 'mixed', v: 2 }])
-    await flush()
-
-    expect(result.publicResult.data.value).toEqual([{ _id: 'public', v: 2 }])
-    expect(result.mixedPublicResult.data.value).toEqual([{ _id: 'mixed', v: 2 }])
+    wrapper.unmount()
   })
 
-  it('leaves identity and subscriptions live when upstream sign-out fails', async () => {
-    const convex = new MockConvexClient()
-    const publicQuery = mockFnRef<'query'>('notes:lifecycle:failure-public')
-    const privateQuery = mockFnRef<'query'>('notes:lifecycle:failure-private')
-    const authClient = createAuthClient(async () => {
-      throw new Error('session still active')
-    })
-
-    const { result, nuxtApp, flush } = await captureInNuxt(
+  it('sign-out retires (closes) the prior authenticated primary client', async () => {
+    const { result: harness, wrapper } = await captureInNuxt(
       () => {
-        const engine = createEngine(authClient)
-        const token = useState<string | null>('convex:token')
-        const user = useState<ConvexUser | null>('convex:user')
-        const authError = useState<string | null>('convex:error')
-        const publicResult = createConvexQueryState(
-          publicQuery,
-          {},
-          { auth: 'none' },
-          true,
-        ).resultData
-        const privateResult = createConvexQueryState(
-          privateQuery,
-          {},
-          { auth: 'auto' },
-          true,
-        ).resultData
-        return { engine, token, user, authError, publicResult, privateResult }
+        const pending = useState<boolean>('convex:pending', () => true)
+        pending.value = true
+        return buildHarness(pending, { data: { token: makeJwt('A') }, error: null })
       },
-      {
-        convex,
-        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
-      },
+      { convexConfig: { auth: {} } },
     )
 
-    await flush()
-    convex.emitQueryResult(publicQuery, {}, [{ _id: 'public', v: 1 }])
-    convex.emitQueryResult(privateQuery, {}, [{ _id: 'private', v: 1 }])
-    await flush()
+    await harness.settle()
+    expect(harness.coordinator.status.value).toBe('authenticated')
 
-    await expect(result.engine.signOut()).rejects.toThrow('session still active')
-    await flush()
+    const closedBeforeSignOut = CountingClient.closed
+    await harness.coordinator.signOut()
+    // A→anonymous is a stable identity-key change: the prior authenticated
+    // primary is retired (internal §7.4 "close the previous primary client").
+    expect(CountingClient.closed).toBeGreaterThan(closedBeforeSignOut)
 
-    expect(result.token.value).toBe('old.jwt')
-    expect(result.user.value?.id).toBe('old-user')
-    expect(result.authError.value).toBe('session still active')
-    expect(
-      getSubscriptionCache(nuxtApp).has(withAuthDimension(getQueryKey(publicQuery, {}), 'none')),
-    ).toBe(true)
-    expect(
-      getSubscriptionCache(nuxtApp).has(withAuthDimension(getQueryKey(privateQuery, {}), 'auto')),
-    ).toBe(true)
-
-    convex.emitQueryResult(publicQuery, {}, [{ _id: 'public', v: 2 }])
-    convex.emitQueryResult(privateQuery, {}, [{ _id: 'private', v: 2 }])
-    await flush()
-    expect(result.publicResult.data.value).toEqual([{ _id: 'public', v: 2 }])
-    expect(result.privateResult.data.value).toEqual([{ _id: 'private', v: 2 }])
+    wrapper.unmount()
   })
 
-  it('does not preserve the old identity when refreshAuth races sign-out', async () => {
-    const signOutResult = deferred<{ data: { success: true }; error: null }>()
-    const authClient = createAuthClient(() => signOutResult.promise)
-
-    const { result, flush } = await captureInNuxt(
+  it('failed sign-out retains the existing identity under the newer auth epoch', async () => {
+    const tokenA = makeJwt('A')
+    const { result: harness, wrapper } = await captureInNuxt(
       () => {
-        const engine = createEngine(authClient)
-        const token = useState<string | null>('convex:token')
-        const user = useState<ConvexUser | null>('convex:user')
-        return { engine, token, user }
+        const pending = useState<boolean>('convex:pending', () => true)
+        pending.value = true
+        return buildHarness(pending, { data: { token: tokenA }, error: null })
       },
-      {
-        convex: new MockConvexClient(),
-        convexConfig: { auth: { enabled: true }, defaults: { auth: 'auto' } },
-      },
+      { convexConfig: { auth: {} } },
     )
 
-    const signOut = result.engine.signOut()
-    await flush()
-    const refresh = result.engine.refreshAuth()
+    await harness.settle()
+    const epochBefore = harness.coordinator.port.snapshot().authEpoch
 
-    signOutResult.resolve({ data: { success: true }, error: null })
-    const settled = await Promise.allSettled([signOut, refresh])
-    await flush()
+    harness.signOutScript.value = { error: { message: 'network down' } }
+    // Recovery retains A only after one fresh Better Auth token verdict proves
+    // that the failed operation did not partially remove the session.
+    harness.pushToken(tokenA)
+    await expect(harness.coordinator.signOut()).rejects.toThrow()
 
-    expect(settled[0].status).toBe('fulfilled')
-    expect(settled[1].status).toBe('rejected')
-    expect(result.token.value).toBeNull()
-    expect(result.user.value).toBeNull()
+    // Identity A is retained; authEpoch advanced at dequeue regardless of outcome.
+    expect(harness.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(harness.coordinator.status.value).toBe('authenticated')
+    expect(harness.coordinator.port.snapshot().authEpoch).toBeGreaterThan(epochBefore)
+
+    wrapper.unmount()
+  })
+
+  it('two Nuxt applications in one process have isolated coordinators and owners', async () => {
+    const appA = buildHarness({ value: true }, { data: { token: makeJwt('A') }, error: null })
+    const appB = buildHarness({ value: true }, { data: { token: makeJwt('B') }, error: null })
+
+    await Promise.all([appA.settle(), appB.settle()])
+
+    expect(appA.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(appB.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
+
+    await appA.coordinator.signOut()
+    expect(appA.coordinator.user.value).toBeNull()
+    // B is fully unaffected by A's sign-out (isolated per-app coordinator/owner).
+    expect(appB.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
   })
 })

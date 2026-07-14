@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { organizationClient } from 'better-auth/client/plugins'
-
 import { api } from '#convex/api'
 
 defineOptions({ name: 'AgentApprovalQueuePage' })
@@ -10,12 +8,10 @@ type AuthOrganizationResult = {
   id?: string
 }
 
-const authClient = import.meta.client
-  ? createBetterConvexAuthClient({
-      plugins: [organizationClient()] as const,
-    })
-  : null
-const { signUp, refreshAuth } = useConvexAuth()
+// The typed Better Auth client comes from `useConvexAuth().client`, itself typed
+// from `app/convex-auth.ts` (the `<srcDir>/convex-auth.ts` convention definition
+// with `organizationClient()`). Null during SSR / when auth is disabled.
+const { signIn, signUp, refresh, client: authClient } = useConvexAuth()
 
 const organizationId = ref('')
 const queueArgs = computed(() =>
@@ -38,9 +34,11 @@ const generateDraftWithTool = useConvexAction(api.agentTools.generateDraftWithTo
 const pendingActionId = ref<string | null>(null)
 const setupError = ref<string | null>(null)
 const setupStatus = ref<string | null>(null)
+const signInFailure =
+  'Sign in could not be completed. Check your credentials and verify your email if required.'
 const ownerName = ref('Agent Owner')
 const ownerEmail = ref(`agent-owner-${Date.now()}@example.com`)
-const ownerPassword = ref('password123')
+const ownerPassword = ref('')
 const organizationName = ref('Agentic Proof Org')
 
 function slugify(value: string) {
@@ -75,10 +73,24 @@ async function signUpOwner() {
     })
 
     if (error) {
-      throw new Error(error.message || 'Sign up failed')
+      throw new Error('Sign up could not be completed')
     }
 
-    await refreshAuth()
+    return 'Account request complete. Sign in with the same credentials.'
+  })
+}
+
+async function signInOwner() {
+  await runSetupAction('sign-in-owner', async () => {
+    const { error } = await signIn.email({
+      email: ownerEmail.value.trim(),
+      password: ownerPassword.value,
+    })
+
+    if (error) {
+      throw new Error(signInFailure)
+    }
+
     return 'Owner session ready'
   })
 }
@@ -104,7 +116,7 @@ async function createOrganization() {
     }
 
     organizationId.value = organization.id
-    await refreshAuth()
+    await refresh()
     return 'Organization ready'
   })
 }
@@ -197,12 +209,17 @@ async function rejectDeletionItem(deletionRequestId: QueueItemId) {
           <input
             v-model="ownerPassword"
             autocomplete="new-password"
-            minlength="8"
+            minlength="15"
             required
             type="password"
           />
         </label>
-        <button :disabled="pendingActionId !== null" type="submit">Sign Up</button>
+        <div class="owner-actions">
+          <button :disabled="pendingActionId !== null" type="submit">Sign Up</button>
+          <button :disabled="pendingActionId !== null" type="button" @click="signInOwner">
+            Sign In
+          </button>
+        </div>
       </form>
 
       <form class="setup-column" @submit.prevent="createOrganization">

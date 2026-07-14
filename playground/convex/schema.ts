@@ -27,7 +27,7 @@ export default defineSchema({
   // ============================================
   // POSTS (permission system demo)
   // ============================================
-  // Demonstrates createPermissions() with a signed-in + ownership model.
+  // Demonstrates a userland usePermissions() composable with a signed-in + ownership model.
   // The playground does not enable the Better Auth Organization plugin, so
   // the demo shows the minimal context (signed-in + resource ownership)
   // rather than org roles. See the docs for the full Better Auth org model.
@@ -60,7 +60,7 @@ export default defineSchema({
   }).index('by_user', ['userId']),
 
   // ============================================
-  // FILES (ownership tracking for Convex storage - F-9)
+  // FILES (ownership tracking for Convex storage)
   // ============================================
   files: defineTable({
     storageId: v.id('_storage'),
@@ -72,9 +72,8 @@ export default defineSchema({
   // NOTES (public demo)
   // ============================================
   notes: defineTable({
-    title: v.optional(v.string()),
+    title: v.string(),
     content: v.string(),
     createdAt: v.number(),
-    userId: v.optional(v.string()),
   }),
 })

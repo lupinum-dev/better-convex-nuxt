@@ -1,7 +1,6 @@
 <script setup lang="ts">
 /**
- * Renders slot content only when the user is authenticated.
- * Waits for auth check to complete before rendering.
+ * Renders slot content only when auth status is `authenticated` (vNext §4.2).
  *
  * @example
  * ```vue
@@ -16,9 +15,9 @@ defineSlots<{
   default(): unknown
 }>()
 
-const { isAuthenticated, isPending } = useConvexAuth()
+const { status } = useConvexAuth()
 </script>
 
 <template>
-  <slot v-if="isAuthenticated && !isPending" />
+  <slot v-if="status === 'authenticated'" />
 </template>

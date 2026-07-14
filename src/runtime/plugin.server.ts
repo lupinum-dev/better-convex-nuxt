@@ -1,7 +1,6 @@
 /**
- * Server-side plugin for SSR authentication
- *
- * This plugin runs during SSR to:
+ * Auth-enabled-only server plugin (vNext §5.1). Registered by the module ONLY
+ * when auth is enabled. It runs during SSR to:
  * 1. Read the session cookie from the request
  * 2. Exchange the session cookie for a JWT token via Better Auth API
  *    (with optional caching to reduce TTFB)
@@ -12,105 +11,49 @@
 
 import { defineNuxtPlugin, useState, useRuntimeConfig, useRequestEvent } from '#app'
 
+import { ANONYMOUS_IDENTITY, toAuthenticatedIdentity } from './auth/auth-identity'
 import type { AuthWaterfall } from './devtools/types'
 import { resolveServerAuthSnapshot } from './server/utils/auth-snapshot'
-import { fetchWithTimeout } from './server/utils/http'
-import {
-  buildAuthProxyUnreachableMessage,
-  buildAuthProxyUpstreamStatusMessage,
-  buildMissingSiteUrlMessage,
-} from './utils/auth-errors'
+import { applyConvexAuthSsrHeaders } from './server/utils/ssr-auth-headers'
+import { buildMissingSiteUrlMessage } from './utils/auth-errors'
+import { useConvexIdentityState } from './utils/auth-identity-state'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-import type { ConvexUser } from './utils/types'
-
-const AUTH_HEALTHCHECK_CACHE_KEY = '__BCN_AUTH_HEALTHCHECK_DONE__'
-
-async function runAuthHealthcheckOnce(siteUrl: string): Promise<void> {
-  if (!import.meta.dev) return
-
-  const globalState = globalThis as typeof globalThis & {
-    [AUTH_HEALTHCHECK_CACHE_KEY]?: Set<string>
-  }
-  if (!globalState[AUTH_HEALTHCHECK_CACHE_KEY]) {
-    globalState[AUTH_HEALTHCHECK_CACHE_KEY] = new Set<string>()
-  }
-  const checked = globalState[AUTH_HEALTHCHECK_CACHE_KEY]
-  if (checked.has(siteUrl)) return
-  checked.add(siteUrl)
-
-  try {
-    const response = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      method: 'GET',
-      timeoutMs: 5_000,
-    })
-    if ([200, 401, 403].includes(response.status)) {
-      return
-    }
-    if (response.status === 404) {
-      console.warn(
-        buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', 404),
-        'Did you register Better Auth routes in `convex/http.ts` and deploy them?',
-      )
-      return
-    }
-    console.warn(buildAuthProxyUpstreamStatusMessage(siteUrl, '/get-session', response.status))
-  } catch (error) {
-    console.warn(buildAuthProxyUnreachableMessage(siteUrl, error))
-  }
-}
+import { filterBetterAuthCookies } from './utils/shared-helpers'
 
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const convexConfig = getConvexRuntimeConfig()
+  const authConfig = convexConfig.auth
   const publicConvex = config.public.convex as Record<string, unknown> | undefined
   const logLevel = getLogLevel(publicConvex)
   const logger = createLogger(logLevel)
   const endInit = logger.time('plugin:init (server)')
-  const debugConfig = publicConvex?.debug as
-    | {
-        authFlow?: boolean
-        serverAuthFlow?: boolean
-      }
-    | undefined
-  const enableServerAuthTrace =
-    logLevel === 'debug' && (debugConfig?.authFlow === true || debugConfig?.serverAuthFlow === true)
-  const rawAuthLog = logger.auth.bind(logger)
-  logger.auth = (event) => {
-    rawAuthLog(event)
-    if (enableServerAuthTrace) {
-      console.log('[BCN_AUTH][server]', {
-        phase: event.phase,
-        outcome: event.outcome,
-        ...event.details,
-        error: event.error ? event.error.message : null,
-      })
-    }
-  }
 
-  // Check if auth is enabled
-  const authConfig = convexConfig.auth
-  const isAuthEnabled = authConfig.enabled
-  if (!isAuthEnabled) {
-    // Auth not enabled - not an error, just skip auth setup
+  // Defensive: the module never registers this plugin for a Convex-only build.
+  if (authConfig === false) {
     endInit()
     logger.debug('Auth not enabled, skipping server-side auth')
     return
   }
 
-  // Get the H3 event for accessing cookies
   const event = useRequestEvent()
   if (!event) {
     logger.auth({ phase: 'init', outcome: 'error', error: new Error('No request event available') })
     return
   }
-  const requestPath = event.path || event.node.req.url || '(unknown)'
   const requestMethod = event.method || 'GET'
   const requestId = crypto.randomUUID()
+  const convexIdentity = useConvexIdentityState()
+  const cookieHeader = event.headers.get('cookie')
+  const hasSupportedBetterAuthCookie = filterBetterAuthCookies(cookieHeader) !== null
 
   const siteUrl = convexConfig.siteUrl
-
   if (!siteUrl) {
+    applyConvexAuthSsrHeaders(event, {
+      hasBetterAuthCookie: hasSupportedBetterAuthCookie,
+      serializesToken: false,
+    })
     const message = buildMissingSiteUrlMessage(convexConfig.url)
     const convexAuthError = useState<string | null>('convex:authError', () => null)
     convexAuthError.value = message
@@ -119,9 +62,6 @@ export default defineNuxtPlugin(async () => {
     return
   }
 
-  void runAuthHealthcheckOnce(siteUrl)
-
-  // Helper to log auth events
   const logAuth = (
     phase: string,
     outcome: 'success' | 'error' | 'skip' | 'miss',
@@ -131,50 +71,44 @@ export default defineNuxtPlugin(async () => {
     logger.auth({
       phase,
       outcome,
-      details: {
-        requestId,
-        method: requestMethod,
-        path: requestPath,
-        ...details,
-      },
+      details: { requestId, method: requestMethod, ...details },
       error,
     })
   }
 
-  // Initialize useState for hydration (must be done even if unauthenticated)
-  const convexToken = useState<string | null>('convex:token', () => null)
-  const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+  // Initialize useState for hydration (must be done even if unauthenticated).
   const convexAuthError = useState<string | null>('convex:authError', () => null)
   const convexAuthWaterfall = useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
-
-  const cookieHeader = event.headers.get('cookie')
 
   const snapshot = await resolveServerAuthSnapshot({
     siteUrl,
     cookieHeader,
-    authCache: convexConfig.authCache,
     requestId,
     trackWaterfall: import.meta.dev,
     throwOnMisconfig: import.meta.dev,
-    // Detailed token-exchange failures (secret/file hints, upstream error
-    // text) are dev-only; production hydrates a generic message (F-11).
+    // Detailed token-exchange failures are dev-only; production hydrates a
+    // generic message.
     revealAuthErrorDetails: import.meta.dev,
   })
 
-  convexToken.value = snapshot.token
-  convexUser.value = snapshot.user
+  convexIdentity.value =
+    snapshot.token && snapshot.user
+      ? toAuthenticatedIdentity(snapshot.token, snapshot.user)
+      : ANONYMOUS_IDENTITY
   convexAuthError.value = snapshot.authError
   convexAuthWaterfall.value = snapshot.waterfall
 
-  // A per-user JWT was just serialized into this response's SSR payload.
-  // Never let a shared/CDN cache serve it to a different user (F-10).
-  if (snapshot.token) {
-    event.node.res.setHeader('Cache-Control', 'private, no-store')
-  }
+  // This is an auth-enabled SSR response, so it always varies by cookie. A
+  // recognized Better Auth cookie OR a serialized per-user JWT also forbids
+  // shared/CDN caching (vNext §9). Existing `Vary` values are preserved.
+  applyConvexAuthSsrHeaders(event, {
+    hasBetterAuthCookie: hasSupportedBetterAuthCookie,
+    serializesToken: snapshot.token !== null,
+  })
 
   endInit()
-  for (const event of snapshot.logEvents) {
-    logAuth(event.phase, event.outcome, event.details, event.error)
+  for (const logEvent of snapshot.logEvents) {
+    logAuth(logEvent.phase, logEvent.outcome, logEvent.details, logEvent.error)
   }
 
   if (snapshot.devError) {

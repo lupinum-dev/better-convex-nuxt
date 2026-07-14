@@ -3,7 +3,7 @@ import { lstat, readdir, rm } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 
 /**
- * Post-build dist cleanup (F-37).
+ * Post-build dist cleanup.
  *
  * @nuxt/module-builder's `runtime` mkdist entry (in its own hardcoded config)
  * copies the entire `src/runtime/` tree into `dist/runtime/`, including
@@ -53,6 +53,21 @@ async function removeSiblingsExcept(dir: string, keep: string): Promise<void> {
   )
 }
 
+async function removeDeclarationDebris(dir: string): Promise<void> {
+  if (!existsSync(dir)) return
+  const entries = await readdir(dir, { withFileTypes: true })
+  await Promise.all(
+    entries.map(async (entry) => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        await removeDeclarationDebris(path)
+      } else if (/\.d\.(?:m|c)?ts$/.test(entry.name)) {
+        await rm(path, { force: true })
+      }
+    }),
+  )
+}
+
 export default {
   hooks: {
     async 'build:done'(ctx: MinimalBuildDoneContext) {
@@ -66,7 +81,12 @@ export default {
       }
 
       // Keep only the built static output (`ui/dist`); drop the devtools UI source.
+      const devtoolsStaticDir = join(runtimeDir, 'devtools/ui/dist')
       await removeSiblingsExcept(join(runtimeDir, 'devtools/ui'), 'dist')
+
+      // mkdist interprets hashed static JavaScript chunks as source modules and
+      // emits declarations beside them. The browser never loads those files.
+      await removeDeclarationDebris(devtoolsStaticDir)
 
       // Drop the stray tsconfig that extends a repo-only path.
       const serverTsconfig = join(runtimeDir, 'server/tsconfig.json')

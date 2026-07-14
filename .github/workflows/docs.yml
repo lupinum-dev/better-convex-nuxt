@@ -1,0 +1,79 @@
+name: docs
+
+# Path-filtered docs job (internal §16.4 tier 3 on change: lint + typecheck +
+# build + vocabulary source-lock; tier 4 nightly: external link check). `docs/`
+# is an independent install root with its own `pnpm-lock.yaml` (vNext §11 /
+# Phase 0 funding-gap resolution) — this workflow is its only real CI owner;
+# `docs/.github/workflows/ci.yml` is not read by GitHub Actions from a
+# subdirectory and must not be relied on.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  schedule:
+    # Nightly external-link check regardless of changed paths (tier 4) — path
+    # filters above only apply to push/pull_request, never to schedule.
+    - cron: '43 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  docs:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install docs dependencies
+        working-directory: docs
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: docs
+        run: pnpm run lint
+
+      - name: Typecheck
+        working-directory: docs
+        run: pnpm run typecheck
+
+      - name: Build
+        working-directory: docs
+        run: pnpm run build
+
+      - name: Vocabulary source-lock (vNext §11 "Source locks")
+        # Pure node:fs scan rooted at the repo root — scans docs/content
+        # (among other paths) directly; no docs/ install required.
+        run: node scripts/check-vocabulary.mjs
+
+  link-check:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Check external links in docs content
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: >-
+            --no-progress
+            --exclude-mail
+            --accept 100..=103,200..=299,403
+            docs/content
+          fail: true

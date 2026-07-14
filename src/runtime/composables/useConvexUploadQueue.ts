@@ -1,7 +1,8 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
-import { toCallResult, type CallResult } from '../utils/call-result'
+import type { CallResult, ConvexCallError } from '../errors'
+import { normalizeConvexError, toCallResult } from '../utils/call-result'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
@@ -74,16 +75,6 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject }
 }
 
-let queueItemSequence = 1
-
-function createQueueItemId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  queueItemSequence += 1
-  return `upload-item-${Date.now()}-${queueItemSequence}`
-}
-
 function isUploadAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
 }
@@ -106,8 +97,17 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   const items = ref<QueueItem[]>([])
   const haltedByError = ref(false)
   const runtimeById = new Map<string, UploadQueueRuntime>()
+  let queueItemSequence = 0
   let scheduling = false
   let hasBeenBusy = false
+
+  const createQueueItemId = (): string => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID()
+    }
+    queueItemSequence += 1
+    return `upload-item-${Date.now()}-${queueItemSequence}`
+  }
 
   const queuedCount = computed(() => countUploadQueueItems(items.value, 'queued'))
   const pendingCount = computed(() => countUploadQueueItems(items.value, 'pending'))
@@ -240,7 +240,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         }))
         rejectItemDeferred(itemId, new Error('Upload cancelled'))
       } else {
-        const normalizedError = error instanceof Error ? error : new Error(String(error))
+        const normalizedError = normalizeConvexError(error)
         const erroredItem = mutateItem(itemId, (current) => ({
           ...current,
           status: 'error',
@@ -318,15 +318,13 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     )
 
     const storageIds: string[] = []
-    const failures: Error[] = []
+    const failures: ConvexCallError[] = []
 
     for (const result of settled) {
       if (result.status === 'fulfilled') {
         storageIds.push(result.value)
       } else {
-        failures.push(
-          result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
-        )
+        failures.push(normalizeConvexError(result.reason))
       }
     }
 

@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 
 import { createOrganizationInputSchema } from '../shared/inputSchemas'
 import { mutation, query } from './_generated/server'
-import { requireOrganizationMembership } from './access'
+import { requireOrganizationMembership, writeAuditEvent } from './access'
 import { requireCurrentUser } from './users'
 import { parseWithConvexError } from './validation'
 
@@ -29,6 +29,14 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     })
+    await writeAuditEvent(ctx, {
+      organizationId,
+      actor: { kind: 'user', userId: user._id },
+      action: 'organizations.create',
+      resourceType: 'organization',
+      source: 'human',
+      resourceId: organizationId,
+    })
 
     return organizationId
   },
@@ -50,23 +58,21 @@ export const listMine = query({
     const user = await requireCurrentUser(ctx)
     const memberships = await ctx.db
       .query('memberships')
-      .withIndex('by_user', (q) => q.eq('userId', user._id))
-      .collect()
+      .withIndex('by_user_status', (q) => q.eq('userId', user._id).eq('status', 'active'))
+      .take(100)
 
     const rows = await Promise.all(
-      memberships
-        .filter((membership) => membership.status === 'active')
-        .map(async (membership) => {
-          const organization = await ctx.db.get(membership.organizationId)
-          if (!organization) return null
+      memberships.map(async (membership) => {
+        const organization = await ctx.db.get(membership.organizationId)
+        if (!organization) return null
 
-          return {
-            id: organization._id,
-            name: organization.name,
-            role: membership.role,
-            createdAt: organization.createdAt,
-          }
-        }),
+        return {
+          id: organization._id,
+          name: organization.name,
+          role: membership.role,
+          createdAt: organization.createdAt,
+        }
+      }),
     )
 
     return rows.filter((row): row is NonNullable<typeof row> => row !== null)

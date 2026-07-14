@@ -5,6 +5,8 @@ import vm from 'node:vm'
 
 import ts from 'typescript'
 
+import { packageEntries } from './package-entry-manifest.mjs'
+
 const rootDir = process.cwd()
 const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
@@ -68,20 +70,31 @@ function extractNamesFromRegistry(registryName) {
 const composableImports = [
   ...extractNamesFromRegistry('composableAutoImports'),
   ...extractNamesFromRegistry('authAutoImports'),
-  ...extractNamesFromRegistry('permissionAutoImports'),
 ].sort((a, b) => a.localeCompare(b))
 const serverImports = extractNamesFromRegistry('serverAutoImports')
+const packageContract = packageEntries.map(({ subpath, valueExports, typeExports }) => ({
+  subpath,
+  valueExports,
+  typeExports,
+}))
+
+function toPackageEntryRows(entries) {
+  return entries
+    .map(({ subpath, valueExports, typeExports }) => {
+      const specifier =
+        subpath === '.' ? 'better-convex-nuxt' : `better-convex-nuxt/${subpath.slice(2)}`
+      const values = valueExports.map((name) => `\`${name}\``).join(', ')
+      const types = typeExports.map((name) => `\`${name}\``).join(', ')
+      return `| \`${specifier}\` | ${values || '—'} | ${types || '—'} |`
+    })
+    .join('\n')
+}
 const componentNames = readdirSync(componentsDir)
   .filter((name) => name.endsWith('.vue'))
   .map((name) => name.replace(/\.vue$/, ''))
   .sort((a, b) => a.localeCompare(b))
 
 const composableMeta = {
-  createPermissions: {
-    kind: 'Factory',
-    purpose: 'Builds a typed permission API for app-level capability checks.',
-    guide: '/docs/auth-security/permissions',
-  },
   deleteFromPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a paginated query cache.',
@@ -91,11 +104,6 @@ const composableMeta = {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a regular query cache.',
     guide: '/docs/mutations/optimistic-updates',
-  },
-  getQueryKey: {
-    kind: 'Helper',
-    purpose: 'Creates a stable query cache key for invalidation and updates.',
-    guide: '/docs/data-fetching/caching-reuse',
   },
   insertAtBottomIfLoaded: {
     kind: 'Helper',
@@ -122,11 +130,6 @@ const composableMeta = {
     purpose: 'Defines a reusable shared query contract for multiple consumers.',
     guide: '/docs/data-fetching/caching-reuse',
   },
-  createBetterConvexAuthClient: {
-    kind: 'Factory',
-    purpose: 'Creates a plugin-typed Better Auth client with Convex token sync.',
-    guide: '/docs/auth-security/authentication',
-  },
   setQueryData: {
     kind: 'Helper',
     purpose: 'Replaces cached query data with a new value.',
@@ -144,8 +147,8 @@ const composableMeta = {
   },
   useConvex: {
     kind: 'Composable',
-    purpose: 'Gives direct access to the underlying Convex client.',
-    guide: '/docs/guide/basics',
+    purpose: 'Returns the stable replacement-safe handle for imperative Convex calls.',
+    guide: '/docs/advanced/client-access',
   },
   useConvexAction: {
     kind: 'Composable',
@@ -156,11 +159,6 @@ const composableMeta = {
     kind: 'Composable',
     purpose: 'Tracks auth state and user/session information in Nuxt.',
     guide: '/docs/auth-security/authentication',
-  },
-  useConvexCall: {
-    kind: 'Composable',
-    purpose: 'Runs one-shot Convex calls from client middleware, plugins, and effects.',
-    guide: '/docs/advanced/client-access',
   },
   useConvexConnectionState: {
     kind: 'Composable',
@@ -205,24 +203,15 @@ const composableMeta = {
 }
 
 const serverMeta = {
-  serverConvexAction: {
+  serverConvex: {
     kind: 'Server helper',
-    purpose: 'Runs a Convex action from server routes/handlers.',
+    purpose:
+      'Creates a request-scoped server caller with query/mutation/action for server routes and handlers.',
     guide: '/docs/server-side/server-routes',
   },
-  serverConvexClearAuthCache: {
+  exchangeConvexToken: {
     kind: 'Server helper',
-    purpose: 'Clears cached auth token state used by server calls.',
-    guide: '/docs/server-side/ssr-hydration',
-  },
-  serverConvexMutation: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex mutation from server routes/handlers.',
-    guide: '/docs/server-side/server-routes',
-  },
-  serverConvexQuery: {
-    kind: 'Server helper',
-    purpose: 'Runs a Convex query from server routes/handlers.',
+    purpose: 'Exchanges a cookie/bearer credential for a Convex JWT (never-throwing outcome).',
     guide: '/docs/server-side/server-routes',
   },
 }
@@ -280,7 +269,7 @@ This page is generated from module entrypoints and runtime component files.
 
 Source of truth:
 - [src/module-api-surface.ts](${repoBase}/blob/main/src/module-api-surface.ts)
-- [src/runtime/composables/index.ts](${repoBase}/blob/main/src/runtime/composables/index.ts)
+- [scripts/package-entry-manifest.mjs](${repoBase}/blob/main/scripts/package-entry-manifest.mjs)
 - [src/runtime/server/utils](${repoBase}/tree/main/src/runtime/server/utils)
 - [src/runtime/components](${repoBase}/tree/main/src/runtime/components)
 
@@ -311,10 +300,16 @@ import { api } from '#convex/api'
 
 Before Convex codegen creates \`convex/_generated/api\`, this alias points to a typed placeholder that keeps imports working and fails with a codegen message if accessed.
 
+## Published Package Entries
+
+| Import Specifier | Runtime Exports | Type Exports |
+| ---------------- | --------------- | ------------ |
+${toPackageEntryRows(packageContract)}
+
 Use \`#convex/server\` when an explicit server import is clearer than relying on Nuxt auto-imports, or for exports that are intentionally not auto-imported:
 
 \`\`\`ts
-import { serverConvexQuery } from '#convex/server'
+import { serverConvex } from '#convex/server'
 \`\`\`
 
 \`createUserSyncTriggers\` runs inside your \`convex/\` functions, where Nuxt aliases do not exist. Import it from its dedicated subpath instead:
@@ -325,7 +320,7 @@ import { createUserSyncTriggers } from 'better-convex-nuxt/server/createUserSync
 
 ## Composable Auto-Imports
 
-\`useConvexAuth\`, \`useConvexUser\`, \`createBetterConvexAuthClient\`, and the global auth components are available when module auth is enabled. \`createPermissions\` is available when the module \`permissions\` option is enabled.
+\`useConvexAuth\`, \`useConvexUser\`, and the global auth components are always available. With \`auth: false\`, they expose the documented disabled-auth state without loading Better Auth. The typed Better Auth client for an enabled build is defined with \`defineConvexAuthClient\` from \`better-convex-nuxt/auth-client\` and read through \`useConvexAuth().client\`.
 
 | Name | Kind | Purpose | Learn More |
 | ---- | ---- | ------- | ---------- |

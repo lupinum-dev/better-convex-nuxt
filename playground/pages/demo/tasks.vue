@@ -69,8 +69,6 @@ definePageMeta({
 })
 
 const { isAuthenticated } = useConvexAuth()
-const nuxtApp = useNuxtApp()
-
 // Use useConvexQuery for SSR + real-time updates!
 // Skip query when not authenticated
 const queryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
@@ -87,12 +85,14 @@ const {
 const newTaskTitle = ref('')
 const isAdding = ref(false)
 
+// useConvex() is client-only; the handle is used exclusively from browser
+// event handlers, so capture it during client setup and guard SSR.
+const convexHandle = import.meta.client ? useConvex() : null
 function getConvexClient() {
-  const client = nuxtApp.$convex
-  if (!client) {
+  if (!convexHandle) {
     throw new Error('Convex client unavailable')
   }
-  return client
+  return convexHandle
 }
 
 // Add a new task

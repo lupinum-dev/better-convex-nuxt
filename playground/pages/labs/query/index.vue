@@ -37,7 +37,7 @@ definePageMeta({
       <nav class="nav-links">
         <NuxtLink to="/labs/query-features/middleware-permission-context" class="nav-link best">
           <span class="link-label">middleware permission context</span>
-          <span class="hint">useConvexQuery in defineNuxtRouteMiddleware (subscribe: false)</span>
+          <span class="hint">useConvex on the client, serverConvex during SSR</span>
         </NuxtLink>
       </nav>
     </section>

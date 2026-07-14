@@ -6,11 +6,6 @@ export default {
     strict: true,
   },
   convex: {
-    auth: {
-      enabled: false,
-    },
-    defaults: {
-      auth: 'none',
-    },
+    auth: false,
   },
 }

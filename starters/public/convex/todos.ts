@@ -14,8 +14,8 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const text = args.text.trim()
-    if (!text) {
-      throw new ConvexError('Todo text is required')
+    if (!text || text.length > 200) {
+      throw new ConvexError('Todo text must be between 1 and 200 characters')
     }
 
     return await ctx.db.insert('todos', {

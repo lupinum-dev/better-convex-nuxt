@@ -12,87 +12,49 @@ describe('runtime config normalization', () => {
     expect(config.upload.maxConcurrent).toBe(3)
   })
 
-  it('defaults auth cache ttl to 60 seconds', () => {
+  it('installs auth with defaults for an empty config', () => {
     const config = normalizeConvexRuntimeConfig({})
-    expect(config.authCache.ttl).toBe(60)
+    expect(config.auth).not.toBe(false)
+    if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.proxy.trustedClientIpHeader).toBe('')
   })
 
-  it('clamps auth cache ttl to 1..60 seconds', () => {
-    expect(
-      normalizeConvexRuntimeConfig({
-        authCache: { ttl: 0 },
-      }).authCache.ttl,
-    ).toBe(1)
-
-    expect(
-      normalizeConvexRuntimeConfig({
-        authCache: { ttl: 999 },
-      }).authCache.ttl,
-    ).toBe(60)
+  it('disables auth entirely when auth is false', () => {
+    const config = normalizeConvexRuntimeConfig({ auth: false })
+    expect(config.auth).toBe(false)
   })
 
   it('uses explicit upload maxConcurrent when valid', () => {
-    const config = normalizeConvexRuntimeConfig({
-      upload: {
-        maxConcurrent: 5,
-      },
-    })
+    const config = normalizeConvexRuntimeConfig({ upload: { maxConcurrent: 5 } })
     expect(config.upload.maxConcurrent).toBe(5)
   })
 
   it('normalizes invalid upload maxConcurrent values', () => {
     expect(
-      normalizeConvexRuntimeConfig({
-        upload: { maxConcurrent: 0 },
-      }).upload.maxConcurrent,
+      normalizeConvexRuntimeConfig({ upload: { maxConcurrent: 0 } }).upload.maxConcurrent,
     ).toBe(1)
-
     expect(
-      normalizeConvexRuntimeConfig({
-        upload: { maxConcurrent: 4.8 },
-      }).upload.maxConcurrent,
+      normalizeConvexRuntimeConfig({ upload: { maxConcurrent: 4.8 } }).upload.maxConcurrent,
     ).toBe(4)
-
     expect(
-      normalizeConvexRuntimeConfig({
-        upload: { maxConcurrent: Number.NaN },
-      }).upload.maxConcurrent,
+      normalizeConvexRuntimeConfig({ upload: { maxConcurrent: Number.NaN } }).upload.maxConcurrent,
     ).toBe(3)
   })
 
   it('defaults auth proxy body-size limits to 1 MiB', () => {
     const config = normalizeConvexRuntimeConfig({})
-    expect(config.authProxy.maxRequestBodyBytes).toBe(1_048_576)
-    expect(config.authProxy.maxResponseBodyBytes).toBe(1_048_576)
+    if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.proxy.maxRequestBodyBytes).toBe(1_048_576)
+    expect(config.auth.proxy.maxResponseBodyBytes).toBe(1_048_576)
   })
 
   it('uses explicit auth proxy limits when valid', () => {
     const config = normalizeConvexRuntimeConfig({
-      authProxy: {
-        maxRequestBodyBytes: 2048,
-        maxResponseBodyBytes: 4096,
-      },
+      auth: { proxy: { maxRequestBodyBytes: 2048, maxResponseBodyBytes: 4096 } },
     })
-    expect(config.authProxy.maxRequestBodyBytes).toBe(2048)
-    expect(config.authProxy.maxResponseBodyBytes).toBe(4096)
-  })
-
-  it('uses query default auth mode', () => {
-    const config = normalizeConvexRuntimeConfig({
-      defaults: {
-        auth: 'none',
-      },
-    })
-    expect(config.defaults.auth).toBe('none')
-  })
-
-  it('does not map deprecated defaults.public to auth mode', () => {
-    const config = normalizeConvexRuntimeConfig({
-      defaults: {
-        public: true,
-      },
-    })
-    expect(config.defaults.auth).toBe('auto')
+    if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.proxy.maxRequestBodyBytes).toBe(2048)
+    expect(config.auth.proxy.maxResponseBodyBytes).toBe(4096)
   })
 
   it('defaults query waitTimeoutMs to 10000ms', () => {
@@ -113,5 +75,25 @@ describe('runtime config normalization', () => {
       normalizeConvexRuntimeConfig({ defaults: { waitTimeoutMs: Number.NaN } }).defaults
         .waitTimeoutMs,
     ).toBe(10_000)
+  })
+
+  it.each([
+    'https://user:pass@example.convex.cloud',
+    'https://example.convex.cloud/path',
+    'https://example.convex.cloud?target=private',
+    'https://example.convex.cloud#fragment',
+    'http://example.convex.cloud',
+    'file:///tmp/convex',
+  ])('rejects unsafe Convex deployment URLs before client construction: %s', (url) => {
+    expect(() => normalizeConvexRuntimeConfig({ url })).toThrow()
+  })
+
+  it.each([
+    ['https://example.convex.cloud/', 'https://example.convex.cloud'],
+    ['http://localhost:3210/', 'http://localhost:3210'],
+    ['http://127.42.0.1:3210', 'http://127.42.0.1:3210'],
+    ['http://[::1]:3210', 'http://[::1]:3210'],
+  ])('normalizes exact deployment origin %s', (url, expected) => {
+    expect(normalizeConvexRuntimeConfig({ url }).url).toBe(expected)
   })
 })

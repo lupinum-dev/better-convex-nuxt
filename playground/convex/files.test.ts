@@ -1,7 +1,7 @@
 /**
  * Files (Convex Storage) Tests
  *
- * Backend example for the file-storage docs (F-9 audit finding): verifies
+ * Backend example for the file-storage docs: verifies
  * generateUploadUrl/getUrl/deleteFile enforce authentication + ownership.
  */
 
@@ -9,8 +9,26 @@ import { convexTest } from 'convex-test'
 import { describe, it, expect } from 'vitest'
 
 import { api } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
+
+async function storeFile(
+  t: ReturnType<typeof convexTest>,
+  options: { contentType?: string; size?: number } = {},
+) {
+  const { contentType = 'image/png', size } = options
+  return await t.run(async (ctx) => {
+    const storageId = await ctx.storage.store(new Blob(['content'], { type: contentType }))
+    // convex-test 0.0.41 omits Blob.type from its synthetic _storage row.
+    await (
+      ctx.db as unknown as {
+        patch: (id: Id<'_storage'>, value: { contentType: string; size?: number }) => Promise<void>
+      }
+    ).patch(storageId, { contentType, ...(size === undefined ? {} : { size }) })
+    return storageId
+  })
+}
 
 describe('files.generateUploadUrl', () => {
   it('throws for unauthenticated callers', async () => {
@@ -32,9 +50,7 @@ describe('files.saveFile', () => {
   it('throws for unauthenticated callers', async () => {
     const t = convexTest(schema, modules)
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
 
     await expect(t.mutation(api.files.saveFile, { storageId })).rejects.toThrow('Not authenticated')
   })
@@ -43,10 +59,8 @@ describe('files.saveFile', () => {
     const t = convexTest(schema, modules)
     const asUser = t.withIdentity({ subject: 'user_1' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
-    await asUser.mutation(api.files.saveFile, { storageId })
+    const storageId = await storeFile(t)
+    const result = await asUser.mutation(api.files.saveFile, { storageId })
 
     const file = await t.run(async (ctx) => {
       return await ctx.db
@@ -55,6 +69,64 @@ describe('files.saveFile', () => {
         .unique()
     })
     expect(file?.ownerId).toBe('user_1')
+    expect(result).toEqual({ status: 'registered', fileId: file?._id })
+  })
+
+  it('deletes a blob with a disallowed canonical MIME type and commits the rejection', async () => {
+    const t = convexTest(schema, modules)
+    const asUser = t.withIdentity({ subject: 'user_1' })
+    const storageId = await storeFile(t, { contentType: 'text/html' })
+
+    const result = await asUser.mutation(api.files.saveFile, { storageId })
+
+    expect(result).toEqual({
+      status: 'rejected',
+      reason: 'invalid_file',
+      message: 'File must be a GIF, JPEG, or PNG no larger than 5 MB',
+    })
+    expect(await t.run(async (ctx) => await ctx.db.system.get('_storage', storageId))).toBeNull()
+    expect(
+      await t.run(async (ctx) =>
+        ctx.db
+          .query('files')
+          .withIndex('by_storage', (q) => q.eq('storageId', storageId))
+          .unique(),
+      ),
+    ).toBeNull()
+  })
+
+  it('deletes an oversized blob and commits the rejection', async () => {
+    const t = convexTest(schema, modules)
+    const asUser = t.withIdentity({ subject: 'user_1' })
+    const storageId = await storeFile(t, { size: 5 * 1024 * 1024 + 1 })
+
+    const result = await asUser.mutation(api.files.saveFile, { storageId })
+
+    expect(result).toMatchObject({ status: 'rejected', reason: 'invalid_file' })
+    expect(await t.run(async (ctx) => await ctx.db.system.get('_storage', storageId))).toBeNull()
+  })
+
+  it('returns a not-found rejection without creating ownership', async () => {
+    const t = convexTest(schema, modules)
+    const asUser = t.withIdentity({ subject: 'user_1' })
+    const storageId = await storeFile(t)
+    await t.run(async (ctx) => await ctx.storage.delete(storageId))
+
+    const result = await asUser.mutation(api.files.saveFile, { storageId })
+
+    expect(result).toEqual({
+      status: 'rejected',
+      reason: 'not_found',
+      message: 'Uploaded file was not found',
+    })
+    expect(
+      await t.run(async (ctx) =>
+        ctx.db
+          .query('files')
+          .withIndex('by_storage', (q) => q.eq('storageId', storageId))
+          .unique(),
+      ),
+    ).toBeNull()
   })
 
   it('rejects a second registration of the same storageId (claim-race guard)', async () => {
@@ -62,9 +134,7 @@ describe('files.saveFile', () => {
     const asOwner = t.withIdentity({ subject: 'user_owner' })
     const asOther = t.withIdentity({ subject: 'user_other' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     await expect(asOther.mutation(api.files.saveFile, { storageId })).rejects.toThrow(
@@ -74,6 +144,9 @@ describe('files.saveFile', () => {
     // Ownership is unchanged - the original owner still resolves the file.
     const url = await asOwner.query(api.files.getUrl, { storageId })
     expect(typeof url).toBe('string')
+    expect(
+      await t.run(async (ctx) => await ctx.db.system.get('_storage', storageId)),
+    ).not.toBeNull()
   })
 })
 
@@ -82,9 +155,7 @@ describe('files.getUrl', () => {
     const t = convexTest(schema, modules)
     const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     const url = await t.query(api.files.getUrl, { storageId })
@@ -96,9 +167,7 @@ describe('files.getUrl', () => {
     const asOwner = t.withIdentity({ subject: 'user_owner' })
     const asOther = t.withIdentity({ subject: 'user_other' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     const url = await asOther.query(api.files.getUrl, { storageId })
@@ -109,9 +178,7 @@ describe('files.getUrl', () => {
     const t = convexTest(schema, modules)
     const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     // saveFile was never called - no owner recorded.
 
     const url = await asOwner.query(api.files.getUrl, { storageId })
@@ -122,9 +189,7 @@ describe('files.getUrl', () => {
     const t = convexTest(schema, modules)
     const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     const url = await asOwner.query(api.files.getUrl, { storageId })
@@ -137,9 +202,7 @@ describe('files.deleteFile', () => {
     const t = convexTest(schema, modules)
     const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     await expect(t.mutation(api.files.deleteFile, { storageId })).rejects.toThrow(
@@ -152,9 +215,7 @@ describe('files.deleteFile', () => {
     const asOwner = t.withIdentity({ subject: 'user_owner' })
     const asOther = t.withIdentity({ subject: 'user_other' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     await expect(asOther.mutation(api.files.deleteFile, { storageId })).rejects.toThrow(
@@ -170,9 +231,7 @@ describe('files.deleteFile', () => {
     const t = convexTest(schema, modules)
     const asOwner = t.withIdentity({ subject: 'user_owner' })
 
-    const storageId = await t.run(async (ctx) => {
-      return await ctx.storage.store(new Blob(['content']))
-    })
+    const storageId = await storeFile(t)
     await asOwner.mutation(api.files.saveFile, { storageId })
 
     await asOwner.mutation(api.files.deleteFile, { storageId })

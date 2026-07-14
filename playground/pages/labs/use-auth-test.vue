@@ -4,7 +4,7 @@
 
     <div class="panel">
       <div class="row">
-        <span>isAuthenticated</span><strong>{{ isAuthenticated }}</strong>
+        <span>isAuthenticated</span><strong data-testid="auth-state">{{ isAuthenticated }}</strong>
       </div>
       <div class="row">
         <span>isPending</span><strong>{{ isPending }}</strong>
@@ -20,22 +20,43 @@
       <div class="row">
         <span>signUp.email type</span><strong>{{ signUpEmailType }}</strong>
       </div>
+      <div class="row">
+        <span>user email</span><strong data-testid="auth-email">{{ user?.email || 'none' }}</strong>
+      </div>
+      <ClientOnly>
+        <div class="row">
+          <span>public session user id</span>
+          <strong data-testid="session-user-id">{{ publicSessionUserId || 'none' }}</strong>
+        </div>
+      </ClientOnly>
+      <div class="row">
+        <span>Convex ctx.auth subject</span>
+        <strong data-testid="convex-auth-subject">{{ permissionContext?.userId || 'none' }}</strong>
+      </div>
     </div>
 
     <div class="panel actions">
       <button class="btn" @click="callSignIn">Call signIn.email()</button>
       <button class="btn" @click="callSignUp">Call signUp.email()</button>
+      <button class="btn" data-testid="raw-signout" @click="callRawSignOut">
+        Raw Better Auth signOut()
+      </button>
       <pre class="result">{{ resultText }}</pre>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { api } from '#convex/api'
+
 definePageMeta({
   layout: 'sidebar',
 })
 
-const { isAuthenticated, isPending, client, signIn, signUp } = useConvexAuth()
+const { isAuthenticated, isPending, user, client, signIn, signUp } = useConvexAuth()
+const publicSession = client?.useSession()
+const publicSessionUserId = computed(() => publicSession?.value.data?.user.id ?? null)
+const { data: permissionContext } = await useConvexQuery(api.auth.getPermissionContext, {})
 const resultText = ref('(idle)')
 
 const signInEmailType = computed(() => typeof signIn.email)
@@ -44,7 +65,7 @@ const signUpEmailType = computed(() => typeof signUp.email)
 async function callSignIn() {
   const result = await signIn.email({
     email: 'stub@example.com',
-    password: 'password123',
+    password: 'Password123456!',
   })
   resultText.value = JSON.stringify(result, null, 2)
 }
@@ -53,9 +74,13 @@ async function callSignUp() {
   const result = await signUp.email({
     name: 'Stub User',
     email: 'stub@example.com',
-    password: 'password123',
+    password: 'Password123456!',
   })
   resultText.value = JSON.stringify(result, null, 2)
+}
+
+async function callRawSignOut() {
+  resultText.value = JSON.stringify(await client?.signOut(), null, 2)
 }
 </script>
 
