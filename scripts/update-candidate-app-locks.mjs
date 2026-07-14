@@ -142,6 +142,9 @@ const server = createServer(async (request, response) => {
     }
 
     const upstreamUrl = new URL(`${url.pathname}${url.search}`, 'https://registry.npmjs.org')
+    if (upstreamUrl.origin !== 'https://registry.npmjs.org') {
+      throw new Error('Unexpected upstream registry origin')
+    }
     const upstream = await fetch(upstreamUrl)
     response.statusCode = upstream.status
     for (const [name, value] of upstream.headers) {

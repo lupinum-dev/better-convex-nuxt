@@ -263,8 +263,37 @@ function collectFiles(absoluteRoot) {
 
 /** Extract `<script ...>...</script>` block contents (there may be two: normal + setup). */
 function extractVueScriptBlocks(source) {
-  const re = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi
-  return [...source.matchAll(re)].map((match) => match[1])
+  const lowerSource = source.toLowerCase()
+  const blocks = []
+  let offset = 0
+  const findTag = (tag, from) => {
+    let index = lowerSource.indexOf(tag, from)
+    while (index !== -1) {
+      const next = lowerSource[index + tag.length]
+      if (next === '>' || ' \t\r\n\f'.includes(next)) return index
+      index = lowerSource.indexOf(tag, index + tag.length)
+    }
+    return -1
+  }
+
+  while (offset < source.length) {
+    const open = findTag('<script', offset)
+    if (open === -1) break
+
+    const openEnd = lowerSource.indexOf('>', open + 7)
+    if (openEnd === -1) break
+
+    const close = findTag('</script', openEnd + 1)
+    if (close === -1) break
+
+    const closeEnd = lowerSource.indexOf('>', close + 8)
+    if (closeEnd === -1) break
+
+    blocks.push(source.slice(openEnd + 1, close))
+    offset = closeEnd + 1
+  }
+
+  return blocks
 }
 
 function tryResolveRelative(fromFile, specifier) {
