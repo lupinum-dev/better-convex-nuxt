@@ -4,12 +4,34 @@ type EmailContent = {
   text: string
 }
 
-function isLocalEmailFallbackAllowed(siteUrl: string) {
-  return (
-    siteUrl.startsWith('http://localhost') ||
-    siteUrl.startsWith('http://127.0.0.1') ||
-    process.env.ALLOW_TEST_RESET === 'true'
+const htmlEscapes = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+} as const
+
+export function escapeEmailHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (character) => htmlEscapes[character as keyof typeof htmlEscapes],
   )
+}
+
+function isLocalEmailFallbackAllowed(siteUrl: string) {
+  try {
+    const parsed = new URL(siteUrl)
+    return (
+      parsed.origin === siteUrl &&
+      parsed.protocol === 'http:' &&
+      (parsed.hostname === 'localhost' ||
+        parsed.hostname === '127.0.0.1' ||
+        parsed.hostname === '[::1]')
+    )
+  } catch {
+    return false
+  }
 }
 
 async function sendResendEmail(recipient: string, content: EmailContent) {

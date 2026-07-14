@@ -23,6 +23,16 @@
       <div class="row">
         <span>user email</span><strong data-testid="auth-email">{{ user?.email || 'none' }}</strong>
       </div>
+      <ClientOnly>
+        <div class="row">
+          <span>public session user id</span>
+          <strong data-testid="session-user-id">{{ publicSessionUserId || 'none' }}</strong>
+        </div>
+      </ClientOnly>
+      <div class="row">
+        <span>Convex ctx.auth subject</span>
+        <strong data-testid="convex-auth-subject">{{ permissionContext?.userId || 'none' }}</strong>
+      </div>
     </div>
 
     <div class="panel actions">
@@ -37,11 +47,16 @@
 </template>
 
 <script setup lang="ts">
+import { api } from '#convex/api'
+
 definePageMeta({
   layout: 'sidebar',
 })
 
 const { isAuthenticated, isPending, user, client, signIn, signUp } = useConvexAuth()
+const publicSession = client?.useSession()
+const publicSessionUserId = computed(() => publicSession?.value.data?.user.id ?? null)
+const { data: permissionContext } = await useConvexQuery(api.auth.getPermissionContext, {})
 const resultText = ref('(idle)')
 
 const signInEmailType = computed(() => typeof signIn.email)
@@ -50,7 +65,7 @@ const signUpEmailType = computed(() => typeof signUp.email)
 async function callSignIn() {
   const result = await signIn.email({
     email: 'stub@example.com',
-    password: 'password123',
+    password: 'Password123456!',
   })
   resultText.value = JSON.stringify(result, null, 2)
 }
@@ -59,7 +74,7 @@ async function callSignUp() {
   const result = await signUp.email({
     name: 'Stub User',
     email: 'stub@example.com',
-    password: 'password123',
+    password: 'Password123456!',
   })
   resultText.value = JSON.stringify(result, null, 2)
 }

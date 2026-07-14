@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-const organizationNameSchema = z.string().trim().min(1, 'Organization name is required')
+const organizationNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Organization name is required')
+  .max(120, 'Organization name is too long')
 
 const personNameSchema = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long')
 
@@ -11,7 +15,7 @@ const emailSchema = z
   .email('A valid email is required')
   .transform((value) => value.toLowerCase())
 
-const passwordSchema = z.string().min(8, 'Password must be at least 8 characters')
+const passwordSchema = z.string().min(15, 'Password must be at least 15 characters')
 
 const projectNameSchema = z
   .string()
@@ -21,7 +25,11 @@ const projectNameSchema = z
 
 const serviceActorRoleSchema = z.enum(['viewer', 'member', 'admin'])
 
-const serviceActorNameSchema = z.string().trim().min(1, 'Service actor name is required')
+const serviceActorNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Service actor name is required')
+  .max(120, 'Service actor name is too long')
 
 export const createOrganizationInputSchema = z.object({
   name: organizationNameSchema,
@@ -37,7 +45,7 @@ export const createServiceActorInputSchema = z.object({
 })
 
 export const createMcpProjectRequestSchema = z.object({
-  bearerToken: z.string().min(1, 'Bearer token is required'),
+  bearerToken: z.string().min(1, 'Bearer token is required').max(256, 'Bearer token is too long'),
   name: projectNameSchema,
 })
 

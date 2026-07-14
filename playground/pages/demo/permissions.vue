@@ -79,7 +79,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const { can, user, pending, isAuthenticated } = usePermissions()
+const { can, user, pending, isAuthenticated } = await usePermissions()
 
 const listArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 const { data: posts } = await useConvexQuery(api.posts.list, listArgs)

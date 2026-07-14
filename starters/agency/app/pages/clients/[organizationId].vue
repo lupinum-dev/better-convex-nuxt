@@ -39,7 +39,7 @@ async function addProject() {
     </form>
 
     <ul>
-      <li v-for="project in projects ?? []" :key="project._id">
+      <li v-for="project in projects ?? []" :key="project.id">
         {{ project.name }}
       </li>
     </ul>

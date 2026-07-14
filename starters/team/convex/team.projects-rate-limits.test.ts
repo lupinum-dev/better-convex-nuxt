@@ -111,6 +111,7 @@ describe('team starter project lifecycle and rate limits', () => {
 
     expect(result).toEqual({
       deletedCount: 1,
+      hasMore: false,
       cutoff: purgeNow - thirtyDaysMs,
     })
 
@@ -125,6 +126,44 @@ describe('team starter project lifecycle and rate limits', () => {
     expect(activeProject?.status).toBe('active')
     expect(staleDeletedProject).toBeNull()
     expect(recentDeletedProject?.status).toBe('deleted')
+  })
+
+  it('purges stale projects in bounded retryable batches', async () => {
+    const t = initConvexTest()
+    const purgeNow = thirtyDaysMs + 10_000
+
+    await t.run(async (ctx) => {
+      await Promise.all(
+        Array.from({ length: 101 }, (_, index) =>
+          ctx.db.insert('projects', {
+            organizationId: 'org_bounded_purge',
+            teamId: 'team_bounded_purge',
+            name: `Stale ${index}`,
+            status: 'deleted',
+            createdByAuthUserId: 'user_bounded_purge',
+            createdAt: 1,
+            updatedAt: 1,
+            deletedAt: 1,
+            deletedByAuthUserId: 'user_bounded_purge',
+          }),
+        ),
+      )
+    })
+
+    await expect(
+      t.mutation(internal.projects.purgeSoftDeleted, { now: purgeNow }),
+    ).resolves.toEqual({
+      deletedCount: 100,
+      hasMore: true,
+      cutoff: 10_000,
+    })
+    await expect(
+      t.mutation(internal.projects.purgeSoftDeleted, { now: purgeNow }),
+    ).resolves.toEqual({
+      deletedCount: 1,
+      hasMore: false,
+      cutoff: 10_000,
+    })
   })
 
   it('rate limits repeated project creation and exposes the same checked state to the UI', async () => {

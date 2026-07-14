@@ -17,6 +17,21 @@ export const listPaginated = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    if (
+      !Number.isInteger(args.paginationOpts.numItems) ||
+      args.paginationOpts.numItems < 1 ||
+      args.paginationOpts.numItems > 50
+    ) {
+      throw new Error('Page size must be an integer between 1 and 50')
+    }
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return {
+        page: [],
+        isDone: true,
+        continueCursor: '',
+      }
+    }
     const messages = await ctx.db
       .query('messages')
       .withIndex('by_created')
@@ -39,6 +54,10 @@ export const add = mutation({
     if (!identity) {
       throw new Error('Not authenticated')
     }
+    const content = args.content.trim()
+    if (!content || content.length > 5_000) {
+      throw new Error('Message content must be between 1 and 5000 characters')
+    }
 
     // Get user for display name
     const user = await ctx.db
@@ -47,7 +66,7 @@ export const add = mutation({
       .first()
 
     const messageId = await ctx.db.insert('messages', {
-      content: args.content,
+      content,
       authorId: identity.subject,
       authorName: user?.displayName || identity.name || 'Anonymous',
       createdAt: Date.now(),
@@ -76,7 +95,10 @@ export const seed = mutation({
       .first()
 
     const authorName = user?.displayName || identity.name || 'Demo User'
-    const count = args.count || 20
+    const count = args.count ?? 20
+    if (!Number.isInteger(count) || count < 1 || count > 50) {
+      throw new Error('count must be an integer between 1 and 50')
+    }
 
     const sampleMessages = [
       'Just deployed a new feature to production!',
@@ -114,26 +136,5 @@ export const seed = mutation({
     }
 
     return { created: messageIds.length }
-  },
-})
-
-/**
- * Clear all messages (for demo reset)
- */
-export const clearAll = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error('Not authenticated')
-    }
-
-    const messages = await ctx.db.query('messages').collect()
-
-    for (const message of messages) {
-      await ctx.db.delete(message._id)
-    }
-
-    return { deleted: messages.length }
   },
 })

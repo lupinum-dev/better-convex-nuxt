@@ -72,9 +72,8 @@ export default defineSchema({
   // NOTES (public demo)
   // ============================================
   notes: defineTable({
-    title: v.optional(v.string()),
+    title: v.string(),
     content: v.string(),
     createdAt: v.number(),
-    userId: v.optional(v.string()),
   }),
 })

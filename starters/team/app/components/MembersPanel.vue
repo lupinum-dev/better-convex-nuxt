@@ -10,12 +10,13 @@ defineProps<{
   selectedTeamMemberUserIds: Set<string>
   membersPending: boolean
   membersError: string | null
-  teamMembersError: string | null
+  hasMore: boolean
   memberLabel: (member: Member) => string
   onChangeRole: (member: Member, role: OrganizationRole) => void
   onAddToTeam: (member: Member) => void
   onRemoveFromTeam: (member: Member) => void
   onRemoveMember: (member: Member) => void
+  onLoadMore: () => void
 }>()
 
 function formatRole(role: OrganizationRole) {
@@ -28,7 +29,6 @@ function formatRole(role: OrganizationRole) {
     <h2>Members</h2>
     <section v-if="membersPending" class="empty">Loading members...</section>
     <section v-else-if="membersError" class="empty">{{ membersError }}</section>
-    <section v-else-if="teamMembersError" class="empty">{{ teamMembersError }}</section>
     <ul v-else-if="members.length" class="items-list">
       <li v-for="member in members" :key="member.id">
         <span>{{ memberLabel(member) }}</span>
@@ -54,5 +54,6 @@ function formatRole(role: OrganizationRole) {
       </li>
     </ul>
     <section v-else class="empty">No members yet.</section>
+    <button v-if="hasMore" class="button" type="button" @click="onLoadMore">Load more</button>
   </section>
 </template>

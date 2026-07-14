@@ -80,7 +80,7 @@ describe('mcp-agent service actor credentials', () => {
     const t = convexTest(schema, modules)
     const { organizationId } = await seedActor(t, 'viewer')
     await seedHumanMember(t, organizationId, 'member', 'member')
-    await seedHumanMember(t, organizationId, 'owner', 'owner')
+    const ownerUserId = await seedHumanMember(t, organizationId, 'owner', 'owner')
 
     await expect(
       t.withIdentity({ subject: 'member' }).mutation(api.serviceActors.create, {
@@ -97,13 +97,14 @@ describe('mcp-agent service actor credentials', () => {
     })
     const { serviceActorId, bearerToken } = created
 
-    const { actor, credential } = await t.run(async (ctx) => {
+    const { actor, credential, audit } = await t.run(async (ctx) => {
       const actor = await ctx.db.get(serviceActorId)
       const credential = await ctx.db
         .query('agentCredentials')
         .withIndex('by_actor', (q) => q.eq('serviceActorId', serviceActorId))
         .unique()
-      return { actor, credential }
+      const audit = await ctx.db.query('auditEvents').collect()
+      return { actor, credential, audit }
     })
     expect(actor).toMatchObject({
       organizationId,
@@ -119,6 +120,15 @@ describe('mcp-agent service actor credentials', () => {
     })
     expect(credential?.secretHash).toMatch(/^[a-f0-9]{64}$/)
     expect(credential?.secretHash).not.toBe(bearerToken)
+    expect(audit).toContainEqual(
+      expect.objectContaining({
+        organizationId,
+        actor: { kind: 'user', userId: ownerUserId },
+        action: 'serviceActors.create',
+        resourceType: 'serviceActor',
+        resourceId: serviceActorId,
+      }),
+    )
   })
 
   it('does not let another organization admin create service actors', async () => {
@@ -213,7 +223,7 @@ describe('mcp-agent service actor credentials', () => {
     const t = convexTest(schema, modules)
     const { organizationId, credentialId } = await seedActor(t, 'member')
     await seedHumanMember(t, organizationId, 'member', 'member')
-    await seedHumanMember(t, organizationId, 'admin', 'admin')
+    const adminUserId = await seedHumanMember(t, organizationId, 'admin', 'admin')
 
     await expect(
       t.withIdentity({ subject: 'member' }).mutation(api.agentCredentials.revoke, {
@@ -225,9 +235,21 @@ describe('mcp-agent service actor credentials', () => {
       credentialId,
     })
 
-    const credential = await t.run(async (ctx) => await ctx.db.get(credentialId))
+    const { credential, audit } = await t.run(async (ctx) => ({
+      credential: await ctx.db.get(credentialId),
+      audit: await ctx.db.query('auditEvents').collect(),
+    }))
     expect(credential).toMatchObject({ status: 'revoked' })
     expect(credential?.revokedAt).toEqual(expect.any(Number))
+    expect(audit).toContainEqual(
+      expect.objectContaining({
+        organizationId,
+        actor: { kind: 'user', userId: adminUserId },
+        action: 'agentCredentials.revoke',
+        resourceType: 'agentCredential',
+        resourceId: credentialId,
+      }),
+    )
   })
 
   it('does not let another organization admin revoke a service actor credential', async () => {

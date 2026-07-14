@@ -49,45 +49,6 @@
       </div>
     </div>
 
-    <ClientOnly>
-      <div class="plugin-lab">
-        <h2>Additional Fields Verification</h2>
-        <p class="hint">
-          This panel verifies typed Better Auth <code>additionalFields</code> via
-          <code>inferAdditionalFields&lt;AppAuth&gt;()</code> while keeping Convex token sync.
-        </p>
-
-        <div class="state-grid plugin-grid">
-          <div class="state-item">
-            <span class="label">extended client</span>
-            <span class="value" :class="{ positive: pluginChecks.hasExtendedClient }">
-              {{ pluginChecks.hasExtendedClient ? 'ready' : 'initializing...' }}
-            </span>
-          </div>
-          <div class="state-item">
-            <span class="label">session additional marketingOptIn</span>
-            <span class="value">{{ pluginSessionFields.marketingOptIn }}</span>
-          </div>
-          <div class="state-item">
-            <span class="label">session user email</span>
-            <span class="value">{{ pluginSessionFields.email }}</span>
-          </div>
-          <div class="state-item">
-            <span class="label">plugin init</span>
-            <span class="value" :class="{ positive: !pluginInitError }">
-              {{ pluginInitError || 'ok' }}
-            </span>
-          </div>
-        </div>
-      </div>
-      <template #fallback>
-        <div class="plugin-lab">
-          <h2>Additional Fields Verification</h2>
-          <p class="hint">Client-only panel: waiting for hydration...</p>
-        </div>
-      </template>
-    </ClientOnly>
-
     <div class="component-demos">
       <h2>Component Demos</h2>
 
@@ -190,23 +151,7 @@ definePageMeta({
   layout: 'sidebar',
 })
 
-const {
-  isAuthenticated,
-  isPending,
-  token,
-  user,
-  signOut: authSignOut,
-  client: authClient,
-} = useConvexAuth()
-const pluginInitError = ref('')
-
-// The typed Better Auth client now comes from `useConvexAuth().client`, itself
-// typed from `playground/convex-auth.ts` (the `<srcDir>/convex-auth.ts`
-// convention definition with `inferAdditionalFields<AppAuth>()`).
-type ExtendedAuthClient = NonNullable<typeof authClient>
-
-const extendedAuthClient = shallowRef<ExtendedAuthClient | null>(null)
-const extendedSessionStore = shallowRef<unknown>(null)
+const { isAuthenticated, isPending, token, user, signOut: authSignOut } = useConvexAuth()
 
 const permissionQueryArgs = computed(() => (isAuthenticated.value ? {} : 'skip'))
 const { data: permissionContext } = await useConvexQuery(
@@ -224,65 +169,6 @@ const permissionUserId = computed(() =>
     ? permissionContext.value.userId
     : null,
 )
-
-onMounted(() => {
-  try {
-    const client = authClient
-    extendedAuthClient.value = client
-    const sessionState = client?.useSession()
-    if (sessionState && typeof sessionState === 'object' && 'value' in sessionState) {
-      extendedSessionStore.value = sessionState
-    } else {
-      extendedSessionStore.value = null
-      if (sessionState) {
-        pluginInitError.value = 'init warning: unexpected useSession() return shape'
-      }
-    }
-    if (!pluginInitError.value) {
-      pluginInitError.value = ''
-    }
-    const sessionStore = extendedSessionStore.value as {
-      value?: { data?: { user?: { marketingOptIn?: boolean } } | null }
-    } | null
-    void sessionStore?.value?.data?.user?.marketingOptIn
-  } catch (error) {
-    pluginInitError.value = `init failed: ${formatErrorMessage(error)}`
-    extendedAuthClient.value = null
-    extendedSessionStore.value = null
-  }
-})
-
-const pluginChecks = computed(() => ({
-  hasExtendedClient: !!extendedAuthClient.value,
-}))
-
-const pluginSessionFields = computed(() => {
-  const sessionStore = extendedSessionStore.value as {
-    value?: { data?: ExtendedSessionData | null }
-  } | null
-  const sessionUser = sessionStore?.value?.data?.user
-  return {
-    marketingOptIn:
-      typeof sessionUser?.marketingOptIn === 'boolean'
-        ? String(sessionUser.marketingOptIn)
-        : '(undefined / not set yet)',
-    email: sessionUser?.email ?? '(no Better Auth session user yet)',
-  }
-})
-
-function formatErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message
-  }
-  if (typeof error === 'string') {
-    return error
-  }
-  try {
-    return JSON.stringify(error, null, 2)
-  } catch {
-    return String(error)
-  }
-}
 
 async function signOut() {
   await authSignOut()
@@ -379,14 +265,6 @@ code {
 
 .role-buttons {
   flex-wrap: wrap;
-}
-
-.plugin-lab {
-  margin-top: 24px;
-}
-
-.plugin-grid {
-  margin-bottom: 16px;
 }
 
 .demo-card {

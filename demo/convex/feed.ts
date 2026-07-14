@@ -14,6 +14,10 @@ import { mutation, query } from './_generated/server'
 export const list = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
     const items = await ctx.db.query('feedItems').withIndex('by_created').order('desc').take(50)
 
     return items
@@ -30,15 +34,24 @@ export const listFiltered = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query('feedItems').withIndex('by_created').order('desc')
-
-    // Apply type filter if specified
-    if (args.type) {
-      query = query.filter((q) => q.eq(q.field('type'), args.type))
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+    const limit = args.limit ?? 50
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('limit must be an integer between 1 and 100')
+    }
+    const type = args.type
+    if (type) {
+      return await ctx.db
+        .query('feedItems')
+        .withIndex('by_type_created', (q) => q.eq('type', type))
+        .order('desc')
+        .take(limit)
     }
 
-    const items = await query.take(args.limit ?? 50)
-    return items
+    return await ctx.db.query('feedItems').withIndex('by_created').order('desc').take(limit)
   },
 })
 
@@ -55,6 +68,10 @@ export const add = mutation({
     if (!identity) {
       throw new Error('Not authenticated')
     }
+    const content = args.content.trim()
+    if (!content || content.length > 5_000) {
+      throw new Error('Feed content must be between 1 and 5000 characters')
+    }
 
     // Get user for display name
     const user = await ctx.db
@@ -63,7 +80,7 @@ export const add = mutation({
       .first()
 
     const itemId = await ctx.db.insert('feedItems', {
-      content: args.content,
+      content,
       type: args.type,
       authorId: identity.subject,
       authorName: user?.displayName || identity.name || 'Anonymous',

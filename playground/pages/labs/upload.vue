@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { api } from '#convex/api'
+import type { Id } from '~/convex/_generated/dataModel'
 
 definePageMeta({
   layout: 'sidebar',
@@ -22,38 +23,52 @@ const {
   pending,
   status,
   progress,
-  error,
+  error: uploadError,
   data: storageId,
   cancel,
-} = useConvexFileUpload(api.files.generateUploadUrl)
+} = useConvexFileUpload(api.files.generateUploadUrl, {
+  maxSize: 5 * 1024 * 1024,
+  allowedTypes: ['image/gif', 'image/jpeg', 'image/png'],
+})
 
-// getUrl requires ownership - attach the caller's auth token.
-const imageUrl = useConvexStorageUrl(api.files.getUrl, storageId, { auth: 'optional' })
 const saveFile = useConvexMutation(api.files.saveFile)
+const registeredStorageId = ref<Id<'_storage'> | null>(null)
+
+// Resolve a URL only after the backend has accepted and registered the blob.
+const imageUrl = useConvexStorageUrl(api.files.getUrl, registeredStorageId, { auth: 'required' })
 
 // Track upload counts
 const successCount = ref(0)
 const cancelCount = ref(0)
+const registrationError = ref<string | null>(null)
 
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
 
+  registrationError.value = null
+  registeredStorageId.value = null
   try {
-    const id = await upload(file)
+    const id = (await upload(file)) as Id<'_storage'>
     // Record ownership so getUrl/deleteFile can authorize this file.
-    await saveFile({ storageId: id })
+    const result = await saveFile({ storageId: id })
+    if (result.status === 'rejected') {
+      registrationError.value = result.message
+      return
+    }
+    registeredStorageId.value = id
     successCount.value++
   } catch (e) {
     // Check if it was a cancel
     if (e instanceof DOMException && e.name === 'AbortError') {
       cancelCount.value++
+    } else {
+      registrationError.value = e instanceof Error ? e.message : 'Upload failed'
     }
-    // Error is tracked in error ref
+  } finally {
+    input.value = ''
   }
-
-  input.value = ''
 }
 
 function handleCancel() {
@@ -74,7 +89,7 @@ function handleCancel() {
         <input
           data-testid="file-input"
           type="file"
-          accept="image/*"
+          accept="image/gif,image/jpeg,image/png"
           :disabled="pending"
           @change="handleFileChange"
         />
@@ -107,7 +122,9 @@ function handleCancel() {
         </div>
         <div class="state-item">
           <span class="label">error:</span>
-          <span data-testid="error" class="value">{{ error?.message ?? 'null' }}</span>
+          <span data-testid="error" class="value">
+            {{ registrationError ?? uploadError?.message ?? 'null' }}
+          </span>
         </div>
         <div class="state-item">
           <span class="label">storageId:</span>

@@ -55,6 +55,7 @@ pnpm convex:dev
 pnpm dev
 pnpm test
 pnpm typecheck
+pnpm build
 pnpm verify:browser
 ```
 
@@ -66,9 +67,13 @@ On first run, Convex writes `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to
 with `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, or
 `CONVEX_SITE_URL`.
 
-For deployed auth, set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex. Local
-development has proof defaults so the starter boots immediately; do not use
-those defaults for production.
+Set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex before starting auth routes,
+including for local development. The request factory always fails closed
+without explicit runtime values. `pnpm verify:browser` supplies isolated proof
+values itself.
+
+`pnpm build` also starts the generated Nitro server and asserts that `/`
+renders the MCP auth surface with HTTP 200.
 
 The MCP route is `/mcp`. It uses `@nuxtjs/mcp-toolkit` for Streamable HTTP,
 including `initialize`, `tools/list`, and `tools/call`. Nitro authenticates
@@ -126,6 +131,8 @@ approved Convex approval request and re-checks service actor role, organization
 scope, approval status, expiry, and project state before soft-deleting.
 
 Set `MCP_SERVER_SECRET` in Convex and Nuxt for every deployed environment.
+Generate at least 32 characters from a cryptographically secure random source;
+both boundaries reject missing, short, or whitespace-padded values.
 Convex fails closed when the secret is missing. The local browser verifier
 injects a demo secret into its spawned Convex/Nuxt processes, but application
 code does not provide a fallback.

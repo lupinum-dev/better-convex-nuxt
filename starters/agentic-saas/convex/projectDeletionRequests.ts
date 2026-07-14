@@ -4,6 +4,7 @@ import { internalMutation, mutation, query } from './_generated/server'
 import { requireDelegatingUserCurrentProjectPermission } from './agentRuns'
 import { requireBetterAuthProjectPermissions } from './betterAuthPermissions'
 import { deleteProductRecordForApproval } from './productRecords'
+import { maxDeletionReasonLength, maxPendingReviewsPerQueue } from './resourceBounds'
 
 export const createFromAgent = internalMutation({
   args: {
@@ -12,6 +13,9 @@ export const createFromAgent = internalMutation({
     reason: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.reason.length > maxDeletionReasonLength) {
+      throw new ConvexError(`Deletion reason must be ${maxDeletionReasonLength} characters or less`)
+    }
     const reason = args.reason.trim()
     if (!reason) {
       throw new ConvexError('Deletion reason is required')
@@ -28,12 +32,19 @@ export const createFromAgent = internalMutation({
       capability: 'project:delete',
       permission: 'delete',
     })
-
-    const pendingRequest = await ctx.db
+    const pendingRequests = await ctx.db
       .query('projectDeletionRequests')
-      .withIndex('by_record', (q) => q.eq('productRecordId', args.productRecordId))
-      .filter((q) => q.eq(q.field('status'), 'pending'))
-      .first()
+      .withIndex('by_org_status', (q) =>
+        q.eq('organizationId', record.organizationId).eq('status', 'pending'),
+      )
+      .take(maxPendingReviewsPerQueue)
+    if (pendingRequests.length >= maxPendingReviewsPerQueue) {
+      throw new ConvexError('Deletion review queue is full')
+    }
+
+    const pendingRequest = pendingRequests.find(
+      (request) => request.productRecordId === args.productRecordId,
+    )
     if (pendingRequest) {
       throw new ConvexError('Deletion request already pending')
     }
@@ -78,7 +89,7 @@ export const listPending = query({
         q.eq('organizationId', args.organizationId).eq('status', 'pending'),
       )
       .order('desc')
-      .collect()
+      .take(maxPendingReviewsPerQueue)
   },
 })
 

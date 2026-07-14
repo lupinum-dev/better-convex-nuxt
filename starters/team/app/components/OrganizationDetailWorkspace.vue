@@ -28,6 +28,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 const organizationId = computed(() => props.organization.id)
+const selectedTeamId = ref<string | null>(null)
 const createTeamMutation = useConvexMutation(api.organizations.createTeam)
 const renameOrganizationMutation = useConvexMutation(api.organizations.rename)
 const renameTeamMutation = useConvexMutation(api.teams.rename)
@@ -49,21 +50,35 @@ const {
   organizationId: organizationId.value,
 }))
 const {
-  data: membersData,
-  pending: membersPending,
+  results: membersData,
+  isLoading: membersPending,
   error: membersQueryError,
-} = await useConvexQuery(api.organizations.listMembers, () =>
-  orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
+  hasNextPage: hasMoreMembers,
+  loadMore: loadMoreMembers,
+} = await useConvexPaginatedQuery(
+  api.organizations.listMembers,
+  () =>
+    orgCapabilities.value?.canManageMembers
+      ? {
+          organizationId: organizationId.value,
+          teamId: selectedTeamId.value ?? undefined,
+        }
+      : 'skip',
+  { initialNumItems: 25, auth: 'required' },
 )
 const {
-  data: invitationsData,
-  pending: invitationsPending,
+  results: invitationsData,
+  isLoading: invitationsPending,
   error: invitationsQueryError,
-} = await useConvexQuery(api.organizations.listInvitations, () =>
-  orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
+  hasNextPage: hasMoreInvitations,
+  loadMore: loadMoreInvitations,
+} = await useConvexPaginatedQuery(
+  api.organizations.listInvitations,
+  () =>
+    orgCapabilities.value?.canManageMembers ? { organizationId: organizationId.value } : 'skip',
+  { initialNumItems: 25, auth: 'required' },
 )
 
-const selectedTeamId = ref<string | null>(null)
 const teamName = ref('')
 const teamRenameName = ref('')
 const teamCreatePending = ref(false)
@@ -78,8 +93,8 @@ const inviteError = ref<string | null>(null)
 const cancelInvitationEmail = ref<string | null>(null)
 
 const teams = computed(() => teamsData.value ?? [])
-const members = computed(() => membersData.value ?? [])
-const invitations = computed<PendingInvitation[]>(() => invitationsData.value ?? [])
+const members = computed(() => membersData.value)
+const invitations = computed<PendingInvitation[]>(() => invitationsData.value)
 const teamsError = computed(() =>
   teamsQueryError.value ? errorMessage(teamsQueryError.value, 'Teams could not be loaded') : null,
 )
@@ -318,18 +333,22 @@ function memberLabel(member: Member) {
     :invitations="invitations"
     :invitations-pending="invitationsPending"
     :invitations-error="invitationsError"
+    :invitations-have-more="hasMoreInvitations"
     :invite-pending="invitePending || cancelInvitationEmail !== null"
     :invite-error="inviteError"
     :members-pending="membersPending"
     :members-error="membersError"
+    :members-have-more="hasMoreMembers"
     :can-manage-members="orgCapabilities?.canManageMembers"
     :member-label="memberLabel"
     :on-invite="inviteMember"
     :on-cancel-invitation="cancelInvitation"
+    :on-load-more-invitations="() => loadMoreInvitations(25)"
     :on-change-role="changeMemberRole"
     :on-add-to-team="addMemberToSelectedTeam"
     :on-remove-from-team="removeMemberFromSelectedTeam"
     :on-remove-member="removeMember"
+    :on-load-more-members="() => loadMoreMembers(25)"
   />
 
   <OrganizationAuditSection

@@ -11,6 +11,28 @@ import { ConvexError, v } from 'convex/values'
 import { query, mutation } from './_generated/server'
 import { getUser, authorize } from './lib/permissions'
 
+function requirePageSize(numItems: number) {
+  if (!Number.isInteger(numItems) || numItems < 1 || numItems > 50) {
+    throw new Error('Page size must be an integer from 1 to 50')
+  }
+}
+
+function normalizeTitle(title: string) {
+  const normalized = title.trim()
+  if (!normalized || normalized.length > 120) {
+    throw new Error('Post title must be between 1 and 120 characters')
+  }
+  return normalized
+}
+
+function normalizeContent(content: string) {
+  const normalized = content.trim()
+  if (!normalized || normalized.length > 20_000) {
+    throw new Error('Post content must be between 1 and 20000 characters')
+  }
+  return normalized
+}
+
 // ============================================
 // LIST
 // ============================================
@@ -26,7 +48,7 @@ export const list = query({
       .query('posts')
       .withIndex('by_owner', (q) => q.eq('ownerId', user.authId))
       .order('desc')
-      .collect()
+      .take(100)
   },
 })
 
@@ -39,6 +61,7 @@ export const list = query({
 export const listPaginated = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
+    requirePageSize(args.paginationOpts.numItems)
     const user = await getUser(ctx)
 
     if (!user) {
@@ -88,10 +111,12 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const user = await authorize(ctx, 'post.create')
+    const title = normalizeTitle(args.title)
+    const content = normalizeContent(args.content)
 
     return await ctx.db.insert('posts', {
-      title: args.title,
-      content: args.content,
+      title,
+      content,
       status: 'draft',
       ownerId: user.authId,
       createdAt: Date.now(),
@@ -116,11 +141,13 @@ export const update = mutation({
 
     await authorize(ctx, 'post.update', post)
 
-    await ctx.db.patch(args.id, {
-      ...(args.title && { title: args.title }),
-      ...(args.content && { content: args.content }),
+    const updates: { title?: string; content?: string; updatedAt: number } = {
       updatedAt: Date.now(),
-    })
+    }
+    if (args.title !== undefined) updates.title = normalizeTitle(args.title)
+    if (args.content !== undefined) updates.content = normalizeContent(args.content)
+
+    await ctx.db.patch(args.id, updates)
   },
 })
 

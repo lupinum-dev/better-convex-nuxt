@@ -83,8 +83,6 @@ async function startRun(
     capabilities: AgentCapability[]
     expiresAt: number
     maxTotalTokens: number
-    maxOrganizationTotalTokens: number
-    maxUserTotalTokens: number
   }> = {},
 ) {
   return await t.run(async (ctx) => {
@@ -99,12 +97,6 @@ async function startRun(
         ...(overrides.maxTotalTokens === undefined
           ? {}
           : { maxTotalTokens: overrides.maxTotalTokens }),
-        ...(overrides.maxOrganizationTotalTokens === undefined
-          ? {}
-          : { maxOrganizationTotalTokens: overrides.maxOrganizationTotalTokens }),
-        ...(overrides.maxUserTotalTokens === undefined
-          ? {}
-          : { maxUserTotalTokens: overrides.maxUserTotalTokens }),
       },
       async () => ({ authUserId: 'better-auth-user-id' }),
     )
@@ -139,7 +131,11 @@ async function createApprovedRecord(
     sessionTokenForTest: string
   },
 ) {
-  const agentRunId = await startRun(t, { organizationId: args.organizationId })
+  const agentRunId = await startBetterAuthRun(t, {
+    organizationId: args.organizationId,
+    sessionTokenForTest: args.sessionTokenForTest,
+    capabilities: ['project:draft'],
+  })
   await markRunRunningWithThread(t, agentRunId)
   const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
     agentRunId,
@@ -160,8 +156,6 @@ async function startBetterAuthRun(
     sessionTokenForTest: string
     capabilities: AgentCapability[]
     maxTotalTokens?: number
-    maxOrganizationTotalTokens?: number
-    maxUserTotalTokens?: number
   },
 ) {
   return (await t.mutation(publicApi.agentRuns.startDelegatedRunWithBetterAuth, {
@@ -170,33 +164,34 @@ async function startBetterAuthRun(
     sessionTokenForTest: args.sessionTokenForTest,
     capabilities: args.capabilities,
     ...(args.maxTotalTokens === undefined ? {} : { maxTotalTokens: args.maxTotalTokens }),
-    ...(args.maxOrganizationTotalTokens === undefined
-      ? {}
-      : { maxOrganizationTotalTokens: args.maxOrganizationTotalTokens }),
-    ...(args.maxUserTotalTokens === undefined
-      ? {}
-      : { maxUserTotalTokens: args.maxUserTotalTokens }),
   })) as Id<'agentRuns'>
 }
 
 async function createBetterAuthUser(t: ReturnType<typeof convexTest>, email: string) {
   return await t.run(async (ctx) => {
     const auth = createAuth(ctx)
-    const result = await auth.api.signUpEmail({
+    const password = 'Password123456!'
+    const signedUp = await auth.api.signUpEmail({
       body: {
         email,
-        password: 'password123',
+        password,
         name: email.split('@')[0],
       },
     })
-    if (!result.token) {
-      throw new Error('Better Auth signup did not return a session token')
+    const signedIn = await auth.api.signInEmail({
+      body: {
+        email,
+        password,
+      },
+    })
+    if (!signedIn.token) {
+      throw new Error('Better Auth sign-in did not return a session token')
     }
 
     return {
       email,
-      token: result.token,
-      userId: result.user.id,
+      token: signedIn.token,
+      userId: signedUp.user.id,
     }
   })
 }
@@ -304,9 +299,9 @@ describe('agentic-saas proof invariants', () => {
 
     expect(filesWithLifecycleWrites).toEqual([
       "./agentRuns.ts:status: 'active'",
+      "./agentRuns.ts:status: 'failed'",
       "./agentRuns.ts:status: 'running'",
       "./agentRuns.ts:status: 'revoked'",
-      "./agentRuns.ts:status: 'failed'",
       "./agentRuns.ts:status: 'completed'",
     ])
   })
@@ -466,12 +461,36 @@ describe('agentic-saas proof invariants', () => {
     expect(agentToolsSource).not.toContain('userId: input.')
   })
 
+  it('keeps authorization, budget preflight, and the running transition in one mutation', () => {
+    const agentRunsSource = readConvexSource('./agentRuns.ts')
+    const agentToolsSource = readConvexSource('./agentTools.ts')
+    const claimStart = agentRunsSource.indexOf(
+      'export const claimRunExecutionByDelegatingUser = internalMutation(',
+    )
+    const claimEnd = agentRunsSource.indexOf('\nexport const getThreadForRetention', claimStart)
+    const claimSource = agentRunsSource.slice(claimStart, claimEnd)
+
+    expect(claimStart).toBeGreaterThanOrEqual(0)
+    expect(claimEnd).toBeGreaterThan(claimStart)
+    expect(claimSource.indexOf('requireBetterAuthProjectPermissions(ctx, {')).toBeLessThan(
+      claimSource.indexOf('getTokenBudgetError(ctx, {'),
+    )
+    expect(claimSource.indexOf('getTokenBudgetError(ctx, {')).toBeLessThan(
+      claimSource.indexOf("status: 'running'"),
+    )
+    expect(agentToolsSource).not.toContain('assertBudgetAvailable')
+  })
+
   it('keeps public existing-run agent surfaces keyed by run id', async () => {
     const agentRunsSource = readConvexSource('./agentRuns.ts')
     const agentThreadsSource = readConvexSource('./agentThreads.ts')
     const agentToolsSource = readConvexSource('./agentTools.ts')
     const publicExistingRunSurfaces = [
-      { source: agentRunsSource, exportName: 'revokeRun', allowedArgs: ['agentRunId'] },
+      {
+        source: agentRunsSource,
+        exportName: 'revokeRun',
+        allowedArgs: ['agentRunId'],
+      },
       {
         source: agentThreadsSource,
         exportName: 'listAccessibleMessages',
@@ -487,7 +506,11 @@ describe('agentic-saas proof invariants', () => {
         exportName: 'generateDraftWithTool',
         allowedArgs: ['agentRunId'],
       },
-      { source: agentToolsSource, exportName: 'streamProjectSummary', allowedArgs: ['agentRunId'] },
+      {
+        source: agentToolsSource,
+        exportName: 'streamProjectSummary',
+        allowedArgs: ['agentRunId'],
+      },
       {
         source: agentToolsSource,
         exportName: 'deleteThreadForRetention',
@@ -653,7 +676,9 @@ describe('agentic-saas proof invariants', () => {
 
   it('stores agent runs as bounded app-owned delegation keyed by Better Auth ids', async () => {
     const t = convexTest(schema, modules)
-    const agentRunId = await startRun(t, { capabilities: ['project:read', 'project:draft'] })
+    const agentRunId = await startRun(t, {
+      capabilities: ['project:read', 'project:draft'],
+    })
 
     const runs = await t.run(async (ctx) => await ctx.db.query('agentRuns').take(10))
 
@@ -732,10 +757,13 @@ describe('agentic-saas proof invariants', () => {
     })
 
     expect(claimedRun).toMatchObject({
-      _id: agentRunId,
-      status: 'running',
-      organizationId,
-      startedByAuthUserId: owner.userId,
+      kind: 'claimed',
+      run: {
+        _id: agentRunId,
+        status: 'running',
+        organizationId,
+        startedByAuthUserId: owner.userId,
+      },
     })
 
     await expect(
@@ -1181,12 +1209,6 @@ describe('agentic-saas proof invariants', () => {
     await expect(startRun(t, { maxTotalTokens: 0 })).rejects.toThrow(
       'Agent run maxTotalTokens must be a positive integer',
     )
-    await expect(startRun(t, { maxOrganizationTotalTokens: -1 })).rejects.toThrow(
-      'Agent run maxOrganizationTotalTokens must be a positive integer',
-    )
-    await expect(startRun(t, { maxUserTotalTokens: 1.5 })).rejects.toThrow(
-      'Agent run maxUserTotalTokens must be a positive integer',
-    )
 
     const runs = await t.run(async (ctx) => await ctx.db.query('agentRuns').take(10))
     expect(runs).toHaveLength(0)
@@ -1348,8 +1370,13 @@ describe('agentic-saas proof invariants', () => {
   })
 
   it('creates draft state and agent audit for delegated tool use', async () => {
-    const t = convexTest(schema, modules)
-    const agentRunId = await startRun(t)
+    const t = initConvexTest()
+    const { owner, organizationId } = await createBetterAuthOrganization(t)
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
 
     const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -1366,17 +1393,17 @@ describe('agentic-saas proof invariants', () => {
     expect(rows.drafts).toHaveLength(1)
     expect(rows.drafts[0]).toMatchObject({
       _id: draftId,
-      organizationId: 'better-auth-org-id',
+      organizationId,
       status: 'pending',
       sourceAgentRunId: agentRunId,
     })
     expect(rows.audit).toHaveLength(1)
     expect(rows.audit[0]).toMatchObject({
-      organizationId: 'better-auth-org-id',
+      organizationId,
       actor: {
         kind: 'agent',
         agentRunId,
-        delegatedByAuthUserId: 'better-auth-user-id',
+        delegatedByAuthUserId: owner.userId,
       },
       action: 'projectDrafts.create',
       capability: 'project:draft',
@@ -1520,6 +1547,129 @@ describe('agentic-saas proof invariants', () => {
     expect(rows.usage).toHaveLength(0)
   })
 
+  it('authorizes callers before an exhausted budget can fail a run or reject review rows', async () => {
+    const t = initConvexTest()
+    const { owner, organizationId } = await createBetterAuthOrganization(t)
+    const member = await createBetterAuthUser(t, 'agent-budget-attacker@example.com')
+
+    await t.run(async (ctx) => {
+      const auth = createAuth(ctx)
+      await auth.api.addMember({
+        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        body: {
+          organizationId,
+          userId: member.userId,
+          role: 'member',
+        },
+      })
+    })
+
+    const draftRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+      maxTotalTokens: 1,
+    })
+    const streamRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:read'],
+      maxTotalTokens: 1,
+    })
+
+    const reviewRows = await t.run(async (ctx) => {
+      const seedExhaustedRun = async (agentRunId: Id<'agentRuns'>, suffix: string) => {
+        const pendingDraftId = await ctx.db.insert('projectDrafts', {
+          organizationId,
+          title: `Pending ${suffix}`,
+          body: 'Must remain pending after an unauthorized action call',
+          status: 'pending',
+          sourceAgentRunId: agentRunId,
+          createdAt: Date.now(),
+        })
+        const approvedDraftId = await ctx.db.insert('projectDrafts', {
+          organizationId,
+          title: `Approved ${suffix}`,
+          body: 'Source record for a pending deletion request',
+          status: 'approved',
+          sourceAgentRunId: agentRunId,
+          createdAt: Date.now(),
+          decidedAt: Date.now(),
+        })
+        const productRecordId = await ctx.db.insert('productRecords', {
+          organizationId,
+          title: `Record ${suffix}`,
+          body: 'Must not be deleted by an unauthorized action call',
+          sourceDraftId: approvedDraftId,
+          approvedByAuthUserId: owner.userId,
+          createdAt: Date.now(),
+        })
+        const deletionRequestId = await ctx.db.insert('projectDeletionRequests', {
+          organizationId,
+          productRecordId,
+          reason: 'Pending human review',
+          status: 'pending',
+          sourceAgentRunId: agentRunId,
+          createdAt: Date.now(),
+        })
+        await ctx.db.insert('agentUsageEvents', {
+          organizationId,
+          agentRunId,
+          threadId: `seeded-${suffix}`,
+          startedByAuthUserId: owner.userId,
+          model: 'seeded-model',
+          provider: 'seeded-provider',
+          promptTokens: 1,
+          completionTokens: 0,
+          totalTokens: 1,
+          createdAt: Date.now(),
+        })
+
+        return { pendingDraftId, deletionRequestId }
+      }
+
+      return {
+        draft: await seedExhaustedRun(draftRunId, 'draft-run'),
+        stream: await seedExhaustedRun(streamRunId, 'stream-run'),
+      }
+    })
+
+    await expect(
+      t.action(publicApi.agentTools.generateDraftWithTool, {
+        agentRunId: draftRunId,
+      }),
+    ).rejects.toThrow()
+    await expect(
+      t.action(publicApi.agentTools.streamProjectSummary, {
+        agentRunId: streamRunId,
+        sessionTokenForTest: member.token,
+      }),
+    ).rejects.toThrow('Only the delegating user can execute an agent run')
+
+    const rows = await t.run(async (ctx) => ({
+      draftRun: await ctx.db.get(draftRunId),
+      streamRun: await ctx.db.get(streamRunId),
+      draft: await ctx.db.get(reviewRows.draft.pendingDraftId),
+      draftDeletion: await ctx.db.get(reviewRows.draft.deletionRequestId),
+      streamDraft: await ctx.db.get(reviewRows.stream.pendingDraftId),
+      streamDeletion: await ctx.db.get(reviewRows.stream.deletionRequestId),
+      usage: await ctx.db.query('agentUsageEvents').take(10),
+    }))
+
+    expect(rows.draftRun).toMatchObject({ status: 'active' })
+    expect(rows.streamRun).toMatchObject({ status: 'active' })
+    for (const reviewRow of [
+      rows.draft,
+      rows.draftDeletion,
+      rows.streamDraft,
+      rows.streamDeletion,
+    ]) {
+      expect(reviewRow).toMatchObject({ status: 'pending' })
+      expect(reviewRow?.decidedAt).toBeUndefined()
+    }
+    expect(rows.usage).toHaveLength(2)
+  })
+
   it('streams Agent text deltas only through an accessible delegated run', async () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
@@ -1588,7 +1738,9 @@ describe('agentic-saas proof invariants', () => {
     })
     expect(streams.streams.messages).toHaveLength(result.streamMessageCount)
 
-    const streamMessages = streams.streams.messages as Array<{ streamId: string }>
+    const streamMessages = streams.streams.messages as Array<{
+      streamId: string
+    }>
     const deltas = await t.query(publicApi.agentThreads.syncAccessibleStreams, {
       agentRunId,
       sessionTokenForTest: owner.token,
@@ -1979,10 +2131,9 @@ describe('agentic-saas proof invariants', () => {
     }))
 
     expect(deletion).toMatchObject({
-      afterMessageCount: 0,
       deletedUsageEvents: 1,
+      hasMoreUsageEvents: false,
     })
-    expect(deletion.beforeMessageCount).toBeGreaterThan(0)
     expect(afterRetention.draft).toMatchObject({
       status: 'rejected',
     })
@@ -2105,98 +2256,6 @@ describe('agentic-saas proof invariants', () => {
     ).rejects.toThrow('Only pending deletion requests can be approved')
   })
 
-  it('fails before agent side effects when the organization token budget is exhausted', async () => {
-    const t = initConvexTest()
-    const { owner, organizationId } = await createBetterAuthOrganization(t)
-    const firstRunId = await startBetterAuthRun(t, {
-      organizationId,
-      sessionTokenForTest: owner.token,
-      capabilities: ['project:draft'],
-      maxOrganizationTotalTokens: 40,
-    })
-
-    await t.action(publicApi.agentTools.generateDraftWithTool, {
-      agentRunId: firstRunId,
-      sessionTokenForTest: owner.token,
-    })
-
-    const secondRunId = await startBetterAuthRun(t, {
-      organizationId,
-      sessionTokenForTest: owner.token,
-      capabilities: ['project:draft'],
-      maxOrganizationTotalTokens: 40,
-    })
-    await expect(
-      t.action(publicApi.agentTools.generateDraftWithTool, {
-        agentRunId: secondRunId,
-        sessionTokenForTest: owner.token,
-      }),
-    ).rejects.toThrow('Organization agent token budget exceeded')
-
-    const rows = await t.run(async (ctx) => ({
-      secondRun: await ctx.db.get(secondRunId),
-      drafts: await ctx.db.query('projectDrafts').take(10),
-      audit: await ctx.db.query('agentAuditEvents').take(10),
-      usage: await ctx.db.query('agentUsageEvents').take(10),
-    }))
-
-    expect(rows.secondRun).toMatchObject({
-      status: 'failed',
-      maxOrganizationTotalTokens: 40,
-    })
-    expect(rows.secondRun?.threadId).toBeUndefined()
-    expect(rows.drafts).toHaveLength(1)
-    expect(rows.audit.every((event) => event.actor.agentRunId === firstRunId)).toBe(true)
-    expect(rows.usage).toHaveLength(2)
-    expect(rows.usage.every((event) => event.agentRunId === firstRunId)).toBe(true)
-  })
-
-  it('fails before agent side effects when the delegating user token budget is exhausted', async () => {
-    const t = initConvexTest()
-    const { owner, organizationId } = await createBetterAuthOrganization(t)
-    const firstRunId = await startBetterAuthRun(t, {
-      organizationId,
-      sessionTokenForTest: owner.token,
-      capabilities: ['project:draft'],
-      maxUserTotalTokens: 40,
-    })
-
-    await t.action(publicApi.agentTools.generateDraftWithTool, {
-      agentRunId: firstRunId,
-      sessionTokenForTest: owner.token,
-    })
-
-    const secondRunId = await startBetterAuthRun(t, {
-      organizationId,
-      sessionTokenForTest: owner.token,
-      capabilities: ['project:draft'],
-      maxUserTotalTokens: 40,
-    })
-    await expect(
-      t.action(publicApi.agentTools.generateDraftWithTool, {
-        agentRunId: secondRunId,
-        sessionTokenForTest: owner.token,
-      }),
-    ).rejects.toThrow('User agent token budget exceeded')
-
-    const rows = await t.run(async (ctx) => ({
-      secondRun: await ctx.db.get(secondRunId),
-      drafts: await ctx.db.query('projectDrafts').take(10),
-      audit: await ctx.db.query('agentAuditEvents').take(10),
-      usage: await ctx.db.query('agentUsageEvents').take(10),
-    }))
-
-    expect(rows.secondRun).toMatchObject({
-      status: 'failed',
-      maxUserTotalTokens: 40,
-    })
-    expect(rows.secondRun?.threadId).toBeUndefined()
-    expect(rows.drafts).toHaveLength(1)
-    expect(rows.audit.every((event) => event.actor.agentRunId === firstRunId)).toBe(true)
-    expect(rows.usage).toHaveLength(2)
-    expect(rows.usage.every((event) => event.agentRunId === firstRunId)).toBe(true)
-  })
-
   it('deletes Agent thread history and usage events without deleting product history', async () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
@@ -2267,9 +2326,8 @@ describe('agentic-saas proof invariants', () => {
     }))
 
     expect(deletion).toMatchObject({
-      beforeMessageCount: result.messageCount,
-      afterMessageCount: 0,
       deletedUsageEvents: 2,
+      hasMoreUsageEvents: false,
     })
     expect(afterRetention.drafts).toHaveLength(1)
     expect(afterRetention.audit).toHaveLength(1)
@@ -2286,9 +2344,8 @@ describe('agentic-saas proof invariants', () => {
     }))
 
     expect(retriedDeletion).toMatchObject({
-      beforeMessageCount: 0,
-      afterMessageCount: 0,
       deletedUsageEvents: 0,
+      hasMoreUsageEvents: false,
     })
     expect(afterRetry.drafts).toHaveLength(1)
     expect(afterRetry.audit).toHaveLength(1)
@@ -2349,7 +2406,11 @@ describe('agentic-saas proof invariants', () => {
   it('keeps agent output out of canonical product state until human approval', async () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
-    const agentRunId = await startRun(t, { organizationId })
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
 
     const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -2418,7 +2479,11 @@ describe('agentic-saas proof invariants', () => {
   it('rejects blank agent-created review state before inserting rows', async () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
-    const draftRunId = await startRun(t, { organizationId })
+    const draftRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
 
     await expect(
       t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -2477,9 +2542,13 @@ describe('agentic-saas proof invariants', () => {
 
   it('rejects draft approval when Better Auth organization permission fails', async () => {
     const t = initConvexTest()
-    const { organizationId } = await createBetterAuthOrganization(t)
+    const { owner, organizationId } = await createBetterAuthOrganization(t)
     const outsider = await createBetterAuthUser(t, 'draft-outsider@example.com')
-    const agentRunId = await startRun(t, { organizationId })
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
 
     const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -2520,7 +2589,11 @@ describe('agentic-saas proof invariants', () => {
         },
       })
     })
-    const agentRunId = await startRun(t, { organizationId })
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
     const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
       agentRunId,
@@ -2621,7 +2694,11 @@ describe('agentic-saas proof invariants', () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
     const outsider = await createBetterAuthUser(t, 'approval-queue-outsider@example.com')
-    const agentRunId = await startRun(t, { organizationId })
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
 
     const draftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -2693,7 +2770,11 @@ describe('agentic-saas proof invariants', () => {
   it('does not promote or reject already-decided drafts', async () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
-    const agentRunId = await startRun(t, { organizationId })
+    const agentRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: owner.token,
+      capabilities: ['project:draft'],
+    })
     await markRunRunningWithThread(t, agentRunId)
 
     const rejectedDraftId = await t.mutation(internalApi.projectDrafts.createFromAgent, {
@@ -3025,6 +3106,45 @@ describe('agentic-saas proof invariants', () => {
     expect(rows.requests).toHaveLength(0)
   })
 
+  it('re-checks the delegating user after claim and before creating a draft', async () => {
+    const t = initConvexTest()
+    const { owner, admin, adminMember, organizationId } =
+      await createBetterAuthOrganizationWithAdmin(t)
+    const draftRunId = await startBetterAuthRun(t, {
+      organizationId,
+      sessionTokenForTest: admin.token,
+      capabilities: ['project:draft'],
+    })
+    await markRunRunningWithThread(t, draftRunId)
+
+    await t.run(async (ctx) => {
+      const auth = createAuth(ctx)
+      await auth.api.updateMemberRole({
+        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        body: {
+          organizationId,
+          memberId: adminMember.id,
+          role: 'viewer',
+        },
+      })
+    })
+
+    await expect(
+      t.mutation(internalApi.projectDrafts.createFromAgent, {
+        agentRunId: draftRunId,
+        title: 'Stale delegation',
+        body: 'Must not be inserted',
+      }),
+    ).rejects.toThrow('Delegating user no longer has project:create permission')
+
+    const rows = await t.run(async (ctx) => ({
+      drafts: await ctx.db.query('projectDrafts').take(10),
+      audit: await ctx.db.query('agentAuditEvents').take(10),
+    }))
+    expect(rows.drafts).toHaveLength(0)
+    expect(rows.audit).toHaveLength(0)
+  })
+
   it('blocks destructive agent tools after the delegating member is removed', async () => {
     const t = initConvexTest()
     const { owner, admin, adminMember, organizationId } =
@@ -3195,7 +3315,9 @@ describe('agentic-saas proof invariants', () => {
 
   it('rejects wrong organization and undelegated capabilities', async () => {
     const t = convexTest(schema, modules)
-    const agentRunId = await startRun(t, { capabilities: ['project:draft', 'project:delete'] })
+    const agentRunId = await startRun(t, {
+      capabilities: ['project:draft', 'project:delete'],
+    })
     await markRunRunningWithThread(t, agentRunId)
     const otherAgentRunId = await startRun(t, {
       organizationId: 'other-better-auth-org-id',

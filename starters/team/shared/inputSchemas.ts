@@ -27,9 +27,48 @@ const emailSchema = z
   .email('A valid email is required')
   .transform((value) => value.toLowerCase())
 
-const passwordSchema = z.string().min(8, 'Password must be at least 8 characters')
+const passwordSchema = z.string().min(15, 'Password must be at least 15 characters')
 
 const personNameSchema = z.string().trim().min(1, 'Name is required').max(120, 'Name is too long')
+
+const callbackBase = 'https://better-convex-nuxt.invalid'
+
+function hasAsciiControl(value: string): boolean {
+  for (const character of value) {
+    const code = character.charCodeAt(0)
+    if (code <= 31 || code === 127) return true
+  }
+  return false
+}
+
+export function normalizeLocalCallbackURL(value: string): string {
+  if (
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    value.includes('\\') ||
+    hasAsciiControl(value)
+  ) {
+    return '/'
+  }
+
+  try {
+    const parsed = new URL(value, callbackBase)
+    if (
+      parsed.origin !== callbackBase ||
+      !parsed.pathname.startsWith('/') ||
+      parsed.pathname.startsWith('//') ||
+      parsed.pathname.includes('\\') ||
+      hasAsciiControl(parsed.pathname)
+    ) {
+      return '/'
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return '/'
+  }
+}
+
+const callbackURLSchema = z.string().transform(normalizeLocalCallbackURL)
 
 const optionalIdSchema = z
   .string()
@@ -100,12 +139,12 @@ export const teamMembershipInputSchema = z.object({
 export const signInInputSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  callbackURL: z.string().min(1),
+  callbackURL: callbackURLSchema,
 })
 
 export const signUpInputSchema = z.object({
   name: personNameSchema,
   email: emailSchema,
   password: passwordSchema,
-  callbackURL: z.string().min(1),
+  callbackURL: callbackURLSchema,
 })

@@ -62,7 +62,7 @@ defineEmits<{
           v-model="password"
           :autocomplete="passwordAutocomplete"
           data-testid="auth-password"
-          minlength="8"
+          minlength="15"
           required
           type="password"
         />

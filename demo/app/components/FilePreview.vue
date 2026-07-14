@@ -8,7 +8,7 @@ const props = defineProps<{
 }>()
 
 const storageIdRef = computed(() => props.storageId)
-const imageUrl = useConvexStorageUrl(api.files.getUrl, storageIdRef)
+const imageUrl = useConvexStorageUrl(api.files.getUrl, storageIdRef, { auth: 'required' })
 </script>
 
 <template>

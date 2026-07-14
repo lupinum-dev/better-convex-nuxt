@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { signInInputSchema, signUpInputSchema } from '~~/shared/inputSchemas'
+import {
+  normalizeLocalCallbackURL,
+  signInInputSchema,
+  signUpInputSchema,
+} from '~~/shared/inputSchemas'
 
 const { message } = defineProps<{
   message: string
 }>()
 
-const { signIn, signUp, refresh } = useConvexAuth()
+const { signIn, signUp } = useConvexAuth()
 const route = useRoute()
 
 const mode = ref<'signIn' | 'signUp'>('signUp')
@@ -15,7 +19,9 @@ const password = ref('')
 const error = ref<string | null>(null)
 const info = ref<string | null>(null)
 const loading = ref(false)
-const callbackURL = computed(() => route.fullPath || '/')
+const signInFailure =
+  'Sign in could not be completed. Check your credentials and verify your email if required.'
+const callbackURL = computed(() => normalizeLocalCallbackURL(route.fullPath))
 
 const canSubmit = computed(() => {
   const schema = mode.value === 'signIn' ? signInInputSchema : signUpInputSchema
@@ -65,13 +71,12 @@ async function submitAuth() {
       })
 
       if (signUpError) {
-        error.value = signUpError.message || 'Sign up failed'
+        error.value = 'Sign up could not be completed'
         return
       }
 
       password.value = ''
-      await refresh()
-      info.value = 'Check your email for a verification link.'
+      info.value = 'If the address can be registered, check your email for a verification link.'
       return
     }
 
@@ -90,12 +95,11 @@ async function submitAuth() {
     })
 
     if (result.error) {
-      error.value = result.error.message || 'Sign in failed'
+      error.value = signInFailure
       return
     }
 
     password.value = ''
-    await refresh()
     info.value =
       'Signed in. If your email is not verified yet, check your inbox for a verification link.'
   } catch (e) {
@@ -142,8 +146,8 @@ async function submitAuth() {
         <input
           v-model="password"
           :autocomplete="passwordAutocomplete"
-          minlength="8"
-          placeholder="Min 8 characters"
+          minlength="15"
+          placeholder="Min 15 characters"
           required
           type="password"
         />

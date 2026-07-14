@@ -7,8 +7,8 @@ export const purgeOldData = internalMutation({
     // Delete old demo tasks
     const oldTasks = await ctx.db
       .query('demoTasks')
-      .filter((q) => q.lt(q.field('createdAt'), cutoff))
-      .collect()
+      .withIndex('by_created', (q) => q.lt('createdAt', cutoff))
+      .take(100)
     for (const task of oldTasks) {
       await ctx.db.delete(task._id)
     }
@@ -16,8 +16,8 @@ export const purgeOldData = internalMutation({
     // Delete old files + storage blobs
     const oldFiles = await ctx.db
       .query('files')
-      .filter((q) => q.lt(q.field('createdAt'), cutoff))
-      .collect()
+      .withIndex('by_created', (q) => q.lt('createdAt', cutoff))
+      .take(100)
     for (const file of oldFiles) {
       await ctx.storage.delete(file.storageId)
       await ctx.db.delete(file._id)
@@ -26,8 +26,8 @@ export const purgeOldData = internalMutation({
     // Delete old messages
     const oldMessages = await ctx.db
       .query('messages')
-      .filter((q) => q.lt(q.field('createdAt'), cutoff))
-      .collect()
+      .withIndex('by_created', (q) => q.lt('createdAt', cutoff))
+      .take(100)
     for (const msg of oldMessages) {
       await ctx.db.delete(msg._id)
     }
@@ -35,8 +35,8 @@ export const purgeOldData = internalMutation({
     // Delete old feed items
     const oldFeedItems = await ctx.db
       .query('feedItems')
-      .filter((q) => q.lt(q.field('createdAt'), cutoff))
-      .collect()
+      .withIndex('by_created', (q) => q.lt('createdAt', cutoff))
+      .take(100)
     for (const item of oldFeedItems) {
       await ctx.db.delete(item._id)
     }

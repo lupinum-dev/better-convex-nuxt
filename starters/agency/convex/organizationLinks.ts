@@ -1,24 +1,9 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 
 import { mutation, query } from './_generated/server'
-import { requireDelegatedClientAccess, requireOrgMember } from './access'
-
-export const linkClient = mutation({
-  args: {
-    agencyOrganizationId: v.id('organizations'),
-    clientOrganizationId: v.id('organizations'),
-  },
-  handler: async (ctx, args) => {
-    await requireOrgMember(ctx, args.agencyOrganizationId, 'admin')
-    const now = Date.now()
-    return await ctx.db.insert('organizationLinks', {
-      ...args,
-      status: 'active',
-      createdAt: now,
-      updatedAt: now,
-    })
-  },
-})
+import { requireDelegatedClientAccess, requireOrganizationKind, requireOrgMember } from './access'
+import { writeAuditEvent } from './audit'
+import { requireCurrentUser } from './users'
 
 export const revoke = mutation({
   args: {
@@ -26,7 +11,29 @@ export const revoke = mutation({
     clientOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
-    await requireOrgMember(ctx, args.agencyOrganizationId, 'admin')
+    await Promise.all([
+      requireOrganizationKind(ctx, args.agencyOrganizationId, 'agency'),
+      requireOrganizationKind(ctx, args.clientOrganizationId, 'client'),
+    ])
+    const user = await requireCurrentUser(ctx)
+    const memberships = await Promise.all(
+      [args.agencyOrganizationId, args.clientOrganizationId].map(async (organizationId) => {
+        return await ctx.db
+          .query('memberships')
+          .withIndex('by_org_user', (q) =>
+            q.eq('organizationId', organizationId).eq('userId', user._id),
+          )
+          .unique()
+      }),
+    )
+    const mayRevoke = memberships.some(
+      (membership) =>
+        membership?.status === 'active' &&
+        (membership.role === 'owner' || membership.role === 'admin'),
+    )
+    if (!mayRevoke) {
+      throw new ConvexError('Organization link revocation denied')
+    }
     const link = await ctx.db
       .query('organizationLinks')
       .withIndex('by_agency_client', (q) =>
@@ -36,10 +43,23 @@ export const revoke = mutation({
       )
       .unique()
 
-    if (link) {
+    if (link?.status === 'active') {
       await ctx.db.patch(link._id, {
         status: 'revoked',
         updatedAt: Date.now(),
+      })
+      const clientMembership = memberships[1]
+      await writeAuditEvent(ctx, {
+        organizationId: args.clientOrganizationId,
+        actorUserId: user._id,
+        accessPath:
+          clientMembership?.status === 'active' &&
+          (clientMembership.role === 'owner' || clientMembership.role === 'admin')
+            ? 'direct'
+            : 'delegated',
+        action: 'organizationLinks.revoke',
+        resourceType: 'organizationLink',
+        resourceId: link._id,
       })
     }
   },
@@ -50,17 +70,19 @@ export const listClients = query({
     agencyOrganizationId: v.id('organizations'),
   },
   handler: async (ctx, args) => {
+    await requireOrganizationKind(ctx, args.agencyOrganizationId, 'agency')
     await requireOrgMember(ctx, args.agencyOrganizationId)
     const links = await ctx.db
       .query('organizationLinks')
-      .withIndex('by_agency', (q) => q.eq('agencyOrganizationId', args.agencyOrganizationId))
-      .collect()
+      .withIndex('by_agency_status', (q) =>
+        q.eq('agencyOrganizationId', args.agencyOrganizationId).eq('status', 'active'),
+      )
+      .take(100)
 
     const clients = []
     for (const link of links) {
-      if (link.status !== 'active') continue
       const client = await ctx.db.get(link.clientOrganizationId)
-      if (client) clients.push(client)
+      if (client) clients.push({ id: client._id, name: client.name, kind: client.kind })
     }
 
     return clients

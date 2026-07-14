@@ -17,11 +17,6 @@ async function loadInvitationForSession(
   invitationId: string,
 ) {
   const authState = await requireAuthenticatedSession(ctx)
-  const invitation = await getBetterAuthInvitation(ctx, { invitationId })
-  if (!invitation) {
-    throw new ConvexError('Invitation not found')
-  }
-
   const sessionEmail = normalizeEmail(authState.session.user.email)
   if (!sessionEmail) {
     throw new ConvexError('Authenticated session is missing an email address')
@@ -29,8 +24,10 @@ async function loadInvitationForSession(
   if (!authState.session.user.emailVerified) {
     throw new ConvexError('Verify your email before using invitation links')
   }
-  if (normalizeEmail(invitation.email) !== sessionEmail) {
-    throw new ConvexError('Invitation is for a different email address')
+
+  const invitation = await getBetterAuthInvitation(ctx, { invitationId })
+  if (!invitation || normalizeEmail(invitation.email) !== sessionEmail) {
+    throw new ConvexError('Invitation is unavailable')
   }
 
   return {

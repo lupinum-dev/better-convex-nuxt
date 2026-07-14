@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { normalizeLocalCallbackURL } from '~~/shared/inputSchemas'
+
 import { api } from '#convex/api'
 
 const route = useRoute()
@@ -35,7 +37,7 @@ async function resendVerificationEmail() {
       method: 'POST',
       body: {
         email: user.value.email,
-        callbackURL: route.fullPath,
+        callbackURL: normalizeLocalCallbackURL(route.fullPath),
       },
     })
     verificationMessage.value = 'Verification email sent.'

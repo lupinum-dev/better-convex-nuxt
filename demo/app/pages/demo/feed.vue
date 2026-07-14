@@ -5,7 +5,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { can } = useDemoPermissions()
+const { can } = await useDemoPermissions()
 
 // Real-time feed subscription (blocking setup by default)
 const { data: feedItems, status } = await useConvexQuery(api.feed.list, {})

@@ -35,14 +35,17 @@ This proof starter intentionally has no app-owned `organizations` or
   component thread id from `agentRuns`; this run-id public surface is
   source-tested against caller-supplied organization, thread, user, and token
   args;
-- run start rejects blank agent names and stores deduplicated capability lists
-  in stable canonical order;
+- run start rejects blank or over-120-character agent names and stores
+  deduplicated capability lists in stable canonical order; persisted component
+  thread ids are capped at 512 characters;
 - invalid run expiry and token budgets are rejected before creating an
   `agentRuns` row;
 - public approval/rejection mutations are source-tested and runtime-tested as
   review-row-id-only surfaces; they derive the human actor from a Better Auth
   session and reject caller-supplied user ids;
-- pending approval queue reads require Better Auth `project:read` permission;
+- pending approval queue reads require Better Auth `project:read` permission,
+  return at most 100 rows per review type, and reject new agent-created review
+  rows while that organization queue is full;
 - Better Auth organization permission failure blocks draft approval and
   destructive approval without mutating product state;
 - approval/rejection mutations derive the organization from the draft/deletion
@@ -74,8 +77,9 @@ This proof starter intentionally has no app-owned `organizations` or
 - human rejection audit for drafts and deletion requests points at the decided
   review row and matching source id;
 - default agent writes create draft product state;
-- blank agent-created draft content or deletion reasons are rejected before
-  inserting review rows or agent audit events;
+- blank or oversized agent-created draft content and deletion reasons are
+  rejected before inserting review rows or agent audit events (200-character
+  titles, 20,000-character bodies, and 1,000-character reasons);
 - human approval promotes draft state into canonical product records;
 - already-decided drafts cannot be approved or rejected again;
 - destructive agent actions create pending approval requests and do not mutate
@@ -133,18 +137,20 @@ This proof starter intentionally has no app-owned `organizations` or
 - completed runs cannot be revoked because revocation is for active delegation;
 - unauthorized action attempts do not fail active runs, and failed action
   attempts cannot overwrite completed or revoked run states;
-- failed Agent executions reject that run's pending draft/deletion-request rows
-  with `decidedAt`, so failed runs can retain diagnostic history without
-  leaving human-approvable or queue-visible product review state behind;
+- failed Agent executions reject that run's bounded pending
+  draft/deletion-request rows with `decidedAt`, so failed runs can retain
+  diagnostic history without leaving human-approvable or queue-visible product
+  review state behind;
   already-decided review rows are not re-decided by run failure; a later
   retention cleanup can delete the failed run's stored Agent thread and usage
   history while keeping rejected review rows;
 - Convex Agent `usageHandler` records internal append-only usage events keyed
   by the organization, agent run, delegating user, normalized non-empty model
-  and provider labels, and valid non-negative token counts whose total covers
-  prompt plus completion and whose cached input count does not exceed prompt
-  tokens; the app-owned schema is source-tested to keep raw usage events
-  instead of billing rollups, projections, caches, or invoice tables;
+  and provider labels capped at 200 characters, and valid non-negative token
+  counts whose total covers prompt plus completion and whose cached input count
+  does not exceed prompt tokens; the app-owned schema is source-tested to keep
+  raw usage events instead of billing rollups, projections, caches, or invoice
+  tables;
 - usage events require the callback Agent thread id to match the canonical
   thread stored on `agentRuns`, then store the run-derived thread id so
   wrong-thread usage cannot become derived billing/retention state;
@@ -155,19 +161,19 @@ This proof starter intentionally has no app-owned `organizations` or
   metadata or duplicating the run name;
 - per-run token budgets stop over-budget Agent runs before recording the
   over-budget usage event;
-- organization/user aggregate token budgets stop already-exhausted follow-up
-  runs before creating Agent thread, draft, audit, or usage rows for the
-  blocked run;
+- each run stores at most 100 raw usage events, so per-run budget checks and
+  retention batches have fixed read/write bounds without aggregate rollups or
+  a second billing source of truth;
 - server-only secret material stays outside model-visible tool args, and
   persisted Agent messages contain a redacted marker without the raw server-only
   secret canary;
-- retention cleanup deletes Convex Agent thread history and app usage events
-  for the stored thread of a terminal run, queries app usage cleanup by
-  `agentRunId`, rejects active and running runs before checking thread state,
-  and retains product draft and audit history, including rejected review rows
-  from failed runs; repeating the same cleanup command is a no-op for
-  already-deleted messages and usage; same-org readers cannot retention-delete
-  another delegator's run;
+- retention cleanup starts the Convex Agent component's supported 100-row
+  asynchronous thread deletion and removes at most 100 app usage events for a
+  terminal run per command; it reports whether legacy usage rows need another
+  call, rejects active and running runs before checking thread state, and
+  retains product draft and audit history, including rejected review rows from
+  failed runs; repeating the cleanup is safe, and same-org readers cannot
+  retention-delete another delegator's run;
 - audit records `actor.kind = "agent"` and `delegatedByAuthUserId`;
 - a Nuxt approval queue page reads pending drafts and destructive requests from
   canonical Convex tables and calls the same Better Auth-checked approval
@@ -200,6 +206,9 @@ pnpm convex:local:once
 pnpm convex:codegen
 ```
 
+`pnpm build` also starts the generated Nitro server and asserts that `/`
+returns the Agentic SaaS approval queue with HTTP 200.
+
 If `pnpm convex:local:once` fails schema validation against old rows while
 using an anonymous local deployment, delete the generated local backend state
 and rerun before treating the result as evidence:
@@ -215,7 +224,7 @@ For local browser runtime proof:
 ```bash
 pnpm convex:local:once
 pnpm exec convex env set SITE_URL http://127.0.0.1:3000
-pnpm exec convex env set BETTER_AUTH_SECRET agentic-saas-local-proof-secret-at-least-32-chars
+pnpm exec convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
 NUXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 \
 NUXT_PUBLIC_CONVEX_SITE_URL=http://127.0.0.1:3211 \
 SITE_URL=http://127.0.0.1:3000 \

@@ -1,109 +1,12 @@
 /**
  * Testing Utilities for E2E Tests
  *
- * IMPORTANT: These functions are only for test environments.
- * They are protected by the ALLOW_TEST_RESET environment variable.
+ * These functions exercise public query, mutation, and action error handling.
  */
 
 import { v } from 'convex/values'
 
-import { components } from './_generated/api'
-import { action, internalQuery, mutation, query } from './_generated/server'
-
-// All tables from schema.ts
-const ALL_TABLES = ['users', 'posts', 'tasks', 'files', 'notes'] as const
-
-// Better Auth component tables
-const BETTER_AUTH_TABLES = [
-  'user',
-  'session',
-  'account',
-  'verification',
-  'twoFactor',
-  'passkey',
-  'oauthApplication',
-  'oauthAccessToken',
-  'oauthConsent',
-  'jwks',
-  'rateLimit',
-] as const
-
-/**
- * Clear all data from the database
- *
- * Safety measures:
- * 1. Requires ALLOW_TEST_RESET=true environment variable
- * 2. Requires confirmation code to prevent accidental calls
- */
-export const clearAllData = mutation({
-  args: {
-    confirmationCode: v.string(),
-  },
-  handler: async (ctx, args) => {
-    // Safety check 1: Environment variable
-    const allowReset = process.env.ALLOW_TEST_RESET
-    if (allowReset !== 'true') {
-      throw new Error(
-        '[testing.clearAllData] ALLOW_TEST_RESET environment variable is not set to "true". ' +
-          'This mutation is only available in test environments.',
-      )
-    }
-
-    // Safety check 2: Confirmation code
-    if (args.confirmationCode !== 'RESET_DB_FOR_TESTS') {
-      throw new Error(
-        '[testing.clearAllData] Invalid confirmation code. ' +
-          'Pass confirmationCode: "RESET_DB_FOR_TESTS"',
-      )
-    }
-
-    // Clear all app tables
-    const stats: Record<string, number> = {}
-
-    for (const table of ALL_TABLES) {
-      const docs = await ctx.db.query(table).collect()
-      stats[table] = docs.length
-
-      for (const doc of docs) {
-        await ctx.db.delete(doc._id)
-      }
-    }
-
-    // Clear Better Auth component tables
-    const authStats: Record<string, number> = {}
-    for (const table of BETTER_AUTH_TABLES) {
-      try {
-        // Delete all documents using pagination loop
-        let totalDeleted = 0
-        let hasMore = true
-
-        while (hasMore) {
-          const result = await ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-            input: { model: table, where: [] },
-            paginationOpts: { numItems: 100, cursor: null },
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth component typing
-          } as any)
-          totalDeleted += result.count
-          hasMore = !result.isDone
-        }
-
-        authStats[`auth:${table}`] = totalDeleted
-      } catch (error) {
-        // Table might not exist or be empty, continue
-        console.log(`[testing.clearAllData] Could not clear auth table ${table}:`, error)
-      }
-    }
-
-    const allStats = { ...stats, ...authStats }
-    console.log('[testing.clearAllData] Cleared database:', allStats)
-
-    return {
-      success: true,
-      deleted: allStats,
-      totalDeleted: Object.values(allStats).reduce((a, b) => a + b, 0),
-    }
-  },
-})
+import { action, mutation, query } from './_generated/server'
 
 /**
  * Health check query - verifies database connection
@@ -139,29 +42,20 @@ export const alwaysFailsMutation = mutation({
 })
 
 /**
- * Internal query for the test action to call
- */
-export const getHealthData = internalQuery({
-  args: {},
-  handler: async () => {
-    return {
-      serverTime: Date.now(),
-      status: 'healthy',
-    }
-  },
-})
-
-/**
  * Simple test action - for testing useConvexAction
  * Returns the input value after a small delay (simulates work)
  */
 export const echo = action({
   args: { message: v.string() },
   handler: async (_ctx, args) => {
+    const message = args.message.trim()
+    if (!message || message.length > 5_000) {
+      throw new Error('Message must be between 1 and 5000 characters')
+    }
     // Simulate some async work
     await new Promise((resolve) => setTimeout(resolve, 100))
     return {
-      echoed: args.message,
+      echoed: message,
       timestamp: Date.now(),
     }
   },

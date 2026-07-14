@@ -1,17 +1,8 @@
 {
-  "name": "my-module-playground",
+  "name": "better-convex-nuxt-playground",
   "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "nuxi dev --dotenv .env.local --port 4578",
-    "build": "nuxi build --dotenv .env.local",
-    "generate": "nuxi generate --dotenv .env.local"
-  },
-  "dependencies": {
-    "@convex-dev/better-auth": "0.12.5",
-    "better-auth": "1.6.23",
-    "convex": "1.38.0",
-    "nuxt": "4.4.8"
-  },
-  "packageManager": "pnpm@10.30.3"
+  "peerDependencies": {
+    "convex": "1.40.0"
+  }
 }

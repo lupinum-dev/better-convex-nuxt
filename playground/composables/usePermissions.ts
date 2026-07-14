@@ -22,11 +22,11 @@ export type { Permission, Resource }
 // USE PERMISSIONS
 // ============================================
 //
-//   const { can, user, isAuthenticated, pending } = usePermissions()
+//   const { can, user, isAuthenticated, pending } = await usePermissions()
 //   <button v-if="can('post.update', post)">Edit</button>
 
-export function usePermissions() {
-  const { data: context, status } = useConvexQuery(api.auth.getPermissionContext, {})
+export async function usePermissions() {
+  const { data: context, status } = await useConvexQuery(api.auth.getPermissionContext, {})
 
   function can(permission: Permission, resource?: Resource): boolean {
     return checkPermission(
@@ -43,40 +43,4 @@ export function usePermissions() {
     isAuthenticated: computed(() => Boolean(context.value)),
     pending: computed(() => status.value === 'pending'),
   }
-}
-
-// ============================================
-// USE PERMISSION REDIRECT
-// ============================================
-
-export function usePermissionRedirect(options: {
-  permission: Permission
-  redirectTo?: string
-  resource?: Resource
-  loginPath?: string
-}) {
-  const { permission, redirectTo = '/', resource, loginPath = '/auth/signin' } = options
-  const { can, pending, isAuthenticated } = usePermissions()
-  const router = useRouter()
-
-  let pendingRedirect = false
-
-  watchEffect(() => {
-    if (pending.value || pendingRedirect) return
-
-    if (!isAuthenticated.value) {
-      pendingRedirect = true
-      void router.push(loginPath).finally(() => {
-        pendingRedirect = false
-      })
-      return
-    }
-
-    if (!can(permission, resource)) {
-      pendingRedirect = true
-      void router.push(redirectTo).finally(() => {
-        pendingRedirect = false
-      })
-    }
-  })
 }

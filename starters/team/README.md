@@ -46,6 +46,11 @@ starter does not mirror those management actions into app tables.
   Members and viewers must be explicit Better Auth team members.
 - `users` is a display projection only. It is rebuildable from Better Auth user
   state and must not be used as an authorization source.
+- `auth:rebuildUserProjectionBatch` reconciles that projection in pages of 100:
+  it inserts missing rows, refreshes stale display fields, and removes duplicate
+  copies. Call the internal mutation from operator-only maintenance code with a
+  `null` cursor, then repeat with `continueCursor` until `isDone` is true. The
+  Better Auth delete trigger removes every copied row, including its PII fields.
 - `auditEvents` records product events only. Organization, member, invitation,
   team, and team-member management remain in Better Auth's domain.
 - The starter does not mix app-owned HTTP management wrappers with Convex hooks.

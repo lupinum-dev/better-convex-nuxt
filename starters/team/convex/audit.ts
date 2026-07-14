@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 
 import { query } from './_generated/server'
 import { requireOrganizationActivityAccess, requireProjectTeamAccess } from './lib/authz'
+import { requireBoundedPageSize } from './lib/pagination'
 
 export const listForOrganization = query({
   args: {
@@ -10,6 +11,7 @@ export const listForOrganization = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    requireBoundedPageSize(args.paginationOpts.numItems)
     await requireOrganizationActivityAccess(ctx, {
       organizationId: args.organizationId,
     })
@@ -28,6 +30,7 @@ export const listForTeam = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    requireBoundedPageSize(args.paginationOpts.numItems)
     const access = await requireProjectTeamAccess(ctx, {
       teamId: args.teamId,
       permission: 'read',

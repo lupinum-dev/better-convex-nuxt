@@ -45,4 +45,17 @@ describe('mcp-agent source guards', () => {
     expect(source).toContain('service-actor-secret')
     expect(source).not.toContain('value: element instanceof HTMLInputElement ? element.value')
   })
+
+  it('clears the one-time service actor secret before changing organization context', () => {
+    const source = readFileSync(
+      new URL('../app/composables/useMcpDemoWorkspace.ts', import.meta.url),
+      'utf8',
+    )
+    const organizationWatcher = source.slice(source.indexOf('watch(selectedOrganizationId'))
+
+    expect(organizationWatcher.indexOf("serviceActorSecret.value = ''")).toBeGreaterThanOrEqual(0)
+    expect(organizationWatcher.indexOf("serviceActorSecret.value = ''")).toBeLessThan(
+      organizationWatcher.indexOf('refreshProjects()'),
+    )
+  })
 })

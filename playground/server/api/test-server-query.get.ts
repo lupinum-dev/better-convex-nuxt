@@ -4,6 +4,19 @@ import { defineEventHandler, createError, getQuery } from 'h3'
 import { api } from '#convex/api'
 import { serverConvex } from '#convex/server'
 
+function readLimit(value: unknown): number {
+  if (value === undefined) return 5
+  if (typeof value !== 'string') {
+    throw createError({ statusCode: 400, statusMessage: 'limit must be an integer from 1 to 50' })
+  }
+
+  const limit = Number(value)
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50 || String(limit) !== value) {
+    throw createError({ statusCode: 400, statusMessage: 'limit must be an integer from 1 to 50' })
+  }
+  return limit
+}
+
 /**
  * Test API endpoint that demonstrates server-side queries using serverConvex.
  *
@@ -12,7 +25,7 @@ import { serverConvex } from '#convex/server'
  */
 export default defineEventHandler(async (event: H3Event) => {
   const query = getQuery(event)
-  const limit = Number(query.limit) || 5
+  const limit = readLimit(query.limit)
 
   try {
     // Use the new serverConvex caller!
@@ -30,18 +43,7 @@ export default defineEventHandler(async (event: H3Event) => {
       executedOn: 'server',
       timestamp: new Date().toISOString(),
     }
-  } catch (error) {
-    if (
-      import.meta.dev &&
-      error instanceof Error &&
-      error.message.includes('Convex URL is not configured')
-    ) {
-      throw createError({ statusCode: 500, message: error.message })
-    }
-    return {
-      success: false,
-      message: 'Failed to fetch notes',
-      error: String(error),
-    }
+  } catch {
+    throw createError({ statusCode: 502, statusMessage: 'Failed to fetch notes' })
   }
 })

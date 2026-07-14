@@ -7,6 +7,7 @@ import { createProjectInputSchema, renameProjectInputSchema } from '../shared/in
 import { internalMutation, mutation, query } from './_generated/server'
 import { writeAuditEvent } from './lib/audit'
 import { requireProjectAccessById, requireProjectTeamAccess } from './lib/authz'
+import { requireBoundedPageSize } from './lib/pagination'
 import { organizationActorRateLimitKey, rateLimiter } from './lib/rateLimits'
 import { parseWithConvexError } from './lib/validation'
 import { projectStatus } from './schema'
@@ -55,6 +56,7 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    requireBoundedPageSize(args.paginationOpts.numItems)
     const access = await requireProjectTeamAccess(ctx, {
       teamId: args.teamId,
       permission: 'read',
@@ -260,14 +262,16 @@ export const purgeSoftDeleted = internalMutation({
     const deletedProjects = await ctx.db
       .query('projects')
       .withIndex('by_status_deletedAt', (q) => q.eq('status', 'deleted').lte('deletedAt', cutoff))
-      .collect()
+      .take(101)
+    const batch = deletedProjects.slice(0, 100)
 
-    for (const project of deletedProjects) {
+    for (const project of batch) {
       await ctx.db.delete(project._id)
     }
 
     return {
-      deletedCount: deletedProjects.length,
+      deletedCount: batch.length,
+      hasMore: deletedProjects.length > batch.length,
       cutoff,
     }
   },

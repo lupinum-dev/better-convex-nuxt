@@ -6,9 +6,25 @@ import { requireCurrentUser } from './users'
 
 type HumanRole = 'owner' | 'admin' | 'member' | 'viewer'
 type ServiceActorRole = 'admin' | 'member' | 'viewer'
-type ServiceAuditAction = 'projects.create' | 'projects.delete'
-type ServiceAuditResourceType = 'project'
-type ServiceAuditSource = 'mcp' | 'agent'
+type AuditActor =
+  | { kind: 'user'; userId: Id<'users'> }
+  | { kind: 'serviceActor'; serviceActorId: Id<'serviceActors'> }
+type AuditAction =
+  | 'organizations.create'
+  | 'projects.create'
+  | 'projects.delete'
+  | 'serviceActors.create'
+  | 'agentCredentials.revoke'
+  | 'approvals.request'
+  | 'approvals.approve'
+  | 'approvals.reject'
+type AuditResourceType =
+  | 'organization'
+  | 'project'
+  | 'serviceActor'
+  | 'agentCredential'
+  | 'approval'
+type AuditSource = 'human' | 'mcp' | 'agent'
 
 const roleRank: Record<HumanRole, number> = {
   owner: 4,
@@ -29,6 +45,9 @@ function hashBearerSecret(secret: string) {
 
 export function requireMcpServerCall(serverSecret: string) {
   const expected = process.env.MCP_SERVER_SECRET
+  if (!expected || expected.trim() !== expected || expected.length < 32) {
+    throw new ConvexError('MCP server is not configured securely')
+  }
   if (!serverSecret || serverSecret !== expected) {
     throw new ConvexError('MCP server authorization required')
   }
@@ -63,6 +82,9 @@ export async function requireServiceActor(
     minimumRole?: ServiceActorRole
   },
 ) {
+  if (!args.bearerToken || args.bearerToken.length > 256) {
+    throw new ConvexError('Service actor credential denied')
+  }
   const credentialHash = await hashBearerSecret(args.bearerToken)
   const credential = await ctx.db
     .query('agentCredentials')
@@ -109,20 +131,19 @@ export async function requireServiceCredentialManager(
   return await requireOrganizationAdmin(ctx, organizationId)
 }
 
-export async function writeServiceAudit(
+export async function writeAuditEvent(
   ctx: MutationCtx,
   args: {
     organizationId: Id<'organizations'>
-    serviceActorId: Id<'serviceActors'>
-    action: ServiceAuditAction
-    resourceType: ServiceAuditResourceType
-    source?: ServiceAuditSource
+    actor: AuditActor
+    action: AuditAction
+    resourceType: AuditResourceType
+    source: AuditSource
     resourceId?: string
   },
 ) {
   await ctx.db.insert('auditEvents', {
     ...args,
-    source: args.source ?? 'mcp',
     createdAt: Date.now(),
   })
 }

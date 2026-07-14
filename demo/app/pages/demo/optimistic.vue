@@ -152,7 +152,7 @@ function isOptimistic(taskId: string) {
               variant="ghost"
               size="xs"
               class="opacity-0 group-hover:opacity-100"
-              @click="standardDelete({ id: task._id })"
+              @click="void standardDelete({ id: task._id })"
             />
           </li>
         </ul>
@@ -216,7 +216,7 @@ function isOptimistic(taskId: string) {
               variant="ghost"
               size="xs"
               class="opacity-0 group-hover:opacity-100"
-              @click="optimisticDelete({ id: task._id })"
+              @click="void optimisticDelete({ id: task._id })"
             />
           </li>
         </ul>

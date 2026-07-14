@@ -3,7 +3,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { user, role } = useDemoPermissions()
+const { user, role } = await useDemoPermissions()
 const roleBadgeColor = computed(() => {
   if (role.value === 'member') return 'success'
   return 'neutral'

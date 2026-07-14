@@ -37,10 +37,30 @@ describe('mcp-agent project authorization and rate limits', () => {
         serverSecret: mcpServerSecret,
         bearerToken: serviceBearerToken,
       }),
-    ).rejects.toThrow('MCP server authorization required')
+    ).rejects.toThrow('MCP server is not configured securely')
 
     restoreMcpServerSecret = setMcpServerSecret()
   })
+
+  it.each(['short', ` ${mcpServerSecret}`, `${mcpServerSecret} `])(
+    'fails closed when the configured MCP_SERVER_SECRET is unsafe: %j',
+    async (configuredSecret) => {
+      restoreMcpServerSecret()
+      process.env.MCP_SERVER_SECRET = configuredSecret
+
+      const t = convexTest(schema, modules)
+      await seedActor(t, 'member')
+
+      await expect(
+        t.query(api.projects.listForServiceActor, {
+          serverSecret: configuredSecret,
+          bearerToken: serviceBearerToken,
+        }),
+      ).rejects.toThrow('MCP server is not configured securely')
+
+      restoreMcpServerSecret = setMcpServerSecret()
+    },
+  )
 
   it('service actor project functions require the MCP server secret', async () => {
     const t = convexTest(schema, modules)
@@ -119,6 +139,7 @@ describe('mcp-agent project authorization and rate limits', () => {
       .query(api.projects.listForCurrentUser, {
         organizationId,
       })
+    const auditEvents = await t.run(async (ctx) => await ctx.db.query('auditEvents').collect())
 
     expect(projects).toHaveLength(1)
     expect(projects[0]).toMatchObject({
@@ -126,6 +147,16 @@ describe('mcp-agent project authorization and rate limits', () => {
       name: 'Launch',
       createdBy: { kind: 'user', userId },
     })
+    expect(auditEvents).toContainEqual(
+      expect.objectContaining({
+        organizationId,
+        actor: { kind: 'user', userId },
+        action: 'projects.create',
+        resourceType: 'project',
+        source: 'human',
+        resourceId: projectId,
+      }),
+    )
   })
 
   it('human project wrappers require active membership and member role for writes', async () => {
@@ -195,7 +226,9 @@ describe('mcp-agent project authorization and rate limits', () => {
     const foreignProjects = await t.run(async (ctx) => {
       return await ctx.db
         .query('projects')
-        .withIndex('by_org', (q) => q.eq('organizationId', otherOrganizationId))
+        .withIndex('by_org_status', (q) =>
+          q.eq('organizationId', otherOrganizationId).eq('status', 'active'),
+        )
         .collect()
     })
     const credentialProjects = await t.query(api.projects.listForServiceActor, {

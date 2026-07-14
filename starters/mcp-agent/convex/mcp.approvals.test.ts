@@ -36,6 +36,35 @@ describe('mcp-agent destructive approval lifecycle', () => {
     return { t, organizationId, serviceActorId, credentialId, ownerId, projectId }
   }
 
+  async function seedSecondServiceActor(
+    t: Awaited<ReturnType<typeof createProjectForDelete>>['t'],
+    organizationId: Awaited<ReturnType<typeof createProjectForDelete>>['organizationId'],
+  ) {
+    const bearerToken = 'second-service-actor-token'
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bearerToken))
+    const secretHash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('')
+    await t.run(async (ctx) => {
+      const serviceActorId = await ctx.db.insert('serviceActors', {
+        organizationId,
+        name: 'Second MCP actor',
+        role: 'admin',
+        status: 'active',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      await ctx.db.insert('agentCredentials', {
+        organizationId,
+        serviceActorId,
+        secretHash,
+        status: 'active',
+        createdAt: Date.now(),
+      })
+    })
+    return bearerToken
+  }
+
   it('previews project deletion without mutating state', async () => {
     const { t, projectId } = await createProjectForDelete()
 
@@ -58,7 +87,7 @@ describe('mcp-agent destructive approval lifecycle', () => {
   })
 
   it('creates one pending approval request and reuses it for idempotent retries', async () => {
-    const { t, projectId } = await createProjectForDelete()
+    const { t, serviceActorId, projectId } = await createProjectForDelete()
 
     const first = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,
@@ -76,7 +105,10 @@ describe('mcp-agent destructive approval lifecycle', () => {
     })
 
     expect(second.approvalRequestId).toBe(first.approvalRequestId)
-    const approvals = await t.run(async (ctx) => await ctx.db.query('approvals').collect())
+    const { approvals, auditEvents } = await t.run(async (ctx) => ({
+      approvals: await ctx.db.query('approvals').collect(),
+      auditEvents: await ctx.db.query('auditEvents').collect(),
+    }))
     expect(approvals).toHaveLength(1)
     expect(approvals[0]).toMatchObject({
       operation: 'projects.delete',
@@ -84,10 +116,18 @@ describe('mcp-agent destructive approval lifecycle', () => {
       status: 'pending',
       requestedReason: 'User asked in chat.',
     })
+    expect(auditEvents.filter((event) => event.action === 'approvals.request')).toEqual([
+      expect.objectContaining({
+        actor: { kind: 'serviceActor', serviceActorId },
+        resourceType: 'approval',
+        source: 'mcp',
+        resourceId: first.approvalRequestId,
+      }),
+    ])
   })
 
   it('does not create duplicate approvals when a request key is reused after rejection', async () => {
-    const { t, projectId } = await createProjectForDelete()
+    const { t, organizationId, ownerId, projectId } = await createProjectForDelete()
     const first = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
@@ -105,7 +145,10 @@ describe('mcp-agent destructive approval lifecycle', () => {
       projectId,
       requestKey: 'stable-request-key',
     })
-    const approvals = await t.run(async (ctx) => await ctx.db.query('approvals').collect())
+    const { approvals, audit } = await t.run(async (ctx) => ({
+      approvals: await ctx.db.query('approvals').collect(),
+      audit: await ctx.db.query('auditEvents').collect(),
+    }))
 
     expect(second).toMatchObject({
       status: 'blocked',
@@ -113,16 +156,26 @@ describe('mcp-agent destructive approval lifecycle', () => {
       approvalRequestId: first.approvalRequestId,
     })
     expect(approvals).toHaveLength(1)
+    expect(audit).toContainEqual(
+      expect.objectContaining({
+        organizationId,
+        actor: { kind: 'user', userId: ownerId },
+        action: 'approvals.reject',
+        resourceType: 'approval',
+        resourceId: first.approvalRequestId,
+      }),
+    )
   })
 
   it('does not show expired pending approval requests as actionable app approvals', async () => {
-    const { t, organizationId, projectId } = await createProjectForDelete()
+    const { t, organizationId, serviceActorId, projectId } = await createProjectForDelete()
     await t.run(async (ctx) => {
       await ctx.db.insert('approvals', {
         organizationId,
         operation: 'projects.delete',
         resourceId: projectId,
         status: 'pending',
+        requestedBy: serviceActorId,
         requestedReason: 'Expired pending request.',
         expiresAt: Date.now() - 1,
         createdAt: Date.now() - 60_000,
@@ -154,10 +207,22 @@ describe('mcp-agent destructive approval lifecycle', () => {
     await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
       approvalRequestId: request.approvalRequestId,
     })
-    const approval = await t.run(async (ctx) => await ctx.db.get(request.approvalRequestId))
+    const { approval, audit } = await t.run(async (ctx) => ({
+      approval: await ctx.db.get(request.approvalRequestId),
+      audit: await ctx.db.query('auditEvents').collect(),
+    }))
     expect(approval).toMatchObject({ status: 'approved' })
     expect(approval?.approvedBy).toBeTruthy()
     expect(approval?.approvedAt).toBeTypeOf('number')
+    expect(audit).toContainEqual(
+      expect.objectContaining({
+        organizationId,
+        actor: { kind: 'user', userId: approval?.approvedBy },
+        action: 'approvals.approve',
+        resourceType: 'approval',
+        resourceId: request.approvalRequestId,
+      }),
+    )
 
     await expect(
       t.withIdentity({ subject: 'owner' }).mutation(api.approvals.rejectProjectDelete, {
@@ -199,8 +264,49 @@ describe('mcp-agent destructive approval lifecycle', () => {
     })
   })
 
+  it('binds idempotence, status, and execution to the requesting service actor', async () => {
+    const { t, organizationId, projectId } = await createProjectForDelete()
+    const secondBearerToken = await seedSecondServiceActor(t, organizationId)
+    const first = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: serviceBearerToken,
+      projectId,
+      requestKey: 'same-client-key',
+    })
+    const second = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
+      serverSecret: mcpServerSecret,
+      bearerToken: secondBearerToken,
+      projectId,
+      requestKey: 'same-client-key',
+    })
+    expect(second.approvalRequestId).not.toBe(first.approvalRequestId)
+
+    await t.withIdentity({ subject: 'owner' }).mutation(api.approvals.approveProjectDelete, {
+      approvalRequestId: first.approvalRequestId,
+    })
+
+    await expect(
+      t.query(api.approvals.getForServiceActor, {
+        serverSecret: mcpServerSecret,
+        bearerToken: secondBearerToken,
+        approvalRequestId: first.approvalRequestId,
+      }),
+    ).rejects.toThrow('Approval request not found')
+    await expect(
+      t.mutation(api.projects.deleteWithApproval, {
+        serverSecret: mcpServerSecret,
+        bearerToken: secondBearerToken,
+        projectId,
+        approvalId: first.approvalRequestId,
+      }),
+    ).rejects.toThrow('Approval required')
+    expect(await t.run(async (ctx) => await ctx.db.get(projectId))).toMatchObject({
+      status: 'active',
+    })
+  })
+
   it('rejects rejected, expired, reused, and mismatched approvals at execute time', async () => {
-    const { t, organizationId, ownerId, projectId } = await createProjectForDelete()
+    const { t, organizationId, serviceActorId, ownerId, projectId } = await createProjectForDelete()
     const rejected = await t.mutation(api.projects.requestDeleteApprovalFromServiceActor, {
       serverSecret: mcpServerSecret,
       bearerToken: serviceBearerToken,
@@ -227,6 +333,7 @@ describe('mcp-agent destructive approval lifecycle', () => {
         operation: 'projects.delete',
         resourceId: projectId,
         status: 'approved',
+        requestedBy: serviceActorId,
         requestedReason: 'Expired.',
         approvedBy: ownerId,
         approvedAt: Date.now() - 10_000,
@@ -371,7 +478,7 @@ describe('mcp-agent destructive approval lifecycle', () => {
     expect(auditEvents).toContainEqual(
       expect.objectContaining({
         organizationId,
-        serviceActorId,
+        actor: { kind: 'serviceActor', serviceActorId },
         action: 'projects.delete',
         resourceType: 'project',
         source: 'mcp',

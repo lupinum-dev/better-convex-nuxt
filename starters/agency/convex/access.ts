@@ -13,6 +13,21 @@ const roleRank: Record<Role, number> = {
   viewer: 1,
 }
 
+export async function requireOrganizationKind(
+  ctx: QueryCtx | MutationCtx,
+  organizationId: Id<'organizations'>,
+  expectedKind: 'agency' | 'client',
+) {
+  const organization = await ctx.db.get(organizationId)
+  if (!organization || organization.kind !== expectedKind) {
+    throw new ConvexError(
+      `${expectedKind === 'agency' ? 'Agency' : 'Client'} organization not found`,
+    )
+  }
+
+  return organization
+}
+
 export async function requireOrgMember(
   ctx: QueryCtx | MutationCtx,
   organizationId: Id<'organizations'>,
@@ -43,6 +58,10 @@ export async function requireDelegatedClientAccess(
   },
   minimumAgencyRole: Role = 'member',
 ) {
+  await Promise.all([
+    requireOrganizationKind(ctx, args.agencyOrganizationId, 'agency'),
+    requireOrganizationKind(ctx, args.clientOrganizationId, 'client'),
+  ])
   const agencyAccess = await requireOrgMember(ctx, args.agencyOrganizationId, minimumAgencyRole)
   const link = await ctx.db
     .query('organizationLinks')

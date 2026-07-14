@@ -27,8 +27,8 @@
             id="password"
             v-model="form.password"
             type="password"
-            placeholder="Min 8 characters"
-            minlength="8"
+            placeholder="Min 15 characters"
+            minlength="15"
             required
           />
         </div>
@@ -74,13 +74,14 @@ async function handleSignUp() {
     })
 
     if (result.error) {
-      error.value = result.error.message || 'Sign up failed'
+      error.value = 'Sign up could not be completed'
       return
     }
 
-    // The integrated `signUp` namespace settles identity (token/user) before it
-    // resolves (vNext §8 "Atomic sign-in/sign-up"), so navigate straight away.
-    window.location.href = '/'
+    // Signup intentionally creates no session, avoiding the pinned default's
+    // immediate duplicate status/token disclosure. Continue through sign-in;
+    // the broader enumeration limitation remains documented in SECURITY.md.
+    await navigateTo('/auth/signin')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An unexpected error occurred'
   } finally {

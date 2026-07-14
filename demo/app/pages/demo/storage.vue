@@ -6,7 +6,7 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { can } = useDemoPermissions()
+const { can } = await useDemoPermissions()
 
 // File upload
 const {
@@ -66,8 +66,6 @@ async function uploadFile(file: File) {
       await saveFile({
         storageId: storageId as Id<'_storage'>,
         filename: file.name,
-        mimeType: file.type,
-        size: file.size,
       })
     }
   } catch (e) {
@@ -237,7 +235,7 @@ function formatFileSize(bytes: number) {
               icon="i-lucide-trash-2"
               color="error"
               size="xs"
-              @click="deleteFile({ id: file._id })"
+              @click="void deleteFile({ id: file._id })"
             >
               Delete
             </UButton>

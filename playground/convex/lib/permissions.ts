@@ -83,7 +83,7 @@ export async function authorize(
 ): Promise<AuthUser> {
   const user = await requireUser(ctx)
 
-  const permCtx: PermissionContext = { userId: user.authId }
+  const permCtx: PermissionContext = { role: 'member', userId: user.authId }
 
   if (!checkPermission(permCtx, permission, resource)) {
     throw new ConvexError({ code: 'FORBIDDEN', message: `Forbidden: ${permission}` })

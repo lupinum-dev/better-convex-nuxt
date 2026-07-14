@@ -54,20 +54,17 @@ describe('notes.list', () => {
     expect(notes).toHaveLength(50)
   })
 
-  it('handles notes with missing title (backward compatibility)', async () => {
+  it('returns an explicit public DTO', async () => {
     const t = convexTest(schema, modules)
+    await t.mutation(api.notes.add, { title: 'Public', content: 'Fields' })
 
-    // Insert note without title directly
-    await t.run(async (ctx) => {
-      await ctx.db.insert('notes', {
-        content: 'Content without title',
-        createdAt: Date.now(),
-      } as Parameters<typeof ctx.db.insert<'notes'>>[1])
-    })
-
-    const notes = await t.query(api.notes.list, {})
-    expect(notes).toHaveLength(1)
-    expect(notes[0]?.title).toBe('Untitled')
+    expect(Object.keys((await t.query(api.notes.list, {}))[0]!).sort()).toEqual([
+      '_creationTime',
+      '_id',
+      'content',
+      'createdAt',
+      'title',
+    ])
   })
 })
 
@@ -276,6 +273,16 @@ describe('notes.add', () => {
     const note = await t.query(api.notes.get, { id: noteId })
     expect(note?.createdAt).toBeGreaterThanOrEqual(before)
     expect(note?.createdAt).toBeLessThanOrEqual(after)
+  })
+
+  it.each([
+    { title: ' ', content: 'content' },
+    { title: 'x'.repeat(121), content: 'content' },
+    { title: 'title', content: ' ' },
+    { title: 'title', content: 'x'.repeat(5_001) },
+  ])('rejects unbounded public note input', async (input) => {
+    const t = convexTest(schema, modules)
+    await expect(t.mutation(api.notes.add, input)).rejects.toThrow()
   })
 })
 

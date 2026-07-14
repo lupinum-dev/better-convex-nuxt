@@ -4,8 +4,9 @@ definePageMeta({
 })
 
 const convexPending = useState<boolean>('convex:pending', () => false)
-const convexToken = useState<string | null>('convex:token', () => null)
-const convexUser = useState<unknown>('convex:user', () => null)
+const convexIdentity = useState<{ status: 'anonymous' }>('convex:identity', () => ({
+  status: 'anonymous',
+}))
 const convexAuthError = useState<string | null>('convex:authError', () => null)
 const isNavigating = ref(false)
 
@@ -14,8 +15,7 @@ async function triggerPendingProtectedNavigation() {
 
   // Force a pending auth state before navigation so the global auth middleware must wait.
   convexPending.value = true
-  convexToken.value = null
-  convexUser.value = null
+  convexIdentity.value = { status: 'anonymous' }
   convexAuthError.value = null
   ;(
     window as Window & { __BCN_PENDING_GUARD_PROTECTED_MOUNTED__?: number }

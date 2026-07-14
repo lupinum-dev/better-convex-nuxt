@@ -1,23 +1,15 @@
 /**
  * Demo Permissions Composable
  *
- * Wraps the module's createPermissions() with demo-specific configuration.
+ * Keeps demo permission policy in application code. The module intentionally
+ * does not own an authorization runtime.
  */
 
 import { api } from '@@/convex/_generated/api'
 import { checkPermission, type Permission, type Resource } from '@@/convex/permissions.config'
 
-import { createPermissions } from '#imports'
-
 // Re-export types
 export type { Permission, Resource }
-
-// Create base composables from module
-const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissionRedirect } =
-  createPermissions<Permission>({
-    query: api.auth.getPermissionContext,
-    checkPermission: checkPermission as any,
-  })
 
 /**
  * Access permission context and check permissions
@@ -25,7 +17,7 @@ const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissio
  * @example
  * ```vue
  * <script setup>
- * const { can, user, role, isAuthenticated, pending } = useDemoPermissions()
+ * const { can, user, role, isAuthenticated, pending } = await useDemoPermissions()
  * </script>
  *
  * <template>
@@ -34,30 +26,18 @@ const { usePermissions: useBasePermissions, usePermissionRedirect: basePermissio
  * </template>
  * ```
  */
-export function useDemoPermissions() {
-  return useBasePermissions()
-}
+export async function useDemoPermissions() {
+  const { data: context, status } = await useConvexQuery(api.auth.getPermissionContext, {})
 
-/**
- * Guard a route with permission check
- *
- * @example
- * ```vue
- * <script setup>
- * // Redirect to /demo if user doesn't have admin.settings permission
- * usePermissionGuard('admin.settings', '/demo')
- * </script>
- * ```
- */
-export function usePermissionGuard(
-  permission: Permission,
-  redirectTo: string = '/demo',
-  resource?: any,
-) {
-  return basePermissionRedirect({
-    permission,
-    redirectTo,
-    resource,
-    loginPath: '/',
-  })
+  function can(permission: Permission, resource?: Resource): boolean {
+    return checkPermission(context.value, permission, resource)
+  }
+
+  return {
+    can,
+    user: computed(() => context.value),
+    role: computed(() => context.value?.role ?? null),
+    isAuthenticated: computed(() => Boolean(context.value)),
+    pending: computed(() => status.value === 'pending'),
+  }
 }

@@ -1,10 +1,10 @@
 import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 
-import { api } from './_generated/api'
+import { api, components, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import schema from './schema'
-import { modules } from './test.setup'
+import { initConvexTest, modules } from './test.setup'
 
 async function seedUser(t: ReturnType<typeof convexTest>, subject: string) {
   return await t.run(async (ctx) => {
@@ -60,6 +60,274 @@ async function linkClient(
 }
 
 describe('agency starter invariants', () => {
+  it('syncs Better Auth user creates and updates into the app-owned actor row', async () => {
+    const t = initConvexTest()
+
+    await t.mutation(internal.auth.onCreate, {
+      model: 'user',
+      doc: { _id: 'auth-user-1', name: 'Ada', email: 'ada@example.com' },
+    })
+    await t.mutation(internal.auth.onCreate, {
+      model: 'user',
+      doc: { _id: 'auth-user-1', name: 'Ada', email: 'ada@example.com' },
+    })
+    await t.mutation(internal.auth.onUpdate, {
+      model: 'user',
+      oldDoc: { _id: 'auth-user-1', name: 'Ada', email: 'ada@example.com' },
+      newDoc: { _id: 'auth-user-1', name: 'Ada Lovelace', email: 'ada@example.com' },
+    })
+
+    const users = await t.run(async (ctx) => await ctx.db.query('users').collect())
+    expect(users).toHaveLength(1)
+    expect(users[0]).toMatchObject({
+      subject: 'auth-user-1',
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+    })
+  })
+
+  it('rebuilds a missing app user from the canonical Better Auth user page', async () => {
+    const t = initConvexTest()
+    const authUser = (await t.run(async (ctx) => {
+      return await ctx.runMutation(components.betterAuth.adapter.create, {
+        input: {
+          model: 'user',
+          data: {
+            name: 'Grace Hopper',
+            email: 'grace@example.com',
+            emailVerified: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+      })
+    })) as { _id: string }
+
+    const result = await t.mutation(internal.auth.rebuildUserProjectionBatch, {
+      cursor: null,
+    })
+
+    expect(result).toMatchObject({ inserted: 1, patched: 0, skipped: 0, isDone: true })
+    const users = await t.run(async (ctx) => await ctx.db.query('users').collect())
+    expect(users).toHaveLength(1)
+    expect(users[0]).toMatchObject({
+      subject: authUser._id,
+      name: 'Grace Hopper',
+      email: 'grace@example.com',
+    })
+  })
+
+  it('fails closed on duplicate domain actors without deleting referenced rows', async () => {
+    const t = initConvexTest()
+    const authUser = (await t.run(async (ctx) => {
+      return await ctx.runMutation(components.betterAuth.adapter.create, {
+        input: {
+          model: 'user',
+          data: {
+            name: 'Canonical Name',
+            email: 'duplicate@example.com',
+            emailVerified: true,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        },
+      })
+    })) as { _id: string }
+
+    const seeded = await t.run(async (ctx) => {
+      const now = Date.now()
+      const firstActorId = await ctx.db.insert('users', {
+        subject: authUser._id,
+        name: 'First actor',
+        email: 'first@example.com',
+        createdAt: now,
+        updatedAt: now,
+      })
+      const secondActorId = await ctx.db.insert('users', {
+        subject: authUser._id,
+        name: 'Second actor',
+        email: 'second@example.com',
+        createdAt: now,
+        updatedAt: now,
+      })
+      const agencyOrganizationId = await ctx.db.insert('organizations', {
+        name: 'Agency',
+        kind: 'agency',
+        createdBy: firstActorId,
+        createdAt: now,
+      })
+      const clientOrganizationId = await ctx.db.insert('organizations', {
+        name: 'Client',
+        kind: 'client',
+        createdBy: secondActorId,
+        createdAt: now,
+      })
+      const firstMembershipId = await ctx.db.insert('memberships', {
+        organizationId: agencyOrganizationId,
+        userId: firstActorId,
+        role: 'owner',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      })
+      const secondMembershipId = await ctx.db.insert('memberships', {
+        organizationId: clientOrganizationId,
+        userId: secondActorId,
+        role: 'owner',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      })
+      const projectId = await ctx.db.insert('clientProjects', {
+        clientOrganizationId,
+        name: 'Referenced project',
+        createdBy: secondActorId,
+        actingFromOrganizationId: agencyOrganizationId,
+        createdAt: now,
+      })
+      const auditId = await ctx.db.insert('auditEvents', {
+        organizationId: clientOrganizationId,
+        actorUserId: firstActorId,
+        accessPath: 'delegated',
+        action: 'test.reference',
+        resourceType: 'clientProject',
+        resourceId: projectId,
+        createdAt: now,
+      })
+
+      return {
+        firstActorId,
+        secondActorId,
+        agencyOrganizationId,
+        clientOrganizationId,
+        firstMembershipId,
+        secondMembershipId,
+        projectId,
+        auditId,
+      }
+    })
+
+    const duplicateError = 'Duplicate Agency user actors require explicit reference reconciliation'
+    await expect(
+      t.mutation(internal.auth.onCreate, {
+        model: 'user',
+        doc: {
+          _id: authUser._id,
+          name: 'Canonical Name',
+          email: 'duplicate@example.com',
+        },
+      }),
+    ).rejects.toThrow(duplicateError)
+    await expect(
+      t.mutation(internal.auth.onUpdate, {
+        model: 'user',
+        oldDoc: {
+          _id: authUser._id,
+          name: 'Old Name',
+          email: 'duplicate@example.com',
+        },
+        newDoc: {
+          _id: authUser._id,
+          name: 'Canonical Name',
+          email: 'duplicate@example.com',
+        },
+      }),
+    ).rejects.toThrow(duplicateError)
+    await expect(
+      t.mutation(internal.auth.rebuildUserProjectionBatch, {
+        cursor: null,
+      }),
+    ).rejects.toThrow(duplicateError)
+    await expect(
+      t.mutation(internal.auth.onDelete, {
+        model: 'user',
+        doc: { _id: authUser._id },
+      }),
+    ).rejects.toThrow(duplicateError)
+
+    const rows = await t.run(async (ctx) => ({
+      actors: await ctx.db
+        .query('users')
+        .withIndex('by_subject', (q) => q.eq('subject', authUser._id))
+        .collect(),
+      agencyOrganization: await ctx.db.get(seeded.agencyOrganizationId),
+      clientOrganization: await ctx.db.get(seeded.clientOrganizationId),
+      firstMembership: await ctx.db.get(seeded.firstMembershipId),
+      secondMembership: await ctx.db.get(seeded.secondMembershipId),
+      project: await ctx.db.get(seeded.projectId),
+      audit: await ctx.db.get(seeded.auditId),
+    }))
+
+    expect(rows.actors).toHaveLength(2)
+    expect(rows.actors.map((actor) => actor._id)).toEqual(
+      expect.arrayContaining([seeded.firstActorId, seeded.secondActorId]),
+    )
+    expect(rows.actors.map((actor) => actor.name)).toEqual(
+      expect.arrayContaining(['First actor', 'Second actor']),
+    )
+    expect(rows.agencyOrganization?.createdBy).toBe(seeded.firstActorId)
+    expect(rows.clientOrganization?.createdBy).toBe(seeded.secondActorId)
+    expect(rows.firstMembership?.userId).toBe(seeded.firstActorId)
+    expect(rows.secondMembership?.userId).toBe(seeded.secondActorId)
+    expect(rows.project?.createdBy).toBe(seeded.secondActorId)
+    expect(rows.audit?.actorUserId).toBe(seeded.firstActorId)
+  })
+
+  it('clears deleted auth PII without removing the stable actor or its references', async () => {
+    const t = initConvexTest()
+    const actorId = await seedUser(t, 'deleted-user')
+    const organizationId = await seedOrganization(t, actorId, 'client', 'Historical client')
+    const references = await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query('memberships')
+        .withIndex('by_org_user', (q) =>
+          q.eq('organizationId', organizationId).eq('userId', actorId),
+        )
+        .unique()
+      const projectId = await ctx.db.insert('clientProjects', {
+        clientOrganizationId: organizationId,
+        name: 'Historical project',
+        createdBy: actorId,
+        createdAt: Date.now(),
+      })
+      const auditId = await ctx.db.insert('auditEvents', {
+        organizationId,
+        actorUserId: actorId,
+        accessPath: 'direct',
+        action: 'test.historicalReference',
+        resourceType: 'clientProject',
+        resourceId: projectId,
+        createdAt: Date.now(),
+      })
+      return { membershipId: membership!._id, projectId, auditId }
+    })
+
+    await t.mutation(internal.auth.onDelete, {
+      model: 'user',
+      doc: {
+        _id: 'deleted-user',
+        name: 'deleted-user',
+        email: 'deleted-user@example.com',
+      },
+    })
+
+    const rows = await t.run(async (ctx) => ({
+      actor: await ctx.db.get(actorId),
+      organization: await ctx.db.get(organizationId),
+      membership: await ctx.db.get(references.membershipId),
+      project: await ctx.db.get(references.projectId),
+      audit: await ctx.db.get(references.auditId),
+    }))
+
+    expect(rows.actor).toMatchObject({ _id: actorId, subject: 'deleted-user' })
+    expect(rows.actor).not.toHaveProperty('name')
+    expect(rows.actor).not.toHaveProperty('email')
+    expect(rows.organization?.createdBy).toBe(actorId)
+    expect(rows.membership?.userId).toBe(actorId)
+    expect(rows.project?.createdBy).toBe(actorId)
+    expect(rows.audit?.actorUserId).toBe(actorId)
+  })
+
   it('agency member can list linked client workspaces only', async () => {
     const t = convexTest(schema, modules)
     const agencyUserId = await seedUser(t, 'agency')
@@ -146,6 +414,53 @@ describe('agency starter invariants', () => {
         name: 'Blocked',
       }),
     ).rejects.toThrow('Client access denied')
+  })
+
+  it('allows an administrator on the client side to revoke delegated access', async () => {
+    const t = convexTest(schema, modules)
+    const agencyUserId = await seedUser(t, 'agency')
+    const clientUserId = await seedUser(t, 'client')
+    const agencyOrganizationId = await seedOrganization(t, agencyUserId, 'agency', 'Agency')
+    const clientOrganizationId = await seedOrganization(t, clientUserId, 'client', 'Client')
+    await linkClient(t, agencyOrganizationId, clientOrganizationId)
+
+    await t.withIdentity({ subject: 'client' }).mutation(api.organizationLinks.revoke, {
+      agencyOrganizationId,
+      clientOrganizationId,
+    })
+
+    await expect(
+      t.withIdentity({ subject: 'agency' }).query(api.organizationLinks.assertClientAccess, {
+        agencyOrganizationId,
+        clientOrganizationId,
+      }),
+    ).rejects.toThrow('Client access denied')
+
+    const audit = await t.run(async (ctx) => await ctx.db.query('auditEvents').collect())
+    expect(audit).toContainEqual(
+      expect.objectContaining({
+        organizationId: clientOrganizationId,
+        actorUserId: clientUserId,
+        accessPath: 'direct',
+        action: 'organizationLinks.revoke',
+        resourceType: 'organizationLink',
+      }),
+    )
+  })
+
+  it('rejects delegated links whose organization kinds are reversed', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await seedUser(t, 'agency')
+    const wrongAgencyId = await seedOrganization(t, userId, 'client', 'Not an agency')
+    const wrongClientId = await seedOrganization(t, userId, 'agency', 'Not a client')
+    await linkClient(t, wrongAgencyId, wrongClientId)
+
+    await expect(
+      t.withIdentity({ subject: 'agency' }).query(api.organizationLinks.assertClientAccess, {
+        agencyOrganizationId: wrongAgencyId,
+        clientOrganizationId: wrongClientId,
+      }),
+    ).rejects.toThrow('Agency organization not found')
   })
 
   it('audit records delegated access path', async () => {

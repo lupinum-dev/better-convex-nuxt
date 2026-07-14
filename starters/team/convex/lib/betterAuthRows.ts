@@ -4,14 +4,14 @@ import type { MutationCtx, QueryCtx } from '../_generated/server'
 type Ctx = QueryCtx | MutationCtx
 type BetterAuthFindOneArgs = (typeof components.betterAuth.adapter.findOne)['_args']
 type BetterAuthModel = BetterAuthFindOneArgs['model']
-type BetterAuthFindManyResult<T extends Record<string, unknown>> = T[] | BetterAuthPageResult<T>
 type BetterAuthFindManyArgs = (typeof components.betterAuth.adapter.findMany)['_args']
 type BetterAuthFindManyWhere = NonNullable<BetterAuthFindManyArgs['where']>[number]
 type BetterAuthSortBy = BetterAuthFindManyArgs['sortBy']
+type BetterAuthPaginationOpts = BetterAuthFindManyArgs['paginationOpts']
 type BetterAuthPageResult<T extends Record<string, unknown>> = {
   page: T[]
   isDone: boolean
-  continueCursor: string | null
+  continueCursor: string
 }
 type BetterAuthRowWithId = {
   _id?: string
@@ -67,6 +67,7 @@ export type BetterAuthOrganizationMember = {
     name: string
     image?: string
   }
+  isTeamMember: boolean
 }
 
 export type BetterAuthOrganizationInvitation = {
@@ -78,8 +79,6 @@ export type BetterAuthOrganizationInvitation = {
   expiresAt: number
   createdAt: number
 }
-
-const betterAuthPageSize = 100
 
 async function findBetterAuthRow<T extends Record<string, unknown>>(
   ctx: Ctx,
@@ -101,37 +100,21 @@ function getBetterAuthRowId(row: BetterAuthRowWithId, label: string) {
   return id
 }
 
-async function listBetterAuthRows<T extends Record<string, unknown>>(
+async function listBetterAuthRowsPage<T extends Record<string, unknown>>(
   ctx: Ctx,
   args: {
     model: BetterAuthModel
     where?: BetterAuthFindManyWhere[]
     sortBy?: BetterAuthSortBy
+    paginationOpts: BetterAuthPaginationOpts
   },
 ) {
-  const rows: T[] = []
-  let cursor: string | null = null
-
-  while (true) {
-    const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: args.model,
-      where: args.where,
-      sortBy: args.sortBy,
-      paginationOpts: {
-        cursor,
-        numItems: betterAuthPageSize,
-      },
-    })) as BetterAuthFindManyResult<T>
-
-    const page = Array.isArray(result) ? result : result.page
-    rows.push(...page)
-
-    if (Array.isArray(result) || result.isDone) {
-      return rows
-    }
-
-    cursor = result.continueCursor
-  }
+  return (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    model: args.model,
+    where: args.where,
+    sortBy: args.sortBy,
+    paginationOpts: args.paginationOpts,
+  })) as BetterAuthPageResult<T>
 }
 
 export async function getBetterAuthMember(
@@ -213,22 +196,24 @@ export async function getBetterAuthPendingInvitationByEmail(
   ])
 }
 
-export async function listBetterAuthTeamMembers(ctx: Ctx, teamId: string) {
-  return await listBetterAuthRows<BetterAuthTeamMember>(ctx, {
-    model: 'teamMember',
-    where: [{ field: 'teamId', value: teamId }],
-  })
-}
-
-export async function listBetterAuthOrganizationInvitations(ctx: Ctx, organizationId: string) {
-  const invitations = await listBetterAuthRows<BetterAuthInvitation>(ctx, {
+export async function listBetterAuthOrganizationInvitationsPage(
+  ctx: Ctx,
+  organizationId: string,
+  paginationOpts: BetterAuthPaginationOpts,
+) {
+  const invitations = await listBetterAuthRowsPage<BetterAuthInvitation>(ctx, {
     model: 'invitation',
-    where: [{ field: 'organizationId', value: organizationId }],
+    where: [
+      { field: 'organizationId', value: organizationId },
+      { field: 'status', value: 'pending' },
+    ],
+    sortBy: { field: 'createdAt', direction: 'desc' },
+    paginationOpts,
   })
 
   const teamIds = Array.from(
     new Set(
-      invitations
+      invitations.page
         .map((invitation) => invitation.teamId ?? undefined)
         .filter((teamId): teamId is string => typeof teamId === 'string' && teamId.length > 0),
     ),
@@ -236,61 +221,96 @@ export async function listBetterAuthOrganizationInvitations(ctx: Ctx, organizati
   const teams =
     teamIds.length === 0
       ? []
-      : await listBetterAuthRows<BetterAuthTeam>(ctx, {
-          model: 'team',
-          where: [{ field: '_id', operator: 'in', value: teamIds }],
-        })
+      : (
+          await listBetterAuthRowsPage<BetterAuthTeam>(ctx, {
+            model: 'team',
+            where: [{ field: '_id', operator: 'in', value: teamIds }],
+            paginationOpts: { cursor: null, numItems: teamIds.length },
+          })
+        ).page
   const teamsById = new Map(teams.map((team) => [getBetterAuthRowId(team, 'team'), team]))
 
-  return invitations.map((invitation): BetterAuthOrganizationInvitation => {
-    const teamId = invitation.teamId ?? undefined
-    const team = teamId ? teamsById.get(teamId) : undefined
+  return {
+    ...invitations,
+    page: invitations.page.map((invitation): BetterAuthOrganizationInvitation => {
+      const teamId = invitation.teamId ?? undefined
+      const team = teamId ? teamsById.get(teamId) : undefined
 
-    return {
-      email: invitation.email,
-      role: invitation.role ?? undefined,
-      teamId,
-      teamName: team?.name,
-      status: invitation.status,
-      expiresAt: invitation.expiresAt,
-      createdAt: invitation.createdAt,
-    }
-  })
+      return {
+        email: invitation.email,
+        role: invitation.role ?? undefined,
+        teamId,
+        teamName: team?.name,
+        status: invitation.status,
+        expiresAt: invitation.expiresAt,
+        createdAt: invitation.createdAt,
+      }
+    }),
+  }
 }
 
-export async function listBetterAuthOrganizationMembers(ctx: Ctx, organizationId: string) {
-  const members = await listBetterAuthRows<BetterAuthMember>(ctx, {
+export async function listBetterAuthOrganizationMembersPage(
+  ctx: Ctx,
+  args: {
+    organizationId: string
+    teamId?: string
+    paginationOpts: BetterAuthPaginationOpts
+  },
+) {
+  const members = await listBetterAuthRowsPage<BetterAuthMember>(ctx, {
     model: 'member',
-    where: [{ field: 'organizationId', value: organizationId }],
+    where: [{ field: 'organizationId', value: args.organizationId }],
+    paginationOpts: args.paginationOpts,
   })
 
-  const userIds = Array.from(new Set(members.map((member) => member.userId)))
+  const userIds = Array.from(new Set(members.page.map((member) => member.userId)))
   const users =
     userIds.length === 0
       ? []
-      : await listBetterAuthRows<BetterAuthUser>(ctx, {
-          model: 'user',
-          where: [{ field: '_id', operator: 'in', value: userIds }],
-        })
+      : (
+          await listBetterAuthRowsPage<BetterAuthUser>(ctx, {
+            model: 'user',
+            where: [{ field: '_id', operator: 'in', value: userIds }],
+            paginationOpts: { cursor: null, numItems: userIds.length },
+          })
+        ).page
+  const teamMembers =
+    !args.teamId || userIds.length === 0
+      ? []
+      : (
+          await listBetterAuthRowsPage<BetterAuthTeamMember>(ctx, {
+            model: 'teamMember',
+            where: [
+              { field: 'teamId', value: args.teamId },
+              { field: 'userId', operator: 'in', value: userIds },
+            ],
+            paginationOpts: { cursor: null, numItems: userIds.length },
+          })
+        ).page
 
   const usersById = new Map(users.map((user) => [getBetterAuthRowId(user, 'user'), user]))
+  const teamMemberUserIds = new Set(teamMembers.map((member) => member.userId))
 
-  return members.map((member): BetterAuthOrganizationMember => {
-    const user = usersById.get(member.userId)
+  return {
+    ...members,
+    page: members.page.map((member): BetterAuthOrganizationMember => {
+      const user = usersById.get(member.userId)
 
-    return {
-      id: getBetterAuthRowId(member, 'member'),
-      organizationId: member.organizationId,
-      userId: member.userId,
-      role: member.role,
-      user: user
-        ? {
-            id: getBetterAuthRowId(user, 'user'),
-            email: user.email,
-            name: user.name,
-            image: user.image ?? undefined,
-          }
-        : undefined,
-    }
-  })
+      return {
+        id: getBetterAuthRowId(member, 'member'),
+        organizationId: member.organizationId,
+        userId: member.userId,
+        role: member.role,
+        user: user
+          ? {
+              id: getBetterAuthRowId(user, 'user'),
+              email: user.email,
+              name: user.name,
+              image: user.image ?? undefined,
+            }
+          : undefined,
+        isTeamMember: teamMemberUserIds.has(member.userId),
+      }
+    }),
+  }
 }
