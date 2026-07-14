@@ -263,7 +263,7 @@ function collectFiles(absoluteRoot) {
 
 /** Extract `<script ...>...</script>` block contents (there may be two: normal + setup). */
 function extractVueScriptBlocks(source) {
-  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi
   return [...source.matchAll(re)].map((match) => match[1])
 }
 

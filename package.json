@@ -110,7 +110,7 @@
     "typecheck": "pnpm run typecheck:module && pnpm run typecheck:server && pnpm run typecheck:fixtures",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test": "nuxt-module-build build && vitest run --project=unit --project=security --project=convex --project=nuxt --project=browser",
+    "test": "vitest run --project=unit --project=security --project=convex --project=nuxt --project=browser",
     "test:browser": "vitest run --project=browser",
     "test:e2e": "node scripts/run-e2e.mjs",
     "test:e2e:full": "node scripts/run-e2e.mjs --full",

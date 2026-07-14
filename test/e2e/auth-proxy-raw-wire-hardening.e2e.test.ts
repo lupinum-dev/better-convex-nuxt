@@ -7,6 +7,15 @@ import { setup, url } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const BODY_LIMIT = 4_096
+const redirectDestinations = new Map([
+  ['relative', '/redirect-target'],
+  ['http', 'http://redirect-target.example.invalid/callback'],
+  ['https', 'https://redirect-target.example.invalid/callback'],
+  ['link-local', 'http://169.254.169.254/latest/meta-data/iam/security-credentials/'],
+  ['protocol-relative', '//redirect-target.example.invalid/callback'],
+  ['ftp', 'ftp://redirect-target.example.invalid/callback'],
+  ['data', 'data:text/plain,not-followed'],
+])
 
 interface CapturedRequest {
   body: Buffer
@@ -72,8 +81,16 @@ async function startUpstream() {
     }
 
     if (requestUrl.pathname === '/api/auth/_redirect') {
+      const destination = redirectDestinations.get(
+        requestUrl.searchParams.get('destinationKey') ?? '',
+      )
+      if (!destination) {
+        response.statusCode = 400
+        response.end('unknown redirect destination')
+        return
+      }
       response.statusCode = Number(requestUrl.searchParams.get('status'))
-      response.setHeader('location', requestUrl.searchParams.get('destination') || '/')
+      response.setHeader('location', destination)
       response.setHeader('set-cookie', [
         'better-auth.redirect_state=one; Path=/; HttpOnly; SameSite=Lax',
         'better-auth.redirect_nonce=two; Path=/; HttpOnly; SameSite=Lax',
@@ -274,20 +291,11 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
 
   it('delivers every redirect status and destination once without a server-side replay', async () => {
     const start = capturedRequests.length
-    const destinations = [
-      `${upstream.url}/redirect-target`,
-      'http://redirect-target.example.invalid/callback',
-      'https://redirect-target.example.invalid/callback',
-      'http://169.254.169.254/latest/meta-data/iam/security-credentials/',
-      '//redirect-target.example.invalid/callback',
-      'ftp://redirect-target.example.invalid/callback',
-      'data:text/plain,not-followed',
-    ]
 
     for (const status of [301, 302, 303, 307, 308]) {
-      for (const destination of destinations) {
+      for (const [destinationKey, destination] of redirectDestinations) {
         const response = await requestProxy(
-          `/api/auth/_redirect?status=${status}&destination=${encodeURIComponent(destination)}`,
+          `/api/auth/_redirect?status=${status}&destinationKey=${destinationKey}`,
           {
             headers: {
               cookie:

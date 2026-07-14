@@ -2092,7 +2092,7 @@ packages:
         optional: true
 
   better-convex-nuxt@0.6.0:
-    resolution: {integrity: sha512-agnPTYJ2cOM7Uxjw0OUltEm9eT6NrnwmchBphYpZn6m7H+Kt6ES19uD6QLnHW5SExXWk7zmZYkte1tUXEJOe8w==}
+    resolution: {integrity: sha512-WUTWuxOLvpxqrpEp5JC7a738/Y1x05Yh89NiCKbqeA/G9dUh7EB4EqOYUNoAB1Jz+htz7rRgtYKdVloXPzwxTg==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5

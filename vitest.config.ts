@@ -60,6 +60,13 @@ export default defineConfig({
       // Uses convex-test with edge-runtime
       // Fast (~5s) - run with `pnpm test`
       {
+        resolve: {
+          alias: {
+            'better-convex-nuxt/server/createUserSyncTriggers': fileURLToPath(
+              new URL('./src/runtime/server/createUserSyncTriggers.ts', import.meta.url),
+            ),
+          },
+        },
         test: {
           name: 'convex',
           include: ['playground/convex/**/*.test.ts', 'demo/convex/**/*.test.ts'],

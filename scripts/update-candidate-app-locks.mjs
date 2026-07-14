@@ -141,7 +141,8 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    const upstream = await fetch(`https://registry.npmjs.org${request.url ?? '/'}`)
+    const upstreamUrl = new URL(`${url.pathname}${url.search}`, 'https://registry.npmjs.org')
+    const upstream = await fetch(upstreamUrl)
     response.statusCode = upstream.status
     for (const [name, value] of upstream.headers) {
       if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(name)) {
@@ -149,9 +150,9 @@ const server = createServer(async (request, response) => {
       }
     }
     response.end(Buffer.from(await upstream.arrayBuffer()))
-  } catch (error) {
+  } catch {
     response.statusCode = 502
-    response.end(error instanceof Error ? error.message : String(error))
+    response.end('Upstream registry request failed')
   }
 })
 
