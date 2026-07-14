@@ -3123,7 +3123,7 @@ packages:
         optional: true
 
   better-convex-nuxt@0.6.0:
-    resolution: {integrity: sha512-WUTWuxOLvpxqrpEp5JC7a738/Y1x05Yh89NiCKbqeA/G9dUh7EB4EqOYUNoAB1Jz+htz7rRgtYKdVloXPzwxTg==}
+    resolution: {integrity: sha512-QjUbEVBVqx6PwPLqg09Uoz/qcXIwKZ9z0KkFIrUwmeZBF0ywyla6bQjfbLqEoOEOj2MNbkpb/5xGb6t2ltVqDg==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5
