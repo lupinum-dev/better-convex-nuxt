@@ -139,7 +139,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@nuxtjs/robots": "6.1.2",
     "@playwright/test": "^1.61.1",
-    "@types/node": "22.20.1",
+    "@types/node": "26.1.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/browser-playwright": "^4.1.8",
     "better-auth": "1.6.23",
