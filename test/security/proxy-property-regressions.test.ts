@@ -43,7 +43,6 @@ describe('seeded auth proxy security properties', () => {
       const candidate = octets.join('.')
       const event = { headers: new Headers({ 'cf-connecting-ip': candidate }) } as never
       const headers = buildAuthProxyForwardHeaders(event, {
-        requestUrl: new URL('https://app.example.test/api/auth/get-session'),
         trustedClientIpHeader: 'cf-connecting-ip',
       })
       const valid = octets.every((octet) => octet <= 255)

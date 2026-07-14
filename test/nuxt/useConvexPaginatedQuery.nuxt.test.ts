@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import { toAuthenticatedIdentity, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import { createConvexPaginatedQueryState } from '../../src/runtime/composables/useConvexPaginatedQuery'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -57,23 +58,23 @@ describe('useConvexPaginatedQuery controller', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => ({ id: 'A' }))
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexPaginatedQueryState(
           query,
           {},
           { auth: 'optional', subscribe: false, initialNumItems: 2 },
           true,
         ).resultData
-        return { q, user }
+        return { q, identity }
       },
       { owner: makeMockOwner(primary) },
     )
 
     const refresh = result.q.refresh()
     await Promise.resolve()
-    result.user.value = { id: 'B' }
+    result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     resolveA(page(['A'], true, null))
     await refresh
     expect(result.q.results.value).not.toContain('A')
@@ -90,16 +91,16 @@ describe('useConvexPaginatedQuery controller', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexPaginatedQueryState(
           query,
           {},
           { auth: 'optional', initialNumItems: 2 },
           true,
         ).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -142,16 +143,16 @@ describe('useConvexPaginatedQuery controller', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexPaginatedQueryState(
           query,
           {},
           { auth: 'optional', initialNumItems: 2, keepPreviousData: true },
           true,
         ).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -162,7 +163,7 @@ describe('useConvexPaginatedQuery controller', () => {
     expect(result.q.results.value).toEqual(['a1', 'a2'])
 
     // Switch identity: pages cleared, no A rows carried across.
-    result.user.value = { id: 'B' }
+    result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     await flush()
     expect(result.q.results.value).toEqual([])
 
@@ -182,9 +183,9 @@ describe('useConvexPaginatedQuery controller', () => {
     const { flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         return createConvexPaginatedQueryState(
           query,
           {},

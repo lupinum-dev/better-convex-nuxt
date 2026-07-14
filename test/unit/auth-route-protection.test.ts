@@ -60,4 +60,63 @@ describe('route protection decision', () => {
       }),
     ).toEqual({ redirectTo: routeTarget })
   })
+
+  it.each([
+    '//evil.example/steal',
+    '/\\evil.example/steal',
+    '/%5Cevil.example/steal',
+    '/%2F%2Fevil.example/steal',
+    'https://evil.example/steal',
+    '/safe\nforged',
+    '/safe%0d%0aforged',
+    '/broken%zz',
+  ])('rejects unsafe string redirect targets: %s', (redirectTo) => {
+    expect(
+      resolveRouteProtectionDecision({
+        meta: { redirectTo },
+        defaultRedirectTo: '/auth/signin',
+        preserveReturnTo: true,
+        currentPath: '/dashboard',
+      }),
+    ).toBeNull()
+  })
+
+  it('never reflects an unsafe return target into the sign-in redirect', () => {
+    expect(
+      resolveRouteProtectionDecision({
+        meta: true,
+        defaultRedirectTo: '/auth/signin',
+        preserveReturnTo: true,
+        currentPath: '//evil.example/steal',
+        currentFullPath: '//evil.example/steal?token=private',
+      }),
+    ).toEqual({ redirectTo: '/auth/signin?redirect=%2F' })
+  })
+
+  it('normalizes local paths before preserving them', () => {
+    expect(
+      resolveRouteProtectionDecision({
+        meta: true,
+        defaultRedirectTo: '/auth/../signin#form',
+        preserveReturnTo: true,
+        currentPath: '/dashboard',
+        currentFullPath: '/account/../dashboard?tab=team#members',
+      }),
+    ).toEqual({
+      redirectTo: '/signin?redirect=%2Fdashboard%3Ftab%3Dteam%23members#form',
+    })
+  })
+
+  it('rejects unsafe object paths without mutating the input', () => {
+    const routeTarget = { path: '//evil.example/steal', query: { source: 'guard' } }
+    expect(
+      resolveRouteProtectionDecision({
+        meta: { redirectTo: routeTarget },
+        defaultRedirectTo: '/auth/signin',
+        preserveReturnTo: true,
+        currentPath: '/dashboard',
+      }),
+    ).toBeNull()
+    expect(routeTarget.path).toBe('//evil.example/steal')
+  })
 })

@@ -1,17 +1,19 @@
 import { ConvexCallError } from '../../utils/call-result'
+import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import { normalizeConvexSiteUrl } from '../../utils/site-url'
-import { fetchWithTimeout } from './http'
+import { fetchWithTimeout, MAX_SERVER_AUTH_RESPONSE_BODY_BYTES, readBoundedJson } from './http'
 import type { ConvexCredential } from './server-convex-options'
-import { assertCredentialValueSafe, ServerConvexValidationError } from './server-convex-options'
+import {
+  assertConvexCredentialShape,
+  assertCredentialValueSafe,
+  ServerConvexValidationError,
+} from './server-convex-options'
 
 /** Better Auth HTTP endpoint that mints a Convex JWT from a session cookie/bearer. */
 const TOKEN_EXCHANGE_PATH = '/api/auth/convex/token'
 
 /** Default timeout for the credential -> JWT exchange. */
 const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 5_000
-
-/** Maximum bytes read from an exchange response body before it is rejected. */
-const MAX_EXCHANGE_BODY_BYTES = 1_048_576
 
 /**
  * The never-throwing result of a cookie/bearer -> Convex JWT exchange
@@ -52,64 +54,6 @@ export function normalizeSiteUrl(siteUrl: string): string {
   }
 }
 
-// ---------------------------------------------------------------------------
-// readBoundedJson / readToken (vNext §9)
-// ---------------------------------------------------------------------------
-
-/**
- * Read at most `maxBytes` of a response body and parse it as JSON. An oversized
- * body is cancelled/drained before the bounded-response error is thrown so the
- * underlying connection is not leaked (vNext §9). Malformed JSON throws. Both
- * failures are caught by {@link exchangeConvexToken} and surfaced as `transport`.
- */
-export async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
-  const body = response.body
-  if (!body) {
-    // No streaming body. A real WHATWG/undici Response always exposes `.body`,
-    // so this branch only handles synthesized Response-likes. Apply the bound to
-    // `.text()` when available, else fall back to `.json()` (a minimal mock).
-    if (typeof response.text === 'function') {
-      const text = await response.text()
-      if (text.length > maxBytes) {
-        throw new Error('Convex token exchange response exceeded the size limit')
-      }
-      return JSON.parse(text)
-    }
-    return await response.json()
-  }
-
-  const reader = body.getReader()
-  const chunks: Uint8Array[] = []
-  let total = 0
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (value) {
-        total += value.byteLength
-        if (total > maxBytes) {
-          // Cancel the stream so an oversized/hostile body does not keep the
-          // connection open or continue buffering.
-          await reader.cancel()
-          throw new Error('Convex token exchange response exceeded the size limit')
-        }
-        chunks.push(value)
-      }
-    }
-  } finally {
-    reader.releaseLock()
-  }
-
-  const merged = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    merged.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  const text = new TextDecoder().decode(merged)
-  return JSON.parse(text)
-}
-
 /** Extract a non-empty string `token` field from a parsed exchange body. */
 export function readToken(body: unknown): string | null {
   if (body && typeof body === 'object') {
@@ -130,30 +74,47 @@ export function readToken(body: unknown): string | null {
  * oversized, malformed, missing-token, or redirect failure is returned as a
  * {@link ConvexTokenExchangeResult} with a single {@link ConvexCallError}.
  *
- * It DOES throw synchronously — before any network access — for a credential
- * value that is empty or contains ASCII control characters (incl. CR/LF), which
- * is a caller-contract violation and header-injection vector, not an exchange
- * outcome. That guard uses {@link ServerConvexValidationError}.
+ * It DOES throw synchronously — before any network access — for a malformed
+ * credential discriminant, an empty/control-bearing value, or a cookie
+ * credential without a non-empty supported Better Auth session cookie. These
+ * are caller-contract violations, not exchange outcomes. The guards use
+ * {@link ServerConvexValidationError}.
  *
  * `redirect: 'error'` guarantees the credential is never delivered to a redirect
  * target: the fetch rejects before following, and that rejection surfaces through
  * the generic catch as `kind: 'transport'`. The security property is
  * zero-delivery, not the error label — the catch never inspects message text.
  */
-export async function exchangeConvexToken(input: {
+export function exchangeConvexToken(input: {
   siteUrl: string
   credential: ConvexCredential
   timeoutMs?: number
 }): Promise<ConvexTokenExchangeResult> {
   // Synchronous, pre-network validation. A control-character or empty credential
   // is refused before it can reach a request header or the network.
+  assertConvexCredentialShape(input.credential)
   assertCredentialValueSafe(input.credential.value, 'credential value')
+  let headers: Record<string, string>
+  if (input.credential.type === 'cookie') {
+    const cookieHeader = filterBetterAuthCookies(input.credential.value)
+    const sessionToken = getBetterAuthSessionToken(cookieHeader)
+    if (!cookieHeader || !sessionToken) {
+      throw new ServerConvexValidationError(
+        'credential must contain a non-empty supported Better Auth session cookie',
+      )
+    }
+    headers = { Cookie: cookieHeader }
+  } else {
+    headers = { Authorization: `Bearer ${input.credential.value}` }
+  }
 
-  const headers: Record<string, string> =
-    input.credential.type === 'cookie'
-      ? { Cookie: input.credential.value }
-      : { Authorization: `Bearer ${input.credential.value}` }
+  return runTokenExchange(input, headers)
+}
 
+async function runTokenExchange(
+  input: { siteUrl: string; timeoutMs?: number },
+  headers: Record<string, string>,
+): Promise<ConvexTokenExchangeResult> {
   try {
     const response = await fetchWithTimeout(
       `${normalizeSiteUrl(input.siteUrl)}${TOKEN_EXCHANGE_PATH}`,
@@ -165,6 +126,7 @@ export async function exchangeConvexToken(input: {
       },
     )
     if (!response.ok) {
+      await response.body?.cancel().catch(() => {})
       return {
         token: null,
         status: response.status,
@@ -176,7 +138,7 @@ export async function exchangeConvexToken(input: {
       }
     }
 
-    const parsed = await readBoundedJson(response, MAX_EXCHANGE_BODY_BYTES)
+    const parsed = await readBoundedJson(response, MAX_SERVER_AUTH_RESPONSE_BODY_BYTES)
     const token = readToken(parsed)
     if (!token) {
       return {

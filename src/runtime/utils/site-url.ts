@@ -16,25 +16,34 @@ function isLoopbackHost(hostname: string): boolean {
   )
 }
 
-/** Return one credential-safe Convex site origin or throw before network access. */
-export function normalizeConvexSiteUrl(siteUrl: string): string {
+function normalizeConvexOrigin(value: string, label: 'url' | 'siteUrl'): string {
   let url: URL
   try {
-    url = new URL(siteUrl)
+    url = new URL(value)
   } catch {
-    throw new TypeError('siteUrl is not a valid URL')
+    throw new TypeError(`${label} is not a valid URL`)
   }
-  if (url.username || url.password) throw new TypeError('siteUrl must not contain credentials')
-  if (url.search) throw new TypeError('siteUrl must not contain a query string')
-  if (url.hash) throw new TypeError('siteUrl must not contain a fragment')
+  if (url.username || url.password) throw new TypeError(`${label} must not contain credentials`)
+  if (url.search) throw new TypeError(`${label} must not contain a query string`)
+  if (url.hash) throw new TypeError(`${label} must not contain a fragment`)
   if (url.pathname !== '/' && url.pathname !== '') {
-    throw new TypeError('siteUrl must not contain a non-root path')
+    throw new TypeError(`${label} must not contain a non-root path`)
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new TypeError('siteUrl must use http or https')
+    throw new TypeError(`${label} must use http or https`)
   }
   if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
-    throw new TypeError('http siteUrl is permitted only for loopback hosts')
+    throw new TypeError(`http ${label} is permitted only for loopback hosts`)
   }
   return url.origin
+}
+
+/** Return one credential-safe Convex deployment origin or throw before client construction. */
+export function normalizeConvexDeploymentUrl(url: string): string {
+  return normalizeConvexOrigin(url, 'url')
+}
+
+/** Return one credential-safe Convex site origin or throw before network access. */
+export function normalizeConvexSiteUrl(siteUrl: string): string {
+  return normalizeConvexOrigin(siteUrl, 'siteUrl')
 }

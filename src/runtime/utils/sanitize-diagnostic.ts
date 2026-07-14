@@ -11,9 +11,17 @@ const MAX_ITEMS = 50
 const MAX_STRING_LENGTH = 512
 
 function sanitizeString(value: string): string {
-  return value.length <= MAX_STRING_LENGTH
-    ? value
-    : `${value.slice(0, MAX_STRING_LENGTH)}${TRUNCATED}`
+  let escaped = ''
+  for (const character of value) {
+    const codeUnit = character.charCodeAt(0)
+    escaped +=
+      codeUnit <= 31 || (codeUnit >= 127 && codeUnit <= 159)
+        ? `\\u${codeUnit.toString(16).toUpperCase().padStart(4, '0')}`
+        : character
+  }
+  return escaped.length <= MAX_STRING_LENGTH
+    ? escaped
+    : `${escaped.slice(0, MAX_STRING_LENGTH)}${TRUNCATED}`
 }
 
 /**
@@ -30,7 +38,7 @@ export function sanitizeDiagnosticValue(value: unknown): unknown {
     if (typeof current === 'number' || typeof current === 'boolean') return current
     if (typeof current === 'bigint') return `${current.toString()}n`
     if (typeof current === 'symbol')
-      return current.description ? `Symbol(${current.description})` : 'Symbol()'
+      return sanitizeString(current.description ? `Symbol(${current.description})` : 'Symbol()')
     if (typeof current === 'function') return '[Function]'
     if (typeof current !== 'object') return String(current)
     if (depth >= MAX_DEPTH) return TRUNCATED
@@ -57,7 +65,7 @@ export function sanitizeDiagnosticValue(value: unknown): unknown {
         if (!Array.isArray(output)) output[TRUNCATED] = true
         break
       }
-      const label = typeof key === 'symbol' ? key.toString() : String(key)
+      const label = sanitizeString(typeof key === 'symbol' ? key.toString() : String(key))
       if (isArray && label === 'length') continue
       if (OMITTED_KEY.test(label)) continue
       emitted += 1

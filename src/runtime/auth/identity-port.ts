@@ -1,11 +1,7 @@
 import type { ConvexClient } from 'convex/browser'
 
-import { ConvexCallError } from '../errors'
+import type { ConvexCallError } from '../errors'
 import type { ConvexIdentityKey } from '../utils/identity-key'
-
-// Re-export the real framework-free class (vNext §7, decision 8) so existing
-// consumers keep importing `ConvexCallError` from this port.
-export { ConvexCallError }
 
 /**
  * The FROZEN private auth port consumed by query gating and client replacement
@@ -19,7 +15,7 @@ export interface AuthIdentityPort {
   snapshot(): AuthIdentitySnapshot
   waitForInitialSettlement(): Promise<void>
   subscribe(listener: () => void): () => void
-  initializePrimary(candidate: ConvexClient, authEpoch: number): Promise<void>
+  initializePrimary(candidate: ConvexClient): Promise<void>
   failPrimary(identityGeneration: number, error: unknown): void
 }
 

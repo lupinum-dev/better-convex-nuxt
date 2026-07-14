@@ -6,6 +6,12 @@ import type { MaybeRefOrGetter } from 'vue'
 import { useState } from '#imports'
 
 import {
+  ANONYMOUS_IDENTITY,
+  LOADING_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
+import {
   createConvexQueryState,
   useConvexQuery,
   type ConvexQueryArgs,
@@ -144,9 +150,11 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const authPending = useState<boolean>('convex:pending')
+        const identity = useState<AuthIdentity>('convex:identity')
         authPending.value = true
+        identity.value = LOADING_IDENTITY
         const queryResult = useConvexQueryState(query, {}, { auth: 'required', subscribe: false })
-        return { authPending, queryResult }
+        return { authPending, identity, queryResult }
       },
       {
         convex: new MockConvexClient(),
@@ -157,6 +165,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.pending.value).toBe(true)
     expect(fetchMock).not.toHaveBeenCalled()
 
+    result.identity.value = ANONYMOUS_IDENTITY
     result.authPending.value = false
     await flush()
   })
@@ -206,11 +215,11 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const authPending = useState<boolean>('convex:pending')
-        const token = useState<string | null>('convex:token')
-        const user = useState<{ id: string } | null>('convex:user')
+        const identity = useState<AuthIdentity>('convex:identity')
         authPending.value = true
+        identity.value = LOADING_IDENTITY
         const queryResult = useConvexQueryState(query, {}, { auth: 'required' })
-        return { authPending, queryResult, token, user }
+        return { authPending, identity, queryResult }
       },
       {
         convex,
@@ -222,8 +231,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(convex.calls.onUpdate.length).toBe(0)
 
     // A settled identity requires a resolved user (vNext §5.4), not just a token.
-    result.token.value = 'ready.jwt.token'
-    result.user.value = { id: 'u1' }
+    result.identity.value = toAuthenticatedIdentity('ready.jwt.token', { id: 'u1' })
     result.authPending.value = false
     await flush()
 
@@ -237,7 +245,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await captureInNuxt(
       () => {
         const authPending = useState<boolean>('convex:pending')
+        const identity = useState<AuthIdentity>('convex:identity')
         authPending.value = true
+        identity.value = LOADING_IDENTITY
         return useConvexQueryState(query, {})
       },
       {

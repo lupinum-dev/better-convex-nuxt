@@ -48,11 +48,12 @@ const db = {
           },
         })
         return {
-          async first() {
+          async collect() {
+            const matches: AppUser[] = []
             for (const row of rows.values()) {
-              if ((row as Record<string, unknown>)[matchField] === matchValue) return row
+              if ((row as Record<string, unknown>)[matchField] === matchValue) matches.push(row)
             }
-            return null
+            return matches
           },
         }
       },

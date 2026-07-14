@@ -75,7 +75,9 @@ function jsonResponse(res: http.ServerResponse, status: number, body: unknown): 
   res.end(JSON.stringify(body))
 }
 
-const COOKIE = 'better-auth.session_token=SUPERSECRET_SESSION_abc123; Path=/'
+const COOKIE =
+  'private_app_cookie=DO_NOT_FORWARD; better-auth.session_token=SUPERSECRET_SESSION_abc123'
+const FORWARDED_COOKIE = 'better-auth.session_token=SUPERSECRET_SESSION_abc123'
 const BEARER = 'BEARER_SECRET_xyz789'
 
 describe('exchangeConvexToken — success', () => {
@@ -91,7 +93,7 @@ describe('exchangeConvexToken — success', () => {
     expect(server.requests).toHaveLength(1)
     expect(server.requests[0]!.method).toBe('GET')
     expect(server.requests[0]!.url).toBe('/api/auth/convex/token')
-    expect(server.requests[0]!.cookie).toBe(COOKIE)
+    expect(server.requests[0]!.cookie).toBe(FORWARDED_COOKIE)
     expect(server.requests[0]!.authorization).toBeUndefined()
   })
 
@@ -111,6 +113,21 @@ describe('exchangeConvexToken — success', () => {
 })
 
 describe('exchangeConvexToken — HTTP failure classification', () => {
+  it('cancels a non-ok response body before returning the HTTP outcome', async () => {
+    const cancel = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(new ReadableStream({ start() {}, cancel }), { status: 401 }),
+    )
+
+    const result = await exchangeConvexToken({
+      siteUrl: 'https://demo.convex.site',
+      credential: { type: 'cookie', value: COOKIE },
+    })
+
+    expect(result).toMatchObject({ token: null, status: 401 })
+    expect(cancel).toHaveBeenCalledOnce()
+  })
+
   it.each([401, 403])('classifies HTTP %s as authentication', async (status) => {
     const server = await harness((_req, res) => jsonResponse(res, status, { error: 'nope' }))
 
@@ -288,9 +305,9 @@ describe('exchangeConvexToken — synchronous credential validation (before netw
     async (_label, value) => {
       const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'nope' }))
 
-      await expect(
+      expect(() =>
         exchangeConvexToken({ siteUrl: server.siteUrl, credential: { type: 'cookie', value } }),
-      ).rejects.toBeInstanceOf(ServerConvexValidationError)
+      ).toThrow(ServerConvexValidationError)
 
       // The token endpoint was never contacted.
       expect(server.requests).toHaveLength(0)
@@ -300,9 +317,36 @@ describe('exchangeConvexToken — synchronous credential validation (before netw
   it('rejects an empty credential before any network access', async () => {
     const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'nope' }))
 
-    await expect(
+    expect(() =>
       exchangeConvexToken({ siteUrl: server.siteUrl, credential: { type: 'cookie', value: '' } }),
-    ).rejects.toBeInstanceOf(ServerConvexValidationError)
+    ).toThrow(ServerConvexValidationError)
+
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('rejects a malformed credential shape before any network access', async () => {
+    const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'nope' }))
+
+    expect(() =>
+      exchangeConvexToken({
+        siteUrl: server.siteUrl,
+        // @ts-expect-error direct JavaScript callers still require runtime validation
+        credential: { type: 'basic', value: 'credential' },
+      }),
+    ).toThrow('credential must be a cookie or bearer credential')
+
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('rejects a cookie credential without a supported session cookie before network access', async () => {
+    const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'nope' }))
+
+    expect(() =>
+      exchangeConvexToken({
+        siteUrl: server.siteUrl,
+        credential: { type: 'cookie', value: 'private_app_cookie=DO_NOT_FORWARD' },
+      }),
+    ).toThrow('credential must contain a non-empty supported Better Auth session cookie')
 
     expect(server.requests).toHaveLength(0)
   })

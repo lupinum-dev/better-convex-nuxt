@@ -3,6 +3,7 @@ import { defineComponent, h, nextTick, type ComponentPublicInstance } from 'vue'
 
 import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 
+import { ANONYMOUS_IDENTITY, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
 import type { ConvexClientOwner } from '../../src/runtime/client/client-owner'
 import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
@@ -142,7 +143,7 @@ export async function captureInNuxt<T>(
 
   // Unmount the previous capture's component so its still-alive query watchers
   // do not react to this test's shared `useState`/`$fetch` state (identity-
-  // reactive composables refetch on `convex:user` changes). Tests that need two
+  // reactive composables refetch on `convex:identity` changes). Tests that need two
   // live components at once pass them to a single capture.
   if (previousWrapper) {
     try {
@@ -163,10 +164,10 @@ export async function captureInNuxt<T>(
 
         // A whole test file shares one implicit Nuxt app, so `useState` auth keys
         // leak between tests. Reset them to a clean slate before the factory runs
-        // (composables key identity off `convex:user`, so a leaked signed-in user
+        // (composables key identity off `convex:identity`, so a leaked signed-in user
         // would spuriously trigger identity transitions and refetches).
-        useState<string | null>('convex:token', () => null).value = null
-        useState<unknown>('convex:user', () => null).value = null
+        useState<AuthIdentity>('convex:identity', () => ANONYMOUS_IDENTITY).value =
+          ANONYMOUS_IDENTITY
         useState<string | null>('convex:authError', () => null).value = null
         currentAuthCoordinator = null
 

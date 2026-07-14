@@ -35,13 +35,9 @@ import {
   type ConvexAuthOptions,
 } from './runtime/utils/auth-config'
 import { CONVEX_MODULE_DEFAULTS } from './runtime/utils/config-defaults'
-import {
-  getSiteUrlResolutionHint,
-  isValidAbsoluteUrl,
-  resolveConvexSiteUrl,
-} from './runtime/utils/convex-config'
+import { getSiteUrlResolutionHint, resolveConvexSiteUrl } from './runtime/utils/convex-config'
 import type { LogLevel } from './runtime/utils/logger'
-import { normalizeConvexSiteUrl } from './runtime/utils/site-url'
+import { normalizeConvexDeploymentUrl, normalizeConvexSiteUrl } from './runtime/utils/site-url'
 
 // Re-exported public types (vNext §4.1). The root default export is the module;
 // stable public types are re-exported here. Do not export the raw
@@ -199,7 +195,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: 'better-convex-nuxt',
     configKey: 'convex',
     compatibility: {
-      nuxt: '>=4.0.0',
+      nuxt: '^4.4.0',
     },
   },
   defaults: {
@@ -223,15 +219,10 @@ export default defineNuxtModule<ModuleOptions>({
       ? generatedConvexApiAlias
       : missingConvexApiTemplate.dst
 
-    // Validate Convex URL format
-    if (options.url && !isValidAbsoluteUrl(options.url)) {
-      logger.warn(
-        `Invalid Convex URL format: "${options.url}". Expected a valid URL like "https://your-app.convex.cloud"`,
-      )
-    }
+    const resolvedUrl = options.url ? normalizeConvexDeploymentUrl(options.url) : undefined
 
     const siteUrlResolution = resolveConvexSiteUrl({
-      url: options.url,
+      url: resolvedUrl,
       siteUrl: options.siteUrl,
     })
     const resolvedSiteUrl = siteUrlResolution.siteUrl
@@ -245,7 +236,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     if (isAuthEnabled && !resolvedSiteUrl) {
       logger.warn(
-        `Authentication is enabled but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(options.url)}`,
+        `Authentication is enabled but no usable siteUrl was resolved. ${getSiteUrlResolutionHint(resolvedUrl)}`,
       )
     }
 
@@ -255,7 +246,7 @@ export default defineNuxtModule<ModuleOptions>({
     const convexConfig = defu(
       nuxt.options.runtimeConfig.public.convex as Record<string, unknown> | undefined,
       {
-        url: options.url || '',
+        url: resolvedUrl || '',
         siteUrl: resolvedSiteUrl || '',
         auth: normalizedAuthConfig,
         logging: options.logging ?? CONVEX_MODULE_DEFAULTS.logging,
@@ -320,8 +311,9 @@ export default defineNuxtModule<ModuleOptions>({
       // resolved definition's type (vNext §8 "Generated type registry"). The
       // augmentation targets `better-convex-nuxt/auth-client` — the module where
       // `ConvexAuthClientRegistry` and `InferRegisteredConvexAuthClient` are
-      // declared — so the inference reads the merged registry (matching the §5.8
-      // packed-typing proof). `addTypeTemplate` registers the reference for us.
+      // declared — so the inference reads the merged registry (covered by the
+      // packed auth-client typing fixture). `addTypeTemplate` registers the
+      // reference for us.
       addTypeTemplate({
         filename: 'types/better-convex-nuxt-auth-client.d.ts',
         getContents: () =>

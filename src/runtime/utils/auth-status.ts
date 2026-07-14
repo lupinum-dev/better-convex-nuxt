@@ -1,4 +1,4 @@
-import type { ConvexCallError } from '../auth/identity-port'
+import type { ConvexCallError } from '../errors'
 import { isAuthenticatedIdentityKey, type ConvexIdentityKey } from './identity-key'
 
 /**

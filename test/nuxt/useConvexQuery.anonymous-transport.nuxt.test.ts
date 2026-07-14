@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import {
+  ANONYMOUS_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -24,9 +29,10 @@ describe('useConvexQuery none transport isolation', () => {
     const { flush } = await captureInNuxt(
       () => {
         // Auth is enabled and the subject is signed in.
-        useState<boolean>('convex:pending', () => false)
-        useState<{ id: string } | null>('convex:user', () => ({ id: 'u1' }))
-        useState<string | null>('convex:token', () => 'jwt.signed.in')
+        useState<boolean>('convex:pending', () => false).value = false
+        useState<AuthIdentity>('convex:identity').value = toAuthenticatedIdentity('jwt.signed.in', {
+          id: 'u1',
+        })
         return createConvexQueryState(query, {}, { auth: 'none' }, true).resultData
       },
       { owner: makeMockOwner(primary, anon) },
@@ -46,10 +52,11 @@ describe('useConvexQuery none transport isolation', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
-        const token = useState<string | null>('convex:token', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
+        pending.value = false
+        identity.value = ANONYMOUS_IDENTITY
         const q = createConvexQueryState(query, {}, { auth: 'none' }, true).resultData
-        return { q, pending, user, token }
+        return { q, identity }
       },
       { owner: makeMockOwner(primary, anon) },
     )
@@ -58,17 +65,15 @@ describe('useConvexQuery none transport isolation', () => {
     expect(anon.calls.onUpdate.length).toBe(1)
 
     // Sign in.
-    result.user.value = { id: 'u1' }
-    result.token.value = 'jwt1'
+    result.identity.value = toAuthenticatedIdentity('jwt1', { id: 'u1' })
     await flush()
 
     // Same-user token rotation.
-    result.token.value = 'jwt2'
+    result.identity.value = toAuthenticatedIdentity('jwt2', { id: 'u1' })
     await flush()
 
     // Sign out.
-    result.user.value = null
-    result.token.value = null
+    result.identity.value = ANONYMOUS_IDENTITY
     await flush()
 
     // The none subscription is identity-independent and never reacquired.

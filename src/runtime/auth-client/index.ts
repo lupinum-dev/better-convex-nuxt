@@ -7,9 +7,9 @@
 // (enforced by the `auth-client-no-runtime-deps` boundary rule and the
 // `./auth-client` packed-entry purity guard).
 //
-// The typing mechanism here is the one proven by the §5.8 packed-typing proof
-// (test/proofs/packed-typing): `InferRegisteredConvexAuthClient` feeds the
-// resolved options to `VueAuthClient<Options>` WITHOUT re-intersecting the full
+// The typing mechanism here is proven from the real packed entry by
+// `test/fixtures/auth-client-typing`: `InferRegisteredConvexAuthClient` feeds
+// the resolved options to `VueAuthClient<Options>` WITHOUT re-intersecting the full
 // `BetterAuthClientOptions`. That broad type carries an optional
 // `plugins?: BetterAuthClientPlugin[]`; intersecting it collapses the resolved
 // plugin tuple and silently degrades plugin-method inference to `any`. Base
@@ -80,8 +80,8 @@ export function defineConvexAuthClient<const Plugins extends AuthClientPlugins =
  *
  * Augmenting this exact module (where the interface is declared) is required:
  * `InferRegisteredConvexAuthClient` below reads this interface, and a
- * cross-module re-export augmentation would not merge into it. This matches the
- * §5.8 packed-typing proof.
+ * cross-module re-export augmentation would not merge into it. The packed
+ * auth-client typing fixture covers this boundary.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentionally empty; the generated type template augments it with `definition`.
 export interface ConvexAuthClientRegistry {}

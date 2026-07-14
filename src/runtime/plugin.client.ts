@@ -1,4 +1,5 @@
 import { ConvexClient } from 'convex/browser'
+import { computed } from 'vue'
 
 /**
  * Core client plugin (vNext §5.1). Always installed. Creates the per-Nuxt-app
@@ -10,12 +11,13 @@ import { ConvexClient } from 'convex/browser'
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 
+import { identityToken, identityUser } from './auth/auth-identity'
 import { createConvexClientOwner, type OwnedConvexClient } from './client/client-owner'
 import { createConvexRuntimeContext, readConvexRuntimeContext } from './runtime-context'
+import { useConvexIdentityState } from './utils/auth-identity-state'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-import type { ConvexUser } from './utils/types'
 
 export default defineNuxtPlugin({
   // Named so the auth-enabled client plugin can declare an explicit `dependsOn`.
@@ -49,8 +51,9 @@ export default defineNuxtPlugin({
 
     // SSR-hydrated auth state holders (populated by the server plugin only when
     // auth is enabled; initialized here so readers never hit undefined).
-    const convexToken = useState<string | null>('convex:token', () => null)
-    const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+    const convexIdentity = useConvexIdentityState()
+    const convexToken = computed(() => identityToken(convexIdentity.value))
+    const convexUser = computed(() => identityUser(convexIdentity.value))
 
     // Every library-created browser ConvexClient must set unsavedChangesWarning:false.
     // Convex registers a per-client beforeunload listener that close() does not

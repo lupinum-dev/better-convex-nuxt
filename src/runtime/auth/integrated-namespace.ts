@@ -10,15 +10,16 @@
  * atoms / subscription-bearing values pass through unchanged. Wrapped functions
  * intentionally do not preserve arbitrary own properties of the source function.
  *
- * `synchronizeIdentity` is the SERIAL identity-operation queue candidate
- * confirmation — never the deduplicated background `refresh()` (decision 4). It
- * runs only after a successful, token-bearing Better Auth result.
+ * `createSessionSynchronizationBarrier` captures the canonical public Better
+ * Auth session revision before invoking an action. It never fetches a Convex
+ * token itself. The wrapper waits only after a successful, token-bearing result
+ * and cancels the unused barrier on every other outcome.
  */
 
-/** True when a Better Auth result envelope carries a truthy `error`. */
-export function readBetterAuthResultError(result: unknown): unknown {
-  if (!result || typeof result !== 'object') return null
-  return (result as { error?: unknown }).error ?? null
+export interface SessionSynchronizationBarrier {
+  /** Wait for this exact Better Auth session token, or `null` for no session. */
+  wait(sessionToken: string | null): Promise<void>
+  cancel(): void
 }
 
 /**
@@ -35,28 +36,27 @@ export function isPlainNamespaceObject(value: unknown): value is Record<Property
 }
 
 /**
- * Post-result synchronization predicate (vNext §8). Sync ONLY after a successful
- * Better Auth client result whose `data.token` is a non-empty string:
+ * Post-result barrier predicate (vNext §8). Wait ONLY after a successful Better
+ * Auth client result whose `data.token` is a non-empty string:
  *
- * - no sync after a thrown operation (the caller never reaches here);
- * - no sync when the returned object has a truthy `error`;
- * - social/redirect initiation returns no session token — no sync;
- * - successful account creation without a session (`token: null`) — no sync.
+ * - no wait after a thrown operation (the caller never reaches here);
+ * - no wait when the returned object has a truthy `error`;
+ * - social/redirect initiation returns no session token — no wait;
+ * - successful account creation without a session (`token: null`) — no wait.
  */
-export function shouldSynchronizeAfterAuthResult(result: unknown): boolean {
-  if (!result || typeof result !== 'object') return false
+export function getSessionSynchronizationToken(result: unknown): string | null {
+  if (!result || typeof result !== 'object') return null
   const response = result as {
     error?: unknown
     data?: { token?: unknown } | null
   }
-  return (
-    !response.error && typeof response.data?.token === 'string' && response.data.token.length > 0
-  )
+  const token = response.data?.token
+  return !response.error && typeof token === 'string' && token.length > 0 ? token : null
 }
 
 export function createIntegratedAuthNamespace<T extends object>(
   namespace: T,
-  synchronizeIdentity: () => Promise<void>,
+  createSessionSynchronizationBarrier: () => SessionSynchronizationBarrier,
   execute: (operation: () => Promise<unknown>) => Promise<unknown> = (operation) => operation(),
 ): T {
   const proxyCache = new WeakMap<object, object>()
@@ -76,14 +76,22 @@ export function createIntegratedAuthNamespace<T extends object>(
         if (typeof value === 'function') {
           const wrapped = async (...args: unknown[]) => {
             return await execute(async () => {
+              const barrier = createSessionSynchronizationBarrier()
               // Apply with the ORIGINAL target as `this` so plugin methods that
               // read their receiver keep working after wrapping.
-              const result = await Reflect.apply(value, currentTarget, args)
-              const error = readBetterAuthResultError(result)
-              if (!error && shouldSynchronizeAfterAuthResult(result)) {
-                await synchronizeIdentity()
+              try {
+                const result = await Reflect.apply(value, currentTarget, args)
+                const sessionToken = getSessionSynchronizationToken(result)
+                if (sessionToken) {
+                  await barrier.wait(sessionToken)
+                } else {
+                  barrier.cancel()
+                }
+                return result
+              } catch (error) {
+                barrier.cancel()
+                throw error
               }
-              return result
             })
           }
           cachedProperties.set(property, wrapped)

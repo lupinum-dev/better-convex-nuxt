@@ -10,6 +10,10 @@ import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-erro
 import { createDevtoolsSink } from '../../src/runtime/devtools/sink'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
+type RuntimeUnsubscribe = ReturnType<OwnedConvexClient['onUpdate']> & {
+  getQueryLogs(): string[] | undefined
+}
+
 /**
  * A counting ConvexClient double for the owner's lifecycle invariants (internal
  * §17.2 "count effects, not only visible outcomes"). It records close() calls,
@@ -26,6 +30,19 @@ class CountingClient extends MockConvexClient {
     super()
     CountingClient.created += 1
     this.ordinal = CountingClient.created
+    const subscribe = this.onUpdate
+    this.onUpdate = ((...args: Parameters<typeof subscribe>) => {
+      const stop = subscribe(...args)
+      const augmented = stop as typeof stop & {
+        unsubscribe(): void
+        getCurrentValue(): string
+        getQueryLogs(): string[]
+      }
+      augmented.unsubscribe = stop
+      augmented.getCurrentValue = () => `current:${this.ordinal}`
+      augmented.getQueryLogs = () => [`logs:${this.ordinal}`]
+      return augmented
+    }) as typeof this.onUpdate
   }
 
   close = async (): Promise<void> => {
@@ -218,6 +235,55 @@ describe('createConvexClientOwner', () => {
       expect(CountingClient.closed).toBe(2)
     })
 
+    it('retires the prior principal before a synchronous replacement factory failure', async () => {
+      resetCounts()
+      const factoryFailure = new Error('primary factory failed')
+      let factoryCalls = 0
+      const o = createConvexClientOwner({
+        primaryFactory: () => {
+          factoryCalls += 1
+          if (factoryCalls === 2) throw factoryFailure
+          return new CountingClient() as unknown as OwnedConvexClient
+        },
+      })
+      const a = o.getPrimary()!.client as unknown as CountingClient
+      a.setMutationHandler('m', () => a.hangingMutation())
+      const inflight = o.handle.mutation(mockFnRef<'mutation'>('m'), {})
+      const inflightAssertion = expect(inflight).rejects.toMatchObject({
+        code: IDENTITY_CHANGED,
+      })
+      // Let dispatch register the consumer-held call on A before crossing the
+      // generation boundary.
+      await Promise.resolve()
+
+      let replacement: Promise<OwnedConvexClient> | undefined
+      expect(() => {
+        replacement = o.replacePrimary({
+          identity: 'user:alice',
+          authEpoch: 1,
+          identityGeneration: 1,
+          isCurrent: () => true,
+          initialize: async () => {},
+        })
+      }).not.toThrow()
+
+      // Retirement is synchronous even though the factory error is delivered
+      // through the returned promise.
+      expect(o.getPrimary()).toBeNull()
+      expect(a.closeCalls).toBe(1)
+      await inflightAssertion
+      await expect(replacement).rejects.toBe(factoryFailure)
+      await expect(o.handle.query(mockFnRef<'query'>('q'), {})).rejects.toMatchObject({
+        code: IDENTITY_CHANGED,
+      })
+      expect(factoryCalls).toBe(2)
+      expect(CountingClient.created).toBe(1)
+      expect(CountingClient.closed).toBe(1)
+
+      await o.dispose()
+      expect(CountingClient.closed).toBe(1)
+    })
+
     it('a stale candidate (isCurrent=false) is closed and never published', async () => {
       resetCounts()
       const o = owner()
@@ -244,9 +310,12 @@ describe('createConvexClientOwner', () => {
       const o = owner()
       const a = o.getPrimary()!.client as unknown as CountingClient
       const cb = vi.fn()
-      const unsubscribe = o.handle.onUpdate(mockFnRef<'query'>('q'), {}, cb)
+      const unsubscribe = o.handle.onUpdate(mockFnRef<'query'>('q'), {}, cb) as RuntimeUnsubscribe
 
       expect(a.activeListenerCount()).toBe(1)
+      expect(unsubscribe.unsubscribe).toBe(unsubscribe)
+      expect(unsubscribe.getCurrentValue()).toBe('current:1')
+      expect(unsubscribe.getQueryLogs()).toEqual(['logs:1'])
 
       await o.replacePrimary({
         identity: 'user:alice',
@@ -260,6 +329,8 @@ describe('createConvexClientOwner', () => {
       // Detached from A, reattached to B — exactly one live subscription total.
       expect(a.activeListenerCount()).toBe(0)
       expect(b.activeListenerCount()).toBe(1)
+      expect(unsubscribe.getCurrentValue()).toBe('current:2')
+      expect(unsubscribe.getQueryLogs()).toEqual(['logs:2'])
 
       // The unsubscribe identity is stable and removes the CURRENT (B) subscription.
       unsubscribe()
@@ -418,6 +489,30 @@ describe('createConvexClientOwner', () => {
   })
 
   describe('dispose', () => {
+    it('returns a complete inert unsubscribe without retaining a late listener', async () => {
+      resetCounts()
+      const o = owner()
+      const original = o.getPrimary()!.client as unknown as CountingClient
+      await o.dispose()
+
+      const callback = vi.fn()
+      const unsubscribe = o.handle.onUpdate(
+        mockFnRef<'query'>('late'),
+        {},
+        callback,
+      ) as RuntimeUnsubscribe
+
+      expect(original.calls.onUpdate).toHaveLength(0)
+      expect(unsubscribe.unsubscribe).toBe(unsubscribe)
+      expect(unsubscribe.getCurrentValue()).toBeUndefined()
+      expect(unsubscribe.getQueryLogs()).toBeUndefined()
+      expect(() => {
+        unsubscribe()
+        unsubscribe.unsubscribe()
+      }).not.toThrow()
+      expect(callback).not.toHaveBeenCalled()
+    })
+
     it('disposes the attached diagnostics sink and rejects late attachment', async () => {
       resetCounts()
       const o = owner()
@@ -524,10 +619,10 @@ describe('createConvexClientOwner', () => {
     })
   })
 
-  it('retries the same identity generation after candidate confirmation fails', async () => {
+  it('does not retry a persistently failing candidate within the same identity generation', async () => {
     resetCounts()
     const { port, emit, initializePrimary, failPrimary } = fakePort()
-    initializePrimary.mockRejectedValueOnce(new Error('temporary confirmation failure'))
+    initializePrimary.mockRejectedValue(new Error('persistent confirmation failure'))
     const o = owner()
     o.attachAuthPort(port)
 
@@ -537,11 +632,14 @@ describe('createConvexClientOwner', () => {
     await vi.waitFor(() => expect(failPrimary).toHaveBeenCalledWith(1, expect.any(Error)))
     await new Promise<void>((resolve) => setTimeout(resolve, 0))
 
-    // An epoch notification for the unchanged generation is sufficient to retry;
-    // the failed attempt did not incorrectly advance the committed generation.
+    // Epoch-only notifications cannot spin a persistently broken client factory
+    // or confirmation path. Recovery requires a real new identity generation.
     emit({ authEpoch: 2 })
-    await vi.waitFor(() => expect(initializePrimary).toHaveBeenCalledTimes(2))
-    await vi.waitFor(() => expect(o.getPrimary()?.identityGeneration).toBe(1))
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+    expect(initializePrimary).toHaveBeenCalledTimes(1)
+    expect(failPrimary).toHaveBeenCalledTimes(1)
+    expect(CountingClient.created).toBe(2)
+    expect(o.getPrimary()).toBeNull()
 
     await o.dispose()
   })

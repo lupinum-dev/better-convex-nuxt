@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
+import { LOADING_IDENTITY } from '../../src/runtime/auth/auth-identity'
 import {
   createConvexAuthCoordinator,
   type AuthClientWithConvex,
@@ -33,21 +34,27 @@ function makeJwt(sub: string): string {
 }
 
 function makeCoordinatorFor(user: string) {
+  let reconcileObservedSession: ((sessionToken: string | null) => void) | null = null
   const authClient = {
     convex: { token: async () => ({ data: { token: makeJwt(user) }, error: null }) },
-    signOut: async () => ({ data: { token: '' }, error: null }),
+    signOut: async () => {
+      setTimeout(() => reconcileObservedSession?.(null), 0)
+      return { data: { token: '' }, error: null }
+    },
     signIn: {},
     signUp: {},
   } as unknown as AuthClientWithConvex
 
   const state: ConvexAuthCoordinatorState = {
-    token: ref<string | null>(null),
-    user: ref(null),
+    identity: ref(LOADING_IDENTITY),
     pending: ref(true),
     authError: ref<string | null>(null),
   }
 
   const coordinator = createConvexAuthCoordinator({ authClient, state })
+  reconcileObservedSession = (sessionToken) => {
+    void coordinator.reconcileSession(sessionToken)
+  }
 
   const makeClient = () =>
     ({
@@ -71,12 +78,12 @@ function makeCoordinatorFor(user: string) {
     const snapshot = coordinator.port.snapshot()
     if (snapshot.identityGeneration === lastGeneration) return
     lastGeneration = snapshot.identityGeneration
-    void coordinator.port.initializePrimary(makeClient(), snapshot.authEpoch)
+    void coordinator.port.initializePrimary(makeClient())
   })
 
   coordinator.attachPrimary(makeClient())
 
-  return { coordinator, state }
+  return { coordinator }
 }
 
 describe('two Nuxt applications in one process: isolated auth coordinators (vNext §8)', () => {
@@ -90,8 +97,8 @@ describe('two Nuxt applications in one process: isolated auth coordinators (vNex
     await appA.result.coordinator.ready({ timeoutMs: 0 })
     await appB.result.coordinator.ready({ timeoutMs: 0 })
 
-    expect(appA.result.state.user.value).toEqual(expect.objectContaining({ id: 'A' }))
-    expect(appB.result.state.user.value).toEqual(expect.objectContaining({ id: 'B' }))
+    expect(appA.result.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(appB.result.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
     expect(appA.result.coordinator.status.value).toBe('authenticated')
     expect(appB.result.coordinator.status.value).toBe('authenticated')
 
@@ -110,10 +117,10 @@ describe('two Nuxt applications in one process: isolated auth coordinators (vNex
 
     await appA.result.coordinator.signOut()
 
-    expect(appA.result.state.user.value).toBeNull()
+    expect(appA.result.coordinator.user.value).toBeNull()
     expect(appA.result.coordinator.status.value).toBe('anonymous')
     // B fully unaffected — no shared module-scope state bled across apps.
-    expect(appB.result.state.user.value).toEqual(expect.objectContaining({ id: 'B' }))
+    expect(appB.result.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
     expect(appB.result.coordinator.status.value).toBe('authenticated')
 
     disposeAll()

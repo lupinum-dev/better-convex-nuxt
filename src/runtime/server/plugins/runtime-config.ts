@@ -1,4 +1,6 @@
-import { defineNitroPlugin, useRuntimeConfig } from '#imports'
+import { defineNitroPlugin } from 'nitropack/runtime'
+
+import { useRuntimeConfig } from '#imports'
 
 /**
  * Materialize Nitro's request-scoped runtime config before public server

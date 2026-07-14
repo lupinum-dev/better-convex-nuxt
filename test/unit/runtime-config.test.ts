@@ -76,4 +76,24 @@ describe('runtime config normalization', () => {
         .waitTimeoutMs,
     ).toBe(10_000)
   })
+
+  it.each([
+    'https://user:pass@example.convex.cloud',
+    'https://example.convex.cloud/path',
+    'https://example.convex.cloud?target=private',
+    'https://example.convex.cloud#fragment',
+    'http://example.convex.cloud',
+    'file:///tmp/convex',
+  ])('rejects unsafe Convex deployment URLs before client construction: %s', (url) => {
+    expect(() => normalizeConvexRuntimeConfig({ url })).toThrow()
+  })
+
+  it.each([
+    ['https://example.convex.cloud/', 'https://example.convex.cloud'],
+    ['http://localhost:3210/', 'http://localhost:3210'],
+    ['http://127.42.0.1:3210', 'http://127.42.0.1:3210'],
+    ['http://[::1]:3210', 'http://[::1]:3210'],
+  ])('normalizes exact deployment origin %s', (url, expected) => {
+    expect(normalizeConvexRuntimeConfig({ url }).url).toBe(expected)
+  })
 })

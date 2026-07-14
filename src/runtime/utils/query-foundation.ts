@@ -3,23 +3,24 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef } from 'vue'
 
 import { useState } from '#imports'
 
+import { identityKeyOf } from '../auth/auth-identity'
 import type { AuthIdentityPort } from '../auth/identity-port'
-import type { OwnedConvexClient, ConvexClientOwner } from '../client/client-owner'
+import type { ConvexClientHandle, ConvexClientOwner } from '../client/client-owner'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
+import { useConvexIdentityState } from './auth-identity-state'
 import { useConvexAuthPendingState } from './auth-pending-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from './auth-status'
-import { getConvexIdentityKey, type ConvexIdentityKey } from './identity-key'
+import type { ConvexIdentityKey } from './identity-key'
 import type { QueryExecutionGate } from './query-execution-gate'
 import { getConvexRuntimeConfig } from './runtime-config'
-import type { ConvexUser } from './types'
 
 /**
  * Reactive canonical auth-identity inputs for query gating and isolation
  * tagging (internal §7.2). This is the single place query composables read auth
  * state; they never touch the auth engine directly.
  *
- * Derived from the SSR-seeded reactive state (`convex:pending` / `convex:user` /
+ * Derived from the SSR-seeded reactive state (`convex:pending` / `convex:identity` /
  * `convex:authError`) so it is correct on both server and client, plus the
  * frozen {@link AuthIdentityPort} for the monotonic `identityGeneration` used as
  * the isolation dimension. Auth-disabled and server contexts have no port and
@@ -34,20 +35,10 @@ export interface ConvexQueryAuthContext {
   waitForInitialSettlement(): Promise<void>
 }
 
-function safeIdentityKey(user: ConvexUser | null): ConvexIdentityKey {
-  try {
-    return getConvexIdentityKey(user)
-  } catch {
-    // A token without a resolved user id is not a settled identity; never
-    // manufacture `user:undefined`.
-    return 'anonymous'
-  }
-}
-
 export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthContext {
   const authEnabled = getConvexRuntimeConfig().auth !== false
 
-  const user = useState<ConvexUser | null>('convex:user', () => null)
+  const identity = useConvexIdentityState()
   const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
@@ -67,7 +58,7 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
   }
 
   const identityKey = computed<ConvexIdentityKey | null>(() =>
-    authEnabled ? safeIdentityKey(user.value) : null,
+    authEnabled ? identityKeyOf(identity.value) : null,
   )
 
   const error = computed<ConvexCallError | null>(() => {
@@ -106,15 +97,16 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
  * - `none` in an auth-enabled build uses the dedicated anonymous client that
  *   never receives `setAuth` (its identity is never rebound).
  * - `required`/`optional` (and `none` in an auth-disabled build) use the
- *   identity-scoped primary, which the owner replaces on identity change.
+ *   owner's stable handle. Its live listeners register even while a confirmed
+ *   replacement is pending, then rebind to the replacement on publication.
  *
  * Returns `null` when no client owner exists (SSR uses HTTP, never a WS client).
  */
 export function selectLiveQueryClient(
   owner: ConvexClientOwner | undefined,
   gate: QueryExecutionGate,
-): OwnedConvexClient | null {
+): Pick<ConvexClientHandle, 'query' | 'onUpdate'> | null {
   if (!owner || gate.outcome !== 'execute') return null
   if (gate.useAnonymousClient) return owner.getAnonymous()
-  return owner.getPrimary()?.client ?? null
+  return owner.handle
 }

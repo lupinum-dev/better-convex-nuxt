@@ -24,11 +24,11 @@ import { observeBetterAuthSession } from './auth/session-observer'
 import { validateConvexAuthClientDefinition } from './auth/validate-auth-client-definition'
 import type { AuthWaterfall } from './devtools/types'
 import { readConvexRuntimeContext } from './runtime-context'
+import { useConvexIdentityState } from './utils/auth-identity-state'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { readAuthMode } from './utils/convex-cache'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
-import type { ConvexUser } from './utils/types'
 
 export default defineNuxtPlugin({
   // Must run AFTER `plugin.client` provides `$convexRuntime`: this plugin
@@ -68,8 +68,7 @@ export default defineNuxtPlugin({
     const convexUrl = convexConfig.url
     const resolvedSiteUrl = convexConfig.siteUrl
 
-    const convexToken = useState<string | null>('convex:token', () => null)
-    const convexUser = useState<ConvexUser | null>('convex:user', () => null)
+    const convexIdentity = useConvexIdentityState()
     const convexAuthError = useState<string | null>('convex:authError', () => null)
     const convexPending = useConvexAuthPendingState()
     useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
@@ -102,13 +101,11 @@ export default defineNuxtPlugin({
     const coordinator: ConvexAuthCoordinator = createConvexAuthCoordinator({
       authClient,
       state: {
-        token: convexToken,
-        user: convexUser,
+        identity: convexIdentity,
         pending: convexPending,
         authError: convexAuthError,
       },
       logger,
-      wasServerRendered: () => Boolean(nuxtApp.payload?.serverRendered),
       // Identity purge (internal §7.1): drop `required`/`optional` Convex payload
       // keys on a stable identity-key change; `none` keys are identity-independent
       // and retained. Query composables clear their own local state via the
@@ -134,8 +131,8 @@ export default defineNuxtPlugin({
     const sessionScope = effectScope()
     if (authClient) {
       sessionScope.run(() => {
-        observeBetterAuthSession(authClient, (present, errorMessage) => {
-          void coordinator.reconcileSession(present, errorMessage)
+        observeBetterAuthSession(authClient, (sessionToken, errorMessage) => {
+          void coordinator.reconcileSession(sessionToken, errorMessage)
         })
       })
     }

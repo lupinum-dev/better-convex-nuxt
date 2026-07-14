@@ -1,11 +1,34 @@
-import type { H3Event } from 'h3'
+import {
+  getResponseHeader,
+  getResponseHeaders,
+  removeResponseHeader,
+  setResponseHeader,
+  type H3Event,
+} from 'h3'
+
+const SHARED_CACHE_CONTROL_HEADERS = new Set([
+  'cdn-cache-control',
+  'edge-control',
+  'surrogate-control',
+  'x-accel-expires',
+])
+
+function removeSharedCacheOverrides(event: H3Event): void {
+  for (const name of Object.keys(getResponseHeaders(event))) {
+    const lower = name.toLowerCase()
+    if (SHARED_CACHE_CONTROL_HEADERS.has(lower) || lower.endsWith('-cdn-cache-control')) {
+      removeResponseHeader(event, name)
+    }
+  }
+}
 
 /**
  * Merge `Cookie` into an existing `Vary` header value without dropping any
  * caller-set field (vNext §9 "Vary/Cache-Control"). Existing tokens are
  * preserved, whitespace is normalized, and `Cookie` is added exactly once
  * (case-insensitively) so an auth-enabled SSR response always varies by cookie
- * while a pre-existing `Vary: Accept-Encoding` survives.
+ * while a pre-existing `Vary: Accept-Encoding` survives. `Vary: *` already
+ * varies on every request property and must remain the sole field value.
  */
 export function mergeVaryCookie(existing: string | number | string[] | undefined | null): string {
   const values: string[] = []
@@ -27,6 +50,7 @@ export function mergeVaryCookie(existing: string | number | string[] | undefined
     push(String(existing))
   }
 
+  if (seen.has('*')) return '*'
   if (!seen.has('cookie')) values.push('Cookie')
   return values.join(', ')
 }
@@ -36,19 +60,20 @@ export function mergeVaryCookie(existing: string | number | string[] | undefined
  *
  * - Every auth-enabled SSR response appends `Vary: Cookie`, preserving existing
  *   `Vary` values so a shared cache keys per cookie.
- * - A request carrying a recognized Better Auth cookie whose response serializes
- *   a token additionally gets `Cache-Control: private, no-store`, so a per-user
- *   JWT is never served to another user by an intermediary cache.
+ * - A request carrying a recognized Better Auth cookie, or any response that
+ *   serializes a token, additionally gets `Cache-Control: private, no-store`.
+ *   Invalid/revoked sessions remain request-specific even when no token is
+ *   produced, and a per-user JWT is never cacheable without a cookie signal.
+ *   Shared-cache override headers already present on the response are removed;
+ *   an operator/CDN rule that rewrites headers after this point remains external.
  */
 export function applyConvexAuthSsrHeaders(
   event: H3Event,
-  options: { authEnabled: boolean; hasBetterAuthCookie: boolean; serializesToken: boolean },
+  options: { hasBetterAuthCookie: boolean; serializesToken: boolean },
 ): void {
-  const res = event.node.res
-  if (options.authEnabled) {
-    res.setHeader('Vary', mergeVaryCookie(res.getHeader('Vary')))
-  }
-  if (options.hasBetterAuthCookie && options.serializesToken) {
-    res.setHeader('Cache-Control', 'private, no-store')
+  setResponseHeader(event, 'Vary', mergeVaryCookie(getResponseHeader(event, 'Vary')))
+  if (options.hasBetterAuthCookie || options.serializesToken) {
+    removeSharedCacheOverrides(event)
+    setResponseHeader(event, 'Cache-Control', 'private, no-store')
   }
 }

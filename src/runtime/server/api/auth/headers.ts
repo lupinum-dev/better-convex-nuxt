@@ -2,32 +2,90 @@ import type { H3Event } from 'h3'
 
 import { filterBetterAuthCookies } from '../../../utils/shared-helpers'
 
-const HOP_BY_HOP_HEADERS = new Set([
+const REQUEST_HEADERS_TO_DROP = new Set([
+  'accept-encoding',
   'connection',
+  'content-encoding',
+  'content-length',
+  'expect',
+  'host',
   'keep-alive',
   'proxy-authenticate',
   'proxy-authorization',
+  'proxy-connection',
   'te',
   'trailer',
   'transfer-encoding',
   'upgrade',
-  'host',
-  'content-length',
 ])
+
+const RESPONSE_HEADERS_TO_DROP = new Set([
+  'cache-control',
+  'connection',
+  'content-encoding',
+  'content-length',
+  'edge-control',
+  'expires',
+  'keep-alive',
+  'pragma',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'proxy-connection',
+  'set-cookie',
+  'surrogate-control',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'x-accel-expires',
+])
+
+const SUPPORTED_RESPONSE_CONTENT_ENCODINGS = new Set([
+  'br',
+  'deflate',
+  'gzip',
+  'identity',
+  'x-gzip',
+])
+
+function parseConnectionHeader(value: string | null): Set<string> {
+  return new Set(
+    (value || '')
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean),
+  )
+}
 
 function isProxyControlHeader(name: string): boolean {
   const lower = name.toLowerCase()
   return (
     lower === 'forwarded' ||
+    lower === 'client-ip' ||
+    lower === 'true-client-ip' ||
+    lower === 'x-real-ip' ||
+    lower.endsWith('-client-ip') ||
+    lower.endsWith('-connecting-ip') ||
+    lower.startsWith('x-original-') ||
+    lower.startsWith('x-vercel-forwarded-') ||
+    lower === 'cloudfront-forwarded-proto' ||
+    lower === 'front-end-https' ||
+    lower === 'x-arr-ssl' ||
     lower.startsWith('x-forwarded-') ||
     lower.startsWith('x-better-auth-forwarded-')
   )
 }
 
-function stripHopByHopHeaders(headers: Headers): Headers {
+function stripUnsafeRequestHeaders(headers: Headers): Headers {
   const result = new Headers()
+  const connectionHeaders = parseConnectionHeader(headers.get('connection'))
   for (const [key, value] of headers.entries()) {
-    if (HOP_BY_HOP_HEADERS.has(key.toLowerCase()) || isProxyControlHeader(key)) {
+    const lower = key.toLowerCase()
+    if (
+      REQUEST_HEADERS_TO_DROP.has(lower) ||
+      connectionHeaders.has(lower) ||
+      isProxyControlHeader(key)
+    ) {
       continue
     }
     result.set(key, value)
@@ -36,7 +94,6 @@ function stripHopByHopHeaders(headers: Headers): Headers {
 }
 
 export interface AuthProxyForwardHeadersOptions {
-  requestUrl: URL
   trustedClientIpHeader?: string | null
 }
 
@@ -68,7 +125,7 @@ export function buildAuthProxyForwardHeaders(
 ): Record<string, string> {
   const trustedHeader = options.trustedClientIpHeader
   const clientIp = trustedHeader ? normalizeClientIp(event.headers.get(trustedHeader)) : null
-  const headers = stripHopByHopHeaders(event.headers)
+  const headers = stripUnsafeRequestHeaders(event.headers)
   if (trustedHeader) headers.delete(trustedHeader)
   const authCookieHeader = filterBetterAuthCookies(headers.get('cookie'))
   if (authCookieHeader) {
@@ -77,20 +134,30 @@ export function buildAuthProxyForwardHeaders(
     headers.delete('cookie')
   }
 
-  headers.set('x-better-auth-forwarded-host', options.requestUrl.host)
-  headers.set('x-better-auth-forwarded-proto', options.requestUrl.protocol.replace(':', ''))
   if (clientIp) headers.set('x-forwarded-for', clientIp)
 
   return Object.fromEntries(headers.entries())
 }
 
-export function shouldSkipProxyResponseHeader(name: string): boolean {
+export function shouldSkipProxyResponseHeader(
+  name: string,
+  connectionHeader: string | null = null,
+): boolean {
   const lower = name.toLowerCase()
   return (
-    lower === 'set-cookie' ||
-    lower === 'content-encoding' ||
-    lower === 'content-length' ||
-    lower === 'transfer-encoding' ||
-    lower === 'connection'
+    RESPONSE_HEADERS_TO_DROP.has(lower) ||
+    lower === 'cdn-cache-control' ||
+    lower.endsWith('-cdn-cache-control') ||
+    parseConnectionHeader(connectionHeader).has(lower)
+  )
+}
+
+export function isSupportedProxyResponseContentEncoding(value: string | null): boolean {
+  if (value === null) return true
+  const encodings = value.split(',').map((encoding) => encoding.trim().toLowerCase())
+  if (encodings.includes('identity')) return encodings.length === 1
+  return (
+    encodings.length > 0 &&
+    encodings.every((encoding) => SUPPORTED_RESPONSE_CONTENT_ENCODINGS.has(encoding))
   )
 }

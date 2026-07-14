@@ -10,16 +10,6 @@ export interface ResolveConvexSiteUrlResult {
   source: SiteUrlResolutionSource
 }
 
-export function isValidAbsoluteUrl(url: string | undefined | null): boolean {
-  if (!url) return false
-  try {
-    new URL(url)
-    return true
-  } catch {
-    return false
-  }
-}
-
 /**
  * Derive the Convex HTTP Actions host from the Convex deployment URL.
  * Example: https://foo.convex.cloud -> https://foo.convex.site

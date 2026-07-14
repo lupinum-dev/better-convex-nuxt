@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import { useState } from '#imports'
 
+import { LOADING_IDENTITY } from '../../src/runtime/auth/auth-identity'
 import {
   createConvexAuthCoordinator,
   type AuthClientWithConvex,
@@ -86,12 +87,19 @@ function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
   if (initial) responses.push(initial)
   const rejected = new Set<string>()
   const signOutScript: SignOutScript = { value: { data: { token: '' }, error: null } }
+  let reconcileObservedSession: ((sessionToken: string | null) => void) | null = null
 
   const authClient = {
     convex: {
       token: async (): Promise<TokenResponse> => responses.shift() ?? { data: null, error: null },
     },
-    signOut: async (): Promise<TokenResponse> => signOutScript.value,
+    signOut: async (): Promise<TokenResponse> => {
+      const result = signOutScript.value
+      if (!result.error) {
+        setTimeout(() => reconcileObservedSession?.(null), 0)
+      }
+      return result
+    },
     signIn: { email: async () => ({ data: { token: 'trigger' }, error: null }) },
     signUp: { email: async () => ({ data: { token: 'trigger' }, error: null }) },
   } as unknown as AuthClientWithConvex
@@ -102,8 +110,7 @@ function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
   })
 
   const state: ConvexAuthCoordinatorState = {
-    token: ref<string | null>(null),
-    user: ref(null),
+    identity: ref(LOADING_IDENTITY),
     pending: pendingRef as ConvexAuthCoordinatorState['pending'],
     authError: ref<string | null>(null),
   }
@@ -116,6 +123,9 @@ function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
       purged.push('purged')
     },
   })
+  reconcileObservedSession = (sessionToken) => {
+    void coordinator.reconcileSession(sessionToken)
+  }
 
   owner.attachAuthPort(coordinator.port)
   coordinator.attachPrimary(
@@ -125,7 +135,6 @@ function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
   return {
     owner,
     coordinator,
-    state,
     signOutScript,
     pushToken: (token: string) => responses.push({ data: { token }, error: null }),
     pushAnonymous: () => responses.push({ data: null, error: null }),
@@ -151,13 +160,13 @@ describe('client-engine sign-out lifecycle (real coordinator + real owner)', () 
     )
 
     await harness.settle()
-    expect(harness.state.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(harness.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
     expect(harness.coordinator.status.value).toBe('authenticated')
 
     await harness.coordinator.signOut()
     expect(harness.purged.length).toBeGreaterThan(0)
-    expect(harness.state.user.value).toBeNull()
-    expect(harness.state.token.value).toBeNull()
+    expect(harness.coordinator.user.value).toBeNull()
+    expect(harness.coordinator.token.value).toBeNull()
     expect(harness.coordinator.status.value).toBe('anonymous')
 
     wrapper.unmount()
@@ -186,11 +195,12 @@ describe('client-engine sign-out lifecycle (real coordinator + real owner)', () 
   })
 
   it('failed sign-out retains the existing identity under the newer auth epoch', async () => {
+    const tokenA = makeJwt('A')
     const { result: harness, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => true)
         pending.value = true
-        return buildHarness(pending, { data: { token: makeJwt('A') }, error: null })
+        return buildHarness(pending, { data: { token: tokenA }, error: null })
       },
       { convexConfig: { auth: {} } },
     )
@@ -199,10 +209,13 @@ describe('client-engine sign-out lifecycle (real coordinator + real owner)', () 
     const epochBefore = harness.coordinator.port.snapshot().authEpoch
 
     harness.signOutScript.value = { error: { message: 'network down' } }
+    // Recovery retains A only after one fresh Better Auth token verdict proves
+    // that the failed operation did not partially remove the session.
+    harness.pushToken(tokenA)
     await expect(harness.coordinator.signOut()).rejects.toThrow()
 
     // Identity A is retained; authEpoch advanced at dequeue regardless of outcome.
-    expect(harness.state.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(harness.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
     expect(harness.coordinator.status.value).toBe('authenticated')
     expect(harness.coordinator.port.snapshot().authEpoch).toBeGreaterThan(epochBefore)
 
@@ -215,12 +228,12 @@ describe('client-engine sign-out lifecycle (real coordinator + real owner)', () 
 
     await Promise.all([appA.settle(), appB.settle()])
 
-    expect(appA.state.user.value).toEqual(expect.objectContaining({ id: 'A' }))
-    expect(appB.state.user.value).toEqual(expect.objectContaining({ id: 'B' }))
+    expect(appA.coordinator.user.value).toEqual(expect.objectContaining({ id: 'A' }))
+    expect(appB.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
 
     await appA.coordinator.signOut()
-    expect(appA.state.user.value).toBeNull()
+    expect(appA.coordinator.user.value).toBeNull()
     // B is fully unaffected by A's sign-out (isolated per-app coordinator/owner).
-    expect(appB.state.user.value).toEqual(expect.objectContaining({ id: 'B' }))
+    expect(appB.coordinator.user.value).toEqual(expect.objectContaining({ id: 'B' }))
   })
 })

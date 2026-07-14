@@ -13,9 +13,10 @@ import {
 
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
-import type { OwnedConvexClient } from '../client/client-owner'
+import { identityToken } from '../auth/auth-identity'
 import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
+import { useConvexIdentityState } from '../utils/auth-identity-state'
 import type { ConvexAuthMode } from '../utils/auth-status'
 import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { assertConvexComposableScope } from '../utils/composable-scope'
@@ -191,7 +192,8 @@ export function createConvexPaginatedQueryState<
 
   const event = import.meta.server ? useRequestEvent() : null
   const cookieHeader = event?.headers.get('cookie') || ''
-  const cachedToken = useState<string | null>('convex:token', () => null)
+  const identity = useConvexIdentityState()
+  const cachedToken = computed(() => identityToken(identity.value))
 
   const currentPaginationId = ref(generatePaginationId())
   const pages = shallowRef<PaginatedPageState<Item>[]>([])
@@ -258,7 +260,7 @@ export function createConvexPaginatedQueryState<
     operation.paginationGeneration === currentPaginationId.value &&
     sameTag(operation, currentTag.value)
 
-  const selectClient = (): OwnedConvexClient | null => selectLiveQueryClient(owner, gate.value)
+  const selectClient = () => selectLiveQueryClient(owner, gate.value)
 
   async function fetchPage(
     paginationOpts: {

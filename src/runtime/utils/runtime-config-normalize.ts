@@ -6,7 +6,7 @@ import {
 import { normalizeMaxConcurrent, normalizeWaitTimeoutMs } from './config-defaults'
 import { resolveConvexSiteUrl } from './convex-config'
 import type { LogLevel } from './logger'
-import { normalizeConvexSiteUrl } from './site-url'
+import { normalizeConvexDeploymentUrl, normalizeConvexSiteUrl } from './site-url'
 
 /**
  * Fixed query defaults (vNext §5.2/§5.7). There is no `auth` default: query auth
@@ -77,7 +77,10 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
   // URL/siteUrl are resolved from runtimeConfig only. module.ts reads env at build
   // time; Nuxt's native `NUXT_PUBLIC_*` runtime override supplies deploy-time
   // values. Re-reading process.env here would be server-only and silently diverge.
-  const url = typeof raw?.url === 'string' && raw.url.length > 0 ? raw.url : undefined
+  const url =
+    typeof raw?.url === 'string' && raw.url.length > 0
+      ? normalizeConvexDeploymentUrl(raw.url)
+      : undefined
   const explicitSiteUrl =
     typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
   const candidateSiteUrl = resolveConvexSiteUrl({ url, siteUrl: explicitSiteUrl }).siteUrl

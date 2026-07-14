@@ -75,7 +75,10 @@ describe('validateServerConvexOptions — rejected combinations', () => {
 
   it('rejects an explicit credential combined with none', () => {
     expect(() =>
-      validateServerConvexOptions({ auth: 'none', credential: { type: 'bearer', value: 'b' } }),
+      validateServerConvexOptions({
+        auth: 'none',
+        credential: { type: 'bearer', value: 'b' },
+      }),
     ).toThrow(ServerConvexValidationError)
   })
 })

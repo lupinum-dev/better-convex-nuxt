@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import {
+  ANONYMOUS_IDENTITY,
+  LOADING_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -21,11 +27,11 @@ describe('useConvexQuery auth execution gate', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => true)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = true
-        user.value = null
+        identity.value = LOADING_IDENTITY
         const state = createConvexQueryState(query, {}, { auth: 'required', subscribe: false })
-        return { state, pending, user }
+        return { state, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -38,7 +44,7 @@ describe('useConvexQuery auth execution gate', () => {
     expect(resolved).toBe(false)
     expect(result.state.resultData.status.value).toBe('pending')
 
-    result.user.value = { id: 'u1' }
+    result.identity.value = toAuthenticatedIdentity('jwt-u1', { id: 'u1' })
     result.pending.value = false
     await flush()
     await result.state.resolvePromise
@@ -54,12 +60,12 @@ describe('useConvexQuery auth execution gate', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => true)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         // Reset shared auth state (leaks across tests via one app's useState).
         pending.value = true
-        user.value = null
+        identity.value = LOADING_IDENTITY
         const q = createConvexQueryState(query, {}, { auth: 'required' }, true).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -69,7 +75,7 @@ describe('useConvexQuery auth execution gate', () => {
     expect(primary.calls.onUpdate.length).toBe(0)
 
     // Settles authenticated: executes with identity.
-    result.user.value = { id: 'u1' }
+    result.identity.value = toAuthenticatedIdentity('jwt-u1', { id: 'u1' })
     result.pending.value = false
     await flush()
     expect(primary.activeListenerCount(query, {})).toBe(1)
@@ -82,17 +88,18 @@ describe('useConvexQuery auth execution gate', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => true)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         // Reset shared auth state (leaks across tests via one app's useState).
         pending.value = true
-        user.value = null
+        identity.value = LOADING_IDENTITY
         const q = createConvexQueryState(query, {}, { auth: 'required' }, true).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
 
-    result.pending.value = false // settled, still anonymous
+    result.identity.value = ANONYMOUS_IDENTITY
+    result.pending.value = false
     await flush()
 
     expect(primary.calls.onUpdate.length).toBe(0)
@@ -106,16 +113,17 @@ describe('useConvexQuery auth execution gate', () => {
     const { result, flush } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => true)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         // Reset shared auth state (leaks across tests via one app's useState).
         pending.value = true
-        user.value = null
+        identity.value = LOADING_IDENTITY
         const q = createConvexQueryState(query, {}, { auth: 'optional' }, true).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
 
+    result.identity.value = ANONYMOUS_IDENTITY
     result.pending.value = false
     await flush()
 

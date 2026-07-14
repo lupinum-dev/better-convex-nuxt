@@ -78,7 +78,7 @@ type ConvexQueryChain<TExistingUser> = {
   withIndex(
     indexName: string,
     cb: (q: UserSyncIndexRangeBuilder) => unknown,
-  ): { first: () => Promise<TExistingUser | null> }
+  ): { collect: () => Promise<TExistingUser[]> }
 }
 
 type UserSyncIndexRangeBuilder = {
@@ -101,13 +101,22 @@ async function findExistingByAuthId<
     'table' | 'index' | 'authIdField'
   >,
   authUserId: string,
-): Promise<TExistingUser | null> {
+): Promise<TExistingUser[]> {
   const authIdField = options.authIdField ?? 'authId'
   const query = ctx.db.query(options.table) as ConvexQueryChain<TExistingUser>
 
   return await query
     .withIndex(options.index, (q: UserSyncIndexRangeBuilder) => q.eq(authIdField, authUserId))
-    .first()
+    .collect()
+}
+
+async function deleteDuplicateRows<TExistingUser extends { _id: unknown }>(
+  ctx: UserSyncCtx<TExistingUser>,
+  existing: readonly TExistingUser[],
+): Promise<void> {
+  for (const duplicate of existing.slice(1)) {
+    await ctx.db.delete(duplicate._id)
+  }
 }
 
 /**
@@ -126,12 +135,15 @@ export function createUserSyncTriggers<
     user: {
       onCreate: async (ctx: TCtx, user: TAuthUser) => {
         const now = Date.now()
-        const existing = await findExistingByAuthId(
+        const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
           user._id,
         )
-        if (existing) return
+        if (existing.length > 0) {
+          await deleteDuplicateRows(ctx, existing)
+          return
+        }
 
         const doc = await options.createDoc({ ctx, user, now })
         await ctx.db.insert(options.table, doc)
@@ -150,53 +162,58 @@ export function createUserSyncTriggers<
        * event's payload) or run `rebuild()` periodically to reconcile drift.
        */
       onUpdate: async (ctx: TCtx, user: TAuthUser, previousUser: TAuthUser) => {
-        if (!options.patchDoc) return
-
-        const existing = await findExistingByAuthId(
+        const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
           user._id,
         )
-        if (!existing) return
+        const [retained] = existing
+        if (!retained) return
+
+        await deleteDuplicateRows(ctx, existing)
+        if (!options.patchDoc) return
 
         const patch = await options.patchDoc({
           ctx,
           user,
           previousUser,
-          existing: existing as TExistingUser,
+          existing: retained,
           now: Date.now(),
         })
         if (!patch || Object.keys(patch).length === 0) return
 
-        await ctx.db.patch(existing._id, patch)
+        await ctx.db.patch(retained._id, patch)
       },
       onDelete: async (ctx: TCtx, user: TAuthUser) => {
-        const existing = await findExistingByAuthId(
+        const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
           user._id,
         )
-        if (!existing) return
-
-        await ctx.db.delete(existing._id)
+        for (const row of existing) {
+          await ctx.db.delete(row._id)
+        }
       },
       rebuild: async (ctx: TCtx, users: readonly TAuthUser[]): Promise<UserSyncRebuildResult> => {
         const result: UserSyncRebuildResult = { inserted: 0, patched: 0, skipped: 0 }
 
         for (const user of users) {
           const now = Date.now()
-          const existing = await findExistingByAuthId(
+          const existing = await findExistingByAuthId<TExistingUser, TCtx>(
             ctx,
             { table: options.table, index: options.index, authIdField: options.authIdField },
             user._id,
           )
+          const [retained] = existing
 
-          if (!existing) {
+          if (!retained) {
             const doc = await options.createDoc({ ctx, user, now })
             await ctx.db.insert(options.table, doc)
             result.inserted += 1
             continue
           }
+
+          await deleteDuplicateRows(ctx, existing)
 
           if (!options.rebuildDoc) {
             result.skipped += 1
@@ -206,7 +223,7 @@ export function createUserSyncTriggers<
           const patch = await options.rebuildDoc({
             ctx,
             user,
-            existing: existing as TExistingUser,
+            existing: retained,
             now,
           })
           if (!patch || Object.keys(patch).length === 0) {
@@ -214,7 +231,7 @@ export function createUserSyncTriggers<
             continue
           }
 
-          await ctx.db.patch(existing._id, patch)
+          await ctx.db.patch(retained._id, patch)
           result.patched += 1
         }
 

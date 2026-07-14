@@ -2,44 +2,39 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createIntegratedAuthNamespace,
+  getSessionSynchronizationToken,
   isPlainNamespaceObject,
-  readBetterAuthResultError,
-  shouldSynchronizeAfterAuthResult,
 } from '../../src/runtime/auth/integrated-namespace'
 
-describe('shouldSynchronizeAfterAuthResult (vNext §8 predicate)', () => {
-  it('syncs only after a non-empty string data.token', () => {
-    expect(shouldSynchronizeAfterAuthResult({ data: { token: 'jwt' }, error: null })).toBe(true)
+describe('getSessionSynchronizationToken (vNext §8 predicate)', () => {
+  it('returns only a non-empty string data.token', () => {
+    expect(getSessionSynchronizationToken({ data: { token: 'session-token' }, error: null })).toBe(
+      'session-token',
+    )
   })
-  it('does not sync on an error envelope', () => {
+  it('returns null on an error envelope', () => {
     expect(
-      shouldSynchronizeAfterAuthResult({ data: { token: 'jwt' }, error: { message: 'x' } }),
-    ).toBe(false)
+      getSessionSynchronizationToken({
+        data: { token: 'session-token' },
+        error: { message: 'x' },
+      }),
+    ).toBeNull()
   })
-  it('does not sync when token is null (account creation without a session)', () => {
-    expect(shouldSynchronizeAfterAuthResult({ data: { token: null }, error: null })).toBe(false)
+  it('returns null when token is null (account creation without a session)', () => {
+    expect(getSessionSynchronizationToken({ data: { token: null }, error: null })).toBeNull()
   })
-  it('does not sync on a social redirect result (no token)', () => {
+  it('returns null for a social redirect result (no token)', () => {
     expect(
-      shouldSynchronizeAfterAuthResult({
+      getSessionSynchronizationToken({
         data: { url: 'https://idp', redirect: true },
         error: null,
       }),
-    ).toBe(false)
+    ).toBeNull()
   })
-  it('does not sync on empty token or non-object results', () => {
-    expect(shouldSynchronizeAfterAuthResult({ data: { token: '' }, error: null })).toBe(false)
-    expect(shouldSynchronizeAfterAuthResult(undefined)).toBe(false)
-    expect(shouldSynchronizeAfterAuthResult('nope')).toBe(false)
-  })
-})
-
-describe('readBetterAuthResultError', () => {
-  it('returns a truthy error, else null', () => {
-    expect(readBetterAuthResultError({ error: { message: 'x' } })).toEqual({ message: 'x' })
-    expect(readBetterAuthResultError({ error: null })).toBeNull()
-    expect(readBetterAuthResultError({})).toBeNull()
-    expect(readBetterAuthResultError(null)).toBeNull()
+  it('returns null for an empty token or non-object result', () => {
+    expect(getSessionSynchronizationToken({ data: { token: '' }, error: null })).toBeNull()
+    expect(getSessionSynchronizationToken(undefined)).toBeNull()
+    expect(getSessionSynchronizationToken('nope')).toBeNull()
   })
 })
 
@@ -61,7 +56,9 @@ describe('isPlainNamespaceObject', () => {
 
 describe('createIntegratedAuthNamespace (vNext §8)', () => {
   function makeNamespace() {
-    const sync = vi.fn(async () => {})
+    const wait = vi.fn(async (_sessionToken: string | null) => {})
+    const cancel = vi.fn()
+    const createBarrier = vi.fn(() => ({ wait, cancel }))
     // A nested plugin method that reads its receiver; loses it if `this` is not
     // the containing object.
     const namespace = {
@@ -84,46 +81,124 @@ describe('createIntegratedAuthNamespace (vNext §8)', () => {
       },
       subscriptionAtom: [1, 2, 3],
     }
-    return { namespace, sync }
+    return { namespace, createBarrier, wait, cancel }
   }
 
-  it('syncs after email success and not after failure/sign-up-null', async () => {
-    const { namespace, sync } = makeNamespace()
-    const integrated = createIntegratedAuthNamespace(namespace, sync)
+  it('waits after email success and cancels after failure/sign-up-null', async () => {
+    const { namespace, createBarrier, wait, cancel } = makeNamespace()
+    const integrated = createIntegratedAuthNamespace(namespace, createBarrier)
 
     await integrated.email()
-    expect(sync).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledWith('jwt-email')
 
     await integrated.failing()
     await integrated.signUp()
-    expect(sync).toHaveBeenCalledTimes(1)
+    expect(createBarrier).toHaveBeenCalledTimes(3)
+    expect(wait).toHaveBeenCalledTimes(1)
+    expect(cancel).toHaveBeenCalledTimes(2)
   })
 
-  it('does not sync a social redirect but syncs a token-bearing completion', async () => {
-    const { namespace, sync } = makeNamespace()
-    const integrated = createIntegratedAuthNamespace(namespace, sync)
+  it('keeps a token-bearing operation pending until the session observer barrier resolves', async () => {
+    let release!: () => void
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const namespace = {
+      email: async () => ({ data: { token: 'jwt-email' }, error: null }),
+    }
+    const wait = vi.fn((_sessionToken: string | null) => barrier)
+    const integrated = createIntegratedAuthNamespace(namespace, () => ({
+      wait,
+      cancel: vi.fn(),
+    }))
+    let completed = false
+
+    const operation = integrated.email().then(() => {
+      completed = true
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(completed).toBe(false)
+    expect(wait).toHaveBeenCalledWith('jwt-email')
+    release()
+    await operation
+    expect(completed).toBe(true)
+  })
+
+  it('captures the barrier before invoking an action that signals early', async () => {
+    const events: string[] = []
+    let observe!: () => void
+    const observed = new Promise<void>((resolve) => {
+      observe = resolve
+    })
+    const namespace = {
+      email: async () => {
+        events.push('action')
+        observe()
+        return { data: { token: 'jwt-email' }, error: null }
+      },
+    }
+    const integrated = createIntegratedAuthNamespace(namespace, () => {
+      events.push('capture')
+      return {
+        wait: (sessionToken: string | null) => {
+          events.push(`wait:${sessionToken}`)
+          return observed
+        },
+        cancel: vi.fn(),
+      }
+    })
+
+    await integrated.email()
+
+    expect(events).toEqual(['capture', 'action', 'wait:jwt-email'])
+  })
+
+  it('cancels the captured barrier when an action throws', async () => {
+    const cancel = vi.fn()
+    const integrated = createIntegratedAuthNamespace(
+      {
+        email: async () => {
+          throw new Error('network down')
+        },
+      },
+      () => ({ wait: vi.fn(async () => {}), cancel }),
+    )
+
+    await expect(integrated.email()).rejects.toThrow('network down')
+    expect(cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not wait on a social redirect but waits on a token-bearing completion', async () => {
+    const { namespace, createBarrier, wait, cancel } = makeNamespace()
+    const integrated = createIntegratedAuthNamespace(namespace, createBarrier)
 
     await integrated.social({})
     await integrated.social({ disableRedirect: true })
-    expect(sync).toHaveBeenCalledTimes(0)
+    expect(wait).toHaveBeenCalledTimes(0)
+    expect(cancel).toHaveBeenCalledTimes(2)
 
     await integrated.completeSocial()
-    expect(sync).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledWith('jwt-social')
   })
 
   it('preserves the receiver for nested plugin methods', async () => {
-    const { namespace, sync } = makeNamespace()
-    const integrated = createIntegratedAuthNamespace(namespace, sync)
+    const { namespace, createBarrier, wait } = makeNamespace()
+    const integrated = createIntegratedAuthNamespace(namespace, createBarrier)
 
     // Destructured through the proxy: `this` must still be the org namespace.
     const result = await integrated.organization.create()
     expect(result.error).toBeNull()
-    expect(sync).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledWith('jwt-org')
   })
 
   it('is referentially stable across repeated reads', () => {
-    const { namespace, sync } = makeNamespace()
-    const integrated = createIntegratedAuthNamespace(namespace, sync)
+    const { namespace, createBarrier } = makeNamespace()
+    const integrated = createIntegratedAuthNamespace(namespace, createBarrier)
 
     expect(integrated.email).toBe(integrated.email)
     expect(integrated.organization).toBe(integrated.organization)
@@ -131,8 +206,8 @@ describe('createIntegratedAuthNamespace (vNext §8)', () => {
   })
 
   it('passes arrays and non-namespace values through unchanged', () => {
-    const { namespace, sync } = makeNamespace()
-    const integrated = createIntegratedAuthNamespace(namespace, sync)
+    const { namespace, createBarrier } = makeNamespace()
+    const integrated = createIntegratedAuthNamespace(namespace, createBarrier)
     expect(integrated.subscriptionAtom).toBe(namespace.subscriptionAtom)
     expect(integrated.secret).toBe('convex')
   })

@@ -2,22 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveServerAuthSnapshot } from '../../src/runtime/server/utils/auth-snapshot'
 
-const { fetchWithTimeoutMock, decodeUserFromJwtMock } = vi.hoisted(() => ({
+const { fetchWithTimeoutMock, decodeUserFromJwtMock, isJwtUsableMock } = vi.hoisted(() => ({
   fetchWithTimeoutMock: vi.fn(),
   decodeUserFromJwtMock: vi.fn(),
+  isJwtUsableMock: vi.fn(),
 }))
 
-vi.mock('../../src/runtime/server/utils/http', () => ({
+vi.mock('../../src/runtime/server/utils/http', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/runtime/server/utils/http')>()),
   fetchWithTimeout: fetchWithTimeoutMock,
 }))
 
 vi.mock('../../src/runtime/utils/convex-shared', () => ({
   decodeUserFromJwt: decodeUserFromJwtMock,
-  normalizeConvexUser: (input: unknown) => {
-    if (!input || typeof input !== 'object') return null
-    const user = input as { id?: unknown }
-    return typeof user.id === 'string' && user.id.length > 0 ? input : null
-  },
+  isJwtUsable: isJwtUsableMock,
 }))
 
 function createResponse(status: number, body: unknown): Response {
@@ -36,6 +34,7 @@ describe('resolveServerAuthSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     decodeUserFromJwtMock.mockReturnValue(null)
+    isJwtUsableMock.mockReturnValue(true)
   })
 
   it('returns an unauthenticated snapshot without a session cookie', async () => {
@@ -143,6 +142,49 @@ describe('resolveServerAuthSnapshot', () => {
     })
   })
 
+  it.each([
+    { status: 200, body: {}, label: 'a successful response without a token' },
+    { status: 429, body: { error: 'rate limited' }, label: 'an upstream rate limit' },
+  ])('fails closed on $label', async ({ status, body }) => {
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(status, body))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-protocol-failure',
+    })
+
+    expect(snapshot.token).toBeNull()
+    expect(snapshot.user).toBeNull()
+    expect(snapshot.authError).toMatch(/convex\/token|token exchange/i)
+    expect(snapshot.devError?.message).toMatch(/convex\/token|token exchange/i)
+    expect(snapshot.waterfall?.outcome).toBe('error')
+    expect(snapshot.logEvents.at(-1)).toMatchObject({
+      phase: 'exchange',
+      outcome: 'error',
+      details: expect.objectContaining({ status }),
+    })
+    expect(JSON.stringify(snapshot)).not.toContain('session-protocol-failure')
+  })
+
+  it('never hydrates an unusable token returned by a successful exchange', async () => {
+    isJwtUsableMock.mockReturnValue(false)
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(200, { token: 'expired.jwt' }))
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-invalid-jwt',
+    })
+
+    expect(snapshot.token).toBeNull()
+    expect(snapshot.user).toBeNull()
+    expect(snapshot.authError).toMatch(/token exchange/i)
+    expect(snapshot.devError?.message).toMatch(/expired or malformed token/i)
+    expect(snapshot.waterfall?.outcome).toBe('error')
+    expect(decodeUserFromJwtMock).not.toHaveBeenCalled()
+    expect(fetchWithTimeoutMock).toHaveBeenCalledOnce()
+    expect(String(fetchWithTimeoutMock.mock.calls[0]?.[0])).toMatch(/\/convex\/token$/)
+  })
+
   it('hydrates a generic authError in production while logging the detailed message', async () => {
     fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
 
@@ -165,45 +207,17 @@ describe('resolveServerAuthSnapshot', () => {
     expect(String(exchangeLog?.details?.message ?? '')).toMatch(/convex\/token|token exchange/i)
   })
 
-  it('uses a valid session user fallback when JWT decoding fails', async () => {
-    fetchWithTimeoutMock
-      .mockResolvedValueOnce(createResponse(200, { token: 'fresh.jwt' }))
-      .mockResolvedValueOnce(
-        createResponse(200, {
-          user: { id: 'user-session', email: 'session@example.com' },
-        }),
-      )
+  it('never copies the session credential into structured auth logs', async () => {
+    const sessionSecret = 'SESSION_SECRET_MUST_NOT_BE_LOGGED'
+    fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
 
     const snapshot = await resolveServerAuthSnapshot({
       ...baseOptions,
-      cookieHeader: 'private_app_cookie=secret; better-auth.session_token=session-5',
+      cookieHeader: `private_app_cookie=also-secret; better-auth.session_token=${sessionSecret}`,
     })
 
-    expect(snapshot.token).toBe('fresh.jwt')
-    expect(snapshot.user).toEqual({
-      id: 'user-session',
-      email: 'session@example.com',
-    })
-    expect(fetchWithTimeoutMock).toHaveBeenNthCalledWith(
-      2,
-      'https://demo.convex.site/api/auth/get-session',
-      expect.objectContaining({
-        headers: { Cookie: 'better-auth.session_token=session-5' },
-      }),
-    )
-  })
-
-  it('ignores malformed session user fallback payloads', async () => {
-    fetchWithTimeoutMock
-      .mockResolvedValueOnce(createResponse(200, { token: 'fresh.jwt' }))
-      .mockResolvedValueOnce(createResponse(200, { user: { email: 'missing-id@example.com' } }))
-
-    const snapshot = await resolveServerAuthSnapshot({
-      ...baseOptions,
-      cookieHeader: 'better-auth.session_token=session-6',
-    })
-
-    expect(snapshot.token).toBe('fresh.jwt')
-    expect(snapshot.user).toBeNull()
+    const serializedLogs = JSON.stringify(snapshot.logEvents)
+    expect(serializedLogs).not.toContain(sessionSecret)
+    expect(serializedLogs).not.toContain('also-secret')
   })
 })

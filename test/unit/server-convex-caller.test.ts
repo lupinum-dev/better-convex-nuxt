@@ -375,6 +375,8 @@ describe('SSR auth response headers (Vary/Cache-Control)', () => {
     expect(mergeVaryCookie('Cookie')).toBe('Cookie')
     expect(mergeVaryCookie('cookie')).toBe('cookie')
     expect(mergeVaryCookie(['Accept-Encoding', 'Cookie'])).toBe('Accept-Encoding, Cookie')
+    expect(mergeVaryCookie('*')).toBe('*')
+    expect(mergeVaryCookie('Accept-Encoding, *')).toBe('*')
   })
 
   it('appends Vary: Cookie and sets private/no-store for a token-bearing cookie response', () => {
@@ -383,13 +385,14 @@ describe('SSR auth response headers (Vary/Cache-Control)', () => {
       node: {
         res: {
           getHeader: (name: string) => headers.get(name),
+          getHeaders: () => Object.fromEntries(headers),
+          removeHeader: (name: string) => headers.delete(name),
           setHeader: (name: string, value: string) => headers.set(name, value),
         },
       },
     } as unknown as H3Event
 
     applyConvexAuthSsrHeaders(event, {
-      authEnabled: true,
       hasBetterAuthCookie: true,
       serializesToken: true,
     })
@@ -398,24 +401,83 @@ describe('SSR auth response headers (Vary/Cache-Control)', () => {
     expect(headers.get('Cache-Control')).toBe('private, no-store')
   })
 
-  it('does not set private/no-store without both a recognized cookie and a serialized token', () => {
+  it.each([
+    { hasBetterAuthCookie: true, serializesToken: false },
+    { hasBetterAuthCookie: false, serializesToken: true },
+  ])('sets private/no-store for either private auth signal: %o', (options) => {
     const headers = new Map<string, string>()
     const event = {
       node: {
         res: {
           getHeader: (name: string) => headers.get(name),
+          getHeaders: () => Object.fromEntries(headers),
+          removeHeader: (name: string) => headers.delete(name),
           setHeader: (name: string, value: string) => headers.set(name, value),
         },
       },
     } as unknown as H3Event
 
     applyConvexAuthSsrHeaders(event, {
-      authEnabled: true,
-      hasBetterAuthCookie: true,
+      ...options,
+    })
+
+    expect(headers.get('Vary')).toBe('Cookie')
+    expect(headers.get('Cache-Control')).toBe('private, no-store')
+  })
+
+  it('does not set private/no-store when neither private auth signal exists', () => {
+    const headers = new Map<string, string>()
+    const event = {
+      node: {
+        res: {
+          getHeader: (name: string) => headers.get(name),
+          getHeaders: () => Object.fromEntries(headers),
+          removeHeader: (name: string) => headers.delete(name),
+          setHeader: (name: string, value: string) => headers.set(name, value),
+        },
+      },
+    } as unknown as H3Event
+
+    applyConvexAuthSsrHeaders(event, {
+      hasBetterAuthCookie: false,
       serializesToken: false,
     })
 
     expect(headers.get('Vary')).toBe('Cookie')
     expect(headers.has('Cache-Control')).toBe(false)
+  })
+
+  it('removes shared-cache overrides before marking a private auth response no-store', () => {
+    const headers = new Map<string, string>([
+      ['Surrogate-Control', 'max-age=86400'],
+      ['CDN-Cache-Control', 'public, max-age=86400'],
+      ['Cloudflare-CDN-Cache-Control', 'public, s-maxage=86400'],
+      ['Vercel-CDN-Cache-Control', 'public, s-maxage=86400'],
+      ['Netlify-CDN-Cache-Control', 'public, durable'],
+      ['Edge-Control', 'cache-maxage=1d'],
+      ['X-Accel-Expires', '86400'],
+      ['Content-Language', 'en'],
+    ])
+    const event = {
+      node: {
+        res: {
+          getHeader: (name: string) => headers.get(name),
+          getHeaders: () => Object.fromEntries(headers),
+          removeHeader: (name: string) => headers.delete(name),
+          setHeader: (name: string, value: string) => headers.set(name, value),
+        },
+      },
+    } as unknown as H3Event
+
+    applyConvexAuthSsrHeaders(event, {
+      hasBetterAuthCookie: true,
+      serializesToken: false,
+    })
+
+    expect(Object.fromEntries(headers)).toEqual({
+      'Content-Language': 'en',
+      Vary: 'Cookie',
+      'Cache-Control': 'private, no-store',
+    })
   })
 })

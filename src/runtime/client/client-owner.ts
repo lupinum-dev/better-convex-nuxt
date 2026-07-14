@@ -139,12 +139,17 @@ const DEFAULT_CONNECTION_STATE: ConnectionState = {
   inflightActions: 0,
 }
 
+type OwnedUnsubscribe = ReturnType<ConvexClient['onUpdate']> & {
+  /** Present at runtime in Convex 1.40 but stripped from its public declarations. */
+  getQueryLogs(): string[] | undefined
+}
+
 interface OnUpdateEntry {
   query: unknown
   args: unknown
   callback: (result: unknown) => unknown
   onError?: (e: Error) => unknown
-  underlying: ReturnType<ConvexClient['onUpdate']> | null
+  underlying: OwnedUnsubscribe | null
   active: boolean
 }
 
@@ -166,6 +171,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   })
   let disposePromise: Promise<void> | null = null
   let replacementInFlight: Promise<OwnedConvexClient> | null = null
+  let authPort: AuthIdentityPort | null = null
   const replacementCandidates = new Set<OwnedConvexClient>()
   const closedReplacementCandidates = new WeakSet<OwnedConvexClient>()
   let devtoolsSink: DevtoolsSink | null = null
@@ -178,6 +184,19 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     if (closedReplacementCandidates.has(candidate)) return Promise.resolve()
     closedReplacementCandidates.add(candidate)
     return candidate.close()
+  }
+
+  function closeRetiredPrimary(client: OwnedConvexClient): void {
+    try {
+      void client
+        .close()
+        .catch((error) => logger.debug('[client-owner] retired primary close failed', error))
+    } catch (error) {
+      // Retirement is the synchronous `primary = null` boundary below. A
+      // non-conforming client that throws from close must not reopen that path
+      // or prevent the replacement failure from reaching the auth port.
+      logger.debug('[client-owner] retired primary close failed', error)
+    }
   }
 
   // ---- connection-state store (owned here; §4.1 single ownership) ----------
@@ -209,7 +228,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
   // ---- onUpdate listener registry (proof prototype: handle.mjs) -------------
   function subscribeEntry(entry: OnUpdateEntry) {
-    if (!primary) return
+    if (!primary || (authPort && !authPort.snapshot().settled)) return
     const subscribedClient = primary
     const subscribedGeneration = currentIdentityGeneration
     const isCurrentSubscription = () =>
@@ -222,7 +241,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
         a: unknown,
         cb: (r: unknown) => unknown,
         onErr?: (e: Error) => unknown,
-      ) => ReturnType<ConvexClient['onUpdate']>
+      ) => OwnedUnsubscribe
     )(
       entry.query,
       entry.args,
@@ -264,7 +283,13 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
   // Await any replacement already in progress and never dispatch to a superseded
   // client (vNext §5.4). Throws if no usable primary survives.
-  async function primaryForDispatch(): Promise<OwnedConvexClient> {
+  async function primaryForDispatch(): Promise<{
+    client: OwnedConvexClient
+    identityGeneration: number
+  }> {
+    if (authPort && !authPort.snapshot().settled) {
+      await Promise.race([authPort.waitForInitialSettlement(), disposedSignal])
+    }
     if (replacementInFlight) {
       try {
         await replacementInFlight
@@ -273,7 +298,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       }
     }
     if (disposed || !primary) throw createIdentityChangedError()
-    return primary
+    return { client: primary, identityGeneration: currentIdentityGeneration }
   }
 
   async function dispatch(
@@ -286,8 +311,15 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     // the raw client for the four supported operations).
     options?: unknown,
   ): Promise<unknown> {
-    const client = await primaryForDispatch()
-    const generation = currentIdentityGeneration
+    const target = await primaryForDispatch()
+    const { client, identityGeneration: generation } = target
+    // `primaryForDispatch` necessarily crosses a promise boundary. Re-check its
+    // atomic client+generation snapshot before invoking the wire method so a
+    // synchronous retirement between capture and continuation cannot dispatch
+    // once more through the retired principal.
+    if (disposed || primary !== client || currentIdentityGeneration !== generation) {
+      throw createIdentityChangedError(method)
+    }
     let reject!: (reason: unknown) => void
     const aborted = new Promise<never>((_, r) => {
       reject = r
@@ -326,6 +358,15 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       callback: (result: unknown) => unknown,
       onError?: (e: Error) => unknown,
     ) => {
+      if (disposed) {
+        const stop = () => {}
+        const unsubscribe = stop as OwnedUnsubscribe
+        unsubscribe.unsubscribe = stop
+        unsubscribe.getCurrentValue = () => undefined
+        unsubscribe.getQueryLogs = () => undefined
+        return unsubscribe
+      }
+
       const entry: OnUpdateEntry = {
         query,
         args,
@@ -339,16 +380,17 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       // Stable unsubscribe: closes over the registry entry (not a per-client
       // unsubscribe), so it detaches whichever client is current after A→B, and
       // preserves the augmented `Unsubscribe` shape (`unsubscribe`,
-      // `getCurrentValue`).
+      // `getCurrentValue`, `getQueryLogs`).
       const stop = () => {
         if (!entry.active) return
         entry.active = false
         listeners.delete(entry)
         detachEntry(entry)
       }
-      const unsubscribe = stop as ReturnType<ConvexClient['onUpdate']>
+      const unsubscribe = stop as OwnedUnsubscribe
       unsubscribe.unsubscribe = stop
-      unsubscribe.getCurrentValue = () => entry.underlying?.getCurrentValue()
+      unsubscribe.getCurrentValue = () => entry.underlying?.getCurrentValue?.()
+      unsubscribe.getQueryLogs = () => entry.underlying?.getQueryLogs?.()
       return unsubscribe
     }) as ConvexClient['onUpdate'],
   }
@@ -358,29 +400,38 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
     const previous = primary
     const previousGeneration = currentIdentityGeneration
-    const candidate = primaryFactory()
-    replacementCandidates.add(candidate)
 
     // An identity transition is a security boundary. Retire the previous
-    // principal before awaiting candidate confirmation; a failed confirmation
-    // must leave no dispatchable client authenticated as the old user.
+    // principal before even constructing the candidate. A synchronous factory
+    // failure must leave no dispatchable client authenticated as the old user.
     for (const entry of listeners) detachEntry(entry)
     primary = null
     resetConnectionForReplacement()
     rejectPendingForGeneration(previousGeneration)
-    if (previous) void previous.close()
+    if (previous) closeRetiredPrimary(previous)
 
+    let candidate: OwnedConvexClient | null = null
     const run = (async () => {
       try {
+        // Keep factory construction inside this promise boundary. In particular,
+        // attachAuthPort must receive a rejected promise (and call failPrimary),
+        // never a synchronous exception escaping the auth-port listener.
+        candidate = primaryFactory()
+        replacementCandidates.add(candidate)
         await Promise.race([replaceInput.initialize(candidate), disposedSignal])
         if (disposed) throw createIdentityChangedError()
       } catch (error) {
         // The candidate's WebSocket is already open at construction (§4.1); a
         // rejected/guard-failed confirmation must not leak it. Close before
         // rethrowing so the caller's error contract is unchanged.
-        await closeReplacementCandidate(candidate)
+        if (candidate) await closeReplacementCandidate(candidate)
         throw error
       }
+
+      // `candidate` was assigned before the only successful path through the
+      // try block. Keep the guard explicit for TypeScript and fail closed if a
+      // future factory path violates that invariant.
+      if (!candidate) throw createIdentityChangedError()
 
       // Latest-revision-wins. No `await` between this guard and publication.
       if (disposed || !replaceInput.isCurrent()) {
@@ -389,16 +440,21 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       }
 
       // Synchronous commit region: rebind listeners A→B (detach-swap-reattach,
-      // which also reassigns `primary`), then publish the new generation, reset
-      // connection observation, retire A's in-flight calls, and close A.
+      // which also reassigns `primary`), then publish the new generation and
+      // reset connection observation. The prior primary was already retired at
+      // the crossed generation boundary above.
       currentIdentityGeneration = replaceInput.identityGeneration
       rebindListeners(candidate)
       resetConnectionForReplacement()
       devtoolsSink?.clearIdentityOwned()
+      // Defensive second sweep for a call that captured the prior generation
+      // immediately before retirement and registered at its edge.
       rejectPendingForGeneration(previousGeneration)
       return candidate
     })().finally(() => {
-      replacementCandidates.delete(candidate)
+      // A factory failure has no candidate; successful and failed candidates are
+      // both removed from the disposal registry after their run settles.
+      if (candidate) replacementCandidates.delete(candidate)
     })
 
     replacementInFlight = run
@@ -411,39 +467,41 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   }
 
   function attachAuthPort(port: AuthIdentityPort): void {
-    let committedGeneration = port.snapshot().identityGeneration
-    let inFlightGeneration: number | null = null
+    authPort = port
+    // A generation represents one security boundary and receives one candidate
+    // attempt. Persistent factory/confirmation failure is terminal for that
+    // generation; recovery requires a new coordinator transition/generation,
+    // not an epoch notification that can spin client construction indefinitely.
+    let observedGeneration = port.snapshot().identityGeneration
+    let observedSettled = port.snapshot().settled
     const unsubscribe = port.subscribe(() => {
       const snapshot = port.snapshot()
+      const becameSettled = !observedSettled && snapshot.settled
+      observedSettled = snapshot.settled
+      if (becameSettled) {
+        for (const entry of listeners) {
+          if (!entry.underlying) subscribeEntry(entry)
+        }
+      }
       // Only a stable identity-key change replaces the primary. An epoch-only
       // change (same-user token rotation) keeps the current client (vNext §5.4).
-      if (
-        snapshot.identityGeneration === committedGeneration ||
-        snapshot.identityGeneration === inFlightGeneration
-      ) {
-        return
-      }
+      if (snapshot.identityGeneration === observedGeneration) return
       const targetGeneration = snapshot.identityGeneration
-      inFlightGeneration = targetGeneration
+      observedGeneration = targetGeneration
       void replacePrimary({
         identity: snapshot.identityKey ?? 'anonymous',
         authEpoch: snapshot.authEpoch,
         identityGeneration: targetGeneration,
         isCurrent: () => port.snapshot().identityGeneration === targetGeneration,
-        initialize: (candidate) =>
-          port.initializePrimary(candidate as ConvexClient, snapshot.authEpoch),
+        initialize: (candidate) => port.initializePrimary(candidate as ConvexClient),
+      }).catch((error) => {
+        port.failPrimary(targetGeneration, error)
       })
-        .then(() => {
-          committedGeneration = targetGeneration
-        })
-        .catch((error) => {
-          port.failPrimary(targetGeneration, error)
-        })
-        .finally(() => {
-          if (inFlightGeneration === targetGeneration) inFlightGeneration = null
-        })
     })
-    addDisposer(unsubscribe)
+    addDisposer(() => {
+      unsubscribe()
+      if (authPort === port) authPort = null
+    })
   }
 
   function getAnonymous(): OwnedConvexClient {

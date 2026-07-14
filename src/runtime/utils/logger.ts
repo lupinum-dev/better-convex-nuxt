@@ -550,14 +550,27 @@ export function createLogger(level: LogLevel): Logger {
   const sink = !isBrowserRuntime() ? createServerLogger(level) : createBrowserLogger(level)
 
   const sanitizeEvent = <
-    T extends { args?: unknown; data?: unknown; details?: unknown; error?: unknown },
+    T extends {
+      phase?: string
+      name?: string
+      filename?: string
+      args?: unknown
+      data?: unknown
+      details?: unknown
+      error?: unknown
+    },
   >(
     event: T,
   ): T =>
     ({
       ...event,
-      ...(event.args === undefined ? {} : { args: sanitizeDiagnosticValue(event.args) }),
-      ...(event.data === undefined ? {} : { data: sanitizeDiagnosticValue(event.data) }),
+      ...(event.phase === undefined ? {} : { phase: String(sanitizeDiagnosticValue(event.phase)) }),
+      ...(event.name === undefined ? {} : { name: String(sanitizeDiagnosticValue(event.name)) }),
+      ...(event.filename === undefined
+        ? {}
+        : { filename: String(sanitizeDiagnosticValue(event.filename)) }),
+      ...(event.args === undefined ? {} : { args: '[Omitted]' }),
+      ...(event.data === undefined ? {} : { data: '[Omitted]' }),
       ...(event.details === undefined ? {} : { details: sanitizeDiagnosticValue(event.details) }),
       ...(event.error === undefined ? {} : { error: sanitizeDiagnosticValue(event.error) }),
     }) as T

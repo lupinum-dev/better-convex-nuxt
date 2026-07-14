@@ -62,9 +62,13 @@ export default defineConfig({
       {
         test: {
           name: 'convex',
-          include: ['playground/convex/**/*.test.ts'],
+          include: ['playground/convex/**/*.test.ts', 'demo/convex/**/*.test.ts'],
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
+          // Registering the Better Auth component can approach five seconds per
+          // file on a cold, parallel full-suite run. Keep a real failure bound
+          // without turning normal module initialization into a flaky timeout.
+          testTimeout: 20_000,
         },
       },
 

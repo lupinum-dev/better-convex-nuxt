@@ -1,4 +1,8 @@
-import { decodeUserFromJwt, getJwtTimeUntilExpiryMs } from '../utils/convex-shared'
+import {
+  decodeUserFromJwt,
+  isJwtUsable,
+  TOKEN_EXPIRY_SAFETY_BUFFER_MS,
+} from '../utils/convex-shared'
 import type { ConvexUser } from '../utils/types'
 
 /**
@@ -18,8 +22,7 @@ export interface FetchedIdentity {
   user: ConvexUser
 }
 
-/** Milliseconds before `exp` at which a token is treated as no longer usable. */
-export const TOKEN_EXPIRY_SAFETY_BUFFER_MS = 30_000
+export { TOKEN_EXPIRY_SAFETY_BUFFER_MS }
 
 /** Coalesced-retry backoff schedule (internal §6.5): 1, 2, 4, 8, 16, then 30s. */
 export const RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const
@@ -27,16 +30,20 @@ export const RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as 
 /** Bounded transient-retry attempts inside a single fetch call (proof: fetcher-retry). */
 export const MAX_FETCH_ATTEMPTS = 4
 
+/** Total browser budget for one Better Auth -> Convex token exchange cycle. */
+const TOKEN_EXCHANGE_TIMEOUT_MS = 5_000
+const TOKEN_EXCHANGE_TIMED_OUT = Symbol('TOKEN_EXCHANGE_TIMED_OUT')
+const TOKEN_EXCHANGE_CANCELLED = Symbol('TOKEN_EXCHANGE_CANCELLED')
+const TOKEN_EXCHANGE_TIMEOUT_MESSAGE = 'Convex authentication token exchange timed out'
+const TOKEN_EXCHANGE_CANCELLED_MESSAGE = 'Convex authentication token exchange was cancelled'
+
 /**
  * A token is retainable only while it carries a valid required `exp` still in
  * the future beyond the safety buffer. A token without a valid `exp`, or at/after
  * expiry, is never retained (internal §6.5).
  */
 export function isTokenUsable(token: string | null, nowMs = Date.now()): token is string {
-  if (!token) return false
-  const timeUntilExpiry = getJwtTimeUntilExpiryMs(token, nowMs)
-  if (timeUntilExpiry === null) return false
-  return timeUntilExpiry > TOKEN_EXPIRY_SAFETY_BUFFER_MS
+  return isJwtUsable(token, nowMs)
 }
 
 /**
@@ -69,61 +76,122 @@ export interface FetchOutcome {
 /**
  * Total Convex-token fetch (never throws; proof `proof-total-fetcher-retry`).
  *
- * Runs a bounded transient-retry loop over the Better Auth exchange, validating
- * each returned token's `exp`. Returns a decoded identity on success, a clean
- * anonymous outcome when the exchange reports no session, or a definitive error
- * outcome when every attempt fails. A rejecting exchange is caught (the fetcher
- * passed to Convex must be total).
+ * Runs a bounded transient-retry loop over the Better Auth exchange within one
+ * fixed browser deadline, validating each returned token's `exp`. Returns a
+ * decoded identity on success, a clean anonymous outcome when the exchange
+ * reports no session, or a definitive error outcome when every attempt fails. A
+ * rejecting or never-settling exchange is totalized for the Convex caller.
  */
 export async function fetchConvexToken(
   source: ConvexTokenSource,
-  options: { maxAttempts?: number; nowMs?: () => number } = {},
+  options: { maxAttempts?: number; nowMs?: () => number; signal?: AbortSignal } = {},
 ): Promise<FetchOutcome> {
+  if (options.signal?.aborted) {
+    return {
+      identity: null,
+      authError: TOKEN_EXCHANGE_CANCELLED_MESSAGE,
+      definitive: false,
+    }
+  }
   const maxAttempts = options.maxAttempts ?? MAX_FETCH_ATTEMPTS
   const now = options.nowMs ?? Date.now
   let lastError: string | null = null
+  const controller = new AbortController()
+  let timedOut = false
+  let externallyCancelled = false
+  let timeout: ReturnType<typeof setTimeout> | null = null
+  const deadline = new Promise<typeof TOKEN_EXCHANGE_TIMED_OUT>((resolve) => {
+    timeout = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+      resolve(TOKEN_EXCHANGE_TIMED_OUT)
+    }, TOKEN_EXCHANGE_TIMEOUT_MS)
+  })
+  let removeExternalAbort = () => {}
+  const cancellation = new Promise<typeof TOKEN_EXCHANGE_CANCELLED>((resolve) => {
+    const externalSignal = options.signal
+    if (!externalSignal) return
+    const cancel = () => {
+      externallyCancelled = true
+      resolve(TOKEN_EXCHANGE_CANCELLED)
+      controller.abort()
+    }
+    externalSignal.addEventListener('abort', cancel, { once: true })
+    removeExternalAbort = () => externalSignal.removeEventListener('abort', cancel)
+    if (externalSignal.aborted) cancel()
+  })
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const response = await source.convex.token({ fetchOptions: { throw: false } })
-      if (response.error) {
-        // A 401/403 is Better Auth reporting that there is no session to
-        // exchange — a definitive anonymous outcome, identical to an absent
-        // token, NOT an authentication failure. `@convex-dev/better-auth`'s
-        // `/convex/token` returns `401 UNAUTHORIZED` for every session-less
-        // request, so surfacing it as an `authError` would push every anonymous
-        // visitor's `optional`/`required` queries into the auth-error gate branch
-        // (which never executes and tears the live subscription down). Settle
-        // anonymous with the error cleared, matching this outcome's documented
-        // 401/403 contract and the server plugin's no-cookie settlement.
-        if (isDefinitiveAuthStatus(response.error)) {
+  try {
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      if (externallyCancelled) {
+        lastError = TOKEN_EXCHANGE_CANCELLED_MESSAGE
+        break
+      }
+      try {
+        // `signal` releases the real Better Fetch request; the explicit race is
+        // still required to totalize a custom/plugin source that ignores abort.
+        const exchange = source.convex.token({
+          fetchOptions: { throw: false, signal: controller.signal },
+        })
+        const response = await Promise.race([exchange, deadline, cancellation])
+        if (response === TOKEN_EXCHANGE_CANCELLED) {
+          lastError = TOKEN_EXCHANGE_CANCELLED_MESSAGE
+          break
+        }
+        if (response === TOKEN_EXCHANGE_TIMED_OUT) {
+          lastError = TOKEN_EXCHANGE_TIMEOUT_MESSAGE
+          break
+        }
+        if (response.error) {
+          // A 401/403 is Better Auth reporting that there is no session to
+          // exchange — a definitive anonymous outcome, identical to an absent
+          // token, NOT an authentication failure. `@convex-dev/better-auth`'s
+          // `/convex/token` returns `401 UNAUTHORIZED` for every session-less
+          // request, so surfacing it as an `authError` would push every anonymous
+          // visitor's `optional`/`required` queries into the auth-error gate branch
+          // (which never executes and tears the live subscription down). Settle
+          // anonymous with the error cleared, matching this outcome's documented
+          // 401/403 contract and the server plugin's no-cookie settlement.
+          if (isDefinitiveAuthStatus(response.error)) {
+            return { identity: null, authError: null, definitive: true }
+          }
+          lastError = normalizeErrorMessage(response.error)
+          continue
+        }
+        const token = response.data?.token
+        if (!token) {
+          // Clean anonymous outcome: the exchange reported no session.
           return { identity: null, authError: null, definitive: true }
         }
-        lastError = normalizeErrorMessage(response.error)
-        continue
-      }
-      const token = response.data?.token
-      if (!token) {
-        // Clean anonymous outcome: the exchange reported no session.
-        return { identity: null, authError: null, definitive: true }
-      }
-      if (!isTokenUsable(token, now())) {
-        lastError = 'Convex authentication token is expired or missing a valid expiry'
-        continue
-      }
-      const identity = decodeFetchedIdentity(token)
-      if (!identity) {
-        // Token without a usable user id is an authentication error; discard it.
-        return {
-          identity: null,
-          authError: 'Convex authentication token is missing a stable user id',
-          definitive: true,
+        if (!isTokenUsable(token, now())) {
+          lastError = 'Convex authentication token is expired or missing a valid expiry'
+          continue
         }
+        const identity = decodeFetchedIdentity(token)
+        if (!identity) {
+          // Token without a usable user id is an authentication error; discard it.
+          return {
+            identity: null,
+            authError: 'Convex authentication token is missing a stable user id',
+            definitive: true,
+          }
+        }
+        return { identity, authError: null, definitive: false }
+      } catch (error) {
+        if (externallyCancelled) {
+          lastError = TOKEN_EXCHANGE_CANCELLED_MESSAGE
+          break
+        }
+        if (timedOut) {
+          lastError = TOKEN_EXCHANGE_TIMEOUT_MESSAGE
+          break
+        }
+        lastError = normalizeErrorMessage(error)
       }
-      return { identity, authError: null, definitive: false }
-    } catch (error) {
-      lastError = normalizeErrorMessage(error)
     }
+  } finally {
+    removeExternalAbort()
+    if (timeout !== null) clearTimeout(timeout)
   }
 
   // Exhausted transient retries: a still-usable identity may be retained.

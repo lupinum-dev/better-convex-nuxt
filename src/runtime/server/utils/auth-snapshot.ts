@@ -1,9 +1,8 @@
 import type { AuthWaterfall, AuthWaterfallPhase } from '../../devtools/types'
 import { buildTokenExchangeFailureMessage } from '../../utils/auth-errors'
-import { decodeUserFromJwt, normalizeConvexUser } from '../../utils/convex-shared'
+import { decodeUserFromJwt, isJwtUsable } from '../../utils/convex-shared'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import type { ConvexUser } from '../../utils/types'
-import { fetchWithTimeout } from './http'
 import { exchangeConvexToken } from './token-exchange'
 
 type AuthLogOutcome = 'success' | 'error' | 'skip' | 'miss'
@@ -72,22 +71,6 @@ function buildPhase(
     duration: end - startTime,
     result,
     details,
-  }
-}
-
-async function fetchSessionUser(siteUrl: string, cookieHeader: string): Promise<ConvexUser | null> {
-  try {
-    const sessionFetch = await fetchWithTimeout(`${siteUrl}/api/auth/get-session`, {
-      headers: { Cookie: cookieHeader },
-      timeoutMs: 5_000,
-    })
-    if (!sessionFetch.ok) return null
-    const sessionResponse = (await sessionFetch.json().catch(() => null)) as {
-      user?: unknown
-    } | null
-    return normalizeConvexUser(sessionResponse?.user)
-  } catch {
-    return null
   }
 }
 
@@ -183,8 +166,9 @@ export async function resolveServerAuthSnapshot(
     })
     const tokenExchangeStatus = exchange.status
     const tokenExchangeThrown = exchange.status === undefined ? exchange.error : undefined
+    const unusableHydrationToken = Boolean(exchange.token && !isJwtUsable(exchange.token))
 
-    if (exchange.token) {
+    if (exchange.token && !unusableHydrationToken) {
       token = exchange.token
       authError = null
 
@@ -203,19 +187,11 @@ export async function resolveServerAuthSnapshot(
       const decodeStart = trackWaterfall ? Date.now() : 0
       user = decodeUserFromJwt(token)
       if (!user) {
-        user = await fetchSessionUser(siteUrl, authCookieHeader)
-        if (trackWaterfall) {
-          phases.push(
-            buildPhase(
-              'jwt-decode',
-              decodeStart,
-              waterfallStart,
-              'success',
-              'Fallback to session endpoint',
-            ),
-          )
-        }
-      } else if (trackWaterfall) {
+        // Keep this fail-closed assertion at the display boundary; do not
+        // create a second identity path through /get-session.
+        throw new Error('Convex token exchange returned an invalid display identity')
+      }
+      if (trackWaterfall) {
         phases.push(buildPhase('jwt-decode', decodeStart, waterfallStart, 'success'))
       }
 
@@ -234,22 +210,26 @@ export async function resolveServerAuthSnapshot(
       }
     }
 
-    const likelyMisconfig =
-      Boolean(tokenExchangeThrown) ||
-      tokenExchangeStatus === 404 ||
-      (tokenExchangeStatus !== undefined && tokenExchangeStatus >= 500)
+    const isDefinitiveAuthMiss = tokenExchangeStatus === 401 || tokenExchangeStatus === 403
+    const isExchangeFailure =
+      unusableHydrationToken || (exchange.error !== null && !isDefinitiveAuthMiss)
 
     // Full diagnostic (secret names, file hints, raw upstream error text) -
     // safe for server logs/dev error pages, never for the client in prod.
-    const detailedExchangeError = likelyMisconfig
+    const detailedExchangeError = isExchangeFailure
       ? buildTokenExchangeFailureMessage({
           siteUrl,
           status: tokenExchangeStatus,
-          error: tokenExchangeThrown,
+          error:
+            tokenExchangeThrown ??
+            exchange.error ??
+            (unusableHydrationToken
+              ? new Error('Convex token exchange returned an expired or malformed token')
+              : undefined),
         })
       : null
 
-    authError = likelyMisconfig
+    authError = isExchangeFailure
       ? revealAuthErrorDetails
         ? detailedExchangeError
         : GENERIC_AUTH_ERROR_MESSAGE
@@ -261,14 +241,14 @@ export async function resolveServerAuthSnapshot(
           'token-exchange',
           exchangeStart,
           waterfallStart,
-          likelyMisconfig ? 'error' : 'miss',
+          isExchangeFailure ? 'error' : 'miss',
           tokenExchangeStatus ? `HTTP ${tokenExchangeStatus}` : 'No token returned',
         ),
       )
     }
 
     devError =
-      throwOnMisconfig && likelyMisconfig
+      throwOnMisconfig && isExchangeFailure
         ? new Error(detailedExchangeError ?? 'Convex auth token exchange failed')
         : null
 
@@ -278,7 +258,7 @@ export async function resolveServerAuthSnapshot(
 
     logEvents.push({
       phase: 'exchange',
-      outcome: likelyMisconfig ? 'error' : 'miss',
+      outcome: isExchangeFailure ? 'error' : 'miss',
       // Detailed message always lands in server logs, regardless of env.
       details: detailedExchangeError
         ? { ...(exchangeLogDetails ?? {}), message: detailedExchangeError }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import { toAuthenticatedIdentity, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -30,23 +31,23 @@ describe('useConvexQuery identity isolation', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => ({ id: 'A' }))
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexQueryState(
           query,
           {},
           { auth: 'optional', subscribe: false },
           true,
         ).resultData
-        return { q, user }
+        return { q, identity }
       },
       { owner: makeMockOwner(primary) },
     )
 
     const refresh = result.q.refresh()
     await Promise.resolve()
-    result.user.value = { id: 'B' }
+    result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     resolveA({ owner: 'A' })
     await refresh
     expect(result.q.data.value).not.toEqual({ owner: 'A' })
@@ -63,16 +64,16 @@ describe('useConvexQuery identity isolation', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexQueryState(
           query,
           {},
           { auth: 'optional', keepPreviousData: true },
           true,
         ).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -85,7 +86,7 @@ describe('useConvexQuery identity isolation', () => {
     expect(result.q.data.value).toEqual({ owner: 'A' })
 
     // Switch to user B.
-    result.user.value = { id: 'B' }
+    result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     await flush()
 
     // A's data is gone and keepPreviousData did not carry it into B.
@@ -106,11 +107,11 @@ describe('useConvexQuery identity isolation', () => {
     const { result, flush, wrapper } = await captureInNuxt(
       () => {
         const pending = useState<boolean>('convex:pending', () => false)
-        const user = useState<{ id: string } | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity')
         pending.value = false
-        user.value = { id: 'A' }
+        identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
         const q = createConvexQueryState(query, {}, { auth: 'optional' }, true).resultData
-        return { q, pending, user }
+        return { q, pending, identity }
       },
       { owner: makeMockOwner(primary) },
     )
@@ -123,7 +124,7 @@ describe('useConvexQuery identity isolation', () => {
     // Capture A's live callback set, switch to B, then fire the stale A callback.
     // Because the composable tears down A's listener on the identity change, and
     // any surviving A-tagged commit is masked, no A value reappears under B.
-    result.user.value = { id: 'B' }
+    result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     // A late emission targeting the (now-removed) A listener must not commit.
     primary.emitQueryResultWhere(() => true, { owner: 'A-stale' })
     await flush()

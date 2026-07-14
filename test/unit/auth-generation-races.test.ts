@@ -2,12 +2,14 @@ import type { ConvexClient } from 'convex/browser'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
+import { LOADING_IDENTITY } from '../../src/runtime/auth/auth-identity'
 import {
   createConvexAuthCoordinator,
   type AuthClientWithConvex,
   type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
 import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
+import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
 
 // ---- JWT helpers ---------------------------------------------------------
 function toBase64Url(value: string): string {
@@ -32,6 +34,14 @@ function makeUserlessJwt(): string {
 }
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+function deferred<Value>() {
+  let resolve!: (value: Value) => void
+  const promise = new Promise<Value>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 type TokenResponse = { data?: { token: string } | null; error?: unknown }
 type ScriptedResponse = TokenResponse | (() => Promise<TokenResponse>)
 
@@ -42,7 +52,9 @@ function attachFakeOwner(port: AuthIdentityPort, makeClient: () => ConvexClient)
     const snapshot = port.snapshot()
     if (snapshot.identityGeneration === lastGeneration) return
     lastGeneration = snapshot.identityGeneration
-    void port.initializePrimary(makeClient(), snapshot.authEpoch)
+    void port
+      .initializePrimary(makeClient())
+      .catch((error) => port.failPrimary(snapshot.identityGeneration, error))
   })
 }
 
@@ -61,19 +73,32 @@ interface Harness {
   signOut: () => Promise<unknown>
   refresh: () => Promise<void>
   suppressConfirmations: (suppress: boolean) => void
+  releaseSuppressedConfirmations: () => void
+  emitAuthChange: (authenticated: boolean) => void
 }
 
-function createHarness(options: { initial?: ScriptedResponse } = {}): Harness {
+function createHarness(
+  options: { initial?: ScriptedResponse; suppressInitialConfirmation?: boolean } = {},
+): Harness {
   const state: ConvexAuthCoordinatorState = {
-    token: ref<string | null>(null),
-    user: ref(null),
+    identity: ref(LOADING_IDENTITY),
     pending: ref(true),
     authError: ref<string | null>(null),
   }
   const rejected = new Set<string>()
-  let confirmationsSuppressed = false
+  let confirmationsSuppressed = options.suppressInitialConfirmation ?? false
+  const suppressedConfirmations: Array<() => void> = []
+  const authChangeCallbacks: Array<(authenticated: boolean) => void> = []
   const responses: ScriptedResponse[] = []
   if (options.initial) responses.push(options.initial)
+  let reconcileObservedSession: ((sessionToken: string | null) => void) | null = null
+  const sessionToken = 'better-auth-session'
+  const signalSession = (observedSessionToken: string | null) => {
+    // Pinned Better Auth defers its public session signal until after the auth
+    // action resolves. Model that ordering so integrated wrappers wait on the
+    // observer-owned reconciliation path rather than fetching directly.
+    setTimeout(() => reconcileObservedSession?.(observedSessionToken), 0)
+  }
 
   const signOutResult: Harness['signOutResult'] = {
     value: { data: { token: '' }, error: null } as TokenResponse,
@@ -88,17 +113,28 @@ function createHarness(options: { initial?: ScriptedResponse } = {}): Harness {
     },
     signOut: async (): Promise<TokenResponse> => {
       const value = signOutResult.value
-      return typeof value === 'function' ? await value() : value
+      const result = typeof value === 'function' ? await value() : value
+      if (!result.error) signalSession(null)
+      return result
     },
     signIn: {
-      email: async () => ({ data: { token: 'trigger' }, error: null }),
+      email: async () => {
+        signalSession(sessionToken)
+        return { data: { token: sessionToken }, error: null }
+      },
     },
     signUp: {
-      email: async () => ({ data: { token: 'trigger' }, error: null }),
+      email: async () => {
+        signalSession(sessionToken)
+        return { data: { token: sessionToken }, error: null }
+      },
     },
   } as unknown as AuthClientWithConvex
 
   const coordinator = createConvexAuthCoordinator({ authClient, state })
+  reconcileObservedSession = (observedSessionToken) => {
+    void coordinator.reconcileSession(observedSessionToken)
+  }
 
   const makeClient = (): ConvexClient =>
     ({
@@ -106,9 +142,14 @@ function createHarness(options: { initial?: ScriptedResponse } = {}): Harness {
         fetcher: (opts: { forceRefreshToken: boolean }) => Promise<string | null>,
         onChange: (isAuthenticated: boolean) => void,
       ) => {
+        authChangeCallbacks.push(onChange)
         void Promise.resolve(fetcher({ forceRefreshToken: false })).then((token) => {
-          if (confirmationsSuppressed) return
-          onChange(Boolean(token) && !rejected.has(token as string))
+          const confirm = () => onChange(Boolean(token) && !rejected.has(token as string))
+          if (confirmationsSuppressed) {
+            suppressedConfirmations.push(confirm)
+            return
+          }
+          confirm()
         })
       },
       query: async () => ({}),
@@ -132,18 +173,28 @@ function createHarness(options: { initial?: ScriptedResponse } = {}): Harness {
     pushScripted: (fn) => responses.push(fn),
     rejected,
     signOutResult,
-    subject: () => (state.user.value ? (state.user.value as { id: string }).id : 'anonymous'),
+    subject: () =>
+      coordinator.user.value ? (coordinator.user.value as { id: string }).id : 'anonymous',
     settle: () => coordinator.ready({ timeoutMs: 0 }),
     signInTriggering: () =>
       coordinator
         .wrapNamespace({
-          email: async () => ({ data: { token: 'trigger' }, error: null }),
+          email: async () => {
+            signalSession(sessionToken)
+            return { data: { token: sessionToken }, error: null }
+          },
         })
         .email(),
     signOut: () => coordinator.signOut(),
     refresh: () => coordinator.refresh(),
     suppressConfirmations: (suppress) => {
       confirmationsSuppressed = suppress
+    },
+    releaseSuppressedConfirmations: () => {
+      for (const confirm of suppressedConfirmations.splice(0)) confirm()
+    },
+    emitAuthChange: (authenticated) => {
+      for (const onChange of [...authChangeCallbacks]) onChange(authenticated)
     },
   }
 }
@@ -158,7 +209,157 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     expect(h.coordinator.status.value).toBe('authenticated')
   })
 
-  it('settles an identity operation when disposed during candidate confirmation', async () => {
+  it('settles anonymous when the initial token is immediately rejected', async () => {
+    const rejectedToken = makeJwt('A')
+    const h = createHarness({
+      initial: { data: { token: rejectedToken }, error: null },
+    })
+    h.rejected.add(rejectedToken)
+
+    await h.settle()
+
+    expect(h.subject()).toBe('anonymous')
+    expect(h.coordinator.status.value).toBe('anonymous')
+    expect(h.coordinator.error.value).toBeNull()
+    expect(h.coordinator.port.snapshot()).toMatchObject({
+      identityGeneration: 0,
+      identityKey: 'anonymous',
+    })
+  })
+
+  it('keeps the confirmed callback live and performs a real boundary on delayed revocation', async () => {
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+    })
+    await h.settle()
+    const generationBefore = h.coordinator.port.snapshot().identityGeneration
+
+    // Convex reuses the original onChange callback to report a later scheduled-
+    // refresh revocation. This is deliberately after the first `true` settled.
+    h.emitAuthChange(false)
+    await vi.waitFor(() => expect(h.coordinator.status.value).toBe('anonymous'))
+
+    expect(h.subject()).toBe('anonymous')
+    expect(h.coordinator.error.value).toBeNull()
+    expect(h.coordinator.port.snapshot()).toMatchObject({
+      identityGeneration: generationBefore + 1,
+      identityKey: 'anonymous',
+    })
+  })
+
+  it('publishes an immediately rejected replacement only as anonymous', async () => {
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+    })
+    await h.settle()
+    const generationBefore = h.coordinator.port.snapshot().identityGeneration
+    const rejectedToken = makeJwt('B')
+    h.rejected.add(rejectedToken)
+    h.pushToken(rejectedToken)
+
+    await h.coordinator.reconcileSession('better-auth-session-B')
+
+    expect(h.subject()).toBe('anonymous')
+    expect(h.coordinator.status.value).toBe('anonymous')
+    expect(h.coordinator.error.value).toBeNull()
+    expect(h.coordinator.port.snapshot()).toMatchObject({
+      identityGeneration: generationBefore + 1,
+      identityKey: 'anonymous',
+    })
+
+    // Even already-queued `true` callbacks from the old and rejected configs
+    // are stale after the anonymous publication.
+    h.emitAuthChange(true)
+    expect(h.subject()).toBe('anonymous')
+    expect(h.coordinator.port.snapshot().identityKey).toBe('anonymous')
+  })
+
+  it('fails closed and settles public readiness when initial confirmation never arrives', async () => {
+    vi.useFakeTimers()
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+      suppressInitialConfirmation: true,
+    })
+    try {
+      const settlement = h.settle()
+      expect(h.state.pending.value).toBe(true)
+      expect(h.coordinator.isPending.value).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      await expect(settlement).resolves.toBe('error')
+
+      expect(h.subject()).toBe('anonymous')
+      expect(h.state.pending.value).toBe(false)
+      expect(h.coordinator.isPending.value).toBe(false)
+      expect(h.coordinator.error.value?.message).toBe(
+        'Convex authentication confirmation timed out',
+      )
+
+      // Both the original confirmation and the anonymous invalidation callback
+      // may already be queued. Neither may resurrect the timed-out identity.
+      h.releaseSuppressedConfirmations()
+      expect(h.subject()).toBe('anonymous')
+      expect(h.coordinator.status.value).toBe('error')
+    } finally {
+      h.coordinator.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('times out a replacement, ignores its late callback, and clears operation pending', async () => {
+    vi.useFakeTimers()
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+    })
+    try {
+      await h.settle()
+      h.suppressConfirmations(true)
+      h.pushToken(makeJwt('B'))
+
+      const reconciling = h.coordinator.reconcileSession('better-auth-session-B')
+      expect(h.coordinator.isPending.value).toBe(true)
+      await vi.advanceTimersByTimeAsync(10_000)
+      await expect(reconciling).resolves.toBeUndefined()
+
+      expect(h.subject()).toBe('anonymous')
+      expect(h.coordinator.status.value).toBe('error')
+      expect(h.coordinator.isPending.value).toBe(false)
+      expect(await h.coordinator.ready({ timeoutMs: 0 })).toBe('error')
+      const generationAfterTimeout = h.coordinator.port.snapshot().identityGeneration
+
+      h.releaseSuppressedConfirmations()
+      expect(h.subject()).toBe('anonymous')
+      expect(h.coordinator.port.snapshot().identityGeneration).toBe(generationAfterTimeout)
+    } finally {
+      h.coordinator.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels confirmation deadlines on disposal and releases all waiters', async () => {
+    vi.useFakeTimers()
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+      suppressInitialConfirmation: true,
+    })
+    try {
+      const settlement = h.settle()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(vi.getTimerCount()).toBe(1)
+
+      h.coordinator.dispose()
+      await expect(settlement).resolves.toBe('loading')
+      expect(vi.getTimerCount()).toBe(0)
+
+      h.releaseSuppressedConfirmations()
+      expect(h.subject()).toBe('anonymous')
+    } finally {
+      h.coordinator.dispose()
+      vi.useRealTimers()
+    }
+  })
+
+  it('settles an identity operation with IDENTITY_CHANGED when disposed during confirmation', async () => {
     const h = createHarness({
       initial: { data: { token: makeJwt('A') }, error: null },
     })
@@ -170,7 +371,7 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     await delay(0)
     h.coordinator.dispose()
 
-    await expect(signingIn).resolves.toBeDefined()
+    await expect(signingIn).rejects.toMatchObject({ code: IDENTITY_CHANGED })
   })
 
   it('settles anonymous with an auth error when primary initialization fails', async () => {
@@ -298,7 +499,7 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     h.pushError(401)
     await h.refresh()
     expect(h.subject()).toBe('anonymous')
-    expect(h.state.token.value).toBeNull()
+    expect(h.coordinator.token.value).toBeNull()
   })
 
   it('token revocation (onChange false) transitions to anonymous', async () => {
@@ -308,10 +509,15 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     })
     await h.settle()
     // Next refresh returns a rotated token that Convex will reject.
+    const generationBefore = h.coordinator.port.snapshot().identityGeneration
     h.rejected.add(revokedA)
     h.pushToken(revokedA)
     await h.refresh()
     expect(h.subject()).toBe('anonymous')
+    expect(h.coordinator.port.snapshot()).toMatchObject({
+      identityGeneration: generationBefore + 1,
+      identityKey: 'anonymous',
+    })
   })
 
   it('transient transport failure over a usable identity stays authenticated with error', async () => {
@@ -336,7 +542,7 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     }))
     await h.signInTriggering()
     expect(h.subject()).toBe('anonymous')
-    expect(h.state.token.value).toBeNull()
+    expect(h.coordinator.token.value).toBeNull()
     expect(h.coordinator.error.value).not.toBeNull()
   })
 
@@ -451,6 +657,28 @@ describe('ready() snapshot semantics (vNext §5.3/§6.4)', () => {
     // still-current status without waiting for it and without rejecting.
     expect(status).toBe('authenticated')
     await refreshing
+  })
+
+  it('clears its deadline when captured work settles first', async () => {
+    vi.useFakeTimers()
+    const exchange = deferred<TokenResponse>()
+    const h = createHarness({
+      initial: { data: { token: makeJwt('A') }, error: null },
+    })
+    try {
+      await h.settle()
+      h.pushScripted(() => exchange.promise)
+      const refreshing = h.refresh()
+      const readiness = h.coordinator.ready({ timeoutMs: 5_000 })
+
+      exchange.resolve({ data: { token: makeJwt('A', 7_200) }, error: null })
+      await refreshing
+      await expect(readiness).resolves.toBe('authenticated')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      h.coordinator.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('treats timeoutMs: 0 as no timeout (awaits the captured work to completion)', async () => {

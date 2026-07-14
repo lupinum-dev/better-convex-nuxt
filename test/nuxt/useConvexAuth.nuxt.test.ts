@@ -4,6 +4,12 @@ import { computed, ref, watch } from 'vue'
 import { useNuxtApp, useState } from '#imports'
 
 import {
+  ANONYMOUS_IDENTITY,
+  LOADING_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
+import {
   createConvexAuthCoordinator,
   type AuthClientWithConvex,
   type ConvexAuthCoordinator,
@@ -26,9 +32,10 @@ function makeJwt(sub: string): string {
 
 /**
  * Phase 3: `useConvexAuth()` derives its reactive contract (status/isPending/
- * isAuthenticated/user/token/error) from the SSR-seeded `useState` refs and
- * delegates operations (signOut/refresh/ready) plus the integrated signIn/signUp
- * namespaces to the coordinator owned by the per-app runtime context.
+ * isAuthenticated/user/token/error) from the canonical SSR-seeded identity plus
+ * pending/error `useState` refs, and delegates operations (signOut/refresh/ready)
+ * plus the integrated signIn/signUp namespaces to the coordinator owned by the
+ * per-app runtime context.
  */
 function provideFakeCoordinator(
   nuxtApp: ReturnType<typeof useNuxtApp>,
@@ -76,12 +83,10 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
   it('derives authenticated state from token + user', async () => {
     const { result } = await captureInNuxt(
       () => {
-        const token = useState<string | null>('convex:token')
-        const user = useState<ConvexUser | null>('convex:user')
+        const identity = useState<AuthIdentity>('convex:identity')
         const pending = useState<boolean>('convex:pending')
         pending.value = false
-        token.value = 'jwt.token'
-        user.value = { id: 'u1' } as ConvexUser
+        identity.value = toAuthenticatedIdentity('jwt.token', { id: 'u1' } as ConvexUser)
         return useConvexAuth()
       },
       { convexConfig: { auth: {} } },
@@ -95,8 +100,10 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
   it('derives loading while unsettled and error when settled with an authError', async () => {
     const { result: loading } = await captureInNuxt(
       () => {
+        const identity = useState<AuthIdentity>('convex:identity')
         const pending = useState<boolean>('convex:pending')
         const authError = useState<string | null>('convex:authError')
+        identity.value = LOADING_IDENTITY
         authError.value = null
         pending.value = true
         return useConvexAuth()
@@ -107,8 +114,10 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
 
     const { result: errored } = await captureInNuxt(
       () => {
+        const identity = useState<AuthIdentity>('convex:identity')
         const pending = useState<boolean>('convex:pending')
         const authError = useState<string | null>('convex:authError')
+        identity.value = ANONYMOUS_IDENTITY
         pending.value = false
         authError.value = 'token exchange failed'
         return useConvexAuth()
@@ -160,16 +169,14 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     const observed: string[] = []
     const { result, wrapper } = await captureInNuxt(
       () => {
-        const token = useState<string | null>('convex:token', () => null)
-        const user = useState<ConvexUser | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity', () => LOADING_IDENTITY)
         const pending = useState<boolean>('convex:pending', () => true)
         const authError = useState<string | null>('convex:authError', () => null)
 
         // Simulate the SSR-hydrated snapshot published BEFORE the auth-enabled
         // client plugin (and its `attachPrimary`) ever runs, exactly as
         // `useConvexAuth()` seeds hydrated state from payload-restored refs.
-        token.value = makeJwt('A')
-        user.value = { id: 'A' } as ConvexUser
+        identity.value = toAuthenticatedIdentity(makeJwt('A'), { id: 'A' } as ConvexUser)
         pending.value = false
         authError.value = null
 
@@ -206,18 +213,15 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
 
     await captureInNuxt(
       () => {
-        const token = useState<string | null>('convex:token', () => null)
-        const user = useState<ConvexUser | null>('convex:user', () => null)
+        const identity = useState<AuthIdentity>('convex:identity', () => LOADING_IDENTITY)
         const pending = useState<boolean>('convex:pending', () => true)
         const authError = useState<string | null>('convex:authError', () => null)
-        token.value = makeJwt('A')
-        user.value = { id: 'A' } as ConvexUser
+        identity.value = toAuthenticatedIdentity(makeJwt('A'), { id: 'A' } as ConvexUser)
         pending.value = false
         authError.value = null
 
         const state: ConvexAuthCoordinatorState = {
-          token,
-          user,
+          identity,
           pending,
           authError,
         }
@@ -261,8 +265,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
       if (existing) return existing
       createCount += 1
       const state: ConvexAuthCoordinatorState = {
-        token: useState('convex:token', () => null),
-        user: useState('convex:user', () => null),
+        identity: useState<AuthIdentity>('convex:identity', () => ANONYMOUS_IDENTITY),
         pending: useState('convex:pending', () => false),
         authError: useState('convex:authError', () => null),
       }

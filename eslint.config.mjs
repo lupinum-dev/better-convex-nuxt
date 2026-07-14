@@ -22,7 +22,6 @@ export default createConfigForNuxt({
         'demo/**',
         'docs/**',
         '**/convex/**/_generated/**',
-        'test/proofs/packed-typing/**',
         'test/proofs/harnesses/hmr/fixture/**',
         'test/fixtures/ssr-errors-consumer/**',
         'test/fixtures/auth-client-typing/**',

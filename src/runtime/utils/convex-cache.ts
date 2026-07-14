@@ -122,11 +122,11 @@ export interface FetchAuthTokenOptions {
  *
  * Performs NO cookie -> JWT exchange. `plugin.server.ts` runs before any route
  * component's setup and already exchanged the session cookie once, writing the
- * result into `useState('convex:token')`. SSR queries reuse that single
+ * result into the canonical `useState('convex:identity')`. SSR queries reuse that single
  * per-request exchange. `none` never attaches a token.
  *
  * The `cachedToken` must be obtained at component setup time via
- * `useState('convex:token')`; calling `useState` inside an async function loses
+ * the canonical identity state; calling `useState` inside an async function loses
  * Vue context.
  */
 export function fetchAuthToken(options: FetchAuthTokenOptions): string | undefined {

@@ -1,7 +1,0 @@
-# Isolated single-package pnpm workspace root for this proof consumer so the
-# repo-root workspace overrides do not leak in. The proof is a typecheck, so no
-# dependency native builds are needed; explicitly declining them satisfies
-# pnpm 11's ignored-builds gate deterministically.
-allowBuilds:
-  '@parcel/watcher': false
-  esbuild: false

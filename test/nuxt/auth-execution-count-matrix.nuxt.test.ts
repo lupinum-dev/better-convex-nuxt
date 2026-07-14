@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useState } from '#imports'
 
+import {
+  ANONYMOUS_IDENTITY,
+  LOADING_IDENTITY,
+  toAuthenticatedIdentity,
+  type AuthIdentity,
+} from '../../src/runtime/auth/auth-identity'
 import { createConvexQueryState } from '../../src/runtime/composables/useConvexQuery'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
@@ -37,9 +43,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => true)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = true
-          user.value = null
+          identity.value = LOADING_IDENTITY
           return createConvexQueryState(query, {}, { auth: 'none' }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -56,9 +62,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { result, flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => true)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = true
-          user.value = null
+          identity.value = LOADING_IDENTITY
           return createConvexQueryState(query, {}, { auth: mode }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -67,6 +73,8 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       expect(primary.calls.onUpdate.length).toBe(0) // waits while loading
 
       const pending = useState<boolean>('convex:pending')
+      const identity = useState<AuthIdentity>('convex:identity')
+      identity.value = ANONYMOUS_IDENTITY
       pending.value = false // settles anonymous
       await flush()
 
@@ -87,9 +95,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => false)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = false
-          user.value = null // settled anonymous
+          identity.value = ANONYMOUS_IDENTITY
           return createConvexQueryState(query, {}, { auth: mode }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -97,8 +105,8 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       await flush()
       const before = primary.calls.onUpdate.length
 
-      const user = useState<{ id: string } | null>('convex:user')
-      user.value = { id: 'u1' } // sign-in
+      const identity = useState<AuthIdentity>('convex:identity')
+      identity.value = toAuthenticatedIdentity('jwt-u1', { id: 'u1' })
       await flush()
       const delta = primary.calls.onUpdate.length - before
 
@@ -119,9 +127,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { result, flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => false)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = false
-          user.value = { id: 'u1' } // settled authenticated
+          identity.value = toAuthenticatedIdentity('jwt-u1', { id: 'u1' })
           return createConvexQueryState(query, {}, { auth: mode }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -129,8 +137,8 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       await flush()
       const before = primary.calls.onUpdate.length
 
-      const user = useState<{ id: string } | null>('convex:user')
-      user.value = null // sign-out
+      const identity = useState<AuthIdentity>('convex:identity')
+      identity.value = ANONYMOUS_IDENTITY
       await flush()
       const delta = primary.calls.onUpdate.length - before
 
@@ -155,9 +163,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => false)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = false
-          user.value = { id: 'u1' }
+          identity.value = toAuthenticatedIdentity('jwt-u1-1', { id: 'u1' })
           return createConvexQueryState(query, {}, { auth: mode }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -167,9 +175,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
 
       // Same-user token rotation does not change the identity KEY (same
       // `user.id`); the isolation dimension the composable keys off never
-      // changes, so re-setting an equal-shaped user object must not reacquire.
-      const user = useState<{ id: string } | null>('convex:user')
-      user.value = { id: 'u1' }
+      // changes, so publishing a rotated token for the same user must not reacquire.
+      const identity = useState<AuthIdentity>('convex:identity')
+      identity.value = toAuthenticatedIdentity('jwt-u1-2', { id: 'u1' })
       await flush()
 
       expect(primary.calls.onUpdate.length).toBe(before)
@@ -184,9 +192,9 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       const { flush } = await captureInNuxt(
         () => {
           const pending = useState<boolean>('convex:pending', () => false)
-          const user = useState<{ id: string } | null>('convex:user', () => null)
+          const identity = useState<AuthIdentity>('convex:identity')
           pending.value = false
-          user.value = { id: 'A' }
+          identity.value = toAuthenticatedIdentity('jwt-A', { id: 'A' })
           return createConvexQueryState(query, {}, { auth: mode }, true).resultData
         },
         { owner: makeMockOwner(primary) },
@@ -194,8 +202,8 @@ describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
       await flush()
       const before = primary.calls.onUpdate.length
 
-      const user = useState<{ id: string } | null>('convex:user')
-      user.value = { id: 'B' }
+      const identity = useState<AuthIdentity>('convex:identity')
+      identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
       await flush()
       const delta = primary.calls.onUpdate.length - before
 

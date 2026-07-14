@@ -3,11 +3,12 @@ import type { ComputedRef, Ref } from 'vue'
 import { useState, computed, readonly, ref, useNuxtApp } from '#imports'
 
 import type { BaseAuthClient, InferRegisteredConvexAuthClient } from '../auth-client'
+import { identityKeyOf, identityToken, identityUser } from '../auth/auth-identity'
 import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
+import { useConvexIdentityState } from '../utils/auth-identity-state'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
-import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexUser } from '../utils/types'
 
@@ -127,8 +128,9 @@ export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthCl
   }
 
   const nuxtApp = useNuxtApp()
-  const token = useState<string | null>('convex:token', () => null)
-  const user = useState<ConvexUser | null>('convex:user', () => null)
+  const identity = useConvexIdentityState()
+  const token = computed(() => identityToken(identity.value))
+  const user = computed(() => identityUser(identity.value))
   const authError = useState<string | null>('convex:authError', () => null)
   const pending = useState<boolean>('convex:pending', () => import.meta.client)
 
@@ -137,22 +139,16 @@ export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthCl
     null) as InferRegisteredConvexAuthClient | null
 
   const status = computed<ConvexAuthStatus>(() => {
-    let identityKey: ConvexIdentityKey | null
-    try {
-      identityKey = getConvexIdentityKey(user.value)
-    } catch {
-      identityKey = 'anonymous'
-    }
     return deriveConvexAuthStatus({
       authEnabled: true,
       settled: !pending.value,
-      identityKey,
+      identityKey: identityKeyOf(identity.value),
       error: authError.value
         ? new ConvexCallError({ kind: 'authentication', message: authError.value })
         : null,
     })
   })
-  const isAuthenticated = computed(() => Boolean(token.value) && Boolean(user.value))
+  const isAuthenticated = computed(() => identity.value.status === 'authenticated')
   const isPending = coordinator ? coordinator.isPending : computed(() => pending.value)
   const error = computed<ConvexCallError | null>(() =>
     authError.value

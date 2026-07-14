@@ -14,6 +14,39 @@ export interface RouteProtectionDecision {
   redirectTo: RouteLocationRaw
 }
 
+const LOCAL_URL_BASE = 'https://better-convex-nuxt.invalid'
+
+function hasUnsafePathCharacter(value: string): boolean {
+  for (const character of value) {
+    const codeUnit = character.charCodeAt(0)
+    if (character === '\\' || codeUnit <= 31 || codeUnit === 127) return true
+  }
+  return false
+}
+
+function normalizeLocalPath(value: string): string | null {
+  if (!value.startsWith('/') || value.startsWith('//') || hasUnsafePathCharacter(value)) {
+    return null
+  }
+
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    return null
+  }
+  if (decoded.startsWith('//') || hasUnsafePathCharacter(decoded)) {
+    return null
+  }
+
+  const parsed = new URL(value, LOCAL_URL_BASE)
+  if (parsed.origin !== LOCAL_URL_BASE || parsed.pathname.startsWith('//')) {
+    return null
+  }
+
+  return `${parsed.pathname}${parsed.search}${parsed.hash}`
+}
+
 export function resolveRouteProtectionDecision(
   input: RouteProtectionDecisionInput,
 ): RouteProtectionDecision | null {
@@ -29,18 +62,29 @@ export function resolveRouteProtectionDecision(
 
   if (!redirectBase) return null
   if (typeof redirectBase !== 'string') {
+    if ('path' in redirectBase && typeof redirectBase.path === 'string') {
+      const path = normalizeLocalPath(redirectBase.path)
+      if (!path) return null
+      return { redirectTo: { ...redirectBase, path } }
+    }
     return { redirectTo: redirectBase }
   }
-  const redirectPathOnly = redirectBase.split('?')[0] || redirectBase
+  const redirectPath = normalizeLocalPath(redirectBase)
+  if (!redirectPath) return null
+  const redirectPathOnly = redirectPath.split(/[?#]/)[0] || redirectPath
   if (currentPath === redirectPathOnly) return null
 
   if (!preserveReturnTo) {
-    return { redirectTo: redirectBase }
+    return { redirectTo: redirectPath }
   }
 
-  const hasQuery = redirectBase.includes('?')
+  const returnTo = normalizeLocalPath(currentFullPath) ?? normalizeLocalPath(currentPath) ?? '/'
+  const hashIndex = redirectPath.indexOf('#')
+  const redirectWithoutHash = hashIndex === -1 ? redirectPath : redirectPath.slice(0, hashIndex)
+  const hash = hashIndex === -1 ? '' : redirectPath.slice(hashIndex)
+  const hasQuery = redirectWithoutHash.includes('?')
   const separator = hasQuery ? '&' : '?'
   return {
-    redirectTo: `${redirectBase}${separator}redirect=${encodeURIComponent(currentFullPath)}`,
+    redirectTo: `${redirectWithoutHash}${separator}redirect=${encodeURIComponent(returnTo)}${hash}`,
   }
 }
