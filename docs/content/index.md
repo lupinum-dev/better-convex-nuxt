@@ -1,54 +1,49 @@
 ---
-title: 'Real-time Nuxt apps with Convex.'
+title: 'Convex for Nuxt, without the integration glue.'
 navigation: false
-description: 'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, and authentication.'
+description: 'SSR-ready realtime queries, Better Auth, typed server calls, optimistic updates, and file uploads for Nuxt 4.'
 ---
 
 ## ::u-page-hero
 
 orientation: 'horizontal'
-description: Full-featured Convex integration for Nuxt with SSR, real-time subscriptions, and authentication.
+description: Build on Convex from Nuxt 4 with one coherent client, server, SSR, realtime, and authentication model.
 ui:
 container: 'lg:items-start flex flex-col lg:grid pt-24 sm:pt-32 lg:pt-40 pb-0 sm:pb-0 lg:pb-0 gap-16 sm:gap-y-0'
 
 ---
 
 #title
-Full-stack Nuxt that [feels like cheating]{.text-primary}
+Convex for Nuxt, [without the integration glue]{.text-primary}
 #links
 :::u-button
 
 ---
 
 size: lg
-to: /docs/guide/get-started
+to: /docs/get-started/choose-your-path
 color: warning
 trailing-icon: i-lucide-arrow-right
 
 ---
 
-Get Started
+Get started
 :::
-:u-input-copy{value="pnpm add better-convex-nuxt"}
+:u-input-copy{value="pnpm add better-convex-nuxt convex@1.42.1 better-auth@1.6.23 @convex-dev/better-auth@0.12.5"}
 #default
 ::tabs{class="xl:-mt-10 bg-white dark:bg-neutral-900"}
-:::tabs-item{label="Queries" icon="i-lucide-database"}
+:::tabs-item{label="Query" icon="i-lucide-radio"}
 
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
 
-// Real-time subscription with SSR support
-const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
-  status: 'active',
-})
-
-// Data updates automatically when any client makes changes
+const { data: tasks, status } = await useConvexQuery(api.tasks.list, {})
 </script>
 
 <template>
-  <div v-if="status === 'pending'">Loading...</div>
-  <ul v-else-if="status === 'success'">
+  <p v-if="status === 'pending'">Loading tasks…</p>
+  <ul v-else>
     <li v-for="task in tasks" :key="task._id">
       {{ task.text }}
     </li>
@@ -57,82 +52,51 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, {
 ```
 
 :::
-:::tabs-item{label="Mutations" icon="i-lucide-edit"}
+:::tabs-item{label="Write" icon="i-lucide-pen-line"}
 
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
 
-const createTask = useConvexMutation(api.tasks.create, {
-  // Instant UI feedback with optimistic updates
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      store: localStore,
-      updater: (current) =>
-        current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
-    })
-  },
-})
-const { pending } = createTask
+const createTask = useConvexMutation(api.tasks.create)
+const text = ref('')
 
-await createTask({ text: 'Ship my app' })
+async function submit() {
+  await createTask({ text: text.value })
+  text.value = ''
+}
 </script>
 ```
 
 :::
-:::tabs-item{label="Auth" icon="i-lucide-lock"}
+:::tabs-item{label="Authenticate" icon="i-lucide-fingerprint"}
 
 ```vue
 <script setup lang="ts">
-const { isAuthenticated, user, signOut, signIn } = useConvexAuth()
+const { isAuthenticated, user, signIn, signOut } = useConvexAuth()
 
-async function handleLogin(email: string, password: string) {
-  const { error } = await signIn.email({ email, password })
-  if (!error) {
-    // signIn synchronizes Convex auth automatically
-    navigateTo('/dashboard')
-  }
-}
-
-async function handleOAuth() {
+async function signInWithGitHub() {
   await signIn.social({ provider: 'github' })
 }
 </script>
 
 <template>
-  <div v-if="isAuthenticated">
-    Welcome, {{ user?.name }}!
-    <button @click="signOut()">Sign Out</button>
-  </div>
-  <div v-else>
-    <button @click="handleOAuth">Sign in with GitHub</button>
-  </div>
+  <button v-if="!isAuthenticated" @click="signInWithGitHub">Sign in with GitHub</button>
+  <button v-else @click="signOut()">Sign out {{ user?.name }}</button>
 </template>
 ```
 
 :::
-:::tabs-item{label="Permissions" icon="i-lucide-shield"}
+:::tabs-item{label="Call from Nitro" icon="i-lucide-server"}
 
-```vue
-<script setup lang="ts">
-// Application-owned UI capability helper; authorization remains in Convex.
-const { can, role } = useAppCapabilities()
-const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
-</script>
+```ts [server/api/tasks.get.ts]
+import { api } from '#convex/api'
+import { serverConvex } from '#convex/server'
 
-<template>
-  <article v-if="post">
-    <h1>{{ post.title }}</h1>
-    <p>{{ post.content }}</p>
-
-    <!-- Show actions based on role and ownership -->
-    <button v-if="can('post.update', post)">Edit</button>
-    <button v-if="can('post.delete', post)">Delete</button>
-    <button v-if="can('post.publish')">Publish</button>
-  </article>
-</template>
+export default defineEventHandler(async (event) => {
+  const convex = await serverConvex(event)
+  return convex.query(api.tasks.list, {})
+})
 ```
 
 :::
@@ -145,26 +109,45 @@ const { data: post } = await useConvexQuery(api.posts.get, { id: props.id })
 ::u-container
 :::div{class="text-center mb-12 xl:mb-16"}
 ::::h2{class="text-3xl xl:text-4xl font-bold text-highlighted mb-3"}
-Everything You Need
+One model from first render to live updates
 ::::
-::::p{class="text-lg text-muted max-w-xl mx-auto"}
-Built-in features for building production-ready apps
+::::p{class="text-lg text-muted max-w-2xl mx-auto"}
+Render with data on the server, hydrate without a second state system, then keep the same query live in the browser.
 ::::
 :::
 
 :::u-page-grid{class="pb-12 xl:pb-24"}
-::landing-feature{title="Real-time Queries" description="Fetch data with SSR, then upgrade to WebSocket subscriptions. Changes sync instantly across all clients." icon="i-lucide-database" to="/docs/data-fetching/queries"}
+::landing-feature{title="SSR to realtime" description="One query API handles server rendering, hydration, subscription ownership, and identity changes." icon="i-lucide-refresh-cw" to="/docs/understand/ssr-hydration-realtime"}
 
-::landing-feature{title="Optimistic Updates" description="Instant UI feedback with automatic rollback on failure. Make your app feel fast." icon="i-lucide-zap" to="/docs/mutations/optimistic-updates"}
+::landing-feature{title="Better Auth included" description="A typed, same-origin Better Auth integration keeps session and Convex identity synchronized." icon="i-lucide-fingerprint" to="/docs/build/authentication/overview"}
 
-::landing-feature{title="Authentication" description="Better Auth integration with email/password, OAuth, and magic links. SSR-compatible." icon="i-lucide-lock" to="/docs/auth-security/authentication"}
+::landing-feature{title="Explicit security boundaries" description="The library transports identity. Your Convex functions remain the single source of truth for authorization." icon="i-lucide-shield-check" to="/docs/operations/security-model"}
 
-::landing-feature{title="Permissions" description="Role-based access control with ownership rules. Backend enforces, frontend displays." icon="i-lucide-shield" to="/docs/recipes/auth-guards-and-permissions"}
+::landing-feature{title="Typed server calls" description="Use a request-scoped Convex caller in Nitro routes, middleware, webhooks, and server utilities." icon="i-lucide-server" to="/docs/build/server/server-convex"}
 
-::landing-feature{title="SSR Support" description="Server-side rendering with hydration. Fast initial loads, then real-time updates." icon="i-lucide-server" to="/docs/server-side/ssr-hydration"}
+::landing-feature{title="Optimistic writes" description="Update shared query state immediately and let Convex reconcile or roll back the result." icon="i-lucide-zap" to="/docs/build/write-data/optimistic-updates"}
 
-::landing-feature{title="Type Safety" description="Full TypeScript inference from your Convex schema. Catch errors at compile time." icon="i-lucide-type" to="/docs/data-fetching/queries#typescript"}
+::landing-feature{title="Files without queue glue" description="Upload with progress, cancellation, bounded concurrency, storage URLs, and explicit cleanup." icon="i-lucide-upload" to="/docs/build/files/upload-files"}
+:::
+::
 
-::landing-feature{title="File Storage" description="Upload files with progress tracking, cancel support, and multi-file queues with concurrency control." icon="i-lucide-upload" to="/docs/advanced/file-storage"}
+::u-container
+:::div{class="grid gap-8 lg:grid-cols-2 py-12 xl:py-24"}
+::::div
+
+##### Know what the library owns
+
+The docs start with the architecture: request lifecycle, SSR and hydration, query ownership, identity isolation, and client/server boundaries. The API makes more sense once those invariants are clear.
+
+::u-button{to="/docs/understand/mental-model" label="Understand the model" color="neutral" variant="outline" trailing-icon="i-lucide-arrow-right"}
+::::
+::::div
+
+##### Decide with evidence
+
+See the concrete trade-offs and a version-pinned comparison with the other Nuxt integrations before adopting the module.
+
+::u-button{to="/docs/overview/comparison" label="Compare integrations" color="neutral" variant="outline" trailing-icon="i-lucide-arrow-right"}
+::::
 :::
 ::

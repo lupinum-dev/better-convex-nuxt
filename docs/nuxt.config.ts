@@ -1,5 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
-const siteUrl = process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app/'
+const siteUrl = (process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app').replace(/\/$/, '')
 
 export default defineNuxtConfig({
   modules: [
@@ -10,7 +10,6 @@ export default defineNuxtConfig({
     '@nuxt/content',
     'nuxt-og-image',
     'nuxt-llms',
-    '@nuxtjs/mcp-toolkit',
     '@vueuse/nuxt',
   ],
 
@@ -29,7 +28,7 @@ export default defineNuxtConfig({
         {
           name: 'description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Convex integration for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and file uploads.',
         },
         { name: 'apple-mobile-web-app-title', content: 'Better Convex Nuxt' },
         {
@@ -41,18 +40,18 @@ export default defineNuxtConfig({
         {
           property: 'og:description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Convex integration for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and file uploads.',
         },
-        { property: 'og:image', content: `${siteUrl}og-image.png` },
+        { property: 'og:image', content: `${siteUrl}/og-image.png` },
         { property: 'og:url', content: siteUrl },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'Real-time Nuxt apps with Convex.' },
         {
           name: 'twitter:description',
           content:
-            'Full-featured Convex integration for Nuxt. Real-time queries with SSR, mutations with optimistic updates, authentication, and fine-grained permissions.',
+            'Convex integration for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and file uploads.',
         },
-        { name: 'twitter:image', content: `${siteUrl}og-image.png` },
+        { name: 'twitter:image', content: `${siteUrl}/og-image.png` },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon-96x96.png', sizes: '96x96' },
@@ -82,6 +81,36 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2024-07-11',
+
+  routeRules: {
+    '/docs/guide/get-started': { redirect: '/docs/get-started/choose-your-path' },
+    '/docs/guide/basics': { redirect: '/docs/get-started/first-realtime-page' },
+    '/docs/guide/auth': { redirect: '/docs/get-started/add-authentication' },
+    '/docs/guide/concepts': { redirect: '/docs/understand/mental-model' },
+    '/docs/data-fetching/queries': { redirect: '/docs/build/queries/queries' },
+    '/docs/data-fetching/pagination': { redirect: '/docs/build/queries/pagination' },
+    '/docs/data-fetching/caching-reuse': { redirect: '/docs/build/queries/sharing-query-state' },
+    '/docs/mutations/mutations': { redirect: '/docs/build/write-data/mutations' },
+    '/docs/mutations/actions': { redirect: '/docs/build/write-data/actions' },
+    '/docs/mutations/optimistic-updates': {
+      redirect: '/docs/build/write-data/optimistic-updates',
+    },
+    '/docs/auth-security/authentication': { redirect: '/docs/build/authentication/overview' },
+    '/docs/server-side/server-routes': { redirect: '/docs/build/server/server-routes' },
+    '/docs/server-side/ssr-hydration': {
+      redirect: '/docs/understand/ssr-hydration-realtime',
+    },
+    '/docs/advanced/connection-state': {
+      redirect: '/docs/build/application-behavior/connection-state',
+    },
+    '/docs/advanced/error-handling': {
+      redirect: '/docs/build/application-behavior/error-handling',
+    },
+    '/docs/advanced/file-storage': { redirect: '/docs/build/files/upload-files' },
+    '/docs/advanced/logging': { redirect: '/docs/build/application-behavior/logging' },
+    '/docs/advanced/module-config': { redirect: '/docs/reference/module-configuration' },
+    '/docs/advanced/api-surface': { redirect: '/docs/reference/api-surface' },
+  },
 
   nitro: {
     prerender: {
@@ -118,82 +147,82 @@ export default defineNuxtConfig({
     domain: siteUrl,
     title: 'Better Convex Nuxt',
     description:
-      'Nuxt module for Convex with Better Auth - real-time queries, SSR, authentication, and fine-grained permissions.',
+      'Nuxt 4 module for Convex with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and file uploads.',
     full: {
       title: 'Better Convex Nuxt - Full Documentation',
       description:
-        'Complete documentation for Better Convex Nuxt module including API reference, authentication, and permissions.',
+        'Complete Better Convex Nuxt documentation including concepts, task guides, recipes, API reference, security, and operations.',
     },
     sections: [
       {
-        title: 'Getting Started',
-        description: 'Installation, quick start guide, and core concepts.',
+        title: 'Overview',
+        description: 'Product fit, use cases, comparison, limitations, and trade-offs.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/1.getting-started%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/overview%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Data Fetching',
-        description: 'How to use useConvexQuery, pagination, and caching strategies.',
+        title: 'Understand',
+        description:
+          'Mental models for lifecycle, SSR, identity, ownership, errors, and boundaries.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/2.data-fetching%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/understand%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Mutations',
-        description: 'Performing mutations, actions, and handling optimistic updates.',
+        title: 'Get Started',
+        description: 'Install the module and build a realtime, authenticated application.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/3.mutations%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/get-started%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Authentication & Security',
-        description: 'Setup guide for authentication, permissions, and role-based access.',
+        title: 'Build',
+        description:
+          'Queries, writes, authentication, Nitro server calls, files, and application behavior.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/4.auth-security%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/build%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Server-Side Rendering',
-        description: 'Using Convex with Nuxt server routes and SSR hydration.',
+        title: 'Recipes',
+        description: 'Complete patterns that compose the library around application invariants.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/5.server-side%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/recipes%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Advanced',
-        description: 'Connection state management, error handling, file storage, and logging.',
+        title: 'Reference',
+        description: 'Composables, components, server APIs, errors, configuration, and exports.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/6.advanced%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/reference%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
       {
-        title: 'Deployment',
-        description: 'Guide for deploying your application to production.',
+        title: 'Operations',
+        description:
+          'Environment, deployment, security, troubleshooting, migration, and compatibility.',
         contentCollection: 'docs',
         contentFilters: [
-          { field: 'path', operator: 'LIKE', value: '%/7.deployment%' },
+          { field: 'path', operator: 'LIKE', value: '%/docs/operations%' },
           { field: 'extension', operator: '=', value: 'md' },
         ],
       },
     ],
   },
 
-  mcp: {
-    name: 'better-convex-nuxt',
-  },
   sitemap: {
     sources: ['/api/__sitemap__/urls'],
   },

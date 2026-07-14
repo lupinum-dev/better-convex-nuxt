@@ -14,15 +14,15 @@ function readStarterFile(starter: string, path: string): string {
 describe('starter organization ownership', () => {
   it('requires verified email ownership before accepting organization invitations', () => {
     const starterAuth = readStarterFile('agentic-saas', 'convex/auth.ts')
-    const architectureGuide = readFileSync(
-      join(repoRoot, 'docs/content/docs/8.architecture/1.saas-kit-direction.md'),
+    const organizationGuide = readFileSync(
+      join(repoRoot, 'docs/content/docs/5.recipes/6.organization-permissions.md'),
       'utf8',
     )
 
     expect(starterAuth).toContain('requireEmailVerificationOnInvitation: true')
-    expect(architectureGuide).toContain('requireEmailVerificationOnInvitation: true')
+    expect(organizationGuide).toContain('requireEmailVerificationOnInvitation: true')
     expect(starterAuth).not.toContain('requireEmailVerificationOnInvitation: false')
-    expect(architectureGuide).not.toMatch(/requireEmailVerificationOnInvitation:\s*process\.env/)
+    expect(organizationGuide).not.toMatch(/requireEmailVerificationOnInvitation:\s*process\.env/)
   })
 
   it('team uses Better Auth Organization as the organization source of truth', () => {

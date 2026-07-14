@@ -17,7 +17,6 @@
     "@nuxt/content": "^3.10.0",
     "@nuxt/image": "^2.0.0",
     "@nuxt/ui": "^4.3.0",
-    "@nuxtjs/mcp-toolkit": "0.5.1",
     "@nuxtjs/sitemap": "7.5.2",
     "@vueuse/core": "^14.1.0",
     "@vueuse/nuxt": "^14.1.0",

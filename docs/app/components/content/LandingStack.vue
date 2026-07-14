@@ -24,10 +24,10 @@ const stack = [
   <div class="py-16 xl:py-24 not-prose">
     <!-- Section Header -->
     <div class="text-center mb-12 xl:mb-16">
-      <h2 class="text-3xl xl:text-4xl font-bold text-highlighted mb-3">
-        Powered by the Modern Stack
-      </h2>
-      <p class="text-lg text-muted max-w-xl mx-auto">Three technologies, seamlessly integrated</p>
+      <h2 class="text-3xl xl:text-4xl font-bold text-highlighted mb-3">One integrated runtime</h2>
+      <p class="text-lg text-muted max-w-xl mx-auto">
+        Nuxt renders, Better Auth identifies, and Convex owns data and invariants.
+      </p>
     </div>
 
     <!-- Stack -->
@@ -40,11 +40,11 @@ const stack = [
             class="bg-white dark:bg-neutral-900 p-8 rounded-xl flex items-center justify-center border border-neutral-200 dark:border-neutral-800"
           >
             <!-- Single icon -->
-            <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-16" />
+            <img v-if="item.icon" :src="item.icon" :alt="item.name" class="size-16">
             <!-- Dark/Light mode icons for Better Auth -->
             <template v-else>
-              <img :src="item.iconLight" :alt="item.name" class="size-16 dark:hidden" />
-              <img :src="item.iconDark" :alt="item.name" class="size-16 hidden dark:block" />
+              <img :src="item.iconLight" :alt="item.name" class="size-16 dark:hidden">
+              <img :src="item.iconDark" :alt="item.name" class="size-16 hidden dark:block">
             </template>
           </div>
         </div>

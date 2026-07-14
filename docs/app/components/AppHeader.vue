@@ -9,33 +9,39 @@ const { header } = useAppConfig()
 
 const navItems = computed<NavigationMenuItem[]>(() => [
   {
-    label: 'Getting Started',
-    to: '/docs/guide/get-started',
-    active: route.path.startsWith('/docs/guide'),
+    label: 'Overview',
+    to: '/docs/overview/introduction',
+    active: route.path.startsWith('/docs/overview'),
   },
   {
-    label: 'Data Fetching',
-    to: '/docs/data-fetching/queries',
-    active: route.path.startsWith('/docs/data-fetching'),
+    label: 'Understand',
+    to: '/docs/understand/mental-model',
+    active: route.path.startsWith('/docs/understand'),
   },
   {
-    label: 'Mutations',
-    to: '/docs/mutations/mutations',
-    active: route.path.startsWith('/docs/mutations'),
+    label: 'Get Started',
+    to: '/docs/get-started/choose-your-path',
+    active: route.path.startsWith('/docs/get-started'),
   },
   {
-    label: 'Auth',
-    to: '/docs/auth-security/authentication',
-    active: route.path.startsWith('/docs/auth-security'),
+    label: 'Build',
+    to: '/docs/build/queries/queries',
+    active: route.path.startsWith('/docs/build'),
   },
   {
-    label: 'Server-Side',
-    to: '/docs/server-side/server-routes',
-    active: route.path.startsWith('/docs/server-side'),
+    label: 'Recipes',
+    to: '/docs/recipes/protected-dashboard',
+    active: route.path.startsWith('/docs/recipes'),
   },
   {
-    label: 'Advanced',
-    to: '/docs/advanced/performance',
+    label: 'Reference',
+    to: '/docs/reference/composables',
+    active: route.path.startsWith('/docs/reference'),
+  },
+  {
+    label: 'Operations',
+    to: '/docs/operations/environment-variables',
+    active: route.path.startsWith('/docs/operations'),
   },
 ])
 </script>
