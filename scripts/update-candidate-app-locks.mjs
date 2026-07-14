@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { createServer } from 'node:http'
+import { request as httpsRequest } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -141,18 +142,33 @@ const server = createServer(async (request, response) => {
       return
     }
 
-    const upstreamUrl = new URL(`${url.pathname}${url.search}`, 'https://registry.npmjs.org')
-    if (upstreamUrl.origin !== 'https://registry.npmjs.org') {
-      throw new Error('Unexpected upstream registry origin')
-    }
-    const upstream = await fetch(upstreamUrl)
-    response.statusCode = upstream.status
-    for (const [name, value] of upstream.headers) {
-      if (!['content-encoding', 'content-length', 'transfer-encoding'].includes(name)) {
-        response.setHeader(name, value)
-      }
-    }
-    response.end(Buffer.from(await upstream.arrayBuffer()))
+    await new Promise((resolvePromise, reject) => {
+      const upstreamRequest = httpsRequest(
+        {
+          headers: { accept: request.headers.accept ?? '*/*' },
+          hostname: 'registry.npmjs.org',
+          method: 'GET',
+          path: `${url.pathname}${url.search}`,
+          protocol: 'https:',
+        },
+        (upstreamResponse) => {
+          response.statusCode = upstreamResponse.statusCode ?? 502
+          for (const [name, value] of Object.entries(upstreamResponse.headers)) {
+            if (
+              value !== undefined &&
+              !['content-encoding', 'content-length', 'transfer-encoding'].includes(name)
+            ) {
+              response.setHeader(name, value)
+            }
+          }
+          upstreamResponse.on('error', reject)
+          upstreamResponse.on('end', resolvePromise)
+          upstreamResponse.pipe(response)
+        },
+      )
+      upstreamRequest.on('error', reject)
+      upstreamRequest.end()
+    })
   } catch {
     response.statusCode = 502
     response.end('Upstream registry request failed')
