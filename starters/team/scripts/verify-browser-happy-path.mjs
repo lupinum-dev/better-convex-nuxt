@@ -306,6 +306,7 @@ async function visibleProjectRow(page, name, failures, options = {}) {
       ]
         .filter(Boolean)
         .join('\n\n'),
+      { cause: error },
     )
   }
 
@@ -477,6 +478,7 @@ async function completeInvitation(browser, args, failures) {
       ]
         .filter(Boolean)
         .join('\n\n'),
+      { cause: error },
     )
   } finally {
     await inviteeContext.close()
@@ -565,6 +567,7 @@ async function waitForSignedOutPanel(page, failures) {
       ]
         .filter(Boolean)
         .join('\n\n'),
+      { cause: error },
     )
   }
 }

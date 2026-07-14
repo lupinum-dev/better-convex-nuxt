@@ -368,6 +368,7 @@ export async function assertLocalAuthReady(options: LocalAuthPreflightOptions = 
         `- cause: ${error instanceof Error ? error.message : String(error)}`,
         buildManualAuthSetupHelp(cwd),
       ].join('\n'),
+      { cause: error },
     )
   }
 

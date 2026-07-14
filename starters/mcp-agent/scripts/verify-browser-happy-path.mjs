@@ -531,6 +531,7 @@ async function runBrowserHappyPath() {
         error instanceof Error ? error.message : String(error),
         await readPageDebug(page, failures),
       ].join('\n\n'),
+      { cause: error },
     )
   } finally {
     await context.close()

@@ -52,7 +52,7 @@ export function sanitizeDiagnosticValue(value: unknown): unknown {
       return UNREADABLE
     }
 
-    let isArray = false
+    let isArray: boolean
     try {
       isArray = Array.isArray(current)
     } catch {

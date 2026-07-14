@@ -72,7 +72,7 @@ function transformCandidateResolution(lock, replacementBlocks) {
   const removed = { importers: 0, packages: 0, snapshots: 0 }
   let section
 
-  for (let index = 0; index < lines.length; ) {
+  for (let index = 0; index < lines.length;) {
     const line = lines[index]
     if (/^\S.*:$/.test(line)) section = line.slice(0, -1)
 

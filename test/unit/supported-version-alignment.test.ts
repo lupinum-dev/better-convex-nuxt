@@ -27,7 +27,7 @@ describe('supported version alignment', () => {
     const supportedPeers = {
       '@convex-dev/better-auth': '0.12.5',
       'better-auth': '1.6.23',
-      convex: '1.40.0',
+      convex: '1.42.1',
     }
 
     for (const [name, version] of Object.entries(supportedPeers)) {

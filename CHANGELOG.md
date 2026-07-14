@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## v0.6.1
+
+[compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.6.0...v0.6.1)
+
+### 🔒 Dependency and CI hardening
+
+- Updated the exact supported Convex version to `1.42.1` across the package,
+  fixtures, demo, and maintained starters.
+- Updated the release toolchain, including ESLint 10, Playwright 1.61,
+  `@nuxt/eslint-config` 1.16, `@vitejs/plugin-vue` 6.0.8, `convex-test` 0.0.54,
+  lint-staged 17, oxfmt 0.59, and the latest compatible stable supporting
+  packages.
+- Updated pinned GitHub Actions for checkout, Node setup, pnpm setup, and
+  TruffleHog; the TruffleHog binary input now matches the pinned action, and
+  checkout credentials are not persisted into subsequent job steps.
+- Kept TypeScript on the latest compatible 5.9 release because TypeScript 7 is
+  outside the current Nuxt, ESLint, and Convex peer ranges.
+
+### ✅ Reliability
+
+- Adapted error construction and local assignments to the stricter ESLint 10
+  rules without changing public behavior.
+- Made the small Convex backend test corpus run serially, avoiding CPU-contention
+  timeouts while preserving the existing per-test failure bound.
+- Regenerated and frozen-validated the exact candidate resolution in the demo
+  and all five maintained starters.
+
 ## v0.6.0
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.5.0...v0.6.0)

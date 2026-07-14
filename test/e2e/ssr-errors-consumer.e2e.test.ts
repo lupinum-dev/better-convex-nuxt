@@ -117,7 +117,7 @@ describe('real SSR ConvexCallError revival + redaction (vNext §7 golden fixture
     const ssrHtml = String(await $fetch('/', { responseType: 'text' }))
 
     // --- Separate payload channel (_payload.json, forced on via payloadExtraction) ---
-    let payloadBody = ''
+    let payloadBody: string
     try {
       payloadBody = String(await $fetch('/_payload.json', { responseType: 'text' }))
     } catch {
