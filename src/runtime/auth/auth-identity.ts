@@ -7,7 +7,6 @@ import type { ConvexUser } from '../utils/types'
  * user field. `key` is always the stable Better Auth `user.id`.
  */
 export type AuthIdentity =
-  | { status: 'disabled' }
   | { status: 'loading' }
   | { status: 'anonymous' }
   | {
@@ -19,7 +18,6 @@ export type AuthIdentity =
 
 export const LOADING_IDENTITY: AuthIdentity = { status: 'loading' }
 export const ANONYMOUS_IDENTITY: AuthIdentity = { status: 'anonymous' }
-export const DISABLED_IDENTITY: AuthIdentity = { status: 'disabled' }
 
 /**
  * Build an authenticated identity from a confirmed token + user, or fall back to
@@ -49,9 +47,4 @@ export function identityToken(identity: AuthIdentity): string | null {
 /** The published user, or null for any non-authenticated identity. */
 export function identityUser(identity: AuthIdentity): ConvexUser | null {
   return identity.status === 'authenticated' ? identity.user : null
-}
-
-/** True once initial resolution has produced a settled (non-loading) identity. */
-export function isSettledIdentity(identity: AuthIdentity): boolean {
-  return identity.status !== 'loading'
 }

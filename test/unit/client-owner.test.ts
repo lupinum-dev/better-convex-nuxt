@@ -151,8 +151,6 @@ describe('createConvexClientOwner', () => {
       })
 
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -167,8 +165,6 @@ describe('createConvexClientOwner', () => {
       const o = owner()
       const a = o.getPrimary()!.client as unknown as CountingClient
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -193,8 +189,6 @@ describe('createConvexClientOwner', () => {
       })
 
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -210,8 +204,6 @@ describe('createConvexClientOwner', () => {
 
       await expect(
         o.replacePrimary({
-          identity: 'user:alice',
-          authEpoch: 1,
           identityGeneration: 1,
           isCurrent: () => true,
           initialize: async () => {
@@ -259,8 +251,6 @@ describe('createConvexClientOwner', () => {
       let replacement: Promise<OwnedConvexClient> | undefined
       expect(() => {
         replacement = o.replacePrimary({
-          identity: 'user:alice',
-          authEpoch: 1,
           identityGeneration: 1,
           isCurrent: () => true,
           initialize: async () => {},
@@ -290,8 +280,6 @@ describe('createConvexClientOwner', () => {
       const a = o.getPrimary()!.client as unknown as CountingClient
       await expect(
         o.replacePrimary({
-          identity: 'user:alice',
-          authEpoch: 1,
           identityGeneration: 1,
           isCurrent: () => false,
           initialize: async () => {},
@@ -318,8 +306,6 @@ describe('createConvexClientOwner', () => {
       expect(unsubscribe.getQueryLogs()).toEqual(['logs:1'])
 
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -346,8 +332,6 @@ describe('createConvexClientOwner', () => {
       const cb = vi.fn()
       o.handle.onUpdate(mockFnRef<'query'>('q'), {}, cb)
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -366,8 +350,6 @@ describe('createConvexClientOwner', () => {
       const deliverQueuedAResult = a.queuedQueryResultByPath('q', 'stale')
 
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -381,8 +363,6 @@ describe('createConvexClientOwner', () => {
       resetCounts()
       const o = owner()
       const replacement = o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: () => new Promise<void>(() => {}),
@@ -472,8 +452,6 @@ describe('createConvexClientOwner', () => {
       expect((o.connection.state.value as ConnectionState).isWebSocketConnected).toBe(true)
 
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},
@@ -579,8 +557,6 @@ describe('createConvexClientOwner', () => {
       const o = owner()
       o.getAnonymous()
       await o.replacePrimary({
-        identity: 'user:alice',
-        authEpoch: 1,
         identityGeneration: 1,
         isCurrent: () => true,
         initialize: async () => {},

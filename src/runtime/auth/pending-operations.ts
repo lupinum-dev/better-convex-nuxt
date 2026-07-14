@@ -1,4 +1,4 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, type ComputedRef } from 'vue'
 
 /**
  * Independent operation-progress accounting (vNext §8 "Pending-operation
@@ -12,7 +12,6 @@ import { computed, ref, type ComputedRef, type Ref } from 'vue'
  * shared promise, not around each waiter).
  */
 export interface PendingOperations {
-  readonly activeCount: Readonly<Ref<number>>
   readonly isPending: ComputedRef<boolean>
   run<T>(operation: () => Promise<T>): Promise<T>
 }
@@ -33,5 +32,5 @@ export function createPendingOperations(): PendingOperations {
     }
   }
 
-  return { activeCount, isPending, run }
+  return { isPending, run }
 }

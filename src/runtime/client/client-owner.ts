@@ -3,7 +3,6 @@ import { shallowRef, readonly, type Ref } from 'vue'
 
 import type { AuthIdentityPort } from '../auth/identity-port'
 import type { DevtoolsSink } from '../devtools/sink'
-import type { ConvexIdentityKey } from '../utils/identity-key'
 import { createLogger, type Logger } from '../utils/logger'
 import { createIdentityChangedError } from './identity-changed-error'
 
@@ -96,10 +95,6 @@ export interface OwnedConvexClient {
 }
 
 export interface ReplacePrimaryInput {
-  /** The stable identity this replacement targets (diagnostics only). */
-  identity: ConvexIdentityKey
-  /** Epoch assigned by the auth coordinator; the owner never allocates it. */
-  authEpoch: number
   /** Generation assigned by the auth coordinator; the owner never allocates it. */
   identityGeneration: number
   /**
@@ -489,8 +484,6 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       const targetGeneration = snapshot.identityGeneration
       observedGeneration = targetGeneration
       void replacePrimary({
-        identity: snapshot.identityKey ?? 'anonymous',
-        authEpoch: snapshot.authEpoch,
         identityGeneration: targetGeneration,
         isCurrent: () => port.snapshot().identityGeneration === targetGeneration,
         initialize: (candidate) => port.initializePrimary(candidate as ConvexClient),

@@ -30,25 +30,3 @@ export interface AuthIdentitySnapshot {
   /** Non-null only when initial resolution failed without usable identity. */
   error: ConvexCallError | null
 }
-
-/**
- * Build the disabled auth port. It contains no application state, exposes a frozen
- * `disabled` snapshot, never settles late, and imports no Better Auth runtime.
- */
-export function createDisabledAuthIdentityPort(): AuthIdentityPort {
-  const snapshot: AuthIdentitySnapshot = Object.freeze({
-    authEnabled: false,
-    settled: true,
-    identityKey: null,
-    authEpoch: 0,
-    identityGeneration: 0,
-    error: null,
-  })
-  return {
-    snapshot: () => snapshot,
-    waitForInitialSettlement: () => Promise.resolve(),
-    subscribe: () => () => {},
-    initializePrimary: () => Promise.resolve(),
-    failPrimary: () => {},
-  }
-}

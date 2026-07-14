@@ -9,8 +9,6 @@
  */
 export interface SerialQueue {
   enqueue<T>(operation: () => Promise<T>): Promise<T>
-  /** Resolves when the queue has drained to the tail captured at call time. */
-  idle(): Promise<void>
 }
 
 export function createSerialQueue(): SerialQueue {
@@ -26,12 +24,5 @@ export function createSerialQueue(): SerialQueue {
     return run
   }
 
-  function idle(): Promise<void> {
-    return tail.then(
-      () => {},
-      () => {},
-    )
-  }
-
-  return { enqueue, idle }
+  return { enqueue }
 }
