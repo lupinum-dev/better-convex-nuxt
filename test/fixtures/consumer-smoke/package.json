@@ -9,7 +9,7 @@
   "devDependencies": {
     "@better-auth/api-key": "1.6.23",
     "better-auth": "1.6.23",
-    "convex": "1.40.0",
+    "convex": "1.42.1",
     "nuxt": "4.4.8",
     "typescript": "5.9.3",
     "vue-tsc": "3.3.7"

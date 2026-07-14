@@ -22,8 +22,8 @@
     "@convex-dev/better-auth": "0.12.5",
     "@convex-dev/rate-limiter": "^0.3.2",
     "better-auth": "1.6.23",
-    "better-convex-nuxt": "0.6.0",
-    "convex": "1.40.0",
+    "better-convex-nuxt": "0.6.1",
+    "convex": "1.42.1",
     "nuxt": "4.4.8",
     "vue": "3.5.39",
     "zod": "^4.4.3"

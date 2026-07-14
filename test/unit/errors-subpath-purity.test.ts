@@ -212,6 +212,7 @@ describe('errors subpath purity guard (vNext §7)', () => {
             `"pnpm exec nuxt-module-build build" manually and re-run this test — it ` +
             `must never pass vacuously with a missing dist. Underlying error: ` +
             `${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
         )
       }
     }

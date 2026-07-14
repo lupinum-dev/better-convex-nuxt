@@ -157,8 +157,7 @@ export default defineNuxtConfig({
   convex: {
     logging: 'debug'
   }
-})</pre
-        >
+})</pre>
       </div>
 
       <p class="hint">Open DevTools &rarr; Console to inspect query/mutation/action logs</p>

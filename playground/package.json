@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "peerDependencies": {
-    "convex": "1.40.0"
+    "convex": "1.42.1"
   }
 }

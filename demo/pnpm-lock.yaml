@@ -15,7 +15,7 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: 0.12.5
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)
       '@iconify-json/lucide':
         specifier: ^1.2.95
         version: 1.2.95
@@ -29,11 +29,11 @@ importers:
         specifier: 1.6.23
         version: 1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.6.0
-        version: 0.6.0(92a0d2fd94b2fb5fdab99082ae035899)
+        specifier: 0.6.1
+        version: 0.6.1(9d65bee08eaa4d459de95c73b8e74e13)
       convex:
-        specifier: 1.40.0
-        version: 1.40.0(react@19.2.3)
+        specifier: 1.42.1
+        version: 1.42.1(react@19.2.3)
       nuxt:
         specifier: 4.4.8
         version: 4.4.8(56bbe7997efe194d572c7c238fb0cc2b)
@@ -3122,13 +3122,13 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.6.0:
-    resolution: {integrity: sha512-QjUbEVBVqx6PwPLqg09Uoz/qcXIwKZ9z0KkFIrUwmeZBF0ywyla6bQjfbLqEoOEOj2MNbkpb/5xGb6t2ltVqDg==}
+  better-convex-nuxt@0.6.1:
+    resolution: {integrity: sha512-4KxPsMwgnDNaIIJ6VXozgmut3EAtoHnX4DVX+UxH1hPkyT0IDcQ+z/xVy7vz9MX+lMTNXnbRU8reaw3YsSWlKw==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5
       better-auth: 1.6.23
-      convex: 1.40.0
+      convex: 1.42.1
       nuxt: ^4.4.0
 
   bindings@1.5.0:
@@ -3344,8 +3344,8 @@ packages:
       zod:
         optional: true
 
-  convex@1.40.0:
-    resolution: {integrity: sha512-jChWEB45q+9Ibryc7hg0l6hB1xA4zwE2y6ZhkhGP6oJkqYeiURkMagA2ZQZYMy1/T8PZ9ztoVJJtbL/+Ob851Q==}
+  convex@1.42.1:
+    resolution: {integrity: sha512-yFKp4xerVuBwQqpuTtvosOk9F/fX0twZs+Xti3oj/MlwPUU90QuhgCYo/I2wvFBAFwXsmx9tXpf2q8ekh1+3ug==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -6374,18 +6374,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
@@ -6786,13 +6774,13 @@ snapshots:
 
   '@colordx/core@5.5.0': {}
 
-  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)':
+  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)':
     dependencies:
       '@better-fetch/fetch': 1.3.1
       better-auth: 1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3))
       common-tags: 1.8.2
-      convex: 1.40.0(react@19.2.3)
-      convex-helpers: 0.1.109(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
+      convex: 1.42.1(react@19.2.3)
+      convex-helpers: 0.1.109(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
       jose: 6.1.3
       react: 19.2.3
       remeda: 2.33.4
@@ -9465,13 +9453,13 @@ snapshots:
     optionalDependencies:
       zod: 4.3.6
 
-  better-convex-nuxt@0.6.0(92a0d2fd94b2fb5fdab99082ae035899):
+  better-convex-nuxt@0.6.1(9d65bee08eaa4d459de95c73b8e74e13):
     dependencies:
-      '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)
+      '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)
       '@nuxt/devtools-kit': 3.2.4(magicast@0.5.3)(vite@7.3.6(@types/node@25.3.3)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.44.1)(yaml@2.9.0))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       better-auth: 1.6.23(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.29.2)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.39(typescript@5.9.3))
-      convex: 1.40.0(react@19.2.3)
+      convex: 1.42.1(react@19.2.3)
       defu: 6.1.7
       h3: 1.15.11
       nuxt: 4.4.8(56bbe7997efe194d572c7c238fb0cc2b)
@@ -9665,9 +9653,9 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.109(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6):
+  convex-helpers@0.1.109(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6):
     dependencies:
-      convex: 1.40.0(react@19.2.3)
+      convex: 1.42.1(react@19.2.3)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       hono: 4.11.4
@@ -9675,11 +9663,11 @@ snapshots:
       typescript: 5.9.3
       zod: 4.3.6
 
-  convex@1.40.0(react@19.2.3):
+  convex@1.42.1(react@19.2.3):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.7.4
-      ws: 8.20.1
+      ws: 8.21.0
     optionalDependencies:
       react: 19.2.3
     transitivePeerDependencies:
@@ -12968,8 +12956,6 @@ snapshots:
       strip-ansi: 7.1.2
 
   ws@8.18.3: {}
-
-  ws@8.20.1: {}
 
   ws@8.21.0: {}
 

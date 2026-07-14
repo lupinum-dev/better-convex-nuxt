@@ -79,6 +79,7 @@ const {
   error,
 } = await useConvexQuery(api.tasks.list, queryArgs, {
   // Check console for detailed logs
+
 })
 
 // Client-only state

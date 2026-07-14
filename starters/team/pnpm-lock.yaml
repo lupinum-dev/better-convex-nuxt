@@ -10,19 +10,19 @@ importers:
     dependencies:
       '@convex-dev/better-auth':
         specifier: 0.12.5
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       '@convex-dev/rate-limiter':
         specifier: ^0.3.2
-        version: 0.3.2(convex@1.40.0(react@19.2.7))(react@19.2.7)
+        version: 0.3.2(convex@1.42.1(react@19.2.7))(react@19.2.7)
       better-auth:
         specifier: 1.6.23
         version: 1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.6.0
-        version: 0.6.0(7eed2c7f03cd6b4a381b05807c7a1be6)
+        specifier: 0.6.1
+        version: 0.6.1(9a78b2682c0627e77e89a7cf31578df3)
       convex:
-        specifier: 1.40.0
-        version: 1.40.0(react@19.2.7)
+        specifier: 1.42.1
+        version: 1.42.1(react@19.2.7)
       nuxt:
         specifier: 4.4.8
         version: 4.4.8(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.4)(@vue/compiler-sfc@3.5.39)(cac@6.7.14)(db0@0.3.4)(esbuild@0.28.1)(ioredis@5.11.1)(magicast@0.5.3)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(srvx@0.11.17)(terser@5.48.0)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0)
@@ -44,7 +44,7 @@ importers:
         version: 25.9.4
       convex-test:
         specifier: ^0.0.41
-        version: 0.0.41(convex@1.40.0(react@19.2.7))
+        version: 0.0.41(convex@1.42.1(react@19.2.7))
       playwright:
         specifier: ^1.61.0
         version: 1.61.0
@@ -2091,13 +2091,13 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.6.0:
-    resolution: {integrity: sha512-QjUbEVBVqx6PwPLqg09Uoz/qcXIwKZ9z0KkFIrUwmeZBF0ywyla6bQjfbLqEoOEOj2MNbkpb/5xGb6t2ltVqDg==}
+  better-convex-nuxt@0.6.1:
+    resolution: {integrity: sha512-4KxPsMwgnDNaIIJ6VXozgmut3EAtoHnX4DVX+UxH1hPkyT0IDcQ+z/xVy7vz9MX+lMTNXnbRU8reaw3YsSWlKw==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5
       better-auth: 1.6.23
-      convex: 1.40.0
+      convex: 1.42.1
       nuxt: ^4.4.0
 
   bindings@1.5.0:
@@ -2254,8 +2254,8 @@ packages:
     peerDependencies:
       convex: ^1.16.4
 
-  convex@1.40.0:
-    resolution: {integrity: sha512-jChWEB45q+9Ibryc7hg0l6hB1xA4zwE2y6ZhkhGP6oJkqYeiURkMagA2ZQZYMy1/T8PZ9ztoVJJtbL/+Ob851Q==}
+  convex@1.42.1:
+    resolution: {integrity: sha512-yFKp4xerVuBwQqpuTtvosOk9F/fX0twZs+Xti3oj/MlwPUU90QuhgCYo/I2wvFBAFwXsmx9tXpf2q8ekh1+3ug==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -4109,18 +4109,6 @@ packages:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
     engines: {node: '>=18'}
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
@@ -4437,13 +4425,13 @@ snapshots:
 
   '@colordx/core@5.4.3': {}
 
-  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)':
+  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)':
     dependencies:
       '@better-fetch/fetch': 1.3.1
       better-auth: 1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       common-tags: 1.8.2
-      convex: 1.40.0(react@19.2.7)
-      convex-helpers: 0.1.119(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@4.4.3)
+      convex: 1.42.1(react@19.2.7)
+      convex-helpers: 0.1.119(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@4.4.3)
       jose: 6.2.3
       react: 19.2.7
       remeda: 2.39.0
@@ -4455,9 +4443,9 @@ snapshots:
       - hono
       - typescript
 
-  '@convex-dev/rate-limiter@0.3.2(convex@1.40.0(react@19.2.7))(react@19.2.7)':
+  '@convex-dev/rate-limiter@0.3.2(convex@1.42.1(react@19.2.7))(react@19.2.7)':
     dependencies:
-      convex: 1.40.0(react@19.2.7)
+      convex: 1.42.1(react@19.2.7)
     optionalDependencies:
       react: 19.2.7
 
@@ -5958,13 +5946,13 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.6.0(7eed2c7f03cd6b4a381b05807c7a1be6):
+  better-convex-nuxt@0.6.1(9a78b2682c0627e77e89a7cf31578df3):
     dependencies:
-      '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
+      '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
       '@nuxt/devtools-kit': 3.2.4(magicast@0.5.3)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       better-auth: 1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
-      convex: 1.40.0(react@19.2.7)
+      convex: 1.42.1(react@19.2.7)
       defu: 6.1.7
       h3: 1.15.11
       nuxt: 4.4.8(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.9.4)(@vue/compiler-sfc@3.5.39)(cac@6.7.14)(db0@0.3.4)(esbuild@0.28.1)(ioredis@5.11.1)(magicast@0.5.3)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(srvx@0.11.17)(terser@5.48.0)(typescript@5.9.3)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))(vue-tsc@3.3.7(typescript@5.9.3))(yaml@2.9.0)
@@ -6096,24 +6084,24 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.119(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@4.4.3):
+  convex-helpers@0.1.119(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(zod@4.4.3):
     dependencies:
-      convex: 1.40.0(react@19.2.7)
+      convex: 1.42.1(react@19.2.7)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       react: 19.2.7
       typescript: 5.9.3
       zod: 4.4.3
 
-  convex-test@0.0.41(convex@1.40.0(react@19.2.7)):
+  convex-test@0.0.41(convex@1.42.1(react@19.2.7)):
     dependencies:
-      convex: 1.40.0(react@19.2.7)
+      convex: 1.42.1(react@19.2.7)
 
-  convex@1.40.0(react@19.2.7):
+  convex@1.42.1(react@19.2.7):
     dependencies:
       esbuild: 0.27.0
       prettier: 3.8.4
-      ws: 8.20.1
+      ws: 8.21.0
     optionalDependencies:
       react: 19.2.7
     transitivePeerDependencies:
@@ -8178,8 +8166,6 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 7.2.0
       strip-ansi: 7.2.0
-
-  ws@8.20.1: {}
 
   ws@8.21.0: {}
 

@@ -89,11 +89,6 @@ export async function resolveServerAuthSnapshot(
   const phases: AuthWaterfallPhase[] = []
   const logEvents: ServerAuthLogEvent[] = []
   const cacheHit = false
-  let token: string | null = null
-  let user: ConvexUser | null = null
-  let authError: string | null = null
-  let devError: Error | null = null
-
   const buildWaterfall = (
     outcome: AuthWaterfall['outcome'],
     error?: string,
@@ -169,8 +164,7 @@ export async function resolveServerAuthSnapshot(
     const unusableHydrationToken = Boolean(exchange.token && !isJwtUsable(exchange.token))
 
     if (exchange.token && !unusableHydrationToken) {
-      token = exchange.token
-      authError = null
+      const token = exchange.token
 
       if (trackWaterfall) {
         phases.push(
@@ -185,7 +179,7 @@ export async function resolveServerAuthSnapshot(
       }
 
       const decodeStart = trackWaterfall ? Date.now() : 0
-      user = decodeUserFromJwt(token)
+      const user = decodeUserFromJwt(token)
       if (!user) {
         // Keep this fail-closed assertion at the display boundary; do not
         // create a second identity path through /get-session.
@@ -203,7 +197,7 @@ export async function resolveServerAuthSnapshot(
       return {
         token,
         user,
-        authError,
+        authError: null,
         waterfall: buildWaterfall('authenticated'),
         logEvents,
         devError: null,
@@ -229,7 +223,7 @@ export async function resolveServerAuthSnapshot(
         })
       : null
 
-    authError = isExchangeFailure
+    const authError = isExchangeFailure
       ? revealAuthErrorDetails
         ? detailedExchangeError
         : GENERIC_AUTH_ERROR_MESSAGE
@@ -247,7 +241,7 @@ export async function resolveServerAuthSnapshot(
       )
     }
 
-    devError =
+    const devError =
       throwOnMisconfig && isExchangeFailure
         ? new Error(detailedExchangeError ?? 'Convex auth token exchange failed')
         : null
@@ -276,7 +270,7 @@ export async function resolveServerAuthSnapshot(
     }
   } catch (error) {
     const detailedError = buildTokenExchangeFailureMessage({ siteUrl, error })
-    authError = revealAuthErrorDetails ? detailedError : GENERIC_AUTH_ERROR_MESSAGE
+    const authError = revealAuthErrorDetails ? detailedError : GENERIC_AUTH_ERROR_MESSAGE
     const err = error instanceof Error ? error : new Error(detailedError)
     logEvents.push({
       phase: 'exchange',
