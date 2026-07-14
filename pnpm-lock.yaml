@@ -34,7 +34,7 @@ importers:
         version: 1.6.23(@better-auth/core@1.6.23(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-call@1.3.7(zod@4.3.6))(jose@6.1.3)(kysely@0.29.2)(nanostores@1.1.1))(@better-auth/utils@0.4.2)(better-auth@1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3)))(better-call@1.3.7(zod@4.3.6))
       '@convex-dev/better-auth':
         specifier: 0.12.5
-        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
+        version: 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
@@ -72,11 +72,11 @@ importers:
         specifier: 1.6.23
         version: 1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3))
       convex:
-        specifier: 1.40.0
-        version: 1.40.0(react@19.2.3)
+        specifier: 1.42.1
+        version: 1.42.1(react@19.2.3)
       convex-test:
         specifier: ^0.0.41
-        version: 0.0.41(convex@1.40.0(react@19.2.3))
+        version: 0.0.41(convex@1.42.1(react@19.2.3))
       eslint:
         specifier: ^9.39.4
         version: 9.39.4(jiti@2.7.0)
@@ -3079,8 +3079,8 @@ packages:
     peerDependencies:
       convex: ^1.16.4
 
-  convex@1.40.0:
-    resolution: {integrity: sha512-jChWEB45q+9Ibryc7hg0l6hB1xA4zwE2y6ZhkhGP6oJkqYeiURkMagA2ZQZYMy1/T8PZ9ztoVJJtbL/+Ob851Q==}
+  convex@1.42.1:
+    resolution: {integrity: sha512-yFKp4xerVuBwQqpuTtvosOk9F/fX0twZs+Xti3oj/MlwPUU90QuhgCYo/I2wvFBAFwXsmx9tXpf2q8ekh1+3ug==}
     engines: {node: '>=18.0.0', npm: '>=7.0.0'}
     hasBin: true
     peerDependencies:
@@ -4822,8 +4822,8 @@ packages:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
 
-  prettier@3.8.1:
-    resolution: {integrity: sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==}
+  prettier@3.9.5:
+    resolution: {integrity: sha512-/FVl766LpUfB5vXgCYOYa0MeV/441Ia99AeICQIQFTY/Nw0roZwULcXpku5i1/m5kt/baz+s4Zogspd839HSMg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -5133,6 +5133,11 @@ packages:
     engines: {node: '>=20.16.0'}
     hasBin: true
 
+  srvx@0.11.22:
+    resolution: {integrity: sha512-LqZxxBDMKuMAZzFzJnDCkFOrs9MZQZr0LvHiO/SuSZVdQaXD7xQ5UWTUxheJrQPve1qk9MG2B/yttUvJxw8egQ==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
+
   stable-hash-x@0.2.0:
     resolution: {integrity: sha512-o3yWv49B/o4QZk5ZcsALc6t0+eCelPc44zZsLtCQnZPDwFpDYSWcDnrv2TtMmMbQ7uKo3J0HTURCqckw23czNQ==}
     engines: {node: '>=12.0.0'}
@@ -5321,6 +5326,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
@@ -5789,18 +5795,6 @@ packages:
     resolution: {integrity: sha512-42AtmgqjV+X1VpdOfyTGOYRi0/zsoLqtXQckTmqTeybT+BDIbM/Guxo7x3pE2vtpr1ok6xRqM9OpBe+Jyoqyww==}
     engines: {node: '>=18'}
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.21.0:
     resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
     engines: {node: '>=10.0.0'}
@@ -6181,13 +6175,13 @@ snapshots:
 
   '@colordx/core@5.5.0': {}
 
-  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3)))(convex@1.40.0(react@19.2.3))(react@19.2.3)(typescript@5.9.3)':
+  '@convex-dev/better-auth@0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.3))(react@19.2.3)(typescript@5.9.3)':
     dependencies:
       '@better-fetch/fetch': 1.3.1
       better-auth: 1.6.23(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10)(vue@3.5.39(typescript@5.9.3))
       common-tags: 1.8.2
-      convex: 1.40.0(react@19.2.3)
-      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
+      convex: 1.42.1(react@19.2.3)
+      convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
       jose: 6.1.3
       react: 19.2.3
       remeda: 2.33.6
@@ -8553,24 +8547,24 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.6):
+  convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.2.3))(react@19.2.3)(typescript@5.9.3)(zod@4.3.6):
     dependencies:
-      convex: 1.40.0(react@19.2.3)
+      convex: 1.42.1(react@19.2.3)
     optionalDependencies:
       '@standard-schema/spec': 1.1.0
       react: 19.2.3
       typescript: 5.9.3
       zod: 4.3.6
 
-  convex-test@0.0.41(convex@1.40.0(react@19.2.3)):
+  convex-test@0.0.41(convex@1.42.1(react@19.2.3)):
     dependencies:
-      convex: 1.40.0(react@19.2.3)
+      convex: 1.42.1(react@19.2.3)
 
-  convex@1.40.0(react@19.2.3):
+  convex@1.42.1(react@19.2.3):
     dependencies:
       esbuild: 0.27.0
-      prettier: 3.8.1
-      ws: 8.20.1
+      prettier: 3.9.5
+      ws: 8.21.0
     optionalDependencies:
       react: 19.2.3
     transitivePeerDependencies:
@@ -9327,7 +9321,7 @@ snapshots:
   h3@2.0.1-rc.20:
     dependencies:
       rou3: 0.8.1
-      srvx: 0.11.21
+      srvx: 0.11.22
 
   happy-dom@20.10.6:
     dependencies:
@@ -10683,7 +10677,7 @@ snapshots:
 
   prelude-ls@1.2.1: {}
 
-  prettier@3.8.1: {}
+  prettier@3.9.5: {}
 
   pretty-bytes@7.1.0: {}
 
@@ -11025,6 +11019,8 @@ snapshots:
   spdx-license-ids@3.0.23: {}
 
   srvx@0.11.21: {}
+
+  srvx@0.11.22: {}
 
   stable-hash-x@0.2.0: {}
 
@@ -11742,8 +11738,6 @@ snapshots:
       ansi-styles: 6.2.3
       string-width: 7.2.0
       strip-ansi: 7.2.0
-
-  ws@8.20.1: {}
 
   ws@8.21.0: {}
 
