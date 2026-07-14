@@ -1,12 +1,57 @@
-import { existsSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { join, relative } from 'node:path'
 
 const repoRoot = new URL('..', import.meta.url).pathname
 const startersDir = join(repoRoot, 'starters')
 const generatedNames = ['.convex', '.nuxt', '.output', 'node_modules', 'dist']
 const forbiddenPayloadNames = ['.agents', '.claude', '.env.local', 'CLAUDE.md', 'skills-lock.json']
+const retainedGeneratedFiles = new Set([
+  'starters/agency/convex/_generated/api.d.ts',
+  'starters/agency/convex/_generated/api.js',
+  'starters/agency/convex/_generated/dataModel.d.ts',
+  'starters/agency/convex/_generated/server.d.ts',
+  'starters/agency/convex/_generated/server.js',
+  'starters/agentic-saas/convex/_generated/api.d.ts',
+  'starters/agentic-saas/convex/_generated/api.js',
+  'starters/agentic-saas/convex/_generated/dataModel.d.ts',
+  'starters/agentic-saas/convex/_generated/server.d.ts',
+  'starters/agentic-saas/convex/_generated/server.js',
+  'starters/agentic-saas/convex/betterAuth/_generated/api.ts',
+  'starters/agentic-saas/convex/betterAuth/_generated/component.ts',
+  'starters/agentic-saas/convex/betterAuth/_generated/dataModel.ts',
+  'starters/agentic-saas/convex/betterAuth/_generated/server.ts',
+  'starters/mcp-agent/convex/_generated/api.d.ts',
+  'starters/mcp-agent/convex/_generated/api.js',
+  'starters/mcp-agent/convex/_generated/dataModel.d.ts',
+  'starters/mcp-agent/convex/_generated/server.d.ts',
+  'starters/mcp-agent/convex/_generated/server.js',
+  'starters/public/convex/_generated/placeholder.ts',
+  'starters/team/convex/_generated/ai/ai-files.state.json',
+  'starters/team/convex/_generated/ai/guidelines.md',
+  'starters/team/convex/_generated/api.d.ts',
+  'starters/team/convex/_generated/api.js',
+  'starters/team/convex/_generated/dataModel.d.ts',
+  'starters/team/convex/_generated/server.d.ts',
+  'starters/team/convex/_generated/server.js',
+  'starters/team/convex/betterAuth/_generated/api.ts',
+  'starters/team/convex/betterAuth/_generated/component.ts',
+  'starters/team/convex/betterAuth/_generated/dataModel.ts',
+  'starters/team/convex/betterAuth/_generated/server.ts',
+])
 
 const offenders = []
+const actualGeneratedFiles = new Set()
+
+function collectGeneratedFiles(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      collectGeneratedFiles(fullPath)
+    } else if (entry.isFile()) {
+      actualGeneratedFiles.add(relative(repoRoot, fullPath).split('\\').join('/'))
+    }
+  }
+}
 
 function collectEmittedJavaScriptArtifacts(dir, relativeDir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -17,9 +62,8 @@ function collectEmittedJavaScriptArtifacts(dir, relativeDir) {
     const fullPath = join(dir, entry.name)
     const relativePath = `${relativeDir}/${entry.name}`
     if (entry.isDirectory()) {
-      if (entry.name !== '_generated') {
-        collectEmittedJavaScriptArtifacts(fullPath, relativePath)
-      }
+      if (entry.name === '_generated') collectGeneratedFiles(fullPath)
+      else collectEmittedJavaScriptArtifacts(fullPath, relativePath)
       continue
     }
 
@@ -31,6 +75,36 @@ function collectEmittedJavaScriptArtifacts(dir, relativeDir) {
     if (existsSync(sourcePath)) {
       offenders.push(relativePath)
     }
+  }
+}
+
+const agencyConvexDir = join(startersDir, 'agency', 'convex')
+const agencyGeneratedApi = readFileSync(join(agencyConvexDir, '_generated', 'api.d.ts'), 'utf8')
+const generatedAgencyModules = new Set(
+  [...agencyGeneratedApi.matchAll(/import type \* as \S+ from "\.\.\/(.+)\.js";/g)].map(
+    (match) => match[1],
+  ),
+)
+const expectedAgencyModules = new Set(
+  readdirSync(agencyConvexDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .map((entry) => entry.name.slice(0, -3))
+    .filter(
+      (name) =>
+        !name.endsWith('.test') &&
+        !name.endsWith('.config') &&
+        name !== 'schema' &&
+        name !== 'test.setup',
+    ),
+)
+for (const name of expectedAgencyModules) {
+  if (!generatedAgencyModules.has(name)) {
+    offenders.push(`starters/agency/convex/_generated/api.d.ts (missing module ${name})`)
+  }
+}
+for (const name of generatedAgencyModules) {
+  if (!expectedAgencyModules.has(name)) {
+    offenders.push(`starters/agency/convex/_generated/api.d.ts (stale module ${name})`)
   }
 }
 
@@ -52,6 +126,13 @@ for (const entry of readdirSync(startersDir, { withFileTypes: true })) {
   }
 
   collectEmittedJavaScriptArtifacts(join(startersDir, entry.name), `starters/${entry.name}`)
+}
+
+for (const path of actualGeneratedFiles) {
+  if (!retainedGeneratedFiles.has(path)) offenders.push(`${path} (unclassified generated file)`)
+}
+for (const path of retainedGeneratedFiles) {
+  if (!actualGeneratedFiles.has(path)) offenders.push(`${path} (missing retained generated file)`)
 }
 
 if (offenders.length > 0) {

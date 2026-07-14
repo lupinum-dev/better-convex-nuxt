@@ -17,6 +17,7 @@ node_modules
 # Generated dirs
 dist
 .release-artifacts
+.audit
 
 # Nuxt
 .nuxt

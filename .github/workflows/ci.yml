@@ -140,7 +140,7 @@ jobs:
   # type/export/purity/consumer probes (`check:package-exports`), API-surface
   # doc freshness, workspace dependency-band alignment, and the fixture
   # typecheck contracts. This is the same `check:contracts` command the Full
-  # Better Convex Nuxt gate (vNext §11) and `release:verify` run.
+  # Better Convex Nuxt gate (vNext §11) and `release:prepare` run.
   contracts:
     runs-on: ubuntu-latest
 

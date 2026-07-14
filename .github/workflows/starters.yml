@@ -1,23 +1,27 @@
 name: starters
 
-# Path-filtered starters matrix (internal §16.4 tier 3 on change, tier 4
-# nightly for the full set; vNext §11 Phase 0 funding-gap resolution). Each of
-# the five supported starters (`public`, `team`, `agentic-saas`, `agency`,
-# `mcp-agent`) is an independent install root with its own `pnpm-lock.yaml`
-# resolving `better-convex-nuxt` against this repo's workspace source, not a
-# packed tarball — that packed-consumer proof lives in the root `ci.yml`
-# `package`/`consumer-smoke` jobs instead.
+# The demo and five downloadable starters are verified from clean temporary
+# copies against one freshly built and packed candidate. Repository-relative
+# links cannot satisfy this gate because the copies have no parent checkout.
 on:
   pull_request:
     branches:
       - main
     paths:
+      - '*'
+      - 'demo/**'
+      - 'scripts/**'
+      - 'src/**'
       - 'starters/**'
       - '.github/workflows/starters.yml'
   push:
     branches:
       - main
     paths:
+      - '*'
+      - 'demo/**'
+      - 'scripts/**'
+      - 'src/**'
       - 'starters/**'
       - '.github/workflows/starters.yml'
   schedule:
@@ -26,21 +30,18 @@ on:
     - cron: '17 4 * * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
-  starters:
+  candidate-apps:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        starter:
-          - public
-          - team
-          - agentic-saas
-          - agency
-          - mcp-agent
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
@@ -49,27 +50,29 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
-      - name: Install starter dependencies
-        working-directory: starters/${{ matrix.starter }}
+      - name: Install package dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        working-directory: starters/${{ matrix.starter }}
-        run: pnpm run typecheck
+      - name: Verify candidate in clean app copies (untrusted ref)
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        run: pnpm run check:candidate-apps
 
-      - name: Build
-        working-directory: starters/${{ matrix.starter }}
-        run: pnpm run build
-
-      - name: Invariant test
-        working-directory: starters/${{ matrix.starter }}
-        run: pnpm run test
+      - name: Verify candidate in clean app copies (trusted event)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: pnpm run check:candidate-apps
+        env:
+          # Scheduled/release-candidate runs perform a live generated-file
+          # freshness check when this repository secret is configured. This
+          # step never runs pull-request-controlled code with the credential.
+          AGENCY_CONVEX_DEPLOY_KEY: ${{ secrets.AGENCY_CONVEX_DEPLOY_KEY }}
 
   generated-artifact-allowlist:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:

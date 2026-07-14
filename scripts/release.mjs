@@ -1,44 +1,14 @@
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
-const args = process.argv.slice(2).filter((argument) => argument !== '--')
-const positional = []
-let otp
-let verifyOnly = false
-
-for (let index = 0; index < args.length; index += 1) {
-  const argument = args[index]
-  if (argument === '--verify-only') {
-    verifyOnly = true
-  } else if (argument === '--otp') {
-    if (!args[index + 1] || args[index + 1].startsWith('--')) {
-      console.error('--otp requires a code.')
-      process.exit(1)
-    }
-    otp = args[index + 1]
-    index += 1
-  } else if (argument.startsWith('--otp=')) {
-    otp = argument.slice('--otp='.length)
-  } else if (argument.startsWith('--') && !/^--\d/.test(argument)) {
-    console.error(`Unknown release option: ${argument}`)
-    process.exit(1)
-  } else {
-    positional.push(argument.replace(/^--(?=\d)/, ''))
-  }
-}
-
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
-const version = positional[0] ?? (verifyOnly ? pkg.version : undefined)
+const version = pkg.version
 const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\dA-Z.-]+)?$/i
 
-if (positional.length > 1 || !version || !versionPattern.test(version)) {
-  console.error('Usage: pnpm run release -- [<version>] [--verify-only] [--otp <code>]')
-  process.exit(1)
-}
-
-if (verifyOnly && otp) {
-  console.error('--otp is only valid when publishing.')
+if (process.argv.slice(2).some((argument) => argument !== '--') || !versionPattern.test(version)) {
+  console.error('Usage: pnpm run release:prepare')
   process.exit(1)
 }
 
@@ -56,14 +26,6 @@ function run(command, args, options = {}) {
 
 function output(command, args) {
   return run(command, args, { capture: true }).trim()
-}
-
-function tryOutput(command, args) {
-  try {
-    return output(command, args)
-  } catch {
-    return ''
-  }
 }
 
 function ensureCleanWorkingTree() {
@@ -90,6 +52,7 @@ function buildPackAndVerify() {
   // otherwise reruns the `prepack` lifecycle script itself, which would
   // rebuild `dist` a second time and pack something that was never verified.
   const artifactsDir = join(repoRoot, '.release-artifacts')
+  rmSync(artifactsDir, { recursive: true, force: true })
   mkdirSync(artifactsDir, { recursive: true })
   const packJson = output('npm', [
     'pack',
@@ -121,6 +84,8 @@ function buildPackAndVerify() {
     )
     process.exit(1)
   }
+  run('pnpm', ['run', 'check:contract-fixtures:dist'])
+  run('pnpm', ['run', 'check:candidate-apps', '--', '--tarball', tarballPath])
   console.log(`\nVerified tarball: ${tarballPath}`)
   console.log(`Content manifest: ${manifestPath}`)
 
@@ -128,91 +93,24 @@ function buildPackAndVerify() {
   run('node', ['scripts/generate-sbom.mjs', '--output', sbomPath])
   console.log(`CycloneDX SBOM: ${sbomPath}`)
 
-  return tarballPath
+  const sha256 = createHash('sha256').update(readFileSync(tarballPath)).digest('hex')
+  console.log(`SHA-256: ${sha256}`)
+
+  return { sha256, tarballPath }
 }
 
 ensureCleanWorkingTree()
 
-if (verifyOnly) {
-  if (pkg.version !== version) {
-    console.error(
-      `Verification version ${version} does not match package.json version ${pkg.version}.`,
-    )
-    process.exit(1)
-  }
-  run('pnpm', ['run', 'security:verify'])
-  buildPackAndVerify()
-  console.log(`\nVerified ${pkg.name}@${version} without publishing.`)
-  process.exit(0)
-}
-
-const branch = output('git', ['branch', '--show-current'])
-if (branch !== 'main') {
-  console.error(`Release must run from main, current branch is ${branch}.`)
+if (!changelog.includes(`## ${tag}`)) {
+  console.error(`CHANGELOG.md must contain a prepared ${tag} release entry.`)
   process.exit(1)
 }
 
-run('git', ['fetch', 'origin', 'main', '--tags', '--prune-tags'])
+run('pnpm', ['run', 'security:verify:pre-artifact'])
+ensureCleanWorkingTree()
+const { tarballPath } = buildPackAndVerify()
+ensureCleanWorkingTree()
 
-const localHead = output('git', ['rev-parse', 'HEAD'])
-const remoteHead = output('git', ['rev-parse', 'origin/main'])
-const tagTarget = tryOutput('git', ['rev-list', '-n', '1', tag])
-const releasePrepared =
-  pkg.version === version && changelog.includes(`## ${tag}`) && tagTarget === localHead
-
-if (localHead !== remoteHead && !releasePrepared) {
-  console.error('Local main is not at origin/main. Pull or push first.')
-  process.exit(1)
-}
-
-if (localHead !== remoteHead && releasePrepared) {
-  try {
-    run('git', ['merge-base', '--is-ancestor', 'origin/main', 'HEAD'], { capture: true })
-  } catch {
-    console.error(
-      'Local release commit is not based on origin/main. Resolve git history before publishing.',
-    )
-    process.exit(1)
-  }
-  console.log(`\nResuming prepared ${tag} release at build/pack/publish.`)
-}
-
-if (tagTarget && !releasePrepared) {
-  console.error(`${tag} already exists locally or on origin.`)
-  process.exit(1)
-}
-
-try {
-  const publishedVersion = output('npm', ['view', `${pkg.name}@${version}`, 'version'])
-  if (publishedVersion === version) {
-    console.error(`${pkg.name}@${version} is already published.`)
-    process.exit(1)
-  }
-} catch {
-  // npm exits non-zero when this exact version does not exist, which is what we want.
-}
-
-run('npm', ['whoami'])
-if (!releasePrepared) {
-  // `check` is the one authoritative PR command (format, lint, module/server
-  // types, source boundaries, and the full test suite). The fixture command
-  // owns the non-package contracts; buildPackAndVerify owns the one build, one
-  // pack, and exact-artifact checks. Keeping those tiers named prevents this
-  // script from duplicating a hand-picked list that can drift from CI.
-  run('pnpm', ['run', 'security:verify'])
-
-  run('pnpm', ['exec', 'changelogen', '--bump', '-r', version])
-  run('git', ['add', 'package.json', 'CHANGELOG.md', 'scripts/release.mjs'])
-  run('git', ['commit', '-m', `chore(release): ${tag}`])
-  run('git', ['tag', '-a', tag, '-m', tag])
-}
-
-// Every run — fresh or resumed — rebuilds, repacks, and re-verifies from the
-// prepared clean tree before publish. A resume path may re-verify or re-pack,
-// but it never publishes a build that was not verified in this same run.
-const tarballPath = buildPackAndVerify()
-
-run('npm', ['publish', tarballPath, ...(otp ? ['--otp', otp] : [])])
-run('git', ['push', 'origin', 'main', '--follow-tags'])
-
-console.log(`\nReleased ${pkg.name}@${version}.`)
+console.log(`\nPrepared and verified ${pkg.name}@${version} without publishing or changing Git.`)
+console.log(`Publish candidate: npm publish ${tarballPath} --tag next`)
+console.log(`Promote later: npm dist-tag add ${pkg.name}@${version} latest`)

@@ -23,22 +23,43 @@ const listed = JSON.parse(
 )
 const components = new Map()
 
+function addComponent(name, version, dependencyKind) {
+  const bomRef = purl(name, version)
+  const existing = components.get(bomRef)
+  if (existing) return existing
+
+  const component = {
+    type: 'library',
+    'bom-ref': bomRef,
+    name,
+    version,
+    purl: bomRef,
+    ...(dependencyKind
+      ? { properties: [{ name: 'better-convex-nuxt:dependency-kind', value: dependencyKind }] }
+      : {}),
+  }
+  components.set(bomRef, component)
+  return component
+}
+
 function collect(dependencies) {
   for (const [name, dependency] of Object.entries(dependencies ?? {})) {
     if (!dependency.version) continue
-    const bomRef = purl(name, dependency.version)
-    components.set(bomRef, {
-      type: 'library',
-      'bom-ref': bomRef,
-      name,
-      version: dependency.version,
-      purl: bomRef,
-    })
+    addComponent(name, dependency.version)
     collect(dependency.dependencies)
   }
 }
 
 for (const project of listed) collect(project.dependencies)
+
+// Better Auth and Convex are exact required peers so the consuming application
+// owns one physical runtime tuple. `pnpm list --prod` correctly omits them from
+// this package's dependency closure, but they remain required production
+// components of the published contract and must be visible in its SBOM. Their
+// transitive closure belongs to the consuming application's resolved SBOM.
+for (const [name, version] of Object.entries(pkg.peerDependencies ?? {})) {
+  addComponent(name, version, 'required-peer')
+}
 
 const bom = {
   bomFormat: 'CycloneDX',

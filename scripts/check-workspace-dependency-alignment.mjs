@@ -4,6 +4,12 @@ import { resolve } from 'node:path'
 
 const rootDir = process.cwd()
 const rootPackage = readPackage('package.json')
+const distributedAppManifests = [
+  'demo/package.json',
+  ...readdirSync(resolve(rootDir, 'starters'), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => `starters/${entry.name}/package.json`),
+]
 
 const alignedDependencies = ['@convex-dev/better-auth', 'better-auth', 'convex', 'nuxt', 'vue-tsc']
 
@@ -34,6 +40,54 @@ for (const manifestPath of manifestPaths) {
       failures.push(`${manifestPath} declares ${name}@${actual}; expected ${expected}`)
     }
   }
+}
+
+for (const manifestPath of distributedAppManifests) {
+  const appDir = manifestPath.slice(0, -'/package.json'.length)
+  const packageJson = readPackage(manifestPath)
+  const expected = rootSpecifiers.get('better-convex-nuxt') ?? rootPackage.version
+  const actual = dependencySpecifier(packageJson, 'better-convex-nuxt')
+  if (actual !== expected) {
+    failures.push(`${manifestPath} declares better-convex-nuxt@${actual}; expected ${expected}`)
+  }
+
+  const workspacePath = resolve(rootDir, appDir, 'pnpm-workspace.yaml')
+  if (existsSync(workspacePath)) {
+    const workspace = readFileSync(workspacePath, 'utf8')
+    if (/better-convex-nuxt\s*:\s*(?:file|link|workspace):/u.test(workspace)) {
+      failures.push(`${appDir}/pnpm-workspace.yaml overrides better-convex-nuxt locally`)
+    }
+  }
+
+  const lockPath = resolve(rootDir, appDir, 'pnpm-lock.yaml')
+  if (!existsSync(lockPath)) {
+    failures.push(`${appDir}/pnpm-lock.yaml is missing`)
+    continue
+  }
+  const lock = readFileSync(lockPath, 'utf8')
+  if (/\/private\/|\/Users\/|\/home\/|[A-Z]:\\\\Users\\\\/u.test(lock)) {
+    failures.push(`${appDir}/pnpm-lock.yaml contains a source-machine absolute path`)
+  }
+  if (/better-convex-nuxt@(?:file|link):/u.test(lock)) {
+    failures.push(`${appDir}/pnpm-lock.yaml resolves better-convex-nuxt from a local path`)
+  }
+  const lockedSpecifier = lock.match(
+    /\n {6}better-convex-nuxt:\n {8}specifier: ['"]?([^'"\n]+)['"]?/u,
+  )?.[1]
+  if (lockedSpecifier !== actual) {
+    failures.push(
+      `${appDir}/pnpm-lock.yaml records better-convex-nuxt@${lockedSpecifier ?? '<missing>'}; manifest declares ${actual}`,
+    )
+  }
+  if (!lock.includes(`\n  better-convex-nuxt@${actual}:`)) {
+    failures.push(`${appDir}/pnpm-lock.yaml has no registry package entry for ${actual}`)
+  }
+}
+
+if (existsSync(resolve(rootDir, 'test/fixtures/consumer-smoke/pnpm-lock.yaml'))) {
+  failures.push(
+    'test/fixtures/consumer-smoke/pnpm-lock.yaml must stay ephemeral; its packed-tarball path is run-specific',
+  )
 }
 
 if (failures.length > 0) {

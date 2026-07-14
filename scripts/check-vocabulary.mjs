@@ -226,7 +226,7 @@ const RULES = [
     patterns: [
       /\bcreatePermissions\s*[(<]|import\s*\{[^}]*\bcreatePermissions\b[^}]*\}|\bpermissions\s*:\s*true\b/,
     ],
-    paths: ['src', 'playground', 'docs/content', 'starters'],
+    paths: ['src', 'playground', 'demo', 'docs/content', 'starters'],
     phase: 'phase1',
   },
   {
@@ -328,8 +328,7 @@ const RULES = [
     description:
       'Forbid the internal `defaults.auth` merge-defaults escape hatch surfacing in app-facing ' +
       'code/docs; module options set `auth: false | {...}` directly — there is no separate ' +
-      'defaults object to reach into. (The historical prototype proving the merge behavior lives ' +
-      'in test/proofs/packed-typing/defu-merge-proof.mjs, so `test` is out of scope for this rule.)',
+      'defaults object to reach into.',
     patterns: [/\bdefaults\.auth\b/],
     paths: ['src', 'README.md', 'docs/content', 'starters', 'playground'],
     phase: 'phase6',

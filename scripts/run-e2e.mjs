@@ -32,6 +32,10 @@ function run(command, args, extraEnv = {}) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
+// E2E imports module source as well as the playground. Prepare both generated
+// type roots so this gate is reproducible after a clean checkout or a packed
+// contract probe that removes the root `.nuxt` directory.
+run('pnpm', ['exec', 'nuxt-module-build', 'prepare'])
 run('pnpm', ['exec', 'nuxi', 'prepare', '--cwd', 'playground', '--dotenv', '.env.local'])
 
 const files = [
