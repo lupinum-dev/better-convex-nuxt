@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "nuxt build",
+    "generate": "nuxt generate",
     "dev": "nuxt dev",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
@@ -11,20 +12,8 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.84",
-    "@iconify-json/simple-icons": "^1.2.66",
-    "@iconify-json/vscode-icons": "^1.2.38",
-    "@nuxt/content": "^3.10.0",
-    "@nuxt/image": "^2.0.0",
-    "@nuxt/ui": "^4.3.0",
-    "@nuxtjs/sitemap": "7.5.2",
-    "@vueuse/core": "^14.1.0",
-    "@vueuse/nuxt": "^14.1.0",
-    "better-sqlite3": "^12.11.1",
-    "nuxt": "^4.2.2",
-    "nuxt-llms": "0.1.3",
-    "nuxt-og-image": "^5.1.13",
-    "zod": "^4.3.5"
+    "@lupinum/ginko-docs": "file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.1.0.tgz",
+    "nuxt": "^4.4.8"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.12.1",
