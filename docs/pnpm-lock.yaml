@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@lupinum/ginko-docs':
-        specifier: file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz
-        version: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz(aa05cf8e893160604a1777e547146205)
+        specifier: file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz
+        version: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz(aa05cf8e893160604a1777e547146205)
       nuxt:
         specifier: ^4.4.8
         version: 4.4.8(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.0.6)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(terser@5.44.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue-tsc@3.2.2(typescript@5.9.3))(yaml@2.9.0)
@@ -1172,8 +1172,8 @@ packages:
   '@kwsites/promise-deferred@1.1.1':
     resolution: {integrity: sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==}
 
-  '@lupinum/ginko-content@0.3.0-rc.1':
-    resolution: {integrity: sha512-Fwgd3AkUDYaV9LL3UpGS3txR/RuQGFIfVQ8/Vl/+eREWALbmQpjac2tjkYcvkBF1AUVSpUfuu4YoMQLLArthXg==}
+  '@lupinum/ginko-content@0.3.0-rc.2':
+    resolution: {integrity: sha512-1PIhLmBVfHD1DFUcTXsz1cTNrfSQb7OsRsuEQninbcGDuxVuOuHHtYxULriM5EFSaqEz/7B/BXbnwJA6TqDUhg==}
     engines: {node: '>=22.0.0'}
     hasBin: true
     peerDependencies:
@@ -1187,9 +1187,9 @@ packages:
       vitest:
         optional: true
 
-  '@lupinum/ginko-docs@file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz':
-    resolution: {integrity: sha512-tqlQROCprbDuX2+PGxEkZPUO/EwicBmnBP0rUFk/CgB9UFhbLFMUdyTUehpFd9aie2lU3PgDWif6fWWtgI2UVg==, tarball: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz}
-    version: 0.2.0
+  '@lupinum/ginko-docs@file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz':
+    resolution: {integrity: sha512-2rqDCBMJsXVoE24wutFQmcpN1fXp26iAiqTJSj8MojBojIr1rwauWsyCjJQuU0tlT7y04qbFYtQ25nVkKcPfbQ==, tarball: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz}
+    version: 0.2.1
     peerDependencies:
       nuxt: ^4.4.6
       vue: ^3.5.35
@@ -7584,7 +7584,7 @@ snapshots:
 
   '@img/sharp-wasm32@0.34.5':
     dependencies:
-      '@emnapi/runtime': 1.10.0
+      '@emnapi/runtime': 1.11.1
     optional: true
 
   '@img/sharp-win32-arm64@0.34.5':
@@ -7737,7 +7737,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@lupinum/ginko-content@0.3.0-rc.1(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(ioredis@5.11.1)(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.0.6)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(terser@5.44.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue-tsc@3.2.2(typescript@5.9.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rollup@4.62.2)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))':
+  '@lupinum/ginko-content@0.3.0-rc.2(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(ioredis@5.11.1)(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.0.6)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(terser@5.44.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue-tsc@3.2.2(typescript@5.9.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rollup@4.62.2)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))':
     dependencies:
       '@comark/vue': 0.4.0(shiki@4.3.1)(vue@3.5.39(typescript@5.9.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
@@ -7818,12 +7818,12 @@ snapshots:
       - webpack
       - xml2js
 
-  '@lupinum/ginko-docs@file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.0.tgz(aa05cf8e893160604a1777e547146205)':
+  '@lupinum/ginko-docs@file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz(aa05cf8e893160604a1777e547146205)':
     dependencies:
       '@iconify-json/circle-flags': 1.2.10
       '@iconify-json/logos': 1.2.11
       '@iconify-json/lucide': 1.2.117
-      '@lupinum/ginko-content': 0.3.0-rc.1(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(ioredis@5.11.1)(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.0.6)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(terser@5.44.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue-tsc@3.2.2(typescript@5.9.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rollup@4.62.2)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
+      '@lupinum/ginko-content': 0.3.0-rc.2(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(ioredis@5.11.1)(magicast@0.5.3)(nuxt@4.4.8(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@parcel/watcher@2.5.6)(@types/node@25.0.6)(@vue/compiler-sfc@3.5.39)(better-sqlite3@12.11.1)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.32.0)(magicast@0.5.3)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.62.2))(rollup@4.62.2)(terser@5.44.1)(typescript@5.9.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue-tsc@3.2.2(typescript@5.9.3))(yaml@2.9.0))(oxc-parser@0.133.0)(rollup@4.62.2)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
       '@nuxt/fonts': 0.14.0(db0@0.3.4(better-sqlite3@12.11.1))(esbuild@0.27.2)(ioredis@5.11.1)(magicast@0.5.3)(rollup@4.62.2)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))
       '@nuxt/icon': 2.3.1(magicast@0.5.3)(vite@7.3.6(@types/node@25.0.6)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.44.1)(yaml@2.9.0))(vue@3.5.39(typescript@5.9.3))
       '@nuxt/image': 2.0.0(db0@0.3.4(better-sqlite3@12.11.1))(ioredis@5.11.1)(magicast@0.5.3)
