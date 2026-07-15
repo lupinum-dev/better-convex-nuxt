@@ -1179,7 +1179,7 @@ packages:
         optional: true
 
   '@lupinum/ginko-docs@file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.1.0.tgz':
-    resolution: {integrity: sha512-T8ygW0PjJwH8U6uEuCmX0alNFwGGiXSh2tgzcwu1dkoStSkbQ8mA1LXKD8bgulG1Q3F2rqGfnG4ZXLYyzPPJWw==, tarball: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.1.0.tgz}
+    resolution: {integrity: sha512-TvLWNdVwzE2qRbZhC9565eBkKy/4D1PmL786gqxV6WNPuRaxziSPE/Dl/LbUN2HTSnXtns3avnTisECgVNIOTA==, tarball: file:../../../2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.1.0.tgz}
     version: 0.1.0
     peerDependencies:
       nuxt: ^4.4.6
