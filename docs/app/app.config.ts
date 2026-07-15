@@ -9,7 +9,8 @@ export default {
         en: 'Convex for Nuxt 4, without the integration glue.'
       },
       logo: { light: '/favicon.svg', dark: '/favicon.svg' },
-      localeSwitcher: 'dropdown'
+      localeSwitcher: 'dropdown',
+      docsSidebarSwitcher: 'tabs'
     },
     social: {
       github: 'https://github.com/lupinum-dev/better-convex-nuxt'
