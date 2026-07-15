@@ -15,6 +15,8 @@ Convex for Nuxt 4, without the integration glue: SSR-to-realtime queries, Better
 > [!NOTE]
 > This package is pre-1.0. Minor releases can make deliberate hard cutovers; read the migration guide and changelog before upgrading.
 
+Better Convex Nuxt is ESM-only and supports Node `^22.12.0 || ^24.11.0 || >=26.0.0`.
+
 ## Why use it
 
 - **One query lifecycle:** render during SSR, reuse the payload during hydration, and continue as a browser subscription.
@@ -129,10 +131,10 @@ The generated [API surface](https://better-convex-nuxt.vercel.app/docs/reference
 pnpm install
 pnpm dev:prepare
 pnpm dev
-pnpm check
+pnpm verify
 ```
 
-See [VNext.docs.md](./VNext.docs.md) for the documentation architecture and review contract.
+Bug reports and focused pull requests are welcome through GitHub. Run `pnpm verify` before opening a pull request; security vulnerabilities must follow [SECURITY.md](./SECURITY.md) instead of a public issue.
 
 ## Acknowledgements
 

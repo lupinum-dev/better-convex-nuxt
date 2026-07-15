@@ -7,7 +7,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 /**
- * vNext §7 purity guard: "Inspect both source and built output. Fail when the
+ * Purity guard: inspect both source and built output. Fail when the
  * errors entry imports: `vue`, `nuxt`, `@nuxt/*`, `#imports`, `#app`,
  * `nitropack/runtime`, browser-only or Node-only built-ins." `convex/values`
  * is explicitly allowed (the framework-free normalizer needs
@@ -33,7 +33,7 @@ const PARSEABLE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.mj
 const ALLOWED_BARE_SPECIFIERS = [/^convex$/, /^convex\//]
 
 /**
- * Disallowed bare-specifier families (vNext §7 purity guard). Node built-ins
+ * Disallowed bare-specifier families. Node built-ins
  * are covered generically (`node:*` and the historical bare core-module
  * names), not just a hand-picked few, so the guard does not silently miss one.
  */
@@ -189,7 +189,7 @@ function scanDir(dir: string): FoundImport[] {
   return violations
 }
 
-describe('errors subpath purity guard (vNext §7)', () => {
+describe('errors subpath purity guard ', () => {
   it('source (src/runtime/errors/**) imports nothing framework-coupled', () => {
     expect(existsSync(SRC_ERRORS_DIR)).toBe(true)
     const violations = scanDir(SRC_ERRORS_DIR)

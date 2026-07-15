@@ -7,18 +7,12 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
-// Read-only import of the Phase 0 senior-owned two-app harness substrate
-// (internal §17.3 / §20). This file does not modify anything under
-// `test/proofs/**` — it only reuses `bootTwoApps`/`bootAppInstance`.
-import { bootTwoApps } from '../proofs/harnesses/two-app/two-app-harness'
+import { bootTwoApps } from '../helpers/two-app'
 
 /**
- * Two Nuxt applications in one process have ISOLATED auth coordinators (vNext
- * §8 "Mandatory scenarios": "Two Nuxt apps in one process have isolated
- * runtime instances"). Each `factory()` below runs inside a real mounted
- * component (the harness's documented isolation mechanic), synchronously
- * constructing one coordinator per app — mirroring one Better Auth client per
- * Nuxt app (vNext §8 "Client instantiation").
+ * Two Nuxt applications in one process have isolated auth coordinators.
+ * Each factory runs inside a mounted component so Nuxt resolves the correct
+ * per-app injection context.
  */
 
 function toBase64Url(value: string): string {
@@ -69,10 +63,7 @@ function makeCoordinatorFor(user: string) {
       close: async () => {},
     }) as unknown as import('convex/browser').ConvexClient
 
-  // A minimal fake owner (mirrors the pattern in
-  // test/unit/auth-generation-races.test.ts): on every identityGeneration
-  // change, hand the coordinator a fresh candidate client through the port —
-  // this is what drives `commitTransition`'s confirmation to resolve.
+  // Hand the coordinator a fresh candidate client on each identity generation.
   let lastGeneration = coordinator.port.snapshot().identityGeneration
   coordinator.port.subscribe(() => {
     const snapshot = coordinator.port.snapshot()
@@ -86,7 +77,7 @@ function makeCoordinatorFor(user: string) {
   return { coordinator }
 }
 
-describe('two Nuxt applications in one process: isolated auth coordinators (vNext §8)', () => {
+describe('two Nuxt applications in one process: isolated auth coordinators ', () => {
   it('each app settles its own identity independent of the other', async () => {
     const { appA, appB, disposeAll } = bootTwoApps(
       () => makeCoordinatorFor('A'),

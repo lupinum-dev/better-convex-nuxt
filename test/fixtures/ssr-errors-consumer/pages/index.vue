@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ConvexCallError } from '../../../../src/runtime/errors'
 
-// Drives the REAL vNext §7 error boundary end to end: a real Nuxt page, the
+// Drives public error boundary end to end: a real Nuxt page, the
 // real `useConvexQuery` composable, the real `executeQueryHttp` HTTP
 // boundary, the real `normalizeConvexError`, and (via `src/module.ts`) the
 // real universal payload plugin reducer/reviver — against a deterministic
@@ -26,7 +26,7 @@ import { ConvexCallError } from '../../../../src/runtime/errors'
 //
 // A plain Convex function reference shape: only `_path` is read by the
 // library's `getFunctionName`.
-const query = { _path: 'proof:query' } as unknown as Parameters<typeof useConvexQuery>[0]
+const query = { _path: 'fixture:query' } as unknown as Parameters<typeof useConvexQuery>[0]
 
 const result = await useConvexQuery(query, {}, { subscribe: false })
 

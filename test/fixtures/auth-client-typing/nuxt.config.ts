@@ -1,4 +1,4 @@
-// Packed typed-client release gate (vNext §5.8 proof 1 / §8). Installs the
+// Packed typed-client release gate (packed contract fixture). Installs the
 // packed `better-convex-nuxt` tarball so the module and this consumer share a
 // SINGLE `better-auth` copy — a linked fixture would resolve two copies and
 // wrongly reject the plugin tuple. `convex-auth.ts` (with `apiKeyClient()`) is
@@ -12,7 +12,7 @@ export default defineNuxtConfig({
   },
   typescript: {
     // The base-fallback assertions are a SEPARATE TypeScript program (its own
-    // tsconfig) per the vNext §8 isolation contract — two conflicting registries
+    // tsconfig); two conflicting registries
     // cannot coexist in one program — so exclude it from the app typecheck.
     tsConfig: {
       exclude: ['../base-fallback'],

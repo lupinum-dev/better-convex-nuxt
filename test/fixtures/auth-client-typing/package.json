@@ -1,7 +1,7 @@
 {
   "name": "auth-client-typing",
   "private": true,
-  "description": "Permanent §5.8 proof-1 release gate: a packed consumer whose convex-auth.ts (apiKeyClient) definition makes the module-generated registry type the narrowed client with apiKey.create, plus a separate base-fallback program proving apiKey is absent. Uses the REAL published better-convex-nuxt/auth-client entry.",
+  "description": "Packed consumer contract for plugin-narrowed and base-fallback better-convex-nuxt/auth-client types.",
   "type": "module",
   "scripts": {
     "prepare:types": "nuxi prepare",

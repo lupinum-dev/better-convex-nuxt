@@ -1,5 +1,5 @@
 /**
- * Standalone packed-probe consumer (vNext §7 new-files list; internal §16.2).
+ * Standalone packed-probe consumer (packed consumer fixture).
  *
  * Imports ONLY `better-convex-nuxt/errors` — no other subpath, no Nuxt, no Vue
  * — and exercises the framework-free contract from a real node_modules-

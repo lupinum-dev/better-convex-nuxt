@@ -1,5 +1,5 @@
-// vNext §8 typed auth-client contract (deliverable: unit-level compile + runtime
-// proofs). The end-to-end packed proof (published `/auth-client` entry + a real
+// Public typed auth-client contract with unit-level compile and runtime
+// checks. The packed consumer contract (published `/auth-client` entry + a real
 // module-generated registry, both the plugin-typed and empty-fallback programs)
 // lives in `test/fixtures/auth-client-typing/`; this file pins the same typing
 // mechanism against the source entry plus the runtime validation helper.
@@ -30,9 +30,9 @@ type Equal<A, B> =
 // -----------------------------------------------------------------------------
 // Register an apiKey-plugin definition in the GLOBAL registry for this program.
 // `InferRegisteredConvexAuthClient` reads the registry; `BaseAuthClient` is the
-// no-plugin client and is independent of it, so both the plugin-typed path and
-// the base-fallback path are provable in one TypeScript program (the packed
-// fixture proves the true empty-registry fallback in a separate program).
+// no-plugin client and is independent of it, so one TypeScript program checks
+// both the plugin-typed and base-fallback paths. The packed fixture checks the
+// true empty-registry fallback in a separate program.
 // -----------------------------------------------------------------------------
 const _apiKeyDefinition = defineConvexAuthClient({ plugins: [apiKeyClientRuntime()] })
 
@@ -75,7 +75,7 @@ type _baseNotAny = Expect<Equal<IsAny<BaseAuthClient>, false>>
 type _baseHasNoApiKey = Expect<Equal<'apiKey' extends keyof BaseAuthClient ? true : false, false>>
 declare const baseClient: BaseAuthClient
 export function _assertBaseClient() {
-  // Base client still carries core Better Auth surface (proves it is not empty).
+  // Base client still carries the core Better Auth surface.
   const _signIn = baseClient.signIn
   void _signIn
   // @ts-expect-error the base client has no apiKey namespace.

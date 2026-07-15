@@ -424,14 +424,13 @@ export function hashArgs(args: unknown): string {
 }
 
 /**
- * Build the identity-blind base key for a query + args combination (internal
- * §7.1). This is the `convex:<functionName>:<argsHash>` (or
+ * Build the identity-blind base key for a query and arguments. This is the
+ * `convex:<functionName>:<argsHash>` (or
  * `convex-paginated:<functionName>:<argsHash>`) prefix; the auth/identity
  * dimension is appended separately by {@link withAuthDimension} so the same base
  * can be partitioned per identity.
  *
- * Renamed from the deleted public `getQueryKey` (vNext §6): the base key is
- * library-internal and must never resurface as a public auto-import.
+ * The base key is internal; public keys include the auth dimension.
  */
 export function createConvexQueryKey<Query extends FunctionReference<'query'>>(
   query: Query,

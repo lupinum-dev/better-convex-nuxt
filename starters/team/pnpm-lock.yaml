@@ -19,7 +19,7 @@ importers:
         version: 1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
         specifier: 0.6.1
-        version: 0.6.1(9a78b2682c0627e77e89a7cf31578df3)
+        version: 0.6.1(5533fb0c271a1384dae96cb5f66d610e)
       convex:
         specifier: 1.42.1
         version: 1.42.1(react@19.2.7)
@@ -46,8 +46,8 @@ importers:
         specifier: ^0.0.41
         version: 0.0.41(convex@1.42.1(react@19.2.7))
       playwright:
-        specifier: ^1.61.0
-        version: 1.61.0
+        specifier: ^1.61.1
+        version: 1.61.1
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -2092,7 +2092,7 @@ packages:
         optional: true
 
   better-convex-nuxt@0.6.1:
-    resolution: {integrity: sha512-4KxPsMwgnDNaIIJ6VXozgmut3EAtoHnX4DVX+UxH1hPkyT0IDcQ+z/xVy7vz9MX+lMTNXnbRU8reaw3YsSWlKw==}
+    resolution: {integrity: sha512-EOrumcP3lmUkp+/9H3K+99hxWrCF6wAntc9t7w1DFm9ZhM185lYSdNmbB8sdKNHRE3gHqnFsa2pkmo+uKAiJhQ==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5
@@ -3159,13 +3159,13 @@ packages:
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
 
-  playwright-core@1.61.0:
-    resolution: {integrity: sha512-caX7TrY3Ml6egyDX0WUcTHDxodl/b51y5wJOdCEA36QviK/s2g081hvmGs8eaE3DWb6NYZQ6BjO/QkNRPenoPA==}
+  playwright-core@1.61.1:
+    resolution: {integrity: sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==}
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.61.0:
-    resolution: {integrity: sha512-Z+7BeeqQPRRzklHsVFP4KTGIyMxKUmfeRA4WisM6G3/XW6nwGeX6fX9qYaDa+CiUqpOkb2f6X3nar05R3kSuJQ==}
+  playwright@1.61.1:
+    resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -5946,10 +5946,9 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.6.1(9a78b2682c0627e77e89a7cf31578df3):
+  better-convex-nuxt@0.6.1(5533fb0c271a1384dae96cb5f66d610e):
     dependencies:
       '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
-      '@nuxt/devtools-kit': 3.2.4(magicast@0.5.3)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       better-auth: 1.6.23(react@19.2.7)(vitest@4.1.9(@edge-runtime/vm@5.0.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       convex: 1.42.1(react@19.2.7)
@@ -5959,7 +5958,6 @@ snapshots:
       ohash: 2.0.11
     transitivePeerDependencies:
       - magicast
-      - vite
 
   bindings@1.5.0:
     dependencies:
@@ -7278,11 +7276,11 @@ snapshots:
       exsolve: 1.1.0
       pathe: 2.0.3
 
-  playwright-core@1.61.0: {}
+  playwright-core@1.61.1: {}
 
-  playwright@1.61.0:
+  playwright@1.61.1:
     dependencies:
-      playwright-core: 1.61.0
+      playwright-core: 1.61.1
     optionalDependencies:
       fsevents: 2.3.2
 

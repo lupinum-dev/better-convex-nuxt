@@ -6,7 +6,7 @@ import { readConvexRuntimeContext } from '../runtime-context'
 export type { ConvexClientHandle } from '../client/client-owner'
 
 /**
- * Access the stable, replacement-safe Convex client handle (vNext §5.4).
+ * Access the stable, replacement-safe Convex client handle .
  *
  * `useConvex()` never returns the raw `ConvexClient`. The per-Nuxt-app client
  * owner replaces the underlying primary client on every stable identity-key

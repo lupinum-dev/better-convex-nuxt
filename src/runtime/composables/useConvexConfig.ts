@@ -7,7 +7,7 @@ import {
 export type { ConvexRuntimeConfig } from '../utils/runtime-config'
 
 /**
- * Read the normalized public runtime configuration (vNext §5.7).
+ * Read the normalized public runtime configuration .
  *
  * Returns the read-only result of the same normalizer used internally. It has no
  * setter and creates no second configuration source. The build-only `auth.client`

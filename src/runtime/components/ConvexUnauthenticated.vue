@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Renders slot content when auth status is `anonymous` or `disabled` (vNext §4.2).
+ * Renders slot content when auth status is `anonymous` or `disabled`.
  * A Convex-only build renders this branch.
  *
  * @example

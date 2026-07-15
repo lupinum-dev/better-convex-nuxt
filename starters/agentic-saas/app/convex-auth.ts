@@ -1,4 +1,4 @@
-// `<srcDir>/convex-auth.ts` convention definition (vNext §8). `better-convex-nuxt`
+// `<srcDir>/convex-auth.ts` convention definition . `better-convex-nuxt`
 // discovers this file, prepends the Convex token-sync client plugin, and types
 // `useConvexAuth().client` with the Organization plugin methods used on the
 // agent approval queue page.

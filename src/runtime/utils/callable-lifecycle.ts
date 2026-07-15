@@ -12,7 +12,7 @@ import type { ConvexCallStatus } from './types'
 
 /**
  * The single private callable lifecycle shared by `useConvexMutation` and
- * `useConvexAction` (internal §8). It owns the entire common algorithm — latest
+ * `useConvexAction` (architecture invariant). It owns the entire common algorithm — latest
  * revision, pending/data/error state, callbacks, logging, DevTools events, error
  * normalization, and the throwing / `.safe()` result paths — so neither
  * composable carries its own copy. Only the operation-specific behavior (the
@@ -67,7 +67,7 @@ export interface CallableLifecycle<Args, Result> {
   /**
    * Called by the composable when the auth port notifies of a possible identity
    * change. When the generation actually advanced, retained data/error is masked
-   * and any pending call is retired synchronously (internal §8, vNext §5.4).
+   * and any pending call is retired synchronously (architecture invariant).
    */
   onIdentityMaybeChanged: () => void
 }

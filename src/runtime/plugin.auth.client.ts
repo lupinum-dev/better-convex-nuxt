@@ -4,7 +4,7 @@ import type { ConvexClient } from 'convex/browser'
 import { effectScope } from 'vue'
 
 /**
- * Auth-enabled-only client plugin (vNext §5.1 / §8 "Client instantiation").
+ * Auth-enabled-only client plugin ("Client instantiation").
  * Registered by the module ONLY when `auth !== false`, so a Convex-only build
  * never pulls this file — or any Better Auth runtime — into its client graph. It
  * resolves the typed auth-client definition, creates exactly one Better Auth
@@ -55,8 +55,7 @@ export default defineNuxtPlugin({
       return
     }
 
-    // Read the current primary through the per-app client owner (the public
-    // `$convex` augmentation is deleted, vNext §5.4).
+    // Read the current primary through the per-app client owner.
     const clientOwner = runtime?.owner
     const client = clientOwner?.getPrimary()?.client as ConvexClient | undefined
     if (!runtime || !clientOwner || !client) {
@@ -106,7 +105,7 @@ export default defineNuxtPlugin({
         authError: convexAuthError,
       },
       logger,
-      // Identity purge (internal §7.1): drop `required`/`optional` Convex payload
+      // Identity purge (architecture invariant): drop `required`/`optional` Convex payload
       // keys on a stable identity-key change; `none` keys are identity-independent
       // and retained. Query composables clear their own local state via the
       // identityGeneration watch; this only sweeps SSR payload namespaces.
@@ -138,7 +137,7 @@ export default defineNuxtPlugin({
     }
 
     // Hand the client owner the frozen port so it retires and replaces the
-    // identity-scoped primary on every stable identity-key change (vNext §5.4).
+    // identity-scoped primary on every stable identity-key change .
     clientOwner.attachAuthPort(coordinator.port)
     clientOwner.addDisposer(() => {
       sessionScope.stop()

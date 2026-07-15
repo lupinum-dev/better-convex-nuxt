@@ -9,7 +9,7 @@ import type { LogLevel } from './logger'
 import { normalizeConvexDeploymentUrl, normalizeConvexSiteUrl } from './site-url'
 
 /**
- * Fixed query defaults (vNext §5.2/§5.7). There is no `auth` default: query auth
+ * Fixed query defaults . There is no `auth` default: query auth
  * policy is `optional` by default and is never a per-build knob.
  */
 export interface ConvexRuntimeDefaults {
@@ -37,7 +37,7 @@ export interface NormalizedConvexRuntimeConfig {
 }
 
 /**
- * The normalized PUBLIC runtime config (vNext §5.7), returned read-only by
+ * The normalized PUBLIC runtime config , returned read-only by
  * `useConvexConfig()`. Its `auth` object omits the internal-only `debug` channels
  * and the build-only `client` path. `auth === false` is the only disabled signal.
  */

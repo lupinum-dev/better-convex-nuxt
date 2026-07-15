@@ -1,7 +1,7 @@
 import ConvexModule from '../../../src/module'
 
-// Real Nuxt fixture app driving the REAL library path (vNext §7 SSR golden
-// fixture, W8 test authoring). `convex.url` points at a deterministic local
+// Real Nuxt fixture app driving the library's SSR error path. `convex.url`
+// points at a deterministic local
 // HTTP mock (see ../../e2e/ssr-errors-consumer.e2e.test.ts) that always
 // answers the query endpoint with an unexpected upstream HTTP response, so
 // the REAL `executeQueryHttp` boundary constructs a `transport`

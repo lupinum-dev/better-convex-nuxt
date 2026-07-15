@@ -3,7 +3,7 @@ import type { ConvexRuntimeContext } from './runtime-context'
 import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
 
 // The public `$convex` and `$auth` Nuxt-app property augmentations are deleted
-// (vNext §5.4): consumers use the stable `useConvex()` handle and the auth
+// : consumers use the stable `useConvex()` handle and the auth
 // composables, never a raw replaceable client or a generic proxy. The auth plugin
 // still `provide('auth', …)` for internal use, read via a local cast, never a
 // published typed property. The augmentations below are INTERNAL inter-plugin
@@ -11,7 +11,7 @@ import type { ConvexAuthPageMeta } from './utils/auth-route-protection'
 declare module '#app' {
   interface NuxtApp {
     /**
-     * The per-Nuxt-app client owner (vNext §5.4, internal §4.1). Sole source of
+     * The per-Nuxt-app client owner (architecture invariant). Sole source of
      * truth for the replaceable primary and lazy anonymous clients; `useConvex()`
      * returns its stable handle and `useConvexConnectionState()` observes its
      * connection store. Provided by the core client plugin (browser only).

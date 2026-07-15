@@ -208,7 +208,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     if (safeResult.ok) {
       throw new Error('Expected safe result to be an error')
     }
-    // call-result.ts no longer parses a `LIMIT_*:` prefix out of the raw message
+    // Error normalization does not parse a `LIMIT_*:` prefix from raw messages.
     // (that was an app convention, not core behavior) — the message passes
     // through verbatim and no code is synthesized from it.
     expect(safeResult.error.code).toBeUndefined()
@@ -220,7 +220,7 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:safe-structured-fail')
 
-    // vNext §7: only a real Convex application error (ConvexError) yields
+    // public: only a real Convex application error (ConvexError) yields
     // structured extraction — `kind: 'server'` with `data` preserved verbatim and
     // `code`/`status`/`message` surfaced from the structured payload.
     convex.setMutationHandler('testing:safe-structured-fail', async () => {

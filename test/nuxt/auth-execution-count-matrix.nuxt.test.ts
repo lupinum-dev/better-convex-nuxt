@@ -18,10 +18,10 @@ afterEach(() => {
 })
 
 /**
- * vNext §8 "Auth execution-count matrix": spy on WebSocket subscription
+ * "Auth execution-count matrix": spy on WebSocket subscription
  * acquisition (`MockConvexClient.calls.onUpdate`, one entry per acquired live
  * listener) across the browser-side contexts of the 7×3 table, every cell
- * asserted with counts (internal §17.2 "count effects, not only visible
+ * asserted with counts (architecture invariant "count effects, not only visible
  * outcomes"). Counts are asserted as deltas across the observed transition
  * rather than hardcoded absolutes, because the composable's own mount-time
  * reactivity (auth-context + identity computed settling) may contribute a
@@ -34,7 +34,7 @@ afterEach(() => {
  * re-implemented here because they require the HTTP `executeQueryHttp` path,
  * not the live-subscription path this file spies on.
  */
-describe('auth execution-count matrix — browser contexts (vNext §8)', () => {
+describe('auth execution-count matrix — browser contexts ', () => {
   it('client navigation while loading: none acquires immediately; optional executes once on settlement; required stays idle', async () => {
     // none: no wait, immediate anonymous acquisition.
     {

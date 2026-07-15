@@ -1,7 +1,7 @@
 {
   "name": "errors-consumer",
   "private": true,
-  "description": "Packed-probe consumer for better-convex-nuxt/errors (vNext §7 new-files list; internal §16.2). Imports ONLY the /errors subpath.",
+  "description": "Packed-package type and runtime probe for better-convex-nuxt/errors.",
   "type": "module",
   "scripts": {
     "build": "tsc",

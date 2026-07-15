@@ -337,7 +337,7 @@ describe('mcp-agent service actor credentials', () => {
     await expect(
       t.query(api.projects.listForServiceActor, {
         serverSecret: process.env.MCP_SERVER_SECRET!,
-        bearerToken: 'proof-token',
+        bearerToken: 'test-token',
       }),
     ).rejects.toThrow('Service actor credential denied')
   })

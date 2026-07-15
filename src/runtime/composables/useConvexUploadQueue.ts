@@ -1,8 +1,7 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
 import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 
-import type { CallResult, ConvexCallError } from '../errors'
-import { normalizeConvexError, toCallResult } from '../utils/call-result'
+import { normalizeConvexError, type CallResult, type ConvexCallError } from '../errors'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
@@ -342,7 +341,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     input: UploadQueueEnqueueInput<MutationArgs>,
     mutationArgs?: MutationArgs,
   ): Promise<CallResult<string[]>> => {
-    return await toCallResult(() => enqueue(input, mutationArgs))
+    try {
+      return { ok: true, data: await enqueue(input, mutationArgs) }
+    } catch (error) {
+      return { ok: false, error: normalizeConvexError(error) }
+    }
   }
 
   const cancelItem = (id: string): void => {

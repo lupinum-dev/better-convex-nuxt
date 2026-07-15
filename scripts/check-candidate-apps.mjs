@@ -23,6 +23,7 @@ const agencyConvexDeployKey = process.env.AGENCY_CONVEX_DEPLOY_KEY
 const inheritedEnvironment = Object.fromEntries(
   [
     'COREPACK_HOME',
+    'GIT_INDEX_FILE',
     'HOME',
     'HTTPS_PROXY',
     'HTTP_PROXY',
@@ -145,10 +146,13 @@ function copyApp(app, destinationDir) {
 
   for (const repositoryPath of tracked) {
     const sourcePath = join(repoRoot, repositoryPath)
+    if (!existsSync(sourcePath)) continue
     const destinationPath = join(destinationDir, relative(app.path, repositoryPath))
     mkdirSync(dirname(destinationPath), { recursive: true })
     cpSync(sourcePath, destinationPath, { recursive: true })
   }
+
+  copyFileSync(join(repoRoot, 'LICENSE'), join(destinationDir, 'LICENSE'))
 }
 
 function assertNoRepositoryOverride(app) {

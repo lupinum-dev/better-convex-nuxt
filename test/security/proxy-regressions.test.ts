@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   responseStatus: vi.fn(),
   responseHeaders: vi.fn(),
   responseCookie: vi.fn(),
+  send: vi.fn((_event: unknown, body: Uint8Array) => body),
+  storage: vi.fn(),
 }))
 
 vi.mock('h3', () => ({
@@ -27,12 +29,14 @@ vi.mock('h3', () => ({
       },
     })
   },
-  send: (_event: unknown, body: Uint8Array) => body,
+  send: mocks.send,
   setHeaders: mocks.responseHeaders,
   setResponseStatus: mocks.responseStatus,
 }))
 
 vi.mock('../../src/runtime/utils/runtime-config', () => ({ getConvexRuntimeConfig: mocks.config }))
+
+vi.mock('nitropack/runtime', () => ({ useStorage: mocks.storage }))
 
 function event(
   method = 'GET',
@@ -77,6 +81,10 @@ describe('auth proxy security regressions', () => {
         },
       },
     })
+    mocks.storage.mockReturnValue({
+      getItem: vi.fn().mockResolvedValue([]),
+      setItem: vi.fn().mockResolvedValue(undefined),
+    })
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -101,6 +109,24 @@ describe('auth proxy security regressions', () => {
     expect(mocks.responseHeaders).toHaveBeenCalledWith(expect.anything(), {
       'cache-control': 'private, no-store',
     })
+  })
+
+  it('keeps successful auth responses independent from development diagnostics storage', async () => {
+    mocks.storage.mockImplementation(() => {
+      throw new Error('diagnostics storage unavailable')
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}')),
+    )
+
+    const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+      .default as unknown as (input: ReturnType<typeof event>) => Promise<Uint8Array>
+    const proxyEvent = event()
+
+    await expect(handler(proxyEvent)).resolves.toBeUndefined()
+    expect(mocks.send).toHaveBeenCalledWith(proxyEvent, new TextEncoder().encode('{}'))
+    expect(mocks.responseStatus).toHaveBeenCalledWith(expect.anything(), 200, '')
   })
 
   it('preserves bytes, regenerates framing, and drops proxy controls', async () => {

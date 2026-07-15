@@ -1,6 +1,5 @@
 /// <reference path="./registry.base.d.ts" />
-// §5.8 proof-1 criterion (b): with the empty fallback registered (no plugins),
-// the SAME narrowing exposes only the base client — apiKey is absent.
+// With the empty fallback registered, narrowing exposes only the base client.
 import type { InferRegisteredConvexAuthClient } from 'better-convex-nuxt/auth-client'
 
 type IsAny<T> = 0 extends 1 & T ? true : false

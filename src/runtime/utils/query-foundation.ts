@@ -17,7 +17,7 @@ import { getConvexRuntimeConfig } from './runtime-config'
 
 /**
  * Reactive canonical auth-identity inputs for query gating and isolation
- * tagging (internal §7.2). This is the single place query composables read auth
+ * tagging (architecture invariant). This is the single place query composables read auth
  * state; they never touch the auth engine directly.
  *
  * Derived from the SSR-seeded reactive state (`convex:pending` / `convex:identity` /
@@ -92,7 +92,7 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
 }
 
 /**
- * Select the live/once transport client for a gate decision (internal §7.5).
+ * Select the live/once transport client for a gate decision (architecture invariant).
  *
  * - `none` in an auth-enabled build uses the dedicated anonymous client that
  *   never receives `setAuth` (its identity is never rebound).

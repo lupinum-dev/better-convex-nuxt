@@ -73,7 +73,7 @@ async function handleSignIn() {
     }
 
     // The integrated `signIn` namespace settles identity (token/user) before it
-    // resolves (vNext §8 "Atomic sign-in/sign-up"), so navigate straight away.
+    // resolves ("Atomic sign-in/sign-up"), so navigate straight away.
     window.location.href = '/'
   } catch {
     error.value = signInFailure

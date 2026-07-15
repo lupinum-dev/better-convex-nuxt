@@ -1,4 +1,4 @@
-// Built-in empty auth-client definition (vNext §8 default resolution step 3).
+// Built-in empty auth-client definition.
 //
 // When a host provides no explicit `auth.client` and no `<srcDir>/convex-auth.ts`
 // convention file, `src/module.ts` resolves the `#convex/auth-client` virtual

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { UseConvexActionReturn } from '../../src/runtime/composables/useConvexAction'
 import type { UseConvexMutationReturn } from '../../src/runtime/composables/useConvexMutation'
 import type { CallResult } from '../../src/runtime/errors'
-import { normalizeConvexError } from '../../src/runtime/utils/call-result'
+import { normalizeConvexError } from '../../src/runtime/errors'
 
 type IsEqual<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
@@ -84,7 +84,7 @@ describe('CallResult type contracts', () => {
   })
 
   it('derives code from a Convex application error, preserving its data verbatim', () => {
-    // Structured extraction requires the pinned ConvexError contract (vNext §7):
+    // Structured extraction requires the pinned ConvexError contract :
     // a plain Error carrying a `.data` bag is NOT treated as a Convex application
     // error and stays `unknown`. A real ConvexError becomes `server` with its
     // `data.code` surfaced and its data preserved.

@@ -16,7 +16,7 @@ type RuntimeUnsubscribe = ReturnType<OwnedConvexClient['onUpdate']> & {
 
 /**
  * A counting ConvexClient double for the owner's lifecycle invariants (internal
- * §17.2 "count effects, not only visible outcomes"). It records close() calls,
+ * "count effects, not only visible outcomes"). It records close() calls,
  * onUpdate subscribe/unsubscribe counts, and exposes controllable mutation
  * settlement so we can hold a mutation in flight across a replacement.
  */
@@ -292,7 +292,7 @@ describe('createConvexClientOwner', () => {
     })
   })
 
-  describe('onUpdate rebinding (proof 11 mechanics)', () => {
+  describe('onUpdate rebinding', () => {
     it('rebinds active listeners A→B with a stable unsubscribe and exactly one live subscription', async () => {
       resetCounts()
       const o = owner()
@@ -572,7 +572,7 @@ describe('createConvexClientOwner', () => {
 
   describe('handle argument forwarding', () => {
     it('forwards the optional mutation options (optimistic update) through the handle to the current client', async () => {
-      // Phase 2 gate advisory: the handle must not silently drop mutation's
+      // current implementation gate advisory: the handle must not silently drop mutation's
       // third argument, or optimistic updates die at the dispatch seam.
       const received: Array<{ args: unknown; options: unknown }> = []
       class RecordingClient extends MockConvexClient {

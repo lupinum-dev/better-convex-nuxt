@@ -1,6 +1,5 @@
 /**
- * The per-Nuxt-app serial identity-operation queue (vNext §5.3, internal §6.5;
- * proof `test/proofs/auth-races/proof6-serial-signin.mjs`).
+ * The per-Nuxt-app serial identity-operation queue.
  *
  * Integrated sign-in, sign-up, and sign-out share ONE queue and execute in
  * invocation order. The chain is kept alive regardless of an individual

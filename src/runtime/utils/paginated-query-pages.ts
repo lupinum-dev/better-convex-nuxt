@@ -1,6 +1,6 @@
 import type { PaginationResult } from 'convex/server'
 
-import { type ConvexCallError, normalizeConvexError } from './call-result'
+import { normalizeConvexError, type ConvexCallError } from '../errors'
 
 export interface PaginationPageOpts {
   numItems: number
@@ -58,7 +58,7 @@ export function commitPaginatedPageError<T>(
   nextPages[pageIndex] = {
     ...page,
     // Normalize once at the page boundary so every surfaced page error is a
-    // ConvexCallError (vNext §7).
+    // ConvexCallError .
     error: normalizeConvexError(error),
     pending: false,
   }

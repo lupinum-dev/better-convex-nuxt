@@ -97,7 +97,7 @@ export function updateAllQueries<Query extends FunctionReference<'query'>>(
   const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForRegularQuery(args, argsToMatch)) {
+    if (argsToMatch && !sharedArgsMatch(args, argsToMatch)) {
       continue
     }
 
@@ -143,11 +143,4 @@ export function deleteFromQuery<
 
   const newValue = currentValue.filter((item: Item) => !shouldDelete(item))
   store.setQuery(query, args, newValue as FunctionReturnType<Query>)
-}
-
-function argsMatchForRegularQuery(
-  queryArgs: Record<string, unknown>,
-  filterArgs: Record<string, unknown>,
-): boolean {
-  return sharedArgsMatch(queryArgs, filterArgs)
 }

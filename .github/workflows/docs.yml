@@ -1,70 +1,18 @@
-name: docs
+name: docs-links
 
-# Path-filtered docs job (internal §16.4 tier 3 on change: lint + typecheck +
-# build + vocabulary source-lock; tier 4 nightly: external link check). `docs/`
-# is an independent install root with its own `pnpm-lock.yaml` (vNext §11 /
-# Phase 0 funding-gap resolution) — this workflow is its only real CI owner;
-# `docs/.github/workflows/ci.yml` is not read by GitHub Actions from a
-# subdirectory and must not be relied on.
+# The docs app currently uses a maintainer-local Ginko tarball, so install and
+# build validation is local until that dependency becomes reproducible in CI.
+# This workflow retains the repository-only check that needs no docs install.
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - '.github/workflows/docs.yml'
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - '.github/workflows/docs.yml'
   schedule:
-    # Nightly external-link check regardless of changed paths (tier 4) — path
-    # filters above only apply to push/pull_request, never to schedule.
     - cron: '43 4 * * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
 jobs:
-  docs:
-    if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install docs dependencies
-        working-directory: docs
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        working-directory: docs
-        run: pnpm run lint
-
-      - name: Typecheck
-        working-directory: docs
-        run: pnpm run typecheck
-
-      - name: Build
-        working-directory: docs
-        run: pnpm run build
-
-      - name: Vocabulary source-lock (vNext §11 "Source locks")
-        # Pure node:fs scan rooted at the repo root — scans docs/content
-        # (among other paths) directly; no docs/ install required.
-        run: node scripts/check-vocabulary.mjs
-
   link-check:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:

@@ -6,51 +6,57 @@ export default {
       url: siteUrl,
       name: { en: 'Better Convex Nuxt' },
       description: {
-        en: 'Convex for Nuxt 4, without the integration glue.'
+        en: 'Convex for Nuxt 4, without the integration glue.',
       },
       logo: { light: '/favicon.svg', dark: '/favicon.svg' },
       localeSwitcher: 'dropdown',
-      docsSidebarSwitcher: 'tabs'
+      docsSidebarSwitcher: 'tabs',
     },
     social: {
-      github: 'https://github.com/lupinum-dev/better-convex-nuxt'
+      github: 'https://github.com/lupinum-dev/better-convex-nuxt',
     },
     repository: {
       url: 'https://github.com/lupinum-dev/better-convex-nuxt',
       branch: 'main',
-      contentDirectory: 'docs/content'
+      contentDirectory: 'docs/content',
     },
     landing: {
       eyebrow: { en: 'Nuxt 4 × Convex' },
       title: { en: 'Realtime Nuxt apps, one coherent lifecycle.' },
       description: {
-        en: 'SSR-to-realtime queries, Better Auth, request-scoped server calls, optimistic updates, uploads, and one structured error model.'
+        en: 'SSR-to-realtime queries, Better Auth, request-scoped server calls, optimistic updates, uploads, and one structured error model.',
       },
       primary: {
         label: { en: 'Choose your path' },
-        to: { en: '/docs/get-started/choose-your-path' }
+        to: { en: '/docs/get-started/choose-your-path' },
       },
       secondary: {
         label: { en: 'View on GitHub' },
-        to: { en: 'https://github.com/lupinum-dev/better-convex-nuxt' }
+        to: { en: 'https://github.com/lupinum-dev/better-convex-nuxt' },
       },
       features: [
         {
           title: { en: 'SSR to realtime' },
-          description: { en: 'Render once on the server, hydrate without duplicate work, then continue as a live subscription.' },
-          icon: 'lucide:refresh-cw'
+          description: {
+            en: 'Render once on the server, hydrate without duplicate work, then continue as a live subscription.',
+          },
+          icon: 'lucide:refresh-cw',
         },
         {
           title: { en: 'Identity stays isolated' },
-          description: { en: 'Better Auth and Convex identity move through explicit, request-safe boundaries.' },
-          icon: 'lucide:fingerprint'
+          description: {
+            en: 'Better Auth and Convex identity move through explicit, request-safe boundaries.',
+          },
+          icon: 'lucide:fingerprint',
         },
         {
           title: { en: 'Production behavior included' },
-          description: { en: 'Typed server calls, optimistic state, uploads, connection status, and structured errors share one model.' },
-          icon: 'lucide:blocks'
-        }
-      ]
-    }
-  }
+          description: {
+            en: 'Typed server calls, optimistic state, uploads, connection status, and structured errors share one model.',
+          },
+          icon: 'lucide:blocks',
+        },
+      ],
+    },
+  },
 }

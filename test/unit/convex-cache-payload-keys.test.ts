@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createConvexQueryKey,
   purgeConvexIdentityPayloadKeys,
   readAuthMode,
   withAuthDimension,
 } from '../../src/runtime/utils/convex-cache'
+import { createConvexQueryKey } from '../../src/runtime/utils/convex-shared'
 
-// The custom subscription/payload registries were deleted (internal §7.1). The
-// only library-owned key machinery is the identity-partitioned payload-key
-// grammar (decision 7) and the namespace-scan sign-out purge.
+// Library-owned key state consists of the identity-partitioned payload-key
+// grammar and the namespace-scan sign-out purge.
 
 const noArgs = {} as never
 

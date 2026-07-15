@@ -2,14 +2,14 @@ import type { ConvexAuthMode } from '../../utils/auth-status'
 
 /**
  * A low-level server credential handed to {@link exchangeConvexToken} or to
- * `serverConvex` for an explicit principal (vNext §9). A `cookie` value is a
+ * `serverConvex` for an explicit principal . A `cookie` value is a
  * raw `Cookie` header string; a `bearer` value is the Better Auth session token
  * that becomes `Authorization: Bearer <value>`.
  */
 export type ConvexCredential = { type: 'cookie'; value: string } | { type: 'bearer'; value: string }
 
 /**
- * Public per-caller options for `serverConvex` (vNext §9 "Final types").
+ * Public per-caller options for `serverConvex` ("Final types").
  *
  * - `auth` selects the auth policy for cookie-based resolution.
  * - `authToken` is an explicit opaque JWT the caller already holds.
@@ -37,8 +37,8 @@ export interface NormalizedServerConvexOptions {
 
 /**
  * Synchronous validation failure for server-call options and credential values
- * (vNext §9). This is deliberately NOT a {@link ConvexCallError}: the public
- * error contract (vNext §5.6) has no `validation` kind, and an option/credential
+ * . This is deliberately NOT a {@link ConvexCallError}: the public
+ * error contract  has no `validation` kind, and an option/credential
  * contract violation is a caller programming error surfaced before any network
  * access — not a classifiable Convex call outcome. Callers that construct a
  * `serverConvex` caller or call `exchangeConvexToken` receive this synchronously,
@@ -70,7 +70,7 @@ export function credentialHasControlChars(value: string): boolean {
 
 /**
  * Reject an empty or control-character-bearing credential value synchronously,
- * before any network access (vNext §9). Shared by option validation and by the
+ * before any network access . Shared by option validation and by the
  * exchange primitive so both refuse a smuggling-capable credential at the door.
  */
 export function assertCredentialValueSafe(value: unknown, label: string): asserts value is string {
@@ -95,7 +95,7 @@ export function assertConvexCredentialShape(
 }
 
 /**
- * Validate and normalize {@link ServerConvexOptions} synchronously (vNext §9
+ * Validate and normalize {@link ServerConvexOptions} synchronously (public
  * "Validation rules"). Throws {@link ServerConvexValidationError} — before any
  * network access — for every invalid combination rather than silently
  * downgrading a rejected explicit principal.

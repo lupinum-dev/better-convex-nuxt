@@ -1,6 +1,6 @@
 import ConvexModule from '../../../src/module'
 
-// `auth: false` (vNext §5.1/§6): a Convex-only build. The module must add no
+// `auth: false`: a Convex-only build. The module must add no
 // Better Auth client, auth engine, proxy handler, or auth middleware to the
 // generated client/Nitro graphs. `scripts/check-auth-disabled-build-graph.mjs`
 // builds this fixture and scans `.output` for markers unique to the

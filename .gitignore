@@ -58,6 +58,3 @@ coverage
 Network Trash Folder
 Temporary Items
 .apdisk
-
-# Proof-fixture run artifacts
-test/proofs/**/evidence.jsonl

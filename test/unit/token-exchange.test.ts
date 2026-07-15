@@ -14,7 +14,7 @@ import {
 // ---------------------------------------------------------------------------
 // Loopback HTTP harness. We drive the real `exchangeConvexToken` -> global
 // fetch path against a real node:http server on 127.0.0.1 (http loopback is
-// permitted by normalizeSiteUrl), modelling test/proofs/server-security/.
+// permitted by normalizeSiteUrl).
 // ---------------------------------------------------------------------------
 
 interface RecordedRequest {

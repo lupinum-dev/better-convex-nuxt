@@ -15,9 +15,6 @@
     "node_modules",
     "coverage",
     "*.min.js",
-    "pnpm-lock.yaml",
-    "vNext.md",
-    "wenext_internal.md"
-  ],
-  "$comment": "vNext.md and wenext_internal.md are spec documents slated for disposition in Phase 6 (internal §16.4/§20); excluded from format:check until then."
+    "pnpm-lock.yaml"
+  ]
 }

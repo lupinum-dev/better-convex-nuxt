@@ -1,4 +1,4 @@
-import type { ConvexCallError } from './call-result'
+import type { ConvexCallError } from '../errors'
 
 export type UploadQueueItemStatus = 'queued' | 'pending' | 'success' | 'error' | 'cancelled'
 

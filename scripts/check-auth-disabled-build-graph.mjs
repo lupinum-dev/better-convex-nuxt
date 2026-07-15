@@ -2,10 +2,8 @@
 // Builds test/fixtures/auth-disabled (a real `auth: false` Nuxt app) and scans
 // the generated client + Nitro output for markers unique to the auth-enabled-
 // only files: the Better Auth client plugin, the auth engine, the auth proxy
-// server handler, and the `convex-auth` route middleware (vNext §5.1/§6:
-// "An auth-disabled production build must contain no Better Auth client, auth
-// engine, proxy handler, or auth middleware in its generated client or Nitro
-// graphs.").
+// server handler, and the `convex-auth` route middleware. An auth-disabled
+// production build must contain none of them in its client or Nitro graphs.
 //
 // Modeled on test/fixtures/missing-convex-api's approach of a real, minimal
 // fixture app plus a deterministic scan rather than a synthetic unit double.
@@ -78,7 +76,7 @@ function main() {
   rmSync(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 
   console.log('[check-auth-disabled-build-graph] building fixture (auth: false)...')
-  execFileSync('npx', ['nuxi', 'build', '--cwd', fixtureDir], {
+  execFileSync('pnpm', ['exec', 'nuxi', 'build', '--cwd', fixtureDir], {
     cwd: repoRoot,
     stdio: 'inherit',
   })

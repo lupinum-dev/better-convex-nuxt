@@ -18,10 +18,10 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 /**
  * Integration test for the REAL auth coordinator wired to the REAL client owner
- * (vNext §8 "per-app auth context and pure transitions" + internal §7.4
- * structural cross-user isolation). Phase 1's owner/query ports are reviewers
+ * ("per-app auth context and pure transitions" + architecture invariant
+ * structural cross-user isolation). current implementation's owner/query ports are reviewers
  * here (`test/unit/client-owner.test.ts` already covers owner mechanics against
- * a synthetic port) — this test proves Phase 3's coordinator drives the REAL
+ * a synthetic port) — this test proves current implementation's coordinator drives the REAL
  * owner correctly end to end: sign-out lifecycle, client retirement, payload
  * purge, and two-app isolation.
  */
@@ -39,7 +39,7 @@ function makeJwt(sub: string, expOffsetSec = 3600): string {
   return `${toBase64Url(JSON.stringify({ alg: 'none' }))}.${toBase64Url(JSON.stringify(payload))}.sig`
 }
 
-/** Counting ConvexClient double: records close()/setAuth() (internal §17.2). */
+/** Counting ConvexClient double: records close()/setAuth() (architecture invariant). */
 class CountingClient extends MockConvexClient {
   static created = 0
   static closed = 0
@@ -188,7 +188,7 @@ describe('client-engine sign-out lifecycle (real coordinator + real owner)', () 
     const closedBeforeSignOut = CountingClient.closed
     await harness.coordinator.signOut()
     // A→anonymous is a stable identity-key change: the prior authenticated
-    // primary is retired (internal §7.4 "close the previous primary client").
+    // primary is retired (architecture invariant "close the previous primary client").
     expect(CountingClient.closed).toBeGreaterThan(closedBeforeSignOut)
 
     wrapper.unmount()

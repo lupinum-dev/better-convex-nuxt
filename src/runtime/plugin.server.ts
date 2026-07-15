@@ -1,5 +1,5 @@
 /**
- * Auth-enabled-only server plugin (vNext §5.1). Registered by the module ONLY
+ * Auth-enabled-only server plugin. Registered by the module only
  * when auth is enabled. It runs during SSR to:
  * 1. Read the session cookie from the request
  * 2. Exchange the session cookie for a JWT token via Better Auth API
@@ -100,7 +100,7 @@ export default defineNuxtPlugin(async () => {
 
   // This is an auth-enabled SSR response, so it always varies by cookie. A
   // recognized Better Auth cookie OR a serialized per-user JWT also forbids
-  // shared/CDN caching (vNext §9). Existing `Vary` values are preserved.
+  // shared/CDN caching. Existing `Vary` values are preserved.
   applyConvexAuthSsrHeaders(event, {
     hasBetterAuthCookie: hasSupportedBetterAuthCookie,
     serializesToken: snapshot.token !== null,

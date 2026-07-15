@@ -82,10 +82,6 @@ starter does not mirror those management actions into app tables.
 - Team deletion.
 - Hard project deletion.
 
-Advanced proof code that used to live in this starter has been quarantined under
-`research/better-auth-proofs/team-legacy/`. Promote a proof into a recipe only
-after it has a clean product boundary, docs, and validation.
-
 Rate limits are intentionally separate from permissions:
 
 - Better Auth permissions decide whether a user may create a project at all.
@@ -148,7 +144,7 @@ This starter keeps tests close to the invariants that matter:
 - Browser end-to-end tests are intentionally left to the consuming app. Add them
   once the app has a real product flow, seeded users, and environment-specific
   auth setup.
-- This starter includes one local browser happy-path smoke as a wiring proof.
+- This starter includes one local browser happy-path smoke as a wiring check.
   Keep broader role and cross-user E2E in the consuming app, where seeded test
   users and deployment-specific auth settings are known.
 
@@ -168,15 +164,15 @@ Recommended first browser flows for a production app:
 Set these in Convex before using auth routes:
 
 ```bash
-npx convex env set SITE_URL http://localhost:3000
-npx convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+pnpm exec convex env set SITE_URL http://localhost:3000
+pnpm exec convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
 ```
 
 Email delivery with Resend:
 
 ```bash
-npx convex env set RESEND_API_KEY your_resend_api_key
-npx convex env set RESEND_FROM_EMAIL invites@example.com
+pnpm exec convex env set RESEND_API_KEY your_resend_api_key
+pnpm exec convex env set RESEND_FROM_EMAIL invites@example.com
 ```
 
 Without Resend configured, localhost/test runs log verification and invitation

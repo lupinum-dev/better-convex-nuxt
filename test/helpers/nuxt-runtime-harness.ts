@@ -38,7 +38,7 @@ const authProxy = new Proxy<Record<PropertyKey, unknown>>(
   },
 )
 
-// The per-app client owner (vNext §5.4) — provided once as a stable proxy so a
+// The per-app client owner  — provided once as a stable proxy so a
 // whole test file (which shares one implicit vueApp under @nuxt/test-utils) can
 // swap the backing owner per test despite Nuxt's one-time `provide`.
 const ownerProxy = new Proxy<Record<PropertyKey, unknown>>(
@@ -90,7 +90,7 @@ const DEFAULT_OWNER_CONNECTION_STATE = {
 }
 
 /**
- * A minimal per-app client owner (vNext §5.4) synthesized from the provided
+ * A minimal per-app client owner  synthesized from the provided
  * `convex` mock when a test does not pass an explicit `owner`. The query
  * composables reach their transport through the owner (`getPrimary` /
  * `getAnonymous`), so a single-client mock is exposed as both. Tests that need a

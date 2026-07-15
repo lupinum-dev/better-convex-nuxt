@@ -36,7 +36,7 @@ async function _serverRequiredArgsContracts(event: Parameters<typeof serverConve
 }
 
 /**
- * Public option shapes typecheck (vNext §9 "Final types"). Mutual exclusivity
+ * Public option shapes typecheck ("Final types"). Mutual exclusivity
  * and explicit-principal/auth-mode combinations are runtime validation, not
  * compile errors, so only the accepted shapes are asserted here.
  */

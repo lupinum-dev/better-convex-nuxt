@@ -1,5 +1,5 @@
 import type { FunctionReference, PaginationOptions, PaginationResult } from 'convex/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expectTypeOf, it } from 'vitest'
 import type { ComputedRef, MaybeRefOrGetter } from 'vue'
 
 import type { DefineSharedConvexQueryOptions } from '../../src/runtime/composables/defineSharedConvexQuery'
@@ -49,8 +49,7 @@ type _QueryHasNoDeepUnrefArgsOption = Assert<IsEqual<HasKey<QueryOptions, 'deepU
 type _PaginatedHasNoDeepUnrefArgsOption = Assert<
   IsEqual<HasKey<PaginatedOptions, 'deepUnrefArgs'>, false>
 >
-// The auth option is the three-literal ConvexAuthMode (vNext §5.2): the legacy
-// two-literal dialect (auto-mode plus none) is gone.
+// The auth option accepts exactly the public ConvexAuthMode literals.
 type _QueryHasAuthOption = Assert<IsEqual<QueryOptions['auth'], ConvexAuthMode | undefined>>
 type _PaginatedHasAuthOption = Assert<IsEqual<PaginatedOptions['auth'], ConvexAuthMode | undefined>>
 type _AuthModeLiterals = Assert<IsEqual<ConvexAuthMode, 'required' | 'optional' | 'none'>>
@@ -111,7 +110,7 @@ declare const reqArgPaginated: FunctionReference<
 >
 
 async function _arityContracts() {
-  // --- vNext §6 type-contract block --------------------------------------
+  // --- Public type assertions -----------------------------------------------
   void useConvexQuery(noArgQuery, {})
   void useConvexQuery(noArgQuery, 'skip')
   // @ts-expect-error args are always positional
@@ -188,8 +187,8 @@ async function _arityContracts() {
 }
 
 describe('query option type contracts', () => {
-  it('uses initialData and skip args instead of legacy option aliases', () => {
-    expect(true).toBe(true)
+  it('compiles the supported option and argument shapes', () => {
+    expectTypeOf<QueryOptions['auth']>().toEqualTypeOf<ConvexAuthMode | undefined>()
     void _arityContracts
   })
 })

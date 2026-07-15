@@ -106,7 +106,7 @@ if (!changelog.includes(`## ${tag}`)) {
   process.exit(1)
 }
 
-run('pnpm', ['run', 'security:verify:pre-artifact'])
+run('pnpm', ['run', 'release:verify'])
 ensureCleanWorkingTree()
 const { tarballPath } = buildPackAndVerify()
 ensureCleanWorkingTree()

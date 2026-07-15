@@ -1,6 +1,5 @@
 /**
- * Receiver-preserving integrated sign-in/sign-up wrapper (vNext §8 "Atomic
- * sign-in/sign-up").
+ * Receiver-preserving integrated sign-in/sign-up wrapper.
  *
  * Wraps the WHOLE `signIn`/`signUp` namespace (not just `.email`). Every callable
  * is applied with its containing object as `this`, so a Better Auth plugin method
@@ -36,7 +35,7 @@ export function isPlainNamespaceObject(value: unknown): value is Record<Property
 }
 
 /**
- * Post-result barrier predicate (vNext §8). Wait ONLY after a successful Better
+ * Post-result barrier predicate . Wait ONLY after a successful Better
  * Auth client result whose `data.token` is a non-empty string:
  *
  * - no wait after a thrown operation (the caller never reaches here);

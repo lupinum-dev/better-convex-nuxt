@@ -24,7 +24,7 @@ function removeSharedCacheOverrides(event: H3Event): void {
 
 /**
  * Merge `Cookie` into an existing `Vary` header value without dropping any
- * caller-set field (vNext §9 "Vary/Cache-Control"). Existing tokens are
+ * caller-set field ("Vary/Cache-Control"). Existing tokens are
  * preserved, whitespace is normalized, and `Cookie` is added exactly once
  * (case-insensitively) so an auth-enabled SSR response always varies by cookie
  * while a pre-existing `Vary: Accept-Encoding` survives. `Vary: *` already
@@ -56,7 +56,7 @@ export function mergeVaryCookie(existing: string | number | string[] | undefined
 }
 
 /**
- * Apply the SSR auth cache policy to the current response (vNext §9):
+ * Apply the SSR auth cache policy to the current response :
  *
  * - Every auth-enabled SSR response appends `Vary: Cookie`, preserving existing
  *   `Vary` values so a shared cache keys per cookie.

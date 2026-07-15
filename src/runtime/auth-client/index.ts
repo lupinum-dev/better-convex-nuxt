@@ -1,4 +1,4 @@
-// Framework-free typed auth-client definition entry (vNext §4.3 / §8).
+// Framework-free typed auth-client definition entry.
 //
 // Published as `better-convex-nuxt/auth-client`. This subpath contains ONLY the
 // definition identity function and its types. It must not import Nuxt, Vue,
@@ -26,7 +26,7 @@ import type { VueAuthClient } from 'better-auth/vue'
 export type AuthClientPlugins = readonly BetterAuthClientPlugin[]
 
 /**
- * Consumer-facing options for a Convex auth-client definition (vNext §8).
+ * Consumer-facing options for a Convex auth-client definition.
  *
  * The consumer supplies additional client plugins only. `baseURL`/`basePath`
  * (the module owns fixed same-origin `/api/auth`), `plugins` (the library
@@ -66,7 +66,7 @@ export function defineConvexAuthClient<const Plugins extends AuthClientPlugins =
 }
 
 /**
- * Augmentable registry (vNext §8). The module-generated type template (produced
+ * Augmentable registry . The module-generated type template (produced
  * by `src/module.ts` via Nuxt Kit `addTypeTemplate`) adds a `definition` member
  * whose type is `typeof` the resolved consumer definition:
  *

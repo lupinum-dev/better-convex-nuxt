@@ -1,5 +1,4 @@
-// §5.8 proof-1 release-gate assertions (criteria a + c), type-checked by
-// `nuxi typecheck`. Pure type probes over the packed, node_modules-resident
+// Typed-client contract checked by `nuxi typecheck` against the packed
 // `better-convex-nuxt/auth-client` entry with the MODULE-GENERATED registry
 // (`.nuxt/types/better-convex-nuxt-auth-client.d.ts`, produced by `nuxi prepare`
 // from this app's `convex-auth.ts`) active.
@@ -16,7 +15,7 @@ type Expect<T extends true> = T
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 
-// The Phase 3 shape, proved end-to-end through the LIVE composable (not a bare
+// The current implementation shape, proved end-to-end through the LIVE composable (not a bare
 // `declare const`): `useConvexAuth().client` is narrowed to
 // `InferRegisteredConvexAuthClient | null` by the module-generated registry.
 const { client } = useConvexAuth()
@@ -66,5 +65,5 @@ type _readonlyRejected = Expect<
 >
 
 // Sanity: the base (no-plugin) client is a strict structural subset — it does
-// not carry the apiKey namespace (full negative proof lives in base-fallback/).
+// not carry the apiKey namespace (the full negative assertion lives in base-fallback/).
 type _baseHasNoApiKey = Expect<Equal<'apiKey' extends keyof BaseAuthClient ? true : false, false>>

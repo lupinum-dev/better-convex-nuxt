@@ -66,7 +66,7 @@ export function createConvexAuthCoordinator(input: {
   const purgeIdentityPayloads = input.purgeIdentityPayloads ?? (() => {})
   const logAuth = input.logger?.auth ?? (() => {})
 
-  // ---- counters (internal §6.5) --------------------------------------------
+  // ---- counters (architecture invariant) --------------------------------------------
   let authEpoch = 0
   let identityGeneration = 0
 
@@ -628,7 +628,7 @@ export function createConvexAuthCoordinator(input: {
           // Clean anonymous outcome (no session, no error). If a still-usable
           // identity or a stale error was previously published, clear it — this
           // is the required `authenticated -> anonymous` and `error -> anonymous`
-          // background-refresh transitions (vNext §5.3). Clear the stale error
+          // background-refresh transitions . Clear the stale error
           // BEFORE the same-identity-key anonymous->anonymous publish path
           // (which otherwise republishes whatever `state.authError` still holds).
           state.authError.value = null
@@ -727,7 +727,7 @@ export function createConvexAuthCoordinator(input: {
     })
   }
 
-  // ---- ready() (snapshot semantics, internal §6.4) -------------------------
+  // ---- ready() (snapshot semantics, architecture invariant) -------------------------
   async function ready(options?: { timeoutMs?: number }): Promise<ConvexAuthStatus> {
     const timeoutMs = options?.timeoutMs ?? 0
     const captured: Array<Promise<unknown>> = []
@@ -924,7 +924,7 @@ export function createConvexAuthCoordinator(input: {
   }
 
   // Memoize the integrated namespaces once so `auth.signIn === auth.signIn`
-  // across composable calls (referential stability, vNext §8).
+  // across composable calls (referential stability).
   const integratedSignIn = authClient ? wrapNamespace(authClient.signIn as object) : null
   const integratedSignUp = authClient ? wrapNamespace(authClient.signUp as object) : null
 

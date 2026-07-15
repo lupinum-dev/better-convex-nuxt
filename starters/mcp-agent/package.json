@@ -33,6 +33,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^25.0.0",
     "convex-test": "^0.0.41",
+    "playwright": "^1.61.1",
     "typescript": "~5.9.3",
     "vite": "^7.2.7",
     "vitest": "^4.0.18",

@@ -75,36 +75,7 @@ route, project tools, and approval-gated deletes.
   enable the Better Auth Organization plugin — a legacy app-owned org mirror,
   grandfathered and **pending a rebase onto Better Auth Organization**.
 
-## `platform-auth` (retired)
-
-The experimental public-OAuth platform starter (Better Auth OAuth Provider —
-DCR, PKCE, resource-bound JWTs, introspection, revocation, `/mcp` product
-writes) shipped no deterministic test suite, only a live-deployment runtime
-check. Per the Phase 0 starter classification (`wenext_internal.md` §15.4), an
-experimental starter with no CI-gated proof is not a maintained starter: it was
-not completed into a real supported starter, so it is deleted rather than kept
-half-finished.
-
-Its one piece of load-bearing proof code (the OAuth client/token state
-contracts against the Better Auth adapter) survives as a deterministic, offline
-named proof fixture at `test/fixtures/platform-auth-oauth-proof/` — see that
-fixture's README for what it proves and its exact retained `_generated` file
-list. The live verification shell script
-(`scripts/verify-oauth-provider-runtime.sh`) is deleted; it had no CI owner and
-is not reproducible offline. Default OAuth refresh-token rotation on Convex
-remains an open problem; do not treat platform OAuth as proven — see
-`docs/8.architecture/2.ai-agents-and-mcp.md` Research Notes.
-
----
-
-## Starter-family design principles (distilled from prior research)
-
-Before these starters existed, `starters/research/` recorded nine research
-passes (local/external evidence, requirements, MCP/agent findings, hosting
-choices, and a completion audit) that shaped the starter family below. That
-folder is concluded planning material now superseded by the implemented
-starters and is deleted (kept only in Git history); the durable conclusions
-that are not otherwise stated above are:
+## Starter-family design principles
 
 - **Never duplicate a product function per caller.** Nuxt UI, Nitro routes,
   MCP tools, and Convex Agent tools must all call the same Convex

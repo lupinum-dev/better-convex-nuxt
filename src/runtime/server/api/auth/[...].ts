@@ -163,8 +163,12 @@ async function sendAuthProxyBody(
 
 async function recordAuthProxyRequestInDev(request: AuthProxyRequest): Promise<void> {
   if (!import.meta.dev) return
-  const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
-  await recordAuthProxyRequest(request)
+  try {
+    const { recordAuthProxyRequest } = await import('../../../devtools/auth-proxy-registry')
+    await recordAuthProxyRequest(request)
+  } catch {
+    // Development diagnostics must never change auth proxy behavior.
+  }
 }
 
 export default defineEventHandler(async (event: H3Event) => {

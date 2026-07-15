@@ -5,10 +5,11 @@ const siteUrl = (process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app'
 export default defineGinkoDocsConfig({
   site: {
     name: 'Better Convex Nuxt',
-    description: 'Convex for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and uploads.',
-    url: siteUrl
+    description:
+      'Convex for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and uploads.',
+    url: siteUrl,
   },
   locales: ['en'],
   defaultLocale: 'en',
-  blog: false
+  blog: false,
 })

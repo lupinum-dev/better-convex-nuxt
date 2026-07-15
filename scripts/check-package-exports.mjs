@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 /**
- * Packed-entry gate (vNext §7 "packed-entry check"; internal §16.2).
+ * Packed-entry package contract gate.
  *
- * The command name `check:package-exports` is retained from the earlier
- * line-oriented checker, but the implementation described here replaces it
- * entirely. A regex/line scan can miss multiline imports and cannot prove
- * entry purity or that a published tarball actually resolves for a real
- * consumer. This script instead:
+ * A regex/line scan can miss multiline imports and cannot prove entry purity
+ * or that a published tarball resolves for a real consumer. This script:
  *
- *   1. runs a fast source-level scan (kept from the original checker) over
+ *   1. runs a fast source-level scan over
  *      `src/module.ts` and `src/runtime/**` for alias/absolute-path/
  *      undeclared-dependency leaks — no build required;
  *   2. requires `dist/` to already exist (built by `nuxt-module-build build`,
@@ -19,11 +16,11 @@
  *      recursively packing during the build lifecycle;
  *   4. scans the extracted tarball for invalid path classes, generated debris,
  *      source-machine absolute paths, and undeclared dependencies;
- *   5. for each ACTIVE table entry, uses the installed TypeScript compiler to
+ *   5. for each table entry, uses the installed TypeScript compiler to
  *      prove the entry's dist files export exactly the expected names, no
  *      forbidden names, and (where declared) import nothing outside the
  *      entry's purity allowlist;
- *   6. for each ACTIVE entry with a packed consumer fixture, runs an isolated
+ *   6. for each entry with a packed consumer fixture, runs an isolated
  *      install of that fixture against the freshly packed tarball and proves
  *      runtime resolution (`node`) and type resolution (`tsc`).
  *
@@ -94,13 +91,10 @@ if (distOnly && (suppliedTarball || manifestOutput)) {
   process.exit(1)
 }
 
-/** Phases whose table entries are deep-checked (export shape, purity, packed probe). */
-const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3', 'phase4']
-
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
 // ---------------------------------------------------------------------------
-// 1. Fast source-level scan (kept from the original checker; no build needed)
+// 1. Fast source-level scan (no build needed)
 // ---------------------------------------------------------------------------
 
 const sourceDeclaredPackages = new Set([
@@ -116,9 +110,8 @@ const allowedVirtualImports = new Set([
   '#components',
   'nitropack/runtime',
 ])
-// `#convex/*` is the module's own generated-template alias namespace (vNext
-// §8 "Do not use a `#build/*` alias key... `#convex/*` is the module's
-// established namespace"), resolved via `nuxt.options.alias` the same way
+// `#convex/*` is the module's generated-template namespace, resolved through
+// `nuxt.options.alias` the same way
 // `#app`/`#build`/`#components` are — never a real npm package.
 const allowedVirtualPrefixes = ['#app/', '#build/', '#components/', '#convex/']
 const allowedFrameworkPackages = new Set(['vue', 'vue-router'])
@@ -278,7 +271,7 @@ function collectExportTargets(value) {
 }
 
 /**
- * vNext §11 "Package checks": `files: ["dist"]` must include every `exports`
+ * Package manifest checks: `files: ["dist"]` must include every `exports`
  * target, and `typesVersions` must have exactly one entry per non-root
  * `exports` subpath (so `./foo` resolves under both moduleResolution
  * `Bundler`/`NodeNext` and the legacy `node10` typesVersions fallback path).
@@ -370,11 +363,8 @@ function main() {
 
   requireDistBuilt()
 
-  const activeEntries = entries.filter((entry) => ACTIVE_PHASES.includes(entry.phase))
-  const scheduledEntries = entries.filter((entry) => !ACTIVE_PHASES.includes(entry.phase))
-
   if (distOnly) {
-    for (const entry of activeEntries) {
+    for (const entry of entries) {
       checkEntryExportShape(entry, failures, warnings)
       checkEntryPurity(entry, failures)
     }
@@ -389,14 +379,14 @@ function main() {
       const manifest = buildContentManifest(packageDir)
       scanExtractedTarball(packageDir, failures, manifest)
 
-      for (const entry of activeEntries) {
+      for (const entry of entries) {
         checkEntryExportShape(entry, failures, warnings, packageDir)
         checkEntryPurity(entry, failures, packageDir)
       }
 
       if (failures.length === 0) {
         const ctx = { tarballPath, packageDir, failures }
-        for (const entry of activeEntries) {
+        for (const entry of entries) {
           if (!entry.packedProbe) continue
           console.log(`Running packed probe for "${entry.subpath}"…`)
           entry.packedProbe(ctx)
@@ -428,13 +418,8 @@ function main() {
   }
 
   console.log(
-    `✓ ${distOnly ? 'dist-entry' : 'packed-entry'} gate passed (${sourceScan.filesScanned} source file(s) scanned, ${activeEntries.length} active entr${activeEntries.length === 1 ? 'y' : 'ies'} deep-checked).`,
+    `✓ ${distOnly ? 'dist-entry' : 'packed-entry'} gate passed (${sourceScan.filesScanned} source file(s) scanned, ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} deep-checked).`,
   )
-  if (scheduledEntries.length > 0) {
-    console.log(
-      `  scheduled (inactive): ${scheduledEntries.map((e) => `${e.subpath} [${e.phase}]`).join(', ')}`,
-    )
-  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
