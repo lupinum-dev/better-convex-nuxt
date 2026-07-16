@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "better-convex-nuxt": "file:./better-convex-nuxt.tgz",
-    "convex": "1.42.1",
+    "convex": "1.42.2",
     "nuxt": "4.4.8",
     "typescript": "5.9.3",
     "vue-tsc": "3.3.7"

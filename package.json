@@ -135,7 +135,7 @@
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/browser-playwright": "^4.1.8",
     "better-auth": "1.6.23",
-    "convex": "1.42.1",
+    "convex": "1.42.2",
     "convex-test": "^0.0.54",
     "eslint": "^10.7.0",
     "happy-dom": "^20.8.9",
@@ -150,7 +150,7 @@
   "peerDependencies": {
     "@convex-dev/better-auth": "0.12.5",
     "better-auth": "1.6.23",
-    "convex": "1.42.1",
+    "convex": "1.42.2",
     "nuxt": "^4.4.0"
   },
   "engines": {
