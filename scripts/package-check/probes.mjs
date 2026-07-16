@@ -31,6 +31,7 @@ export function probeRootEntry(ctx) {
     name: 'root-entry-probe',
     private: true,
     type: 'module',
+    packageManager: packageJson.packageManager,
     devDependencies: {
       ...packageJson.peerDependencies,
       'better-convex-nuxt': `file:${ctx.tarballPath}`,
