@@ -194,7 +194,7 @@ describe('createQueryExecutionGate', () => {
     })
 
     it('defensively waits when authenticated but the identity key is not a concrete user', () => {
-      // Never manufacture user:undefined (vNext §5.4). A settled-authenticated
+      // Never manufacture user:undefined . A settled-authenticated
       // status without a usable id waits rather than executing.
       expect(
         gate({

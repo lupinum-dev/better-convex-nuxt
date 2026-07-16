@@ -1,7 +1,7 @@
 import { ConvexCallError } from '../errors'
 
 /**
- * Stable `code` for the identity-boundary rejection (vNext §5.4).
+ * Stable `code` for the identity-boundary rejection.
  *
  * A handle invocation that crosses an identity generation, and every A-owned
  * consumer-held call retired during A→B replacement, rejects with this code. It
@@ -13,7 +13,7 @@ export const IDENTITY_CHANGED = 'IDENTITY_CHANGED' as const
 /**
  * The identity-boundary rejection as the real framework-free
  * {@link ConvexCallError} (`kind: 'authentication'`, `code: 'IDENTITY_CHANGED'`).
- * The old result is never placed in `data` or `cause` (vNext §5.4): a stale
+ * The old result is never placed in `data` or `cause`: a stale
  * settlement must never be presented as a safely retryable value.
  */
 export function createIdentityChangedError(operation?: string): ConvexCallError {

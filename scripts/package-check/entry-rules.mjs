@@ -8,7 +8,7 @@ import {
 } from './probes.mjs'
 
 // ---------------------------------------------------------------------------
-// Table-driven entries (internal §16.2)
+// Table-driven entries (architecture invariant)
 // ---------------------------------------------------------------------------
 
 /**
@@ -18,7 +18,6 @@ import {
  *
  * @typedef {object} CheckerEntryRule
  * @property {string} subpath - the package.json `exports` key
- * @property {'phase0'|'phase2'|'phase3'|'phase4'} phase - activation-schedule gate
  * @property {PurityRule} [purity] - if present, every file under `distDir` is scanned for forbidden imports
  * @property {string} [distDir] - dist-relative directory (or single file) purity scanning walks (defaults to dirname(distJs))
  * @property {string} [sourceDir] - repo-relative source directory (or single file) purity scanning walks (defaults to `src/runtime/<subpath>`)
@@ -29,14 +28,12 @@ import {
 const CHECKER_ENTRY_RULES = [
   {
     subpath: '.',
-    phase: 'phase0',
     packedProbe: probeRootEntry,
   },
   {
     subpath: './errors',
-    phase: 'phase2',
     purity: {
-      // vNext §7 purity guard.
+      // Framework-free purity guard.
       forbiddenSpecifierPatterns: [
         /^vue$/,
         /^@vue\//,
@@ -58,7 +55,6 @@ const CHECKER_ENTRY_RULES = [
   },
   {
     subpath: './auth-client',
-    phase: 'phase3',
     purity: {
       forbiddenSpecifierPatterns: [
         /^vue$/,
@@ -76,9 +72,8 @@ const CHECKER_ENTRY_RULES = [
   },
   {
     subpath: './server',
-    phase: 'phase4',
     purity: {
-      // Boundary rule for `/server` (internal §16.2): the public entry must be
+      // Boundary rule for `/server` (architecture invariant): the public entry must be
       // directly importable by Node because server integrations can load it at
       // request time, outside Nuxt's transform pipeline. Lazy Nitro runtime
       // APIs remain valid for authenticated cache operations after import.
@@ -106,7 +101,6 @@ const CHECKER_ENTRY_RULES = [
   },
   {
     subpath: './server/createUserSyncTriggers',
-    phase: 'phase4',
     purity: {
       // Framework-free: this entry has no Convex/H3/Nitro imports of its own
       // (it only takes user-supplied ctx/db shapes as generics), so any Vue,

@@ -31,7 +31,7 @@ function makeJwt(sub: string): string {
 }
 
 /**
- * Phase 3: `useConvexAuth()` derives its reactive contract (status/isPending/
+ * current implementation: `useConvexAuth()` derives its reactive contract (status/isPending/
  * isAuthenticated/user/token/error) from the canonical SSR-seeded identity plus
  * pending/error `useState` refs, and delegates operations (signOut/refresh/ready)
  * plus the integrated signIn/signUp namespaces to the coordinator owned by the
@@ -65,7 +65,7 @@ function provideFakeCoordinator(
   return coordinator
 }
 
-describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
+describe('useConvexAuth (Nuxt runtime, current implementation)', () => {
   it('returns the stable disabled contract for an auth-disabled build', async () => {
     const { result } = await captureInNuxt(() => useConvexAuth(), {
       convexConfig: { auth: false },
@@ -165,7 +165,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
     expect(result.signIn).toBe(signInNamespace)
   })
 
-  it('SSR-authenticated hydration never exposes "loading" (vNext §5.3 stated exception)', async () => {
+  it('SSR-authenticated hydration never exposes "loading" (exception)', async () => {
     const observed: string[] = []
     const { result, wrapper } = await captureInNuxt(
       () => {
@@ -199,7 +199,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
 
   it('a real coordinator attached to a hydrated snapshot settles without ever publishing loading', async () => {
     // End-to-end: the REAL coordinator's `attachPrimary` hydration path
-    // (internal §6.3/§6.4) publishes the settled authenticated state before
+    // (architecture invariant) publishes the settled authenticated state before
     // client-side confirmation; the fake client below resolves confirmation
     // synchronously, but `status` must never observe `loading` in between.
     const observed: string[] = []
@@ -252,7 +252,7 @@ describe('useConvexAuth (Nuxt runtime, Phase 3)', () => {
   it('HMR-safe: reevaluating the auth plugin on the same app reuses the existing coordinator', async () => {
     // Models `plugin.auth.client.ts`'s runtime-context idempotency guard against
     // the real coordinator factory. A second run on the same application must
-    // reuse the existing coordinator (internal §17.3 HMR reuse).
+    // reuse the existing coordinator (architecture invariant HMR reuse).
     let createCount = 0
     const authClient = {
       convex: { token: async () => ({ data: null, error: null }) },

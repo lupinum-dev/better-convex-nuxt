@@ -16,7 +16,7 @@ import {
   hashBearerSecret,
 } from './utils/mcpProjectTools'
 
-const proofServerSecret = 'mcp-agent-local-proof-server-secret-1234'
+const testServerSecret = 'mcp-agent-local-test-server-secret-1234'
 
 describe('MCP Convex client boundary', () => {
   it.each([
@@ -65,7 +65,7 @@ async function seedServiceActor(t: TestConvex, role: 'admin' | 'member' | 'viewe
     await ctx.db.insert('agentCredentials', {
       organizationId,
       serviceActorId,
-      secretHash: hashBearerSecret('proof-token'),
+      secretHash: hashBearerSecret('test-token'),
       status: 'active',
       createdAt: Date.now(),
     })
@@ -73,7 +73,7 @@ async function seedServiceActor(t: TestConvex, role: 'admin' | 'member' | 'viewe
   })
 }
 
-function createTools(t: TestConvex, getServerSecret = () => proofServerSecret) {
+function createTools(t: TestConvex, getServerSecret = () => testServerSecret) {
   const args = {
     getClient: () => ({
       query: (query, args) => t.query(query, args),
@@ -92,7 +92,7 @@ function createTools(t: TestConvex, getServerSecret = () => proofServerSecret) {
   }
 }
 
-function mcpExtra(token = 'proof-token') {
+function mcpExtra(token = 'test-token') {
   return {
     requestInfo: {
       headers: new Headers({ authorization: `Bearer ${token}` }),
@@ -105,7 +105,7 @@ describe('MCP project tool adapters with Convex functions', () => {
 
   beforeEach(() => {
     previousMcpServerSecret = process.env.MCP_SERVER_SECRET
-    process.env.MCP_SERVER_SECRET = proofServerSecret
+    process.env.MCP_SERVER_SECRET = testServerSecret
   })
 
   afterEach(() => {
@@ -126,7 +126,7 @@ describe('MCP project tool adapters with Convex functions', () => {
     expect(result.content).toEqual([{ type: 'text', text: '[]' }])
   })
 
-  it.each(['', 'short', ` ${proofServerSecret}`, `${proofServerSecret} `])(
+  it.each(['', 'short', ` ${testServerSecret}`, `${testServerSecret} `])(
     'rejects an unsafe server-side MCP secret before calling Convex: %j',
     async (configuredSecret) => {
       const t = convexTest(schema, modules)
@@ -149,8 +149,8 @@ describe('MCP project tool adapters with Convex functions', () => {
     expect(result.content[0]?.text).toContain('Created project')
 
     const projects = await t.query(api.projects.listForServiceActor, {
-      serverSecret: proofServerSecret,
-      bearerToken: 'proof-token',
+      serverSecret: testServerSecret,
+      bearerToken: 'test-token',
     })
     expect(projects).toHaveLength(1)
     expect(projects[0]?.name).toBe('Launch')
@@ -163,8 +163,8 @@ describe('MCP project tool adapters with Convex functions', () => {
 
     const result = await previewCreateProject.handler({ name: '  Launch  ' }, mcpExtra())
     const projects = await t.query(api.projects.listForServiceActor, {
-      serverSecret: proofServerSecret,
-      bearerToken: 'proof-token',
+      serverSecret: testServerSecret,
+      bearerToken: 'test-token',
     })
 
     expect(result.content[0]?.text).toContain('"operation": "projects.create"')
@@ -183,8 +183,8 @@ describe('MCP project tool adapters with Convex functions', () => {
     )
 
     const projects = await t.query(api.projects.listForServiceActor, {
-      serverSecret: proofServerSecret,
-      bearerToken: 'proof-token',
+      serverSecret: testServerSecret,
+      bearerToken: 'test-token',
     })
     expect(projects).toEqual([])
   })
@@ -231,8 +231,8 @@ describe('MCP project tool adapters with Convex functions', () => {
         .collect()
     })
     const credentialProjects = await t.query(api.projects.listForServiceActor, {
-      serverSecret: proofServerSecret,
-      bearerToken: 'proof-token',
+      serverSecret: testServerSecret,
+      bearerToken: 'test-token',
     })
 
     expect(foreignProjects).toEqual([])

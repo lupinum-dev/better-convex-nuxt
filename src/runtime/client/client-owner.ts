@@ -7,7 +7,7 @@ import { createLogger, type Logger } from '../utils/logger'
 import { createIdentityChangedError } from './identity-changed-error'
 
 /**
- * The per-Nuxt-app client owner (internal §4.1 `clients`, vNext §5.4).
+ * The per-Nuxt-app client owner (architecture invariant `clients`).
  *
  * This is the single source of truth for the current primary `ConvexClient` and
  * the lazy anonymous `none` client. It owns:
@@ -24,7 +24,7 @@ import { createIdentityChangedError } from './identity-changed-error'
  *
  * The owner allocates NEITHER counter: `authEpoch`/`identityGeneration` are
  * supplied by the auth coordinator through {@link replacePrimary} /
- * {@link attachAuthPort} (internal §7.4). The owner interprets no tokens.
+ * {@link attachAuthPort} (architecture invariant). The owner interprets no tokens.
  */
 export interface ConvexClientOwner {
   /** Immutable logger owned by this Nuxt application. */
@@ -39,10 +39,10 @@ export interface ConvexClientOwner {
   /**
    * The `none`-transport anonymous client. In an auth-enabled build this is a
    * dedicated client that never receives `setAuth`; in an auth-disabled build
-   * the permanently-anonymous primary is reused (vNext §7.5).
+   * the permanently-anonymous primary is reused.
    */
   getAnonymous(): OwnedConvexClient
-  /** Replace the primary for a new stable identity (internal §7.4). */
+  /** Replace the primary for a new stable identity (architecture invariant). */
   replacePrimary(input: ReplacePrimaryInput): Promise<OwnedConvexClient>
   /**
    * Drive replacement reactively from the frozen auth port. On every
@@ -67,7 +67,7 @@ export interface ConvexClientOwner {
 }
 
 /**
- * The public stable handle (vNext §5.4). Exactly `query | mutation | action |
+ * The public stable handle. Exactly `query | mutation | action |
  * onUpdate`; `connectionState`/`setAuth`/`clearAuth`/`close` are intentionally
  * absent. `onUpdate`'s return preserves the augmented `Unsubscribe` shape so the
  * handle stays assignable to `ConvexClient['onUpdate']`.
@@ -116,7 +116,7 @@ export interface CreateConvexClientOwnerInput {
   primaryFactory: () => OwnedConvexClient
   /**
    * Constructs the dedicated `none` anonymous client. Omit in an auth-disabled
-   * build so `getAnonymous()` reuses the already-anonymous primary (vNext §7.5).
+   * build so `getAnonymous()` reuses the already-anonymous primary.
    */
   anonymousFactory?: () => OwnedConvexClient
   /** Per-app logger. Tests and silent consumers default to the no-op logger. */
@@ -194,7 +194,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     }
   }
 
-  // ---- connection-state store (owned here; §4.1 single ownership) ----------
+  // ---- connection-state store (owned here; single ownership) ----------
   const connectionState = shallowRef<ConnectionState>({
     ...DEFAULT_CONNECTION_STATE,
   })
@@ -214,14 +214,14 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   }
   // On replacement: reset synchronously to the disconnected default, drop the
   // old subscription (old-epoch callbacks are thereby ignored), and re-subscribe
-  // to the replacement only when it has consumers (internal §7.4).
+  // to the replacement only when it has consumers (architecture invariant).
   function resetConnectionForReplacement() {
     unsubscribeConnection()
     connectionState.value = { ...DEFAULT_CONNECTION_STATE }
     if (connectionConsumers > 0) subscribeConnection()
   }
 
-  // ---- onUpdate listener registry (proof prototype: handle.mjs) -------------
+  // ---- onUpdate listener registry -------------------------------------------
   function subscribeEntry(entry: OnUpdateEntry) {
     if (!primary || (authPort && !authPort.snapshot().settled)) return
     const subscribedClient = primary
@@ -277,7 +277,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   }
 
   // Await any replacement already in progress and never dispatch to a superseded
-  // client (vNext §5.4). Throws if no usable primary survives.
+  // client. Throws if no usable primary survives.
   async function primaryForDispatch(): Promise<{
     client: OwnedConvexClient
     identityGeneration: number
@@ -302,7 +302,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     args: unknown,
     // The optional third argument (`mutation`'s optimistic-update option) is
     // forwarded verbatim to the current primary so routing through the handle
-    // never silently drops it (vNext §5.4 handle stays behaviourally equal to
+    // never silently drops it; the handle stays behaviourally equal to
     // the raw client for the four supported operations).
     options?: unknown,
   ): Promise<unknown> {
@@ -416,7 +416,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
         await Promise.race([replaceInput.initialize(candidate), disposedSignal])
         if (disposed) throw createIdentityChangedError()
       } catch (error) {
-        // The candidate's WebSocket is already open at construction (§4.1); a
+        // The candidate's WebSocket opens at construction; a
         // rejected/guard-failed confirmation must not leak it. Close before
         // rethrowing so the caller's error contract is unchanged.
         if (candidate) await closeReplacementCandidate(candidate)
@@ -479,7 +479,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
         }
       }
       // Only a stable identity-key change replaces the primary. An epoch-only
-      // change (same-user token rotation) keeps the current client (vNext §5.4).
+      // change (same-user token rotation) keeps the current client.
       if (snapshot.identityGeneration === observedGeneration) return
       const targetGeneration = snapshot.identityGeneration
       observedGeneration = targetGeneration
@@ -509,7 +509,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   }
 
   function addDisposer(dispose: () => void): void {
-    // A disposer registered after teardown began runs immediately (§4.2).
+    // A disposer registered after teardown began runs immediately.
     if (disposed) {
       try {
         dispose()

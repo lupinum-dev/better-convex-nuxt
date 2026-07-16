@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AST-based dependency-direction gate (internal §16.1).
+ * AST-based dependency-direction gate (architecture invariant).
  *
  * Uses the repository's installed `typescript` parser (no new dependency) to
  * build a real import/export edge graph — static imports, dynamic `import()`,
@@ -9,14 +9,8 @@
  * `import('mod').Foo` type positions) are tracked separately from value
  * edges because they cannot introduce runtime coupling.
  *
- * This script enforces *architecture* (who may depend on whom). It must not
- * duplicate the vocabulary checker's spelling/wording rules (section 16.3).
- *
- * Rules are declared in one table, gated by `phase`, following the same
- * activation-schedule pattern as `check-vocabulary.mjs`: only phases listed
- * in ACTIVE_PHASES actually run. Rules for future boundaries (`/errors`,
- * `/auth-client`, pure transitions) are listed as scheduled entries so later
- * phases activate them by extending ACTIVE_PHASES — no restructuring.
+ * This script enforces current architecture: who may depend on whom. Every
+ * rule in the table runs on every invocation.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -27,9 +21,6 @@ import ts from 'typescript'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const p = (...segments) => resolve(repoRoot, ...segments)
-
-/** Phases whose rules actually execute. Extend as later phases land boundaries. */
-const ACTIVE_PHASES = ['phase0', 'phase2', 'phase3']
 
 /** Directory names never walked into, anywhere in the tree. */
 const EXCLUDED_DIR_NAMES = new Set([
@@ -88,7 +79,7 @@ const MODULE_BUILD_FILES = readdirSync(p('src'))
 
 const RUNTIME_ROOT = p('src/runtime')
 
-/** Future boundary roots that do not exist yet; referenced only by scheduled rules. */
+/** Public framework-boundary implementation roots. */
 const ERRORS_DIR = p('src/runtime/errors')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 
@@ -125,14 +116,13 @@ const BROWSER_ONLY_BARE_SPECIFIERS = [
 ]
 
 // ---------------------------------------------------------------------------
-// Edge table (internal §16.1)
+// Edge table (architecture invariant)
 // ---------------------------------------------------------------------------
 
 /**
  * @typedef {object} Rule
  * @property {string} name - short rule identifier
  * @property {string} description - human-readable summary shown on failure
- * @property {'phase0'|'phase2'|'phase3'} phase - activation-schedule gate, see ACTIVE_PHASES
  * @property {(absPath: string) => boolean} from - files this rule inspects
  * @property {(edge: Edge) => boolean} disallow - true if the edge is forbidden
  * @property {boolean} [typeOnlyExempt] - if true (default), a type-only edge that would
@@ -150,7 +140,6 @@ const RULES = [
     name: 'server-no-browser-imports',
     description:
       'src/runtime/server/** must never import composables, components, middleware, the auth engine, Vue, or the client plugin.',
-    phase: 'phase0',
     from: isServerRuntime,
     disallow: (edge) => {
       if (edge.isRelative) {
@@ -163,7 +152,6 @@ const RULES = [
     name: 'browser-no-server-imports',
     description:
       'Browser runtime (composables, components, middleware, auth engine, client plugin) must never import src/runtime/server/**.',
-    phase: 'phase0',
     from: (absPath) => isBrowserRuntime(absPath),
     disallow: (edge) =>
       edge.isRelative && edge.resolvedAbsPath !== null && isServerRuntime(edge.resolvedAbsPath),
@@ -172,19 +160,16 @@ const RULES = [
     name: 'module-no-runtime-leak',
     description:
       'src/runtime/** must never import src/module*.ts (module/build code leaking into runtime entries).',
-    phase: 'phase0',
     from: isRuntimeEntry,
     disallow: (edge) =>
       edge.isRelative && edge.resolvedAbsPath !== null && isModuleBuild(edge.resolvedAbsPath),
     typeOnlyExempt: false,
   },
 
-  // --- Scheduled (inactive) future boundaries — flip on by extending ACTIVE_PHASES. ---
   {
     name: 'errors-framework-free',
     description:
       '/errors implementation must import only its own framework-free code, platform-neutral language primitives, and the public Convex error-value entry.',
-    phase: 'phase2',
     from: (absPath) => inDir(absPath, ERRORS_DIR),
     disallow: (edge) => {
       if (!edge.isRelative) {
@@ -197,7 +182,6 @@ const RULES = [
     name: 'auth-client-no-runtime-deps',
     description:
       '/auth-client implementation must import no runtime dependency; type-only Better Auth imports are allowed, Nuxt/#app/Vue/Nitro/Node-only/server-runtime are forbidden.',
-    phase: 'phase3',
     from: (absPath) => inDir(absPath, AUTH_CLIENT_DIR),
     disallow: (edge) => {
       if (edge.isRelative) {
@@ -208,21 +192,6 @@ const RULES = [
         edge.specifier.startsWith('node:') ||
         edge.specifier === 'nitropack' ||
         edge.specifier.startsWith('nitropack/')
-      )
-    },
-  },
-  {
-    name: 'pure-transitions-no-framework',
-    description:
-      'Pure auth/query transition modules must never import Nuxt, Vue, Nitro, or environment globals.',
-    phase: 'phase3',
-    from: () => false, // no dedicated directory exists yet; activated with its owning rewrite.
-    disallow: (edge) => {
-      if (edge.isRelative) return false
-      return (
-        BROWSER_ONLY_BARE_SPECIFIERS.some((re) => re.test(edge.specifier)) ||
-        edge.specifier.startsWith('node:') ||
-        edge.specifier === 'nitropack'
       )
     },
   },
@@ -421,9 +390,6 @@ function assertKnownPathsExist() {
 function main() {
   assertKnownPathsExist()
 
-  const activeRules = RULES.filter((rule) => ACTIVE_PHASES.includes(rule.phase))
-  const scheduledRules = RULES.filter((rule) => !ACTIVE_PHASES.includes(rule.phase))
-
   const files = collectFiles(p('src'))
 
   /** @type {{ rule: Rule, file: string, specifier: string, isTypeOnly: boolean }[]} */
@@ -440,7 +406,7 @@ function main() {
       process.exit(1)
     }
 
-    for (const rule of activeRules) {
+    for (const rule of RULES) {
       if (!rule.from(absoluteFile)) continue
       const typeOnlyExempt = rule.typeOnlyExempt !== false
       for (const edge of edges) {
@@ -475,17 +441,10 @@ function main() {
     process.exit(1)
   }
 
-  console.log(
-    `✓ boundary check passed (${activeRules.length} active rule(s), ${files.length} file(s) scanned).`,
-  )
-  if (scheduledRules.length > 0) {
-    console.log(
-      `  scheduled (inactive): ${scheduledRules.map((r) => `${r.name} [${r.phase}]`).join(', ')}`,
-    )
-  }
+  console.log(`✓ boundary check passed (${RULES.length} rule(s), ${files.length} file(s) scanned).`)
 }
 
-export { ACTIVE_PHASES, RULES }
+export { RULES }
 
 const isMainModule = process.argv[1] && import.meta.url === `file://${process.argv[1]}`
 if (isMainModule) {

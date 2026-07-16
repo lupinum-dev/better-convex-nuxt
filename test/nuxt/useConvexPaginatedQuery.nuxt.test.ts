@@ -17,7 +17,7 @@ function page<T>(items: T[], isDone: boolean, cursor: string | null): Pagination
   return { page: items, isDone, continueCursor: cursor ?? '' } as PaginationResult<T>
 }
 
-// vNext §6 / internal §7.6: the pagination controller owns first- and later-page
+// architecture invariant: the pagination controller owns first- and later-page
 // acquisition through composable-owned listeners, and clears its pages on an
 // identity change.
 describe('useConvexPaginatedQuery controller', () => {

@@ -5,8 +5,8 @@ import type { ConvexIdentityKey } from '../utils/identity-key'
 
 /**
  * The FROZEN private auth port consumed by query gating and client replacement
- * (internal §7.2). Phase 3 replaces the engine BEHIND this port — the interface
- * and its consumers are unchanged. The Phase 3 coordinator
+ * (architecture invariant). current implementation replaces the engine BEHIND this port — the interface
+ * and its consumers are unchanged. The current implementation coordinator
  * ({@link createConvexAuthCoordinator}) is the real publisher of `authEpoch` and
  * `identityGeneration`; no query or client-owner code reads auth state except
  * through this port.

@@ -9,9 +9,9 @@ import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type Computed
 
 import { useNuxtApp } from '#imports'
 
+import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
-import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
-import { getFunctionName } from '../utils/convex-cache'
+import { getFunctionName } from '../utils/convex-shared'
 import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -322,11 +322,8 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
     error.value = null
     progress.value = 0
 
-    // Create the AbortController before the URL-request mutation (not after
-    // it resolves) so cancel() called during that phase has something to
-    // signal — previously the window between calling upload() and the
-    // mutation resolving had no controller, so cancel() was a no-op and the
-    // upload would later overwrite the reset state with 'success'.
+    // Create the AbortController before requesting the URL so cancel() can
+    // cover the complete upload lifecycle.
     const controller = new AbortController()
     currentAbortController = controller
 
@@ -339,9 +336,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         })
       }
 
-      // Step 1: Get upload URL from Convex through the stable owner handle
-      // (vNext §5.4, §11 — upload ownership is unchanged; only the transport
-      // seam moves off the raw replaceable `$convex`).
+      // Step 1: Get an upload URL through the stable owner handle.
       const postUrl = await requestUploadUrl(
         owner.handle,
         generateUploadUrlMutation,
@@ -385,7 +380,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         throw e
       }
 
-      // Normalize at the upload boundary (vNext §7): transport failures from the
+      // Normalize at the upload boundary : transport failures from the
       // XHR layer pass through unchanged; anything else is classified once.
       const err = normalizeConvexError(e)
       _status.value = 'error'

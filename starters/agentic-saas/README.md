@@ -1,6 +1,6 @@
-# Agentic SaaS Proof Starter
+# Agentic SaaS Starter
 
-Proof starter for tenant-aware SaaS apps where agents are first-class product
+Reference starter for tenant-aware SaaS apps where agents are first-class product
 actors without becoming a privileged side door.
 
 ## Ownership
@@ -14,10 +14,10 @@ Better Auth remains the canonical source for auth-domain state:
 - roles
 - sessions
 
-This proof starter intentionally has no app-owned `organizations` or
+This starter intentionally has no app-owned `organizations` or
 `memberships` tables. App tables store Better Auth ids as strings.
 
-## Proves
+## Covered contracts
 
 - app-owned `agentRuns` are the delegation source for agent tool calls;
 - Better Auth Organization is wired through a local Better Auth component for
@@ -26,22 +26,21 @@ This proof starter intentionally has no app-owned `organizations` or
   organization permissions;
 - live Better Auth `hasPermission()` allows an organization owner to start a
   delegated run and denies an outsider without creating an `agentRuns` row;
-- public run start is Better Auth-backed, and production Convex plus Nuxt app
-  source are source-tested free of proof-token markers; old-shape
-  caller-supplied delegating user ids are runtime-rejected before creating an
+- public run start is Better Auth-backed, and old-shape caller-supplied
+  delegating user ids are runtime-rejected before creating an
   `agentRuns` row;
 - public agent execution, revocation, message reads, stream reads, and
   retention cleanup take `agentRunId` only and derive the organization and
   component thread id from `agentRuns`; this run-id public surface is
   source-tested against caller-supplied organization, thread, user, and token
-  args;
+  arguments;
 - run start rejects blank or over-120-character agent names and stores
   deduplicated capability lists in stable canonical order; persisted component
   thread ids are capped at 512 characters;
 - invalid run expiry and token budgets are rejected before creating an
   `agentRuns` row;
-- public approval/rejection mutations are source-tested and runtime-tested as
-  review-row-id-only surfaces; they derive the human actor from a Better Auth
+- public approval/rejection mutations expose review-row-id-only surfaces;
+  they derive the human actor from a Better Auth
   session and reject caller-supplied user ids;
 - pending approval queue reads require Better Auth `project:read` permission,
   return at most 100 rows per review type, and reject new agent-created review
@@ -185,11 +184,10 @@ This proof starter intentionally has no app-owned `organizations` or
   draft, list pending draft, approve draft, and write canonical product/audit
   rows.
 
-## Does Not Prove Yet
+## Out of scope
 
-- real provider LLM generation and provider-backed streaming. The starter is
-  source-tested as mock-only until that proof exists;
-- real configured Convex project deployment. Anonymous local Convex is proven;
+- real provider LLM generation and provider-backed streaming;
+- real configured Convex project deployment;
 - authenticated approval queue runtime against a cloud/project deployment;
 - billing rollups and cost calculations;
 - MCP transport;
@@ -219,7 +217,7 @@ pnpm convex:local:once
 pnpm convex:codegen
 ```
 
-For local browser runtime proof:
+For local browser runtime verification:
 
 ```bash
 pnpm convex:local:once
@@ -233,7 +231,6 @@ pnpm dev
 
 ## Template Cutover
 
-This is still a proof starter. Before using it as the shipped SaaS Kit template,
-apply the cutover checklist in `../../ai-learnings.md`: keep the public auth
-argument cutover, keep mocks in tests, and re-prove the browser flow after any
-final product copy or UX pass.
+Before using this reference as a shipped SaaS template, retain its public auth
+argument boundary, keep provider mocks confined to tests, and rerun the browser
+flow after product or UX changes.

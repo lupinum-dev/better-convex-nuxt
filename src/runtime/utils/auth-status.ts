@@ -2,7 +2,7 @@ import type { ConvexCallError } from '../errors'
 import { isAuthenticatedIdentityKey, type ConvexIdentityKey } from './identity-key'
 
 /**
- * Per-query authentication mode (vNext §5.2).
+ * Per-query authentication mode .
  *
  * | Mode       | Initial auth loading | Settled authenticated | Settled anonymous   |
  * | ---------- | -------------------- | --------------------- | ------------------- |
@@ -16,7 +16,7 @@ import { isAuthenticatedIdentityKey, type ConvexIdentityKey } from './identity-k
 export type ConvexAuthMode = 'required' | 'optional' | 'none'
 
 /**
- * Current usable identity (vNext §5.3). Orthogonal to `isPending`, which tracks
+ * Current usable identity . Orthogonal to `isPending`, which tracks
  * auth work in flight. A background refresh keeps `status === 'authenticated'`
  * while `isPending === true`.
  */
@@ -35,8 +35,8 @@ export interface ConvexAuthStatusInput {
 }
 
 /**
- * Derive the canonical status in the exact precedence locked by vNext §5.3 and
- * internal §6.2: `disabled` → `loading` → `authenticated` → `error` → `anonymous`.
+ * Derive the canonical status in the exact precedence locked by public and
+ * architecture invariant: `disabled` → `loading` → `authenticated` → `error` → `anonymous`.
  *
  * `authenticated` outranks `error` so a failed background refresh over a still
  * usable identity keeps `authenticated`. `error` outranks `anonymous` so a

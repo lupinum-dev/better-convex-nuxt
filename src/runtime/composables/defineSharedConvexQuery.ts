@@ -33,7 +33,7 @@ export type DefineSharedConvexQueryOptions<
 
 /**
  * Create a shared query composable that initializes once per Nuxt app (internal
- * §7.7). The returned closure is the canonical definition identity: it owns one
+ *). The returned closure is the canonical definition identity: it owns one
  * `WeakMap<NuxtApp, SharedState>`; there is no caller-key registry, no config
  * fingerprinting, no duplicate-key collision check, and no mutation of the Nuxt
  * app object. The shared state inherits the same identity isolation as a

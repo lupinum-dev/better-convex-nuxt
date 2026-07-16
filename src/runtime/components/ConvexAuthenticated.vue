@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Renders slot content only when auth status is `authenticated` (vNext §4.2).
+ * Renders slot content only when auth status is `authenticated`.
  *
  * @example
  * ```vue

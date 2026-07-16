@@ -69,7 +69,7 @@ with `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, or
 
 Set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex before starting auth routes,
 including for local development. The request factory always fails closed
-without explicit runtime values. `pnpm verify:browser` supplies isolated proof
+without explicit runtime values. `pnpm verify:browser` supplies isolated test
 values itself.
 
 `pnpm build` also starts the generated Nitro server and asserts that `/`

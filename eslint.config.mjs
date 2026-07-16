@@ -1,7 +1,7 @@
 // @ts-check
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat'
 
-// Run `npx @eslint/config-inspector` to inspect the resolved config interactively
+// Run `pnpm dlx @eslint/config-inspector` to inspect the resolved config interactively
 export default createConfigForNuxt({
   features: {
     // Rules for module authors
@@ -15,14 +15,13 @@ export default createConfigForNuxt({
 })
   .prepend(
     // Ignore demo and docs folders - they have their own eslint configs.
-    // Standalone proof-fixture apps own their own TS programs/toolchains and
-    // are not part of the repo eslint project service (internal §15.4).
+    // Standalone fixture apps own their own TS programs/toolchains and are not
+    // part of the repo eslint project service.
     {
       ignores: [
         'demo/**',
         'docs/**',
         '**/convex/**/_generated/**',
-        'test/proofs/harnesses/hmr/fixture/**',
         'test/fixtures/ssr-errors-consumer/**',
         'test/fixtures/auth-client-typing/**',
       ],

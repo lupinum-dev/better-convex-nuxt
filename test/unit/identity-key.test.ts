@@ -12,7 +12,7 @@ function user(id: string): ConvexUser {
   return { id } as ConvexUser
 }
 
-describe('getConvexIdentityKey (vNext §5.4, single stable extraction function)', () => {
+describe('getConvexIdentityKey (single stable extraction function)', () => {
   it('returns "anonymous" for null', () => {
     expect(getConvexIdentityKey(null)).toBe('anonymous')
   })
@@ -65,7 +65,7 @@ describe('isAuthenticatedIdentityKey', () => {
   })
 })
 
-describe('withAuthDimension (vNext §8 payload-key grammar)', () => {
+describe('withAuthDimension payload-key grammar', () => {
   it('"none" is a static, identity-independent suffix', () => {
     expect(withAuthDimension('convex:tasks:list:abc', 'none', 'anonymous')).toBe(
       'convex:tasks:list:abc:auth:none',

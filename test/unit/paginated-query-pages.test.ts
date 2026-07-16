@@ -65,7 +65,7 @@ describe('paginated query page state', () => {
 
     expect(nextPages).not.toBe(pages)
     expect(nextPages[0]?.result).toBe(result)
-    // Page errors are normalized to ConvexCallError at the boundary (vNext §7);
+    // Page errors are normalized to ConvexCallError at the boundary ;
     // a plain Error stays `unknown` with its message preserved and the raw error
     // retained as the runtime-only cause.
     expect(nextPages[0]?.error).toBeInstanceOf(ConvexCallError)

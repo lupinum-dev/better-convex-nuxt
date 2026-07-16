@@ -28,7 +28,7 @@ type TightenEmptyArgsParam<T> =
   T extends MaybeRefOrGetter<infer Value> ? MaybeRefOrGetter<TightenEmptyArgs<Value>> : T
 
 /**
- * The client `(args, options)` call shape (vNext §5.5, decision 9). The args
+ * The client `(args, options)` call shape (decision 9). The args
  * slot is ALWAYS required and positional — even a no-argument Convex function
  * must be called with `{}`. A truly empty args object is tightened to
  * `Record<PropertyKey, never>` so an options-shaped object can never occupy the

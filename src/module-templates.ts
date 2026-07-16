@@ -3,9 +3,9 @@ export function getMissingConvexApiTemplateContents(): string {
 type MissingConvexGeneratedApi = {
   /**
    * The generated Convex API was not found.
-   * Run \`npx convex dev\` or \`npx convex codegen\` to create \`convex/_generated/api\`.
+   * Run \`pnpm exec convex dev\` or \`pnpm exec convex codegen\` to create \`convex/_generated/api\`.
    */
-  readonly __betterConvexNuxtError: 'Missing generated Convex API. Run npx convex dev or npx convex codegen.'
+  readonly __betterConvexNuxtError: 'Missing generated Convex API. Run pnpm exec convex dev or pnpm exec convex codegen.'
 }
 
 function createMissingConvexApiProxy(path: string[]): MissingConvexGeneratedApi {
@@ -13,12 +13,12 @@ function createMissingConvexApiProxy(path: string[]): MissingConvexGeneratedApi 
     get(_target, prop) {
       if (typeof prop === 'symbol') return undefined
       if (prop === '__betterConvexNuxtError') {
-        return 'Missing generated Convex API. Run npx convex dev or npx convex codegen.'
+        return 'Missing generated Convex API. Run pnpm exec convex dev or pnpm exec convex codegen.'
       }
       const accessPath = [...path, String(prop)].join('.')
       throw new Error(
         '[better-convex-nuxt] #convex/api points to a placeholder because convex/_generated/api was not found. ' +
-          'Run \`npx convex dev\` or \`npx convex codegen\` to generate your Convex API. ' +
+          'Run \`pnpm exec convex dev\` or \`pnpm exec convex codegen\` to generate your Convex API. ' +
           'Attempted to access ' + accessPath + '.',
       )
     },
@@ -37,11 +37,9 @@ export function getTypeAugmentationTemplateContents(authPageMetaTypeImport: stri
   return `
 import type { ConvexAuthPageMeta } from ${authPageMetaImportSpecifier}
 
-// The public \`$convex\` and \`$auth\` Nuxt-app property augmentations are deleted
-// (vNext §5.4): consumers use the \`useConvex()\` handle and the auth composables,
-// never a raw replaceable client. The auth-refresh hook command bus is deleted
-// (internal §6.3); only the route-protection page meta remains part of the
-// generated public surface.
+// Consumers use the stable \`useConvex()\` handle and auth composables instead
+// of raw replaceable clients. Only route-protection page metadata needs a
+// generated type augmentation.
 declare module '#app' {
   interface PageMeta {
     /**

@@ -16,7 +16,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// vNext §6 runtime assertions (anonymous transport, internal §7.5): in an
+// public runtime assertions (anonymous transport, architecture invariant): in an
 // auth-enabled app, a live `none` query runs through the dedicated anonymous
 // client that never receives auth, so an authenticated subject is not observed,
 // and sign-in/out/rotation never reacquire the mounted `none` subscription.
@@ -93,7 +93,7 @@ describe('useConvexQuery none transport isolation', () => {
 
     await flush()
 
-    // Auth disabled: the permanently-anonymous primary serves none (vNext §7.5).
+    // Auth disabled: the permanently-anonymous primary serves none .
     expect(primary.calls.onUpdate.length).toBe(1)
     expect(anon.calls.onUpdate.length).toBe(0)
   })

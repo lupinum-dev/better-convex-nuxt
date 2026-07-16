@@ -6,7 +6,7 @@ import {
   isPlainNamespaceObject,
 } from '../../src/runtime/auth/integrated-namespace'
 
-describe('getSessionSynchronizationToken (vNext §8 predicate)', () => {
+describe('getSessionSynchronizationToken', () => {
   it('returns only a non-empty string data.token', () => {
     expect(getSessionSynchronizationToken({ data: { token: 'session-token' }, error: null })).toBe(
       'session-token',
@@ -54,7 +54,7 @@ describe('isPlainNamespaceObject', () => {
   })
 })
 
-describe('createIntegratedAuthNamespace (vNext §8)', () => {
+describe('createIntegratedAuthNamespace ', () => {
   function makeNamespace() {
     const wait = vi.fn(async (_sessionToken: string | null) => {})
     const cancel = vi.fn()

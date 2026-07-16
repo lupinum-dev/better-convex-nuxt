@@ -159,7 +159,7 @@ const { data: permissionContext } = await useConvexQuery(
   permissionQueryArgs,
 )
 
-// Compile-time proof: this property access fails if ConvexUser augmentation
+// Compile-time assertion: this property access fails if ConvexUser augmentation
 // does not flow through useConvexAuth().user.
 const augmentedUserFields = computed(() => ({
   authId: user.value?.authId,

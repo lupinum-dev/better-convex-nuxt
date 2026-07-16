@@ -37,8 +37,3 @@ export interface ConvexUser {
  * Shared lifecycle status for query/mutation/action composables.
  */
 export type ConvexCallStatus = 'idle' | 'pending' | 'success' | 'error'
-
-/**
- * Server-side auth mode for server helper calls.
- */
-export type ConvexServerAuthMode = 'optional' | 'required' | 'none'

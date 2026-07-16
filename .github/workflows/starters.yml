@@ -82,7 +82,6 @@ jobs:
         run: corepack enable
 
       - name: Starter generated-artifact allowlist check
-        # Pure node:fs scan over starters/** — no install required (internal
-        # §15.4). Also covered by the always-on root `lint` job; run again
-        # here so this workflow is a complete, self-contained starters gate.
+        # Pure node:fs scan over starters/**; no install is required. The root
+        # lint command also covers it, but this keeps the starters gate whole.
         run: node scripts/check-no-starter-generated-artifacts.mjs

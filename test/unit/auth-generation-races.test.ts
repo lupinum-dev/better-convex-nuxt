@@ -199,7 +199,7 @@ function createHarness(
   }
 }
 
-describe('auth coordinator generation races (vNext §5.3)', () => {
+describe('auth coordinator generation races ', () => {
   it('loading → authenticated on initial settlement (SSR-less)', async () => {
     const h = createHarness({
       initial: { data: { token: makeJwt('A') }, error: null },
@@ -454,7 +454,7 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
     h.pushToken(makeJwt('B'))
     await h.signInTriggering()
     expect(h.subject()).toBe('B')
-    // Effect count (internal §17.2): the generation delta of exactly 1 IS the
+    // Effect count (architecture invariant): the generation delta of exactly 1 IS the
     // publish count — identityGeneration increments once per published
     // identity transition, so +1 proves exactly one A→B publish occurred.
     expect(h.coordinator.port.snapshot().identityGeneration).toBe(genBefore + 1)
@@ -600,7 +600,7 @@ describe('auth coordinator generation races (vNext §5.3)', () => {
   })
 })
 
-describe('ready() snapshot semantics (vNext §5.3/§6.4)', () => {
+describe('ready() snapshot semantics ', () => {
   it('resolves immediately with the current status once settled and no refresh is active', async () => {
     const h = createHarness({
       initial: { data: { token: makeJwt('A') }, error: null },

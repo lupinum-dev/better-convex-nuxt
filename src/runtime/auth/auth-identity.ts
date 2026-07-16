@@ -2,7 +2,7 @@ import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-
 import type { ConvexUser } from '../utils/types'
 
 /**
- * Identity as ONE discriminated value (internal §6.1). Never independent booleans
+ * Identity as ONE discriminated value (architecture invariant). Never independent booleans
  * for token/user/authenticated/loading, and never a manufactured empty-string
  * user field. `key` is always the stable Better Auth `user.id`.
  */
@@ -21,8 +21,8 @@ export const ANONYMOUS_IDENTITY: AuthIdentity = { status: 'anonymous' }
 
 /**
  * Build an authenticated identity from a confirmed token + user, or fall back to
- * anonymous when the user has no stable id (a token without a resolved user is
- * not a settled identity — vNext §5.3/§5.4). Pure.
+ * anonymous when the user has no stable id. A token without a resolved user is
+ * not a settled identity. Pure.
  */
 export function toAuthenticatedIdentity(token: string, user: ConvexUser): AuthIdentity {
   try {

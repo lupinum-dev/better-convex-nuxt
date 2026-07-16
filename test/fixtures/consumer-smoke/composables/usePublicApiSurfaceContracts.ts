@@ -15,7 +15,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
   const config = useConvexConfig()
   assertType<string | undefined>(config.url)
   // @ts-expect-error `useConvexConfig()` returns a read-only projection
-  // (vNext §8) — every field is `readonly`, so assignment must not compile.
+  //  — every field is `readonly`, so assignment must not compile.
   config.url = 'https://mutated.convex.cloud'
   if (config.auth !== false) {
     assertType<string>(config.auth.proxy.trustedClientIpHeader)
@@ -26,13 +26,11 @@ export async function usePublicApiSurfaceContracts(file: File) {
   }
 
   // Canonical/profile user helper: positional args are required, even for a
-  // no-argument query (vNext §5.5/§6). Not an alias for `useConvexAuth().user`.
+  // no-argument query . Not an alias for `useConvexAuth().user`.
   const user = useConvexUser(api.auth.viewer, {})
   assertType<'none' | 'session' | 'better-auth' | 'projection'>(user.source.value)
 
-  // The stable, replacement-safe client handle replaces direct `useConvexCall`
-  // (deleted in Phase 1). The handle is exactly `query | mutation | action |
-  // onUpdate` (vNext §5.4).
+  // The stable client handle exposes exactly query, mutation, action, and onUpdate.
   const convex = useConvex()
   assertType<string[]>(await convex.query(api.tasks.list, {}))
   assertType<string>(await convex.mutation(api.tasks.create, { text: 'from smoke' }))
@@ -124,8 +122,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
   const upload = useConvexFileUpload(api.files.generateUploadUrl)
   assertType<string>(await upload.upload(file))
   assertType<ComputedRef<string | null>>(useConvexStorageUrl(api.files.getUrl, upload.data))
-  // Auth transport mode is the three-literal ConvexAuthMode; the legacy
-  // 'auto'/'none'-string dialect is gone (vNext §5.2).
+  // Auth transport mode is the three-literal ConvexAuthMode.
   assertType<ComputedRef<string | null>>(
     useConvexStorageUrl(api.files.getUrl, upload.data, { auth: 'required' }),
   )
@@ -134,9 +131,7 @@ export async function usePublicApiSurfaceContracts(file: File) {
   assertType<string[]>(await queue.enqueue(file))
   assertType<boolean>((await queue.enqueueSafe(file)).ok)
 
-  // Typed-client definition surface (vNext §8): the framework-free
-  // `defineConvexAuthClient` from `better-convex-nuxt/auth-client` is the public
-  // replacement for the deleted `createBetterConvexAuthClient` factory. The
+  // The framework-free typed client definition comes from the auth-client entry. The
   // plugin-typed narrowing of `useConvexAuth().client` is proven end-to-end in
   // the single-`better-auth`-copy packed fixture `test/fixtures/auth-client-typing`;
   // this linked smoke only pins the value + empty-definition type surface.
@@ -145,34 +140,8 @@ export async function usePublicApiSurfaceContracts(file: File) {
 }
 
 /**
- * Negative-space contracts for APIs deleted in Phase 1 (vNext §6: "removed
- * `getQueryKey` imports fail in a packed consumer"). Referencing any of these
- * removed names must fail the packed-consumer typecheck; reintroducing the
- * export (or its auto-import registration) makes these `@ts-expect-error`
- * lines fail `check:consumer-smoke` because the annotated line no longer
- * errors. The function is never invoked at runtime.
- */
-function _removedApiSurfaceContracts() {
-  // @ts-expect-error getQueryKey was deleted in Phase 1 (renamed internally to
-  // createConvexQueryKey, which is not a public export/auto-import)
-  void getQueryKey(api.tasks.list, {})
-
-  // @ts-expect-error useConvexCall was deleted in Phase 1; use useConvex() or
-  // the appropriate stateful composable
-  void useConvexCall()
-
-  // @ts-expect-error createPermissions and the whole permissions subsystem were
-  // deleted in Phase 1; the recipe moved to a standalone doc that imports no
-  // permission runtime from the package
-  void createPermissions()
-}
-void _removedApiSurfaceContracts
-
-/**
- * Negative-space call-arity contracts (vNext §5.5 decision 9).
- * These calls must NOT compile; reverting the always-required positional args
- * slot makes the `@ts-expect-error` lines fail `check:consumer-smoke`. The
- * function is never invoked at runtime.
+ * Public call-arity contracts. These calls pin the required args position and
+ * accepted query argument shapes against the packed package.
  */
 async function _requiredArgsContracts() {
   // --- useConvexQuery: args are ALWAYS positional and required, even for a
@@ -195,11 +164,11 @@ async function _requiredArgsContracts() {
   void useConvexQuery(api.files.getUrl, { wrong: 1 })
   // @ts-expect-error no-arg functions must reject arbitrary properties (R2-3.3b)
   void useConvexQuery(api.tasks.list, { initialNumItems: 5 })
-  // @ts-expect-error options can never occupy the args slot (vNext §5.5)
+  // @ts-expect-error options can never occupy the args slot
   void useConvexQuery(api.tasks.list, { server: false })
 
   // --- useConvexQuery: all-optional args still require the explicit slot
-  // (decision 9 — this differs from pre-Phase-1 behavior, where all-optional
+  // (decision 9 — this differs from earlier behavior, where all-optional
   // args could omit the slot entirely) ---
   // Positive: all-optional args accept a populated object.
   void useConvexQuery(api.tasks.search, { limit: 5 })

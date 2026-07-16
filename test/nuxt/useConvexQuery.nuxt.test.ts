@@ -44,7 +44,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     await waitFor(() => convex.calls.onUpdate.length > 0)
     // A genuine query failure (not a reconnectable disconnect) is normalized once
-    // at the boundary and stored in the library-owned error state (vNext §7).
+    // at the boundary and stored in the library-owned error state .
     convex.emitQueryError(query, {}, new Error('query exploded'))
     await waitFor(() => result.error.value != null)
 
@@ -230,7 +230,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.queryResult.pending.value).toBe(true)
     expect(convex.calls.onUpdate.length).toBe(0)
 
-    // A settled identity requires a resolved user (vNext §5.4), not just a token.
+    // A settled identity requires a resolved user , not just a token.
     result.identity.value = toAuthenticatedIdentity('ready.jwt.token', { id: 'u1' })
     result.authPending.value = false
     await flush()
@@ -287,11 +287,6 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(result.status.value).toBe('success')
     expect(result.data.value).toEqual([{ _id: 'n1', title: 'Loaded' }])
   })
-
-  // NOTE: shared-subscription dedup / refcount / bridge tests were removed in the
-  // Phase 1 cutover. Each mounted composable now owns one `onUpdate` listener and
-  // Convex deduplicates on the wire (internal §7.1/§7.3), so per-composable
-  // listener isolation is no longer a library-owned dedup concern.
 
   it('re-subscribes when nested reactive args mutate deeply', async () => {
     const convex = new MockConvexClient()

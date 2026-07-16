@@ -12,7 +12,7 @@ import {
 import { executeQueryHttp } from '../../src/runtime/utils/query-execution'
 
 /**
- * Golden fixtures for the public error contract (vNext §7, §5.6, internal §9).
+ * Golden fixtures for the public error contract (architecture invariant).
  *
  * The pure normalizer classifies only from reliable evidence. It NEVER classifies
  * a `TypeError` as `transport` and NEVER classifies from message text. `transport`
@@ -50,7 +50,7 @@ function payloadRoundTrip(error: ConvexCallError): unknown {
   })
 }
 
-describe('ConvexCallError golden fixtures (vNext §7)', () => {
+describe('ConvexCallError golden fixtures ', () => {
   it('1. auth-context-created authentication error (boundary-owned, passes through)', () => {
     const authError = new ConvexCallError({
       kind: 'authentication',
@@ -182,7 +182,7 @@ describe('ConvexCallError golden fixtures (vNext §7)', () => {
   })
 })
 
-describe('throwing and safe calls are equivalent (vNext §7)', () => {
+describe('throwing and safe calls are equivalent ', () => {
   const rawFailures: Array<{ name: string; raw: unknown }> = [
     { name: 'plain Error', raw: new Error('boom') },
     { name: 'ConvexError', raw: new ConvexError({ code: 'X', reason: 'y' }) },
@@ -201,7 +201,7 @@ describe('throwing and safe calls are equivalent (vNext §7)', () => {
   }
 })
 
-describe('ConvexCallError class contract: cause is runtime-only (vNext §7, §9.3)', () => {
+describe('ConvexCallError class contract: cause is runtime-only ', () => {
   const withSecret: ConvexCallErrorInput = {
     kind: 'transport',
     message: 'boundary failure',
@@ -268,7 +268,7 @@ describe('ConvexCallError class contract: cause is runtime-only (vNext §7, §9.
   })
 })
 
-describe('isSerializedConvexCallError strictness (vNext §7, §9.3)', () => {
+describe('isSerializedConvexCallError strictness ', () => {
   it('accepts a valid serialized shape', () => {
     const valid = {
       name: 'ConvexCallError',
@@ -297,14 +297,14 @@ describe('isSerializedConvexCallError strictness (vNext §7, §9.3)', () => {
 /**
  * Audit gap (W8): the golden fixtures above exercise `normalizeConvexError`
  * directly, but the REAL library-owned HTTP boundary that must construct
- * `transport`/`server` classifications itself — `executeQueryHttp` (vNext §7
+ * `transport`/`server` classifications itself — `executeQueryHttp` (public
  * "Integrate the contract": "Normalize errors at query ... boundaries" /
  * "Preserve Convex HTTP `errorData` as `data` before normalization") — had no
  * direct unit coverage anywhere in the suite. These tests close that gap
  * cheaply (no Nuxt/e2e harness) using the same `vi.stubGlobal('$fetch', ...)`
  * pattern already established by `test/unit/convex-cache-auth-token.test.ts`.
  */
-describe('executeQueryHttp boundary (vNext §7, internal §9.2)', () => {
+describe('executeQueryHttp boundary (architecture invariant)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })

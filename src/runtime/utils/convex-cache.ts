@@ -2,19 +2,8 @@ import type { ConvexAuthMode } from './auth-status'
 import type { ConvexIdentityKey } from './identity-key'
 import { getBetterAuthSessionToken } from './shared-helpers'
 
-// Re-export shared utilities. `getQueryKey` was deleted (vNext §6); the internal
-// base-key helper is `createConvexQueryKey` and is not a public auto-import.
-export {
-  parseConvexResponse,
-  computeQueryStatus,
-  getFunctionName,
-  hashArgs,
-  createConvexQueryKey,
-} from './convex-shared'
-export type { ConvexCallStatus } from './types'
-
 // ============================================================================
-// Identity-partitioned payload-key grammar (decision 7 / internal §7.1)
+// Identity-partitioned payload-key grammar (decision 7 / architecture invariant)
 // ============================================================================
 //
 // Convex's `ConvexClient` owns wire deduplication and its per-transport local
@@ -23,7 +12,7 @@ export type { ConvexCallStatus } from './types'
 // machinery that remains is the payload-key grammar below, which:
 //   - partitions Nuxt async-data / payload keys per identity so A's payload can
 //     never be read under B (structural cross-user isolation, no token-derived
-//     keys, internal §7.4);
+//     keys, architecture invariant);
 //   - lets sign-out/identity purge scan the two namespaces and drop only the
 //     `required`/`optional` keys while retaining `none` keys — no registry and
 //     no count is consulted.
@@ -72,7 +61,7 @@ export function readAuthMode(key: string): ConvexAuthMode | null {
 }
 
 /**
- * Sign-out / identity-change purge (internal §7.1). Scans only the two Convex
+ * Sign-out / identity-change purge (architecture invariant). Scans only the two Convex
  * payload namespaces on the Nuxt payload/state and removes keys whose `:auth:`
  * mode segment is `required` or `optional`; `none` keys are retained and keys
  * outside these namespaces are never touched. No registry or count is consulted.

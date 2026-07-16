@@ -1,7 +1,7 @@
 import { normalizeAuthProxyBodyLimit } from './config-defaults'
 
 // ============================================================================
-// Public auth-only build option types (vNext §5.1)
+// Public auth-only build option types
 //
 // Every auth-only build option lives inside `ConvexAuthOptions` so that
 // `auth: false` structurally excludes them. There is no top-level `authRoute`,
@@ -41,7 +41,7 @@ export interface ConvexRouteProtectionConfig {
 }
 
 /**
- * Authentication installation options (vNext §5.1).
+ * Authentication installation options .
  *
  * Provide this object (or omit `auth` entirely) to install authentication with
  * defaults. Set `auth: false` for a Convex-only build. There is no `enabled`
@@ -59,7 +59,7 @@ export interface ConvexAuthOptions {
 }
 
 /**
- * The normalized runtime auth shape (vNext §5.1). A discriminated value: `false`
+ * The normalized runtime auth shape . A discriminated value: `false`
  * for a Convex-only build, or a fully materialized options object. The build-only
  * `client` path is intentionally absent — it never reaches runtime config.
  */

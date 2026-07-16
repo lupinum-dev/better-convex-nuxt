@@ -3,8 +3,8 @@ import { definePayloadPlugin, definePayloadReducer, definePayloadReviver } from 
 import { ConvexCallError, isSerializedConvexCallError } from '../errors'
 
 /**
- * Universal Nuxt payload plugin for {@link ConvexCallError} (vNext §7, internal
- * §9.3). Registered with `mode: 'all'` and an explicit negative `order` (-50) by
+ * Universal Nuxt payload plugin for {@link ConvexCallError} (internal
+ *). Registered with `mode: 'all'` and an explicit negative `order` (-50) by
  * `src/module.ts`, so the reviver exists before Nuxt parses the SSR payload.
  *
  * The framework-free `/errors` entry stays unaware of Nuxt; this Nuxt-aware

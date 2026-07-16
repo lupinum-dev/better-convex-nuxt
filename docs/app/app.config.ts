@@ -1,120 +1,62 @@
-export default defineAppConfig({
-  ui: {
-    colors: {
-      primary: 'convex-red',
-      neutral: 'neutral',
+const siteUrl = 'https://better-convex-nuxt.vercel.app'
+
+export default {
+  ginkoDocs: {
+    site: {
+      url: siteUrl,
+      name: { en: 'Better Convex Nuxt' },
+      description: {
+        en: 'Convex for Nuxt 4, without the integration glue.',
+      },
+      logo: { light: '/favicon.svg', dark: '/favicon.svg' },
+      localeSwitcher: 'dropdown',
+      docsSidebarSwitcher: 'tabs',
     },
-    footer: {
-      slots: {
-        root: 'border-t border-default',
-        left: 'text-sm text-muted',
-      },
+    social: {
+      github: 'https://github.com/lupinum-dev/better-convex-nuxt',
     },
-    commandPalette: {
-      slots: {
-        itemLeadingIcon: 'size-4',
-      },
+    repository: {
+      url: 'https://github.com/lupinum-dev/better-convex-nuxt',
+      branch: 'main',
+      contentDirectory: 'docs/content',
     },
-    contentNavigation: {
-      slots: {
-        linkLeadingIcon: 'size-4',
-        listWithChildren: 'ms-4.5',
+    landing: {
+      eyebrow: { en: 'Nuxt 4 × Convex' },
+      title: { en: 'Realtime Nuxt apps, one coherent lifecycle.' },
+      description: {
+        en: 'SSR-to-realtime queries, Better Auth, request-scoped server calls, optimistic updates, uploads, and one structured error model.',
       },
-    },
-    prose: {
-      codeIcon: {
-        deno: 'vscode-icons:file-type-deno',
-        auto: 'vscode-icons:file-type-js',
-        jsonc: 'i-vscode-icons-file-type-json',
+      primary: {
+        label: { en: 'Choose your path' },
+        to: { en: '/docs/get-started/choose-your-path' },
       },
-      tabs: {
-        slots: {
-          root: 'rounded border border-default gap-0',
-        },
+      secondary: {
+        label: { en: 'View on GitHub' },
+        to: { en: 'https://github.com/lupinum-dev/better-convex-nuxt' },
       },
-      tabsItem: {
-        base: 'p-4 sm:p-6',
-      },
-    },
-  },
-  seo: {
-    siteName: 'Better Convex Nuxt',
-  },
-  header: {
-    title: 'Better Convex Nuxt',
-    to: '/',
-    logo: {
-      alt: 'Better Convex Nuxt',
-      light: '',
-      dark: '',
-    },
-    search: true,
-    colorMode: true,
-    links: [
-      {
-        icon: 'i-lucide-play',
-        label: 'Demo',
-        to: 'https://better-convex-nuxt-demo.vercel.app/',
-        target: '_blank',
-        'aria-label': 'Live Demo',
-      },
-      {
-        icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
-        target: '_blank',
-        'aria-label': 'GitHub',
-      },
-    ],
-  },
-  footer: {
-    credits: `© ${new Date().getFullYear()} lupinum.com • MIT License`,
-    colorMode: false,
-    links: [
-      {
-        icon: 'i-simple-icons-github',
-        to: 'https://github.com/lupinum-dev/better-convex-nuxt',
-        target: '_blank',
-        'aria-label': 'Better Convex Nuxt on GitHub',
-      },
-      {
-        icon: 'i-simple-icons-npm',
-        to: 'https://www.npmjs.com/package/better-convex-nuxt',
-        target: '_blank',
-        'aria-label': 'Better Convex Nuxt on npm',
-      },
-    ],
-  },
-  toc: {
-    title: 'Table of Contents',
-    bottom: {
-      title: 'Resources',
-      edit: 'https://github.com/lupinum-dev/better-convex-nuxt/edit/main/docs/content',
-      links: [
+      features: [
         {
-          icon: 'i-lucide-star',
-          label: 'Star on GitHub',
-          to: 'https://github.com/lupinum-dev/better-convex-nuxt',
-          target: '_blank',
+          title: { en: 'SSR to realtime' },
+          description: {
+            en: 'Render once on the server, hydrate without duplicate work, then continue as a live subscription.',
+          },
+          icon: 'lucide:refresh-cw',
         },
         {
-          icon: 'i-lucide-book-open',
-          label: 'Convex Better Auth',
-          to: 'https://labs.convex.dev/better-auth',
-          target: '_blank',
+          title: { en: 'Identity stays isolated' },
+          description: {
+            en: 'Better Auth and Convex identity move through explicit, request-safe boundaries.',
+          },
+          icon: 'lucide:fingerprint',
         },
         {
-          icon: 'i-lucide-database',
-          label: 'Convex Docs',
-          to: 'https://docs.convex.dev',
-          target: '_blank',
-        },
-        {
-          icon: 'i-lucide-shield',
-          label: 'Better Auth Docs',
-          to: 'https://www.better-auth.com',
-          target: '_blank',
+          title: { en: 'Production behavior included' },
+          description: {
+            en: 'Typed server calls, optimistic state, uploads, connection status, and structured errors share one model.',
+          },
+          icon: 'lucide:blocks',
         },
       ],
     },
   },
-})
+}

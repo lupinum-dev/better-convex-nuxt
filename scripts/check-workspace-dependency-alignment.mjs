@@ -27,7 +27,6 @@ const manifestPaths = [
     .filter((entry) => entry.isDirectory())
     .map((entry) => `starters/${entry.name}/package.json`),
   ...packageManifestsIn('test/fixtures'),
-  ...packageManifestsIn('test/proofs', 'consumer'),
 ].filter((path) => existsSync(resolve(rootDir, path)))
 
 const failures = []

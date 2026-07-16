@@ -39,7 +39,7 @@ import { getSiteUrlResolutionHint, resolveConvexSiteUrl } from './runtime/utils/
 import type { LogLevel } from './runtime/utils/logger'
 import { normalizeConvexDeploymentUrl, normalizeConvexSiteUrl } from './runtime/utils/site-url'
 
-// Re-exported public types (vNext §4.1). The root default export is the module;
+// Re-exported public types . The root default export is the module;
 // stable public types are re-exported here. Do not export the raw
 // `ConvexPublicRuntimeConfig` — consumers read `useConvexConfig()`.
 export type { LogLevel } from './runtime/utils/logger'
@@ -93,7 +93,7 @@ function resolveModuleImports(
 const AUTH_CLIENT_CONVENTION_FILENAME = 'convex-auth.ts'
 
 /**
- * Resolve the single auth-client definition module (vNext §8 "Module option").
+ * Resolve the single auth-client definition module ("Module option").
  *
  * Resolution order is exact:
  *   1. explicit `auth.client` — resolved with Nuxt Kit `resolvePath` using the
@@ -137,7 +137,7 @@ async function resolveAuthClientDefinitionPath(
 /**
  * Default options for query composables (useConvexQuery, useConvexPaginatedQuery).
  * These can be overridden per query. There is no `auth` default: query auth
- * policy is `optional` by default and never a per-build knob (vNext §5.2).
+ * policy is `optional` by default and never a per-build knob .
  */
 export interface QueryDefaults {
   /** Run query on server during SSR. @default true */
@@ -157,7 +157,7 @@ export interface UploadDefaults {
 }
 
 /**
- * Better Convex Nuxt module options (vNext §5.1).
+ * Better Convex Nuxt module options .
  *
  * `auth` is a false-or-options value: omit it (or pass an object) to install
  * authentication with defaults, or set `auth: false` for a Convex-only build.
@@ -230,7 +230,7 @@ export default defineNuxtModule<ModuleOptions>({
     if (resolvedSiteUrl) normalizeConvexSiteUrl(resolvedSiteUrl)
 
     // Single build-time auth resolution: one discriminated value drives every
-    // plugin/handler/middleware registration decision (internal §5.1).
+    // plugin/handler/middleware registration decision (architecture invariant).
     const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
     const isAuthEnabled = isConvexAuthEnabled(normalizedAuthConfig)
 
@@ -269,7 +269,7 @@ export default defineNuxtModule<ModuleOptions>({
     // 1. Core client plugin — always installed, imports no Better Auth code.
     addPlugin(resolver.resolve('./runtime/plugin.client'))
 
-    // Universal ConvexCallError payload plugin (vNext §7). Registered on both
+    // Universal ConvexCallError payload plugin . Registered on both
     // server and client with a negative order so the reviver is installed before
     // Nuxt parses the SSR payload. The framework-free `/errors` entry stays
     // unaware of Nuxt; this Nuxt-aware plugin bridges the two.
@@ -281,9 +281,9 @@ export default defineNuxtModule<ModuleOptions>({
 
     // 2. Auth-enabled-only plugins. When auth is disabled the module adds NO
     //    Better Auth client, engine, proxy handler, or middleware to the build
-    //    graph (vNext §5.1 / internal §5.3).
+    //    graph (architecture invariant).
     if (isAuthEnabled) {
-      // Typed auth-client definition plumbing (vNext §8). Resolve the single
+      // Typed auth-client definition plumbing . Resolve the single
       // definition module, expose it to the auth-enabled client plugin through
       // the `#convex/auth-client` virtual module, and generate the consumer type
       // registry so `useConvexAuth().client` is typed to the resolved plugins.
@@ -308,7 +308,7 @@ export default defineNuxtModule<ModuleOptions>({
       nuxt.options.alias['#convex/auth-client'] = authClientTemplate.dst
 
       // Register a declaration that augments the auth-client registry with the
-      // resolved definition's type (vNext §8 "Generated type registry"). The
+      // resolved definition's type ("Generated type registry"). The
       // augmentation targets `better-convex-nuxt/auth-client` — the module where
       // `ConvexAuthClientRegistry` and `InferRegisteredConvexAuthClient` are
       // declared — so the inference reads the merged registry (covered by the

@@ -185,7 +185,7 @@ export function insertAtPosition<Query extends PaginatedQueryReference>(
       const existingKey = sortKeyFromItem(existingItem)
       const existingKeyJson = convexToJson(existingKey)
 
-      const comparison = compareJsonValues(newItemKeyJson, existingKeyJson)
+      const comparison = sharedCompareJsonValues(newItemKeyJson, existingKeyJson)
 
       if (sortOrder === 'desc') {
         // For descending, insert when new item is greater than or equal
@@ -367,18 +367,6 @@ export function deleteFromPaginatedQuery<Query extends PaginatedQueryReference>(
 // Internal Helper Functions
 // ============================================================================
 
-/**
- * Check if query args match the filter args for paginated queries.
- * Uses shared deep equality, skips paginationOpts.
- * @internal
- */
-function argsMatchForPaginatedQuery(
-  queryArgs: Record<string, unknown>,
-  filterArgs: Record<string, unknown>,
-): boolean {
-  return sharedArgsMatch(queryArgs, filterArgs, ['paginationOpts'])
-}
-
 function updateMatchingPaginatedQueries<Query extends PaginatedQueryReference>(
   options: {
     query: Query
@@ -393,7 +381,7 @@ function updateMatchingPaginatedQueries<Query extends PaginatedQueryReference>(
   const allQueries = store.getAllQueries(query)
 
   for (const { args, value } of allQueries) {
-    if (argsToMatch && !argsMatchForPaginatedQuery(args, argsToMatch)) {
+    if (argsToMatch && !sharedArgsMatch(args, argsToMatch, ['paginationOpts'])) {
       continue
     }
 
@@ -405,13 +393,4 @@ function updateMatchingPaginatedQueries<Query extends PaginatedQueryReference>(
 
     store.setQuery(query, args, newValue)
   }
-}
-
-/**
- * Compare two JSON values for sorting.
- * Uses shared comparison utility.
- * @internal
- */
-function compareJsonValues(a: unknown, b: unknown): number {
-  return sharedCompareJsonValues(a, b)
 }

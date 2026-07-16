@@ -2,8 +2,8 @@ import { ConvexHttpClient } from 'convex/browser'
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import type { H3Event } from 'h3'
 
+import { ConvexCallError, normalizeConvexError } from '../../errors'
 import type { TightenEmptyArgs } from '../../utils/args-tuple'
-import { ConvexCallError, normalizeConvexError } from '../../utils/call-result'
 import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config-normalize'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import {
@@ -17,7 +17,7 @@ import { exchangeConvexToken, type ConvexTokenExchangeResult } from './token-exc
 export type { ConvexCredential, ServerConvexOptions }
 
 /**
- * One request-scoped server caller (vNext §9 "Caller-owned token promise").
+ * One request-scoped server caller ("Caller-owned token promise").
  *
  * A caller owns exactly one lazy authentication token promise and one lazy
  * `ConvexHttpClient`; `setAuth` runs at most once, when a token exists. The
@@ -82,12 +82,12 @@ function readCookieHeader(event: H3Event): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Classified fetch + boundary error normalization (vNext §9).
+// Classified fetch + boundary error normalization .
 // ---------------------------------------------------------------------------
 
 /**
  * Wrap ONLY a fetch rejection so the official `ConvexHttpClient` cannot erase
- * transport context (vNext §9). Non-OK responses are left untouched: Convex
+ * transport context . Non-OK responses are left untouched: Convex
  * reconstructs function failures from a private HTTP status/protocol path whose
  * status constant is not exported, so this wrapper must let the client consume
  * every response body itself.
@@ -107,8 +107,8 @@ export function createClassifiedConvexFetch(): typeof fetch {
 }
 
 /**
- * Classify an error thrown by `ConvexHttpClient` into the public contract
- * (vNext §9):
+ * Classify an error thrown by `ConvexHttpClient` into public
+ * :
  *
  * - an existing {@link ConvexCallError} (our classified-fetch `transport`, or a
  *   `authentication` thrown during required token resolution) passes through;
@@ -138,7 +138,7 @@ export function normalizeServerConvexBoundaryError(
 }
 
 // ---------------------------------------------------------------------------
-// Token resolution (vNext §9 "Cookie resolution").
+// Token resolution ("Cookie resolution").
 // ---------------------------------------------------------------------------
 
 function authenticationRequiredError(status = 401): ConvexCallError {
@@ -219,11 +219,11 @@ async function resolveServerToken(
 }
 
 // ---------------------------------------------------------------------------
-// serverConvex (vNext §9).
+// serverConvex .
 // ---------------------------------------------------------------------------
 
 /**
- * Construct a request-scoped Convex server caller (vNext §9).
+ * Construct a request-scoped Convex server caller .
  *
  * The caller lazily resolves one authentication token and one
  * `ConvexHttpClient` (built with `logger: false` so arbitrary Convex function

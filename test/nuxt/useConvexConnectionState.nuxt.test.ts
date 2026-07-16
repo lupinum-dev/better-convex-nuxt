@@ -10,7 +10,7 @@ import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 
 /**
  * `useConvexConnectionState` now observes the CURRENT primary through the per-app
- * client owner (vNext §5.4, internal §4.1) rather than reading `$convex` and a
+ * client owner (architecture invariant) rather than reading `$convex` and a
  * module-level store. These tests provide an owner wrapping the mock client.
  */
 function ownerFor(convex: MockConvexClient) {

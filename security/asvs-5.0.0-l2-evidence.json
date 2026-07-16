@@ -1762,7 +1762,7 @@
       "chapter": "Secure Coding and Architecture",
       "responsibility": "library",
       "status": "verified",
-      "evidence": "security/better-auth-hardening-implementation-2026-07-13.md"
+      "evidence": "src/ARCHITECTURE.md"
     },
     {
       "id": "v5.0.0-15.2.1",

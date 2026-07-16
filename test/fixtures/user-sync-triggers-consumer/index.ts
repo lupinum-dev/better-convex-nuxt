@@ -1,5 +1,5 @@
 /**
- * Standalone packed-probe consumer (internal §16.2) for
+ * Standalone packed-probe consumer (architecture invariant) for
  * `better-convex-nuxt/server/createUserSyncTriggers`.
  *
  * Imports ONLY this subpath — no Nuxt, no Vue, no H3, no live Convex — and

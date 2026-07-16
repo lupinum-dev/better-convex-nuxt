@@ -50,11 +50,6 @@ export interface ActionEvent {
   error?: unknown
 }
 
-export interface ConnectionEvent {
-  event: 'lost' | 'restored'
-  offlineDuration?: number // ms offline (for 'restored')
-}
-
 export interface UploadEvent {
   name: string // function name
   event: 'success' | 'error'
@@ -74,7 +69,6 @@ export interface Logger {
   query(event: QueryEvent): void
   mutation(event: MutationEvent): void
   action(event: ActionEvent): void
-  connection(event: ConnectionEvent): void
   upload(event: UploadEvent): void
 
   // Generic fallback for edge cases
@@ -93,7 +87,6 @@ const noopLogger: Logger = Object.freeze({
   query: () => {},
   mutation: () => {},
   action: () => {},
-  connection: () => {},
   upload: () => {},
   debug: () => {},
   time: () => () => {},
@@ -269,20 +262,6 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       if (event.error) {
         console.error(msg, event.error)
       } else {
-        console.log(msg)
-      }
-    },
-
-    connection(event: ConnectionEvent): void {
-      if (event.event === 'lost') {
-        console.log(
-          `${PREFIX} ${ANSI.yellow}${ICONS.warning}${ANSI.reset} Connection  ${ANSI.yellow}lost${ANSI.reset}`,
-        )
-      } else {
-        let msg = `${PREFIX} ${ANSI.green}${ICONS.success}${ANSI.reset} Connection  ${ANSI.green}restored${ANSI.reset}`
-        if (event.offlineDuration !== undefined) {
-          msg += ` ${ANSI.dim}(offline ${formatDuration(event.offlineDuration)})${ANSI.reset}`
-        }
         console.log(msg)
       }
     },
@@ -463,25 +442,6 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
       }
     },
 
-    connection(event: ConnectionEvent): void {
-      if (event.event === 'lost') {
-        console.log(
-          `%cConvex%c ${ICONS.warning} Connection %clost`,
-          CSS.badge,
-          CSS.warning,
-          CSS.warning,
-        )
-      } else {
-        let label = `%cConvex%c ${ICONS.success} Connection %crestored`
-        const styles = [CSS.badge, CSS.success, CSS.success]
-        if (event.offlineDuration !== undefined) {
-          label += `%c (offline ${formatDuration(event.offlineDuration)})`
-          styles.push(CSS.dim)
-        }
-        console.log(label, ...styles)
-      }
-    },
-
     upload(event: UploadEvent): void {
       const icon = event.event === 'error' ? ICONS.error : ICONS.upload
 
@@ -580,7 +540,6 @@ export function createLogger(level: LogLevel): Logger {
     query: (event) => sink.query(sanitizeEvent(event)),
     mutation: (event) => sink.mutation(sanitizeEvent(event)),
     action: (event) => sink.action(sanitizeEvent(event)),
-    connection: (event) => sink.connection(event),
     upload: (event) => sink.upload(sanitizeEvent(event)),
     debug: (message, data) =>
       sink.debug(

@@ -1,7 +1,7 @@
 import { ConvexError } from 'convex/values'
 
 import { ConvexCallError } from '../errors'
-import { parseConvexResponse } from './convex-cache'
+import { parseConvexResponse } from './convex-shared'
 
 interface RecordLike {
   [key: string]: unknown
@@ -14,7 +14,7 @@ function asRecord(value: unknown): RecordLike | null {
 /**
  * Execute a query over HTTP on server or client without WebSocket state.
  *
- * This is a library-owned HTTP boundary (internal §9.2), so it constructs the
+ * This is a library-owned HTTP boundary (architecture invariant), so it constructs the
  * `transport` classification itself while it still knows the source: a `$fetch`
  * rejection (network failure, timeout, non-2xx) becomes a `transport`
  * {@link ConvexCallError}. A Convex application error carried in the 200-response

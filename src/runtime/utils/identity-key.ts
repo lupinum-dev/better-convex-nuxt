@@ -1,7 +1,7 @@
 import type { ConvexUser } from './types'
 
 /**
- * Stable identity cache dimension (vNext §5.4).
+ * Stable identity cache dimension .
  *
  * `'anonymous'` covers every unauthenticated identity; `user:${string}` is the
  * Better Auth `user.id` and is the ONLY stable partition key. It is never a JWT,
@@ -15,7 +15,7 @@ export type ConvexIdentityKey = 'anonymous' | `user:${string}`
  *
  * Use this everywhere an identity-varying holder is keyed: SSR snapshots, client
  * auth, cache keys, payload keys, subscription keys, and identity generation.
- * There is deliberately exactly one implementation (vNext §5.4).
+ * There is deliberately exactly one implementation .
  *
  * @throws TypeError when a user is present but has no non-empty string `id`.
  *   A token without a resolved user id is not a settled identity and must keep

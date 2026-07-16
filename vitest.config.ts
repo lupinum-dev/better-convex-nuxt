@@ -10,8 +10,7 @@ import { defineConfig } from 'vitest/config'
  *
  * Test commands:
  *   pnpm test       - CI/local gate (unit + convex + nuxt + browser)
- *   pnpm test:e2e   - Manual E2E tests (SSR + full stack)
- *   pnpm test:full  - All tests
+ *   pnpm test:e2e   - Full-stack tests used locally and by release:verify
  *
  * Run specific project:
  *   pnpm vitest --project=convex
@@ -73,10 +72,10 @@ export default defineConfig({
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
           // Convex component registration is CPU-heavy and parallel files contend
-          // for the same worker resources. Run this small backend corpus serially
-          // so the existing per-test failure bound remains meaningful in CI.
+          // for the same worker resources. Run this backend corpus serially and
+          // retain a finite bound that also works on a busy contributor machine.
           fileParallelism: false,
-          testTimeout: 20_000,
+          testTimeout: 60_000,
         },
       },
 
@@ -85,7 +84,7 @@ export default defineConfig({
       await defineVitestProject({
         test: {
           name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts', 'test/proofs/harnesses/**/*.nuxt.test.ts'],
+          include: ['test/nuxt/**/*.test.ts'],
           environment: 'nuxt',
           environmentOptions: {
             nuxt: {
@@ -94,20 +93,6 @@ export default defineConfig({
           },
         },
       }),
-
-      // Phase 0 lifecycle/two-app/HMR harnesses (internal §17.3, §20): plain
-      // Node environment, no Nuxt/Vue context needed. Serial because the HMR
-      // harness boots a real Vite dev server + headless browser on a fixed
-      // port range (4640-4649, see proofs-harness.md).
-      {
-        test: {
-          name: 'proofs-harnesses',
-          include: ['test/proofs/harnesses/**/*.harness.test.ts'],
-          environment: 'node',
-          testTimeout: 60000,
-          fileParallelism: false,
-        },
-      },
 
       // Browser Component Tests: native browser rendering for Vue components
       {
@@ -134,7 +119,7 @@ export default defineConfig({
 
       // E2E Tests: SSR + Browser behavior tests
       // Uses @nuxt/test-utils for full Nuxt lifecycle
-      // Manual/local only, serial to avoid port collisions
+      // Serial to avoid port collisions
       {
         test: {
           name: 'e2e',

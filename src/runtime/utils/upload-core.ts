@@ -18,7 +18,7 @@ function createAbortError(): Error {
   return new DOMException('Upload cancelled', 'AbortError')
 }
 
-// The XHR upload endpoint is a library-owned HTTP boundary (internal §9.2): it
+// The XHR upload endpoint is a library-owned HTTP boundary (architecture invariant): it
 // knows the source, so it constructs `transport` errors directly. Network
 // failures, unexpected upstream statuses, and unusable/malformed responses are
 // all transport. Cancellation stays a DOMException so the composable can treat
@@ -37,7 +37,7 @@ function createUploadTransportError(
 }
 
 export async function requestUploadUrl<Mutation extends FunctionReference<'mutation'>>(
-  // Accepts the replacement-safe `useConvex()` handle (vNext §5.4), which exposes
+  // Accepts the replacement-safe `useConvex()` handle , which exposes
   // `mutation` with a stable identity, not only the raw `ConvexClient`.
   client: Pick<ConvexClient, 'mutation'> | null,
   mutation: Mutation,

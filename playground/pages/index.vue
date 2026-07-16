@@ -111,8 +111,8 @@
       <section class="section">
         <h2>Labs</h2>
         <details>
-          <summary class="legacy-toggle">Show lab pages</summary>
-          <div class="links legacy-links">
+          <summary class="lab-toggle">Show lab pages</summary>
+          <div class="links lab-links">
             <NuxtLink to="/labs/query" class="link-card-mini">Query Options</NuxtLink>
             <NuxtLink to="/labs/query-features/deep-reactive" class="link-card-mini"
               >Reactive Args</NuxtLink
@@ -373,14 +373,14 @@ h1 {
   margin-top: 8px;
 }
 
-.legacy-toggle {
+.lab-toggle {
   cursor: pointer;
   color: #6b7280;
   font-size: 0.9rem;
   padding: 8px 0;
 }
 
-.legacy-links {
+.lab-links {
   flex-direction: row !important;
   flex-wrap: wrap;
   gap: 8px !important;

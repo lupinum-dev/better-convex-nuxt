@@ -1,4 +1,4 @@
-# Testing Guide (Deterministic Multi-Tier)
+# Testing Guide
 
 ## Why this layout
 
@@ -13,7 +13,7 @@ test/
 ├── unit/                                  # Pure TS logic
 ├── nuxt/                                  # Composables in Nuxt runtime (happy-dom)
 ├── browser/                               # Native browser component rendering
-├── e2e/                                   # Thin full-stack manual tests
+├── e2e/                                   # Thin full-stack release-gate tests
 ├── helpers/                               # Shared deterministic harnesses
 └── fixtures/                              # Minimal Nuxt fixture(s)
 
@@ -45,11 +45,11 @@ pnpm test:nuxt
 # Browser component suite
 pnpm test:browser
 
-# Full-stack E2E (manual/local)
+# Full-stack E2E (local and final release gate)
 pnpm test:e2e
 
-# Non-E2E full matrix
-pnpm test:full
+# Full repository verification
+pnpm verify
 ```
 
 ## Design rules
@@ -67,7 +67,8 @@ pnpm test:full
 2. Configure Better Auth in local Convex env:
    - `BETTER_AUTH_SECRET`
    - `SITE_URL` (must be `http://localhost:3050` for the auth-loop E2E)
-3. Keep E2E manual/local (`pnpm test:e2e`), not part of CI gate.
+3. Run E2E locally when changing full-stack boundaries. CI runs it once in the
+   final `release:verify` job rather than in the faster compatibility job.
 
 `pnpm test:e2e` sets `CONVEX_E2E_AUTO_START=true`. The helper launches the root
 workspace's pinned Convex CLI directly with the same `convex dev` command shown
@@ -75,11 +76,11 @@ below, reads the URLs written by the CLI, configures the two E2E-only Better Aut
 values, and stops only the backend process it started. It does not assume fixed
 ports.
 
-This is the supported Convex 1.40 ceremony. In a clean non-interactive checkout,
+This is the supported Convex 1.42 ceremony. In a clean non-interactive checkout,
 `convex dev` provisions an anonymous local deployment automatically. If
 `.env.local` already selects a local deployment, the same command starts that
 deployment. The removed `convex dev --local` flag is not supported by Convex
-1.40. The first clean start needs network access to download the local backend
+1.42. The first clean start needs network access to download the local backend
 binary.
 
 ### Auth-loop bootstrap

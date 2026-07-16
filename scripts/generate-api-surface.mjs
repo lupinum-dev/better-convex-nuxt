@@ -10,7 +10,7 @@ import { packageEntries } from './package-entry-manifest.mjs'
 const rootDir = process.cwd()
 const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
 const componentsDir = resolve(rootDir, 'src/runtime/components')
-const outputPath = resolve(rootDir, 'docs/content/docs/6.advanced/8.api-surface.md')
+const outputPath = resolve(rootDir, 'docs/content/docs/6.reference/7.api-surface.md')
 const packageJsonPath = resolve(rootDir, 'package.json')
 const checkOnly = process.argv.includes('--check')
 
@@ -98,107 +98,107 @@ const composableMeta = {
   deleteFromPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a paginated query cache.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   deleteFromQuery: {
     kind: 'Helper',
     purpose: 'Optimistically removes an item from a regular query cache.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   insertAtBottomIfLoaded: {
     kind: 'Helper',
     purpose: 'Optimistically inserts an item at the end of paginated data when loaded.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   insertAtPosition: {
     kind: 'Helper',
     purpose: 'Optimistically inserts an item at a custom position in paginated data.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   insertAtTop: {
     kind: 'Helper',
     purpose: 'Optimistically inserts an item at the top of paginated data.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   updateInPaginatedQuery: {
     kind: 'Helper',
     purpose: 'Optimistically updates matching items across paginated query pages.',
-    guide: '/docs/mutations/optimistic-updates',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   defineSharedConvexQuery: {
     kind: 'Helper',
     purpose: 'Defines a reusable shared query contract for multiple consumers.',
-    guide: '/docs/data-fetching/caching-reuse',
+    guide: '/docs/build/queries/sharing-query-state',
   },
   setQueryData: {
     kind: 'Helper',
     purpose: 'Replaces cached query data with a new value.',
-    guide: '/docs/data-fetching/caching-reuse',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   updateAllQueries: {
     kind: 'Helper',
     purpose: 'Applies an updater across multiple cached query results.',
-    guide: '/docs/data-fetching/caching-reuse',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   updateQuery: {
     kind: 'Helper',
     purpose: 'Applies an updater to one cached query result.',
-    guide: '/docs/data-fetching/caching-reuse',
+    guide: '/docs/build/write-data/optimistic-updates',
   },
   useConvex: {
     kind: 'Composable',
     purpose: 'Returns the stable replacement-safe handle for imperative Convex calls.',
-    guide: '/docs/advanced/client-access',
+    guide: '/docs/understand/server-and-client-boundaries',
   },
   useConvexAction: {
     kind: 'Composable',
     purpose: 'Runs Convex actions with reactive status and error handling.',
-    guide: '/docs/mutations/actions',
+    guide: '/docs/build/write-data/actions',
   },
   useConvexAuth: {
     kind: 'Composable',
     purpose: 'Tracks auth state and user/session information in Nuxt.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/build/authentication/auth-state-and-user',
   },
   useConvexConnectionState: {
     kind: 'Composable',
     purpose: 'Observes live WebSocket connection state to Convex.',
-    guide: '/docs/advanced/connection-state',
+    guide: '/docs/build/application-behavior/connection-state',
   },
   useConvexFileUpload: {
     kind: 'Composable',
     purpose: 'Uploads files to Convex storage with progress tracking.',
-    guide: '/docs/advanced/file-storage',
+    guide: '/docs/build/files/upload-files',
   },
   useConvexMutation: {
     kind: 'Composable',
     purpose: 'Runs Convex mutations with status, errors, and optimistic hooks.',
-    guide: '/docs/mutations/mutations',
+    guide: '/docs/build/write-data/mutations',
   },
   useConvexPaginatedQuery: {
     kind: 'Composable',
     purpose: 'Fetches and paginates query results with real-time updates.',
-    guide: '/docs/data-fetching/pagination',
+    guide: '/docs/build/queries/pagination',
   },
   useConvexQuery: {
     kind: 'Composable',
     purpose: 'Fetches reactive query data with SSR and subscription support.',
-    guide: '/docs/data-fetching/queries',
+    guide: '/docs/build/queries/queries',
   },
   useConvexUser: {
     kind: 'Composable',
     purpose: 'Seeds from session user, then upgrades to canonical user/profile data.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/build/authentication/auth-state-and-user',
   },
   useConvexStorageUrl: {
     kind: 'Composable',
     purpose: 'Resolves Convex file storage IDs to usable URLs.',
-    guide: '/docs/advanced/file-storage',
+    guide: '/docs/build/files/storage-urls',
   },
   useConvexUploadQueue: {
     kind: 'Composable',
     purpose: 'Queues and coordinates concurrent file uploads.',
-    guide: '/docs/advanced/file-storage',
+    guide: '/docs/build/files/upload-queues',
   },
 }
 
@@ -207,12 +207,12 @@ const serverMeta = {
     kind: 'Server helper',
     purpose:
       'Creates a request-scoped server caller with query/mutation/action for server routes and handlers.',
-    guide: '/docs/server-side/server-routes',
+    guide: '/docs/build/server/server-convex',
   },
   exchangeConvexToken: {
     kind: 'Server helper',
     purpose: 'Exchanges a cookie/bearer credential for a Convex JWT (never-throwing outcome).',
-    guide: '/docs/server-side/server-routes',
+    guide: '/docs/build/server/server-convex',
   },
 }
 
@@ -220,22 +220,22 @@ const componentMeta = {
   ConvexAuthenticated: {
     kind: 'Component',
     purpose: 'Renders slot content only for authenticated users.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/reference/auth-components',
   },
   ConvexAuthError: {
     kind: 'Component',
     purpose: 'Renders slot content when auth resolves with an error.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/reference/auth-components',
   },
   ConvexAuthLoading: {
     kind: 'Component',
     purpose: 'Renders slot content while auth state is still loading.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/reference/auth-components',
   },
   ConvexUnauthenticated: {
     kind: 'Component',
     purpose: 'Renders slot content only for signed-out users.',
-    guide: '/docs/auth-security/authentication',
+    guide: '/docs/reference/auth-components',
   },
 }
 
@@ -243,7 +243,7 @@ function fallbackMeta(name, defaultKind = 'Helper') {
   return {
     kind: name.startsWith('use') ? 'Composable' : defaultKind,
     purpose: 'Auto-imported runtime API provided by this module.',
-    guide: '/docs/guide/get-started',
+    guide: '/docs/reference/composables',
   }
 }
 

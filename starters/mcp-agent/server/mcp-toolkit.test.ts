@@ -21,9 +21,9 @@ type ConvexRequest = {
 }
 
 const convexRequests: ConvexRequest[] = []
-const proofToken = 'proof-token'
-const proofTokenHash = hashBearerSecret(proofToken)
-const proofServerSecret = 'mcp-agent-local-proof-server-secret-1234'
+const testToken = 'test-token'
+const testTokenHash = hashBearerSecret(testToken)
+const testServerSecret = 'mcp-agent-local-test-server-secret-1234'
 const expectedToolNames = [
   'approvals.get',
   'projects.create',
@@ -62,7 +62,7 @@ async function startFakeConvexServer() {
     const credentials = body.args[0] as
       | { bearerToken?: unknown; serverSecret?: unknown }
       | undefined
-    if (credentials?.bearerToken !== proofToken || credentials.serverSecret !== proofServerSecret) {
+    if (credentials?.bearerToken !== testToken || credentials.serverSecret !== testServerSecret) {
       response.writeHead(200, { 'content-type': 'application/json' })
       response.end(
         JSON.stringify({
@@ -166,7 +166,7 @@ async function postChunked(path: string, chunks: string[]) {
         method: 'POST',
         headers: {
           accept: 'application/json, text/event-stream',
-          authorization: `Bearer ${proofToken}`,
+          authorization: `Bearer ${testToken}`,
           connection: 'close',
           'content-type': 'application/json',
         },
@@ -207,7 +207,7 @@ function readRuntimeSources(path: string): string[] {
   })
 }
 
-async function createClient(token = proofToken, authorizationHeader?: string) {
+async function createClient(token = testToken, authorizationHeader?: string) {
   const client = new Client({
     name: 'mcp-agent-test',
     version: '1.0.0',
@@ -235,7 +235,7 @@ async function createClient(token = proofToken, authorizationHeader?: string) {
 describe('Nuxt MCP Toolkit transport', async () => {
   const fakeConvex: { server: Server; url: string } = await startFakeConvexServer()
   process.env.NUXT_PUBLIC_CONVEX_URL = fakeConvex.url
-  process.env.MCP_SERVER_SECRET = proofServerSecret
+  process.env.MCP_SERVER_SECRET = testServerSecret
 
   await setup({
     rootDir: fileURLToPath(new URL('..', import.meta.url)),
@@ -332,8 +332,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
     expect(result.isError).not.toBe(true)
     expect(serializedResult).toContain('Launch')
     expect(serializedResult).not.toContain('_id')
-    expect(serializedResult).not.toContain(proofToken)
-    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(serializedResult).not.toContain(testToken)
+    expect(serializedResult).not.toContain(testTokenHash)
     expect(serializedResult).not.toContain('credentialHash')
     expect(convexRequests).toHaveLength(1)
     expect(convexRequests[0]).toMatchObject({
@@ -341,8 +341,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
       path: 'projects:listForServiceActor',
       args: [
         {
-          bearerToken: proofToken,
-          serverSecret: proofServerSecret,
+          bearerToken: testToken,
+          serverSecret: testServerSecret,
         },
       ],
     })
@@ -359,8 +359,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     expect(result.isError).not.toBe(true)
     expect(serializedResult).toContain('Created project project-2')
-    expect(serializedResult).not.toContain(proofToken)
-    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(serializedResult).not.toContain(testToken)
+    expect(serializedResult).not.toContain(testTokenHash)
     expect(serializedResult).not.toContain('credentialHash')
     expect(convexRequests).toHaveLength(1)
     expect(convexRequests[0]).toMatchObject({
@@ -368,9 +368,9 @@ describe('Nuxt MCP Toolkit transport', async () => {
       path: 'projects:createFromServiceActor',
       args: [
         {
-          bearerToken: proofToken,
+          bearerToken: testToken,
           name: 'Launch',
-          serverSecret: proofServerSecret,
+          serverSecret: testServerSecret,
         },
       ],
     })
@@ -388,17 +388,17 @@ describe('Nuxt MCP Toolkit transport', async () => {
     expect(result.isError).not.toBe(true)
     expect(serializedResult).toContain('projects.create')
     expect(serializedResult).toContain('requiresApproval')
-    expect(serializedResult).not.toContain(proofToken)
-    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(serializedResult).not.toContain(testToken)
+    expect(serializedResult).not.toContain(testTokenHash)
     expect(convexRequests).toHaveLength(1)
     expect(convexRequests[0]).toMatchObject({
       endpoint: '/api/query',
       path: 'projects:previewCreateFromServiceActor',
       args: [
         {
-          bearerToken: proofToken,
+          bearerToken: testToken,
           name: 'Launch',
-          serverSecret: proofServerSecret,
+          serverSecret: testServerSecret,
         },
       ],
     })
@@ -418,8 +418,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
 
     expect(result.isError).not.toBe(true)
     expect(serializedResult).toContain('executed')
-    expect(serializedResult).not.toContain(proofToken)
-    expect(serializedResult).not.toContain(proofTokenHash)
+    expect(serializedResult).not.toContain(testToken)
+    expect(serializedResult).not.toContain(testTokenHash)
     expect(serializedResult).not.toContain('credentialHash')
     expect(convexRequests).toHaveLength(1)
     expect(convexRequests[0]).toMatchObject({
@@ -428,9 +428,9 @@ describe('Nuxt MCP Toolkit transport', async () => {
       args: [
         {
           approvalId: 'approval-1',
-          bearerToken: proofToken,
+          bearerToken: testToken,
           projectId: 'project-1',
-          serverSecret: proofServerSecret,
+          serverSecret: testServerSecret,
         },
       ],
     })
@@ -441,23 +441,23 @@ describe('Nuxt MCP Toolkit transport', async () => {
       method: 'POST',
       headers: { host: 'attacker.invalid' },
       body: {
-        bearerToken: proofToken,
+        bearerToken: testToken,
         name: 'From UI demo',
       },
     })
 
     expect(response.content[0]).toContain('Created project project-2')
-    expect(JSON.stringify(response)).not.toContain(proofToken)
-    expect(JSON.stringify(response)).not.toContain(proofTokenHash)
+    expect(JSON.stringify(response)).not.toContain(testToken)
+    expect(JSON.stringify(response)).not.toContain(testTokenHash)
     expect(convexRequests).toHaveLength(1)
     expect(convexRequests[0]).toMatchObject({
       endpoint: '/api/mutation',
       path: 'projects:createFromServiceActor',
       args: [
         {
-          bearerToken: proofToken,
+          bearerToken: testToken,
           name: 'From UI demo',
-          serverSecret: proofServerSecret,
+          serverSecret: testServerSecret,
         },
       ],
     })
@@ -472,7 +472,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
       method: 'POST',
       ignoreResponseError: true,
       body: {
-        bearerToken: proofToken,
+        bearerToken: testToken,
         name: '   ',
       },
     })
@@ -495,7 +495,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
       ])
 
       expect(response.statusCode).toBe(413)
-      expect(response.body).not.toContain(proofToken)
+      expect(response.body).not.toContain(testToken)
       expect(convexRequests).toHaveLength(0)
     },
   )
@@ -546,7 +546,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
   })
 
   it('lists project tools when bearer syntax has extra parts but rejects calls', async () => {
-    client = await createClient('', 'Bearer proof-token extra')
+    client = await createClient('', 'Bearer test-token extra')
 
     const tools = await client.listTools()
     expect(tools.tools.map((tool) => tool.name).sort()).toEqual(expectedToolNames)
@@ -562,7 +562,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
   })
 
   it('rejects a well-formed but invalid bearer through the Convex credential boundary', async () => {
-    client = await createClient('invalid-proof-token')
+    client = await createClient('invalid-test-token')
 
     const result = await client.callTool({
       name: 'projects.list',
@@ -572,8 +572,8 @@ describe('Nuxt MCP Toolkit transport', async () => {
     expect(result.isError).toBe(true)
     const serialized = JSON.stringify(result.content)
     expect(serialized).toContain('Service actor credential denied')
-    expect(serialized).not.toContain('invalid-proof-token')
-    expect(serialized).not.toContain(proofServerSecret)
+    expect(serialized).not.toContain('invalid-test-token')
+    expect(serialized).not.toContain(testServerSecret)
     expect(convexRequests).toHaveLength(1)
   })
 
@@ -583,7 +583,7 @@ describe('Nuxt MCP Toolkit transport', async () => {
       ignoreResponseError: true,
       headers: {
         accept: 'application/json, text/event-stream',
-        authorization: 'Bearer proof-token',
+        authorization: 'Bearer test-token',
         'content-type': 'application/json',
         origin: 'https://evil.example',
       },

@@ -20,11 +20,11 @@ const DISCONNECTED_CONNECTION_STATE: Readonly<ConnectionState> = Object.freeze({
 })
 
 /**
- * Monitor the Convex WebSocket connection state (vNext §5.4).
+ * Monitor the Convex WebSocket connection state .
  *
  * `connectionState` is deliberately NOT on the `useConvex()` handle; this is the
  * only connection-observation API. The connection store lives inside the per-app
- * client owner (internal §4.1 single ownership), so this composable observes the
+ * client owner (architecture invariant single ownership), so this composable observes the
  * CURRENT primary client through the owner: on primary-client replacement the
  * owner resets the store to its disconnected default and rebinds the
  * subscription to the replacement. Each mounted consumer registers with the

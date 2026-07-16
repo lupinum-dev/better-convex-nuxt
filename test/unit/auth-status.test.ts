@@ -6,7 +6,7 @@ import { getConvexIdentityKey } from '../../src/runtime/utils/identity-key'
 
 const authErr = new ConvexCallError({ kind: 'authentication', message: 'boom' })
 
-describe('deriveConvexAuthStatus (vNext §5.3 precedence: disabled > loading > authenticated > error > anonymous)', () => {
+describe('deriveConvexAuthStatus precedence', () => {
   it('disabled outranks everything, including a settled authenticated-looking input', () => {
     expect(
       deriveConvexAuthStatus({
@@ -147,12 +147,12 @@ describe('deriveConvexAuthStatus (vNext §5.3 precedence: disabled > loading > a
   })
 })
 
-describe('deriveConvexAuthStatus — full two-dimensional matrix (vNext §5.3)', () => {
+describe('deriveConvexAuthStatus — full two-dimensional matrix ', () => {
   // `status` (5 outcomes) is a pure function of the two independent inputs
   // `authEnabled` and the (settled, identityKey, error) triple; `isPending` is
   // NOT one of the derivation inputs — it is the orthogonal second dimension of
   // `UseConvexAuthReturn` and is deliberately absent from `ConvexAuthStatusInput`
-  // (vNext §5.3: "isPending describes auth work in flight... independent").
+  // ("isPending describes auth work in flight... independent").
   const identityKeys = [null, 'anonymous', 'user:a'] as const
   const errors = [null, authErr] as const
 
@@ -208,7 +208,7 @@ describe('deriveConvexAuthStatus — full two-dimensional matrix (vNext §5.3)',
   })
 })
 
-describe('getConvexIdentityKey (vNext §5.4)', () => {
+describe('getConvexIdentityKey ', () => {
   it('maps null user to anonymous', () => {
     expect(getConvexIdentityKey(null)).toBe('anonymous')
   })

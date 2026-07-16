@@ -24,10 +24,10 @@ export interface FetchedIdentity {
 
 export { TOKEN_EXPIRY_SAFETY_BUFFER_MS }
 
-/** Coalesced-retry backoff schedule (internal §6.5): 1, 2, 4, 8, 16, then 30s. */
+/** Coalesced-retry backoff schedule (architecture invariant): 1, 2, 4, 8, 16, then 30s. */
 export const RETRY_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const
 
-/** Bounded transient-retry attempts inside a single fetch call (proof: fetcher-retry). */
+/** Bounded transient-retry attempts inside a single fetch call. */
 export const MAX_FETCH_ATTEMPTS = 4
 
 /** Total browser budget for one Better Auth -> Convex token exchange cycle. */
@@ -40,7 +40,7 @@ const TOKEN_EXCHANGE_CANCELLED_MESSAGE = 'Convex authentication token exchange w
 /**
  * A token is retainable only while it carries a valid required `exp` still in
  * the future beyond the safety buffer. A token without a valid `exp`, or at/after
- * expiry, is never retained (internal §6.5).
+ * expiry, is never retained (architecture invariant).
  */
 export function isTokenUsable(token: string | null, nowMs = Date.now()): token is string {
   return isJwtUsable(token, nowMs)
@@ -48,7 +48,7 @@ export function isTokenUsable(token: string | null, nowMs = Date.now()): token i
 
 /**
  * A settled token WITHOUT a non-empty Better Auth `user.id` is an authentication
- * error (vNext §5.3): decode returns null and the token is discarded, never
+ * error : decode returns null and the token is discarded, never
  * installed. Returns `null` for a token that decodes to no usable user.
  */
 export function decodeFetchedIdentity(token: string): FetchedIdentity | null {
@@ -74,7 +74,7 @@ export interface FetchOutcome {
 }
 
 /**
- * Total Convex-token fetch (never throws; proof `proof-total-fetcher-retry`).
+ * Total Convex-token fetch; never throws.
  *
  * Runs a bounded transient-retry loop over the Better Auth exchange within one
  * fixed browser deadline, validating each returned token's `exp`. Returns a

@@ -39,7 +39,7 @@ const signInFailure =
 const ownerName = ref('Agent Owner')
 const ownerEmail = ref(`agent-owner-${Date.now()}@example.com`)
 const ownerPassword = ref('')
-const organizationName = ref('Agentic Proof Org')
+const organizationName = ref('Agentic Example Org')
 
 function slugify(value: string) {
   const slug = value

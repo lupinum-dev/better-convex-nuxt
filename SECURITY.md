@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security fixes are provided for the latest published minor release. Pre-`0.7.0` releases use the superseded auth boundary and are not supported for security-sensitive deployments.
+Security fixes are provided for the latest published minor release. Older minor releases are unsupported once a newer minor is published.
 
 The hardened contract supports Node `^22.12.0 || ^24.11.0 || >=26.0.0`, Nuxt `^4.4.0`, Better Auth `1.6.23`, `@convex-dev/better-auth` `0.12.5`, and the exact Convex version in the published package. Dependency tuple changes require the full security and compatibility gates.
 

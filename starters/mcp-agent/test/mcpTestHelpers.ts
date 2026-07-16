@@ -1,10 +1,12 @@
+import { createHash } from 'node:crypto'
+
 import type { Id } from '../convex/_generated/dataModel'
 import schema from '../convex/schema'
 import { initConvexTest, modules } from '../convex/test.setup'
 
-export const mcpServerSecret = 'mcp-agent-local-proof-server-secret-1234'
-export const serviceBearerToken = 'proof-token'
-export const serviceBearerHash = '212d8651fdb80e01215f5fdcea2b4ce0affbe32fe085937fb69ba26fd8ffa13c'
+export const mcpServerSecret = 'mcp-agent-local-test-server-secret-1234'
+export const serviceBearerToken = 'test-token'
+export const serviceBearerHash = createHash('sha256').update(serviceBearerToken).digest('hex')
 
 export function setMcpServerSecret(value = mcpServerSecret) {
   const previous = process.env.MCP_SERVER_SECRET

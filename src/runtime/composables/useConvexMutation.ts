@@ -13,7 +13,7 @@ import type { ConvexCallError, CallResult } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
-import { getFunctionName } from '../utils/convex-cache'
+import { getFunctionName } from '../utils/convex-shared'
 import { createLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type { ConvexCallStatus } from '../utils/types'
@@ -245,7 +245,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const port = coordinator?.port
   const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
-  // Route through the per-app client owner's stable handle (vNext §5.4), never
+  // Route through the per-app client owner's stable handle , never
   // the raw replaceable `$convex` seam: after an identity switch a captured raw
   // client would be closed/stale, and a retired-generation in-flight call must
   // reject with IDENTITY_CHANGED instead of returning under the new identity.
@@ -280,7 +280,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     },
   })
 
-  // Mask retained state synchronously on identity change (internal §8, §5.4).
+  // Mask retained state synchronously on identity change (architecture invariant).
   if (port && getCurrentScope()) {
     onScopeDispose(port.subscribe(() => lifecycle.onIdentityMaybeChanged()))
   }

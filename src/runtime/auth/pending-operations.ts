@@ -1,8 +1,7 @@
 import { computed, ref, type ComputedRef } from 'vue'
 
 /**
- * Independent operation-progress accounting (vNext §8 "Pending-operation
- * tracking", internal §6.2).
+ * Independent operation-progress accounting.
  *
  * `isPending` is derived from a COUNTER, never a boolean, because integrated
  * sign-in nests `refresh()` inside the sign-in operation and independent

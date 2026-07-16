@@ -6,7 +6,7 @@ import {
   hashBearerSecret,
 } from '../server/utils/mcpProjectTools'
 
-const serverSecret = 'mcp-agent-local-proof-server-secret-1234'
+const serverSecret = 'mcp-agent-local-test-server-secret-1234'
 
 function toolArgs(client: { query: ReturnType<typeof vi.fn>; mutation: ReturnType<typeof vi.fn> }) {
   return {

@@ -15,21 +15,19 @@ import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import { identityToken } from '../auth/auth-identity'
 import type { QueryDataSource, QueryStatus } from '../devtools/types'
+import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import { useConvexIdentityState } from '../utils/auth-identity-state'
 import type { ConvexAuthMode } from '../utils/auth-status'
-import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { assertConvexComposableScope } from '../utils/composable-scope'
+import { fetchAuthToken, withAuthDimension } from '../utils/convex-cache'
 import {
+  computeQueryStatus,
+  createConvexQueryKey,
   getFunctionName,
   hashArgs,
-  createConvexQueryKey,
-  computeQueryStatus,
-  fetchAuthToken,
-  withAuthDimension,
-  type ConvexCallStatus,
-} from '../utils/convex-cache'
+} from '../utils/convex-shared'
 import type { ConvexIdentityKey } from '../utils/identity-key'
 import { createLogger } from '../utils/logger'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
@@ -38,6 +36,7 @@ import { createQueryExecutionGate } from '../utils/query-execution-gate'
 import { createConvexQueryAuthContext, selectLiveQueryClient } from '../utils/query-foundation'
 import { computeConvexQueryPending, computeConvexQueryStale } from '../utils/query-state'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import type { ConvexCallStatus } from '../utils/types'
 
 // Re-export for consumers
 export type { ConvexCallStatus }
@@ -60,7 +59,7 @@ export interface UseConvexQueryOptions<RawT, DataT = RawT> {
   /** Keep the last successful data while args change and the next request is pending. Never crosses an identity boundary. @default false */
   keepPreviousData?: boolean
   /**
-   * Per-query authentication mode (vNext §5.2).
+   * Per-query authentication mode .
    *
    * - `'required'`: waits for initial auth settlement; executes with the
    *   signed-in identity; stays idle while anonymous.
@@ -105,7 +104,7 @@ function sameTag(a: IsolationTag, b: IsolationTag): boolean {
 }
 
 /**
- * Build the mounted regular-query state (internal §7.3). Each instance owns one
+ * Build the mounted regular-query state (architecture invariant). Each instance owns one
  * `onUpdate` listener via the per-app client owner, its own Vue-visible data /
  * error / pending / transform, and clears all identity-owned state synchronously
  * on an identity change. Convex owns wire deduplication; there is no library
@@ -154,7 +153,7 @@ export function createConvexQueryState<
     }),
   )
 
-  // Isolation tag for the current identity dimension (internal §7.3). `none`
+  // Isolation tag for the current identity dimension (architecture invariant). `none`
   // keys under a stable anonymous transport epoch that never changes on auth
   // transitions; every other mode carries the concrete identity + generation.
   const currentTag = computed<IsolationTag>(() => {
@@ -220,7 +219,7 @@ export function createConvexQueryState<
   const currentScope = import.meta.client ? getCurrentScope() : undefined
   assertConvexComposableScope('useConvexQuery', import.meta.client, currentScope)
 
-  // Library-owned, identity-partitioned error state (vNext §7, internal §7.3,
+  // Library-owned, identity-partitioned error state (architecture invariant,
   // decision 8). Failures are normalized to `ConvexCallError` exactly once and
   // stored here — never routed through `asyncData.error`, which Nuxt wraps into
   // an H3Error before the payload reducer can preserve the class. The store is
@@ -304,7 +303,7 @@ export function createConvexQueryState<
 
   function commitLiveResult(raw: RawT, operation: QueryOperationContext): boolean {
     // Reject a stale-generation commit: a WebSocket result captured under a
-    // superseded identity generation must not commit after the switch (§5.4).
+    // superseded identity generation must not commit after the switch.
     if (!isOperationCurrent(operation)) return false
     setBoundaryError(null)
     ;(asyncData.data as Ref<RawT | null>).value = raw
@@ -317,7 +316,7 @@ export function createConvexQueryState<
   function commitLiveError(err: Error, operation: QueryOperationContext): boolean {
     if (!isOperationCurrent(operation)) return false
     // Only surface an error while there is no data to keep showing. A live
-    // subscription failure is normalized once at this boundary (§9.2): a
+    // subscription failure is normalized once at this boundary (): a
     // reconnectable socket disconnect is connection state, not a call error, so
     // Convex only invokes this path for a genuine query failure.
     if (asyncData.data.value == null) setBoundaryError(normalizeConvexError(err))
@@ -476,7 +475,7 @@ export function createConvexQueryState<
       } catch (rawError) {
         // Normalize exactly once at the query boundary and store in the
         // library-owned error state; resolve `null` data so Nuxt never
-        // manufactures an H3Error from a handler rejection (vNext §7).
+        // manufactures an H3Error from a handler rejection .
         const normalized = normalizeConvexError(rawError)
         if (!operation || !isOperationCurrent(operation)) return null
         setBoundaryError(normalized, operation.boundaryKey)
@@ -512,7 +511,7 @@ export function createConvexQueryState<
     // Initial live setup.
     if (subscribe) setupSubscription()
 
-    // Synchronous identity-change clearing (internal §7.4): as soon as the
+    // Synchronous identity-change clearing (architecture invariant): as soon as the
     // effective identity dimension changes, drop this component's now-stale data
     // and previous-data snapshot before acquiring work for the new identity.
     watch(
@@ -585,7 +584,7 @@ export function createConvexQueryState<
   })
 
   // Public error reads ONLY the library-owned state, never `asyncData.error`
-  // (Nuxt would have H3Error-wrapped a handler rejection there; §7.3).
+  // (Nuxt would have H3Error-wrapped a handler rejection there;).
   const error = computed<ConvexCallError | null>(() => liveError.value)
 
   const status = computed((): ConvexCallStatus => {
@@ -637,7 +636,7 @@ export function createConvexQueryState<
     clear,
   }
 
-  // ---- terminal-decision awaitability (§5.5) ------------------------------
+  // ---- terminal-decision awaitability () ------------------------------
   let resolvePromise: Promise<void>
   if (gate.value.outcome === 'idle') {
     // Skip, or a settled-anonymous `required` query: resolve idle immediately

@@ -5,46 +5,60 @@
 [![License][license-src]][license-href]
 [![Nuxt][nuxt-src]][nuxt-href]
 
-Full-featured [Convex](https://convex.dev) integration for [Nuxt](https://nuxt.com) with SSR, real-time subscriptions, and authentication.
+Convex for Nuxt 4, without the integration glue: SSR-to-realtime queries, Better Auth, request-scoped server calls, optimistic updates, uploads, and one structured error model.
 
 - [Documentation](https://better-convex-nuxt.vercel.app)
+- [Choose your path](https://better-convex-nuxt.vercel.app/docs/get-started/choose-your-path)
+- [Understand the model](https://better-convex-nuxt.vercel.app/docs/understand/mental-model)
+- [Compare Nuxt integrations](https://better-convex-nuxt.vercel.app/docs/overview/comparison)
 
 > [!NOTE]
-> **Early Version - Not Production Ready**
-> This module is usable today, but the API surface is still evolving as we validate the best long-term patterns for Nuxt + Convex.
+> This package is pre-1.0. Minor releases can make deliberate hard cutovers; read the migration guide and changelog before upgrading.
 
-Contributions and PRs to help improve the library, playground or docs are highly appreciated! 🙏
+Better Convex Nuxt is ESM-only and supports Node `^22.12.0 || ^24.11.0 || >=26.0.0`.
 
-## Features
+## Why use it
 
-- **Real-time Queries** - Fetch data with SSR, then upgrade to WebSocket subscriptions
-- **Optimistic Updates** - Instant UI feedback with automatic rollback on failure
-- **Authentication** - Better Auth integration with email/password, OAuth, and magic links
-- **SSR Support** - Server-side rendering with hydration
-- **Type Safety** - Full TypeScript inference from your Convex schema
+- **One query lifecycle:** render during SSR, reuse the payload during hydration, and continue as a browser subscription.
+- **Identity isolation:** query state is partitioned across anonymous, signed-in, signed-out, and user-switch boundaries.
+- **Better Auth integration:** session and Convex identity stay synchronized through a bounded same-origin auth proxy.
+- **Nuxt server support:** call queries, mutations, and actions through one request-scoped `serverConvex` API.
+- **Application behavior:** optimistic state, pagination, uploads, connection state, DevTools, and structured errors use the same runtime model.
+- **Explicit security ownership:** the library transports identity; Convex functions remain the source of truth for authorization.
 
-## Quick Setup
+See [limitations and trade-offs](https://better-convex-nuxt.vercel.app/docs/overview/limitations) before adopting the module.
 
-Install the module:
+## Install
 
 ```bash
-pnpm add better-convex-nuxt
+pnpm add better-convex-nuxt convex@1.42.1 better-auth@1.6.23 @convex-dev/better-auth@0.12.5
 ```
 
-## Usage
+```ts [nuxt.config.ts]
+export default defineNuxtConfig({
+  modules: ['better-convex-nuxt'],
+})
+```
 
-### Queries
+```dotenv [.env]
+NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+```
+
+The package supports Nuxt `^4.4.0` and the exact Convex and auth peer versions declared in `package.json`.
+
+## Query from a page
 
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
 
-// Real-time subscription with SSR support
-const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: 'active' })
+const { data: tasks, status, error } = await useConvexQuery(api.tasks.list, {})
 </script>
 
 <template>
-  <ul v-if="status === 'success'">
+  <p v-if="status === 'pending'">Loading tasks…</p>
+  <p v-else-if="error">Could not load tasks.</p>
+  <ul v-else>
     <li v-for="task in tasks" :key="task._id">
       {{ task.text }}
     </li>
@@ -52,102 +66,79 @@ const { data: tasks, status } = await useConvexQuery(api.tasks.list, { status: '
 </template>
 ```
 
-### Mutations
+Queries use SSR and subscriptions by default. Every call receives an explicit args object or the literal `'skip'`.
+
+## Write data
 
 ```vue
 <script setup lang="ts">
 import { api } from '#convex/api'
 
-const createTask = useConvexMutation(api.tasks.create, {
-  optimisticUpdate: (localStore, args) => {
-    updateQuery({
-      query: api.tasks.list,
-      args: {},
-      localQueryStore: localStore,
-      updater: (current) =>
-        current ? [{ _id: 'temp', text: args.text, completed: false }, ...current] : [],
-    })
-  },
-})
-const pending = createTask.pending
+const createTask = useConvexMutation(api.tasks.create)
 
-await createTask({ text: 'Ship my app' })
-</script>
-```
-
-### Authentication
-
-```vue
-<script setup lang="ts">
-const { isAuthenticated, user, signIn } = useConvexAuth()
-
-async function handleLogin() {
-  await signIn.social({ provider: 'github' })
+async function create(text: string) {
+  await createTask({ text })
 }
 </script>
-
-<template>
-  <div v-if="isAuthenticated">Welcome, {{ user?.name }}!</div>
-  <button v-else @click="handleLogin">Sign in with GitHub</button>
-</template>
 ```
 
-## Composables
+The active query updates from Convex without a manual refetch. Add an optimistic update only when the interaction benefits from earlier local feedback.
 
-| Composable                 | Description                                          |
-| -------------------------- | ---------------------------------------------------- |
-| `useConvexQuery`           | Execute queries with SSR and real-time subscriptions |
-| `useConvexMutation`        | Execute mutations with optimistic updates            |
-| `useConvexAction`          | Execute Convex actions                               |
-| `useConvexPaginatedQuery`  | Paginated queries with `loadMore()`                  |
-| `useConvexFileUpload`      | Upload files to Convex storage with progress         |
-| `useConvexUploadQueue`     | Queue uploads with controlled concurrency            |
-| `useConvexStorageUrl`      | Get reactive URLs for stored files                   |
-| `useConvexAuth`            | Authentication state (user, token, isAuthenticated)  |
-| `useConvexUser`            | Current-user query seeded from auth session data     |
-| `useConvexConnectionState` | WebSocket connection status                          |
-| `useConvex`                | Access the stable Convex client handle               |
+## Call Convex from Nitro
 
-## Components
+```ts [server/api/tasks.get.ts]
+import { api } from '#convex/api'
+import { serverConvex } from '#convex/server'
 
-| Component                 | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `<ConvexAuthenticated>`   | Renders content only when authenticated     |
-| `<ConvexUnauthenticated>` | Renders content only when not authenticated |
-| `<ConvexAuthLoading>`     | Renders content during auth state loading   |
-| `<ConvexAuthError>`       | Renders content when auth resolution fails  |
+export default defineEventHandler(async (event) => {
+  const convex = await serverConvex(event)
+  return convex.query(api.tasks.list, {})
+})
+```
 
-## Documentation
+Create the caller inside the request handler. Do not share authenticated callers across requests.
 
-Visit [better-convex-nuxt.vercel.app](https://better-convex-nuxt.vercel.app) for full documentation including:
+## Add authentication
 
-- [Installation & Setup](https://better-convex-nuxt.vercel.app/getting-started/installation)
-- [SSR Patterns](https://better-convex-nuxt.vercel.app/patterns/ssr-patterns)
-- [Optimistic Updates](https://better-convex-nuxt.vercel.app/patterns/optimistic-updates)
-- [Server Utilities](https://better-convex-nuxt.vercel.app/server/server-utilities)
+Authentication is installed by default and uses Better Auth with the Convex adapter. It requires the server definition, Convex HTTP routes, public site URL, and secret described in the [authentication setup guide](https://better-convex-nuxt.vercel.app/docs/get-started/add-authentication).
+
+Use `auth: false` when the application intentionally has no auth runtime:
+
+```ts [nuxt.config.ts]
+export default defineNuxtConfig({
+  modules: ['better-convex-nuxt'],
+  convex: { auth: false },
+})
+```
+
+Route protection is navigation UX. Every protected Convex function must still validate identity, ownership, membership, and role requirements on the backend.
+
+## Public API
+
+The generated [API surface](https://better-convex-nuxt.vercel.app/docs/reference/api-surface) is the source of truth for composables, helpers, server aliases, components, and package exports. The main entry points are:
+
+- `useConvexQuery` and `useConvexPaginatedQuery`
+- `useConvexMutation` and `useConvexAction`
+- `useConvexAuth` and `useConvexUser`
+- `useConvexFileUpload`, `useConvexUploadQueue`, and `useConvexStorageUrl`
+- `useConvexConnectionState` and the stable `useConvex` handle
+- `serverConvex` from `better-convex-nuxt/server` or `#convex/server`
+- `ConvexCallError` from `better-convex-nuxt/errors`
 
 ## Contributing
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Generate type stubs
 pnpm dev:prepare
-
-# Develop with the playground
 pnpm dev
-
-# Run tests
-pnpm test
-
-# Lint
-pnpm lint
+pnpm verify
 ```
+
+Bug reports and focused pull requests are welcome through GitHub. Run `pnpm verify` before opening a pull request; security vulnerabilities must follow [SECURITY.md](./SECURITY.md) instead of a public issue.
 
 ## Acknowledgements
 
-- File upload composables inspired by [nuxt-convex](https://github.com/onmax/nuxt-convex) by [@onmax](https://github.com/onmax)
+File upload composables were inspired by [nuxt-convex](https://github.com/onmax/nuxt-convex) by [@onmax](https://github.com/onmax).
 
 ## License
 

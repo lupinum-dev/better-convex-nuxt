@@ -2,11 +2,12 @@ name: ci
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
   secrets:
@@ -24,195 +25,39 @@ jobs:
           version: 3.95.9
           extra_args: --only-verified
 
-  lint:
+  compatibility:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check (server)
-        run: npm run typecheck:server
-
-      - name: Boundary check
-        run: npm run check:boundaries
-
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version:
-          - '22.12.0'
-          - '24'
-
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      # Node 22.12 bundles Corepack with stale package-signing keys.
+          node-version: '22.12.0'
       - name: Update and enable Corepack
         run: npm install --global corepack@0.34.5 && corepack enable
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify supported Node baseline
+        run: pnpm verify
 
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Playground prepare
-        run: npm run dev:prepare
-
-      - name: Test
-        run: npm run test
-
-      - name: Production dependency audit
-        run: pnpm audit --prod
-
-  security:
+  release-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-
       - name: Enable Corepack
         run: corepack enable
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Security verification
-        run: pnpm security:verify
-
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Prepare
-        run: npm run dev:prepare
-
-      - name: Build module
-        run: npm run prepack
-
-      - name: Type check
-        run: npm run test:types
-
-      - name: Publish preview release
-        run: npx pkg-pr-new publish --pnpm
-
-  # Tier 2 (internal §16.4 "Package pull-request job"): clean dist, build once,
-  # pack once, then run the full deterministic contract suite — packed
-  # type/export/purity/consumer probes (`check:package-exports`), API-surface
-  # doc freshness, workspace dependency-band alignment, and the fixture
-  # typecheck contracts. This is the same `check:contracts` command the Full
-  # Better Convex Nuxt gate (vNext §11) and `release:prepare` run.
-  contracts:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Contract checks
-        run: pnpm run check:contracts
-
-  consumer-smoke:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Pack module
-        id: pack
-        run: |
-          mkdir -p "$RUNNER_TEMP/pack"
-          TARBALL="$(npm pack --silent --pack-destination "$RUNNER_TEMP/pack" | tail -n 1)"
-          echo "tarball_path=$RUNNER_TEMP/pack/$TARBALL" >> "$GITHUB_OUTPUT"
-
-      - name: Install fixture dependencies
-        working-directory: test/fixtures/consumer-smoke
-        run: pnpm install --no-frozen-lockfile --ignore-workspace
-
-      - name: Install packed module in fixture
-        working-directory: test/fixtures/consumer-smoke
-        run: pnpm add --ignore-workspace "${{ steps.pack.outputs.tarball_path }}"
-
-      - name: Verify packed module resolves
-        working-directory: test/fixtures/consumer-smoke
-        run: node -e "import('better-convex-nuxt').then(() => console.log('resolved')).catch((error) => { console.error(error); process.exit(1); })"
-
-      - name: Consumer build
-        working-directory: test/fixtures/consumer-smoke
-        run: npm run build
-
-      - name: Consumer typecheck
-        working-directory: test/fixtures/consumer-smoke
-        run: npm run typecheck
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Release verification
+        run: pnpm release:verify

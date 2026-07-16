@@ -1,7 +1,7 @@
 /**
  * Permission Composable (userland pattern, no package permission runtime)
  *
- * This module ships no permissions runtime (vNext §6). This composable is a
+ * This module ships no permissions runtime . This composable is a
  * thin wrapper around a plain `useConvexQuery` call plus the app-owned
  * `checkPermission()` from `convex/permissions.config.ts`. See the
  * "Auth Guards and Permissions" recipe in the docs for the general pattern.

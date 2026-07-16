@@ -1,7 +1,7 @@
 {
   "name": "user-sync-triggers-consumer",
   "private": true,
-  "description": "Packed-probe consumer for better-convex-nuxt/server/createUserSyncTriggers (internal §16.2). Imports ONLY this subpath — no Nuxt, no Vue, no Convex server runtime — and exercises it from a real node_modules-resident install of the packed tarball.",
+  "description": "Packed-probe consumer for better-convex-nuxt/server/createUserSyncTriggers (architecture invariant). Imports ONLY this subpath — no Nuxt, no Vue, no Convex server runtime — and exercises it from a real node_modules-resident install of the packed tarball.",
   "type": "module",
   "scripts": {
     "build": "tsc",

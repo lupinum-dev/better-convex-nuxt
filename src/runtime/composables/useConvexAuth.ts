@@ -21,7 +21,7 @@ export type IntegratedSignIn<Client extends BaseAuthClient = BaseAuthClient> = C
 export type IntegratedSignUp<Client extends BaseAuthClient = BaseAuthClient> = Client['signUp']
 
 /**
- * The Convex authentication contract (vNext §5.3). `status` describes current
+ * The Convex authentication contract . `status` describes current
  * usable identity; `isPending` describes auth work in flight — deliberately
  * independent.
  */
@@ -70,7 +70,7 @@ function createInertAuthNamespace<T>(name: 'signIn' | 'signUp', message: string)
   return build([name]) as T
 }
 
-// Module-scoped immutable disabled refs (vNext §8): they hold no app-specific
+// Module-scoped immutable disabled refs hold no app-specific
 // state and never mutate, so one shared instance per module is allowed.
 const DISABLED_STATUS = computed<ConvexAuthStatus>(() => 'disabled')
 const DISABLED_IS_PENDING = computed(() => false)
@@ -109,7 +109,7 @@ function createDisabledAuthResult(): UseConvexAuthReturn {
 }
 
 /**
- * Access Convex authentication state (vNext §5.3). Auto-imported unconditionally
+ * Access Convex authentication state . Auto-imported unconditionally
  * and safe to call before the auth plugin runs (SSR / early setup): reactive
  * state comes from the SSR-seeded `useState` refs, and operations delegate to the
  * per-app coordinator when it exists (browser only).

@@ -24,7 +24,7 @@ function makeLifecycle<Result = string>(
   })
 }
 
-describe('callable lifecycle: throwing / .safe() equivalence (vNext §7, §8)', () => {
+describe('callable lifecycle: throwing / .safe() equivalence ', () => {
   const rawFailures: Array<{ name: string; make: () => unknown }> = [
     { name: 'plain Error', make: () => new Error('boom') },
     { name: 'ConvexError', make: () => new ConvexError({ code: 'X', reason: 'y' }) },
@@ -55,7 +55,7 @@ describe('callable lifecycle: throwing / .safe() equivalence (vNext §7, §8)', 
   }
 })
 
-describe('callable lifecycle: identity-change stale rejection (internal §8, §17.2)', () => {
+describe('callable lifecycle: identity-change stale rejection (architecture invariant)', () => {
   it('rejects a mid-flight completion under a changed identity as IDENTITY_CHANGED and fires no callbacks', async () => {
     let generation = 0
     let releaseInvoke!: (value: string) => void

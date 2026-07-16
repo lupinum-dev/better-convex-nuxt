@@ -1,4 +1,4 @@
-import { ConvexCallError } from '../../utils/call-result'
+import { ConvexCallError } from '../../errors'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import { normalizeConvexSiteUrl } from '../../utils/site-url'
 import { fetchWithTimeout, MAX_SERVER_AUTH_RESPONSE_BODY_BYTES, readBoundedJson } from './http'
@@ -17,7 +17,7 @@ const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 5_000
 
 /**
  * The never-throwing result of a cookie/bearer -> Convex JWT exchange
- * (vNext §9, internal §10.3).
+ * (architecture invariant).
  *
  * Success returns a non-null `token`, a 2xx `status`, and `error: null`.
  * A network/HTTP failure returns `token: null`, exactly one `error`, and the
@@ -31,13 +31,13 @@ export interface ConvexTokenExchangeResult {
 }
 
 // ---------------------------------------------------------------------------
-// normalizeSiteUrl (vNext §9)
+// normalizeSiteUrl
 // ---------------------------------------------------------------------------
 
 /**
  * Normalize a Convex site origin (e.g. `https://example.convex.site`) to its
  * bare origin, rejecting anything that could redirect a credential elsewhere or
- * carry it in the URL (vNext §9).
+ * carry it in the URL .
  *
  * Rejects embedded credentials, query strings, fragments, and non-root paths.
  * Accepts `http:` ONLY for `localhost`, a `*.localhost` subdomain, IPv4 loopback
@@ -64,11 +64,11 @@ export function readToken(body: unknown): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// exchangeConvexToken (vNext §9 "Never-throwing exchange primitive")
+// exchangeConvexToken ("Never-throwing exchange primitive")
 // ---------------------------------------------------------------------------
 
 /**
- * Exchange a cookie/bearer credential for a Convex JWT (vNext §9).
+ * Exchange a cookie/bearer credential for a Convex JWT .
  *
  * This never throws for an exchange OUTCOME: every network, HTTP, timeout,
  * oversized, malformed, missing-token, or redirect failure is returned as a

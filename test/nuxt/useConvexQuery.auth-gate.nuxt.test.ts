@@ -17,7 +17,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// vNext §6 execution-gate behavior driven by canonical auth status + mode.
+// public execution-gate behavior driven by canonical auth status + mode.
 describe('useConvexQuery auth execution gate', () => {
   it('keeps the returned promise pending until auth settles and the query completes', async () => {
     const primary = new MockConvexClient()

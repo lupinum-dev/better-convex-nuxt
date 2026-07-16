@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Renders slot content only when auth status is `error` (vNext §4.2): initial
+ * Renders slot content only when auth status is `error`: initial
  * auth resolution failed without a usable identity (e.g. 401/403 at token
  * exchange, or a token that decoded to no user).
  *

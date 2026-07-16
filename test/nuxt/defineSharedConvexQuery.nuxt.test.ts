@@ -142,7 +142,7 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     expect(result.first).not.toBe(result.second)
   })
 
-  // Internal §7.7: the closure IS the definition identity, so two separate
+  // Internal: the closure IS the definition identity, so two separate
   // `defineSharedConvexQuery` calls own independent state even with the same
   // `key` — there is no caller-key registry and no duplicate-key collision check.
   it('gives separate closures independent state even with the same key', async () => {

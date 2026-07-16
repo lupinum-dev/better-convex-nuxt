@@ -1,4 +1,4 @@
-// Packed-tarball absolute-path / undeclared-dependency scan (internal §16.2)
+// Packed-tarball absolute-path / undeclared-dependency scan (architecture invariant)
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs'

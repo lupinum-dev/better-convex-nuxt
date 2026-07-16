@@ -2,7 +2,7 @@ import type { ConvexAuthMode, ConvexAuthStatus } from './auth-status'
 import { isAuthenticatedIdentityKey, type ConvexIdentityKey } from './identity-key'
 
 /**
- * Canonical query execution gate (vNext §6 "Required execution-gate behavior").
+ * Canonical query execution gate ("Required execution-gate behavior").
  *
  * The gate is driven by the canonical auth status and the stable identity key
  * published by the frozen {@link AuthIdentityPort} adapter — never by raw engine
@@ -30,7 +30,7 @@ export interface QueryExecutionGateInput {
 }
 
 /**
- * The terminal gate decision (vNext §5.5 terminal-decision contract):
+ * The terminal query execution decision:
  * - `execute` — issue the network request (live subscription when `subscribe`);
  * - `idle`    — resolve idle with no request and no error;
  * - `wait`    — wait for initial auth settlement, then re-evaluate;
@@ -135,7 +135,7 @@ export function createQueryExecutionGate(input: QueryExecutionGateInput): QueryE
   // 7. Authenticated: both modes require a concrete matching `user:<id>` key.
   //    A settled 'authenticated' status always carries such a key; guard the
   //    inconsistent case (no usable id) by waiting rather than manufacturing a
-  //    `user:undefined` identity (vNext §5.4).
+  //    `user:undefined` identity .
   if (!isAuthenticatedIdentityKey(identityKey)) {
     return {
       outcome: 'wait',

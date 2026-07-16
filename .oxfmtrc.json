@@ -8,16 +8,13 @@
   "experimentalSortImports": {},
   "experimentalSortPackageJson": true,
   "ignorePatterns": [
-    "docs/content/docs/6.advanced/8.api-surface.md",
+    "docs/content/docs/6.reference/7.api-surface.md",
     "dist",
     ".nuxt",
     ".output",
     "node_modules",
     "coverage",
     "*.min.js",
-    "pnpm-lock.yaml",
-    "vNext.md",
-    "wenext_internal.md"
-  ],
-  "$comment": "vNext.md and wenext_internal.md are spec documents slated for disposition in Phase 6 (internal §16.4/§20); excluded from format:check until then."
+    "pnpm-lock.yaml"
+  ]
 }

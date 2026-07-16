@@ -1,4 +1,4 @@
-// Runtime validation for the resolved auth-client definition (vNext §8
+// Runtime validation for the resolved auth-client definition (public
 // "Client instantiation" item 2). TypeScript already forbids `baseURL`,
 // `basePath`, and `fetchOptions` on `ConvexAuthClientDefinitionOptions`, but a
 // JavaScript / untyped consumer can still pass them (or a malformed `plugins`

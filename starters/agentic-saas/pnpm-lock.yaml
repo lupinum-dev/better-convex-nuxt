@@ -19,7 +19,7 @@ importers:
         version: 1.6.23(@opentelemetry/api@1.9.0)(react@19.2.7)(vitest@4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
         specifier: 0.6.1
-        version: 0.6.1(c2b434191414016ce4ea66fe5b230144)
+        version: 0.6.1(cafc7fcaab08ea3d127d18704da148af)
       convex:
         specifier: 1.42.1
         version: 1.42.1(react@19.2.7)
@@ -5958,10 +5958,9 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.6.1(c2b434191414016ce4ea66fe5b230144):
+  better-convex-nuxt@0.6.1(cafc7fcaab08ea3d127d18704da148af):
     dependencies:
       '@convex-dev/better-auth': 0.12.5(@standard-schema/spec@1.1.0)(better-auth@1.6.23(@opentelemetry/api@1.9.0)(react@19.2.7)(vitest@4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(convex@1.42.1(react@19.2.7))(react@19.2.7)(typescript@5.9.3)
-      '@nuxt/devtools-kit': 3.2.4(magicast@0.5.3)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       better-auth: 1.6.23(@opentelemetry/api@1.9.0)(react@19.2.7)(vitest@4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       convex: 1.42.1(react@19.2.7)
@@ -5971,7 +5970,6 @@ snapshots:
       ohash: 2.0.11
     transitivePeerDependencies:
       - magicast
-      - vite
 
   bindings@1.5.0:
     dependencies:

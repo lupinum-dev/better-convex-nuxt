@@ -232,6 +232,9 @@ try {
   }
   throw error
 } finally {
-  await new Promise((resolvePromise) => server.close(resolvePromise))
+  await new Promise((resolvePromise) => {
+    server.close(resolvePromise)
+    server.closeAllConnections()
+  })
   rmSync(validationRoot, { recursive: true, force: true })
 }

@@ -12,7 +12,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// vNext §6 / internal §7.3-7.4: identity-owned state clears synchronously on an
+// architecture invariant-7.4: identity-owned state clears synchronously on an
 // identity change, keepPreviousData never crosses an identity boundary, and a
 // result captured under a stale identity cannot commit after the switch.
 describe('useConvexQuery identity isolation', () => {

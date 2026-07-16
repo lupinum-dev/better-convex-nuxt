@@ -10,14 +10,14 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-// vNext §5.1/§5.2/§6: an `auth: false` build never installs the auth engine.
+// public: an `auth: false` build never installs the auth engine.
 // `useConvexAuth()` returns the exact stable `disabled` contract, `optional`
 // queries execute anonymously without any loading state, and `required`
 // queries stay idle. This is distinct from the *enabled*-build
 // settled-anonymous case exercised in useConvexQuery.auth-gate.nuxt.test.ts —
 // here there is no engine, no `convex:pending` settlement to wait for, and no
 // possibility of ever becoming authenticated.
-describe('useConvexQuery under an auth-disabled build (vNext §5.1/§6)', () => {
+describe('useConvexQuery under an auth-disabled build ', () => {
   it('optional executes anonymously immediately, with no loading state at any point', async () => {
     const primary = new MockConvexClient()
     const query = mockFnRef<'query'>('notes:disabled-optional')
@@ -73,9 +73,9 @@ describe('useConvexQuery under an auth-disabled build (vNext §5.1/§6)', () => 
   })
 })
 
-// The `useConvexAuth()` disabled contract itself (vNext §5.3): stable, terminal
+// The `useConvexAuth()` disabled contract itself : stable, terminal
 // for the build, and reachable without any engine plumbing.
-describe('useConvexAuth() under an auth-disabled build (vNext §5.3)', () => {
+describe('useConvexAuth() under an auth-disabled build ', () => {
   it('returns the exact stable disabled contract', async () => {
     const { result } = await captureInNuxt(() => useConvexAuth(), {
       convexConfig: { auth: false },

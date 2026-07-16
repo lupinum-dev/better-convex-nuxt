@@ -266,7 +266,7 @@ const createPluginOrderInstance = (order: 'convex-first' | 'two-factor-first') =
   return {
     auth: betterAuth({
       baseURL: 'http://localhost:3000',
-      secret: 'phase-5-contract-test-secret-long-enough-for-better-auth',
+      secret: 'plugin-order-contract-test-secret-long-enough',
       database: databaseAdapter,
       emailAndPassword: { enabled: true },
       rateLimit: { enabled: false },
@@ -282,9 +282,9 @@ const createPluginOrderInstance = (order: 'convex-first' | 'two-factor-first') =
 const runPreMfaSignIn = async (order: 'convex-first' | 'two-factor-first') => {
   const { auth, database } = createPluginOrderInstance(order)
   const email = `${order}@example.test`
-  const password = 'phase-5-password'
+  const password = 'plugin-order-password'
 
-  await auth.api.signUpEmail({ body: { name: 'Phase 5', email, password } })
+  await auth.api.signUpEmail({ body: { name: 'Test User', email, password } })
   const initialSignIn = await auth.api.signInEmail({
     body: { email, password },
     returnHeaders: true,
@@ -370,7 +370,7 @@ const createEmailSignupInstance = (
   return {
     auth: betterAuth({
       baseURL: 'http://localhost:3000',
-      secret: 'phase-5-signup-enumeration-test-secret-0123456789',
+      secret: 'signup-enumeration-test-secret-0123456789',
       database: memoryAdapter(database as never),
       emailAndPassword: {
         enabled: true,
@@ -386,7 +386,7 @@ const createEmailSignupInstance = (
 
 const rawEmailSignup = async (
   auth: ReturnType<typeof createEmailSignupInstance>['auth'],
-  password = 'phase-5-password',
+  password = 'signup-contract-password',
 ) => {
   const response = await auth.handler(
     new Request('http://localhost:3000/api/auth/sign-up/email', {
@@ -431,7 +431,7 @@ const rawEmailSignIn = async (
 describe('email signup enumeration policy', () => {
   it('proves email sign-in reflects a scheme-relative callback URL', async () => {
     const { auth } = createEmailSignupInstance({ autoSignIn: false })
-    const password = 'callback-phase-5-password'
+    const password = 'callback-contract-password'
     await rawEmailSignup(auth, password)
 
     const response = await rawEmailSignIn(auth, password, '//evil.example/path')
@@ -472,9 +472,9 @@ describe('email signup enumeration policy', () => {
     expect(created.body.token).toBeNull()
     expect(duplicate.body.token).toBeNull()
 
-    const attackerPassword = 'attacker-phase-5-password'
+    const attackerPassword = 'attacker-contract-password'
     const { auth: existingAccount } = createEmailSignupInstance({ autoSignIn: false })
-    await rawEmailSignup(existingAccount, 'original-phase-5-password')
+    await rawEmailSignup(existingAccount, 'original-contract-password')
     await rawEmailSignup(existingAccount, attackerPassword)
     const existingProbe = await rawEmailSignIn(existingAccount, attackerPassword)
 
@@ -489,7 +489,7 @@ describe('email signup enumeration policy', () => {
       autoSignIn: false,
       requireEmailVerification: true,
     })
-    await rawEmailSignup(verifiedExisting.auth, 'original-phase-5-password')
+    await rawEmailSignup(verifiedExisting.auth, 'original-contract-password')
     const verifiedUser = verifiedExisting.database.user?.[0]
     expect(verifiedUser).toBeDefined()
     verifiedUser!.emailVerified = true

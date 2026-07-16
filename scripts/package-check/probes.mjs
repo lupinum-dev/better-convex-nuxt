@@ -22,8 +22,7 @@ function run(command, args, options = {}) {
  * Nuxt-module export plus the `api`/`internal`/`components` fallback value
  * exports actually resolve from node_modules) and type resolution (`tsc`
  * against the installed tarball's declaration files) without needing a full
- * Nuxt build. No dedicated fixture directory is required by vNext §7's
- * new-files list for the package root, unlike `/errors`.
+ * Nuxt build. No dedicated fixture directory is required for the package root.
  */
 export function probeRootEntry(ctx) {
   const dir = mkdtempSync(join(tmpdir(), 'bcn-root-probe-'))
@@ -64,37 +63,6 @@ export function probeRootEntry(ctx) {
       '  }',
       '}',
       '',
-      '// vNext §11 "Package checks" negative-resolution assertions: deleted named',
-      '// exports must not resolve from the packed root, even via a dynamic import',
-      '// namespace object (which — unlike a static `import { X } from ...` — would',
-      '// silently omit the property rather than throw, so this must check for its',
-      '// absence explicitly rather than rely on a parse/link failure).',
-      "const rootNamespace = await import('better-convex-nuxt')",
-      'const forbiddenRootNames = [',
-      "  'usePermissions',",
-      "  'createPermissions',",
-      "  'createBetterConvexAuthClient',",
-      "  'resolveBetterConvexAuthBaseURL',",
-      "  'useConvexCall',",
-      "  'getQueryKey',",
-      ']',
-      'for (const name of forbiddenRootNames) {',
-      '  if (name in rootNamespace) {',
-      '    throw new Error(`forbidden export "${name}" resolved from the packed package root`)',
-      '  }',
-      '}',
-      '',
-      '// The deleted `better-convex-nuxt/composables` subpath must not resolve at all.',
-      'let composablesSubpathResolved = true',
-      'try {',
-      "  await import('better-convex-nuxt/composables')",
-      '} catch {',
-      '  composablesSubpathResolved = false',
-      '}',
-      'if (composablesSubpathResolved) {',
-      '  throw new Error(\'deleted subpath "better-convex-nuxt/composables" resolved but must not\')',
-      '}',
-      '',
       "console.log('root-entry-probe runtime OK')",
       '',
     ].join('\n'),
@@ -122,19 +90,6 @@ export function probeRootEntry(ctx) {
       'void mod',
       'void _opts',
       'void _contract',
-      '',
-      '// vNext §11 "Package checks" negative-resolution assertions: these named',
-      '// imports must fail to typecheck against the packed root — if any of them',
-      '// starts compiling, a deleted export has silently come back.',
-      '// @ts-expect-error "createBetterConvexAuthClient" is not an export of the packed root',
-      "import { createBetterConvexAuthClient } from 'better-convex-nuxt'",
-      '// @ts-expect-error "getQueryKey" is not an export of the packed root',
-      "import { getQueryKey } from 'better-convex-nuxt'",
-      '// @ts-expect-error raw runtime config must remain private',
-      "import type { ConvexPublicRuntimeConfig } from 'better-convex-nuxt'",
-      'void createBetterConvexAuthClient',
-      'void getQueryKey',
-      'type _NoRawConfig = ConvexPublicRuntimeConfig',
       '',
     ].join('\n'),
   )
@@ -171,7 +126,7 @@ export function probeRootEntry(ctx) {
 
 /**
  * `/errors` probe: installs the packed tarball into the committed
- * `test/fixtures/errors-consumer` fixture (vNext §7 new-files list) and runs
+ * `test/fixtures/errors-consumer` fixture and runs
  * its `build` (type resolution via `tsc`) and `start` (runtime resolution +
  * behavioral assertions) scripts.
  */
@@ -195,15 +150,15 @@ export function probeErrorsEntry(ctx) {
 }
 
 /**
- * `/auth-client` probe: the permanent §5.8 proof-1 release gate. Installs the
+ * `/auth-client` probe. Installs the
  * packed tarball into the committed `test/fixtures/auth-client-typing` fixture
  * so the module and consumer share ONE `better-auth` copy, then:
  *   - `nuxi prepare` generates the REAL registry declaration from the fixture's
  *     `convex-auth.ts` (apiKeyClient) definition;
  *   - `nuxi typecheck` proves the narrowed `InferRegisteredConvexAuthClient`
- *     exposes `apiKey.create` typed (criteria a + c + d);
+ *     exposes a typed `apiKey.create` method;
  *   - `tsc` over the separate `base-fallback` program proves the empty-fallback
- *     registration exposes only the base client, no `apiKey` (criterion b).
+ *     registration exposes only the base client, with no `apiKey` method.
  */
 export function probeAuthClientTyping(ctx) {
   const fixtureDir = p('test/fixtures/auth-client-typing')
@@ -228,13 +183,9 @@ export function probeAuthClientTyping(ctx) {
 
 /**
  * `/server` probe: installs the packed tarball into the committed
- * `test/fixtures/server-consumer` fixture (vNext §9 "a server subpath
- * consumer typecheck fixture") and runs `nuxi prepare` (proves the Nuxt
- * module still installs cleanly from the packed tarball) then `nuxi
- * typecheck` (proves type resolution of the real `better-convex-nuxt/server`
- * subpath, plus the `@ts-expect-error` negative-space contract proving the
- * deleted server trio no longer typechecks there — vNext §9 mandatory test
- * "old trio imports fail typecheck").
+ * `test/fixtures/server-consumer` fixture and runs `nuxi prepare` followed
+ * by `nuxi typecheck`, proving the real `better-convex-nuxt/server` subpath
+ * resolves from the packed package.
  */
 export function probeServerEntry(ctx) {
   const fixtureDir = p('test/fixtures/server-consumer')

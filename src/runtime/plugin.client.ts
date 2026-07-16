@@ -2,7 +2,7 @@ import { ConvexClient } from 'convex/browser'
 import { computed } from 'vue'
 
 /**
- * Core client plugin (vNext §5.1). Always installed. Creates the per-Nuxt-app
+ * Core client plugin . Always installed. Creates the per-Nuxt-app
  * client owner (which constructs the primary Convex WebSocket client) and imports
  * NO Better Auth code, so an auth-disabled build graph contains no auth runtime.
  * The auth-enabled-only `plugin.auth.client` attaches the auth engine to the
@@ -58,7 +58,7 @@ export default defineNuxtPlugin({
     // Every library-created browser ConvexClient must set unsavedChangesWarning:false.
     // Convex registers a per-client beforeunload listener that close() does not
     // remove; a retired client with an in-flight mutation would otherwise arm the
-    // unsaved-changes dialog permanently (vNext §5.2, decision 6).
+    // unsaved-changes dialog permanently (decision 6).
     const makeClient = (): OwnedConvexClient =>
       new ConvexClient(convexUrl, {
         unsavedChangesWarning: false,
@@ -67,7 +67,7 @@ export default defineNuxtPlugin({
     // The owner is the single source of truth for the primary and the lazy
     // anonymous `none` client. In an auth-enabled build `none` uses a dedicated
     // anonymous client that never receives setAuth; in an auth-disabled build the
-    // permanently-anonymous primary is reused (vNext §7.5), so no anonymousFactory
+    // permanently-anonymous primary is reused , so no anonymousFactory
     // is supplied.
     const owner = createConvexClientOwner({
       primaryFactory: makeClient,
@@ -84,7 +84,7 @@ export default defineNuxtPlugin({
     }
 
     nuxtApp.provide('convexRuntime', runtime)
-    // The public raw-client augmentation is deleted (vNext §5.4): consumers use the
+    // The public raw-client augmentation is deleted : consumers use the
     // useConvex() handle. The auth plugin reads the current primary through the
     // owner (`getPrimary()`), and DevTools reads through that owner too, so no
     // `$convex` provide is needed.
@@ -127,7 +127,7 @@ export default defineNuxtPlugin({
 
     // App-lifetime teardown. Vue 3.5 exposes the hook on the app instance, not as a
     // Nuxt hook. The owner's disposer closes every allocated client — primary,
-    // replacement candidates, and the anonymous `none` client (vNext §5.2, §4.2).
+    // replacement candidates, and the anonymous `none` client .
     nuxtApp.vueApp.onUnmount(() => {
       void owner.dispose()
     })

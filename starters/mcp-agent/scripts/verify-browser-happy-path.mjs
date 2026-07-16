@@ -13,7 +13,7 @@ const convexCloudPort = Number(process.env.STARTER_CONVEX_CLOUD_PORT ?? 3210)
 const convexSitePort = Number(process.env.STARTER_CONVEX_SITE_PORT ?? 3211)
 const nuxtPort = Number(new URL(rootUrl).port || 80)
 const defaultAuthSecret = 'mcp-agent-browser-smoke-secret-local-only-32chars'
-const defaultMcpServerSecret = 'mcp-agent-local-proof-server-secret-1234'
+const defaultMcpServerSecret = 'mcp-agent-local-test-server-secret-1234'
 const browserViewport = process.argv.includes('--mobile')
   ? 'mobile'
   : (process.env.STARTER_BROWSER_VIEWPORT ?? 'desktop')

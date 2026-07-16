@@ -1,21 +1,20 @@
 import { ConvexError } from 'convex/values'
 
 /**
- * The public, framework-free error contract for Better Convex Nuxt (vNext §7,
- * §5.6, internal §9).
+ * The public, framework-free error contract for Better Convex Nuxt.
  *
  * This module is deliberately unaware of Nuxt, Vue, Nitro, Better Auth, the DOM,
  * and Node built-ins. Its only third-party import is the public Convex error
  * value (`convex/values`), because honest classification of application errors
  * requires recognizing `ConvexError`. The boundary is enforced mechanically by
  * `scripts/check-boundaries.mjs` (`errors-framework-free`) and by the packed
- * purity probe (internal §16.2).
+ * purity probe (architecture invariant).
  */
 
 /**
- * The locked public kind set (vNext §5.6). There is intentionally NO
- * `validation` kind: the pinned Convex 1.32/1.38 packages expose no stable
- * argument-validation class or marker, and vNext never classifies from message
+ * The locked public kind set. There is intentionally no
+ * `validation` kind: the pinned Convex package exposes no stable
+ * argument-validation class or marker, and normalization never classifies from message
  * text. Add a new kind only when a future pinned Convex release provides a
  * mechanically testable signal.
  *
@@ -75,8 +74,8 @@ export class ConvexCallError extends Error {
   // constructor instead re-installs `cause` as a NON-ENUMERABLE own property so
   // it is invisible to enumeration, spreads, `JSON.stringify`, and structured
   // clone — while remaining directly readable as `error.cause` for debugging.
-  // The server-security proof (§16.2) proved this shape, plus the custom
-  // inspect below, load-bearing for log-cleanliness: Node's error formatter
+  // This shape and the custom inspect below are load-bearing for
+  // log-cleanliness: Node's error formatter
   // prints `[cause]` for a plain Error even when non-enumerable, so the inspect
   // hook is what actually keeps a `cause`-only secret out of console output.
   override readonly cause?: unknown
@@ -214,7 +213,7 @@ function readStatus(error: unknown): number | undefined {
 }
 
 /**
- * Mechanically safe, framework-free normalization (vNext §7, internal §9.2).
+ * Mechanically safe, framework-free normalization (architecture invariant).
  *
  * - An existing {@link ConvexCallError} passes through unchanged, so
  *   re-normalizing a boundary-classified `transport`/`authentication` instance
@@ -248,8 +247,8 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
 }
 
 /**
- * Strict structural validation of the serialized public fields (vNext §7,
- * internal §9.3). This gates payload revival: an arbitrary object is NOT revived
+ * Strict structural validation of the serialized public fields. This gates
+ * payload revival: an arbitrary object is NOT revived
  * just because it carries `name: 'ConvexCallError'` — every public field must
  * be present and well-typed. `cause` is never part of the serialized shape.
  */

@@ -14,19 +14,14 @@ import {
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import { identityToken } from '../auth/auth-identity'
+import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
 import { useConvexIdentityState } from '../utils/auth-identity-state'
 import type { ConvexAuthMode } from '../utils/auth-status'
-import { ConvexCallError, normalizeConvexError } from '../utils/call-result'
 import { assertConvexComposableScope } from '../utils/composable-scope'
-import {
-  getFunctionName,
-  hashArgs,
-  createConvexQueryKey,
-  fetchAuthToken,
-  withAuthDimension,
-} from '../utils/convex-cache'
+import { fetchAuthToken, withAuthDimension } from '../utils/convex-cache'
+import { createConvexQueryKey, getFunctionName, hashArgs } from '../utils/convex-shared'
 import type { ConvexIdentityKey } from '../utils/identity-key'
 import {
   commitPaginatedPageError,
@@ -89,7 +84,7 @@ export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem 
   /** Keep previous results while the first page for new args is loading. Never crosses an identity boundary. @default false */
   keepPreviousData?: boolean
   /**
-   * Per-query authentication mode (vNext §5.2). `'optional'` (default) executes
+   * Per-query authentication mode . `'optional'` (default) executes
    * with the signed-in identity when present, anonymously otherwise; `'required'`
    * stays idle while anonymous; `'none'` always executes anonymously.
    *
@@ -132,7 +127,7 @@ function sameTag(a: IsolationTag, b: IsolationTag): boolean {
 }
 
 /**
- * Build the mounted paginated-query state (internal §7.6). One controller per
+ * Build the mounted paginated-query state (architecture invariant). One controller per
  * composable owns first- and later-page acquisition, the cursor chain, refresh,
  * reset, the current generation, stale-commit rejection, and disposal. It routes
  * through the query execution plan (auth gating + transport selection) and owns
@@ -220,7 +215,7 @@ export function createConvexPaginatedQueryState<
     return withAuthDimension(base, authMode, gate.value.cacheIdentity)
   })
 
-  // Library-owned, identity-partitioned error state (vNext §7, decision 8). Same
+  // Library-owned, identity-partitioned error state (decision 8). Same
   // payload-backed store as the regular query: normalized to ConvexCallError
   // exactly once, keyed by the identity-partitioned `asyncDataKey`, and revived
   // as an `instanceof ConvexCallError` after SSR. Per-page errors live on the
@@ -420,7 +415,7 @@ export function createConvexPaginatedQueryState<
         return await fetchPage(initialPaginationOpts.value, operation)
       } catch (rawError) {
         // Normalize once and store in the library-owned state; resolve null so
-        // Nuxt never manufactures an H3Error from a handler rejection (§7).
+        // Nuxt never manufactures an H3Error from a handler rejection.
         if (isOperationCurrent(operation))
           setBoundaryError(normalizeConvexError(rawError), operation.boundaryKey)
         return null
@@ -672,7 +667,7 @@ export function createConvexPaginatedQueryState<
   if (import.meta.client && cleanupScope) {
     if (gate.value.outcome === 'execute' && gate.value.subscribe) subscribeFirstPage()
 
-    // Synchronous identity-change clearing (internal §7.4).
+    // Synchronous identity-change clearing (architecture invariant).
     watch(
       () => ({ tag: currentTag.value, key: asyncDataKey.value }),
       (next, prev) => {

@@ -5,24 +5,14 @@ import { $fetch, createPage, setup, url } from '@nuxt/test-utils/e2e'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 /**
- * REAL SSR hydration test for the vNext §7 public error contract (golden
- * fixtures, last paragraph): "A real SSR query failure—not a synthetic
- * reducer call—must revive through the composable-owned error state as
- * `instanceof ConvexCallError` with equal `kind`, `message`, `code`, `status`,
- * and `data`, while a secret present only in `cause` is absent from rendered
- * HTML, payload JSON, logs, and `JSON.stringify(error)`."
- *
- * Modeled on the Phase 0 prototype at `test/proofs/ssr-errors/` (its
- * app-fixture approach and byte-scan technique), but this test drives the
- * REAL library path end to end:
+ * Exercises the public SSR error contract through the real library path:
  *   - the real `src/module.ts` (via `test/fixtures/ssr-errors-consumer`),
- *   - the real `useConvexQuery` composable (identity-partitioned, composable
- *     -owned error state, never `asyncData.error`),
+ *   - the real `useConvexQuery` composable and its identity-owned error state;
  *   - the real universal payload plugin (`src/runtime/plugins/convex-call-
  *     error-payload.ts`, auto-registered by the module with `order: -50`),
  *   - the real `executeQueryHttp` HTTP boundary and `normalizeConvexError`.
  *
- * The "Convex backend" is a deterministic local HTTP mock (no live
+ * The Convex backend is a deterministic local HTTP mock (no live
  * credentials): it always answers `POST /api/query` with an unexpected 500
  * upstream response whose body carries a sentinel secret. That drives the
  * "unexpected upstream HTTP response" golden fixture (`kind: 'transport'`)
@@ -47,7 +37,7 @@ function countOccurrences(haystack: string, needle: string): number {
   return count
 }
 
-describe('real SSR ConvexCallError revival + redaction (vNext §7 golden fixtures)', async () => {
+describe('real SSR ConvexCallError revival and redaction', async () => {
   let mockServer: Server
 
   beforeAll(async () => {
@@ -60,7 +50,7 @@ describe('real SSR ConvexCallError revival + redaction (vNext §7 golden fixture
       // eagerly opens a WebSocket to `convex.url` for the app's primary
       // client, independent of this page's `subscribe: false` query option.
       // That connection attempt (a plain GET Upgrade request our HTTP mock
-      // does not implement) is irrelevant background noise for THIS proof —
+      // does not implement) is irrelevant background noise for this test —
       // only the real query boundary's `POST /api/query` matters — so it must
       // never see the sentinel, or the browser's network monitor would flag a
       // spurious "leak" that has nothing to do with the boundary under test.

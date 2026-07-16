@@ -1,44 +1,15 @@
-import { defineContentConfig, defineCollection, z } from '@nuxt/content'
+import { defineGinkoDocsConfig } from '@lupinum/ginko-docs/content'
 
-const docsSchema = z.object({
-  links: z
-    .array(
-      z.object({
-        label: z.string(),
-        icon: z.string(),
-        to: z.string(),
-        target: z.string().optional(),
-      }),
-    )
-    .optional(),
-  sitemap: z
-    .union([
-      z.literal(false),
-      z.object({
-        loc: z.string().optional(),
-        lastmod: z.union([z.string(), z.date()]).optional(),
-        changefreq: z
-          .enum(['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'])
-          .optional(),
-        priority: z.number().min(0).max(1).optional(),
-      }),
-    ])
-    .optional(),
-})
+const siteUrl = (process.env.SITE_URL || 'https://better-convex-nuxt.vercel.app').replace(/\/$/, '')
 
-export default defineContentConfig({
-  collections: {
-    landing: defineCollection({
-      type: 'page',
-      source: 'index.md',
-      schema: docsSchema,
-    }),
-    docs: defineCollection({
-      type: 'page',
-      source: {
-        include: 'docs/**',
-      },
-      schema: docsSchema,
-    }),
+export default defineGinkoDocsConfig({
+  site: {
+    name: 'Better Convex Nuxt',
+    description:
+      'Convex for Nuxt 4 with SSR-to-realtime queries, Better Auth, typed server calls, optimistic updates, and uploads.',
+    url: siteUrl,
   },
+  locales: ['en'],
+  defaultLocale: 'en',
+  blog: false,
 })
