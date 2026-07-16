@@ -12,7 +12,8 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@lupinum/ginko-docs": "file:/Users/matthias/Git/2_sites/ginko-docs/layer/.pack/lupinum-ginko-docs-0.2.1.tgz",
+    "@lupinum/ginko-content": "0.3.0-rc.3",
+    "@lupinum/ginko-docs": "0.2.2",
     "nuxt": "^4.4.8"
   },
   "devDependencies": {
