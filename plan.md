@@ -43,6 +43,7 @@ The finished product must let an application owner:
   Auth plugins without creating a second adapter implementation;
 - migrate populated `@convex-dev/better-auth@0.12.5` installations without
   duplicating the component or silently changing identity;
+- HARD CUT NO MIGRATION!!! (maybe in the plan it says migration, but we are full greenfield!)
 - test security invariants under concurrency, failure, malicious input, a real
   Convex backend, clean npm tarballs, browsers, SSR, and real OAuth/MCP clients;
 - receive security patches through one repository, one release process, and one
@@ -193,14 +194,15 @@ The July 2026 review is input, not authority. Its consequential recommendations
 were checked against the pinned npm artifacts, the current repository, RFCs, and
 current primary documentation.
 
-| Review suggestion | Decision | Plan consequence |
-| --- | --- | --- |
-| Treat authorization-code consumption before later binding checks as a release-fatal protocol defect | Rejected as stated | After BCN's fixed profile/auth-method guard, the pinned provider deliberately fails closed on the first forwarded token-endpoint presentation. Later binding failures mint nothing, consume the code, and require a fresh authorization transaction. Guard-rejected malformed/unsupported requests do not burn it. |
-| Ship a `pnpm.patchedDependencies` fix for the optional OAuth Provider peer | Rejected | A consumer-root pnpm patch is not a cross-package-manager release mechanism and cannot prove what npm/Yarn/downstream pnpm consumers execute. Release evidence uses the official pinned artifact. A patch may be used only in a non-release experiment. |
-| Replace the private service-actor MCP starter | Rejected | `starters/mcp-agent` remains the private service-actor example. Phase 6 adds `starters/mcp-oauth-agent` for delegated human OAuth; documentation makes the different trust models explicit. |
-| Narrow the packaged schema immediately in Phase 1 | Modified | Phase 1 first preserves the v0.12.5 packaged schema externally. Phase 2 classifies installed data, then either cuts to the curated package or keeps an app-specific local component using the same adapter. |
-| Add privilege fail-closed checks, exact grant controls, origin hardening, versioned secrets, encrypted account tokens, pinned backends, exact MCP clients, artifact-identity publishing, fuzzing, and negative controls | Accepted | These are explicit phase gates below. |
-| Maintain a hand-curated CVE-to-commit database | Rejected | Advisory automation evaluates authoritative affected ranges against the exact tuple. Temporary exceptions require an owner, reason, mitigation, and expiry; no second vulnerability database is created. |
+| Review suggestion                                                                                                                                                                                                       | Decision                           | Plan consequence                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Treat authorization-code consumption before later binding checks as a release-fatal protocol defect                                                                                                                     | Rejected as stated                 | After BCN's fixed profile/auth-method guard, the pinned provider deliberately fails closed on the first forwarded token-endpoint presentation. Later binding failures mint nothing, consume the code, and require a fresh authorization transaction. Guard-rejected malformed/unsupported requests do not burn it. |
+| Ship a `pnpm.patchedDependencies` fix for the optional OAuth Provider peer                                                                                                                                              | Rejected                           | A consumer-root pnpm patch is not a cross-package-manager release mechanism and cannot prove what npm/Yarn/downstream pnpm consumers execute. Release evidence uses the official pinned artifact. A patch may be used only in a non-release experiment.                                                            |
+| Replace the private service-actor MCP starter                                                                                                                                                                           | Rejected                           | `starters/mcp-agent` remains the private service-actor example. Phase 6 adds `starters/mcp-oauth-agent` for delegated human OAuth; documentation makes the different trust models explicit.                                                                                                                        |
+| Narrow the packaged schema immediately in Phase 1                                                                                                                                                                       | Modified                           | Phase 1 first preserves the v0.12.5 packaged schema externally. Phase 2 classifies installed data, then either cuts to the curated package or keeps an app-specific local component using the same adapter.                                                                                                        |
+| Add privilege fail-closed checks, exact grant controls, origin hardening, versioned secrets, encrypted account tokens, pinned backends, exact MCP clients, artifact-identity publishing, fuzzing, and negative controls | Accepted                           | These are explicit phase gates below.                                                                                                                                                                                                                                                                              |
+| Assume empty omitted plugin tables, the default memory rate limiter, or a version-only MCP command are sufficient evidence                                                                                              | Rejected after artifact inspection | Curated mode also compares active runtime schema requirements; rate limiting is explicitly database-backed with verified IP provenance; MCP conformance uses the complete pinned CLI invocation and fixed relay.                                                                                                   |
+| Maintain a hand-curated CVE-to-commit database                                                                                                                                                                          | Rejected                           | Advisory automation evaluates authoritative affected ranges against the exact tuple. Temporary exceptions require an owner, reason, mitigation, and expiry; no second vulnerability database is created.                                                                                                           |
 
 ## 3. Baseline and version policy
 
@@ -263,11 +265,11 @@ reviewed interoperability-fixture change with fresh evidence.
 
 ### 3.3 Release train
 
-| Release             | Earliest gate                                                                                                | Intended use                                                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| No public release   | Phases 0–6                                                                                                   | Use immutable CI/local tarballs while packaging, migration, JWT, OAuth, and MCP behavior are incomplete.                  |
-| `0.7.0-beta.0`      | Phases 0–7 pass and the trusted-publishing workflow publishes the already-tested artifact                   | First public prerelease; OAuth/MCP beta with refresh and advanced registration disabled.                                   |
-| `0.7.0`             | Independent human security review, required conformance/interoperability evidence, and all stable gates pass | Production-supported release.                                                                                              |
+| Release           | Earliest gate                                                                                                | Intended use                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| No public release | Phases 0–6                                                                                                   | Use immutable CI/local tarballs while packaging, migration, JWT, OAuth, and MCP behavior are incomplete. |
+| `0.7.0-beta.0`    | Phases 0–7 pass and the trusted-publishing workflow publishes the already-tested artifact                    | First public prerelease; OAuth/MCP beta with refresh and advanced registration disabled.                 |
+| `0.7.0`           | Independent human security review, required conformance/interoperability evidence, and all stable gates pass | Production-supported release.                                                                            |
 
 Stable `0.7.0` must not be published against a Better Auth release candidate.
 
@@ -335,21 +337,21 @@ flowchart TB
 
 ### 4.3 Sources of truth
 
-| Concept                                     | Sole source of truth                                       | Explicitly not a source of truth                            |
-| ------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
-| User and session identity                   | Better Auth rows in the Convex auth component              | Nuxt state, JWT display claims, application user projection |
-| Browser session credential                  | Better Auth session cookie                                 | Convex JWT cookie, local storage                            |
-| Convex request identity                     | Short-lived verified Convex session JWT                    | OAuth access token                                          |
-| OAuth grant state                           | Better Auth OAuth Provider rows through the Convex adapter | MCP server cache, Nuxt UI state                             |
-| Current organization/resource authorization | Application Convex tables and functions                    | OAuth scopes alone                                          |
-| Public application origin                   | Validated `SITE_URL`                                       | `Host`, `Forwarded`, `x-forwarded-*`, platform headers      |
-| Convex transport origin                     | Validated `CONVEX_SITE_URL`                                | Browser origin inference                                    |
-| Package API contract                        | `scripts/package-entry-manifest.mjs`                       | `package.json`, docs, and tests maintaining separate lists  |
-| Supported dependency tuple                  | One canonical release compatibility definition             | Per-starter manual choices                                  |
-| Generated component schema                  | Deterministic generator plus reviewed schema options       | Hand edits to generated schema                              |
-| Upstream-derived source history             | Provenance ledger                                          | Git memory or comments alone                                |
-| Local real-backend test binary               | Canonical backend manifest with exact version and platform digest | Floating `convex dev` download                              |
-| Better Auth encryption-secret order          | Better Auth's official versioned `secrets` option/environment parsing | A BCN key registry or custom crypto parser                  |
+| Concept                                     | Sole source of truth                                                  | Explicitly not a source of truth                            |
+| ------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------- |
+| User and session identity                   | Better Auth rows in the Convex auth component                         | Nuxt state, JWT display claims, application user projection |
+| Browser session credential                  | Better Auth session cookie                                            | Convex JWT cookie, local storage                            |
+| Convex request identity                     | Short-lived verified Convex session JWT                               | OAuth access token                                          |
+| OAuth grant state                           | Better Auth OAuth Provider rows through the Convex adapter            | MCP server cache, Nuxt UI state                             |
+| Current organization/resource authorization | Application Convex tables and functions                               | OAuth scopes alone                                          |
+| Public application origin                   | Validated `SITE_URL`                                                  | `Host`, `Forwarded`, `x-forwarded-*`, platform headers      |
+| Convex transport origin                     | Validated `CONVEX_SITE_URL`                                           | Browser origin inference                                    |
+| Package API contract                        | `scripts/package-entry-manifest.mjs`                                  | `package.json`, docs, and tests maintaining separate lists  |
+| Supported dependency tuple                  | One canonical release compatibility definition                        | Per-starter manual choices                                  |
+| Generated component schema                  | Deterministic generator plus reviewed schema options                  | Hand edits to generated schema                              |
+| Upstream-derived source history             | Provenance ledger                                                     | Git memory or comments alone                                |
+| Local real-backend test binary              | Canonical backend manifest with exact version and platform digest     | Floating `convex dev` download                              |
+| Better Auth encryption-secret order         | Better Auth's official versioned `secrets` option/environment parsing | A BCN key registry or custom crypto parser                  |
 
 ### 4.4 Trust boundaries
 
@@ -480,9 +482,9 @@ export {
   defineAuthAdapterFunctions,
   getConvexAuthProvider,
   requireAuthOrigin,
-}
+};
 
-export type { AuthComponentTriggers, AuthCtx, AuthFunctions, CreateAuth }
+export type { AuthComponentTriggers, AuthCtx, AuthFunctions, CreateAuth };
 ```
 
 The exported list may be reduced only through an explicit maintainer-reviewed
@@ -497,25 +499,25 @@ compatibility.
 `test/fixtures/convex-auth-packaged/convex/convex.config.ts`:**
 
 ```ts
-import auth from 'better-convex-nuxt/convex-auth/convex.config'
-import { defineApp } from 'convex/server'
+import auth from "better-convex-nuxt/convex-auth/convex.config";
+import { defineApp } from "convex/server";
 
-const app = defineApp()
-app.use(auth, { name: 'betterAuth' })
+const app = defineApp();
+app.use(auth, { name: "betterAuth" });
 
-export default app
+export default app;
 ```
 
 **Target code — must compile in
 `test/fixtures/convex-auth-packaged/convex/auth.config.ts`:**
 
 ```ts
-import { getConvexAuthProvider } from 'better-convex-nuxt/convex-auth'
-import type { AuthConfig } from 'convex/server'
+import { getConvexAuthProvider } from "better-convex-nuxt/convex-auth";
+import type { AuthConfig } from "convex/server";
 
 export default {
   providers: [getConvexAuthProvider()],
-} satisfies AuthConfig
+} satisfies AuthConfig;
 ```
 
 **Target code — must compile in
@@ -527,32 +529,34 @@ import {
   createAuthComponent,
   requireAuthOrigin,
   type AuthCtx,
-} from 'better-convex-nuxt/convex-auth'
-import { betterAuth } from 'better-auth'
-import { jwt } from 'better-auth/plugins'
+} from "better-convex-nuxt/convex-auth";
+import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
 
-import { components } from './_generated/api'
-import type { DataModel } from './_generated/dataModel'
-import authConfig from './auth.config'
+import { components } from "./_generated/api";
+import type { DataModel } from "./_generated/dataModel";
+import authConfig from "./auth.config";
 
-const authComponent = createAuthComponent<DataModel>(components.betterAuth)
+const authComponent = createAuthComponent<DataModel>(components.betterAuth);
 
 function assertAuthSecretsConfigured() {
-  const versioned = process.env.BETTER_AUTH_SECRETS
-  const legacy = process.env.BETTER_AUTH_SECRET
+  const versioned = process.env.BETTER_AUTH_SECRETS;
+  const legacy = process.env.BETTER_AUTH_SECRET;
   if (!versioned && !legacy) {
-    throw new Error('BETTER_AUTH_SECRETS or legacy BETTER_AUTH_SECRET is required')
+    throw new Error(
+      "BETTER_AUTH_SECRETS or legacy BETTER_AUTH_SECRET is required",
+    );
   }
   if (legacy && (legacy.trim() !== legacy || legacy.length < 32)) {
-    throw new Error('legacy BETTER_AUTH_SECRET must be at least 32 characters')
+    throw new Error("legacy BETTER_AUTH_SECRET must be at least 32 characters");
   }
 }
 
 export async function createAuth(ctx: AuthCtx<DataModel>) {
   try {
-    const siteUrl = requireAuthOrigin('SITE_URL')
-    const convexSiteUrl = requireAuthOrigin('CONVEX_SITE_URL')
-    assertAuthSecretsConfigured()
+    const siteUrl = requireAuthOrigin("SITE_URL");
+    const convexSiteUrl = requireAuthOrigin("CONVEX_SITE_URL");
+    assertAuthSecretsConfigured();
 
     const auth = betterAuth({
       account: {
@@ -560,62 +564,62 @@ export async function createAuth(ctx: AuthCtx<DataModel>) {
       },
       advanced: {
         ipAddress: {
-          ipAddressHeaders: ['x-bcn-verified-client-ip'],
+          ipAddressHeaders: ["x-bcn-verified-client-ip"],
         },
       },
-      basePath: '/api/auth',
+      basePath: "/api/auth",
       baseURL: siteUrl,
       disabledPaths: [
-        '/token',
-        '/.well-known/openid-configuration',
-        '/oauth2/register',
-        '/oauth2/introspect',
-        '/oauth2/userinfo',
-        '/oauth2/end-session',
+        "/token",
+        "/.well-known/openid-configuration",
+        "/oauth2/register",
+        "/oauth2/introspect",
+        "/oauth2/userinfo",
+        "/oauth2/end-session",
       ],
       trustedOrigins: [siteUrl],
       database: authComponent.adapter(ctx),
       rateLimit: {
         enabled: true,
-        modelName: 'rateLimit',
-        storage: 'database',
+        modelName: "rateLimit",
+        storage: "database",
       },
       verification: {
-        storeIdentifier: 'hashed',
+        storeIdentifier: "hashed",
       },
       plugins: [
         jwt({
           disableSettingJwtHeader: true,
           jwks: {
             gracePeriod: 21 * 60,
-            keyPairConfig: { alg: 'RS256' },
+            keyPairConfig: { alg: "RS256" },
             disablePrivateKeyEncryption: false,
           },
           jwt: {
             audience: `${siteUrl}/api/auth`,
-            expirationTime: '10m',
+            expirationTime: "10m",
             issuer: `${siteUrl}/api/auth`,
           },
         }),
         convexAuth({
           authConfig,
           sessionJwt: {
-            audience: 'convex',
-            expirationTime: '15m',
+            audience: "convex",
+            expirationTime: "15m",
             issuer: convexSiteUrl,
             definePayload: ({ session }) => ({
               sid: session.id,
-              token_use: 'convex-session',
+              token_use: "convex-session",
             }),
           },
         }),
       ],
-    })
+    });
 
-    await auth.$context
-    return auth
+    await auth.$context;
+    return auth;
   } catch {
-    throw new Error('AUTH_CONFIG_INVALID')
+    throw new Error("AUTH_CONFIG_INVALID");
   }
 }
 ```
@@ -659,13 +663,13 @@ The packaged component is not an “all Better Auth plugins” component.
 
 The schema path is deliberately staged:
 
-| Phase | Tables/schema sources |
-| --- | --- |
-| Phase 1 | A regenerated, externally compatible representation of the exact packaged `@convex-dev/better-auth@0.12.5` schema. Phase 1 isolates source/package risk and does not narrow installed schema. |
-| Phase 2 packaged path | Better Auth core `user`, `session`, `account`, and `verification`; JWT `jwks`; Better Auth database-backed `rateLimit`, but only when installed-data inventory proves every removed field/table is empty and runtime configuration has no active schema requirement outside this curated profile. |
-| Phase 2 local path | An application-owned generated schema preserving every active schema-changing plugin/additional-field requirement, every populated omitted field/table, and any not-yet-decommissioned legacy OAuth table, mounted as `betterAuth`, using the same BCN adapter implementation. |
-| Phases 3–4 | The selected Phase 2 packaged or local profile regenerated against the exact 1.7 tuple and final JWT configuration. |
-| Phase 5 onward | The selected Phase 4 profile plus all seven tables generated by `@better-auth/oauth-provider@1.7.0-rc.1`: `oauthClient`, `oauthRefreshToken`, `oauthAccessToken`, `oauthConsent`, `oauthResource`, `oauthClientResource`, and `oauthClientAssertion`. A tuple update must regenerate and re-enumerate this list. |
+| Phase                 | Tables/schema sources                                                                                                                                                                                                                                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1               | A regenerated, externally compatible representation of the exact packaged `@convex-dev/better-auth@0.12.5` schema. Phase 1 isolates source/package risk and does not narrow installed schema.                                                                                                                    |
+| Phase 2 packaged path | Better Auth core `user`, `session`, `account`, and `verification`; JWT `jwks`; Better Auth database-backed `rateLimit`, but only when installed-data inventory proves every removed field/table is empty and runtime configuration has no active schema requirement outside this curated profile.                |
+| Phase 2 local path    | An application-owned generated schema preserving every active schema-changing plugin/additional-field requirement, every populated omitted field/table, and any not-yet-decommissioned legacy OAuth table, mounted as `betterAuth`, using the same BCN adapter implementation.                                   |
+| Phases 3–4            | The selected Phase 2 packaged or local profile regenerated against the exact 1.7 tuple and final JWT configuration.                                                                                                                                                                                              |
+| Phase 5 onward        | The selected Phase 4 profile plus all seven tables generated by `@better-auth/oauth-provider@1.7.0-rc.1`: `oauthClient`, `oauthRefreshToken`, `oauthAccessToken`, `oauthConsent`, `oauthResource`, `oauthClientResource`, and `oauthClientAssertion`. A tuple update must regenerate and re-enumerate this list. |
 
 The presence of `oauthRefreshToken` in the generated provider schema does not
 enable refresh tokens. Capability enablement is controlled by scopes, grant
@@ -726,9 +730,9 @@ build-only profile uses reserved, unmistakable non-production values:
 
 ```ts
 const schemaGenerationEnvironment = {
-  baseURL: 'https://schema.invalid',
-  secret: 'schema-generation-only-value-never-used-at-runtime',
-} as const
+  baseURL: "https://schema.invalid",
+  secret: "schema-generation-only-value-never-used-at-runtime",
+} as const;
 ```
 
 The file is not imported by request/runtime code and is not a public export.
@@ -763,10 +767,10 @@ Local mode must import the same `defineAuthAdapterFunctions` implementation from
 `test/fixtures/better-auth-local-component/convex/betterAuth/adapter.ts`:**
 
 ```ts
-import { defineAuthAdapterFunctions } from 'better-convex-nuxt/convex-auth'
+import { defineAuthAdapterFunctions } from "better-convex-nuxt/convex-auth";
 
-import schema from './schema'
-import schemaMetadata from './schema-metadata'
+import schema from "./schema";
+import schemaMetadata from "./schema-metadata";
 
 export const {
   count,
@@ -779,7 +783,7 @@ export const {
   updateMany,
   updateOne,
   consumeOne,
-} = defineAuthAdapterFunctions({ schema, metadata: schemaMetadata })
+} = defineAuthAdapterFunctions({ schema, metadata: schemaMetadata });
 ```
 
 The concrete returned function names must match the Better Auth 1.7 adapter
@@ -833,24 +837,24 @@ with the real request context.
 
 ### 6.1 Enumerated source mapping
 
-| Upstream source                                         | Target                                                | Treatment                                                                                                 |
-| ------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `src/client/index.ts`                                   | `src/runtime/convex-auth/index.ts`                    | Rewrite as the narrow public barrel.                                                                      |
-| `src/client/create-client.ts`                           | `src/runtime/convex-auth/create-auth-component.ts`    | Rewrite, remove header restoration and generic compatibility surface.                                     |
-| `src/client/adapter.ts`                                 | `src/runtime/convex-auth/adapter/create-adapter.ts`   | Port concepts, then correct logical IDs, nulls, atomics, and query behavior.                              |
-| `src/client/create-api.ts`                              | `src/runtime/convex-auth/adapter/define-functions.ts` | Rewrite around internal component functions and native atomic operations.                                 |
-| `src/client/adapter-utils.ts`                           | `src/runtime/convex-auth/adapter/query.ts`            | Rewrite filter/index semantics and delete trivial helper dependencies.                                    |
-| `src/client/create-schema.ts`                           | `src/runtime/convex-auth/adapter/generate-schema.ts`  | Rewrite deterministically; generate Convex schema and adapter metadata while preserving index order and explicit indexes. |
-| `src/component/adapter.ts`                              | `src/runtime/convex-auth/component/adapter.ts`        | Thin call into the shared function definition.                                                            |
-| `src/component/schema.ts`                               | `src/runtime/convex-auth/component/schema.ts`         | Regenerate; never copy stale output.                                                                      |
-| `src/component/convex.config.ts`                        | matching target path                                  | Port only after Phase 0 packaging proof.                                                                  |
-| `src/component/_generated/**`                           | matching target path                                  | Regenerate using target codegen.                                                                          |
+| Upstream source                                         | Target                                                | Treatment                                                                                                                                    |
+| ------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/client/index.ts`                                   | `src/runtime/convex-auth/index.ts`                    | Rewrite as the narrow public barrel.                                                                                                         |
+| `src/client/create-client.ts`                           | `src/runtime/convex-auth/create-auth-component.ts`    | Rewrite, remove header restoration and generic compatibility surface.                                                                        |
+| `src/client/adapter.ts`                                 | `src/runtime/convex-auth/adapter/create-adapter.ts`   | Port concepts, then correct logical IDs, nulls, atomics, and query behavior.                                                                 |
+| `src/client/create-api.ts`                              | `src/runtime/convex-auth/adapter/define-functions.ts` | Rewrite around internal component functions and native atomic operations.                                                                    |
+| `src/client/adapter-utils.ts`                           | `src/runtime/convex-auth/adapter/query.ts`            | Rewrite filter/index semantics and delete trivial helper dependencies.                                                                       |
+| `src/client/create-schema.ts`                           | `src/runtime/convex-auth/adapter/generate-schema.ts`  | Rewrite deterministically; generate Convex schema and adapter metadata while preserving index order and explicit indexes.                    |
+| `src/component/adapter.ts`                              | `src/runtime/convex-auth/component/adapter.ts`        | Thin call into the shared function definition.                                                                                               |
+| `src/component/schema.ts`                               | `src/runtime/convex-auth/component/schema.ts`         | Regenerate; never copy stale output.                                                                                                         |
+| `src/component/convex.config.ts`                        | matching target path                                  | Port only after Phase 0 packaging proof.                                                                                                     |
+| `src/component/_generated/**`                           | matching target path                                  | Regenerate using target codegen.                                                                                                             |
 | `src/auth-options.ts`                                   | `src/runtime/convex-auth/component/schema-options.ts` | Phase 1 regenerates exact legacy-compatible schema; Phase 2 selects the curated or app-local generated profile from installed-data evidence. |
-| `src/plugins/convex/index.ts`                           | `convex-plugin.ts` and `convex-jwt.ts`                | Rewrite. Do not carry deprecated OIDC, hooks, JWT cookie, destructive rotation, or private-row responses. |
-| `src/plugins/convex/client.ts`                          | `src/runtime/auth-client/convex-client-plugin.ts`     | Keep internal to the Nuxt-owned auth client.                                                              |
-| `src/auth-config.ts`                                    | `src/runtime/convex-auth/convex-provider.ts`          | Rewrite with explicit validated issuer/JWKS inputs.                                                       |
-| selected types/context guards from `src/utils/index.ts` | `src/runtime/convex-auth/context.ts`                  | Port only required types and guards.                                                                      |
-| `src/test.ts`                                           | `src/runtime/convex-auth/test.ts`                     | Compile into the tarball; never source-import from a consumer.                                            |
+| `src/plugins/convex/index.ts`                           | `convex-plugin.ts` and `convex-jwt.ts`                | Rewrite. Do not carry deprecated OIDC, hooks, JWT cookie, destructive rotation, or private-row responses.                                    |
+| `src/plugins/convex/client.ts`                          | `src/runtime/auth-client/convex-client-plugin.ts`     | Keep internal to the Nuxt-owned auth client.                                                                                                 |
+| `src/auth-config.ts`                                    | `src/runtime/convex-auth/convex-provider.ts`          | Rewrite with explicit validated issuer/JWKS inputs.                                                                                          |
+| selected types/context guards from `src/utils/index.ts` | `src/runtime/convex-auth/context.ts`                  | Port only required types and guards.                                                                                                         |
+| `src/test.ts`                                           | `src/runtime/convex-auth/test.ts`                     | Compile into the tarball; never source-import from a consumer.                                                                               |
 
 ### 6.2 Code never imported
 
@@ -876,15 +880,15 @@ Do not copy:
 The logical-ID and fail-closed query changes affect maintained consumers outside
 `src/runtime/convex-auth`. They are part of Phase 2, not optional cleanup.
 
-| Consumer area | Required cutover |
-| --- | --- |
-| `src/runtime/server/createUserSyncTriggers.ts` and its tests/consumer fixture | Change `BetterAuthUserDocLike` from `_id` to logical `id`; key every projection lookup and rebuild by `user.id`. Existing application projection rows keep their own Convex `_id`. |
-| `demo/convex/auth.ts` and `playground/convex/auth.ts` | Store `user.id` in `authId`; update projection rebuild types and tests. |
-| `starters/agency/**` and `starters/mcp-agent/**` | Use logical Better Auth user IDs for auth subjects, membership relations, audit actors, credential ownership, and organization keys. Product-table documents continue using their own Convex `_id`. |
-| `starters/team/convex/lib/betterAuthRows.ts`, `lib/authz.ts`, tests, and helpers | Change Better Auth row types from `_id` to `id`; use `ctx.auth.getUserIdentity()` plus direct indexed component reads in queries; keep a pure permission evaluator shared by query/mutation paths. |
-| `starters/agentic-saas/convex/betterAuthPermissions.ts`, callers, tests, and helpers | Remove query-context `getHeaders()`/Better Auth API calls; derive the subject from `ctx.auth`, read required rows directly, and run a pure permission evaluator. |
-| `test/fixtures/better-auth-local-component/convex/type-contracts.ts` | Prove `getAuth()` is callable only from mutation/action contexts and that query auth uses the read path. |
-| Generated API declarations, docs, and shipped factory/source assertions | Regenerate and update to the logical-ID contract and reduced API. |
+| Consumer area                                                                        | Required cutover                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/runtime/server/createUserSyncTriggers.ts` and its tests/consumer fixture        | Change `BetterAuthUserDocLike` from `_id` to logical `id`; key every projection lookup and rebuild by `user.id`. Existing application projection rows keep their own Convex `_id`.                  |
+| `demo/convex/auth.ts` and `playground/convex/auth.ts`                                | Store `user.id` in `authId`; update projection rebuild types and tests.                                                                                                                             |
+| `starters/agency/**` and `starters/mcp-agent/**`                                     | Use logical Better Auth user IDs for auth subjects, membership relations, audit actors, credential ownership, and organization keys. Product-table documents continue using their own Convex `_id`. |
+| `starters/team/convex/lib/betterAuthRows.ts`, `lib/authz.ts`, tests, and helpers     | Change Better Auth row types from `_id` to `id`; use `ctx.auth.getUserIdentity()` plus direct indexed component reads in queries; keep a pure permission evaluator shared by query/mutation paths.  |
+| `starters/agentic-saas/convex/betterAuthPermissions.ts`, callers, tests, and helpers | Remove query-context `getHeaders()`/Better Auth API calls; derive the subject from `ctx.auth`, read required rows directly, and run a pure permission evaluator.                                    |
+| `test/fixtures/better-auth-local-component/convex/type-contracts.ts`                 | Prove `getAuth()` is callable only from mutation/action contexts and that query auth uses the read path.                                                                                            |
+| Generated API declarations, docs, and shipped factory/source assertions              | Regenerate and update to the logical-ID contract and reduced API.                                                                                                                                   |
 
 Identity rules after cutover:
 
@@ -1068,56 +1072,56 @@ input.
 
 ### 7.2 Invariant registry
 
-| ID           | Invariant                                                                                                                                                                                                                  | Enforcing seam                                       | Required proof                                                |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
-| AUTH-INV-001 | Every Better Auth row has an immutable required logical `id: string`; Convex `_id` is internal.                                                                                                                            | Schema generator, adapter create/update/output       | Migration test, force-ID test, no `_id` output test           |
-| AUTH-INV-002 | Logical ID and unique-field checks happen in the same mutation as the write.                                                                                                                                               | Component create/update mutations                    | Real-backend concurrent duplicate tests                       |
-| AUTH-INV-002A | `updateMany` rejects `id` and every generated unique field before reading or writing; a rejected bulk update performs zero partial writes.                                                                                  | Adapter and component bulk-update boundary           | ID/unique rejection and fault tests                           |
-| AUTH-INV-003 | Nullable fields have one stored empty state: explicit `null`.                                                                                                                                                              | Adapter normalization, migration, schema             | Property/differential tests and zero-missing migration report |
-| AUTH-INV-004 | Omitted update fields remain unchanged; explicit `null` clears.                                                                                                                                                            | Update normalization                                 | Targeted update tests                                         |
-| AUTH-INV-005 | `consumeOne` reads, guards, deletes, triggers, and returns within one mutation.                                                                                                                                            | Component `consumeOne`                               | 200-way PR race, 1,000-way nightly race, fault test           |
-| AUTH-INV-006 | `incrementOne` reads, guards, patches, triggers, and returns within one mutation.                                                                                                                                          | Component `incrementOne`                             | Concurrent increment/decrement and overflow tests             |
-| AUTH-INV-007 | Compound index order is preserved and explicit plugin indexes are generated.                                                                                                                                               | Schema generator and query planner                   | Deterministic generation and indexed/fallback parity          |
-| AUTH-INV-007A | Adapter `count` uses the same model, physical-field, filter, null, and index semantics as `findMany`; generated metadata is the sole adapter descriptor.                                                                                                               | Generated metadata and query engine                  | Pinned contract and differential count tests                  |
-| AUTH-INV-008 | Unexpected writes in Convex query context fail; no successful no-op writes exist.                                                                                                                                          | Context guards and adapter                           | Query write rejection tests                                   |
-| AUTH-INV-009 | The normalized configured public origin is the only browser/OAuth origin and is never inferred from the incoming `Host`, URL, or forwarding headers.                                                                       | Shared origin parser, Nuxt config/proxy, request rewrite | Host/header/origin injection matrix                       |
-| AUTH-INV-009A | Better Auth rate limiting is enabled and database-backed; its only IP input is a wrapper-created verified address from the signed Nuxt handoff or Convex request metadata. Caller headers cannot select a quota bucket. | Nuxt proxy, Convex HTTP wrapper, Better Auth rate limiter, adapter `incrementOne` | Signature/forgery matrix and cross-isolate quota races |
-| AUTH-INV-010 | Browser auth uses only the Nuxt same-origin `/api/auth` proxy.                                                                                                                                                             | Nuxt module and boundary checks                      | Browser/SSR tests and build graph checks                      |
-| AUTH-INV-011 | A Convex session JWT is minted only from a final, current, persisted Better Auth session.                                                                                                                                  | `/convex/token` endpoint                             | MFA, deleted, expired, mismatched session tests               |
-| AUTH-INV-012 | No Convex JWT cookie or automatic JWT response header exists.                                                                                                                                                              | JWT plugin config, endpoint response                 | Raw response and cookie tests                                 |
-| AUTH-INV-013 | Convex session and OAuth access tokens are different token classes.                                                                                                                                                        | Claim construction and separate verifiers            | Full token confusion matrix                                   |
-| AUTH-INV-014 | JWT verification requires signature, exact algorithm, issuer, audience/resource, token class, and time validity.                                                                                                           | Convex provider and resource verifier                | Negative validation matrix                                    |
-| AUTH-INV-015 | JWT/custom claims use an explicit allowlist; no user object spread.                                                                                                                                                        | Payload builder                                      | Sentinel and claim snapshot tests                             |
-| AUTH-INV-016 | JWKS rotation is additive and concurrency-safe; the committing mutation owns rotation time, and every unexpired token retains a published verification key through token lifetime, cache lifetime, and skew.                | Key lifecycle operation                              | Multi-rotator/delayed-commit race, grace, partial-failure tests |
-| AUTH-INV-017 | Public JWKS and operator responses never contain private key material.                                                                                                                                                     | JWKS serializer and operator API                     | Recursive private-member leak tests                           |
-| AUTH-INV-018 | A request rejected by BCN's fixed pre-provider profile guard does not consume a code. A request that passes that guard atomically consumes the code before the provider's later semantic validation. No token is emitted unless client authentication, client ID, redirect URI, resource, PKCE, expiry, user/session, and grant checks pass. Failure after consume is deliberately fail-closed; the client starts a fresh authorization transaction. | BCN pre-provider middleware, OAuth Provider flow, adapter consume | Guard-survival, binding-failure burn/no-mint, replay, fresh-flow, race, and fault tests |
-| AUTH-INV-019 | OAuth access tokens are bound to one public resource identifier in the first beta.                                                                                                                                         | OAuth configuration and verifier                     | Resource A/B confusion matrix                                 |
-| AUTH-INV-020 | OAuth scopes are a ceiling; every MCP tool performs live application authorization.                                                                                                                                        | MCP resource server and Convex functions             | Revoked membership/delegation tests                           |
-| AUTH-INV-021 | Refresh tokens are not advertised or issued in the first beta.                                                                                                                                                             | OAuth metadata/configuration                         | Metadata and token-response assertions                        |
-| AUTH-INV-022 | Versioned Better Auth secrets, the proxy IP-signing secret, social-provider account tokens, OAuth client secrets, OAuth opaque access/refresh tokens, private keys, and the transitional backup follow the pinned protection/retention policy; protocol credentials appear only in explicitly authorized locations and never in logs or public artifacts. | Better Auth options, Nuxt/Convex proxy, provider/JWT storage, backup controls, diagnostics | Rotation, database, authorized-location, backup-destruction, log, source-map, tarball scans |
-| AUTH-INV-023 | Auth migrations are bounded, dry-runnable, idempotent, resumable, and count-verified.                                                                                                                                      | Internal migration functions and runner              | 10,000-row fault/resume test                                  |
-| AUTH-INV-024 | Packaged and local modes use the same adapter implementation.                                                                                                                                                              | Public function boundary                             | Static import graph and both-mode suites                      |
-| AUTH-INV-025 | The tested tarball is the release artifact.                                                                                                                                                                                | Release script and artifact identity check           | Hash equality and clean consumer gates                        |
-| AUTH-INV-026 | OAuth beta revocation semantics are explicit: client, consent, session, membership, and delegation changes are checked live; a self-contained JWT's residual individual-token window never exceeds its 10-minute lifetime. | Access-token expiry and live resource authorization  | Revocation timing matrix and clock-boundary tests             |
-| AUTH-INV-027 | Schema/codegen runs without production secrets, while production auth refuses missing or unsafe configuration.                                                                                                                             | Build-only schema profile and runtime validators     | Environment-cleared codegen plus runtime fail-closed tests    |
-| AUTH-INV-028 | Installed auth data and final runtime schema requirements are classified before narrowing; populated or active-but-empty omitted plugins select local-component mode, and populated legacy OAuth state blocks the new provider cutover. | Read-only inventory, runtime-config comparison, migration runner | Both-path continuity, empty-enabled-plugin refusal, and legacy-OAuth refusal tests |
-| AUTH-INV-029 | OAuth client/resource privilege callbacks are mandatory at startup and deny on `false`, `undefined`, error, timeout, missing session, or missing context.                                                                    | `convexAuth` OAuth-profile validation and callbacks  | Startup and operation-level fail-closed matrix                 |
+| ID            | Invariant                                                                                                                                                                                                                                                                                                                                                                                                                                            | Enforcing seam                                                                             | Required proof                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| AUTH-INV-001  | Every Better Auth row has an immutable required logical `id: string`; Convex `_id` is internal.                                                                                                                                                                                                                                                                                                                                                      | Schema generator, adapter create/update/output                                             | Migration test, force-ID test, no `_id` output test                                         |
+| AUTH-INV-002  | Logical ID and unique-field checks happen in the same mutation as the write.                                                                                                                                                                                                                                                                                                                                                                         | Component create/update mutations                                                          | Real-backend concurrent duplicate tests                                                     |
+| AUTH-INV-002A | `updateMany` rejects `id` and every generated unique field before reading or writing; a rejected bulk update performs zero partial writes.                                                                                                                                                                                                                                                                                                           | Adapter and component bulk-update boundary                                                 | ID/unique rejection and fault tests                                                         |
+| AUTH-INV-003  | Nullable fields have one stored empty state: explicit `null`.                                                                                                                                                                                                                                                                                                                                                                                        | Adapter normalization, migration, schema                                                   | Property/differential tests and zero-missing migration report                               |
+| AUTH-INV-004  | Omitted update fields remain unchanged; explicit `null` clears.                                                                                                                                                                                                                                                                                                                                                                                      | Update normalization                                                                       | Targeted update tests                                                                       |
+| AUTH-INV-005  | `consumeOne` reads, guards, deletes, triggers, and returns within one mutation.                                                                                                                                                                                                                                                                                                                                                                      | Component `consumeOne`                                                                     | 200-way PR race, 1,000-way nightly race, fault test                                         |
+| AUTH-INV-006  | `incrementOne` reads, guards, patches, triggers, and returns within one mutation.                                                                                                                                                                                                                                                                                                                                                                    | Component `incrementOne`                                                                   | Concurrent increment/decrement and overflow tests                                           |
+| AUTH-INV-007  | Compound index order is preserved and explicit plugin indexes are generated.                                                                                                                                                                                                                                                                                                                                                                         | Schema generator and query planner                                                         | Deterministic generation and indexed/fallback parity                                        |
+| AUTH-INV-007A | Adapter `count` uses the same model, physical-field, filter, null, and index semantics as `findMany`; generated metadata is the sole adapter descriptor.                                                                                                                                                                                                                                                                                             | Generated metadata and query engine                                                        | Pinned contract and differential count tests                                                |
+| AUTH-INV-008  | Unexpected writes in Convex query context fail; no successful no-op writes exist.                                                                                                                                                                                                                                                                                                                                                                    | Context guards and adapter                                                                 | Query write rejection tests                                                                 |
+| AUTH-INV-009  | The normalized configured public origin is the only browser/OAuth origin and is never inferred from the incoming `Host`, URL, or forwarding headers.                                                                                                                                                                                                                                                                                                 | Shared origin parser, Nuxt config/proxy, request rewrite                                   | Host/header/origin injection matrix                                                         |
+| AUTH-INV-009A | Better Auth rate limiting is enabled and database-backed; its only IP input is a wrapper-created verified address from the signed Nuxt handoff or Convex request metadata. Caller headers cannot select a quota bucket.                                                                                                                                                                                                                              | Nuxt proxy, Convex HTTP wrapper, Better Auth rate limiter, adapter `incrementOne`          | Signature/forgery matrix and cross-isolate quota races                                      |
+| AUTH-INV-010  | Browser auth uses only the Nuxt same-origin `/api/auth` proxy.                                                                                                                                                                                                                                                                                                                                                                                       | Nuxt module and boundary checks                                                            | Browser/SSR tests and build graph checks                                                    |
+| AUTH-INV-011  | A Convex session JWT is minted only from a final, current, persisted Better Auth session.                                                                                                                                                                                                                                                                                                                                                            | `/convex/token` endpoint                                                                   | MFA, deleted, expired, mismatched session tests                                             |
+| AUTH-INV-012  | No Convex JWT cookie or automatic JWT response header exists.                                                                                                                                                                                                                                                                                                                                                                                        | JWT plugin config, endpoint response                                                       | Raw response and cookie tests                                                               |
+| AUTH-INV-013  | Convex session and OAuth access tokens are different token classes.                                                                                                                                                                                                                                                                                                                                                                                  | Claim construction and separate verifiers                                                  | Full token confusion matrix                                                                 |
+| AUTH-INV-014  | JWT verification requires signature, exact algorithm, issuer, audience/resource, token class, and time validity.                                                                                                                                                                                                                                                                                                                                     | Convex provider and resource verifier                                                      | Negative validation matrix                                                                  |
+| AUTH-INV-015  | JWT/custom claims use an explicit allowlist; no user object spread.                                                                                                                                                                                                                                                                                                                                                                                  | Payload builder                                                                            | Sentinel and claim snapshot tests                                                           |
+| AUTH-INV-016  | JWKS rotation is additive and concurrency-safe; the committing mutation owns rotation time, and every unexpired token retains a published verification key through token lifetime, cache lifetime, and skew.                                                                                                                                                                                                                                         | Key lifecycle operation                                                                    | Multi-rotator/delayed-commit race, grace, partial-failure tests                             |
+| AUTH-INV-017  | Public JWKS and operator responses never contain private key material.                                                                                                                                                                                                                                                                                                                                                                               | JWKS serializer and operator API                                                           | Recursive private-member leak tests                                                         |
+| AUTH-INV-018  | A request rejected by BCN's fixed pre-provider profile guard does not consume a code. A request that passes that guard atomically consumes the code before the provider's later semantic validation. No token is emitted unless client authentication, client ID, redirect URI, resource, PKCE, expiry, user/session, and grant checks pass. Failure after consume is deliberately fail-closed; the client starts a fresh authorization transaction. | BCN pre-provider middleware, OAuth Provider flow, adapter consume                          | Guard-survival, binding-failure burn/no-mint, replay, fresh-flow, race, and fault tests     |
+| AUTH-INV-019  | OAuth access tokens are bound to one public resource identifier in the first beta.                                                                                                                                                                                                                                                                                                                                                                   | OAuth configuration and verifier                                                           | Resource A/B confusion matrix                                                               |
+| AUTH-INV-020  | OAuth scopes are a ceiling; every MCP tool performs live application authorization.                                                                                                                                                                                                                                                                                                                                                                  | MCP resource server and Convex functions                                                   | Revoked membership/delegation tests                                                         |
+| AUTH-INV-021  | Refresh tokens are not advertised or issued in the first beta.                                                                                                                                                                                                                                                                                                                                                                                       | OAuth metadata/configuration                                                               | Metadata and token-response assertions                                                      |
+| AUTH-INV-022  | Versioned Better Auth secrets, the proxy IP-signing secret, social-provider account tokens, OAuth client secrets, OAuth opaque access/refresh tokens, private keys, and the transitional backup follow the pinned protection/retention policy; protocol credentials appear only in explicitly authorized locations and never in logs or public artifacts.                                                                                            | Better Auth options, Nuxt/Convex proxy, provider/JWT storage, backup controls, diagnostics | Rotation, database, authorized-location, backup-destruction, log, source-map, tarball scans |
+| AUTH-INV-023  | Auth migrations are bounded, dry-runnable, idempotent, resumable, and count-verified.                                                                                                                                                                                                                                                                                                                                                                | Internal migration functions and runner                                                    | 10,000-row fault/resume test                                                                |
+| AUTH-INV-024  | Packaged and local modes use the same adapter implementation.                                                                                                                                                                                                                                                                                                                                                                                        | Public function boundary                                                                   | Static import graph and both-mode suites                                                    |
+| AUTH-INV-025  | The tested tarball is the release artifact.                                                                                                                                                                                                                                                                                                                                                                                                          | Release script and artifact identity check                                                 | Hash equality and clean consumer gates                                                      |
+| AUTH-INV-026  | OAuth beta revocation semantics are explicit: client, consent, session, membership, and delegation changes are checked live; a self-contained JWT's residual individual-token window never exceeds its 10-minute lifetime.                                                                                                                                                                                                                           | Access-token expiry and live resource authorization                                        | Revocation timing matrix and clock-boundary tests                                           |
+| AUTH-INV-027  | Schema/codegen runs without production secrets, while production auth refuses missing or unsafe configuration.                                                                                                                                                                                                                                                                                                                                       | Build-only schema profile and runtime validators                                           | Environment-cleared codegen plus runtime fail-closed tests                                  |
+| AUTH-INV-028  | Installed auth data and final runtime schema requirements are classified before narrowing; populated or active-but-empty omitted plugins select local-component mode, and populated legacy OAuth state blocks the new provider cutover.                                                                                                                                                                                                              | Read-only inventory, runtime-config comparison, migration runner                           | Both-path continuity, empty-enabled-plugin refusal, and legacy-OAuth refusal tests          |
+| AUTH-INV-029  | OAuth client/resource privilege callbacks are mandatory at startup and deny on `false`, `undefined`, error, timeout, missing session, or missing context.                                                                                                                                                                                                                                                                                            | `convexAuth` OAuth-profile validation and callbacks                                        | Startup and operation-level fail-closed matrix                                              |
 
 ### 7.3 No-go gates
 
 The following remain disabled until their individual later-phase gate passes:
 
-| Capability                                                  | Initial status                 | Required separate proof                                                                                            |
-| ----------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| `offline_access` and refresh tokens                         | Disabled                       | Atomic refresh-family transition and forced interleaving suite                                                     |
-| Public dynamic client registration                          | Disabled                       | Abuse controls, authorization model, rate limits, metadata validation                                              |
-| Client ID Metadata Documents                                | Disabled                       | SSRF, redirect, DNS rebinding, cache, size, content-type, and trust policy                                         |
-| DPoP                                                        | Disabled; every DPoP metadata member is omitted, never emitted as an empty array | Proof validation, nonce, replay store, method/URI binding, key binding |
-| `client_credentials`                                        | Disabled                       | Machine identity, owner/admin policy, resource/scope model, revocation                                             |
-| Outbound OIDC Provider mode (`openid`, ID tokens, UserInfo) | Disabled in the agent/MCP beta | A real relying-party requirement, OIDC claim/privacy policy, logout, UserInfo, and ID-token interoperability tests |
-| Multi-resource access token                                 | Disabled                       | Audience semantics and cross-resource test matrix                                                                  |
-| SAML in Convex runtime                                      | Unsupported                    | Use an external/mature SAML boundary, not an edge-runtime reimplementation                                         |
-| Multi-domain origin inference                               | Unsupported                    | Requires a separate trusted-tenant-origin design                                                                   |
+| Capability                                                  | Initial status                                                                   | Required separate proof                                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `offline_access` and refresh tokens                         | Disabled                                                                         | Atomic refresh-family transition and forced interleaving suite                                                     |
+| Public dynamic client registration                          | Disabled                                                                         | Abuse controls, authorization model, rate limits, metadata validation                                              |
+| Client ID Metadata Documents                                | Disabled                                                                         | SSRF, redirect, DNS rebinding, cache, size, content-type, and trust policy                                         |
+| DPoP                                                        | Disabled; every DPoP metadata member is omitted, never emitted as an empty array | Proof validation, nonce, replay store, method/URI binding, key binding                                             |
+| `client_credentials`                                        | Disabled                                                                         | Machine identity, owner/admin policy, resource/scope model, revocation                                             |
+| Outbound OIDC Provider mode (`openid`, ID tokens, UserInfo) | Disabled in the agent/MCP beta                                                   | A real relying-party requirement, OIDC claim/privacy policy, logout, UserInfo, and ID-token interoperability tests |
+| Multi-resource access token                                 | Disabled                                                                         | Audience semantics and cross-resource test matrix                                                                  |
+| SAML in Convex runtime                                      | Unsupported                                                                      | Use an external/mature SAML boundary, not an edge-runtime reimplementation                                         |
+| Multi-domain origin inference                               | Unsupported                                                                      | Requires a separate trusted-tenant-origin design                                                                   |
 
 ## 8. Difficult implementation cornerstones
 
@@ -1131,29 +1135,34 @@ tests, Better Auth adapter contract, and Convex types are authoritative.
 protocol identity:**
 
 ```ts
-const { id: ignoredId, ...row } = data
-const storageId = await ctx.db.insert(model, row)
-return { ...row, id: String(storageId) }
+const { id: ignoredId, ...row } = data;
+const storageId = await ctx.db.insert(model, row);
+return { ...row, id: String(storageId) };
 ```
 
 **Illustrative pseudocode—do not paste:**
 
 ```ts
 async function createAuthRow(ctx: MutationCtx, args: CreateArgs) {
-  const row = canonicalizeCreate(args.model, args.data)
+  const row = canonicalizeCreate(args.model, args.data);
 
-  if (typeof row.id !== 'string' || row.id.length === 0) {
-    throw new Error('Better Auth logical id is required')
+  if (typeof row.id !== "string" || row.id.length === 0) {
+    throw new Error("Better Auth logical id is required");
   }
 
-  await assertUniqueInsideThisMutation(ctx, args.model, 'id', row.id)
+  await assertUniqueInsideThisMutation(ctx, args.model, "id", row.id);
 
   for (const uniqueField of uniqueFieldsFor(args.model)) {
-    await assertUniqueInsideThisMutation(ctx, args.model, uniqueField, row[uniqueField])
+    await assertUniqueInsideThisMutation(
+      ctx,
+      args.model,
+      uniqueField,
+      row[uniqueField],
+    );
   }
 
-  const storageId = await ctx.db.insert(args.model, row)
-  return toBetterAuthDocument(await ctx.db.get(storageId))
+  const storageId = await ctx.db.insert(args.model, row);
+  return toBetterAuthDocument(await ctx.db.get(storageId));
 }
 ```
 
@@ -1177,9 +1186,9 @@ Rules:
 **Wrong—two callers can both observe “missing”:**
 
 ```ts
-const existing = await ctx.runQuery(internal.auth.findByEmail, { email })
+const existing = await ctx.runQuery(internal.auth.findByEmail, { email });
 if (!existing) {
-  await ctx.runMutation(internal.auth.createUser, { email })
+  await ctx.runMutation(internal.auth.createUser, { email });
 }
 ```
 
@@ -1193,11 +1202,11 @@ async function assertUniqueInsideThisMutation(
   value: unknown,
   exceptStorageId?: GenericId<AuthModel>,
 ) {
-  if (value === null || value === undefined) return
+  if (value === null || value === undefined) return;
 
-  const existing = await findByIndexedField(ctx, model, field, value)
+  const existing = await findByIndexedField(ctx, model, field, value);
   if (existing && existing._id !== exceptStorageId) {
-    throw duplicateFieldError(model, field)
+    throw duplicateFieldError(model, field);
   }
 }
 ```
@@ -1212,13 +1221,13 @@ the acceptance test runs on a real local Convex backend.
 **Wrong—allows both missing and `null`:**
 
 ```ts
-v.optional(v.union(v.null(), v.string()))
+v.optional(v.union(v.null(), v.string()));
 ```
 
 **Wrong—erases every omitted optional field during a partial update:**
 
 ```ts
-const update = canonicalizeAllMissingFieldsToNull(input)
+const update = canonicalizeAllMissingFieldsToNull(input);
 ```
 
 **Illustrative pseudocode—do not paste:**
@@ -1229,19 +1238,21 @@ function canonicalizeCreate(
   input: Record<string, unknown>,
   schema: BetterAuthSchema,
 ) {
-  const result = { ...input }
+  const result = { ...input };
 
   for (const field of nullableFieldsFor(schema, model)) {
     if (result[field.physicalName] === undefined) {
-      result[field.physicalName] = null
+      result[field.physicalName] = null;
     }
   }
 
-  return result
+  return result;
 }
 
 function canonicalizeUpdate(input: Record<string, unknown>) {
-  return Object.fromEntries(Object.entries(input).filter((entry) => entry[1] !== undefined))
+  return Object.fromEntries(
+    Object.entries(input).filter((entry) => entry[1] !== undefined),
+  );
 }
 ```
 
@@ -1265,10 +1276,10 @@ leave every matching row unchanged; do not loop through independent mutations.
 **Wrong—both racers can return the same row:**
 
 ```ts
-const row = await adapter.findOne({ model, where })
-if (!row) return null
-await adapter.delete({ model, where: [{ field: 'id', value: row.id }] })
-return row
+const row = await adapter.findOne({ model, where });
+if (!row) return null;
+await adapter.delete({ model, where: [{ field: "id", value: row.id }] });
+return row;
 ```
 
 **Illustrative pseudocode—do not paste:**
@@ -1278,21 +1289,21 @@ export const consumeOne = internalMutation({
   args: consumeOneArgs,
   handler: async (ctx, args) => {
     if (args.where.length === 0) {
-      throw new Error('consumeOne requires a non-empty guard')
+      throw new Error("consumeOne requires a non-empty guard");
     }
 
-    const rows = await findAtMostTwoInsideMutation(ctx, args)
-    if (rows.length === 0) return null
+    const rows = await findAtMostTwoInsideMutation(ctx, args);
+    if (rows.length === 0) return null;
     if (rows.length > 1) {
-      throw new Error('consumeOne guard matched more than one row')
+      throw new Error("consumeOne guard matched more than one row");
     }
 
-    const row = rows[0]
-    await ctx.db.delete(row._id)
-    await runDeleteTriggerInsideTransaction(ctx, args.model, row)
-    return toBetterAuthDocument(row)
+    const row = rows[0];
+    await ctx.db.delete(row._id);
+    await runDeleteTriggerInsideTransaction(ctx, args.model, row);
+    return toBetterAuthDocument(row);
   },
-})
+});
 ```
 
 Authorization codes need an additional provider-level rule. In the pinned OAuth
@@ -1334,12 +1345,12 @@ patch as release evidence.
 **Wrong—concurrent updates lose increments:**
 
 ```ts
-const row = await adapter.findOne({ model, where })
+const row = await adapter.findOne({ model, where });
 return await adapter.update({
   model,
   where,
   update: { attempts: row.attempts + 1 },
-})
+});
 ```
 
 **Illustrative pseudocode—do not paste:**
@@ -1348,32 +1359,36 @@ return await adapter.update({
 export const incrementOne = internalMutation({
   args: incrementOneArgs,
   handler: async (ctx, args) => {
-    assertIncrementRequestIsNotEmpty(args)
-    assertIncrementAndSetFieldsDoNotOverlap(args)
+    assertIncrementRequestIsNotEmpty(args);
+    assertIncrementAndSetFieldsDoNotOverlap(args);
 
-    const row = await findExactlyOneOrNullInsideMutation(ctx, args)
-    if (!row) return null
+    const row = await findExactlyOneOrNullInsideMutation(ctx, args);
+    if (!row) return null;
 
-    const patch: Record<string, unknown> = { ...args.set }
+    const patch: Record<string, unknown> = { ...args.set };
 
     for (const [field, delta] of Object.entries(args.increment)) {
-      const current = row[field]
-      if (typeof current !== 'number' || !Number.isFinite(current) || !Number.isFinite(delta)) {
-        throw new Error(`Cannot increment non-finite field ${field}`)
+      const current = row[field];
+      if (
+        typeof current !== "number" ||
+        !Number.isFinite(current) ||
+        !Number.isFinite(delta)
+      ) {
+        throw new Error(`Cannot increment non-finite field ${field}`);
       }
 
-      const next = current + delta
+      const next = current + delta;
       if (!Number.isFinite(next)) {
-        throw new Error(`Increment overflow for ${field}`)
+        throw new Error(`Increment overflow for ${field}`);
       }
-      patch[field] = next
+      patch[field] = next;
     }
 
-    await ctx.db.patch(row._id, patch)
-    await runUpdateTriggerInsideTransaction(ctx, args.model, row, patch)
-    return toBetterAuthDocument(await ctx.db.get(row._id))
+    await ctx.db.patch(row._id, patch);
+    await runUpdateTriggerInsideTransaction(ctx, args.model, row, patch);
+    return toBetterAuthDocument(await ctx.db.get(row._id));
   },
-})
+});
 ```
 
 The provenance-tracked pinned Better Auth adapter contract wins if its exact
@@ -1385,14 +1400,14 @@ contract before implementation.
 **Wrong:**
 
 ```ts
-const fields = Array.isArray(index) ? index.sort() : [index]
+const fields = Array.isArray(index) ? index.sort() : [index];
 ```
 
 **Illustrative pseudocode—do not paste:**
 
 ```ts
-const fields = Array.isArray(index) ? [...index] : [index]
-const descriptor = buildStableIndexDescriptor(fields)
+const fields = Array.isArray(index) ? [...index] : [index];
+const descriptor = buildStableIndexDescriptor(fields);
 ```
 
 The generator must fail on:
@@ -1412,7 +1427,7 @@ not alphabetically sort predicates.
 **Wrong—reports success for a write that never happened:**
 
 ```ts
-ctx.context.adapter.delete = async () => 0
+ctx.context.adapter.delete = async () => 0;
 ```
 
 **Illustrative pseudocode—do not paste:**
@@ -1422,7 +1437,7 @@ function assertWritableContext(
   ctx: QueryCtx | MutationCtx | ActionCtx,
 ): asserts ctx is MutationCtx | ActionCtx {
   if (!isMutationOrActionContext(ctx)) {
-    throw new Error('Better Auth writes are not allowed in Convex queries')
+    throw new Error("Better Auth writes are not allowed in Convex queries");
   }
 }
 ```
@@ -1436,38 +1451,49 @@ adapter may be added until named endpoints prove they need one.
 **Wrong:**
 
 ```ts
-const host = request.headers.get('x-forwarded-host')
-const protocol = request.headers.get('x-forwarded-proto')
-const publicOrigin = `${protocol}://${host}`
+const host = request.headers.get("x-forwarded-host");
+const protocol = request.headers.get("x-forwarded-proto");
+const publicOrigin = `${protocol}://${host}`;
 ```
 
 **Illustrative pseudocode—do not paste:**
 
 ```ts
-export function requireAuthOrigin(name: 'SITE_URL' | 'CONVEX_SITE_URL', env = process.env) {
-  const raw = env[name]
-  if (!raw) throw new Error(`${name} is required`)
-  const url = new URL(raw)
+export function requireAuthOrigin(
+  name: "SITE_URL" | "CONVEX_SITE_URL",
+  env = process.env,
+) {
+  const raw = env[name];
+  if (!raw) throw new Error(`${name} is required`);
+  const url = new URL(raw);
+  const inputWithoutOneTrailingSlash = raw.endsWith("/")
+    ? raw.slice(0, -1)
+    : raw;
 
-  if (url.username || url.password) throw new Error('origin credentials forbidden')
-  if (url.search || url.hash) throw new Error('origin query and fragment forbidden')
-  if (url.pathname !== '/') throw new Error('origin path forbidden')
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('origin protocol must be HTTP or HTTPS')
+  if (url.username || url.password)
+    throw new Error("origin credentials forbidden");
+  if (url.search || url.hash)
+    throw new Error("origin query and fragment forbidden");
+  if (url.pathname !== "/") throw new Error("origin path forbidden");
+  if (inputWithoutOneTrailingSlash !== url.origin) {
+    throw new Error("origin must use its canonical URL serialization");
   }
-  if (url.protocol === 'http:' && !isExactLoopbackHost(url.hostname)) {
-    throw new Error('HTTPS is required outside loopback')
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("origin protocol must be HTTP or HTTPS");
+  }
+  if (url.protocol === "http:" && !isExactLoopbackHost(url.hostname)) {
+    throw new Error("HTTPS is required outside loopback");
   }
 
-  return url.origin
+  return url.origin;
 }
 
 function rewriteRequestToPublicOrigin(request: Request, publicOrigin: string) {
-  const incoming = new URL(request.url)
-  const target = new URL(publicOrigin)
-  target.pathname = incoming.pathname
-  target.search = incoming.search
-  return new Request(target, request)
+  const incoming = new URL(request.url);
+  const target = new URL(publicOrigin);
+  target.pathname = incoming.pathname;
+  target.search = incoming.search;
+  return new Request(target, request);
 }
 ```
 
@@ -1491,6 +1517,13 @@ registration. It accepts only the URL parser's canonical hostname forms
 integer/octal/hex IPv4 spellings, IPv4-mapped alternatives, and every other
 hostname. Origin tests include `ftp:`, `file:`, `ws:`, `wss:`, custom schemes,
 `localhost.example`, and noncanonical loopback spellings.
+
+The canonical-serialization comparison is required because WHATWG URL parsing
+can normalize an integer/octal/hex loopback spelling into `127.0.0.1` before a
+hostname predicate sees it. Redirect registration likewise accepts only the
+exact canonical `url.href` serialization before applying the shared hostname,
+scheme, fixed-port, credentials, and fragment rules. This deliberately rejects
+ambiguous-but-equivalent spellings rather than silently normalizing them.
 
 Better Auth reads only the synthetic `x-bcn-verified-client-ip` header. Request
 code creates that header; callers never supply it:
@@ -1533,7 +1566,7 @@ untrusted and cannot suppress the direct-metadata fallback.
 
 ```ts
 if (ctx.context.session ?? ctx.context.newSession) {
-  await mintConvexJwt()
+  await mintConvexJwt();
 }
 ```
 
@@ -1541,28 +1574,34 @@ if (ctx.context.session ?? ctx.context.newSession) {
 
 ```ts
 const getConvexToken = createAuthEndpoint(
-  '/convex/token',
+  "/convex/token",
   {
-    method: 'GET',
+    method: "GET",
     use: [sessionMiddleware],
   },
   async (ctx) => {
-    const middlewareSession = requireMiddlewareSession(ctx)
-    const persistedSession = await readSessionByLogicalId(ctx, middlewareSession.session.id)
+    const middlewareSession = requireMiddlewareSession(ctx);
+    const persistedSession = await readSessionByLogicalId(
+      ctx,
+      middlewareSession.session.id,
+    );
 
-    assertSessionMatches(middlewareSession, persistedSession)
-    assertSessionIsUnexpired(persistedSession)
-    const persistedUser = await readUserByLogicalId(ctx, persistedSession.userId)
+    assertSessionMatches(middlewareSession, persistedSession);
+    assertSessionIsUnexpired(persistedSession);
+    const persistedUser = await readUserByLogicalId(
+      ctx,
+      persistedSession.userId,
+    );
 
     const token = await signConvexSessionToken({
       session: persistedSession,
       user: persistedUser,
-    })
+    });
 
-    ctx.setHeader('Cache-Control', 'private, no-store')
-    return { token }
+    ctx.setHeader("Cache-Control", "private, no-store");
+    return { token };
   },
-)
+);
 ```
 
 There is no broad hook, automatic JWT response header, or `convex_jwt` cookie.
@@ -1581,9 +1620,10 @@ then apply BCN's explicit token-class and claim checks.
 **Target code — must compile in the Phase 6 MCP fixture:**
 
 ```ts
-import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
+import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 
-const verifyBearerToken = oauthProviderResourceClient().getActions().verifyBearerToken
+const verifyBearerToken =
+  oauthProviderResourceClient().getActions().verifyBearerToken;
 
 async function verifyMcpAccessToken(
   token: string,
@@ -1592,18 +1632,18 @@ async function verifyMcpAccessToken(
   const payload = await verifyBearerToken(token, {
     jwksUrl: `${oauthIssuer}/jwks`,
     verifyOptions: {
-      algorithms: ['RS256'],
+      algorithms: ["RS256"],
       audience: expectedResource,
       issuer: oauthIssuer,
-      typ: 'at+jwt',
+      typ: "at+jwt",
     },
-  })
+  });
 
-  if (payload.aud !== expectedResource) throw invalidToken()
-  if (payload.token_use !== 'oauth-access') throw invalidToken()
-  if (typeof payload.client_id !== 'string') throw invalidToken()
-  if (typeof payload.sub !== 'string') throw invalidToken()
-  if (typeof payload.sid !== 'string') throw invalidToken()
+  if (payload.aud !== expectedResource) throw invalidToken();
+  if (payload.token_use !== "oauth-access") throw invalidToken();
+  if (typeof payload.client_id !== "string") throw invalidToken();
+  if (typeof payload.sub !== "string") throw invalidToken();
+  if (typeof payload.sid !== "string") throw invalidToken();
 
   return {
     clientId: payload.client_id,
@@ -1611,7 +1651,7 @@ async function verifyMcpAccessToken(
     sessionId: payload.sid,
     subject: payload.sub,
     scopes: parseScopeClaim(payload.scope),
-  }
+  };
 }
 ```
 
@@ -1623,11 +1663,11 @@ switching to a second verifier.
 
 Exact token classes:
 
-| Token                                                     | Required class claim                               | Issuer                                                                                                                          | Audience                                    |
-| --------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Convex session JWT                                        | `token_use: "convex-session"`                      | normalized `CONVEX_SITE_URL`                                                                                                   | `"convex"`                                  |
-| OAuth access token                                        | `token_use: "oauth-access"` and `typ: "at+jwt"`    | public Better Auth OAuth issuer derived from validated `SITE_URL` and `/api/auth`                                               | exactly one registered resource URI in beta |
-| Future or foreign OIDC ID token, never issued by the beta | OIDC ID token semantics rather than `oauth-access` | OAuth/OIDC issuer                                                                                                               | OAuth client ID                             |
+| Token                                                     | Required class claim                               | Issuer                                                                            | Audience                                    |
+| --------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| Convex session JWT                                        | `token_use: "convex-session"`                      | normalized `CONVEX_SITE_URL`                                                      | `"convex"`                                  |
+| OAuth access token                                        | `token_use: "oauth-access"` and `typ: "at+jwt"`    | public Better Auth OAuth issuer derived from validated `SITE_URL` and `/api/auth` | exactly one registered resource URI in beta |
+| Future or foreign OIDC ID token, never issued by the beta | OIDC ID token semantics rather than `oauth-access` | OAuth/OIDC issuer                                                                 | OAuth client ID                             |
 
 If the official JWT/OAuth plugin graph cannot create these distinct token classes
 while sharing one JWKS state, stop Phase 5 and prepare the smallest upstream
@@ -1638,41 +1678,41 @@ patch. Do not create a second JWKS table or permissive verifier.
 **Wrong:**
 
 ```ts
-await adapter.deleteMany({ model: 'jwks', where: [] })
-await createNewKey()
+await adapter.deleteMany({ model: "jwks", where: [] });
+await createNewKey();
 ```
 
 **Illustrative pseudocode—do not paste:**
 
 ```ts
 async function rotateSigningKey(ctx: ActionCtx) {
-  const next = await generateEncryptedSigningKey()
+  const next = await generateEncryptedSigningKey();
 
   return await ctx.runMutation(internal.auth.commitSigningKeyRotation, {
     next,
-  })
+  });
 }
 
 export const commitSigningKeyRotation = internalMutation({
   args: signingKeyRotationArgs,
   handler: async (ctx, args) => {
-    const rotationNow = Date.now()
-    const keysCurrentAtCommit = await readCurrentSigningKeys(ctx, rotationNow)
+    const rotationNow = Date.now();
+    const keysCurrentAtCommit = await readCurrentSigningKeys(ctx, rotationNow);
     const createdAt = Math.max(
       rotationNow,
       ...keysCurrentAtCommit.map((key) => key.createdAt.getTime() + 1),
-    )
-    await ctx.db.insert('jwks', {
+    );
+    await ctx.db.insert("jwks", {
       ...args.next,
       createdAt: new Date(createdAt),
       expiresAt: null,
-    })
+    });
 
     for (const previous of keysCurrentAtCommit) {
       if (previous.id !== args.next.id && !previous.expiresAt) {
         await ctx.db.patch(previous._id, {
           expiresAt: new Date(rotationNow),
-        })
+        });
       }
     }
 
@@ -1681,10 +1721,13 @@ export const commitSigningKeyRotation = internalMutation({
       previousKids: keysCurrentAtCommit.map((key) => key.id),
       rotatedAt: rotationNow,
       previousVerifyUntil: rotationNow + jwksGracePeriodMs,
-    }
+    };
   },
-})
+});
 ```
+
+`signingKeyRotationArgs` validates only the generated encrypted `next` key
+material. It has no caller-supplied timestamp or current-key identifier.
 
 Private keys remain encrypted. Public JWKS recursively excludes private JWK
 members including `d`, `p`, `q`, `dp`, `dq`, `qi`, and symmetric `k`. Operator
@@ -1697,9 +1740,8 @@ configured grace period. Better Auth considers a key with a future `expiresAt`
 live for signing and then publishes it for an additional `jwks.gracePeriod`, so
 do not store the verification deadline in `expiresAt`. Store the retirement
 instant computed inside the committing mutation and configure the one explicit
-21-minute grace period.
-Neither rotation may delete the other's key. There is one JWKS table and no
-second “current key” registry.
+21-minute grace period. Neither rotation may delete the other's key. There is one
+JWKS table and no second “current key” registry.
 
 The rotation suite includes a delayed interleaving: action A generates K2, action
 B generates and commits K3, then A commits K2. The later commit time must govern
@@ -1712,7 +1754,7 @@ value may shorten another key's overlap.
 **Wrong:**
 
 ```ts
-const allRows = await ctx.db.query(table).collect()
+const allRows = await ctx.db.query(table).collect();
 ```
 
 **Illustrative pseudocode—do not paste:**
@@ -1727,18 +1769,18 @@ export const backfillAuthPage = internalMutation({
   handler: async (ctx, args) => {
     const page = await ctx.db
       .query(args.table)
-      .order('asc')
-      .paginate({ cursor: args.cursor, numItems: 50 })
+      .order("asc")
+      .paginate({ cursor: args.cursor, numItems: 50 });
 
-    let patched = 0
+    let patched = 0;
 
     for (const row of page.page) {
-      const patch = buildCanonicalMigrationPatch(args.table, row)
-      validateExistingLogicalId(row)
+      const patch = buildCanonicalMigrationPatch(args.table, row);
+      validateExistingLogicalId(row);
 
       if (Object.keys(patch).length > 0) {
-        patched += 1
-        if (!args.dryRun) await ctx.db.patch(row._id, patch)
+        patched += 1;
+        if (!args.dryRun) await ctx.db.patch(row._id, patch);
       }
     }
 
@@ -1747,9 +1789,9 @@ export const backfillAuthPage = internalMutation({
       isDone: page.isDone,
       patched,
       scanned: page.page.length,
-    }
+    };
   },
-})
+});
 ```
 
 The runner records only cursors, counts, timings, and redacted error classes. It
@@ -1989,23 +2031,23 @@ pnpm release:verify
 Do not tell a developer to run one of these until its package script, runner,
 fixtures, timeout, and CI integration are merged.
 
-| Command                      | Exact responsibility                                                                          | Runner shape                                        | CI tier                                          | Timeout |
-| ---------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------ | ------- |
-| `pnpm check:auth-provenance` | Verify source ledger, modification notices, license files, and packed artifact                | `node scripts/check-auth-provenance.mjs`            | Every PR touching auth/package files; release    | 60 s    |
-| `pnpm check:auth-schema`     | Regenerate curated/local schemas, schema metadata, and codegen in a temporary worktree and fail on diff | `node scripts/check-auth-schema.mjs`        | Every auth PR; release                           | 180 s   |
-| `pnpm check:auth-logical-ids` | Reject auth-table `_id` identity and query-context Better Auth calls in maintained consumers  | `node scripts/check-auth-logical-ids.mjs`           | Every auth/consumer PR; release                  | 60 s    |
-| `pnpm check:no-old-auth-runtime` | Enforce an allowlist-aware absence of the old package from code, manifests, locks, generated files, and build graph | `node scripts/check-no-old-auth-runtime.mjs` | Every PR after Phase 1; release | 60 s |
-| `pnpm check:auth-advisories` | Resolve the exact dependency/import tuple against authoritative advisory affected ranges; enforce owned expiring exceptions | `node scripts/check-auth-advisories.mjs` | Nightly; every auth dependency PR; release | 120 s |
-| `pnpm check:auth-backend` | Download/select only the manifest-pinned local Convex backend and verify platform digest/version before real-backend tests | `node scripts/check-auth-backend.mjs` | Every real-backend job; release | 180 s |
-| `pnpm test:auth-adapter`     | Pinned Better Auth adapter contract, reference model, count, properties, query planner, null/ID behavior | `vitest run --project=auth-adapter`           | Every auth PR                                    | 180 s   |
-| `pnpm test:auth-concurrency` | Real Convex uniqueness, consume, increment/rate-limit, and rotation races, including verified-IP cross-isolate quotas | `node scripts/run-auth-concurrency.mjs` | Auth PR reduced load; nightly full load; release | 600 s |
-| `pnpm test:auth-migration`   | Populated v0.12.5 data continuity, backfill, failure/resume, count and reference verification | `node scripts/run-auth-migration.mjs`               | Migration PR; nightly; release                   | 900 s   |
-| `pnpm test:oauth`            | Discovery, authorization code, PKCE, resource, replay, claims, negative HTTP and fault matrix | `vitest run --project=oauth` plus real HTTP fixture | OAuth PR; nightly; release                       | 600 s   |
-| `pnpm test:auth-fuzz` | Seeded bounded HTTP fuzz corpora for proxy/OAuth form, query, path, duplicate parameters, encodings, and size/timeout limits | `vitest run --project=auth-fuzz` | Proxy/OAuth PR; nightly; release | 600 s |
-| `pnpm test:auth-mutations` | Kill a fixed reviewed set of security-negative code mutants; no global score target | `node scripts/run-auth-mutations.mjs` | Relevant auth PR; nightly; release | 900 s |
-| `pnpm test:mcp-auth`         | Actual MCP SDK/Inspector automation and live Convex authorization changes                     | `node scripts/run-mcp-auth.mjs`                     | MCP PR; nightly; release                         | 600 s   |
-| `pnpm test:mcp-conformance` | Run pinned official MCP server-mode protocol scenarios against BCN through a test-only authenticated relay; explicitly does not certify BCN OAuth | `node scripts/run-mcp-conformance.mjs` | MCP PR reduced; release full | 900 s |
-| `pnpm release:artifact` | Build/prepack once, pack with lifecycle scripts disabled, and emit one tarball plus SHA-256, SRI, file manifest, and SBOM manifest | refactored `scripts/release.mjs artifact` | Phase 7 rehearsal; every public release | 600 s |
+| Command                          | Exact responsibility                                                                                                                              | Runner shape                                        | CI tier                                          | Timeout |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------ | ------- |
+| `pnpm check:auth-provenance`     | Verify source ledger, modification notices, license files, and packed artifact                                                                    | `node scripts/check-auth-provenance.mjs`            | Every PR touching auth/package files; release    | 60 s    |
+| `pnpm check:auth-schema`         | Regenerate curated/local schemas, schema metadata, and codegen in a temporary worktree and fail on diff                                           | `node scripts/check-auth-schema.mjs`                | Every auth PR; release                           | 180 s   |
+| `pnpm check:auth-logical-ids`    | Reject auth-table `_id` identity and query-context Better Auth calls in maintained consumers                                                      | `node scripts/check-auth-logical-ids.mjs`           | Every auth/consumer PR; release                  | 60 s    |
+| `pnpm check:no-old-auth-runtime` | Enforce an allowlist-aware absence of the old package from code, manifests, locks, generated files, and build graph                               | `node scripts/check-no-old-auth-runtime.mjs`        | Every PR after Phase 1; release                  | 60 s    |
+| `pnpm check:auth-advisories`     | Resolve the exact dependency/import tuple against authoritative advisory affected ranges; enforce owned expiring exceptions                       | `node scripts/check-auth-advisories.mjs`            | Nightly; every auth dependency PR; release       | 120 s   |
+| `pnpm check:auth-backend`        | Download/select only the manifest-pinned local Convex backend and verify platform digest/version before real-backend tests                        | `node scripts/check-auth-backend.mjs`               | Every real-backend job; release                  | 180 s   |
+| `pnpm test:auth-adapter`         | Pinned Better Auth adapter contract, reference model, count, properties, query planner, null/ID behavior                                          | `vitest run --project=auth-adapter`                 | Every auth PR                                    | 180 s   |
+| `pnpm test:auth-concurrency`     | Real Convex uniqueness, consume, increment/rate-limit, and rotation races, including verified-IP cross-isolate quotas                             | `node scripts/run-auth-concurrency.mjs`             | Auth PR reduced load; nightly full load; release | 600 s   |
+| `pnpm test:auth-migration`       | Populated v0.12.5 data continuity, backfill, failure/resume, count and reference verification                                                     | `node scripts/run-auth-migration.mjs`               | Migration PR; nightly; release                   | 900 s   |
+| `pnpm test:oauth`                | Discovery, authorization code, PKCE, resource, replay, claims, negative HTTP and fault matrix                                                     | `vitest run --project=oauth` plus real HTTP fixture | OAuth PR; nightly; release                       | 600 s   |
+| `pnpm test:auth-fuzz`            | Seeded bounded HTTP fuzz corpora for proxy/OAuth form, query, path, duplicate parameters, encodings, and size/timeout limits                      | `vitest run --project=auth-fuzz`                    | Proxy/OAuth PR; nightly; release                 | 600 s   |
+| `pnpm test:auth-mutations`       | Kill a fixed reviewed set of security-negative code mutants; no global score target                                                               | `node scripts/run-auth-mutations.mjs`               | Relevant auth PR; nightly; release               | 900 s   |
+| `pnpm test:mcp-auth`             | Actual MCP SDK/Inspector automation and live Convex authorization changes                                                                         | `node scripts/run-mcp-auth.mjs`                     | MCP PR; nightly; release                         | 600 s   |
+| `pnpm test:mcp-conformance`      | Run pinned official MCP server-mode protocol scenarios against BCN through a test-only authenticated relay; explicitly does not certify BCN OAuth | `node scripts/run-mcp-conformance.mjs`              | MCP PR reduced; release full                     | 900 s   |
+| `pnpm release:artifact`          | Build/prepack once, pack with lifecycle scripts disabled, and emit one tarball plus SHA-256, SRI, file manifest, and SBOM manifest                | refactored `scripts/release.mjs artifact`           | Phase 7 rehearsal; every public release          | 600 s   |
 
 New Vitest projects belong in the existing canonical Vitest configuration. Do
 not create independent test runners for behavior that Vitest already supports.
@@ -2140,18 +2182,18 @@ After each relevant suite, scan:
 The expected hashed or encrypted representation may appear only where the design
 requires it. Raw values use this closed authorized-location allowlist:
 
-| Secret/credential | Authorized raw locations |
-| --- | --- |
-| Better Auth secret versions | secret manager and target process environment/memory only |
-| BCN auth-proxy IP signing secret | secret manager plus Nitro/Convex process environment and HMAC memory only; only the derived signature may cross the private Nuxt-to-Convex request |
-| Better Auth session token | canonical component `session.token` row required by the pinned engine; signed `Set-Cookie`/`Cookie` wire exchange; isolated browser cookie jar |
-| Social-provider access/refresh/ID token | external provider response and auth-process memory; exact legacy `account` token fields only before the Phase 3 revoke/clear/encrypt cutover; after cutover only encrypted database values |
-| OAuth client secret | one-time admin creation response, confidential client's secret manager, and Basic Authorization wire value only |
-| Authorization code | redirect `Location` to the exact preregistered callback and isolated client memory only |
-| OAuth access token | token response to the intended client, isolated ephemeral client store/memory, and Authorization header to the exact resource only |
-| Convex session JWT | JSON response to the authenticated same-origin client, in-memory auth client state, and Convex Authorization transport only |
-| Private JWK members | key-generation process memory before immediate encrypted persistence only |
-| Test-only Inspector proxy token | runner environment/memory, isolated Inspector browser profile, and localhost proxy Authorization header only |
+| Secret/credential                                | Authorized raw locations                                                                                                                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Better Auth secret versions                      | secret manager and target process environment/memory only                                                                                                                                                          |
+| BCN auth-proxy IP signing secret                 | secret manager plus Nitro/Convex process environment and HMAC memory only; only the derived signature may cross the private Nuxt-to-Convex request                                                                 |
+| Better Auth session token                        | canonical component `session.token` row required by the pinned engine; signed `Set-Cookie`/`Cookie` wire exchange; isolated browser cookie jar                                                                     |
+| Social-provider access/refresh/ID token          | external provider response and auth-process memory; exact legacy `account` token fields only before the Phase 3 revoke/clear/encrypt cutover; after cutover only encrypted database values                         |
+| OAuth client secret                              | one-time admin creation response, confidential client's secret manager, and Basic Authorization wire value only                                                                                                    |
+| Authorization code                               | redirect `Location` to the exact preregistered callback and isolated client memory only                                                                                                                            |
+| OAuth access token                               | token response to the intended client, isolated ephemeral client store/memory, and Authorization header to the exact resource only                                                                                 |
+| Convex session JWT                               | JSON response to the authenticated same-origin client, in-memory auth client state, and Convex Authorization transport only                                                                                        |
+| Private JWK members                              | key-generation process memory before immediate encrypted persistence only                                                                                                                                          |
+| Test-only Inspector proxy token                  | runner environment/memory, isolated Inspector browser profile, and localhost proxy Authorization header only                                                                                                       |
 | Credential-bearing pre-cutover production backup | one platform-encrypted, access-logged backup controlled only by the named Security Owner and backup operator; never downloaded into a workstation, CI, test fixture, audit attachment, or ordinary database export |
 
 Every other database field, local/session storage entry, log, exception, trace,
@@ -2274,14 +2316,14 @@ Convex auth component before substantial source is imported.
 9. Mount the component explicitly:
 
    ```ts
-   app.use(auth, { name: 'betterAuth' })
+   app.use(auth, { name: "betterAuth" });
    ```
 
 10. Run Convex codegen and confirm the generated type reference is exactly:
 
-   ```text
-   better-convex-nuxt/convex-auth/_generated/component.js
-   ```
+```text
+better-convex-nuxt/convex-auth/_generated/component.js
+```
 
 11. Deploy the fixture to the disposable pinned Convex backend.
 12. Test the compiled `/convex-auth/test` helper from the tarball.
@@ -2838,11 +2880,11 @@ the storage foundation can support its security semantics.
    Run the packaged generator with production auth environment variables removed;
    it must use only the build-only schema profile.
 10. Review every schema diff, including two-factor lockout fields and OAuth-related
-   fields that should still be absent.
+    fields that should still be absent.
 11. Regenerate and run the provenance-tracked adapter contract suite from the
-   exact RC artifact/types and recorded upstream test sources.
+    exact RC artifact/types and recorded upstream test sources.
 12. Extend the differential reference-model suite where the pinned contract
-   sources have gaps.
+    sources have gaps.
 13. Verify request context isolation under overlapping Better Auth calls.
 14. Verify edge/Convex bundle compatibility and absence of Node-only paths.
 15. Run populated migration/session continuity, including a hex-looking plaintext
@@ -3029,11 +3071,11 @@ leaving one safe JWT/JWKS graph.
    site-URL logic and the Convex auth path. Add configured
    `auth.publicOrigin`, defaulted from validated `SITE_URL`.
 10. Validate `SITE_URL`, `auth.publicOrigin`, and `CONVEX_SITE_URL` as bare safe
-   origins at startup and require the first two to normalize identically.
+    origins at startup and require the first two to normalize identically.
 11. Compare browser `Origin`/`Referer` to configured `auth.publicOrigin`, never
     the incoming request URL's origin.
 12. Rewrite the incoming Convex request URL to `SITE_URL` before Better Auth
-   handles it.
+    handles it.
 13. Preserve existing proxy stripping and bounded transport. Add the verified
     client-IP handoff from Section 8.8 without trusting caller headers.
 14. Define a minimal Convex payload:
@@ -3198,26 +3240,26 @@ const oauthOptions = {
   allowUnauthenticatedClientRegistration: false,
   clientPrivileges: denyUnlessInternalOAuthAdmin,
   codeExpiresIn: 120,
-  consentPage: '/oauth/consent',
+  consentPage: "/oauth/consent",
   customAccessTokenClaims: () => ({
-    token_use: 'oauth-access',
+    token_use: "oauth-access",
   }),
   dpop: {
     signingAlgorithms: [],
   },
   enforcePerClientResources: true,
-  grantTypes: ['authorization_code'],
-  loginPage: '/login',
+  grantTypes: ["authorization_code"],
+  loginPage: "/login",
   rateLimit: {
     authorize: { window: 60, max: 30 },
     revoke: { window: 60, max: 30 },
     token: { window: 60, max: 20 },
   },
   resourcePrivileges: denyUnlessInternalOAuthAdmin,
-  scopes: ['mcp:read', 'mcp:write'],
-  storeClientSecret: 'hashed',
-  storeTokens: 'hashed',
-} satisfies OAuthOptions
+  scopes: ["mcp:read", "mcp:write"],
+  storeClientSecret: "hashed",
+  storeTokens: "hashed",
+} satisfies OAuthOptions;
 
 const plugins = [
   jwt(jwtOptions),
@@ -3227,7 +3269,7 @@ const plugins = [
     sessionJwt,
   }),
   oauthProvider(oauthOptions),
-]
+];
 ```
 
 The same object is passed to the official provider and BCN's startup validator;
@@ -3242,18 +3284,18 @@ it does not accept arbitrary runtime scopes.
 
 The authorization-server projection exposes exactly these beta semantics:
 
-| Metadata member | Required beta value |
-| --- | --- |
-| `issuer` | `AUTH_ISSUER` |
-| `authorization_endpoint` | `AUTH_ISSUER + "/oauth2/authorize"` |
-| `token_endpoint` | `AUTH_ISSUER + "/oauth2/token"` |
-| `jwks_uri` | `AUTH_ISSUER + "/jwks"` |
-| `revocation_endpoint` | `AUTH_ISSUER + "/oauth2/revoke"` |
-| `scopes_supported` | the exact application/MCP scope allowlist |
-| `response_types_supported` | `["code"]` |
-| `grant_types_supported` | `["authorization_code"]` |
-| `token_endpoint_auth_methods_supported` | `["none", "client_secret_basic"]` |
-| `code_challenge_methods_supported` | `["S256"]` |
+| Metadata member                                  | Required beta value                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `issuer`                                         | `AUTH_ISSUER`                                                             |
+| `authorization_endpoint`                         | `AUTH_ISSUER + "/oauth2/authorize"`                                       |
+| `token_endpoint`                                 | `AUTH_ISSUER + "/oauth2/token"`                                           |
+| `jwks_uri`                                       | `AUTH_ISSUER + "/jwks"`                                                   |
+| `revocation_endpoint`                            | `AUTH_ISSUER + "/oauth2/revoke"`                                          |
+| `scopes_supported`                               | the exact application/MCP scope allowlist                                 |
+| `response_types_supported`                       | `["code"]`                                                                |
+| `grant_types_supported`                          | `["authorization_code"]`                                                  |
+| `token_endpoint_auth_methods_supported`          | `["none", "client_secret_basic"]`                                         |
+| `code_challenge_methods_supported`               | `["S256"]`                                                                |
 | `authorization_response_iss_parameter_supported` | `true`; the inspected RC emits the authorization-response `iss` parameter |
 
 The fixed denylist removes registration, introspection, UserInfo, end-session, device,
@@ -3321,17 +3363,19 @@ document exposes only `resource = MCP_RESOURCE`,
 9. Keep protected-resource metadata owned by the resource application and omit
    all DPoP members there as well.
 10. Configure the supported scopes to application/MCP scopes only. Exclude
-   `openid`, `profile`, `email`, and `offline_access`.
+    `openid`, `profile`, `email`, and `offline_access`.
 11. Support only:
-   - authorization code;
-   - mandatory PKCE S256 for every beta client, including confidential clients;
-   - exact preregistered redirect URIs;
-   - preregistered public/confidential clients;
-   - explicit scopes and consent;
-   - exactly one resource identifier per access token;
-   - authorization codes expiring in at most two minutes;
-   - JWT access tokens expiring in at most ten minutes;
-   - revocation.
+
+- authorization code;
+- mandatory PKCE S256 for every beta client, including confidential clients;
+- exact preregistered redirect URIs;
+- preregistered public/confidential clients;
+- explicit scopes and consent;
+- exactly one resource identifier per access token;
+- authorization codes expiring in at most two minutes;
+- JWT access tokens expiring in at most ten minutes;
+- revocation.
+
 12. Register every beta client through the provider's admin API using the exact
     `SchemaClient` camel-case fields:
     - `grantTypes: ['authorization_code']`;
@@ -3394,11 +3438,11 @@ document exposes only `resource = MCP_RESOURCE`,
     the Section 8.8 signed Nuxt handoff/direct Convex metadata fallback. Pin the
     provider endpoint limits to:
 
-    | Endpoint   | Window | Maximum |
-    | ---------- | -----: | ------: |
-    | token      |   60 s |      20 |
-    | authorize  |   60 s |      30 |
-    | revoke     |   60 s |      30 |
+    | Endpoint  | Window | Maximum |
+    | --------- | -----: | ------: |
+    | token     |   60 s |      20 |
+    | authorize |   60 s |      30 |
+    | revoke    |   60 s |      30 |
 
     The Nuxt/application ingress still owns deployment-level IP and abuse
     controls. Better Auth owns one database-backed canonical per-IP/per-path
@@ -3668,6 +3712,7 @@ Convex product authorization.
    `MCP_PROXY_AUTH_TOKEN`; capture child stdout/stderr in-process and redact that
    exact token before emitting any log. Use an isolated browser profile, disable
    trace/video/HAR, and wipe the profile.
+
 2. **mcp-remote:** preregister public client `bcn-mcp-remote-fixture` with exact
    callback `http://127.0.0.1:3334/oauth/callback`. Fail before launch if port
    3334 is unavailable so mcp-remote cannot silently choose a random callback.
@@ -3691,6 +3736,7 @@ Convex product authorization.
    default. Set a unique mode-0700 `MCP_REMOTE_CONFIG_DIR`, never enable
    `--debug`, and wipe the directory on success, failure, or timeout. Do not
    distribute a shared confidential secret.
+
 3. **Official conformance:** install
    `@modelcontextprotocol/conformance@0.1.16` as an exact locked dev dependency.
    `scripts/run-mcp-conformance.mjs` removes the old output directory, starts a
@@ -3702,18 +3748,12 @@ Convex product authorization.
      --url http://127.0.0.1:7334/mcp
      --suite active
      --spec-version 2025-11-25
-     --expected-failures test/mcp/conformance-expected-failures.yml
      --output-dir .artifacts/mcp-conformance/server-2025-11-25
    ```
 
-   The committed baseline is exactly:
-
-   ```yaml
-   server: []
-   ```
-
    The runner requires exit code zero, at least one generated `checks.json`, and
-   zero failed checks; a missing result or stale/nonempty baseline fails.
+   zero failed checks. It deliberately passes no `--expected-failures` option
+   and maintains no baseline file; any failed scenario blocks the phase.
 
    The relay has one compiled-in test upstream, the fixture's exact
    `MCP_RESOURCE`; it accepts only the exact local `/mcp` route and cannot accept
@@ -3781,6 +3821,7 @@ security assessment. Never merge them into a “certified” result.
 
    Include a required scope parameter only when the failing operation has a
    concrete scope requirement.
+
 5. Accept bearer access tokens only in the chosen Authorization header
    transport.
 6. Verify with `@better-auth/oauth-provider/resource-client`, pinned exact issuer,
@@ -3790,12 +3831,12 @@ security assessment. Never merge them into a “certified” result.
 
    ```ts
    type OAuthPrincipal = {
-     subject: string
-     sessionId: string
-     clientId: string
-     resource: string
-     scopes: ReadonlySet<string>
-   }
+     subject: string;
+     sessionId: string;
+     clientId: string;
+     resource: string;
+     scopes: ReadonlySet<string>;
+   };
    ```
 
 8. Resolve the principal to current Convex user, organization membership,
@@ -3809,17 +3850,17 @@ security assessment. Never merge them into a “certified” result.
    - preview/approval for destructive operations;
    - output redaction.
 10. Add tests for membership, delegation, role, resource ownership, scope,
-   approval, revocation, and tenant changes after token issuance.
+    approval, revocation, and tenant changes after token issuance.
 11. Execute both exact preregistered public-client harnesses above. Dynamic
     registration and CIMD remain disabled. If either pinned client cannot operate
     with supplied static client information, stop and record the interoperability
     gap; do not enable a disabled capability to make the test green.
 12. Run the exact official server-mode command above through the authenticated
-    relay. The beta/stable baseline remains `server: []`; a deliberate future
-    capability omission that requires a nonempty baseline blocks release until
-    this plan is explicitly amended and independently reviewed. Do not list
-    OAuth/DCR/CIMD exclusions in the server-conformance report because that mode
-    does not test the authorization server.
+    relay with no expected-failure option or baseline. A deliberate future
+    capability omission that cannot pass blocks release until this plan is
+    explicitly amended and independently reviewed. Do not list OAuth/DCR/CIMD
+    exclusions in the server-conformance report because that mode does not test
+    the authorization server.
 
 **Concrete failure example:**
 
@@ -3850,9 +3891,9 @@ phase fails.
 - [ ] Both client paths use preregistered/static client information; DCR and CIMD
       remain disabled.
 - [ ] Pinned official server-mode active scenarios for spec `2025-11-25` pass
-      through `http://127.0.0.1:7334/mcp`, the committed baseline is exactly
-      `server: []`, at least one `checks.json` is produced with zero failures,
-      and no result is labeled OAuth conformance.
+      through `http://127.0.0.1:7334/mcp` with no expected-failure option, at
+      least one `checks.json` is produced with zero failures, and no result is
+      labeled OAuth conformance.
 - [ ] The relay is loopback-only, fixed-upstream, redirect-denying, strips caller
       credentials, injects only a fresh test token, and leaves no token-bearing
       temporary state.
@@ -3874,8 +3915,8 @@ pnpm verify
 - protected-resource metadata;
 - `WWW-Authenticate` samples;
 - client interoperability logs;
-- exact client/tool version report, command transcript, empty expected-failure
-  baseline, and generated conformance `checks.json` files;
+- exact client/tool version report, command transcript proving no expected
+  failure option, and generated conformance `checks.json` files;
 - live authorization revocation matrix;
 - MCP tool authorization matrix;
 - secret scan.
@@ -3972,7 +4013,7 @@ beta artifact using production-like topology and operational procedures.
    - registry download after publish and byte-for-byte/SHA/SRI comparison to the
      tested artifact.
 10. Remove/disable every workstation and token-based public publish path. A
-   developer may build a local tarball, but cannot publish a release.
+    developer may build a local tarball, but cannot publish a release.
 11. After irreversible/new writes, inject a post-cutover defect and run a
     forward-fix drill with rollback explicitly prohibited, a named incident
     commander, and a release operator. The corrected code must be authored,
@@ -4122,8 +4163,7 @@ Better Auth 1.7 family and independent expert approval.
    candidate once in the trusted workflow and rerun all phase gates from adapter
    through release against that exact tarball.
 4. Run `@modelcontextprotocol/conformance@0.1.16` server-mode active scenarios
-   through the exact Phase 6 relay/command with the committed baseline still
-   exactly `server: []`.
+   through the exact Phase 6 relay/command with no expected-failure option.
    Record explicitly that this validates MCP protocol behavior, not the OAuth
    authorization server.
 5. Commission an independent black-box OAuth assessment against the deployed
@@ -4157,8 +4197,8 @@ blocked.
       the affected gates; no previously assessed tarball was modified/repacked.
 - [ ] Required conformance/interoperability evidence passes.
 - [ ] Official MCP server-mode active scenarios have no unreviewed/stale expected
-      failures because the baseline is empty, the report makes no
-      OAuth-conformance claim, and an independent
+      failures because none are allowlisted, the report makes no OAuth-conformance
+      claim, and an independent
       black-box OAuth assessment has no unresolved stable blocker.
 - [ ] Stable metadata advertises only implemented capabilities.
 - [ ] Migration and operational runbooks are current.
@@ -4566,7 +4606,7 @@ The project is complete only when every item is true:
 - [ ] Private service-actor and delegated-human MCP starters remain explicit
       separate trust models.
 - [ ] Pinned MCP server conformance passes through the fixed loopback relay with
-      an empty expected-failure baseline and is never represented as OAuth
+      no expected-failure allowlist and is never represented as OAuth
       conformance/certification.
 - [ ] Populated v0.12.5 installations have a bounded, tested migration.
 - [ ] Installed data selects curated packaged versus app-local schema mode, and
@@ -4813,8 +4853,8 @@ Audit these areas:
    - Official MCP server-mode conformance through the authenticated relay,
      clearly separated from OAuth client interoperability and the independent
      black-box OAuth assessment. Verify the exact v0.1.16 command has
-     `--url http://127.0.0.1:7334/mcp`, fixed output, and an empty expected
-     failure baseline; the relay must be loopback-only, fixed-upstream,
+     `--url http://127.0.0.1:7334/mcp`, fixed output, and no expected-failure
+     option; the relay must be loopback-only, fixed-upstream,
      credential-stripping, and redirect-denying.
 
 6. Nuxt transport and browser security
