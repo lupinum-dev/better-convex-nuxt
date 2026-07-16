@@ -2191,7 +2191,7 @@ packages:
         optional: true
 
   better-convex-nuxt@0.6.1:
-    resolution: {integrity: sha512-bRZd7HlusWdAo0ZtWTv2lRlqQwZOEymuJgPGSHIYEZmuq9kBsvY91JMZ/bJsQ1cS/ziIBFftWxhM0eva/59Guw==}
+    resolution: {integrity: sha512-4KxPsMwgnDNaIIJ6VXozgmut3EAtoHnX4DVX+UxH1hPkyT0IDcQ+z/xVy7vz9MX+lMTNXnbRU8reaw3YsSWlKw==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     peerDependencies:
       '@convex-dev/better-auth': 0.12.5

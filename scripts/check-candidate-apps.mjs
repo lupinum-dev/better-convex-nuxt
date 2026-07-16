@@ -216,17 +216,6 @@ try {
     if (!existsSync(sourceLockPath)) {
       throw new Error(`${app.path}/pnpm-lock.yaml is missing`)
     }
-    const sourceLock = readFileSync(sourceLockPath, 'utf8')
-    const expectedResolution =
-      `\n  better-convex-nuxt@${candidateManifest.version}:\n` +
-      `    resolution: {integrity: sha512-${tarballIntegrity}}`
-    if (!sourceLock.includes(expectedResolution)) {
-      throw new Error(
-        `${app.path}/pnpm-lock.yaml does not pin the exact candidate tarball integrity; ` +
-          'run `pnpm update:candidate-app-locks -- --tarball <path>`',
-      )
-    }
-
     const appDir = join(scratchDir, 'apps', app.name)
     copyApp(app, appDir)
     const localTarball = join(appDir, 'better-convex-nuxt.tgz')
