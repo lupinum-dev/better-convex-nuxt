@@ -38,9 +38,13 @@ not release-complete merely because its code exists.
 
 - Green on the feedback-reconciled implementation tree: formatting, lint, full
   typecheck, provenance, boundaries, ASVS/SBOM generation, prepack/dist exports,
-  contract fixtures, and 1,339 tests across 136 files. The focused OAuth suite
+  contract fixtures, and 1,341 tests across 136 files. The focused OAuth suite
   is 146/146, the focused adapter suite is 30/30, and the separately isolated MCP
-  project is 70/70.
+  project is green across 9 files and 71 tests. Clean Node 22.14 verification
+  from absent `.nuxt`/`dist` now self-prepares generated root and fixture types,
+  builds current package and DevTools bytes before source consumers, loads local
+  TypeScript helpers through pinned `jiti`, and leaves no two-factor package
+  symlink behind.
 - The pinned real Convex backend gates are green for schema installation,
   logical-ID uniqueness, 1,001-row count/update/delete behavior, transaction
   rollback, sustained concurrency, signed client-IP provenance, eight-way JWKS
@@ -63,11 +67,12 @@ not release-complete merely because its code exists.
   leaking fixture credentials.
 - The automatic same-repository pull-request preview workflow is implemented and
   publishes only an evidence-bound exact tarball through `pkg.pr.new`. The exact
-  immutable `0.7.0-beta.0` release candidate and seven-app clean-install matrix
-  are green. The preview URL and external disposable-app rehearsal remain
-  pending until the committed candidate is pushed through the pull-request
-  workflow; those results must be attached to the commit rather than inferred
-  from local evidence.
+  immutable `0.7.0-beta.0` release candidate passes the full clean
+  `pnpm release:prepare` gate, including exact-artifact identity/package probes
+  and the seven-app clean-install matrix. The preview URL and external
+  disposable-app rehearsal remain pending until the committed candidate is
+  pushed through the pull-request workflow; those results must be attached to
+  the commit rather than inferred from local evidence.
 - External release/governance gates remain unchanged: protected cloud identity
   and ingress lease, clean provision, exact-candidate cloud rehearsal, npm
   trusted publishing, owner/deputy notification drill, forward-fix record,
