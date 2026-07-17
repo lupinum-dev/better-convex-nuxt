@@ -38,7 +38,7 @@ not release-complete merely because its code exists.
 
 - Green on the feedback-reconciled implementation tree: formatting, lint, full
   typecheck, provenance, boundaries, ASVS/SBOM generation, prepack/dist exports,
-  contract fixtures, and 1,337 tests across 136 files. The focused OAuth suite
+  contract fixtures, and 1,339 tests across 136 files. The focused OAuth suite
   is 146/146, the focused adapter suite is 28/28, and the separately isolated MCP
   project is 70/70.
 - The pinned real Convex backend gates are green for schema installation,
@@ -56,9 +56,11 @@ not release-complete merely because its code exists.
   audits, eight exact GitHub advisory queries, and upstream drift monitoring.
 - The maintained Team and Agentic SaaS local-component schemas are now generated
   and freshness-gated from their canonical plugin options, alongside the curated
-  and generic local-component schemas. A fail-fast external-disposable MCP proof
-  mode can exercise the same harness against a freshly provisioned consumer app
-  without taking deployment ownership or leaking fixture credentials.
+  and generic local-component schemas. Generated adapter indexes and a final
+  schema/metadata pair invariant prevent wrapper-only index drift. A fail-fast
+  external-disposable MCP proof mode can exercise the same harness against a
+  freshly provisioned consumer app without taking deployment ownership or
+  leaking fixture credentials.
 - The automatic same-repository pull-request preview workflow is implemented and
   publishes only an evidence-bound exact tarball through `pkg.pr.new`. The exact
   immutable release candidate, seven-app clean-install matrix, preview URL, and
@@ -783,7 +785,7 @@ Boundary and package tests must prove that:
 ### 5.6 Advanced local-component mode
 
 Keep local-component mode because Team, Agentic SaaS, and the existing local
-component fixture use schema-changing plugins and custom indexes.
+component fixture use schema-changing plugins and generated plugin indexes.
 
 Local mode may own:
 
@@ -838,7 +840,11 @@ and field:
 
 The Better Auth schema/options input is canonical. Convex schema and metadata are
 two deterministic generated artifacts from that one input, not two manually
-maintained definitions.
+maintained definitions. Maintained local components must pass the generated
+tables directly to `defineSchema`. Adapter-required single and compound indexes
+belong in the deterministic generator policy so schema and metadata receive the
+same descriptor; app-specific tables and indexes belong in the application
+schema, not as an untracked mutation of the auth component schema.
 
 ### 5.7 Simplified component-client API
 

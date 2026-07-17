@@ -14,7 +14,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('name', ['name'])
-    .index('email', ['email']),
+    .index('email', ['email'])
+    .index('createdAt', ['createdAt']),
   session: defineTable({
     id: v.string(),
     expiresAt: v.number(),
@@ -29,6 +30,7 @@ export const tables = {
     .index('expiresAt', ['expiresAt'])
     .index('userId_expiresAt', ['userId', 'expiresAt'])
     .index('token', ['token'])
+    .index('createdAt', ['createdAt'])
     .index('userId', ['userId']),
   account: defineTable({
     id: v.string(),
@@ -49,7 +51,8 @@ export const tables = {
     .index('accountId', ['accountId'])
     .index('accountId_providerId', ['accountId', 'providerId'])
     .index('providerId_userId', ['providerId', 'userId'])
-    .index('userId', ['userId']),
+    .index('userId', ['userId'])
+    .index('createdAt', ['createdAt']),
   verification: defineTable({
     id: v.string(),
     identifier: v.string(),
@@ -61,7 +64,8 @@ export const tables = {
     .index('id', ['id'])
     .index('expiresAt', ['expiresAt'])
     .index('identifier', ['identifier'])
-    .index('identifier_createdAt', ['identifier', 'createdAt']),
+    .index('identifier_createdAt', ['identifier', 'createdAt'])
+    .index('createdAt', ['createdAt']),
   jwks: defineTable({
     id: v.string(),
     publicKey: v.string(),
@@ -70,7 +74,9 @@ export const tables = {
     expiresAt: v.union(v.null(), v.number()),
     alg: v.union(v.null(), v.string()),
     crv: v.union(v.null(), v.string()),
-  }).index('id', ['id']),
+  })
+    .index('id', ['id'])
+    .index('createdAt', ['createdAt']),
   oauthClient: defineTable({
     id: v.string(),
     clientId: v.string(),
@@ -110,7 +116,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('clientId', ['clientId'])
-    .index('userId', ['userId']),
+    .index('userId', ['userId'])
+    .index('createdAt', ['createdAt']),
   oauthResource: defineTable({
     id: v.string(),
     identifier: v.string(),
@@ -129,7 +136,8 @@ export const tables = {
     metadata: v.union(v.null(), v.string()),
   })
     .index('id', ['id'])
-    .index('identifier', ['identifier']),
+    .index('identifier', ['identifier'])
+    .index('createdAt', ['createdAt']),
   oauthClientResource: defineTable({
     id: v.string(),
     clientId: v.string(),
@@ -139,7 +147,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('clientId', ['clientId'])
-    .index('resourceId', ['resourceId']),
+    .index('resourceId', ['resourceId'])
+    .index('createdAt', ['createdAt']),
   oauthRefreshToken: defineTable({
     id: v.string(),
     token: v.string(),
@@ -165,7 +174,8 @@ export const tables = {
     .index('clientId', ['clientId'])
     .index('sessionId', ['sessionId'])
     .index('userId', ['userId'])
-    .index('authorizationCodeId', ['authorizationCodeId']),
+    .index('authorizationCodeId', ['authorizationCodeId'])
+    .index('createdAt', ['createdAt']),
   oauthAccessToken: defineTable({
     id: v.string(),
     token: v.union(v.null(), v.string()),
@@ -189,7 +199,8 @@ export const tables = {
     .index('sessionId', ['sessionId'])
     .index('userId', ['userId'])
     .index('authorizationCodeId', ['authorizationCodeId'])
-    .index('refreshId', ['refreshId']),
+    .index('refreshId', ['refreshId'])
+    .index('createdAt', ['createdAt']),
   oauthConsent: defineTable({
     id: v.string(),
     clientId: v.string(),
@@ -204,7 +215,8 @@ export const tables = {
     .index('id', ['id'])
     .index('clientId_userId', ['clientId', 'userId'])
     .index('clientId', ['clientId'])
-    .index('userId', ['userId']),
+    .index('userId', ['userId'])
+    .index('createdAt', ['createdAt']),
   oauthClientAssertion: defineTable({
     id: v.string(),
     expiresAt: v.number(),
@@ -221,7 +233,7 @@ export const tables = {
 
 const schema = defineSchema(tables)
 Object.defineProperty(schema, '__betterConvexNuxtAuthSchemaFingerprint', {
-  value: 'bcn-auth-schema-v1:c3937240115b7940',
+  value: 'bcn-auth-schema-v1:2b65d1f3b73c9b46',
 })
 
 export default schema

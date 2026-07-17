@@ -23,6 +23,10 @@ import {
 import packagedSchema from '../../src/runtime/convex-auth/component/schema'
 import packagedSchemaMetadata from '../../src/runtime/convex-auth/component/schemaMetadata'
 import { requireWritableAuthCtx } from '../../src/runtime/convex-auth/context'
+import agenticSchema from '../../starters/agentic-saas/convex/betterAuth/schema'
+import agenticSchemaMetadata from '../../starters/agentic-saas/convex/betterAuth/schemaMetadata'
+import teamSchema from '../../starters/team/convex/betterAuth/schema'
+import teamSchemaMetadata from '../../starters/team/convex/betterAuth/schemaMetadata'
 
 const tables = {
   session: {
@@ -132,6 +136,10 @@ describe('greenfield Convex auth schema generation', () => {
     const artifacts = generateAuthSchemaArtifacts(verificationTables)
 
     expect(artifacts.metadata.models.verification?.indexes).toContainEqual({
+      descriptor: 'createdAt',
+      fields: ['createdAt'],
+    })
+    expect(artifacts.metadata.models.verification?.indexes).toContainEqual({
       descriptor: 'identifier_createdAt',
       fields: ['identifier', 'createdAt'],
     })
@@ -167,6 +175,37 @@ describe('greenfield Convex auth schema generation', () => {
     delete (user.fields as Record<string, unknown>).name
     expect(() => assertAuthSchemaMatchesMetadata(packagedSchema, mismatched)).toThrow(
       'AUTH_SCHEMA_METADATA_MISMATCH',
+    )
+  })
+
+  it('keeps every maintained local component paired with its generated metadata', () => {
+    expect(() =>
+      assertAuthSchemaMatchesMetadata(agenticSchema, agenticSchemaMetadata),
+    ).not.toThrow()
+    expect(() => assertAuthSchemaMatchesMetadata(teamSchema, teamSchemaMetadata)).not.toThrow()
+  })
+
+  it('generates the organization indexes used by live authorization and invitation paging', () => {
+    expect(agenticSchemaMetadata.models.member?.indexes).toContainEqual({
+      descriptor: 'organizationId_userId',
+      fields: ['organizationId', 'userId'],
+    })
+    expect(teamSchemaMetadata.models.teamMember?.indexes).toContainEqual({
+      descriptor: 'teamId_userId',
+      fields: ['teamId', 'userId'],
+    })
+    expect(teamSchemaMetadata.models.invitation?.indexes).toEqual(
+      expect.arrayContaining([
+        {
+          descriptor: 'email_organizationId_status',
+          fields: ['email', 'organizationId', 'status'],
+        },
+        {
+          descriptor: 'organizationId_status_createdAt',
+          fields: ['organizationId', 'status', 'createdAt'],
+        },
+        { descriptor: 'createdAt', fields: ['createdAt'] },
+      ]),
     )
   })
 })

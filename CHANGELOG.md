@@ -14,7 +14,11 @@
   protected credential storage, and real-backend concurrency invariants.
 - Regenerated and freshness-gated the Team and Agentic SaaS local-component
   schemas from their canonical Better Auth options; local-component consumers
-  must regenerate schema and metadata together when plugin tables change.
+  must regenerate schema and metadata together when plugin tables change. Their
+  final component schemas now use those generated tables directly, so untracked
+  hand-added indexes cannot diverge from the adapter descriptor. The generator
+  now owns the organization membership, team membership, pending-invitation, and
+  `createdAt` sort indexes used by live authorization and pagination.
 - Added the constrained OAuth authorization-server beta and delegated MCP path
   with authorization code plus PKCE, exact issuer/client/resource/subject/scope
   binding, live Convex authorization, consent and revocation, and no refresh or

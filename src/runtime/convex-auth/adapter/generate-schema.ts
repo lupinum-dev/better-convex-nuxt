@@ -22,9 +22,15 @@ export interface GeneratedAuthSchemaArtifacts {
 
 const explicitIndexes: Readonly<Record<string, readonly (string | readonly string[])[]>> = {
   account: ['accountId', ['accountId', 'providerId'], ['providerId', 'userId']],
+  invitation: [
+    ['email', 'organizationId', 'status'],
+    ['organizationId', 'status', 'createdAt'],
+  ],
+  member: [['organizationId', 'userId']],
   oauthConsent: [['clientId', 'userId']],
   rateLimit: ['key'],
   session: ['expiresAt', ['userId', 'expiresAt']],
+  teamMember: [['teamId', 'userId']],
   verification: ['expiresAt', 'identifier', ['identifier', 'createdAt']],
 }
 const FNV64_OFFSET_BASIS = 14_695_981_039_346_656_037n
@@ -105,7 +111,13 @@ function buildIndexes(
     add(typeof declared === 'string' ? [declared] : declared)
   }
   for (const field of Object.values(fields)) {
-    if (field.indexed || field.unique || field.reference || field.sortable) {
+    if (
+      field.indexed ||
+      field.unique ||
+      field.reference ||
+      field.sortable ||
+      field.physicalName === 'createdAt'
+    ) {
       add([field.logicalName])
     }
   }

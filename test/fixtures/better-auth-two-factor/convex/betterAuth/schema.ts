@@ -15,7 +15,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('name', ['name'])
-    .index('email', ['email']),
+    .index('email', ['email'])
+    .index('createdAt', ['createdAt']),
   session: defineTable({
     id: v.string(),
     expiresAt: v.number(),
@@ -30,6 +31,7 @@ export const tables = {
     .index('expiresAt', ['expiresAt'])
     .index('userId_expiresAt', ['userId', 'expiresAt'])
     .index('token', ['token'])
+    .index('createdAt', ['createdAt'])
     .index('userId', ['userId']),
   account: defineTable({
     id: v.string(),
@@ -50,7 +52,8 @@ export const tables = {
     .index('accountId', ['accountId'])
     .index('accountId_providerId', ['accountId', 'providerId'])
     .index('providerId_userId', ['providerId', 'userId'])
-    .index('userId', ['userId']),
+    .index('userId', ['userId'])
+    .index('createdAt', ['createdAt']),
   verification: defineTable({
     id: v.string(),
     identifier: v.string(),
@@ -62,7 +65,8 @@ export const tables = {
     .index('id', ['id'])
     .index('expiresAt', ['expiresAt'])
     .index('identifier', ['identifier'])
-    .index('identifier_createdAt', ['identifier', 'createdAt']),
+    .index('identifier_createdAt', ['identifier', 'createdAt'])
+    .index('createdAt', ['createdAt']),
   twoFactor: defineTable({
     id: v.string(),
     secret: v.string(),
@@ -83,7 +87,9 @@ export const tables = {
     expiresAt: v.union(v.null(), v.number()),
     alg: v.union(v.null(), v.string()),
     crv: v.union(v.null(), v.string()),
-  }).index('id', ['id']),
+  })
+    .index('id', ['id'])
+    .index('createdAt', ['createdAt']),
   rateLimit: defineTable({
     id: v.string(),
     key: v.string(),
@@ -96,7 +102,7 @@ export const tables = {
 
 const schema = defineSchema(tables)
 Object.defineProperty(schema, '__betterConvexNuxtAuthSchemaFingerprint', {
-  value: 'bcn-auth-schema-v1:a2cd1229f31298cf',
+  value: 'bcn-auth-schema-v1:84ea46f39e3f4c5d',
 })
 
 export default schema

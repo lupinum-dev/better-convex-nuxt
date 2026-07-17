@@ -14,7 +14,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('name', ['name'])
-    .index('email', ['email']),
+    .index('email', ['email'])
+    .index('createdAt', ['createdAt']),
   session: defineTable({
     id: v.string(),
     expiresAt: v.number(),
@@ -31,6 +32,7 @@ export const tables = {
     .index('expiresAt', ['expiresAt'])
     .index('userId_expiresAt', ['userId', 'expiresAt'])
     .index('token', ['token'])
+    .index('createdAt', ['createdAt'])
     .index('userId', ['userId']),
   account: defineTable({
     id: v.string(),
@@ -51,7 +53,8 @@ export const tables = {
     .index('accountId', ['accountId'])
     .index('accountId_providerId', ['accountId', 'providerId'])
     .index('providerId_userId', ['providerId', 'userId'])
-    .index('userId', ['userId']),
+    .index('userId', ['userId'])
+    .index('createdAt', ['createdAt']),
   verification: defineTable({
     id: v.string(),
     identifier: v.string(),
@@ -63,7 +66,8 @@ export const tables = {
     .index('id', ['id'])
     .index('expiresAt', ['expiresAt'])
     .index('identifier', ['identifier'])
-    .index('identifier_createdAt', ['identifier', 'createdAt']),
+    .index('identifier_createdAt', ['identifier', 'createdAt'])
+    .index('createdAt', ['createdAt']),
   organization: defineTable({
     id: v.string(),
     name: v.string(),
@@ -74,7 +78,8 @@ export const tables = {
   })
     .index('id', ['id'])
     .index('name', ['name'])
-    .index('slug', ['slug']),
+    .index('slug', ['slug'])
+    .index('createdAt', ['createdAt']),
   team: defineTable({
     id: v.string(),
     name: v.string(),
@@ -84,7 +89,8 @@ export const tables = {
     updatedAt: v.union(v.null(), v.number()),
   })
     .index('id', ['id'])
-    .index('organizationId', ['organizationId']),
+    .index('organizationId', ['organizationId'])
+    .index('createdAt', ['createdAt']),
   teamMember: defineTable({
     id: v.string(),
     teamId: v.string(),
@@ -93,9 +99,11 @@ export const tables = {
     createdAt: v.union(v.null(), v.number()),
   })
     .index('id', ['id'])
+    .index('teamId_userId', ['teamId', 'userId'])
     .index('teamId', ['teamId'])
     .index('userId', ['userId'])
-    .index('membershipKey', ['membershipKey']),
+    .index('membershipKey', ['membershipKey'])
+    .index('createdAt', ['createdAt']),
   member: defineTable({
     id: v.string(),
     organizationId: v.string(),
@@ -104,9 +112,11 @@ export const tables = {
     createdAt: v.number(),
   })
     .index('id', ['id'])
+    .index('organizationId_userId', ['organizationId', 'userId'])
     .index('organizationId', ['organizationId'])
     .index('userId', ['userId'])
-    .index('role', ['role']),
+    .index('role', ['role'])
+    .index('createdAt', ['createdAt']),
   invitation: defineTable({
     id: v.string(),
     organizationId: v.string(),
@@ -119,11 +129,14 @@ export const tables = {
     inviterId: v.string(),
   })
     .index('id', ['id'])
+    .index('email_organizationId_status', ['email', 'organizationId', 'status'])
+    .index('organizationId_status_createdAt', ['organizationId', 'status', 'createdAt'])
     .index('organizationId', ['organizationId'])
     .index('email', ['email'])
     .index('role', ['role'])
     .index('teamId', ['teamId'])
     .index('status', ['status'])
+    .index('createdAt', ['createdAt'])
     .index('inviterId', ['inviterId']),
   jwks: defineTable({
     id: v.string(),
@@ -133,7 +146,9 @@ export const tables = {
     expiresAt: v.union(v.null(), v.number()),
     alg: v.union(v.null(), v.string()),
     crv: v.union(v.null(), v.string()),
-  }).index('id', ['id']),
+  })
+    .index('id', ['id'])
+    .index('createdAt', ['createdAt']),
   rateLimit: defineTable({
     id: v.string(),
     key: v.string(),
@@ -146,7 +161,7 @@ export const tables = {
 
 const schema = defineSchema(tables)
 Object.defineProperty(schema, '__betterConvexNuxtAuthSchemaFingerprint', {
-  value: 'bcn-auth-schema-v1:8568225283c58858',
+  value: 'bcn-auth-schema-v1:a0dc1cc3f1d48f2c',
 })
 
 export default schema
