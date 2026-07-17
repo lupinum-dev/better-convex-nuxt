@@ -42,9 +42,10 @@ not release-complete merely because its code exists.
   is 146/146, the focused adapter suite is 30/30, and the separately isolated MCP
   project is green across 9 files and 71 tests. Clean Node 22.14 verification
   from absent `.nuxt`/`dist` now self-prepares generated root and fixture types,
-  builds current package and DevTools bytes before source consumers, loads local
-  TypeScript helpers through pinned `jiti`, and leaves no two-factor package
-  symlink behind.
+  resolves the repository Convex tests' package self-imports directly to the
+  reviewed source, builds current package and DevTools bytes before dist and
+  consumer gates, loads local TypeScript helpers through pinned `jiti`, and
+  leaves no two-factor package symlink behind.
 - The pinned real Convex backend gates are green for schema installation,
   logical-ID uniqueness, 1,001-row count/update/delete behavior, transaction
   rollback, sustained concurrency, signed client-IP provenance, eight-way JWKS
@@ -66,13 +67,15 @@ not release-complete merely because its code exists.
   freshly provisioned consumer app without taking deployment ownership or
   leaking fixture credentials.
 - The automatic same-repository pull-request preview workflow is implemented and
-  publishes only an evidence-bound exact tarball through `pkg.pr.new`. The exact
-  immutable `0.7.0-beta.0` release candidate passes the full clean
-  `pnpm release:prepare` gate, including exact-artifact identity/package probes
-  and the seven-app clean-install matrix. The preview URL and external
-  disposable-app rehearsal remain pending until the committed candidate is
-  pushed through the pull-request workflow; those results must be attached to
-  the commit rather than inferred from local evidence.
+  publishes only an evidence-bound exact tarball through `pkg.pr.new`. Its first
+  clean run correctly refused the pre-fix candidate before upload because the
+  repository Convex tests depended on an already-built self-package `dist`; no
+  preview URL was produced. That hidden precondition is removed, and an
+  absent-`.nuxt`/`dist` `pnpm verify` is green on the exact Node 22.14 baseline.
+  Every replacement commit must still repeat the complete
+  `pnpm release:prepare` gate and seven-app clean-install matrix. Preview and
+  external disposable-app results are attached to the exact pull-request commit
+  rather than inferred from earlier local evidence.
 - External release/governance gates remain unchanged: protected cloud identity
   and ingress lease, clean provision, exact-candidate cloud rehearsal, npm
   trusted publishing, owner/deputy notification drill, forward-fix record,
