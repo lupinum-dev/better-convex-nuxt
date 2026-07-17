@@ -368,9 +368,9 @@
       "targetPath": "src/runtime/convex-auth/oauth-security.ts",
       "sourceCommit": "c628916b451a6b4cff0f5464f134475464b1a6da",
       "sourceSha256": "48ab81541ecb0e5545bd74fb78ca426c0d695bbb156e03e6a402063255ef428a",
-      "targetSha256": "4a9d835293c0f7f524a0d02521453c062c6638312f5e429944cdbd046ab17f68",
+      "targetSha256": "2d6816a1574434a0411aa4085b92a279b3a04b97f3fe6c27b0722377f1f30991",
       "classification": "rewritten",
-      "modificationSummary": "Added a fail-closed OAuth provider profile with privilege callbacks, bounded request parsing, canonical exact HTTPS or HTTP-loopback redirect registration, client/resource binding, S256 PKCE, projected metadata, and access-token claim validation.",
+      "modificationSummary": "Added a fail-closed OAuth provider profile with privilege callbacks, bounded request parsing, canonical exact HTTPS or HTTP-loopback redirect registration, client/resource binding, S256 PKCE, projected metadata, access-token claim validation, and the documented time-bounded URL.canParse capability fill required by the pinned Convex runtime/provider tuple.",
       "latestReviewedUpstreamPatch": "https://github.com/get-convex/better-auth/commit/c628916b451a6b4cff0f5464f134475464b1a6da",
       "noticeRequired": false
     },
