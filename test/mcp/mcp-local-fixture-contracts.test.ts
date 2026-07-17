@@ -15,6 +15,14 @@ const selectorSource = readFileSync(
   fileURLToPath(new URL('../../scripts/mcp-evidence-fixture.mjs', import.meta.url)),
   'utf8',
 )
+const starterEnvExample = readFileSync(
+  fileURLToPath(new URL('../../starters/mcp-oauth-agent/.env.example', import.meta.url)),
+  'utf8',
+)
+const starterReadme = readFileSync(
+  fileURLToPath(new URL('../../starters/mcp-oauth-agent/README.md', import.meta.url)),
+  'utf8',
+)
 
 describe('self-contained MCP OAuth fixture contracts', () => {
   it('uses one matching fixture export and cleans its complete disposable root', () => {
@@ -30,6 +38,13 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).toContain('process.kill(-child.pid, signal)')
     expect(fixtureSource).toContain('retireCurrentAuthSecretForTest')
     expect(fixtureSource).toContain('secrets.push(replacement)')
+    expect(starterReadme).toContain('replace its final command with:')
+    expect(starterReadme).toContain('pnpm test:mcp-conformance')
+    expect(starterReadme).not.toContain('BCN_MCP_CONFORMANCE_BEARER=')
+    expect(starterReadme).toContain("convex run auth:rotateSigningKey '{}'")
+    expect(starterReadme).toContain('require `previousKids` to be empty')
+    expect(starterReadme).toContain('contains the exact recorded `newKid`')
+    expect(starterReadme).toContain('/api/auth/jwks')
   })
 
   it('prepares generated root types before the standalone MCP contract suite', () => {
@@ -132,6 +147,11 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).toContain('secret.length < 32')
     expect(fixtureSource).toContain('secret.length > 1_024')
     expect(fixtureSource).toContain('const secrets = [password, betterAuthSecrets, proxyIpSecret]')
+    expect(starterEnvExample).not.toContain('BETTER_AUTH_SECRETS')
+    expect(starterReadme).toContain('convex env set BETTER_AUTH_SECRETS')
+    expect(starterReadme).toContain(
+      "do not copy the\n   Better Auth secret into Nuxt's `.env.local`",
+    )
     const returnedFixture = fixtureSource.slice(
       fixtureSource.indexOf('return Object.freeze({\n      convexSiteUrl,'),
     )

@@ -13,6 +13,12 @@ const authApps = [
   'starters/team',
 ] as const
 const passwordApps = authApps.filter((app) => app !== 'demo')
+const authEnvExamples = [
+  'demo/.env.example',
+  'starters/agency/.env.example',
+  'starters/mcp-agent/.env.example',
+  'starters/team/.env.example',
+] as const
 const passwordForms = [
   'playground/pages/auth/signup.vue',
   'starters/agency/app/pages/agency.vue',
@@ -46,9 +52,12 @@ describe('shipped Better Auth factory invariants', () => {
     expect(auth).toContain("throw new Error('AUTH_CONFIG_INVALID')")
   })
 
-  it('clears every legacy Better Auth secret alias during schema generation', () => {
+  it('keeps Better Auth secrets out of Nuxt env examples and clears legacy schema aliases', () => {
     const schemaCli = read('src/runtime/cli/auth-schema.ts')
 
+    for (const path of authEnvExamples) {
+      expect(read(path)).not.toMatch(/^BETTER_AUTH_SECRETS=/mu)
+    }
     expect(schemaCli).toContain("'AUTH_SECRET'")
     expect(schemaCli).toContain("'BETTER_AUTH_SECRET'")
     expect(schemaCli).toContain("'BETTER_AUTH_SECRETS'")

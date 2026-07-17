@@ -55,11 +55,11 @@ no legacy component migration or compatibility path.
    cp .env.example .env.local
    ```
 
-2. Fill `.env.local` with the exact Nuxt origin and Convex deployment URLs.
-   Generate two independent random secrets: a versioned
-   `BETTER_AUTH_SECRETS=1:<at-least-32-random-bytes>` value and a different
-   `BCN_AUTH_PROXY_IP_SECRET` of at least 32 random bytes. Never commit this
-   file.
+2. Fill `.env.local` with the exact Nuxt origin and Convex deployment URLs, plus
+   a `BCN_AUTH_PROXY_IP_SECRET` of at least 32 random bytes. Separately generate
+   an independent versioned `BETTER_AUTH_SECRETS=1:<at-least-32-random-bytes>`
+   value for the next step. Set that value only in Convex; do not copy the
+   Better Auth secret into Nuxt's `.env.local`. Never commit this file.
 
 3. Start Convex, then mirror the server-only values into the selected Convex
    deployment:
@@ -74,12 +74,26 @@ no legacy component migration or compatibility path.
 
    Run the `convex env set` commands in another terminal while `convex:dev` is
    active. The `SITE_URL` value must exactly match the public Nuxt origin.
+   Wait for `Convex functions ready!`, then create the deployment's first
+   signing key before allowing auth traffic:
+
+   ```bash
+   pnpm exec convex run auth:rotateSigningKey '{}'
+   ```
+
+   On this fresh deployment, require `previousKids` to be empty and record the
+   returned `newKid`. A previous key means the deployment is not fresh; stop and
+   inventory it instead of deleting or reusing state.
 
 4. Start Nuxt in another terminal:
 
    ```bash
    pnpm dev
    ```
+
+   Fetch `http://localhost:3000/api/auth/jwks` and verify that its `keys` array
+   contains the exact recorded `newKid` before creating a user or opening
+   ingress.
 
 5. Create the first local Better Auth user. The starter has no public sign-up
    page; this explicit local bootstrap call keeps account creation separate
@@ -152,6 +166,9 @@ absolute app directory contains `.env.local` with exact matching `SITE_URL`,
 `CONVEX_URL`, `CONVEX_SITE_URL`, `NUXT_PUBLIC_CONVEX_URL`, and
 `NUXT_PUBLIC_CONVEX_SITE_URL` values. The account must already exist, use a
 password of at least 15 characters, and have `oauthAdmin` enabled.
+The deployment must already have completed the fresh signing-key ceremony above,
+and the recorded `newKid` must be visible through this exact app origin's
+`/api/auth/jwks` endpoint.
 
 ```bash
 BCN_MCP_TEST_MODE=external-disposable \
@@ -175,18 +192,20 @@ The runner invokes only the repository-pinned absolute Convex CLI, from the
 supplied app directory, with that directory's `.env.local`; fixture credentials
 and deployment overrides are stripped from every child process environment.
 
-The official MCP server-mode protocol suite is separate evidence. Supply one
-fresh, least-scope fixture bearer through the authorized runner environment and
-run:
+The selected official MCP server-mode protocol suite is a one-shot alternative
+entry to the same destructive harness. On a fresh external deployment, use the
+exact environment block above but replace its final command with:
 
 ```bash
-BCN_MCP_TEST_ORIGIN=http://localhost:3000 \
-BCN_MCP_CONFORMANCE_BEARER='FRESH-FIXTURE-ACCESS-TOKEN' \
 pnpm test:mcp-conformance
 ```
 
-This validates MCP protocol behavior through the fixed loopback relay. It is
-not OAuth certification or OAuth conformance.
+That command runs the complete OAuth/MCP evidence and the selected protocol
+scenarios in one fixture lifecycle, using the freshly issued least-scope bearer
+internally. Do not run `test:mcp-auth` first and do not run both commands against
+one deployment; either run consumes it. This validates MCP protocol behavior
+through the fixed loopback relay. It is not OAuth certification or OAuth
+conformance.
 
 ## Login and consent boundary
 
