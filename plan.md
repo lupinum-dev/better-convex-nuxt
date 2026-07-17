@@ -38,9 +38,9 @@ not release-complete merely because its code exists.
 
 - Green on the feedback-reconciled implementation tree: formatting, lint, full
   typecheck, provenance, boundaries, ASVS/SBOM generation, prepack/dist exports,
-  contract fixtures, and 1,336 tests across 136 files. The focused OAuth suite
+  contract fixtures, and 1,337 tests across 136 files. The focused OAuth suite
   is 146/146, the focused adapter suite is 28/28, and the separately isolated MCP
-  project is 69/69.
+  project is 70/70.
 - The pinned real Convex backend gates are green for schema installation,
   logical-ID uniqueness, 1,001-row count/update/delete behavior, transaction
   rollback, sustained concurrency, signed client-IP provenance, eight-way JWKS

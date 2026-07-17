@@ -13,6 +13,7 @@ import {
   DISABLED_OAUTH_ROUTE_PROBES,
   OAUTH_TRANSPORT_QUOTA_PROFILES,
   buildOAuthQuotaRequest,
+  safeQuotaEvidenceFailureCode,
   summarizeQuotaBoundary,
   validateQuotaWorkerRequest,
 } from '../../scripts/run-oauth-transport-quota.mjs'
@@ -119,6 +120,25 @@ describe('real OAuth transport quota evidence', () => {
         headers: { ...valid.headers, 'x-bcn-client-ip-signature': undefined },
       }),
     ).toThrow('OAUTH_QUOTA_WORKER_INPUT_INVALID')
+  })
+
+  it('reports only bounded fixture and worker failure classes', () => {
+    expect(
+      safeQuotaEvidenceFailureCode(
+        new Error('Timed out waiting for MCP OAuth Convex function deployment: secret output'),
+      ),
+    ).toBe('OAUTH_QUOTA_FIXTURE_DEPLOY_TIMEOUT')
+    expect(
+      safeQuotaEvidenceFailureCode(
+        new Error('Timed out waiting for Nuxt MCP OAuth fixture: secret output'),
+      ),
+    ).toBe('OAUTH_QUOTA_FIXTURE_NUXT_TIMEOUT')
+    expect(safeQuotaEvidenceFailureCode(new Error('OAUTH_QUOTA_WORKER_SPAWN_EAGAIN'))).toBe(
+      'OAUTH_QUOTA_WORKER_SPAWN_EAGAIN',
+    )
+    expect(safeQuotaEvidenceFailureCode(new Error('secret output'))).toBe(
+      'OAUTH_QUOTA_FIXTURE_FAILED',
+    )
   })
 
   it('accepts exactly one remaining boundary request and returns counts only', () => {

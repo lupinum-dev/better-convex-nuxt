@@ -35,6 +35,9 @@
 - Added an explicit destructive `external-disposable` MCP evidence mode for a
   fresh already-running preview deployment; the self-contained local fixture
   remains the default and no external lifecycle or cleanup path is inferred.
+- Made exact-tarball MCP fixtures derive their isolated runtime links from the
+  product and starter manifests, so workspace ancestor resolution cannot hide a
+  missing production dependency.
 - Removed migration documentation and every maintained legacy runtime path. This
   is a greenfield-only beta and does not migrate an existing auth database.
 

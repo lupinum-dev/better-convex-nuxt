@@ -4,7 +4,7 @@ import { once } from 'node:events'
 import { access, cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { assertCurrentBackendBinary } from './check-auth-backend.mjs'
@@ -108,7 +108,7 @@ async function waitUntil(check, description, timeoutMs = START_TIMEOUT_MS) {
 }
 
 function terminate(child, signal = 'SIGTERM') {
-  if (!child?.pid || child.exitCode !== null) return
+  if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return
   if (process.platform === 'win32') child.kill(signal)
   else {
     try {
@@ -120,7 +120,7 @@ function terminate(child, signal = 'SIGTERM') {
 }
 
 async function stopProcess(child) {
-  if (!child || child.exitCode !== null) return
+  if (!child || child.exitCode !== null || child.signalCode !== null) return
   terminate(child)
   const exited = await Promise.race([
     once(child, 'exit').then(() => true),
@@ -162,8 +162,32 @@ async function resolveReleaseTarball() {
 async function linkDependencies(cwd, releaseTarball) {
   const modules = join(cwd, 'node_modules')
   await mkdir(modules, { mode: 0o700 })
-  for (const name of ['better-auth', 'convex', 'kysely', 'nuxt', 'typescript', 'vue', 'vue-tsc']) {
-    await symlink(join(root, 'node_modules', name), join(modules, name), 'dir')
+  const [productManifest, starterManifest] = await Promise.all(
+    [join(root, 'package.json'), join(starter, 'package.json')].map(async (path) =>
+      JSON.parse(await readFile(path, 'utf8')),
+    ),
+  )
+  const dependencyNames = new Set()
+  for (const dependencies of [
+    productManifest.dependencies,
+    productManifest.optionalDependencies,
+    productManifest.peerDependencies,
+    starterManifest.dependencies,
+    starterManifest.devDependencies,
+    starterManifest.optionalDependencies,
+  ]) {
+    for (const name of Object.keys(dependencies ?? {})) dependencyNames.add(name)
+  }
+  dependencyNames.delete('better-convex-nuxt')
+  for (const name of [...dependencyNames].sort()) {
+    if (!/^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/iu.test(name)) {
+      throw new Error('Invalid fixture dependency name')
+    }
+    const source = join(root, 'node_modules', name)
+    const destination = join(modules, name)
+    await access(source)
+    await mkdir(dirname(destination), { mode: 0o700, recursive: true })
+    await symlink(source, destination, 'dir')
   }
   const installedModule = join(modules, 'better-convex-nuxt')
   if (releaseTarball) {
@@ -181,8 +205,6 @@ async function linkDependencies(cwd, releaseTarball) {
     await ensureWorkspacePackageBuild()
     await symlink(root, installedModule, 'dir')
   }
-  await symlink(join(root, 'node_modules/@better-auth'), join(modules, '@better-auth'), 'dir')
-  await symlink(join(root, 'node_modules/@types'), join(modules, '@types'), 'dir')
 }
 
 async function readFixtureEnvironment(cwd) {

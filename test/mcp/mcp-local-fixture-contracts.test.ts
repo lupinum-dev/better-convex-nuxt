@@ -39,6 +39,21 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).not.toMatch(/(?:npm|pnpm)[^\n]+\bpack\b/u)
   })
 
+  it('derives isolated fixture links from the product and starter manifests', () => {
+    expect(fixtureSource).toContain("join(root, 'package.json')")
+    expect(fixtureSource).toContain("join(starter, 'package.json')")
+    expect(fixtureSource).toContain('productManifest.dependencies')
+    expect(fixtureSource).toContain('productManifest.optionalDependencies')
+    expect(fixtureSource).toContain('productManifest.peerDependencies')
+    expect(fixtureSource).toContain('starterManifest.dependencies')
+    expect(fixtureSource).toContain('starterManifest.devDependencies')
+    expect(fixtureSource).toContain("dependencyNames.delete('better-convex-nuxt')")
+    expect(fixtureSource).toContain('await mkdir(dirname(destination),')
+    expect(fixtureSource).not.toContain(
+      "['better-auth', 'convex', 'kysely', 'nuxt', 'typescript', 'vue', 'vue-tsc']",
+    )
+  })
+
   it('builds uncommitted workspace dist before a non-release fixture resolves package exports', () => {
     expect(fixtureSource).toContain("await access(join(root, 'dist/module.mjs'))")
     expect(fixtureSource).toContain("['exec', 'nuxt-module-build', 'build']")

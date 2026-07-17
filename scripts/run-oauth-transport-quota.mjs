@@ -226,18 +226,54 @@ function safeWorkerFailureCode(error) {
   return 'OAUTH_QUOTA_WORKER_FAILED'
 }
 
+export function safeQuotaEvidenceFailureCode(error) {
+  if (error instanceof Error && /^OAUTH_QUOTA_[A-Z0-9_]{1,64}$/u.test(error.message)) {
+    return error.message
+  }
+  if (
+    error instanceof Error &&
+    error.message.startsWith('Timed out waiting for MCP OAuth Convex function deployment')
+  ) {
+    return 'OAUTH_QUOTA_FIXTURE_DEPLOY_TIMEOUT'
+  }
+  if (error instanceof Error && error.message.startsWith('Timed out waiting for Nuxt MCP OAuth')) {
+    return 'OAUTH_QUOTA_FIXTURE_NUXT_TIMEOUT'
+  }
+  return 'OAUTH_QUOTA_FIXTURE_FAILED'
+}
+
+function safeTransportFailureCode(error, selected) {
+  const cause = isRecord(error?.cause) ? error.cause : undefined
+  const causeCode =
+    typeof cause?.code === 'string' &&
+    /^(?:EAGAIN|ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|UND_ERR_[A-Z_]{1,32})$/u.test(cause.code)
+      ? cause.code
+      : 'FAILED'
+  return `OAUTH_QUOTA_WORKER_TRANSPORT_${selected.name.toUpperCase()}_${causeCode}`
+}
+
 async function performQuotaRequest(input) {
   const request = validateQuotaWorkerRequest(input)
+  const selected = profileForRequest(request)
+  assert(selected, 'OAUTH_QUOTA_WORKER_INPUT_INVALID')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    const response = await fetch(request.url, {
-      body: request.body,
-      headers: request.headers,
-      method: request.method,
-      redirect: 'manual',
-      signal: controller.signal,
-    })
+    let response
+    try {
+      response = await fetch(request.url, {
+        body: request.body,
+        headers: request.headers,
+        method: request.method,
+        redirect: 'manual',
+        signal: controller.signal,
+      })
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(safeTransportFailureCode(error, selected), { cause: error })
+      }
+      throw error
+    }
     const retryAfterValue = response.headers.get('x-retry-after')
     await response.body?.cancel().catch(() => {})
     return Object.freeze({
@@ -312,7 +348,13 @@ function createQuotaWorker() {
     }
   }
 
-  child.on('error', () => fail('OAUTH_QUOTA_WORKER_FAILED'))
+  child.on('error', (error) => {
+    const code =
+      typeof error?.code === 'string' && /^(?:EAGAIN|EMFILE|ENFILE|ENOENT)$/u.test(error.code)
+        ? error.code
+        : 'FAILED'
+    fail(`OAUTH_QUOTA_WORKER_SPAWN_${code}`)
+  })
   child.on('exit', (code) => {
     if (!readySettled || (code !== 0 && code !== null)) fail('OAUTH_QUOTA_WORKER_EXITED')
     else if (pendingRequest) fail('OAUTH_QUOTA_WORKER_EXITED')
@@ -688,7 +730,7 @@ if (process.argv[2] === '--request-worker') {
       )
     })
     .catch((error) => {
-      console.error(safeWorkerFailureCode(error))
+      console.error(safeQuotaEvidenceFailureCode(error))
       process.exitCode = 1
     })
 }
