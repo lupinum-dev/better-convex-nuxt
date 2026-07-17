@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomInt } from 'node:crypto'
 import { once } from 'node:events'
 import { access, cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink } from 'node:fs/promises'
 import { createServer } from 'node:net'
@@ -76,7 +76,7 @@ async function availableRandomPort(excluded = new Set()) {
   // shared source of truth. The bind check remains fail-closed; the spawned
   // service also treats a lost bind race as a hard fixture failure.
   for (let attempt = 0; attempt < 64; attempt += 1) {
-    const port = 12_000 + (randomBytes(2).readUInt16BE(0) % 32_000)
+    const port = randomInt(12_000, 44_000)
     if (excluded.has(port)) continue
     const server = createServer()
     const available = await new Promise((ready) => {
