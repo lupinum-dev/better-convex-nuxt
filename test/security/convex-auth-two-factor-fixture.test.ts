@@ -112,5 +112,7 @@ describe('dedicated Better Auth two-factor fixture', () => {
     expect(harness).toContain('CONVEX_SITE_URL is supplied by the selected Convex deployment')
     expect(harness).toContain('OptimisticConcurrencyControlFailure')
     expect(harness).toContain("'Captured Convex output:'")
+    expect(harness).toContain('child.stdin.end(`${value}\\n`)')
+    expect(harness).not.toContain("['env', 'set', name, value")
   })
 })

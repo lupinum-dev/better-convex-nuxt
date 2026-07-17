@@ -53,6 +53,7 @@ describe('pkg.pr.new package preview workflow', () => {
     expect(lockfile).toContain('pkg-pr-new:\n        specifier: 0.0.78\n        version: 0.0.78')
     expect(lockfile).toMatch(/pkg-pr-new@0\.0\.78:\n\s+resolution: \{integrity: sha512-[^}]+\}/u)
     expect(workflow.match(/pnpm exec pkg-pr-new publish/g)).toHaveLength(1)
+    expect(workflow).toContain('--no-compact')
     expect(workflow).toContain('--commentWithSha')
     expect(workflow).toContain('--no-template')
     expect(workflow).toContain('"${{ steps.artifact.outputs.tarball }}"')
@@ -64,6 +65,15 @@ describe('pkg.pr.new package preview workflow', () => {
     expect(workflow).toContain('path: .release-artifacts/')
     expect(workflow).toContain('PREVIEW_URLS: ${{ steps.publish.outputs.urls }}')
     expect(workflow).toContain('ARTIFACT_SHA256: ${{ steps.artifact.outputs.sha256 }}')
+    expect(workflow).toContain(
+      'SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}',
+    )
+    expect(workflow).toContain('if [[ "$PREVIEW_SHA" != "$SOURCE_COMMIT" ]]')
+    expect(workflow).toContain(
+      'EXPECTED_PREVIEW_URL="https://pkg.pr.new/${GITHUB_REPOSITORY}/${PACKAGE_NAME}@${SOURCE_COMMIT}"',
+    )
+    expect(workflow).toContain('if [[ "$PREVIEW_URL" != "$EXPECTED_PREVIEW_URL" ]]')
+    expect(workflow).toContain('sha256sum --check --strict')
     expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
   })
 })

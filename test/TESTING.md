@@ -124,24 +124,34 @@ removes only that temporary root. The only external selector is the exact
 `BCN_MCP_TEST_APP_DIR` (absolute), `BCN_MCP_TEST_ORIGIN`,
 `BCN_MCP_TEST_CONVEX_URL`, `BCN_MCP_TEST_CONVEX_SITE_URL`,
 `BCN_MCP_TEST_EMAIL`, and `BCN_MCP_TEST_PASSWORD`. The three supplied origins
-must be canonical HTTPS origins (or loopback HTTP), distinct, and exactly match
+must be distinct. The app origin may use loopback HTTP; both Convex origins must
+be canonical managed HTTPS origins, including the same region when present,
+and all three must exactly match
 `SITE_URL`, `CONVEX_URL`, `CONVEX_SITE_URL`, `NUXT_PUBLIC_CONVEX_URL`, and
-`NUXT_PUBLIC_CONVEX_SITE_URL` in the app directory's `.env.local`. The supplied
-password must satisfy the starter's 15-character minimum.
+`NUXT_PUBLIC_CONVEX_SITE_URL` in the app directory's owner-only `.env.local`
+(for example, mode 0600). That file must select the same managed Convex
+deployment through a canonical non-production `CONVEX_DEPLOYMENT` value and
+contain no competing Convex CLI authority or override. A sibling `.env` is not
+allowed. The supplied password must satisfy the starter's 15-character minimum.
 
 External mode is destructive one-shot evidence for a fresh, already-running,
 disposable app and deployment only. The account must already exist with the
 starter's `oauthAdmin` capability, and the exact starter functions must already
 be deployed. The runner does not create, deploy, start, stop, reset, or destroy
-external infrastructure, and its external release hook deliberately does
-nothing. It provisions fixture clients and delegations, mutates live
+external infrastructure, and its external release hook removes only the
+isolated temporary CLI authority directory. It provisions fixture clients and
+delegations, mutates live
 authorization, deletes terminal-case sessions/clients/consents, and creates and
 soft-deletes projects; terminal states are not restored. Never point it at
 production, shared staging, populated data, or a deployment that must be
 reused. Destroy the consumed deployment through its owner-controlled process.
-External Convex calls use the repository-pinned absolute CLI with the supplied
-app directory as `cwd` and its `.env.local`; test credentials and ambient
-deployment authority are stripped from child environments.
+Before the first mutation, the repository-pinned absolute CLI resolves the
+deployment in an isolated directory and must report the exact origins and a
+`dev` or `preview` type. External calls then use the supplied app directory as
+`cwd`, the validated deployment name, and the private generated env file as
+explicit arguments, preventing CLI auto-loading of app dotenv files. Test
+credentials and every case variant of an ambient Convex override are stripped
+from child environments.
 
 `test:auth-cloud-staging` is intentionally not a local or general CI command.
 The protected prerelease workflow supplies one deployment-scoped key and a
@@ -226,13 +236,16 @@ Then configure and run the suite from another terminal:
 ```bash
 cd playground
 pnpm exec convex env set SITE_URL http://localhost:3050 --env-file .env.local
-pnpm exec convex env set CONVEX_SITE_URL <local-convex-site-url> --env-file .env.local
 pnpm exec convex env set BETTER_AUTH_SECRETS 1:<strong-random-secret> --env-file .env.local
 pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET <separate-strong-random-secret> --env-file .env.local
 cd ..
 pnpm check:auth-backend
 CONVEX_E2E_AUTO_START=false pnpm test:e2e
 ```
+
+The selected backend supplies `CONVEX_SITE_URL` as a built-in. Keep its
+generated value in `.env.local`; `convex env set` must not be used for that
+reserved name.
 
 For an account-linked project whose local deployment is not currently selected,
 select it once before starting the backend:

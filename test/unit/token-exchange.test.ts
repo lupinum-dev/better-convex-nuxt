@@ -78,7 +78,6 @@ function jsonResponse(res: http.ServerResponse, status: number, body: unknown): 
 const COOKIE =
   'private_app_cookie=DO_NOT_FORWARD; better-auth.session_token=SUPERSECRET_SESSION_abc123'
 const FORWARDED_COOKIE = 'better-auth.session_token=SUPERSECRET_SESSION_abc123'
-const BEARER = 'BEARER_SECRET_xyz789'
 
 describe('exchangeConvexToken — success', () => {
   it('exchanges a cookie credential and returns the token (GET /api/auth/convex/token)', async () => {
@@ -95,20 +94,6 @@ describe('exchangeConvexToken — success', () => {
     expect(server.requests[0]!.url).toBe('/api/auth/convex/token')
     expect(server.requests[0]!.cookie).toBe(FORWARDED_COOKIE)
     expect(server.requests[0]!.authorization).toBeUndefined()
-  })
-
-  it('exchanges a bearer credential and sends Authorization: Bearer', async () => {
-    const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'jwt.bearer.ok' }))
-
-    const result = await exchangeConvexToken({
-      siteUrl: server.siteUrl,
-      credential: { type: 'bearer', value: BEARER },
-    })
-
-    expect(result.token).toBe('jwt.bearer.ok')
-    expect(result.error).toBeNull()
-    expect(server.requests[0]!.authorization).toBe(`Bearer ${BEARER}`)
-    expect(server.requests[0]!.cookie).toBeUndefined()
   })
 })
 
@@ -333,7 +318,21 @@ describe('exchangeConvexToken — synchronous credential validation (before netw
         // @ts-expect-error direct JavaScript callers still require runtime validation
         credential: { type: 'basic', value: 'credential' },
       }),
-    ).toThrow('credential must be a cookie or bearer credential')
+    ).toThrow('credential must be a cookie credential')
+
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('rejects a bearer credential before any network access', async () => {
+    const server = await harness((_req, res) => jsonResponse(res, 200, { token: 'nope' }))
+
+    expect(() =>
+      exchangeConvexToken({
+        siteUrl: server.siteUrl,
+        // @ts-expect-error bearer credentials are deliberately absent from the public type
+        credential: { type: 'bearer', value: 'session-token' },
+      }),
+    ).toThrow('credential must be a cookie credential')
 
     expect(server.requests).toHaveLength(0)
   })

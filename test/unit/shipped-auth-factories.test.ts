@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
@@ -27,15 +27,77 @@ const passwordForms = [
   'starters/team/app/components/AuthPanel.vue',
 ] as const
 const passwordRecipeDocs = ['docs/content/docs/3.get-started/5.add-authentication.md'] as const
+const proxySecretExamples = [
+  'starters/mcp-oauth-agent/.env.example',
+  'docs/content/docs/3.get-started/5.add-authentication.md',
+  'docs/content/docs/7.operations/1.environment-variables.md',
+] as const
+const proxySecretDocs = [
+  'docs/content/docs/3.get-started/5.add-authentication.md',
+  'docs/content/docs/7.operations/1.environment-variables.md',
+] as const
 const genericSignInForms = [
   'playground/pages/auth/signin.vue',
   'starters/team/app/components/AuthPanel.vue',
   'starters/mcp-agent/app/composables/useMcpDemoAuth.ts',
   'starters/agentic-saas/app/pages/index.vue',
 ] as const
+const convexManagedEnvDocs = [
+  'starters/mcp-oauth-agent/README.md',
+  'docs/content/docs/3.get-started/5.add-authentication.md',
+  'docs/content/docs/4.build/3.authentication/2.better-auth-setup.md',
+  'docs/content/docs/7.operations/1.environment-variables.md',
+  'docs/content/docs/7.operations/2.deployment.md',
+  'docs/content/docs/7.operations/4.troubleshooting.md',
+  'RELEASING.md',
+  'test/TESTING.md',
+] as const
+const generatedDirectoryNames = new Set([
+  '.audit',
+  '.git',
+  '.nuxt',
+  '.output',
+  '.release-artifacts',
+  'coverage',
+  'dist',
+  'node_modules',
+])
 
 function read(path: string): string {
   return readFileSync(join(repoRoot, path), 'utf8')
+}
+
+function maintainedMarkdown(): { path: string; source: string }[] {
+  const paths: string[] = []
+  const visit = (path: string) => {
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      const absolute = join(path, entry.name)
+      if (entry.isDirectory()) {
+        if (!generatedDirectoryNames.has(entry.name)) visit(absolute)
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        paths.push(relative(repoRoot, absolute))
+      }
+    }
+  }
+
+  visit(repoRoot)
+
+  return [...new Set(paths)].sort().map((path) => ({ path, source: read(path) }))
+}
+
+function setsConvexManagedSiteUrl(line: string): boolean {
+  const tokens = (line.match(/"[^"]*"|'[^']*'|\S+/gu) ?? []).map((token) => {
+    const quote = token[0]
+    return (quote === '"' || quote === "'") && token.at(-1) === quote ? token.slice(1, -1) : token
+  })
+  const after = (index: number, predicate: (token: string) => boolean) =>
+    tokens.findIndex((token, candidate) => candidate > index && predicate(token))
+  const convex = tokens.findIndex((token) => token === 'convex' || token.endsWith('/convex'))
+  const env = after(convex, (token) => token === 'env')
+  const set = after(env, (token) => token === 'set')
+  const name = after(set, (token) => token === 'CONVEX_SITE_URL')
+
+  return convex >= 0 && env >= 0 && set >= 0 && name >= 0
 }
 
 describe('shipped Better Auth factory invariants', () => {
@@ -61,6 +123,77 @@ describe('shipped Better Auth factory invariants', () => {
     expect(schemaCli).toContain("'AUTH_SECRET'")
     expect(schemaCli).toContain("'BETTER_AUTH_SECRET'")
     expect(schemaCli).toContain("'BETTER_AUTH_SECRETS'")
+  })
+
+  it.each(proxySecretExamples)('%s leaves copyable proxy secrets blank', (path) => {
+    const source = read(path)
+
+    expect(source).toMatch(/^BCN_AUTH_PROXY_IP_SECRET=$/mu)
+    expect(source).not.toMatch(/^BCN_AUTH_PROXY_IP_SECRET=.+$/mu)
+  })
+
+  it.each(proxySecretDocs)('%s provisions one shared proxy secret without printing it', (path) => {
+    const source = read(path)
+
+    expect(source).toContain('export BCN_AUTH_PROXY_IP_SECRET="$(openssl rand -base64 32)"')
+    expect(source).toContain(
+      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET',
+    )
+    expect(source).toContain('same shell')
+    expect(source).toContain('Do not print or commit it')
+  })
+
+  it.each(convexManagedEnvDocs)(
+    '%s does not tell operators to override Convex built-ins',
+    (path) => {
+      const source = read(path)
+
+      expect(source).not.toMatch(/convex env set CONVEX_SITE_URL/u)
+      expect(source).toMatch(
+        /CONVEX_SITE_URL[\s\S]{0,160}(built-in|built in)|(built-in|built in)[\s\S]{0,160}CONVEX_SITE_URL/u,
+      )
+    },
+  )
+
+  it('keeps Convex-managed environment names out of every shipped Markdown command', () => {
+    const offenders: string[] = []
+
+    for (const { path, source } of maintainedMarkdown()) {
+      const logicalLines = source.replace(/\\\r?\n\s*/gu, ' ').split(/\r?\n/u)
+      for (const [index, line] of logicalLines.entries()) {
+        if (setsConvexManagedSiteUrl(line)) {
+          offenders.push(`${path}:${index + 1}`)
+        }
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it.each([
+    'convex env set CONVEX_SITE_URL https://deployment.convex.site',
+    'pnpm exec convex env --prod set --deployment app CONVEX_SITE_URL value',
+    '/workspace/node_modules/.bin/convex --verbose env set "CONVEX_SITE_URL" value',
+  ])('detects forbidden Convex built-in provisioning syntax: %s', (command) => {
+    expect(setsConvexManagedSiteUrl(command)).toBe(true)
+  })
+
+  it.each([
+    'convex env set SITE_URL https://app.example.com',
+    'convex env list --names-only',
+    'Convex injects the CONVEX_SITE_URL built-in',
+  ])('does not reject unrelated setup text: %s', (line) => {
+    expect(setsConvexManagedSiteUrl(line)).toBe(false)
+  })
+
+  it('uses Nuxt default .env naming in the generic setup guides', () => {
+    for (const path of [
+      'docs/content/docs/3.get-started/2.installation.md',
+      'docs/content/docs/3.get-started/5.add-authentication.md',
+      'docs/content/docs/3.get-started/7.project-structure.md',
+    ]) {
+      expect(read(path)).not.toContain('.env.local')
+    }
   })
 
   it.each(authApps)('%s registers only the lazy Better Auth HTTP ceremony', (app) => {

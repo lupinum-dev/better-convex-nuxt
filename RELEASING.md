@@ -147,8 +147,10 @@ owner bootstrap identity's `BCN_AUTH_STAGING_EMAIL` and
 configure the host edge to require the matching cookie. This account must not
 already exist: the job creates it only after the zero-state proof and removes it
 during cleanup.
-The deployment's persistent `SITE_URL` and `CONVEX_SITE_URL` must match the
-protected public-origin and site URL variables. Project keys, preview keys,
+The deployment's persistent application-owned `SITE_URL` must match the
+protected public-origin variable. Its deployment-owned built-in
+`CONVEX_SITE_URL` must match the protected site URL variable; the workflow must
+not try to persist or override that reserved value. Project keys, preview keys,
 development keys, a team/project slug other than the protected identity, or
 URL/key mismatches fail closed.
 

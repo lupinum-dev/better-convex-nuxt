@@ -1,8 +1,29 @@
-import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ensureLocalConvex } from '../helpers/local-convex'
 
+const forbiddenLocalFileCredentials = [
+  'CONVEX_DEPLOY_KEY',
+  'CONVEX_DEPLOYMENT_TOKEN',
+  'CONVEX_SELF_HOSTED_ADMIN_KEY',
+  'CONVEX_SELF_HOSTED_URL',
+] as const
+
+const dotenvCredentialForms = [
+  (name: string, value: string) => `${name}=${value}`,
+  (name: string, value: string) => `export ${name}=${value}`,
+  (name: string, value: string) => `${name}: ${value}`,
+]
+
 describe('local Convex deployment environment options', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it.each([
     ['a record', []],
     ['valid names', { lowercase: 'value' }],
@@ -29,5 +50,39 @@ describe('local Convex deployment environment options', () => {
     await expect(
       ensureLocalConvex({ deploymentEnv: { TEST_SECRET: rejectedValue } }),
     ).rejects.not.toThrow(rejectedValue)
+  })
+
+  it.each(
+    forbiddenLocalFileCredentials.flatMap((name) =>
+      dotenvCredentialForms.map((format) => [name, format] as const),
+    ),
+  )('rejects dotenv cloud credential %s before auto-starting', async (name, format) => {
+    const cwd = await mkdtemp(path.join(tmpdir(), 'bcn-local-convex-'))
+    const credential = 'do-not-use-or-disclose-this-cloud-key'
+    await writeFile(
+      path.join(cwd, '.env.local'),
+      [
+        'CONVEX_DEPLOYMENT=anonymous:local-test',
+        'CONVEX_URL=http://127.0.0.1:3210',
+        'CONVEX_SITE_URL=http://127.0.0.1:3211',
+        format(name, credential),
+      ].join('\n'),
+      'utf8',
+    )
+    vi.stubEnv('CONVEX_E2E_AUTO_START', 'true')
+
+    try {
+      const error = await ensureLocalConvex({ cwd }).then(
+        () => null,
+        (cause: unknown) => cause,
+      )
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toContain(
+        `remove forbidden deployment credential(s): ${name}`,
+      )
+      expect((error as Error).message).not.toContain(credential)
+    } finally {
+      await rm(cwd, { force: true, recursive: true })
+    }
   })
 })

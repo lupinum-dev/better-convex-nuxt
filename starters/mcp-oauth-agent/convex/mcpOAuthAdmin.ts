@@ -1,4 +1,5 @@
 import type { oauthProvider } from '@better-auth/oauth-provider'
+import type { BetterAuthPlugin } from 'better-auth'
 import {
   APIError,
   createAuthEndpoint,
@@ -315,6 +316,7 @@ async function requireFixtureClient(
   const matches = existingClients.filter((candidate) => candidate.software_id === expected.profile)
   if (matches.length !== 1) profileDrift()
   const client = matches[0]
+  if (!client) profileDrift()
   assertClientProfile(client, expected)
   return client
 }
@@ -323,11 +325,11 @@ export function mcpOAuthAdminPlugin(
   authCtx: AuthCtx<DataModel>,
   provider: ProviderPlugin,
   origin: string,
-) {
+): BetterAuthPlugin {
   const resource = `${origin}/mcp`
 
   const providerCall =
-    (context: unknown, headers: Headers): ProviderCall =>
+    (context: unknown, headers: Headers | undefined): ProviderCall =>
     async (endpoint, input = {}) =>
       await dispatchAuthEndpoint(
         endpoint as never,
@@ -335,7 +337,7 @@ export function mcpOAuthAdminPlugin(
           ...input,
           asResponse: false,
           context,
-          headers,
+          headers: headers ?? new Headers(),
         } as never,
       )
 

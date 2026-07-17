@@ -282,7 +282,7 @@ describe('serverConvex auth-mode resolution', () => {
     })
 
     const caller = serverConvex(createEvent(), {
-      credential: { type: 'bearer', value: 'api-key' },
+      credential: { type: 'cookie', value: AUTH_COOKIE },
     })
     await expect(caller.query(queryRef, {})).rejects.toMatchObject({
       kind: 'authentication',

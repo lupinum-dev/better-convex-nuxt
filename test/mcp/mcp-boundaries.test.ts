@@ -83,4 +83,20 @@ describe('delegated MCP static trust boundaries', () => {
     expect(nuxtConfig.match(/'x-frame-options': 'DENY'/g)).toHaveLength(2)
     expect(nuxtConfig.match(/frame-ancestors 'none'/g)).toHaveLength(2)
   })
+
+  it('reads display identity from the live projection instead of adding PII to session JWTs', () => {
+    const auth = readFileSync(join(starter, 'convex/auth.ts'), 'utf8')
+    const users = readFileSync(join(starter, 'convex/users.ts'), 'utf8')
+    const index = readFileSync(join(starter, 'app/pages/index.vue'), 'utf8')
+
+    expect(auth).not.toContain('definePayload')
+    expect(users).toContain('ctx.auth.getUserIdentity()')
+    expect(users).toContain(".withIndex('by_auth_id'")
+    expect(users).toContain('if (!user?.active) return null')
+    expect(users).toContain('return { email: user.email, name: user.name }')
+    expect(index).toContain('seedFromSession: false')
+    expect(index).toContain("source: 'projection'")
+    expect(index).not.toMatch(/const\s*\{[^}]*\buser\b[^}]*\}\s*=\s*useConvexAuth\(/u)
+    expect(index).not.toContain('user?.email')
+  })
 })

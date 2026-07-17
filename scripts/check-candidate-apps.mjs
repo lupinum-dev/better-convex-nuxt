@@ -89,6 +89,49 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+function replaceExactlyOnce(source, anchor, replacement, label) {
+  const first = source.indexOf(anchor)
+  if (first === -1 || source.includes(anchor, first + anchor.length)) {
+    throw new Error(`mcp-oauth-agent: expected one ${label} codegen anchor`)
+  }
+  return source.replace(anchor, replacement)
+}
+
+function addMcpConsumerExtensionProbe(appDir) {
+  writeFileSync(
+    join(appDir, 'convex', 'consumerExtension.ts'),
+    `import { v } from 'convex/values'
+
+import { query } from './_generated/server'
+
+export const echo = query({
+  args: { value: v.string() },
+  returns: v.string(),
+  handler: (_ctx, { value }) => value,
+})
+`,
+  )
+
+  const apiPath = join(appDir, 'convex', '_generated', 'api.d.ts')
+  let apiSource = readFileSync(apiPath, 'utf8')
+  const authImport = 'import type * as auth from "../auth.js";'
+  apiSource = replaceExactlyOnce(
+    apiSource,
+    authImport,
+    `${authImport}\nimport type * as consumerExtension from "../consumerExtension.js";`,
+    'module import',
+  )
+  const authMap = '  auth: typeof auth;'
+  apiSource = replaceExactlyOnce(
+    apiSource,
+    authMap,
+    `${authMap}\n  consumerExtension: typeof consumerExtension;`,
+    'module map',
+  )
+  writeFileSync(apiPath, apiSource)
+  console.log('mcp-oauth-agent: added one offline generated-API consumer-extension type probe')
+}
+
 function sha512(path) {
   return createHash('sha512').update(readFileSync(path)).digest('base64')
 }
@@ -409,6 +452,8 @@ try {
         join(appDir, 'convex', '_generated'),
       )
     }
+
+    if (app.name === 'mcp-oauth-agent') addMcpConsumerExtensionProbe(appDir)
 
     run('pnpm', ['run', 'typecheck'], { cwd: appDir })
     if (manifest.scripts?.test) run('pnpm', ['run', 'test'], { cwd: appDir })

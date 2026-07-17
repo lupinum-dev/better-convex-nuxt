@@ -6,6 +6,8 @@ import { supportedDependencyTuple } from './supported-dependency-tuple.mjs'
 
 const rootDir = process.cwd()
 const rootPackage = readPackage('package.json')
+const workspaceSource = readFileSync(resolve(rootDir, 'pnpm-workspace.yaml'), 'utf8')
+const playgroundPackage = readPackage('playground/package.json')
 const distributedAppManifests = [
   'demo/package.json',
   ...readdirSync(resolve(rootDir, 'starters'), { withFileTypes: true })
@@ -25,6 +27,15 @@ const manifestPaths = [
 ].filter((path) => existsSync(resolve(rootDir, path)))
 
 const failures = []
+
+const workspacePackagesBlock =
+  workspaceSource.match(/^packages:\s*(?:#.*)?\r?\n((?:[ \t].*(?:\r?\n|$))*)/mu)?.[1] ?? ''
+if (!/^\s+-\s+['"]?playground['"]?\s*(?:#.*)?$/mu.test(workspacePackagesBlock)) {
+  failures.push('pnpm-workspace.yaml must list playground under packages')
+}
+if (playgroundPackage.dependencies?.['better-convex-nuxt'] !== 'workspace:*') {
+  failures.push('playground/package.json must declare better-convex-nuxt@workspace:*')
+}
 
 for (const manifestPath of manifestPaths) {
   const packageJson = readPackage(manifestPath)

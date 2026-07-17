@@ -1,19 +1,18 @@
 import type { ConvexAuthMode } from '../../utils/auth-status'
 
 /**
- * A low-level server credential handed to {@link exchangeConvexToken} or to
- * `serverConvex` for an explicit principal . A `cookie` value is a
- * raw `Cookie` header string; a `bearer` value is the Better Auth session token
- * that becomes `Authorization: Bearer <value>`.
+ * A low-level Better Auth cookie credential handed to
+ * {@link exchangeConvexToken} or to `serverConvex` for an explicit principal.
+ * The value is a raw `Cookie` header string.
  */
-export type ConvexCredential = { type: 'cookie'; value: string } | { type: 'bearer'; value: string }
+export type ConvexCredential = { type: 'cookie'; value: string }
 
 /**
  * Public per-caller options for `serverConvex` ("Final types").
  *
  * - `auth` selects the auth policy for cookie-based resolution.
  * - `authToken` is an explicit opaque JWT the caller already holds.
- * - `credential` is an explicit cookie/bearer principal to exchange.
+ * - `credential` is an explicit Better Auth cookie principal to exchange.
  *
  * `authToken` and `credential` are mutually exclusive, and either one forces an
  * explicit-principal policy (see {@link validateServerConvexOptions}).
@@ -86,11 +85,11 @@ export function assertConvexCredentialShape(
   credential: unknown,
 ): asserts credential is ConvexCredential {
   if (!credential || typeof credential !== 'object') {
-    throw new ServerConvexValidationError('credential must be a cookie or bearer credential')
+    throw new ServerConvexValidationError('credential must be a cookie credential')
   }
   const type = (credential as { type?: unknown }).type
-  if (type !== 'cookie' && type !== 'bearer') {
-    throw new ServerConvexValidationError('credential must be a cookie or bearer credential')
+  if (type !== 'cookie') {
+    throw new ServerConvexValidationError('credential must be a cookie credential')
   }
 }
 

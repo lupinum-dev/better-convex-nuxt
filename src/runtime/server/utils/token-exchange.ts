@@ -9,14 +9,14 @@ import {
   ServerConvexValidationError,
 } from './server-convex-options'
 
-/** Better Auth HTTP endpoint that mints a Convex JWT from a session cookie/bearer. */
+/** Better Auth HTTP endpoint that mints a Convex JWT from a session cookie. */
 const TOKEN_EXCHANGE_PATH = '/api/auth/convex/token'
 
 /** Default timeout for the credential -> JWT exchange. */
 const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 5_000
 
 /**
- * The never-throwing result of a cookie/bearer -> Convex JWT exchange
+ * The never-throwing result of a cookie -> Convex JWT exchange
  * (architecture invariant).
  *
  * Success returns a non-null `token`, a 2xx `status`, and `error: null`.
@@ -66,7 +66,7 @@ export function readToken(body: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Exchange a cookie/bearer credential for a Convex JWT .
+ * Exchange a Better Auth cookie credential for a Convex JWT.
  *
  * This never throws for an exchange OUTCOME: every network, HTTP, timeout,
  * oversized, malformed, missing-token, or redirect failure is returned as a
@@ -92,21 +92,15 @@ export function exchangeConvexToken(input: {
   // is refused before it can reach a request header or the network.
   assertConvexCredentialShape(input.credential)
   assertCredentialValueSafe(input.credential.value, 'credential value')
-  let headers: Record<string, string>
-  if (input.credential.type === 'cookie') {
-    const cookieHeader = filterBetterAuthCookies(input.credential.value)
-    const sessionToken = getBetterAuthSessionToken(cookieHeader)
-    if (!cookieHeader || !sessionToken) {
-      throw new ServerConvexValidationError(
-        'credential must contain a non-empty supported Better Auth session cookie',
-      )
-    }
-    headers = { Cookie: cookieHeader }
-  } else {
-    headers = { Authorization: `Bearer ${input.credential.value}` }
+  const cookieHeader = filterBetterAuthCookies(input.credential.value)
+  const sessionToken = getBetterAuthSessionToken(cookieHeader)
+  if (!cookieHeader || !sessionToken) {
+    throw new ServerConvexValidationError(
+      'credential must contain a non-empty supported Better Auth session cookie',
+    )
   }
 
-  return runTokenExchange(input, headers)
+  return runTokenExchange(input, { Cookie: cookieHeader })
 }
 
 async function runTokenExchange(

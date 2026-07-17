@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { readFile, stat } from 'node:fs/promises'
+import { chmod, copyFile, mkdtemp, readFile, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -31,16 +32,13 @@ const childCredentialVariableNames = Object.freeze([
   ...externalVariableNames,
   'BETTER_AUTH_SECRET',
   'BETTER_AUTH_SECRETS',
-  'CONVEX_DEPLOY_KEY',
-  'CONVEX_DEPLOYMENT',
-  'CONVEX_SELF_HOSTED_ADMIN_KEY',
-  'CONVEX_SELF_HOSTED_URL',
-  'CONVEX_SITE_URL',
-  'CONVEX_URL',
   'MCP_SERVER_SECRET',
   'NUXT_PUBLIC_CONVEX_SITE_URL',
   'NUXT_PUBLIC_CONVEX_URL',
 ])
+const childCredentialVariableNameSet = new Set(
+  childCredentialVariableNames.map((name) => name.toUpperCase()),
+)
 
 function requiredEnvironmentValue(environment, name) {
   const value = environment[name]
@@ -71,6 +69,20 @@ function parseExternalConfiguration(environment) {
   if (new Set([origin, convexUrl, convexSiteUrl]).size !== 3) {
     throw new Error('The MCP app, Convex API, and Convex site origins must be distinct')
   }
+  const deploymentName = managedConvexDeploymentName(convexUrl, 'cloud', 'BCN_MCP_TEST_CONVEX_URL')
+  const siteDeploymentName = managedConvexDeploymentName(
+    convexSiteUrl,
+    'site',
+    'BCN_MCP_TEST_CONVEX_SITE_URL',
+  )
+  if (
+    deploymentName.name !== siteDeploymentName.name ||
+    deploymentName.region !== siteDeploymentName.region
+  ) {
+    throw new Error(
+      'The external MCP Convex API and site origins must name the same deployment and region',
+    )
+  }
 
   const email = requiredEnvironmentValue(environment, 'BCN_MCP_TEST_EMAIL')
   if (email !== email.trim() || email.length > 320 || !/^[^\s@]+@[^\s@]+$/u.test(email)) {
@@ -88,6 +100,8 @@ function parseExternalConfiguration(environment) {
     appDir,
     convexSiteUrl,
     convexUrl,
+    deploymentName: deploymentName.name,
+    deploymentRegion: deploymentName.region,
     email,
     mode: 'external-disposable',
     origin,
@@ -112,7 +126,15 @@ export function parseMcpEvidenceFixtureConfiguration(environment = process.env) 
 
 export function safeMcpFixtureChildEnvironment(environment = process.env) {
   const childEnvironment = { ...environment }
-  for (const name of childCredentialVariableNames) delete childEnvironment[name]
+  for (const name of Object.keys(childEnvironment)) {
+    const normalizedName = name.toUpperCase()
+    if (
+      childCredentialVariableNameSet.has(normalizedName) ||
+      normalizedName.startsWith('CONVEX_')
+    ) {
+      delete childEnvironment[name]
+    }
+  }
   return childEnvironment
 }
 
@@ -121,11 +143,23 @@ function readTopologyEnvironment(source) {
   for (const rawLine of source.split(/\r?\n/u)) {
     const line = rawLine.trim()
     if (!line || line.startsWith('#')) continue
-    const separator = line.indexOf('=')
-    if (separator === -1) continue
-    const name = line.slice(0, separator).trim()
+    const declaration = parseTopologyDeclaration(line)
+    if (!declaration) {
+      if (/\bCONVEX_\w+\b/iu.test(line)) {
+        throw new Error('External MCP app .env.local contains an invalid Convex declaration')
+      }
+      continue
+    }
+    const { name, rawValue } = declaration
+    if (
+      name.toUpperCase().startsWith('CONVEX_') &&
+      !['CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_URL'].includes(name)
+    ) {
+      throw new Error(`External MCP app .env.local contains unsupported ${name.toUpperCase()}`)
+    }
     if (
       ![
+        'CONVEX_DEPLOYMENT',
         'CONVEX_SITE_URL',
         'CONVEX_URL',
         'NUXT_PUBLIC_CONVEX_SITE_URL',
@@ -138,17 +172,67 @@ function readTopologyEnvironment(source) {
     if (Object.hasOwn(topology, name)) {
       throw new Error(`External MCP app .env.local contains duplicate ${name} values`)
     }
-    let value = line.slice(separator + 1).trim()
-    if (
-      value.length >= 2 &&
-      ((value.startsWith("'") && value.endsWith("'")) ||
-        (value.startsWith('"') && value.endsWith('"')))
-    ) {
-      value = value.slice(1, -1)
+    let value = rawValue.trim()
+    const quote = value[0]
+    if (quote === "'" || quote === '"' || quote === '`') {
+      const closingQuote = value.lastIndexOf(quote)
+      const remainder = closingQuote === -1 ? value : value.slice(closingQuote + 1).trim()
+      if (closingQuote > 0 && (remainder.length === 0 || remainder.startsWith('#'))) {
+        value = value.slice(1, closingQuote)
+      }
+    } else {
+      const comment = value.search(/\s+#/u)
+      if (comment !== -1) value = value.slice(0, comment).trimEnd()
     }
     topology[name] = value
   }
   return topology
+}
+
+function parseTopologyDeclaration(line) {
+  let declaration = line
+  if (declaration.startsWith('export')) {
+    const remainder = declaration.slice('export'.length)
+    if (/^\s/u.test(remainder)) declaration = remainder.trimStart()
+  }
+
+  const equals = declaration.indexOf('=')
+  const colon = declaration.indexOf(':')
+  const colonIsSeparator = colon !== -1 && /^\s/u.test(declaration.slice(colon + 1))
+  const separator =
+    equals === -1
+      ? colonIsSeparator
+        ? colon
+        : -1
+      : colonIsSeparator && colon < equals
+        ? colon
+        : equals
+  if (separator === -1) return null
+
+  const name = declaration.slice(0, separator).trim()
+  if (!/^[\w.-]+$/u.test(name)) return null
+  return { name, rawValue: declaration.slice(separator + 1) }
+}
+
+function managedConvexDeploymentName(origin, service, name) {
+  const labels = new URL(origin).hostname.split('.')
+  const hasRegion = labels.length === 4
+  if (
+    (labels.length !== 3 && !hasRegion) ||
+    labels.at(-2) !== 'convex' ||
+    labels.at(-1) !== service
+  ) {
+    throw new Error(`${name} must use one canonical managed Convex ${service} origin`)
+  }
+  const deploymentName = labels[0]
+  const region = hasRegion ? labels[1] : null
+  if (
+    !/^[a-z]+-[a-z]+-\d+$/u.test(deploymentName) ||
+    (region !== null && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(region))
+  ) {
+    throw new Error(`${name} must contain one canonical managed Convex deployment name`)
+  }
+  return Object.freeze({ name: deploymentName, region })
 }
 
 async function validateExternalApp(configuration) {
@@ -161,8 +245,18 @@ async function validateExternalApp(configuration) {
   if (!metadata?.isFile() || metadata.size > MAX_ENV_FILE_BYTES) {
     throw new Error('The external MCP app must have one bounded .env.local file')
   }
+  if (process.platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
+    throw new Error('The external MCP app .env.local must be owner-only (for example, mode 0600)')
+  }
+  if (await stat(join(configuration.appDir, '.env')).catch(() => undefined)) {
+    throw new Error('The external MCP app must not contain a sibling .env file')
+  }
   const topology = readTopologyEnvironment(await readFile(envFile, 'utf8'))
+  const deploymentSelector = /^(?:dev|preview):([a-z]+-[a-z]+-\d+)$/u.exec(
+    topology.CONVEX_DEPLOYMENT ?? '',
+  )
   if (
+    deploymentSelector?.[1] !== configuration.deploymentName ||
     topology.SITE_URL !== configuration.origin ||
     topology.CONVEX_URL !== configuration.convexUrl ||
     topology.CONVEX_SITE_URL !== configuration.convexSiteUrl ||
@@ -170,7 +264,7 @@ async function validateExternalApp(configuration) {
     topology.NUXT_PUBLIC_CONVEX_SITE_URL !== configuration.convexSiteUrl
   ) {
     throw new Error(
-      'The external MCP origins must exactly match SITE_URL, CONVEX_URL, CONVEX_SITE_URL, NUXT_PUBLIC_CONVEX_URL, and NUXT_PUBLIC_CONVEX_SITE_URL in .env.local',
+      'The external MCP deployment selector and origins must exactly match CONVEX_DEPLOYMENT, SITE_URL, CONVEX_URL, CONVEX_SITE_URL, NUXT_PUBLIC_CONVEX_URL, and NUXT_PUBLIC_CONVEX_SITE_URL in .env.local',
     )
   }
 }
@@ -190,14 +284,79 @@ function safeConvexLog(value, configuration) {
   return redactEvidenceLog(value, [configuration.email, configuration.password])
 }
 
-function createExternalRunConvex(configuration, environment) {
+async function prepareExternalCliAuthority(configuration, environment) {
+  const directory = await mkdtemp(join(tmpdir(), 'bcn-mcp-cli-authority-'))
+  await chmod(directory, 0o700)
+  try {
+    await copyFile(join(configuration.appDir, 'package.json'), join(directory, 'package.json'))
+    const child = spawn(
+      process.execPath,
+      [convexCli, 'deployment', 'select', configuration.deploymentName],
+      {
+        cwd: directory,
+        env: safeMcpFixtureChildEnvironment(environment),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const output = capture(child)
+    const [code, signal] = await once(child, 'close')
+    if (code !== 0) {
+      throw new Error(
+        `External fixture Convex deployment preflight failed (${code ?? signal ?? 'unknown'}): ${safeConvexLog(output(), configuration)}`,
+      )
+    }
+
+    const envFile = join(directory, '.env.local')
+    const metadata = await stat(envFile).catch(() => undefined)
+    if (!metadata?.isFile() || metadata.size > MAX_ENV_FILE_BYTES) {
+      throw new Error('The Convex deployment preflight did not produce one bounded env file')
+    }
+    const topology = readTopologyEnvironment(await readFile(envFile, 'utf8'))
+    const selected = /^(?:dev|preview):([a-z]+-[a-z]+-\d+)$/u.exec(topology.CONVEX_DEPLOYMENT ?? '')
+    if (
+      selected?.[1] !== configuration.deploymentName ||
+      topology.CONVEX_URL !== configuration.convexUrl ||
+      topology.CONVEX_SITE_URL !== configuration.convexSiteUrl
+    ) {
+      throw new Error(
+        'The Convex deployment preflight did not confirm the exact non-production deployment and origins',
+      )
+    }
+    await chmod(envFile, 0o600)
+
+    let released = false
+    return Object.freeze({
+      envFile,
+      release: async () => {
+        if (released) return
+        released = true
+        await rm(directory, { force: true, recursive: true })
+      },
+    })
+  } catch (error) {
+    await rm(directory, { force: true, recursive: true })
+    throw error
+  }
+}
+
+function createExternalRunConvex(configuration, environment, ensureCliAuthority) {
   return async (functionName, args = {}) => {
     if (!/^[\w./-]+:\w+$/u.test(functionName)) {
       throw new Error('Invalid fixture Convex function name')
     }
+    const authority = await ensureCliAuthority()
     const child = spawn(
       process.execPath,
-      [convexCli, 'run', functionName, JSON.stringify(args), '--env-file', '.env.local'],
+      [
+        convexCli,
+        'run',
+        functionName,
+        JSON.stringify(args),
+        '--deployment',
+        configuration.deploymentName,
+        '--env-file',
+        authority.envFile,
+      ],
       {
         cwd: configuration.appDir,
         env: safeMcpFixtureChildEnvironment(environment),
@@ -228,6 +387,13 @@ function createExternalRunConvex(configuration, environment) {
 
 async function startExternalMcpOAuthFixture(configuration, environment) {
   await validateExternalApp(configuration)
+  let authorityPromise
+  let released = false
+  const ensureCliAuthority = async () => {
+    if (released) throw new Error('The external MCP fixture has already been released')
+    authorityPromise ??= prepareExternalCliAuthority(configuration, environment)
+    return await authorityPromise
+  }
   return Object.freeze({
     convexSiteUrl: configuration.convexSiteUrl,
     convexUrl: configuration.convexUrl,
@@ -235,8 +401,13 @@ async function startExternalMcpOAuthFixture(configuration, environment) {
     email: configuration.email,
     origin: configuration.origin,
     password: configuration.password,
-    release: async () => {},
-    runConvex: createExternalRunConvex(configuration, environment),
+    release: async () => {
+      if (released) return
+      released = true
+      const authority = await authorityPromise?.catch(() => undefined)
+      await authority?.release()
+    },
+    runConvex: createExternalRunConvex(configuration, environment, ensureCliAuthority),
   })
 }
 

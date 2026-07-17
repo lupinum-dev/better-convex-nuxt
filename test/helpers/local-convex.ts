@@ -1,7 +1,7 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { once } from 'node:events'
-import { readFile } from 'node:fs/promises'
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import net from 'node:net'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,11 +12,19 @@ interface LocalConvexHandle {
   cwd: string
   deploymentEnv: Readonly<Record<string, string>>
   process: ChildProcessWithoutNullStreams
+  selectionEnvDirectory: string
   url: string
   siteUrl: string
 }
 
+interface LocalConvexSelectionEnv {
+  directory: string
+  path: string
+}
+
 interface LocalConvexEnv {
+  deployment?: string
+  forbiddenCredentialNames?: readonly string[]
   url?: string
   siteUrl?: string
 }
@@ -46,6 +54,28 @@ const startupFailures = new Map<string, Error>()
 const convexCli = fileURLToPath(new URL('../../node_modules/convex/bin/main.js', import.meta.url))
 const localAuthSecret = '1:better-convex-nuxt-e2e-only-secret-32-bytes-minimum'
 const localProxyIpSecret = 'better-convex-nuxt-e2e-proxy-ip-secret-32-bytes'
+const localConvexReadyMessage = 'Convex functions ready!'
+const localConvexCommandTimeoutMs = 10_000
+const localConvexGracefulShutdownMs = 2_000
+const localConvexForcedShutdownMs = 3_000
+const localConvexSelectionPrefixes = ['anonymous:', 'local:'] as const
+const nonLocalConvexCredentialNames = [
+  'CONVEX_DEPLOY_KEY',
+  'CONVEX_DEPLOYMENT_TOKEN',
+  'CONVEX_SELF_HOSTED_ADMIN_KEY',
+  'CONVEX_SELF_HOSTED_URL',
+] as const
+const inheritedConvexEnvBlocklist = new Set([
+  'CONVEX_DEPLOYMENT',
+  'CONVEX_OVERRIDE_ACCESS_TOKEN',
+  ...nonLocalConvexCredentialNames,
+])
+const inheritedConvexRuntimeEnvBlocklist = new Set([
+  'CONVEX_SITE_URL',
+  'CONVEX_URL',
+  'NUXT_PUBLIC_CONVEX_SITE_URL',
+  'NUXT_PUBLIC_CONVEX_URL',
+])
 const maxLocalDeploymentEnvEntries = 16
 const maxLocalDeploymentEnvValueBytes = 4096
 const reservedLocalDeploymentEnvNames = new Set([
@@ -106,35 +136,121 @@ function createChildOutputReader(child: ChildProcessWithoutNullStreams): () => s
   }
 }
 
-async function terminateChild(child: ChildProcessWithoutNullStreams): Promise<void> {
+async function waitForChildExit(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+): Promise<void> {
   if (child.exitCode !== null || child.signalCode !== null) return
 
-  child.kill('SIGTERM')
-
-  const timer = setTimeout(() => {
-    if (child.exitCode === null && child.signalCode === null) {
-      child.kill('SIGKILL')
+  await new Promise<void>((resolve) => {
+    const onExit = () => {
+      clearTimeout(timer)
+      resolve()
     }
-  }, 3000)
-
-  await once(child, 'exit').catch(() => {})
-  clearTimeout(timer)
+    const timer = setTimeout(() => {
+      child.off('exit', onExit)
+      resolve()
+    }, timeoutMs)
+    child.once('exit', onExit)
+  })
 }
 
-function spawnConvex(cwd: string, args: string[]): ChildProcessWithoutNullStreams {
+function signalChildProcessTree(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals) {
+  if (child.pid === undefined) return
+
+  if (process.platform === 'win32') {
+    // Force the full tree while the parent PID can still identify its
+    // descendants. A graceful parent-only fallback can orphan the backend.
+    const arguments_ = ['/PID', String(child.pid), '/T', '/F']
+    const result = spawnSync('taskkill', arguments_, { stdio: 'ignore', windowsHide: true })
+    if (result.status === 0) return
+    child.kill('SIGKILL')
+    return
+  }
+
+  try {
+    process.kill(-child.pid, signal)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ESRCH') return
+    if (code === 'EPERM') {
+      // Some constrained macOS runners deny negative-PID signals even for a
+      // group created by this process. Signal the known child directly and
+      // let the mandatory owned-port check below prove the backend also died.
+      child.kill(signal)
+      return
+    }
+    throw error
+  }
+}
+
+function spawnConvex(
+  cwd: string,
+  args: string[],
+  overrides: Readonly<Record<string, string>> = {},
+): ChildProcessWithoutNullStreams {
+  const env = Object.fromEntries(
+    Object.entries({ ...process.env, ...overrides }).filter(
+      ([name]) => !inheritedConvexRuntimeEnvBlocklist.has(name),
+    ),
+  )
+  // Empty values block dotenv from reintroducing a cloud/deploy-key selection
+  // from .env while still being treated as absent by Convex's selector.
+  for (const name of inheritedConvexEnvBlocklist) env[name] = ''
+  env.CONVEX_AGENT_MODE = 'anonymous'
+  env.CONVEX_ALLOW_ANONYMOUS = 'true'
+
   return spawn(process.execPath, [convexCli, ...args], {
     cwd,
-    env: process.env,
+    detached: process.platform !== 'win32',
+    env,
     stdio: 'pipe',
   })
 }
 
-async function setLocalConvexEnvironment(cwd: string, name: string, value: string): Promise<void> {
+async function createLocalConvexSelectionEnv(deployment: string): Promise<LocalConvexSelectionEnv> {
+  const directory = await mkdtemp(path.join(tmpdir(), 'bcn-local-convex-selection-'))
+  const envPath = path.join(directory, '.env.local')
+
+  try {
+    await writeFile(envPath, `CONVEX_DEPLOYMENT=${deployment}\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    })
+    return { directory, path: envPath }
+  } catch (error) {
+    await rm(directory, { force: true, recursive: true })
+    throw error
+  }
+}
+
+async function removeLocalConvexSelectionEnv(directory: string): Promise<void> {
+  await rm(directory, { force: true, recursive: true })
+}
+
+async function setLocalConvexEnvironment(
+  cwd: string,
+  selectionEnvPath: string,
+  name: string,
+  value: string,
+): Promise<void> {
   const maxAttempts = 5
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const child = spawnConvex(cwd, ['env', 'set', name, value, '--env-file', '.env.local'])
+    const child = spawnConvex(cwd, ['env', 'set', name, '--env-file', selectionEnvPath])
     const getOutput = createChildOutputReader(child)
-    const [code] = await once(child, 'exit')
+    child.stdin.on('error', () => undefined)
+    // Convex removes one framing newline from stdin. Appending one preserves
+    // the caller's value exactly, including an intentional trailing newline.
+    child.stdin.end(`${value}\n`)
+    await waitForChildExit(child, localConvexCommandTimeoutMs)
+    if (child.exitCode === null && child.signalCode === null) {
+      const output = getOutput()
+      await terminateChild(child)
+      throw new Error(
+        `Timed out configuring local Convex ${name} after ${localConvexCommandTimeoutMs}ms: ${output}`,
+      )
+    }
+    const code = child.exitCode
     if (code === 0) return
 
     const output = getOutput()
@@ -148,14 +264,20 @@ async function setLocalConvexEnvironment(cwd: string, name: string, value: strin
 
 async function configureLocalAuthEnvironment(
   cwd: string,
+  selectionEnvPath: string,
   authOrigin: string,
   deploymentEnv: Readonly<Record<string, string>>,
 ): Promise<void> {
-  await setLocalConvexEnvironment(cwd, 'SITE_URL', authOrigin)
-  await setLocalConvexEnvironment(cwd, 'BETTER_AUTH_SECRETS', localAuthSecret)
-  await setLocalConvexEnvironment(cwd, 'BCN_AUTH_PROXY_IP_SECRET', localProxyIpSecret)
+  await setLocalConvexEnvironment(cwd, selectionEnvPath, 'SITE_URL', authOrigin)
+  await setLocalConvexEnvironment(cwd, selectionEnvPath, 'BETTER_AUTH_SECRETS', localAuthSecret)
+  await setLocalConvexEnvironment(
+    cwd,
+    selectionEnvPath,
+    'BCN_AUTH_PROXY_IP_SECRET',
+    localProxyIpSecret,
+  )
   for (const [name, value] of Object.entries(deploymentEnv)) {
-    await setLocalConvexEnvironment(cwd, name, value)
+    await setLocalConvexEnvironment(cwd, selectionEnvPath, name, value)
   }
   process.env.BCN_AUTH_PROXY_IP_SECRET = localProxyIpSecret
 }
@@ -171,11 +293,14 @@ async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
       const trimmed = line.trim()
       if (!trimmed || trimmed.startsWith('#')) continue
 
-      const [rawKey, ...rest] = trimmed.split('=')
-      if (!rawKey || rest.length === 0) continue
+      // Match dotenv's supported assignment prefixes. Convex uses dotenv for
+      // --env-file, so both `export NAME=value` and `NAME: value` must reach
+      // the same cloud-credential guard as ordinary `NAME=value` lines.
+      const assignment = trimmed.match(/^(?:export\s+)?([\w.-]+)(?:\s*=\s*|:\s+)/u)
+      const key = assignment?.[1]
+      if (!key) continue
 
-      const key = rawKey.trim()
-      const rawValue = rest.join('=').trim()
+      const rawValue = trimmed.slice(assignment[0].length).trim()
       const value = rawValue.split('#')[0]?.trim()
       if (!value) continue
 
@@ -183,6 +308,8 @@ async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
     }
 
     return {
+      deployment: values.CONVEX_DEPLOYMENT,
+      forbiddenCredentialNames: nonLocalConvexCredentialNames.filter((name) => values[name]),
       url: values.CONVEX_URL,
       siteUrl: values.CONVEX_SITE_URL,
     }
@@ -228,6 +355,42 @@ function isLoopbackUrl(urlString: string): boolean {
   } catch {
     return false
   }
+}
+
+function requireLocalConvexSelection(
+  cwd: string,
+  configured: LocalConvexEnv,
+): { deployment: string; url: string; siteUrl: string } {
+  const siteUrl =
+    configured.siteUrl ??
+    (configured.url ? (deriveSiteUrlFromConvexUrl(configured.url) ?? undefined) : undefined)
+  const localSelector = localConvexSelectionPrefixes.some((prefix) =>
+    configured.deployment?.startsWith(prefix),
+  )
+
+  if (
+    !localSelector ||
+    !configured.deployment ||
+    configured.forbiddenCredentialNames?.length ||
+    !configured.url ||
+    !siteUrl ||
+    !isLoopbackUrl(configured.url) ||
+    !isLoopbackUrl(siteUrl)
+  ) {
+    throw new Error(
+      [
+        `Refusing non-local Convex selection in ${path.join(cwd, '.env.local')}.`,
+        '- the E2E auto-start harness accepts only anonymous: or local: deployments with loopback URLs.',
+        ...(configured.forbiddenCredentialNames?.length
+          ? [
+              `- remove forbidden deployment credential(s): ${configured.forbiddenCredentialNames.join(', ')}.`,
+            ]
+          : []),
+      ].join('\n'),
+    )
+  }
+
+  return { deployment: configured.deployment, url: configured.url, siteUrl }
 }
 
 function normalizeLocalAuthOrigin(origin: string): string {
@@ -356,7 +519,54 @@ function waitForPort(port: number, timeoutMs: number): Promise<void> {
   })
 }
 
-async function waitForLocalConvexStart(
+function isPortOpen(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket()
+    let settled = false
+    const finish = (open: boolean) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(open)
+    }
+    socket.setTimeout(200)
+    socket.once('connect', () => finish(true))
+    socket.once('timeout', () => finish(false))
+    socket.once('error', () => finish(false))
+    socket.connect(port, '127.0.0.1')
+  })
+}
+
+async function waitForPortToClose(port: number, timeoutMs: number): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started <= timeoutMs) {
+    if (!(await isPortOpen(port))) return
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error(`Timed out waiting for owned local Convex backend port ${port} to close.`)
+}
+
+async function terminateChild(
+  child: ChildProcessWithoutNullStreams,
+  ownedPort?: number,
+): Promise<void> {
+  signalChildProcessTree(child, 'SIGTERM')
+  await waitForChildExit(child, localConvexGracefulShutdownMs)
+
+  const treeStillRunning =
+    (child.exitCode === null && child.signalCode === null) ||
+    (ownedPort !== undefined && (await isPortOpen(ownedPort)))
+  if (treeStillRunning) {
+    signalChildProcessTree(child, 'SIGKILL')
+    await waitForChildExit(child, localConvexForcedShutdownMs)
+  }
+
+  if (ownedPort !== undefined) {
+    await waitForPortToClose(ownedPort, localConvexForcedShutdownMs)
+  }
+}
+
+async function waitForLocalConvexSelection(
   child: ChildProcessWithoutNullStreams,
   cwd: string,
   timeoutMs: number,
@@ -368,7 +578,7 @@ async function waitForLocalConvexStart(
     if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(
         [
-          'Local Convex exited before its configured backend became reachable.',
+          'Local Convex exited before its deployment was configured.',
           `- exit code: ${child.exitCode ?? 'none'}`,
           `- signal: ${child.signalCode ?? 'none'}`,
           'Captured Convex output:',
@@ -377,14 +587,14 @@ async function waitForLocalConvexStart(
       )
     }
 
-    const selected = await readLocalConvexEnv(cwd)
-    if (selected.url) {
-      const siteUrl = selected.siteUrl ?? deriveSiteUrlFromConvexUrl(selected.url)
-      const port = localPortFromUrl(selected.url)
+    const configured = await readLocalConvexEnv(cwd)
+    if (configured.url) {
+      const siteUrl = configured.siteUrl ?? deriveSiteUrlFromConvexUrl(configured.url)
+      const port = localPortFromUrl(configured.url)
       if (siteUrl && port !== null) {
         try {
           await waitForPort(port, 500)
-          return { url: selected.url, siteUrl }
+          return { url: configured.url, siteUrl }
         } catch {
           // The CLI writes .env.local before the backend is ready. Keep polling.
         }
@@ -396,7 +606,45 @@ async function waitForLocalConvexStart(
 
   throw new Error(
     [
-      `Timed out waiting for Convex to configure and start its local deployment after ${timeoutMs}ms.`,
+      `Timed out waiting for Convex to configure its local deployment after ${timeoutMs}ms.`,
+      '',
+      'Captured Convex output:',
+      getOutput(),
+    ].join('\n'),
+  )
+}
+
+async function waitForLocalConvexFunctions(
+  child: ChildProcessWithoutNullStreams,
+  timeoutMs: number,
+  getOutput: () => string,
+): Promise<void> {
+  const started = Date.now()
+
+  while (Date.now() - started <= timeoutMs) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(
+        [
+          'Local Convex exited before the current functions were ready.',
+          `- exit code: ${child.exitCode ?? 'none'}`,
+          `- signal: ${child.signalCode ?? 'none'}`,
+          'Captured Convex output:',
+          getOutput(),
+        ].join('\n'),
+      )
+    }
+
+    // A persisted local deployment can serve an old bundle as soon as its
+    // backend port opens. Do not let that stale route satisfy E2E readiness:
+    // the CLI must confirm that this process pushed the current source graph.
+    if (getOutput().includes(localConvexReadyMessage)) return
+
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+
+  throw new Error(
+    [
+      `Timed out waiting for Convex to deploy the current functions after ${timeoutMs}ms.`,
       '',
       'Captured Convex output:',
       getOutput(),
@@ -577,7 +825,11 @@ function retainLocalConvex(handle: LocalConvexHandle): () => Promise<void> {
     if (retainers > 0) return
 
     activeHandle = null
-    await terminateChild(handle.process)
+    try {
+      await terminateChild(handle.process, localPortFromUrl(handle.url) ?? undefined)
+    } finally {
+      await removeLocalConvexSelectionEnv(handle.selectionEnvDirectory)
+    }
   }
 }
 
@@ -588,12 +840,47 @@ async function startLocalConvex(
   deploymentEnv: Readonly<Record<string, string>>,
 ): Promise<LocalConvexHandle> {
   const reviewedBackend = await assertCurrentBackendBinary()
-  const child = spawnConvex(cwd, ['dev', '--local-backend-version', reviewedBackend.version])
+  const configured = await readLocalConvexEnv(cwd)
+  const hasSavedSelection = Boolean(
+    configured.deployment ||
+    configured.url ||
+    configured.siteUrl ||
+    configured.forbiddenCredentialNames?.length,
+  )
+  const savedSelection = hasSavedSelection
+    ? requireLocalConvexSelection(cwd, configured)
+    : undefined
+  let selectionEnv = savedSelection
+    ? await createLocalConvexSelectionEnv(savedSelection.deployment)
+    : undefined
+
+  const devArguments = ['dev']
+  if (selectionEnv) devArguments.push('--env-file', selectionEnv.path)
+  devArguments.push('--local-backend-version', reviewedBackend.version)
+
+  // Prime auth.config.ts for a clean deployment's first push. Once the local
+  // port and selector exist, use a derived local-only selector file to persist
+  // the same values into that backend before accepting its auth route. Never
+  // give a subprocess the application's broader .env.local file.
+  const child = spawnConvex(cwd, devArguments, {
+    SITE_URL: authOrigin,
+    BETTER_AUTH_SECRETS: localAuthSecret,
+    BCN_AUTH_PROXY_IP_SECRET: localProxyIpSecret,
+    ...deploymentEnv,
+  })
   const getOutput = createChildOutputReader(child)
+  let ownedPort: number | undefined
 
   try {
-    const selected = await waitForLocalConvexStart(child, cwd, timeoutMs, getOutput)
-    await configureLocalAuthEnvironment(cwd, authOrigin, deploymentEnv)
+    const runningSelection = await waitForLocalConvexSelection(child, cwd, timeoutMs, getOutput)
+    ownedPort = localPortFromUrl(runningSelection.url) ?? undefined
+    const selected = requireLocalConvexSelection(cwd, await readLocalConvexEnv(cwd))
+    if (runningSelection.url !== selected.url || runningSelection.siteUrl !== selected.siteUrl) {
+      throw new Error('Local Convex changed deployment selection during E2E startup.')
+    }
+    selectionEnv ??= await createLocalConvexSelectionEnv(selected.deployment)
+    await configureLocalAuthEnvironment(cwd, selectionEnv.path, authOrigin, deploymentEnv)
+    await waitForLocalConvexFunctions(child, timeoutMs, getOutput)
     await waitForLocalAuthDeployment(
       cwd,
       selected.url,
@@ -608,6 +895,7 @@ async function startLocalConvex(
       cwd,
       deploymentEnv,
       process: child,
+      selectionEnvDirectory: selectionEnv.directory,
       url: selected.url,
       siteUrl: selected.siteUrl,
     }
@@ -616,11 +904,16 @@ async function startLocalConvex(
       if (activeHandle?.process === child) {
         activeHandle = null
         retainers = 0
+        void removeLocalConvexSelectionEnv(handle.selectionEnvDirectory).catch(() => {})
       }
     })
     return handle
   } catch (error) {
-    await terminateChild(child)
+    try {
+      await terminateChild(child, ownedPort)
+    } finally {
+      if (selectionEnv) await removeLocalConvexSelectionEnv(selectionEnv.directory)
+    }
     throw error
   }
 }
@@ -643,7 +936,7 @@ export async function ensureLocalConvex(
   options: EnsureLocalConvexOptions = {},
 ): Promise<EnsureLocalConvexResult> {
   const cwd = options.cwd ?? path.resolve(process.cwd(), 'playground')
-  const timeoutMs = options.timeoutMs ?? 25_000
+  const timeoutMs = options.timeoutMs ?? 45_000
   const autoStart = process.env.CONVEX_E2E_AUTO_START === 'true'
   const authOrigin = normalizeLocalAuthOrigin(options.authOrigin ?? 'http://localhost:3050')
   const deploymentEnv = normalizeLocalDeploymentEnv(options.deploymentEnv)
@@ -667,6 +960,13 @@ export async function ensureLocalConvex(
   }
 
   const envFile = await readLocalConvexEnv(cwd)
+  const hasSavedSelection = Boolean(
+    envFile.deployment ||
+    envFile.url ||
+    envFile.siteUrl ||
+    envFile.forbiddenCredentialNames?.length,
+  )
+  if (autoStart && hasSavedSelection) requireLocalConvexSelection(cwd, envFile)
   const explicitUrl = process.env.CONVEX_URL ?? envFile.url
   const explicitSiteUrl = explicitUrl
     ? (process.env.CONVEX_SITE_URL ??
@@ -683,23 +983,28 @@ export async function ensureLocalConvex(
     const port = localPortFromUrl(explicitUrl)
 
     if (port === null) {
+      if (autoStart) {
+        throw cacheStartupFailure(
+          key,
+          new Error(
+            [
+              `Refusing to auto-start against non-loopback Convex URL ${explicitUrl}.`,
+              '- the auto-start harness owns only anonymous or local loopback deployments.',
+            ].join('\n'),
+          ),
+        )
+      }
       return {
         env: installResolvedLocalEnv(explicitUrl, explicitSiteUrl),
         release: async () => {},
       }
     }
 
+    let reachable = false
     try {
       await assertCurrentBackendBinary()
       await waitForPort(port, 1500)
-      if (autoStart) {
-        await configureLocalAuthEnvironment(cwd, authOrigin, deploymentEnv)
-        await waitForLocalAuthDeployment(cwd, explicitUrl, explicitSiteUrl, timeoutMs, authOrigin)
-      }
-      return {
-        env: installResolvedLocalEnv(explicitUrl, explicitSiteUrl),
-        release: async () => {},
-      }
+      reachable = true
     } catch (error) {
       if (!autoStart) {
         throw cacheStartupFailure(
@@ -712,6 +1017,25 @@ export async function ensureLocalConvex(
             ].join('\n'),
           ),
         )
+      }
+    }
+
+    if (reachable) {
+      if (autoStart) {
+        throw cacheStartupFailure(
+          key,
+          new Error(
+            [
+              `Refusing to reuse an already-running local Convex backend at ${explicitUrl}.`,
+              '- auto-start mode cannot prove which source graph that external process deployed.',
+              '- stop the existing backend so this harness can own a fresh dev process, or explicitly set CONVEX_E2E_AUTO_START=false for manually managed local testing.',
+            ].join('\n'),
+          ),
+        )
+      }
+      return {
+        env: installResolvedLocalEnv(explicitUrl, explicitSiteUrl),
+        release: async () => {},
       }
     }
   } else if (!autoStart) {

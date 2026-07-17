@@ -19,6 +19,7 @@ import type * as mcpAdmin from "../mcpAdmin.js";
 import type * as mcpOAuthAdmin from "../mcpOAuthAdmin.js";
 import type * as mcpOAuthEvidence from "../mcpOAuthEvidence.js";
 import type * as mcpTools from "../mcpTools.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   mcpOAuthAdmin: typeof mcpOAuthAdmin;
   mcpOAuthEvidence: typeof mcpOAuthEvidence;
   mcpTools: typeof mcpTools;
+  users: typeof users;
 }>;
 
 /**

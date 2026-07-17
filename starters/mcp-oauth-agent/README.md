@@ -48,37 +48,59 @@ provider-owned component state.
 Use a fresh deployment. This starter is greenfield and intentionally contains
 no legacy component migration or compatibility path.
 
-1. Install dependencies and create local configuration:
+1. Install dependencies and create local configuration with one private proxy
+   secret. The shell built-in writes it to the ignored file without printing it:
 
    ```bash
    pnpm install
-   cp .env.example .env.local
+   (
+     set -eu
+     if [ -e .env.local ]; then
+       printf '%s\n' 'Refusing to replace existing .env.local' >&2
+       exit 1
+     fi
+     umask 077
+     BCN_AUTH_PROXY_IP_SECRET="$(openssl rand -base64 32)"
+     sed '/^BCN_AUTH_PROXY_IP_SECRET=/d' .env.example > .env.local
+     printf 'BCN_AUTH_PROXY_IP_SECRET=%s\n' "$BCN_AUTH_PROXY_IP_SECRET" >> .env.local
+   )
    ```
 
-2. Fill `.env.local` with the exact Nuxt origin and Convex deployment URLs, plus
-   a `BCN_AUTH_PROXY_IP_SECRET` of at least 32 random bytes. Separately generate
-   an independent versioned `BETTER_AUTH_SECRETS=1:<at-least-32-random-bytes>`
-   value for the next step. Set that value only in Convex; do not copy the
-   Better Auth secret into Nuxt's `.env.local`. Never commit this file.
+2. Set the exact Nuxt origin in `.env.local`. If the fresh deployment already
+   exists, fill its Convex URLs too; otherwise `convex:dev` will first configure
+   it, after which you can fill the remaining URL values. Do not change the
+   generated `BCN_AUTH_PROXY_IP_SECRET`. The Nuxt scripts load this file
+   explicitly. Never commit it.
 
-3. Start Convex, then mirror the server-only values into the selected Convex
-   deployment:
+3. Start Convex in one terminal and keep it running:
 
    ```bash
    pnpm convex:dev
-   pnpm exec convex env set SITE_URL http://localhost:3000
-   pnpm exec convex env set CONVEX_SITE_URL https://YOUR-DEPLOYMENT.convex.site
-   pnpm exec convex env set BETTER_AUTH_SECRETS '1:YOUR-RANDOM-SECRET'
-   pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET 'YOUR-SEPARATE-RANDOM-SECRET'
    ```
 
-   Run the `convex env set` commands in another terminal while `convex:dev` is
-   active. The `SITE_URL` value must exactly match the public Nuxt origin.
-   Wait for `Convex functions ready!`, then create the deployment's first
-   signing key before allowing auth traffic:
+   After `Convex functions ready!`, open another terminal. Load the ignored
+   configuration into that shell, then set Convex from those exact values. The
+   Better Auth secret is generated independently and is never copied into Nuxt:
 
    ```bash
-   pnpm exec convex run auth:rotateSigningKey '{}'
+   set -a
+   . ./.env.local
+   set +a
+   pnpm exec convex env set SITE_URL "$SITE_URL" --env-file .env.local
+   BETTER_AUTH_SECRETS="1:$(openssl rand -base64 32)"
+   printf '%s' "$BETTER_AUTH_SECRETS" | pnpm exec convex env set BETTER_AUTH_SECRETS --env-file .env.local
+   printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET --env-file .env.local
+   unset BETTER_AUTH_SECRETS
+   ```
+
+   Convex supplies `CONVEX_SITE_URL` to functions as a deployment-owned built-in;
+   the CLI rejects attempts to set it manually. Keep the selected deployment's
+   generated value in `.env.local` for Nuxt, but set only the application-owned
+   variables above. `SITE_URL` must exactly match the public Nuxt origin. Now
+   create the fresh deployment's first signing key before allowing auth traffic:
+
+   ```bash
+   pnpm exec convex run auth:rotateSigningKey '{}' --env-file .env.local
    ```
 
    On this fresh deployment, require `previousKids` to be empty and record the
@@ -100,12 +122,19 @@ no legacy component migration or compatibility path.
    from the OAuth login page:
 
    ```bash
+   BCN_LOCAL_ADMIN_PASSWORD="$(openssl rand -base64 24)"
    curl --fail-with-body \
      -H 'Content-Type: application/json' \
      -H 'Origin: http://localhost:3000' \
-     -d '{"name":"Local OAuth Admin","email":"admin@example.com","password":"local-test-password"}' \
-     http://localhost:3000/api/auth/sign-up/email
+     --data-binary @- \
+     http://localhost:3000/api/auth/sign-up/email <<JSON
+   {"name":"Local OAuth Admin","email":"admin@example.com","password":"${BCN_LOCAL_ADMIN_PASSWORD}"}
+   JSON
    ```
+
+   Keep that generated password only in the calling shell or a test secret
+   manager. It remains valid until you change the password or destroy the
+   disposable account or deployment; do not print, log, or commit it.
 
 6. Grant that projected user the app-owned OAuth administrator capability from
    the trusted Convex CLI or dashboard operator context:
@@ -164,8 +193,11 @@ check. Start from a fresh deployment and a fresh administrator account. Deploy
 this exact starter, keep Nuxt running at the supplied origin, and ensure the
 absolute app directory contains `.env.local` with exact matching `SITE_URL`,
 `CONVEX_URL`, `CONVEX_SITE_URL`, `NUXT_PUBLIC_CONVEX_URL`, and
-`NUXT_PUBLIC_CONVEX_SITE_URL` values. The account must already exist, use a
-password of at least 15 characters, and have `oauthAdmin` enabled.
+`NUXT_PUBLIC_CONVEX_SITE_URL` values. Its owner-only file (for example, mode 0600) must select the same managed Convex deployment through a canonical `dev:`
+or `preview:` `CONVEX_DEPLOYMENT` value and must not contain another Convex CLI
+authority or override. The disposable app must not have a sibling `.env` file.
+The account must already exist, use a password of at least 15 characters, and
+have `oauthAdmin` enabled.
 The deployment must already have completed the fresh signing-key ceremony above,
 and the recorded `newKid` must be visible through this exact app origin's
 `/api/auth/jwks` endpoint.
@@ -174,23 +206,28 @@ and the recorded `newKid` must be visible through this exact app origin's
 BCN_MCP_TEST_MODE=external-disposable \
 BCN_MCP_TEST_APP_DIR=/absolute/path/to/fresh-mcp-oauth-agent \
 BCN_MCP_TEST_ORIGIN=https://fresh-app.example.test \
-BCN_MCP_TEST_CONVEX_URL=https://fresh-deployment.convex.cloud \
-BCN_MCP_TEST_CONVEX_SITE_URL=https://fresh-deployment.convex.site \
+BCN_MCP_TEST_CONVEX_URL=https://gentle-otter-123.convex.cloud \
+BCN_MCP_TEST_CONVEX_SITE_URL=https://gentle-otter-123.convex.site \
 BCN_MCP_TEST_EMAIL=mcp-evidence@example.test \
-BCN_MCP_TEST_PASSWORD='one-time-test-password' \
+BCN_MCP_TEST_PASSWORD="${BCN_LOCAL_ADMIN_PASSWORD:?set the generated disposable-admin password}" \
 pnpm test:mcp-auth
 ```
 
 The runner does not provision, deploy, stop, reset, or delete the external app
-or deployment. Its release hook is intentionally a no-op. During evidence it
+or deployment. Its release hook removes only its private temporary CLI
+authority directory. During evidence it
 does provision provider-owned test clients and app delegations, changes and
 deletes sessions, clients, and consents, changes membership and authorization
 state, and creates and soft-deletes projects. Terminal-revocation cases are not
 restored. Treat the deployment as consumed after the run and destroy it using
 the deployment owner's reviewed process. A rerun is not supported evidence.
-The runner invokes only the repository-pinned absolute Convex CLI, from the
-supplied app directory, with that directory's `.env.local`; fixture credentials
-and deployment overrides are stripped from every child process environment.
+Before the first Convex mutation, the repository-pinned absolute CLI resolves
+the deployment in an isolated temporary directory and must report the exact
+managed origins plus a `dev` or `preview` deployment type. Subsequent calls run
+from the supplied app directory with both the validated deployment name and the
+private generated env file passed explicitly; the CLI cannot auto-load the
+app's dotenv files. Fixture credentials and every case variant of an ambient
+Convex override are stripped from every child process environment.
 
 The selected official MCP server-mode protocol suite is a one-shot alternative
 entry to the same destructive harness. On a fresh external deployment, use the

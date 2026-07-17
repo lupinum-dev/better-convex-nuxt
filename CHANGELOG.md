@@ -183,8 +183,9 @@ consumers will need source changes.
 - `serverConvex` is now the only public server call API. Removed
   `serverConvexQuery`, `serverConvexMutation`, `serverConvexAction`, and
   `useConvexCall`.
-- Cookie and bearer credential exchange is bounded, never follows a redirect
-  with the credential attached, and never logs secrets.
+- Better Auth cookie credential exchange is bounded, never follows a redirect
+  with the credential attached, and never logs secrets. Raw Better Auth session
+  tokens are not accepted as public bearer credentials.
 - Removed the built-in `permissions` module option (both the `true` and
   `false` states) and the `createPermissions` permissions runtime. Permission
   rules are application/Convex policy, not library machinery. Replace package

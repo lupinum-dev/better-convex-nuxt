@@ -23,6 +23,10 @@ const starterReadme = readFileSync(
   fileURLToPath(new URL('../../starters/mcp-oauth-agent/README.md', import.meta.url)),
   'utf8',
 )
+const starterPackage = readFileSync(
+  fileURLToPath(new URL('../../starters/mcp-oauth-agent/package.json', import.meta.url)),
+  'utf8',
+)
 
 describe('self-contained MCP OAuth fixture contracts', () => {
   it('uses one matching fixture export and cleans its complete disposable root', () => {
@@ -45,6 +49,25 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(starterReadme).toContain('require `previousKids` to be empty')
     expect(starterReadme).toContain('contains the exact recorded `newKid`')
     expect(starterReadme).toContain('/api/auth/jwks')
+    expect(starterReadme).toContain('openssl rand -base64 24')
+    expect(starterReadme).toContain(
+      '${BCN_LOCAL_ADMIN_PASSWORD:?set the generated disposable-admin password}',
+    )
+    expect(starterReadme).toContain('--data-binary @-')
+    expect(starterReadme).not.toContain('-d "{\\"name\\"')
+    expect(starterReadme).toContain('It remains valid until you change the password')
+    expect(starterReadme).not.toContain('local-test-password')
+    expect(starterReadme).not.toContain('one-time-test-password')
+    expect(starterReadme).toContain(
+      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET',
+    )
+    expect(starterReadme).not.toContain('YOUR-SEPARATE-RANDOM-SECRET')
+    expect(starterReadme).toContain('set -eu')
+    expect(starterReadme).toContain('if [ -e .env.local ]; then')
+    expect(starterReadme).toContain('Refusing to replace existing .env.local')
+    expect(starterReadme).toContain('umask 077')
+    expect(starterPackage.match(/--dotenv \.env\.local/g)).toHaveLength(5)
+    expect(starterPackage).not.toContain('--env-file .env.local')
   })
 
   it('prepares generated root types before the standalone MCP contract suite', () => {
@@ -150,7 +173,7 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(starterEnvExample).not.toContain('BETTER_AUTH_SECRETS')
     expect(starterReadme).toContain('convex env set BETTER_AUTH_SECRETS')
     expect(starterReadme).toContain(
-      "do not copy the\n   Better Auth secret into Nuxt's `.env.local`",
+      'Better Auth secret is generated independently and is never copied into Nuxt',
     )
     const returnedFixture = fixtureSource.slice(
       fixtureSource.indexOf('return Object.freeze({\n      convexSiteUrl,'),

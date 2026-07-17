@@ -172,8 +172,8 @@ async function resolveServerToken(
   const config = readCallerConfig(event)
   const required = normalized.auth === 'required'
 
-  // Explicit cookie/bearer credential: always exchanged, always `required`. A
-  // 401/403 always throws authentication and never falls back to anonymous.
+  // Explicit cookie credential: always exchanged, always `required`. A 401/403
+  // always throws authentication and never falls back to anonymous.
   if (normalized.credential) {
     if (!config.siteUrl) throw authenticationRequiredError()
     const result = await exchangeConvexToken({

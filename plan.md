@@ -34,11 +34,11 @@ not release-complete merely because its code exists.
 | 5 — production-like beta rehearsal | Repository automation is implemented for independently recomputed tarball/SBOM evidence, a shared auth/MCP runtime fingerprint, closed-ingress ownership, current-mount zero-state proof, real session-JWT-to-Convex acceptance, public Better Auth lockout/reset, protected publishing, registry-byte comparison, cleanup, advisories, security evidence, and a green exact-candidate seven-app clean-install matrix. | Provider-host deployment identity and edge-lease configuration, a clean-provision/no-hidden-component record, a real protected cloud run, trusted npm prerelease publication, notification drill, and a reviewed forward-fix rehearsal require external credentials and governance. |
 | 6 — stable `0.7.0`                 | Blocked by design.                                                                                                                                                                                                                                                                                                                                                                                                     | Better Auth 1.7 stable is not yet available; stable also requires all final evidence, an independent human auth/security review, human licensing review, and an immutable stable publish.                                                                                           |
 
-### 0.1 Latest verification checkpoint — 2026-07-17
+### 0.1 Latest verification checkpoint — 2026-07-18
 
 - Green on the feedback-reconciled implementation tree: formatting, lint, full
   typecheck, provenance, boundaries, ASVS/SBOM generation, prepack/dist exports,
-  contract fixtures, and 1,341 tests across 136 files. The focused OAuth suite
+  contract fixtures, and more than 1,300 tests across 136 files. The focused OAuth suite
   is 146/146, the focused adapter suite is 30/30, and the separately isolated MCP
   project is green across 9 files and 71 tests. Clean Node 22.14 verification
   from absent `.nuxt`/`dist` now self-prepares generated root and fixture types,
@@ -70,12 +70,103 @@ not release-complete merely because its code exists.
   publishes only an evidence-bound exact tarball through `pkg.pr.new`. Its first
   clean run correctly refused the pre-fix candidate before upload because the
   repository Convex tests depended on an already-built self-package `dist`; no
-  preview URL was produced. That hidden precondition is removed, and an
-  absent-`.nuxt`/`dist` `pnpm verify` is green on the exact Node 22.14 baseline.
-  Every replacement commit must still repeat the complete
+  preview URL was produced. A second replacement run also refused upload: the
+  nested playground package had no declared workspace dependency, while an
+  ignored local self-link had masked that clean-checkout failure. The playground
+  is now an explicit `workspace:*` consumer with a frozen lock importer and a
+  manifest source gate; the mandatory frozen install owns workspace and lock
+  consistency. Its auth-loop passes after the stale local directory is removed.
+  Copyable proxy-secret examples are blank so a
+  forgotten setup step fails closed instead of accepting a public placeholder,
+  and bootstrap examples generate credentials instead of publishing accepted
+  literals. The seven-app matrix now adds an offline generated-API and
+  type-inference probe to the delegated starter before typecheck/build,
+  preventing its recursive API inference from being hidden by an unchanged
+  example app. A later fresh-Linux preview run was the first replacement to
+  reach the extended browser session matrix and correctly refused publication:
+  unrelated browser contexts shared Better Auth's fallback IP rate-limit
+  bucket, while one stale test and public helper surface still claimed that a
+  raw Better Auth session token was a public bearer-exchange credential. The
+  matrix now injects a simulated post-ingress TEST-NET client address per
+  isolated browser context (the dedicated proxy tests retain ingress-ownership
+  coverage), the local Convex harness requires the current
+  `Convex functions ready!` signal instead of accepting a stale persisted route,
+  and the greenfield server API accepts explicit Better Auth credentials only
+  as filtered cookies. Raw session-token bearer exchange is denied; the private
+  marked component bridge and OAuth/MCP bearer paths remain separate. No
+  preview artifact from the rejected commit was accepted. Release verification
+  now forces the auto-started, local-only Convex path. That harness accepts only
+  `anonymous:`/`local:` selectors with loopback URLs, rejects cloud credentials
+  and inherited deployment selectors, refuses an already-running backend whose
+  source graph it cannot prove, gives subprocesses only a temporary mode-0600
+  local selector, and must terminate its owned process tree and port. The
+  preview workflow likewise accepts only a preview SHA equal to the source
+  commit, the exact full-commit `pkg.pr.new` URL, and hosted bytes whose SHA-256
+  matches the immutable local candidate. An
+  absent-`.nuxt`/`dist` `pnpm verify` remains green on the exact Node 22.14
+  baseline. Every replacement commit must still repeat the complete
   `pnpm release:prepare` gate and seven-app clean-install matrix. Preview and
   external disposable-app results are attached to the exact pull-request commit
   rather than inferred from earlier local evidence.
+- The first fresh Convex Cloud consumer rehearsal caught a stale provisioning
+  instruction before any secret was sent: Convex 1.42.2 owns
+  `CONVEX_SITE_URL` as a runtime built-in and rejects attempts to set the
+  reserved name. Maintained guides and the delegated starter now set only
+  application-owned Convex variables, keep the selected deployment's generated
+  site URL for Nuxt, and regression-test that the forbidden command cannot
+  reappear. The rejected preview commit is not accepted as release evidence; its
+  replacement must repeat the immutable candidate and hosted-byte gates.
+- The pre-publication external proof audit then caught two final consumer-path
+  defects before any destructive MCP run: the one-shot harness trusted the
+  app's implicit Convex selector after validating only its URLs, and the
+  delegated starter tried to display email from an intentionally minimal
+  session JWT. External evidence now requires an owner-only exact selector that
+  matches both managed Convex origins (and region), rejects competing dotenv
+  authority, strips every case variant of ambient Convex overrides, and passes
+  the validated deployment name explicitly. Before any mutation, the pinned CLI
+  resolves that name in an isolated directory, must report its real type as
+  `dev` or `preview`, and produces the only private env file later CLI calls may
+  load. Human display identity comes from the existing live user projection;
+  no PII was added to the session token. Both defects have adversarial source
+  coverage; live projection behavior remains an exact-preview consumer proof.
+  The canceled preview produced no accepted artifact.
+- Preliminary immutable-package rehearsal is now green against the exact
+  full-commit `c067e1eaa2f19443b9ff278290d89cf476f43947` pkg.pr.new URL in two
+  physically independent clean applications. Their manifests and lockfiles
+  contain only the hosted URL and its CI integrity; no file, link, workspace,
+  repository, user-directory, or temporary-package provenance remains. That
+  candidate is not final release evidence: its workflow verified the hosted
+  bytes but failed to retain the hidden `.release-artifacts` directory. The
+  workflow now explicitly retains hidden files, and the repository formatter
+  guards the corrected YAML.
+- Human/browser deployment `doting-hedgehog-693` passed fresh signing-key
+  rotation, public JWKS publication, signup without auto-session, generic login
+  failure, persisted-session-before-JWT exchange, exact RS256 signature and
+  issuer/audience/subject/session/lifetime/token-class claims, absence of PII,
+  live projection placeholder-to-email resolution, two-tab realtime updates,
+  request-scoped Nitro parity, two-user isolation, sign-out privacy, eight
+  concurrent private/no-store SSR requests, diagnostic event coverage with
+  credential redaction, and behavior-equivalent diagnostic silence after
+  restart. The cloud backend required a disposable public HTTPS origin because
+  it cannot retrieve JWKS from a developer loopback address; no source or dotenv
+  file was uploaded to obtain that origin.
+- Destructive OAuth/MCP deployment `dusty-cardinal-622` passed once and is now
+  consumed. Before authorization traffic it had the only local listener, a
+  fresh independent signing key, a public matching `kid`, a fresh Better Auth
+  administrator, and the reviewed internal Convex `oauthAdmin` operator change.
+  The external-disposable runner then passed 75 focused MCP/security tests,
+  real Inspector and mcp-remote authorization-code/PKCE flows, exact
+  issuer/client/resource/subject/scope binding, least privilege and approvals,
+  live membership/delegation authorization, Nuxt/direct parity, terminal
+  client/session/consent revocation, and the initialize, ping, and tools/list
+  server scenarios with zero failures or warnings. It was not rerun.
+- Final preview acceptance remains pending on the current PR head. It must retain
+  the CI artifact, expose one full-40-character pkg.pr.new URL, prove hosted-byte
+  equality and manifest/toolchain/runtime fingerprints, reinstall that exact
+  URL in both clean applications, and leave every GitHub check green before the
+  draft PR becomes ready. The unrelated Vercel demo now deploys only from
+  `main`; PR proof uses the immutable package workflow because the demo's
+  unreleased npm dependency cannot exist before publication.
 - External release/governance gates remain unchanged: protected cloud identity
   and ingress lease, clean provision, exact-candidate cloud rehearsal, npm
   trusted publishing, owner/deputy notification drill, forward-fix record,

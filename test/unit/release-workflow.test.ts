@@ -29,6 +29,8 @@ describe('trusted prerelease workflow', () => {
     expect(releaseVerify).toContain('Source-integrity and source-runtime behavior gates')
     expect(releaseVerify).toContain('Artifact-dependent package and consumer gates')
     expect(releaseVerify).toContain('source gates ran from the checkout')
+    expect(releaseVerify).toContain("CONVEX_E2E_AUTO_START: 'true'")
+    expect(releaseVerify).toContain("BCN_E2E_REQUIRE_LOCAL: 'true'")
     expect(releaseVerify).not.toContain('every release suite')
     expect(workflow).not.toContain('npm publish .')
   })

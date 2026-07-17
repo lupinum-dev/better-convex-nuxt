@@ -211,7 +211,7 @@ const serverMeta = {
   },
   exchangeConvexToken: {
     kind: 'Server helper',
-    purpose: 'Exchanges a cookie/bearer credential for a Convex JWT (never-throwing outcome).',
+    purpose: 'Exchanges a Better Auth cookie credential for a Convex JWT (never-throwing outcome).',
     guide: '/docs/build/server/server-convex',
   },
 }

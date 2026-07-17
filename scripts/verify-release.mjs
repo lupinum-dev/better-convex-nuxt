@@ -43,7 +43,9 @@ function main() {
   run('pnpm', ['run', 'check'])
   run('pnpm', ['run', 'check:asvs'])
   run('pnpm', ['run', 'check:sbom'])
-  run('pnpm', ['run', 'test:e2e:full'])
+  run('pnpm', ['run', 'test:e2e:full'], {
+    env: { ...process.env, CONVEX_E2E_AUTO_START: 'true', BCN_E2E_REQUIRE_LOCAL: 'true' },
+  })
   run('pnpm', ['run', 'test:dast:proxy'])
   run('pnpm', ['run', 'check:auth-advisories'])
 

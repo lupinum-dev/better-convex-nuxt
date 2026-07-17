@@ -114,8 +114,13 @@ export const handleMcp = httpAction(async (ctx, request) => {
     }
 
     const args = message.arguments
+    const requiredArgument = (name: string): string => {
+      const value = args[name]
+      if (!value) throw new McpProtocolError(-32602, message.id)
+      return value
+    }
     const shared = {
-      organizationId: args.organizationId,
+      organizationId: requiredArgument('organizationId'),
       principal: serializePrincipal(principal),
     }
     let result: unknown
@@ -128,26 +133,26 @@ export const handleMcp = httpAction(async (ctx, request) => {
       case 'projects.create':
         result = await ctx.runMutation(internal.mcpTools.createProject, {
           ...shared,
-          name: args.name,
+          name: requiredArgument('name'),
         })
         break
       case 'projects.delete.preview':
         result = await ctx.runMutation(internal.mcpTools.previewProjectDelete, {
           ...shared,
-          projectId: args.projectId,
+          projectId: requiredArgument('projectId'),
         })
         break
       case 'projects.delete.requestApproval':
         result = await ctx.runMutation(internal.mcpTools.requestProjectDeleteApproval, {
           ...shared,
-          projectId: args.projectId,
+          projectId: requiredArgument('projectId'),
         })
         break
       case 'projects.delete.execute':
         result = await ctx.runMutation(internal.mcpTools.executeProjectDelete, {
           ...shared,
-          approvalId: args.approvalId,
-          projectId: args.projectId,
+          approvalId: requiredArgument('approvalId'),
+          projectId: requiredArgument('projectId'),
         })
         break
     }
