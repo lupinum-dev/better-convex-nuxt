@@ -39,6 +39,103 @@ export default defineConfig({
         },
       },
 
+      // The shared adapter's pure model and its convex-test backend contract.
+      {
+        test: {
+          name: 'auth-adapter',
+          include: [
+            'test/unit/convex-auth-adapter-invariants.test.ts',
+            'playground/convex/auth-adapter-invariants.test.ts',
+          ],
+          environment: 'edge-runtime',
+          server: { deps: { inline: [/convex/] } },
+          fileParallelism: false,
+          testTimeout: 60_000,
+        },
+      },
+
+      // OAuth protocol and resource-server invariants. Real-client evidence is
+      // exercised by the MCP auth runner against the same canonical routes.
+      {
+        test: {
+          name: 'oauth',
+          include: [
+            'test/security/convex-auth-oauth-provider-integration.test.ts',
+            'test/security/convex-auth-oauth-resource.test.ts',
+            'test/security/convex-auth-oauth-security.test.ts',
+          ],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 60_000,
+        },
+      },
+
+      // Deterministic bounded protocol-input corpora. A failing case reports
+      // and persists its exact replay seed outside the repository.
+      {
+        test: {
+          name: 'auth-fuzz',
+          include: ['test/auth-fuzz/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 30_000,
+        },
+      },
+
+      // Fixed reviewed security-negative mutants. The runner verifies that
+      // every manifest entry executes exactly once and is killed.
+      {
+        test: {
+          name: 'auth-mutations',
+          include: ['test/mutations/security-mutants.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 30_000,
+        },
+      },
+      {
+        test: {
+          name: 'auth-mutations-convex',
+          include: ['test/mutations/adapter-security-mutants.test.ts'],
+          environment: 'edge-runtime',
+          server: { deps: { inline: [/convex/] } },
+          fileParallelism: false,
+          testTimeout: 60_000,
+        },
+      },
+
+      // MCP resource/proxy/runner contracts. Real client and conformance
+      // evidence is orchestrated by the two root MCP runners.
+      {
+        resolve: {
+          alias: {
+            'better-convex-nuxt/convex-auth': fileURLToPath(
+              new URL('./src/runtime/convex-auth/index.ts', import.meta.url),
+            ),
+          },
+        },
+        test: {
+          name: 'mcp',
+          include: ['test/mcp/**/*.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 30_000,
+        },
+      },
+
+      // Closed Section 9.6 raw-secret location registry, scanner negative
+      // controls, and pinned-engine runtime evidence. Artifact scanning is
+      // orchestrated by scripts/run-auth-sentinels.mjs in the same gate.
+      {
+        test: {
+          name: 'auth-sentinels',
+          include: ['test/security/auth-secret-sentinels.test.ts'],
+          environment: 'node',
+          fileParallelism: false,
+          testTimeout: 60_000,
+        },
+      },
+
       // Security regression tests are a mandatory release gate.
       {
         resolve: {
@@ -68,7 +165,11 @@ export default defineConfig({
         },
         test: {
           name: 'convex',
-          include: ['playground/convex/**/*.test.ts', 'demo/convex/**/*.test.ts'],
+          include: [
+            'playground/convex/**/*.test.ts',
+            'demo/convex/**/*.test.ts',
+            'test/convex/**/*.test.ts',
+          ],
           environment: 'edge-runtime',
           server: { deps: { inline: [/convex/] } },
           // Convex component registration is CPU-heavy and parallel files contend

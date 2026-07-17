@@ -260,7 +260,7 @@ export async function requireDelegatingUserCurrentProjectPermission(
     throw new ConvexError('Delegating user is not a current organization member')
   }
 
-  if (!roleHasProjectPermission(member.role, args.permission)) {
+  if (typeof member.role !== 'string' || !roleHasProjectPermission(member.role, args.permission)) {
     throw new ConvexError(`Delegating user no longer has project:${args.permission} permission`)
   }
 

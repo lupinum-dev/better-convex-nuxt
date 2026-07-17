@@ -3,7 +3,7 @@
 // Published as `better-convex-nuxt/auth-client`. This subpath contains ONLY the
 // definition identity function and its types. It must not import Nuxt, Vue,
 // `#imports`, browser globals, or server globals; the only imports are
-// type-only Better Auth / Convex-plugin types, which carry no runtime coupling
+// type-only Better Auth types, which carry no runtime coupling
 // (enforced by the `auth-client-no-runtime-deps` boundary rule and the
 // `./auth-client` packed-entry purity guard).
 //
@@ -18,7 +18,6 @@
 // instantiation entry), not `better-auth/client`, so session/plugin shapes
 // cannot drift.
 
-import type { convexClient } from '@convex-dev/better-auth/client/plugins'
 import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client'
 import type { VueAuthClient } from 'better-auth/vue'
 
@@ -29,8 +28,7 @@ export type AuthClientPlugins = readonly BetterAuthClientPlugin[]
  * Consumer-facing options for a Convex auth-client definition.
  *
  * The consumer supplies additional client plugins only. `baseURL`/`basePath`
- * (the module owns fixed same-origin `/api/auth`), `plugins` (the library
- * prepends exactly one Convex client plugin), and `fetchOptions` (the library
+ * (the module owns fixed same-origin `/api/auth`), and `fetchOptions` (the library
  * owns credentials and request transport) are all removed from the surface.
  */
 export type ConvexAuthClientDefinitionOptions<Plugins extends AuthClientPlugins> = Omit<
@@ -86,9 +84,6 @@ export function defineConvexAuthClient<const Plugins extends AuthClientPlugins =
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentionally empty; the generated type template augments it with `definition`.
 export interface ConvexAuthClientRegistry {}
 
-/** The single Convex client plugin the library always prepends. */
-type ConvexPlugin = ReturnType<typeof convexClient>
-
 /**
  * Better Auth's `plugins` option is a MUTABLE array; a definition holds a
  * readonly tuple, so strip `readonly` when spreading into resolved options.
@@ -100,7 +95,7 @@ type PluginsOf<D> = D extends ConvexAuthClientDefinition<infer P> ? P : []
 
 /**
  * The options actually handed to `createAuthClient`: base options via `Omit`
- * plus the module-owned `baseURL` and the `[convexPlugin, ...consumerPlugins]`
+ * plus the module-owned `baseURL` and the consumer plugin tuple.
  * tuple. The full `BetterAuthClientOptions` is deliberately NOT re-intersected.
  */
 type ResolvedOptions<Plugins extends AuthClientPlugins> = Omit<
@@ -108,7 +103,7 @@ type ResolvedOptions<Plugins extends AuthClientPlugins> = Omit<
   'baseURL' | 'plugins'
 > & {
   baseURL: string
-  plugins: [ConvexPlugin, ...MutablePlugins<Plugins>]
+  plugins: [...MutablePlugins<Plugins>]
 }
 
 /** The inferred client type for the library-owned options with no consumer plugins. */

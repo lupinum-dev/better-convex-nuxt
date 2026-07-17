@@ -55,18 +55,23 @@ function collectExportedNames(sourceFile, warnings) {
 }
 
 export function checkEntryExportShape(entry, failures, warnings, artifactRoot = repoRoot) {
-  const jsPath = resolve(artifactRoot, entry.distJs)
   const dtsPath = resolve(artifactRoot, entry.distDts)
-  if (!existsSync(jsPath)) {
-    failures.push(`[${entry.subpath}] expected dist file missing: ${entry.distJs}`)
-    return
-  }
   if (!existsSync(dtsPath)) {
     failures.push(`[${entry.subpath}] expected dist file missing: ${entry.distDts}`)
     return
   }
 
-  const jsExports = collectExportedNames(parseSource(jsPath), warnings)
+  const jsExports = new Set()
+  if (entry.kind === 'runtime') {
+    const jsPath = resolve(artifactRoot, entry.distJs)
+    if (!existsSync(jsPath)) {
+      failures.push(`[${entry.subpath}] expected dist file missing: ${entry.distJs}`)
+      return
+    }
+    for (const name of collectExportedNames(parseSource(jsPath), warnings)) {
+      jsExports.add(name)
+    }
+  }
   const dtsExports = collectExportedNames(parseSource(dtsPath), warnings)
 
   const expectedValue = new Set(entry.expectedValueExports)
@@ -92,6 +97,15 @@ export function checkEntryExportShape(entry, failures, warnings, artifactRoot = 
       failures.push(
         `[${entry.subpath}] ${entry.distDts} is missing expected declared name "${expected}"`,
       )
+    }
+  }
+  if (entry.exactDeclaredExports) {
+    for (const actual of dtsExports) {
+      if (!expectedDeclared.has(actual)) {
+        failures.push(
+          `[${entry.subpath}] ${entry.distDts} declares unexpected name "${actual}" (the entry has an exact declaration contract)`,
+        )
+      }
     }
   }
 

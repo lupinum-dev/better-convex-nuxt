@@ -14,8 +14,7 @@ type BetterAuthPageResult<T extends Record<string, unknown>> = {
   continueCursor: string
 }
 type BetterAuthRowWithId = {
-  _id?: string
-  id?: string
+  id: string
 }
 
 export type BetterAuthMember = BetterAuthRowWithId & {
@@ -25,8 +24,9 @@ export type BetterAuthMember = BetterAuthRowWithId & {
 }
 
 export type BetterAuthTeam = BetterAuthRowWithId & {
+  memberCount: number
   organizationId: string
-  name?: string
+  name: string
 }
 
 export type BetterAuthOrganization = BetterAuthRowWithId & {
@@ -92,12 +92,8 @@ async function findBetterAuthRow<T extends Record<string, unknown>>(
 }
 
 function getBetterAuthRowId(row: BetterAuthRowWithId, label: string) {
-  const id = row.id ?? row._id
-  if (!id) {
-    throw new Error(`Better Auth ${label} row missing id`)
-  }
-
-  return id
+  if (!row.id) throw new Error(`Better Auth ${label} row missing id`)
+  return row.id
 }
 
 async function listBetterAuthRowsPage<T extends Record<string, unknown>>(
@@ -141,7 +137,7 @@ export async function getBetterAuthTeam(
     ctx,
     'team',
     [
-      { field: '_id', value: args.teamId },
+      { field: 'id', value: args.teamId },
       args.organizationId ? { field: 'organizationId', value: args.organizationId } : null,
     ].filter((where): where is { field: string; value: string } => where !== null),
   )
@@ -154,7 +150,7 @@ export async function getBetterAuthOrganization(
   },
 ) {
   return await findBetterAuthRow<BetterAuthOrganization>(ctx, 'organization', [
-    { field: '_id', value: args.organizationId },
+    { field: 'id', value: args.organizationId },
   ])
 }
 
@@ -178,7 +174,7 @@ export async function getBetterAuthInvitation(
   },
 ) {
   return await findBetterAuthRow<BetterAuthInvitation>(ctx, 'invitation', [
-    { field: '_id', value: args.invitationId },
+    { field: 'id', value: args.invitationId },
   ])
 }
 
@@ -224,7 +220,7 @@ export async function listBetterAuthOrganizationInvitationsPage(
       : (
           await listBetterAuthRowsPage<BetterAuthTeam>(ctx, {
             model: 'team',
-            where: [{ field: '_id', operator: 'in', value: teamIds }],
+            where: [{ field: 'id', operator: 'in', value: teamIds }],
             paginationOpts: { cursor: null, numItems: teamIds.length },
           })
         ).page
@@ -270,7 +266,7 @@ export async function listBetterAuthOrganizationMembersPage(
       : (
           await listBetterAuthRowsPage<BetterAuthUser>(ctx, {
             model: 'user',
-            where: [{ field: '_id', operator: 'in', value: userIds }],
+            where: [{ field: 'id', operator: 'in', value: userIds }],
             paginationOpts: { cursor: null, numItems: userIds.length },
           })
         ).page

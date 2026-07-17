@@ -400,7 +400,7 @@ describe('auth coordinator generation races ', () => {
   })
 
   it('initial 401 (no session) settles anonymous, not error', async () => {
-    // `@convex-dev/better-auth`'s /convex/token returns 401 UNAUTHORIZED for every
+    // Better Convex Nuxt's /convex/token returns 401 UNAUTHORIZED for every
     // session-less request, so a definitive 401 is the anonymous state — not an
     // auth error. Surfacing it as error would break every anonymous visitor's
     // default `optional` queries.

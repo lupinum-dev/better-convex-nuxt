@@ -22,6 +22,7 @@ export default defineNuxtConfig({
   convex: {
     url: 'https://consumer-smoke.convex.cloud',
     siteUrl: 'https://consumer-smoke.convex.site',
+    auth: { publicOrigin: process.env.SITE_URL ?? 'https://consumer-smoke.example.test' },
   },
   ...(hasInstalledModule
     ? {}

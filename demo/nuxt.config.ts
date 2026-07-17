@@ -14,7 +14,7 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  convex: {},
+  convex: { auth: { publicOrigin: siteUrl.slice(0, -1) } },
 
   compatibilityDate: '2025-01-15',
 

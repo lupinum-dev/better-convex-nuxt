@@ -1,3 +1,5 @@
+import { inspect } from 'node:util'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveServerAuthSnapshot } from '../../src/runtime/server/utils/auth-snapshot'
@@ -26,8 +28,6 @@ const baseOptions = {
   siteUrl: 'https://demo.convex.site',
   requestId: 'request-1',
   trackWaterfall: true,
-  throwOnMisconfig: true,
-  revealAuthErrorDetails: true,
 }
 
 describe('resolveServerAuthSnapshot', () => {
@@ -46,7 +46,6 @@ describe('resolveServerAuthSnapshot', () => {
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
     expect(snapshot.authError).toBeNull()
-    expect(snapshot.devError).toBeNull()
     expect(snapshot.waterfall?.outcome).toBe('unauthenticated')
     expect(snapshot.logEvents.map((event) => [event.phase, event.outcome])).toEqual([
       ['server-init', 'success'],
@@ -81,7 +80,7 @@ describe('resolveServerAuthSnapshot', () => {
     )
   })
 
-  it('logs a truncated user id, never an email, on successful exchange', async () => {
+  it('logs only the hydration outcome, never identity data, on successful exchange', async () => {
     decodeUserFromJwtMock.mockReturnValue({
       id: 'user-abcdefghijklmnop',
       email: 'private-email@example.com',
@@ -94,10 +93,11 @@ describe('resolveServerAuthSnapshot', () => {
     })
 
     const exchangeEvent = snapshot.logEvents.find(
-      (event) => event.phase === 'exchange' && event.outcome === 'success',
+      (event) => event.phase === 'ssr.jwt.exchange' && event.outcome === 'success',
     )
     expect(exchangeEvent).toBeDefined()
-    expect(exchangeEvent?.details).toEqual({ userId: 'user-abc…' })
+    expect(exchangeEvent?.details).toEqual({ identityHydrated: true })
+    expect(JSON.stringify(exchangeEvent)).not.toContain('user-abcdefghijklmnop')
     expect(JSON.stringify(exchangeEvent)).not.toContain('example.com')
     expect(JSON.stringify(exchangeEvent)).not.toContain('private-email')
   })
@@ -113,10 +113,9 @@ describe('resolveServerAuthSnapshot', () => {
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
     expect(snapshot.authError).toBeNull()
-    expect(snapshot.devError).toBeNull()
     expect(snapshot.waterfall?.outcome).toBe('unauthenticated')
     expect(snapshot.logEvents.at(-1)).toMatchObject({
-      phase: 'exchange',
+      phase: 'ssr.jwt.exchange',
       outcome: 'miss',
       details: { status: 401 },
     })
@@ -132,11 +131,10 @@ describe('resolveServerAuthSnapshot', () => {
 
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
-    expect(snapshot.authError).toMatch(/convex\/token|token exchange/i)
-    expect(snapshot.devError?.message).toMatch(/convex\/token|token exchange/i)
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
     expect(snapshot.waterfall?.outcome).toBe('error')
     expect(snapshot.logEvents.at(-1)).toMatchObject({
-      phase: 'exchange',
+      phase: 'ssr.jwt.exchange',
       outcome: 'error',
       details: { status: 500 },
     })
@@ -155,11 +153,10 @@ describe('resolveServerAuthSnapshot', () => {
 
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
-    expect(snapshot.authError).toMatch(/convex\/token|token exchange/i)
-    expect(snapshot.devError?.message).toMatch(/convex\/token|token exchange/i)
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
     expect(snapshot.waterfall?.outcome).toBe('error')
     expect(snapshot.logEvents.at(-1)).toMatchObject({
-      phase: 'exchange',
+      phase: 'ssr.jwt.exchange',
       outcome: 'error',
       details: expect.objectContaining({ status }),
     })
@@ -177,34 +174,55 @@ describe('resolveServerAuthSnapshot', () => {
 
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
-    expect(snapshot.authError).toMatch(/token exchange/i)
-    expect(snapshot.devError?.message).toMatch(/expired or malformed token/i)
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
     expect(snapshot.waterfall?.outcome).toBe('error')
     expect(decodeUserFromJwtMock).not.toHaveBeenCalled()
     expect(fetchWithTimeoutMock).toHaveBeenCalledOnce()
     expect(String(fetchWithTimeoutMock.mock.calls[0]?.[0])).toMatch(/\/convex\/token$/)
   })
 
-  it('hydrates a generic authError in production while logging the detailed message', async () => {
+  it('uses only fixed auth-safe diagnostics in hydration, waterfall, and logs', async () => {
     fetchWithTimeoutMock.mockResolvedValue(createResponse(500, {}))
 
     const snapshot = await resolveServerAuthSnapshot({
       ...baseOptions,
-      throwOnMisconfig: false,
-      revealAuthErrorDetails: false,
       cookieHeader: 'better-auth.session_token=session-prod',
     })
 
     expect(snapshot.token).toBeNull()
     expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
     expect(snapshot.authError).not.toMatch(/BETTER_AUTH_SECRET|convex\/http\.ts|convex\/token/i)
-    expect(snapshot.devError).toBeNull()
-
-    // The detailed diagnostic still reaches server-side logs in prod.
     const exchangeLog = snapshot.logEvents.find(
-      (event) => event.phase === 'exchange' && event.outcome === 'error',
+      (event) => event.phase === 'ssr.jwt.exchange' && event.outcome === 'error',
     )
-    expect(String(exchangeLog?.details?.message ?? '')).toMatch(/convex\/token|token exchange/i)
+    expect(exchangeLog?.details).toEqual({ code: 'AUTH_TOKEN_EXCHANGE_FAILED', status: 500 })
+    expect(snapshot.waterfall?.error).toBe('AUTH_TOKEN_EXCHANGE_FAILED')
+  })
+
+  it('drops raw transport message, cause, and stack sentinels at every snapshot boundary', async () => {
+    const sentinels = {
+      message: 'RAW_AUTH_MESSAGE_SENTINEL_7f2289',
+      cause: 'RAW_AUTH_CAUSE_SENTINEL_b83d91',
+      stack: 'RAW_AUTH_STACK_SENTINEL_5a71c0',
+    }
+    const rawCause = new Error(sentinels.cause)
+    const rawError = new Error(sentinels.message, { cause: rawCause })
+    rawError.stack = sentinels.stack
+    fetchWithTimeoutMock.mockRejectedValue(rawError)
+
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      cookieHeader: 'better-auth.session_token=session-error-sentinel',
+    })
+    const rendered = inspect(snapshot, { depth: null })
+
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
+    expect(snapshot.logEvents.at(-1)).toEqual({
+      phase: 'ssr.jwt.exchange',
+      outcome: 'error',
+      details: { code: 'AUTH_TOKEN_EXCHANGE_FAILED' },
+    })
+    for (const sentinel of Object.values(sentinels)) expect(rendered).not.toContain(sentinel)
   })
 
   it('never copies the session credential into structured auth logs', async () => {

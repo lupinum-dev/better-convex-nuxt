@@ -2,12 +2,14 @@
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { isAbsolute, relative, resolve } from 'node:path'
 
 const root = process.cwd()
 const inputPath = resolve(root, 'security/asvs-5.0.0-l2-evidence.json')
 const outputPath = resolve(root, 'security/asvs-5-level-2-evidence.md')
+const planPath = resolve(root, 'plan.md')
+const packagePath = resolve(root, 'package.json')
 const expectedRequirementCount = 253
 const expectedRequirementSetSha256 =
   'ab3851f4fd75c5ac6b666ccd2fce4c1ff0bbb464da480d9730b341c4cccc4925'
@@ -19,6 +21,8 @@ const allowedResponsibilities = new Set([
   'not-applicable',
 ])
 const evidence = JSON.parse(readFileSync(inputPath, 'utf8'))
+const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'))
+const plan = readFileSync(planPath, 'utf8')
 
 if (evidence.standard !== 'OWASP ASVS' || evidence.version !== '5.0.0') {
   throw new Error('ASVS evidence must target the stable OWASP ASVS 5.0.0 release.')
@@ -69,6 +73,78 @@ for (const control of evidence.requirements) {
   }
 }
 
+const planInvariantIds = [...plan.matchAll(/^\|\s*(AUTH-INV-\d+[A-Z]?)\s*\|/gm)].map(
+  (match) => match[1],
+)
+if (planInvariantIds.length === 0) {
+  throw new Error('No authentication invariants were found in plan.md.')
+}
+if (new Set(planInvariantIds).size !== planInvariantIds.length) {
+  throw new Error('plan.md contains duplicate authentication invariant IDs.')
+}
+if (!Array.isArray(evidence.authInvariants)) {
+  throw new TypeError('ASVS evidence must contain a top-level authInvariants array.')
+}
+
+const authInvariantIds = evidence.authInvariants.map((invariant) => invariant.id)
+if (JSON.stringify(authInvariantIds) !== JSON.stringify(planInvariantIds)) {
+  throw new Error(
+    `Authentication invariant IDs must exactly match plan.md.\nPlan: ${planInvariantIds.join(', ')}\nEvidence: ${authInvariantIds.join(', ')}`,
+  )
+}
+
+const invariantKeys = ['asvs', 'commands', 'evidence', 'id']
+for (const invariant of evidence.authInvariants) {
+  const actualKeys = Object.keys(invariant).sort()
+  if (JSON.stringify(actualKeys) !== JSON.stringify(invariantKeys)) {
+    throw new Error(
+      `${invariant.id ?? 'Authentication invariant'} must contain exactly: ${invariantKeys.join(', ')}.`,
+    )
+  }
+
+  for (const field of ['asvs', 'commands', 'evidence']) {
+    const values = invariant[field]
+    if (
+      !Array.isArray(values) ||
+      values.length === 0 ||
+      values.some((value) => typeof value !== 'string' || value.trim() !== value || !value)
+    ) {
+      throw new Error(`${invariant.id}.${field} must be a non-empty array of trimmed strings.`)
+    }
+    if (new Set(values).size !== values.length) {
+      throw new Error(`${invariant.id}.${field} contains duplicate entries.`)
+    }
+  }
+
+  for (const asvsId of invariant.asvs) {
+    if (!ids.has(asvsId)) {
+      throw new Error(`${invariant.id} references unknown Level 2 ASVS control: ${asvsId}`)
+    }
+  }
+
+  for (const command of invariant.commands) {
+    const match = /^pnpm(?: run)? ([\w:.-]+)$/.exec(command)
+    if (!match || !packageJson.scripts?.[match[1]]) {
+      throw new Error(`${invariant.id} references an unknown root package script: ${command}`)
+    }
+  }
+
+  for (const evidencePath of invariant.evidence) {
+    const absolutePath = resolve(root, evidencePath)
+    const repositoryPath = relative(root, absolutePath)
+    if (
+      isAbsolute(evidencePath) ||
+      !repositoryPath ||
+      repositoryPath === '..' ||
+      repositoryPath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) ||
+      !existsSync(absolutePath) ||
+      !statSync(absolutePath).isFile()
+    ) {
+      throw new Error(`${invariant.id} references invalid evidence path: ${evidencePath}`)
+    }
+  }
+}
+
 const chapters = new Map()
 for (const control of evidence.requirements) {
   const row = chapters.get(control.chapter) ?? { total: 0, library: 0, external: 0 }
@@ -110,6 +186,21 @@ for (const control of evidence.requirements.filter((item) => item.status === 've
 
 lines.push(
   '',
+  '## Authentication invariant map',
+  '',
+  'This map is generated from the canonical ASVS evidence JSON. The generator requires exact invariant-ID parity with `plan.md` and validates every ASVS control, root package command, and repository evidence path.',
+  '',
+  '| Invariant | ASVS controls | Verification commands | Evidence |',
+  '| --- | --- | --- | --- |',
+)
+for (const invariant of evidence.authInvariants) {
+  lines.push(
+    `| ${invariant.id} | ${invariant.asvs.map((value) => `\`${value}\``).join('<br>')} | ${invariant.commands.map((value) => `\`${value}\``).join('<br>')} | ${invariant.evidence.map((value) => `\`${value}\``).join('<br>')} |`,
+  )
+}
+
+lines.push(
+  '',
   '## Responsibility meanings',
   '',
   '- **library**: implemented and backed by repository evidence.',
@@ -134,7 +225,7 @@ if (process.argv.includes('--check')) {
     process.exit(1)
   }
   console.log(
-    `ASVS evidence passed (${evidence.requirements.length} controls, ${ids.size} unique).`,
+    `ASVS evidence passed (${evidence.requirements.length} controls, ${ids.size} unique, ${evidence.authInvariants.length} auth invariants).`,
   )
 } else if (process.argv.includes('--stdout')) {
   process.stdout.write(rendered)

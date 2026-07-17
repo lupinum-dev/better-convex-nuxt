@@ -2,6 +2,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { supportedDependencyTuple } from './supported-dependency-tuple.mjs'
+
 const rootDir = process.cwd()
 const rootPackage = readPackage('package.json')
 const distributedAppManifests = [
@@ -11,14 +13,7 @@ const distributedAppManifests = [
     .map((entry) => `starters/${entry.name}/package.json`),
 ]
 
-const alignedDependencies = ['@convex-dev/better-auth', 'better-auth', 'convex', 'nuxt', 'vue-tsc']
-
-const rootSpecifiers = new Map(
-  alignedDependencies.flatMap((name) => {
-    const specifier = dependencySpecifier(rootPackage, name)
-    return specifier ? [[name, specifier]] : []
-  }),
-)
+const rootSpecifiers = new Map(Object.entries(supportedDependencyTuple))
 
 const manifestPaths = [
   'demo/package.json',
@@ -38,6 +33,9 @@ for (const manifestPath of manifestPaths) {
     if (actual && normalizeSpecifier(actual) !== normalizeSpecifier(expected)) {
       failures.push(`${manifestPath} declares ${name}@${actual}; expected ${expected}`)
     }
+  }
+  if (dependencySpecifier(packageJson, '@convex-dev/better-auth')) {
+    failures.push(`${manifestPath} still declares the removed @convex-dev/better-auth package`)
   }
 }
 

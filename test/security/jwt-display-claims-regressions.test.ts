@@ -199,15 +199,12 @@ describe('server JWT hydration boundary', () => {
       cookieHeader: 'better-auth.session_token=session-secret',
       requestId: 'jwt-retention-test',
       trackWaterfall: true,
-      throwOnMisconfig: true,
-      revealAuthErrorDetails: true,
     })
 
     expect(snapshot.token).toBeNull()
     expect(snapshot.user).toBeNull()
-    expect(snapshot.devError?.message).toMatch(
-      /expired or malformed token|invalid display identity/i,
-    )
+    expect(snapshot.authError).toBe('Authentication is temporarily unavailable')
+    expect(snapshot.waterfall?.error).toBe('AUTH_TOKEN_EXCHANGE_FAILED')
     expect(globalThis.fetch).toHaveBeenCalledOnce()
     expect(globalThis.fetch).toHaveBeenCalledWith(
       'https://demo.convex.site/api/auth/convex/token',
@@ -235,8 +232,6 @@ describe('server JWT hydration boundary', () => {
       cookieHeader: 'better-auth.session_token=session-secret',
       requestId: 'jwt-provisional-test',
       trackWaterfall: true,
-      throwOnMisconfig: true,
-      revealAuthErrorDetails: true,
     })
 
     expect(snapshot).toMatchObject({ token, user: { id: 'user-1' }, authError: null })

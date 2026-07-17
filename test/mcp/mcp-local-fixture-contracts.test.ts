@@ -1,0 +1,98 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+import { describe, expect, it } from 'vitest'
+
+const fixtureSource = readFileSync(
+  fileURLToPath(new URL('../../scripts/mcp-local-fixture.mjs', import.meta.url)),
+  'utf8',
+)
+const runnerSource = readFileSync(
+  fileURLToPath(new URL('../../scripts/run-mcp-auth.mjs', import.meta.url)),
+  'utf8',
+)
+const selectorSource = readFileSync(
+  fileURLToPath(new URL('../../scripts/mcp-evidence-fixture.mjs', import.meta.url)),
+  'utf8',
+)
+
+describe('self-contained MCP OAuth fixture contracts', () => {
+  it('uses one matching fixture export and cleans its complete disposable root', () => {
+    expect(fixtureSource).toContain('export async function startLocalMcpOAuthFixture')
+    expect(selectorSource).toContain(
+      "import { startLocalMcpOAuthFixture } from './mcp-local-fixture.mjs'",
+    )
+    expect(selectorSource).toContain('return startLocalMcpOAuthFixture()')
+    expect(runnerSource).toContain('startMcpEvidenceFixture')
+    expect(runnerSource).toContain("from './mcp-evidence-fixture.mjs'")
+    expect(runnerSource).toContain('await startMcpEvidenceFixture()')
+    expect(fixtureSource).toContain('await rm(tempRoot, { force: true, recursive: true })')
+    expect(fixtureSource).toContain('process.kill(-child.pid, signal)')
+    expect(fixtureSource).toContain('retireCurrentAuthSecretForTest')
+    expect(fixtureSource).toContain('secrets.push(replacement)')
+  })
+
+  it('consumes immutable release bytes directly and never repacks them', () => {
+    expect(fixtureSource).toContain('process.env.BCN_RELEASE_TARBALL')
+    expect(fixtureSource).toContain("['-xzf', releaseTarball, '--strip-components=1'")
+    expect(fixtureSource).toContain("await symlink(root, installedModule, 'dir')")
+    expect(fixtureSource).not.toMatch(/(?:npm|pnpm)[^\n]+\bpack\b/u)
+  })
+
+  it('builds uncommitted workspace dist before a non-release fixture resolves package exports', () => {
+    expect(fixtureSource).toContain("await access(join(root, 'dist/module.mjs'))")
+    expect(fixtureSource).toContain("['exec', 'nuxt-module-build', 'build']")
+  })
+
+  it('randomizes concurrent fixture ports and narrowly retries idempotent environment OCC writes', () => {
+    expect(fixtureSource).toContain('availableRandomPort')
+    expect(fixtureSource).toContain('randomBytes(2).readUInt16BE(0)')
+    expect(fixtureSource).not.toContain('availablePort(3240)')
+    expect(fixtureSource).toContain('/\\b503\\b/u.test(error.message)')
+    expect(fixtureSource).toContain(
+      '/\\bOptimisticConcurrencyControlFailure\\b/u.test(error.message)',
+    )
+    expect(fixtureSource).toContain('const maxAttempts = 4')
+    expect(fixtureSource).toContain('await setFixtureEnvironment(name, value)')
+    expect(fixtureSource).toContain(
+      "await setFixtureEnvironment('BETTER_AUTH_SECRETS', replacement)",
+    )
+  })
+
+  it('uses only the installed package signer for direct-transport client-IP evidence', () => {
+    expect(fixtureSource).toContain(
+      'node_modules/better-convex-nuxt/dist/runtime/shared/client-ip.js',
+    )
+    expect(fixtureSource).toContain('installedClientIpModule.normalizeClientIp(ip)')
+    expect(fixtureSource).toContain('installedClientIpModule.signClientIp(')
+    expect(fixtureSource).toContain('signedClientIpHeadersForTest,')
+    expect(fixtureSource).toContain("'x-bcn-client-ip': canonicalIp")
+    expect(fixtureSource).toContain("'x-bcn-client-ip-signature':")
+    expect(fixtureSource).not.toMatch(/createHmac|subtle\.sign|HMAC/u)
+  })
+
+  it('accepts only two bounded printable sentinel overrides and never returns them', () => {
+    expect(fixtureSource).toContain('const secretOverrides = options.secretOverridesForTest')
+    expect(fixtureSource).toContain(
+      "Object.keys(secretOverrides).sort().join(',') !== 'betterAuthSecrets,proxyIpSecret'",
+    )
+    expect(fixtureSource).toContain('secret.length < 32')
+    expect(fixtureSource).toContain('secret.length > 1_024')
+    expect(fixtureSource).toContain('const secrets = [password, betterAuthSecrets, proxyIpSecret]')
+    const returnedFixture = fixtureSource.slice(
+      fixtureSource.indexOf('return Object.freeze({\n      convexSiteUrl,'),
+    )
+    expect(returnedFixture).not.toMatch(/betterAuthSecrets|proxyIpSecret/u)
+  })
+
+  it('proves the mounted-provider Convex token with the official verifier and exact token class', () => {
+    expect(runnerSource).toContain('/api/auth/convex/token')
+    expect(runnerSource).toContain('verifyBearerToken as verifyOfficialJwt')
+    expect(runnerSource).toContain('jwksUrl: `${origin}/api/auth/jwks`')
+    expect(runnerSource).toContain("audience: 'convex'")
+    expect(runnerSource).toContain("claims.token_use !== 'convex-session'")
+    expect(runnerSource).toContain(
+      "JSON.stringify(Object.keys(header).sort()) !== JSON.stringify(['alg', 'kid'])",
+    )
+  })
+})

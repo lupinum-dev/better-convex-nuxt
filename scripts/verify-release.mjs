@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+
+import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
+const root = path.resolve(import.meta.dirname, '..')
+const arguments_ = process.argv.slice(2)
+
+function fail(message) {
+  throw new Error(`[release-verify] ${message}`)
+}
+
+function run(command, args, options = {}) {
+  console.log(`\n> ${[command, ...args].join(' ')}`)
+  execFileSync(command, args, {
+    cwd: root,
+    env: options.env ?? process.env,
+    stdio: 'inherit',
+  })
+}
+
+function main() {
+  if (arguments_.length !== 2 || arguments_[0] !== '--artifact-manifest') {
+    fail('usage: pnpm release:verify --artifact-manifest <artifact.json>')
+  }
+
+  const evidencePath = path.resolve(root, arguments_[1])
+  run('node', ['scripts/release.mjs', 'verify', evidencePath])
+  const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+  if (
+    !evidence?.tarball ||
+    typeof evidence.tarball.file !== 'string' ||
+    path.basename(evidence.tarball.file) !== evidence.tarball.file
+  ) {
+    fail('artifact manifest contains an invalid tarball filename')
+  }
+  const tarball = path.join(path.dirname(evidencePath), evidence.tarball.file)
+
+  console.log('\n[release-verify] Source-integrity and source-runtime behavior gates')
+  // These gates intentionally exercise the checked-out source. They never pack
+  // and must not be described as tests of installed candidate bytes.
+  run('pnpm', ['run', 'check'])
+  run('pnpm', ['run', 'check:asvs'])
+  run('pnpm', ['run', 'check:sbom'])
+  run('pnpm', ['run', 'test:e2e:full'])
+  run('pnpm', ['run', 'test:dast:proxy'])
+  run('pnpm', ['run', 'check:auth-advisories'])
+
+  console.log(
+    '\n[release-verify] Hybrid auth gates (source behavior plus explicit candidate input)',
+  )
+  run('pnpm', ['run', 'verify:auth'], {
+    env: { ...process.env, BCN_RELEASE_TARBALL: tarball },
+  })
+
+  console.log('\n[release-verify] Artifact-dependent package and consumer gates')
+  // These gates consume the one manifest-selected tarball and are forbidden
+  // from discovering or packing a replacement candidate.
+  run('node', ['scripts/check-package-exports.mjs', '--tarball', tarball], {
+    env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
+  })
+  run('node', ['scripts/check-auth-provenance.mjs', '--tarball', tarball])
+  run('pnpm', ['run', 'check:candidate-apps', '--tarball', tarball])
+
+  console.log(
+    `\n[release-verify] PASS: source gates ran from the checkout; artifact-dependent gates consumed ${tarball}; no gate repacked the candidate.`,
+  )
+}
+
+try {
+  main()
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error)
+  process.exitCode = 1
+}

@@ -13,7 +13,7 @@ Convex for Nuxt 4, without the integration glue: SSR-to-realtime queries, Better
 - [Compare Nuxt integrations](https://better-convex-nuxt.vercel.app/docs/overview/comparison)
 
 > [!NOTE]
-> This package is pre-1.0. Minor releases can make deliberate hard cutovers; read the migration guide and changelog before upgrading.
+> This package is pre-1.0. The current auth architecture is a greenfield hard cut: do not point it at an existing Better Auth component database. Minor releases may make deliberate hard cutovers; read the changelog before upgrading.
 
 Better Convex Nuxt is ESM-only and supports Node `^22.12.0 || ^24.11.0 || >=26.0.0`.
 
@@ -22,6 +22,7 @@ Better Convex Nuxt is ESM-only and supports Node `^22.12.0 || ^24.11.0 || >=26.0
 - **One query lifecycle:** render during SSR, reuse the payload during hydration, and continue as a browser subscription.
 - **Identity isolation:** query state is partitioned across anonymous, signed-in, signed-out, and user-switch boundaries.
 - **Better Auth integration:** session and Convex identity stay synchronized through a bounded same-origin auth proxy.
+- **Delegated agents:** the optional official OAuth Provider profile serves preregistered MCP clients while authorization remains live in Convex.
 - **Nuxt server support:** call queries, mutations, and actions through one request-scoped `serverConvex` API.
 - **Application behavior:** optimistic state, pagination, uploads, connection state, DevTools, and structured errors use the same runtime model.
 - **Explicit security ownership:** the library transports identity; Convex functions remain the source of truth for authorization.
@@ -31,7 +32,7 @@ See [limitations and trade-offs](https://better-convex-nuxt.vercel.app/docs/over
 ## Install
 
 ```bash
-pnpm add better-convex-nuxt convex@1.42.1 better-auth@1.6.23 @convex-dev/better-auth@0.12.5
+pnpm add better-convex-nuxt convex@1.42.2 nuxt@4.4.8 better-auth@1.7.0-rc.1 kysely@0.28.17
 ```
 
 ```ts [nuxt.config.ts]
@@ -44,7 +45,7 @@ export default defineNuxtConfig({
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
-The package supports Nuxt `^4.4.0` and the exact Convex and auth peer versions declared in `package.json`.
+The package supports the exact Nuxt, Convex, Better Auth, and Kysely peer versions declared in `package.json`. Kysely is pinned because the supported Better Auth Convex adapter loads it as a stateful query runtime. The exact OAuth Provider runtime is package-owned and installed transitively with Better Convex Nuxt, so applications do not select a second provider version. OAuth authorization-server applications follow the [delegated OAuth and MCP guide](https://better-convex-nuxt.vercel.app/docs/build/authentication/delegated-oauth-and-mcp).
 
 ## Query from a page
 

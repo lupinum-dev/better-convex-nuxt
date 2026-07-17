@@ -222,7 +222,7 @@ For local browser runtime verification:
 ```bash
 pnpm convex:local:once
 pnpm exec convex env set SITE_URL http://127.0.0.1:3000
-pnpm exec convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+pnpm exec convex env set BETTER_AUTH_SECRETS "0:$(openssl rand -base64 32)"
 NUXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 \
 NUXT_PUBLIC_CONVEX_SITE_URL=http://127.0.0.1:3211 \
 SITE_URL=http://127.0.0.1:3000 \

@@ -57,7 +57,7 @@ import { packageEntries } from './package-entry-manifest.mjs'
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
-const cliArgs = process.argv.slice(2).filter((argument) => argument !== '--')
+const cliArgs = process.argv.slice(2)
 
 function readOption(name) {
   const inline = cliArgs.find((argument) => argument.startsWith(`${name}=`))
@@ -270,9 +270,22 @@ function collectExportTargets(value) {
   return Object.values(value).flatMap((next) => collectExportTargets(next))
 }
 
+function collectBinEntries(value) {
+  if (typeof value === 'string') return [[packageJson.name, value]]
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  return Object.entries(value)
+}
+
+function isCoveredByPackageFiles(path, declaredFiles) {
+  return declaredFiles.some(
+    (entry) => path === entry || path.startsWith(`${entry.replace(/\/$/, '')}/`),
+  )
+}
+
 /**
- * Package manifest checks: `files: ["dist"]` must include every `exports`
- * target, and `typesVersions` must have exactly one entry per non-root
+ * Package manifest checks: the `files` allowlist must include every `exports`
+ * target, runtime entries must expose their JavaScript import, types-only
+ * entries must not expose one, and `typesVersions` must have exactly one entry per non-root
  * `exports` subpath (so `./foo` resolves under both moduleResolution
  * `Bundler`/`NodeNext` and the legacy `node10` typesVersions fallback path).
  * A drift here is a real published-package defect, not a style nit, so it is
@@ -290,15 +303,29 @@ function checkPackageJsonManifestConsistency() {
       failures.push(`package.json exports is missing manifest entry "${entry.subpath}"`)
       continue
     }
-    if (packageEntry.import !== `./${entry.distJs}`) {
+    if (entry.kind === 'runtime') {
+      if (packageEntry.import !== `./${entry.distJs}`) {
+        failures.push(
+          `package.json exports["${entry.subpath}"].import must be "./${entry.distJs}" (manifest source of truth)`,
+        )
+      }
+    } else if (Object.hasOwn(packageEntry, 'import')) {
       failures.push(
-        `package.json exports["${entry.subpath}"].import must be "./${entry.distJs}" (manifest source of truth)`,
+        `package.json exports["${entry.subpath}"] is types-only and must not declare an import target`,
       )
     }
     if (packageEntry.types !== `./${entry.distDts}`) {
       failures.push(
         `package.json exports["${entry.subpath}"].types must be "./${entry.distDts}" (manifest source of truth)`,
       )
+    }
+    const allowedConditions = new Set(entry.kind === 'runtime' ? ['types', 'import'] : ['types'])
+    for (const condition of Object.keys(packageEntry)) {
+      if (!allowedConditions.has(condition)) {
+        failures.push(
+          `package.json exports["${entry.subpath}"] has undeclared condition "${condition}"`,
+        )
+      }
     }
   }
   for (const subpath of Object.keys(exportsMap)) {
@@ -316,14 +343,36 @@ function checkPackageJsonManifestConsistency() {
       if (!target.startsWith('./')) continue
       const stripped = target.slice(2)
       const coveredByDist = filesCoversDist && stripped.startsWith('dist/')
-      const coveredExplicitly = declaredFiles.some(
-        (entry) => stripped === entry || stripped.startsWith(`${entry.replace(/\/$/, '')}/`),
-      )
+      const coveredExplicitly = isCoveredByPackageFiles(stripped, declaredFiles)
       if (!coveredByDist && !coveredExplicitly) {
         failures.push(
           `package.json exports["${subpath}"] target "${target}" is not covered by "files": ${JSON.stringify(declaredFiles)}`,
         )
       }
+    }
+  }
+
+  if (packageJson.bin !== undefined && collectBinEntries(packageJson.bin).length === 0) {
+    failures.push('package.json bin must be a string or non-empty command map')
+  }
+  for (const [command, target] of collectBinEntries(packageJson.bin)) {
+    if (typeof command !== 'string' || command.length === 0 || typeof target !== 'string') {
+      failures.push('package.json bin entries must have non-empty command and target strings')
+      continue
+    }
+    if (!target.startsWith('./dist/')) {
+      failures.push(`package.json bin["${command}"] must point inside ./dist/: ${target}`)
+      continue
+    }
+    const stripped = target.slice(2)
+    if (!isCoveredByPackageFiles(stripped, declaredFiles)) {
+      failures.push(`package.json bin["${command}"] target "${target}" is not covered by files`)
+    }
+    const targetPath = resolve(repoRoot, target)
+    if (!existsSync(targetPath)) {
+      failures.push(`package.json bin["${command}"] target is missing: ${target}`)
+    } else if (!readFileSync(targetPath, 'utf8').startsWith('#!/usr/bin/env node\n')) {
+      failures.push(`package.json bin["${command}"] target must start with a Node shebang`)
     }
   }
 
@@ -361,7 +410,10 @@ function main() {
   failures.push(...sourceScan.failures)
   failures.push(...checkPackageJsonManifestConsistency())
 
-  requireDistBuilt()
+  // A release verification job receives the immutable tarball rather than a
+  // rebuilt root dist. Entry declarations and purity are checked inside the
+  // extracted supplied package below.
+  if (!suppliedTarball) requireDistBuilt()
 
   if (distOnly) {
     for (const entry of entries) {

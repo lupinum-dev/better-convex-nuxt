@@ -18,8 +18,11 @@ describe('packed artifact path classes', () => {
     expect(
       validate(
         'LICENSE',
+        'LICENSES/Apache-2.0.txt',
         'README.md',
+        'THIRD_PARTY_NOTICES.md',
         'package.json',
+        'security/upstream-convex-better-auth.json',
         'dist/module.mjs',
         'dist/runtime/errors/index.d.ts',
         'dist/runtime/devtools/ui/dist/_nuxt/entry.js',

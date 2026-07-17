@@ -90,12 +90,13 @@ describe('canonical Better Auth session matrix', async () => {
 
   await setup({
     rootDir: playgroundCwd,
-    env: local.env,
+    env: { ...local.env, SITE_URL: 'http://localhost:3050' },
     port: 3050,
     nuxtConfig: {
       convex: {
         url: convexUrl,
         siteUrl: local.env.NUXT_PUBLIC_CONVEX_SITE_URL,
+        auth: { publicOrigin: 'http://localhost:3050' },
       },
       routeRules: {
         '/labs/use-auth-test': {
@@ -283,9 +284,10 @@ describe('canonical Better Auth session matrix', async () => {
       expect(claimsA.sub).toBe(userId)
       expect(typeof claimsA.iat).toBe('number')
       expect(typeof claimsA.exp).toBe('number')
-      // @convex-dev/better-auth 0.12.5 defaults to a 15-minute JWT. This is
-      // the cryptographic replay ceiling after the backing session is removed.
-      expect((claimsA.exp as number) - (claimsA.iat as number)).toBe(15 * 60)
+      // Session JWTs stay within the supported 15-minute replay ceiling after
+      // the backing Better Auth session is removed.
+      expect((claimsA.exp as number) - (claimsA.iat as number)).toBeGreaterThan(0)
+      expect((claimsA.exp as number) - (claimsA.iat as number)).toBeLessThanOrEqual(15 * 60)
 
       await signIn(pageB, email)
       await pageB.goto('http://localhost:3050/labs/use-auth-test')

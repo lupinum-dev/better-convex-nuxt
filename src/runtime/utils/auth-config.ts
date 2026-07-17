@@ -1,3 +1,4 @@
+import { normalizeAuthOrigin } from '../shared/auth-origin'
 import { normalizeAuthProxyBodyLimit } from './config-defaults'
 
 // ============================================================================
@@ -50,8 +51,21 @@ export interface ConvexRouteProtectionConfig {
 export interface ConvexAuthOptions {
   /** Build-only path to the single client definition. Never copied to runtime config. */
   client?: string
+  /**
+   * Canonical public Nuxt application origin used by the same-origin auth proxy.
+   * Defaults to `SITE_URL`; when both are present they must match exactly after
+   * validation.
+   */
+  publicOrigin?: string
   /** Auth proxy body-size limits. */
   proxy?: AuthProxyDefaults
+  /**
+   * Expose the delegated OAuth MCP resource at the fixed same-origin `/mcp`
+   * route. The target is always the configured Convex HTTP Actions origin plus
+   * `/mcp`; callers cannot select an upstream or Convex function.
+   * @default false
+   */
+  mcp?: boolean
   /** High-verbosity auth trace channels. */
   debug?: ConvexDebugOptions
   /** Opt-in route protection redirect behavior. */
@@ -66,6 +80,8 @@ export interface ConvexAuthOptions {
 export type NormalizedConvexAuthConfig =
   | false
   | {
+      publicOrigin: string
+      mcp: boolean
       proxy: Readonly<{
         maxRequestBodyBytes: number
         maxResponseBodyBytes: number
@@ -89,6 +105,11 @@ function normalizeProxy(input: unknown) {
       new Headers().set(trustedClientIpHeader, 'validation')
     } catch {
       throw new TypeError('auth.proxy.trustedClientIpHeader must be a valid HTTP header name')
+    }
+    if (trustedClientIpHeader.toLowerCase().startsWith('x-bcn-')) {
+      throw new TypeError(
+        'auth.proxy.trustedClientIpHeader must not use the reserved x-bcn-* namespace',
+      )
     }
   }
   return Object.freeze({
@@ -121,6 +142,32 @@ function normalizeRouteProtection(input: unknown): ConvexRouteProtectionConfig {
   }
 }
 
+function normalizePublicOrigin(
+  options: ConvexAuthOptions,
+  siteUrlOrigin: string | undefined,
+): string {
+  const hasConfiguredOrigin = Object.prototype.hasOwnProperty.call(options, 'publicOrigin')
+  if (
+    hasConfiguredOrigin &&
+    options.publicOrigin !== undefined &&
+    typeof options.publicOrigin !== 'string'
+  ) {
+    throw new TypeError('auth.publicOrigin must be a string URL origin')
+  }
+
+  const configuredOrigin =
+    typeof options.publicOrigin === 'string'
+      ? normalizeAuthOrigin(options.publicOrigin, 'auth.publicOrigin')
+      : undefined
+  const defaultOrigin = siteUrlOrigin ? normalizeAuthOrigin(siteUrlOrigin, 'SITE_URL') : undefined
+
+  if (configuredOrigin && defaultOrigin && configuredOrigin !== defaultOrigin) {
+    throw new TypeError('auth.publicOrigin must match SITE_URL')
+  }
+
+  return configuredOrigin ?? defaultOrigin ?? ''
+}
+
 /**
  * Normalize the public `auth?: false | ConvexAuthOptions` input into the
  * discriminated runtime value. `false` stays `false`; anything else (including
@@ -129,12 +176,15 @@ function normalizeRouteProtection(input: unknown): ConvexRouteProtectionConfig {
  */
 export function normalizeConvexAuthConfig(
   input: false | ConvexAuthOptions | undefined | unknown,
+  siteUrlOrigin?: string,
 ): NormalizedConvexAuthConfig {
   if (input === false) return false
 
   const options = (input && typeof input === 'object' ? input : {}) as ConvexAuthOptions
 
   return {
+    publicOrigin: normalizePublicOrigin(options, siteUrlOrigin),
+    mcp: options.mcp === true,
     proxy: normalizeProxy(options.proxy),
     debug: normalizeDebug(options.debug),
     routeProtection: normalizeRouteProtection(options.routeProtection),
@@ -142,6 +192,8 @@ export function normalizeConvexAuthConfig(
 }
 
 /** Derive the internal `authEnabled` boolean from the normalized value. */
-export function isConvexAuthEnabled(config: NormalizedConvexAuthConfig): boolean {
+export function isConvexAuthEnabled(
+  config: NormalizedConvexAuthConfig,
+): config is Exclude<NormalizedConvexAuthConfig, false> {
   return config !== false
 }

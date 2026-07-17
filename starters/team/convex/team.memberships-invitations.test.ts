@@ -79,14 +79,13 @@ describe('team starter memberships and invitations', () => {
     })
     await t.run(async (ctx) => {
       await ctx.runMutation(components.betterAuth.adapter.create, {
-        input: {
-          model: 'member',
-          data: {
-            organizationId: otherOrganizationId,
-            userId: memberSeed.authUserId,
-            role: 'member',
-            createdAt: now,
-          },
+        model: 'member',
+        data: {
+          id: `member_${otherOrganizationId}_${memberSeed.authUserId}`,
+          organizationId: otherOrganizationId,
+          userId: memberSeed.authUserId,
+          role: 'member',
+          createdAt: now,
         },
       })
     })
@@ -263,9 +262,9 @@ describe('team starter memberships and invitations', () => {
           { field: 'email', value: 'invitee_accept@example.com' },
           { field: 'status', value: 'pending' },
         ],
-      })) as { _id?: string; id?: string } | null
+      })) as { id: string } | null
 
-      return invitation?.id ?? invitation?._id ?? null
+      return invitation?.id ?? null
     })
     if (!invitationId) {
       throw new Error('Expected invitation row to exist')
@@ -350,9 +349,9 @@ describe('team starter memberships and invitations', () => {
           { field: 'email', value: 'invitee_reject@example.com' },
           { field: 'status', value: 'pending' },
         ],
-      })) as { _id?: string; id?: string } | null
+      })) as { id: string } | null
 
-      return invitation?.id ?? invitation?._id ?? null
+      return invitation?.id ?? null
     })
     if (!invitationId) {
       throw new Error('Expected invitation row to exist')
@@ -410,9 +409,9 @@ describe('team starter memberships and invitations', () => {
           { field: 'organizationId', value: organizationId },
           { field: 'email', value: 'invitee_recipient_oracle@example.com' },
         ],
-      })) as { _id?: string; id?: string } | null
+      })) as { id: string } | null
 
-      return invitation?.id ?? invitation?._id ?? null
+      return invitation?.id ?? null
     })
     if (!invitationId) {
       throw new Error('Expected invitation row to exist')

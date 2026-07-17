@@ -1,3 +1,5 @@
+import { builtinModules } from 'node:module'
+
 import { packageEntries } from '../package-entry-manifest.mjs'
 import {
   probeAuthClientTyping,
@@ -19,10 +21,32 @@ import {
  * @typedef {object} CheckerEntryRule
  * @property {string} subpath - the package.json `exports` key
  * @property {PurityRule} [purity] - if present, every file under `distDir` is scanned for forbidden imports
- * @property {string} [distDir] - dist-relative directory (or single file) purity scanning walks (defaults to dirname(distJs))
+ * @property {string} [distDir] - dist-relative directory (or single file) purity scanning walks (defaults to dirname(distJs) for runtime entries)
  * @property {string} [sourceDir] - repo-relative source directory (or single file) purity scanning walks (defaults to `src/runtime/<subpath>`)
  * @property {(ctx: ProbeContext) => void} [packedProbe] - packed consumer probe, run against the extracted tarball
  */
+
+const escapedNodeBuiltins = builtinModules.map((specifier) =>
+  specifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+)
+
+const CONVEX_AUTH_FORBIDDEN_SPECIFIERS = [
+  /^<computed dynamic import>$/,
+  /^vue$/,
+  /^@vue\//,
+  /^vue-router$/,
+  /^nuxt$/,
+  /^@nuxt\//,
+  /^#(?:app|build|components|imports)\b/,
+  /^nitropack\b/,
+  /^h3$/,
+  /^node:/,
+  new RegExp(`^(?:${escapedNodeBuiltins.join('|')})$`, 'u'),
+  /^convex\/browser$/,
+  /^better-convex-nuxt(?:\/|$)/,
+  /^(?:~|~~|@|@@)\//,
+  /^\$(?:app|lib)(?:\/|$)/,
+]
 
 /** @type {CheckerEntryRule[]} */
 const CHECKER_ENTRY_RULES = [
@@ -69,6 +93,36 @@ const CHECKER_ENTRY_RULES = [
       allowedBareSpecifiers: new Set(),
     },
     packedProbe: probeAuthClientTyping,
+  },
+  {
+    subpath: './convex-auth',
+    purity: {
+      forbiddenSpecifierPatterns: CONVEX_AUTH_FORBIDDEN_SPECIFIERS,
+      allowedBareSpecifiers: new Set(),
+    },
+    sourceDir: 'src/runtime/convex-auth',
+    distDir: 'dist/runtime/convex-auth',
+  },
+  {
+    subpath: './convex-auth/convex.config',
+    purity: {
+      forbiddenSpecifierPatterns: CONVEX_AUTH_FORBIDDEN_SPECIFIERS,
+      allowedBareSpecifiers: new Set(),
+    },
+    sourceDir: 'src/runtime/convex-auth/component/convex.config.ts',
+    distDir: 'dist/runtime/convex-auth/component/convex.config.js',
+  },
+  {
+    subpath: './convex-auth/_generated/component.js',
+  },
+  {
+    subpath: './convex-auth/test',
+    purity: {
+      forbiddenSpecifierPatterns: CONVEX_AUTH_FORBIDDEN_SPECIFIERS,
+      allowedBareSpecifiers: new Set(),
+    },
+    sourceDir: 'src/runtime/convex-auth/test.ts',
+    distDir: 'dist/runtime/convex-auth/test.js',
   },
   {
     subpath: './server',
@@ -135,10 +189,12 @@ export const entries = packageEntries.map((contract) => {
   if (!rules) throw new Error(`Missing checker rules for package entry ${contract.subpath}`)
   return {
     ...rules,
+    kind: contract.kind,
     distJs: contract.distJs,
     distDts: contract.distDts,
     expectedValueExports: contract.valueExports,
     additionalExpectedDeclaredNames: contract.typeExports,
+    exactDeclaredExports: contract.exactDeclaredExports ?? false,
     forbiddenNames: contract.forbiddenNames,
   }
 })

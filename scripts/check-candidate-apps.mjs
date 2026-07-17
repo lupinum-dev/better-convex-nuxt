@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   copyFileSync,
@@ -13,6 +13,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 
@@ -49,11 +50,11 @@ const inheritedEnvironment = Object.fromEntries(
 )
 const deterministicEnvironment = {
   ...inheritedEnvironment,
-  BETTER_AUTH_SECRET: 'candidate-artifact-verification-secret-32-characters',
+  BCN_AUTH_PROXY_IP_SECRET: 'candidate-artifact-proxy-ip-secret-32-characters',
+  BETTER_AUTH_SECRETS: '1:candidate-artifact-verification-secret-32-characters',
   CI: 'true',
   CONVEX_SITE_URL: 'https://candidate-artifact.convex.site',
   CONVEX_URL: 'https://candidate-artifact.convex.cloud',
-  MCP_SERVER_SECRET: 'candidate-artifact-mcp-secret-32-characters',
   NUXT_PUBLIC_CONVEX_SITE_URL: 'https://candidate-artifact.convex.site',
   NUXT_PUBLIC_CONVEX_URL: 'https://candidate-artifact.convex.cloud',
   NUXT_TELEMETRY_DISABLED: '1',
@@ -63,7 +64,7 @@ const deterministicEnvironment = {
   VITE_CONVEX_URL: 'https://candidate-artifact.convex.cloud',
 }
 
-const args = process.argv.slice(2).filter((argument) => argument !== '--')
+const args = process.argv.slice(2)
 if (args.length !== 0 && (args.length !== 2 || args[0] !== '--tarball')) {
   console.error('Usage: node scripts/check-candidate-apps.mjs [--tarball <path>]')
   process.exit(1)
@@ -176,6 +177,138 @@ function compareGeneratedTree(sourceDir, candidateDir) {
   }
 }
 
+function productionPublicFiles(publicDirectory) {
+  if (!existsSync(publicDirectory)) {
+    throw new Error('mcp-oauth-agent: production build omitted .output/public')
+  }
+  const files = []
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) visit(path)
+      else if (entry.isFile()) files.push(relative(publicDirectory, path).split('\\').join('/'))
+      else throw new Error(`mcp-oauth-agent: unexpected public build entry ${path}`)
+    }
+  }
+  visit(publicDirectory)
+  return files
+}
+
+async function availableProductionPort() {
+  const server = createServer()
+  await new Promise((ready, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', ready)
+  })
+  const address = server.address()
+  if (!address || typeof address === 'string') {
+    server.close()
+    throw new Error('mcp-oauth-agent: could not allocate a production probe port')
+  }
+  await new Promise((ready, reject) => server.close((error) => (error ? reject(error) : ready())))
+  return address.port
+}
+
+async function stopProductionServer(child) {
+  if (child.exitCode !== null) return
+  child.kill('SIGTERM')
+  const stopped = await Promise.race([
+    new Promise((ready) => child.once('exit', () => ready(true))),
+    new Promise((ready) => setTimeout(() => ready(false), 2_000)),
+  ])
+  if (!stopped) {
+    child.kill('SIGKILL')
+    if (child.exitCode === null) {
+      await new Promise((ready) => child.once('exit', ready))
+    }
+  }
+}
+
+async function responseStatus(url) {
+  const response = await fetch(url, {
+    redirect: 'manual',
+    signal: AbortSignal.timeout(10_000),
+  })
+  await response.body?.cancel().catch(() => {})
+  return response.status
+}
+
+async function waitForProductionAsset(child, url) {
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error('mcp-oauth-agent: production server exited before source-map probe')
+    }
+    try {
+      if ((await responseStatus(url)) === 200) return
+    } catch {
+      // The bounded readiness loop retries connection refusal while Nitro starts.
+    }
+    await new Promise((ready) => setTimeout(ready, 100))
+  }
+  throw new Error('mcp-oauth-agent: production asset did not become reachable')
+}
+
+async function assertProductionSourceMapsArePrivate(appDir) {
+  const outputDirectory = join(appDir, '.output')
+  const publicDirectory = join(outputDirectory, 'public')
+  const publicFiles = productionPublicFiles(publicDirectory)
+  const publicMaps = publicFiles.filter((file) => file.endsWith('.map'))
+  if (publicMaps.length > 0) {
+    throw new Error(
+      `mcp-oauth-agent: production public output contains source maps: ${publicMaps.join(', ')}`,
+    )
+  }
+
+  const publicCode = publicFiles.filter((file) => /\.(?:css|js|mjs)$/u.test(file))
+  for (const file of publicCode) {
+    if (/sourceMappingURL\s*=\s*data:/u.test(readFileSync(join(publicDirectory, file), 'utf8'))) {
+      throw new Error(`mcp-oauth-agent: production public output embeds a source map in ${file}`)
+    }
+  }
+
+  const asset = publicFiles.find((file) => file.startsWith('_nuxt/') && file.endsWith('.js'))
+  if (!asset) throw new Error('mcp-oauth-agent: production build omitted a public JavaScript asset')
+  const serverEntry = join(outputDirectory, 'server', 'index.mjs')
+  if (!existsSync(serverEntry)) {
+    throw new Error('mcp-oauth-agent: production build omitted .output/server/index.mjs')
+  }
+
+  const port = await availableProductionPort()
+  const origin = `http://127.0.0.1:${port}`
+  const child = spawn(process.execPath, [serverEntry], {
+    cwd: appDir,
+    env: {
+      ...deterministicEnvironment,
+      HOST: '127.0.0.1',
+      NITRO_HOST: '127.0.0.1',
+      NITRO_PORT: String(port),
+      NODE_ENV: 'production',
+      PORT: String(port),
+    },
+    stdio: 'ignore',
+  })
+  try {
+    await waitForProductionAsset(child, `${origin}/${asset}`)
+    const probes = [`/${asset}.map`, '/index.mjs.map']
+    const statuses = []
+    for (const path of probes) {
+      const status = await responseStatus(`${origin}${path}`)
+      if (status === 200) {
+        throw new Error(`mcp-oauth-agent: production server publicly served ${path}`)
+      }
+      statuses.push(`${path}=${status}`)
+    }
+    console.log(
+      `[candidate-source-maps] PASS: mcp-oauth-agent production public output has no map files or inline maps; ${statuses.join(', ')}.`,
+    )
+  } finally {
+    await stopProductionServer(child)
+  }
+}
+
 const scratchDir = mkdtempSync(join(tmpdir(), 'bcn-candidate-apps-'))
 
 try {
@@ -279,7 +412,11 @@ try {
 
     run('pnpm', ['run', 'typecheck'], { cwd: appDir })
     if (manifest.scripts?.test) run('pnpm', ['run', 'test'], { cwd: appDir })
-    run('pnpm', ['run', 'build'], { cwd: appDir })
+    run('pnpm', ['run', 'build'], {
+      cwd: appDir,
+      env: { ...deterministicEnvironment, NODE_ENV: 'production' },
+    })
+    if (app.name === 'mcp-oauth-agent') await assertProductionSourceMapsArePrivate(appDir)
   }
 
   if (!agencyConvexDeployKey) {

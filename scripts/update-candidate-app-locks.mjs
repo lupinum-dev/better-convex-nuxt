@@ -18,9 +18,9 @@ import { join, resolve } from 'node:path'
 import { maintainedCandidateApps } from './maintained-candidate-apps.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
-const args = process.argv.slice(2).filter((argument) => argument !== '--')
+const args = process.argv.slice(2)
 if (args.length !== 2 || args[0] !== '--tarball') {
-  console.error('Usage: pnpm update:candidate-app-locks -- --tarball <better-convex-nuxt.tgz>')
+  console.error('Usage: pnpm update:candidate-app-locks --tarball <better-convex-nuxt.tgz>')
   process.exit(1)
 }
 
@@ -65,10 +65,9 @@ function runPnpm(directory, registry, frozen) {
   })
 }
 
-function transformCandidateResolution(lock, replacementBlocks) {
+function removeCandidateResolution(lock) {
   const lines = lock.split('\n')
   const output = []
-  const blocks = {}
   const removed = { importers: 0, packages: 0, snapshots: 0 }
   let section
 
@@ -91,7 +90,6 @@ function transformCandidateResolution(lock, replacementBlocks) {
       continue
     }
 
-    const blockStart = index
     index += 1
     while (
       index < lines.length &&
@@ -101,8 +99,6 @@ function transformCandidateResolution(lock, replacementBlocks) {
       index += 1
     }
     removed[section] += 1
-    blocks[section] = lines.slice(blockStart, index).join('\n')
-    if (replacementBlocks) output.push(...replacementBlocks[section].split('\n'))
   }
 
   for (const [sectionName, count] of Object.entries(removed)) {
@@ -110,7 +106,7 @@ function transformCandidateResolution(lock, replacementBlocks) {
       throw new Error(`Expected one ${packageJson.name} block in ${sectionName}; found ${count}`)
     }
   }
-  return { blocks, lock: output.join('\n') }
+  return output.join('\n')
 }
 
 let registry
@@ -191,7 +187,7 @@ try {
   for (const { path: directory } of maintainedCandidateApps) {
     const lockPath = join(repoRoot, directory, 'pnpm-lock.yaml')
     const previousLock = readFileSync(lockPath, 'utf8')
-    const lockWithoutCandidate = transformCandidateResolution(previousLock).lock
+    const lockWithoutCandidate = removeCandidateResolution(previousLock)
     const validationDir = join(validationRoot, directory)
     mkdirSync(validationDir, { recursive: true })
     for (const filename of ['package.json', 'pnpm-workspace.yaml']) {
@@ -213,14 +209,15 @@ try {
     ) {
       throw new Error(`${directory}/pnpm-lock.yaml did not adopt the candidate integrity`)
     }
-    const refreshedBlocks = transformCandidateResolution(normalizedLock).blocks
-    const mergedLock = transformCandidateResolution(previousLock, refreshedBlocks).lock
-    writeFileSync(validationLockPath, mergedLock)
+    // The candidate manifests are part of the release contract. Preserve the
+    // complete lock pnpm regenerated from those manifests; merging only the
+    // module's own blocks would retain removed peers and stale importer specs.
+    writeFileSync(validationLockPath, normalizedLock)
     await runPnpm(validationDir, registry, true)
-    if (readFileSync(validationLockPath, 'utf8') !== mergedLock) {
+    if (readFileSync(validationLockPath, 'utf8') !== normalizedLock) {
       throw new Error(`${directory}/pnpm-lock.yaml changed during frozen validation`)
     }
-    updatedLocks.set(lockPath, mergedLock)
+    updatedLocks.set(lockPath, normalizedLock)
   }
   for (const [lockPath, updatedLock] of updatedLocks) writeFileSync(lockPath, updatedLock)
   console.log(

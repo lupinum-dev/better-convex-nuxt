@@ -1,89 +1,239 @@
 # Releasing Better Convex Nuxt
 
-The release has one source artifact: the tarball produced from the clean,
-merged `main` commit. Preparation never publishes to npm and never creates or
-pushes a Git tag.
+Public packages are published only by `.github/workflows/publish-prerelease.yml`
+through npm trusted publishing. A workstation may build an artifact for review,
+but it must never publish, promote, or repack a public release.
 
-## Prepare a release
+## Local artifact rehearsal
+
+Start from a clean reviewed commit whose package version has a matching
+`CHANGELOG.md` section, then run:
 
 ```bash
-git switch main
-git pull --ff-only origin main
 pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm check:auth-backend --install
 pnpm release:prepare
 ```
 
-The command runs the security, test, contract, consumer, and maintained-app
-gates; builds and packs once; then writes these ignored artifacts:
+The preparation command first builds once and invokes
+`npm pack --ignore-scripts` once. Source-integrity and source-runtime gates then
+run from the reviewed checkout; artifact-dependent package, provenance, and
+clean-consumer gates install or inspect the one immutable tarball. The auth gate
+is hybrid and passes that tarball explicitly to its package-aware sub-gates.
+Nothing repacks the candidate. The command writes an ignored
+`.release-artifacts` directory containing:
 
-- the package tarball;
-- a versioned content manifest;
-- a versioned CycloneDX SBOM.
+- the npm tarball;
+- a deterministic path/mode/size/SHA-256 content manifest;
+- a CycloneDX SBOM;
+- an artifact evidence manifest that binds the source commit, package version,
+  tarball SHA-256 and SRI, content manifest, SBOM, and a random build-generated
+  runtime fingerprint embedded in the packed module and endpoint handler.
 
-Keep the printed SHA-256 with the release evidence. Do not rebuild between
-verification and publication.
+Verification accepts only the exact version-derived artifact filenames,
+re-extracts the tarball to recompute its complete path/mode/size/hash manifest,
+requires the packed name, version, dependency, peer, optional-dependency,
+engine, and package-manager contract to exactly match the reviewed source, and
+regenerates the canonical production SBOM with the extracted package manifest
+as its root. The SBOM embeds a digest of that production manifest contract. A
+sidecar whose own hash is valid but whose content does not match those
+independent results is rejected.
 
-## Publish the candidate
+The npm tarball contains neither `pnpm-lock.yaml` nor a resolved dependency
+tree. After the exact candidate/source contract comparison, transitive package
+components are therefore resolved from the release checkout's frozen lockfile;
+the extracted candidate remains the SBOM root. Consumer-owned peer transitive
+dependencies belong in each consuming application's resolved SBOM.
 
-Confirm npm authentication and that the version is still unused:
+## Commit-addressed package previews
 
-```bash
-VERSION="$(node -p "require('./package.json').version")"
-npm whoami
-npm view "better-convex-nuxt@$VERSION" version
-```
+`.github/workflows/package-preview.yml` is a developer preview transport, not
+a public npm release path. Each pull-request commit from an in-repository branch
+runs the complete `release:prepare` graph, selects the version-derived
+`.release-artifacts/*.tgz` bound to that exact commit, and passes the prebuilt
+tarball directly to the lockfile-pinned `pkg-pr-new` CLI. pkg.pr.new uploads
+prebuilt tarballs as-is; the workflow verifies the candidate again after upload
+and retains its evidence set for 14 days. It has read-only repository permission
+and receives no npm credential or OIDC publication authority.
 
-The second command must report that the version does not exist. Publish the
-verified tarball under the `next` dist-tag:
+Install the pkg.pr.new GitHub App on this repository before the first preview.
+The workflow deliberately ignores pull requests from forks. A maintainer can
+review a fork commit, move it to an in-repository branch, and open a pull request
+there. Maintainers may also run the workflow manually against a selected
+reviewed ref.
 
-```bash
-TARBALL=".release-artifacts/better-convex-nuxt-$VERSION.tgz"
-npm publish "$TARBALL" --tag next
-```
+The pkg.pr.new comment and job summary report a commit-SHA URL. Install that
+exact URL in an external clean consumer; do not record a floating PR or branch
+URL as evidence. A later commit produces a new URL and cancels an obsolete
+in-progress build for the same pull request. The preview URL proves only that
+the commit-addressed candidate can be installed from pkg.pr.new. It does not
+prove npm trusted publishing, protected cloud staging, registry byte equality,
+or any other release blocker described below, and it must never be promoted or
+republished as an official package.
 
-If npm requires one-time-password authentication, append `--otp <code>`.
-Never publish the repository directory: npm would rerun lifecycle scripts and
-produce bytes different from the verified tarball.
-
-Create the tag on the same merged commit and create a GitHub prerelease using
-the matching version section of `CHANGELOG.md`:
-
-```bash
-TAG="v$VERSION"
-git tag -a "$TAG" -m "$TAG"
-git push origin "$TAG"
-gh release create "$TAG" \
-  "$TARBALL" \
-  ".release-artifacts/$TAG.manifest.json" \
-  ".release-artifacts/$TAG.sbom.cdx.json" \
-  --prerelease \
-  --title "better-convex-nuxt $TAG" \
-  --notes-file <(awk -v tag="$TAG" '$0 == "## " tag {found=1; next} found && /^## / {exit} found' CHANGELOG.md)
-```
-
-## Probe and promote
-
-Install the exact version in candidate consumers; do not test through a moving
-tag:
-
-```bash
-pnpm add "better-convex-nuxt@$VERSION"
-pnpm why better-convex-nuxt
-```
-
-After the candidate deployments and coordinated downstream checks pass,
-promote the already-published bytes without rebuilding:
+Verify a transferred artifact set without rebuilding it:
 
 ```bash
-npm dist-tag add "better-convex-nuxt@$VERSION" latest
-gh release edit "$TAG" --prerelease=false
+node scripts/release.mjs verify .release-artifacts/vX.Y.Z-beta.N.artifact.json
 ```
 
-If candidate probing fails, leave `latest` unchanged and remove only the moving
-candidate tag if necessary:
+Local artifacts are disposable rehearsal outputs. Do not upload one to npm.
 
-```bash
-npm dist-tag rm better-convex-nuxt next
-```
+## Trusted prerelease workflow
 
-Do not unpublish a released version; fix forward with a new version.
+The protected `v*-*` tag must point at the reviewed commit and exactly match the
+prerelease version in `package.json`. The workflow then:
+
+1. requires distinct named Security Owner/deputy repository variables and a
+   notification-delivery test no older than 30 days;
+2. uses Node `22.14.0`, npm `11.5.1`, a frozen pnpm lock, and commit-pinned
+   GitHub Actions;
+3. builds and packs one artifact set without lifecycle scripts rerunning the
+   build;
+4. passes that immutable set to a separate job, installs the manifest-reviewed
+   local backend there, runs source-integrity/runtime gates from the checkout,
+   and runs artifact-dependent provenance, package-entry, and maintained
+   clean-consumer gates against the exact tarball;
+5. enters the protected `bcn-auth-staging` environment, reverifies the
+   downloaded artifact, proves the staging ingress is closed to unleased
+   traffic, requires its fingerprint from the already-deployed public Nuxt
+   origin and the real auth/MCP responses, clean-installs and deploys its Convex
+   fixture, proves zero persisted staging state, and runs the reduced critical
+   races;
+6. waits for approval in the protected `npm-release` environment;
+7. grants `id-token: write` only to the publish job and publishes the tested
+   tarball through npm OIDC under `next`;
+8. downloads the published package and compares its bytes with the tested
+   tarball.
+
+### Protected cloud-staging gate
+
+`bcn-auth-staging` is a dedicated, pre-provisioned Convex production deployment;
+the workflow neither creates nor destroys it. The repository can deploy Convex
+functions with a deployment-scoped key, but deploying the Nuxt host is
+provider-specific. Before approving this protected job, the host operator must
+build and deploy the application from the exact downloaded candidate tarball.
+The public origin must expose that candidate's package-owned
+`/api/_better-convex-nuxt/release-fingerprint` response. A source build or a
+different/stale tarball does not register or cannot match that route, so the job
+fails before deploying Convex functions or writing application data. Environment
+variables cannot assert or override the fingerprint.
+
+This fixed deployment is safe to clean only while the workflow has exclusive
+ingress and operator ownership. The host edge must reject requests without the
+protected `__Host-bcn-staging-lease` cookie with an exact `403` before Nuxt for
+the fingerprint, auth read/write, and MCP probes. The protected workflow proves
+that behavior before deployment, then sends the lease only from in-memory HTTP
+and browser contexts. The lease is a staging perimeter control, not an
+application credential or supported runtime option. The deployment key must be
+reserved for this workflow, the environment concurrency group must remain
+exclusive, and operators must not invoke Convex functions or write staging data
+during a run. If any of those conditions cannot be guaranteed, publication is
+blocked; broad cleanup is not safe on a shared environment. Read-only public
+protocol metadata and `/api/auth/jwks` remain reachable without the lease so
+Convex and standards clients can resolve signing keys; the runner separately
+requires the JWKS response to carry the candidate fingerprint and contain no
+private key material.
+
+The protected GitHub environment must provide the root HTTPS origins
+`BCN_AUTH_STAGING_CONVEX_URL`, `BCN_AUTH_STAGING_CONVEX_SITE_URL`, and
+`BCN_AUTH_STAGING_ORIGIN`, plus the exact Convex team slug as
+`BCN_AUTH_STAGING_TEAM`, as variables. It must provide a production,
+deployment-scoped `BCN_AUTH_STAGING_CONVEX_DEPLOY_KEY` plus the one-time OAuth
+owner bootstrap identity's `BCN_AUTH_STAGING_EMAIL` and
+`BCN_AUTH_STAGING_PASSWORD` as secrets. It must also provide a random base64url
+`BCN_AUTH_STAGING_INGRESS_LEASE` secret containing 43–128 characters and
+configure the host edge to require the matching cookie. This account must not
+already exist: the job creates it only after the zero-state proof and removes it
+during cleanup.
+The deployment's persistent `SITE_URL` and `CONVEX_SITE_URL` must match the
+protected public-origin and site URL variables. Project keys, preview keys,
+development keys, a team/project slug other than the protected identity, or
+URL/key mismatches fail closed.
+
+After the live host fingerprint matches, the job copies the maintained
+`mcp-oauth-agent` starter into a clean temporary directory, replaces its package
+dependency with the manifest-selected absolute `.tgz` path, installs with
+lifecycle scripts disabled, and verifies the installed module and shared runtime
+fingerprint helper carry the same fingerprint. It statically requires exactly
+one current component mount named `betterAuth`, generates bounded internal
+state-proof functions from every packaged auth model and every starter
+application table, and runs `convex deploy` against the named deployment. Before
+any account or race write, every mounted auth-model and app-table count must be
+zero. A non-empty or malformed proof fails without deleting the unexpected
+state.
+
+Once the zero-state proof passes, the job owns the rehearsal data: it creates the
+temporary OAuth administrator, runs the same-ID, increment, official JWKS
+rotation, provider-owned authorization-code/PKCE races, and the real Better Auth
+database-backed lockout/reset path. It exchanges a final persisted session for a
+short-lived RS256 JWT, verifies its exact claims and published-key signature, and
+requires the named Convex deployment to accept that token with the matching
+subject and `convex-session` class. The real auth and MCP proxy responses must
+carry the candidate fingerprint. It then deletes every row from all discovered
+mounted auth models and application tables. It must re-prove zero state before
+writing and uploading
+`bcn-auth-staging-report`. The report contains artifact coordinates, public
+topology, booleans, and counts—never credentials, codes, verifiers, tokens, or
+key material.
+
+Convex does not expose a repository-controlled inventory of data retained by
+components that are no longer mounted. The single-mount and zero-row proof
+therefore covers the deployed fixture's current `betterAuth` mount, not hidden
+state from an earlier unmounted component. Evidence that this dedicated
+deployment was provisioned clean and has never hosted another component remains
+an external publication blocker, as does the provider-specific Nuxt deployment
+record for the exact tarball. A passing report is not a substitute for either
+record.
+
+Before the first prerelease, an npm package owner must configure
+`publish-prerelease.yml` as the package's only trusted publisher, allow
+`npm publish`, protect the `bcn-auth-staging` and `npm-release` environments and
+release-tag pattern,
+set npm publishing access to **Require two-factor authentication and disallow
+tokens**, revoke existing automation write tokens, and test Security
+Owner/deputy notification delivery. Those are external release blockers, not
+defaults the repository can silently provide.
+
+The `npm-release` approver must withhold approval until the release record for
+the downloaded artifact hash contains the empty production-like rehearsal,
+separate `bcn-auth-staging` race report, synthetic-advisory notification and
+expiry drill, forward-fix timeline, and independent audit with no unresolved
+P0/P1 finding. Repository tests cannot manufacture cloud, delivery, or human
+review evidence; a missing record blocks publication.
+
+## Security release governance
+
+Every release needs a matching `CHANGELOG.md` entry. When a change affects the
+auth schema, adapter invariants, cookie/proxy contract, claims, issuer or
+resource binding, OAuth metadata or grants, disabled routes, token lifetimes,
+JWKS behavior, secret format, or revocation semantics, the entry must state:
+
+- the exact affected and fixed versions;
+- whether the change is a hard cut and whether local-component schema/codegen
+  must be regenerated;
+- the deployment order and any required session, client-secret, consent,
+  provider-credential, or signing-key action;
+- protocol or interoperability impact and the gates that verified it;
+- any residual bearer/cache window or temporary mitigation.
+
+Security-sensitive notes require the BCN Security Owner and independent
+auth/security reviewer to approve the affected range, operator instructions,
+and disclosure timing. Those are human approvals; a green workflow cannot
+supply them. Follow the compromise and package-version runbooks in
+`SECURITY.md`.
+
+For an affected published range, fix forward on a new version first. An
+authorized npm owner may then deprecate the exact vulnerable range with a
+concise upgrade message and must save registry evidence in the private incident
+record. Do not unpublish, reuse a version, move `latest` to untested bytes, or
+publish from a workstation.
+
+## Failure and forward fix
+
+Do not unpublish or reuse a version. If any gate or candidate deployment fails,
+leave `latest` unchanged, correct the source, obtain independent review, assign
+a new prerelease version, and rerun the complete workflow to create new bytes.
+Stable publication remains blocked until Better Auth 1.7 stable exists and the
+stable gates and independent security review in `plan.md` pass.

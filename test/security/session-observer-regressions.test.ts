@@ -1,3 +1,5 @@
+import { inspect } from 'node:util'
+
 import { describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 
@@ -33,7 +35,7 @@ describe('Better Auth public session observer', () => {
       ['session-token-a', null],
       ['session-token-b', null],
       [null, null],
-      [null, 'expired'],
+      [null, 'Authentication is temporarily unavailable'],
     ])
     stop()
   })
@@ -114,9 +116,27 @@ describe('Better Auth public session observer', () => {
       [null, null],
       ['mfa-session-token', null],
       ['oauth-session-token', null],
-      [null, 'session expired'],
+      [null, 'Authentication is temporarily unavailable'],
       [null, null],
     ])
+    stop()
+  })
+
+  it('never forwards a raw Better Auth error message, cause, or stack', () => {
+    const sentinels = {
+      message: 'SESSION_OBSERVER_MESSAGE_SENTINEL_723e6a',
+      cause: 'SESSION_OBSERVER_CAUSE_SENTINEL_a52b11',
+      stack: 'SESSION_OBSERVER_STACK_SENTINEL_0c418f',
+    }
+    const error = new Error(sentinels.message, { cause: new Error(sentinels.cause) })
+    error.stack = sentinels.stack
+    const session = ref({ data: null, isPending: false, error })
+    const reconcile = vi.fn()
+    const stop = observeBetterAuthSession({ useSession: () => session }, reconcile)
+
+    expect(reconcile).toHaveBeenCalledWith(null, 'Authentication is temporarily unavailable')
+    const rendered = inspect(reconcile.mock.calls, { depth: null })
+    for (const sentinel of Object.values(sentinels)) expect(rendered).not.toContain(sentinel)
     stop()
   })
 })

@@ -36,6 +36,7 @@ const TOKEN_EXCHANGE_TIMED_OUT = Symbol('TOKEN_EXCHANGE_TIMED_OUT')
 const TOKEN_EXCHANGE_CANCELLED = Symbol('TOKEN_EXCHANGE_CANCELLED')
 const TOKEN_EXCHANGE_TIMEOUT_MESSAGE = 'Convex authentication token exchange timed out'
 const TOKEN_EXCHANGE_CANCELLED_MESSAGE = 'Convex authentication token exchange was cancelled'
+const TOKEN_EXCHANGE_FAILURE_MESSAGE = 'Authentication is temporarily unavailable'
 
 /**
  * A token is retainable only while it carries a valid required `exp` still in
@@ -145,7 +146,7 @@ export async function fetchConvexToken(
         if (response.error) {
           // A 401/403 is Better Auth reporting that there is no session to
           // exchange — a definitive anonymous outcome, identical to an absent
-          // token, NOT an authentication failure. `@convex-dev/better-auth`'s
+          // token, NOT an authentication failure. Better Convex Nuxt's
           // `/convex/token` returns `401 UNAUTHORIZED` for every session-less
           // request, so surfacing it as an `authError` would push every anonymous
           // visitor's `optional`/`required` queries into the auth-error gate branch
@@ -155,7 +156,7 @@ export async function fetchConvexToken(
           if (isDefinitiveAuthStatus(response.error)) {
             return { identity: null, authError: null, definitive: true }
           }
-          lastError = normalizeErrorMessage(response.error)
+          lastError = TOKEN_EXCHANGE_FAILURE_MESSAGE
           continue
         }
         const token = response.data?.token
@@ -177,7 +178,7 @@ export async function fetchConvexToken(
           }
         }
         return { identity, authError: null, definitive: false }
-      } catch (error) {
+      } catch {
         if (externallyCancelled) {
           lastError = TOKEN_EXCHANGE_CANCELLED_MESSAGE
           break
@@ -186,7 +187,7 @@ export async function fetchConvexToken(
           lastError = TOKEN_EXCHANGE_TIMEOUT_MESSAGE
           break
         }
-        lastError = normalizeErrorMessage(error)
+        lastError = TOKEN_EXCHANGE_FAILURE_MESSAGE
       }
     }
   } finally {
@@ -197,7 +198,7 @@ export async function fetchConvexToken(
   // Exhausted transient retries: a still-usable identity may be retained.
   return {
     identity: null,
-    authError: lastError ?? 'Convex authentication failed',
+    authError: lastError ?? TOKEN_EXCHANGE_FAILURE_MESSAGE,
     definitive: false,
   }
 }
@@ -207,14 +208,4 @@ function isDefinitiveAuthStatus(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const status = (error as { status?: unknown }).status
   return status === 401 || status === 403
-}
-
-function normalizeErrorMessage(value: unknown): string {
-  if (value instanceof Error) return value.message
-  if (value && typeof value === 'object' && 'message' in value) {
-    const message = (value as { message: unknown }).message
-    if (typeof message === 'string' && message.length > 0) return message
-  }
-  if (typeof value === 'string' && value.length > 0) return value
-  return 'Convex authentication failed'
 }

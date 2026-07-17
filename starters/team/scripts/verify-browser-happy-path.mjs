@@ -10,7 +10,7 @@ const rootUrl = process.env.STARTER_BROWSER_URL ?? 'http://localhost:3000'
 const convexCloudPort = Number(process.env.STARTER_CONVEX_CLOUD_PORT ?? 3210)
 const convexSitePort = Number(process.env.STARTER_CONVEX_SITE_PORT ?? 3211)
 const nuxtPort = Number(new URL(rootUrl).port || 80)
-const defaultAuthSecret = 'starter-browser-smoke-secret-local-only-32chars'
+const defaultAuthSecrets = '0:starter-browser-smoke-secret-local-only-32chars'
 const browserViewport = process.argv.includes('--mobile')
   ? 'mobile'
   : (process.env.STARTER_BROWSER_VIEWPORT ?? 'desktop')
@@ -54,7 +54,7 @@ function startProcess(name, args, readyPattern, timeoutMs = 60_000) {
       env: {
         ...process.env,
         SITE_URL: rootUrl,
-        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? defaultAuthSecret,
+        BETTER_AUTH_SECRETS: process.env.BETTER_AUTH_SECRETS ?? defaultAuthSecrets,
         VITE_CONVEX_URL: `http://127.0.0.1:${convexCloudPort}`,
         VITE_CONVEX_SITE_URL: `http://127.0.0.1:${convexSitePort}`,
         NUXT_PUBLIC_CONVEX_URL: `http://127.0.0.1:${convexCloudPort}`,
@@ -175,7 +175,7 @@ async function readConvexDeploymentRef() {
 
 async function configureConvexAuthEnv() {
   const deployment = await readConvexDeploymentRef()
-  const authSecret = process.env.BETTER_AUTH_SECRET ?? defaultAuthSecret
+  const authSecrets = process.env.BETTER_AUTH_SECRETS ?? defaultAuthSecrets
 
   await runProcess('convex-env', [
     'exec',
@@ -194,8 +194,8 @@ async function configureConvexAuthEnv() {
     'set',
     '--deployment',
     deployment,
-    'BETTER_AUTH_SECRET',
-    authSecret,
+    'BETTER_AUTH_SECRETS',
+    authSecrets,
   ])
 }
 

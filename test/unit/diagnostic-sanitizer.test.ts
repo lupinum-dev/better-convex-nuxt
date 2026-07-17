@@ -102,4 +102,24 @@ describe('sanitizeDiagnosticValue', () => {
     expect(output).not.toContain('credential-sentinel')
     expect(output).toContain('[Omitted]')
   })
+
+  it('omits JWT-shaped values and arbitrary errors even when their field names are neutral', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logger = createLogger('debug')
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkaWFnbm9zdGljLXNlbnRpbmVsIn0.signature'
+    const sentinel = 'BCN_DIAGNOSTIC_SECRET_SENTINEL'
+
+    logger.debug('transport failed', { value: jwt, sentinel })
+    logger.auth({
+      phase: 'ssr.auth.completed',
+      outcome: 'error',
+      error: new Error(`${jwt}:${sentinel}`),
+    })
+
+    const output = JSON.stringify([...log.mock.calls, ...error.mock.calls])
+    expect(output).not.toContain(jwt)
+    expect(output).not.toContain(sentinel)
+    expect(output).toContain('[Omitted]')
+  })
 })

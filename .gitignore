@@ -18,6 +18,7 @@ node_modules
 dist
 .release-artifacts
 .audit
+.artifacts/mcp-conformance/**
 
 # Nuxt
 .nuxt

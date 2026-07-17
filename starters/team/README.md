@@ -165,7 +165,7 @@ Set these in Convex before using auth routes:
 
 ```bash
 pnpm exec convex env set SITE_URL http://localhost:3000
-pnpm exec convex env set BETTER_AUTH_SECRET "$(openssl rand -base64 32)"
+pnpm exec convex env set BETTER_AUTH_SECRETS "0:$(openssl rand -base64 32)"
 ```
 
 Email delivery with Resend:

@@ -11,6 +11,7 @@
     "test/fixtures/auth-client-typing",
     "test/fixtures/missing-convex-api",
     "test/fixtures/auth-disabled",
+    "test/fixtures/better-auth-local-component",
     "test/fixtures/ssr-errors-consumer",
     "test/fixtures/errors-consumer",
     "test/fixtures/server-consumer",

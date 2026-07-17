@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { lstat, readdir, rm } from 'node:fs/promises'
+import { chmod, lstat, readdir, rm } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 
 /**
@@ -92,6 +92,11 @@ export default {
       const serverTsconfig = join(runtimeDir, 'server/tsconfig.json')
       if (existsSync(serverTsconfig)) {
         await rm(serverTsconfig, { force: true })
+      }
+
+      const authSchemaBin = join(runtimeDir, 'cli/auth-schema.js')
+      if (existsSync(authSchemaBin)) {
+        await chmod(authSchemaBin, 0o755)
       }
 
       // Drop the duplicate raw nitro output — ui/dist above is the one that ships.

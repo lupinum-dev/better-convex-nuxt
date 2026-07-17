@@ -1,0 +1,135 @@
+name: package-preview
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+concurrency:
+  group: package-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_NODE_VERSION: '22.14.0'
+  RELEASE_NPM_VERSION: '11.5.1'
+
+jobs:
+  preview:
+    # Fork code is never executed by this upload path. Maintainers can instead
+    # review it and move it to an in-repository branch before opening a PR.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.RELEASE_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned release tooling
+        run: npm install --global npm@"$RELEASE_NPM_VERSION" corepack@0.34.5 && corepack enable
+
+      - name: Install dependencies from the frozen lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Install and verify reviewed local backend
+        run: pnpm check:auth-backend --install
+
+      - name: Build and verify one immutable preview candidate
+        run: pnpm release:prepare
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Resolve the verified tarball identity
+        id: artifact
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs'
+          import { join } from 'node:path'
+
+          const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+          const evidencePath = join(
+            '.release-artifacts',
+            `v${packageJson.version}.artifact.json`,
+          )
+          const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
+          const expectedTarball = `${packageJson.name}-${packageJson.version}.tgz`
+          const expectedSourceCommit = process.env.EXPECTED_SOURCE_COMMIT
+
+          if (!/^[0-9a-f]{40}$/u.test(expectedSourceCommit ?? '')) {
+            throw new Error('The preview source commit is not a full Git SHA.')
+          }
+          if (evidence.sourceCommit !== expectedSourceCommit) {
+            throw new Error('Artifact evidence is not bound to the checked-out preview commit.')
+          }
+          if (evidence.tarball?.file !== expectedTarball) {
+            throw new Error('Artifact evidence selected an unexpected tarball.')
+          }
+          if (!/^[0-9a-f]{64}$/u.test(evidence.tarball.sha256 ?? '')) {
+            throw new Error('Artifact evidence has no valid tarball SHA-256.')
+          }
+
+          appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidencePath}\n`)
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `tarball=${join('.release-artifacts', expectedTarball)}\n`,
+          )
+          appendFileSync(process.env.GITHUB_OUTPUT, `sha256=${evidence.tarball.sha256}\n`)
+          NODE
+
+      - name: Upload the exact prebuilt tarball to pkg.pr.new
+        id: publish
+        run: >-
+          pnpm exec pkg-pr-new publish
+          --compact
+          --comment=update
+          --commentWithSha
+          --no-template
+          --packageManager=pnpm,npm
+          "${{ steps.artifact.outputs.tarball }}"
+
+      - name: Reverify that preview upload did not alter the candidate
+        run: node scripts/release.mjs verify "${{ steps.artifact.outputs.evidence }}"
+
+      - name: Retain the preview evidence set
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-preview-${{ github.run_id }}
+          path: .release-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write preview summary
+        env:
+          ARTIFACT_SHA256: ${{ steps.artifact.outputs.sha256 }}
+          PREVIEW_SHA: ${{ steps.publish.outputs.sha }}
+          PREVIEW_URLS: ${{ steps.publish.outputs.urls }}
+        run: |
+          {
+            echo '## Commit-addressed package preview'
+            echo
+            echo "Commit: \`$PREVIEW_SHA\`"
+            echo
+            echo "Tarball SHA-256: \`$ARTIFACT_SHA256\`"
+            echo
+            echo 'Install URL:'
+            echo
+            echo "\`$PREVIEW_URLS\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,430 @@
+/*
+ * Adapted from get-convex/better-auth at
+ * c628916b451a6b4cff0f5464f134475464b1a6da (Apache-2.0).
+ * Rewritten for first-class logical IDs, native atomic operations, and one
+ * component mutation per write.
+ */
+import {
+  createAdapterFactory,
+  type CleanedWhere,
+  type CustomAdapter,
+  type DBAdapterDebugLogOption,
+  type JoinConfig,
+} from 'better-auth/adapters'
+import { symmetricDecrypt, symmetricEncrypt, type SecretConfig } from 'better-auth/crypto'
+import { createFunctionHandle, type GenericDataModel } from 'convex/server'
+
+import { isWritableAuthCtx, requireWritableAuthCtx, type AuthCtx } from '../context'
+import type { AuthAdapterComponentApi, AuthComponentTriggers, AuthFunctions } from '../types'
+import { createAuthSchema } from './generate-schema'
+import type { AuthWhere } from './query'
+
+interface AdapterOptions<DataModel extends GenericDataModel> {
+  authFunctions?: AuthFunctions
+  debugLogs?: DBAdapterDebugLogOption
+  triggers?: AuthComponentTriggers<DataModel>
+}
+
+interface Page<T> {
+  continueCursor: string
+  isDone: boolean
+  page: T[]
+}
+
+interface IdTokenProtectionOptions {
+  account?: {
+    encryptOAuthTokens?: boolean
+    fields?: { idToken?: string }
+    modelName?: string
+  }
+  secrets?: Array<{ value: string; version: number }>
+}
+
+const encryptedEnvelopePrefix = '$ba$'
+
+function parseVersionedSecrets(raw: string | undefined): Array<{ value: string; version: number }> {
+  if (!raw) return []
+  return raw.split(',').map((entry) => {
+    const separator = entry.indexOf(':')
+    const versionText = separator < 0 ? '' : entry.slice(0, separator).trim()
+    const value = separator < 0 ? '' : entry.slice(separator + 1).trim()
+    const version = Number(versionText)
+    if (
+      !/^(?:0|[1-9]\d*)$/u.test(versionText) ||
+      !Number.isSafeInteger(version) ||
+      value.length === 0
+    ) {
+      throw new Error('AUTH_VERSIONED_SECRETS_INVALID')
+    }
+    return { value, version }
+  })
+}
+
+function idTokenSecretConfig(options: IdTokenProtectionOptions): SecretConfig {
+  const entries = options.secrets ?? parseVersionedSecrets(process.env.BETTER_AUTH_SECRETS)
+  if (entries.length === 0) throw new Error('AUTH_VERSIONED_SECRETS_REQUIRED')
+  const keys = new Map<number, string>()
+  for (const entry of entries) {
+    if (keys.has(entry.version)) throw new Error('AUTH_VERSIONED_SECRETS_INVALID')
+    keys.set(entry.version, entry.value)
+  }
+  return {
+    currentVersion: entries[0]!.version,
+    keys,
+  }
+}
+
+function assertNoLegacyAuthSecretEnvironment(): void {
+  if (process.env.BETTER_AUTH_SECRET !== undefined || process.env.AUTH_SECRET !== undefined) {
+    throw new Error('AUTH_LEGACY_SECRET_UNSUPPORTED')
+  }
+}
+
+/**
+ * The pinned Better Auth RC encrypts access/refresh tokens but omits `idToken`
+ * at several persistence call sites. Keep that workaround at the one adapter
+ * boundary so raw provider ID tokens never enter the component database.
+ */
+export function createAccountIdTokenProtector(options: IdTokenProtectionOptions) {
+  assertNoLegacyAuthSecretEnvironment()
+  const accountModel = options.account?.modelName ?? 'account'
+  const idTokenField = options.account?.fields?.idToken ?? 'idToken'
+
+  const transform = async <T>(
+    model: string,
+    data: T,
+    direction: 'protect' | 'reveal',
+  ): Promise<T> => {
+    if (
+      model !== accountModel ||
+      !data ||
+      typeof data !== 'object' ||
+      Array.isArray(data) ||
+      !(idTokenField in data)
+    ) {
+      return data
+    }
+    const value = (data as Record<string, unknown>)[idTokenField]
+    if (value === null || value === undefined || value === '') return data
+    if (typeof value !== 'string') throw new Error('AUTH_ID_TOKEN_INVALID')
+    if (options.account?.encryptOAuthTokens !== true) {
+      throw new Error('AUTH_OAUTH_TOKEN_ENCRYPTION_REQUIRED')
+    }
+    const secretConfig = idTokenSecretConfig(options)
+    let transformed: string
+    try {
+      if (direction === 'protect') {
+        if (value.startsWith(encryptedEnvelopePrefix)) {
+          await symmetricDecrypt({ data: value, key: secretConfig })
+          transformed = value
+        } else {
+          transformed = await symmetricEncrypt({ data: value, key: secretConfig })
+        }
+      } else {
+        if (!value.startsWith(encryptedEnvelopePrefix)) {
+          throw new Error('AUTH_ID_TOKEN_AT_REST_UNENCRYPTED')
+        }
+        transformed = await symmetricDecrypt({ data: value, key: secretConfig })
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'AUTH_ID_TOKEN_AT_REST_UNENCRYPTED') {
+        throw error
+      }
+      // The caught crypto error may contain credential/configuration detail;
+      // this storage boundary deliberately exposes only the fixed safe code.
+      // eslint-disable-next-line preserve-caught-error
+      throw new Error(
+        direction === 'protect'
+          ? 'AUTH_ID_TOKEN_ENCRYPTION_FAILED'
+          : 'AUTH_ID_TOKEN_DECRYPTION_FAILED',
+      )
+    }
+    return { ...(data as Record<string, unknown>), [idTokenField]: transformed } as T
+  }
+
+  return {
+    protect: <T>(model: string, data: T) => transform(model, data, 'protect'),
+    reveal: <T>(model: string, data: T) => transform(model, data, 'reveal'),
+  }
+}
+
+function toEpochMilliseconds(data: unknown): unknown {
+  if (data === null || data === undefined) return data
+  const value = data instanceof Date ? data.getTime() : new Date(data as string | number).getTime()
+  if (!Number.isFinite(value)) throw new Error('AUTH_DATE_INVALID')
+  return value
+}
+
+function toDate(data: unknown): unknown {
+  if (data === null || data === undefined || data instanceof Date) return data
+  if (typeof data !== 'number' || !Number.isFinite(data)) throw new Error('AUTH_DATE_INVALID')
+  return new Date(data)
+}
+
+async function collectPages<T>(
+  next: (paginationOpts: { cursor: string | null; numItems: number }) => Promise<Page<T>>,
+  limit?: number,
+): Promise<T[]> {
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0)) {
+    throw new Error('AUTH_LIMIT_INVALID')
+  }
+  if (limit === 0) return []
+
+  const rows: T[] = []
+  let cursor: string | null = null
+  let complete = false
+  while (!complete) {
+    const remaining = limit === undefined ? 200 : Math.min(200, limit - rows.length)
+    if (remaining <= 0) break
+    const cursorBefore: string | null = cursor
+    const result = await next({ cursor, numItems: remaining })
+    rows.push(...result.page)
+    if (result.isDone || (limit !== undefined && rows.length >= limit)) {
+      complete = true
+      continue
+    }
+    cursor = result.continueCursor
+    if (cursor === cursorBefore && result.page.length === 0) {
+      throw new Error('AUTH_PAGINATION_STALLED')
+    }
+  }
+  return limit === undefined ? rows : rows.slice(0, limit)
+}
+
+function triggerConfigured<DataModel extends GenericDataModel>(
+  triggers: AuthComponentTriggers<DataModel> | undefined,
+  model: string,
+  event: 'onCreate' | 'onUpdate' | 'onDelete',
+): boolean {
+  return typeof triggers?.[model]?.[event] === 'function'
+}
+
+export function createConvexAuthAdapter<
+  DataModel extends GenericDataModel,
+  Api extends AuthAdapterComponentApi,
+>(ctx: AuthCtx<DataModel>, component: Api, adapterOptions: AdapterOptions<DataModel> = {}) {
+  const handleCache = new Map<string, Promise<string | undefined>>()
+  const triggerHandle = (
+    model: string,
+    event: 'onCreate' | 'onUpdate' | 'onDelete',
+  ): Promise<string | undefined> => {
+    const cacheKey = `${event}:${model}`
+    const existing = handleCache.get(cacheKey)
+    if (existing) return existing
+    const reference = adapterOptions.authFunctions?.[event]
+    const value =
+      reference && triggerConfigured(adapterOptions.triggers, model, event)
+        ? createFunctionHandle(reference).then(String)
+        : Promise.resolve(undefined)
+    handleCache.set(cacheKey, value)
+    return value
+  }
+
+  return createAdapterFactory({
+    config: {
+      adapterId: 'better-convex-nuxt',
+      adapterName: 'Better Convex Nuxt',
+      debugLogs: adapterOptions.debugLogs ?? false,
+      transaction: false,
+      supportsNumericIds: false,
+      supportsUUIDs: false,
+      supportsJSON: false,
+      supportsDates: false,
+      supportsBooleans: true,
+      supportsArrays: true,
+      usePlural: false,
+      customTransformInput: ({ data, fieldAttributes }) =>
+        fieldAttributes.type === 'date' ? toEpochMilliseconds(data) : data,
+      customTransformOutput: ({ data, fieldAttributes }) =>
+        fieldAttributes.type === 'date' ? toDate(data) : data,
+    },
+    adapter: ({ options }) => {
+      options.telemetry = { enabled: false }
+      if (options.experimental?.joins) throw new Error('AUTH_JOINS_UNSUPPORTED')
+      const idTokens = createAccountIdTokenProtector(options)
+
+      const adapter: CustomAdapter = {
+        options: { isRunMutationCtx: isWritableAuthCtx(ctx) },
+        createSchema: createAuthSchema,
+        create: async <T extends Record<string, unknown>>({
+          model,
+          data,
+          select,
+        }: {
+          data: T
+          model: string
+          select?: string[]
+        }): Promise<T> => {
+          requireWritableAuthCtx(ctx)
+          const created = await ctx.runMutation(
+            component.adapter.create as never,
+            {
+              model,
+              data: await idTokens.protect(model, data),
+              select,
+              onCreateHandle: await triggerHandle(model, 'onCreate'),
+            } as never,
+          )
+          return idTokens.reveal(model, created as T)
+        },
+        findOne: async <T>({
+          model,
+          where,
+          select,
+        }: {
+          join?: JoinConfig
+          model: string
+          select?: string[]
+          where: CleanedWhere[]
+        }): Promise<T | null> => {
+          const found = await ctx.runQuery(
+            component.adapter.findOne as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              select,
+            } as never,
+          )
+          return idTokens.reveal(model, found as T | null)
+        },
+        findMany: async <T>({
+          model,
+          where,
+          limit,
+          select,
+          sortBy,
+          offset,
+        }: {
+          join?: JoinConfig
+          limit: number
+          model: string
+          offset?: number
+          select?: string[]
+          sortBy?: { direction: 'asc' | 'desc'; field: string }
+          where?: CleanedWhere[]
+        }): Promise<T[]> => {
+          if (offset !== undefined && offset !== 0) throw new Error('AUTH_OFFSET_UNSUPPORTED')
+          const rows = await collectPages<T>(
+            (paginationOpts) =>
+              ctx.runQuery(
+                component.adapter.findMany as never,
+                {
+                  model,
+                  where: where as AuthWhere[] | undefined,
+                  select,
+                  sortBy,
+                  paginationOpts,
+                } as never,
+              ) as Promise<Page<T>>,
+            limit,
+          )
+          return Promise.all(rows.map((row) => idTokens.reveal(model, row) as Promise<T>))
+        },
+        count: ({ model, where }) =>
+          ctx.runQuery(
+            component.adapter.count as never,
+            { model, where: where as AuthWhere[] | undefined } as never,
+          ),
+        update: async <T>({
+          model,
+          where,
+          update,
+        }: {
+          model: string
+          update: T
+          where: CleanedWhere[]
+        }): Promise<T | null> => {
+          requireWritableAuthCtx(ctx)
+          if (where.length === 0) return null
+          const updated = await ctx.runMutation(
+            component.adapter.updateOne as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              update: await idTokens.protect(model, update),
+              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+            } as never,
+          )
+          return idTokens.reveal(model, updated as T | null)
+        },
+        updateMany: async ({ model, where, update }) => {
+          requireWritableAuthCtx(ctx)
+          return ctx.runMutation(
+            component.adapter.updateMany as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              update: await idTokens.protect(model, update),
+              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+            } as never,
+          )
+        },
+        delete: async ({ model, where }) => {
+          requireWritableAuthCtx(ctx)
+          await ctx.runMutation(
+            component.adapter.deleteOne as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            } as never,
+          )
+        },
+        deleteMany: async ({ model, where }) => {
+          requireWritableAuthCtx(ctx)
+          return ctx.runMutation(
+            component.adapter.deleteMany as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            } as never,
+          )
+        },
+        consumeOne: async <T>({
+          model,
+          where,
+        }: {
+          model: string
+          where: CleanedWhere[]
+        }): Promise<T | null> => {
+          requireWritableAuthCtx(ctx)
+          const consumed = await ctx.runMutation(
+            component.adapter.consumeOne as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            } as never,
+          )
+          return idTokens.reveal(model, consumed as T | null)
+        },
+        incrementOne: async <T>({
+          model,
+          where,
+          increment,
+          set,
+        }: {
+          increment: Record<string, number>
+          model: string
+          set?: Record<string, unknown>
+          where: CleanedWhere[]
+        }): Promise<T | null> => {
+          requireWritableAuthCtx(ctx)
+          const incremented = await ctx.runMutation(
+            component.adapter.incrementOne as never,
+            {
+              model,
+              where: where as AuthWhere[],
+              increment,
+              set: await idTokens.protect(model, set),
+              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+            } as never,
+          )
+          return idTokens.reveal(model, incremented as T | null)
+        },
+      }
+      return adapter
+    },
+  })
+}

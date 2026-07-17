@@ -4,6 +4,19 @@ Starter for organization apps where humans sign in with Better Auth, app-owned
 organizations stay canonical in Convex, and service actors call a small private
 MCP surface on behalf of an organization.
 
+This is deliberately different from the public delegated-human OAuth starter:
+
+| Property          | This starter                   | `starters/mcp-oauth-agent`                           |
+| ----------------- | ------------------------------ | ---------------------------------------------------- |
+| Credential owner  | App-owned service actor        | Human Better Auth user                               |
+| User involvement  | Admin provisions a credential  | Interactive sign-in and explicit OAuth consent       |
+| Public exposure   | Private MCP deployment         | Public OAuth authorization server and MCP resource   |
+| Revocation source | App-owned service credential   | Session, client, consent, membership, and delegation |
+| Intended use      | Controlled internal automation | External MCP clients acting for a user               |
+
+Do not expose this private service-actor topology as public delegated OAuth.
+Do not copy its `MCP_SERVER_SECRET` bridge into `starters/mcp-oauth-agent`.
+
 ## Organization Ownership
 
 This starter intentionally uses app-owned Convex `organizations` and
@@ -67,7 +80,7 @@ On first run, Convex writes `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to
 with `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, or
 `CONVEX_SITE_URL`.
 
-Set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex before starting auth routes,
+Set `SITE_URL` and `BETTER_AUTH_SECRETS` in Convex before starting auth routes,
 including for local development. The request factory always fails closed
 without explicit runtime values. `pnpm verify:browser` supplies isolated test
 values itself.

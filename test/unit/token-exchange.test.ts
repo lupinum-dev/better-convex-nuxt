@@ -356,10 +356,7 @@ describe('normalizeSiteUrl — origin and loopback rules', () => {
   const ACCEPT: Array<[string, string]> = [
     ['https://example.convex.site', 'https://example.convex.site'],
     ['http://localhost:3000', 'http://localhost:3000'],
-    ['http://app.localhost:3000', 'http://app.localhost:3000'],
     ['http://127.0.0.1:3210', 'http://127.0.0.1:3210'],
-    ['http://127.5.6.7', 'http://127.5.6.7'],
-    ['http://127.255.255.255', 'http://127.255.255.255'], // top of 127.0.0.0/8
     ['http://[::1]:3000', 'http://[::1]:3000'],
   ]
 
@@ -370,6 +367,9 @@ describe('normalizeSiteUrl — origin and loopback rules', () => {
   const REJECT: string[] = [
     'http://example.convex.site', // http non-loopback
     'http://192.168.1.10', // private non-loopback
+    'http://app.localhost:3000', // localhost subdomains are not exact loopback
+    'http://127.5.6.7', // only exact 127.0.0.1 is supported
+    'http://127.255.255.255',
     'http://128.0.0.1', // just outside 127.0.0.0/8
     'http://256.0.0.1', // not a valid loopback octet, non-loopback host
     'https://user:pass@example.convex.site', // embedded credentials

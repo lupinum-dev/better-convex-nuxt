@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+## v0.7.0-beta.0
+
+### Authentication platform hard cut
+
+- Replaced the legacy component dependency with one package-owned Better Auth
+  component, one generated schema contract, and one adapter implementation used
+  by both the packaged and advanced local-component modes.
+- Added persisted-session-only Convex JWT exchange, additive JWKS rotation,
+  strict same-origin proxying, database-backed rate limiting, versioned secrets,
+  protected credential storage, and real-backend concurrency invariants.
+- Regenerated and freshness-gated the Team and Agentic SaaS local-component
+  schemas from their canonical Better Auth options; local-component consumers
+  must regenerate schema and metadata together when plugin tables change.
+- Added the constrained OAuth authorization-server beta and delegated MCP path
+  with authorization code plus PKCE, exact issuer/client/resource/subject/scope
+  binding, live Convex authorization, consent and revocation, and no refresh or
+  dynamic-registration compatibility path.
+- Added one internal, time-bounded `URL.canParse` capability fill because the
+  pinned Convex isolate lacks the primitive required by the pinned official
+  OAuth Provider. Real-backend evidence pins the removal trigger; this is not a
+  second auth or protocol path.
+
+### Release and verification
+
+- Added immutable candidate artifacts, candidate-rooted SBOM and provenance
+  evidence, clean-consumer verification, security sentinels, fuzzing, mutation
+  testing, OAuth/MCP interoperability harnesses, and protected cloud rehearsal.
+- Added safe, opt-in structured auth diagnostics and an exact-tarball
+  pkg.pr.new preview workflow for black-box consumer testing before npm
+  publication.
+- Added an explicit destructive `external-disposable` MCP evidence mode for a
+  fresh already-running preview deployment; the self-contained local fixture
+  remains the default and no external lifecycle or cleanup path is inferred.
+- Removed migration documentation and every maintained legacy runtime path. This
+  is a greenfield-only beta and does not migrate an existing auth database.
+
 ## v0.6.1
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.6.0...v0.6.1)

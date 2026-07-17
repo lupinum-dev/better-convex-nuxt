@@ -1,0 +1,274 @@
+import { betterAuth } from 'better-auth'
+import { memoryAdapter, type MemoryDB } from 'better-auth/adapters/memory'
+import { createJwk, jwt, resolveSigningKey, signJWT, type JwtOptions } from 'better-auth/plugins'
+import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from 'jose'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  JWKS_CACHE_CONTROL,
+  JWKS_GRACE_PERIOD_SECONDS,
+  rotateSigningKeyWithOfficialJwt,
+  type SigningKeyCandidate,
+} from '../../src/runtime/convex-auth/jwks-rotation'
+import { convexAuth } from '../../src/runtime/convex-auth/plugin'
+
+const origin = 'https://app.example.test'
+const issuer = `${origin}/api/auth`
+const convexSiteUrl = 'https://deployment.convex.site'
+const currentSecret = 'current-secret-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+const previousSecret = 'previous-secret-0123456789-ABCDEFGHIJKLMNOPQRSTUVW'
+
+function createJwtPlugin(overrides: Partial<JwtOptions['jwks']> = {}) {
+  return jwt({
+    disableSettingJwtHeader: true,
+    jwks: {
+      disablePrivateKeyEncryption: false,
+      gracePeriod: JWKS_GRACE_PERIOD_SECONDS,
+      keyPairConfig: { alg: 'RS256' },
+      ...overrides,
+    },
+    jwt: { audience: issuer, expirationTime: '10m', issuer },
+  })
+}
+
+function createConvexPlugin() {
+  return convexAuth({
+    authConfig: {
+      providers: [
+        {
+          algorithm: 'RS256',
+          applicationID: 'convex',
+          issuer: convexSiteUrl,
+          jwks: `${issuer}/jwks`,
+          type: 'customJwt',
+        },
+      ],
+    },
+    sessionJwt: {
+      audience: 'convex',
+      expirationTime: '15m',
+      issuer: convexSiteUrl,
+    },
+  })
+}
+
+function createAuth(
+  database: MemoryDB,
+  secrets: { value: string; version: number }[],
+  overrides: Partial<JwtOptions['jwks']> = {},
+) {
+  const jwtPlugin = createJwtPlugin(overrides)
+  const auth = betterAuth({
+    basePath: '/api/auth',
+    baseURL: origin,
+    database: memoryAdapter(database),
+    logger: { disabled: true },
+    plugins: [jwtPlugin, createConvexPlugin()],
+    secrets,
+  })
+  return { auth }
+}
+
+async function contextAndOptions(value: ReturnType<typeof createAuth>) {
+  const context = await value.auth.$context
+  const plugin = context.getPlugin('jwt')
+  if (!plugin) throw new Error('Expected the JWT plugin.')
+  return { context, options: plugin.options as JwtOptions }
+}
+
+function endpointContext(context: Awaited<ReturnType<typeof contextAndOptions>>['context']) {
+  return { context } as unknown as Parameters<typeof createJwk>[0]
+}
+
+function recursivelyContainsPrivateMember(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(recursivelyContainsPrivateMember)
+  if (!value || typeof value !== 'object') return false
+  return Object.entries(value).some(
+    ([name, entry]) =>
+      ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth', 'k', 'privateKey'].includes(name) ||
+      recursivelyContainsPrivateMember(entry),
+  )
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+describe('official Better Auth JWKS lifecycle hardening', () => {
+  it('uses official key generation and versioned private-key encryption before commit', async () => {
+    const value = createAuth({}, [{ value: currentSecret, version: 7 }])
+    const { context, options } = await contextAndOptions(value)
+    let captured: SigningKeyCandidate | undefined
+
+    const metadata = await rotateSigningKeyWithOfficialJwt(
+      context as unknown as Parameters<typeof createJwk>[0]['context'],
+      options,
+      async (next) => {
+        captured = next
+        return {
+          createdAt: 12_001,
+          newKid: next.id,
+          previousKids: ['K1'],
+          previousVerifyUntil: 1_272_000,
+          rotatedAt: 12_000,
+        }
+      },
+    )
+
+    expect(captured).toMatchObject({ alg: 'RS256', crv: null })
+    expect(JSON.parse(captured!.privateKey)).toMatch(/^\$ba\$7\$[0-9a-f]+$/u)
+    expect(JSON.parse(captured!.publicKey)).toEqual({
+      e: 'AQAB',
+      kty: 'RSA',
+      n: expect.any(String),
+    })
+    expect(metadata).toEqual({
+      createdAt: 12_001,
+      newKid: captured!.id,
+      previousKids: ['K1'],
+      previousVerifyUntil: 1_272_000,
+      rotatedAt: 12_000,
+    })
+    expect(JSON.stringify(metadata)).not.toContain(captured!.privateKey)
+  })
+
+  it('publishes bounded public JWKS with the reviewed cache lifetime and no private row data', async () => {
+    const database: MemoryDB = {}
+    const value = createAuth(database, [{ value: currentSecret, version: 1 }])
+    const { context, options } = await contextAndOptions(value)
+    await createJwk(endpointContext(context), options)
+    const stored = database.jwks?.[0]
+    if (!stored) throw new Error('Expected a stored signing key.')
+    stored.privateKey = 'PRIVATE_ROW_SENTINEL'
+
+    const response = await value.auth.handler(new Request(`${issuer}/jwks`))
+    const raw = await response.text()
+    const body = JSON.parse(raw) as unknown
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe(JWKS_CACHE_CONTROL)
+    expect(raw).not.toContain('PRIVATE_ROW_SENTINEL')
+    expect(recursivelyContainsPrivateMember(body)).toBe(false)
+  })
+
+  it('fails closed instead of reflecting a recursively embedded private JWK member', async () => {
+    const database: MemoryDB = {
+      jwks: [
+        {
+          alg: 'RS256',
+          createdAt: new Date(),
+          id: 'malicious-public-row',
+          privateKey: 'PRIVATE_ROW_SENTINEL',
+          publicKey: JSON.stringify({
+            e: 'AQAB',
+            kty: 'RSA',
+            metadata: { nested: [{ d: 'RECURSIVE_PRIVATE_SENTINEL' }] },
+            n: 'modulus',
+          }),
+        },
+      ],
+    }
+    const value = createAuth(database, [{ value: currentSecret, version: 1 }])
+    const response = await value.auth.handler(new Request(`${issuer}/jwks`))
+    const raw = await response.text()
+
+    expect(response.status).toBe(500)
+    expect(raw).not.toContain('PRIVATE_ROW_SENTINEL')
+    expect(raw).not.toContain('RECURSIVE_PRIVATE_SENTINEL')
+  })
+
+  it('keeps a retired verification key published for exactly the 21-minute overlap', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    const database: MemoryDB = {}
+    const value = createAuth(database, [{ value: currentSecret, version: 1 }])
+    const { context, options } = await contextAndOptions(value)
+    const k1 = await createJwk(endpointContext(context), options)
+    const token = await signJWT(endpointContext(context), {
+      options,
+      payload: {
+        aud: issuer,
+        exp: 10_000,
+        iat: 10,
+        iss: issuer,
+        sub: 'subject-1',
+      },
+    })
+
+    vi.setSystemTime(20_000)
+    const k2 = await createJwk(endpointContext(context), options)
+    const storedK1 = database.jwks?.find((key) => key.id === k1.id)
+    if (!storedK1) throw new Error('Expected K1.')
+    storedK1.expiresAt = new Date(20_000)
+
+    const currentResponse = await value.auth.handler(new Request(`${issuer}/jwks`))
+    const currentJwks = (await currentResponse.json()) as JSONWebKeySet
+    expect(currentJwks.keys.map((key) => key.kid).sort()).toEqual([k1.id, k2.id].sort())
+    await expect(
+      jwtVerify(token, createLocalJWKSet(currentJwks), {
+        algorithms: ['RS256'],
+        audience: issuer,
+        issuer,
+      }),
+    ).resolves.toMatchObject({ payload: { sub: 'subject-1' } })
+
+    vi.setSystemTime(20_000 + JWKS_GRACE_PERIOD_SECONDS * 1_000 - 1)
+    const beforeBoundary = (await (
+      await value.auth.handler(new Request(`${issuer}/jwks`))
+    ).json()) as JSONWebKeySet
+    expect(beforeBoundary.keys.map((key) => key.kid)).toContain(k1.id)
+
+    vi.setSystemTime(20_000 + JWKS_GRACE_PERIOD_SECONDS * 1_000)
+    const atBoundary = (await (
+      await value.auth.handler(new Request(`${issuer}/jwks`))
+    ).json()) as JSONWebKeySet
+    expect(atBoundary.keys.map((key) => key.kid)).not.toContain(k1.id)
+    expect(atBoundary.keys.map((key) => key.kid)).toContain(k2.id)
+  })
+
+  it('decrypts retained keys with a prior secret version and fails without deleting on retirement', async () => {
+    const database: MemoryDB = {}
+    const first = createAuth(database, [{ value: previousSecret, version: 1 }])
+    const firstContext = await contextAndOptions(first)
+    const k1 = await createJwk(endpointContext(firstContext.context), firstContext.options)
+
+    const retained = createAuth(database, [
+      { value: currentSecret, version: 2 },
+      { value: previousSecret, version: 1 },
+    ])
+    const retainedContext = await contextAndOptions(retained)
+    await expect(
+      resolveSigningKey(endpointContext(retainedContext.context), retainedContext.options, {
+        signingKeyId: k1.id,
+      }),
+    ).resolves.toMatchObject({ alg: 'RS256', kid: k1.id })
+
+    const retired = createAuth(database, [{ value: currentSecret, version: 2 }])
+    const retiredContext = await contextAndOptions(retired)
+    await expect(
+      resolveSigningKey(endpointContext(retiredContext.context), retiredContext.options, {
+        signingKeyId: k1.id,
+      }),
+    ).rejects.toThrow('Failed to decrypt private key')
+    expect(database.jwks?.map((key) => key.id)).toEqual([k1.id])
+  })
+
+  it('rejects automatic action-timestamp rotation configuration', async () => {
+    const value = createAuth({}, [{ value: currentSecret, version: 1 }], {
+      rotationInterval: 60,
+    })
+    await expect(value.auth.$context).rejects.toThrow('AUTH_JWKS_CONFIG_INVALID')
+  })
+
+  it('rejects a plugin order that initializes Convex auth before the shared JWT graph', async () => {
+    const value = betterAuth({
+      basePath: '/api/auth',
+      baseURL: origin,
+      database: memoryAdapter({}),
+      logger: { disabled: true },
+      plugins: [createConvexPlugin(), createJwtPlugin()],
+      secrets: [{ value: currentSecret, version: 1 }],
+    })
+    await expect(value.$context).rejects.toThrow('AUTH_JWKS_CONFIG_INVALID')
+  })
+})

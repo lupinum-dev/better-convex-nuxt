@@ -40,17 +40,15 @@ export interface ConvexTokenExchangeResult {
  * carry it in the URL .
  *
  * Rejects embedded credentials, query strings, fragments, and non-root paths.
- * Accepts `http:` ONLY for `localhost`, a `*.localhost` subdomain, IPv4 loopback
- * in `127.0.0.0/8`, or `[::1]`; every other origin requires `https:`. There is no
- * runtime "test fixture" exemption.
+ * Accepts `http:` ONLY for exact canonical `localhost`, `127.0.0.1`, or `[::1]`;
+ * every other origin requires `https:`. There is no runtime "test fixture"
+ * exemption and ambiguous equivalent URL spellings are rejected.
  */
 export function normalizeSiteUrl(siteUrl: string): string {
   try {
     return normalizeConvexSiteUrl(siteUrl)
-  } catch (error) {
-    throw new ServerConvexValidationError(
-      error instanceof Error ? error.message : 'invalid siteUrl',
-    )
+  } catch {
+    throw new ServerConvexValidationError('siteUrl must be a safe Convex HTTP Actions origin')
   }
 }
 

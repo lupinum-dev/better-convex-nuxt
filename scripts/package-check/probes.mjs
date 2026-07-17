@@ -4,6 +4,12 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
+import {
+  requiredPhysicalRuntimeNames,
+  requiredStatefulPeerNames,
+  supportedDependencyTuple,
+} from '../supported-dependency-tuple.mjs'
+
 const repoRoot = resolve(import.meta.dirname, '../..')
 const p = (...segments) => resolve(repoRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
@@ -12,29 +18,83 @@ function run(command, args, options = {}) {
   return execFileSync(command, args, { encoding: 'utf8', stdio: 'inherit', ...options })
 }
 
+function productionGraph(directory) {
+  return JSON.parse(
+    execFileSync('pnpm', ['list', '--prod', '--depth', 'Infinity', '--json'], {
+      cwd: directory,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    }),
+  )
+}
+
+function collectDependencyInstances(graph) {
+  const instances = new Map()
+  const visit = (node) => {
+    for (const section of ['dependencies', 'optionalDependencies']) {
+      for (const [name, dependency] of Object.entries(node?.[section] ?? {})) {
+        if (!dependency || typeof dependency !== 'object') continue
+        const records = instances.get(name) ?? []
+        records.push({ path: dependency.path, version: dependency.version })
+        instances.set(name, records)
+        visit(dependency)
+      }
+    }
+  }
+  for (const root of graph) visit(root)
+  return instances
+}
+
+function assertProductionGraph(directory, expectedRuntimeNames, label) {
+  const instances = collectDependencyInstances(productionGraph(directory))
+  for (const name of expectedRuntimeNames) {
+    const records = instances.get(name) ?? []
+    const paths = new Set(records.map((record) => record.path).filter(Boolean))
+    const versions = new Set(records.map((record) => record.version).filter(Boolean))
+    if (paths.size !== 1 || versions.size !== 1 || !versions.has(supportedDependencyTuple[name])) {
+      throw new Error(
+        `${label} must resolve one physical ${name}@${supportedDependencyTuple[name]}; received ${JSON.stringify([...records])}`,
+      )
+    }
+  }
+  for (const name of instances.keys()) {
+    if (
+      name === 'react' ||
+      name === 'react-dom' ||
+      name === 'next' ||
+      name.startsWith('@tanstack/')
+    ) {
+      throw new Error(`${label} unexpectedly installs production framework package ${name}`)
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 /** @typedef {{ tarballPath: string, packageDir: string, failures: string[] }} ProbeContext */
 
 /**
  * Package-root probe: an ephemeral (non-repo, non-committed) consumer that
- * installs the packed tarball and proves runtime resolution (the default
- * Nuxt-module export plus the `api`/`internal`/`components` fallback value
- * exports actually resolve from node_modules) and type resolution (`tsc`
- * against the installed tarball's declaration files) without needing a full
- * Nuxt build. No dedicated fixture directory is required for the package root.
+ * installs the packed tarball and proves runtime and type resolution for the
+ * root module plus the Convex auth barrel/config, and type resolution for the
+ * compiled test helper and intentionally type-only generated component entry.
+ * No dedicated fixture directory is required.
  */
 export function probeRootEntry(ctx) {
   const dir = mkdtempSync(join(tmpdir(), 'bcn-root-probe-'))
+
+  const consumerPeers = packageJson.peerDependencies
 
   writeJson(join(dir, 'package.json'), {
     name: 'root-entry-probe',
     private: true,
     type: 'module',
     packageManager: packageJson.packageManager,
-    devDependencies: {
-      ...packageJson.peerDependencies,
+    dependencies: {
+      ...consumerPeers,
       'better-convex-nuxt': `file:${ctx.tarballPath}`,
+    },
+    devDependencies: {
       typescript: packageJson.devDependencies.typescript,
       '@types/node': packageJson.devDependencies['@types/node'],
     },
@@ -50,13 +110,25 @@ export function probeRootEntry(ctx) {
       "import { realpathSync } from 'node:fs'",
       "import { createRequire } from 'node:module'",
       "import mod from 'better-convex-nuxt'",
+      "import authComponent from 'better-convex-nuxt/convex-auth/convex.config'",
+      'import {',
+      '  convexAuth, createAuthComponent, defineAuthAdapterFunctions,',
+      '  getConvexAuthProvider, requireAuthOrigin, verifyOAuthBearerToken,',
+      "} from 'better-convex-nuxt/convex-auth'",
       "if (typeof mod !== 'function' && typeof mod !== 'object') throw new Error('default export did not resolve')",
+      "if (!authComponent || (typeof authComponent !== 'function' && typeof authComponent !== 'object')) throw new Error('auth component config did not resolve')",
+      'for (const [name, value] of Object.entries({',
+      '  convexAuth, createAuthComponent, defineAuthAdapterFunctions,',
+      '  getConvexAuthProvider, requireAuthOrigin, verifyOAuthBearerToken,',
+      '})) {',
+      "  if (typeof value !== 'function') throw new Error(`auth export did not resolve: ${name}`)",
+      '}',
       '',
       '// Better Auth and Convex are stateful peer runtimes. The package and its',
       '// consumer must resolve the same physical instance of each.',
       'const consumerRequire = createRequire(import.meta.url)',
       "const libraryRequire = createRequire(new URL(import.meta.resolve('better-convex-nuxt')))",
-      "for (const peer of ['better-auth', '@convex-dev/better-auth', 'convex']) {",
+      `for (const peer of ${JSON.stringify(requiredStatefulPeerNames)}) {`,
       '  const consumerPath = realpathSync(consumerRequire.resolve(peer))',
       '  const libraryPath = realpathSync(libraryRequire.resolve(peer))',
       '  if (consumerPath !== libraryPath) {',
@@ -65,6 +137,18 @@ export function probeRootEntry(ctx) {
       '}',
       '',
       "console.log('root-entry-probe runtime OK')",
+      '',
+    ].join('\n'),
+  )
+  writeFile(
+    join(dir, 'schema-options.ts'),
+    [
+      "import type { BetterAuthOptions } from 'better-auth'",
+      '',
+      'export default {',
+      "  baseURL: 'https://schema.invalid',",
+      "  secret: 'schema-generation-only-value-never-used-at-runtime',",
+      '} satisfies BetterAuthOptions',
       '',
     ].join('\n'),
   )
@@ -78,6 +162,12 @@ export function probeRootEntry(ctx) {
       '  UseConvexAuthReturn, UseConvexMutationOptions, UseConvexPaginatedQueryOptions,',
       '  UseConvexQueryOptions,',
       "} from 'better-convex-nuxt'",
+      'import type {',
+      '  AuthComponentTriggers, AuthCtx, AuthFunctions, CreateAuth, VerifyOAuthBearerTokenOptions,',
+      "} from 'better-convex-nuxt/convex-auth'",
+      "import authComponent from 'better-convex-nuxt/convex-auth/convex.config'",
+      "import type { ComponentApi } from 'better-convex-nuxt/convex-auth/_generated/component.js'",
+      "import authTest, { register } from 'better-convex-nuxt/convex-auth/test'",
       "import mod from 'better-convex-nuxt'",
       '',
       'const _opts: ModuleOptions | undefined = undefined',
@@ -86,9 +176,13 @@ export function probeRootEntry(ctx) {
       '  ConvexAuthStatus, ConvexCallErrorKind, ConvexClientHandle, ConvexRuntimeConfig,',
       '  InferRegisteredConvexAuthClient, ServerConvexOptions, UseConvexAuthReturn,',
       '  UseConvexMutationOptions<never>, UseConvexPaginatedQueryOptions, UseConvexQueryOptions<unknown>,',
+      '  AuthComponentTriggers, AuthCtx, AuthFunctions, CreateAuth, VerifyOAuthBearerTokenOptions, ComponentApi,',
       ']',
       'const _contract: PublicContract | undefined = undefined',
       'void mod',
+      'void authComponent',
+      'void authTest',
+      'void register',
       'void _opts',
       'void _contract',
       '',
@@ -115,9 +209,42 @@ export function probeRootEntry(ctx) {
   })
 
   try {
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: dir })
+    run('pnpm', ['install', '--prod', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: dir })
     run('node', ['index.mjs'], { cwd: dir })
+    assertProductionGraph(dir, requiredPhysicalRuntimeNames, 'production consumer')
+    if (process.env.BCN_RELEASE_PRODUCTION_AUDIT === 'true') {
+      run('node', [join(repoRoot, 'scripts/check-auth-advisories.mjs'), '--production-dir', dir], {
+        cwd: repoRoot,
+      })
+    }
+
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: dir })
     run('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json'], { cwd: dir })
+    run(
+      'pnpm',
+      [
+        'exec',
+        'better-convex-nuxt-auth-schema',
+        '--config',
+        'schema-options.ts',
+        '--output',
+        'convex/betterAuth',
+      ],
+      { cwd: dir },
+    )
+    run(
+      'pnpm',
+      [
+        'exec',
+        'better-convex-nuxt-auth-schema',
+        '--config',
+        'schema-options.ts',
+        '--output',
+        'convex/betterAuth',
+        '--check',
+      ],
+      { cwd: dir },
+    )
   } catch (error) {
     ctx.failures.push(`[.] packed root-entry probe failed: ${error.message}`)
   } finally {

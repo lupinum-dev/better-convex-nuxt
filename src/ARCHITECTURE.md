@@ -8,7 +8,10 @@ runtime. Public usage belongs in the generated API reference and guides.
 | Concept                                                  | Owner                                       |
 | -------------------------------------------------------- | ------------------------------------------- |
 | Better Auth sessions and users                           | Better Auth                                 |
+| OAuth protocol clients, resources, consent, and tokens   | Official Better Auth OAuth Provider         |
 | Application authorization and product data               | Convex functions                            |
+| Public auth/OAuth origin                                 | Explicit validated application config       |
+| JWT signing keys and rotation                            | One Better Auth JWKS graph in the component |
 | Active browser Convex client                             | Per-Nuxt-app client owner                   |
 | Auth transitions and identity generation                 | Per-Nuxt-app auth coordinator               |
 | Query transport, wire deduplication, and transport cache | Pinned Convex client                        |
@@ -52,11 +55,19 @@ identity state.
 The browser talks to Better Auth only through the fixed same-origin
 `/api/auth` proxy. The proxy accepts GET and POST, validates origin and body
 limits, forwards only selected headers, rejects unsafe cookie attributes, and
-uses bounded request and response bodies. Development diagnostics are
-best-effort and cannot change proxy success or failure.
+uses bounded request and response bodies. Its only cross-origin exceptions are
+non-credentialed public metadata reads and the fixed public-client OAuth token
+POST/OPTIONS profile. Development diagnostics are best-effort and cannot
+change proxy success or failure.
 
 Better Auth establishes identity. Convex functions still enforce every
 authorization rule from canonical backend state.
+
+Delegated MCP traffic may enter through the fixed Nuxt `/mcp` relay or the
+documented Convex HTTP action directly. The Convex action is the only bearer
+verifier and dispatches a closed tool allowlist. Each tool-specific internal
+function recomputes effective access from current Better Auth protocol state
+and current application authorization state; token scopes are only a ceiling.
 
 ## Query lifecycle
 
@@ -89,12 +100,28 @@ They must be partitioned by identity where applicable and reproducible from
 canonical Better Auth or Convex state. `createUserSyncTriggers` includes a
 rebuild path; projections must not become an authorization source.
 
+## Release artifact fingerprint
+
+The release packer replaces one build-output token with a random fingerprint in
+both the packed Nuxt module and a read-only Nitro handler. Only a module carrying
+a valid packed fingerprint registers
+`/api/_better-convex-nuxt/release-fingerprint`; ordinary source and development
+builds remain unbound and do not register it. The response contains only the
+fixed schema version and embedded fingerprint—never environment, deployment, or
+secret data. This route exists solely to let the protected release gate reject a
+stale provider-hosted Nuxt build before staging writes; it is not an application
+identity or authorization source.
+
 ## Public boundaries
 
 The supported package entry points are:
 
 - `better-convex-nuxt`
 - `better-convex-nuxt/auth-client`
+- `better-convex-nuxt/convex-auth`
+- `better-convex-nuxt/convex-auth/convex.config`
+- `better-convex-nuxt/convex-auth/_generated/component.js`
+- `better-convex-nuxt/convex-auth/test`
 - `better-convex-nuxt/errors`
 - `better-convex-nuxt/server`
 - `better-convex-nuxt/server/createUserSyncTriggers`

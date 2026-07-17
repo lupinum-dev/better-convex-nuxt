@@ -28,7 +28,6 @@ export default defineNuxtConfig({
       // The browser verifier exercises first-load auth/codegen paths. Pre-bundling
       // these runtime deps prevents Vite's dependency discovery reload mid-flow.
       include: [
-        '@convex-dev/better-auth/client/plugins',
         '@vue/devtools-core',
         '@vue/devtools-kit',
         'better-auth/vue',

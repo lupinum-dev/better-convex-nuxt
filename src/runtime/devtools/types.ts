@@ -168,8 +168,6 @@ export interface AuthProxyRequest {
   duration?: number
   /** Whether request succeeded */
   success?: boolean
-  /** Error message if failed */
-  error?: string
 }
 
 export interface AuthProxyStats {

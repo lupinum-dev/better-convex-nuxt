@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import { createBetterAuthUser } from './agentic.test-helpers'
 import { startDelegatedRunAfterPermissionCheck } from './agentRuns'
 import { createAuth } from './auth'
 import {
@@ -30,39 +31,22 @@ function readSource(path: string) {
 }
 
 async function createOwnerOrganization(t: ReturnType<typeof initConvexTest>) {
-  return await t.run(async (ctx) => {
-    const auth = createAuth(ctx)
-    const password = 'Password123456!'
-    const signedUp = await auth.api.signUpEmail({
-      body: {
-        email: `resource-owner-${Math.random().toString(36).slice(2)}@example.com`,
-        password,
-        name: 'Resource Owner',
-      },
-    })
-    const signedIn = await auth.api.signInEmail({
-      body: {
-        email: signedUp.user.email,
-        password,
-      },
-    })
-    if (!signedIn.token) {
-      throw new Error('Better Auth sign-in did not return a session token')
-    }
+  const owner = await createBetterAuthUser(
+    t,
+    `resource-owner-${Math.random().toString(36).slice(2)}@example.com`,
+  )
+  const organizationId = await t.run(async (ctx) => {
+    const auth = await createAuth(ctx)
     const organization = await auth.api.createOrganization({
-      headers: new Headers({ authorization: `Bearer ${signedIn.token}` }),
+      headers: new Headers({ cookie: owner.sessionCookie }),
       body: {
         name: 'Resource Bound Org',
         slug: `resource-bound-${Math.random().toString(36).slice(2)}`,
       },
     })
-
-    return {
-      organizationId: organization.id,
-      token: signedIn.token,
-      userId: signedUp.user.id,
-    }
+    return organization.id
   })
+  return { organizationId, token: owner.token, userId: owner.userId }
 }
 
 async function startRunningRun(

@@ -1,0 +1,278 @@
+name: publish-prerelease
+
+on:
+  push:
+    tags:
+      - 'v*-*'
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_NODE_VERSION: '22.14.0'
+  RELEASE_NPM_VERSION: '11.5.1'
+
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.RELEASE_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned release tooling
+        run: npm install --global npm@"$RELEASE_NPM_VERSION" corepack@0.34.5 && corepack enable
+
+      - name: Verify protected prerelease identity
+        env:
+          BCN_SECURITY_DEPUTY: ${{ vars.BCN_SECURITY_DEPUTY }}
+          BCN_SECURITY_NOTIFICATION_TESTED_AT: ${{ vars.BCN_SECURITY_NOTIFICATION_TESTED_AT }}
+          BCN_SECURITY_OWNER: ${{ vars.BCN_SECURITY_OWNER }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: pnpm check:security-governance --prerelease
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:artifact
+
+      - name: Upload one immutable artifact set
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate
+          path: .release-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+
+  release-security:
+    needs: build-artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the exact candidate artifact set
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate
+          path: .release-artifacts
+
+      - name: Scan the release source for verified secrets
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: ''
+          head: HEAD
+          version: 3.95.9
+          extra_args: --only-verified
+
+      - name: Initialize release CodeQL analysis
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          languages: javascript-typescript
+
+      - name: Analyze the exact release source
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+
+  verify-artifact:
+    needs: [build-artifact, release-security]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.RELEASE_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned verification tooling
+        run: npm install --global npm@"$RELEASE_NPM_VERSION" corepack@0.34.5 && corepack enable
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check:auth-backend --install
+
+      - name: Download the build job's exact artifact set
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate
+          path: .release-artifacts
+
+      - name: Resolve artifact identity
+        id: artifact
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) {
+            throw new Error('Invalid release version')
+          }
+          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
+          NODE
+
+      - name: Verify source-integrity and exact-artifact release gates
+        run: pnpm release:verify --artifact-manifest "${{ steps.artifact.outputs.evidence }}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  bcn-auth-staging:
+    needs: verify-artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: bcn-auth-staging
+    concurrency:
+      group: bcn-auth-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.RELEASE_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install pinned cloud-gate tooling
+        run: npm install --global npm@"$RELEASE_NPM_VERSION" corepack@0.34.5 && corepack enable
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Download the exact verified candidate artifact set
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate
+          path: .release-artifacts
+
+      - name: Resolve artifact identity
+        id: artifact
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
+          NODE
+
+      - name: Install and deploy the exact candidate, then run protected cloud-staging races
+        env:
+          BCN_AUTH_STAGING_CONVEX_SITE_URL: ${{ vars.BCN_AUTH_STAGING_CONVEX_SITE_URL }}
+          BCN_AUTH_STAGING_CONVEX_URL: ${{ vars.BCN_AUTH_STAGING_CONVEX_URL }}
+          BCN_AUTH_STAGING_EMAIL: ${{ secrets.BCN_AUTH_STAGING_EMAIL }}
+          BCN_AUTH_STAGING_INGRESS_LEASE: ${{ secrets.BCN_AUTH_STAGING_INGRESS_LEASE }}
+          BCN_AUTH_STAGING_ORIGIN: ${{ vars.BCN_AUTH_STAGING_ORIGIN }}
+          BCN_AUTH_STAGING_PASSWORD: ${{ secrets.BCN_AUTH_STAGING_PASSWORD }}
+          BCN_AUTH_STAGING_TEAM: ${{ vars.BCN_AUTH_STAGING_TEAM }}
+          CONVEX_DEPLOY_KEY: ${{ secrets.BCN_AUTH_STAGING_CONVEX_DEPLOY_KEY }}
+        run: >-
+          pnpm test:auth-cloud-staging
+          --artifact-manifest "${{ steps.artifact.outputs.evidence }}"
+
+      - name: Upload the separate non-secret cloud report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bcn-auth-staging-report
+          path: .release-artifacts/bcn-auth-staging.report.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    needs: [verify-artifact, bcn-auth-staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.RELEASE_NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install pinned trusted-publishing and artifact-verification tooling
+        run: npm install --global npm@"$RELEASE_NPM_VERSION" corepack@0.34.5 && corepack enable
+
+      - name: Install the locked SBOM verification graph
+        run: pnpm install --frozen-lockfile
+
+      - name: Download the verified artifact set
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-candidate
+          path: .release-artifacts
+
+      - name: Resolve safe artifact coordinates
+        id: artifact
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          if (
+            pkg.name !== 'better-convex-nuxt' ||
+            !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)
+          ) {
+            throw new Error('Invalid release package identity')
+          }
+          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
+          const tarball = path.join('.release-artifacts', `${pkg.name}-${pkg.version}.tgz`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${tarball}\n`)
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`)
+          NODE
+
+      - name: Reverify bytes before protected publication
+        run: node scripts/release.mjs verify "${{ steps.artifact.outputs.evidence }}"
+
+      - name: Publish exact tarball through npm OIDC
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: npm publish "${{ steps.artifact.outputs.tarball }}" --tag next --access public
+
+      - name: Compare registry bytes with tested bytes
+        env:
+          VERSION: ${{ steps.artifact.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/registry"
+          for attempt in $(seq 1 15); do
+            if npm pack "better-convex-nuxt@$VERSION" --pack-destination "$RUNNER_TEMP/registry"; then
+              break
+            fi
+            if [ "$attempt" -eq 15 ]; then
+              echo 'Published package did not become observable in time.' >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          cmp --silent \
+            "${{ steps.artifact.outputs.tarball }}" \
+            "$RUNNER_TEMP/registry/better-convex-nuxt-$VERSION.tgz"

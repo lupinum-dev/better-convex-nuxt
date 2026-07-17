@@ -24,5 +24,6 @@ export default defineNuxtConfig({
   convex: {
     url: process.env.NUXT_PUBLIC_CONVEX_URL ?? process.env.CONVEX_URL,
     siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL ?? process.env.CONVEX_SITE_URL,
+    auth: { publicOrigin: process.env.SITE_URL ?? 'http://localhost:3000' },
   },
 })

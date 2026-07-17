@@ -1,4 +1,3 @@
-import { convexClient } from '@convex-dev/better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/vue'
 import type { ConvexClient } from 'convex/browser'
 import { effectScope } from 'vue'
@@ -8,13 +7,14 @@ import { effectScope } from 'vue'
  * Registered by the module ONLY when `auth !== false`, so a Convex-only build
  * never pulls this file — or any Better Auth runtime — into its client graph. It
  * resolves the typed auth-client definition, creates exactly one Better Auth
- * client for this Nuxt app, prepends the Convex client plugin, constructs the
+ * client for this Nuxt app, constructs the
  * per-app auth coordinator, attaches it to the primary, and hands the client
  * owner the coordinator's frozen {@link AuthIdentityPort}.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, clearNuxtData } from '#app'
 import convexAuthClientDefinition from '#convex/auth-client'
 
+import { convexClientPlugin } from './auth-client/convex-client-plugin'
 import {
   createConvexAuthCoordinator,
   type AuthClientWithConvex,
@@ -45,11 +45,23 @@ export default defineNuxtPlugin({
 
     const runtime = readConvexRuntimeContext(nuxtApp)
     const publicConvex = config.public.convex as Record<string, unknown> | undefined
-    const logger = runtime?.owner.logger ?? createLogger(getLogLevel(publicConvex))
+    const logLevel = getLogLevel(publicConvex)
+    const logger = runtime?.owner.logger ?? createLogger(logLevel)
     const endInit = logger.time('plugin:init (client auth)')
+    const traceEnabled =
+      logLevel === 'debug' && (authConfig.debug.authFlow || authConfig.debug.clientAuthFlow)
+    const trace = (
+      phase: string,
+      outcome: 'success' | 'error' | 'skip' | 'miss',
+      details: Record<string, boolean> = {},
+    ) => {
+      if (!traceEnabled) return
+      logger.auth({ phase, outcome, details: { component: 'client-auth', ...details } })
+    }
 
     // HMR-safe: the coordinator is provided only by this plugin. Reuse per-app.
     if (runtime?.getAuthCoordinator()) {
+      trace('client.auth.initialization', 'skip', { alreadyInitialized: true })
       logger.debug('plugin:init (client auth) skipped; already initialized')
       endInit()
       return
@@ -59,6 +71,7 @@ export default defineNuxtPlugin({
     const clientOwner = runtime?.owner
     const client = clientOwner?.getPrimary()?.client as ConvexClient | undefined
     if (!runtime || !clientOwner || !client) {
+      trace('client.auth.initialization', 'error', { coreClientAvailable: false })
       logger.debug('Core Convex client owner is unavailable; auth plugin cannot initialize')
       endInit()
       return
@@ -76,16 +89,16 @@ export default defineNuxtPlugin({
     const definitionOptions = validateConvexAuthClientDefinition(convexAuthClientDefinition)
 
     let authClient: AuthClientWithConvex | null = null
+    trace('client.auth.initialization', 'success', { coreClientAvailable: true })
     if (resolvedSiteUrl) {
       // Fixed same-origin proxy contract.
       const authBaseURL = `${window.location.origin}/api/auth`
-      // 3/5/6. One client per app; prepend exactly one Convex client plugin;
-      // library owns credentials.
+      // 3/5/6. One client per app; the library owns credentials and transport.
       const { plugins: consumerPlugins, ...baseOptions } = definitionOptions
       authClient = createAuthClient({
         ...baseOptions,
         baseURL: authBaseURL,
-        plugins: [convexClient(), ...(consumerPlugins ?? [])],
+        plugins: [convexClientPlugin(), ...(consumerPlugins ?? [])],
         fetchOptions: { credentials: 'include' },
         // The ambient definition's `plugins` is the broad `BetterAuthClientPlugin[]`,
         // so `createAuthClient` infers a widened client whose static `signIn`/etc.
@@ -145,5 +158,6 @@ export default defineNuxtPlugin({
     })
 
     endInit()
+    trace('client.auth.initialization', 'success', { authClientConfigured: authClient !== null })
   },
 })

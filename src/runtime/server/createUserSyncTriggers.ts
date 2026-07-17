@@ -1,5 +1,5 @@
 export interface BetterAuthUserDocLike {
-  _id: string
+  id: string
   name?: string | null
   email?: string | null
   image?: string | null
@@ -138,7 +138,7 @@ export function createUserSyncTriggers<
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
-          user._id,
+          user.id,
         )
         if (existing.length > 0) {
           await deleteDuplicateRows(ctx, existing)
@@ -165,7 +165,7 @@ export function createUserSyncTriggers<
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
-          user._id,
+          user.id,
         )
         const [retained] = existing
         if (!retained) return
@@ -188,7 +188,7 @@ export function createUserSyncTriggers<
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
           { table: options.table, index: options.index, authIdField: options.authIdField },
-          user._id,
+          user.id,
         )
         for (const row of existing) {
           await ctx.db.delete(row._id)
@@ -202,7 +202,7 @@ export function createUserSyncTriggers<
           const existing = await findExistingByAuthId<TExistingUser, TCtx>(
             ctx,
             { table: options.table, index: options.index, authIdField: options.authIdField },
-            user._id,
+            user.id,
           )
           const [retained] = existing
 

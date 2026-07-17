@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
-import { extname, join, relative, resolve } from 'node:path'
+import { extname, join, relative, resolve, sep } from 'node:path'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
 const p = (...segments) => resolve(repoRoot, ...segments)
@@ -45,7 +45,14 @@ const ALIAS_RE = /(?:^|["'`(\s])(~~?\/[^"'`)\s]*|\$lib\/[^"'`)\s]*|\$app\/[^"'`)
 const BARE_IMPORT_RE =
   /\bfrom\s+["']([^"'.][^"']*)["']|\brequire\(\s*["']([^"'.][^"']*)["']\s*\)|\bimport\(\s*["']([^"'.][^"']*)["']\s*\)|^\s*import\s+["']([^"'.][^"']*)["']/gm
 
-const ALLOWED_PACKAGE_ROOT_FILES = new Set(['LICENSE', 'README.md', 'package.json'])
+const ALLOWED_PACKAGE_ROOT_FILES = new Set([
+  'LICENSE',
+  'LICENSES/Apache-2.0.txt',
+  'README.md',
+  'THIRD_PARTY_NOTICES.md',
+  'package.json',
+  'security/upstream-convex-better-auth.json',
+])
 
 export function buildContentManifest(packageDir) {
   const files = []
@@ -102,6 +109,34 @@ export function checkPackedPathClasses(manifest, failures) {
 
 export function scanExtractedTarball(packageDir, failures, manifest) {
   checkPackedPathClasses(manifest, failures)
+  const packedPackageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
+  const bins =
+    typeof packedPackageJson.bin === 'string'
+      ? [[packedPackageJson.name, packedPackageJson.bin]]
+      : Object.entries(packedPackageJson.bin ?? {})
+  for (const [command, target] of bins) {
+    if (typeof target !== 'string') {
+      failures.push(`packed package bin["${command}"] has a non-string target`)
+      continue
+    }
+    const normalizedTarget = target.replace(/^\.\//, '')
+    const absoluteTarget = resolve(packageDir, normalizedTarget)
+    if (!absoluteTarget.startsWith(`${packageDir}${sep}`)) {
+      failures.push(`packed package bin["${command}"] escapes the package: ${target}`)
+      continue
+    }
+    const manifestEntry = manifest.files.find((entry) => entry.path === normalizedTarget)
+    if (!manifestEntry || !existsSync(absoluteTarget)) {
+      failures.push(`packed package bin["${command}"] target is missing: ${target}`)
+      continue
+    }
+    if (!readFileSync(absoluteTarget, 'utf8').startsWith('#!/usr/bin/env node\n')) {
+      failures.push(`packed package bin["${command}"] target is missing its Node shebang`)
+    }
+    if ((Number.parseInt(manifestEntry.mode, 8) & 0o111) === 0) {
+      failures.push(`packed package bin["${command}"] target is not executable`)
+    }
+  }
   const distDir = join(packageDir, 'dist')
   const files = walkDir(
     distDir,

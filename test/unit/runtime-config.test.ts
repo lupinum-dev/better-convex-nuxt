@@ -16,6 +16,8 @@ describe('runtime config normalization', () => {
     const config = normalizeConvexRuntimeConfig({})
     expect(config.auth).not.toBe(false)
     if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.publicOrigin).toBe('')
+    expect(config.auth.mcp).toBe(false)
     expect(config.auth.proxy.trustedClientIpHeader).toBe('')
   })
 
@@ -57,6 +59,22 @@ describe('runtime config normalization', () => {
     expect(config.auth.proxy.maxResponseBodyBytes).toBe(4096)
   })
 
+  it('validates and retains the configured public auth origin', () => {
+    const config = normalizeConvexRuntimeConfig({
+      auth: { publicOrigin: 'https://app.example.test/' },
+    })
+    if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.publicOrigin).toBe('https://app.example.test')
+  })
+
+  it('enables only the fixed MCP resource switch', () => {
+    const config = normalizeConvexRuntimeConfig({
+      auth: { mcp: true, publicOrigin: 'https://app.example.test' },
+    })
+    if (config.auth === false) throw new Error('expected auth enabled')
+    expect(config.auth.mcp).toBe(true)
+  })
+
   it('defaults query waitTimeoutMs to 10000ms', () => {
     expect(normalizeConvexRuntimeConfig({}).defaults.waitTimeoutMs).toBe(10_000)
   })
@@ -91,9 +109,15 @@ describe('runtime config normalization', () => {
   it.each([
     ['https://example.convex.cloud/', 'https://example.convex.cloud'],
     ['http://localhost:3210/', 'http://localhost:3210'],
-    ['http://127.42.0.1:3210', 'http://127.42.0.1:3210'],
     ['http://[::1]:3210', 'http://[::1]:3210'],
   ])('normalizes exact deployment origin %s', (url, expected) => {
     expect(normalizeConvexRuntimeConfig({ url }).url).toBe(expected)
   })
+
+  it.each(['http://127.42.0.1:3210', 'http://app.localhost:3210', 'http://2130706433:3210'])(
+    'rejects a non-exact loopback deployment URL: %s',
+    (url) => {
+      expect(() => normalizeConvexRuntimeConfig({ url })).toThrow()
+    },
+  )
 })
