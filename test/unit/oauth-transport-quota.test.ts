@@ -170,6 +170,14 @@ describe('real OAuth transport quota evidence', () => {
     expect(genericRunner).toContain("makeFunctionReference('adapter:incrementOne')")
     expect(genericRunner).toContain('AUTH_TRIGGER_FAULT_INJECTED')
     expect(genericRunner).toContain('AUTH_RATE_LIMIT_WINDOW_DID_NOT_RESET')
+    expect(genericRunner).toContain("['exec', 'nuxt-module-build', 'prepare']")
+    expect(genericRunner).toContain("['exec', 'nuxt-module-build', 'build']")
+    expect(genericRunner.indexOf("['exec', 'nuxt-module-build', 'prepare']")).toBeLessThan(
+      genericRunner.indexOf("['exec', 'nuxt-module-build', 'build']"),
+    )
+    expect(genericRunner.indexOf("['exec', 'nuxt-module-build', 'build']")).toBeLessThan(
+      genericRunner.indexOf('const isolated = copyIsolatedPlayground()'),
+    )
 
     const workflowJobs = [
       {

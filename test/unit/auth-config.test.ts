@@ -85,9 +85,7 @@ describe('auth config normalization ', () => {
 // ============================================================================
 // Module-options type contracts. These assertions protect the supported
 // configuration grammar and the `auth: false` exclusion.
-// (`pnpm run test:types` / `pnpm vitest run --project=unit
-// test/unit/auth-config.test.ts` under vitest's typecheck, and
-// `pnpm run typecheck:module`).
+// (`pnpm run test:types`, `pnpm test`, and `pnpm run typecheck:module`).
 // ============================================================================
 
 function assertModuleOptions(_options: ModuleOptions): void {}

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { createHmac } from 'node:crypto'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -8,6 +9,7 @@ import { isMainThread, parentPort, Worker, workerData } from 'node:worker_thread
 
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
+import { createJiti } from 'jiti'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const sourcePlayground = join(root, 'playground')
@@ -369,8 +371,17 @@ function readLocalAdminKey(cwd) {
 async function runMain() {
   process.env.CONVEX_E2E_AUTO_START = 'true'
   process.env.BCN_E2E_REQUIRE_LOCAL = 'true'
+  execFileSync('pnpm', ['exec', 'nuxt-module-build', 'prepare'], {
+    cwd: root,
+    stdio: 'inherit',
+  })
+  execFileSync('pnpm', ['exec', 'nuxt-module-build', 'build'], {
+    cwd: root,
+    stdio: 'inherit',
+  })
   const isolated = copyIsolatedPlayground()
-  const { ensureLocalConvex } = await import('../test/helpers/local-convex.ts')
+  const jiti = createJiti(import.meta.url, { interopDefault: false })
+  const { ensureLocalConvex } = await jiti.import('../test/helpers/local-convex.ts')
   let local
   try {
     local = await ensureLocalConvex({ cwd: isolated.cwd, timeoutMs: 120_000 })

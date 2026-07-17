@@ -97,6 +97,15 @@ function safeChildEnvironment() {
 }
 
 async function runLocalMcpTests(root) {
+  const prepared = spawnSync('pnpm', ['exec', 'nuxt-module-build', 'prepare'], {
+    cwd: root,
+    env: safeChildEnvironment(),
+    stdio: 'inherit',
+  })
+  if (prepared.error) throw prepared.error
+  if (prepared.status !== 0) {
+    throw new Error(`MCP workspace preparation failed with exit code ${prepared.status}`)
+  }
   const result = spawnSync('pnpm', ['exec', 'vitest', 'run', '--project=mcp'], {
     cwd: root,
     env: safeChildEnvironment(),

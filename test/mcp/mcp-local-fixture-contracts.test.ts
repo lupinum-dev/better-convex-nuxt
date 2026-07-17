@@ -32,6 +32,14 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).toContain('secrets.push(replacement)')
   })
 
+  it('prepares generated root types before the standalone MCP contract suite', () => {
+    const prepare = runnerSource.indexOf("['exec', 'nuxt-module-build', 'prepare']")
+    const tests = runnerSource.indexOf("['exec', 'vitest', 'run', '--project=mcp']")
+
+    expect(prepare).toBeGreaterThan(-1)
+    expect(prepare).toBeLessThan(tests)
+  })
+
   it('consumes immutable release bytes directly and never repacks them', () => {
     expect(fixtureSource).toContain('process.env.BCN_RELEASE_TARBALL')
     expect(fixtureSource).toContain("['-xzf', releaseTarball, '--strip-components=1'")
@@ -55,8 +63,36 @@ describe('self-contained MCP OAuth fixture contracts', () => {
   })
 
   it('builds uncommitted workspace dist before a non-release fixture resolves package exports', () => {
-    expect(fixtureSource).toContain("await access(join(root, 'dist/module.mjs'))")
-    expect(fixtureSource).toContain("['exec', 'nuxt-module-build', 'build']")
+    const prepare = fixtureSource.indexOf("['exec', 'nuxt-module-build', 'prepare']")
+    const build = fixtureSource.indexOf("['exec', 'nuxt-module-build', 'build']")
+    const moduleAccess = fixtureSource.indexOf("access(join(root, 'dist/module.mjs'))")
+    const componentAccess = fixtureSource.indexOf(
+      "access(join(root, 'dist/runtime/convex-auth/component/convex.config.js'))",
+    )
+    const installedModule = fixtureSource.indexOf(
+      "const installedModule = join(modules, 'better-convex-nuxt')",
+    )
+    const buildCall = fixtureSource.indexOf('await ensureWorkspacePackageBuild()')
+    const workspaceLink = fixtureSource.indexOf("await symlink(root, installedModule, 'dir')")
+
+    for (const index of [
+      prepare,
+      build,
+      moduleAccess,
+      componentAccess,
+      installedModule,
+      buildCall,
+      workspaceLink,
+    ]) {
+      expect(index).toBeGreaterThan(-1)
+    }
+    expect(prepare).toBeLessThan(build)
+    expect(build).toBeLessThan(moduleAccess)
+    expect(build).toBeLessThan(componentAccess)
+    expect(installedModule).toBeLessThan(buildCall)
+    expect(buildCall).toBeLessThan(workspaceLink)
+    expect(moduleAccess).toBeLessThan(workspaceLink)
+    expect(componentAccess).toBeLessThan(workspaceLink)
   })
 
   it('randomizes concurrent fixture ports and narrowly retries idempotent environment OCC writes', () => {

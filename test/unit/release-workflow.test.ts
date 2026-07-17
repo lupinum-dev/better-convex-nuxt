@@ -48,6 +48,16 @@ describe('trusted prerelease workflow', () => {
     expect(releaseGate).toContain('run: pnpm release:prepare')
   })
 
+  it('builds current package exports before standalone real-backend E2E', () => {
+    const runner = read('scripts/run-e2e.mjs')
+    const prepare = runner.indexOf("run('pnpm', ['exec', 'nuxt-module-build', 'prepare'])")
+    const build = runner.indexOf("run('pnpm', ['exec', 'nuxt-module-build', 'build'])")
+
+    expect(prepare).toBeGreaterThan(-1)
+    expect(prepare).toBeLessThan(build)
+    expect(build).toBeLessThan(runner.indexOf('for (const file of files)'))
+  })
+
   it('gates the artifact verification chain on release-ref secret and CodeQL scans', () => {
     expect(workflow).toContain('release-security:')
     expect(workflow).toContain('needs: [build-artifact, release-security]')

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { checkPackedPathClasses } from '../../scripts/check-package-exports.mjs'
+import { checkRequiredPackedFiles } from '../../scripts/package-check/tarball.mjs'
 
 function validate(...paths: string[]): string[] {
   const failures: string[] = []
@@ -39,5 +40,20 @@ describe('packed artifact path classes', () => {
     'dist/tsconfig.tsbuildinfo',
   ])('rejects %s', (path) => {
     expect(validate(path)).not.toEqual([])
+  })
+
+  it('requires the built DevTools entry asset', () => {
+    const failures: string[] = []
+    checkRequiredPackedFiles({ files: [] }, failures)
+    expect(failures).toEqual([
+      'packed tarball is missing required file: dist/runtime/devtools/ui/dist/index.html',
+    ])
+
+    failures.length = 0
+    checkRequiredPackedFiles(
+      { files: [{ path: 'dist/runtime/devtools/ui/dist/index.html' }] },
+      failures,
+    )
+    expect(failures).toEqual([])
   })
 })

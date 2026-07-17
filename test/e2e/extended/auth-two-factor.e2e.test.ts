@@ -454,7 +454,7 @@ async function ensureFixturePackageLink(): Promise<void> {
   // A real backend is part of this proof, but retained ignored CLI state is
   // not. Start each transcript from a fresh component database and let the
   // CLI choose unoccupied ports when other isolated suites run concurrently.
-  await removeFixtureBackendState()
+  await removeFixtureRuntimeState()
   const fixtureNodeModules = join(fixtureCwd, 'node_modules')
   const packageLink = join(fixtureNodeModules, 'better-convex-nuxt')
   await mkdir(fixtureNodeModules, { recursive: true })
@@ -468,10 +468,14 @@ async function ensureFixturePackageLink(): Promise<void> {
   }
 }
 
-async function removeFixtureBackendState(): Promise<void> {
+async function removeFixtureRuntimeState(): Promise<void> {
   await Promise.all([
     rm(join(fixtureCwd, '.convex'), { force: true, recursive: true }),
     rm(join(fixtureCwd, '.env.local'), { force: true }),
+    rm(join(fixtureCwd, 'node_modules', 'better-convex-nuxt'), {
+      force: true,
+      recursive: true,
+    }),
   ])
 }
 
@@ -489,7 +493,7 @@ try {
     if (jwksProxy) await new Promise<void>((resolve) => jwksProxy!.close(() => resolve()))
     await local?.release()
   } finally {
-    await removeFixtureBackendState()
+    await removeFixtureRuntimeState()
   }
   throw error
 }
@@ -500,7 +504,7 @@ describe('Better Auth two-factor final-session security', () => {
       if (jwksProxy) await new Promise<void>((resolve) => jwksProxy!.close(() => resolve()))
       await local?.release()
     } finally {
-      await removeFixtureBackendState()
+      await removeFixtureRuntimeState()
     }
   })
 

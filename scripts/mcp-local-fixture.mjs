@@ -133,19 +133,20 @@ async function stopProcess(child) {
 }
 
 async function ensureWorkspacePackageBuild() {
-  try {
-    await access(join(root, 'dist/module.mjs'))
-    return
-  } catch {
-    // Clean CI checkouts intentionally do not commit dist. Build the workspace
-    // once before linking it into the disposable fixture.
-  }
+  await runCommand('pnpm', ['exec', 'nuxt-module-build', 'prepare'], {
+    cwd: root,
+    env: cleanEnvironment(),
+    secrets: [],
+  })
   await runCommand('pnpm', ['exec', 'nuxt-module-build', 'build'], {
     cwd: root,
     env: cleanEnvironment(),
     secrets: [],
   })
-  await access(join(root, 'dist/module.mjs'))
+  await Promise.all([
+    access(join(root, 'dist/module.mjs')),
+    access(join(root, 'dist/runtime/convex-auth/component/convex.config.js')),
+  ])
 }
 
 async function resolveReleaseTarball() {

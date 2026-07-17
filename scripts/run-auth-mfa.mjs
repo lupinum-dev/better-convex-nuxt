@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 const root = process.cwd()
+const fixturePackageLink = join(
+  root,
+  'test/fixtures/better-auth-two-factor/node_modules/better-convex-nuxt',
+)
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -16,7 +22,8 @@ function run(command, args, options = {}) {
 
 run('node', ['scripts/check-auth-backend.mjs'])
 run('pnpm', ['exec', 'jiti', 'scripts/generate-auth-schema.mjs', '--check'])
-run('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'test/fixtures/better-auth-two-factor/tsconfig.json'])
+run('pnpm', ['exec', 'nuxt-module-build', 'prepare'])
+run('pnpm', ['run', 'check:better-auth-two-factor'])
 run('pnpm', [
   'exec',
   'vitest',
@@ -25,7 +32,6 @@ run('pnpm', [
   'test/security/convex-auth-two-factor-fixture.test.ts',
 ])
 run('pnpm', ['exec', 'vitest', 'run', '--project=convex', 'test/convex/auth-adapter-query.test.ts'])
-run('pnpm', ['exec', 'nuxt-module-build', 'prepare'])
 run('pnpm', ['exec', 'nuxt-module-build', 'build'])
 
 const env = {
@@ -56,3 +62,7 @@ run(
   ],
   { env },
 )
+
+if (existsSync(fixturePackageLink)) {
+  throw new Error('Two-factor E2E left its temporary better-convex-nuxt package link behind')
+}

@@ -53,6 +53,7 @@ const ALLOWED_PACKAGE_ROOT_FILES = new Set([
   'package.json',
   'security/upstream-convex-better-auth.json',
 ])
+const REQUIRED_PACKED_FILES = new Set(['dist/runtime/devtools/ui/dist/index.html'])
 
 export function buildContentManifest(packageDir) {
   const files = []
@@ -107,8 +108,16 @@ export function checkPackedPathClasses(manifest, failures) {
   }
 }
 
+export function checkRequiredPackedFiles(manifest, failures) {
+  const packedFiles = new Set(manifest.files.map(({ path }) => path))
+  for (const path of REQUIRED_PACKED_FILES) {
+    if (!packedFiles.has(path)) failures.push(`packed tarball is missing required file: ${path}`)
+  }
+}
+
 export function scanExtractedTarball(packageDir, failures, manifest) {
   checkPackedPathClasses(manifest, failures)
+  checkRequiredPackedFiles(manifest, failures)
   const packedPackageJson = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8'))
   const bins =
     typeof packedPackageJson.bin === 'string'
@@ -187,7 +196,11 @@ function run(command, args, options = {}) {
 }
 
 export function requireDistBuilt() {
-  const requiredFiles = ['dist/module.mjs', 'dist/types.d.mts']
+  const requiredFiles = [
+    'dist/module.mjs',
+    'dist/types.d.mts',
+    'dist/runtime/devtools/ui/dist/index.html',
+  ]
   const missing = requiredFiles.filter((f) => !existsSync(p(f)))
   if (missing.length > 0) {
     console.error(

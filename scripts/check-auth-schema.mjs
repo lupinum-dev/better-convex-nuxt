@@ -19,9 +19,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { createJiti } from 'jiti'
+
 import { assertCurrentBackendBinary } from './check-auth-backend.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
+const jiti = createJiti(import.meta.url, { interopDefault: false })
 const generatedSchemaPaths = [
   'src/runtime/convex-auth/component/schema.ts',
   'src/runtime/convex-auth/component/schemaMetadata.ts',
@@ -152,7 +155,7 @@ function clearConvexEnvironment() {
 }
 
 async function runRealCodegen(cwd, deploymentEnv = undefined) {
-  const { ensureLocalConvex } = await import('../test/helpers/local-convex.ts')
+  const { ensureLocalConvex } = await jiti.import('../test/helpers/local-convex.ts')
   clearConvexEnvironment()
   process.env.BCN_E2E_REQUIRE_LOCAL = 'true'
   process.env.CONVEX_AGENT_MODE = 'anonymous'

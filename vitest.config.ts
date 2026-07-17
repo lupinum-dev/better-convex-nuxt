@@ -12,10 +12,15 @@ import { defineConfig } from 'vitest/config'
  *   pnpm test       - CI/local gate (unit + convex + nuxt + browser)
  *   pnpm test:e2e   - Full-stack tests used locally and by release:verify
  *
- * Run specific project:
- *   pnpm vitest --project=convex
- *   pnpm vitest --project=nuxt
- *   pnpm vitest --project=e2e
+ * Supported focused commands:
+ *   pnpm test:auth-adapter
+ *   pnpm test:oauth
+ *   pnpm test:nuxt
+ *   pnpm test:e2e
+ *
+ * Prepare generated root types before an ad hoc project command:
+ *   pnpm exec nuxt-module-build prepare
+ *   pnpm exec vitest run --project=convex
  */
 export default defineConfig({
   test: {
@@ -25,7 +30,8 @@ export default defineConfig({
     // Use projects for different test types
     projects: [
       // Unit Tests: Pure utility function tests
-      // Fast (<1s) - run with `pnpm vitest --project=unit`
+      // Fast (<1s). Use the prepared `pnpm test` gate, or prepare generated
+      // root types before invoking this project directly.
       {
         resolve: {
           alias: {
@@ -181,7 +187,7 @@ export default defineConfig({
       },
 
       // Nuxt Runtime Tests: composables/components needing nuxtApp context
-      // Fast-medium (~seconds) - run with `pnpm vitest --project=nuxt`
+      // Fast-medium (~seconds) - run with `pnpm test:nuxt`.
       await defineVitestProject({
         test: {
           name: 'nuxt',
