@@ -655,7 +655,8 @@ describe('Better Auth two-factor final-session security', () => {
     const missing = await requestAuth(siteUrl, proxyIpSecret, new CookieJar(), '/convex/token', {
       clientIp: '198.51.100.30',
     })
-    expect(missing.status).toBe(401)
+    expect(missing.status).toBe(200)
+    expect(missing.body).toEqual({ token: null })
 
     for (const [operation, ip] of [
       ['delete', '198.51.100.31'],

@@ -42,7 +42,7 @@ function deferred<Value>() {
   return { promise, resolve }
 }
 
-type TokenResponse = { data?: { token: string } | null; error?: unknown }
+type TokenResponse = { data?: { token: string | null } | null; error?: unknown }
 type ScriptedResponse = TokenResponse | (() => Promise<TokenResponse>)
 
 // ---- fake owner (mirrors client-owner.attachAuthPort) --------------------
@@ -399,23 +399,21 @@ describe('auth coordinator generation races ', () => {
     expect(h.coordinator.status.value).toBe('anonymous')
   })
 
-  it('initial 401 (no session) settles anonymous, not error', async () => {
-    // Better Convex Nuxt's /convex/token returns 401 UNAUTHORIZED for every
-    // session-less request, so a definitive 401 is the anonymous state — not an
-    // auth error. Surfacing it as error would break every anonymous visitor's
-    // default `optional` queries.
+  it('initial 401 from rejected credentials settles as an authentication error', async () => {
     const h = createHarness({
-      initial: { error: { status: 401, message: 'no session' } },
+      initial: { error: { status: 401, message: 'invalid session' } },
     })
     await h.settle()
     expect(h.subject()).toBe('anonymous')
-    expect(h.coordinator.status.value).toBe('anonymous')
-    expect(h.coordinator.error.value).toBeNull()
+    expect(h.coordinator.status.value).toBe('error')
+    expect(h.coordinator.error.value?.message).toBe(
+      'Authentication credentials are invalid or expired',
+    )
   })
 
   it('failed initial resolution settles error', async () => {
     // A token that decodes without a stable user id is a genuine authentication
-    // failure (unusable identity), distinct from the no-session 401 above.
+    // failure (unusable identity), distinct from a nullable anonymous success.
     const h = createHarness({
       initial: { data: { token: makeUserlessJwt() }, error: null },
     })
@@ -491,7 +489,7 @@ describe('auth coordinator generation races ', () => {
     expect(h.subject()).toBe('anonymous')
   })
 
-  it('definitive 401 on refresh clears identity and transitions to anonymous', async () => {
+  it('definitive 401 on refresh clears identity and reports an authentication error', async () => {
     const h = createHarness({
       initial: { data: { token: makeJwt('A') }, error: null },
     })
@@ -500,6 +498,10 @@ describe('auth coordinator generation races ', () => {
     await h.refresh()
     expect(h.subject()).toBe('anonymous')
     expect(h.coordinator.token.value).toBeNull()
+    expect(h.coordinator.status.value).toBe('error')
+    expect(h.coordinator.error.value?.message).toBe(
+      'Authentication credentials are invalid or expired',
+    )
   })
 
   it('token revocation (onChange false) transitions to anonymous', async () => {

@@ -1,6 +1,6 @@
 # RFC: Clean Anonymous Convex Token Bootstrap
 
-- Status: Proposed
+- Status: Implemented
 - Date: 2026-07-18
 - Target: Next compatible `better-convex-nuxt` release
 
@@ -31,7 +31,7 @@ This removes an avoidable failed network request from normal anonymous page load
 
 ## Motivation
 
-The browser auth bootstrap currently calls `GET /api/auth/convex/token` before it knows whether a Better Auth session exists. The endpoint uses `sessionMiddleware` and returns `401 Unauthorized` when no session is present. The client catches that response and correctly settles into an anonymous state.
+Before this change, the browser auth bootstrap called `GET /api/auth/convex/token` before it knew whether a Better Auth session existed. The endpoint used `sessionMiddleware` and returned `401 Unauthorized` when no session was present. The client caught that response and settled into an anonymous state.
 
 The application therefore behaves correctly, but the HTTP response still appears as a failed request in browser developer tools. Firefox and other browsers may surface it as a red XHR or console/network error. This makes a normal public page load look broken and creates noise when diagnosing real authentication failures.
 
@@ -61,25 +61,27 @@ This RFC does not propose:
 - adding a second client-side source of truth for authentication;
 - changing how authenticated server-side requests exchange tokens.
 
-## Current behavior
+## Previous behavior
 
-The token endpoint is registered at `/convex/token` and uses Better Auth's session middleware. Its handler currently rejects both of these states with the same `401` response:
+The token endpoint is registered at `/convex/token` and uses Better Auth's session middleware for credentialed requests. Before this change, it rejected both of these states with the same `401` response:
 
 1. no authenticated session exists;
 2. a session exists but cannot be trusted or persisted session validation fails.
 
-The client token fetcher intentionally maps `401` and `403` to a definitive anonymous identity when no usable token can be obtained. This prevents an application error, but it cannot prevent the browser from reporting the underlying failed HTTP request.
+The client token fetcher intentionally mapped `401` and `403` to a definitive anonymous identity when no usable token could be obtained. This prevented an application error, but it could not prevent the browser from reporting the underlying failed HTTP request.
 
 The result is an overloaded status code: `401` means both expected absence of identity and rejected credentials.
 
-## Proposed behavior
+## Implemented behavior
 
 ### Endpoint contract
 
-When session middleware produces no session and the request does not represent a rejected or newly invalidated session, return:
+When the request contains neither the exact configured Better Auth session cookie nor an `Authorization` header, return before session middleware runs:
 
 ```ts
-return ctx.json({ token: null })
+return {
+  response: Response.json({ token: null }, { headers: { 'Cache-Control': 'private, no-store' } }),
+}
 ```
 
 When a valid session is available and persisted-session validation succeeds, retain the existing token issuance path:
@@ -106,11 +108,11 @@ interface ConvexTokenResponse {
 }
 ```
 
-The generated OpenAPI schema and auth-client plugin types must reflect the nullable token.
+The generated OpenAPI schema and auth-client plugin types reflect the nullable token.
 
 ### Client behavior
 
-The token fetcher already treats a missing token as anonymous. It should explicitly accept the nullable response and settle with:
+The token fetcher accepts the nullable response and settles with:
 
 ```ts
 {
@@ -167,16 +169,14 @@ The current behavior is technically handled, but it conflates an expected public
 
 Keeping `401` would be reasonable only if the endpoint were called exclusively after credentials were known to exist. That is not the current client lifecycle, and adding such knowledge would require the rejected preflight or a second auth source of truth.
 
-## Implementation outline
+## Implementation
 
-1. Update the `/convex/token` endpoint to distinguish an absent session from an invalid session.
-2. Return `{ token: null }` only for the ordinary no-credential anonymous path.
-3. Preserve existing `unauthorized()` branches for invalid, changed, expired, or revoked sessions.
-4. Change the endpoint response schema to `string | null`.
-5. Change the auth-client plugin token response type to `string | null`.
-6. Update the token fetcher tests to model anonymous bootstrap as a successful nullable response.
-7. Retain explicit tests for all `401` security cases.
-8. Add an end-to-end browser assertion that an anonymous initial load produces no token-endpoint `4xx` response.
+1. The `/convex/token` request hook distinguishes absent credentials from credentialed requests.
+2. It returns `{ token: null }` only for the ordinary credential-free `GET` path.
+3. Existing session middleware and `unauthorized()` branches continue to own invalid, changed, expired, and revoked sessions.
+4. The endpoint response schema and auth-client plugin type are `string | null`.
+5. The token fetcher models anonymous bootstrap as a successful nullable response and treats `401`/`403` as credential failures.
+6. Unit, browser, security, and extended-fixture assertions cover the three-state contract.
 
 No compatibility adapter, feature flag, alternate endpoint, or dual behavior is proposed.
 

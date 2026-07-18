@@ -79,8 +79,8 @@ function createAuth() {
   })
 }
 
-function request(marker: boolean): Request {
-  return new Request(`${origin}/api/auth/get-session`, {
+function request(marker: boolean, path = '/get-session'): Request {
+  return new Request(`${origin}/api/auth${path}`, {
     headers: {
       authorization: `Bearer ${sessionToken}`,
       ...(marker ? { [INTERNAL_SESSION_HEADER]: '1' } : {}),
@@ -106,5 +106,54 @@ describe('internal Better Auth session bridge', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toBeNull()
     expect(response.headers.has('set-auth-token')).toBe(false)
+  })
+
+  it('returns a cache-private nullable success only when no session credential is present', async () => {
+    const auth = createAuth()
+    const response = await auth.handler(
+      new Request(`${origin}/api/auth/convex/token`, {
+        headers: { cookie: 'unrelated=value' },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    await expect(response.json()).resolves.toEqual({ token: null })
+  })
+
+  it('does not bypass endpoint method enforcement for a credential-free request', async () => {
+    const response = await createAuth().handler(
+      new Request(`${origin}/api/auth/convex/token`, { method: 'POST' }),
+    )
+
+    expect(response.status).not.toBe(200)
+  })
+
+  it.each(['invalid', null])(
+    'rejects a presented session cookie that does not authenticate (%s)',
+    async (value) => {
+      const auth = createAuth()
+      const context = await auth.$context
+      const cookie = `${context.authCookies.sessionToken.name}${value === null ? '' : `=${value}`}`
+      const response = await auth.handler(
+        new Request(`${origin}/api/auth/convex/token`, {
+          headers: { cookie },
+        }),
+      )
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+    },
+  )
+
+  it('rejects unsupported public bearer credentials', async () => {
+    const auth = createAuth()
+    const rejected = await auth.handler(request(false, '/convex/token'))
+    expect(rejected.status).toBe(401)
+    expect(rejected.headers.get('cache-control')).toBe('private, no-store')
+    await expect(rejected.json()).resolves.toEqual({
+      code: 'UNAUTHORIZED',
+      message: 'AUTH_SESSION_INVALID',
+    })
   })
 })

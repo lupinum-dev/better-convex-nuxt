@@ -160,8 +160,28 @@ const internalSessionBearerBefore: BeforeHook = {
   handler: officialBearerBefore.handler,
 }
 
+const INVALID_SESSION_MESSAGE = 'AUTH_SESSION_INVALID'
+
 function unauthorized(): never {
-  throw new APIError('UNAUTHORIZED', { message: 'AUTH_SESSION_INVALID' })
+  throw new APIError('UNAUTHORIZED', { message: INVALID_SESSION_MESSAGE })
+}
+
+function unauthorizedResponse(): Response {
+  return Response.json(
+    { code: 'UNAUTHORIZED', message: INVALID_SESSION_MESSAGE },
+    { headers: { 'Cache-Control': 'private, no-store' }, status: 401 },
+  )
+}
+
+function hasPresentedSessionCredentials(headers: Headers, sessionCookieName: string): boolean {
+  if (headers.has('authorization')) return true
+  const cookieHeader = headers.get('cookie')
+  if (!cookieHeader) return false
+  return cookieHeader.split(';').some((part) => {
+    const separator = part.indexOf('=')
+    const name = (separator === -1 ? part : part.slice(0, separator)).trim()
+    return name === sessionCookieName
+  })
 }
 
 function validateSessionJwt(options: ConvexAuthOptions): void {
@@ -792,10 +812,29 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
       providerRuntimeOptions = validateGlobalOAuthRuntime(context, oauthOptions, hardenedOAuth)
     },
     onRequest: async (request, context) => {
-      if (!oauthOptions || !providerRuntimeOptions) return
       const path = oauthRequestPath(request, context.baseURL)
-      if (!path) return { response: oauthFailure('invalid_request') }
       const issuerPath = new URL(context.baseURL).pathname
+      if (
+        path === `${issuerPath}/convex/token` &&
+        request.headers.has('authorization') &&
+        request.headers.get(INTERNAL_SESSION_HEADER) !== '1'
+      ) {
+        return { response: unauthorizedResponse() }
+      }
+      if (
+        request.method === 'GET' &&
+        path === `${issuerPath}/convex/token` &&
+        !hasPresentedSessionCredentials(request.headers, context.authCookies.sessionToken.name)
+      ) {
+        return {
+          response: Response.json(
+            { token: null },
+            { headers: { 'Cache-Control': 'private, no-store' } },
+          ),
+        }
+      }
+      if (!oauthOptions || !providerRuntimeOptions) return
+      if (!path) return { response: oauthFailure('invalid_request') }
       const metadataPaths = new Set([
         `/.well-known/oauth-authorization-server${issuerPath}`,
         `${issuerPath}/.well-known/oauth-authorization-server`,
@@ -860,6 +899,12 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
             context.setHeader('Cache-Control', JWKS_CACHE_CONTROL)
           }),
         },
+        {
+          matcher: (context) => context.path === '/convex/token',
+          handler: createAuthMiddleware(async (context) => {
+            context.setHeader('Cache-Control', 'private, no-store')
+          }),
+        },
       ],
       before: [
         internalSessionBearerBefore,
@@ -903,7 +948,7 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
                   content: {
                     'application/json': {
                       schema: {
-                        properties: { token: { type: 'string' } },
+                        properties: { token: { nullable: true, type: 'string' } },
                         required: ['token'],
                         type: 'object',
                       },
@@ -915,6 +960,7 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
           },
         },
         async (ctx) => {
+          ctx.setHeader('Cache-Control', 'private, no-store')
           const authenticated = ctx.context.session
           if (!authenticated || ctx.context.newSession) unauthorized()
 
@@ -976,7 +1022,6 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
             returnHeaders: false,
             returnStatus: false,
           })
-          ctx.setHeader('Cache-Control', 'private, no-store')
           return { token: result.token }
         },
       ),

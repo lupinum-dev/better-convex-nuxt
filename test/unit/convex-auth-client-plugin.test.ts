@@ -20,4 +20,14 @@ describe('internal Convex auth client plugin', () => {
       throw: false,
     })
   })
+
+  it('preserves a nullable anonymous token response', async () => {
+    const fetch = vi.fn(async () => ({ data: { token: null }, error: null }))
+    const actions = convexClientPlugin().getActions?.(fetch as never)
+
+    await expect(actions?.convex.token()).resolves.toEqual({
+      data: { token: null },
+      error: null,
+    })
+  })
 })

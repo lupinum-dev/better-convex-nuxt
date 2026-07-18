@@ -154,3 +154,29 @@ describe('client Convex token exchange deadline', () => {
     },
   )
 })
+
+describe('client Convex token exchange outcomes', () => {
+  it('settles a nullable successful response as clean anonymous state', async () => {
+    const source = {
+      convex: { token: async () => ({ data: { token: null }, error: null }) },
+    } satisfies ConvexTokenSource
+
+    await expect(fetchConvexToken(source)).resolves.toEqual({
+      identity: null,
+      authError: null,
+      definitive: true,
+    })
+  })
+
+  it.each([401, 403])('reports rejected credentials from HTTP %s', async (status) => {
+    const source = {
+      convex: { token: async () => ({ data: null, error: { status } }) },
+    } satisfies ConvexTokenSource
+
+    await expect(fetchConvexToken(source)).resolves.toEqual({
+      identity: null,
+      authError: 'Authentication credentials are invalid or expired',
+      definitive: true,
+    })
+  })
+})

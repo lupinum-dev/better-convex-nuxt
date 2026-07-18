@@ -130,10 +130,7 @@ test('real Chromium session events converge cross-tab identity through one obser
         if (url.includes('/convex/token')) {
           tokenRequests += 1
           if (!serverSubject) {
-            return new Response(JSON.stringify({ message: 'Unauthorized' }), {
-              status: 401,
-              headers,
-            })
+            return new Response(JSON.stringify({ token: null }), { headers })
           }
           return new Response(JSON.stringify({ token: jwt(serverSubject) }), { headers })
         }

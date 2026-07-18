@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Treat credential-free browser token bootstrap as `200 { token: null }` while
+  preserving `401` for malformed, expired, revoked, or unsupported credentials.
+  The client and OpenAPI contracts now expose `string | null`, eliminating the
+  expected anonymous request failure without weakening session validation.
 - Bound every shipped cookie-to-token exchange to its H3 request and one
   ingress-authenticated client IP. Production auth now requires an explicit
   single-IP ingress header and a private Nuxt-to-Convex signing secret; the raw

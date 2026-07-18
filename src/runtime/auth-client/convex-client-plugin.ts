@@ -15,7 +15,7 @@ export function convexClientPlugin() {
     getActions: ($fetch) => ({
       convex: {
         token: async (options?: ConvexTokenActionOptions) =>
-          await $fetch<{ token: string }>('/convex/token', {
+          await $fetch<{ token: string | null }>('/convex/token', {
             ...(options?.fetchOptions ?? {}),
             method: 'GET',
           }),

@@ -16,7 +16,7 @@ import {
 import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
 
 type Subject = 'anonymous' | 'A' | 'B'
-type TokenResponse = { data?: { token: string } | null; error?: unknown }
+type TokenResponse = { data?: { token: string | null } | null; error?: unknown }
 
 interface Deferred<Value> {
   promise: Promise<Value>

@@ -72,7 +72,7 @@ function resetCounts() {
   CountingClient.closed = 0
 }
 
-type TokenResponse = { data?: { token: string } | null; error?: unknown }
+type TokenResponse = { data?: { token: string | null } | null; error?: unknown }
 
 interface SignOutScript {
   value: TokenResponse
