@@ -10,6 +10,7 @@ import {
   BETTER_AUTH_SESSION_COOKIE_NAME,
   filterBetterAuthCookies,
   getBetterAuthSessionToken,
+  hasBetterAuthCookie,
   hasSetCookieDomainAttribute,
   isBetterAuthCookieName,
   isBetterAuthSetCookie,
@@ -129,6 +130,13 @@ describe('configuration and cookie security regressions', () => {
     ].join('; ')
 
     expect(filterBetterAuthCookies(header)).toBe(supported.join('; '))
+  })
+
+  it('detects supported credentials even when a cookie pair is malformed', () => {
+    expect(hasBetterAuthCookie('unrelated=value; better-auth.session_token')).toBe(true)
+    expect(hasBetterAuthCookie('__Secure-better-auth.session_token=invalid')).toBe(true)
+    expect(hasBetterAuthCookie('better-auth.two_factor=pending')).toBe(true)
+    expect(hasBetterAuthCookie('unrelated=value')).toBe(false)
   })
 
   it.each([

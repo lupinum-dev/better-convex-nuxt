@@ -11,6 +11,7 @@ import { bearer } from 'better-auth/plugins'
 import type { Jwk, JwtOptions } from 'better-auth/plugins/jwt'
 
 import { VERIFIED_CLIENT_IP_HEADER } from '../shared/client-ip'
+import { hasBetterAuthCookie } from '../utils/shared-helpers'
 import { INTERNAL_SESSION_HEADER } from './internal-session'
 import { JWKS_CACHE_CONTROL, assertSupportedJwksOptions, sanitizeStoredJwk } from './jwks-rotation'
 import {
@@ -173,15 +174,9 @@ function unauthorizedResponse(): Response {
   )
 }
 
-function hasPresentedSessionCredentials(headers: Headers, sessionCookieName: string): boolean {
+function hasPresentedSessionCredentials(headers: Headers): boolean {
   if (headers.has('authorization')) return true
-  const cookieHeader = headers.get('cookie')
-  if (!cookieHeader) return false
-  return cookieHeader.split(';').some((part) => {
-    const separator = part.indexOf('=')
-    const name = (separator === -1 ? part : part.slice(0, separator)).trim()
-    return name === sessionCookieName
-  })
+  return hasBetterAuthCookie(headers.get('cookie'))
 }
 
 function validateSessionJwt(options: ConvexAuthOptions): void {
@@ -824,7 +819,7 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
       if (
         request.method === 'GET' &&
         path === `${issuerPath}/convex/token` &&
-        !hasPresentedSessionCredentials(request.headers, context.authCookies.sessionToken.name)
+        !hasPresentedSessionCredentials(request.headers)
       ) {
         return {
           response: Response.json(

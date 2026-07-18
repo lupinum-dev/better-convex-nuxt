@@ -274,7 +274,11 @@ export function createAuthProxyHandler(options: AuthProxyHandlerOptions = {}) {
         data: { code: 'BCN_AUTH_PROXY_PUBLIC_ORIGIN_MISSING' },
       })
     }
-    const trustedClientIpHeader = auth.proxy.trustedClientIpHeader
+    // Standards-defined metadata is intentionally credential-free and fetched
+    // by servers (including Convex's JWT verifier), so it has no browser ingress
+    // address to sign. Every credentialed/session route keeps the strict IP
+    // requirement below.
+    const trustedClientIpHeader = publicMetadataCors ? null : auth.proxy.trustedClientIpHeader
     if (trustedClientIpHeader && !normalizeClientIp(event.headers.get(trustedClientIpHeader))) {
       if (event.method === 'POST') closeRequestConnection(event)
       rejected('BCN_AUTH_PROXY_CLIENT_IP_INVALID', 400)
@@ -402,7 +406,7 @@ export function createAuthProxyHandler(options: AuthProxyHandlerOptions = {}) {
 
     try {
       const forwardHeaders = await buildAuthProxyForwardHeaders(event, {
-        trustedClientIpHeader: auth.proxy.trustedClientIpHeader,
+        trustedClientIpHeader,
       })
       if (isPublicTokenCorsPost) {
         // Convex receives the proxy as the OAuth endpoint. Preserve Better

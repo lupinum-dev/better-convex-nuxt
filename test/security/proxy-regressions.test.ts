@@ -619,6 +619,56 @@ describe('auth proxy security regressions', () => {
     })
   })
 
+  it('serves credential-free JWKS to server verifiers without browser ingress metadata', async () => {
+    mocks.requestUrl.mockReturnValue(new URL('https://app.example.test/api/auth/jwks'))
+    const fetchMock = vi.fn(async () => new Response('{"keys":[]}'))
+    vi.stubGlobal('fetch', fetchMock)
+    const handler = (await import('../../src/runtime/server/api/auth/jwks')).default as unknown as (
+      input: ReturnType<typeof event>,
+    ) => Promise<Uint8Array>
+    const jwksRequest = event('GET', undefined, {
+      'cf-connecting-ip': '',
+      origin: '',
+    })
+
+    await handler(jwksRequest)
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://demo.convex.site/api/auth/jwks',
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          'x-bcn-client-ip': expect.anything(),
+          'x-bcn-client-ip-signature': expect.anything(),
+        }),
+      }),
+    )
+    expect(mocks.responseHeaders).toHaveBeenCalledWith(jwksRequest, {
+      'access-control-allow-origin': '*',
+    })
+  })
+
+  it('rejects credentials on the public JWKS route', async () => {
+    mocks.requestUrl.mockReturnValue(new URL('https://app.example.test/api/auth/jwks'))
+    const fetchMock = vi.fn(async () => new Response('{"keys":[]}'))
+    vi.stubGlobal('fetch', fetchMock)
+    const handler = (await import('../../src/runtime/server/api/auth/jwks')).default as unknown as (
+      input: ReturnType<typeof event>,
+    ) => Promise<Uint8Array>
+
+    await expect(
+      handler(
+        event('GET', undefined, {
+          'cf-connecting-ip': '',
+          cookie: 'better-auth.session_token=secret',
+        }),
+      ),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      data: { code: 'BCN_AUTH_PROXY_METADATA_CREDENTIAL_REJECTED' },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('rejects credentials entering or leaving public authorization-server metadata', async () => {
     mocks.requestUrl.mockReturnValue(
       new URL('https://app.example.test/.well-known/oauth-authorization-server/api/auth'),

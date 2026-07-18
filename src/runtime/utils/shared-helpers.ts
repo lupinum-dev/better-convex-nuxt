@@ -242,6 +242,16 @@ export function filterBetterAuthCookies(cookieHeader: string | null | undefined)
   return authCookies.length > 0 ? authCookies.join('; ') : null
 }
 
+/** Whether a request presents any supported Better Auth cookie name, even malformed. */
+export function hasBetterAuthCookie(cookieHeader: string | null | undefined): boolean {
+  if (!cookieHeader) return false
+  return cookieHeader.split(';').some((chunk) => {
+    const separator = chunk.indexOf('=')
+    const name = trimOptionalWhitespace(separator === -1 ? chunk : chunk.slice(0, separator))
+    return isBetterAuthCookieName(name)
+  })
+}
+
 /** Whether a raw Set-Cookie field belongs to the supported Better Auth namespace. */
 export function isBetterAuthSetCookie(setCookie: string): boolean {
   const cookiePair = parseCookiePair(setCookie.split(';', 1)[0] ?? '')

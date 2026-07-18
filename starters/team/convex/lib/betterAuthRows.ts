@@ -272,10 +272,12 @@ export async function listBetterAuthOrganizationMembersPage(
       : [],
   ])
   const users = userRows.filter((user) => user !== null)
-  const teamMembers = teamMemberRows.filter((teamMember) => teamMember !== null)
 
   const usersById = new Map(users.map((user) => [getBetterAuthRowId(user, 'user'), user]))
-  const teamMemberUserIds = new Set(teamMembers.map((member) => member.userId))
+  const teamMemberUserIds = new Set<string>()
+  for (const member of teamMemberRows) {
+    if (member !== null) teamMemberUserIds.add(member.userId)
+  }
 
   return {
     ...members,

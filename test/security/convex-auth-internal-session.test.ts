@@ -121,6 +121,20 @@ describe('internal Better Auth session bridge', () => {
     await expect(response.json()).resolves.toEqual({ token: null })
   })
 
+  it.each(['better-auth.two_factor=pending', '__Secure-better-auth.session_token=invalid'])(
+    'rejects a presented Better Auth credential instead of treating it as anonymous (%s)',
+    async (cookie) => {
+      const response = await createAuth().handler(
+        new Request(`${origin}/api/auth/convex/token`, {
+          headers: { cookie },
+        }),
+      )
+
+      expect(response.status).toBe(401)
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+    },
+  )
+
   it('does not bypass endpoint method enforcement for a credential-free request', async () => {
     const response = await createAuth().handler(
       new Request(`${origin}/api/auth/convex/token`, { method: 'POST' }),

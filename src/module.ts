@@ -371,6 +371,10 @@ export default defineNuxtModule<ModuleOptions>({
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
       addServerHandler({
+        route: '/api/auth/jwks',
+        handler: resolver.resolve('./runtime/server/api/auth/jwks'),
+      })
+      addServerHandler({
         route: '/api/auth/**',
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
