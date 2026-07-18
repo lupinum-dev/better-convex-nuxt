@@ -36,8 +36,14 @@ async function startServer(handler: Handler, requests: RecordedRequest[]): Promi
       url: req.url,
       cookie: req.headers['cookie'],
       authorization: req.headers['authorization'],
-      clientIp: req.headers['x-bcn-client-ip'],
-      clientIpSignature: req.headers['x-bcn-client-ip-signature'],
+      clientIp:
+        typeof req.headers['x-bcn-client-ip'] === 'string'
+          ? req.headers['x-bcn-client-ip']
+          : undefined,
+      clientIpSignature:
+        typeof req.headers['x-bcn-client-ip-signature'] === 'string'
+          ? req.headers['x-bcn-client-ip-signature']
+          : undefined,
     })
     handler(req, res)
   })

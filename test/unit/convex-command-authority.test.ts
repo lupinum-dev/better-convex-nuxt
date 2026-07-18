@@ -21,9 +21,12 @@ describe('checked Convex CLI deployment authority', () => {
       CONVEX_SELF_HOSTED_ADMIN_KEY: 'fixture-admin',
       CONVEX_SELF_HOSTED_URL: 'http://127.0.0.1:3210',
     },
-  ])('accepts one explicit selector class: %#', (environment) => {
-    expect(() => assertConvexAuthoritySelection(environment)).not.toThrow()
-  })
+  ] as ReadonlyArray<Readonly<Record<string, string>>>)(
+    'accepts one explicit selector class: %#',
+    (environment) => {
+      expect(() => assertConvexAuthoritySelection(environment)).not.toThrow()
+    },
+  )
 
   it.each([
     {},
@@ -48,9 +51,12 @@ describe('checked Convex CLI deployment authority', () => {
       CONVEX_SELF_HOSTED_ADMIN_KEY: 'fixture-admin',
       CONVEX_SELF_HOSTED_URL: 'http://127.0.0.1:3210',
     },
-  ])('rejects missing, incomplete, conflicting, or hidden selectors: %#', (environment) => {
-    expect(() => assertConvexAuthoritySelection(environment)).toThrow(/Convex authority file/u)
-  })
+  ] as ReadonlyArray<Readonly<Record<string, string>>>)(
+    'rejects missing, incomplete, conflicting, or hidden selectors: %#',
+    (environment) => {
+      expect(() => assertConvexAuthoritySelection(environment)).toThrow(/Convex authority file/u)
+    },
+  )
 
   it('removes every ambient Convex authority and installs only file-owned selection', () => {
     const result = buildConvexCommandEnvironment(

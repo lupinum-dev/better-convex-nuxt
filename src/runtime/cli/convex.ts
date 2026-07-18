@@ -188,14 +188,21 @@ async function readAuthorityFile(cwd: string): Promise<Record<string, string>> {
     for (const line of source.split(/\r?\n/u)) {
       const assignment = /^\s*(?:export\s+)?([A-Za-z_]\w*)\s*([=:])/u.exec(line)
       const name = assignment?.[1]
+      const separator = assignment?.[2]
       if (name?.toUpperCase().startsWith('CONVEX_')) {
-        if (name !== name.toUpperCase() || assignment[2] !== '=' || convexAssignments.has(name)) {
+        if (name !== name.toUpperCase() || separator !== '=' || convexAssignments.has(name)) {
           throw new Error('invalid')
         }
         convexAssignments.add(name)
       }
     }
-    return parseEnv(source)
+    const parsed = parseEnv(source)
+    const environment: Record<string, string> = {}
+    for (const [name, value] of Object.entries(parsed)) {
+      if (value === undefined) throw new Error('invalid')
+      environment[name] = value
+    }
+    return environment
   } catch {
     throw new Error('The Convex authority file is missing, invalid, or too large.')
   }
