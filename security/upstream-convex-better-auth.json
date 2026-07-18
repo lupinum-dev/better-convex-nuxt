@@ -335,9 +335,9 @@
       "targetPath": "src/runtime/convex-auth/plugin.ts",
       "sourceCommit": "c628916b451a6b4cff0f5464f134475464b1a6da",
       "sourceSha256": "48ab81541ecb0e5545bd74fb78ca426c0d695bbb156e03e6a402063255ef428a",
-      "targetSha256": "8b708a492ac62849b690cb9b73a940ee82720baa9c88fdfe68d5b644bcde60b5",
+      "targetSha256": "0f00519b6e8a7e13c5d87ce2dbd7a4ee0a55abc426fd61bcd61485ef18df68e9",
       "classification": "rewritten",
-      "modificationSummary": "Rewrote the Convex plugin to issue only short-lived JWTs from final persisted sessions, share sanitized public JWKS, enforce BCN-owned OAuth storage/resource, canonical redirect transport, and pre-consume invariants, delegate authorization protocol semantics to the official provider, and remove deprecated OIDC and cookie paths.",
+      "modificationSummary": "Rewrote the Convex plugin to issue only short-lived JWTs from final persisted sessions, treat every supported Better Auth cookie namespace as presented credentials before anonymous fallback, share sanitized public JWKS, enforce BCN-owned OAuth storage/resource, canonical redirect transport, and pre-consume invariants, delegate authorization protocol semantics to the official provider, and remove deprecated OIDC and cookie paths.",
       "latestReviewedUpstreamPatch": "https://github.com/get-convex/better-auth/commit/c628916b451a6b4cff0f5464f134475464b1a6da",
       "noticeRequired": false
     },
