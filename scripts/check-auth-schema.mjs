@@ -25,18 +25,6 @@ import { assertCurrentBackendBinary } from './check-auth-backend.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const jiti = createJiti(import.meta.url, { interopDefault: false })
-const generatedSchemaPaths = [
-  'src/runtime/convex-auth/component/schema.ts',
-  'src/runtime/convex-auth/component/schemaMetadata.ts',
-  'starters/agentic-saas/convex/betterAuth/generatedSchema.ts',
-  'starters/agentic-saas/convex/betterAuth/schemaMetadata.ts',
-  'starters/team/convex/betterAuth/generatedSchema.ts',
-  'starters/team/convex/betterAuth/schemaMetadata.ts',
-  'test/fixtures/better-auth-local-component/convex/betterAuth/schema.ts',
-  'test/fixtures/better-auth-local-component/convex/betterAuth/schemaMetadata.ts',
-  'test/fixtures/better-auth-two-factor/convex/betterAuth/schema.ts',
-  'test/fixtures/better-auth-two-factor/convex/betterAuth/schemaMetadata.ts',
-]
 const codegenPaths = [
   'test/fixtures/better-auth-local-component/convex/_generated',
   'test/fixtures/better-auth-local-component/convex/betterAuth/_generated',
@@ -250,8 +238,7 @@ async function main() {
       symlinkSync(isolatedRoot, path.join(modules, 'better-convex-nuxt'), 'dir')
     }
 
-    run('pnpm', ['exec', 'jiti', 'scripts/generate-auth-schema.mjs'], isolatedRoot)
-    assertPathsFresh(isolatedRoot, generatedSchemaPaths, 'generated schema/metadata')
+    run('pnpm', ['exec', 'jiti', 'scripts/generate-auth-schema.mjs', '--check'], isolatedRoot)
 
     run('pnpm', ['exec', 'nuxt-module-build', 'prepare'], isolatedRoot)
     run('pnpm', ['exec', 'nuxt-module-build', 'build'], isolatedRoot)

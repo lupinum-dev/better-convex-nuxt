@@ -180,30 +180,42 @@ function readShape(args: Record<string, unknown>): AuthReadArgs {
   }
 }
 
-async function assertUniqueFields(
+async function assertUniqueConstraints(
   ctx: any,
   schema: SchemaDefinition<any, any>,
   metadata: AuthSchemaMetadata,
   modelName: string,
-  data: Record<string, unknown>,
-  exceptStorageId?: string,
+  changes: Record<string, unknown>,
+  current?: Record<string, unknown>,
 ): Promise<void> {
   const model = getAuthModelMetadata(metadata, modelName)
-  for (const field of Object.values(model.fields)) {
-    const value = data[field.physicalName]
-    if (!field.unique || value === null || value === undefined) continue
+  const data = current ? { ...current, ...changes } : changes
+  for (const index of model.indexes) {
+    if (index.unique !== true) continue
+    if (current && index.fields.every((fieldName) => !(fieldName in changes))) continue
+    const where: AuthWhere[] = []
+    let complete = true
+    for (const fieldName of index.fields) {
+      const value = data[fieldName]
+      if (value === null || value === undefined) {
+        complete = false
+        break
+      }
+      where.push({ field: fieldName, operator: 'eq', value: value as never })
+    }
+    if (!complete) continue
     const matches = await findAuthRows(
       ctx,
       schema,
       metadata,
       {
         model: modelName,
-        where: [{ field: field.physicalName, operator: 'eq', value: value as never }],
+        where,
       },
       2,
     )
-    if (matches.some((row) => row._id !== exceptStorageId)) {
-      throw new Error(`AUTH_UNIQUE_CONFLICT:${modelName}.${field.physicalName}`)
+    if (matches.some((row) => row._id !== current?._id)) {
+      throw new Error(`AUTH_UNIQUE_CONFLICT:${modelName}.${index.descriptor}`)
     }
   }
 }
@@ -241,7 +253,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
       },
       handler: async (ctx, args) => {
         const row = normalizeCreate(metadata, args.model, args.data)
-        await assertUniqueFields(ctx, schema, metadata, args.model, row)
+        await assertUniqueConstraints(ctx, schema, metadata, args.model, row)
         const storageId = await ctx.db.insert(args.model as never, row as never)
         const created = await ctx.db.get(args.model as never, storageId as never)
         if (!created) throw new Error('AUTH_CREATE_READBACK_FAILED')
@@ -306,7 +318,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           'AUTH_UPDATE_ONE',
         )
         if (!current) return null
-        await assertUniqueFields(ctx, schema, metadata, args.model, patch, current._id as string)
+        await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
         await ctx.db.patch(args.model as never, current._id as never, patch as never)
         const updated = await ctx.db.get(args.model as never, current._id as never)
         if (!updated) throw new Error('AUTH_UPDATE_READBACK_FAILED')
@@ -334,6 +346,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
         })
         const rows = await collectAuthRows(ctx, schema, metadata, readShape(args))
         for (const current of rows) {
+          await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
           await ctx.db.patch(args.model as never, current._id as never, patch as never)
           const updated = await ctx.db.get(args.model as never, current._id as never)
           if (!updated) throw new Error('AUTH_BULK_UPDATE_READBACK_FAILED')
@@ -453,6 +466,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           if (!Number.isFinite(next)) throw new Error(`AUTH_INCREMENT_OVERFLOW:${fieldName}`)
           patch[fieldName] = next
         }
+        await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
         await ctx.db.patch(args.model as never, current._id as never, patch as never)
         const updated = await ctx.db.get(args.model as never, current._id as never)
         if (!updated) throw new Error('AUTH_INCREMENT_READBACK_FAILED')

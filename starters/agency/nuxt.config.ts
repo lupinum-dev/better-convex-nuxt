@@ -7,6 +7,10 @@ export default {
     strict: true,
   },
   convex: {
-    auth: {},
+    auth: {
+      proxy: {
+        trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER,
+      },
+    },
   },
 }

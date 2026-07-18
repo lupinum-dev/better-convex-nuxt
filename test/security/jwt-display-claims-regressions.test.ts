@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveServerAuthSnapshot } from '../../src/runtime/server/utils/auth-snapshot'
@@ -195,10 +196,12 @@ describe('server JWT hydration boundary', () => {
     )
 
     const snapshot = await resolveServerAuthSnapshot({
+      event: { headers: new Headers() } as unknown as H3Event,
       siteUrl: 'https://demo.convex.site',
       cookieHeader: 'better-auth.session_token=session-secret',
       requestId: 'jwt-retention-test',
       trackWaterfall: true,
+      trustedClientIpHeader: '',
     })
 
     expect(snapshot.token).toBeNull()
@@ -228,10 +231,12 @@ describe('server JWT hydration boundary', () => {
     )
 
     const snapshot = await resolveServerAuthSnapshot({
+      event: { headers: new Headers() } as unknown as H3Event,
       siteUrl: 'https://demo.convex.site',
       cookieHeader: 'better-auth.session_token=session-secret',
       requestId: 'jwt-provisional-test',
       trackWaterfall: true,
+      trustedClientIpHeader: '',
     })
 
     expect(snapshot).toMatchObject({ token, user: { id: 'user-1' }, authError: null })

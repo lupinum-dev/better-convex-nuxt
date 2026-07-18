@@ -21,8 +21,11 @@ Small Nuxt + Convex starter for public apps.
 
 ```bash
 pnpm install
-pnpm convex:dev
+pnpm convex:configure
 pnpm dev
 pnpm test
 pnpm typecheck
 ```
+
+Use `pnpm convex:dev` after `.env.local` exists; it selects only the deployment
+recorded in that file.

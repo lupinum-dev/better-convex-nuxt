@@ -45,7 +45,9 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(starterReadme).toContain('replace its final command with:')
     expect(starterReadme).toContain('pnpm test:mcp-conformance')
     expect(starterReadme).not.toContain('BCN_MCP_CONFORMANCE_BEARER=')
-    expect(starterReadme).toContain("convex run auth:rotateSigningKey '{}'")
+    expect(starterReadme).toContain(
+      "pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'",
+    )
     expect(starterReadme).toContain('require `previousKids` to be empty')
     expect(starterReadme).toContain('contains the exact recorded `newKid`')
     expect(starterReadme).toContain('/api/auth/jwks')
@@ -59,15 +61,15 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(starterReadme).not.toContain('local-test-password')
     expect(starterReadme).not.toContain('one-time-test-password')
     expect(starterReadme).toContain(
-      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET',
+      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET',
     )
     expect(starterReadme).not.toContain('YOUR-SEPARATE-RANDOM-SECRET')
     expect(starterReadme).toContain('set -eu')
     expect(starterReadme).toContain('if [ -e .env.local ]; then')
     expect(starterReadme).toContain('Refusing to replace existing .env.local')
     expect(starterReadme).toContain('umask 077')
-    expect(starterPackage.match(/--dotenv \.env\.local/g)).toHaveLength(5)
-    expect(starterPackage).not.toContain('--env-file .env.local')
+    expect(starterPackage.match(/--dotenv \.env\.local/g)).toHaveLength(6)
+    expect(starterPackage).toContain('better-convex-nuxt-convex dev')
   })
 
   it('prepares generated root types before the standalone MCP contract suite', () => {
@@ -171,7 +173,9 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).toContain('secret.length > 1_024')
     expect(fixtureSource).toContain('const secrets = [password, betterAuthSecrets, proxyIpSecret]')
     expect(starterEnvExample).not.toContain('BETTER_AUTH_SECRETS')
-    expect(starterReadme).toContain('convex env set BETTER_AUTH_SECRETS')
+    expect(starterReadme).toContain(
+      'pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS',
+    )
     expect(starterReadme).toContain(
       'Better Auth secret is generated independently and is never copied into Nuxt',
     )

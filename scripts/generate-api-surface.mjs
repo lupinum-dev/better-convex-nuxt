@@ -209,11 +209,6 @@ const serverMeta = {
       'Creates a request-scoped server caller with query/mutation/action for server routes and handlers.',
     guide: '/docs/build/server/server-convex',
   },
-  exchangeConvexToken: {
-    kind: 'Server helper',
-    purpose: 'Exchanges a Better Auth cookie credential for a Convex JWT (never-throwing outcome).',
-    guide: '/docs/build/server/server-convex',
-  },
 }
 
 const componentMeta = {

@@ -47,7 +47,11 @@ function event(
   return {
     method,
     body,
-    headers: new Headers({ origin: 'https://app.example.test', ...headers }),
+    headers: new Headers({
+      'cf-connecting-ip': '203.0.113.10',
+      origin: 'https://app.example.test',
+      ...headers,
+    }),
     node: {
       req: Object.assign(new EventEmitter(), {
         complete: true,
@@ -70,6 +74,7 @@ function event(
 describe('auth proxy security regressions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', 'proxy-ip-test-secret-with-32-bytes')
     mocks.requestUrl.mockReturnValue(new URL('https://app.example.test/api/auth/get-session'))
     mocks.config.mockReturnValue({
       url: 'https://demo.convex.cloud',
@@ -79,7 +84,7 @@ describe('auth proxy security regressions', () => {
         proxy: {
           maxRequestBodyBytes: 1_048_576,
           maxResponseBodyBytes: 1_048_576,
-          trustedClientIpHeader: '',
+          trustedClientIpHeader: 'cf-connecting-ip',
         },
       },
     })
@@ -181,6 +186,24 @@ describe('auth proxy security regressions', () => {
     })
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it.each([undefined, '203.0.113.10, 10.0.0.1', 'not-an-ip'])(
+    'rejects a missing or invalid trusted client IP before upstream delivery: %s',
+    async (clientIp) => {
+      const fetchMock = vi.fn(async () => new Response('{}'))
+      vi.stubGlobal('fetch', fetchMock)
+      const headers =
+        clientIp === undefined ? { 'cf-connecting-ip': '' } : { 'cf-connecting-ip': clientIp }
+
+      const handler = (await import('../../src/runtime/server/api/auth/[...]'))
+        .default as unknown as (input: ReturnType<typeof event>) => Promise<Uint8Array>
+      await expect(handler(event('GET', undefined, headers))).rejects.toMatchObject({
+        statusCode: 400,
+        data: { code: 'BCN_AUTH_PROXY_CLIENT_IP_INVALID' },
+      })
+      expect(fetchMock).not.toHaveBeenCalled()
+    },
+  )
 
   it('keeps successful auth responses independent from development diagnostics storage', async () => {
     mocks.storage.mockImplementation(() => {

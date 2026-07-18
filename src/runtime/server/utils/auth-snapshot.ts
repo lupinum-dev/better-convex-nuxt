@@ -1,3 +1,5 @@
+import type { H3Event } from 'h3'
+
 import type { AuthWaterfall, AuthWaterfallPhase } from '../../devtools/types'
 import { decodeUserFromJwt, isJwtUsable } from '../../utils/convex-shared'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
@@ -16,10 +18,12 @@ export interface ServerAuthLogEvent {
 }
 
 export interface ResolveServerAuthSnapshotOptions {
+  event: H3Event
   siteUrl: string
   cookieHeader: string | null
   requestId: string
   trackWaterfall: boolean
+  trustedClientIpHeader: string
 }
 
 export interface ServerAuthSnapshot {
@@ -51,7 +55,7 @@ function buildPhase(
 export async function resolveServerAuthSnapshot(
   options: ResolveServerAuthSnapshotOptions,
 ): Promise<ServerAuthSnapshot> {
-  const { siteUrl, cookieHeader, requestId, trackWaterfall } = options
+  const { event, siteUrl, cookieHeader, requestId, trackWaterfall, trustedClientIpHeader } = options
   const waterfallStart = trackWaterfall ? Date.now() : 0
   const phases: AuthWaterfallPhase[] = []
   const logEvents: ServerAuthLogEvent[] = []
@@ -121,8 +125,10 @@ export async function resolveServerAuthSnapshot(
 
     const exchangeStart = trackWaterfall ? Date.now() : 0
     const exchange = await exchangeConvexToken({
+      event,
       siteUrl,
       credential: { type: 'cookie', value: authCookieHeader },
+      trustedClientIpHeader,
       timeoutMs: 5_000,
     })
     const tokenExchangeStatus = exchange.status

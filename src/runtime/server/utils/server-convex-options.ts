@@ -1,9 +1,8 @@
 import type { ConvexAuthMode } from '../../utils/auth-status'
 
 /**
- * A low-level Better Auth cookie credential handed to
- * {@link exchangeConvexToken} or to `serverConvex` for an explicit principal.
- * The value is a raw `Cookie` header string.
+ * A low-level Better Auth cookie credential handed to `serverConvex` for an
+ * explicit principal. The value is a raw `Cookie` header string.
  */
 export type ConvexCredential = { type: 'cookie'; value: string }
 
@@ -40,8 +39,8 @@ export interface NormalizedServerConvexOptions {
  * error contract  has no `validation` kind, and an option/credential
  * contract violation is a caller programming error surfaced before any network
  * access — not a classifiable Convex call outcome. Callers that construct a
- * `serverConvex` caller or call `exchangeConvexToken` receive this synchronously,
- * before a request is ever made.
+ * `serverConvex` caller receive this synchronously, before a request is ever
+ * made.
  */
 export class ServerConvexValidationError extends Error {
   constructor(message: string) {

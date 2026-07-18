@@ -30,6 +30,7 @@ function cleanEnvironment() {
   const env = { ...process.env }
   for (const name of [
     'BCN_AUTH_PROXY_IP_SECRET',
+    'BCN_AUTH_TRUSTED_CLIENT_IP_HEADER',
     'BCN_MCP_CONFORMANCE_BEARER',
     'BCN_MCP_TEST_APP_DIR',
     'BCN_MCP_TEST_CONVEX_URL',
@@ -40,16 +41,14 @@ function cleanEnvironment() {
     'BCN_MCP_TEST_PASSWORD',
     'BETTER_AUTH_SECRET',
     'BETTER_AUTH_SECRETS',
-    'CONVEX_DEPLOYMENT',
-    'CONVEX_SELF_HOSTED_ADMIN_KEY',
-    'CONVEX_SELF_HOSTED_URL',
-    'CONVEX_SITE_URL',
-    'CONVEX_URL',
     'MCP_SERVER_SECRET',
     'NUXT_PUBLIC_CONVEX_SITE_URL',
     'NUXT_PUBLIC_CONVEX_URL',
   ]) {
     delete env[name]
+  }
+  for (const name of Object.keys(env)) {
+    if (name.toUpperCase().startsWith('CONVEX_')) delete env[name]
   }
   return env
 }
@@ -222,8 +221,13 @@ async function readFixtureEnvironment(cwd) {
   )
 }
 
-async function runCommand(command, args, { cwd, env, secrets }) {
-  const child = spawn(command, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] })
+async function runCommand(command, args, { cwd, env, input, secrets }) {
+  const child = spawn(command, args, {
+    cwd,
+    env,
+    stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+  })
+  if (input !== undefined) child.stdin.end(`${input}\n`)
   const log = capture(child)
   const [code, signal] = await once(child, 'exit')
   if (code !== 0) {
@@ -255,6 +259,20 @@ export async function startLocalMcpOAuthFixture(options = {}) {
   let nuxt
   let released = false
   const secretOverrides = options.secretOverridesForTest
+  const trustedClientIpHeader = options.trustedClientIpHeaderForTest
+  if (trustedClientIpHeader !== undefined) {
+    try {
+      if (
+        trustedClientIpHeader !== trustedClientIpHeader.toLowerCase() ||
+        trustedClientIpHeader.startsWith('x-bcn-')
+      ) {
+        throw new TypeError('invalid')
+      }
+      new Headers().set(trustedClientIpHeader, 'validation')
+    } catch {
+      throw new Error('Invalid trusted fixture client-IP header')
+    }
+  }
   if (secretOverrides !== undefined) {
     if (
       !secretOverrides ||
@@ -336,11 +354,16 @@ export async function startLocalMcpOAuthFixture(options = {}) {
     const convexUrl = `http://127.0.0.1:${cloudPort}`
     const convexSiteUrl = `http://127.0.0.1:${sitePort}`
     const origin = `http://127.0.0.1:${appPort}`
-    const baseEnv = cleanEnvironment()
+    const baseEnv = {
+      ...cleanEnvironment(),
+      CONVEX_AGENT_MODE: 'anonymous',
+      CONVEX_ALLOW_ANONYMOUS: 'true',
+    }
 
     convex = spawn(
       process.execPath,
       [
+        '--',
         convexCli,
         'dev',
         '--local-backend-version',
@@ -372,17 +395,18 @@ export async function startLocalMcpOAuthFixture(options = {}) {
     }, 'reviewed local Convex backend')
 
     const cliEnv = { ...baseEnv }
-    const runCli = (args) =>
-      runCommand(process.execPath, [convexCli, ...args, '--env-file', '.env.local'], {
+    const runCli = (args, input) =>
+      runCommand(process.execPath, ['--', convexCli, ...args, '--env-file', '.env.local'], {
         cwd,
         env: cliEnv,
+        input,
         secrets,
       })
     const setFixtureEnvironment = async (name, value) => {
       const maxAttempts = 4
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
         try {
-          await runCli(['env', 'set', name, value])
+          await runCli(['env', 'set', name], value)
           return
         } catch (error) {
           if (!isEnvironmentOccConflict(error) || attempt === maxAttempts) throw error
@@ -411,6 +435,9 @@ export async function startLocalMcpOAuthFixture(options = {}) {
       env: {
         ...baseEnv,
         BCN_AUTH_PROXY_IP_SECRET: proxyIpSecret,
+        ...(trustedClientIpHeader
+          ? { BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: trustedClientIpHeader }
+          : {}),
         CONVEX_SITE_URL: convexSiteUrl,
         CONVEX_URL: convexUrl,
         HOST: '127.0.0.1',
@@ -432,7 +459,11 @@ export async function startLocalMcpOAuthFixture(options = {}) {
 
     const signup = await fetch(`${origin}/api/auth/sign-up/email`, {
       body: JSON.stringify({ email, name: 'MCP Gate', password }),
-      headers: { 'content-type': 'application/json', origin },
+      headers: {
+        'content-type': 'application/json',
+        origin,
+        ...(trustedClientIpHeader ? { [trustedClientIpHeader]: '127.0.0.1' } : {}),
+      },
       method: 'POST',
       redirect: 'manual',
     })

@@ -20,12 +20,12 @@ The endpoint must continue to return `401 Unauthorized` when credentials are pre
 
 The intended contract is:
 
-| Request state | Response | Meaning |
-| --- | --- | --- |
-| No session credentials | `200 { "token": null }` | Expected anonymous state |
-| Valid session | `200 { "token": "<jwt>" }` | Authenticated Convex identity |
-| Invalid or revoked credentials | `401` | Authentication failure |
-| Unsupported credential transport | `401` | Authentication failure |
+| Request state                    | Response                   | Meaning                       |
+| -------------------------------- | -------------------------- | ----------------------------- |
+| No session credentials           | `200 { "token": null }`    | Expected anonymous state      |
+| Valid session                    | `200 { "token": "<jwt>" }` | Authenticated Convex identity |
+| Invalid or revoked credentials   | `401`                      | Authentication failure        |
+| Unsupported credential transport | `401`                      | Authentication failure        |
 
 This removes an avoidable failed network request from normal anonymous page loads without weakening token issuance or session validation.
 
@@ -197,17 +197,17 @@ The change is complete when all of the following are true:
 
 ## Test matrix
 
-| Scenario | Expected HTTP status | Expected token | Expected client state |
-| --- | ---: | --- | --- |
-| First visit, no cookies | `200` | `null` | Definitively anonymous |
-| Valid session cookie | `200` | JWT string | Authenticated |
-| Revoked session cookie | `401` | None | Authentication failure |
-| Expired session cookie | `401` | None | Authentication failure |
-| Malformed session cookie | `401` | None | Authentication failure |
-| Unsupported bearer token | `401` | None | Authentication failure |
-| Session revoked during validation | `401` | None | Authentication failure |
-| Anonymous SSR request | No exchange required | None | Anonymous snapshot |
-| Authenticated SSR request | `200` | JWT string | Authenticated snapshot |
+| Scenario                          | Expected HTTP status | Expected token | Expected client state  |
+| --------------------------------- | -------------------: | -------------- | ---------------------- |
+| First visit, no cookies           |                `200` | `null`         | Definitively anonymous |
+| Valid session cookie              |                `200` | JWT string     | Authenticated          |
+| Revoked session cookie            |                `401` | None           | Authentication failure |
+| Expired session cookie            |                `401` | None           | Authentication failure |
+| Malformed session cookie          |                `401` | None           | Authentication failure |
+| Unsupported bearer token          |                `401` | None           | Authentication failure |
+| Session revoked during validation |                `401` | None           | Authentication failure |
+| Anonymous SSR request             | No exchange required | None           | Anonymous snapshot     |
+| Authenticated SSR request         |                `200` | JWT string     | Authenticated snapshot |
 
 ## Compatibility and rollout
 

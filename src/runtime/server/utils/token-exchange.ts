@@ -1,3 +1,5 @@
+import type { H3Event } from 'h3'
+
 import { ConvexCallError } from '../../errors'
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import { normalizeConvexSiteUrl } from '../../utils/site-url'
@@ -8,6 +10,7 @@ import {
   assertCredentialValueSafe,
   ServerConvexValidationError,
 } from './server-convex-options'
+import { buildSignedClientIpHeaders } from './signed-client-ip'
 
 /** Better Auth HTTP endpoint that mints a Convex JWT from a session cookie. */
 const TOKEN_EXCHANGE_PATH = '/api/auth/convex/token'
@@ -30,30 +33,16 @@ export interface ConvexTokenExchangeResult {
   error: ConvexCallError | null
 }
 
-// ---------------------------------------------------------------------------
-// normalizeSiteUrl
-// ---------------------------------------------------------------------------
-
-/**
- * Normalize a Convex site origin (e.g. `https://example.convex.site`) to its
- * bare origin, rejecting anything that could redirect a credential elsewhere or
- * carry it in the URL .
- *
- * Rejects embedded credentials, query strings, fragments, and non-root paths.
- * Accepts `http:` ONLY for exact canonical `localhost`, `127.0.0.1`, or `[::1]`;
- * every other origin requires `https:`. There is no runtime "test fixture"
- * exemption and ambiguous equivalent URL spellings are rejected.
- */
-export function normalizeSiteUrl(siteUrl: string): string {
-  try {
-    return normalizeConvexSiteUrl(siteUrl)
-  } catch {
-    throw new ServerConvexValidationError('siteUrl must be a safe Convex HTTP Actions origin')
-  }
+interface RequestBoundTokenExchangeInput {
+  event: H3Event
+  siteUrl: string
+  credential: ConvexCredential
+  trustedClientIpHeader: string
+  timeoutMs?: number
 }
 
 /** Extract a non-empty string `token` field from a parsed exchange body. */
-export function readToken(body: unknown): string | null {
+function readToken(body: unknown): string | null {
   if (body && typeof body === 'object') {
     const token = (body as { token?: unknown }).token
     if (typeof token === 'string' && token.length > 0) return token
@@ -62,7 +51,7 @@ export function readToken(body: unknown): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// exchangeConvexToken ("Never-throwing exchange primitive")
+// exchangeConvexToken (request-bound, never-throwing exchange primitive)
 // ---------------------------------------------------------------------------
 
 /**
@@ -83,24 +72,48 @@ export function readToken(body: unknown): string | null {
  * the generic catch as `kind: 'transport'`. The security property is
  * zero-delivery, not the error label — the catch never inspects message text.
  */
-export function exchangeConvexToken(input: {
-  siteUrl: string
-  credential: ConvexCredential
-  timeoutMs?: number
-}): Promise<ConvexTokenExchangeResult> {
+function validateTokenExchangeCredential(credential: ConvexCredential): string {
   // Synchronous, pre-network validation. A control-character or empty credential
   // is refused before it can reach a request header or the network.
-  assertConvexCredentialShape(input.credential)
-  assertCredentialValueSafe(input.credential.value, 'credential value')
-  const cookieHeader = filterBetterAuthCookies(input.credential.value)
+  assertConvexCredentialShape(credential)
+  assertCredentialValueSafe(credential.value, 'credential value')
+  const cookieHeader = filterBetterAuthCookies(credential.value)
   const sessionToken = getBetterAuthSessionToken(cookieHeader)
   if (!cookieHeader || !sessionToken) {
     throw new ServerConvexValidationError(
       'credential must contain a non-empty supported Better Auth session cookie',
     )
   }
+  return cookieHeader
+}
 
-  return runTokenExchange(input, { Cookie: cookieHeader })
+/** Request-aware exchange used by every shipped Nitro auth path. */
+export function exchangeConvexToken(
+  input: RequestBoundTokenExchangeInput,
+): Promise<ConvexTokenExchangeResult> {
+  const cookieHeader = validateTokenExchangeCredential(input.credential)
+  return (async () => {
+    try {
+      const clientIpHeaders = await buildSignedClientIpHeaders(input.event, {
+        trustedClientIpHeader: input.trustedClientIpHeader,
+      })
+      return await runTokenExchange(input, { ...clientIpHeaders, Cookie: cookieHeader })
+    } catch (error) {
+      return tokenExchangeTransportFailure(error)
+    }
+  })()
+}
+
+function tokenExchangeTransportFailure(error: unknown): ConvexTokenExchangeResult {
+  return {
+    token: null,
+    status: undefined,
+    error: new ConvexCallError({
+      kind: 'transport',
+      message: 'Convex token exchange could not complete',
+      cause: error,
+    }),
+  }
 }
 
 async function runTokenExchange(
@@ -109,7 +122,7 @@ async function runTokenExchange(
 ): Promise<ConvexTokenExchangeResult> {
   try {
     const response = await fetchWithTimeout(
-      `${normalizeSiteUrl(input.siteUrl)}${TOKEN_EXCHANGE_PATH}`,
+      `${normalizeConvexSiteUrl(input.siteUrl)}${TOKEN_EXCHANGE_PATH}`,
       {
         method: 'GET',
         headers,
@@ -145,14 +158,6 @@ async function runTokenExchange(
     }
     return { token, status: response.status, error: null }
   } catch (error) {
-    return {
-      token: null,
-      status: undefined,
-      error: new ConvexCallError({
-        kind: 'transport',
-        message: 'Convex token exchange could not complete',
-        cause: error,
-      }),
-    }
+    return tokenExchangeTransportFailure(error)
   }
 }

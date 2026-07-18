@@ -5,6 +5,7 @@ import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 
 import { ANONYMOUS_IDENTITY, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
+import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
 import type { ConvexClientOwner } from '../../src/runtime/client/client-owner'
 import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
 
@@ -128,6 +129,39 @@ function createSyntheticOwner(): Record<PropertyKey, unknown> {
   }
 }
 const syntheticOwner: Record<PropertyKey, unknown> = createSyntheticOwner()
+
+/** Install the narrow auth-port seam used by identity-generation composable tests. */
+export function installIdentityPortHarness() {
+  let identityGeneration = 0
+  const listeners = new Set<() => void>()
+  const port: AuthIdentityPort = {
+    snapshot: () => ({
+      authEnabled: true,
+      settled: true,
+      identityKey: `user:test-${identityGeneration}` as never,
+      authEpoch: identityGeneration,
+      identityGeneration,
+      error: null,
+    }),
+    waitForInitialSettlement: async () => {},
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+    initializePrimary: async () => {},
+    failPrimary: () => {},
+  }
+  const nuxtApp = useNuxtApp()
+  if (!nuxtApp.$convexRuntime) throw new Error('Convex runtime was not installed')
+  nuxtApp.$convexRuntime.attachAuthCoordinator({ port } as ConvexAuthCoordinator)
+
+  return {
+    advance() {
+      identityGeneration += 1
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
 
 export async function captureInNuxt<T>(
   factory: () => T,

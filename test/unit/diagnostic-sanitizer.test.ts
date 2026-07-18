@@ -24,6 +24,28 @@ describe('sanitizeDiagnosticValue', () => {
     })
   })
 
+  it('redacts common consumer secret labels without treating every key as secret', () => {
+    expect(
+      sanitizeDiagnosticValue({
+        jwt: 'private',
+        bearer: 'private',
+        apiKey: 'private',
+        private_key: 'private',
+        accessKey: 'private',
+        passphrase: 'private',
+        keyboardLayout: 'dvorak',
+      }),
+    ).toEqual({
+      jwt: '[Redacted]',
+      bearer: '[Redacted]',
+      apiKey: '[Redacted]',
+      private_key: '[Redacted]',
+      accessKey: '[Redacted]',
+      passphrase: '[Redacted]',
+      keyboardLayout: 'dvorak',
+    })
+  })
+
   it('does not invoke accessors and survives hostile proxies', () => {
     const getter = vi.fn(() => 'private')
     const value = Object.defineProperty({}, 'tokenFromGetter', { get: getter, enumerable: true })

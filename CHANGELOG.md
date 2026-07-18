@@ -2,9 +2,27 @@
 
 ## Unreleased
 
+- Bound every shipped cookie-to-token exchange to its H3 request and one
+  ingress-authenticated client IP. Production auth now requires an explicit
+  single-IP ingress header and a private Nuxt-to-Convex signing secret; the raw
+  public token-exchange helper was removed so consumers cannot collapse users
+  onto one Nitro egress rate-limit identity.
+- Abort and quarantine active and queued uploads when the authenticated identity
+  generation changes, preventing work started by one principal from publishing
+  state or callbacks under the next principal.
+- Enforced canonical compound uniqueness for accounts, organization members,
+  and team members inside the adapter mutation, including update and concurrent
+  create paths. This advances the generated schema fingerprint to v2 as a
+  greenfield hard cut; do not deploy over populated v1 auth data without first
+  auditing and reconciling duplicates.
 - Corrected the local setup contract to use the Convex-managed `.env.local` as
   the single local deployment configuration, with Nuxt commands loading it
-  explicitly instead of documenting a competing `.env` file.
+  explicitly instead of documenting a competing `.env` file. A checked Convex
+  CLI runner now parses that authority once, rejects ambiguous selectors and
+  target overrides, removes inherited Convex settings, and permits deploy only
+  with a production deployment-scoped key or exact self-hosted authority.
+- Expanded diagnostic redaction for common consumer-defined JWT, API-key,
+  private-key, bearer, and passphrase labels.
 
 ## v0.7.0-beta.0
 

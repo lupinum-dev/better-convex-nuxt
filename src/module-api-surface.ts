@@ -51,5 +51,4 @@ export const authAutoImports = [
 
 export const serverAutoImports = [
   { name: 'serverConvex', from: './runtime/server/utils/server-convex-caller' },
-  { name: 'exchangeConvexToken', from: './runtime/server/utils/token-exchange' },
 ] as const satisfies readonly ModuleImportRegistration[]

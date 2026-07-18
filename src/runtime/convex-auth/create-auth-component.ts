@@ -39,7 +39,7 @@ interface CreateAuthComponentOptions<DataModel extends GenericDataModel> {
 function rewriteToPublicOrigin(
   request: Request,
   publicOrigin: string,
-  verifiedClientIp: string | null,
+  verifiedClientIp: string,
 ): Request {
   const incoming = new URL(request.url)
   const target = new URL(publicOrigin)
@@ -50,7 +50,7 @@ function rewriteToPublicOrigin(
   for (const name of [...headers.keys()]) {
     if (name.toLowerCase().startsWith('x-bcn-')) headers.delete(name)
   }
-  if (verifiedClientIp) headers.set(VERIFIED_CLIENT_IP_HEADER, verifiedClientIp)
+  headers.set(VERIFIED_CLIENT_IP_HEADER, verifiedClientIp)
 
   return new Request(new Request(target, request), { headers })
 }
@@ -59,14 +59,20 @@ async function resolveVerifiedClientIp(
   request: Request,
   getDirectClientIp: () => Promise<string | null>,
   proxyIpSecret: string | undefined,
-): Promise<string | null> {
-  const forwardedClientIp = await verifySignedClientIp(
-    request.headers.get(CLIENT_IP_HEADER),
-    request.headers.get(CLIENT_IP_SIGNATURE_HEADER),
-    proxyIpSecret,
-  )
-  if (forwardedClientIp) return forwardedClientIp
-  return normalizeClientIp(await getDirectClientIp())
+): Promise<string> {
+  const clientIp = request.headers.get(CLIENT_IP_HEADER)
+  const signature = request.headers.get(CLIENT_IP_SIGNATURE_HEADER)
+  if (clientIp === null && signature === null) {
+    const directClientIp = normalizeClientIp(await getDirectClientIp())
+    if (!directClientIp) throw new TypeError('Trusted request metadata did not contain a client IP')
+    return directClientIp
+  }
+
+  const forwardedClientIp = await verifySignedClientIp(clientIp, signature, proxyIpSecret)
+  if (!forwardedClientIp) {
+    throw new TypeError('Signed client IP headers are incomplete or invalid')
+  }
+  return forwardedClientIp
 }
 
 function identityClaim(identity: Record<string, unknown>, name: string): string | undefined {

@@ -149,7 +149,8 @@ export async function signClientIp(clientIp: string, secret: string): Promise<st
 /**
  * Verify a complete signed pair and return only a canonical authenticated IP.
  * Invalid configuration and malformed attacker input are indistinguishable to
- * callers so both safely fall back to Convex request metadata.
+ * callers. An absent pair permits direct Convex request metadata; once either
+ * reserved header is present, the component rejects an invalid pair.
  */
 export async function verifySignedClientIp(
   clientIp: string | null,

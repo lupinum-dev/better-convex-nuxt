@@ -248,7 +248,7 @@ describe('team starter regressions', () => {
     expect(projectedAfterDelete).toBeNull()
   })
 
-  it('paginates every organization member and selected-team membership after 100 rows', async () => {
+  it('paginates and enriches members beyond the adapter scan bound', async () => {
     const t = initConvexTest()
     const organizationId = await seedBetterAuthOrganization(t, {
       name: 'org_member_pagination',
@@ -267,7 +267,7 @@ describe('team starter regressions', () => {
     })
 
     const seededUserIds: string[] = []
-    for (let index = 0; index < 105; index += 1) {
+    for (let index = 0; index < 205; index += 1) {
       const label = `organization_member_${index}`
       const userId = await seedBetterAuthUserRow(t, { label })
       seededUserIds.push(userId)
@@ -278,42 +278,42 @@ describe('team starter regressions', () => {
       })
     }
     await t.run(async (ctx) => {
-      await ctx.runMutation(components.betterAuth.adapter.create, {
-        model: 'teamMember',
-        data: {
-          id: `team-member_${teamId}_${seededUserIds[104]!}`,
-          teamId,
-          userId: seededUserIds[104]!,
-          createdAt: now,
-        },
-      })
+      for (const userId of seededUserIds) {
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          model: 'teamMember',
+          data: {
+            id: `team-member_${teamId}_${userId}`,
+            teamId,
+            userId,
+            createdAt: now,
+          },
+        })
+      }
     })
 
     const owner = asActor(t, {
       userId: ownerSeed.authUserId,
       sessionId: ownerSeed.sessionId,
     })
-    const firstPage = await owner.query(api.organizations.listMembers, {
+    let page = await owner.query(api.organizations.listMembers, {
       organizationId,
       teamId,
       paginationOpts: { cursor: null, numItems: 50 },
     })
-    const secondPage = await owner.query(api.organizations.listMembers, {
-      organizationId,
-      teamId,
-      paginationOpts: { cursor: firstPage.continueCursor, numItems: 50 },
-    })
-    const thirdPage = await owner.query(api.organizations.listMembers, {
-      organizationId,
-      teamId,
-      paginationOpts: { cursor: secondPage.continueCursor, numItems: 50 },
-    })
-    const members = [...firstPage.page, ...secondPage.page, ...thirdPage.page]
+    const members = [...page.page]
+    let pageCount = 1
+    while (!page.isDone) {
+      page = await owner.query(api.organizations.listMembers, {
+        organizationId,
+        teamId,
+        paginationOpts: { cursor: page.continueCursor, numItems: 50 },
+      })
+      members.push(...page.page)
+      pageCount += 1
+    }
 
-    expect(members).toHaveLength(106)
-    expect(firstPage.isDone).toBe(false)
-    expect(secondPage.isDone).toBe(false)
-    expect(thirdPage.isDone).toBe(true)
+    expect(members).toHaveLength(206)
+    expect(pageCount).toBe(5)
     expect(members).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -328,11 +328,11 @@ describe('team starter regressions', () => {
           }),
         }),
         expect.objectContaining({
-          userId: seededUserIds[104],
+          userId: seededUserIds[204],
           role: 'member',
           isTeamMember: true,
           user: expect.objectContaining({
-            email: 'organization_member_104@example.com',
+            email: 'organization_member_204@example.com',
           }),
         }),
       ]),

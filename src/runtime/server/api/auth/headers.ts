@@ -1,13 +1,10 @@
 import type { H3Event } from 'h3'
 
-import {
-  CLIENT_IP_HEADER,
-  CLIENT_IP_SIGNATURE_HEADER,
-  normalizeClientIp,
-  requireProxyIpSecret,
-  signClientIp,
-} from '../../../shared/client-ip'
 import { filterBetterAuthCookies } from '../../../utils/shared-helpers'
+import {
+  buildSignedClientIpHeaders,
+  type SignedClientIpHeadersOptions,
+} from '../../utils/signed-client-ip'
 
 const REQUEST_HEADERS_TO_DROP = new Set([
   'accept-encoding',
@@ -111,18 +108,14 @@ function stripUnsafeRequestHeaders(headers: Headers): Headers {
   return result
 }
 
-export interface AuthProxyForwardHeadersOptions {
-  trustedClientIpHeader?: string | null
-  /** Test seam; production reads the private process environment directly. */
-  proxyIpSecret?: string | null
-}
+export type AuthProxyForwardHeadersOptions = SignedClientIpHeadersOptions
 
 export async function buildAuthProxyForwardHeaders(
   event: H3Event,
   options: AuthProxyForwardHeadersOptions,
 ): Promise<Record<string, string>> {
   const trustedHeader = options.trustedClientIpHeader
-  const clientIp = trustedHeader ? normalizeClientIp(event.headers.get(trustedHeader)) : null
+  const signedClientIpHeaders = await buildSignedClientIpHeaders(event, options)
   const headers = stripUnsafeRequestHeaders(event.headers)
   if (trustedHeader) headers.delete(trustedHeader)
   const authCookieHeader = filterBetterAuthCookies(headers.get('cookie'))
@@ -132,17 +125,7 @@ export async function buildAuthProxyForwardHeaders(
     headers.delete('cookie')
   }
 
-  if (trustedHeader) {
-    const secret = requireProxyIpSecret(
-      options.proxyIpSecret === undefined
-        ? process.env.BCN_AUTH_PROXY_IP_SECRET
-        : options.proxyIpSecret,
-    )
-    if (clientIp) {
-      headers.set(CLIENT_IP_HEADER, clientIp)
-      headers.set(CLIENT_IP_SIGNATURE_HEADER, await signClientIp(clientIp, secret))
-    }
-  }
+  for (const [name, value] of Object.entries(signedClientIpHeaders)) headers.set(name, value)
 
   return Object.fromEntries(headers.entries())
 }

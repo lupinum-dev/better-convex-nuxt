@@ -104,7 +104,7 @@ extracted API is smaller than the duplicated code.
 
 Each starter ships tiny bootstrap files under `convex/_generated` (generic `any`
 exports) so `pnpm test`, `pnpm typecheck`, and Nuxt builds work before you
-configure a Convex deployment. They are not the schema source of truth — running
-`pnpm convex:dev`/`pnpm convex:codegen` in a real deployment replaces them. Do
+configure a Convex deployment. They are not the schema source of truth — the
+file-bound `pnpm convex:dev`/`pnpm convex:codegen` commands replace them. Do
 not hand-edit them for application behavior; domain state and invariants belong
 in `convex/schema.ts` and product modules.

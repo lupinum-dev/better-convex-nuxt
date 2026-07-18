@@ -155,7 +155,6 @@ describe('authenticated proxy client-IP handoff', () => {
         }),
       } as never,
       {
-        proxyIpSecret: PROXY_IP_SECRET,
         trustedClientIpHeader: 'cf-connecting-ip',
       },
     )
@@ -192,7 +191,7 @@ describe('authenticated proxy client-IP handoff', () => {
     expect(result.handledRequest?.headers.get(VERIFIED_CLIENT_IP_HEADER)).toBe('198.51.100.7')
   })
 
-  it('charges a forged proxy pair to the direct Convex caller', async () => {
+  it('fails closed on a forged proxy pair instead of collapsing to the direct caller', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.test')
     vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', PROXY_IP_SECRET)
     const validSignature = await signClientIp('203.0.113.9', PROXY_IP_SECRET)
@@ -207,11 +206,10 @@ describe('authenticated proxy client-IP handoff', () => {
       },
     })
 
-    expect(result.response.status).toBe(204)
-    expect(result.getRequestMetadata).toHaveBeenCalledOnce()
-    expect(result.handledRequest?.headers.get(VERIFIED_CLIENT_IP_HEADER)).toBe('198.51.100.7')
-    expect(result.handledRequest?.headers.get(CLIENT_IP_HEADER)).toBeNull()
-    expect(result.handledRequest?.headers.get(CLIENT_IP_SIGNATURE_HEADER)).toBeNull()
+    expect(result.response.status).toBe(500)
+    expect(result.getRequestMetadata).not.toHaveBeenCalled()
+    expect(result.handledRequest).toBeUndefined()
+    await expect(result.response.json()).resolves.toEqual({ code: 'AUTH_CONFIG_INVALID' })
   })
 
   it.each([
@@ -221,7 +219,11 @@ describe('authenticated proxy client-IP handoff', () => {
       [CLIENT_IP_HEADER]: '203.0.113.9',
       [CLIENT_IP_SIGNATURE_HEADER]: 'A'.repeat(2_000),
     },
-  ])('falls back for partial or oversized internal headers', async (headers) => {
+    {
+      [CLIENT_IP_HEADER]: '203.0.113.9, 198.51.100.4',
+      [CLIENT_IP_SIGNATURE_HEADER]: 'A'.repeat(43),
+    },
+  ])('fails closed for partial, duplicated, or oversized internal headers', async (headers) => {
     vi.stubEnv('SITE_URL', 'https://app.example.test')
     vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', PROXY_IP_SECRET)
     const result = await invokeRegisteredAuthRoute({
@@ -229,11 +231,32 @@ describe('authenticated proxy client-IP handoff', () => {
       headers: headers as HeadersInit,
     })
 
-    expect(result.response.status).toBe(204)
-    expect(result.handledRequest?.headers.get(VERIFIED_CLIENT_IP_HEADER)).toBe('198.51.100.7')
+    expect(result.response.status).toBe(500)
+    expect(result.getRequestMetadata).not.toHaveBeenCalled()
+    expect(result.handledRequest).toBeUndefined()
+    await expect(result.response.json()).resolves.toEqual({ code: 'AUTH_CONFIG_INVALID' })
   })
 
-  it('omits the synthetic header when neither source contains a valid IP', async () => {
+  it('fails closed when Nuxt and Convex proxy secrets drift', async () => {
+    vi.stubEnv('SITE_URL', 'https://app.example.test')
+    vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', `${PROXY_IP_SECRET}-different`)
+    const signature = await signClientIp('203.0.113.9', PROXY_IP_SECRET)
+
+    const result = await invokeRegisteredAuthRoute({
+      directClientIp: '198.51.100.7',
+      headers: {
+        [CLIENT_IP_HEADER]: '203.0.113.9',
+        [CLIENT_IP_SIGNATURE_HEADER]: signature,
+      },
+    })
+
+    expect(result.response.status).toBe(500)
+    expect(result.getRequestMetadata).not.toHaveBeenCalled()
+    expect(result.handledRequest).toBeUndefined()
+    await expect(result.response.json()).resolves.toEqual({ code: 'AUTH_CONFIG_INVALID' })
+  })
+
+  it('fails closed when trusted Convex request metadata lacks a valid IP', async () => {
     vi.stubEnv('SITE_URL', 'https://app.example.test')
     vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', PROXY_IP_SECRET)
     const result = await invokeRegisteredAuthRoute({
@@ -241,7 +264,9 @@ describe('authenticated proxy client-IP handoff', () => {
       headers: { [VERIFIED_CLIENT_IP_HEADER]: '203.0.113.9' },
     })
 
-    expect(result.response.status).toBe(204)
-    expect(result.handledRequest?.headers.get(VERIFIED_CLIENT_IP_HEADER)).toBeNull()
+    expect(result.response.status).toBe(500)
+    expect(result.getRequestMetadata).toHaveBeenCalledOnce()
+    expect(result.handledRequest).toBeUndefined()
+    await expect(result.response.json()).resolves.toEqual({ code: 'AUTH_CONFIG_INVALID' })
   })
 })

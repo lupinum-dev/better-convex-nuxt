@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   buildAuthProxyForwardHeaders,
@@ -10,6 +10,9 @@ import { verifySignedClientIp } from '../../src/runtime/shared/client-ip'
 const PROXY_IP_SECRET = 'proxy-ip-test-secret-with-32-bytes'
 
 describe('auth proxy header helpers', () => {
+  beforeEach(() => vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', PROXY_IP_SECRET))
+  afterEach(() => vi.unstubAllEnvs())
+
   it('strips hop-by-hop headers and preserves useful headers', async () => {
     const event = {
       headers: new Headers({
@@ -87,7 +90,6 @@ describe('auth proxy header helpers', () => {
   it('authenticates one normalized IP from the configured trusted ingress header', async () => {
     const event = { headers: new Headers({ 'cf-connecting-ip': '203.0.113.4' }) } as never
     const headers = await buildAuthProxyForwardHeaders(event, {
-      proxyIpSecret: PROXY_IP_SECRET,
       trustedClientIpHeader: 'cf-connecting-ip',
     })
     expect(headers['x-bcn-client-ip']).toBe('203.0.113.4')
@@ -107,22 +109,19 @@ describe('auth proxy header helpers', () => {
     'rejects an invalid trusted ingress IP value: %s',
     async (value) => {
       const event = { headers: new Headers({ 'cf-connecting-ip': value }) } as never
-      const headers = await buildAuthProxyForwardHeaders(event, {
-        proxyIpSecret: PROXY_IP_SECRET,
-        trustedClientIpHeader: 'cf-connecting-ip',
-      })
-      expect(headers['x-bcn-client-ip']).toBeUndefined()
-      expect(headers['x-bcn-client-ip-signature']).toBeUndefined()
-      expect(headers['x-forwarded-for']).toBeUndefined()
-      expect(headers['cf-connecting-ip']).toBeUndefined()
+      await expect(
+        buildAuthProxyForwardHeaders(event, {
+          trustedClientIpHeader: 'cf-connecting-ip',
+        }),
+      ).rejects.toThrow('exactly one valid IP address')
     },
   )
 
   it('fails closed when trusted ingress is configured without a strong shared secret', async () => {
+    vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', 'short')
     const event = { headers: new Headers({ 'cf-connecting-ip': '203.0.113.4' }) } as never
     await expect(
       buildAuthProxyForwardHeaders(event, {
-        proxyIpSecret: 'short',
         trustedClientIpHeader: 'cf-connecting-ip',
       }),
     ).rejects.toThrow('BCN_AUTH_PROXY_IP_SECRET')

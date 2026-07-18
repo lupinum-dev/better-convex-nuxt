@@ -61,7 +61,10 @@ describe('runtime config normalization', () => {
 
   it('validates and retains the configured public auth origin', () => {
     const config = normalizeConvexRuntimeConfig({
-      auth: { publicOrigin: 'https://app.example.test/' },
+      auth: {
+        publicOrigin: 'https://app.example.test/',
+        proxy: { trustedClientIpHeader: 'cf-connecting-ip' },
+      },
     })
     if (config.auth === false) throw new Error('expected auth enabled')
     expect(config.auth.publicOrigin).toBe('https://app.example.test')
@@ -69,7 +72,11 @@ describe('runtime config normalization', () => {
 
   it('enables only the fixed MCP resource switch', () => {
     const config = normalizeConvexRuntimeConfig({
-      auth: { mcp: true, publicOrigin: 'https://app.example.test' },
+      auth: {
+        mcp: true,
+        publicOrigin: 'https://app.example.test',
+        proxy: { trustedClientIpHeader: 'cf-connecting-ip' },
+      },
     })
     if (config.auth === false) throw new Error('expected auth enabled')
     expect(config.auth.mcp).toBe(true)

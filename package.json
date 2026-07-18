@@ -26,7 +26,8 @@
     "url": "git+https://github.com/lupinum-dev/better-convex-nuxt.git"
   },
   "bin": {
-    "better-convex-nuxt-auth-schema": "./dist/runtime/cli/auth-schema.js"
+    "better-convex-nuxt-auth-schema": "./dist/runtime/cli/auth-schema.js",
+    "better-convex-nuxt-convex": "./dist/runtime/cli/convex.js"
   },
   "files": [
     "dist",

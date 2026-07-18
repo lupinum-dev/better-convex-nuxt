@@ -1,4 +1,4 @@
-import { normalizeAuthOrigin } from '../shared/auth-origin'
+import { isExactLoopbackHost, normalizeAuthOrigin } from '../shared/auth-origin'
 import { normalizeAuthProxyBodyLimit } from './config-defaults'
 
 // ============================================================================
@@ -21,7 +21,10 @@ export interface AuthProxyDefaults {
    * @default 1_048_576 (1 MiB)
    */
   maxResponseBodyBytes?: number
-  /** Trusted ingress-owned header containing exactly one client IP address. */
+  /**
+   * Trusted ingress-owned header containing exactly one client IP address.
+   * Required outside exact loopback development origins.
+   */
   trustedClientIpHeader?: string
 }
 
@@ -181,11 +184,23 @@ export function normalizeConvexAuthConfig(
   if (input === false) return false
 
   const options = (input && typeof input === 'object' ? input : {}) as ConvexAuthOptions
+  const publicOrigin = normalizePublicOrigin(options, siteUrlOrigin)
+  const proxy = normalizeProxy(options.proxy)
+
+  if (
+    publicOrigin &&
+    !proxy.trustedClientIpHeader &&
+    !isExactLoopbackHost(new URL(publicOrigin).hostname)
+  ) {
+    throw new TypeError(
+      'auth.proxy.trustedClientIpHeader is required outside exact loopback development origins',
+    )
+  }
 
   return {
-    publicOrigin: normalizePublicOrigin(options, siteUrlOrigin),
+    publicOrigin,
     mcp: options.mcp === true,
-    proxy: normalizeProxy(options.proxy),
+    proxy,
     debug: normalizeDebug(options.debug),
     routeProtection: normalizeRouteProtection(options.routeProtection),
   }

@@ -9,6 +9,8 @@ import { ensureLocalConvex } from '../helpers/local-convex'
 const forbiddenLocalFileCredentials = [
   'CONVEX_DEPLOY_KEY',
   'CONVEX_DEPLOYMENT_TOKEN',
+  'CONVEX_OVERRIDE_ACCESS_TOKEN',
+  'CONVEX_PROVISION_HOST',
   'CONVEX_SELF_HOSTED_ADMIN_KEY',
   'CONVEX_SELF_HOSTED_URL',
 ] as const
@@ -27,6 +29,7 @@ describe('local Convex deployment environment options', () => {
   it.each([
     ['a record', []],
     ['valid names', { lowercase: 'value' }],
+    ['reserved Convex CLI names', { CONVEX_FUTURE_AUTHORITY: 'value' }],
     ['harness-owned values', { SITE_URL: 'https://example.test' }],
     [
       'at most 16 entries',

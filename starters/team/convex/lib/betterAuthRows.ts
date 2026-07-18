@@ -178,6 +178,10 @@ export async function getBetterAuthInvitation(
   ])
 }
 
+async function getBetterAuthUser(ctx: Ctx, userId: string) {
+  return await findBetterAuthRow<BetterAuthUser>(ctx, 'user', [{ field: 'id', value: userId }])
+}
+
 export async function getBetterAuthPendingInvitationByEmail(
   ctx: Ctx,
   args: {
@@ -214,16 +218,9 @@ export async function listBetterAuthOrganizationInvitationsPage(
         .filter((teamId): teamId is string => typeof teamId === 'string' && teamId.length > 0),
     ),
   )
-  const teams =
-    teamIds.length === 0
-      ? []
-      : (
-          await listBetterAuthRowsPage<BetterAuthTeam>(ctx, {
-            model: 'team',
-            where: [{ field: 'id', operator: 'in', value: teamIds }],
-            paginationOpts: { cursor: null, numItems: teamIds.length },
-          })
-        ).page
+  const teams = (
+    await Promise.all(teamIds.map((teamId) => getBetterAuthTeam(ctx, { teamId, organizationId })))
+  ).filter((team) => team !== null)
   const teamsById = new Map(teams.map((team) => [getBetterAuthRowId(team, 'team'), team]))
 
   return {
@@ -260,29 +257,22 @@ export async function listBetterAuthOrganizationMembersPage(
   })
 
   const userIds = Array.from(new Set(members.page.map((member) => member.userId)))
-  const users =
-    userIds.length === 0
-      ? []
-      : (
-          await listBetterAuthRowsPage<BetterAuthUser>(ctx, {
-            model: 'user',
-            where: [{ field: 'id', operator: 'in', value: userIds }],
-            paginationOpts: { cursor: null, numItems: userIds.length },
-          })
-        ).page
-  const teamMembers =
-    !args.teamId || userIds.length === 0
-      ? []
-      : (
-          await listBetterAuthRowsPage<BetterAuthTeamMember>(ctx, {
-            model: 'teamMember',
-            where: [
-              { field: 'teamId', value: args.teamId },
-              { field: 'userId', operator: 'in', value: userIds },
-            ],
-            paginationOpts: { cursor: null, numItems: userIds.length },
-          })
-        ).page
+  const teamId = args.teamId
+  const [userRows, teamMemberRows] = await Promise.all([
+    Promise.all(userIds.map((userId) => getBetterAuthUser(ctx, userId))),
+    teamId
+      ? Promise.all(
+          userIds.map((userId) =>
+            getBetterAuthTeamMember(ctx, {
+              teamId,
+              userId,
+            }),
+          ),
+        )
+      : [],
+  ])
+  const users = userRows.filter((user) => user !== null)
+  const teamMembers = teamMemberRows.filter((teamMember) => teamMember !== null)
 
   const usersById = new Map(users.map((user) => [getBetterAuthRowId(user, 'user'), user]))
   const teamMemberUserIds = new Set(teamMembers.map((member) => member.userId))

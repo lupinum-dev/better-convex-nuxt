@@ -16,7 +16,9 @@ const passwordApps = authApps.filter((app) => app !== 'demo')
 const authEnvExamples = [
   'demo/.env.example',
   'starters/agency/.env.example',
+  'starters/agentic-saas/.env.example',
   'starters/mcp-agent/.env.example',
+  'starters/mcp-oauth-agent/.env.example',
   'starters/team/.env.example',
 ] as const
 const passwordForms = [
@@ -28,7 +30,7 @@ const passwordForms = [
 ] as const
 const passwordRecipeDocs = ['docs/content/docs/3.get-started/5.add-authentication.md'] as const
 const proxySecretExamples = [
-  'starters/mcp-oauth-agent/.env.example',
+  ...authEnvExamples,
   'docs/content/docs/3.get-started/5.add-authentication.md',
   'docs/content/docs/7.operations/1.environment-variables.md',
 ] as const
@@ -54,6 +56,7 @@ const convexManagedEnvDocs = [
 ] as const
 const generatedDirectoryNames = new Set([
   '.audit',
+  '.claude',
   '.git',
   '.nuxt',
   '.output',
@@ -85,20 +88,35 @@ function maintainedMarkdown(): { path: string; source: string }[] {
   return [...new Set(paths)].sort().map((path) => ({ path, source: read(path) }))
 }
 
-function setsConvexManagedSiteUrl(line: string): boolean {
-  const tokens = (line.match(/"[^"]*"|'[^']*'|\S+/gu) ?? []).map((token) => {
+function shellTokens(line: string): string[] {
+  return (line.match(/"[^"]*"|'[^']*'|\S+/gu) ?? []).map((token) => {
     const quote = token[0]
     return (quote === '"' || quote === "'") && token.at(-1) === quote ? token.slice(1, -1) : token
   })
+}
+
+function setsConvexManagedSiteUrl(line: string): boolean {
+  const tokens = shellTokens(line)
   const after = (index: number, predicate: (token: string) => boolean) =>
     tokens.findIndex((token, candidate) => candidate > index && predicate(token))
-  const convex = tokens.findIndex((token) => token === 'convex' || token.endsWith('/convex'))
+  const convex = tokens.findIndex(
+    (token) =>
+      token === 'convex' ||
+      token === 'better-convex-nuxt-convex' ||
+      token.endsWith('/convex') ||
+      token.endsWith('/convex/bin/main.js'),
+  )
   const env = after(convex, (token) => token === 'env')
   const set = after(env, (token) => token === 'set')
   const name = after(set, (token) => token === 'CONVEX_SITE_URL')
 
   return convex >= 0 && env >= 0 && set >= 0 && name >= 0
 }
+
+const RAW_CONVEX_COMMAND =
+  /(?:^|\s)(?:pnpm\s+exec\s+)?convex\s+(?:codegen|deploy|deployment|dev|env|import|project|run)\b/u
+const RAW_CONVEX_MAIN_COMMAND =
+  /(?:^|\s)node(?:\.exe)?\s+--\s+\S*node_modules\/convex\/bin\/main\.js\s+(?:codegen|deploy|deployment|dev|env|import|project|run)\b/u
 
 describe('shipped Better Auth factory invariants', () => {
   it.each(authApps)('%s fails closed on runtime secret and unsafe application origins', (app) => {
@@ -132,12 +150,25 @@ describe('shipped Better Auth factory invariants', () => {
     expect(source).not.toMatch(/^BCN_AUTH_PROXY_IP_SECRET=.+$/mu)
   })
 
+  it.each(authApps)('%s wires the required production client-IP boundary', (app) => {
+    const config = read(`${app}/nuxt.config.ts`)
+
+    expect(config).toContain('trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER')
+  })
+
+  it.each(authEnvExamples)('%s documents the ingress header without guessing a default', (path) => {
+    const source = read(path)
+
+    expect(source).toMatch(/^BCN_AUTH_TRUSTED_CLIENT_IP_HEADER=$/mu)
+    expect(source).not.toMatch(/^BCN_AUTH_TRUSTED_CLIENT_IP_HEADER=.+$/mu)
+  })
+
   it.each(proxySecretDocs)('%s provisions one shared proxy secret without printing it', (path) => {
     const source = read(path)
 
     expect(source).toContain('export BCN_AUTH_PROXY_IP_SECRET="$(openssl rand -base64 32)"')
     expect(source).toContain(
-      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET',
+      'printf \'%s\' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET',
     )
     expect(source).toContain('same shell')
     expect(source).toContain('Do not print or commit it')
@@ -174,6 +205,7 @@ describe('shipped Better Auth factory invariants', () => {
     'convex env set CONVEX_SITE_URL https://deployment.convex.site',
     'pnpm exec convex env --prod set --deployment app CONVEX_SITE_URL value',
     '/workspace/node_modules/.bin/convex --verbose env set "CONVEX_SITE_URL" value',
+    'node -- node_modules/convex/bin/main.js env set CONVEX_SITE_URL value --env-file .env.local',
   ])('detects forbidden Convex built-in provisioning syntax: %s', (command) => {
     expect(setsConvexManagedSiteUrl(command)).toBe(true)
   })
@@ -184,6 +216,62 @@ describe('shipped Better Auth factory invariants', () => {
     'Convex injects the CONVEX_SITE_URL built-in',
   ])('does not reject unrelated setup text: %s', (line) => {
     expect(setsConvexManagedSiteUrl(line)).toBe(false)
+  })
+
+  it('keeps raw stateful Convex commands out of supported guides', () => {
+    const offenders: string[] = []
+
+    for (const { path, source } of maintainedMarkdown().filter(
+      ({ path }) => path !== 'test/TESTING.md',
+    )) {
+      for (const [index, line] of source
+        .replace(/\\\r?\n\s*/gu, ' ')
+        .split(/\r?\n/u)
+        .entries()) {
+        if (RAW_CONVEX_COMMAND.test(line) || RAW_CONVEX_MAIN_COMMAND.test(line)) {
+          offenders.push(`${path}:${index + 1}`)
+        }
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it('keeps starter package scripts on explicit dotenv and deployment authorities', () => {
+    for (const starter of [
+      'agency',
+      'agentic-saas',
+      'mcp-agent',
+      'mcp-oauth-agent',
+      'public',
+      'team',
+    ]) {
+      const manifest = JSON.parse(read(`starters/${starter}/package.json`)) as {
+        scripts?: Record<string, string>
+      }
+      for (const [name, command] of Object.entries(manifest.scripts ?? {})) {
+        if (/\b(?:nuxt|nuxi)\s+(?:build|dev|prepare|preview|typecheck)\b/u.test(command)) {
+          expect(command, `${starter}:${name}`).toContain('--dotenv .env.local')
+        }
+        const convexCommand: string | undefined = (
+          {
+            'convex:codegen': 'codegen',
+            'convex:configure': 'configure',
+            'convex:dev': 'dev',
+          } as Record<string, string>
+        )[name]
+        if (convexCommand) {
+          expect(command, `${starter}:${name}`).toMatch(
+            new RegExp(`(?:^|&& )better-convex-nuxt-convex ${convexCommand}$`, 'u'),
+          )
+        }
+        if (name === 'convex:local:once') {
+          expect(command, `${starter}:${name}`).toMatch(
+            /^better-convex-nuxt-convex dev --anonymous --once\b/u,
+          )
+        }
+      }
+    }
   })
 
   it('uses one explicit .env.local authority in the generic setup guides', () => {

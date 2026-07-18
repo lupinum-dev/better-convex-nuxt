@@ -10,6 +10,7 @@ import {
 } from 'h3'
 
 import type { AuthProxyRequest } from '../../../devtools/types'
+import { normalizeClientIp } from '../../../shared/client-ip'
 import {
   getPackedRuntimeFingerprint,
   PACKED_RUNTIME_FINGERPRINT_HEADER,
@@ -271,6 +272,16 @@ export function createAuthProxyHandler(options: AuthProxyHandlerOptions = {}) {
         statusCode: 500,
         message: buildMissingPublicOriginMessage(),
         data: { code: 'BCN_AUTH_PROXY_PUBLIC_ORIGIN_MISSING' },
+      })
+    }
+    const trustedClientIpHeader = auth.proxy.trustedClientIpHeader
+    if (trustedClientIpHeader && !normalizeClientIp(event.headers.get(trustedClientIpHeader))) {
+      if (event.method === 'POST') closeRequestConnection(event)
+      rejected('BCN_AUTH_PROXY_CLIENT_IP_INVALID', 400)
+      throw createError({
+        statusCode: 400,
+        message: 'Auth proxy request is missing a valid ingress-owned client IP',
+        data: { code: 'BCN_AUTH_PROXY_CLIENT_IP_INVALID' },
       })
     }
     if (publicMetadataCors && hasPublicAuthCorsCredentials(event.headers)) {

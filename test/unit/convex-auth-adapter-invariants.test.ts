@@ -117,10 +117,10 @@ describe('greenfield Convex auth schema generation', () => {
 
     expect(indexes).toEqual(
       expect.arrayContaining([
-        { descriptor: 'id', fields: ['id'] },
+        { descriptor: 'id', fields: ['id'], unique: true },
         { descriptor: 'expiresAt', fields: ['expiresAt'] },
         { descriptor: 'userId_expiresAt', fields: ['userId', 'expiresAt'] },
-        { descriptor: 'token', fields: ['token'] },
+        { descriptor: 'token', fields: ['token'], unique: true },
         { descriptor: 'userId', fields: ['userId'] },
         { descriptor: 'displayLabel', fields: ['displayLabel'] },
       ]),
@@ -155,7 +155,7 @@ describe('greenfield Convex auth schema generation', () => {
 
     expect(result).toEqual({ code: artifacts.schemaCode, overwrite: true, path: schemaTarget })
     expect(artifacts.metadataCode).not.toContain('import type')
-    expect(artifacts.metadata.fingerprint).toMatch(/^bcn-auth-schema-v1:[0-9a-f]{16}$/u)
+    expect(artifacts.metadata.fingerprint).toMatch(/^bcn-auth-schema-v2:[0-9a-f]{16}$/u)
   })
 
   it('rejects stale or structurally mismatched schema and metadata pairs', () => {
@@ -164,8 +164,18 @@ describe('greenfield Convex auth schema generation', () => {
     ).not.toThrow()
 
     const stale = structuredClone(packagedSchemaMetadata) as AuthSchemaMetadata
-    stale.fingerprint = 'bcn-auth-schema-v1:0000000000000000'
+    stale.fingerprint = 'bcn-auth-schema-v2:0000000000000000'
     expect(() => assertAuthSchemaMatchesMetadata(packagedSchema, stale)).toThrow(
+      'AUTH_SCHEMA_METADATA_MISMATCH',
+    )
+
+    const legacy = structuredClone(packagedSchemaMetadata) as AuthSchemaMetadata
+    legacy.fingerprint = 'bcn-auth-schema-v1:2b65d1f3b73c9b46'
+    const legacySchema = {
+      __betterConvexNuxtAuthSchemaFingerprint: legacy.fingerprint,
+      export: (packagedSchema as unknown as { export: () => string }).export.bind(packagedSchema),
+    }
+    expect(() => assertAuthSchemaMatchesMetadata(legacySchema, legacy)).toThrow(
       'AUTH_SCHEMA_METADATA_MISMATCH',
     )
 
@@ -174,6 +184,16 @@ describe('greenfield Convex auth schema generation', () => {
     if (!user) throw new Error('Expected generated user metadata.')
     delete (user.fields as Record<string, unknown>).name
     expect(() => assertAuthSchemaMatchesMetadata(packagedSchema, mismatched)).toThrow(
+      'AUTH_SCHEMA_METADATA_MISMATCH',
+    )
+
+    const compoundUniqueTamper = structuredClone(packagedSchemaMetadata) as AuthSchemaMetadata
+    const accountCompoundIndex = compoundUniqueTamper.models.account?.indexes.find(
+      (index) => index.descriptor === 'accountId_providerId',
+    )
+    if (!accountCompoundIndex) throw new Error('Expected generated account compound index.')
+    delete (accountCompoundIndex as { unique?: true }).unique
+    expect(() => assertAuthSchemaMatchesMetadata(packagedSchema, compoundUniqueTamper)).toThrow(
       'AUTH_SCHEMA_METADATA_MISMATCH',
     )
   })
@@ -189,10 +209,12 @@ describe('greenfield Convex auth schema generation', () => {
     expect(agenticSchemaMetadata.models.member?.indexes).toContainEqual({
       descriptor: 'organizationId_userId',
       fields: ['organizationId', 'userId'],
+      unique: true,
     })
     expect(teamSchemaMetadata.models.teamMember?.indexes).toContainEqual({
       descriptor: 'teamId_userId',
       fields: ['teamId', 'userId'],
+      unique: true,
     })
     expect(teamSchemaMetadata.models.invitation?.indexes).toEqual(
       expect.arrayContaining([
@@ -207,6 +229,33 @@ describe('greenfield Convex auth schema generation', () => {
         { descriptor: 'createdAt', fields: ['createdAt'] },
       ]),
     )
+  })
+
+  it('marks only canonical compound identities as unique', () => {
+    expect(
+      packagedSchemaMetadata.models.account?.indexes.find(
+        (index) => index.descriptor === 'accountId_providerId',
+      ),
+    ).toMatchObject({ unique: true })
+
+    expect(
+      packagedSchemaMetadata.models.account?.indexes.find(
+        (index) => index.descriptor === 'providerId_userId',
+      ),
+    ).toEqual({ descriptor: 'providerId_userId', fields: ['providerId', 'userId'] })
+    expect(
+      packagedSchemaMetadata.models.oauthConsent?.indexes.find(
+        (index) => index.descriptor === 'clientId_userId',
+      ),
+    ).toEqual({ descriptor: 'clientId_userId', fields: ['clientId', 'userId'] })
+    expect(
+      teamSchemaMetadata.models.invitation?.indexes.find(
+        (index) => index.descriptor === 'email_organizationId_status',
+      ),
+    ).toEqual({
+      descriptor: 'email_organizationId_status',
+      fields: ['email', 'organizationId', 'status'],
+    })
   })
 })
 

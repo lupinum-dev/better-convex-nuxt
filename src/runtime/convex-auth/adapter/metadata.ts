@@ -30,6 +30,7 @@ export interface AuthFieldMetadata {
 export interface AuthIndexMetadata {
   descriptor: string
   fields: readonly string[]
+  unique?: true
 }
 
 export interface AuthModelMetadata {
@@ -44,7 +45,20 @@ export interface AuthSchemaMetadata {
   models: Readonly<Record<string, AuthModelMetadata>>
 }
 
+export const AUTH_SCHEMA_FINGERPRINT_PREFIX = 'bcn-auth-schema-v2:'
+const FNV64_OFFSET_BASIS = 14_695_981_039_346_656_037n
+const FNV64_PRIME = 1_099_511_628_211n
 const AUTH_SCHEMA_FINGERPRINT_PROPERTY = '__betterConvexNuxtAuthSchemaFingerprint'
+
+/** Compute the canonical fingerprint for every runtime-significant metadata field. */
+export function fingerprintAuthSchemaModels(models: AuthSchemaMetadata['models']): string {
+  let hash = FNV64_OFFSET_BASIS
+  for (const codeUnit of JSON.stringify(models)) {
+    hash ^= BigInt(codeUnit.charCodeAt(0))
+    hash = BigInt.asUintN(64, hash * FNV64_PRIME)
+  }
+  return `${AUTH_SCHEMA_FINGERPRINT_PREFIX}${hash.toString(16).padStart(16, '0')}`
+}
 
 interface ExportedValidator {
   type: string
@@ -120,7 +134,9 @@ export function assertAuthSchemaMatchesMetadata(
     if (
       typeof exportSchema !== 'function' ||
       typeof metadata.fingerprint !== 'string' ||
-      metadata.fingerprint.length === 0 ||
+      !metadata.fingerprint.startsWith(AUTH_SCHEMA_FINGERPRINT_PREFIX) ||
+      metadata.fingerprint.length !== AUTH_SCHEMA_FINGERPRINT_PREFIX.length + 16 ||
+      fingerprintAuthSchemaModels(metadata.models) !== metadata.fingerprint ||
       schemaRecord[AUTH_SCHEMA_FINGERPRINT_PROPERTY] !== metadata.fingerprint
     ) {
       mismatch()

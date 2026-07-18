@@ -6,12 +6,13 @@
  */
 import type { BetterAuthDBSchema, DBFieldAttribute } from 'better-auth/db'
 
-import type {
-  AuthFieldKind,
-  AuthFieldMetadata,
-  AuthIndexMetadata,
-  AuthModelMetadata,
-  AuthSchemaMetadata,
+import {
+  fingerprintAuthSchemaModels,
+  type AuthFieldKind,
+  type AuthFieldMetadata,
+  type AuthIndexMetadata,
+  type AuthModelMetadata,
+  type AuthSchemaMetadata,
 } from './metadata'
 
 export interface GeneratedAuthSchemaArtifacts {
@@ -20,22 +21,32 @@ export interface GeneratedAuthSchemaArtifacts {
   schemaCode: string
 }
 
-const explicitIndexes: Readonly<Record<string, readonly (string | readonly string[])[]>> = {
-  account: ['accountId', ['accountId', 'providerId'], ['providerId', 'userId']],
-  invitation: [
-    ['email', 'organizationId', 'status'],
-    ['organizationId', 'status', 'createdAt'],
-  ],
-  member: [['organizationId', 'userId']],
-  oauthConsent: [['clientId', 'userId']],
-  rateLimit: ['key'],
-  session: ['expiresAt', ['userId', 'expiresAt']],
-  teamMember: [['teamId', 'userId']],
-  verification: ['expiresAt', 'identifier', ['identifier', 'createdAt']],
+interface AuthIndexDeclaration {
+  fields: readonly string[]
+  unique?: true
 }
-const FNV64_OFFSET_BASIS = 14_695_981_039_346_656_037n
-const FNV64_PRIME = 1_099_511_628_211n
 
+const explicitIndexes: Readonly<Record<string, readonly AuthIndexDeclaration[]>> = {
+  account: [
+    { fields: ['accountId'] },
+    { fields: ['accountId', 'providerId'], unique: true },
+    { fields: ['providerId', 'userId'] },
+  ],
+  invitation: [
+    { fields: ['email', 'organizationId', 'status'] },
+    { fields: ['organizationId', 'status', 'createdAt'] },
+  ],
+  member: [{ fields: ['organizationId', 'userId'], unique: true }],
+  oauthConsent: [{ fields: ['clientId', 'userId'] }],
+  rateLimit: [{ fields: ['key'] }],
+  session: [{ fields: ['expiresAt'] }, { fields: ['userId', 'expiresAt'] }],
+  teamMember: [{ fields: ['teamId', 'userId'], unique: true }],
+  verification: [
+    { fields: ['expiresAt'] },
+    { fields: ['identifier'] },
+    { fields: ['identifier', 'createdAt'] },
+  ],
+}
 function physicalFieldName(logicalName: string, field: DBFieldAttribute): string {
   return field.fieldName ?? logicalName
 }
@@ -84,9 +95,9 @@ function buildIndexes(
 ): AuthIndexMetadata[] {
   const indexes: AuthIndexMetadata[] = []
   const seenDescriptors = new Set<string>()
-  const seenFields = new Set<string>()
+  const indexesByFields = new Map<string, AuthIndexMetadata>()
 
-  const add = (logicalFields: readonly string[]) => {
+  const add = (logicalFields: readonly string[], unique = false) => {
     const physicalFields = logicalFields.map((logicalField) => {
       const field = Object.values(fields).find(
         (candidate) => candidate.logicalName === logicalField,
@@ -96,19 +107,28 @@ function buildIndexes(
       return field.physicalName
     })
     const fieldKey = JSON.stringify(physicalFields)
-    if (seenFields.has(fieldKey)) return
+    const existing = indexesByFields.get(fieldKey)
+    if (existing) {
+      if (unique) existing.unique = true
+      return
+    }
     const descriptor = descriptorFor(physicalFields)
     if (seenDescriptors.has(descriptor)) {
       throw new Error(`AUTH_SCHEMA_INDEX_NAME_COLLISION:${logicalModelName}.${descriptor}`)
     }
     seenDescriptors.add(descriptor)
-    seenFields.add(fieldKey)
-    indexes.push({ descriptor, fields: physicalFields })
+    const index: AuthIndexMetadata = {
+      descriptor,
+      fields: physicalFields,
+      ...(unique ? { unique: true } : {}),
+    }
+    indexesByFields.set(fieldKey, index)
+    indexes.push(index)
   }
 
-  add(['id'])
+  add(['id'], true)
   for (const declared of explicitIndexes[logicalModelName] ?? []) {
-    add(typeof declared === 'string' ? [declared] : declared)
+    add(declared.fields, declared.unique === true)
   }
   for (const field of Object.values(fields)) {
     if (
@@ -118,7 +138,7 @@ function buildIndexes(
       field.sortable ||
       field.physicalName === 'createdAt'
     ) {
-      add([field.logicalName])
+      add([field.logicalName], field.unique)
     }
   }
   return indexes
@@ -184,16 +204,7 @@ function buildMetadata(tables: BetterAuthDBSchema): AuthSchemaMetadata {
       indexes: buildIndexes(logicalModelName, fields),
     }
   }
-  return { fingerprint: fingerprintModels(models), models }
-}
-
-function fingerprintModels(models: AuthSchemaMetadata['models']): string {
-  let hash = FNV64_OFFSET_BASIS
-  for (const codeUnit of JSON.stringify(models)) {
-    hash ^= BigInt(codeUnit.charCodeAt(0))
-    hash = BigInt.asUintN(64, hash * FNV64_PRIME)
-  }
-  return `bcn-auth-schema-v1:${hash.toString(16).padStart(16, '0')}`
+  return { fingerprint: fingerprintAuthSchemaModels(models), models }
 }
 
 function renderMetadata(metadata: AuthSchemaMetadata): string {

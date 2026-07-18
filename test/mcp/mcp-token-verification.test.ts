@@ -119,6 +119,7 @@ describe('official resource-client MCP token verification', () => {
     ['wrong issuer', () => claims({ iss: `${issuer}/other` })],
     ['wrong token class', () => claims({ token_use: 'convex-session' })],
     ['client mismatch', () => claims({ azp: 'client-2' })],
+    ['raw client mismatch', () => claims({ client_id: 'client-2' })],
     ['missing session', () => claims({ sid: undefined })],
     ['foreign scope', () => claims({ scope: 'mcp:read admin' })],
     ['unknown permission claim', () => claims({ role: 'owner' })],
@@ -142,10 +143,37 @@ describe('official resource-client MCP token verification', () => {
       kid: 'mcp-test',
       typ: 'JWT',
     })
+    const missingType = await sign(claims(), {
+      alg: 'RS256',
+      kid: 'mcp-test',
+    })
     await expect(verifyMcpAccessToken(wrongAlgorithm, { issuer, resource })).rejects.toMatchObject({
       code: 'MCP_INVALID_TOKEN',
     })
     await expect(verifyMcpAccessToken(wrongType, { issuer, resource })).rejects.toMatchObject({
+      code: 'MCP_INVALID_TOKEN',
+    })
+    await expect(verifyMcpAccessToken(missingType, { issuer, resource })).rejects.toMatchObject({
+      code: 'MCP_INVALID_TOKEN',
+    })
+  })
+
+  it('rejects a same-JWKS Convex session JWT at the official verifier', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const sessionToken = await sign(
+      {
+        aud: 'convex',
+        exp: now + 300,
+        iat: now,
+        iss: 'https://deployment.convex.site',
+        sid: 'session-1',
+        sub: 'user-1',
+        token_use: 'convex-session',
+      },
+      { alg: 'RS256', kid: 'mcp-test' },
+    )
+
+    await expect(verifyMcpAccessToken(sessionToken, { issuer, resource })).rejects.toMatchObject({
       code: 'MCP_INVALID_TOKEN',
     })
   })

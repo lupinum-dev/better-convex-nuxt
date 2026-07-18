@@ -67,15 +67,15 @@ no legacy component migration or compatibility path.
    ```
 
 2. Set the exact Nuxt origin in `.env.local`. If the fresh deployment already
-   exists, fill its Convex URLs too; otherwise `convex:dev` will first configure
-   it, after which you can fill the remaining URL values. Do not change the
+   exists, fill its Convex URLs too; otherwise run `convex:configure` once and
+   then fill the remaining URL values. Do not change the
    generated `BCN_AUTH_PROXY_IP_SECRET`. The Nuxt scripts load this file
    explicitly. Never commit it.
 
 3. Start Convex in one terminal and keep it running:
 
    ```bash
-   pnpm convex:dev
+   pnpm convex:configure
    ```
 
    After `Convex functions ready!`, open another terminal. Load the ignored
@@ -86,12 +86,18 @@ no legacy component migration or compatibility path.
    set -a
    . ./.env.local
    set +a
-   pnpm exec convex env set SITE_URL "$SITE_URL" --env-file .env.local
+   pnpm exec better-convex-nuxt-convex env set SITE_URL "$SITE_URL"
    BETTER_AUTH_SECRETS="1:$(openssl rand -base64 32)"
-   printf '%s' "$BETTER_AUTH_SECRETS" | pnpm exec convex env set BETTER_AUTH_SECRETS --env-file .env.local
-   printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET --env-file .env.local
+   printf '%s' "$BETTER_AUTH_SECRETS" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
+   printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET
    unset BETTER_AUTH_SECRETS
    ```
+
+   Exact loopback development permits a blank
+   `BCN_AUTH_TRUSTED_CLIENT_IP_HEADER`. Before deploying any HTTPS origin, set
+   it to one header the ingress overwrites with exactly one client IP. Restrict
+   the Nuxt origin so public traffic cannot bypass that ingress, or independently
+   authenticate ingress requests at the origin.
 
    Convex supplies `CONVEX_SITE_URL` to functions as a deployment-owned built-in;
    the CLI rejects attempts to set it manually. Keep the selected deployment's
@@ -100,7 +106,7 @@ no legacy component migration or compatibility path.
    create the fresh deployment's first signing key before allowing auth traffic:
 
    ```bash
-   pnpm exec convex run auth:rotateSigningKey '{}' --env-file .env.local
+   pnpm exec better-convex-nuxt-convex run auth:rotateSigningKey '{}'
    ```
 
    On this fresh deployment, require `previousKids` to be empty and record the
@@ -140,7 +146,7 @@ no legacy component migration or compatibility path.
    the trusted Convex CLI or dashboard operator context:
 
    ```bash
-   pnpm exec convex run mcpAdmin:setOAuthAdministratorByEmail \
+   pnpm exec better-convex-nuxt-convex run mcpAdmin:setOAuthAdministratorByEmail \
      '{"email":"admin@example.com","enabled":true}'
    ```
 

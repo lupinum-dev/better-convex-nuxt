@@ -1,7 +1,8 @@
 
 .convex
 .env
-.env.local
+.env.*
+!.env.example
 .nuxt
 .output
 dist

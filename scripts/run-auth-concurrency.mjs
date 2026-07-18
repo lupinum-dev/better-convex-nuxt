@@ -53,13 +53,16 @@ export const authOperatorFunctions = {
 }
 
 const proxyIpSecret = 'better-convex-nuxt-e2e-proxy-ip-secret-32-bytes'
+const authComponentPath = 'betterAuth'
+const compoundAccountProvider = 'bcn-compound-race'
 export const AUTH_CONTENTION_MAX_RETRIES = 5
 
 export function safeAuthConcurrencyFailure(error) {
   const text = error instanceof Error ? error.message : String(error)
   if (text.includes('AUTH_LOGICAL_ID_CONFLICT')) return 'AUTH_LOGICAL_ID_CONFLICT'
   if (text.includes('AUTH_UNIQUE_CONFLICT:rateLimit.id')) return 'AUTH_LOGICAL_ID_CONFLICT'
-  if (text.includes('AUTH_UNIQUE_CONFLICT')) return 'AUTH_UNIQUE_CONFLICT'
+  const uniqueConflict = /AUTH_UNIQUE_CONFLICT:[\w.]+/u.exec(text)?.[0]
+  if (uniqueConflict) return uniqueConflict
   if (text.includes('AUTH_TRIGGER_FAULT_INJECTED')) return 'AUTH_TRIGGER_FAULT_INJECTED'
   if (
     /optimistic concurrency(?: control)?|\bocc(?: error)?\b/iu.test(text) ||
@@ -121,6 +124,19 @@ async function runWorker() {
         increment: { count: 1 },
         model: 'rateLimit',
         where: [{ field: 'id', value: id }],
+      })
+    }
+    if (operation === 'createSameAccountIdentity') {
+      return client.function(authAdapterComponentFunctions.create, componentPath, {
+        model: 'account',
+        data: {
+          accountId: key,
+          createdAt: 1_700_000_000_000,
+          id: `${id}-${workerIndex}-${index}`,
+          providerId: compoundAccountProvider,
+          updatedAt: 1_700_000_000_000,
+          userId: `${id}-user-${workerIndex}-${index}`,
+        },
       })
     }
     if (operation === 'operatorRotate') {
@@ -335,6 +351,20 @@ async function limitedSignIn(siteUrl, clientIp, signature = signClientIp(clientI
   })
 }
 
+async function directSignIn(siteUrl) {
+  return fetch(`${siteUrl}/api/auth/sign-in/email`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: 'http://localhost:3050',
+    },
+    body: JSON.stringify({
+      email: 'rate-limit-missing@example.test',
+      password: 'not-a-real-password',
+    }),
+  })
+}
+
 export function assertNoPrivateJwkMaterial(value, path = '$') {
   if (Array.isArray(value)) {
     value.forEach((entry, index) => assertNoPrivateJwkMaterial(entry, `${path}[${index}]`))
@@ -426,6 +456,10 @@ async function runMain() {
         key: 'bcn-auth-concurrency-v1-update-many-fault-1',
       },
     }
+    const compoundAccount = {
+      accountId: 'bcn-auth-concurrency-v1-compound-account',
+      id: 'bcn-auth-concurrency-v1-compound-account-row',
+    }
     for (const row of Object.values(rows)) {
       await client.mutation(authConcurrencyFunctions.remove, { id: row.id })
     }
@@ -453,7 +487,38 @@ async function runMain() {
       iterations,
     )
     assert(sameKey.filter((result) => result.ok).length === 1, 'AUTH_UNIQUE_RACE_WINNER_COUNT')
-    assertOnlyFailure(sameKey, 'AUTH_UNIQUE_CONFLICT', 'AUTH_UNIQUE_RACE_UNEXPECTED_FAILURE')
+    assertOnlyFailure(
+      sameKey,
+      'AUTH_UNIQUE_CONFLICT:rateLimit.key',
+      'AUTH_UNIQUE_RACE_UNEXPECTED_FAILURE',
+    )
+
+    await client.function(authAdapterComponentFunctions.remove, authComponentPath, {
+      model: 'account',
+      where: [
+        { field: 'accountId', value: compoundAccount.accountId },
+        { field: 'providerId', value: compoundAccountProvider },
+      ],
+    })
+    const sameAccountIdentity = await spawnAuthRaceWorkers(
+      url,
+      adminKey,
+      'createSameAccountIdentity',
+      compoundAccount.id,
+      compoundAccount.accountId,
+      workers,
+      1,
+      authComponentPath,
+    )
+    assert(
+      sameAccountIdentity.filter((result) => result.ok).length === 1,
+      'AUTH_COMPOUND_UNIQUE_RACE_WINNER_COUNT',
+    )
+    assertOnlyFailure(
+      sameAccountIdentity,
+      'AUTH_UNIQUE_CONFLICT:account.accountId_providerId',
+      'AUTH_COMPOUND_UNIQUE_RACE_UNEXPECTED_FAILURE',
+    )
 
     await client.mutation(authConcurrencyFunctions.create, rows.consume)
     const consumed = await spawnAuthRaceWorkers(
@@ -588,8 +653,18 @@ async function runMain() {
       ),
     )
     assert(
-      forged.filter((response) => response.status === 429).length === 1,
-      'AUTH_FORGED_IP_BUCKET_ESCAPE',
+      forged.every((response) => response.status === 500),
+      'AUTH_FORGED_IP_PAIR_NOT_REJECTED',
+    )
+    const forgedBodies = await Promise.all(forged.map((response) => response.json()))
+    assert(
+      forgedBodies.every((body) => body?.code === 'AUTH_CONFIG_INVALID'),
+      'AUTH_FORGED_IP_REJECTION_DISCLOSED_DETAILS',
+    )
+    const direct = await Promise.all(Array.from({ length: 4 }, () => directSignIn(siteUrl)))
+    assert(
+      direct.filter((response) => response.status === 429).length === 1,
+      'AUTH_DIRECT_IP_RATE_LIMIT_ATOMICITY',
     )
     assert(
       (await limitedSignIn(siteUrl, '192.0.2.12')).status !== 429,
@@ -628,7 +703,7 @@ async function runMain() {
     }
 
     console.log(
-      `[auth-concurrency] PASS: pinned real backend lacks URL.canParse as expected; logical-id 1/${sameId.length}, unique-field 1/${sameKey.length}, consume 1/${consumed.length} across ${workers} worker isolates; increment ${finalRow.count}/${totalRequests} across ${incrementWorkers} sustained worker isolates; 1,001-row atomic count/update/delete, create/consume/increment/updateMany trigger rollback, signed-IP quotas/reset, forged-IP fallback, and 8-way official JWKS rotation verified.`,
+      `[auth-concurrency] PASS: pinned real backend lacks URL.canParse as expected; logical-id 1/${sameId.length}, scalar unique-field 1/${sameKey.length}, compound account identity 1/${sameAccountIdentity.length}, consume 1/${consumed.length} across ${workers} worker isolates; increment ${finalRow.count}/${totalRequests} across ${incrementWorkers} sustained worker isolates; 1,001-row atomic count/update/delete, create/consume/increment/updateMany trigger rollback, signed-IP quotas/reset, forged-pair rejection, direct-IP fallback, and 8-way official JWKS rotation verified.`,
     )
   } finally {
     await local?.release()

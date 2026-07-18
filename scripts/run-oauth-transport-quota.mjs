@@ -2,7 +2,6 @@
 
 import { fork } from 'node:child_process'
 import { once } from 'node:events'
-import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
@@ -468,22 +467,11 @@ export function summarizeQuotaBoundary(profileName, results) {
       throw new Error('OAUTH_QUOTA_BOUNDARY_RESULT_INVALID')
     }
   }
-  assert(admitted === 1 && throttled === results.length - 1, 'OAUTH_QUOTA_BOUNDARY_EXCEEDED')
-  return Object.freeze({ admitted, childProcesses: results.length, throttled })
-}
-
-async function configureTrustedFixtureIpHeader({ cwd }) {
-  const configPath = resolve(cwd, 'nuxt.config.ts')
-  const source = await readFile(configPath, 'utf8')
-  const before = `      publicOrigin: process.env.SITE_URL,\n`
-  assert(source.split(before).length === 2, 'OAUTH_QUOTA_FIXTURE_CONFIG_INVALID')
-  await writeFile(
-    configPath,
-    source.replace(
-      before,
-      `${before}      proxy: { trustedClientIpHeader: '${TRUSTED_FIXTURE_IP_HEADER}' },\n`,
-    ),
+  assert(
+    admitted === 1 && throttled === results.length - 1,
+    `OAUTH_QUOTA_BOUNDARY_EXCEEDED_${selected.name.toUpperCase()}_${admitted}_${throttled}`,
   )
+  return Object.freeze({ admitted, childProcesses: results.length, throttled })
 }
 
 async function headersForTransport(fixture, transport, clientIp) {
@@ -506,12 +494,14 @@ async function assertDisabledRoutes(fixture) {
   let probes = 0
   for (const baseUrl of [fixture.origin, fixture.convexSiteUrl]) {
     for (const route of DISABLED_OAUTH_ROUTE_PROBES) {
+      const headers =
+        route.method === 'POST'
+          ? { 'content-type': 'application/x-www-form-urlencoded', origin: fixture.origin }
+          : {}
+      if (baseUrl === fixture.origin) headers[TRUSTED_FIXTURE_IP_HEADER] = '198.51.100.250'
       const response = await fetch(new URL(route.path, baseUrl), {
         body: route.method === 'POST' ? '' : undefined,
-        headers:
-          route.method === 'POST'
-            ? { 'content-type': 'application/x-www-form-urlencoded', origin: fixture.origin }
-            : {},
+        headers,
         method: route.method,
         redirect: 'manual',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -622,39 +612,47 @@ async function runProfileQuota(fixture, selected) {
   })
 }
 
-async function runForgedIpFallback(fixture) {
+async function runIpHeaderBoundary(fixture) {
   const selected = OAUTH_TRANSPORT_QUOTA_PROFILES.token
   const forgedSignature = 'A'.repeat(43)
-  let admitted = 0
+  const directRejected = await Promise.all(
+    [1, 2].map((suffix) =>
+      performQuotaRequest(
+        buildOAuthQuotaRequest(selected.name, fixture.convexSiteUrl, fixture.origin, {
+          'x-bcn-client-ip': `10.88.0.${suffix}`,
+          'x-bcn-client-ip-signature': forgedSignature,
+        }),
+      ),
+    ),
+  )
+  directRejected.forEach((result) =>
+    assert(
+      result.status === 500 && result.retryAfter === null,
+      'OAUTH_QUOTA_FORGED_DIRECT_PAIR_NOT_REJECTED',
+    ),
+  )
+
+  let nuxtAdmitted = 0
   for (let index = 1; index <= selected.limit; index += 1) {
-    const request = buildOAuthQuotaRequest(selected.name, fixture.convexSiteUrl, fixture.origin, {
+    const request = buildOAuthQuotaRequest(selected.name, fixture.origin, fixture.origin, {
+      [TRUSTED_FIXTURE_IP_HEADER]: '198.51.100.88',
       'x-bcn-client-ip': `10.88.0.${index}`,
       'x-bcn-client-ip-signature': forgedSignature,
     })
     const result = await performQuotaRequest(request)
-    assertGuardRejection(selected, result, 'OAUTH_QUOTA_FORGED_IP_BUCKET_ESCAPE')
-    admitted += 1
+    assertGuardRejection(selected, result, 'OAUTH_QUOTA_FORGED_PROXY_HEADER_ESCAPE')
+    nuxtAdmitted += 1
   }
 
-  const directOverflow = buildOAuthQuotaRequest(
-    selected.name,
-    fixture.convexSiteUrl,
-    fixture.origin,
-    {
-      'x-bcn-client-ip': '10.88.0.201',
-      'x-bcn-client-ip-signature': forgedSignature,
-    },
-  )
   const nuxtOverflow = buildOAuthQuotaRequest(selected.name, fixture.origin, fixture.origin, {
+    [TRUSTED_FIXTURE_IP_HEADER]: '198.51.100.88',
     'x-bcn-client-ip': '10.88.0.202',
     'x-bcn-client-ip-signature': forgedSignature,
   })
-  const overflow = await Promise.all([
-    performQuotaRequest(directOverflow),
-    performQuotaRequest(nuxtOverflow),
-  ])
-  overflow.forEach((result) =>
-    assertThrottled(selected, result, 'OAUTH_QUOTA_FORGED_IP_BUCKET_ESCAPE'),
+  assertThrottled(
+    selected,
+    await performQuotaRequest(nuxtOverflow),
+    'OAUTH_QUOTA_FORGED_PROXY_HEADER_ESCAPE',
   )
 
   const signedHeaders = await fixture.signedClientIpHeadersForTest('192.0.2.99')
@@ -669,12 +667,17 @@ async function runForgedIpFallback(fixture) {
     await performQuotaRequest(signedRequest),
     'OAUTH_QUOTA_FORGED_IP_POISONED_SIGNED_BUCKET',
   )
-  return Object.freeze({ admitted, signedIndependent: 1, throttled: overflow.length })
+  return Object.freeze({
+    directRejected: directRejected.length,
+    nuxtAdmitted,
+    nuxtThrottled: 1,
+    signedIndependent: 1,
+  })
 }
 
 export async function runOAuthTransportQuotaEvidence() {
   const fixture = await startLocalMcpOAuthFixture({
-    prepareFixture: configureTrustedFixtureIpHeader,
+    trustedClientIpHeaderForTest: TRUSTED_FIXTURE_IP_HEADER,
   })
   try {
     const disabledRouteProbes = await assertDisabledRoutes(fixture)
@@ -683,11 +686,11 @@ export async function runOAuthTransportQuotaEvidence() {
     for (const selected of Object.values(OAUTH_TRANSPORT_QUOTA_PROFILES)) {
       profiles[selected.name] = await runProfileQuota(fixture, selected)
     }
-    const forgedFallback = await runForgedIpFallback(fixture)
+    const ipHeaderBoundary = await runIpHeaderBoundary(fixture)
     return Object.freeze({
       disabledRouteProbes,
-      forgedFallback,
       hardenedPages,
+      ipHeaderBoundary,
       profiles: Object.freeze(profiles),
     })
   } finally {
@@ -726,7 +729,7 @@ if (process.argv[2] === '--request-worker') {
         0,
       )
       console.log(
-        `[oauth-transport-quota] PASS: disabled=${report.disabledRouteProbes}; pages=${report.hardenedPages}; quotas=${quotaCounts}; boundary=${childProcesses}/${boundaryThrottled}; independent=${independentAdmitted}; bypasses-blocked=${bypassesBlocked}; forged=${report.forgedFallback.admitted}/${report.forgedFallback.throttled}/${report.forgedFallback.signedIndependent}.`,
+        `[oauth-transport-quota] PASS: disabled=${report.disabledRouteProbes}; pages=${report.hardenedPages}; quotas=${quotaCounts}; boundary=${childProcesses}/${boundaryThrottled}; independent=${independentAdmitted}; bypasses-blocked=${bypassesBlocked}; ip-headers=${report.ipHeaderBoundary.nuxtAdmitted}/${report.ipHeaderBoundary.nuxtThrottled}/${report.ipHeaderBoundary.directRejected}/${report.ipHeaderBoundary.signedIndependent}.`,
       )
     })
     .catch((error) => {

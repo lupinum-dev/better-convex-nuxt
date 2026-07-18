@@ -212,7 +212,7 @@ export function parseConvexDeploymentDescription(source, expected) {
 
 function runConvexCli(args, adminKey, failureCode, cwd = root) {
   try {
-    return execFileSync(process.execPath, [convexCli, ...args], {
+    return execFileSync(process.execPath, ['--', convexCli, ...args], {
       cwd,
       encoding: 'utf8',
       env: commandEnvironment({ CONVEX_DEPLOY_KEY: adminKey }),

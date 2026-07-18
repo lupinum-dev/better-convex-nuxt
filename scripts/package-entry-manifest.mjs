@@ -130,15 +130,8 @@ export const packageEntries = [
       'serverConvex',
       'createClassifiedConvexFetch',
       'normalizeServerConvexBoundaryError',
-      'exchangeConvexToken',
-      'normalizeSiteUrl',
     ],
-    typeExports: [
-      'ServerConvexCaller',
-      'ServerConvexOptions',
-      'ConvexCredential',
-      'ConvexTokenExchangeResult',
-    ],
+    typeExports: ['ServerConvexCaller', 'ServerConvexOptions', 'ConvexCredential'],
     forbiddenNames: [
       'serverConvexQuery',
       'serverConvexMutation',

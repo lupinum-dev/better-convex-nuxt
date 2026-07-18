@@ -10,6 +10,7 @@ import { decodeBasicCredentials } from 'better-auth/oauth2'
 import { bearer } from 'better-auth/plugins'
 import type { Jwk, JwtOptions } from 'better-auth/plugins/jwt'
 
+import { VERIFIED_CLIENT_IP_HEADER } from '../shared/client-ip'
 import { INTERNAL_SESSION_HEADER } from './internal-session'
 import { JWKS_CACHE_CONTROL, assertSupportedJwksOptions, sanitizeStoredJwk } from './jwks-rotation'
 import {
@@ -522,6 +523,30 @@ async function guardRevokeRequest(
   assertClientAuthenticationMethod(client, authentication)
 }
 
+function hasSafeGlobalAuthRuntime(
+  context: Parameters<NonNullable<BetterAuthPlugin['init']>>[0],
+): boolean {
+  const ipAddress = context.options.advanced?.ipAddress
+  const ipHeaders = ipAddress?.ipAddressHeaders
+  const trustedProxies = ipAddress?.trustedProxies
+  return (
+    context.options.rateLimit?.enabled === true &&
+    context.options.rateLimit.storage === 'database' &&
+    context.options.rateLimit.modelName === 'rateLimit' &&
+    context.options.rateLimit.customStorage === undefined &&
+    context.options.rateLimit.customRules === undefined &&
+    Array.isArray(ipHeaders) &&
+    ipHeaders.length === 1 &&
+    ipHeaders[0]?.toLowerCase() === VERIFIED_CLIENT_IP_HEADER &&
+    (ipAddress?.disableIpTracking === undefined || ipAddress.disableIpTracking === false) &&
+    (trustedProxies === undefined ||
+      (Array.isArray(trustedProxies) && trustedProxies.length === 0)) &&
+    (ipAddress?.ipv6Subnet === undefined || ipAddress.ipv6Subnet === 64) &&
+    (context.options.advanced?.trustedProxyHeaders === undefined ||
+      context.options.advanced.trustedProxyHeaders === false)
+  )
+}
+
 function validateGlobalOAuthRuntime(
   context: Parameters<NonNullable<BetterAuthPlugin['init']>>[0],
   options: ConvexOAuthProviderOptions,
@@ -550,17 +575,7 @@ function validateGlobalOAuthRuntime(
   if ([...DISABLED_OAUTH_PATHS].some((path) => !disabledPaths.has(path))) {
     throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
   }
-  const ipHeaders = context.options.advanced?.ipAddress?.ipAddressHeaders
   if (
-    context.options.rateLimit?.enabled !== true ||
-    context.options.rateLimit.storage !== 'database' ||
-    context.options.rateLimit.modelName !== 'rateLimit' ||
-    context.options.rateLimit.customStorage !== undefined ||
-    !Array.isArray(ipHeaders) ||
-    ipHeaders.length !== 1 ||
-    ipHeaders[0]?.toLowerCase() !== 'x-bcn-verified-client-ip' ||
-    context.options.advanced?.ipAddress?.disableIpTracking === true ||
-    context.options.advanced?.trustedProxyHeaders === true ||
     context.options.account?.encryptOAuthTokens !== true ||
     context.options.account.storeAccountCookie !== false ||
     context.options.verification?.storeIdentifier !== 'hashed'
@@ -763,6 +778,10 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
         context,
         oauthOptions ? 'AUTH_OAUTH_CONFIG_INVALID' : 'AUTH_JWKS_CONFIG_INVALID',
       )
+      if (!hasSafeGlobalAuthRuntime(context)) {
+        if (oauthOptions) throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
+        throw new Error('AUTH_CONFIG_INVALID')
+      }
       if (!oauthOptions || !hardenedOAuth) {
         if ((context.options.plugins ?? []).some((plugin) => plugin.id === 'oauth-provider')) {
           throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')

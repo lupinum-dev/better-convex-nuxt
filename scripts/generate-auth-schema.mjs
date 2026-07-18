@@ -31,14 +31,14 @@ const outputSources = new Map([
   [path.join(componentDirectory, 'schema.ts'), curatedArtifacts.schemaCode],
   [path.join(componentDirectory, 'schemaMetadata.ts'), curatedArtifacts.metadataCode],
   [
-    path.join(root, 'starters/agentic-saas/convex/betterAuth/generatedSchema.ts'),
+    path.join(root, 'starters/agentic-saas/convex/betterAuth/schema.ts'),
     agenticArtifacts.schemaCode,
   ],
   [
     path.join(root, 'starters/agentic-saas/convex/betterAuth/schemaMetadata.ts'),
     agenticArtifacts.metadataCode,
   ],
-  [path.join(root, 'starters/team/convex/betterAuth/generatedSchema.ts'), teamArtifacts.schemaCode],
+  [path.join(root, 'starters/team/convex/betterAuth/schema.ts'), teamArtifacts.schemaCode],
   [
     path.join(root, 'starters/team/convex/betterAuth/schemaMetadata.ts'),
     teamArtifacts.metadataCode,

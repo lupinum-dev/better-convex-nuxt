@@ -434,13 +434,33 @@ describe('team starter memberships and invitations', () => {
     ).rejects.toThrow('Invitation is unavailable')
   })
 
-  it('lists and cancels pending invitations without exposing invitation ids', async () => {
+  it('lists indexed invitation teams beyond the scan bound and hides ids on cancellation', async () => {
     const t = initConvexTest()
     const organizationId = await seedBetterAuthOrganization(t, { name: 'org_invite_cancel' })
     const ownerSeed = await seedBetterAuthActor(t, {
       label: 'owner_invite_cancel',
       organizationId,
       role: 'owner',
+    })
+    await t.run(async (ctx) => {
+      for (let index = 0; index < 201; index += 1) {
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          model: 'team',
+          data: {
+            id: `unrelated_invitation_team_${index}`,
+            name: `Unrelated Invitation Team ${index}`,
+            memberCount: 0,
+            organizationId,
+            createdAt: now,
+            updatedAt: now,
+          },
+        })
+      }
+    })
+    const teamId = await seedBetterAuthTeam(t, {
+      organizationId,
+      teamId: 'indexed_invitation_team',
+      name: 'Indexed Invitation Team',
     })
 
     const owner = asActor(t, {
@@ -451,6 +471,7 @@ describe('team starter memberships and invitations', () => {
       organizationId,
       email: 'pending_cancel@example.com',
       role: 'admin',
+      teamId,
     })
 
     const invitations = await owner.query(api.organizations.listInvitations, {
@@ -462,6 +483,8 @@ describe('team starter memberships and invitations', () => {
         email: 'pending_cancel@example.com',
         role: 'admin',
         status: 'pending',
+        teamId,
+        teamName: 'Indexed Invitation Team',
       }),
     ])
     expect('id' in invitations.page[0]!).toBe(false)

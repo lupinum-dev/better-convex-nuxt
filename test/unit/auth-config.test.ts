@@ -60,16 +60,40 @@ describe('auth config normalization ', () => {
   })
 
   it('defaults the public origin from SITE_URL and requires an explicit value to match', () => {
-    const auth = normalizeConvexAuthConfig({}, 'https://app.example.test/')
+    const auth = normalizeConvexAuthConfig(
+      { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } },
+      'https://app.example.test/',
+    )
     if (auth === false) throw new Error('expected enabled')
     expect(auth.publicOrigin).toBe('https://app.example.test')
 
     expect(() =>
       normalizeConvexAuthConfig(
-        { publicOrigin: 'https://other.example.test' },
+        {
+          publicOrigin: 'https://other.example.test',
+          proxy: { trustedClientIpHeader: 'cf-connecting-ip' },
+        },
         'https://app.example.test',
       ),
     ).toThrow('must match SITE_URL')
+  })
+
+  it('requires an ingress-owned client IP header outside exact loopback development', () => {
+    for (const publicOrigin of ['https://app.example.test', 'https://192.0.2.1']) {
+      expect(() => normalizeConvexAuthConfig({ publicOrigin })).toThrow(
+        'trustedClientIpHeader is required',
+      )
+    }
+
+    for (const publicOrigin of [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://[::1]:3000',
+    ]) {
+      const auth = normalizeConvexAuthConfig({ publicOrigin })
+      if (auth === false) throw new Error('expected enabled')
+      expect(auth.proxy.trustedClientIpHeader).toBe('')
+    }
   })
 
   it.each([

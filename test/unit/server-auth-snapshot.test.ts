@@ -1,8 +1,10 @@
 import { inspect } from 'node:util'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { H3Event } from 'h3'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveServerAuthSnapshot } from '../../src/runtime/server/utils/auth-snapshot'
+import { CLIENT_IP_HEADER, CLIENT_IP_SIGNATURE_HEADER } from '../../src/runtime/shared/client-ip'
 
 const { fetchWithTimeoutMock, decodeUserFromJwtMock, isJwtUsableMock } = vi.hoisted(() => ({
   fetchWithTimeoutMock: vi.fn(),
@@ -25,17 +27,26 @@ function createResponse(status: number, body: unknown): Response {
 }
 
 const baseOptions = {
+  event: {
+    headers: new Headers({ 'cf-connecting-ip': '198.51.100.10' }),
+  } as unknown as H3Event,
   siteUrl: 'https://demo.convex.site',
   requestId: 'request-1',
   trackWaterfall: true,
+  trustedClientIpHeader: 'cf-connecting-ip',
 }
+
+const PROXY_IP_SECRET = 'server-auth-snapshot-test-secret-32-bytes-minimum'
 
 describe('resolveServerAuthSnapshot', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('BCN_AUTH_PROXY_IP_SECRET', PROXY_IP_SECRET)
     decodeUserFromJwtMock.mockReturnValue(null)
     isJwtUsableMock.mockReturnValue(true)
   })
+
+  afterEach(() => vi.unstubAllEnvs())
 
   it('returns an unauthenticated snapshot without a session cookie', async () => {
     const snapshot = await resolveServerAuthSnapshot({
@@ -73,11 +84,34 @@ describe('resolveServerAuthSnapshot', () => {
     expect(fetchWithTimeoutMock).toHaveBeenCalledWith(
       'https://demo.convex.site/api/auth/convex/token',
       expect.objectContaining({
-        headers: {
+        headers: expect.objectContaining({
           Cookie: '__Secure-better-auth.session_token=session-2; better-auth.callback=state',
-        },
+          [CLIENT_IP_HEADER]: '198.51.100.10',
+          [CLIENT_IP_SIGNATURE_HEADER]: expect.any(String),
+        }),
       }),
     )
+  })
+
+  it('fails closed before exchange when the configured client IP header is missing', async () => {
+    const snapshot = await resolveServerAuthSnapshot({
+      ...baseOptions,
+      event: { headers: new Headers() } as unknown as H3Event,
+      cookieHeader: 'better-auth.session_token=session-bound',
+    })
+
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    expect(snapshot).toMatchObject({
+      token: null,
+      user: null,
+      authError: 'Authentication is temporarily unavailable',
+    })
+    expect(snapshot.waterfall?.outcome).toBe('error')
+    expect(snapshot.logEvents.at(-1)).toEqual({
+      phase: 'ssr.jwt.exchange',
+      outcome: 'error',
+      details: { code: 'AUTH_TOKEN_EXCHANGE_FAILED' },
+    })
   })
 
   it('logs only the hydration outcome, never identity data, on successful exchange', async () => {

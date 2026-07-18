@@ -315,7 +315,8 @@ describe('MCP evidence fixture selection', () => {
     expect(source).toContain(
       "fileURLToPath(new URL('../node_modules/convex/bin/main.js', import.meta.url))",
     )
-    expect(source).toMatch(/convexCli,\s*'run',\s*functionName/u)
+    expect(source).toMatch(/'--',\s*convexCli,\s*'run',\s*functionName/u)
+    expect(source).toMatch(/'--',\s*convexCli,\s*'deployment',\s*'select'/u)
     expect(source).toContain("'deployment', 'select', configuration.deploymentName")
     expect(source).toContain("'--deployment'")
     expect(source).toContain('configuration.deploymentName')

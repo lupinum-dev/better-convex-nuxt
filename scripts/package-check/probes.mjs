@@ -245,6 +245,11 @@ export function probeRootEntry(ctx) {
       ],
       { cwd: dir },
     )
+    const convexHelp = run('pnpm', ['exec', 'better-convex-nuxt-convex', '--help'], {
+      cwd: dir,
+      stdio: 'pipe',
+    })
+    if (!convexHelp.includes('Usage:')) throw new Error('packed Convex CLI did not execute')
   } catch (error) {
     ctx.failures.push(`[.] packed root-entry probe failed: ${error.message}`)
   } finally {

@@ -178,7 +178,7 @@ This starter intentionally has no app-owned `organizations` or
   canonical Convex tables and calls the same Better Auth-checked approval
   mutations;
 - anonymous local Convex installs the Agent and Better Auth components, runs
-  backend typecheck, and makes `convex codegen` pass;
+  backend typecheck, and makes the file-bound `pnpm convex:codegen` pass;
 - the Nuxt approval queue runs against local Convex HTTP actions with a real
   Better Auth browser session: sign up, create organization, create agent
   draft, list pending draft, approve draft, and write canonical product/audit
@@ -221,13 +221,31 @@ For local browser runtime verification:
 
 ```bash
 pnpm convex:local:once
-pnpm exec convex env set SITE_URL http://127.0.0.1:3000
-pnpm exec convex env set BETTER_AUTH_SECRETS "0:$(openssl rand -base64 32)"
+export BCN_AUTH_PROXY_IP_SECRET="$(openssl rand -base64 32)"
+(
+  set -eu
+  umask 077
+  sed '/^BCN_AUTH_PROXY_IP_SECRET=/d' .env.local > .env.local.next
+  printf 'BCN_AUTH_PROXY_IP_SECRET=%s\n' "$BCN_AUTH_PROXY_IP_SECRET" >> .env.local.next
+  mv .env.local.next .env.local
+)
+pnpm exec better-convex-nuxt-convex env set SITE_URL http://127.0.0.1:3000
+printf '0:%s' "$(openssl rand -base64 32)" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
+printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET
 NUXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 \
 NUXT_PUBLIC_CONVEX_SITE_URL=http://127.0.0.1:3211 \
 SITE_URL=http://127.0.0.1:3000 \
+BCN_AUTH_PROXY_IP_SECRET="$BCN_AUTH_PROXY_IP_SECRET" \
+BCN_AUTH_TRUSTED_CLIENT_IP_HEADER= \
 pnpm dev
 ```
+
+Do not print or commit either secret. Outside loopback, use an ingress-owned
+single-IP header and keep the Nuxt origin unreachable from public traffic that
+bypasses that ingress (or independently authenticate ingress requests).
+
+For non-loopback deployments, set `BCN_AUTH_TRUSTED_CLIENT_IP_HEADER` to a
+header the ingress overwrites with exactly one client IP.
 
 ## Template Cutover
 

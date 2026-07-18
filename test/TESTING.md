@@ -98,7 +98,8 @@ self-contained provider gates. The transport-quota gate starts the maintained
 OAuth/MCP fixture on a real local Convex backend and verifies the exact
 authorize, token, and revoke database quotas across the Nuxt proxy and direct
 Convex transports. It releases independent child processes at the last quota
-slot, checks signed-IP isolation and forged-IP fallback, probes the disabled
+slot, checks signed-IP isolation, invalid-pair rejection, and direct-metadata
+fallback, probes the disabled
 OAuth surface on both transports, and verifies the login/consent response
 headers. The authorization-code gate then obtains provider-issued codes in a
 browser and races one code through two independent child processes. It also
@@ -228,6 +229,18 @@ To run the backend yourself, keep this command running in one terminal:
 
 ```bash
 cd playground
+CONVEX_DEPLOY_KEY= \
+CONVEX_DEPLOYMENT_TOKEN= \
+CONVEX_DEPLOYMENT= \
+CONVEX_OVERRIDE_ACCESS_TOKEN= \
+CONVEX_PROVISION_HOST= \
+CONVEX_SELF_HOSTED_URL= \
+CONVEX_SELF_HOSTED_ADMIN_KEY= \
+CONVEX_AGENT_MODE=anonymous \
+CONVEX_ALLOW_ANONYMOUS=true \
+CONVEX_RUNNING_LIVE_IN_MONOREPO= \
+CONVEX_VERSION_API_ORIGIN= \
+CONVEX_VERSION_OVERRIDE= \
 pnpm exec convex dev --local-backend-version precompiled-2026-07-06-44f7aa7
 ```
 
@@ -235,13 +248,16 @@ Then configure and run the suite from another terminal:
 
 ```bash
 cd playground
-pnpm exec convex env set SITE_URL http://localhost:3050 --env-file .env.local
-pnpm exec convex env set BETTER_AUTH_SECRETS 1:<strong-random-secret> --env-file .env.local
-pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET <separate-strong-random-secret> --env-file .env.local
+pnpm exec better-convex-nuxt-convex env set SITE_URL http://localhost:3050
+printf '%s' "$BETTER_AUTH_SECRETS" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
+printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET
 cd ..
 pnpm check:auth-backend
 CONVEX_E2E_AUTO_START=false pnpm test:e2e
 ```
+
+Load the two secret variables from a secret manager or generate them in the
+shell first; never place their values in command arguments or print them.
 
 The selected backend supplies `CONVEX_SITE_URL` as a built-in. Keep its
 generated value in `.env.local`; `convex env set` must not be used for that
@@ -252,8 +268,19 @@ select it once before starting the backend:
 
 ```bash
 cd playground
-pnpm exec convex deployment select local
-pnpm exec convex dev --local-backend-version precompiled-2026-07-06-44f7aa7
+pnpm exec better-convex-nuxt-convex deployment select local
+CONVEX_DEPLOY_KEY= \
+CONVEX_DEPLOYMENT_TOKEN= \
+CONVEX_DEPLOYMENT= \
+CONVEX_OVERRIDE_ACCESS_TOKEN= \
+CONVEX_PROVISION_HOST= \
+CONVEX_SELF_HOSTED_URL= \
+CONVEX_SELF_HOSTED_ADMIN_KEY= \
+CONVEX_AGENT_MODE= \
+CONVEX_ALLOW_ANONYMOUS= \
+CONVEX_VERSION_API_ORIGIN= \
+CONVEX_VERSION_OVERRIDE= \
+node -- node_modules/convex/bin/main.js dev --env-file .env.local --local-backend-version precompiled-2026-07-06-44f7aa7
 ```
 
 ## Regression workflow

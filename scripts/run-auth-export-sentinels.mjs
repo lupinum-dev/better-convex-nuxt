@@ -66,14 +66,8 @@ function safeFailureMessage(error, sentinels) {
 
 function cleanChildEnvironment() {
   const env = { ...process.env }
-  for (const name of [
-    'CONVEX_DEPLOYMENT',
-    'CONVEX_SELF_HOSTED_ADMIN_KEY',
-    'CONVEX_SELF_HOSTED_URL',
-    'CONVEX_SITE_URL',
-    'CONVEX_URL',
-  ]) {
-    delete env[name]
+  for (const name of Object.keys(env)) {
+    if (name.toUpperCase().startsWith('CONVEX_')) delete env[name]
   }
   return env
 }
@@ -506,7 +500,7 @@ async function exportAndScan(fixture, scratchDirectory, sentinels) {
     sentinels,
     'convex-export',
     process.execPath,
-    [convexCli, 'export', '--path', archive, '--env-file', '.env.local'],
+    ['--', convexCli, 'export', '--path', archive, '--env-file', '.env.local'],
     { cwd: fixture.cwd },
   )
   const archiveMetadata = await lstat(archive)

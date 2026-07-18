@@ -62,14 +62,12 @@ const localConvexSelectionPrefixes = ['anonymous:', 'local:'] as const
 const nonLocalConvexCredentialNames = [
   'CONVEX_DEPLOY_KEY',
   'CONVEX_DEPLOYMENT_TOKEN',
+  'CONVEX_OVERRIDE_ACCESS_TOKEN',
+  'CONVEX_PROVISION_HOST',
   'CONVEX_SELF_HOSTED_ADMIN_KEY',
   'CONVEX_SELF_HOSTED_URL',
 ] as const
-const inheritedConvexEnvBlocklist = new Set([
-  'CONVEX_DEPLOYMENT',
-  'CONVEX_OVERRIDE_ACCESS_TOKEN',
-  ...nonLocalConvexCredentialNames,
-])
+const inheritedConvexEnvBlocklist = new Set(['CONVEX_DEPLOYMENT', ...nonLocalConvexCredentialNames])
 const inheritedConvexRuntimeEnvBlocklist = new Set([
   'CONVEX_SITE_URL',
   'CONVEX_URL',
@@ -88,6 +86,7 @@ const reservedLocalDeploymentEnvNames = new Set([
   'NUXT_PUBLIC_CONVEX_URL',
   'SITE_URL',
 ])
+const allowedLocalConvexFileNames = new Set(['CONVEX_DEPLOYMENT', 'CONVEX_SITE_URL', 'CONVEX_URL'])
 
 function startupKey(
   cwd: string,
@@ -112,7 +111,25 @@ function installLocalConvexEnv(env: Record<string, string>): Record<string, stri
   return env
 }
 
-function createChildOutputReader(child: ChildProcessWithoutNullStreams): () => string {
+function redactChildDiagnostic(value: string, sensitiveValues: readonly string[]): string {
+  let redacted = value
+  for (const sensitiveValue of sensitiveValues) {
+    if (!sensitiveValue) continue
+    redacted = redacted.replaceAll(sensitiveValue, '[REDACTED]')
+    const encoded = encodeURIComponent(sensitiveValue)
+    if (encoded !== sensitiveValue) redacted = redacted.replaceAll(encoded, '[REDACTED]')
+    const jsonEncoded = JSON.stringify(sensitiveValue).slice(1, -1)
+    if (jsonEncoded !== sensitiveValue) {
+      redacted = redacted.replaceAll(jsonEncoded, '[REDACTED]')
+    }
+  }
+  return redacted
+}
+
+function createChildOutputReader(
+  child: ChildProcessWithoutNullStreams,
+  sensitiveValues: readonly string[] = [],
+): () => string {
   const chunks: string[] = []
   const maxLength = 4000
 
@@ -130,7 +147,7 @@ function createChildOutputReader(child: ChildProcessWithoutNullStreams): () => s
   child.stderr.on('data', append)
 
   return () => {
-    const output = chunks.join('').replace(/\r/g, '').trim()
+    const output = redactChildDiagnostic(chunks.join('').replace(/\r/g, '').trim(), sensitiveValues)
     if (!output) return '(no output captured)'
     return output.length > maxLength ? output.slice(-maxLength) : output
   }
@@ -191,7 +208,8 @@ function spawnConvex(
 ): ChildProcessWithoutNullStreams {
   const env = Object.fromEntries(
     Object.entries({ ...process.env, ...overrides }).filter(
-      ([name]) => !inheritedConvexRuntimeEnvBlocklist.has(name),
+      ([name]) =>
+        !inheritedConvexRuntimeEnvBlocklist.has(name) && !name.toUpperCase().startsWith('CONVEX_'),
     ),
   )
   // Empty values block dotenv from reintroducing a cloud/deploy-key selection
@@ -200,7 +218,7 @@ function spawnConvex(
   env.CONVEX_AGENT_MODE = 'anonymous'
   env.CONVEX_ALLOW_ANONYMOUS = 'true'
 
-  return spawn(process.execPath, [convexCli, ...args], {
+  return spawn(process.execPath, ['--', convexCli, ...args], {
     cwd,
     detached: process.platform !== 'win32',
     env,
@@ -237,7 +255,7 @@ async function setLocalConvexEnvironment(
   const maxAttempts = 5
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const child = spawnConvex(cwd, ['env', 'set', name, '--env-file', selectionEnvPath])
-    const getOutput = createChildOutputReader(child)
+    const getOutput = createChildOutputReader(child, [value])
     child.stdin.on('error', () => undefined)
     // Convex removes one framing newline from stdin. Appending one preserves
     // the caller's value exactly, including an intentional trailing newline.
@@ -307,9 +325,17 @@ async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
       values[key] = value
     }
 
+    const forbiddenCredentialNames = Object.keys(values)
+      .filter((name) => {
+        const normalized = name.toUpperCase()
+        return normalized.startsWith('CONVEX_') && !allowedLocalConvexFileNames.has(normalized)
+      })
+      .map((name) => name.toUpperCase())
+      .sort()
+
     return {
       deployment: values.CONVEX_DEPLOYMENT,
-      forbiddenCredentialNames: nonLocalConvexCredentialNames.filter((name) => values[name]),
+      forbiddenCredentialNames,
       url: values.CONVEX_URL,
       siteUrl: values.CONVEX_SITE_URL,
     }
@@ -429,6 +455,11 @@ function normalizeLocalDeploymentEnv(
     if (!/^[A-Z][A-Z0-9_]{0,63}$/u.test(name)) {
       throw new TypeError(`Invalid local Convex deployment environment variable name: ${name}`)
     }
+    if (name.startsWith('CONVEX_')) {
+      throw new TypeError(
+        `Local Convex deploymentEnv cannot use the reserved Convex CLI namespace: ${name}`,
+      )
+    }
     if (reservedLocalDeploymentEnvNames.has(name)) {
       throw new TypeError(`Local Convex deploymentEnv cannot override harness-owned ${name}.`)
     }
@@ -464,12 +495,12 @@ function localDeploymentEnvMatches(
 function buildManualAuthSetupHelp(cwd: string): string {
   return [
     '[e2e][auth-loop] Local Better Auth setup is incomplete.',
-    'With `pnpm exec convex dev` running in another terminal, run:',
+    'With the anonymous local Convex command below running in another terminal, run:',
     `  cd ${cwd}`,
-    '  pnpm exec convex env set SITE_URL http://localhost:3050 --env-file .env.local',
+    '  node -- node_modules/convex/bin/main.js env set SITE_URL http://localhost:3050 --env-file .env.local',
     '  # CONVEX_SITE_URL is supplied by the selected Convex deployment.',
-    '  pnpm exec convex env set BETTER_AUTH_SECRETS 1:<strong-random-secret> --env-file .env.local',
-    '  pnpm exec convex env set BCN_AUTH_PROXY_IP_SECRET <separate-strong-random-secret> --env-file .env.local',
+    "  printf '%s' '1:<strong-random-secret>' | node -- node_modules/convex/bin/main.js env set BETTER_AUTH_SECRETS --env-file .env.local",
+    "  printf '%s' '<separate-strong-random-secret>' | node -- node_modules/convex/bin/main.js env set BCN_AUTH_PROXY_IP_SECRET --env-file .env.local",
     '  cd .. && pnpm test:e2e',
   ].join('\n')
 }
@@ -479,9 +510,9 @@ function buildLocalConvexSetupHelp(cwd: string): string {
     '[e2e] Local Convex backend is not configured.',
     'Either export CONVEX_URL and CONVEX_SITE_URL, or run:',
     `  cd ${cwd}`,
-    '  pnpm exec convex dev',
+    '  CONVEX_DEPLOY_KEY= CONVEX_DEPLOYMENT_TOKEN= CONVEX_DEPLOYMENT= CONVEX_OVERRIDE_ACCESS_TOKEN= CONVEX_PROVISION_HOST= CONVEX_SELF_HOSTED_URL= CONVEX_SELF_HOSTED_ADMIN_KEY= CONVEX_AGENT_MODE=anonymous CONVEX_ALLOW_ANONYMOUS=true node -- node_modules/convex/bin/main.js dev',
     '  cd .. && pnpm test:e2e',
-    'To let the e2e helper spawn `pnpm exec convex dev`, set CONVEX_E2E_AUTO_START=true.',
+    'To let the e2e helper spawn the same anonymous local backend, set CONVEX_E2E_AUTO_START=true.',
   ].join('\n')
 }
 
@@ -868,7 +899,11 @@ async function startLocalConvex(
     BCN_AUTH_PROXY_IP_SECRET: localProxyIpSecret,
     ...deploymentEnv,
   })
-  const getOutput = createChildOutputReader(child)
+  const getOutput = createChildOutputReader(child, [
+    localAuthSecret,
+    localProxyIpSecret,
+    ...Object.values(deploymentEnv),
+  ])
   let ownedPort: number | undefined
 
   try {

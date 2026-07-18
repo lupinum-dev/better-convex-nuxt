@@ -250,4 +250,12 @@ describe('real OAuth transport quota evidence', () => {
       'AUTH_CONTENTION_RETRY_INPUT_INVALID',
     )
   })
+
+  it('preserves exact safe uniqueness evidence from the real-backend races', () => {
+    expect(
+      safeAuthConcurrencyFailure(
+        new Error('server error: AUTH_UNIQUE_CONFLICT:account.accountId_providerId'),
+      ),
+    ).toBe('AUTH_UNIQUE_CONFLICT:account.accountId_providerId')
+  })
 })

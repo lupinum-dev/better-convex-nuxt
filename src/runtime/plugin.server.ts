@@ -96,10 +96,12 @@ export default defineNuxtPlugin(async () => {
 
   const snapshotStartedAt = Date.now()
   const snapshot = await resolveServerAuthSnapshot({
+    event,
     siteUrl,
     cookieHeader,
     requestId,
     trackWaterfall: import.meta.dev,
+    trustedClientIpHeader: authConfig.proxy.trustedClientIpHeader,
   })
 
   convexIdentity.value =

@@ -72,10 +72,10 @@ function setConfig(convex: Record<string, unknown>) {
   mocks.useRuntimeConfigMock.mockReturnValue({ public: { convex } })
 }
 
-function createEvent(cookie?: string): H3Event {
+function createEvent(cookie?: string, headers: Record<string, string> = {}): H3Event {
   return {
     context: { nitro: { runtimeConfig: mocks.useRuntimeConfigMock() } },
-    node: { req: { headers: { ...(cookie ? { cookie } : {}) } } },
+    node: { req: { headers: { ...headers, ...(cookie ? { cookie } : {}) } } },
   } as unknown as H3Event
 }
 
@@ -149,6 +149,38 @@ describe('serverConvex caller-scoped invariants', () => {
     }
     expect(options.logger).toBe(false)
     expect(typeof options.fetch).toBe('function')
+  })
+
+  it('passes the request and normalized trusted client IP header to the exchange', async () => {
+    setConfig({
+      url: CONVEX_URL,
+      siteUrl: SITE_URL,
+      auth: { proxy: { trustedClientIpHeader: 'CF-Connecting-IP' } },
+    })
+    mocks.exchangeMock.mockResolvedValue({ token: 'jwt-token', status: 200, error: null })
+
+    const event = createEvent(AUTH_COOKIE, { 'cf-connecting-ip': '198.51.100.10' })
+    await serverConvex(event).getToken()
+
+    expect(mocks.exchangeMock).toHaveBeenCalledWith({
+      event,
+      siteUrl: SITE_URL,
+      credential: { type: 'cookie', value: AUTH_COOKIE },
+      trustedClientIpHeader: 'cf-connecting-ip',
+    })
+  })
+
+  it('does not attempt cookie exchange when auth is disabled', async () => {
+    setConfig({ url: CONVEX_URL, siteUrl: SITE_URL, auth: false })
+    mocks.queryMock.mockResolvedValue('anonymous')
+
+    await expect(
+      serverConvex(createEvent(AUTH_COOKIE), { auth: 'optional' }).query(queryRef, {}),
+    ).resolves.toBe('anonymous')
+    await expect(
+      serverConvex(createEvent(AUTH_COOKIE), { auth: 'required' }).getToken(),
+    ).rejects.toMatchObject({ kind: 'authentication', status: 401 })
+    expect(mocks.exchangeMock).not.toHaveBeenCalled()
   })
 
   it('does not retry a failed token promise; a new caller can retry', async () => {

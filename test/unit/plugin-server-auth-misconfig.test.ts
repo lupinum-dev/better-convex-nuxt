@@ -129,6 +129,40 @@ describe('plugin.server token exchange failure policy', () => {
     )
   })
 
+  it.each([
+    ['missing', undefined],
+    ['malformed', '198.51.100.10, 203.0.113.20'],
+  ])('fails closed when the configured ingress client IP header is %s', async (_, value) => {
+    const runtimeConfig = getConvexRuntimeConfigMock()
+    getConvexRuntimeConfigMock.mockReturnValue({
+      ...runtimeConfig,
+      auth: {
+        ...runtimeConfig.auth,
+        proxy: {
+          ...runtimeConfig.auth.proxy,
+          trustedClientIpHeader: 'cf-connecting-ip',
+        },
+      },
+    })
+    const event = useRequestEventMock()
+    useRequestEventMock.mockReturnValue({
+      ...event,
+      headers: new Headers({
+        cookie: 'better-auth.session_token=abc',
+        ...(value ? { 'cf-connecting-ip': value } : {}),
+      }),
+    })
+
+    const plugin = (await import('../../src/runtime/plugin.server')).default as () => Promise<void>
+    await expect(plugin()).resolves.toBeUndefined()
+
+    expect(fetchWithTimeoutMock).not.toHaveBeenCalled()
+    expect(stateStore.get('convex:authError')?.value).toBe(
+      'Authentication is temporarily unavailable',
+    )
+    expect(stateStore.get('convex:identity')?.value).toEqual({ status: 'anonymous' })
+  })
+
   it('isolates a non-session Better Auth cookie response when siteUrl is missing', async () => {
     const runtimeConfig = getConvexRuntimeConfigMock()
     getConvexRuntimeConfigMock.mockReturnValue({ ...runtimeConfig, siteUrl: undefined })

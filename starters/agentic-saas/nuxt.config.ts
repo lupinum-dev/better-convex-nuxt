@@ -18,6 +18,10 @@ export default {
       process.env.NUXT_PUBLIC_CONVEX_SITE_URL ??
       process.env.CONVEX_SITE_URL ??
       process.env.VITE_CONVEX_SITE_URL,
-    auth: {},
+    auth: {
+      proxy: {
+        trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER,
+      },
+    },
   },
 }

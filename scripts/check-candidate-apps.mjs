@@ -440,13 +440,20 @@ try {
     }
 
     if (app.name === 'agency' && agencyConvexDeployKey) {
-      run('pnpm', ['run', 'convex:codegen'], {
-        cwd: appDir,
-        env: {
-          ...deterministicEnvironment,
-          CONVEX_DEPLOY_KEY: agencyConvexDeployKey,
-        },
-      })
+      const codegenAuthorityPath = join(appDir, '.env.local')
+      writeFileSync(
+        codegenAuthorityPath,
+        `CONVEX_DEPLOY_KEY=${JSON.stringify(agencyConvexDeployKey)}\n`,
+        { encoding: 'utf8', mode: 0o600 },
+      )
+      try {
+        run('pnpm', ['run', 'convex:codegen'], {
+          cwd: appDir,
+          env: deterministicEnvironment,
+        })
+      } finally {
+        rmSync(codegenAuthorityPath, { force: true })
+      }
       compareGeneratedTree(
         join(sourceDir, 'convex', '_generated'),
         join(appDir, 'convex', '_generated'),

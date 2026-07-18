@@ -14,6 +14,7 @@ const sessionToken = 'persisted-session-token'
 function createAuth() {
   const now = Date.now()
   const database: MemoryDB = {
+    rateLimit: [],
     session: [
       {
         createdAt: new Date(now - 1_000),
@@ -40,6 +41,7 @@ function createAuth() {
   }
   const issuer = `${origin}/api/auth`
   return betterAuth({
+    advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
     basePath: '/api/auth',
     baseURL: origin,
     database: memoryAdapter(database),
@@ -72,6 +74,7 @@ function createAuth() {
         },
       }),
     ],
+    rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
     secret,
   })
 }

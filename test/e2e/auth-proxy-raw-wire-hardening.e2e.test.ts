@@ -7,7 +7,7 @@ import { setup, url } from '@nuxt/test-utils/e2e'
 import { afterAll, describe, expect, it } from 'vitest'
 
 const BODY_LIMIT = 4_096
-const PUBLIC_ORIGIN = process.env.SITE_URL ?? 'http://localhost:3000'
+const PUBLIC_ORIGIN = 'http://localhost:3000'
 const redirectDestinations = new Map([
   ['relative', '/redirect-target'],
   ['http', 'http://redirect-target.example.invalid/callback'],

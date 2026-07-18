@@ -45,9 +45,14 @@ export default defineNuxtConfig({
 NUXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
-`convex dev` creates `.env.local`. Keep it as the single ignored local
-configuration file and pass `--dotenv .env.local` to Nuxt commands; production
-values belong in the hosting environment.
+`pnpm exec better-convex-nuxt-convex configure` creates `.env.local`. Keep it as
+the single ignored local configuration file, run supported Convex commands
+through `better-convex-nuxt-convex`, and pass `--dotenv .env.local` to Nuxt
+commands. Production values belong in the hosting environment.
+
+The checked runner strips inherited `CONVEX_*` values, validates the one fixed
+authority file, rejects deployment-selection overrides, and then invokes the
+pinned Convex CLI.
 
 The package supports the exact Nuxt, Convex, Better Auth, and Kysely peer versions declared in `package.json`. Kysely is pinned because the supported Better Auth Convex adapter loads it as a stateful query runtime. The exact OAuth Provider runtime is package-owned and installed transitively with Better Convex Nuxt, so applications do not select a second provider version. OAuth authorization-server applications follow the [delegated OAuth and MCP guide](https://better-convex-nuxt.vercel.app/docs/build/authentication/delegated-oauth-and-mcp).
 

@@ -94,9 +94,9 @@ export default {
         await rm(serverTsconfig, { force: true })
       }
 
-      const authSchemaBin = join(runtimeDir, 'cli/auth-schema.js')
-      if (existsSync(authSchemaBin)) {
-        await chmod(authSchemaBin, 0o755)
+      for (const executable of ['auth-schema.js', 'convex.js']) {
+        const path = join(runtimeDir, 'cli', executable)
+        if (existsSync(path)) await chmod(path, 0o755)
       }
 
       // Drop the duplicate raw nitro output — ui/dist above is the one that ships.

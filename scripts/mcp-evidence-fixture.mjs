@@ -291,7 +291,7 @@ async function prepareExternalCliAuthority(configuration, environment) {
     await copyFile(join(configuration.appDir, 'package.json'), join(directory, 'package.json'))
     const child = spawn(
       process.execPath,
-      [convexCli, 'deployment', 'select', configuration.deploymentName],
+      ['--', convexCli, 'deployment', 'select', configuration.deploymentName],
       {
         cwd: directory,
         env: safeMcpFixtureChildEnvironment(environment),
@@ -348,6 +348,7 @@ function createExternalRunConvex(configuration, environment, ensureCliAuthority)
     const child = spawn(
       process.execPath,
       [
+        '--',
         convexCli,
         'run',
         functionName,

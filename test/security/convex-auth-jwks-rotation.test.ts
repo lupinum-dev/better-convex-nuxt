@@ -1,4 +1,4 @@
-import { betterAuth } from 'better-auth'
+import { betterAuth, type BetterAuthOptions } from 'better-auth'
 import { memoryAdapter, type MemoryDB } from 'better-auth/adapters/memory'
 import { createJwk, jwt, resolveSigningKey, signJWT, type JwtOptions } from 'better-auth/plugins'
 import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from 'jose'
@@ -56,14 +56,22 @@ function createAuth(
   database: MemoryDB,
   secrets: { value: string; version: number }[],
   overrides: Partial<JwtOptions['jwks']> = {},
+  runtimeOverrides: Partial<Pick<BetterAuthOptions, 'advanced' | 'rateLimit'>> = {},
 ) {
+  database.rateLimit ??= []
   const jwtPlugin = createJwtPlugin(overrides)
   const auth = betterAuth({
+    advanced:
+      runtimeOverrides.advanced ??
+      ({ ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } } as const),
     basePath: '/api/auth',
     baseURL: origin,
     database: memoryAdapter(database),
     logger: { disabled: true },
     plugins: [jwtPlugin, createConvexPlugin()],
+    rateLimit:
+      runtimeOverrides.rateLimit ??
+      ({ enabled: true, modelName: 'rateLimit', storage: 'database' } as const),
     secrets,
   })
   return { auth }
@@ -95,6 +103,124 @@ afterEach(() => {
 })
 
 describe('official Better Auth JWKS lifecycle hardening', () => {
+  it.each([
+    ['default IP headers', { advanced: {} }],
+    [
+      'multiple terminal IP headers',
+      {
+        advanced: {
+          ipAddress: {
+            ipAddressHeaders: ['x-bcn-verified-client-ip', 'x-forwarded-for'],
+          },
+        },
+      },
+    ],
+    [
+      'trusted proxy reinterpretation',
+      {
+        advanced: {
+          ipAddress: {
+            ipAddressHeaders: ['x-bcn-verified-client-ip'],
+            trustedProxies: ['0.0.0.0/0'],
+          },
+        },
+      },
+    ],
+    [
+      'custom IPv6 bucketing',
+      {
+        advanced: {
+          ipAddress: {
+            ipAddressHeaders: ['x-bcn-verified-client-ip'],
+            ipv6Subnet: 128,
+          },
+        },
+      },
+    ],
+    [
+      'disabled IP tracking',
+      {
+        advanced: {
+          ipAddress: {
+            disableIpTracking: true,
+            ipAddressHeaders: ['x-bcn-verified-client-ip'],
+          },
+        },
+      },
+    ],
+    [
+      'truthy non-boolean disabled IP tracking',
+      {
+        advanced: {
+          ipAddress: {
+            disableIpTracking: 'true' as unknown as boolean,
+            ipAddressHeaders: ['x-bcn-verified-client-ip'],
+          },
+        },
+      },
+    ],
+    [
+      'global trusted proxy headers',
+      {
+        advanced: {
+          ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] },
+          trustedProxyHeaders: true,
+        },
+      },
+    ],
+    [
+      'truthy non-boolean global trusted proxy headers',
+      {
+        advanced: {
+          ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] },
+          trustedProxyHeaders: 1 as unknown as boolean,
+        },
+      },
+    ],
+    [
+      'memory rate limiting',
+      {
+        rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'memory' },
+      },
+    ],
+    [
+      'custom rate-limit bypass',
+      {
+        rateLimit: {
+          customRules: { '/sign-in/email': false },
+          enabled: true,
+          modelName: 'rateLimit',
+          storage: 'database',
+        },
+      },
+    ],
+    ['disabled rate limiting', { rateLimit: { enabled: false } }],
+  ] satisfies [string, Partial<Pick<BetterAuthOptions, 'advanced' | 'rateLimit'>>][])(
+    'rejects a non-OAuth runtime with %s',
+    async (_label, runtimeOverrides) => {
+      const value = createAuth({}, [{ value: currentSecret, version: 1 }], {}, runtimeOverrides)
+      await expect(value.auth.$context).rejects.toThrow('AUTH_CONFIG_INVALID')
+    },
+  )
+
+  it('accepts only terminal IP defaults that preserve /64 IPv6 rate-limit buckets', async () => {
+    const value = createAuth(
+      {},
+      [{ value: currentSecret, version: 1 }],
+      {},
+      {
+        advanced: {
+          ipAddress: {
+            ipAddressHeaders: ['x-bcn-verified-client-ip'],
+            ipv6Subnet: 64,
+            trustedProxies: [],
+          },
+        },
+      },
+    )
+    await expect(value.auth.$context).resolves.toBeDefined()
+  })
+
   it('uses official key generation and versioned private-key encryption before commit', async () => {
     const value = createAuth({}, [{ value: currentSecret, version: 7 }])
     const { context, options } = await contextAndOptions(value)
@@ -262,11 +388,13 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
 
   it('rejects a plugin order that initializes Convex auth before the shared JWT graph', async () => {
     const value = betterAuth({
+      advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
       basePath: '/api/auth',
       baseURL: origin,
       database: memoryAdapter({}),
       logger: { disabled: true },
       plugins: [createConvexPlugin(), createJwtPlugin()],
+      rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
       secrets: [{ value: currentSecret, version: 1 }],
     })
     await expect(value.$context).rejects.toThrow('AUTH_JWKS_CONFIG_INVALID')

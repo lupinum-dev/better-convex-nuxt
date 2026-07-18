@@ -168,7 +168,7 @@ export const tables = {
 
 const schema = defineSchema(tables)
 Object.defineProperty(schema, '__betterConvexNuxtAuthSchemaFingerprint', {
-  value: 'bcn-auth-schema-v1:d8adc69c5017e1ff',
+  value: 'bcn-auth-schema-v2:c50f6a665bb005b5',
 })
 
 export default schema
