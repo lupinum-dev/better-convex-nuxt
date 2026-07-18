@@ -5,6 +5,10 @@
  * consistent behavior across the module.
  */
 
+import { isBetterAuthCookieName } from '../shared/auth-cookie'
+
+export { hasBetterAuthCookie, isBetterAuthCookieName } from '../shared/auth-cookie'
+
 // ============================================================================
 // Deep Equality & Comparison
 // ============================================================================
@@ -219,13 +223,6 @@ function parseCookieHeader(cookieHeader: string | null | undefined): Map<string,
   return new Map(parseCookiePairs(cookieHeader).map((pair) => [pair.name, pair]))
 }
 
-/** The only cookie namespace supported by the Nuxt auth boundary. */
-export function isBetterAuthCookieName(name: string): boolean {
-  if (!COOKIE_NAME_PATTERN.test(name)) return false
-  const unprefixed = name.startsWith('__Secure-') ? name.slice('__Secure-'.length) : name
-  return unprefixed.startsWith('better-auth.') && unprefixed.length > 'better-auth.'.length
-}
-
 export function getBetterAuthSessionToken(cookieHeader: string | null | undefined): string | null {
   const cookies = parseCookieHeader(cookieHeader)
   if (cookies.has(BETTER_AUTH_SECURE_SESSION_COOKIE_NAME)) {
@@ -240,16 +237,6 @@ export function filterBetterAuthCookies(cookieHeader: string | null | undefined)
     .map((pair) => pair.wire)
 
   return authCookies.length > 0 ? authCookies.join('; ') : null
-}
-
-/** Whether a request presents any supported Better Auth cookie name, even malformed. */
-export function hasBetterAuthCookie(cookieHeader: string | null | undefined): boolean {
-  if (!cookieHeader) return false
-  return cookieHeader.split(';').some((chunk) => {
-    const separator = chunk.indexOf('=')
-    const name = trimOptionalWhitespace(separator === -1 ? chunk : chunk.slice(0, separator))
-    return isBetterAuthCookieName(name)
-  })
 }
 
 /** Whether a raw Set-Cookie field belongs to the supported Better Auth namespace. */

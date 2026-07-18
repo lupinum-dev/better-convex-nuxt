@@ -87,6 +87,7 @@ const RUNTIME_ROOT = p('src/runtime')
 const ERRORS_DIR = p('src/runtime/errors')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
+const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
 const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
 const SHARED_CLIENT_IP_FILE = p('src/runtime/shared/client-ip.ts')
 
@@ -106,9 +107,11 @@ const isBrowserRuntime = (absPath) =>
 const isModuleBuild = (absPath) => isAnyFile(absPath, MODULE_BUILD_FILES)
 const isRuntimeEntry = (absPath) => inDir(absPath, RUNTIME_ROOT)
 const isConvexAuth = (absPath) => inDir(absPath, CONVEX_AUTH_DIR)
+const isSharedAuthCookie = (absPath) => absPath === SHARED_AUTH_COOKIE_FILE
 const isSharedAuthOrigin = (absPath) => absPath === SHARED_AUTH_ORIGIN_FILE
 const isSharedClientIp = (absPath) => absPath === SHARED_CLIENT_IP_FILE
-const isConvexAuthSharedLeaf = (absPath) => isSharedAuthOrigin(absPath) || isSharedClientIp(absPath)
+const isConvexAuthSharedLeaf = (absPath) =>
+  isSharedAuthCookie(absPath) || isSharedAuthOrigin(absPath) || isSharedClientIp(absPath)
 
 /**
  * Bare-specifier families that only make sense in a browser/Nuxt-app context.
@@ -188,6 +191,14 @@ const RULES = [
       if (edge.resolvedAbsPath === null) return false
       return !isConvexAuth(edge.resolvedAbsPath) && !isConvexAuthSharedLeaf(edge.resolvedAbsPath)
     },
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'shared-auth-cookie-dependency-free',
+    description:
+      'src/runtime/shared/auth-cookie.ts is a dependency-free cookie boundary shared by Nuxt and Convex auth code.',
+    from: isSharedAuthCookie,
+    disallow: () => true,
     typeOnlyExempt: false,
   },
   {

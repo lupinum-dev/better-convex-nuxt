@@ -10,8 +10,8 @@ import { decodeBasicCredentials } from 'better-auth/oauth2'
 import { bearer } from 'better-auth/plugins'
 import type { Jwk, JwtOptions } from 'better-auth/plugins/jwt'
 
+import { hasBetterAuthCookie } from '../shared/auth-cookie'
 import { VERIFIED_CLIENT_IP_HEADER } from '../shared/client-ip'
-import { hasBetterAuthCookie } from '../utils/shared-helpers'
 import { INTERNAL_SESSION_HEADER } from './internal-session'
 import { JWKS_CACHE_CONTROL, assertSupportedJwksOptions, sanitizeStoredJwk } from './jwks-rotation'
 import {
