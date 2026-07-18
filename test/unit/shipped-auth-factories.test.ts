@@ -186,14 +186,28 @@ describe('shipped Better Auth factory invariants', () => {
     expect(setsConvexManagedSiteUrl(line)).toBe(false)
   })
 
-  it('uses Nuxt default .env naming in the generic setup guides', () => {
+  it('uses one explicit .env.local authority in the generic setup guides', () => {
     for (const path of [
+      'README.md',
       'docs/content/docs/3.get-started/2.installation.md',
+      'docs/content/docs/3.get-started/3.first-realtime-page.md',
       'docs/content/docs/3.get-started/5.add-authentication.md',
       'docs/content/docs/3.get-started/7.project-structure.md',
+      'docs/content/docs/7.operations/1.environment-variables.md',
     ]) {
-      expect(read(path)).not.toContain('.env.local')
+      const source = read(path)
+
+      expect(source).toContain('.env.local')
+      expect(source).not.toContain('[.env]')
+      expect(source).not.toMatch(/^├── \.env\s/mu)
     }
+
+    expect(read('docs/content/docs/3.get-started/2.installation.md')).toContain(
+      'nuxt prepare --dotenv .env.local',
+    )
+    expect(read('docs/content/docs/3.get-started/3.first-realtime-page.md')).toContain(
+      'nuxt dev --dotenv .env.local',
+    )
   })
 
   it.each(authApps)('%s registers only the lazy Better Auth HTTP ceremony', (app) => {

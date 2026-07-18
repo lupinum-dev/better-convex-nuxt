@@ -179,7 +179,8 @@ Without Resend configured, localhost/test runs log verification and invitation
 links for manual testing. Non-local deployments fail fast instead of pretending
 email was sent.
 
-Also configure the Nuxt public Convex URLs, for example in `.env`:
+Also configure the Nuxt public Convex URLs in the `.env.local` created by
+`convex dev`:
 
 ```bash
 NUXT_PUBLIC_CONVEX_URL=

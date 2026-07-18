@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Corrected the local setup contract to use the Convex-managed `.env.local` as
+  the single local deployment configuration, with Nuxt commands loading it
+  explicitly instead of documenting a competing `.env` file.
+
 ## v0.7.0-beta.0
 
 ### Authentication platform hard cut
