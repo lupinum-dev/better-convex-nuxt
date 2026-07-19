@@ -335,9 +335,9 @@
       "targetPath": "src/runtime/convex-auth/plugin.ts",
       "sourceCommit": "c628916b451a6b4cff0f5464f134475464b1a6da",
       "sourceSha256": "48ab81541ecb0e5545bd74fb78ca426c0d695bbb156e03e6a402063255ef428a",
-      "targetSha256": "e85ba6ff86abc29a2d6089afaa3db8fb24bf60db600dac0ab7685cc1ed488709",
+      "targetSha256": "87d0654eb8be1c31dbef075975c081b2bfc339d613c7d92eef3aecc62b5d01e6",
       "classification": "rewritten",
-      "modificationSummary": "Rewrote the Convex plugin to issue only short-lived JWTs from final persisted sessions, treat every supported Better Auth cookie namespace as presented credentials before anonymous fallback, share sanitized public JWKS, enforce BCN-owned OAuth storage/resource, canonical redirect transport, and pre-consume invariants, delegate authorization protocol semantics to the official provider, and remove deprecated OIDC and cookie paths.",
+      "modificationSummary": "Rewrote the Convex plugin to issue only short-lived JWTs from final persisted sessions, treat every supported Better Auth cookie namespace as presented credentials before anonymous fallback, bound token exchange with a fixed database-backed client-IP quota, share sanitized public JWKS, enforce BCN-owned OAuth storage/resource, canonical redirect transport, and pre-consume invariants, delegate authorization protocol semantics to the official provider, and remove deprecated OIDC and cookie paths.",
       "latestReviewedUpstreamPatch": "https://github.com/get-convex/better-auth/commit/c628916b451a6b4cff0f5464f134475464b1a6da",
       "noticeRequired": false
     },
@@ -401,9 +401,9 @@
       "targetPath": "src/runtime/convex-auth/provider.ts",
       "sourceCommit": "c628916b451a6b4cff0f5464f134475464b1a6da",
       "sourceSha256": "ba229d68100df0f0879abc70950b657cf86d8044f9dc4860b57a040d183fb8e3",
-      "targetSha256": "9b6c0227901b46ee796087a4aeeda2b89e276e61f2e64af673f9e64c81fd0c61",
+      "targetSha256": "121a4b645f672b9767741a85f04cf07b7dbe82fb5759f9e129b23e75dfaee81f",
       "classification": "rewritten",
-      "modificationSummary": "Rewrote the Convex JWT provider around explicitly validated public and Convex deployment origins.",
+      "modificationSummary": "Rewrote the Convex JWT provider so issuer and JWKS authority resolve only from the validated Convex deployment site origin.",
       "latestReviewedUpstreamPatch": "https://github.com/get-convex/better-auth/commit/c628916b451a6b4cff0f5464f134475464b1a6da",
       "noticeRequired": false
     },

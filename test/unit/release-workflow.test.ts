@@ -13,6 +13,7 @@ describe('trusted prerelease workflow', () => {
   const workflow = read('.github/workflows/publish-prerelease.yml')
   const ciWorkflow = read('.github/workflows/ci.yml')
   const cloudGate = read('scripts/run-auth-cloud-staging.mjs')
+  const candidateApps = read('scripts/check-candidate-apps.mjs')
   const releaseVerify = read('scripts/verify-release.mjs')
 
   it('builds one artifact and passes the same bytes through verification and publication', () => {
@@ -33,6 +34,17 @@ describe('trusted prerelease workflow', () => {
     expect(releaseVerify).toContain("BCN_E2E_REQUIRE_LOCAL: 'true'")
     expect(releaseVerify).not.toContain('every release suite')
     expect(workflow).not.toContain('npm publish .')
+  })
+
+  it('installs the exact candidate into a pinned npm consumer and compares installed bytes', () => {
+    expect(candidateApps).toContain(
+      "run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund']",
+    )
+    expect(candidateApps).toContain("join(appDir, 'package-lock.json')")
+    expect(candidateApps).toContain("lock.includes('better-convex-nuxt.tgz')")
+    expect(candidateApps).toContain('packageFingerprint(installedPackageDir)')
+    expect(candidateApps).toContain("run('npm', ['run', 'typecheck']")
+    expect(candidateApps).toContain("run('npm', ['run', 'build']")
   })
 
   it('uses exact release tooling and commit-pinned artifact actions', () => {

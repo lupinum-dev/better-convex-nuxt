@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { memoryAdapter, type MemoryDB } from 'better-auth/adapters/memory'
 import { jwt } from 'better-auth/plugins'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { INTERNAL_SESSION_HEADER } from '../../src/runtime/convex-auth/internal-session'
 import { convexAuth } from '../../src/runtime/convex-auth/plugin'
@@ -11,9 +11,9 @@ const convexSiteUrl = 'https://deployment.convex.site'
 const secret = 'internal-session-test-secret-with-at-least-32-randomish-characters'
 const sessionToken = 'persisted-session-token'
 
-function createAuth() {
+function database(): MemoryDB {
   const now = Date.now()
-  const database: MemoryDB = {
+  return {
     rateLimit: [],
     session: [
       {
@@ -39,12 +39,15 @@ function createAuth() {
       },
     ],
   }
+}
+
+function createAuth(memoryDatabase = database()) {
   const issuer = `${origin}/api/auth`
   return betterAuth({
     advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
     basePath: '/api/auth',
     baseURL: origin,
-    database: memoryAdapter(database),
+    database: memoryAdapter(memoryDatabase),
     plugins: [
       jwt({
         disableSettingJwtHeader: true,
@@ -114,6 +117,64 @@ describe('internal Better Auth session bridge', () => {
     expect(plugin.rateLimit?.[0]?.pathMatcher('/convex/token')).toBe(true)
     expect(plugin.rateLimit?.[0]?.pathMatcher('/sign-in/email')).toBe(false)
     expect(plugin.rateLimit?.[0]?.pathMatcher('/oauth2/token')).toBe(false)
+  })
+
+  it('enforces the database-backed token-exchange allowance per client IP and path', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-07-19T12:00:00.000Z'))
+    try {
+      const memoryDatabase = database()
+      const auth = createAuth(memoryDatabase)
+      const exchange = (ip: string) =>
+        auth.handler(
+          new Request(`${origin}/api/auth/convex/token`, {
+            headers: { 'x-bcn-verified-client-ip': ip },
+          }),
+        )
+
+      for (let requestNumber = 1; requestNumber <= 300; requestNumber += 1) {
+        const response = await exchange('192.0.2.10')
+        expect(response.status, `request ${requestNumber}`).toBe(200)
+        await response.body?.cancel()
+      }
+
+      const blocked = await exchange('192.0.2.10')
+      expect(blocked.status).toBe(429)
+      expect(Number(blocked.headers.get('x-retry-after'))).toBeGreaterThanOrEqual(1)
+      await blocked.body?.cancel()
+
+      const otherIp = await exchange('192.0.2.11')
+      expect(otherIp.status).toBe(200)
+      await otherIp.body?.cancel()
+
+      const unrelatedPath = await auth.handler(
+        new Request(`${origin}/api/auth/get-session`, {
+          headers: { 'x-bcn-verified-client-ip': '192.0.2.10' },
+        }),
+      )
+      expect(unrelatedPath.status).toBe(200)
+      await unrelatedPath.body?.cancel()
+
+      expect(memoryDatabase.rateLimit).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ count: 300, key: '192.0.2.10|/convex/token' }),
+          expect.objectContaining({ count: 1, key: '192.0.2.11|/convex/token' }),
+          expect.objectContaining({ count: 1, key: '192.0.2.10|/get-session' }),
+        ]),
+      )
+
+      vi.advanceTimersByTime(10_001)
+      const reset = await exchange('192.0.2.10')
+      expect(reset.status).toBe(200)
+      await reset.body?.cancel()
+      expect(memoryDatabase.rateLimit).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ count: 1, key: '192.0.2.10|/convex/token' }),
+        ]),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('authenticates a package-owned in-process call with the persisted session token', async () => {

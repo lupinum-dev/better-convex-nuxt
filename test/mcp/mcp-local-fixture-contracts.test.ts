@@ -87,6 +87,28 @@ describe('self-contained MCP OAuth fixture contracts', () => {
     expect(fixtureSource).not.toMatch(/(?:npm|pnpm)[^\n]+\bpack\b/u)
   })
 
+  it('runs tarball auth lifecycle evidence through a production Nitro build', () => {
+    expect(fixtureSource).toContain("options.nuxtModeForTest ?? 'development'")
+    expect(fixtureSource).toContain(
+      "nuxtMode === 'production' ? join(cwd, '.output/server/index.mjs')",
+    )
+    expect(fixtureSource).toContain("await runCommand(process.execPath, [nuxtCli, 'build']")
+    expect(
+      readFileSync(
+        fileURLToPath(new URL('../../scripts/run-auth-export-sentinels.mjs', import.meta.url)),
+        'utf8',
+      ),
+    ).toContain("nuxtModeForTest: process.env.BCN_RELEASE_TARBALL ? 'production' : 'development'")
+  })
+
+  it('separates stateless JWT revoke behavior from live authorization revocation', () => {
+    expect(runnerSource).toContain("body?.error !== 'unsupported_token_type'")
+    expect(runnerSource).toContain('post-revoke-self-contained-token')
+    expect(runnerSource).toContain('runLiveAuthorizationParity')
+    expect(runnerSource).toContain('verifyDiscoveryDocuments')
+    expect(runnerSource).toContain('assertBrowserClean')
+  })
+
   it('derives isolated fixture links from the product and starter manifests', () => {
     expect(fixtureSource).toContain("join(root, 'package.json')")
     expect(fixtureSource).toContain("join(starter, 'package.json')")

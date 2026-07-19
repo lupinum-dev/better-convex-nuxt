@@ -643,7 +643,9 @@ describe('Better Auth two-factor final-session security', () => {
         tokenUse: 'convex-session',
       })
     }
-    expect(servedJwksResponseCount).toBeGreaterThan(0)
+    // SITE_URL remains a trusted browser origin, not JWT verification authority.
+    // Convex must resolve the issuer and JWKS from its deployment-owned site URL.
+    expect(servedJwksResponseCount).toBe(0)
 
     const genericToken = await requestAuth(siteUrl, proxyIpSecret, sessionA.jar, '/token', {
       clientIp: '198.51.100.21',

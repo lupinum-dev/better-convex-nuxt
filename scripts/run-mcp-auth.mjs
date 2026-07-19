@@ -96,6 +96,97 @@ function safeChildEnvironment() {
   return safeMcpFixtureChildEnvironment()
 }
 
+function monitorBrowserPage(page, applicationOrigin) {
+  const failures = []
+  const location = (value) => {
+    try {
+      const url = new URL(value)
+      return { label: `${url.origin}${url.pathname}`, origin: url.origin, pathname: url.pathname }
+    } catch {
+      return { label: '<invalid-url>', origin: '', pathname: '' }
+    }
+  }
+  const isExpectedBootstrapPath = (pathname) =>
+    pathname.startsWith('/_nuxt/') ||
+    pathname.startsWith('/.well-known/') ||
+    pathname === '/api/auth/convex/token'
+  page.on('pageerror', () => {
+    if (location(page.url()).origin === applicationOrigin) failures.push('pageerror')
+  })
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return
+    const source = location(message.location().url)
+    if (source.origin === applicationOrigin && !isExpectedBootstrapPath(source.pathname)) {
+      failures.push(`console:${source.label}`)
+    }
+  })
+  page.on('requestfailed', (request) => {
+    if (request.isNavigationRequest() && request.failure()?.errorText === 'net::ERR_ABORTED') return
+    const target = location(request.url())
+    if (target.origin === applicationOrigin && !isExpectedBootstrapPath(target.pathname)) {
+      failures.push(`request:${request.method()}:${target.label}`)
+    }
+  })
+  page.on('response', (response) => {
+    if (response.status() < 400) return
+    const target = location(response.url())
+    if (target.origin === applicationOrigin) {
+      failures.push(`response:${response.request().method()}:${response.status()}:${target.label}`)
+    }
+  })
+  return (label) => {
+    if (failures.length > 0) {
+      throw new Error(`${label} emitted unexpected browser failures: ${failures.join(', ')}`)
+    }
+  }
+}
+
+async function verifyDiscoveryDocuments(context, origin, resource) {
+  const issuer = `${origin}/api/auth`
+  const authorizationResponse = await context.request.get(
+    `${origin}/.well-known/oauth-authorization-server/api/auth`,
+  )
+  if (authorizationResponse.status() !== 200) {
+    throw new Error('OAuth authorization-server discovery was unavailable')
+  }
+  const authorization = await authorizationResponse.json()
+  if (
+    authorization.issuer !== issuer ||
+    authorization.authorization_endpoint !== `${issuer}/oauth2/authorize` ||
+    authorization.token_endpoint !== `${issuer}/oauth2/token` ||
+    authorization.revocation_endpoint !== `${issuer}/oauth2/revoke` ||
+    authorization.jwks_uri !== `${issuer}/jwks` ||
+    JSON.stringify(authorization.grant_types_supported) !==
+      JSON.stringify(['authorization_code']) ||
+    JSON.stringify(authorization.code_challenge_methods_supported) !== JSON.stringify(['S256'])
+  ) {
+    throw new Error('OAuth authorization-server discovery escaped the fixed profile')
+  }
+
+  const resourceResponse = await context.request.get(
+    `${origin}/.well-known/oauth-protected-resource/mcp`,
+  )
+  if (resourceResponse.status() !== 200) {
+    throw new Error('OAuth protected-resource discovery was unavailable')
+  }
+  const protectedResource = await resourceResponse.json()
+  if (
+    protectedResource.resource !== resource ||
+    JSON.stringify(protectedResource.authorization_servers) !== JSON.stringify([issuer]) ||
+    JSON.stringify(protectedResource.scopes_supported) !== JSON.stringify(['mcp:read', 'mcp:write'])
+  ) {
+    throw new Error('OAuth protected-resource discovery escaped the fixed profile')
+  }
+  for (const response of [authorizationResponse, resourceResponse]) {
+    if (
+      response.headers()['access-control-allow-origin'] !== '*' ||
+      response.headers()['set-cookie'] !== undefined
+    ) {
+      throw new Error('OAuth discovery response exposed credentials or non-public CORS')
+    }
+  }
+}
+
 async function runLocalMcpTests(root) {
   const prepared = spawnSync('pnpm', ['exec', 'nuxt-module-build', 'prepare'], {
     cwd: root,
@@ -184,7 +275,12 @@ async function completeAuthorization(
           ['code', 'error', 'error_description', 'error_uri', 'iss', 'state'].includes(name) &&
           current.searchParams.getAll(name).length === 1,
       )
-    if (callbackReached && current.origin !== INSPECTOR_ORIGIN) return undefined
+    if (callbackReached) {
+      if (current.searchParams.get('iss') !== `${origin}/api/auth`) {
+        throw new Error('OAuth callback did not preserve the exact authorization issuer')
+      }
+      if (current.origin !== INSPECTOR_ORIGIN) return undefined
+    }
     if (current.origin !== origin && current.origin !== INSPECTOR_ORIGIN) {
       throw new Error(`OAuth browser escaped the fixed fixture origins to ${current.origin}`)
     }
@@ -551,6 +647,7 @@ async function verifyInspector({
   })
 
   const page = await context.newPage()
+  const assertBrowserClean = monitorBrowserPage(page, origin)
   let tokenExchangeFailure
   const tokenEndpoint = `${origin}/api/auth/oauth2/token`
   const devtools = await context.newCDPSession(page)
@@ -679,8 +776,47 @@ async function verifyInspector({
       `Inspector attempted forbidden dynamic registration: ${registrationRequests.join(', ')}`,
     )
   }
+  assertBrowserClean('MCP Inspector OAuth journey')
   await page.close()
   return accessToken
+}
+
+async function verifyRevocationProtocol(context, accessToken, clientId, origin, resource) {
+  const response = await fetch(`${origin}/api/auth/oauth2/revoke`, {
+    body: new URLSearchParams({
+      client_id: clientId,
+      token: accessToken,
+      token_type_hint: 'access_token',
+    }),
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      origin,
+    },
+    method: 'POST',
+    redirect: 'manual',
+  })
+  const body = await response.json().catch(() => null)
+  if (
+    response.status !== 400 ||
+    body?.error !== 'unsupported_token_type' ||
+    typeof body.error_description !== 'string'
+  ) {
+    throw new Error(
+      `OAuth JWT revocation returned an unexpected response (${response.status}, ${body?.error ?? 'no error code'})`,
+    )
+  }
+
+  const stillAuthorized = await postMcpJson(context, resource, accessToken, {
+    id: 'post-revoke-self-contained-token',
+    jsonrpc: '2.0',
+    method: 'tools/list',
+    params: {},
+  })
+  if (stillAuthorized.status !== 200) {
+    throw new Error(
+      'Individual-token revocation was incorrectly treated as an immediate JWT blacklist',
+    )
+  }
 }
 
 async function requireProviderOperation(response, description) {
@@ -1247,8 +1383,10 @@ async function verifyMcpRemote({ clientId, context, email, origin, password, res
         throw new Error('mcp-remote did not use the preregistered public client')
       }
       const page = await context.newPage()
+      const assertBrowserClean = monitorBrowserPage(page, origin)
       await page.goto(authorization.href, { waitUntil: 'domcontentloaded' })
       await completeAuthorization(page, origin, MCP_REMOTE_CALLBACK, { email, password })
+      assertBrowserClean('mcp-remote OAuth journey')
       await page.close()
 
       await waitUntil(
@@ -1338,6 +1476,7 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
       await waitForInspector()
       browser = await chromium.launch({ headless: true })
       context = await browser.newContext({ viewport: { height: 900, width: 1440 } })
+      await verifyDiscoveryDocuments(context, origin, resource)
       const clients = await provisionInteropProfile(
         context,
         origin,
@@ -1376,6 +1515,13 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
         origin,
         resource,
       })
+      await verifyRevocationProtocol(
+        context,
+        inspectorAccessToken,
+        clients.inspector,
+        origin,
+        resource,
+      )
       const terminalClients = await provisionTerminalEvidence(
         context,
         origin,

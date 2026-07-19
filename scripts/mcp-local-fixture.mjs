@@ -260,6 +260,10 @@ export async function startLocalMcpOAuthFixture(options = {}) {
   let released = false
   const secretOverrides = options.secretOverridesForTest
   const trustedClientIpHeader = options.trustedClientIpHeaderForTest
+  const nuxtMode = options.nuxtModeForTest ?? 'development'
+  if (nuxtMode !== 'development' && nuxtMode !== 'production') {
+    throw new Error('Invalid fixture Nuxt mode')
+  }
   if (trustedClientIpHeader !== undefined) {
     try {
       if (
@@ -429,24 +433,39 @@ export async function startLocalMcpOAuthFixture(options = {}) {
     }, 'MCP OAuth Convex function deployment')
     await runCli(['run', 'auth:rotateSigningKey', '{}'])
 
-    nuxt = spawn(process.execPath, [nuxtCli, 'dev'], {
+    const nuxtEnvironment = {
+      ...baseEnv,
+      BCN_AUTH_PROXY_IP_SECRET: proxyIpSecret,
+      ...(trustedClientIpHeader
+        ? { BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: trustedClientIpHeader }
+        : {}),
+      CONVEX_SITE_URL: convexSiteUrl,
+      CONVEX_URL: convexUrl,
+      HOST: '127.0.0.1',
+      NITRO_HOST: '127.0.0.1',
+      NITRO_PORT: String(appPort),
+      NUXT_HOST: '127.0.0.1',
+      NUXT_PORT: String(appPort),
+      NUXT_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
+      NUXT_PUBLIC_CONVEX_URL: convexUrl,
+      PORT: String(appPort),
+      SITE_URL: origin,
+    }
+    if (nuxtMode === 'production') {
+      await runCommand(process.execPath, [nuxtCli, 'build'], {
+        cwd,
+        env: { ...nuxtEnvironment, NODE_ENV: 'production' },
+        secrets,
+      })
+    }
+    const nuxtEntry = nuxtMode === 'production' ? join(cwd, '.output/server/index.mjs') : nuxtCli
+    const nuxtArguments = nuxtMode === 'production' ? [] : ['dev']
+    nuxt = spawn(process.execPath, [nuxtEntry, ...nuxtArguments], {
       cwd,
       detached: process.platform !== 'win32',
       env: {
-        ...baseEnv,
-        BCN_AUTH_PROXY_IP_SECRET: proxyIpSecret,
-        ...(trustedClientIpHeader
-          ? { BCN_AUTH_TRUSTED_CLIENT_IP_HEADER: trustedClientIpHeader }
-          : {}),
-        CONVEX_SITE_URL: convexSiteUrl,
-        CONVEX_URL: convexUrl,
-        HOST: '127.0.0.1',
-        NUXT_HOST: '127.0.0.1',
-        NUXT_PORT: String(appPort),
-        NUXT_PUBLIC_CONVEX_SITE_URL: convexSiteUrl,
-        NUXT_PUBLIC_CONVEX_URL: convexUrl,
-        PORT: String(appPort),
-        SITE_URL: origin,
+        ...nuxtEnvironment,
+        ...(nuxtMode === 'production' ? { NODE_ENV: 'production' } : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -515,6 +534,7 @@ export async function startLocalMcpOAuthFixture(options = {}) {
       email,
       origin,
       password,
+      nuxtMode,
       readOAuthCredentialCountsForTest,
       registerConfidentialClientSecretForRedaction,
       release,

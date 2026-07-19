@@ -340,17 +340,181 @@ export const seedEncryptedCredentials = action({
 }
 
 async function installFixtureAction(cwd, runId) {
-  const file = path.join(cwd, 'convex/authExportSentinelFixture.ts')
-  await writeFile(file, fixtureActionSource(runId), { encoding: 'utf8', mode: 0o600 })
+  await Promise.all([
+    writeFile(path.join(cwd, 'convex/authExportSentinelFixture.ts'), fixtureActionSource(runId), {
+      encoding: 'utf8',
+      mode: 0o600,
+    }),
+    writeFile(
+      path.join(cwd, 'app/pages/release-auth-lifecycle.vue'),
+      `<script setup lang="ts">
+const { isPending, refresh, status } = useConvexAuth()
+const hydrated = ref(false)
+onMounted(() => { hydrated.value = true })
+</script>
+
+<template>
+  <main>
+    <p data-testid="auth-status">{{ status }}</p>
+    <p data-testid="auth-pending">{{ isPending }}</p>
+    <p data-testid="hydrated">{{ hydrated ? 'ready' : 'server' }}</p>
+    <button data-testid="refresh" type="button" @click="refresh()">Refresh</button>
+  </main>
+</template>
+`,
+      { encoding: 'utf8', mode: 0o600 },
+    ),
+    writeFile(
+      path.join(cwd, 'app/pages/release-auth-protected.vue'),
+      `<script setup lang="ts">
+definePageMeta({ convexAuth: true })
+</script>
+
+<template><p data-testid="protected-content">Protected release evidence</p></template>
+`,
+      { encoding: 'utf8', mode: 0o600 },
+    ),
+  ])
+}
+
+async function signInFixture(context, fixture) {
+  const response = await context.request.post(`${fixture.origin}/api/auth/sign-in/email`, {
+    data: { email: fixture.email, password: fixture.password },
+    headers: { origin: fixture.origin },
+  })
+  assert(response.ok(), 'AUTH_EXPORT_FIXTURE_SIGN_IN_FAILED')
+}
+
+async function assertAnonymousBootstrap(context, fixture) {
+  const response = await context.request.get(`${fixture.origin}/api/auth/convex/token`, {
+    headers: { origin: fixture.origin },
+  })
+  assert(response.status() === 200, 'AUTH_EXPORT_ANONYMOUS_BOOTSTRAP_FAILED')
+  const body = await response.json()
+  assert(
+    isRecord(body) && Object.keys(body).join(',') === 'token' && body.token === null,
+    'AUTH_EXPORT_ANONYMOUS_BOOTSTRAP_INVALID',
+  )
+}
+
+async function waitForFixtureText(page, testId, predicate, code) {
+  const deadline = Date.now() + 30_000
+  let value = ''
+  while (Date.now() < deadline) {
+    value =
+      (
+        await page
+          .getByTestId(testId)
+          .textContent()
+          .catch(() => '')
+      )?.trim() ?? ''
+    if (predicate(value)) return value
+    await page.waitForTimeout(50)
+  }
+  throw new Error(`${code}:${value.slice(0, 64) || 'missing'}`)
+}
+
+async function assertAuthenticatedLifecycle(page, context, fixture) {
+  const ssr = await context.request.get(`${fixture.origin}/release-auth-lifecycle`)
+  assert(ssr.status() === 200, 'AUTH_EXPORT_AUTHENTICATED_SSR_FAILED')
+  assert(
+    ssr.headers()['cache-control'] === 'private, no-store',
+    'AUTH_EXPORT_AUTHENTICATED_SSR_CACHE_INVALID',
+  )
+  const html = await ssr.text()
+  assert(
+    html.includes('data-testid="auth-status"') && html.includes('authenticated'),
+    'AUTH_EXPORT_AUTHENTICATED_SSR_IDENTITY_MISSING',
+  )
+
+  await page.goto(`${fixture.origin}/release-auth-lifecycle`, { waitUntil: 'domcontentloaded' })
+  await waitForFixtureText(page, 'hydrated', (value) => value === 'ready', 'AUTH_EXPORT_HYDRATION')
+  assert(
+    (await page.getByTestId('auth-status').textContent())?.trim() === 'authenticated',
+    'AUTH_EXPORT_AUTHENTICATED_HYDRATION_FAILED',
+  )
+  await page.getByTestId('refresh').click()
+  await waitForFixtureText(
+    page,
+    'auth-pending',
+    (value) => value === 'false',
+    'AUTH_EXPORT_REFRESH_SETTLEMENT',
+  )
+  assert(
+    (await page.getByTestId('auth-status').textContent())?.trim() === 'authenticated',
+    'AUTH_EXPORT_AUTHENTICATED_REFRESH_FAILED',
+  )
+
+  await page.goto(`${fixture.origin}/release-auth-protected`, { waitUntil: 'domcontentloaded' })
+  await page.getByTestId('protected-content').waitFor()
+  assert(new URL(page.url()).pathname === '/release-auth-protected', 'AUTH_EXPORT_GUARD_FAILED')
+}
+
+async function revokeCurrentSession(browser, page, context, fixture) {
+  const sessionResponse = await context.request.get(`${fixture.origin}/api/auth/get-session`)
+  assert(sessionResponse.ok(), 'AUTH_EXPORT_GET_SESSION_FAILED')
+  const current = await sessionResponse.json()
+  assert(
+    isRecord(current) &&
+      isRecord(current.session) &&
+      typeof current.session.token === 'string' &&
+      current.session.token.length > 0,
+    'AUTH_EXPORT_SESSION_TOKEN_INVALID',
+  )
+
+  const administrator = await browser.newContext()
+  try {
+    await signInFixture(administrator, fixture)
+    const revoked = await administrator.request.post(`${fixture.origin}/api/auth/revoke-session`, {
+      data: { token: current.session.token },
+      headers: { origin: fixture.origin },
+    })
+    assert(revoked.ok(), 'AUTH_EXPORT_SESSION_REVOCATION_FAILED')
+  } finally {
+    await administrator.close()
+  }
+
+  const rejected = await context.request.get(`${fixture.origin}/api/auth/convex/token`)
+  assert(rejected.status() === 401, 'AUTH_EXPORT_REVOKED_SESSION_ACCEPTED')
+  await page.goto(`${fixture.origin}/release-auth-lifecycle`, { waitUntil: 'domcontentloaded' })
+  await waitForFixtureText(
+    page,
+    'auth-status',
+    (value) => value !== '' && value !== 'authenticated',
+    'AUTH_EXPORT_REVOKED_SESSION_STATE',
+  )
+  await page.goto(`${fixture.origin}/release-auth-protected?reason=revoked`, {
+    waitUntil: 'domcontentloaded',
+  })
+  await page.waitForURL((url) => url.pathname === '/auth/signin')
+  assert(
+    new URL(page.url()).searchParams.get('redirect') === '/release-auth-protected?reason=revoked',
+    'AUTH_EXPORT_REVOKED_GUARD_RETURN_INVALID',
+  )
+}
+
+async function assertSignOutLifecycle(page, context, fixture) {
+  const signedOut = await context.request.post(`${fixture.origin}/api/auth/sign-out`, {
+    data: {},
+    headers: { origin: fixture.origin },
+  })
+  assert(signedOut.ok(), `AUTH_EXPORT_SIGN_OUT_REQUEST_FAILED:${signedOut.status()}`)
+  await page.goto(`${fixture.origin}/release-auth-lifecycle`, { waitUntil: 'domcontentloaded' })
+  await waitForFixtureText(
+    page,
+    'auth-status',
+    (value) => value === 'anonymous',
+    'AUTH_EXPORT_SIGN_OUT_STATE',
+  )
+  const response = await context.request.get(`${fixture.origin}/api/auth/convex/token`)
+  assert(response.status() === 200, 'AUTH_EXPORT_SIGN_OUT_TOKEN_STATUS_INVALID')
+  const body = await response.json()
+  assert(isRecord(body) && body.token === null, 'AUTH_EXPORT_SIGN_OUT_TOKEN_INVALID')
 }
 
 async function provisionOAuthProfile(context, fixture) {
   const headers = { origin: fixture.origin }
-  const signIn = await context.request.post(`${fixture.origin}/api/auth/sign-in/email`, {
-    data: { email: fixture.email, password: fixture.password },
-    headers,
-  })
-  assert(signIn.ok(), 'AUTH_EXPORT_FIXTURE_SIGN_IN_FAILED')
+  await signInFixture(context, fixture)
 
   const convexTokenResponse = await context.request.get(`${fixture.origin}/api/auth/convex/token`, {
     headers,
@@ -568,6 +732,7 @@ export async function main() {
     assertOAuthBrowserStorageCoverage(await readFile(oauthRunner, 'utf8'))
     const { startLocalMcpOAuthFixture } = await import('./mcp-local-fixture.mjs')
     fixture = await startLocalMcpOAuthFixture({
+      nuxtModeForTest: process.env.BCN_RELEASE_TARBALL ? 'production' : 'development',
       prepareFixture: ({ cwd }) => installFixtureAction(cwd, runId),
       secretOverridesForTest: {
         betterAuthSecrets: `2:${sentinels['better-auth-current-secret']},1:${sentinels['better-auth-prior-secret']}`,
@@ -585,17 +750,22 @@ export async function main() {
         status: 200,
       }),
     )
+    await assertAnonymousBootstrap(context, fixture)
     const profile = await provisionOAuthProfile(context, fixture)
     sentinels = replaceSecretSentinel(sentinels, 'oauth-client-secret', profile.clientSecret)
     sentinels = replaceSecretSentinel(sentinels, 'convex-session-jwt', profile.convexSessionJwt)
 
     const page = await context.newPage()
+    await assertAuthenticatedLifecycle(page, context, fixture)
+    await revokeCurrentSession(browser, page, context, fixture)
+    await signInFixture(context, fixture)
     const pending = await acquireAuthorizationCode(page, fixture, profile)
     sentinels = replaceSecretSentinel(sentinels, 'authorization-code', pending.code)
     sentinels = replaceSecretSentinel(sentinels, 'pkce-code-verifier', pending.verifier)
     const redeemable = await acquireAuthorizationCode(page, fixture, profile)
     const accessToken = await redeemAuthorizationCode(fixture, profile, redeemable)
     sentinels = replaceSecretSentinel(sentinels, 'oauth-access-token', accessToken)
+    await assertSignOutLifecycle(page, context, fixture)
     await page.close()
 
     const seeded = await fixture.runConvex('authExportSentinelFixture:seedEncryptedCredentials', {

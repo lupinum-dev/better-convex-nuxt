@@ -220,6 +220,53 @@ function compareGeneratedTree(sourceDir, candidateDir) {
   }
 }
 
+function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, integrity) {
+  const fixture = { name: 'npm-consumer-smoke', path: 'test/fixtures/consumer-smoke' }
+  const appDir = join(scratchDir, 'apps', fixture.name)
+  copyApp(fixture, appDir)
+  const localTarball = join(appDir, 'better-convex-nuxt.tgz')
+  copyFileSync(tarballPath, localTarball)
+  if (sha512(localTarball) !== integrity) {
+    throw new Error('npm consumer: copied candidate tarball differs from the release artifact')
+  }
+
+  const manifestPath = join(appDir, 'package.json')
+  const manifest = readJson(manifestPath)
+  manifest.devDependencies = {
+    ...manifest.devDependencies,
+    'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
+  }
+  writeJson(manifestPath, manifest)
+
+  console.log(
+    `\n=== ${fixture.path} with npm against ${candidateManifest.name}@${candidateManifest.version} ===`,
+  )
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: appDir })
+
+  const lock = readFileSync(join(appDir, 'package-lock.json'), 'utf8')
+  if (!lock.includes('better-convex-nuxt.tgz')) {
+    throw new Error('npm consumer: package-lock does not resolve the candidate tarball')
+  }
+  const installedPackageDir = join(appDir, 'node_modules', 'better-convex-nuxt')
+  const installedManifest = readJson(join(installedPackageDir, 'package.json'))
+  if (installedManifest.version !== candidateManifest.version) {
+    throw new Error(
+      `npm consumer: installed ${installedManifest.version}; expected ${candidateManifest.version}`,
+    )
+  }
+  if (
+    JSON.stringify(packageFingerprint(installedPackageDir)) !== JSON.stringify(expectedFingerprint)
+  ) {
+    throw new Error('npm consumer: installed package bytes differ from the candidate tarball')
+  }
+
+  run('npm', ['run', 'typecheck'], { cwd: appDir })
+  run('npm', ['run', 'build'], {
+    cwd: appDir,
+    env: { ...deterministicEnvironment, NODE_ENV: 'production' },
+  })
+}
+
 function productionPublicFiles(publicDirectory) {
   if (!existsSync(publicDirectory)) {
     throw new Error('mcp-oauth-agent: production build omitted .output/public')
@@ -471,13 +518,15 @@ try {
     if (app.name === 'mcp-oauth-agent') await assertProductionSourceMapsArePrivate(appDir)
   }
 
+  verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, tarballIntegrity)
+
   if (!agencyConvexDeployKey) {
     console.log(
       '\nAgency live codegen freshness skipped: set AGENCY_CONVEX_DEPLOY_KEY to enable it.',
     )
   }
   console.log(
-    `\nCandidate app matrix passed (${maintainedCandidateApps.length} clean app copies, one exact tarball).`,
+    `\nCandidate app matrix passed (${maintainedCandidateApps.length} pnpm apps and one npm consumer, one exact tarball).`,
   )
 } finally {
   rmSync(scratchDir, { recursive: true, force: true })

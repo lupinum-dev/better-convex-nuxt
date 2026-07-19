@@ -96,6 +96,25 @@ function startupKey(
   return `${cwd}:${url}:${JSON.stringify(deploymentEnv)}`
 }
 
+async function availableLocalPort(excluded?: number): Promise<number> {
+  for (;;) {
+    const port = await new Promise<number>((resolve, reject) => {
+      const server = net.createServer()
+      server.unref()
+      server.once('error', reject)
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address()
+        server.close((error) => {
+          if (error) reject(error)
+          else if (!address || typeof address === 'string') reject(new Error('Invalid local port'))
+          else resolve(address.port)
+        })
+      })
+    })
+    if (port !== excluded) return port
+  }
+}
+
 function toError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error))
 }
@@ -887,6 +906,16 @@ async function startLocalConvex(
 
   const devArguments = ['dev']
   if (selectionEnv) devArguments.push('--env-file', selectionEnv.path)
+  else {
+    const cloudPort = await availableLocalPort()
+    const sitePort = await availableLocalPort(cloudPort)
+    devArguments.push(
+      '--local-cloud-port',
+      String(cloudPort),
+      '--local-site-port',
+      String(sitePort),
+    )
+  }
   devArguments.push('--local-backend-version', reviewedBackend.version)
 
   // Prime auth.config.ts for a clean deployment's first push. Once the local

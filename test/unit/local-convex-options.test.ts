@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -24,6 +24,13 @@ const dotenvCredentialForms = [
 describe('local Convex deployment environment options', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+  })
+
+  it('assigns disposable loopback ports when no saved deployment exists', async () => {
+    const source = await readFile(new URL('../helpers/local-convex.ts', import.meta.url), 'utf8')
+    expect(source).toContain("server.listen(0, '127.0.0.1'")
+    expect(source).toContain("'--local-cloud-port'")
+    expect(source).toContain("'--local-site-port'")
   })
 
   it.each([
