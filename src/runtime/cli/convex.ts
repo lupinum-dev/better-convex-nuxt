@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
 
 const AUTHORITY_ENV_FILE = '.env.local'
+const LOCAL_BACKEND_STARTUP_TIMEOUT = 'CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS'
 const MAX_ENV_FILE_BYTES = 64 * 1024
 const TOKEN_SELECTORS = ['CONVEX_DEPLOY_KEY', 'CONVEX_DEPLOYMENT_TOKEN'] as const
 const SELF_HOSTED_SELECTORS = ['CONVEX_SELF_HOSTED_URL', 'CONVEX_SELF_HOSTED_ADMIN_KEY'] as const
@@ -30,7 +31,6 @@ const PINNED_CONVEX_AUTHORITY_NAMES = [
   'CONVEX_ALLOW_ANONYMOUS',
   'CONVEX_DEPLOYMENT',
   'CONVEX_IMPORT_CHUNK_SIZE',
-  'CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS',
   'CONVEX_MIN_DOCUMENTS_FOR_INDEX_DELETE_WARNING',
   'CONVEX_OVERRIDE_ACCESS_TOKEN',
   'CONVEX_PROVISION_HOST',
@@ -152,6 +152,13 @@ export function buildConvexCommandEnvironment(
 function buildClearedConvexEnvironment(
   inherited: Readonly<Record<string, string | undefined>>,
 ): Record<string, string> {
+  const localBackendStartupTimeout = inherited[LOCAL_BACKEND_STARTUP_TIMEOUT]
+  if (localBackendStartupTimeout) {
+    const seconds = Number(localBackendStartupTimeout)
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      throw new Error('The local Convex backend startup timeout must be a positive number.')
+    }
+  }
   const environment = Object.fromEntries(
     Object.entries(inherited).filter(
       (entry): entry is [string, string] =>
@@ -162,6 +169,12 @@ function buildClearedConvexEnvironment(
   // Empty definitions prevent a sibling file from restoring hidden or
   // higher-precedence authority after inherited values have been removed.
   for (const name of PINNED_CONVEX_AUTHORITY_NAMES) environment[name] = ''
+  // This is a bounded startup-tuning input, not deployment authority. Preserve
+  // a valid inherited value without pinning an empty definition that Convex
+  // interprets as zero.
+  if (localBackendStartupTimeout) {
+    environment[LOCAL_BACKEND_STARTUP_TIMEOUT] = localBackendStartupTimeout
+  }
   return environment
 }
 

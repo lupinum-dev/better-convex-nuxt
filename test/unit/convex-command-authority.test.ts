@@ -40,6 +40,10 @@ describe('checked Convex CLI deployment authority', () => {
     { CONVEX_DEPLOYMENT: 'local:one', CONVEX_OVERRIDE_ACCESS_TOKEN: 'hidden' },
     { CONVEX_DEPLOYMENT: 'local:one', CONVEX_PROVISION_HOST: 'https://wrong.invalid' },
     {
+      CONVEX_DEPLOYMENT: 'local:one',
+      CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '120',
+    },
+    {
       CONVEX_DEPLOYMENT: 'dev:safe-deployment',
       convex_deploy_key: 'prod:wrong-deployment|hidden',
     },
@@ -87,6 +91,53 @@ describe('checked Convex CLI deployment authority', () => {
     }
     expect(result.CONVEX_AGENT_MODE).toBe('')
     expect(result.CONVEX_ALLOW_ANONYMOUS).toBe('')
+  })
+
+  it.each([
+    { label: 'absent', inherited: {}, expected: undefined },
+    {
+      label: 'empty',
+      inherited: { CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '' },
+      expected: undefined,
+    },
+    {
+      label: 'positive',
+      inherited: { CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '120' },
+      expected: '120',
+    },
+    {
+      label: 'fractional positive',
+      inherited: { CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '0.5' },
+      expected: '0.5',
+    },
+  ])('treats the local-backend timeout as optional non-authority tuning: $label', (input) => {
+    const result = buildConvexCommandEnvironment(input.inherited, {
+      CONVEX_DEPLOYMENT: 'local:file-owned',
+    })
+
+    expect(result.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS).toBe(input.expected)
+  })
+
+  it.each(['not-a-number', '0', '-1', 'Infinity'])(
+    'rejects an invalid local-backend timeout before spawning Convex: %s',
+    (value) => {
+      expect(() =>
+        buildConvexCommandEnvironment(
+          { CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: value },
+          { CONVEX_DEPLOYMENT: 'local:file-owned' },
+        ),
+      ).toThrow('local Convex backend startup timeout must be a positive number')
+    },
+  )
+
+  it('preserves non-authority timeout tuning with deployment-key authority', () => {
+    const result = buildConvexCommandEnvironment(
+      { CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '90' },
+      { CONVEX_DEPLOY_KEY: 'dev:fixture-deployment|fixture-key' },
+    )
+
+    expect(result.CONVEX_DEPLOY_KEY).toBe('dev:fixture-deployment|fixture-key')
+    expect(result.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS).toBe('90')
   })
 
   it('derives anonymous mode only from an accepted anonymous deployment selector', () => {
@@ -258,6 +309,9 @@ describe('checked Convex CLI deployment authority', () => {
         "const valid = mode && process.env.CONVEX_DEPLOYMENT === ''",
         "  && process.env.CONVEX_OVERRIDE_ACCESS_TOKEN === ''",
         "  && process.env.CONVEX_PROVISION_HOST === ''",
+        "  && (args === 'dev --configure'",
+        '    ? process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS === undefined',
+        "    : process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS === '45')",
         'process.exitCode = valid ? 0 : 42',
       ].join('\n'),
     )
@@ -289,6 +343,7 @@ describe('checked Convex CLI deployment authority', () => {
             inheritedEnvironment: {
               CONVEX_DEPLOY_KEY: 'ambient-key',
               CONVEX_DEPLOYMENT: 'prod:ambient',
+              CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS: '45',
             },
           },
         ),
