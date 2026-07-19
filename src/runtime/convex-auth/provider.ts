@@ -6,12 +6,11 @@ export function getConvexAuthProvider(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): AuthProvider {
   const issuer = requireAuthOrigin('CONVEX_SITE_URL', env)
-  const publicOrigin = requireAuthOrigin('SITE_URL', env)
   return {
     algorithm: 'RS256',
     applicationID: 'convex',
     issuer,
-    jwks: `${publicOrigin}/api/auth/jwks`,
+    jwks: `${issuer}/api/auth/jwks`,
     type: 'customJwt',
   }
 }

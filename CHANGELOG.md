@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolve Convex session-token verification through the deployment-owned HTTP
+  Actions JWKS route, so remote deployments can authenticate local Nuxt apps
+  without requiring a public tunnel to the host origin.
 - Treat credential-free browser token bootstrap as `200 { token: null }` while
   preserving `401` for malformed, expired, revoked, or unsupported credentials.
   The client and OpenAPI contracts now expose `string | null`, eliminating the
