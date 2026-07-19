@@ -5,6 +5,9 @@
 - Preserve a valid local-backend startup timeout through the checked Convex CLI
   runner without treating it as deployment authority, and reject invalid
   non-positive values before starting Convex.
+- Document the independent social-login, OAuth authorization-server, and
+  resource-server roles, plus the deployment-wide Convex token-exchange quota
+  and the application-owned authorization boundary.
 - Resolve Convex session-token verification through the deployment-owned HTTP
   Actions JWKS route, so remote deployments can authenticate local Nuxt apps
   without requiring a public tunnel to the host origin.
