@@ -788,6 +788,13 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
 
   return {
     id: 'better-convex-nuxt',
+    rateLimit: [
+      {
+        pathMatcher: (path) => path === '/convex/token',
+        window: 10,
+        max: 300,
+      },
+    ],
     init: (context) => {
       configureSharedJwks(
         context,

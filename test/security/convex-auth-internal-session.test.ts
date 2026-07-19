@@ -89,6 +89,33 @@ function request(marker: boolean, path = '/get-session'): Request {
 }
 
 describe('internal Better Auth session bridge', () => {
+  it('gives the authenticated token exchange a bounded route-specific allowance', () => {
+    const plugin = convexAuth({
+      authConfig: {
+        providers: [
+          {
+            algorithm: 'RS256',
+            applicationID: 'convex',
+            issuer: convexSiteUrl,
+            jwks: `${origin}/api/auth/jwks`,
+            type: 'customJwt',
+          },
+        ],
+      },
+      sessionJwt: {
+        audience: 'convex',
+        expirationTime: '15m',
+        issuer: convexSiteUrl,
+      },
+    })
+
+    expect(plugin.rateLimit).toHaveLength(1)
+    expect(plugin.rateLimit?.[0]).toMatchObject({ max: 300, window: 10 })
+    expect(plugin.rateLimit?.[0]?.pathMatcher('/convex/token')).toBe(true)
+    expect(plugin.rateLimit?.[0]?.pathMatcher('/sign-in/email')).toBe(false)
+    expect(plugin.rateLimit?.[0]?.pathMatcher('/oauth2/token')).toBe(false)
+  })
+
   it('authenticates a package-owned in-process call with the persisted session token', async () => {
     const response = await createAuth().handler(request(true))
 
