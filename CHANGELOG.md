@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.7.0-beta.1
+
+- Certify the installed `better-convex-nuxt/server` entry through a production
+  Nitro query, mutation, and action lifecycle, including structured,
+  unstructured, transport, authentication, and diagnostic-redaction evidence.
+- Document safe application-owned server-call diagnostics and the runtime-only
+  `ConvexCallError.cause` boundary without exposing a debug hook, raw cause,
+  additional error kind, or testing API.
+
+## v0.7.0-beta.0
+
 - Preserve a valid local-backend startup timeout through the checked Convex CLI
   runner without treating it as deployment authority, and reject invalid
   non-positive values before starting Convex.
@@ -38,8 +49,6 @@
   with a production deployment-scoped key or exact self-hosted authority.
 - Expanded diagnostic redaction for common consumer-defined JWT, API-key,
   private-key, bearer, and passphrase labels.
-
-## v0.7.0-beta.0
 
 ### Authentication platform hard cut
 
