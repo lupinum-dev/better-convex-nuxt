@@ -17,6 +17,7 @@
     "test/fixtures/errors-consumer",
     "test/fixtures/server-consumer",
     "test/fixtures/user-sync-triggers-consumer",
+    "internal/labs/mcp-topology/convex/fixture",
     "src/runtime/server"
   ]
 }
