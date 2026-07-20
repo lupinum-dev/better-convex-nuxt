@@ -1,0 +1,8 @@
+{
+  "name": "better-convex-vnext-exact-call-lab",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "convex": "1.42.2"
+  }
+}
