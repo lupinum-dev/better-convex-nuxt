@@ -111,6 +111,20 @@ const actionRef = { _path: 'notes:run' } as unknown as FunctionReference<
   unknown
 >
 
+const serverOperations = [
+  ['query', () => mocks.queryMock, (c: ReturnType<typeof serverConvex>) => c.query(queryRef, {})],
+  [
+    'mutation',
+    () => mocks.mutationMock,
+    (c: ReturnType<typeof serverConvex>) => c.mutation(mutationRef, {}),
+  ],
+  [
+    'action',
+    () => mocks.actionMock,
+    (c: ReturnType<typeof serverConvex>) => c.action(actionRef, {}),
+  ],
+] as const
+
 describe('serverConvex caller-scoped invariants', () => {
   it('creates one token promise, one ConvexHttpClient, and calls setAuth at most once across calls', async () => {
     mocks.exchangeMock.mockResolvedValue({
@@ -227,15 +241,19 @@ describe('serverConvex caller-scoped invariants', () => {
 })
 
 describe('serverConvex auth-mode resolution', () => {
-  it('required anonymous caller throws authentication 401 without calling the client', async () => {
-    const caller = serverConvex(createEvent(), { auth: 'required' })
-    await expect(caller.query(queryRef, {})).rejects.toMatchObject({
-      kind: 'authentication',
-      status: 401,
-    })
-    expect(mocks.queryMock).not.toHaveBeenCalled()
-    expect(mocks.exchangeMock).not.toHaveBeenCalled()
-  })
+  it.each(serverOperations)(
+    'required anonymous %s throws authentication 401 without calling the client',
+    async (_name, getMock, invoke) => {
+      await expect(invoke(serverConvex(createEvent(), { auth: 'required' }))).rejects.toMatchObject(
+        {
+          kind: 'authentication',
+          status: 401,
+        },
+      )
+      expect(getMock()).not.toHaveBeenCalled()
+      expect(mocks.exchangeMock).not.toHaveBeenCalled()
+    },
+  )
 
   it('optional anonymous caller executes without auth', async () => {
     mocks.queryMock.mockResolvedValue('anon')
@@ -330,19 +348,7 @@ describe('serverConvex boundary error sanitization', () => {
     vi.restoreAllMocks()
   })
 
-  it.each([
-    ['query', () => mocks.queryMock, (c: ReturnType<typeof serverConvex>) => c.query(queryRef, {})],
-    [
-      'mutation',
-      () => mocks.mutationMock,
-      (c: ReturnType<typeof serverConvex>) => c.mutation(mutationRef, {}),
-    ],
-    [
-      'action',
-      () => mocks.actionMock,
-      (c: ReturnType<typeof serverConvex>) => c.action(actionRef, {}),
-    ],
-  ] as const)(
+  it.each(serverOperations)(
     'keeps a sentinel upstream body out of the public %s error, JSON, and logs',
     async (_name, getMock, invoke) => {
       // Simulate ConvexHttpClient placing a raw non-OK upstream body in Error.message.
@@ -375,29 +381,34 @@ describe('serverConvex boundary error sanitization', () => {
     },
   )
 
-  it('preserves a Convex application error as server with data.code UNAUTHORIZED', async () => {
-    const appError = Object.assign(new Error('unauthorized'), {
-      [Symbol.for('ConvexError')]: true,
-      data: { code: 'UNAUTHORIZED' },
-    })
-    mocks.queryMock.mockRejectedValue(appError)
+  it.each(serverOperations)(
+    'preserves a Convex application error from %s as server with data.code UNAUTHORIZED',
+    async (_name, getMock, invoke) => {
+      const appError = Object.assign(new Error('unauthorized'), {
+        [Symbol.for('ConvexError')]: true,
+        data: { code: 'UNAUTHORIZED' },
+      })
+      getMock().mockRejectedValue(appError)
 
-    await expect(
-      serverConvex(createEvent(), { auth: 'none' }).query(queryRef, {}),
-    ).rejects.toMatchObject({ kind: 'server', code: 'UNAUTHORIZED' })
-  })
+      await expect(invoke(serverConvex(createEvent(), { auth: 'none' }))).rejects.toMatchObject({
+        kind: 'server',
+        code: 'UNAUTHORIZED',
+      })
+    },
+  )
 
-  it('passes a classified transport error through unchanged', async () => {
-    const transport = new ConvexCallError({
-      kind: 'transport',
-      message: 'net down',
-    })
-    mocks.queryMock.mockRejectedValue(transport)
+  it.each(serverOperations)(
+    'passes a classified %s transport error through unchanged',
+    async (_name, getMock, invoke) => {
+      const transport = new ConvexCallError({
+        kind: 'transport',
+        message: 'net down',
+      })
+      getMock().mockRejectedValue(transport)
 
-    await expect(serverConvex(createEvent(), { auth: 'none' }).query(queryRef, {})).rejects.toBe(
-      transport,
-    )
-  })
+      await expect(invoke(serverConvex(createEvent(), { auth: 'none' }))).rejects.toBe(transport)
+    },
+  )
 })
 
 describe('SSR auth response headers (Vary/Cache-Control)', () => {

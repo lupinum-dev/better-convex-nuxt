@@ -316,9 +316,10 @@ export function probeAuthClientTyping(ctx) {
 
 /**
  * `/server` probe: installs the packed tarball into the committed
- * `test/fixtures/server-consumer` fixture and runs `nuxi prepare` followed
- * by `nuxi typecheck`, proving the real `better-convex-nuxt/server` subpath
- * resolves from the packed package.
+ * `test/fixtures/server-consumer` fixture and runs typechecking plus a
+ * production Nitro lifecycle against a deterministic local Convex-protocol
+ * server. This proves the real `better-convex-nuxt/server` subpath resolves
+ * from the packed package and preserves query/mutation/action error boundaries.
  */
 export function probeServerEntry(ctx) {
   const fixtureDir = p('test/fixtures/server-consumer')
@@ -329,6 +330,7 @@ export function probeServerEntry(ctx) {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
     run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
     run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
+    run('pnpm', ['run', 'probe:production'], { cwd: fixtureDir })
     run(
       'node',
       [
