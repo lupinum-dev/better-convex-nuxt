@@ -5,6 +5,7 @@ import ts from 'typescript'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
 const p = (...segments) => resolve(repoRoot, ...segments)
+const COMPUTED_DYNAMIC_IMPORT = '<computed dynamic import>'
 
 function parseSource(filePath) {
   const text = readFileSync(filePath, 'utf8')
@@ -27,10 +28,11 @@ function collectImportSpecifiers(sourceFile) {
     } else if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      ts.isStringLiteral(node.arguments[0])
+      node.arguments.length > 0
     ) {
-      specifiers.push(node.arguments[0].text)
+      specifiers.push(
+        ts.isStringLiteral(node.arguments[0]) ? node.arguments[0].text : COMPUTED_DYNAMIC_IMPORT,
+      )
     } else if (
       ts.isImportTypeNode(node) &&
       ts.isLiteralTypeNode(node.argument) &&

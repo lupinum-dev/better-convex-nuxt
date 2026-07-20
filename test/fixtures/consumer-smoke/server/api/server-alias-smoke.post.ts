@@ -44,5 +44,7 @@ function _serverOptionContracts(event: Parameters<typeof serverConvex>[0]) {
   serverConvex(event, { auth: 'none' })
   serverConvex(event, { authToken: 'jwt' })
   serverConvex(event, { authToken: 'jwt', auth: 'required' })
+  serverConvex(event, { credential: { type: 'cookie', value: 'better-auth.session_token=k' } })
+  // @ts-expect-error Better Auth session tokens are not public bearer credentials
   serverConvex(event, { credential: { type: 'bearer', value: 'k' } })
 }

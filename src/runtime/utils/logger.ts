@@ -178,7 +178,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       }
 
       if (event.error) {
-        console.error(msg, event.error)
+        console.error(msg, '[Omitted]')
       } else {
         console.log(msg)
       }
@@ -207,7 +207,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       }
 
       if (event.error) {
-        console.error(msg, event.error)
+        console.error(msg, '[Omitted]')
       } else {
         console.log(msg)
       }
@@ -236,7 +236,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       if (isDebug && event.args !== undefined) {
         console.log(msg, event.args)
       } else if (event.error) {
-        console.error(msg, event.error)
+        console.error(msg, '[Omitted]')
       } else {
         console.log(msg)
       }
@@ -260,7 +260,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
       }
 
       if (event.error) {
-        console.error(msg, event.error)
+        console.error(msg, '[Omitted]')
       } else {
         console.log(msg)
       }
@@ -287,10 +287,7 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
         }
       } else {
         msg += `  ${ANSI.red}error${ANSI.reset}`
-        if (event.error) {
-          const errMsg = typeof event.error === 'string' ? event.error : JSON.stringify(event.error)
-          msg += ` ${ANSI.red}${errMsg}${ANSI.reset}`
-        }
+        if (event.error) msg += ` ${ANSI.red}[Omitted]${ANSI.reset}`
       }
 
       console.log(msg)
@@ -298,11 +295,10 @@ function createServerLogger(level: 'info' | 'debug'): Logger {
 
     debug(message: string, data?: unknown): void {
       if (!isDebug) return
-      if (data !== undefined) {
-        console.log(`${PREFIX} ${ANSI.dim}[debug]${ANSI.reset} ${message}`, data)
-      } else {
-        console.log(`${PREFIX} ${ANSI.dim}[debug]${ANSI.reset} ${message}`)
-      }
+      // Generic debug payloads have no reviewed schema. Keep the message only;
+      // structured diagnostics belong in a semantic event's safe details.
+      void data
+      console.log(`${PREFIX} ${ANSI.dim}[debug]${ANSI.reset} ${message}`)
     },
 
     time(label: string): () => void {
@@ -348,7 +344,7 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
           iconStyle,
         )
         if (event.details) console.log(event.details)
-        if (event.error) console.error(event.error)
+        if (event.error) console.error('[Omitted]')
         console.groupEnd()
       } else {
         console.log(`%cConvex%c Auth | %c${icon} ${event.phase}`, CSS.badge, '', iconStyle)
@@ -377,9 +373,9 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (hasData) {
         console.groupCollapsed(label, ...styles)
-        if (event.args !== undefined) console.log('Args:', event.args)
-        if (event.data !== undefined) console.log('Data:', event.data)
-        if (event.error) console.error('Error:', event.error)
+        if (event.args !== undefined) console.log('Args:', '[Omitted]')
+        if (event.data !== undefined) console.log('Data:', '[Omitted]')
+        if (event.error) console.error('Error:', '[Omitted]')
         console.groupEnd()
       } else {
         console.log(label, ...styles)
@@ -409,8 +405,8 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (hasDetails) {
         console.groupCollapsed(label, ...styles)
-        if (isDebug && event.args !== undefined) console.log('Args:', event.args)
-        if (event.error) console.error('Error:', event.error)
+        if (isDebug && event.args !== undefined) console.log('Args:', '[Omitted]')
+        if (event.error) console.error('Error:', '[Omitted]')
         console.groupEnd()
       } else {
         console.log(label, ...styles)
@@ -435,7 +431,7 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (event.error) {
         console.groupCollapsed(label, ...styles)
-        console.error('Error:', event.error)
+        console.error('Error:', '[Omitted]')
         console.groupEnd()
       } else {
         console.log(label, ...styles)
@@ -468,7 +464,7 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
       if (event.error) {
         console.groupCollapsed(label, ...styles)
-        console.error('Error:', event.error)
+        console.error('Error:', '[Omitted]')
         console.groupEnd()
       } else {
         console.log(label, ...styles)
@@ -477,11 +473,8 @@ function createBrowserLogger(level: 'info' | 'debug'): Logger {
 
     debug(message: string, data?: unknown): void {
       if (!isDebug) return
-      if (data !== undefined) {
-        console.log(`%cConvex%c [debug] ${message}`, CSS.badge, CSS.dim, data)
-      } else {
-        console.log(`%cConvex%c [debug] ${message}`, CSS.badge, CSS.dim)
-      }
+      void data
+      console.log(`%cConvex%c [debug] ${message}`, CSS.badge, CSS.dim)
     },
 
     time(label: string): () => void {
@@ -532,7 +525,9 @@ export function createLogger(level: LogLevel): Logger {
       ...(event.args === undefined ? {} : { args: '[Omitted]' }),
       ...(event.data === undefined ? {} : { data: '[Omitted]' }),
       ...(event.details === undefined ? {} : { details: sanitizeDiagnosticValue(event.details) }),
-      ...(event.error === undefined ? {} : { error: sanitizeDiagnosticValue(event.error) }),
+      // Error objects/messages often contain transport data and credentials.
+      // Callers must put a stable, reviewed code in `details` instead.
+      ...(event.error === undefined ? {} : { error: '[Omitted]' }),
     }) as T
 
   const safeLogger: Logger = {
@@ -541,11 +536,7 @@ export function createLogger(level: LogLevel): Logger {
     mutation: (event) => sink.mutation(sanitizeEvent(event)),
     action: (event) => sink.action(sanitizeEvent(event)),
     upload: (event) => sink.upload(sanitizeEvent(event)),
-    debug: (message, data) =>
-      sink.debug(
-        String(sanitizeDiagnosticValue(message)),
-        data === undefined ? undefined : sanitizeDiagnosticValue(data),
-      ),
+    debug: (message, data) => sink.debug(String(sanitizeDiagnosticValue(message)), data),
     time: (label) => sink.time(String(sanitizeDiagnosticValue(label))),
   }
   return Object.freeze(safeLogger)

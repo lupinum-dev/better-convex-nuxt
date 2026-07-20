@@ -5,5 +5,9 @@ export default defineNuxtConfig({
   convex: {
     url: 'https://missing-api.convex.cloud',
     siteUrl: 'https://missing-api.convex.site',
+    auth: {
+      publicOrigin: process.env.SITE_URL ?? 'https://missing-api.example.test',
+      proxy: { trustedClientIpHeader: 'x-test-client-ip' },
+    },
   },
 })

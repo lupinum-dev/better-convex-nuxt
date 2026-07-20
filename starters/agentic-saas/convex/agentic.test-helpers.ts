@@ -12,6 +12,17 @@ export const internalApi = internal as any
 
 export type AgentCapability = 'project:read' | 'project:draft' | 'project:delete'
 
+function cookieHeader(responseHeaders: Headers): string {
+  const cookies = responseHeaders
+    .getSetCookie()
+    .map((setCookie) => setCookie.split(';', 1)[0])
+    .filter((cookie): cookie is string => Boolean(cookie))
+  if (cookies.length === 0) {
+    throw new Error('Better Auth sign-in did not return a session cookie')
+  }
+  return cookies.join('; ')
+}
+
 export async function startRun(
   t: ReturnType<typeof convexTest>,
   overrides: Partial<{
@@ -109,7 +120,7 @@ export async function startBetterAuthRun(
 
 export async function createBetterAuthUser(t: ReturnType<typeof convexTest>, email: string) {
   return await t.run(async (ctx) => {
-    const auth = createAuth(ctx)
+    const auth = await createAuth(ctx)
     const password = 'Password123456!'
     const signedUp = await auth.api.signUpEmail({
       body: {
@@ -118,18 +129,21 @@ export async function createBetterAuthUser(t: ReturnType<typeof convexTest>, ema
         name: email.split('@')[0],
       },
     })
-    const signedIn = await auth.api.signInEmail({
+    const signedInResult = await auth.api.signInEmail({
       body: {
         email,
         password,
       },
+      returnHeaders: true,
     })
+    const signedIn = signedInResult.response
     if (!signedIn.token) {
       throw new Error('Better Auth sign-in did not return a session token')
     }
 
     return {
       email,
+      sessionCookie: cookieHeader(signedInResult.headers),
       token: signedIn.token,
       userId: signedUp.user.id,
     }
@@ -139,20 +153,21 @@ export async function createBetterAuthUser(t: ReturnType<typeof convexTest>, ema
 export async function createBetterAuthOrganization(t: ReturnType<typeof convexTest>) {
   const owner = await createBetterAuthUser(t, 'agent-owner@example.com')
 
-  const organization = await t.run(async (ctx) => {
-    const auth = createAuth(ctx)
-    return await auth.api.createOrganization({
-      headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+  const organizationId = await t.run(async (ctx) => {
+    const auth = await createAuth(ctx)
+    const organization = await auth.api.createOrganization({
+      headers: new Headers({ cookie: owner.sessionCookie }),
       body: {
         name: 'Agent Org',
         slug: `agent-org-${Math.random().toString(36).slice(2)}`,
       },
     })
+    return organization.id
   })
 
   return {
     owner,
-    organizationId: organization.id,
+    organizationId,
   }
 }
 
@@ -161,15 +176,16 @@ export async function createBetterAuthOrganizationWithAdmin(t: ReturnType<typeof
   const admin = await createBetterAuthUser(t, 'agent-admin@example.com')
 
   const adminMember = await t.run(async (ctx) => {
-    const auth = createAuth(ctx)
-    return await auth.api.addMember({
-      headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+    const auth = await createAuth(ctx)
+    const member = await auth.api.addMember({
+      headers: new Headers({ cookie: owner.sessionCookie }),
       body: {
         organizationId,
         userId: admin.userId,
         role: 'admin',
       },
     })
+    return { id: member.id }
   })
 
   return {

@@ -4,7 +4,7 @@ import { createUserSyncTriggers } from '../../src/runtime/server/createUserSyncT
 
 describe('createUserSyncTriggers', () => {
   type TestAuthUser = {
-    _id: string
+    id: string
     email?: string | null
   }
 
@@ -40,7 +40,7 @@ describe('createUserSyncTriggers', () => {
       table: 'users',
       index: 'by_auth_id',
       createDoc: ({ user, now }) => ({
-        authId: user._id,
+        authId: user.id,
         email: user.email,
         createdAt: now,
         updatedAt: now,
@@ -55,7 +55,7 @@ describe('createUserSyncTriggers', () => {
       },
     })
 
-    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'a@example.com' })
+    await triggers.user.onCreate(ctx, { id: 'auth-1', email: 'a@example.com' })
     expect(insert).toHaveBeenCalledWith(
       'users',
       expect.objectContaining({ authId: 'auth-1', email: 'a@example.com' }),
@@ -63,8 +63,8 @@ describe('createUserSyncTriggers', () => {
 
     await triggers.user.onUpdate(
       ctx,
-      { _id: 'auth-1', email: 'b@example.com' },
-      { _id: 'auth-1', email: 'a@example.com' },
+      { id: 'auth-1', email: 'b@example.com' },
+      { id: 'auth-1', email: 'a@example.com' },
     )
     expect(query).toHaveBeenCalledWith('users')
     expect(withIndex).toHaveBeenCalled()
@@ -73,7 +73,7 @@ describe('createUserSyncTriggers', () => {
       expect.objectContaining({ email: 'b@example.com' }),
     )
 
-    await triggers.user.onDelete(ctx, { _id: 'auth-1' })
+    await triggers.user.onDelete(ctx, { id: 'auth-1' })
     expect(remove).toHaveBeenCalledWith('user-1')
   })
 
@@ -102,7 +102,7 @@ describe('createUserSyncTriggers', () => {
       index: 'by_auth_user_id',
       authIdField: 'authUserId',
       createDoc: ({ user, now }) => ({
-        authUserId: user._id,
+        authUserId: user.id,
         email: user.email,
         createdAt: now,
         updatedAt: now,
@@ -114,9 +114,9 @@ describe('createUserSyncTriggers', () => {
     })
 
     const result = await triggers.user.rebuild(ctx, [
-      { _id: 'auth-1', email: 'a@example.com' },
-      { _id: 'auth-2', email: 'b@example.com' },
-      { _id: 'auth-3', email: 'c@example.com' },
+      { id: 'auth-1', email: 'a@example.com' },
+      { id: 'auth-2', email: 'b@example.com' },
+      { id: 'auth-3', email: 'c@example.com' },
     ])
 
     expect(result).toEqual({ inserted: 1, patched: 1, skipped: 1 })
@@ -155,15 +155,15 @@ describe('createUserSyncTriggers', () => {
       table: 'users',
       index: 'by_auth_id',
       createDoc: ({ user, now }) => ({
-        authId: user._id,
+        authId: user.id,
         email: user.email,
         createdAt: now,
         updatedAt: now,
       }),
     })
 
-    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'a@example.com' })
-    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'a@example.com' })
+    await triggers.user.onCreate(ctx, { id: 'auth-1', email: 'a@example.com' })
+    await triggers.user.onCreate(ctx, { id: 'auth-1', email: 'a@example.com' })
 
     expect(insert).toHaveBeenCalledTimes(1)
     expect(patch).not.toHaveBeenCalled()
@@ -196,22 +196,22 @@ describe('createUserSyncTriggers', () => {
     const triggers = createUserSyncTriggers<TestAuthUser, TestProjectionUser>({
       table: 'users',
       index: 'by_auth_id',
-      createDoc: ({ user }) => ({ authId: user._id, email: user.email }),
+      createDoc: ({ user }) => ({ authId: user.id, email: user.email }),
       patchDoc: ({ user }) => ({ email: user.email }),
       rebuildDoc: ({ user }) => ({ email: user.email }),
     })
 
-    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'canonical@example.com' })
+    await triggers.user.onCreate(ctx, { id: 'auth-1', email: 'canonical@example.com' })
     expect(remove).toHaveBeenCalledWith('user-2')
     expect(insert).not.toHaveBeenCalled()
 
     remove.mockClear()
-    await triggers.user.rebuild(ctx, [{ _id: 'auth-1', email: 'canonical@example.com' }])
+    await triggers.user.rebuild(ctx, [{ id: 'auth-1', email: 'canonical@example.com' }])
     expect(remove).toHaveBeenCalledWith('user-2')
     expect(patch).toHaveBeenCalledWith('user-1', { email: 'canonical@example.com' })
 
     remove.mockClear()
-    await triggers.user.onDelete(ctx, { _id: 'auth-1' })
+    await triggers.user.onDelete(ctx, { id: 'auth-1' })
     expect(remove.mock.calls).toEqual([['user-1'], ['user-2']])
   })
 
@@ -240,7 +240,7 @@ describe('createUserSyncTriggers', () => {
       table: 'users',
       index: 'by_auth_id',
       createDoc: ({ user, now }) => ({
-        authId: user._id,
+        authId: user.id,
         email: user.email,
         createdAt: now,
         updatedAt: now,
@@ -254,14 +254,14 @@ describe('createUserSyncTriggers', () => {
     // onUpdate arrives first — no projection row exists yet.
     await triggers.user.onUpdate(
       ctx,
-      { _id: 'auth-1', email: 'updated@example.com' },
-      { _id: 'auth-1', email: 'original@example.com' },
+      { id: 'auth-1', email: 'updated@example.com' },
+      { id: 'auth-1', email: 'original@example.com' },
     )
     expect(patch).not.toHaveBeenCalled()
     expect(insert).not.toHaveBeenCalled()
 
     // onCreate arrives afterward, using its own (not the dropped update's) payload.
-    await triggers.user.onCreate(ctx, { _id: 'auth-1', email: 'original@example.com' })
+    await triggers.user.onCreate(ctx, { id: 'auth-1', email: 'original@example.com' })
     expect(insert).toHaveBeenCalledTimes(1)
     expect(insert).toHaveBeenCalledWith(
       'users',
@@ -291,7 +291,7 @@ describe('createUserSyncTriggers', () => {
       table: 'userProfiles',
       index: 'by_auth_user_id',
       createDoc: ({ user, now }) => ({
-        authUserId: user._id,
+        authUserId: user.id,
         email: user.email,
         createdAt: now,
         updatedAt: now,
@@ -299,7 +299,7 @@ describe('createUserSyncTriggers', () => {
     })
 
     await expect(
-      triggers.user.rebuild(ctx, [{ _id: 'auth-1', email: 'changed@example.com' }]),
+      triggers.user.rebuild(ctx, [{ id: 'auth-1', email: 'changed@example.com' }]),
     ).resolves.toEqual({ inserted: 0, patched: 0, skipped: 1 })
     expect(insert).not.toHaveBeenCalled()
     expect(patch).not.toHaveBeenCalled()

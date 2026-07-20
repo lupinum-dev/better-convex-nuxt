@@ -29,6 +29,7 @@ import {
   getMissingConvexApiTemplateContents,
   getTypeAugmentationTemplateContents,
 } from './module-templates'
+import { getPackedRuntimeFingerprint } from './runtime/shared/release-fingerprint'
 import {
   normalizeConvexAuthConfig,
   isConvexAuthEnabled,
@@ -38,6 +39,8 @@ import { CONVEX_MODULE_DEFAULTS } from './runtime/utils/config-defaults'
 import { getSiteUrlResolutionHint, resolveConvexSiteUrl } from './runtime/utils/convex-config'
 import type { LogLevel } from './runtime/utils/logger'
 import { normalizeConvexDeploymentUrl, normalizeConvexSiteUrl } from './runtime/utils/site-url'
+
+const releaseRuntimeFingerprint = getPackedRuntimeFingerprint()
 
 // Re-exported public types . The root default export is the module;
 // stable public types are re-exported here. Do not export the raw
@@ -195,7 +198,7 @@ export default defineNuxtModule<ModuleOptions>({
     name: 'better-convex-nuxt',
     configKey: 'convex',
     compatibility: {
-      nuxt: '^4.4.0',
+      nuxt: '4.4.8',
     },
   },
   defaults: {
@@ -231,7 +234,7 @@ export default defineNuxtModule<ModuleOptions>({
 
     // Single build-time auth resolution: one discriminated value drives every
     // plugin/handler/middleware registration decision (architecture invariant).
-    const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth)
+    const normalizedAuthConfig = normalizeConvexAuthConfig(options.auth, process.env.SITE_URL)
     const isAuthEnabled = isConvexAuthEnabled(normalizedAuthConfig)
 
     if (isAuthEnabled && !resolvedSiteUrl) {
@@ -265,6 +268,12 @@ export default defineNuxtModule<ModuleOptions>({
     nuxt.options.runtimeConfig.public.convex = convexConfig
     registerConvexAliases({ nuxt, resolver, convexApiAlias })
     addServerPlugin(resolver.resolve('./runtime/server/plugins/runtime-config'))
+    if (releaseRuntimeFingerprint) {
+      addServerHandler({
+        route: '/api/_better-convex-nuxt/release-fingerprint',
+        handler: resolver.resolve('./runtime/server/api/release-fingerprint'),
+      })
+    }
 
     // 1. Core client plugin — always installed, imports no Better Auth code.
     addPlugin(resolver.resolve('./runtime/plugin.client'))
@@ -362,9 +371,31 @@ export default defineNuxtModule<ModuleOptions>({
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
       addServerHandler({
+        route: '/api/auth/jwks',
+        handler: resolver.resolve('./runtime/server/api/auth/jwks'),
+      })
+      addServerHandler({
         route: '/api/auth/**',
         handler: resolver.resolve('./runtime/server/api/auth/[...]'),
       })
+      addServerHandler({
+        route: '/.well-known/oauth-authorization-server/api/auth',
+        handler: resolver.resolve('./runtime/server/api/auth/authorization-server-metadata'),
+      })
+
+      // Delegated OAuth MCP is opt-in. Both routes use one fixed topology
+      // derived from validated runtime config; no request can select an
+      // upstream URL, resource, or Convex function.
+      if (normalizedAuthConfig.mcp) {
+        addServerHandler({
+          route: '/mcp',
+          handler: resolver.resolve('./runtime/server/mcp/route'),
+        })
+        addServerHandler({
+          route: '/.well-known/oauth-protected-resource/mcp',
+          handler: resolver.resolve('./runtime/server/mcp/protected-resource'),
+        })
+      }
     }
 
     // 3. Type augmentation for IDE support.

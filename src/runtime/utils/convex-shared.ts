@@ -39,7 +39,7 @@ const RESERVED_USER_CLAIMS = new Set([
   'nbf',
   'iat',
   'jti',
-  // Added by @convex-dev/better-auth for backend identity correlation. It is
+  // Added by the Better Convex Nuxt session-token endpoint for backend identity correlation. It is
   // not browser display data and must not be copied into ConvexUser.
   'sessionId',
 ])
@@ -283,7 +283,7 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
   const payload = decodeJwtPayload(token)
   if (!payload) return null
 
-  // @convex-dev/better-auth always signs Better Auth user.id as `sub`, and
+  // Better Convex Nuxt always signs the Better Auth logical user id as `sub`, and
   // Convex uses that same subject for backend identity. Never let a display
   // claim choose a different principal or coerce an object/number into an id.
   const subject = payload.sub

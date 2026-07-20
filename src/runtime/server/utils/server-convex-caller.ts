@@ -172,13 +172,20 @@ async function resolveServerToken(
   const config = readCallerConfig(event)
   const required = normalized.auth === 'required'
 
-  // Explicit cookie/bearer credential: always exchanged, always `required`. A
-  // 401/403 always throws authentication and never falls back to anonymous.
+  if (config.auth === false) {
+    if (normalized.credential || required) throw authenticationRequiredError()
+    return null
+  }
+
+  // Explicit cookie credential: always exchanged, always `required`. A 401/403
+  // always throws authentication and never falls back to anonymous.
   if (normalized.credential) {
     if (!config.siteUrl) throw authenticationRequiredError()
     const result = await exchangeConvexToken({
+      event,
       siteUrl: config.siteUrl,
       credential: normalized.credential,
+      trustedClientIpHeader: config.auth.proxy.trustedClientIpHeader,
     })
     if (result.token) return result.token
     throwExchangeFailure(result)
@@ -202,8 +209,10 @@ async function resolveServerToken(
   }
 
   const result = await exchangeConvexToken({
+    event,
     siteUrl: config.siteUrl,
     credential: { type: 'cookie', value: authCookieHeader },
+    trustedClientIpHeader: config.auth.proxy.trustedClientIpHeader,
   })
 
   if (result.token) return result.token

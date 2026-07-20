@@ -42,9 +42,12 @@ describe('validateServerConvexOptions — explicit principal forces required', (
     expect(
       validateServerConvexOptions({
         auth: 'required',
-        credential: { type: 'bearer', value: 'b' },
+        credential: { type: 'cookie', value: 'better-auth.session_token=b' },
       }),
-    ).toEqual({ auth: 'required', credential: { type: 'bearer', value: 'b' } })
+    ).toEqual({
+      auth: 'required',
+      credential: { type: 'cookie', value: 'better-auth.session_token=b' },
+    })
   })
 })
 
@@ -77,7 +80,7 @@ describe('validateServerConvexOptions — rejected combinations', () => {
     expect(() =>
       validateServerConvexOptions({
         auth: 'none',
-        credential: { type: 'bearer', value: 'b' },
+        credential: { type: 'cookie', value: 'better-auth.session_token=b' },
       }),
     ).toThrow(ServerConvexValidationError)
   })
@@ -115,6 +118,15 @@ describe('validateServerConvexOptions — empty and control-character values', (
       // @ts-expect-error deliberately invalid credential type
       validateServerConvexOptions({ credential: { type: 'basic', value: 'x' } }),
     ).toThrow(ServerConvexValidationError)
+  })
+
+  it('rejects a Better Auth session token presented as a bearer credential', () => {
+    expect(() =>
+      validateServerConvexOptions({
+        // @ts-expect-error bearer credentials are deliberately absent from the public type
+        credential: { type: 'bearer', value: 'session-token' },
+      }),
+    ).toThrow('credential must be a cookie credential')
   })
 })
 

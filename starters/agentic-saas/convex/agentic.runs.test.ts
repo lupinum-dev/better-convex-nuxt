@@ -279,9 +279,9 @@ describe('agentic-saas delegated run lifecycle', () => {
     const member = await createBetterAuthUser(t, 'agent-run-member@example.com')
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+      const auth = await createAuth(ctx)
+      await auth.api.addMember({
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: member.userId,
@@ -327,9 +327,9 @@ describe('agentic-saas delegated run lifecycle', () => {
     const outsider = await createBetterAuthUser(t, 'agent-revoke-outsider@example.com')
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+      const auth = await createAuth(ctx)
+      await auth.api.addMember({
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: viewer.userId,

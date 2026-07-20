@@ -8,6 +8,11 @@ import { components } from './_generated/api'
 import betterAuthSchema from './betterAuth/schema'
 import schema from './schema'
 
+process.env.SITE_URL ??= 'http://localhost:3000'
+process.env.CONVEX_SITE_URL ??= 'http://localhost:3210'
+process.env.BETTER_AUTH_SECRETS ??=
+  '0:agentic-convex-test-secret-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
 export const modules = import.meta.glob('./**/*.ts', {
   eager: false,
 })
@@ -35,11 +40,11 @@ function hasSessionTokenForTest(args: unknown): args is HarnessArgs & {
 
 function assertBetterAuthSessionRecord(
   session: unknown,
-): asserts session is { _id: string; userId: string } {
+): asserts session is { id: string; userId: string } {
   if (
     session === null ||
     typeof session !== 'object' ||
-    typeof (session as Record<string, unknown>)._id !== 'string' ||
+    typeof (session as Record<string, unknown>).id !== 'string' ||
     typeof (session as Record<string, unknown>).userId !== 'string'
   ) {
     throw new Error('Better Auth session token not found in test harness')
@@ -80,8 +85,9 @@ export function initConvexTest() {
 
     const authenticated = t.withIdentity({
       issuer: 'convex-test-better-auth',
+      sid: session.id,
       subject: session.userId,
-      sessionId: session._id,
+      token_use: 'convex-session',
     })
 
     if (kind === 'action') {

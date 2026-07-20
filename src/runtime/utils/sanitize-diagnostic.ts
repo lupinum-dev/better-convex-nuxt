@@ -4,7 +4,8 @@ const ACCESSOR = '[Accessor]'
 const CIRCULAR = '[Circular]'
 const TRUNCATED = '[Truncated]'
 
-const SECRET_KEY = /token|cookie|authorization|secret|password|session|credential/i
+const SECRET_KEY =
+  /token|jwt|bearer|cookie|authorization|secret|password|passphrase|session|credential|(?:api|private|access)[_-]?key/i
 const OMITTED_KEY = /^(?:stack|request|response|headers)$/i
 const MAX_DEPTH = 4
 const MAX_ITEMS = 50

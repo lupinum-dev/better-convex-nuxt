@@ -26,7 +26,6 @@ const outputDir = join(fixtureDir, '.output')
 // "auth" but never these specific markers.
 const FORBIDDEN_MARKERS = [
   'better-auth',
-  '@convex-dev/better-auth',
   'createAuthClient',
   'createConvexAuthEngine',
   'buildAuthProxyUnreachableMessage',

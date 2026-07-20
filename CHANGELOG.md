@@ -2,6 +2,95 @@
 
 ## Unreleased
 
+## v0.7.0-beta.1
+
+- Certify the installed `better-convex-nuxt/server` entry through a production
+  Nitro query, mutation, and action lifecycle, including structured,
+  unstructured, transport, authentication, and diagnostic-redaction evidence.
+- Document safe application-owned server-call diagnostics and the runtime-only
+  `ConvexCallError.cause` boundary without exposing a debug hook, raw cause,
+  additional error kind, or testing API.
+
+## v0.7.0-beta.0
+
+- Preserve a valid local-backend startup timeout through the checked Convex CLI
+  runner without treating it as deployment authority, and reject invalid
+  non-positive values before starting Convex.
+- Document the independent social-login, OAuth authorization-server, and
+  resource-server roles, plus the deployment-wide Convex token-exchange quota
+  and the application-owned authorization boundary.
+- Certify the packed package through a byte-compared npm consumer, a production
+  Nitro authentication lifecycle, and strengthened OAuth/MCP browser evidence.
+- Resolve Convex session-token verification through the deployment-owned HTTP
+  Actions JWKS route, so remote deployments can authenticate local Nuxt apps
+  without requiring a public tunnel to the host origin.
+- Treat credential-free browser token bootstrap as `200 { token: null }` while
+  preserving `401` for malformed, expired, revoked, or unsupported credentials.
+  The client and OpenAPI contracts now expose `string | null`, eliminating the
+  expected anonymous request failure without weakening session validation.
+- Bound every shipped cookie-to-token exchange to its H3 request and one
+  ingress-authenticated client IP. Production auth now requires an explicit
+  single-IP ingress header and a private Nuxt-to-Convex signing secret; the raw
+  public token-exchange helper was removed so consumers cannot collapse users
+  onto one Nitro egress rate-limit identity.
+- Abort and quarantine active and queued uploads when the authenticated identity
+  generation changes, preventing work started by one principal from publishing
+  state or callbacks under the next principal.
+- Enforced canonical compound uniqueness for accounts, organization members,
+  and team members inside the adapter mutation, including update and concurrent
+  create paths. This advances the generated schema fingerprint to v2 as a
+  greenfield hard cut; do not deploy over populated v1 auth data without first
+  auditing and reconciling duplicates.
+- Corrected the local setup contract to use the Convex-managed `.env.local` as
+  the single local deployment configuration, with Nuxt commands loading it
+  explicitly instead of documenting a competing `.env` file. A checked Convex
+  CLI runner now parses that authority once, rejects ambiguous selectors and
+  target overrides, removes inherited Convex settings, and permits deploy only
+  with a production deployment-scoped key or exact self-hosted authority.
+- Expanded diagnostic redaction for common consumer-defined JWT, API-key,
+  private-key, bearer, and passphrase labels.
+
+### Authentication platform hard cut
+
+- Replaced the legacy component dependency with one package-owned Better Auth
+  component, one generated schema contract, and one adapter implementation used
+  by both the packaged and advanced local-component modes.
+- Added persisted-session-only Convex JWT exchange, additive JWKS rotation,
+  strict same-origin proxying, database-backed rate limiting, versioned secrets,
+  protected credential storage, and real-backend concurrency invariants.
+- Regenerated and freshness-gated the Team and Agentic SaaS local-component
+  schemas from their canonical Better Auth options; local-component consumers
+  must regenerate schema and metadata together when plugin tables change. Their
+  final component schemas now use those generated tables directly, so untracked
+  hand-added indexes cannot diverge from the adapter descriptor. The generator
+  now owns the organization membership, team membership, pending-invitation, and
+  `createdAt` sort indexes used by live authorization and pagination.
+- Added the constrained OAuth authorization-server beta and delegated MCP path
+  with authorization code plus PKCE, exact issuer/client/resource/subject/scope
+  binding, live Convex authorization, consent and revocation, and no refresh or
+  dynamic-registration compatibility path.
+- Added one internal, time-bounded `URL.canParse` capability fill because the
+  pinned Convex isolate lacks the primitive required by the pinned official
+  OAuth Provider. Real-backend evidence pins the removal trigger; this is not a
+  second auth or protocol path.
+
+### Release and verification
+
+- Added immutable candidate artifacts, candidate-rooted SBOM and provenance
+  evidence, clean-consumer verification, security sentinels, fuzzing, mutation
+  testing, OAuth/MCP interoperability harnesses, and protected cloud rehearsal.
+- Added safe, opt-in structured auth diagnostics and an exact-tarball
+  pkg.pr.new preview workflow for black-box consumer testing before npm
+  publication.
+- Added an explicit destructive `external-disposable` MCP evidence mode for a
+  fresh already-running preview deployment; the self-contained local fixture
+  remains the default and no external lifecycle or cleanup path is inferred.
+- Made exact-tarball MCP fixtures derive their isolated runtime links from the
+  product and starter manifests, so workspace ancestor resolution cannot hide a
+  missing production dependency.
+- Removed migration documentation and every maintained legacy runtime path. This
+  is a greenfield-only beta and does not migrate an existing auth database.
+
 ## v0.6.1
 
 [compare changes](https://github.com/lupinum-dev/better-convex-nuxt/compare/v0.6.0...v0.6.1)
@@ -140,8 +229,9 @@ consumers will need source changes.
 - `serverConvex` is now the only public server call API. Removed
   `serverConvexQuery`, `serverConvexMutation`, `serverConvexAction`, and
   `useConvexCall`.
-- Cookie and bearer credential exchange is bounded, never follows a redirect
-  with the credential attached, and never logs secrets.
+- Better Auth cookie credential exchange is bounded, never follows a redirect
+  with the credential attached, and never logs secrets. Raw Better Auth session
+  tokens are not accepted as public bearer credentials.
 - Removed the built-in `permissions` module option (both the `true` and
   `false` states) and the `createPermissions` permissions runtime. Permission
   rules are application/Convex policy, not library machinery. Replace package

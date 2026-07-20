@@ -47,6 +47,8 @@ export interface ConvexRuntimeConfig {
   readonly auth:
     | false
     | {
+        readonly publicOrigin: string
+        readonly mcp: boolean
         readonly proxy: Readonly<{
           maxRequestBodyBytes: number
           maxResponseBodyBytes: number
@@ -113,6 +115,8 @@ export function toPublicConvexRuntimeConfig(
     internal.auth === false
       ? (false as const)
       : {
+          publicOrigin: internal.auth.publicOrigin,
+          mcp: internal.auth.mcp,
           proxy: internal.auth.proxy,
           routeProtection: internal.auth.routeProtection,
         }

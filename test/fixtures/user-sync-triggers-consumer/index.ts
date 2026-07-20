@@ -70,10 +70,10 @@ const db = {
 
 const ctx = { db }
 
-const triggers = createUserSyncTriggers<{ _id: string; name?: string | null }, AppUser>({
+const triggers = createUserSyncTriggers<{ id: string; name?: string | null }, AppUser>({
   table: 'appUsers',
   index: 'by_auth_id',
-  createDoc: ({ user }) => ({ authId: user._id, name: user.name ?? null }),
+  createDoc: ({ user }) => ({ authId: user.id, name: user.name ?? null }),
   patchDoc: ({ user }) => ({ name: user.name ?? null }),
 })
 
@@ -82,29 +82,29 @@ function rowCount(): number {
 }
 
 async function main() {
-  await triggers.user.onCreate(ctx, { _id: 'auth_1', name: 'Ada' })
+  await triggers.user.onCreate(ctx, { id: 'auth_1', name: 'Ada' })
   const afterCreate = rowCount()
   if (afterCreate !== 1)
     fail(`expected exactly one projected row after onCreate, got ${afterCreate}`)
 
   // onCreate is idempotent: a second delivery for the same auth id must not insert twice.
-  await triggers.user.onCreate(ctx, { _id: 'auth_1', name: 'Ada' })
+  await triggers.user.onCreate(ctx, { id: 'auth_1', name: 'Ada' })
   const afterDuplicateCreate = rowCount()
   if (afterDuplicateCreate !== 1) fail(`onCreate must not duplicate an existing projection row`)
 
   await triggers.user.onUpdate(
     ctx,
-    { _id: 'auth_1', name: 'Ada Lovelace' },
-    { _id: 'auth_1', name: 'Ada' },
+    { id: 'auth_1', name: 'Ada Lovelace' },
+    { id: 'auth_1', name: 'Ada' },
   )
   const updated = [...rows.values()][0]
   if (updated?.name !== 'Ada Lovelace') fail(`onUpdate did not apply patchDoc`)
 
-  await triggers.user.onDelete(ctx, { _id: 'auth_1', name: 'Ada Lovelace' })
+  await triggers.user.onDelete(ctx, { id: 'auth_1', name: 'Ada Lovelace' })
   const afterDelete = rowCount()
   if (afterDelete !== 0) fail(`onDelete did not remove the projected row`)
 
-  const rebuildResult = await triggers.user.rebuild(ctx, [{ _id: 'auth_2', name: 'Grace' }])
+  const rebuildResult = await triggers.user.rebuild(ctx, [{ id: 'auth_2', name: 'Grace' }])
   const afterRebuild = rowCount()
   if (rebuildResult.inserted !== 1 || afterRebuild !== 1) {
     fail(`rebuild did not insert the missing projection row`)

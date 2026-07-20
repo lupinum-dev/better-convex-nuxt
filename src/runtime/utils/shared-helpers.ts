@@ -5,6 +5,10 @@
  * consistent behavior across the module.
  */
 
+import { isBetterAuthCookieName } from '../shared/auth-cookie'
+
+export { hasBetterAuthCookie, isBetterAuthCookieName } from '../shared/auth-cookie'
+
 // ============================================================================
 // Deep Equality & Comparison
 // ============================================================================
@@ -217,13 +221,6 @@ function parseCookiePairs(cookieHeader: string | null | undefined): ParsedCookie
 
 function parseCookieHeader(cookieHeader: string | null | undefined): Map<string, ParsedCookiePair> {
   return new Map(parseCookiePairs(cookieHeader).map((pair) => [pair.name, pair]))
-}
-
-/** The only cookie namespace supported by the Nuxt auth boundary. */
-export function isBetterAuthCookieName(name: string): boolean {
-  if (!COOKIE_NAME_PATTERN.test(name)) return false
-  const unprefixed = name.startsWith('__Secure-') ? name.slice('__Secure-'.length) : name
-  return unprefixed.startsWith('better-auth.') && unprefixed.length > 'better-auth.'.length
 }
 
 export function getBetterAuthSessionToken(cookieHeader: string | null | undefined): string | null {

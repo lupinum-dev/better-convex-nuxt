@@ -5,12 +5,17 @@
  */
 
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { ref, computed, onScopeDispose, getCurrentScope, type Ref, type ComputedRef } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, shallowRef, type ComputedRef } from 'vue'
 
 import { useNuxtApp } from '#imports'
 
+import {
+  createIdentityChangedError,
+  isIdentityChangedError,
+} from '../client/identity-changed-error'
 import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getFunctionName } from '../utils/convex-shared'
 import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
@@ -27,6 +32,20 @@ export type { UploadProgressInfo } from '../utils/upload-core'
  * - 'error': upload failed
  */
 export type UploadStatus = 'idle' | 'pending' | 'success' | 'error'
+
+interface UploadViewState {
+  status: UploadStatus
+  error: ConvexCallError | null
+  data: string | undefined
+  progress: number
+}
+
+const INITIAL_UPLOAD_VIEW_STATE: UploadViewState = {
+  status: 'idle',
+  error: null,
+  data: undefined,
+  progress: 0,
+}
 
 /**
  * Return value from useConvexFileUpload
@@ -46,7 +65,7 @@ export interface UseConvexFileUploadReturn<Mutation extends FunctionReference<'m
    * StorageId from the last successful upload.
    * undefined if upload hasn't succeeded yet.
    */
-  data: Ref<string | undefined>
+  data: ComputedRef<string | undefined>
 
   /**
    * Upload status for explicit state management.
@@ -63,13 +82,13 @@ export interface UseConvexFileUploadReturn<Mutation extends FunctionReference<'m
    * Upload progress from 0 to 100.
    * Only updated during pending state.
    */
-  progress: Ref<number>
+  progress: ComputedRef<number>
 
   /**
    * Error from the last upload attempt as the normalized {@link ConvexCallError}.
    * null if no error or upload hasn't been called.
    */
-  error: Ref<ConvexCallError | null>
+  error: ComputedRef<ConvexCallError | null>
 
   /**
    * Cancel any in-progress upload and reset state.
@@ -221,58 +240,69 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   options?: UseConvexFileUploadOptions,
 ): UseConvexFileUploadReturn<Mutation> {
   const fnName = getFunctionName(generateUploadUrlMutation)
+  const currentScope = getCurrentScope()
+  assertConvexComposableScope('useConvexFileUpload', import.meta.client, currentScope)
 
   const nuxtApp = useNuxtApp()
-  const owner = readConvexRuntimeContext(nuxtApp)?.owner
+  const runtime = readConvexRuntimeContext(nuxtApp)
+  const owner = runtime?.owner
+  const authPort = runtime?.getAuthCoordinator()?.port
   const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
+  const getIdentityGeneration = () => authPort?.snapshot().identityGeneration ?? 0
 
-  // Internal state
-  const _status = ref<UploadStatus>('idle')
-  const error = ref<ConvexCallError | null>(null) as Ref<ConvexCallError | null>
-  const data = ref<string | undefined>(undefined) as Ref<string | undefined>
-  const progress = ref(0)
+  // One snapshot is the canonical upload view state. Publishing a transition
+  // atomically prevents a synchronous watcher from observing (or re-entering
+  // through) a partially-cleared status/error/data/progress combination.
+  const viewState = shallowRef<UploadViewState>(INITIAL_UPLOAD_VIEW_STATE)
 
-  // Track in-flight upload for cancellation
-  let currentAbortController: AbortController | null = null
+  let currentAttempt: AbortController | null = null
+  let observedIdentityGeneration = getIdentityGeneration()
 
   // Computed - matches useConvexMutation pattern
-  const status = computed(() => _status.value)
-  const pending = computed(() => _status.value === 'pending')
+  const status = computed(() => viewState.value.status)
+  const pending = computed(() => viewState.value.status === 'pending')
+  const error = computed(() => viewState.value.error)
+  const data = computed(() => viewState.value.data)
+  const progress = computed(() => viewState.value.progress)
 
-  // Cancel function - aborts upload and resets state
-  const cancel = () => {
-    if (currentAbortController) {
-      currentAbortController.abort()
-      currentAbortController = null
-    }
-    _status.value = 'idle'
-    error.value = null
-    data.value = undefined
-    progress.value = 0
+  const clearUploadState = (
+    error: unknown = new DOMException('Upload cancelled', 'AbortError'),
+  ) => {
+    // Snapshot A before publishing idle. A synchronous watcher may start B
+    // while the ref setter runs; cleanup below must only retire the snapshot.
+    const attempt = currentAttempt
+    viewState.value = INITIAL_UPLOAD_VIEW_STATE
+    if (currentAttempt === attempt) currentAttempt = null
+    attempt?.abort(error)
   }
 
-  // Cleanup on scope dispose (component unmount)
-  const currentScope = getCurrentScope()
+  // Cancel function - aborts upload and resets state
+  const cancel = clearUploadState
+
+  // Cleanup on scope dispose (component unmount), and retire all retained or
+  // in-flight state synchronously when the authenticated principal changes.
   if (currentScope) {
+    const stopIdentitySubscription = authPort?.subscribe(() => {
+      const generation = getIdentityGeneration()
+      if (generation === observedIdentityGeneration) return
+      observedIdentityGeneration = generation
+      clearUploadState(createIdentityChangedError('upload'))
+    })
     onScopeDispose(() => {
-      if (currentAbortController) {
-        currentAbortController.abort()
-        currentAbortController = null
-      }
+      stopIdentitySubscription?.()
+      clearUploadState()
     })
   }
 
   // The upload function
   const upload = async (file: File, mutationArgs?: FunctionArgs<Mutation>): Promise<string> => {
     const startTime = Date.now()
+    const identityGeneration = getIdentityGeneration()
+    const identityChanged = () => getIdentityGeneration() !== identityGeneration
 
-    // Guard on the status ref, not `currentAbortController` — the controller
-    // used to be assigned only after the URL-request mutation resolved, so a
-    // second upload() call made during that mutation phase saw a null
-    // controller and slipped through, interleaving with the first call on
-    // the shared status/progress/data refs. Reject immediately
-    // without touching those refs; they belong to the in-flight upload.
-    if (_status.value === 'pending') {
+    // The published state is the synchronous concurrency guard, including the
+    // upload-URL phase before XHR begins.
+    if (viewState.value.status === 'pending') {
       const err = new ConvexCallError({
         kind: 'unknown',
         message: 'Upload already in progress for this composable instance',
@@ -287,47 +317,75 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       throw err
     }
 
-    // Client-side validation before uploading
-    if (options?.maxSize && file.size > options.maxSize) {
-      const err = new ConvexCallError({
-        kind: 'unknown',
-        message: `File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`,
+    const requireCurrentIdentity = () => {
+      if (identityChanged()) throw createIdentityChangedError('upload')
+    }
+
+    const publishTerminalState = (next: UploadViewState) => {
+      requireCurrentIdentity()
+      viewState.value = next
+      // A same-identity watcher may legitimately start B here. Only an
+      // identity transition invalidates A's already-terminal result.
+      requireCurrentIdentity()
+    }
+
+    const publishError = (rawError: unknown): ConvexCallError => {
+      const err = normalizeConvexError(rawError)
+      publishTerminalState({
+        ...viewState.value,
+        status: 'error',
+        error: err,
       })
-      _status.value = 'error'
-      error.value = err
+
       logger.upload({
         name: fnName,
         event: 'error',
         filename: file.name,
         size: file.size,
+        duration: Date.now() - startTime,
         error: err,
       })
+
       options?.onError?.(err, file)
-      throw err
+      requireCurrentIdentity()
+      return err
     }
 
-    if (options?.allowedTypes && !isFileTypeAllowed(file.type, options.allowedTypes)) {
-      const err = new ConvexCallError({
+    // Client-side validation before uploading
+    let validationError: ConvexCallError | null = null
+    if (options?.maxSize && file.size > options.maxSize) {
+      validationError = new ConvexCallError({
+        kind: 'unknown',
+        message: `File size ${file.size} bytes exceeds maximum ${options.maxSize} bytes`,
+      })
+    } else if (options?.allowedTypes && !isFileTypeAllowed(file.type, options.allowedTypes)) {
+      validationError = new ConvexCallError({
         kind: 'unknown',
         message: `File type "${file.type}" not allowed. Allowed: ${options.allowedTypes.join(', ')}`,
       })
-      _status.value = 'error'
-      error.value = err
-      logger.upload({ name: fnName, event: 'error', filename: file.name, error: err })
-      options?.onError?.(err, file)
-      throw err
+    }
+    if (validationError) throw publishError(validationError)
+
+    const attempt = new AbortController()
+    currentAttempt = attempt
+
+    const isCurrentUpload = () =>
+      currentAttempt === attempt && !identityChanged() && !attempt.signal.aborted
+    const requireCurrentUpload = () => {
+      requireCurrentIdentity()
+      if (!isCurrentUpload()) throw new DOMException('Upload cancelled', 'AbortError')
     }
 
-    _status.value = 'pending'
-    error.value = null
-    progress.value = 0
-
-    // Create the AbortController before requesting the URL so cancel() can
-    // cover the complete upload lifecycle.
-    const controller = new AbortController()
-    currentAbortController = controller
-
     try {
+      requireCurrentUpload()
+      viewState.value = {
+        ...viewState.value,
+        status: 'pending',
+        error: null,
+        progress: 0,
+      }
+      requireCurrentUpload()
+
       if (!owner) {
         throw new ConvexCallError({
           kind: 'unknown',
@@ -337,31 +395,42 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       }
 
       // Step 1: Get an upload URL through the stable owner handle.
-      const postUrl = await requestUploadUrl(
-        owner.handle,
-        generateUploadUrlMutation,
-        (mutationArgs ?? {}) as FunctionArgs<Mutation>,
-      )
+      const cancelled = new Promise<never>((_, reject) => {
+        attempt.signal.addEventListener('abort', () => reject(attempt.signal.reason), {
+          once: true,
+        })
+      })
+      const postUrl = await Promise.race([
+        requestUploadUrl(
+          owner.handle,
+          generateUploadUrlMutation,
+          (mutationArgs ?? {}) as FunctionArgs<Mutation>,
+        ),
+        cancelled,
+      ])
 
-      // cancel() may have run while the URL-request mutation was in flight.
-      // The controller has no XHR to abort yet, so check the signal explicitly
-      // and bail out before starting the XHR — cancel() already reset state to
-      // 'idle'; this rethrow (caught below as an AbortError) leaves it there.
-      if (controller.signal.aborted) {
-        throw new DOMException('Upload cancelled', 'AbortError')
-      }
+      requireCurrentUpload()
 
       // Step 2: Upload file via XHR for progress tracking
       const storageId = await uploadFileViaXhr(postUrl, file, {
-        signal: controller.signal,
+        signal: attempt.signal,
         onProgress: (info) => {
-          progress.value = info.percent
+          if (!isCurrentUpload()) return
+          viewState.value = {
+            ...viewState.value,
+            progress: info.percent,
+          }
+          if (!isCurrentUpload()) return
           options?.onProgress?.(info, file)
         },
       })
 
-      _status.value = 'success'
-      data.value = storageId
+      requireCurrentUpload()
+      publishTerminalState({
+        ...viewState.value,
+        status: 'success',
+        data: storageId,
+      })
 
       const duration = Date.now() - startTime
       logger.upload({
@@ -373,38 +442,30 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       })
 
       options?.onSuccess?.(storageId, file)
+      requireCurrentIdentity()
       return storageId
     } catch (e) {
+      if (identityChanged() || isIdentityChangedError(e)) {
+        if (currentAttempt === attempt) {
+          clearUploadState(createIdentityChangedError('upload'))
+        }
+        throw isIdentityChangedError(e) ? e : createIdentityChangedError('upload')
+      }
+      if (currentAttempt !== attempt) {
+        throw e instanceof DOMException && e.name === 'AbortError'
+          ? e
+          : new DOMException('Upload cancelled', 'AbortError')
+      }
       // Don't set error state for user-initiated cancellation
       if (e instanceof DOMException && e.name === 'AbortError') {
         throw e
       }
 
-      // Normalize at the upload boundary : transport failures from the
-      // XHR layer pass through unchanged; anything else is classified once.
-      const err = normalizeConvexError(e)
-      _status.value = 'error'
-      error.value = err
-
-      const duration = Date.now() - startTime
-      logger.upload({
-        name: fnName,
-        event: 'error',
-        filename: file.name,
-        size: file.size,
-        duration,
-        error: err,
-      })
-
-      options?.onError?.(err, file)
-      throw err
+      // Normalize and publish every validation/transport failure through one
+      // identity-guarded path.
+      throw publishError(e)
     } finally {
-      // Only clear the slot if it's still this call's controller — a
-      // cancel()-during-URL-phase throw can settle after a subsequent
-      // upload() has already started and installed its own controller.
-      if (currentAbortController === controller) {
-        currentAbortController = null
-      }
+      if (currentAttempt === attempt) currentAttempt = null
     }
   }
 

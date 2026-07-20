@@ -9,9 +9,8 @@
     "typecheck:base-fallback": "tsc -p base-fallback/tsconfig.base-fallback.json"
   },
   "devDependencies": {
-    "@better-auth/api-key": "1.6.23",
-    "@convex-dev/better-auth": "0.12.5",
-    "better-auth": "1.6.23",
+    "@better-auth/api-key": "1.7.0-rc.1",
+    "better-auth": "1.7.0-rc.1",
     "better-convex-nuxt": "file:./better-convex-nuxt.tgz",
     "convex": "1.42.2",
     "nuxt": "4.4.8",

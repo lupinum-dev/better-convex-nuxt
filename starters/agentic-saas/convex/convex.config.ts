@@ -5,6 +5,6 @@ import betterAuth from './betterAuth/convex.config'
 
 const app = defineApp()
 app.use(agent)
-app.use(betterAuth)
+app.use(betterAuth, { name: 'betterAuth' })
 
 export default app

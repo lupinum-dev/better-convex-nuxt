@@ -30,9 +30,9 @@ describe('agentic-saas human review workflows', () => {
     })
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.updateMemberRole({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberId: adminMember.id,
@@ -64,9 +64,9 @@ describe('agentic-saas human review workflows', () => {
     expect(rows.usage).toHaveLength(0)
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.updateMemberRole({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberId: adminMember.id,
@@ -82,9 +82,9 @@ describe('agentic-saas human review workflows', () => {
     })
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.removeMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberIdOrEmail: adminMember.id,
@@ -250,9 +250,9 @@ describe('agentic-saas human review workflows', () => {
     const member = await createBetterAuthUser(t, 'agent-budget-attacker@example.com')
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: member.userId,
@@ -659,15 +659,16 @@ describe('agentic-saas human review workflows', () => {
     const t = initConvexTest()
     const { owner, organizationId } = await createBetterAuthOrganization(t)
     const otherOwner = await createBetterAuthUser(t, 'other-approval-owner@example.com')
-    const otherOrganization = await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.createOrganization({
-        headers: new Headers({ authorization: `Bearer ${otherOwner.token}` }),
+    const otherOrganizationId = await t.run(async (ctx) => {
+      const auth = await createAuth(ctx)
+      const organization = await auth.api.createOrganization({
+        headers: new Headers({ cookie: otherOwner.sessionCookie }),
         body: {
           name: 'Other Approval Org',
           slug: `other-approval-org-${Math.random().toString(36).slice(2)}`,
         },
       })
+      return organization.id
     })
     const agentRunId = await startBetterAuthRun(t, {
       organizationId,
@@ -706,7 +707,7 @@ describe('agentic-saas human review workflows', () => {
 
     await expect(
       t.mutation(publicApi.projectDrafts.approve, {
-        organizationId: otherOrganization.id,
+        organizationId: otherOrganizationId,
         draftId: pendingDraftId,
         sessionTokenForTest: otherOwner.token,
       }),
@@ -714,7 +715,7 @@ describe('agentic-saas human review workflows', () => {
 
     await expect(
       t.mutation(publicApi.projectDeletionRequests.approve, {
-        organizationId: otherOrganization.id,
+        organizationId: otherOrganizationId,
         deletionRequestId,
         sessionTokenForTest: otherOwner.token,
       }),
@@ -754,7 +755,7 @@ describe('agentic-saas human review workflows', () => {
       deletionRequest: await ctx.db.get(deletionRequestId),
       otherRecords: await ctx.db
         .query('productRecords')
-        .withIndex('by_org', (q) => q.eq('organizationId', otherOrganization.id))
+        .withIndex('by_org', (q) => q.eq('organizationId', otherOrganizationId))
         .collect(),
     }))
 
@@ -1158,9 +1159,9 @@ describe('agentic-saas human review workflows', () => {
     await markRunRunningWithThread(t, deleteRunId)
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.updateMemberRole({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberId: adminMember.id,
@@ -1198,9 +1199,9 @@ describe('agentic-saas human review workflows', () => {
     await markRunRunningWithThread(t, draftRunId)
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.updateMemberRole({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberId: adminMember.id,
@@ -1241,9 +1242,9 @@ describe('agentic-saas human review workflows', () => {
     await markRunRunningWithThread(t, deleteRunId)
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.removeMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           memberIdOrEmail: adminMember.id,

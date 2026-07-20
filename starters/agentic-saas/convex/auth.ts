@@ -1,127 +1,72 @@
-import { createClient, type GenericCtx } from '@convex-dev/better-auth'
-import { convex } from '@convex-dev/better-auth/plugins'
-import { betterAuth, type BetterAuthOptions } from 'better-auth'
-import { createAccessControl, organization } from 'better-auth/plugins'
+import { betterAuth } from 'better-auth'
+import {
+  convexAuth,
+  createAuthComponent,
+  getConvexAuthProvider,
+  requireAuthOrigin,
+  type AuthCtx,
+} from 'better-convex-nuxt/convex-auth'
 
 import { components } from './_generated/api'
 import type { DataModel } from './_generated/dataModel'
-import authConfig from './auth.config'
-import authSchema from './betterAuth/schema'
+import {
+  memberRole,
+  organizationPermissionOptions,
+  ownerRole,
+  projectAccessControl,
+  viewerRole,
+} from './betterAuth/access-control'
+import { createAgenticAuthPlugins } from './betterAuth/schemaPlugins'
 
-export const projectAccessControl = createAccessControl({
-  organization: ['update', 'delete'],
-  member: ['create', 'update', 'delete'],
-  invitation: ['create', 'cancel'],
-  project: ['create', 'read', 'delete'],
-})
+export { memberRole, organizationPermissionOptions, ownerRole, projectAccessControl, viewerRole }
 
-export const ownerRole = projectAccessControl.newRole({
-  organization: ['update', 'delete'],
-  member: ['create', 'update', 'delete'],
-  invitation: ['create', 'cancel'],
-  project: ['create', 'read', 'delete'],
-})
+export const authComponent = createAuthComponent<DataModel>(components.betterAuth)
 
-export const memberRole = projectAccessControl.newRole({
-  organization: [],
-  member: [],
-  invitation: [],
-  project: ['create', 'read'],
-})
-
-export const viewerRole = projectAccessControl.newRole({
-  organization: [],
-  member: [],
-  invitation: [],
-  project: ['read'],
-})
-
-export const organizationPermissionOptions = {
-  ac: projectAccessControl,
-  roles: {
-    owner: ownerRole,
-    admin: ownerRole,
-    member: memberRole,
-    viewer: viewerRole,
-  },
+function assertAuthSecretsConfigured(): void {
+  if (!process.env.BETTER_AUTH_SECRETS) throw new Error('BETTER_AUTH_SECRETS is required')
 }
 
-export const authComponent = createClient<DataModel, typeof authSchema>(components.betterAuth, {
-  local: {
-    schema: authSchema,
-  },
-})
+// Pre-traffic operator ceremony: provision/rotate the one official JWT key graph.
+export const { rotateSigningKey } = authComponent.jwksOperatorFunctions(createAuth)
 
-function isIpv4Loopback(hostname: string): boolean {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname)
-  if (!match) return false
-  const octets = match.slice(1).map(Number)
-  return octets.every((octet) => octet <= 255) && octets[0] === 127
-}
+export async function createAuth(ctx: AuthCtx<DataModel>) {
+  try {
+    const siteUrl = requireAuthOrigin('SITE_URL')
+    const convexSiteUrl = requireAuthOrigin('CONVEX_SITE_URL')
+    const authIssuer = `${siteUrl}/api/auth`
+    assertAuthSecretsConfigured()
 
-function isLocalSiteOrigin(siteUrl: string): boolean {
-  const host = new URL(siteUrl).hostname.toLowerCase()
-  return (
-    host === 'localhost' ||
-    host.endsWith('.localhost') ||
-    host === '[::1]' ||
-    host === '::1' ||
-    isIpv4Loopback(host)
-  )
-}
-
-function assertExactSiteOrigin(siteUrl: string): void {
-  const parsed = new URL(siteUrl)
-  if (parsed.origin !== siteUrl) {
-    throw new Error('SITE_URL must be an exact origin without a path, query, or fragment')
+    const auth = betterAuth({
+      account: { encryptOAuthTokens: true, storeAccountCookie: false },
+      advanced: { ipAddress: { ipAddressHeaders: ['x-bcn-verified-client-ip'] } },
+      basePath: '/api/auth',
+      baseURL: siteUrl,
+      database: authComponent.adapter(ctx),
+      disabledPaths: [
+        '/token',
+        '/get-access-token',
+        '/refresh-token',
+        '/.well-known/openid-configuration',
+        '/oauth2/register',
+        '/oauth2/introspect',
+        '/oauth2/userinfo',
+        '/oauth2/end-session',
+      ],
+      emailAndPassword: { autoSignIn: false, enabled: true, minPasswordLength: 15 },
+      plugins: [
+        ...createAgenticAuthPlugins(authIssuer),
+        convexAuth({
+          authConfig: { providers: [getConvexAuthProvider()] },
+          sessionJwt: { audience: 'convex', expirationTime: '15m', issuer: convexSiteUrl },
+        }),
+      ],
+      rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
+      trustedOrigins: [siteUrl],
+      verification: { storeIdentifier: 'hashed' },
+    })
+    await auth.$context
+    return auth
+  } catch {
+    throw new Error('AUTH_CONFIG_INVALID')
   }
-  if (
-    parsed.protocol !== 'https:' &&
-    !(parsed.protocol === 'http:' && isLocalSiteOrigin(siteUrl))
-  ) {
-    throw new Error('SITE_URL must use HTTPS except for loopback HTTP')
-  }
-}
-
-function requireStrongAuthSecret(): string {
-  const secret = process.env.BETTER_AUTH_SECRET
-  if (!secret) throw new Error('BETTER_AUTH_SECRET is required')
-  if (secret.trim() !== secret || secret.length < 32) {
-    throw new Error(
-      'BETTER_AUTH_SECRET must be at least 32 characters and generated by a secure random source',
-    )
-  }
-  return secret
-}
-
-export function createAuthOptions(ctx: GenericCtx<DataModel>) {
-  const siteUrl = process.env.SITE_URL ?? 'http://localhost:3000'
-  assertExactSiteOrigin(siteUrl)
-
-  return {
-    baseURL: siteUrl,
-    secret: process.env.BETTER_AUTH_SECRET ?? 'agentic-saas-local-dev-secret-at-least-32-chars',
-    database: authComponent.adapter(ctx),
-    emailAndPassword: {
-      enabled: true,
-      minPasswordLength: 15,
-      autoSignIn: false,
-    },
-    plugins: [
-      organization({
-        ...organizationPermissionOptions,
-        requireEmailVerificationOnInvitation: true,
-      }),
-      convex({ authConfig }),
-    ],
-    trustedOrigins: [siteUrl],
-  } satisfies BetterAuthOptions
-}
-
-export function createAuth(ctx: GenericCtx<DataModel>) {
-  const siteUrl = process.env.SITE_URL
-  if (!siteUrl) throw new Error('SITE_URL is required')
-  requireStrongAuthSecret()
-  assertExactSiteOrigin(siteUrl)
-  return betterAuth(createAuthOptions(ctx))
 }

@@ -12,7 +12,10 @@ import type { ConvexUser } from '../utils/types'
  */
 export interface ConvexTokenSource {
   convex: {
-    token: (options?: unknown) => Promise<{ data?: { token: string } | null; error?: unknown }>
+    token: (options?: unknown) => Promise<{
+      data?: { token: string | null } | null
+      error?: unknown
+    }>
   }
 }
 
@@ -36,6 +39,7 @@ const TOKEN_EXCHANGE_TIMED_OUT = Symbol('TOKEN_EXCHANGE_TIMED_OUT')
 const TOKEN_EXCHANGE_CANCELLED = Symbol('TOKEN_EXCHANGE_CANCELLED')
 const TOKEN_EXCHANGE_TIMEOUT_MESSAGE = 'Convex authentication token exchange timed out'
 const TOKEN_EXCHANGE_CANCELLED_MESSAGE = 'Convex authentication token exchange was cancelled'
+const TOKEN_EXCHANGE_FAILURE_MESSAGE = 'Authentication is temporarily unavailable'
 
 /**
  * A token is retainable only while it carries a valid required `exp` still in
@@ -59,11 +63,11 @@ export function decodeFetchedIdentity(token: string): FetchedIdentity | null {
 
 /**
  * The outcome of one total token fetch. `identity: null` with `authError: null`
- * is a clean anonymous result — reported both when the exchange returns no token
- * and when it returns a definitive 401/403 (no session to exchange; the session
- * is treated as absent/ended and any prior error cleared). `authError` is set
- * only for a genuine failure: a token that decodes without a stable user id, or a
- * transient transport failure that exhausts the retry loop. `definitive`
+ * is a clean anonymous result when the exchange succeeds with no token. A
+ * definitive 401/403 means presented credentials were rejected and is reported
+ * as an authentication error. `authError` is also set when a token decodes
+ * without a stable user id, or a transient transport failure exhausts the retry
+ * loop. `definitive`
  * distinguishes such a transient (non-definitive) failure — over which a usable
  * identity is retained — from the definitive verdicts above. Never rejects.
  */
@@ -143,19 +147,14 @@ export async function fetchConvexToken(
           break
         }
         if (response.error) {
-          // A 401/403 is Better Auth reporting that there is no session to
-          // exchange — a definitive anonymous outcome, identical to an absent
-          // token, NOT an authentication failure. `@convex-dev/better-auth`'s
-          // `/convex/token` returns `401 UNAUTHORIZED` for every session-less
-          // request, so surfacing it as an `authError` would push every anonymous
-          // visitor's `optional`/`required` queries into the auth-error gate branch
-          // (which never executes and tears the live subscription down). Settle
-          // anonymous with the error cleared, matching this outcome's documented
-          // 401/403 contract and the server plugin's no-cookie settlement.
           if (isDefinitiveAuthStatus(response.error)) {
-            return { identity: null, authError: null, definitive: true }
+            return {
+              identity: null,
+              authError: 'Authentication credentials are invalid or expired',
+              definitive: true,
+            }
           }
-          lastError = normalizeErrorMessage(response.error)
+          lastError = TOKEN_EXCHANGE_FAILURE_MESSAGE
           continue
         }
         const token = response.data?.token
@@ -177,7 +176,7 @@ export async function fetchConvexToken(
           }
         }
         return { identity, authError: null, definitive: false }
-      } catch (error) {
+      } catch {
         if (externallyCancelled) {
           lastError = TOKEN_EXCHANGE_CANCELLED_MESSAGE
           break
@@ -186,7 +185,7 @@ export async function fetchConvexToken(
           lastError = TOKEN_EXCHANGE_TIMEOUT_MESSAGE
           break
         }
-        lastError = normalizeErrorMessage(error)
+        lastError = TOKEN_EXCHANGE_FAILURE_MESSAGE
       }
     }
   } finally {
@@ -197,7 +196,7 @@ export async function fetchConvexToken(
   // Exhausted transient retries: a still-usable identity may be retained.
   return {
     identity: null,
-    authError: lastError ?? 'Convex authentication failed',
+    authError: lastError ?? TOKEN_EXCHANGE_FAILURE_MESSAGE,
     definitive: false,
   }
 }
@@ -207,14 +206,4 @@ function isDefinitiveAuthStatus(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const status = (error as { status?: unknown }).status
   return status === 401 || status === 403
-}
-
-function normalizeErrorMessage(value: unknown): string {
-  if (value instanceof Error) return value.message
-  if (value && typeof value === 'object' && 'message' in value) {
-    const message = (value as { message: unknown }).message
-    if (typeof message === 'string' && message.length > 0) return message
-  }
-  if (typeof value === 'string' && value.length > 0) return value
-  return 'Convex authentication failed'
 }

@@ -1,9 +1,9 @@
 import { ConvexError } from 'convex/values'
 
+import { components } from './_generated/api'
 import type { MutationCtx, QueryCtx } from './_generated/server'
-import { authComponent, createAuth } from './auth'
-
-type ProjectPermission = 'create' | 'read' | 'delete'
+import { authComponent } from './auth'
+import { roleAllowsProjectPermissions, type ProjectPermission } from './betterAuth/access-control'
 
 export async function requireBetterAuthProjectPermissions(
   ctx: QueryCtx | MutationCtx,
@@ -17,29 +17,22 @@ export async function requireBetterAuthProjectPermissions(
     throw new ConvexError('At least one project permission is required')
   }
 
-  const auth = createAuth(ctx)
-  const headers = await authComponent.getHeaders(ctx)
-  const session = await auth.api.getSession({ headers })
-  if (!session) {
-    throw new ConvexError('Unauthenticated')
-  }
-
-  const allowed = await auth.api.hasPermission({
-    headers,
-    body: {
-      organizationId: args.organizationId,
-      permissions: {
-        project: args.permissions,
-      },
-    },
-  })
-
-  if (!allowed.success) {
+  const user = await authComponent.getAuthUser(ctx)
+  if (typeof user.id !== 'string') throw new ConvexError('Unauthenticated')
+  const member = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: 'member',
+    where: [
+      { field: 'organizationId', value: args.organizationId },
+      { field: 'userId', value: user.id },
+    ],
+  })) as { role?: string } | null
+  const allowed = member?.role
+    ?.split(',')
+    .map((role) => role.trim())
+    .some((role) => roleAllowsProjectPermissions(role, args.permissions))
+  if (!allowed) {
     throw new ConvexError(args.deniedMessage)
   }
 
-  return {
-    headers,
-    user: session.user,
-  }
+  return { user: user as { id: string } & Record<string, unknown> }
 }

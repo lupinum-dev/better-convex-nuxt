@@ -8,6 +8,8 @@ describe('auth config normalization ', () => {
     const auth = normalizeConvexAuthConfig(undefined)
     expect(auth).not.toBe(false)
     if (auth === false) throw new Error('expected enabled')
+    expect(auth.publicOrigin).toBe('')
+    expect(auth.mcp).toBe(false)
     expect(auth.proxy.trustedClientIpHeader).toBe('')
     expect(auth.routeProtection).toEqual({ redirectTo: '/auth/signin', preserveReturnTo: true })
     expect(isConvexAuthEnabled(auth)).toBe(true)
@@ -25,11 +27,15 @@ describe('auth config normalization ', () => {
 
   it('materializes proxy, debug, and routeProtection overrides', () => {
     const auth = normalizeConvexAuthConfig({
+      publicOrigin: 'https://app.example.test/',
+      mcp: true,
       proxy: { maxRequestBodyBytes: 10, trustedClientIpHeader: 'CF-Connecting-IP' },
       debug: { clientAuthFlow: true },
       routeProtection: { redirectTo: '/login', preserveReturnTo: false },
     })
     if (auth === false) throw new Error('expected enabled')
+    expect(auth.publicOrigin).toBe('https://app.example.test')
+    expect(auth.mcp).toBe(true)
     expect(auth.proxy.maxRequestBodyBytes).toBe(10)
     expect(auth.proxy.trustedClientIpHeader).toBe('cf-connecting-ip')
     expect(auth.debug).toEqual({ authFlow: false, clientAuthFlow: true, serverAuthFlow: false })
@@ -46,15 +52,64 @@ describe('auth config normalization ', () => {
     expect(() =>
       normalizeConvexAuthConfig({ proxy: { trustedClientIpHeader: 'bad\nheader' } }),
     ).toThrow('valid HTTP header name')
+    expect(() =>
+      normalizeConvexAuthConfig({
+        proxy: { trustedClientIpHeader: 'X-BCN-Verified-Client-IP' },
+      }),
+    ).toThrow('reserved x-bcn-* namespace')
+  })
+
+  it('defaults the public origin from SITE_URL and requires an explicit value to match', () => {
+    const auth = normalizeConvexAuthConfig(
+      { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } },
+      'https://app.example.test/',
+    )
+    if (auth === false) throw new Error('expected enabled')
+    expect(auth.publicOrigin).toBe('https://app.example.test')
+
+    expect(() =>
+      normalizeConvexAuthConfig(
+        {
+          publicOrigin: 'https://other.example.test',
+          proxy: { trustedClientIpHeader: 'cf-connecting-ip' },
+        },
+        'https://app.example.test',
+      ),
+    ).toThrow('must match SITE_URL')
+  })
+
+  it('requires an ingress-owned client IP header outside exact loopback development', () => {
+    for (const publicOrigin of ['https://app.example.test', 'https://192.0.2.1']) {
+      expect(() => normalizeConvexAuthConfig({ publicOrigin })).toThrow(
+        'trustedClientIpHeader is required',
+      )
+    }
+
+    for (const publicOrigin of [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://[::1]:3000',
+    ]) {
+      const auth = normalizeConvexAuthConfig({ publicOrigin })
+      if (auth === false) throw new Error('expected enabled')
+      expect(auth.proxy.trustedClientIpHeader).toBe('')
+    }
+  })
+
+  it.each([
+    'http://app.example.test',
+    'https://APP.example.test',
+    'https://app.example.test:443',
+    'https://app.example.test/path',
+  ])('rejects an unsafe configured public origin: %s', (publicOrigin) => {
+    expect(() => normalizeConvexAuthConfig({ publicOrigin })).toThrow()
   })
 })
 
 // ============================================================================
 // Module-options type contracts. These assertions protect the supported
 // configuration grammar and the `auth: false` exclusion.
-// (`pnpm run test:types` / `pnpm vitest run --project=unit
-// test/unit/auth-config.test.ts` under vitest's typecheck, and
-// `pnpm run typecheck:module`).
+// (`pnpm run test:types`, `pnpm test`, and `pnpm run typecheck:module`).
 // ============================================================================
 
 function assertModuleOptions(_options: ModuleOptions): void {}
@@ -63,8 +118,10 @@ function _moduleOptionsTypeContracts() {
   // Positive: omitted auth and `auth: {}` both install auth with defaults.
   assertModuleOptions({})
   assertModuleOptions({ auth: {} })
+  assertModuleOptions({ auth: { publicOrigin: 'https://app.example.test' } })
   assertModuleOptions({ auth: { routeProtection: { redirectTo: '/login' } } })
   assertModuleOptions({ auth: { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } } })
+  assertModuleOptions({ auth: { mcp: true } })
   // Positive: `auth: false` is a Convex-only build.
   assertModuleOptions({ auth: false })
 

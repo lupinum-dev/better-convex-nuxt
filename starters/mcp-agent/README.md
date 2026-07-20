@@ -4,6 +4,19 @@ Starter for organization apps where humans sign in with Better Auth, app-owned
 organizations stay canonical in Convex, and service actors call a small private
 MCP surface on behalf of an organization.
 
+This is deliberately different from the public delegated-human OAuth starter:
+
+| Property          | This starter                   | `starters/mcp-oauth-agent`                           |
+| ----------------- | ------------------------------ | ---------------------------------------------------- |
+| Credential owner  | App-owned service actor        | Human Better Auth user                               |
+| User involvement  | Admin provisions a credential  | Interactive sign-in and explicit OAuth consent       |
+| Public exposure   | Private MCP deployment         | Public OAuth authorization server and MCP resource   |
+| Revocation source | App-owned service credential   | Session, client, consent, membership, and delegation |
+| Intended use      | Controlled internal automation | External MCP clients acting for a user               |
+
+Do not expose this private service-actor topology as public delegated OAuth.
+Do not copy its `MCP_SERVER_SECRET` bridge into `starters/mcp-oauth-agent`.
+
 ## Organization Ownership
 
 This starter intentionally uses app-owned Convex `organizations` and
@@ -51,7 +64,7 @@ ids.
 
 ```bash
 pnpm install
-pnpm convex:dev
+pnpm convex:configure
 pnpm dev
 pnpm test
 pnpm typecheck
@@ -59,18 +72,41 @@ pnpm build
 pnpm verify:browser
 ```
 
-Use the package scripts instead of direct binaries such as `pnpm convex dev`.
-`pnpm convex:dev` prepares Nuxt types before starting Convex.
+Use the package scripts instead of invoking Convex binaries directly.
+Use `pnpm convex:configure` once. Later, `pnpm convex:dev` prepares Nuxt types
+and selects only the deployment recorded in `.env.local`.
 
 On first run, Convex writes `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` to
 `.env.local`. This starter reads those defaults directly. You can override them
 with `NUXT_PUBLIC_CONVEX_URL`, `NUXT_PUBLIC_CONVEX_SITE_URL`, or
 `CONVEX_SITE_URL`.
 
-Set `SITE_URL` and `BETTER_AUTH_SECRET` in Convex before starting auth routes,
-including for local development. The request factory always fails closed
-without explicit runtime values. `pnpm verify:browser` supplies isolated test
-values itself.
+For non-loopback deployments, set `BCN_AUTH_TRUSTED_CLIENT_IP_HEADER` to a
+header the ingress overwrites with exactly one client IP. The auth proxy rejects
+production traffic when that trusted address boundary is absent or malformed.
+The Nuxt origin must not accept public traffic that bypasses that ingress unless
+it independently authenticates ingress requests.
+
+Set `SITE_URL`, `BETTER_AUTH_SECRETS`, and the separate proxy signature secret
+before starting auth routes, including for local development:
+
+```bash
+export BCN_AUTH_PROXY_IP_SECRET="$(openssl rand -base64 32)"
+(
+  set -eu
+  umask 077
+  sed '/^BCN_AUTH_PROXY_IP_SECRET=/d' .env.local > .env.local.next
+  printf 'BCN_AUTH_PROXY_IP_SECRET=%s\n' "$BCN_AUTH_PROXY_IP_SECRET" >> .env.local.next
+  mv .env.local.next .env.local
+)
+pnpm exec better-convex-nuxt-convex env set SITE_URL http://localhost:3000
+printf '0:%s' "$(openssl rand -base64 32)" | pnpm exec better-convex-nuxt-convex env set BETTER_AUTH_SECRETS
+printf '%s' "$BCN_AUTH_PROXY_IP_SECRET" | pnpm exec better-convex-nuxt-convex env set BCN_AUTH_PROXY_IP_SECRET
+```
+
+In production, inject that exact proxy secret into Nuxt with your secret manager.
+Do not print or commit it. The request factory fails closed without explicit
+runtime values. `pnpm verify:browser` supplies isolated test values itself.
 
 `pnpm build` also starts the generated Nitro server and asserts that `/`
 renders the MCP auth surface with HTTP 200.

@@ -3,17 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev",
-    "build": "nuxt build",
-    "preview": "nuxt preview",
-    "convex:dev": "convex dev",
-    "convex:codegen": "convex codegen",
+    "dev": "nuxt dev --dotenv .env.local",
+    "build": "nuxt build --dotenv .env.local",
+    "preview": "nuxt preview --dotenv .env.local",
+    "convex:configure": "better-convex-nuxt-convex configure",
+    "convex:dev": "better-convex-nuxt-convex dev",
+    "convex:codegen": "better-convex-nuxt-convex codegen",
     "test": "vitest run",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck --dotenv .env.local"
   },
   "dependencies": {
-    "better-convex-nuxt": "0.6.1",
+    "better-convex-nuxt": "0.7.0-beta.1",
     "convex": "1.42.2",
+    "kysely": "0.28.17",
     "nuxt": "4.4.8",
     "vue": "^3.5.25"
   },

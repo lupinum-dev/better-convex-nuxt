@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { watch } from 'vue'
 
 import { useConvexFileUpload } from '../../src/runtime/composables/useConvexFileUpload'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { captureInNuxt, installIdentityPortHarness } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 interface FakeUploadListenerMap {
@@ -28,7 +29,11 @@ class FakeXhr {
   setRequestHeader(_k: string, _v: string) {}
 
   send(_file: File) {
-    this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 } as ProgressEvent)
+    this.upload.onprogress?.({
+      lengthComputable: true,
+      loaded: 5,
+      total: 10,
+    } as ProgressEvent)
     setTimeout(() => {
       this.status = FakeXhr.next.status
       this.responseText = FakeXhr.next.responseText
@@ -43,9 +48,17 @@ class FakeXhr {
 
 const originalXhr = globalThis.XMLHttpRequest
 
-afterEach(() => {
-  globalThis.XMLHttpRequest = originalXhr
+beforeEach(() => {
+  globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
+  FakeXhr.next = {
+    status: 200,
+    responseText: JSON.stringify({ storageId: 'storage_1' }),
+  }
   FakeXhr.delayMs = 0
+})
+
+afterAll(() => {
+  globalThis.XMLHttpRequest = originalXhr
 })
 
 function deferred<T>() {
@@ -72,8 +85,6 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
   })
 
   it('uploads file, tracks progress, and stores returned storageId', async () => {
-    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl')
     convex.setMutationHandler('files:generateUploadUrl', async () => 'http://upload.local')
@@ -91,8 +102,6 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
   })
 
   it('emits onProgress callback payloads while uploading', async () => {
-    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:on-progress')
     convex.setMutationHandler(
@@ -127,10 +136,10 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     await expect(result.upload(file)).rejects.toThrow('not allowed')
     expect(result.status.value).toBe('error')
     expect(onError).toHaveBeenCalledTimes(1)
+    expect(convex.calls.mutation).toHaveLength(0)
   })
 
   it('cancel() aborts in-flight upload and resets state', async () => {
-    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     FakeXhr.delayMs = 50
 
     const convex = new MockConvexClient()
@@ -151,7 +160,6 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
   })
 
   it('rejects a second concurrent upload() while one is pending', async () => {
-    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     FakeXhr.delayMs = 20
 
     const convex = new MockConvexClient()
@@ -183,7 +191,6 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
   })
 
   it('cancel() during the URL-request phase prevents the XHR and leaves state idle', async () => {
-    globalThis.XMLHttpRequest = FakeXhr as unknown as typeof XMLHttpRequest
     const sendSpy = vi.spyOn(FakeXhr.prototype, 'send')
 
     const convex = new MockConvexClient()
@@ -213,5 +220,334 @@ describe('useConvexFileUpload (Nuxt runtime)', () => {
     expect(result.progress.value).toBe(0)
     expect(result.data.value).toBeUndefined()
     expect(result.error.value).toBeNull()
+  })
+
+  it('rejects immediately on identity change while the upload URL request is still pending', async () => {
+    const sendSpy = vi.spyOn(FakeXhr.prototype, 'send')
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:identity-during-url')
+    const urlRequest = deferred<string>()
+    convex.setMutationHandler('files:generateUploadUrl:identity-during-url', async () => {
+      return await urlRequest.promise
+    })
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        return useConvexFileUpload(mutation, { onSuccess, onError })
+      },
+      { convex },
+    )
+    const uploadPromise = result.upload(new File(['a'], 'a.txt', { type: 'text/plain' }))
+    expect(result.status.value).toBe('pending')
+
+    identity.advance()
+
+    await expect(uploadPromise).rejects.toMatchObject({
+      kind: 'authentication',
+      code: 'IDENTITY_CHANGED',
+    })
+    expect(result.status.value).toBe('idle')
+    expect(result.data.value).toBeUndefined()
+    expect(result.error.value).toBeNull()
+    expect(sendSpy).not.toHaveBeenCalled()
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+
+    // A late URL result from A must remain inert after B became current.
+    urlRequest.resolve('http://upload.local')
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(sendSpy).not.toHaveBeenCalled()
+    expect(result.status.value).toBe('idle')
+  })
+
+  it.each([
+    {
+      boundary: 'success',
+      watchedStatus: 'success' as const,
+      response: { status: 200, responseText: JSON.stringify({ storageId: 'storage_1' }) },
+    },
+    {
+      boundary: 'error',
+      watchedStatus: 'error' as const,
+      response: { status: 500, responseText: 'failed' },
+    },
+  ])(
+    'retires before publishing $boundary callbacks when a synchronous watcher changes identity',
+    async ({ boundary, watchedStatus, response }) => {
+      FakeXhr.next = response
+      const convex = new MockConvexClient()
+      const mutationName = `files:generateUploadUrl:identity-on-${boundary}`
+      const mutation = mockFnRef<'mutation'>(mutationName)
+      convex.setMutationHandler(mutationName, async () => 'http://upload.local')
+      const onSuccess = vi.fn()
+      const onError = vi.fn()
+      let identity!: ReturnType<typeof installIdentityPortHarness>
+
+      const { result } = await captureInNuxt(
+        () => {
+          identity = installIdentityPortHarness()
+          const upload = useConvexFileUpload(mutation, { onSuccess, onError })
+          watch(
+            upload.status,
+            (status) => {
+              if (status === watchedStatus) identity.advance()
+            },
+            { flush: 'sync' },
+          )
+          return upload
+        },
+        { convex },
+      )
+
+      await expect(
+        result.upload(new File(['a'], 'a.txt', { type: 'text/plain' })),
+      ).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+      expect(result.status.value).toBe('idle')
+      expect(result.data.value).toBeUndefined()
+      expect(result.error.value).toBeNull()
+      expect(onSuccess).not.toHaveBeenCalled()
+      expect(onError).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([
+    {
+      boundary: 'success',
+      response: { status: 200, responseText: JSON.stringify({ storageId: 'storage_1' }) },
+      assertOriginal: (promise: Promise<string>) => expect(promise).resolves.toBe('storage_1'),
+    },
+    {
+      boundary: 'error',
+      response: { status: 500, responseText: 'failed' },
+      assertOriginal: (promise: Promise<string>) =>
+        expect(promise).rejects.toThrow('Upload failed'),
+    },
+  ])(
+    'lets completed $boundary work settle when a same-identity watcher starts fresh work',
+    async ({ boundary, response, assertOriginal }) => {
+      FakeXhr.next = response
+      const convex = new MockConvexClient()
+      const mutationName = `files:generateUploadUrl:same-identity-${boundary}`
+      const mutation = mockFnRef<'mutation'>(mutationName)
+      convex.setMutationHandler(mutationName, async () => 'http://upload.local')
+      let freshUpload: Promise<string> | null = null
+
+      const { result } = await captureInNuxt(
+        () => {
+          const upload = useConvexFileUpload(mutation, { allowedTypes: ['text/plain'] })
+          watch(
+            upload.status,
+            (status) => {
+              if (status !== boundary || freshUpload) return
+              freshUpload = upload.upload(new File(['b'], 'b.pdf', { type: 'application/pdf' }))
+              void freshUpload.catch(() => {})
+            },
+            { flush: 'sync' },
+          )
+          return upload
+        },
+        { convex },
+      )
+
+      const original = result.upload(new File(['a'], 'a.txt', { type: 'text/plain' }))
+      await assertOriginal(original)
+      if (!freshUpload) throw new Error('Expected the watcher to start fresh work')
+      await expect(freshUpload).rejects.toThrow('not allowed')
+      expect(result.status.value).toBe('error')
+      expect(result.error.value?.message).toContain('not allowed')
+    },
+  )
+
+  it('returns identity change when cancel publication crosses the boundary', async () => {
+    FakeXhr.delayMs = 200
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:identity-on-cancel')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:identity-on-cancel',
+      async () => 'http://upload.local',
+    )
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const upload = useConvexFileUpload(mutation)
+        watch(
+          upload.status,
+          (status, previous) => {
+            if (previous === 'pending' && status === 'idle') identity.advance()
+          },
+          { flush: 'sync' },
+        )
+        return upload
+      },
+      { convex },
+    )
+
+    const pending = result.upload(new File(['a'], 'a.txt', { type: 'text/plain' }))
+    await waitFor(() => result.progress.value > 0)
+    result.cancel()
+
+    await expect(pending).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    expect(result.status.value).toBe('idle')
+    expect(result.data.value).toBeUndefined()
+    expect(result.error.value).toBeNull()
+  })
+
+  it('does not emit progress after a synchronous progress watcher changes identity', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:identity-on-progress')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:identity-on-progress',
+      async () => 'http://upload.local',
+    )
+    const onProgress = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const upload = useConvexFileUpload(mutation, { onProgress })
+        watch(
+          upload.progress,
+          (progress) => {
+            if (progress > 0) identity.advance()
+          },
+          { flush: 'sync' },
+        )
+        return upload
+      },
+      { convex },
+    )
+
+    await expect(
+      result.upload(new File(['a'], 'a.txt', { type: 'text/plain' })),
+    ).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    expect(result.status.value).toBe('idle')
+    expect(result.progress.value).toBe(0)
+    expect(onProgress).not.toHaveBeenCalled()
+  })
+
+  it('retires an active upload on identity change and permits fresh work', async () => {
+    FakeXhr.delayMs = 50
+
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:identity-change')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:identity-change',
+      async () => 'http://upload.local',
+    )
+    const onProgress = vi.fn()
+    const onSuccess = vi.fn()
+    const onError = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        return useConvexFileUpload(mutation, {
+          onProgress,
+          onSuccess,
+          onError,
+        })
+      },
+      { convex },
+    )
+    const first = result.upload(new File(['a'], 'a.txt', { type: 'text/plain' }))
+    await waitFor(() => result.pending.value && onProgress.mock.calls.length === 1)
+
+    const progressBeforeChange = onProgress.mock.calls.length
+    identity.advance()
+
+    expect(result.status.value).toBe('idle')
+    expect(result.data.value).toBeUndefined()
+    expect(result.error.value).toBeNull()
+    expect(result.progress.value).toBe(0)
+    await expect(first).rejects.toMatchObject({
+      kind: 'authentication',
+      code: 'IDENTITY_CHANGED',
+    })
+    expect(onProgress).toHaveBeenCalledTimes(progressBeforeChange)
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onError).not.toHaveBeenCalled()
+
+    FakeXhr.delayMs = 0
+    await expect(result.upload(new File(['b'], 'b.txt', { type: 'text/plain' }))).resolves.toBe(
+      'storage_1',
+    )
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toBe('storage_1')
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(onSuccess.mock.calls[0]?.[1].name).toBe('b.txt')
+
+    // The old fake XHR still attempts its delayed load. It must not overwrite B.
+    await new Promise((resolve) => setTimeout(resolve, 60))
+    expect(result.status.value).toBe('success')
+    expect(result.data.value).toBe('storage_1')
+    expect(onSuccess).toHaveBeenCalledOnce()
+    expect(onError).not.toHaveBeenCalled()
+
+    // Finished state is identity-owned too; a later transition masks B's result.
+    identity.advance()
+    expect(result.status.value).toBe('idle')
+    expect(result.data.value).toBeUndefined()
+    expect(result.error.value).toBeNull()
+    expect(result.progress.value).toBe(0)
+  })
+
+  it('does not let A retirement clobber re-entrant B validation state', async () => {
+    FakeXhr.delayMs = 200
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:reentrant-retirement')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:reentrant-retirement',
+      async () => 'http://upload.local',
+    )
+    const onError = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+    let launchFresh = false
+    let freshUpload: Promise<string> | null = null
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const upload = useConvexFileUpload(mutation, {
+          allowedTypes: ['text/plain'],
+          onError,
+        })
+        watch(
+          upload.status,
+          (status, previous) => {
+            if (launchFresh && previous === 'pending' && status === 'idle') {
+              launchFresh = false
+              freshUpload = upload.upload(new File(['b'], 'b.pdf', { type: 'application/pdf' }))
+              void freshUpload.catch(() => {})
+            }
+          },
+          { flush: 'sync' },
+        )
+        return upload
+      },
+      { convex },
+    )
+
+    const retired = result.upload(new File(['a'], 'a.txt', { type: 'text/plain' }))
+    await waitFor(() => result.progress.value > 0)
+    launchFresh = true
+    identity.advance()
+
+    await expect(retired).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    if (!freshUpload) throw new Error('Expected B upload to start during A retirement')
+    await expect(freshUpload).rejects.toThrow('not allowed')
+    expect(result.status.value).toBe('error')
+    expect(result.error.value?.message).toContain('not allowed')
+    expect(onError).toHaveBeenCalledOnce()
+    expect(onError.mock.calls[0]?.[1].name).toBe('b.pdf')
   })
 })

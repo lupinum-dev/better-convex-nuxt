@@ -24,6 +24,28 @@ describe('sanitizeDiagnosticValue', () => {
     })
   })
 
+  it('redacts common consumer secret labels without treating every key as secret', () => {
+    expect(
+      sanitizeDiagnosticValue({
+        jwt: 'private',
+        bearer: 'private',
+        apiKey: 'private',
+        private_key: 'private',
+        accessKey: 'private',
+        passphrase: 'private',
+        keyboardLayout: 'dvorak',
+      }),
+    ).toEqual({
+      jwt: '[Redacted]',
+      bearer: '[Redacted]',
+      apiKey: '[Redacted]',
+      private_key: '[Redacted]',
+      accessKey: '[Redacted]',
+      passphrase: '[Redacted]',
+      keyboardLayout: 'dvorak',
+    })
+  })
+
   it('does not invoke accessors and survives hostile proxies', () => {
     const getter = vi.fn(() => 'private')
     const value = Object.defineProperty({}, 'tokenFromGetter', { get: getter, enumerable: true })
@@ -100,6 +122,26 @@ describe('sanitizeDiagnosticValue', () => {
 
     const output = JSON.stringify(log.mock.calls)
     expect(output).not.toContain('credential-sentinel')
+    expect(output).toContain('[Omitted]')
+  })
+
+  it('omits JWT-shaped values and arbitrary errors even when their field names are neutral', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logger = createLogger('debug')
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkaWFnbm9zdGljLXNlbnRpbmVsIn0.signature'
+    const sentinel = 'BCN_DIAGNOSTIC_SECRET_SENTINEL'
+
+    logger.debug('transport failed', { value: jwt, sentinel })
+    logger.auth({
+      phase: 'ssr.auth.completed',
+      outcome: 'error',
+      error: new Error(`${jwt}:${sentinel}`),
+    })
+
+    const output = JSON.stringify([...log.mock.calls, ...error.mock.calls])
+    expect(output).not.toContain(jwt)
+    expect(output).not.toContain(sentinel)
     expect(output).toContain('[Omitted]')
   })
 })

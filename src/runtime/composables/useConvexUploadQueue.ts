@@ -1,8 +1,26 @@
 import type { FunctionArgs, FunctionReference } from 'convex/server'
-import { computed, getCurrentScope, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
+import {
+  computed,
+  getCurrentScope,
+  onScopeDispose,
+  readonly,
+  ref,
+  type ComputedRef,
+  type Ref,
+} from 'vue'
 
+import { useNuxtApp } from '#imports'
+
+import {
+  createIdentityChangedError,
+  isIdentityChangedError,
+} from '../client/identity-changed-error'
 import { normalizeConvexError, type CallResult, type ConvexCallError } from '../errors'
+import { readConvexRuntimeContext } from '../runtime-context'
+import { assertConvexComposableScope } from '../utils/composable-scope'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
+import { getFunctionName } from '../utils/convex-shared'
+import { createLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
 import {
@@ -21,16 +39,20 @@ export type {
   UploadQueueItemStatus,
 } from '../utils/upload-queue-state'
 
+type QueueCallbackItem<Mutation extends FunctionReference<'mutation'>> = Readonly<
+  UploadQueueItem<FunctionArgs<Mutation>>
+>
+
 export interface UseConvexUploadQueueOptions<Mutation extends FunctionReference<'mutation'>> {
   maxConcurrent?: number
   continueOnError?: boolean
-  onItemSuccess?: (item: UploadQueueItem<FunctionArgs<Mutation>>) => void
-  onItemError?: (item: UploadQueueItem<FunctionArgs<Mutation>>) => void
-  onQueueIdle?: (items: UploadQueueItem<FunctionArgs<Mutation>>[]) => void
+  onItemSuccess?: (item: QueueCallbackItem<Mutation>) => void
+  onItemError?: (item: QueueCallbackItem<Mutation>) => void
+  onQueueIdle?: (items: readonly QueueCallbackItem<Mutation>[]) => void
 }
 
 export interface UseConvexUploadQueueReturn<Mutation extends FunctionReference<'mutation'>> {
-  items: Ref<UploadQueueItem<FunctionArgs<Mutation>>[]>
+  items: Readonly<Ref<readonly QueueCallbackItem<Mutation>[]>>
   isRunning: ComputedRef<boolean>
   hasErrors: ComputedRef<boolean>
   queuedCount: ComputedRef<number>
@@ -62,6 +84,7 @@ interface Deferred<T> {
 interface UploadQueueRuntime {
   controller: AbortController | null
   deferred: Deferred<string>
+  identityGeneration: number
 }
 
 function createDeferred<T>(): Deferred<T> {
@@ -85,8 +108,16 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   type MutationArgs = FunctionArgs<Mutation>
   type QueueItem = UploadQueueItem<MutationArgs>
 
+  const currentScope = getCurrentScope()
+  assertConvexComposableScope('useConvexUploadQueue', import.meta.client, currentScope)
+  const nuxtApp = useNuxtApp()
+  const runtime = readConvexRuntimeContext(nuxtApp)
+  const authPort = runtime?.getAuthCoordinator()?.port
+  const getIdentityGeneration = () => authPort?.snapshot().identityGeneration ?? 0
   const convexConfig = getConvexRuntimeConfig()
   const client = useConvex()
+  const fnName = getFunctionName(generateUploadUrlMutation)
+  const logger = runtime?.owner?.logger ?? createLogger(convexConfig.logging)
 
   const maxConcurrent = normalizeMaxConcurrent(
     options?.maxConcurrent ?? convexConfig.upload.maxConcurrent,
@@ -94,11 +125,12 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   const continueOnError = options?.continueOnError ?? true
 
   const items = ref<QueueItem[]>([])
-  const haltedByError = ref(false)
+  const readonlyItems = readonly(items) as Readonly<Ref<readonly Readonly<QueueItem>[]>>
   const runtimeById = new Map<string, UploadQueueRuntime>()
   let queueItemSequence = 0
   let scheduling = false
   let hasBeenBusy = false
+  let observedIdentityGeneration = getIdentityGeneration()
 
   const createQueueItemId = (): string => {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -114,9 +146,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   const errorCount = computed(() => countUploadQueueItems(items.value, 'error'))
   const cancelledCount = computed(() => countUploadQueueItems(items.value, 'cancelled'))
 
-  const isRunning = computed(
-    () => pendingCount.value > 0 || (!haltedByError.value && queuedCount.value > 0),
-  )
+  const isRunning = computed(() => pendingCount.value > 0 || queuedCount.value > 0)
 
   const hasErrors = computed(() => errorCount.value > 0)
 
@@ -132,6 +162,22 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     return updated
   }
 
+  const snapshotItem = (item: QueueItem): Readonly<QueueItem> => ({ ...item })
+  const invokeCallback = (callback: (() => void) | undefined, item?: QueueItem) => {
+    if (!callback) return
+    try {
+      callback()
+    } catch (error) {
+      logger.upload({
+        name: fnName,
+        event: 'error',
+        filename: item?.file.name,
+        size: item?.file.size,
+        error,
+      })
+    }
+  }
+
   const maybeEmitQueueIdle = () => {
     if (isRunning.value) {
       hasBeenBusy = true
@@ -140,39 +186,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
 
     if (!hasBeenBusy) return
     hasBeenBusy = false
-    options?.onQueueIdle?.([...items.value])
-  }
-
-  const rejectQueuedDeferredsAfterHalt = () => {
-    // Settle still-queued items to 'cancelled' (not just reject their deferreds).
-    // Leaving them 'queued' let a later enqueue() reset haltedByError and hand
-    // them straight back to schedule(), silently resuming uploads the caller
-    // was already told (via the rejected promise) had failed.
-    const now = Date.now()
-    items.value = items.value.map((item) => {
-      if (item.status !== 'queued') return item
-      rejectItemDeferred(item.id, new Error('Upload queue halted after an upload error'))
-      return {
-        ...item,
-        status: 'cancelled',
-        finishedAt: now,
-      }
-    })
-  }
-
-  const getItemRuntime = (id: string): UploadQueueRuntime => {
-    const existing = runtimeById.get(id)
-    if (existing) return existing
-    const created = { controller: null, deferred: createDeferred<string>() }
-    runtimeById.set(id, created)
-    return created
-  }
-
-  const resolveItemDeferred = (id: string, storageId: string) => {
-    const runtime = runtimeById.get(id)
-    if (!runtime) return
-    runtimeById.delete(id)
-    runtime.deferred.resolve(storageId)
+    invokeCallback(() => options?.onQueueIdle?.(items.value.map(snapshotItem)))
   }
 
   const rejectItemDeferred = (id: string, error: unknown) => {
@@ -182,17 +196,64 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
     runtime.deferred.reject(error)
   }
 
+  const cancelQueued = (error: Error) => {
+    if (!items.value.some((item) => item.status === 'queued')) return
+    const now = Date.now()
+    items.value = items.value.map((item) => {
+      if (item.status !== 'queued') return item
+      rejectItemDeferred(item.id, error)
+      return { ...item, status: 'cancelled', finishedAt: now }
+    })
+  }
+
+  const clearQueue = (error: Error) => {
+    const runtimes = [...runtimeById.values()]
+    runtimeById.clear()
+    items.value = []
+    for (const runtime of runtimes) {
+      runtime.deferred.reject(error)
+      runtime.controller?.abort()
+    }
+  }
+
+  const retireIdentityOwnedState = () => {
+    hasBeenBusy = false
+    clearQueue(createIdentityChangedError('upload queue'))
+  }
+
   const runItem = async (itemId: string): Promise<void> => {
+    const itemRuntime = runtimeById.get(itemId)
+    if (!itemRuntime) return
+    const identityGeneration = itemRuntime.identityGeneration
     const controller = new AbortController()
-    getItemRuntime(itemId).controller = controller
-    mutateItem(itemId, (item) => ({
-      ...item,
-      status: 'pending',
-      startedAt: Date.now(),
-      error: null,
-    }))
+    itemRuntime.controller = controller
+    const identityChanged = () => getIdentityGeneration() !== identityGeneration
+    const isCurrentItem = () =>
+      runtimeById.get(itemId) === itemRuntime && !identityChanged() && !controller.signal.aborted
+    const requireCurrentItem = () => {
+      if (identityChanged()) throw createIdentityChangedError('upload queue')
+      if (!isCurrentItem()) throw new DOMException('Upload cancelled', 'AbortError')
+    }
+    const mutateCurrentItem = (updater: (item: QueueItem) => QueueItem): QueueItem | null => {
+      requireCurrentItem()
+      const updated = mutateItem(itemId, updater)
+      requireCurrentItem()
+      return updated
+    }
+    const retireIfStale = (): boolean => {
+      if (!identityChanged()) return runtimeById.get(itemId) !== itemRuntime
+      if (runtimeById.get(itemId) === itemRuntime) retireIdentityOwnedState()
+      return true
+    }
 
     try {
+      mutateCurrentItem((item) => ({
+        ...item,
+        status: 'pending',
+        startedAt: Date.now(),
+        error: null,
+      }))
+
       const item = items.value.find((entry) => entry.id === itemId)
       if (!item) {
         rejectItemDeferred(itemId, new Error('Upload item no longer exists'))
@@ -205,9 +266,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         (item.mutationArgs ?? {}) as MutationArgs,
       )
 
+      requireCurrentItem()
       const storageId = await uploadFileViaXhr(postUrl, item.file, {
         signal: controller.signal,
         onProgress: (progressInfo) => {
+          if (!isCurrentItem()) return
           mutateItem(itemId, (current) => ({
             ...current,
             progress: progressInfo.percent,
@@ -217,6 +280,11 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         },
       })
 
+      // The upload is complete before success becomes observable. Keep the
+      // deferred live until publication so an identity change or reset can still
+      // retire it, but make public cancellation unable to abort completed work.
+      requireCurrentItem()
+      itemRuntime.controller = null
       const successItem = mutateItem(itemId, (current) => ({
         ...current,
         status: 'success',
@@ -226,9 +294,24 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         error: null,
         finishedAt: Date.now(),
       }))
-      if (successItem) options?.onItemSuccess?.(successItem)
-      resolveItemDeferred(itemId, storageId)
+      if (identityChanged()) {
+        if (runtimeById.get(itemId) === itemRuntime) retireIdentityOwnedState()
+        return
+      }
+      if (runtimeById.get(itemId) !== itemRuntime) return
+      runtimeById.delete(itemId)
+      itemRuntime.deferred.resolve(storageId)
+      if (successItem) {
+        invokeCallback(() => options?.onItemSuccess?.(snapshotItem(successItem)), successItem)
+      }
+      if (identityChanged()) retireIdentityOwnedState()
     } catch (error) {
+      if (identityChanged() || isIdentityChangedError(error)) {
+        if (runtimeById.get(itemId) === itemRuntime) {
+          retireIdentityOwnedState()
+        }
+        return
+      }
       const now = Date.now()
       if (isUploadAbortError(error)) {
         mutateItem(itemId, (current) => ({
@@ -246,30 +329,32 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
           error: normalizedError,
           finishedAt: now,
         }))
-        if (erroredItem) options?.onItemError?.(erroredItem)
-        rejectItemDeferred(itemId, normalizedError)
+        if (retireIfStale()) return
+        if (erroredItem) {
+          invokeCallback(() => options?.onItemError?.(snapshotItem(erroredItem)), erroredItem)
+        }
+        if (retireIfStale()) return
 
         if (!continueOnError) {
-          haltedByError.value = true
-          rejectQueuedDeferredsAfterHalt()
+          cancelQueued(new Error('Upload queue halted after an upload error'))
+          if (retireIfStale()) return
         }
+        rejectItemDeferred(itemId, normalizedError)
       }
     } finally {
       const runtime = runtimeById.get(itemId)
-      if (runtime) runtime.controller = null
-      void schedule()
+      if (runtime === itemRuntime) runtime.controller = null
+      schedule()
       maybeEmitQueueIdle()
     }
   }
 
-  const schedule = async (): Promise<void> => {
+  const schedule = (): void => {
     if (scheduling) return
     scheduling = true
 
     try {
-      while (!haltedByError.value) {
-        const activeCount = [...runtimeById.values()].filter((runtime) => runtime.controller).length
-        if (activeCount >= maxConcurrent) break
+      while (pendingCount.value < maxConcurrent) {
         const nextQueued = items.value.find((item) => item.status === 'queued')
         if (!nextQueued) break
         void runItem(nextQueued.id)
@@ -286,10 +371,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   ): Promise<string[]> => {
     const entries = normalizeUploadQueueEnqueueInput(input, mutationArgs)
     if (entries.length === 0) return []
-
-    if (haltedByError.value && pendingCount.value === 0) {
-      haltedByError.value = false
-    }
+    const identityGeneration = getIdentityGeneration()
 
     const now = Date.now()
     const newItems: QueueItem[] = entries.map((entry) => ({
@@ -306,15 +388,18 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
       finishedAt: null,
     }))
 
+    const deferreds = newItems.map((item) => {
+      const deferred = createDeferred<string>()
+      runtimeById.set(item.id, { controller: null, deferred, identityGeneration })
+      return deferred.promise
+    })
     items.value = [...items.value, ...newItems]
-    for (const item of newItems) {
-      getItemRuntime(item.id)
-    }
-    void schedule()
+    schedule()
 
-    const settled = await Promise.allSettled(
-      newItems.map((item) => getItemRuntime(item.id).deferred.promise),
-    )
+    const settled = await Promise.allSettled(deferreds)
+    if (getIdentityGeneration() !== identityGeneration) {
+      throw createIdentityChangedError('upload queue')
+    }
 
     const storageIds: string[] = []
     const failures: ConvexCallError[] = []
@@ -323,7 +408,9 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
       if (result.status === 'fulfilled') {
         storageIds.push(result.value)
       } else {
-        failures.push(normalizeConvexError(result.reason))
+        const failure = normalizeConvexError(result.reason)
+        if (isIdentityChangedError(failure)) throw failure
+        failures.push(failure)
       }
     }
 
@@ -349,8 +436,10 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const cancelItem = (id: string): void => {
+    const item = items.value.find((entry) => entry.id === id)
+    if (!item || (item.status !== 'queued' && item.status !== 'pending')) return
     const runtime = runtimeById.get(id)
-    if (runtime?.controller) {
+    if (item.status === 'pending' && runtime?.controller) {
       runtime.controller.abort()
       return
     }
@@ -365,25 +454,22 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
       }
     })
 
-    void schedule()
+    schedule()
     maybeEmitQueueIdle()
   }
 
   const cancelAll = (): void => {
-    const now = Date.now()
-    items.value = items.value.map((item) => {
-      if (item.status === 'queued') {
-        rejectItemDeferred(item.id, new Error('Upload cancelled'))
-        return {
-          ...item,
-          status: 'cancelled',
-          finishedAt: now,
-        }
-      }
-      return item
-    })
+    const cancellableIds = new Set(
+      items.value
+        .filter((item) => item.status === 'queued' || item.status === 'pending')
+        .map((item) => item.id),
+    )
+    const runtimes = [...runtimeById.entries()]
+      .filter(([id]) => cancellableIds.has(id))
+      .map(([, runtime]) => runtime)
+    cancelQueued(new Error('Upload cancelled'))
 
-    for (const runtime of runtimeById.values()) {
+    for (const runtime of runtimes) {
       runtime.controller?.abort()
     }
     maybeEmitQueueIdle()
@@ -396,25 +482,25 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   const reset = (): void => {
-    for (const runtime of runtimeById.values()) {
-      runtime.deferred.reject(new Error('Upload queue was reset'))
-      runtime.controller?.abort()
-    }
-    runtimeById.clear()
-    haltedByError.value = false
-    items.value = []
+    clearQueue(new Error('Upload queue was reset'))
     maybeEmitQueueIdle()
   }
 
-  const currentScope = getCurrentScope()
   if (currentScope) {
+    const stopIdentitySubscription = authPort?.subscribe(() => {
+      const generation = getIdentityGeneration()
+      if (generation === observedIdentityGeneration) return
+      observedIdentityGeneration = generation
+      retireIdentityOwnedState()
+    })
     onScopeDispose(() => {
+      stopIdentitySubscription?.()
       reset()
     })
   }
 
   return {
-    items,
+    items: readonlyItems,
     isRunning,
     hasErrors,
     queuedCount,

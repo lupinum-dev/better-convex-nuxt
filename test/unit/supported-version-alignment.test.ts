@@ -3,37 +3,47 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { supportedDependencyTuple } from '../../scripts/supported-dependency-tuple.mjs'
+
 const root = join(import.meta.dirname, '../..')
 
 describe('supported version alignment', () => {
-  it('advertises the same Nuxt range in package, module, and security contracts', () => {
+  it('derives every advertised Nuxt version from the package tuple', () => {
     const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
       peerDependencies: { nuxt: string }
     }
     const moduleSource = readFileSync(join(root, 'src/module.ts'), 'utf8')
     const securityContract = readFileSync(join(root, 'SECURITY.md'), 'utf8')
 
-    expect(manifest.peerDependencies.nuxt).toBe('^4.4.0')
-    expect(moduleSource).toContain("nuxt: '^4.4.0'")
-    expect(securityContract).toContain('Nuxt `^4.4.0`')
+    const nuxtVersion = supportedDependencyTuple.nuxt
+    expect(manifest.peerDependencies.nuxt).toBe(nuxtVersion)
+    expect(moduleSource).toContain(`nuxt: '${nuxtVersion}'`)
+    expect(securityContract).toContain(`Nuxt \`${nuxtVersion}\``)
   })
 
-  it('keeps stateful auth and Convex runtimes on one consumer-owned peer tuple', () => {
+  it('keeps stateful peers and the package-owned provider on one exact tuple', () => {
     const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
       dependencies?: Record<string, string>
       devDependencies: Record<string, string>
       peerDependencies: Record<string, string>
+      peerDependenciesMeta?: Record<string, { optional?: boolean }>
     }
-    const supportedPeers = {
-      '@convex-dev/better-auth': '0.12.5',
-      'better-auth': '1.6.23',
-      convex: '1.42.2',
-    }
-
-    for (const [name, version] of Object.entries(supportedPeers)) {
+    for (const name of ['better-auth', 'convex', 'kysely']) {
+      const version = supportedDependencyTuple[name as keyof typeof supportedDependencyTuple]
       expect(manifest.peerDependencies[name]).toBe(version)
       expect(manifest.devDependencies[name]).toBe(version)
       expect(manifest.dependencies?.[name]).toBeUndefined()
     }
+
+    const providerVersion = supportedDependencyTuple['@better-auth/oauth-provider']
+    expect(manifest.dependencies?.['@better-auth/oauth-provider']).toBe(providerVersion)
+    expect(manifest.devDependencies['@better-auth/oauth-provider']).toBeUndefined()
+    expect(manifest.peerDependencies['@better-auth/oauth-provider']).toBeUndefined()
+    expect(manifest.peerDependenciesMeta?.['@better-auth/oauth-provider']).toBeUndefined()
+    expect(manifest.dependencies?.['convex-helpers']).toBe(
+      supportedDependencyTuple['convex-helpers'],
+    )
+    expect(manifest.peerDependencies['@convex-dev/better-auth']).toBeUndefined()
+    expect(manifest.devDependencies['@convex-dev/better-auth']).toBeUndefined()
   })
 })

@@ -1,0 +1,9 @@
+{
+  "name": "better-convex-nuxt-two-factor-fixture",
+  "private": true,
+  "type": "module",
+  "peerDependencies": {
+    "better-auth": "1.7.0-rc.1",
+    "convex": "1.42.2"
+  }
+}

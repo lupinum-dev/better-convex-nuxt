@@ -134,7 +134,10 @@ describe('stale Convex setAuth configurations', () => {
       await expect(active.fetchToken({ forceRefreshToken: true })).resolves.toBeNull()
       active.onChange(false)
 
-      await vi.waitFor(() => expect(coordinator.status.value).toBe('anonymous'))
+      await vi.waitFor(() => expect(coordinator.status.value).toBe('error'))
+      expect(coordinator.error.value?.message).toBe(
+        'Authentication credentials are invalid or expired',
+      )
       expect(coordinator.token.value).toBeNull()
       expect(coordinator.user.value).toBeNull()
       expect(coordinator.port.snapshot()).toMatchObject({

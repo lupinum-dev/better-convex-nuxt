@@ -2,6 +2,9 @@
   "name": "better-convex-nuxt-playground",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "better-convex-nuxt": "workspace:*"
+  },
   "peerDependencies": {
     "convex": "1.42.2"
   }

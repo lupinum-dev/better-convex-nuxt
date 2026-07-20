@@ -14,6 +14,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { builtinModules } from 'node:module'
 import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -64,6 +65,9 @@ const BROWSER_RUNTIME_DIRS = [
   p('src/runtime/auth'),
 ]
 const BROWSER_RUNTIME_FILES = [p('src/runtime/plugin.client.ts')]
+if (existsSync(p('src/runtime/plugin.auth.client.ts'))) {
+  BROWSER_RUNTIME_FILES.push(p('src/runtime/plugin.auth.client.ts'))
+}
 
 /**
  * SSR-entry group: runs only in the Nitro/Node SSR pass, never in the
@@ -82,6 +86,10 @@ const RUNTIME_ROOT = p('src/runtime')
 /** Public framework-boundary implementation roots. */
 const ERRORS_DIR = p('src/runtime/errors')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
+const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
+const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
+const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
+const SHARED_CLIENT_IP_FILE = p('src/runtime/shared/client-ip.ts')
 
 function inDir(absPath, dirAbs) {
   return absPath === dirAbs || absPath.startsWith(dirAbs + sep)
@@ -98,6 +106,12 @@ const isBrowserRuntime = (absPath) =>
   inAnyDir(absPath, BROWSER_RUNTIME_DIRS) || isAnyFile(absPath, BROWSER_RUNTIME_FILES)
 const isModuleBuild = (absPath) => isAnyFile(absPath, MODULE_BUILD_FILES)
 const isRuntimeEntry = (absPath) => inDir(absPath, RUNTIME_ROOT)
+const isConvexAuth = (absPath) => inDir(absPath, CONVEX_AUTH_DIR)
+const isSharedAuthCookie = (absPath) => absPath === SHARED_AUTH_COOKIE_FILE
+const isSharedAuthOrigin = (absPath) => absPath === SHARED_AUTH_ORIGIN_FILE
+const isSharedClientIp = (absPath) => absPath === SHARED_CLIENT_IP_FILE
+const isConvexAuthSharedLeaf = (absPath) =>
+  isSharedAuthCookie(absPath) || isSharedAuthOrigin(absPath) || isSharedClientIp(absPath)
 
 /**
  * Bare-specifier families that only make sense in a browser/Nuxt-app context.
@@ -114,6 +128,37 @@ const BROWSER_ONLY_BARE_SPECIFIERS = [
   /^#components\b/,
   /^#build\b/,
 ]
+const NODE_BUILTINS = new Set([
+  ...builtinModules,
+  ...builtinModules.map((specifier) => `node:${specifier}`),
+])
+const COMPUTED_DYNAMIC_IMPORT = '<computed dynamic import>'
+
+function isForbiddenConvexAuthBareSpecifier(specifier) {
+  return (
+    specifier === COMPUTED_DYNAMIC_IMPORT ||
+    NODE_BUILTINS.has(specifier) ||
+    specifier.startsWith('node:') ||
+    specifier.startsWith('#') ||
+    specifier.startsWith('~/') ||
+    specifier.startsWith('~~/') ||
+    specifier.startsWith('@/') ||
+    specifier.startsWith('@@/') ||
+    specifier.startsWith('$app') ||
+    specifier.startsWith('$lib') ||
+    specifier === 'convex/browser' ||
+    specifier === 'better-convex-nuxt' ||
+    specifier.startsWith('better-convex-nuxt/') ||
+    specifier === 'vue' ||
+    specifier.startsWith('@vue/') ||
+    specifier === 'vue-router' ||
+    specifier === 'nuxt' ||
+    specifier.startsWith('@nuxt/') ||
+    specifier === 'nitropack' ||
+    specifier.startsWith('nitropack/') ||
+    specifier === 'h3'
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Edge table (architecture invariant)
@@ -136,6 +181,62 @@ const BROWSER_ONLY_BARE_SPECIFIERS = [
 
 /** @type {Rule[]} */
 const RULES = [
+  {
+    name: 'convex-auth-island-framework-free',
+    description:
+      'src/runtime/convex-auth/** may import only its own island, the approved dependency-free shared leaves, and edge-compatible packages; Nuxt, Vue, Nitro, H3, aliases, Node built-ins, browser runtime, server runtime, and module code are forbidden.',
+    from: isConvexAuth,
+    disallow: (edge) => {
+      if (!edge.isRelative) return isForbiddenConvexAuthBareSpecifier(edge.specifier)
+      if (edge.resolvedAbsPath === null) return false
+      return !isConvexAuth(edge.resolvedAbsPath) && !isConvexAuthSharedLeaf(edge.resolvedAbsPath)
+    },
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'shared-auth-cookie-dependency-free',
+    description:
+      'src/runtime/shared/auth-cookie.ts is a dependency-free cookie boundary shared by Nuxt and Convex auth code.',
+    from: isSharedAuthCookie,
+    disallow: () => true,
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'shared-auth-origin-dependency-free',
+    description:
+      'src/runtime/shared/auth-origin.ts is a dependency-free leaf shared by Nuxt and Convex auth code.',
+    from: isSharedAuthOrigin,
+    disallow: () => true,
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'shared-client-ip-dependency-free',
+    description:
+      'src/runtime/shared/client-ip.ts is a dependency-free Web Crypto leaf shared by Nitro and Convex auth code.',
+    from: isSharedClientIp,
+    disallow: () => true,
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'module-no-convex-auth-imports',
+    description:
+      'Nuxt module/build code must not import or re-export the Convex auth backend island.',
+    from: isModuleBuild,
+    disallow: (edge) =>
+      (edge.isRelative && edge.resolvedAbsPath !== null && isConvexAuth(edge.resolvedAbsPath)) ||
+      (!edge.isRelative && edge.specifier.startsWith('better-convex-nuxt/convex-auth')),
+    typeOnlyExempt: false,
+  },
+  {
+    name: 'browser-no-convex-auth-imports',
+    description:
+      'Browser runtime and the public auth-client definition must not import or re-export the Convex auth backend island.',
+    from: (absPath) => isBrowserRuntime(absPath) || inDir(absPath, AUTH_CLIENT_DIR),
+    disallow: (edge) =>
+      (edge.isRelative && edge.resolvedAbsPath !== null && isConvexAuth(edge.resolvedAbsPath)) ||
+      (!edge.isRelative && edge.specifier.startsWith('better-convex-nuxt/convex-auth')),
+    typeOnlyExempt: false,
+  },
   {
     name: 'server-no-browser-imports',
     description:
@@ -267,8 +368,20 @@ function extractVueScriptBlocks(source) {
 
 function tryResolveRelative(fromFile, specifier) {
   const base = resolve(dirname(fromFile), specifier)
+  const emittedExtensionBase = /\.(?:c|m)?js$/u.test(base)
+    ? base.replace(/\.(?:c|m)?js$/u, '')
+    : null
   const candidates = [
     base,
+    ...(emittedExtensionBase
+      ? [
+          `${emittedExtensionBase}.ts`,
+          `${emittedExtensionBase}.tsx`,
+          `${emittedExtensionBase}.mts`,
+          `${emittedExtensionBase}.cts`,
+          `${emittedExtensionBase}.d.ts`,
+        ]
+      : []),
     `${base}.ts`,
     `${base}.tsx`,
     `${base}.mts`,
@@ -329,11 +442,15 @@ function collectEdgesFromSource(fileName, text) {
     } else if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      ts.isStringLiteral(node.arguments[0])
+      node.arguments.length > 0
     ) {
       // Dynamic `import(...)` always introduces a real runtime edge.
-      raw.push({ specifier: node.arguments[0].text, isTypeOnly: false })
+      raw.push({
+        specifier: ts.isStringLiteral(node.arguments[0])
+          ? node.arguments[0].text
+          : COMPUTED_DYNAMIC_IMPORT,
+        isTypeOnly: false,
+      })
     } else if (
       ts.isImportTypeNode(node) &&
       ts.isLiteralTypeNode(node.argument) &&
@@ -444,7 +561,7 @@ function main() {
   console.log(`✓ boundary check passed (${RULES.length} rule(s), ${files.length} file(s) scanned).`)
 }
 
-export { RULES }
+export { buildEdges, RULES }
 
 const isMainModule = process.argv[1] && import.meta.url === `file://${process.argv[1]}`
 if (isMainModule) {

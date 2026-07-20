@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { watch } from 'vue'
 
 import { useConvexUploadQueue } from '../../src/runtime/composables/useConvexUploadQueue'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { captureInNuxt, installIdentityPortHarness } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 interface UploadPlan {
@@ -99,9 +100,13 @@ class FakeQueueXhr {
 
 const originalXhr = globalThis.XMLHttpRequest
 
-afterEach(() => {
-  globalThis.XMLHttpRequest = originalXhr
+beforeEach(() => {
+  globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
   FakeQueueXhr.reset()
+})
+
+afterAll(() => {
+  globalThis.XMLHttpRequest = originalXhr
 })
 
 function makeFile(name: string, sizeBytes: number): File {
@@ -111,8 +116,6 @@ function makeFile(name: string, sizeBytes: number): File {
 
 describe('useConvexUploadQueue (Nuxt runtime)', () => {
   it('processes 10 uploads with default runtime concurrency', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-default')
     convex.setMutationHandler('files:generateUploadUrl:queue-default', async (args) => {
@@ -145,8 +148,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('lets per-instance maxConcurrent override runtime config', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-override')
     convex.setMutationHandler('files:generateUploadUrl:queue-override', async (args) => {
@@ -178,8 +179,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('computes aggregateProgress using byte-weighted math', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-progress')
     convex.setMutationHandler('files:generateUploadUrl:queue-progress', async (args) => {
@@ -212,8 +211,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('continues processing by default after an item error', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-errors')
     convex.setMutationHandler('files:generateUploadUrl:queue-errors', async (args) => {
@@ -251,9 +248,7 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     expect(result.hasErrors.value).toBe(true)
   })
 
-  it('stops scheduling new queued items when continueOnError is false', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
+  it('settles stopped items without resurrecting them on the next enqueue', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-stop-on-error')
     convex.setMutationHandler('files:generateUploadUrl:queue-stop-on-error', async (args) => {
@@ -270,7 +265,11 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     FakeQueueXhr.setPlan('http://upload.local/third', { delayMs: 10 })
 
     const { result } = await captureInNuxt(
-      () => useConvexUploadQueue(mutation, { maxConcurrent: 1, continueOnError: false }),
+      () =>
+        useConvexUploadQueue(mutation, {
+          maxConcurrent: 1,
+          continueOnError: false,
+        }),
       { convex },
     )
 
@@ -301,46 +300,7 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     expect(result.queuedCount.value).toBe(0)
     expect(result.cancelledCount.value).toBe(2)
     expect(result.isRunning.value).toBe(false)
-  })
 
-  it('does not resurrect halted items when a later enqueue clears the halt', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
-    const convex = new MockConvexClient()
-    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-halt-resurrect')
-    convex.setMutationHandler('files:generateUploadUrl:queue-halt-resurrect', async (args) => {
-      const id = (args as { id: string }).id
-      return `http://upload.local/${id}`
-    })
-
-    FakeQueueXhr.setPlan('http://upload.local/first', {
-      status: 500,
-      responseText: 'fail',
-      delayMs: 10,
-    })
-    FakeQueueXhr.setPlan('http://upload.local/second', { delayMs: 10 })
-    FakeQueueXhr.setPlan('http://upload.local/third', { delayMs: 10 })
-
-    const { result } = await captureInNuxt(
-      () => useConvexUploadQueue(mutation, { maxConcurrent: 1, continueOnError: false }),
-      { convex },
-    )
-
-    await result
-      .enqueue([
-        { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
-        { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
-        { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
-      ])
-      .catch(() => {})
-
-    // Halt already happened: "second" and "third" were settled to 'cancelled'.
-    expect(result.queuedCount.value).toBe(0)
-    expect(result.cancelledCount.value).toBe(2)
-
-    // A later enqueue clears haltedByError (pendingCount is 0) and must only
-    // schedule the newly enqueued item — the old cancelled items must stay
-    // cancelled, not resume as if nothing happened.
     FakeQueueXhr.setPlan('http://upload.local/fourth', { delayMs: 10 })
     const storageIds = await result.enqueue([
       { file: makeFile('fourth.bin', 10), mutationArgs: { id: 'fourth' } },
@@ -353,8 +313,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('enqueue resolves with uploaded storageIds', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-awaitable')
     convex.setMutationHandler('files:generateUploadUrl:queue-awaitable', async (args) => {
@@ -386,8 +344,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('enqueueSafe returns failure result when any upload fails', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-safe')
     convex.setMutationHandler('files:generateUploadUrl:queue-safe', async (args) => {
@@ -401,9 +357,18 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       status: 500,
       responseText: 'fail',
     })
+    const onItemError = vi.fn((item: { status: string }) => {
+      item.status = 'queued'
+      throw new Error('consumer callback failed')
+    })
 
     const { result } = await captureInNuxt(
-      () => useConvexUploadQueue(mutation, { maxConcurrent: 2, continueOnError: true }),
+      () =>
+        useConvexUploadQueue(mutation, {
+          maxConcurrent: 2,
+          continueOnError: true,
+          onItemError: (item) => onItemError(item as { status: string }),
+        }),
       { convex },
     )
 
@@ -417,11 +382,12 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
       throw new Error('Expected enqueueSafe to fail')
     }
     expect(safe.error.message).toMatch(/upload/i)
+    expect(onItemError).toHaveBeenCalledOnce()
+    expect(result.errorCount.value).toBe(1)
+    expect(result.queuedCount.value).toBe(0)
   })
 
   it('supports cancelItem, cancelAll, and clearFinished', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-cancel')
     convex.setMutationHandler('files:generateUploadUrl:queue-cancel', async (args) => {
@@ -461,8 +427,6 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
   })
 
   it('rejects enqueue when a queued item is cancelled', async () => {
-    globalThis.XMLHttpRequest = FakeQueueXhr as unknown as typeof XMLHttpRequest
-
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-cancel-reject')
     convex.setMutationHandler('files:generateUploadUrl:queue-cancel-reject', async (args) => {
@@ -502,4 +466,386 @@ describe('useConvexUploadQueue (Nuxt runtime)', () => {
     }
     expect(enqueueResult.error.message).toMatch(/cancelled/i)
   })
+
+  it('retires active and queued work on identity change and permits a fresh batch', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-identity-change')
+    convex.setMutationHandler('files:generateUploadUrl:queue-identity-change', async (args) => {
+      const id = (args as { id: string }).id
+      return `http://upload.local/${id}`
+    })
+    FakeQueueXhr.setPlan('http://upload.local/first', { delayMs: 200 })
+    FakeQueueXhr.setPlan('http://upload.local/second', { delayMs: 0 })
+    const onItemSuccess = vi.fn()
+    const onItemError = vi.fn()
+    const onQueueIdle = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+    let enqueueFreshOnRetirement = false
+    let freshBatch: Promise<string[]> | null = null
+    FakeQueueXhr.setPlan('http://upload.local/third', {
+      delayMs: 0,
+      responseText: JSON.stringify({ storageId: 'storage:third' }),
+    })
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const queue = useConvexUploadQueue(mutation, {
+          maxConcurrent: 1,
+          onItemSuccess,
+          onItemError,
+          onQueueIdle,
+        })
+        watch(
+          queue.items,
+          (items) => {
+            if (enqueueFreshOnRetirement && items.length === 0 && !freshBatch) {
+              freshBatch = queue.enqueue([
+                { file: makeFile('third.bin', 10), mutationArgs: { id: 'third' } },
+              ])
+            }
+          },
+          { flush: 'sync' },
+        )
+        return queue
+      },
+      { convex },
+    )
+
+    const firstBatch = result
+      .enqueue([
+        { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+        { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
+      ])
+      .then(
+        (storageIds) => ({ ok: true as const, storageIds }),
+        (error) => ({ ok: false as const, error }),
+      )
+    await waitFor(() => result.pendingCount.value === 1 && result.queuedCount.value === 1)
+    expect(convex.calls.mutation).toHaveLength(1)
+
+    enqueueFreshOnRetirement = true
+    identity.advance()
+
+    expect(onItemSuccess).not.toHaveBeenCalled()
+    expect(onItemError).not.toHaveBeenCalled()
+    expect(onQueueIdle).not.toHaveBeenCalled()
+    const firstOutcome = await firstBatch
+    expect(firstOutcome.ok).toBe(false)
+    if (firstOutcome.ok) throw new Error('Expected the retired batch to reject')
+    expect(firstOutcome.error).toMatchObject({
+      kind: 'authentication',
+      code: 'IDENTITY_CHANGED',
+    })
+
+    if (!freshBatch) throw new Error('Expected fresh batch to start during retirement')
+    await expect(freshBatch).resolves.toEqual(['storage:third'])
+    expect(convex.calls.mutation).toHaveLength(2)
+    expect(convex.calls.mutation[1]?.args).toEqual({ id: 'third' })
+    expect(onItemSuccess).toHaveBeenCalledOnce()
+    expect(onItemSuccess.mock.calls[0]?.[0].file.name).toBe('third.bin')
+    expect(onItemError).not.toHaveBeenCalled()
+    expect(onQueueIdle).toHaveBeenCalledOnce()
+
+    // Finished rows remain identity-owned, but clearing them must not emit idle again.
+    identity.advance()
+    expect(result.items.value).toEqual([])
+    expect(result.successCount.value).toBe(0)
+    expect(onQueueIdle).toHaveBeenCalledOnce()
+  })
+
+  it('settles when identity changes synchronously during queued-item publication', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-publish-boundary')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:queue-publish-boundary',
+      async () => 'http://upload.local/publish-boundary',
+    )
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+    let advanced = false
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const queue = useConvexUploadQueue(mutation)
+        watch(
+          queue.items,
+          (items) => {
+            if (!advanced && items.some((item) => item.status === 'queued')) {
+              advanced = true
+              identity.advance()
+            }
+          },
+          { flush: 'sync' },
+        )
+        return queue
+      },
+      { convex },
+    )
+
+    await expect(result.enqueue([makeFile('a.bin', 10)])).rejects.toMatchObject({
+      code: 'IDENTITY_CHANGED',
+    })
+    expect(result.items.value).toEqual([])
+    expect(result.isRunning.value).toBe(false)
+    expect(convex.calls.mutation).toHaveLength(0)
+  })
+
+  it.each([
+    { boundary: 'success', watchedStatus: 'success' as const, xhrStatus: 200 },
+    { boundary: 'error', watchedStatus: 'error' as const, xhrStatus: 500 },
+  ])(
+    'does not emit $boundary after a synchronous item watcher changes identity',
+    async ({ boundary, watchedStatus, xhrStatus }) => {
+      const convex = new MockConvexClient()
+      const mutationName = `files:generateUploadUrl:queue-${boundary}-boundary`
+      const uploadUrl = `http://upload.local/${boundary}-boundary`
+      const mutation = mockFnRef<'mutation'>(mutationName)
+      convex.setMutationHandler(mutationName, async () => uploadUrl)
+      FakeQueueXhr.setPlan(uploadUrl, {
+        status: xhrStatus,
+        responseText: JSON.stringify({ storageId: `storage:${boundary}-boundary` }),
+      })
+      const onItemSuccess = vi.fn()
+      const onItemError = vi.fn()
+      let identity!: ReturnType<typeof installIdentityPortHarness>
+
+      const { result } = await captureInNuxt(
+        () => {
+          identity = installIdentityPortHarness()
+          const queue = useConvexUploadQueue(mutation, {
+            continueOnError: boundary !== 'error',
+            onItemSuccess,
+            onItemError,
+          })
+          watch(
+            queue.items,
+            (items) => {
+              if (items.some((item) => item.status === watchedStatus)) identity.advance()
+            },
+            { flush: 'sync' },
+          )
+          return queue
+        },
+        { convex },
+      )
+
+      await expect(result.enqueue([makeFile('a.bin', 10)])).rejects.toMatchObject({
+        code: 'IDENTITY_CHANGED',
+      })
+      expect(result.items.value).toEqual([])
+      expect(onItemSuccess).not.toHaveBeenCalled()
+      expect(onItemError).not.toHaveBeenCalled()
+    },
+  )
+
+  it('returns identity change when cancellation publication crosses the boundary', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-cancel-boundary')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:queue-cancel-boundary',
+      async () => 'http://upload.local/cancel-boundary',
+    )
+    FakeQueueXhr.setPlan('http://upload.local/cancel-boundary', { delayMs: 200 })
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const queue = useConvexUploadQueue(mutation)
+        watch(
+          queue.items,
+          (items) => {
+            if (items.some((item) => item.status === 'cancelled')) identity.advance()
+          },
+          { flush: 'sync' },
+        )
+        return queue
+      },
+      { convex },
+    )
+
+    const pending = result.enqueue([makeFile('a.bin', 10)])
+    await waitFor(() => result.pendingCount.value === 1)
+    const itemId = result.items.value[0]?.id
+    if (!itemId) throw new Error('Expected pending upload item')
+    result.cancelItem(itemId)
+
+    await expect(pending).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    expect(result.items.value).toEqual([])
+    expect(result.isRunning.value).toBe(false)
+  })
+
+  it('does not let cancelAll abort B work enqueued during A retirement', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-cancel-all-boundary')
+    convex.setMutationHandler('files:generateUploadUrl:queue-cancel-all-boundary', async (args) => {
+      return `http://upload.local/${(args as { id: string }).id}`
+    })
+    FakeQueueXhr.setPlan('http://upload.local/first', { delayMs: 200 })
+    FakeQueueXhr.setPlan('http://upload.local/fresh', {
+      responseText: JSON.stringify({ storageId: 'storage:fresh' }),
+    })
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+    let retireOnCancellation = false
+    let freshBatch: Promise<string[]> | null = null
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        const queue = useConvexUploadQueue(mutation, { maxConcurrent: 1 })
+        watch(
+          queue.items,
+          (items) => {
+            if (
+              retireOnCancellation &&
+              !freshBatch &&
+              items.some((item) => item.status === 'cancelled')
+            ) {
+              identity.advance()
+              freshBatch = queue.enqueue([
+                { file: makeFile('fresh.bin', 10), mutationArgs: { id: 'fresh' } },
+              ])
+            }
+          },
+          { flush: 'sync' },
+        )
+        return queue
+      },
+      { convex },
+    )
+
+    const retiredBatch = result.enqueue([
+      { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+      { file: makeFile('second.bin', 10), mutationArgs: { id: 'second' } },
+    ])
+    await waitFor(() => result.pendingCount.value === 1 && result.queuedCount.value === 1)
+    retireOnCancellation = true
+    result.cancelAll()
+
+    await expect(retiredBatch).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    if (!freshBatch) throw new Error('Expected B batch to be enqueued during cancellation')
+    await expect(freshBatch).resolves.toEqual(['storage:fresh'])
+    expect(result.successCount.value).toBe(1)
+  })
+
+  it('preserves B work enqueued synchronously while reset clears A', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-reset-boundary')
+    convex.setMutationHandler('files:generateUploadUrl:queue-reset-boundary', async (args) => {
+      return `http://upload.local/${(args as { id: string }).id}`
+    })
+    FakeQueueXhr.setPlan('http://upload.local/first', { delayMs: 200 })
+    FakeQueueXhr.setPlan('http://upload.local/fresh', {
+      responseText: JSON.stringify({ storageId: 'storage:fresh' }),
+    })
+    let enqueueFreshOnReset = false
+    let freshBatch: Promise<string[]> | null = null
+
+    const { result } = await captureInNuxt(
+      () => {
+        const queue = useConvexUploadQueue(mutation)
+        watch(
+          queue.items,
+          (items) => {
+            if (enqueueFreshOnReset && items.length === 0 && !freshBatch) {
+              freshBatch = queue.enqueue([
+                { file: makeFile('fresh.bin', 10), mutationArgs: { id: 'fresh' } },
+              ])
+            }
+          },
+          { flush: 'sync' },
+        )
+        return queue
+      },
+      { convex },
+    )
+
+    const resetBatch = result.enqueue([
+      { file: makeFile('first.bin', 10), mutationArgs: { id: 'first' } },
+    ])
+    await waitFor(() => result.pendingCount.value === 1)
+    enqueueFreshOnReset = true
+    result.reset()
+
+    await expect(resetBatch).rejects.toThrow('reset')
+    if (!freshBatch) throw new Error('Expected fresh batch to be enqueued during reset')
+    await expect(freshBatch).resolves.toEqual(['storage:fresh'])
+    expect(result.successCount.value).toBe(1)
+  })
+
+  it('does not return A results when onQueueIdle changes identity synchronously', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-idle-boundary')
+    convex.setMutationHandler(
+      'files:generateUploadUrl:queue-idle-boundary',
+      async () => 'http://upload.local/idle-boundary',
+    )
+    FakeQueueXhr.setPlan('http://upload.local/idle-boundary', {
+      responseText: JSON.stringify({ storageId: 'storage:idle-boundary' }),
+    })
+    const onQueueIdle = vi.fn()
+    let identity!: ReturnType<typeof installIdentityPortHarness>
+
+    const { result } = await captureInNuxt(
+      () => {
+        identity = installIdentityPortHarness()
+        return useConvexUploadQueue(mutation, {
+          onQueueIdle: (items) => {
+            onQueueIdle(items)
+            identity.advance()
+          },
+        })
+      },
+      { convex },
+    )
+
+    await expect(result.enqueue([makeFile('a.bin', 10)])).rejects.toMatchObject({
+      code: 'IDENTITY_CHANGED',
+    })
+    expect(onQueueIdle).toHaveBeenCalledOnce()
+    expect(result.items.value).toEqual([])
+  })
+
+  it.each(['watcher', 'callback'] as const)(
+    'commits success before a same-generation %s calls cancelAll',
+    async (cancellationSource) => {
+      const convex = new MockConvexClient()
+      const mutation = mockFnRef<'mutation'>('files:generateUploadUrl:queue-success-commit')
+      convex.setMutationHandler(
+        'files:generateUploadUrl:queue-success-commit',
+        async () => 'http://upload.local/success-commit',
+      )
+      FakeQueueXhr.setPlan('http://upload.local/success-commit', {
+        responseText: JSON.stringify({ storageId: 'storage:success-commit' }),
+      })
+
+      const { result } = await captureInNuxt(
+        () => {
+          const queue = useConvexUploadQueue(mutation, {
+            onItemSuccess: () => {
+              if (cancellationSource === 'callback') queue.cancelAll()
+            },
+          })
+          if (cancellationSource === 'watcher') {
+            watch(
+              queue.items,
+              (items) => {
+                if (items.some((item) => item.status === 'success')) queue.cancelAll()
+              },
+              { flush: 'sync' },
+            )
+          }
+          return queue
+        },
+        { convex },
+      )
+
+      await expect(result.enqueue([makeFile('a.bin', 10)])).resolves.toEqual([
+        'storage:success-commit',
+      ])
+      expect(result.successCount.value).toBe(1)
+      expect(result.cancelledCount.value).toBe(0)
+    },
+  )
 })

@@ -365,9 +365,9 @@ describe('agentic-saas tools, threads, usage, and retention', () => {
     const viewer = await createBetterAuthUser(t, 'agent-stream-viewer@example.com')
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+      const auth = await createAuth(ctx)
+      await auth.api.addMember({
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: viewer.userId,
@@ -493,9 +493,9 @@ describe('agentic-saas tools, threads, usage, and retention', () => {
     const viewer = await createBetterAuthUser(t, 'agent-thread-viewer@example.com')
 
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+      const auth = await createAuth(ctx)
+      await auth.api.addMember({
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: viewer.userId,
@@ -551,20 +551,21 @@ describe('agentic-saas tools, threads, usage, and retention', () => {
     ).rejects.toThrow('Agent thread belongs to a different delegating user')
 
     const otherOwner = await createBetterAuthUser(t, 'other-agent-owner@example.com')
-    const otherOrganization = await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
-      return await auth.api.createOrganization({
-        headers: new Headers({ authorization: `Bearer ${otherOwner.token}` }),
+    const otherOrganizationId = await t.run(async (ctx) => {
+      const auth = await createAuth(ctx)
+      const organization = await auth.api.createOrganization({
+        headers: new Headers({ cookie: otherOwner.sessionCookie }),
         body: {
           name: 'Other Agent Org',
           slug: `other-agent-org-${Math.random().toString(36).slice(2)}`,
         },
       })
+      return organization.id
     })
 
     await expect(
       t.query(publicApi.agentThreads.listAccessibleMessages, {
-        organizationId: otherOrganization.id,
+        organizationId: otherOrganizationId,
         agentRunId,
         sessionTokenForTest: otherOwner.token,
       }),
@@ -667,9 +668,9 @@ describe('agentic-saas tools, threads, usage, and retention', () => {
     const { owner, organizationId } = await createBetterAuthOrganization(t)
     const viewer = await createBetterAuthUser(t, 'agent-retention-viewer@example.com')
     await t.run(async (ctx) => {
-      const auth = createAuth(ctx)
+      const auth = await createAuth(ctx)
       await auth.api.addMember({
-        headers: new Headers({ authorization: `Bearer ${owner.token}` }),
+        headers: new Headers({ cookie: owner.sessionCookie }),
         body: {
           organizationId,
           userId: viewer.userId,

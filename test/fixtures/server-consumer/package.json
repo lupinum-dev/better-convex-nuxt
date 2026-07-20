@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "prepare:types": "nuxi prepare",
+    "probe:production": "node probe.mjs",
     "typecheck": "nuxi typecheck"
   },
   "devDependencies": {

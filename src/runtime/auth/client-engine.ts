@@ -215,6 +215,7 @@ export function createConvexAuthCoordinator(input: {
       // credential immediately. Only a transient failure may retain a token
       // that is still inside its usable lifetime.
       if (outcome.definitive) {
+        state.authError.value = outcome.authError
         clearRetry()
         return null
       }
@@ -369,13 +370,17 @@ export function createConvexAuthCoordinator(input: {
               // An initial/current client must perform that boundary now.
               activeAuthConfiguration.set(client, {})
               if (gen !== null) {
-                publishAnonymous(null)
+                publishAnonymous(state.authError.value)
                 resolveConfirmation(gen)
                 settleResolve()
               } else if (state.identity.value.status === 'authenticated') {
-                void transitionConfirmedClientToAnonymous(client, epoch, null).then(settleResolve)
+                void transitionConfirmedClientToAnonymous(
+                  client,
+                  epoch,
+                  state.authError.value,
+                ).then(settleResolve)
               } else {
-                publishAnonymous(null)
+                publishAnonymous(state.authError.value)
                 settleResolve()
               }
               return
@@ -404,7 +409,7 @@ export function createConvexAuthCoordinator(input: {
 
           // The callback intentionally outlives first confirmation: Convex uses
           // this same function to report later scheduled-refresh revocation.
-          void transitionConfirmedClientToAnonymous(client, epoch, null)
+          void transitionConfirmedClientToAnonymous(client, epoch, state.authError.value)
         })
       } catch (cause) {
         if (activeAuthConfiguration.get(client) === configuration) {
@@ -620,7 +625,9 @@ export function createConvexAuthCoordinator(input: {
             state.authError.value = outcome.authError
             notify()
           } else {
-            // Definitive 401/403 or no usable identity: transition to anonymous.
+            // Definitive credential rejection or no usable identity: retire the
+            // prior identity and preserve the authentication error.
+            state.authError.value = outcome.authError
             authEpoch += 1
             await commitTransition(ANONYMOUS_IDENTITY, authEpoch)
           }
