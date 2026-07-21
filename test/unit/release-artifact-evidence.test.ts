@@ -1,11 +1,20 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { canonicalNpmTarballFilename } from '../../scripts/package-artifact-coordinates.mjs'
 import { buildContentManifest } from '../../scripts/package-check/tarball.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -47,9 +56,9 @@ function createArtifactFixture() {
   const npm = execFileSync('npm', ['--version'], { encoding: 'utf8' }).trim()
   const pnpm = execFileSync('pnpm', ['--version'], { encoding: 'utf8' }).trim()
   const runtimeFingerprint = `bcn-release-v1-${'a'.repeat(64)}`
-  const tarballName = `${packageJson.name}-${packageJson.version}.tgz`
-  const contentsName = `v${packageJson.version}.contents.json`
-  const sbomName = `v${packageJson.version}.sbom.cdx.json`
+  const tarballName = canonicalNpmTarballFilename(packageJson.name, packageJson.version)
+  const contentsName = 'contents.json'
+  const sbomName = 'sbom.cdx.json'
   const packedPackage = join(directory, 'packed', 'package')
   mkdirSync(join(packedPackage, 'dist', 'runtime', 'shared'), { recursive: true })
   writeFileSync(
@@ -104,7 +113,7 @@ function createArtifactFixture() {
       sha256: sha256(sbom),
     },
   }
-  const evidencePath = join(directory, `v${packageJson.version}.artifact.json`)
+  const evidencePath = join(directory, 'artifact.json')
   writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)
   return { directory, evidence, evidencePath, packedPackage, tarballName }
 }
@@ -185,6 +194,53 @@ describe('immutable release artifact evidence', () => {
       readFileSync(join(fixture.directory, fixture.evidence.sbom.file), 'utf8'),
     ) as Record<string, unknown>
     expect(productionContractDigest(sbom)).toMatch(/^[0-9a-f]{64}$/u)
+  }, 120_000)
+
+  it('rejects evidence supplied under any basename other than artifact.json', () => {
+    const fixture = createArtifactFixture()
+    const renamedEvidencePath = join(fixture.directory, 'candidate-artifact.json')
+    renameSync(fixture.evidencePath, renamedEvidencePath)
+
+    const result = verify(renamedEvidencePath)
+    expect(result.status).toBe(1)
+    expect(result.stderr).toContain('Artifact evidence must be a regular artifact.json file')
+  }, 120_000)
+
+  it('rejects symlinked evidence and sidecars even when their target bytes match', () => {
+    const evidenceFixture = createArtifactFixture()
+    const evidenceTarget = join(evidenceFixture.directory, 'artifact-target.json')
+    renameSync(evidenceFixture.evidencePath, evidenceTarget)
+    symlinkSync(evidenceTarget, evidenceFixture.evidencePath)
+    expect(verify(evidenceFixture.evidencePath).stderr).toContain(
+      'Artifact evidence must be a regular artifact.json file',
+    )
+
+    const tarballFixture = createArtifactFixture()
+    const tarballPath = join(tarballFixture.directory, tarballFixture.evidence.tarball.file)
+    const tarballTarget = join(tarballFixture.directory, 'tarball-target.tgz')
+    renameSync(tarballPath, tarballTarget)
+    symlinkSync(tarballTarget, tarballPath)
+    expect(verify(tarballFixture.evidencePath).stderr).toContain(
+      'Artifact tarball bytes do not match their evidence',
+    )
+
+    const contentsFixture = createArtifactFixture()
+    const contentsPath = join(contentsFixture.directory, contentsFixture.evidence.contents.file)
+    const contentsTarget = join(contentsFixture.directory, 'contents-target.json')
+    renameSync(contentsPath, contentsTarget)
+    symlinkSync(contentsTarget, contentsPath)
+    expect(verify(contentsFixture.evidencePath).stderr).toContain(
+      'Artifact content manifest bytes do not match their evidence',
+    )
+
+    const sbomFixture = createArtifactFixture()
+    const sbomPath = join(sbomFixture.directory, sbomFixture.evidence.sbom.file)
+    const sbomTarget = join(sbomFixture.directory, 'sbom-target.cdx.json')
+    renameSync(sbomPath, sbomTarget)
+    symlinkSync(sbomTarget, sbomPath)
+    expect(verify(sbomFixture.evidencePath).stderr).toContain(
+      'Artifact SBOM bytes do not match their evidence',
+    )
   }, 120_000)
 
   it('roots the SBOM contract digest in the explicitly supplied package manifest', () => {

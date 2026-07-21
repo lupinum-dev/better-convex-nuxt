@@ -2,9 +2,11 @@ import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -15,27 +17,27 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 
+import {
+  assertPackageArtifactWriteTarget,
+  getPackageArtifactCoordinates,
+} from './package-artifact-coordinates.mjs'
 import { selectProductionManifestContract } from './package-check/production-manifest-contract.mjs'
 import { buildContentManifest, packAndExtract } from './package-check/tarball.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-const version = packageJson.version
+const releasePackageId = 'nuxt'
+const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId)
+const packageRoot = artifactCoordinates.sourceDirectory
+const packageJson = JSON.parse(readFileSync(artifactCoordinates.manifestPath, 'utf8'))
+const version = artifactCoordinates.version
 const tag = `v${version}`
-const expectedArtifactFiles = Object.freeze({
-  contents: `${tag}.contents.json`,
-  evidence: `${tag}.artifact.json`,
-  sbom: `${tag}.sbom.cdx.json`,
-  tarball: `${packageJson.name}-${version}.tgz`,
-})
-const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[\dA-Z.-]+)?$/i
-const safeArtifactFilenamePattern = /^\w[\w.-]{0,255}$/u
+const expectedArtifactFiles = artifactCoordinates.files
 const command = process.argv[2]
 const verifyPath = process.argv[3]
 const runtimeFingerprintToken = '__BCN_RELEASE_RUNTIME_FINGERPRINT__'
 const runtimeFingerprintPattern = /^bcn-release-v1-[0-9a-f]{64}$/u
 const runtimeFingerprintBuildFiles = [
-  join(repoRoot, 'dist', 'runtime', 'shared', 'release-fingerprint.js'),
+  join(packageRoot, 'dist', 'runtime', 'shared', 'release-fingerprint.js'),
 ]
 const runtimeFingerprintPackedFiles = ['dist/runtime/shared/release-fingerprint.js']
 const runtimeFingerprintModulePackedFile = 'dist/module.mjs'
@@ -48,26 +50,17 @@ if (
   console.error('Usage: node scripts/release.mjs artifact | prepare | verify <artifact.json>')
   process.exit(1)
 }
-if (
-  packageJson.name !== 'better-convex-nuxt' ||
-  !versionPattern.test(version) ||
-  !Object.values(expectedArtifactFiles).every((file) => safeArtifactFilenamePattern.test(file))
-) {
-  console.error('Invalid release package identity or artifact filenames.')
-  process.exit(1)
-}
-
 function run(executable, args, options = {}) {
   console.log(`\n> ${[executable, ...args].join(' ')}`)
   return execFileSync(executable, args, {
-    cwd: repoRoot,
+    cwd: options.cwd ?? repoRoot,
     encoding: 'utf8',
     stdio: options.capture ? 'pipe' : 'inherit',
   })
 }
 
-function output(executable, args) {
-  return run(executable, args, { capture: true }).trim()
+function output(executable, args, options = {}) {
+  return run(executable, args, { ...options, capture: true }).trim()
 }
 
 function ensureCleanWorkingTree() {
@@ -78,9 +71,27 @@ function ensureCleanWorkingTree() {
 }
 
 function requirePreparedChangelog() {
-  const changelog = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8')
+  const changelog = readFileSync(join(packageRoot, 'CHANGELOG.md'), 'utf8')
   if (!changelog.includes(`## ${tag}`)) {
     throw new Error(`CHANGELOG.md must contain a prepared ${tag} release entry.`)
+  }
+}
+
+function assertReleaseTagIsUnusedOrCurrent() {
+  if (output('git', ['rev-parse', '--is-shallow-repository']) !== 'false') {
+    throw new Error('Release artifact creation requires complete Git history and tags.')
+  }
+  let taggedCommit
+  try {
+    taggedCommit = output('git', ['rev-parse', '--verify', '--quiet', `${tag}^{commit}`])
+  } catch {
+    return
+  }
+  const currentCommit = output('git', ['rev-parse', 'HEAD'])
+  if (taggedCommit !== currentCommit) {
+    throw new Error(
+      `Release version ${version} is immutable at ${taggedCommit}; bump the package version before creating another artifact.`,
+    )
   }
 }
 
@@ -113,7 +124,13 @@ function verifyFileEvidence(directory, evidence, label, expectedFile) {
   }
   const path = join(directory, evidence.file)
   if (!existsSync(path)) throw new Error(`Artifact ${label} file is missing: ${path}`)
-  if (statSync(path).size !== evidence.bytes || digest(path, 'sha256') !== evidence.sha256) {
+  const stats = lstatSync(path)
+  if (
+    !stats.isFile() ||
+    stats.isSymbolicLink() ||
+    stats.size !== evidence.bytes ||
+    digest(path, 'sha256') !== evidence.sha256
+  ) {
     throw new Error(`Artifact ${label} bytes do not match their evidence.`)
   }
   return path
@@ -243,6 +260,14 @@ function generateCandidateSbom(tarballPath, outputPath) {
 
 function verifyArtifact(evidenceFile) {
   const evidencePath = resolve(repoRoot, evidenceFile)
+  const evidenceStats = existsSync(evidencePath) ? lstatSync(evidencePath) : undefined
+  if (
+    basename(evidencePath) !== expectedArtifactFiles.evidence ||
+    !evidenceStats?.isFile() ||
+    evidenceStats.isSymbolicLink()
+  ) {
+    throw new Error(`Artifact evidence must be a regular ${expectedArtifactFiles.evidence} file.`)
+  }
   const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
   if (
     evidence.schemaVersion !== 2 ||
@@ -334,7 +359,9 @@ function packBoundRuntimeArtifact(artifactsDir) {
     }
     // npm must not rerun prepack here: dist above is the one reviewed build.
     const packResult = JSON.parse(
-      output('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', artifactsDir]),
+      output('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', artifactsDir], {
+        cwd: packageRoot,
+      }),
     )
     if (!Array.isArray(packResult) || packResult.length !== 1) {
       throw new Error('npm pack must produce exactly one package result.')
@@ -352,76 +379,96 @@ function packBoundRuntimeArtifact(artifactsDir) {
  * repository directory.
  */
 function createArtifact() {
-  const distDir = join(repoRoot, 'dist')
-  const artifactsDir = join(repoRoot, '.release-artifacts')
+  const distDir = join(packageRoot, 'dist')
+  assertReleaseTagIsUnusedOrCurrent()
+  assertPackageArtifactWriteTarget(releasePackageId)
   rmSync(distDir, { recursive: true, force: true })
-  rmSync(artifactsDir, { recursive: true, force: true })
-  mkdirSync(artifactsDir, { recursive: true })
-
   run('pnpm', ['run', 'prepack'])
 
-  const { packResult, runtimeFingerprint } = packBoundRuntimeArtifact(artifactsDir)
-  if (packResult[0].filename !== expectedArtifactFiles.tarball) {
-    throw new Error(
-      `npm pack produced unexpected artifact filename: ${String(packResult[0].filename)}.`,
-    )
+  assertPackageArtifactWriteTarget(releasePackageId)
+  mkdirSync(artifactCoordinates.packageArtifactDirectory, { recursive: true })
+  assertPackageArtifactWriteTarget(releasePackageId)
+  const stagingDirectory = mkdtempSync(
+    join(artifactCoordinates.packageArtifactDirectory, `.tmp-${version}-`),
+  )
+  let committed = false
+  try {
+    const { packResult, runtimeFingerprint } = packBoundRuntimeArtifact(stagingDirectory)
+    if (packResult[0].filename !== expectedArtifactFiles.tarball) {
+      throw new Error(
+        `npm pack produced unexpected artifact filename: ${String(packResult[0].filename)}.`,
+      )
+    }
+    if (packResult[0].name !== packageJson.name || packResult[0].version !== version) {
+      throw new Error(
+        `npm pack produced unexpected identity: ${String(packResult[0].name)}@${String(packResult[0].version)}.`,
+      )
+    }
+    const tarballPath = join(stagingDirectory, packResult[0].filename)
+    if (!existsSync(tarballPath)) throw new Error(`Expected tarball is missing: ${tarballPath}`)
+
+    const contentsPath = join(stagingDirectory, expectedArtifactFiles.contents)
+    run('node', [
+      'scripts/check-package-exports.mjs',
+      '--tarball',
+      tarballPath,
+      '--manifest',
+      contentsPath,
+    ])
+    const contents = JSON.parse(readFileSync(contentsPath, 'utf8'))
+    if (contents.version !== version) {
+      throw new Error(
+        `Packed identity ${String(packResult[0].name)}@${String(contents.version)} does not match ${packageJson.name}@${version}.`,
+      )
+    }
+
+    const sbomPath = join(stagingDirectory, expectedArtifactFiles.sbom)
+    generateCandidateSbom(tarballPath, sbomPath)
+
+    const tarballIntegrity = integrity(tarballPath)
+    if (packResult[0].integrity && packResult[0].integrity !== tarballIntegrity) {
+      throw new Error('npm pack integrity does not match the independently computed tarball SRI.')
+    }
+    const sourceCommit = output('git', ['rev-parse', 'HEAD'])
+    if (!/^[0-9a-f]{40}$/u.test(sourceCommit)) throw new Error('Could not resolve source commit.')
+
+    const evidence = {
+      schemaVersion: 2,
+      package: packageJson.name,
+      version,
+      tag,
+      sourceCommit,
+      packageManager: packageJson.packageManager,
+      node: process.version,
+      npm: output('npm', ['--version']),
+      pnpm: output('pnpm', ['--version']),
+      sourceTree: 'clean',
+      runtimeFingerprint,
+      tarball: {
+        ...fileEvidence(tarballPath),
+        integrity: tarballIntegrity,
+      },
+      contents: fileEvidence(contentsPath),
+      sbom: fileEvidence(sbomPath),
+    }
+    const evidencePath = join(stagingDirectory, expectedArtifactFiles.evidence)
+    writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)
+
+    ensureCleanWorkingTree()
+    assertPackageArtifactWriteTarget(releasePackageId)
+    renameSync(stagingDirectory, artifactCoordinates.directory)
+    committed = true
+
+    const committedTarballPath = artifactCoordinates.paths.tarball
+    const committedEvidencePath = artifactCoordinates.paths.evidence
+    console.log(`\nImmutable release candidate: ${committedTarballPath}`)
+    console.log(`Artifact evidence: ${committedEvidencePath}`)
+    console.log(`SHA-256: ${evidence.tarball.sha256}`)
+    console.log(`SRI: ${evidence.tarball.integrity}`)
+    return { evidencePath: committedEvidencePath, tarballPath: committedTarballPath }
+  } finally {
+    if (!committed) rmSync(stagingDirectory, { force: true, recursive: true })
   }
-  const tarballPath = join(artifactsDir, packResult[0].filename)
-  if (!existsSync(tarballPath)) throw new Error(`Expected tarball is missing: ${tarballPath}`)
-
-  const contentsPath = join(artifactsDir, expectedArtifactFiles.contents)
-  run('node', [
-    'scripts/check-package-exports.mjs',
-    '--tarball',
-    tarballPath,
-    '--manifest',
-    contentsPath,
-  ])
-  const contents = JSON.parse(readFileSync(contentsPath, 'utf8'))
-  if (packResult[0].name !== packageJson.name || contents.version !== version) {
-    throw new Error(
-      `Packed identity ${String(packResult[0].name)}@${String(contents.version)} does not match ${packageJson.name}@${version}.`,
-    )
-  }
-
-  const sbomPath = join(artifactsDir, expectedArtifactFiles.sbom)
-  generateCandidateSbom(tarballPath, sbomPath)
-
-  const tarballIntegrity = integrity(tarballPath)
-  if (packResult[0].integrity && packResult[0].integrity !== tarballIntegrity) {
-    throw new Error('npm pack integrity does not match the independently computed tarball SRI.')
-  }
-  const sourceCommit = output('git', ['rev-parse', 'HEAD'])
-  if (!/^[0-9a-f]{40}$/u.test(sourceCommit)) throw new Error('Could not resolve source commit.')
-
-  const evidence = {
-    schemaVersion: 2,
-    package: packageJson.name,
-    version,
-    tag,
-    sourceCommit,
-    packageManager: packageJson.packageManager,
-    node: process.version,
-    npm: output('npm', ['--version']),
-    pnpm: output('pnpm', ['--version']),
-    sourceTree: 'clean',
-    runtimeFingerprint,
-    tarball: {
-      ...fileEvidence(tarballPath),
-      integrity: tarballIntegrity,
-    },
-    contents: fileEvidence(contentsPath),
-    sbom: fileEvidence(sbomPath),
-  }
-  const evidencePath = join(artifactsDir, expectedArtifactFiles.evidence)
-  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)
-
-  ensureCleanWorkingTree()
-  console.log(`\nImmutable release candidate: ${tarballPath}`)
-  console.log(`Artifact evidence: ${evidencePath}`)
-  console.log(`SHA-256: ${evidence.tarball.sha256}`)
-  console.log(`SRI: ${evidence.tarball.integrity}`)
-  return { evidencePath, tarballPath }
 }
 
 function main() {

@@ -6,8 +6,9 @@ but it must never publish, promote, or repack a public release.
 
 ## Local artifact rehearsal
 
-Start from a clean reviewed commit whose package version has a matching
-`CHANGELOG.md` section, then run:
+Start from a clean reviewed, non-shallow checkout with tags. Its package version
+must have a matching `CHANGELOG.md` section and must not reuse a tag owned by a
+different commit. Then run:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -21,8 +22,9 @@ The preparation command first builds once and invokes
 run from the reviewed checkout; artifact-dependent package, provenance, and
 clean-consumer gates install or inspect the one immutable tarball. The auth gate
 is hybrid and passes that tarball explicitly to its package-aware sub-gates.
-Nothing repacks the candidate. The command writes an ignored
-`.release-artifacts` directory containing:
+Nothing repacks the candidate. The command writes one immutable,
+package-qualified evidence set at
+`.release-artifacts/nuxt/<package-version>/` containing:
 
 - the npm tarball;
 - a deterministic path/mode/size/SHA-256 content manifest;
@@ -51,11 +53,14 @@ dependencies belong in each consuming application's resolved SBOM.
 `.github/workflows/package-preview.yml` is a developer preview transport, not
 a public npm release path. Each pull-request commit from an in-repository branch
 runs the complete `release:prepare` graph, selects the version-derived
-`.release-artifacts/*.tgz` bound to that exact commit, and passes the prebuilt
-tarball directly to the lockfile-pinned `pkg-pr-new` CLI. pkg.pr.new uploads
-prebuilt tarballs as-is; the workflow verifies the candidate again after upload
-and retains its evidence set for 14 days. It has read-only repository permission
-and receives no npm credential or OIDC publication authority.
+`.release-artifacts/nuxt/<package-version>/better-convex-nuxt-<package-version>.tgz`
+bound to that exact commit, and passes the prebuilt tarball directly to the
+lockfile-pinned `pkg-pr-new` CLI. The path comes from the repository's reviewed
+`nuxt` package descriptor; the workflow does not search the artifact directory
+or accept a caller-selected package path. pkg.pr.new uploads prebuilt tarballs
+as-is; the workflow verifies the candidate again after upload and retains its
+evidence set for 14 days. It has read-only repository permission and receives no
+npm credential or OIDC publication authority.
 
 Install the pkg.pr.new GitHub App on this repository before the first preview.
 The workflow deliberately ignores pull requests from forks. A maintainer can
@@ -75,8 +80,14 @@ republished as an official package.
 Verify a transferred artifact set without rebuilding it:
 
 ```bash
-node scripts/release.mjs verify .release-artifacts/vX.Y.Z-beta.N.artifact.json
+node scripts/release.mjs verify .release-artifacts/nuxt/X.Y.Z-beta.N/artifact.json
 ```
+
+That low-level command may verify an intact evidence set after it has been
+transferred to another directory. The repository's `release:verify` orchestration
+is intentionally stricter: it accepts only the current package version's
+statically reviewed `nuxt` coordinate and cannot be pointed at another package
+or release path.
 
 Local artifacts are disposable rehearsal outputs. Do not upload one to npm.
 

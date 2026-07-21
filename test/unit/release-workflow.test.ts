@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -14,15 +15,23 @@ describe('trusted prerelease workflow', () => {
   const ciWorkflow = read('.github/workflows/ci.yml')
   const cloudGate = read('scripts/run-auth-cloud-staging.mjs')
   const candidateApps = read('scripts/check-candidate-apps.mjs')
+  const releaseBuilder = read('scripts/release.mjs')
   const releaseVerify = read('scripts/verify-release.mjs')
 
   it('builds one artifact and passes the same bytes through verification and publication', () => {
     expect(workflow.match(/pnpm release:artifact/g)).toHaveLength(1)
     expect(workflow).toContain('name: release-candidate')
+    expect(workflow.match(/include-hidden-files: true/g)).toHaveLength(2)
+    expect(workflow.slice(0, workflow.indexOf('  release-security:'))).toContain('fetch-depth: 0')
     expect(workflow).toContain('pnpm release:verify --artifact-manifest')
     expect(workflow.match(/node scripts\/release\.mjs verify/g)).toHaveLength(1)
     expect(workflow).toContain('cmp --silent')
-    expect(workflow).toContain('`${pkg.name}-${pkg.version}.tgz`')
+    expect(workflow.match(/getPackageArtifactCoordinates\('nuxt'\)/g)).toHaveLength(3)
+    expect(workflow).toContain('`evidence=${coordinates.relativePaths.evidence}\\n`')
+    expect(workflow).toContain('`tarball=${coordinates.relativePaths.tarball}\\n`')
+    expect(workflow).toContain('`version=${coordinates.version}\\n`')
+    expect(workflow).not.toContain('`v${pkg.version}.artifact.json`')
+    expect(workflow).not.toContain('`${pkg.name}-${pkg.version}.tgz`')
     expect(workflow).not.toContain('value.tarball.file')
     expect(read('scripts/verify-release.mjs')).toContain(
       "['run', 'check:candidate-apps', '--tarball', tarball]",
@@ -34,6 +43,42 @@ describe('trusted prerelease workflow', () => {
     expect(releaseVerify).toContain("BCN_E2E_REQUIRE_LOCAL: 'true'")
     expect(releaseVerify).not.toContain('every release suite')
     expect(workflow).not.toContain('npm publish .')
+  })
+
+  it('accepts only the reviewed Nuxt artifact coordinate in the release verifier', () => {
+    expect(releaseVerify).toContain(
+      "import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'",
+    )
+    expect(releaseVerify).toContain("const releasePackageId = 'nuxt'")
+    expect(releaseVerify).toContain('getPackageArtifactCoordinates(releasePackageId')
+    expect(releaseVerify).toContain('evidencePath !== artifactCoordinates.paths.evidence')
+    expect(releaseVerify).toContain('artifactCoordinates.relativePaths.evidence')
+
+    const rejected = spawnSync(
+      process.execPath,
+      ['scripts/verify-release.mjs', '--artifact-manifest', 'unreviewed/artifact.json'],
+      { cwd: root, encoding: 'utf8' },
+    )
+    expect(rejected.status).toBe(1)
+    expect(rejected.stderr).toContain(
+      'artifact manifest must be the reviewed nuxt coordinate: .release-artifacts/nuxt/',
+    )
+  })
+
+  it('commits one package artifact atomically without deleting sibling packages', () => {
+    expect(releaseBuilder).toContain('renameSync(stagingDirectory, artifactCoordinates.directory)')
+    expect(releaseBuilder).toContain(
+      'if (!committed) rmSync(stagingDirectory, { force: true, recursive: true })',
+    )
+    expect(releaseBuilder).not.toContain('rmSync(artifactsDir')
+    expect(releaseBuilder).not.toMatch(
+      /rmSync\(artifactCoordinates\.(?:artifactRoot|packageArtifactDirectory)/u,
+    )
+    expect(releaseBuilder).toContain('assertReleaseTagIsUnusedOrCurrent()')
+    expect(releaseBuilder).toContain(
+      'Release artifact creation requires complete Git history and tags',
+    )
+    expect(releaseBuilder).toContain('bump the package version before creating another artifact')
   })
 
   it('installs the exact candidate into a pinned npm consumer and compares installed bytes', () => {
@@ -59,6 +104,7 @@ describe('trusted prerelease workflow', () => {
   it('gives the full release graph its verified 120-minute CI budget', () => {
     const releaseGate = ciWorkflow.slice(ciWorkflow.indexOf('  release-gate:'))
     expect(releaseGate).toContain('timeout-minutes: 120')
+    expect(releaseGate).toContain('fetch-depth: 0')
     expect(releaseGate).toContain('run: pnpm release:prepare')
   })
 

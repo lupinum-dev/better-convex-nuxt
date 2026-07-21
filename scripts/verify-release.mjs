@@ -4,8 +4,11 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'
+
 const root = path.resolve(import.meta.dirname, '..')
 const arguments_ = process.argv.slice(2)
+const releasePackageId = 'nuxt'
 
 function fail(message) {
   throw new Error(`[release-verify] ${message}`)
@@ -25,7 +28,15 @@ function main() {
     fail('usage: pnpm release:verify --artifact-manifest <artifact.json>')
   }
 
+  const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId, {
+    repositoryRoot: root,
+  })
   const evidencePath = path.resolve(root, arguments_[1])
+  if (evidencePath !== artifactCoordinates.paths.evidence) {
+    fail(
+      `artifact manifest must be the reviewed ${releasePackageId} coordinate: ${artifactCoordinates.relativePaths.evidence}`,
+    )
+  }
   run('node', ['scripts/release.mjs', 'verify', evidencePath])
   const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
   if (

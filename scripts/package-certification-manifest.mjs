@@ -66,10 +66,15 @@ const canonicalReviewedDescriptors = canonicalizeDescriptors(reviewedDescriptors
 validatePackageBindings(canonicalReviewedDescriptors, repositoryRoot)
 export const packageCertificationDescriptors = freezeDescriptors(canonicalReviewedDescriptors)
 
-/** Select one reviewed package by its closed internal identifier. */
-export function getPackageCertificationDescriptor(id) {
+/** Select and bind one reviewed package by its closed internal identifier. */
+export function getPackageCertificationDescriptor(
+  id,
+  { repositoryRoot: requestedRepositoryRoot = repositoryRoot } = {},
+) {
   const descriptor = packageCertificationDescriptors.find((candidate) => candidate.id === id)
   if (!descriptor) throw new Error(`Unknown package certification descriptor: ${String(id)}`)
+  const root = resolveRealDirectory(requestedRepositoryRoot, 'Repository root')
+  validatePackageBinding(descriptor, root)
   return descriptor
 }
 

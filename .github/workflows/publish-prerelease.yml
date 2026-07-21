@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -50,6 +51,7 @@ jobs:
           name: release-candidate
           path: .release-artifacts/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 90
 
   release-security:
@@ -118,15 +120,16 @@ jobs:
       - name: Resolve artifact identity
         id: artifact
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs')
-          const path = require('node:path')
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-          if (!/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) {
-            throw new Error('Invalid release version')
-          }
-          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs'
+
+          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
+
+          const coordinates = getPackageArtifactCoordinates('nuxt')
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `evidence=${coordinates.relativePaths.evidence}\n`,
+          )
           NODE
 
       - name: Verify source-integrity and exact-artifact release gates
@@ -169,12 +172,16 @@ jobs:
       - name: Resolve artifact identity
         id: artifact
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs')
-          const path = require('node:path')
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs'
+
+          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
+
+          const coordinates = getPackageArtifactCoordinates('nuxt')
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `evidence=${coordinates.relativePaths.evidence}\n`,
+          )
           NODE
 
       - name: Install and deploy the exact candidate, then run protected cloud-staging races
@@ -197,6 +204,7 @@ jobs:
           name: bcn-auth-staging-report
           path: .release-artifacts/bcn-auth-staging.report.json
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 90
 
   publish:
@@ -233,21 +241,21 @@ jobs:
       - name: Resolve safe artifact coordinates
         id: artifact
         run: |
-          node - <<'NODE'
-          const fs = require('node:fs')
-          const path = require('node:path')
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-          if (
-            pkg.name !== 'better-convex-nuxt' ||
-            !/^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)
-          ) {
-            throw new Error('Invalid release package identity')
-          }
-          const evidence = path.join('.release-artifacts', `v${pkg.version}.artifact.json`)
-          const tarball = path.join('.release-artifacts', `${pkg.name}-${pkg.version}.tgz`)
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidence}\n`)
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${tarball}\n`)
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`)
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs'
+
+          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
+
+          const coordinates = getPackageArtifactCoordinates('nuxt')
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `evidence=${coordinates.relativePaths.evidence}\n`,
+          )
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `tarball=${coordinates.relativePaths.tarball}\n`,
+          )
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${coordinates.version}\n`)
           NODE
 
       - name: Reverify bytes before protected publication

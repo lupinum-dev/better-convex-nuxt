@@ -192,6 +192,9 @@ describe('package certification manifest', () => {
   it('binds the reviewed identity to a real in-repository package manifest', () => {
     const wrongNameRoot = createRepository('renamed-package')
     expect(() =>
+      getPackageCertificationDescriptor('nuxt', { repositoryRoot: wrongNameRoot }),
+    ).toThrow('declares renamed-package; descriptor nuxt requires better-convex-nuxt')
+    expect(() =>
       validatePackageCertificationDescriptors([cloneDescriptor()], {
         repositoryRoot: wrongNameRoot,
       }),

@@ -21,6 +21,7 @@ describe('pkg.pr.new package preview workflow', () => {
     expect(workflow).toContain('github.event.pull_request.head.repo.full_name == github.repository')
     expect(workflow).toContain("github.event_name == 'workflow_dispatch'")
     expect(workflow).toContain('ref: ${{ github.event.pull_request.head.sha || github.sha }}')
+    expect(workflow).toContain('fetch-depth: 0')
     expect(workflow).not.toContain('pull_request_target')
     expect(workflow).not.toMatch(/^\s+push:/mu)
     expect(workflow).not.toContain('github.event.label')
@@ -40,11 +41,19 @@ describe('pkg.pr.new package preview workflow', () => {
     expect(workflow.match(/pnpm release:prepare/g)).toHaveLength(1)
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('pnpm check:auth-backend --install')
+    expect(workflow).toContain(
+      "import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'",
+    )
+    expect(workflow).toContain("getPackageArtifactCoordinates('nuxt')")
+    expect(workflow).toContain('const evidencePath = coordinates.relativePaths.evidence')
+    expect(workflow).toContain('`tarball=${coordinates.relativePaths.tarball}\\n`')
     expect(workflow).toContain('evidence.sourceCommit !== expectedSourceCommit')
-    expect(workflow).toContain('evidence.tarball?.file !== expectedTarball')
+    expect(workflow).toContain('evidence.tarball?.file !== coordinates.files.tarball')
     expect(workflow).toContain(
       'node scripts/release.mjs verify "${{ steps.artifact.outputs.evidence }}"',
     )
+    expect(workflow).not.toContain('`v${packageJson.version}.artifact.json`')
+    expect(workflow).not.toContain('`${packageJson.name}-${packageJson.version}.tgz`')
     expect(workflow).not.toMatch(/(?:npm|pnpm) pack/u)
   })
 

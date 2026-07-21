@@ -1,5 +1,12 @@
 # Better Convex Nuxt Auth Platform Plan
 
+> **Historical 0.7 record.** This document describes the completed 0.7 design and its
+> detached-checkout release commands. It is not the vNext implementation contract. The normative vNext
+> design is [`internal/RFC-better-convex-vnext.md`](./internal/RFC-better-convex-vnext.md), executable
+> status lives only in [`internal/VNEXT-TASKS.md`](./internal/VNEXT-TASKS.md), and current release
+> instructions live in [`RELEASING.md`](./RELEASING.md). In particular, the flat artifact paths below
+> apply only to historical 0.7 evidence.
+
 | Field                       | Decision                                                                                                                                                                           |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Status                      | Greenfield hard-cut implementation in progress; no public release. Every phase still requires its listed gates, and Phases 5–6 require external rehearsal/stable-release evidence. |
@@ -13,10 +20,8 @@
 | Protocol strategy           | Better Auth remains the authentication and OAuth/OIDC protocol engine. We own the Convex and Nuxt integration, storage correctness, tests, and release gates.                      |
 | First stable target         | `better-convex-nuxt@0.7.0`, only after Better Auth 1.7 stable, all gates, protocol interoperability evidence, and an independent human security review                             |
 
-> This document is the implementation contract. If code, a pull request, or an
-> upstream release conflicts with it, stop and update this plan through review
-> before continuing. A junior implementer must never resolve an undocumented
-> security or architecture choice alone.
+> This document was the implementation contract for the 0.7 line. Preserve it as
+> historical evidence; record vNext decisions in the RFC and its decision ledger.
 
 ## 0. Implementation progress
 
