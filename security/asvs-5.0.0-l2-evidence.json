@@ -119,8 +119,7 @@
         "src/runtime/shared/client-ip.ts",
         "scripts/run-oauth-transport-quota.mjs",
         "test/unit/oauth-transport-quota.test.ts",
-        "test/unit/auth-proxy-client-ip.test.ts",
-        "playground/convex/auth-proxy-client-ip.test.ts"
+        "test/unit/auth-proxy-client-ip.test.ts"
       ]
     },
     {
