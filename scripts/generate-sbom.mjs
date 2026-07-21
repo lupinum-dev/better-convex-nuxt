@@ -12,6 +12,7 @@ import {
 } from './supported-dependency-tuple.mjs'
 
 const root = process.cwd()
+const sbomPackageId = 'nuxt'
 const args = process.argv.slice(2)
 const outputIndex = args.indexOf('--output')
 const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined
@@ -116,7 +117,7 @@ const bom = {
       properties: [
         {
           name: 'better-convex-nuxt:production-manifest-contract-sha256',
-          value: productionManifestContractDigest(pkg),
+          value: productionManifestContractDigest(sbomPackageId, pkg),
         },
       ],
     },

@@ -409,7 +409,10 @@ describe('immutable release artifact evidence', () => {
     ) as Record<string, unknown>
     const manifestPath = join(fixture.packedPackage, 'package.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
-    manifest.optionalDependencies = { 'forged-candidate-only-package': '1.0.0' }
+    manifest.dependencies = {
+      ...(manifest.dependencies as Record<string, unknown>),
+      'forged-candidate-only-package': '1.0.0',
+    }
     writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`)
     const outputPath = join(fixture.directory, 'candidate-rooted.sbom.cdx.json')
     execFileSync(
@@ -433,9 +436,19 @@ describe('immutable release artifact evidence', () => {
         ...(manifest.peerDependencies as Record<string, unknown>),
         convex: '0.0.0-forged',
       }
-      manifest.optionalDependencies = { 'forged-candidate-only-package': '1.0.0' }
       manifest.engines = { node: '>=0' }
-      manifest.packageManager = 'pnpm@0.0.0'
+    })
+    const result = verify(fixture.evidencePath)
+    expect(result.status, result.stderr).toBe(1)
+    expect(result.stderr).toContain(
+      'Packed production manifest contract does not exactly match the reviewed source manifest',
+    )
+  }, 120_000)
+
+  it('rejects a rehashed tarball whose only manifest drift is an added export', () => {
+    const fixture = createArtifactFixture()
+    replacePackedManifest(fixture, (manifest) => {
+      ;(manifest.exports as Record<string, unknown>)['./forged'] = './dist/forged.js'
     })
     const result = verify(fixture.evidencePath)
     expect(result.status, result.stderr).toBe(1)

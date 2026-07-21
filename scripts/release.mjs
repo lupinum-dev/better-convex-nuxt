@@ -27,7 +27,10 @@ import {
   packageArtifactEvidenceSchemaVersion,
   parsePackageArtifactEvidence,
 } from './package-artifact-evidence.mjs'
-import { selectProductionManifestContract } from './package-check/production-manifest-contract.mjs'
+import {
+  assertProductionManifestContract,
+  selectProductionManifestContract,
+} from './package-check/production-manifest-contract.mjs'
 import { buildContentManifest, packAndExtract } from './package-check/tarball.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
@@ -36,8 +39,14 @@ const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId)
 const packageRoot = artifactCoordinates.sourceDirectory
 const packageJson = JSON.parse(readFileSync(artifactCoordinates.manifestPath, 'utf8'))
 const workspacePackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+const reviewedManifestContract = selectProductionManifestContract(releasePackageId, packageJson)
 const workspacePackageManager = workspacePackageJson.packageManager
-if (typeof workspacePackageManager !== 'string' || workspacePackageManager.length === 0) {
+if (
+  typeof workspacePackageManager !== 'string' ||
+  workspacePackageManager.length === 0 ||
+  (artifactCoordinates.packageDirectory === '.' &&
+    reviewedManifestContract.manifest.packageManager !== workspacePackageManager)
+) {
   throw new Error('Workspace package.json must declare the release package manager.')
 }
 const version = artifactCoordinates.version
@@ -193,16 +202,7 @@ function requireReviewedCandidateManifest(packageDir) {
       `Packed package identity ${String(candidate.name)}@${String(candidate.version)} does not match reviewed ${packageJson.name}@${version}.`,
     )
   }
-  if (
-    !isDeepStrictEqual(
-      selectProductionManifestContract(candidate),
-      selectProductionManifestContract(packageJson),
-    )
-  ) {
-    throw new Error(
-      'Packed production manifest contract does not exactly match the reviewed source manifest.',
-    )
-  }
+  assertProductionManifestContract(releasePackageId, candidate, packageJson)
   return manifestPath
 }
 

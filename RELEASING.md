@@ -35,13 +35,17 @@ package-qualified evidence set at
   tarball SHA-256 and SRI, content manifest, SBOM, and a random build-generated
   runtime fingerprint embedded in the packed module and endpoint handler.
 
-Verification accepts only the exact version-derived artifact filenames,
-re-extracts the tarball to recompute its complete path/mode/size/hash manifest,
-requires the packed name, version, dependency, peer, optional-dependency,
-engine, and package-manager contract to exactly match the reviewed source, and
-regenerates the canonical production SBOM with the extracted package manifest
-as its root. The SBOM embeds a digest of that production manifest contract. A
-sidecar whose own hash is valid but whose content does not match those
+Verification accepts only the exact version-derived artifact filenames and
+re-extracts the tarball to recompute its complete path/mode/size/hash manifest.
+The closed Nuxt SBOM profile requires the package identity, raw export/install
+surface, dependencies, peers, Node engine, and package-manager declaration;
+rejects unreviewed optional/bundled/platform/publish modes and consumer install
+or publish lifecycle hooks; and compares the candidate contract exactly with
+reviewed source. Export semantics and runtime/type purity remain independently
+checked by the package-entry gates. Verification regenerates the canonical
+production SBOM with the extracted package manifest as its root. The SBOM
+embeds a profile- and schema-bound digest of that production manifest contract.
+A sidecar whose own hash is valid but whose content does not match those
 independent results is rejected.
 
 vNext accepts no legacy evidence-schema fallback. Historical schema-v2 beta
