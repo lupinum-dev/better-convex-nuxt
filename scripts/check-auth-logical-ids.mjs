@@ -6,13 +6,14 @@ import { pathToFileURL } from 'node:url'
 
 import ts from 'typescript'
 
-import { maintainedCandidateApps } from './maintained-candidate-apps.mjs'
+import { getMaintainedCandidateProfile } from './maintained-candidate-apps.mjs'
 
 const root = resolve(import.meta.dirname, '..')
+const { profile: maintainedCandidateProfile } = getMaintainedCandidateProfile('nuxt')
 export const maintainedAuthConsumerRoots = [
   'src/runtime/server/createUserSyncTriggers.ts',
   'playground/convex',
-  ...maintainedCandidateApps.map(({ path }) => `${path}/convex`),
+  ...maintainedCandidateProfile.pnpmApps.map(({ path }) => `${path}/convex`),
   'test/fixtures/better-auth-local-component/convex',
 ]
 const queryFactories = new Set(['internalQuery', 'query', 'queryGeneric'])

@@ -15,9 +15,11 @@ import { request as httpsRequest } from 'node:https'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { maintainedCandidateApps } from './maintained-candidate-apps.mjs'
+import { getMaintainedCandidateProfile } from './maintained-candidate-apps.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
+const { profile: maintainedCandidateProfile } = getMaintainedCandidateProfile('nuxt')
+const maintainedCandidateApps = maintainedCandidateProfile.pnpmApps
 const args = process.argv.slice(2)
 if (args.length !== 2 || args[0] !== '--tarball') {
   console.error('Usage: pnpm update:candidate-app-locks --tarball <better-convex-nuxt.tgz>')

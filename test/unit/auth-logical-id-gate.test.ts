@@ -4,7 +4,9 @@ import {
   maintainedAuthConsumerRoots,
   scanAuthLogicalIdSource,
 } from '../../scripts/check-auth-logical-ids.mjs'
-import { maintainedCandidateApps } from '../../scripts/maintained-candidate-apps.mjs'
+import { getMaintainedCandidateProfile } from '../../scripts/maintained-candidate-apps.mjs'
+
+const { profile: maintainedCandidateProfile } = getMaintainedCandidateProfile('nuxt')
 
 function messages(source: string): string[] {
   return scanAuthLogicalIdSource(source).map((violation) => violation.message)
@@ -14,7 +16,7 @@ describe('auth logical-ID AST gate', () => {
   it('covers every maintained candidate application from the canonical matrix', () => {
     const coveredRoots = new Set(maintainedAuthConsumerRoots)
 
-    for (const { path } of maintainedCandidateApps) {
+    for (const { path } of maintainedCandidateProfile.pnpmApps) {
       expect(coveredRoots.has(`${path}/convex`), `${path} is missing from the gate`).toBe(true)
     }
   })
