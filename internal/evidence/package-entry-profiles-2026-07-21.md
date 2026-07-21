@@ -114,6 +114,14 @@ Result: the current tree was packed with release-equivalent npm semantics, extra
 passed the root runtime, errors, auth-client, production Nitro server, and user-sync-trigger consumers.
 
 ```sh
+pnpm exec vitest run test/unit/release-artifact-evidence.test.ts --reporter=verbose
+```
+
+Result: all 32 immutable-artifact evidence tests passed from committed `98144b8d` plus the portable
+fixture diff. The fixture uses the pinned certification tar implementation and a file-only archive
+inventory; macOS system-tar AppleDouble and directory metadata can no longer mask the intended evidence.
+
+```sh
 node scripts/check-package-exports.mjs \
   --package nuxt \
   --tarball .release-artifacts/better-convex-nuxt-0.7.0-beta.1.tgz

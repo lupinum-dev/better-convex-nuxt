@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -12,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import * as tar from 'tar'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import {
@@ -23,6 +25,30 @@ import { buildContentManifest } from '../../scripts/package-check/tarball.mjs'
 const root = resolve(import.meta.dirname, '../..')
 const temporaryDirectories: string[] = []
 let productionSbom: string | undefined
+
+function writeFixtureTarball(file: string, packedRoot: string) {
+  const files: string[] = []
+  const collect = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = join(directory, entry.name)
+      if (entry.isDirectory()) collect(absolutePath)
+      else files.push(absolutePath.slice(packedRoot.length + 1))
+    }
+  }
+  collect(join(packedRoot, 'package'))
+  tar.c(
+    {
+      cwd: packedRoot,
+      file,
+      gzip: true,
+      noDirRecurse: true,
+      portable: true,
+      strict: true,
+      sync: true,
+    },
+    files.sort(),
+  )
+}
 
 function sha256(bytes: Buffer | string) {
   return createHash('sha256').update(bytes).digest('hex')
@@ -74,15 +100,11 @@ function createArtifactFixture() {
     `const value = '${runtimeFingerprint}'\n`,
   )
   writeFileSync(join(packedPackage, 'package.json'), `${JSON.stringify(packageJson)}\n`)
-  execFileSync(
-    'tar',
-    ['czf', join(directory, tarballName), '-C', join(directory, 'packed'), 'package'],
-    { encoding: 'utf8' },
-  )
+  writeFixtureTarball(join(directory, tarballName), join(directory, 'packed'))
   const tarball = readFileSync(join(directory, tarballName))
   const extractedRoot = join(directory, 'extracted')
   mkdirSync(extractedRoot)
-  execFileSync('tar', ['xf', join(directory, tarballName), '-C', extractedRoot])
+  tar.x({ cwd: extractedRoot, file: join(directory, tarballName), strict: true, sync: true })
   const contents = `${JSON.stringify(buildContentManifest(join(extractedRoot, 'package')), null, 2)}\n`
   const sbom = canonicalProductionSbom()
   writeFileSync(join(directory, contentsName), contents)
@@ -149,9 +171,7 @@ function replacePackedManifest(
   writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`)
 
   const tarballPath = join(fixture.directory, fixture.tarballName)
-  execFileSync('tar', ['czf', tarballPath, '-C', join(fixture.directory, 'packed'), 'package'], {
-    encoding: 'utf8',
-  })
+  writeFixtureTarball(tarballPath, join(fixture.directory, 'packed'))
   const tarball = readFileSync(tarballPath)
   fixture.evidence.tarball.bytes = tarball.length
   fixture.evidence.tarball.sha256 = sha256(tarball)
