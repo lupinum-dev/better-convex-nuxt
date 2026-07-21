@@ -1,10 +1,16 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { buildEdges, RULES } from '../../scripts/check-boundaries.mjs'
+import {
+  buildEdges,
+  discoverWorkspacePackages,
+  findWorkspaceDependencyCycles,
+  findWorkspaceDependencyViolations,
+  RULES,
+} from '../../scripts/check-boundaries.mjs'
 
 type BoundaryEdge = {
   isRelative: boolean
@@ -124,5 +130,100 @@ describe('Convex auth dependency boundaries', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true })
     }
+  })
+})
+
+describe('workspace package dependency direction', () => {
+  function workspacePackage(
+    directory: string,
+    name: string,
+    dependencies: Record<string, string> = {},
+  ) {
+    return {
+      directory,
+      manifest: { name, dependencies },
+      name,
+    }
+  }
+
+  it('discovers the root and current workspace package ownership', () => {
+    const packages = discoverWorkspacePackages()
+    expect(packages.map((item) => item.name).sort()).toEqual([
+      'better-convex-nuxt',
+      'better-convex-nuxt-playground',
+    ])
+  })
+
+  it('rejects relative imports that bypass another package public entry', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'bcn-workspace-relative-'))
+    try {
+      const packageA = join(directory, 'packages/a')
+      const packageB = join(directory, 'packages/b')
+      const source = join(packageA, 'src/index.ts')
+      const target = join(packageB, 'src/index.ts')
+      mkdirSync(join(packageA, 'src'), { recursive: true })
+      mkdirSync(join(packageB, 'src'), { recursive: true })
+      writeFileSync(source, "export { value } from '../../b/src/index.js'\n")
+      writeFileSync(target, 'export const value = true\n')
+
+      const violations = findWorkspaceDependencyViolations(
+        [source, target],
+        [workspacePackage(packageA, '@fixture/a'), workspacePackage(packageB, '@fixture/b')],
+      )
+      expect(violations).toEqual([
+        expect.objectContaining({
+          kind: 'relative-cross-package',
+          specifier: '../../b/src/index.js',
+        }),
+      ])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('requires bare workspace imports to be declared by the importer', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'bcn-workspace-declaration-'))
+    try {
+      const packageA = join(directory, 'packages/a')
+      const packageB = join(directory, 'packages/b')
+      const source = join(packageA, 'src/index.ts')
+      mkdirSync(join(packageA, 'src'), { recursive: true })
+      writeFileSync(source, "export { value } from '@fixture/b/subpath'\n")
+
+      expect(
+        findWorkspaceDependencyViolations(
+          [source],
+          [workspacePackage(packageA, '@fixture/a'), workspacePackage(packageB, '@fixture/b')],
+        ),
+      ).toEqual([
+        expect.objectContaining({
+          kind: 'undeclared-workspace-import',
+          specifier: '@fixture/b/subpath',
+        }),
+      ])
+
+      expect(
+        findWorkspaceDependencyViolations(
+          [source],
+          [
+            workspacePackage(packageA, '@fixture/a', { '@fixture/b': 'workspace:*' }),
+            workspacePackage(packageB, '@fixture/b'),
+          ],
+        ),
+      ).toEqual([])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects cycles in the declared workspace package graph', () => {
+    const directory = resolve('/tmp/bcn-workspace-cycle')
+    const packages = [
+      workspacePackage(directory + '/a', '@fixture/a', { '@fixture/b': 'workspace:*' }),
+      workspacePackage(directory + '/b', '@fixture/b', { '@fixture/a': 'workspace:*' }),
+    ]
+    expect(findWorkspaceDependencyCycles(packages)).toEqual([
+      ['@fixture/a', '@fixture/b', '@fixture/a'],
+    ])
   })
 })

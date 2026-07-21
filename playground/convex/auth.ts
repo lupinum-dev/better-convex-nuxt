@@ -8,12 +8,12 @@ import {
   type AuthCtx,
   type AuthFunctions,
 } from 'better-convex-nuxt/convex-auth'
-import { v } from 'convex/values'
-
 import {
   createUserSyncTriggers,
   type BetterAuthUserDocLike,
-} from '../../src/runtime/server/createUserSyncTriggers'
+} from 'better-convex-nuxt/server/createUserSyncTriggers'
+import { v } from 'convex/values'
+
 import { components, internal } from './_generated/api'
 import type { DataModel, Doc } from './_generated/dataModel'
 import { internalMutation, query } from './_generated/server'

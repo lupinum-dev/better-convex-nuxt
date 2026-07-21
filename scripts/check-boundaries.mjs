@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 
 import ts from 'typescript'
 
-const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const p = (...segments) => resolve(repoRoot, ...segments)
 
 /** Directory names never walked into, anywhere in the tree. */
@@ -328,6 +328,195 @@ function collectFiles(absoluteRoot) {
 }
 
 // ---------------------------------------------------------------------------
+// Workspace package ownership
+// ---------------------------------------------------------------------------
+
+const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'peerDependencies',
+  'optionalDependencies',
+  'devDependencies',
+]
+
+function readJsonFile(absolutePath) {
+  return JSON.parse(readFileSync(absolutePath, 'utf8'))
+}
+
+/**
+ * Read the deliberately small workspace grammar used by this repository.
+ * Supporting arbitrary globs here would make package ownership permissive;
+ * new shapes must instead be reviewed and added explicitly.
+ */
+function readWorkspacePatterns(absoluteWorkspaceFile) {
+  const source = readFileSync(absoluteWorkspaceFile, 'utf8')
+  const lines = source.split(/\r?\n/u)
+  const packagesLine = lines.findIndex((line) => /^packages:\s*(?:#.*)?$/u.test(line))
+  if (packagesLine === -1) throw new Error('pnpm-workspace.yaml has no packages block.')
+
+  const patterns = []
+  for (const line of lines.slice(packagesLine + 1)) {
+    if (/^\S/u.test(line)) break
+    const item = line.trim()
+    if (!item.startsWith('- ')) continue
+    const unquoted = item.slice(2).split('#', 1)[0].trim()
+    const pattern =
+      (unquoted.startsWith("'") && unquoted.endsWith("'")) ||
+      (unquoted.startsWith('"') && unquoted.endsWith('"'))
+        ? unquoted.slice(1, -1)
+        : unquoted
+    if (
+      pattern.length === 0 ||
+      pattern.startsWith('!') ||
+      (pattern.includes('*') && !pattern.endsWith('/*')) ||
+      /[?{}[\]]/u.test(pattern)
+    ) {
+      throw new Error(`Unsupported workspace package pattern: ${pattern}`)
+    }
+    patterns.push(pattern)
+  }
+  if (patterns.length === 0) throw new Error('pnpm-workspace.yaml packages block is empty.')
+  return patterns
+}
+
+function expandWorkspacePattern(root, pattern) {
+  if (!pattern.endsWith('/*')) return [resolve(root, pattern)]
+  const parent = resolve(root, pattern.slice(0, -2))
+  if (!existsSync(parent)) return []
+  return readdirSync(parent, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(parent, entry.name))
+}
+
+function discoverWorkspacePackages(root = repoRoot) {
+  const directories = [
+    root,
+    ...readWorkspacePatterns(join(root, 'pnpm-workspace.yaml')).flatMap((pattern) =>
+      expandWorkspacePattern(root, pattern),
+    ),
+  ]
+
+  const packages = []
+  const names = new Set()
+  for (const directory of new Set(directories)) {
+    const manifestPath = join(directory, 'package.json')
+    if (!existsSync(manifestPath)) continue
+    const manifest = readJsonFile(manifestPath)
+    if (typeof manifest.name !== 'string' || manifest.name.length === 0) {
+      throw new Error(`${relative(root, manifestPath)} must declare a package name.`)
+    }
+    if (names.has(manifest.name)) {
+      throw new Error(`Duplicate workspace package name: ${manifest.name}`)
+    }
+    names.add(manifest.name)
+    packages.push({ directory: resolve(directory), manifest, name: manifest.name })
+  }
+  return packages.sort((left, right) => right.directory.length - left.directory.length)
+}
+
+function packageNameFromSpecifier(specifier) {
+  if (specifier.startsWith('@')) return specifier.split('/').slice(0, 2).join('/')
+  return specifier.split('/')[0]
+}
+
+function owningPackage(absolutePath, packages) {
+  return (
+    packages.find((workspacePackage) => inDir(absolutePath, workspacePackage.directory)) ?? null
+  )
+}
+
+function declaredDependencyNames(manifest) {
+  return new Set(
+    DEPENDENCY_FIELDS.flatMap((field) =>
+      manifest[field] && typeof manifest[field] === 'object' ? Object.keys(manifest[field]) : [],
+    ),
+  )
+}
+
+function findWorkspaceDependencyCycles(packages) {
+  const packageByName = new Map(
+    packages.map((workspacePackage) => [workspacePackage.name, workspacePackage]),
+  )
+  const dependencies = new Map(
+    packages.map((workspacePackage) => [
+      workspacePackage.name,
+      [...declaredDependencyNames(workspacePackage.manifest)].filter((name) =>
+        packageByName.has(name),
+      ),
+    ]),
+  )
+  const visited = new Set()
+  const active = new Set()
+  const stack = []
+  const cycles = []
+
+  function visit(name) {
+    if (active.has(name)) {
+      const start = stack.indexOf(name)
+      cycles.push([...stack.slice(start), name])
+      return
+    }
+    if (visited.has(name)) return
+    active.add(name)
+    stack.push(name)
+    for (const dependency of dependencies.get(name) ?? []) visit(dependency)
+    stack.pop()
+    active.delete(name)
+    visited.add(name)
+  }
+
+  for (const workspacePackage of packages) visit(workspacePackage.name)
+  return cycles
+}
+
+function findWorkspaceDependencyViolations(files, packages) {
+  const packageByName = new Map(
+    packages.map((workspacePackage) => [workspacePackage.name, workspacePackage]),
+  )
+  const violations = []
+
+  for (const absoluteFile of files) {
+    const importer = owningPackage(absoluteFile, packages)
+    if (!importer) continue
+    const declared = declaredDependencyNames(importer.manifest)
+    for (const edge of buildEdges(absoluteFile)) {
+      if (edge.isRelative && edge.resolvedAbsPath !== null) {
+        const target = owningPackage(edge.resolvedAbsPath, packages)
+        if (target && target !== importer) {
+          violations.push({
+            file: absoluteFile,
+            kind: 'relative-cross-package',
+            message: `relative import crosses from ${importer.name} into ${target.name}`,
+            specifier: edge.specifier,
+          })
+        }
+        continue
+      }
+      if (edge.isRelative || edge.specifier === COMPUTED_DYNAMIC_IMPORT) continue
+      const targetName = packageNameFromSpecifier(edge.specifier)
+      if (targetName === importer.name || !packageByName.has(targetName)) continue
+      if (!declared.has(targetName)) {
+        violations.push({
+          file: absoluteFile,
+          kind: 'undeclared-workspace-import',
+          message: `${importer.name} imports workspace package ${targetName} without declaring it`,
+          specifier: edge.specifier,
+        })
+      }
+    }
+  }
+
+  for (const cycle of findWorkspaceDependencyCycles(packages)) {
+    violations.push({
+      file: null,
+      kind: 'workspace-dependency-cycle',
+      message: `workspace dependency cycle: ${cycle.join(' -> ')}`,
+      specifier: cycle.join(' -> '),
+    })
+  }
+  return violations
+}
+
+// ---------------------------------------------------------------------------
 // AST edge extraction
 // ---------------------------------------------------------------------------
 
@@ -507,7 +696,15 @@ function assertKnownPathsExist() {
 function main() {
   assertKnownPathsExist()
 
-  const files = collectFiles(p('src'))
+  const workspacePackages = discoverWorkspacePackages()
+  const files = [
+    ...new Set([
+      ...collectFiles(p('src')),
+      ...workspacePackages
+        .filter((workspacePackage) => workspacePackage.directory !== repoRoot)
+        .flatMap((workspacePackage) => collectFiles(workspacePackage.directory)),
+    ]),
+  ]
 
   /** @type {{ rule: Rule, file: string, specifier: string, isTypeOnly: boolean }[]} */
   const violations = []
@@ -558,10 +755,33 @@ function main() {
     process.exit(1)
   }
 
-  console.log(`✓ boundary check passed (${RULES.length} rule(s), ${files.length} file(s) scanned).`)
+  const workspaceViolations = findWorkspaceDependencyViolations(files, workspacePackages)
+  if (workspaceViolations.length > 0) {
+    console.error(
+      '\n✗ workspace-package-direction: package edges must use declared public imports and remain acyclic.',
+    )
+    for (const violation of workspaceViolations) {
+      const source = violation.file ? relative(repoRoot, violation.file) : '<package manifests>'
+      console.error(`  ${source} -> "${violation.specifier}" (${violation.message})`)
+    }
+    console.error(
+      `\nboundary check failed: ${workspaceViolations.length} workspace package violation(s).`,
+    )
+    process.exit(1)
+  }
+
+  console.log(
+    `✓ boundary check passed (${RULES.length} architecture rule(s), ${workspacePackages.length} package(s), ${files.length} file(s) scanned).`,
+  )
 }
 
-export { buildEdges, RULES }
+export {
+  buildEdges,
+  discoverWorkspacePackages,
+  findWorkspaceDependencyCycles,
+  findWorkspaceDependencyViolations,
+  RULES,
+}
 
 const isMainModule = process.argv[1] && import.meta.url === `file://${process.argv[1]}`
 if (isMainModule) {

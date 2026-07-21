@@ -1,15 +1,14 @@
 /// <reference types="vite/client" />
 
+import type { ComponentApi } from 'better-convex-nuxt/convex-auth/_generated/component.js'
+import authTest from 'better-convex-nuxt/convex-auth/test'
 import { convexTest } from 'convex-test'
 import { componentsGeneric, makeFunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import type { ComponentApi } from '../../src/runtime/convex-auth/component/_generated/component'
-import authSchema from '../../src/runtime/convex-auth/component/schema'
 import schema from './schema'
 
 const rootModules = import.meta.glob('./**/*.ts')
-const authModules = import.meta.glob('../../src/runtime/convex-auth/component/**/*.ts')
 const components = componentsGeneric() as unknown as {
   authInvariant: ComponentApi<'authInvariant'>
 }
@@ -51,13 +50,13 @@ const faultFunctions = {
 
 function initAuthTest() {
   const t = convexTest(schema, rootModules)
-  t.registerComponent('authInvariant', authSchema, authModules)
+  authTest.register(t, 'authInvariant')
   return t
 }
 
 function initFaultTest() {
   const t = convexTest(schema, rootModules)
-  t.registerComponent('betterAuth', authSchema, authModules)
+  authTest.register(t)
   return t
 }
 
