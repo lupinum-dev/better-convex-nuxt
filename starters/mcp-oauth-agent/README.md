@@ -304,5 +304,5 @@ pnpm build
 ```
 
 The supported tuple is exact: Better Auth and OAuth Provider `1.7.0-rc.1`,
-Convex `1.42.2`, Kysely `0.28.17`, and Better Convex Nuxt `0.7.0-beta.1`. Kysely
+Convex `1.42.2`, Kysely `0.28.17`, and Better Convex Nuxt `0.8.0-beta.0`. Kysely
 `0.29.2` is not compatible with this pinned beta adapter tuple.

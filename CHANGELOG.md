@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v0.8.0-beta.0
+
+- Establish the Better Convex vNext architecture and executable implementation
+  ledger without adding premature public packages or compatibility paths.
+- Prove the two official-SDK MCP deployment topologies against neutral fixtures,
+  including exact-call binding, canonical Convex values, OAuth bearer isolation,
+  URL-interaction safety, and credential-free Vue MCP App boundaries.
+- Add package-qualified, descriptor-bound release certification for artifact
+  identity, production manifests, entry purity, dependency direction, SBOMs,
+  maintained consumers, and runtime fingerprints while preserving the existing
+  Nuxt package behavior.
+
 ## v0.7.0-beta.1
 
 - Certify the installed `better-convex-nuxt/server` entry through a production

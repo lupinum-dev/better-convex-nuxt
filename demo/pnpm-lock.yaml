@@ -26,8 +26,8 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.17)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10(@types/node@25.3.3)(vite@7.3.6(@types/node@25.3.3)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.44.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.7.0-beta.1
-        version: 0.7.0-beta.1(b22228c66d0661d10f839a79bf99d4f8)
+        specifier: 0.8.0-beta.0
+        version: 0.8.0-beta.0(b22228c66d0661d10f839a79bf99d4f8)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.3)
@@ -3166,8 +3166,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.7.0-beta.1:
-    resolution: {integrity: sha512-tJGM/9Zy+yrjr0kCmXQeTLdR5tH9SFY7XKtiuodmH9Krz05zpl64/f+TSklamVKtUWvPqYdjRVNhXp8Zs3Ghsw==}
+  better-convex-nuxt@0.8.0-beta.0:
+    resolution: {integrity: sha512-0eP8hF9udm9v2y2pxf/weFw5MeQxCJ4EKL0smkWsQLgba24EK1RjVi1oStYf+B5SU3953ryZFiArL6kAuGg2/Q==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -9600,7 +9600,7 @@ snapshots:
     optionalDependencies:
       zod: 4.3.6
 
-  better-convex-nuxt@0.7.0-beta.1(b22228c66d0661d10f839a79bf99d4f8):
+  better-convex-nuxt@0.8.0-beta.0(b22228c66d0661d10f839a79bf99d4f8):
     dependencies:
       '@better-auth/oauth-provider': 1.7.0-rc.1(ea5f1c785501ba11b34ab37d60c7c748)
       '@nuxt/kit': 4.4.8(magicast@0.5.3)

@@ -15,8 +15,8 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@opentelemetry/api@1.9.0)(react@19.2.7)(vitest@4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.7.0-beta.1
-        version: 0.7.0-beta.1(952db708584e85ae73dc0d8e4f8d5e2d)
+        specifier: 0.8.0-beta.0
+        version: 0.8.0-beta.0(952db708584e85ae73dc0d8e4f8d5e2d)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.7)
@@ -2109,8 +2109,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.7.0-beta.1:
-    resolution: {integrity: sha512-tJGM/9Zy+yrjr0kCmXQeTLdR5tH9SFY7XKtiuodmH9Krz05zpl64/f+TSklamVKtUWvPqYdjRVNhXp8Zs3Ghsw==}
+  better-convex-nuxt@0.8.0-beta.0:
+    resolution: {integrity: sha512-0eP8hF9udm9v2y2pxf/weFw5MeQxCJ4EKL0smkWsQLgba24EK1RjVi1oStYf+B5SU3953ryZFiArL6kAuGg2/Q==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -5967,7 +5967,7 @@ snapshots:
     optionalDependencies:
       zod: 4.4.3
 
-  better-convex-nuxt@0.7.0-beta.1(952db708584e85ae73dc0d8e4f8d5e2d):
+  better-convex-nuxt@0.8.0-beta.0(952db708584e85ae73dc0d8e4f8d5e2d):
     dependencies:
       '@better-auth/oauth-provider': 1.7.0-rc.1(@better-auth/core@1.7.0-rc.1(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@opentelemetry/api@1.9.0)(better-call@1.3.7(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(better-auth@1.7.0-rc.1(@opentelemetry/api@1.9.0)(react@19.2.7)(vitest@4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.4)(vite@7.3.5(@types/node@25.9.4)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3)))(better-call@1.3.7(zod@4.4.3))
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
