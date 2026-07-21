@@ -13,6 +13,7 @@ import { labOAuthMetadataResponse, labOAuthSubject, requireLabOAuthAccess } from
 
 const MAX_REQUEST_BODY_BYTES = 64 * 1024
 const REQUEST_BODY_TIMEOUT_MS = 1_000
+const BEARER_BOUNDARY_HEADER = 'x-bcn-lab-bearer-boundary'
 
 class RequestBoundaryError extends Error {
   readonly code: string
@@ -278,20 +279,34 @@ function noStore(response: Response): Response {
   })
 }
 
+function markCanonicalBearerBoundary(response: Response): Response {
+  const headers = new Headers(response.headers)
+  headers.set(BEARER_BOUNDARY_HEADER, 'canonical-mcp')
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  })
+}
+
 export const handleMcp = httpAction(async (ctx, request) => {
   const originRejected = originValidationResponse(request, [])
   if (originRejected) return noStore(originRejected)
 
   const resourceServerUrl = new URL('/mcp', request.url)
   const authInfo = await requireLabOAuthAccess(request, resourceServerUrl)
-  if (authInfo instanceof Response) return authInfo
+  if (authInfo instanceof Response) return markCanonicalBearerBoundary(authInfo)
 
   let boundedRequest: Request
   try {
     boundedRequest = await prepareRequest(request)
   } catch (error) {
-    if (error instanceof RequestBoundaryError) return boundaryErrorResponse(error)
-    return boundaryErrorResponse(new RequestBoundaryError(400, 'MCP_REQUEST_INVALID'))
+    if (error instanceof RequestBoundaryError) {
+      return markCanonicalBearerBoundary(boundaryErrorResponse(error))
+    }
+    return markCanonicalBearerBoundary(
+      boundaryErrorResponse(new RequestBoundaryError(400, 'MCP_REQUEST_INVALID')),
+    )
   }
 
   const handler = createMcpHandler(
@@ -299,7 +314,7 @@ export const handleMcp = httpAction(async (ctx, request) => {
     { legacy: 'stateless', responseMode: 'json' },
   )
   try {
-    return noStore(await handler.fetch(boundedRequest, { authInfo }))
+    return markCanonicalBearerBoundary(noStore(await handler.fetch(boundedRequest, { authInfo })))
   } finally {
     await handler.close()
   }

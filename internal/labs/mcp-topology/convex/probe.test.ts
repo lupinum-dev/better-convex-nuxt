@@ -90,7 +90,11 @@ function connectClient(
 beforeAll(async () => {
   saveAndSetLabEnvironment()
   fixtureDirectory = await materializeFixture()
-  local = await ensureLocalConvex({ cwd: fixtureDirectory, timeoutMs: 90_000 })
+  local = await ensureLocalConvex({
+    cwd: fixtureDirectory,
+    requireAuthDeployment: false,
+    timeoutMs: 90_000,
+  })
 
   const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
   const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
@@ -119,17 +123,26 @@ describe('vNext Convex-native MCP topology probe', () => {
       convex: '1.42.2',
       zod: '4.3.6',
     })
+    const sources = await Promise.all(
+      ['fixture.ts', 'http.ts', 'mcp.ts', 'operations.ts', 'schema.ts'].map((file) =>
+        readFile(path.join(sourceFixture, 'convex', file), 'utf8'),
+      ),
+    )
+    const fixtureControlSource = sources[0]!
+    const httpSource = sources[1]!
+    const mcpSource = sources[2]!
+    const operationsSource = sources[3]!
+    const schemaSource = sources[4]!
     const fixtureSource =
-      (
-        await Promise.all(
-          ['fixture.ts', 'http.ts', 'mcp.ts', 'operations.ts', 'schema.ts'].map((file) =>
-            readFile(path.join(sourceFixture, 'convex', file), 'utf8'),
-          ),
-        )
-      ).join('\n') + (await readFile(sharedOAuthFixture, 'utf8'))
+      [fixtureControlSource, httpSource, mcpSource, operationsSource, schemaSource].join('\n') +
+      (await readFile(sharedOAuthFixture, 'utf8'))
     expect(fixtureSource.includes("from 'node:")).toBe(false)
     expect(fixtureSource.includes('@modelcontextprotocol/client')).toBe(false)
     expect(fixtureSource.includes('polyfill')).toBe(false)
+    expect(httpSource).not.toContain('/api/auth/get-session')
+    expect(httpSource.match(/handler: handleMcp/gu)).toHaveLength(1)
+    expect(mcpSource.match(/requireLabOAuthAccess/gu)).toHaveLength(2)
+    expect(operationsSource).not.toMatch(/\b(?:AuthInfo|Request|authorization|bearer|token)\b/iu)
 
     const responsesA: string[] = []
     const responsesB: string[] = []
@@ -150,6 +163,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       await Promise.all([connectionA.connect, connectionB.connect])
 
       const mcpUrl = new URL('/mcp', local.env.CONVEX_SITE_URL!)
+      const bearerBoundaryHeader = 'x-bcn-lab-bearer-boundary'
       const protectedMetadataUrl = new URL(labOAuthResourceMetadataUrl(mcpUrl))
       const protectedMetadataResponse = await fetch(protectedMetadataUrl)
       expect(protectedMetadataResponse.status).toBe(200)
@@ -158,6 +172,11 @@ describe('vNext Convex-native MCP topology probe', () => {
         resource: mcpUrl.href,
         scopes_supported: LAB_OAUTH_SCOPES,
       })
+      const metadataWithBearer = await fetch(protectedMetadataUrl, {
+        headers: { authorization: `Bearer ${OWNER_TOKEN}` },
+      })
+      expect(metadataWithBearer.status).toBe(200)
+      expect(metadataWithBearer.headers.get(bearerBoundaryHeader)).toBeNull()
       const authorizationServerMetadata = await fetch(
         new URL('/.well-known/oauth-authorization-server', local.env.CONVEX_SITE_URL!),
       )
@@ -175,6 +194,7 @@ describe('vNext Convex-native MCP topology probe', () => {
         method: 'POST',
       })
       expect(missingToken.status).toBe(401)
+      expect(missingToken.headers.get(bearerBoundaryHeader)).toBe('canonical-mcp')
       expect(missingToken.headers.get('www-authenticate')).toContain(
         `resource_metadata="${protectedMetadataUrl.href}"`,
       )
@@ -192,6 +212,7 @@ describe('vNext Convex-native MCP topology probe', () => {
           method: 'POST',
         })
         expect(invalid.status).toBe(401)
+        expect(invalid.headers.get(bearerBoundaryHeader)).toBe('canonical-mcp')
         expect(await invalid.text()).not.toContain(token)
       }
       const insufficientScope = await fetch(mcpUrl, {
@@ -233,6 +254,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       })
       expect(hostileOrigin.status).toBe(403)
       expect(hostileOrigin.headers.get('cache-control')).toBe('no-store')
+      expect(hostileOrigin.headers.get(bearerBoundaryHeader)).toBeNull()
 
       const encoded = await fetch(mcpUrl, {
         body: '{}',
@@ -277,6 +299,13 @@ describe('vNext Convex-native MCP topology probe', () => {
         method: 'POST',
       })
       expect(wrongPath.status).toBe(404)
+      expect(wrongPath.headers.get(bearerBoundaryHeader)).toBeNull()
+      const formerAuthProbe = await fetch(
+        new URL('/api/auth/get-session', local.env.CONVEX_SITE_URL!),
+        { headers: { authorization: `Bearer ${OWNER_TOKEN}` } },
+      )
+      expect(formerAuthProbe.status).toBe(404)
+      expect(formerAuthProbe.headers.get(bearerBoundaryHeader)).toBeNull()
       const queryDisagreementUrl = new URL(mcpUrl)
       queryDisagreementUrl.searchParams.set('unexpected', '1')
       const queryDisagreement = await fetch(queryDisagreementUrl, {
@@ -330,6 +359,19 @@ describe('vNext Convex-native MCP topology probe', () => {
         { keepWriteOpen: true },
       )
       expect(streamed.status).toBe(200)
+
+      const tracedInitialize = await fetch(mcpUrl, {
+        body: legacyInitializeBody('bearer-boundary-trace'),
+        headers: {
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${OWNER_TOKEN}`,
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+      })
+      expect(tracedInitialize.status).toBe(200)
+      expect(tracedInitialize.headers.get(bearerBoundaryHeader)).toBe('canonical-mcp')
+      expect(await tracedInitialize.text()).not.toContain(OWNER_TOKEN)
 
       const oversizedStream = await exchangeRawHttp(
         mcpUrl,
@@ -463,11 +505,47 @@ describe('vNext Convex-native MCP topology probe', () => {
       })
 
       const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
+      const inaccessibleOperation = makeFunctionReference<
+        'query',
+        { principal: { subject: string }; query: string; workspaceId: string },
+        unknown
+      >('operations:searchNotes')
+      await expect(
+        convex.query(inaccessibleOperation, {
+          principal: { subject: 'alice' },
+          query: '',
+          workspaceId: 'workspace-a',
+        }),
+      ).rejects.toThrow(/public function/iu)
+      const inaccessibleHttpAction = makeFunctionReference<
+        'action',
+        Record<string, never>,
+        unknown
+      >('mcp:handleMcp')
+      await expect(convex.action(inaccessibleHttpAction, {})).rejects.toThrow(/public function/iu)
       const setMember = makeFunctionReference<
         'mutation',
         { role: 'editor' | 'owner'; status: 'active' | 'removed'; subject: string },
         { role: 'editor' | 'owner'; status: 'active' | 'removed'; subject: string }
       >('fixture:setMember')
+      const setMemberWithBearer = makeFunctionReference<
+        'mutation',
+        {
+          authorization: string
+          role: 'editor' | 'owner'
+          status: 'active' | 'removed'
+          subject: string
+        },
+        unknown
+      >('fixture:setMember')
+      await expect(
+        convex.mutation(setMemberWithBearer, {
+          authorization: `Bearer ${OWNER_TOKEN}`,
+          role: 'owner',
+          status: 'active',
+          subject: 'bob',
+        }),
+      ).rejects.toThrow(/extra field.*authorization/iu)
       await expect(
         convex.mutation(setMember, { role: 'owner', status: 'active', subject: 'bob' }),
       ).resolves.toEqual({ role: 'owner', status: 'active', subject: 'bob' })
