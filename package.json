@@ -135,7 +135,7 @@
     "check:no-old-auth-runtime": "node scripts/check-no-old-auth-runtime.mjs",
     "check:api-surface-docs": "node scripts/generate-api-surface.mjs --check",
     "check:asvs": "node scripts/generate-asvs-evidence.mjs --check",
-    "check:sbom": "node scripts/generate-sbom.mjs --check",
+    "check:sbom": "node scripts/generate-sbom.mjs --package nuxt --check",
     "check:no-starter-generated-artifacts": "node scripts/check-no-starter-generated-artifacts.mjs",
     "check:workspace-deps": "node scripts/check-workspace-dependency-alignment.mjs",
     "check:candidate-apps": "node scripts/check-candidate-apps.mjs",

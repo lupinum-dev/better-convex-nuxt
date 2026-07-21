@@ -63,10 +63,14 @@ function canonicalProductionSbom() {
   const directory = mkdtempSync(join(tmpdir(), 'bcn-release-test-sbom-'))
   const path = join(directory, 'expected.sbom.cdx.json')
   try {
-    execFileSync(process.execPath, ['scripts/generate-sbom.mjs', '--output', path], {
-      cwd: root,
-      stdio: 'ignore',
-    })
+    execFileSync(
+      process.execPath,
+      ['scripts/generate-sbom.mjs', '--package', 'nuxt', '--output', path],
+      {
+        cwd: root,
+        stdio: 'ignore',
+      },
+    )
     productionSbom = readFileSync(path, 'utf8')
     return productionSbom
   } finally {
@@ -429,20 +433,33 @@ describe('immutable release artifact evidence', () => {
     ) as Record<string, unknown>
     const manifestPath = join(fixture.packedPackage, 'package.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
-    manifest.dependencies = {
-      ...(manifest.dependencies as Record<string, unknown>),
-      'forged-candidate-only-package': '1.0.0',
+    manifest.peerDependencies = {
+      ...(manifest.peerDependencies as Record<string, unknown>),
+      'candidate-consumer-peer': '1.0.0',
     }
     writeFileSync(manifestPath, `${JSON.stringify(manifest)}\n`)
     const outputPath = join(fixture.directory, 'candidate-rooted.sbom.cdx.json')
     execFileSync(
       process.execPath,
-      ['scripts/generate-sbom.mjs', '--root-manifest', manifestPath, '--output', outputPath],
+      [
+        'scripts/generate-sbom.mjs',
+        '--package',
+        'nuxt',
+        '--root-manifest',
+        manifestPath,
+        '--output',
+        outputPath,
+      ],
       { cwd: root, stdio: 'ignore' },
     )
     const candidate = JSON.parse(readFileSync(outputPath, 'utf8')) as Record<string, unknown>
     expect(productionContractDigest(candidate)).toMatch(/^[0-9a-f]{64}$/u)
     expect(productionContractDigest(candidate)).not.toBe(productionContractDigest(original))
+    expect(
+      (candidate.components as Array<Record<string, unknown>>).some(
+        (component) => component.name === 'candidate-consumer-peer',
+      ),
+    ).toBe(true)
   }, 120_000)
 
   it('rejects a rehashed tarball whose packed production contract differs from source', () => {

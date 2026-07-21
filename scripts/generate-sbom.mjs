@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
+import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 import { productionManifestContractDigest } from './package-check/production-manifest-contract.mjs'
 import {
   requiredPhysicalRuntimeNames,
@@ -11,22 +13,79 @@ import {
   supportedDependencyTuple,
 } from './supported-dependency-tuple.mjs'
 
-const root = process.cwd()
-const sbomPackageId = 'nuxt'
-const args = process.argv.slice(2)
-const outputIndex = args.indexOf('--output')
-const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : undefined
-const rootManifestIndex = args.indexOf('--root-manifest')
-const rootManifestArgument = rootManifestIndex >= 0 ? args[rootManifestIndex + 1] : 'package.json'
-if (!rootManifestArgument || (outputIndex >= 0 && !outputPath)) {
-  throw new Error(
-    'Usage: generate-sbom.mjs [--root-manifest <package.json>] --output <path> | --check',
-  )
+const repositoryRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const options = parseArguments(process.argv.slice(2))
+const descriptor = getPackageCertificationDescriptor(options.packageId)
+const rootManifestPath = resolve(
+  repositoryRoot,
+  options.rootManifest ?? join(descriptor.packageDirectory, 'package.json'),
+)
+if (!existsSync(rootManifestPath) || !lstatSync(rootManifestPath).isFile()) {
+  throw new Error(`SBOM root manifest must be a regular file: ${rootManifestPath}`)
 }
-const rootManifestPath = resolve(root, rootManifestArgument)
 const pkg = JSON.parse(readFileSync(rootManifestPath, 'utf8'))
-if (typeof pkg.name !== 'string' || typeof pkg.version !== 'string') {
+if (
+  pkg.name !== descriptor.packageName ||
+  typeof pkg.version !== 'string' ||
+  pkg.version.length === 0
+) {
   throw new TypeError(`SBOM root manifest has an invalid package identity: ${rootManifestPath}`)
+}
+
+const sbomProfiles = Object.freeze({
+  'nuxt-production-dependencies': Object.freeze({
+    componentPropertyNamespace: 'better-convex-nuxt',
+    generatorName: 'better-convex-nuxt-sbom-generator',
+    requiredComponents: Object.freeze([
+      ...new Set([...requiredStatefulPeerNames, ...requiredPhysicalRuntimeNames, 'convex-helpers']),
+    ]),
+    requiredPhysicalVersions: Object.freeze(
+      Object.fromEntries(
+        requiredPhysicalRuntimeNames.map((name) => [name, supportedDependencyTuple[name]]),
+      ),
+    ),
+  }),
+})
+const sbomProfile = resolveSbomProfile(descriptor)
+
+function parseArguments(args) {
+  const values = new Map()
+  let check = false
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+    if (argument === '--check') {
+      if (check) throw new Error('Duplicate --check argument.')
+      check = true
+      continue
+    }
+    if (!['--package', '--root-manifest', '--output'].includes(argument)) {
+      throw new Error(`Unknown SBOM argument: ${String(argument)}`)
+    }
+    const value = args[index + 1]
+    if (!value || value.startsWith('--')) throw new Error(`Missing value for ${argument}.`)
+    if (values.has(argument)) throw new Error(`Duplicate ${argument} argument.`)
+    values.set(argument, value)
+    index += 1
+  }
+  if (!values.has('--package') || check === values.has('--output')) {
+    throw new Error(
+      'Usage: generate-sbom.mjs --package <reviewed-id> [--root-manifest <package.json>] (--output <path> | --check)',
+    )
+  }
+  return {
+    check,
+    output: values.get('--output'),
+    packageId: values.get('--package'),
+    rootManifest: values.get('--root-manifest'),
+  }
+}
+
+function resolveSbomProfile(packageDescriptor) {
+  const profile = sbomProfiles[packageDescriptor.profiles.sbom]
+  if (!profile) {
+    throw new Error(`Package ${packageDescriptor.id} has no reviewed SBOM profile.`)
+  }
+  return profile
 }
 
 function purl(name, version) {
@@ -42,17 +101,42 @@ function purl(name, version) {
 // frozen-lock checkout. A consuming application's peer/transitive closure
 // belongs in that application's own resolved SBOM.
 const listed = JSON.parse(
-  execFileSync('pnpm', ['list', '--prod', '--json', '--depth', 'Infinity'], {
-    cwd: root,
-    encoding: 'utf8',
-  }),
+  execFileSync(
+    'pnpm',
+    ['list', '--filter', descriptor.packageName, '--prod', '--json', '--depth', 'Infinity'],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+    },
+  ),
 )
+if (!Array.isArray(listed) || listed.length !== 1 || listed[0]?.name !== descriptor.packageName) {
+  throw new Error(
+    `Frozen workspace graph did not resolve exactly one ${descriptor.packageName} root.`,
+  )
+}
+const resolvedRootDependencies = listed[0].dependencies ?? {}
+for (const dependencyName of Object.keys(pkg.dependencies ?? {})) {
+  if (!resolvedRootDependencies[dependencyName]) {
+    throw new Error(`Frozen workspace graph cannot resolve candidate dependency ${dependencyName}.`)
+  }
+}
 const components = new Map()
 
 function addComponent(name, version, dependencyKind) {
   const bomRef = purl(name, version)
   const existing = components.get(bomRef)
-  if (existing) return existing
+  if (existing) {
+    if (dependencyKind && !existing.properties) {
+      existing.properties = [
+        {
+          name: `${sbomProfile.componentPropertyNamespace}:dependency-kind`,
+          value: dependencyKind,
+        },
+      ]
+    }
+    return existing
+  }
 
   const component = {
     type: 'library',
@@ -61,7 +145,14 @@ function addComponent(name, version, dependencyKind) {
     version,
     purl: bomRef,
     ...(dependencyKind
-      ? { properties: [{ name: 'better-convex-nuxt:dependency-kind', value: dependencyKind }] }
+      ? {
+          properties: [
+            {
+              name: `${sbomProfile.componentPropertyNamespace}:dependency-kind`,
+              value: dependencyKind,
+            },
+          ],
+        }
       : {}),
   }
   components.set(bomRef, component)
@@ -76,7 +167,11 @@ function collect(dependencies) {
   }
 }
 
-for (const project of listed) collect(project.dependencies)
+for (const dependencyName of Object.keys(pkg.dependencies ?? {})) {
+  const dependency = resolvedRootDependencies[dependencyName]
+  addComponent(dependencyName, dependency.version)
+  collect(dependency.dependencies)
+}
 
 // Better Auth and Convex are exact required peers so the consuming application
 // owns one physical runtime tuple. `pnpm list --prod` correctly omits them from
@@ -86,12 +181,8 @@ for (const project of listed) collect(project.dependencies)
 for (const [name, version] of Object.entries(pkg.peerDependencies ?? {})) {
   addComponent(name, version, 'required-peer')
 }
-for (const name of requiredPhysicalRuntimeNames) {
-  addComponent(
-    name,
-    supportedDependencyTuple[name],
-    pkg.peerDependencies?.[name] ? 'required-peer' : 'required-runtime',
-  )
+for (const [name, version] of Object.entries(sbomProfile.requiredPhysicalVersions)) {
+  addComponent(name, version, pkg.peerDependencies?.[name] ? 'required-peer' : 'required-runtime')
 }
 
 const bom = {
@@ -104,7 +195,7 @@ const bom = {
       components: [
         {
           type: 'application',
-          name: 'better-convex-nuxt-sbom-generator',
+          name: sbomProfile.generatorName,
           version: pkg.version,
         },
       ],
@@ -116,8 +207,8 @@ const bom = {
       purl: purl(pkg.name, pkg.version),
       properties: [
         {
-          name: 'better-convex-nuxt:production-manifest-contract-sha256',
-          value: productionManifestContractDigest(sbomPackageId, pkg),
+          name: `${sbomProfile.componentPropertyNamespace}:production-manifest-contract-sha256`,
+          value: productionManifestContractDigest(descriptor.id, pkg),
         },
       ],
     },
@@ -126,22 +217,15 @@ const bom = {
 }
 
 if (bom.components.length === 0) throw new Error('SBOM contains no production dependencies.')
-for (const required of [
-  ...new Set([...requiredStatefulPeerNames, ...requiredPhysicalRuntimeNames, 'convex-helpers']),
-]) {
+for (const required of sbomProfile.requiredComponents) {
   if (!bom.components.some((component) => component.name === required)) {
     throw new Error(`SBOM is missing required production component ${required}.`)
   }
 }
 
-if (args.includes('--check')) {
+if (options.check) {
   console.log(`CycloneDX SBOM check passed (${bom.components.length} production components).`)
 } else {
-  if (!outputPath) {
-    throw new Error(
-      'Usage: generate-sbom.mjs [--root-manifest <package.json>] --output <path> | --check',
-    )
-  }
-  writeFileSync(resolve(root, outputPath), `${JSON.stringify(bom, null, 2)}\n`)
-  console.log(`Generated CycloneDX SBOM at ${outputPath}`)
+  writeFileSync(resolve(repositoryRoot, options.output), `${JSON.stringify(bom, null, 2)}\n`)
+  console.log(`Generated CycloneDX SBOM at ${options.output}`)
 }

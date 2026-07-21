@@ -229,6 +229,8 @@ function verifyProductionSbomContract(sbom, candidateManifestPath) {
   try {
     run('node', [
       'scripts/generate-sbom.mjs',
+      '--package',
+      releasePackageId,
       '--root-manifest',
       candidateManifestPath,
       '--output',
@@ -254,6 +256,8 @@ function generateCandidateSbom(tarballPath, outputPath) {
     const candidateManifestPath = requireReviewedCandidateManifest(packageDir)
     run('node', [
       'scripts/generate-sbom.mjs',
+      '--package',
+      releasePackageId,
       '--root-manifest',
       candidateManifestPath,
       '--output',
