@@ -5,7 +5,7 @@ import vm from 'node:vm'
 
 import ts from 'typescript'
 
-import { packageEntries } from './package-entry-manifest.mjs'
+import { getPackageEntryManifest } from './package-entry-manifest.mjs'
 
 const rootDir = process.cwd()
 const apiSurfacePath = resolve(rootDir, 'src/module-api-surface.ts')
@@ -13,6 +13,7 @@ const componentsDir = resolve(rootDir, 'src/runtime/components')
 const outputPath = resolve(rootDir, 'docs/content/docs/6.reference/7.api-surface.md')
 const packageJsonPath = resolve(rootDir, 'package.json')
 const checkOnly = process.argv.includes('--check')
+const packageEntryManifest = getPackageEntryManifest('nuxt')
 
 const apiSurfaceSource = readFileSync(apiSurfacePath, 'utf8')
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
@@ -72,17 +73,21 @@ const composableImports = [
   ...extractNamesFromRegistry('authAutoImports'),
 ].sort((a, b) => a.localeCompare(b))
 const serverImports = extractNamesFromRegistry('serverAutoImports')
-const packageContract = packageEntries.map(({ subpath, valueExports, typeExports }) => ({
-  subpath,
-  valueExports,
-  typeExports,
-}))
+const packageContract = packageEntryManifest.entries.map(
+  ({ subpath, valueExports, typeExports }) => ({
+    subpath,
+    valueExports,
+    typeExports,
+  }),
+)
 
 function toPackageEntryRows(entries) {
   return entries
     .map(({ subpath, valueExports, typeExports }) => {
       const specifier =
-        subpath === '.' ? 'better-convex-nuxt' : `better-convex-nuxt/${subpath.slice(2)}`
+        subpath === '.'
+          ? packageEntryManifest.packageName
+          : `${packageEntryManifest.packageName}/${subpath.slice(2)}`
       const values = valueExports.map((name) => `\`${name}\``).join(', ')
       const types = typeExports.map((name) => `\`${name}\``).join(', ')
       return `| \`${specifier}\` | ${values || '—'} | ${types || '—'} |`

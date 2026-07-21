@@ -1,6 +1,6 @@
 // Packed consumer probes
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
@@ -10,12 +10,12 @@ import {
   supportedDependencyTuple,
 } from '../supported-dependency-tuple.mjs'
 
-const repoRoot = resolve(import.meta.dirname, '../..')
-const p = (...segments) => resolve(repoRoot, ...segments)
-const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
-
 function run(command, args, options = {}) {
-  return execFileSync(command, args, { encoding: 'utf8', stdio: 'inherit', ...options })
+  return execFileSync(command, args, {
+    encoding: 'utf8',
+    stdio: 'inherit',
+    ...options,
+  })
 }
 
 function productionGraph(directory) {
@@ -71,7 +71,7 @@ function assertProductionGraph(directory, expectedRuntimeNames, label) {
 
 // ---------------------------------------------------------------------------
 
-/** @typedef {{ tarballPath: string, packageDir: string, failures: string[] }} ProbeContext */
+/** @typedef {{ packageName: string, repositoryRoot: string, packageManifest: object, tarballPath: string, failures: string[] }} ProbeContext */
 
 /**
  * Package-root probe: an ephemeral (non-repo, non-committed) consumer that
@@ -83,20 +83,20 @@ function assertProductionGraph(directory, expectedRuntimeNames, label) {
 export function probeRootEntry(ctx) {
   const dir = mkdtempSync(join(tmpdir(), 'bcn-root-probe-'))
 
-  const consumerPeers = packageJson.peerDependencies
+  const consumerPeers = ctx.packageManifest.peerDependencies
 
   writeJson(join(dir, 'package.json'), {
     name: 'root-entry-probe',
     private: true,
     type: 'module',
-    packageManager: packageJson.packageManager,
+    packageManager: ctx.packageManifest.packageManager,
     dependencies: {
       ...consumerPeers,
-      'better-convex-nuxt': `file:${ctx.tarballPath}`,
+      [ctx.packageName]: `file:${ctx.tarballPath}`,
     },
     devDependencies: {
-      typescript: packageJson.devDependencies.typescript,
-      '@types/node': packageJson.devDependencies['@types/node'],
+      typescript: ctx.packageManifest.devDependencies.typescript,
+      '@types/node': ctx.packageManifest.devDependencies['@types/node'],
     },
   })
   writeFile(join(dir, '.npmrc'), 'ignore-scripts=true\n')
@@ -109,12 +109,12 @@ export function probeRootEntry(ctx) {
     [
       "import { realpathSync } from 'node:fs'",
       "import { createRequire } from 'node:module'",
-      "import mod from 'better-convex-nuxt'",
-      "import authComponent from 'better-convex-nuxt/convex-auth/convex.config'",
+      `import mod from '${ctx.packageName}'`,
+      `import authComponent from '${ctx.packageName}/convex-auth/convex.config'`,
       'import {',
       '  convexAuth, createAuthComponent, defineAuthAdapterFunctions,',
       '  getConvexAuthProvider, requireAuthOrigin, verifyOAuthBearerToken,',
-      "} from 'better-convex-nuxt/convex-auth'",
+      `} from '${ctx.packageName}/convex-auth'`,
       "if (typeof mod !== 'function' && typeof mod !== 'object') throw new Error('default export did not resolve')",
       "if (!authComponent || (typeof authComponent !== 'function' && typeof authComponent !== 'object')) throw new Error('auth component config did not resolve')",
       'for (const [name, value] of Object.entries({',
@@ -127,7 +127,7 @@ export function probeRootEntry(ctx) {
       '// Better Auth and Convex are stateful peer runtimes. The package and its',
       '// consumer must resolve the same physical instance of each.',
       'const consumerRequire = createRequire(import.meta.url)',
-      "const libraryRequire = createRequire(new URL(import.meta.resolve('better-convex-nuxt')))",
+      `const libraryRequire = createRequire(new URL(import.meta.resolve('${ctx.packageName}')))`,
       `for (const peer of ${JSON.stringify(requiredStatefulPeerNames)}) {`,
       '  const consumerPath = realpathSync(consumerRequire.resolve(peer))',
       '  const libraryPath = realpathSync(libraryRequire.resolve(peer))',
@@ -161,14 +161,14 @@ export function probeRootEntry(ctx) {
       '  InferRegisteredConvexAuthClient, ModuleOptions, ServerConvexOptions,',
       '  UseConvexAuthReturn, UseConvexMutationOptions, UseConvexPaginatedQueryOptions,',
       '  UseConvexQueryOptions,',
-      "} from 'better-convex-nuxt'",
+      `} from '${ctx.packageName}'`,
       'import type {',
       '  AuthComponentTriggers, AuthCtx, AuthFunctions, CreateAuth, VerifyOAuthBearerTokenOptions,',
-      "} from 'better-convex-nuxt/convex-auth'",
-      "import authComponent from 'better-convex-nuxt/convex-auth/convex.config'",
-      "import type { ComponentApi } from 'better-convex-nuxt/convex-auth/_generated/component.js'",
-      "import authTest, { register } from 'better-convex-nuxt/convex-auth/test'",
-      "import mod from 'better-convex-nuxt'",
+      `} from '${ctx.packageName}/convex-auth'`,
+      `import authComponent from '${ctx.packageName}/convex-auth/convex.config'`,
+      `import type { ComponentApi } from '${ctx.packageName}/convex-auth/_generated/component.js'`,
+      `import authTest, { register } from '${ctx.packageName}/convex-auth/test'`,
+      `import mod from '${ctx.packageName}'`,
       '',
       'const _opts: ModuleOptions | undefined = undefined',
       'type PublicContract = [',
@@ -213,12 +213,18 @@ export function probeRootEntry(ctx) {
     run('node', ['index.mjs'], { cwd: dir })
     assertProductionGraph(dir, requiredPhysicalRuntimeNames, 'production consumer')
     if (process.env.BCN_RELEASE_PRODUCTION_AUDIT === 'true') {
-      run('node', [join(repoRoot, 'scripts/check-auth-advisories.mjs'), '--production-dir', dir], {
-        cwd: repoRoot,
-      })
+      run(
+        'node',
+        [join(ctx.repositoryRoot, 'scripts/check-auth-advisories.mjs'), '--production-dir', dir],
+        {
+          cwd: ctx.repositoryRoot,
+        },
+      )
     }
 
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: dir })
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: dir,
+    })
     run('pnpm', ['exec', 'tsc', '-p', 'tsconfig.json'], { cwd: dir })
     run(
       'pnpm',
@@ -264,12 +270,14 @@ export function probeRootEntry(ctx) {
  * behavioral assertions) scripts.
  */
 export function probeErrorsEntry(ctx) {
-  const fixtureDir = p('test/fixtures/errors-consumer')
+  const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/errors-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
 
   try {
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: fixtureDir,
+    })
     run('pnpm', ['run', 'build'], { cwd: fixtureDir })
     run('pnpm', ['run', 'start'], { cwd: fixtureDir })
   } catch (error) {
@@ -294,12 +302,14 @@ export function probeErrorsEntry(ctx) {
  *     registration exposes only the base client, with no `apiKey` method.
  */
 export function probeAuthClientTyping(ctx) {
-  const fixtureDir = p('test/fixtures/auth-client-typing')
+  const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/auth-client-typing')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
 
   try {
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: fixtureDir,
+    })
     run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
     run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
     run('pnpm', ['run', 'typecheck:base-fallback'], { cwd: fixtureDir })
@@ -322,12 +332,14 @@ export function probeAuthClientTyping(ctx) {
  * from the packed package and preserves query/mutation/action error boundaries.
  */
 export function probeServerEntry(ctx) {
-  const fixtureDir = p('test/fixtures/server-consumer')
+  const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/server-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
 
   try {
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: fixtureDir,
+    })
     run('pnpm', ['run', 'prepare:types'], { cwd: fixtureDir })
     run('pnpm', ['run', 'typecheck'], { cwd: fixtureDir })
     run('pnpm', ['run', 'probe:production'], { cwd: fixtureDir })
@@ -336,7 +348,7 @@ export function probeServerEntry(ctx) {
       [
         '--input-type=module',
         '--eval',
-        "const server = await import('better-convex-nuxt/server'); if (typeof server.serverConvex !== 'function') process.exit(1)",
+        `const server = await import('${ctx.packageName}/server'); if (typeof server.serverConvex !== 'function') process.exit(1)`,
       ],
       { cwd: fixtureDir },
     )
@@ -359,12 +371,14 @@ export function probeServerEntry(ctx) {
  * `build` (type resolution via `tsc`) and `start` (runtime resolution).
  */
 export function probeCreateUserSyncTriggersEntry(ctx) {
-  const fixtureDir = p('test/fixtures/user-sync-triggers-consumer')
+  const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/user-sync-triggers-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
 
   try {
-    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], { cwd: fixtureDir })
+    run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: fixtureDir,
+    })
     run('pnpm', ['run', 'build'], { cwd: fixtureDir })
     run('pnpm', ['run', 'start'], { cwd: fixtureDir })
   } catch (error) {

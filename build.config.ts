@@ -68,6 +68,19 @@ async function removeDeclarationDebris(dir: string): Promise<void> {
   )
 }
 
+async function keepOnlyPublicGeneratedDeclaration(dir: string): Promise<void> {
+  if (!existsSync(dir)) return
+  const entries = await readdir(dir, { withFileTypes: true })
+  await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          entry.isFile() && entry.name !== 'component.d.ts' && /\.d\.(?:m|c)?ts$/.test(entry.name),
+      )
+      .map((entry) => rm(join(dir, entry.name), { force: true })),
+  )
+}
+
 export default {
   hooks: {
     async 'build:done'(ctx: MinimalBuildDoneContext) {
@@ -93,6 +106,11 @@ export default {
       if (existsSync(serverTsconfig)) {
         await rm(serverTsconfig, { force: true })
       }
+
+      // Only component.d.ts is a public package entry. The other Convex
+      // generated declarations are unreachable build debris, and mkdist's
+      // extension appender corrupts their already-suffixed relative imports.
+      await keepOnlyPublicGeneratedDeclaration(join(runtimeDir, 'convex-auth/component/_generated'))
 
       for (const executable of ['auth-schema.js', 'convex.js']) {
         const path = join(runtimeDir, 'cli', executable)

@@ -249,7 +249,7 @@ function verifyProductionSbomContract(sbom, candidateManifestPath) {
 }
 
 function generateCandidateSbom(tarballPath, outputPath) {
-  const { packageDir, scratchDir } = packAndExtract(tarballPath)
+  const { packageDir, scratchDir } = packAndExtract(releasePackageId, tarballPath)
   try {
     const candidateManifestPath = requireReviewedCandidateManifest(packageDir)
     run('node', [
@@ -299,7 +299,7 @@ function verifyArtifact(evidenceFile) {
   }
   verifyRuntimeFingerprintBinding(tarballPath, evidence.runtimeFingerprint)
 
-  const { packageDir, scratchDir } = packAndExtract(tarballPath)
+  const { packageDir, scratchDir } = packAndExtract(releasePackageId, tarballPath)
   try {
     const candidateManifestPath = requireReviewedCandidateManifest(packageDir)
     const contents = JSON.parse(readFileSync(contentsPath, 'utf8'))
@@ -394,6 +394,8 @@ function createArtifact() {
     const contentsPath = join(stagingDirectory, expectedArtifactFiles.contents)
     run('node', [
       'scripts/check-package-exports.mjs',
+      '--package',
+      releasePackageId,
       '--tarball',
       tarballPath,
       '--manifest',

@@ -61,9 +61,13 @@ function main() {
   console.log('\n[release-verify] Artifact-dependent package and consumer gates')
   // These gates consume the one manifest-selected tarball and are forbidden
   // from discovering or packing a replacement candidate.
-  run('node', ['scripts/check-package-exports.mjs', '--tarball', tarball], {
-    env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
-  })
+  run(
+    'node',
+    ['scripts/check-package-exports.mjs', '--package', releasePackageId, '--tarball', tarball],
+    {
+      env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
+    },
+  )
   run('node', ['scripts/check-auth-provenance.mjs', '--tarball', tarball])
   run('pnpm', ['run', 'check:candidate-apps', '--tarball', tarball])
 

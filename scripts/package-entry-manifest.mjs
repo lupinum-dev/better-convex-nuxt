@@ -1,11 +1,14 @@
 /**
- * Canonical publishable package contract.
+ * Canonical publishable package contracts, selected through the reviewed
+ * certification descriptor rather than a caller-supplied profile or path.
  *
  * Keep tool-specific behavior (AST probes and purity implementations) in the
  * consuming scripts. Paths and public names live here so package verification
  * and generated API documentation cannot maintain competing allowlists.
  */
-export const packageEntries = [
+import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
+
+const nuxtPackageEntries = [
   {
     kind: 'runtime',
     subpath: '.',
@@ -29,6 +32,7 @@ export const packageEntries = [
       'UseConvexPaginatedQueryOptions',
       'UseConvexQueryOptions',
     ],
+    exactDeclaredExports: false,
     forbiddenNames: [
       'usePermissions',
       'createPermissions',
@@ -53,6 +57,7 @@ export const packageEntries = [
       'ConvexCallErrorInput',
       'SerializedConvexCallError',
     ],
+    exactDeclaredExports: false,
     forbiddenNames: ['toError'],
   },
   {
@@ -67,6 +72,7 @@ export const packageEntries = [
       'ConvexAuthClientRegistry',
       'InferRegisteredConvexAuthClient',
     ],
+    exactDeclaredExports: false,
     forbiddenNames: [],
   },
   {
@@ -132,6 +138,7 @@ export const packageEntries = [
       'normalizeServerConvexBoundaryError',
     ],
     typeExports: ['ServerConvexCaller', 'ServerConvexOptions', 'ConvexCredential'],
+    exactDeclaredExports: false,
     forbiddenNames: [
       'serverConvexQuery',
       'serverConvexMutation',
@@ -152,31 +159,91 @@ export const packageEntries = [
       'CreateUserSyncTriggersOptions',
       'UserSyncRebuildResult',
     ],
+    exactDeclaredExports: false,
     forbiddenNames: [],
   },
 ]
 
+const nuxtPackageBins = {
+  'better-convex-nuxt-auth-schema': './dist/runtime/cli/auth-schema.js',
+  'better-convex-nuxt-convex': './dist/runtime/cli/convex.js',
+}
+
 const entryKinds = new Set(['runtime', 'types-only'])
+const runtimeEntryFields = new Set([
+  'kind',
+  'subpath',
+  'distJs',
+  'distDts',
+  'valueExports',
+  'typeExports',
+  'exactDeclaredExports',
+  'forbiddenNames',
+])
+const typesOnlyEntryFields = new Set([
+  'kind',
+  'subpath',
+  'distDts',
+  'valueExports',
+  'typeExports',
+  'exactDeclaredExports',
+  'forbiddenNames',
+])
+const packageRelativePathPattern = /^[\w.-]+(?:\/[\w.-]+)*$/u
+
+const entryProfiles = {
+  'nuxt-public-entries': {
+    entries: nuxtPackageEntries,
+    bins: nuxtPackageBins,
+  },
+}
 
 function validatePackageEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new TypeError('Package entries must be a non-empty array')
+  }
   const subpaths = new Set()
+  const artifactPaths = new Set()
 
   for (const entry of entries) {
+    if (
+      entry === null ||
+      typeof entry !== 'object' ||
+      Array.isArray(entry) ||
+      (Object.getPrototypeOf(entry) !== Object.prototype && Object.getPrototypeOf(entry) !== null)
+    ) {
+      throw new TypeError('Package entry must be a plain object')
+    }
     if (!entryKinds.has(entry.kind)) {
       throw new TypeError(
         `Package entry ${entry.subpath ?? '<missing>'} has invalid kind ${entry.kind}`,
       )
     }
-    if (typeof entry.subpath !== 'string' || entry.subpath.length === 0) {
-      throw new TypeError(`Package entry subpath must be a non-empty string: ${entry.subpath}`)
+    const expectedFields = entry.kind === 'runtime' ? runtimeEntryFields : typesOnlyEntryFields
+    const actualFields = Object.keys(entry)
+    const missingFields = [...expectedFields].filter((field) => !actualFields.includes(field))
+    const unexpectedFields = actualFields.filter((field) => !expectedFields.has(field))
+    if (missingFields.length > 0 || unexpectedFields.length > 0) {
+      throw new TypeError(
+        `Package entry ${entry.subpath ?? '<missing>'} has invalid fields` +
+          `${missingFields.length > 0 ? `; missing: ${missingFields.join(', ')}` : ''}` +
+          `${unexpectedFields.length > 0 ? `; unexpected: ${unexpectedFields.join(', ')}` : ''}`,
+      )
+    }
+    if (
+      typeof entry.subpath !== 'string' ||
+      (entry.subpath !== '.' &&
+        (!entry.subpath.startsWith('./') || !isCanonicalPackagePath(entry.subpath.slice(2))))
+    ) {
+      throw new TypeError(`Package entry subpath must be canonical: ${entry.subpath}`)
     }
     if (subpaths.has(entry.subpath)) {
       throw new Error(`Package entry subpath must be unique: ${entry.subpath}`)
     }
     subpaths.add(entry.subpath)
 
-    if (typeof entry.distDts !== 'string' || entry.distDts.length === 0) {
-      throw new TypeError(`Package entry ${entry.subpath} must declare distDts`)
+    if (!isCanonicalDistPath(entry.distDts) || !/\.d\.m?ts$/u.test(entry.distDts)) {
+      throw new TypeError(`Package entry ${entry.subpath} must declare canonical distDts`)
     }
     for (const property of ['valueExports', 'typeExports', 'forbiddenNames']) {
       const names = entry[property]
@@ -188,33 +255,126 @@ function validatePackageEntries(entries) {
         throw new TypeError(`Package entry ${entry.subpath} must declare unique string ${property}`)
       }
     }
-    if (
-      entry.exactDeclaredExports !== undefined &&
-      typeof entry.exactDeclaredExports !== 'boolean'
-    ) {
+    if (typeof entry.exactDeclaredExports !== 'boolean') {
       throw new TypeError(`Package entry ${entry.subpath} exactDeclaredExports must be boolean`)
     }
     if (
       entry.kind === 'runtime' &&
-      (typeof entry.distJs !== 'string' || entry.distJs.length === 0)
+      (!isCanonicalDistPath(entry.distJs) || !/\.m?js$/u.test(entry.distJs))
     ) {
-      throw new TypeError(`Runtime package entry ${entry.subpath} must declare distJs`)
+      throw new TypeError(`Runtime package entry ${entry.subpath} must declare canonical distJs`)
     }
     if (entry.kind === 'types-only' && ('distJs' in entry || entry.valueExports.length > 0)) {
       throw new TypeError(
         `Types-only package entry ${entry.subpath} cannot declare JavaScript or values`,
       )
     }
+    if (
+      entry.kind === 'runtime' &&
+      ((entry.distJs.endsWith('.mjs') && !entry.distDts.endsWith('.d.mts')) ||
+        (entry.distJs.endsWith('.js') && !entry.distDts.endsWith('.d.ts')))
+    ) {
+      throw new TypeError(
+        `Runtime package entry ${entry.subpath} must pair its JavaScript and declaration module kinds`,
+      )
+    }
+
+    const publicNames = new Set([...entry.valueExports, ...entry.typeExports])
+    if (publicNames.size !== entry.valueExports.length + entry.typeExports.length) {
+      throw new TypeError(`Package entry ${entry.subpath} repeats a public export name`)
+    }
+    if (entry.forbiddenNames.some((name) => publicNames.has(name))) {
+      throw new TypeError(`Package entry ${entry.subpath} allows and forbids the same export name`)
+    }
+
+    for (const artifactPath of [entry.distJs, entry.distDts].filter(Boolean)) {
+      if (artifactPaths.has(artifactPath)) {
+        throw new Error(`Package entry artifact path must be unique: ${artifactPath}`)
+      }
+      artifactPaths.add(artifactPath)
+    }
   }
 
   return entries
 }
 
-validatePackageEntries(packageEntries)
+function validatePackageBins(bins) {
+  if (
+    bins === null ||
+    typeof bins !== 'object' ||
+    Array.isArray(bins) ||
+    Object.keys(bins).length === 0
+  ) {
+    throw new TypeError('Package bins must be a non-empty command map')
+  }
+  for (const [command, target] of Object.entries(bins)) {
+    if (!/^[a-z0-9][a-z0-9._-]*$/u.test(command)) {
+      throw new TypeError(`Package bin command must be canonical: ${command}`)
+    }
+    if (
+      typeof target !== 'string' ||
+      !target.startsWith('./dist/') ||
+      !isCanonicalDistPath(target.slice(2)) ||
+      !/\.m?js$/u.test(target)
+    ) {
+      throw new TypeError(`Package bin target must be canonical JavaScript in dist: ${target}`)
+    }
+  }
+  return bins
+}
 
-export function getPackageEntry(subpath) {
-  const entry = packageEntries.find((candidate) => candidate.subpath === subpath)
-  if (!entry) throw new Error(`Unknown package entry: ${subpath}`)
+function isCanonicalDistPath(path) {
+  return typeof path === 'string' && path.startsWith('dist/') && isCanonicalPackagePath(path)
+}
+
+function isCanonicalPackagePath(path) {
+  return (
+    typeof path === 'string' &&
+    packageRelativePathPattern.test(path) &&
+    path.split('/').every((segment) => segment !== '.' && segment !== '..')
+  )
+}
+
+function deepFreezeProfile(profile) {
+  for (const entry of profile.entries) {
+    Object.freeze(entry.valueExports)
+    Object.freeze(entry.typeExports)
+    Object.freeze(entry.forbiddenNames)
+    Object.freeze(entry)
+  }
+  Object.freeze(profile.entries)
+  Object.freeze(profile.bins)
+  return Object.freeze(profile)
+}
+
+for (const profile of Object.values(entryProfiles)) {
+  validatePackageEntries(profile.entries)
+  validatePackageBins(profile.bins)
+  deepFreezeProfile(profile)
+}
+Object.freeze(entryProfiles)
+
+export function getPackageEntryManifest(packageId, options) {
+  const descriptor = getPackageCertificationDescriptor(packageId, options)
+  const profileId = descriptor.profiles.exports
+  const profile = entryProfiles[profileId]
+  if (!profile) {
+    throw new Error(`Package ${descriptor.id} has no reviewed package-entry profile.`)
+  }
+  return Object.freeze({
+    packageId: descriptor.id,
+    packageName: descriptor.packageName,
+    packageDirectory: descriptor.packageDirectory,
+    profileId,
+    entries: profile.entries,
+    bins: profile.bins,
+  })
+}
+
+export function getPackageEntry(packageId, subpath, options) {
+  const manifest = getPackageEntryManifest(packageId, options)
+  const entry = manifest.entries.find((candidate) => candidate.subpath === subpath)
+  if (!entry) throw new Error(`Unknown package entry for ${manifest.packageId}: ${subpath}`)
   return entry
 }
 
