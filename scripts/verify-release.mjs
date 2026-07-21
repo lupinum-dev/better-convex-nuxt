@@ -69,7 +69,13 @@ function main() {
     },
   )
   run('node', ['scripts/check-auth-provenance.mjs', '--tarball', tarball])
-  run('pnpm', ['run', 'check:candidate-apps', '--tarball', tarball])
+  run('node', [
+    'scripts/check-candidate-apps.mjs',
+    '--package',
+    releasePackageId,
+    '--tarball',
+    tarball,
+  ])
 
   console.log(
     `\n[release-verify] PASS: source gates ran from the checkout; artifact-dependent gates consumed ${tarball}; no gate repacked the candidate.`,

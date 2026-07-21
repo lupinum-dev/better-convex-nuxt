@@ -15,6 +15,7 @@ describe('trusted prerelease workflow', () => {
   const ciWorkflow = read('.github/workflows/ci.yml')
   const cloudGate = read('scripts/run-auth-cloud-staging.mjs')
   const candidateApps = read('scripts/check-candidate-apps.mjs')
+  const candidateProfiles = read('scripts/maintained-candidate-apps.mjs')
   const releaseBuilder = read('scripts/release.mjs')
   const releaseVerify = read('scripts/verify-release.mjs')
 
@@ -33,9 +34,9 @@ describe('trusted prerelease workflow', () => {
     expect(workflow).not.toContain('`v${pkg.version}.artifact.json`')
     expect(workflow).not.toContain('`${pkg.name}-${pkg.version}.tgz`')
     expect(workflow).not.toContain('value.tarball.file')
-    expect(read('scripts/verify-release.mjs')).toContain(
-      "['run', 'check:candidate-apps', '--tarball', tarball]",
-    )
+    expect(read('scripts/verify-release.mjs')).toContain("'scripts/check-candidate-apps.mjs',")
+    expect(read('scripts/verify-release.mjs')).toContain("'--package',\n    releasePackageId,")
+    expect(read('scripts/verify-release.mjs')).toContain("'--tarball',\n    tarball,")
     expect(releaseVerify).toContain('Source-integrity and source-runtime behavior gates')
     expect(releaseVerify).toContain('Artifact-dependent package and consumer gates')
     expect(releaseVerify).toContain('source gates ran from the checkout')
@@ -99,7 +100,8 @@ describe('trusted prerelease workflow', () => {
       "run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund']",
     )
     expect(candidateApps).toContain("join(appDir, 'package-lock.json')")
-    expect(candidateApps).toContain("lock.includes('better-convex-nuxt.tgz')")
+    expect(candidateProfiles).toContain("tarballFilename: 'better-convex-nuxt.tgz'")
+    expect(candidateApps).toContain('lock.includes(candidateProfile.tarballFilename)')
     expect(candidateApps).toContain('packageFingerprint(installedPackageDir)')
     expect(candidateApps).toContain("run('npm', ['run', 'typecheck']")
     expect(candidateApps).toContain("run('npm', ['run', 'build']")

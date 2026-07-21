@@ -138,7 +138,7 @@
     "check:sbom": "node scripts/generate-sbom.mjs --package nuxt --check",
     "check:no-starter-generated-artifacts": "node scripts/check-no-starter-generated-artifacts.mjs",
     "check:workspace-deps": "node scripts/check-workspace-dependency-alignment.mjs",
-    "check:candidate-apps": "node scripts/check-candidate-apps.mjs",
+    "check:candidate-apps": "node scripts/check-candidate-apps.mjs --package nuxt",
     "update:candidate-app-locks": "node scripts/update-candidate-app-locks.mjs",
     "check:consumer-smoke": "nuxt-module-build prepare && nuxt-module-build build && pnpm run check:consumer-smoke:dist",
     "check:consumer-smoke:dist": "nuxi prepare --cwd test/fixtures/consumer-smoke && nuxi typecheck --cwd test/fixtures/consumer-smoke",

@@ -17,7 +17,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 
-import { maintainedCandidateApps } from './maintained-candidate-apps.mjs'
+import { getMaintainedCandidateProfile } from './maintained-candidate-apps.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 const agencyConvexDeployKey = process.env.AGENCY_CONVEX_DEPLOY_KEY
@@ -64,12 +64,30 @@ const deterministicEnvironment = {
   VITE_CONVEX_URL: 'https://candidate-artifact.convex.cloud',
 }
 
-const args = process.argv.slice(2)
-if (args.length !== 0 && (args.length !== 2 || args[0] !== '--tarball')) {
-  console.error('Usage: node scripts/check-candidate-apps.mjs [--tarball <path>]')
-  process.exit(1)
+const options = parseArguments(process.argv.slice(2))
+const { descriptor: packageDescriptor, profile: candidateProfile } = getMaintainedCandidateProfile(
+  options.packageId,
+)
+const suppliedTarball = options.tarball ? resolve(repoRoot, options.tarball) : undefined
+
+function parseArguments(args) {
+  const values = new Map()
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+    if (!['--package', '--tarball'].includes(argument)) {
+      throw new Error(`Unknown candidate-app argument: ${String(argument)}`)
+    }
+    const value = args[index + 1]
+    if (!value || value.startsWith('--')) throw new Error(`Missing value for ${argument}.`)
+    if (values.has(argument)) throw new Error(`Duplicate ${argument} argument.`)
+    values.set(argument, value)
+    index += 1
+  }
+  if (!values.has('--package')) {
+    throw new Error('Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>]')
+  }
+  return { packageId: values.get('--package'), tarball: values.get('--tarball') }
 }
-const suppliedTarball = args.length === 2 ? resolve(repoRoot, args[1]) : undefined
 
 function run(command, commandArgs, options = {}) {
   console.log(`\n> ${[command, ...commandArgs].join(' ')}`)
@@ -203,9 +221,10 @@ function assertNoRepositoryOverride(app) {
   const workspacePath = join(repoRoot, app.path, 'pnpm-workspace.yaml')
   if (!existsSync(workspacePath)) return
   const workspace = readFileSync(workspacePath, 'utf8')
-  if (/better-convex-nuxt\s*:\s*(?:file|link|workspace):/u.test(workspace)) {
+  const escapedName = packageDescriptor.packageName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+  if (new RegExp(`${escapedName}\\s*:\\s*(?:file|link|workspace):`, 'u').test(workspace)) {
     throw new Error(
-      `${app.path}/pnpm-workspace.yaml must not override better-convex-nuxt to the repository`,
+      `${app.path}/pnpm-workspace.yaml must not override ${packageDescriptor.packageName} to the repository`,
     )
   }
 }
@@ -221,10 +240,10 @@ function compareGeneratedTree(sourceDir, candidateDir) {
 }
 
 function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, integrity) {
-  const fixture = { name: 'npm-consumer-smoke', path: 'test/fixtures/consumer-smoke' }
+  const fixture = candidateProfile.npmConsumer
   const appDir = join(scratchDir, 'apps', fixture.name)
   copyApp(fixture, appDir)
-  const localTarball = join(appDir, 'better-convex-nuxt.tgz')
+  const localTarball = join(appDir, candidateProfile.tarballFilename)
   copyFileSync(tarballPath, localTarball)
   if (sha512(localTarball) !== integrity) {
     throw new Error('npm consumer: copied candidate tarball differs from the release artifact')
@@ -234,7 +253,7 @@ function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, 
   const manifest = readJson(manifestPath)
   manifest.devDependencies = {
     ...manifest.devDependencies,
-    'better-convex-nuxt': 'file:./better-convex-nuxt.tgz',
+    [packageDescriptor.packageName]: `file:./${candidateProfile.tarballFilename}`,
   }
   writeJson(manifestPath, manifest)
 
@@ -244,10 +263,10 @@ function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, 
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: appDir })
 
   const lock = readFileSync(join(appDir, 'package-lock.json'), 'utf8')
-  if (!lock.includes('better-convex-nuxt.tgz')) {
+  if (!lock.includes(candidateProfile.tarballFilename)) {
     throw new Error('npm consumer: package-lock does not resolve the candidate tarball')
   }
-  const installedPackageDir = join(appDir, 'node_modules', 'better-convex-nuxt')
+  const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
   const installedManifest = readJson(join(installedPackageDir, 'package.json'))
   if (installedManifest.version !== candidateManifest.version) {
     throw new Error(
@@ -422,17 +441,22 @@ try {
   run('tar', ['-xzf', tarballPath, '-C', extractedDir])
   const extractedPackageDir = join(extractedDir, 'package')
   const candidateManifest = readJson(join(extractedPackageDir, 'package.json'))
+  if (candidateManifest.name !== packageDescriptor.packageName) {
+    throw new Error(
+      `Candidate package is ${String(candidateManifest.name)}; expected ${packageDescriptor.packageName}`,
+    )
+  }
   const expectedFingerprint = packageFingerprint(extractedPackageDir)
   const tarballIntegrity = sha512(tarballPath)
 
-  for (const app of maintainedCandidateApps) {
+  for (const app of candidateProfile.pnpmApps) {
     assertNoRepositoryOverride(app)
     const sourceDir = join(repoRoot, app.path)
     const sourceManifest = readJson(join(sourceDir, 'package.json'))
-    const sourceVersion = dependencySpecifier(sourceManifest, 'better-convex-nuxt')
+    const sourceVersion = dependencySpecifier(sourceManifest, packageDescriptor.packageName)
     if (sourceVersion !== candidateManifest.version) {
       throw new Error(
-        `${app.path}/package.json declares better-convex-nuxt@${sourceVersion ?? '<missing>'}; expected ${candidateManifest.version}`,
+        `${app.path}/package.json declares ${packageDescriptor.packageName}@${sourceVersion ?? '<missing>'}; expected ${candidateManifest.version}`,
       )
     }
     const sourceLockPath = join(sourceDir, 'pnpm-lock.yaml')
@@ -441,7 +465,7 @@ try {
     }
     const appDir = join(scratchDir, 'apps', app.name)
     copyApp(app, appDir)
-    const localTarball = join(appDir, 'better-convex-nuxt.tgz')
+    const localTarball = join(appDir, candidateProfile.tarballFilename)
     copyFileSync(tarballPath, localTarball)
     if (sha512(localTarball) !== tarballIntegrity) {
       throw new Error(`${app.path}: copied candidate tarball differs from the release artifact`)
@@ -449,12 +473,14 @@ try {
 
     const manifestPath = join(appDir, 'package.json')
     const manifest = readJson(manifestPath)
-    if (manifest.dependencies?.['better-convex-nuxt']) {
-      manifest.dependencies['better-convex-nuxt'] = 'file:./better-convex-nuxt.tgz'
-    } else if (manifest.devDependencies?.['better-convex-nuxt']) {
-      manifest.devDependencies['better-convex-nuxt'] = 'file:./better-convex-nuxt.tgz'
+    if (manifest.dependencies?.[packageDescriptor.packageName]) {
+      manifest.dependencies[packageDescriptor.packageName] =
+        `file:./${candidateProfile.tarballFilename}`
+    } else if (manifest.devDependencies?.[packageDescriptor.packageName]) {
+      manifest.devDependencies[packageDescriptor.packageName] =
+        `file:./${candidateProfile.tarballFilename}`
     } else {
-      throw new Error(`${app.path}/package.json does not declare better-convex-nuxt`)
+      throw new Error(`${app.path}/package.json does not declare ${packageDescriptor.packageName}`)
     }
     writeJson(manifestPath, manifest)
 
@@ -470,11 +496,11 @@ try {
     run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], { cwd: appDir })
 
     const lock = readFileSync(join(appDir, 'pnpm-lock.yaml'), 'utf8')
-    if (!lock.includes('better-convex-nuxt.tgz')) {
+    if (!lock.includes(candidateProfile.tarballFilename)) {
       throw new Error(`${app.path}: the fresh lock does not resolve the candidate tarball`)
     }
 
-    const installedPackageDir = join(appDir, 'node_modules', 'better-convex-nuxt')
+    const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
     const installedManifest = readJson(join(installedPackageDir, 'package.json'))
     if (installedManifest.version !== candidateManifest.version) {
       throw new Error(
@@ -526,7 +552,7 @@ try {
     )
   }
   console.log(
-    `\nCandidate app matrix passed (${maintainedCandidateApps.length} pnpm apps and one npm consumer, one exact tarball).`,
+    `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact tarball).`,
   )
 } finally {
   rmSync(scratchDir, { recursive: true, force: true })
