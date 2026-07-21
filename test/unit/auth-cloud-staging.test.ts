@@ -312,6 +312,13 @@ describe('protected cloud-staging gate', () => {
   })
 
   it('reverifies the artifact before making a cloud request', () => {
+    const source = readFileSync(resolve(root, 'scripts/run-auth-cloud-staging.mjs'), 'utf8')
+    expect(source).toContain("getPackageArtifactCoordinates('nuxt'")
+    expect(source).toContain('parsePackageArtifactEvidence(')
+    expect(source).toContain('selectPackageArtifactRuntimeIdentity(evidence)')
+    expect(source).not.toContain('evidence.schemaVersion === 3')
+    expect(source).not.toContain('PACKAGE_VERSION')
+
     const environment = stagingEnvironment()
     const result = spawnSync(
       process.execPath,

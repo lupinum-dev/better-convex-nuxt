@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative } from 'node:path'
@@ -6,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   assertPackageArtifactWriteTarget,
+  assertPackageManifestMatchesCommit,
   canonicalNpmTarballFilename,
   getPackageArtifactCoordinates,
   validatePackageArtifactVersion,
@@ -38,6 +40,15 @@ describe('package artifact coordinates', () => {
       packageId: 'nuxt',
       packageName: 'better-convex-nuxt',
       packageDirectory: '.',
+      profiles: {
+        build: 'nuxt-module-build',
+        exports: 'nuxt-public-entries',
+        packedFiles: 'nuxt-runtime-artifact',
+        sbom: 'nuxt-production-dependencies',
+        provenance: 'nuxt-auth-upstream',
+        candidateTests: 'nuxt-maintained-consumers',
+        runtimeFingerprint: 'nuxt-runtime-binding',
+      },
       version: '0.7.0-beta.1',
       relativeDirectory: '.release-artifacts/nuxt/0.7.0-beta.1',
       files: {
@@ -61,6 +72,7 @@ describe('package artifact coordinates', () => {
       expect(dirname(path)).toBe(coordinates.directory)
     }
     expect(Object.isFrozen(coordinates)).toBe(true)
+    expect(Object.isFrozen(coordinates.profiles)).toBe(true)
     expect(Object.isFrozen(coordinates.files)).toBe(true)
     expect(Object.isFrozen(coordinates.paths)).toBe(true)
     expect(Object.isFrozen(coordinates.relativePaths)).toBe(true)
@@ -188,5 +200,43 @@ describe('package artifact coordinates', () => {
     expect(() => assertPackageArtifactWriteTarget('nuxt', { repositoryRoot: root })).toThrow(
       'must be a real directory',
     )
+  })
+
+  it('binds the reviewed package manifest to exact committed bytes', () => {
+    const root = createRepository()
+    execFileSync('git', ['init', '--quiet'], { cwd: root })
+    execFileSync('git', ['add', 'package.json'], { cwd: root })
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=Better Convex Tests',
+        '-c',
+        'user.email=tests@better-convex.invalid',
+        'commit',
+        '--quiet',
+        '-m',
+        'test fixture',
+      ],
+      { cwd: root },
+    )
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+    }).trim()
+
+    expect(() =>
+      assertPackageManifestMatchesCommit('nuxt', commit, { repositoryRoot: root }),
+    ).not.toThrow()
+    writeFileSync(
+      join(root, 'package.json'),
+      `${readFileSync(join(root, 'package.json'), 'utf8')}\n`,
+    )
+    expect(() =>
+      assertPackageManifestMatchesCommit('nuxt', commit, { repositoryRoot: root }),
+    ).toThrow('manifest bytes do not match the source commit')
+    expect(() =>
+      assertPackageManifestMatchesCommit('nuxt', 'not-a-commit', { repositoryRoot: root }),
+    ).toThrow('must be a full lowercase Git SHA')
   })
 })

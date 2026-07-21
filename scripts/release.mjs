@@ -19,8 +19,14 @@ import { isDeepStrictEqual } from 'node:util'
 
 import {
   assertPackageArtifactWriteTarget,
+  assertPackageManifestMatchesCommit,
   getPackageArtifactCoordinates,
 } from './package-artifact-coordinates.mjs'
+import {
+  assertPackageArtifactBuildIdentity,
+  packageArtifactEvidenceSchemaVersion,
+  parsePackageArtifactEvidence,
+} from './package-artifact-evidence.mjs'
 import { selectProductionManifestContract } from './package-check/production-manifest-contract.mjs'
 import { buildContentManifest, packAndExtract } from './package-check/tarball.mjs'
 
@@ -29,13 +35,17 @@ const releasePackageId = 'nuxt'
 const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId)
 const packageRoot = artifactCoordinates.sourceDirectory
 const packageJson = JSON.parse(readFileSync(artifactCoordinates.manifestPath, 'utf8'))
+const workspacePackageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+const workspacePackageManager = workspacePackageJson.packageManager
+if (typeof workspacePackageManager !== 'string' || workspacePackageManager.length === 0) {
+  throw new Error('Workspace package.json must declare the release package manager.')
+}
 const version = artifactCoordinates.version
 const tag = `v${version}`
 const expectedArtifactFiles = artifactCoordinates.files
 const command = process.argv[2]
 const verifyPath = process.argv[3]
 const runtimeFingerprintToken = '__BCN_RELEASE_RUNTIME_FINGERPRINT__'
-const runtimeFingerprintPattern = /^bcn-release-v1-[0-9a-f]{64}$/u
 const runtimeFingerprintBuildFiles = [
   join(packageRoot, 'dist', 'runtime', 'shared', 'release-fingerprint.js'),
 ]
@@ -77,7 +87,7 @@ function requirePreparedChangelog() {
   }
 }
 
-function assertReleaseTagIsUnusedOrCurrent() {
+function assertReleaseTagIsUnusedOrCurrent(currentCommit) {
   if (output('git', ['rev-parse', '--is-shallow-repository']) !== 'false') {
     throw new Error('Release artifact creation requires complete Git history and tags.')
   }
@@ -87,7 +97,6 @@ function assertReleaseTagIsUnusedOrCurrent() {
   } catch {
     return
   }
-  const currentCommit = output('git', ['rev-parse', 'HEAD'])
   if (taggedCommit !== currentCommit) {
     throw new Error(
       `Release version ${version} is immutable at ${taggedCommit}; bump the package version before creating another artifact.`,
@@ -111,14 +120,11 @@ function fileEvidence(path) {
   }
 }
 
-function verifyFileEvidence(directory, evidence, label, expectedFile) {
+function verifyFileEvidence(directory, evidence, label) {
   if (
-    !evidence ||
-    evidence.file !== expectedFile ||
     basename(evidence.file) !== evidence.file ||
     !Number.isSafeInteger(evidence.bytes) ||
-    evidence.bytes < 1 ||
-    !/^[0-9a-f]{64}$/u.test(evidence.sha256)
+    evidence.bytes < 1
   ) {
     throw new Error(`Artifact ${label} evidence is malformed.`)
   }
@@ -268,55 +274,30 @@ function verifyArtifact(evidenceFile) {
   ) {
     throw new Error(`Artifact evidence must be a regular ${expectedArtifactFiles.evidence} file.`)
   }
-  const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
-  if (
-    evidence.schemaVersion !== 2 ||
-    evidence.package !== packageJson.name ||
-    evidence.version !== version ||
-    evidence.tag !== tag ||
-    !/^[0-9a-f]{40}$/u.test(evidence.sourceCommit) ||
-    evidence.packageManager !== packageJson.packageManager ||
-    evidence.node !== process.version ||
-    typeof evidence.npm !== 'string' ||
-    typeof evidence.pnpm !== 'string' ||
-    evidence.sourceTree !== 'clean' ||
-    !runtimeFingerprintPattern.test(evidence.runtimeFingerprint)
-  ) {
-    throw new Error('Artifact identity does not match the checked-out package and source commit.')
-  }
-
-  const directory = resolve(evidencePath, '..')
-  const tarballPath = verifyFileEvidence(
-    directory,
-    evidence.tarball,
-    'tarball',
-    expectedArtifactFiles.tarball,
+  const evidence = parsePackageArtifactEvidence(
+    JSON.parse(readFileSync(evidencePath, 'utf8')),
+    artifactCoordinates,
   )
-  const contentsPath = verifyFileEvidence(
-    directory,
-    evidence.contents,
-    'content manifest',
-    expectedArtifactFiles.contents,
-  )
-  const sbomPath = verifyFileEvidence(directory, evidence.sbom, 'SBOM', expectedArtifactFiles.sbom)
-  if (
-    typeof evidence.tarball.integrity !== 'string' ||
-    integrity(tarballPath) !== evidence.tarball.integrity
-  ) {
-    throw new Error('Artifact tarball SRI does not match its bytes.')
-  }
-  verifyRuntimeFingerprintBinding(tarballPath, evidence.runtimeFingerprint)
-
   const currentCommit = output('git', ['rev-parse', 'HEAD'])
   const currentNpm = output('npm', ['--version'])
   const currentPnpm = output('pnpm', ['--version'])
-  if (
-    evidence.sourceCommit !== currentCommit ||
-    evidence.npm !== currentNpm ||
-    evidence.pnpm !== currentPnpm
-  ) {
-    throw new Error('Artifact identity does not match the checked-out package and source commit.')
+  assertPackageArtifactBuildIdentity(evidence, {
+    sourceCommit: currentCommit,
+    packageManager: workspacePackageManager,
+    node: process.version,
+    npm: currentNpm,
+    pnpm: currentPnpm,
+  })
+  assertPackageManifestMatchesCommit(releasePackageId, currentCommit)
+
+  const directory = resolve(evidencePath, '..')
+  const tarballPath = verifyFileEvidence(directory, evidence.tarball, 'tarball')
+  const contentsPath = verifyFileEvidence(directory, evidence.contents, 'content manifest')
+  const sbomPath = verifyFileEvidence(directory, evidence.sbom, 'SBOM')
+  if (integrity(tarballPath) !== evidence.tarball.integrity) {
+    throw new Error('Artifact tarball SRI does not match its bytes.')
   }
+  verifyRuntimeFingerprintBinding(tarballPath, evidence.runtimeFingerprint)
 
   const { packageDir, scratchDir } = packAndExtract(tarballPath)
   try {
@@ -380,7 +361,10 @@ function packBoundRuntimeArtifact(artifactsDir) {
  */
 function createArtifact() {
   const distDir = join(packageRoot, 'dist')
-  assertReleaseTagIsUnusedOrCurrent()
+  const sourceCommit = output('git', ['rev-parse', 'HEAD'])
+  if (!/^[0-9a-f]{40}$/u.test(sourceCommit)) throw new Error('Could not resolve source commit.')
+  assertReleaseTagIsUnusedOrCurrent(sourceCommit)
+  assertPackageManifestMatchesCommit(releasePackageId, sourceCommit)
   assertPackageArtifactWriteTarget(releasePackageId)
   rmSync(distDir, { recursive: true, force: true })
   run('pnpm', ['run', 'prepack'])
@@ -429,16 +413,15 @@ function createArtifact() {
     if (packResult[0].integrity && packResult[0].integrity !== tarballIntegrity) {
       throw new Error('npm pack integrity does not match the independently computed tarball SRI.')
     }
-    const sourceCommit = output('git', ['rev-parse', 'HEAD'])
-    if (!/^[0-9a-f]{40}$/u.test(sourceCommit)) throw new Error('Could not resolve source commit.')
-
     const evidence = {
-      schemaVersion: 2,
-      package: packageJson.name,
+      schemaVersion: packageArtifactEvidenceSchemaVersion,
+      packageId: artifactCoordinates.packageId,
+      packageName: artifactCoordinates.packageName,
+      packageDirectory: artifactCoordinates.packageDirectory,
       version,
-      tag,
+      profiles: artifactCoordinates.profiles,
       sourceCommit,
-      packageManager: packageJson.packageManager,
+      packageManager: workspacePackageManager,
       node: process.version,
       npm: output('npm', ['--version']),
       pnpm: output('pnpm', ['--version']),
@@ -455,6 +438,9 @@ function createArtifact() {
     writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`)
 
     ensureCleanWorkingTree()
+    if (output('git', ['rev-parse', 'HEAD']) !== sourceCommit) {
+      throw new Error('Release source commit changed while creating the artifact.')
+    }
     assertPackageArtifactWriteTarget(releasePackageId)
     renameSync(stagingDirectory, artifactCoordinates.directory)
     committed = true

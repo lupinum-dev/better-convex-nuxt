@@ -29,7 +29,9 @@ package-qualified evidence set at
 - the npm tarball;
 - a deterministic path/mode/size/SHA-256 content manifest;
 - a CycloneDX SBOM;
-- an artifact evidence manifest that binds the source commit, package version,
+- a strict schema-v3 artifact evidence manifest that binds the source commit,
+  reviewed descriptor ID, npm name, canonical package directory, version, exact
+  certification-profile tuple, workspace-root package-manager authority,
   tarball SHA-256 and SRI, content manifest, SBOM, and a random build-generated
   runtime fingerprint embedded in the packed module and endpoint handler.
 
@@ -41,6 +43,9 @@ regenerates the canonical production SBOM with the extracted package manifest
 as its root. The SBOM embeds a digest of that production manifest contract. A
 sidecar whose own hash is valid but whose content does not match those
 independent results is rejected.
+
+vNext accepts no legacy evidence-schema fallback. Historical schema-v2 beta
+evidence remains verifiable only from its immutable tagged source checkout.
 
 The npm tarball contains neither `pnpm-lock.yaml` nor a resolved dependency
 tree. After the exact candidate/source contract comparison, transitive package

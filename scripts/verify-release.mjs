@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'
@@ -38,15 +37,7 @@ function main() {
     )
   }
   run('node', ['scripts/release.mjs', 'verify', evidencePath])
-  const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'))
-  if (
-    !evidence?.tarball ||
-    typeof evidence.tarball.file !== 'string' ||
-    path.basename(evidence.tarball.file) !== evidence.tarball.file
-  ) {
-    fail('artifact manifest contains an invalid tarball filename')
-  }
-  const tarball = path.join(path.dirname(evidencePath), evidence.tarball.file)
+  const tarball = artifactCoordinates.paths.tarball
 
   console.log('\n[release-verify] Source-integrity and source-runtime behavior gates')
   // These gates intentionally exercise the checked-out source. They never pack

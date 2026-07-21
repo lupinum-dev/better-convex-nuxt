@@ -20,6 +20,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
 
+import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'
+import {
+  parsePackageArtifactEvidence,
+  selectPackageArtifactRuntimeIdentity,
+} from './package-artifact-evidence.mjs'
 import {
   assertNoPrivateJwkMaterial,
   authAdapterComponentFunctions,
@@ -28,14 +33,12 @@ import {
 import { runExternalAuthorizationCodeRace } from './run-oauth-code-concurrency.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const artifactCoordinates = getPackageArtifactCoordinates('nuxt', { repositoryRoot: root })
 const sourceCloudFixture = join(root, 'starters', 'mcp-oauth-agent')
 const reportPath = join(root, '.release-artifacts', 'bcn-auth-staging.report.json')
 const convexCli = join(root, 'node_modules', 'convex', 'bin', 'main.js')
 const COMPONENT_PATH = 'betterAuth'
 const PROJECT = 'bcn-auth-staging'
-const SHA256 = /^[0-9a-f]{64}$/u
-const SOURCE_COMMIT = /^[0-9a-f]{40}$/u
-const PACKAGE_VERSION = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/u
 const RUNTIME_FINGERPRINT = /^bcn-release-v1-[0-9a-f]{64}$/u
 const INGRESS_LEASE = /^[\w-]{43,128}$/u
 const DEPLOYMENT_NAME = /^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$/u
@@ -247,38 +250,17 @@ function readArtifactIdentity(artifactManifest) {
   }
   let evidence
   try {
-    evidence = JSON.parse(readFileSync(path, 'utf8'))
+    evidence = parsePackageArtifactEvidence(
+      JSON.parse(readFileSync(path, 'utf8')),
+      artifactCoordinates,
+    )
   } catch {
     fail('AUTH_CLOUD_STAGING_ARTIFACT_MANIFEST_INVALID')
   }
-  assert(
-    evidence.schemaVersion === 2 &&
-      evidence.package === 'better-convex-nuxt' &&
-      PACKAGE_VERSION.test(evidence.version) &&
-      SOURCE_COMMIT.test(evidence.sourceCommit) &&
-      RUNTIME_FINGERPRINT.test(evidence.runtimeFingerprint) &&
-      typeof evidence.tarball?.file === 'string' &&
-      dirname(evidence.tarball.file) === '.' &&
-      SHA256.test(evidence.tarball?.sha256) &&
-      typeof evidence.tarball?.integrity === 'string' &&
-      /^sha512-[A-Za-z0-9+/]+={0,2}$/u.test(evidence.tarball.integrity),
-    'AUTH_CLOUD_STAGING_ARTIFACT_MANIFEST_INVALID',
-  )
-  assert(
-    evidence.tarball.file === `${evidence.package}-${evidence.version}.tgz`,
-    'AUTH_CLOUD_STAGING_ARTIFACT_MANIFEST_INVALID',
-  )
   const tarballPath = resolve(dirname(path), evidence.tarball.file)
   assert(existsSync(tarballPath), 'AUTH_CLOUD_STAGING_ARTIFACT_TARBALL_MISSING')
   return Object.freeze({
-    identity: Object.freeze({
-      integrity: evidence.tarball.integrity,
-      package: evidence.package,
-      runtimeFingerprint: evidence.runtimeFingerprint,
-      sourceCommit: evidence.sourceCommit,
-      tarballSha256: evidence.tarball.sha256,
-      version: evidence.version,
-    }),
+    identity: selectPackageArtifactRuntimeIdentity(evidence),
     tarballPath,
   })
 }

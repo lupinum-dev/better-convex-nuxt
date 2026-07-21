@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs'
 import { basename, isAbsolute, join, posix, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,6 +13,7 @@ const numericPrereleaseIdentifierPattern = /^\d+$/u
 const safeFilenamePattern = /^[\dA-Za-z][\w.-]*$/u
 const maximumFilesystemComponentBytes = 255
 const maximumNpmPackageNameBytes = 214
+const fullGitCommitPattern = /^[0-9a-f]{40}$/u
 
 /**
  * Resolve one reviewed package to its only release-artifact location.
@@ -67,6 +69,7 @@ export function getPackageArtifactCoordinates(
     packageId: descriptor.id,
     packageName: descriptor.packageName,
     packageDirectory: descriptor.packageDirectory,
+    profiles: descriptor.profiles,
     version,
     repositoryRoot: root,
     sourceDirectory,
@@ -162,6 +165,40 @@ export function assertPackageArtifactWriteTarget(
     throw new Error(`Immutable package artifact directory already exists: ${coordinates.directory}`)
   }
   return coordinates
+}
+
+/** Require the reviewed package and workspace manifests to match one Git commit exactly. */
+export function assertPackageManifestMatchesCommit(
+  packageId,
+  commit,
+  { repositoryRoot = defaultRepositoryRoot } = {},
+) {
+  if (typeof commit !== 'string' || !fullGitCommitPattern.test(commit)) {
+    throw new TypeError('Package artifact source commit must be a full lowercase Git SHA.')
+  }
+  const coordinates = getPackageArtifactCoordinates(packageId, { repositoryRoot })
+  const gitManifestPath =
+    coordinates.packageDirectory === '.'
+      ? 'package.json'
+      : `${coordinates.packageDirectory}/package.json`
+  for (const relativeManifestPath of new Set(['package.json', gitManifestPath])) {
+    let committedManifest
+    try {
+      committedManifest = execFileSync('git', ['show', `${commit}:${relativeManifestPath}`], {
+        cwd: coordinates.repositoryRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch {
+      throw new Error('Reviewed package manifest cannot be read from the source commit.')
+    }
+    if (
+      readFileSync(join(coordinates.repositoryRoot, relativeManifestPath), 'utf8') !==
+      committedManifest
+    ) {
+      throw new Error('Reviewed package manifest bytes do not match the source commit.')
+    }
+  }
 }
 
 function lstatIfPresent(path) {

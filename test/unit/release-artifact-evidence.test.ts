@@ -14,7 +14,10 @@ import { join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { canonicalNpmTarballFilename } from '../../scripts/package-artifact-coordinates.mjs'
+import {
+  canonicalNpmTarballFilename,
+  getPackageArtifactCoordinates,
+} from '../../scripts/package-artifact-coordinates.mjs'
 import { buildContentManifest } from '../../scripts/package-check/tarball.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -49,6 +52,7 @@ function createArtifactFixture() {
   const directory = mkdtempSync(join(tmpdir(), 'bcn-release-evidence-'))
   temporaryDirectories.push(directory)
   const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  const coordinates = getPackageArtifactCoordinates('nuxt', { repositoryRoot: root })
   const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
     cwd: root,
     encoding: 'utf8',
@@ -85,10 +89,12 @@ function createArtifactFixture() {
   writeFileSync(join(directory, sbomName), sbom)
 
   const evidence = {
-    schemaVersion: 2,
-    package: packageJson.name,
-    version: packageJson.version,
-    tag: `v${packageJson.version}`,
+    schemaVersion: 3,
+    packageId: coordinates.packageId,
+    packageName: coordinates.packageName,
+    packageDirectory: coordinates.packageDirectory,
+    version: coordinates.version,
+    profiles: structuredClone(coordinates.profiles),
     sourceCommit,
     packageManager: packageJson.packageManager,
     node: process.version,
@@ -126,6 +132,10 @@ function replaceBoundSidecar(
   writeFileSync(join(fixture.directory, fixture.evidence[key].file), contents)
   fixture.evidence[key].bytes = Buffer.byteLength(contents)
   fixture.evidence[key].sha256 = sha256(contents)
+  writeFileSync(fixture.evidencePath, `${JSON.stringify(fixture.evidence, null, 2)}\n`)
+}
+
+function writeEvidence(fixture: ReturnType<typeof createArtifactFixture>) {
   writeFileSync(fixture.evidencePath, `${JSON.stringify(fixture.evidence, null, 2)}\n`)
 }
 
@@ -179,6 +189,22 @@ afterEach(() => {
 describe('immutable release artifact evidence', () => {
   it('accepts matching tarball, content manifest, SBOM, package, and source commit', () => {
     const fixture = createArtifactFixture()
+    expect(fixture.evidence).toMatchObject({
+      schemaVersion: 3,
+      packageId: 'nuxt',
+      packageName: 'better-convex-nuxt',
+      packageDirectory: '.',
+      version: JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version,
+      profiles: {
+        build: 'nuxt-module-build',
+        exports: 'nuxt-public-entries',
+        packedFiles: 'nuxt-runtime-artifact',
+        sbom: 'nuxt-production-dependencies',
+        provenance: 'nuxt-auth-upstream',
+        candidateTests: 'nuxt-maintained-consumers',
+        runtimeFingerprint: 'nuxt-runtime-binding',
+      },
+    })
     const contents = JSON.parse(
       readFileSync(join(fixture.directory, fixture.evidence.contents.file), 'utf8'),
     )
@@ -194,6 +220,139 @@ describe('immutable release artifact evidence', () => {
       readFileSync(join(fixture.directory, fixture.evidence.sbom.file), 'utf8'),
     ) as Record<string, unknown>
     expect(productionContractDigest(sbom)).toMatch(/^[0-9a-f]{64}$/u)
+  }, 120_000)
+
+  it.each([
+    ['packageId', 'unreviewed'],
+    ['packageName', '@attacker/forged'],
+    ['packageDirectory', 'packages/forged'],
+    ['version', '9.9.9'],
+  ] as const)(
+    'rejects drifted package identity field %s',
+    (field, value) => {
+      const fixture = createArtifactFixture()
+      const evidence = fixture.evidence as unknown as Record<string, unknown>
+      evidence[field] = value
+      writeEvidence(fixture)
+
+      const result = verify(fixture.evidencePath)
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'Artifact identity does not match the checked-out package and source commit',
+      )
+    },
+    120_000,
+  )
+
+  it.each([
+    ['packageManager', 'pnpm@0.0.0-forged'],
+    ['node', 'v0.0.0-forged'],
+    ['npm', '0.0.0-forged'],
+    ['pnpm', '0.0.0-forged'],
+    ['sourceTree', 'dirty'],
+  ] as const)(
+    'rejects drifted build identity field %s',
+    (field, value) => {
+      const fixture = createArtifactFixture()
+      const evidence = fixture.evidence as unknown as Record<string, unknown>
+      evidence[field] = value
+      writeEvidence(fixture)
+
+      const result = verify(fixture.evidencePath)
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'Artifact identity does not match the checked-out package and source commit',
+      )
+    },
+    120_000,
+  )
+
+  it.each([
+    'build',
+    'exports',
+    'packedFiles',
+    'sbom',
+    'provenance',
+    'candidateTests',
+    'runtimeFingerprint',
+  ] as const)(
+    'rejects drifted %s certification profile',
+    (profile) => {
+      const fixture = createArtifactFixture()
+      fixture.evidence.profiles[profile] = 'unreviewed-profile'
+      writeEvidence(fixture)
+
+      const result = verify(fixture.evidencePath)
+      expect(result.status).toBe(1)
+      expect(result.stderr).toContain(
+        'Artifact identity does not match the checked-out package and source commit',
+      )
+    },
+    120_000,
+  )
+
+  it('rejects legacy, missing, extra, and malformed identity fields', () => {
+    const legacy = createArtifactFixture()
+    legacy.evidence.schemaVersion = 2
+    writeEvidence(legacy)
+    expect(verify(legacy.evidencePath).stderr).toContain('Artifact identity does not match')
+
+    const missing = createArtifactFixture()
+    delete (missing.evidence as unknown as Partial<Record<string, unknown>>).packageDirectory
+    writeEvidence(missing)
+    expect(verify(missing.evidencePath).stderr).toContain('Artifact identity does not match')
+
+    const extra = createArtifactFixture()
+    Object.assign(extra.evidence, { publishCommand: 'npm publish forged.tgz' })
+    writeEvidence(extra)
+    expect(verify(extra.evidencePath).stderr).toContain('Artifact identity does not match')
+
+    const missingProfile = createArtifactFixture()
+    delete (missingProfile.evidence.profiles as Partial<typeof missingProfile.evidence.profiles>)
+      .build
+    writeEvidence(missingProfile)
+    expect(verify(missingProfile.evidencePath).stderr).toContain('Artifact identity does not match')
+
+    const extraProfile = createArtifactFixture()
+    Object.assign(extraProfile.evidence.profiles, { publish: 'unreviewed-profile' })
+    writeEvidence(extraProfile)
+    expect(verify(extraProfile.evidencePath).stderr).toContain('Artifact identity does not match')
+
+    const malformedProfiles = createArtifactFixture()
+    const malformedEvidence = malformedProfiles.evidence as unknown as Record<string, unknown>
+    malformedEvidence.profiles = null
+    writeEvidence(malformedProfiles)
+    expect(verify(malformedProfiles.evidencePath).stderr).toContain(
+      'Artifact identity does not match',
+    )
+  }, 120_000)
+
+  it('rejects missing or extra fields in nested file evidence', () => {
+    const extraTarball = createArtifactFixture()
+    Object.assign(extraTarball.evidence.tarball, { sourcePath: '/tmp/unreviewed.tgz' })
+    writeEvidence(extraTarball)
+    expect(verify(extraTarball.evidencePath).stderr).toContain(
+      'Artifact tarball evidence is malformed',
+    )
+
+    const extraContents = createArtifactFixture()
+    Object.assign(extraContents.evidence.contents, { integrity: 'sha512-unreviewed' })
+    writeEvidence(extraContents)
+    expect(verify(extraContents.evidencePath).stderr).toContain(
+      'Artifact content manifest evidence is malformed',
+    )
+
+    const missingSbom = createArtifactFixture()
+    delete (missingSbom.evidence.sbom as Partial<typeof missingSbom.evidence.sbom>).sha256
+    writeEvidence(missingSbom)
+    expect(verify(missingSbom.evidencePath).stderr).toContain('Artifact SBOM evidence is malformed')
+
+    const truncatedIntegrity = createArtifactFixture()
+    truncatedIntegrity.evidence.tarball.integrity = 'sha512-A'
+    writeEvidence(truncatedIntegrity)
+    expect(verify(truncatedIntegrity.evidencePath).stderr).toContain(
+      'Artifact tarball evidence is malformed',
+    )
   }, 120_000)
 
   it('rejects evidence supplied under any basename other than artifact.json', () => {

@@ -53,6 +53,8 @@ describe('trusted prerelease workflow', () => {
     expect(releaseVerify).toContain('getPackageArtifactCoordinates(releasePackageId')
     expect(releaseVerify).toContain('evidencePath !== artifactCoordinates.paths.evidence')
     expect(releaseVerify).toContain('artifactCoordinates.relativePaths.evidence')
+    expect(releaseVerify).toContain('const tarball = artifactCoordinates.paths.tarball')
+    expect(releaseVerify).not.toContain('readFileSync(evidencePath')
 
     const rejected = spawnSync(
       process.execPath,
@@ -74,11 +76,22 @@ describe('trusted prerelease workflow', () => {
     expect(releaseBuilder).not.toMatch(
       /rmSync\(artifactCoordinates\.(?:artifactRoot|packageArtifactDirectory)/u,
     )
-    expect(releaseBuilder).toContain('assertReleaseTagIsUnusedOrCurrent()')
+    expect(releaseBuilder).toContain('assertReleaseTagIsUnusedOrCurrent(sourceCommit)')
     expect(releaseBuilder).toContain(
       'Release artifact creation requires complete Git history and tags',
     )
     expect(releaseBuilder).toContain('bump the package version before creating another artifact')
+  })
+
+  it('binds evidence identity to committed package-manifest bytes', () => {
+    expect(releaseBuilder).toContain(
+      'assertPackageManifestMatchesCommit(releasePackageId, currentCommit)',
+    )
+    expect(releaseBuilder).toContain('assertPackageArtifactBuildIdentity(evidence, {')
+    expect(releaseBuilder).toContain('packageManager: workspacePackageManager')
+    expect(releaseBuilder).toContain(
+      "throw new Error('Release source commit changed while creating the artifact.')",
+    )
   })
 
   it('installs the exact candidate into a pinned npm consumer and compares installed bytes', () => {
