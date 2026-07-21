@@ -225,6 +225,7 @@ beforeAll(async () => {
     deploymentEnv: {
       BCN_VNEXT_EXACT_CALL_PUBLIC_KEYS: JSON.stringify(publicKeys),
     },
+    requireAuthDeployment: false,
     timeoutMs: 60_000,
   })
   convex = new ConvexHttpClient(local.env.CONVEX_URL!)

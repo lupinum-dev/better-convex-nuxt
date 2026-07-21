@@ -12,6 +12,7 @@ interface LocalConvexHandle {
   cwd: string
   deploymentEnv: Readonly<Record<string, string>>
   process: ChildProcessWithoutNullStreams
+  requireAuthDeployment: boolean
   selectionEnvDirectory: string
   url: string
   siteUrl: string
@@ -38,6 +39,7 @@ export interface EnsureLocalConvexOptions {
   authOrigin?: string
   cwd?: string
   deploymentEnv?: Readonly<Record<string, string>>
+  requireAuthDeployment?: boolean
   timeoutMs?: number
 }
 
@@ -313,10 +315,18 @@ async function configureLocalAuthEnvironment(
     'BCN_AUTH_PROXY_IP_SECRET',
     localProxyIpSecret,
   )
+  await configureLocalDeploymentEnvironment(cwd, selectionEnvPath, deploymentEnv)
+  process.env.BCN_AUTH_PROXY_IP_SECRET = localProxyIpSecret
+}
+
+async function configureLocalDeploymentEnvironment(
+  cwd: string,
+  selectionEnvPath: string,
+  deploymentEnv: Readonly<Record<string, string>>,
+): Promise<void> {
   for (const [name, value] of Object.entries(deploymentEnv)) {
     await setLocalConvexEnvironment(cwd, selectionEnvPath, name, value)
   }
-  process.env.BCN_AUTH_PROXY_IP_SECRET = localProxyIpSecret
 }
 
 async function readLocalConvexEnv(cwd: string): Promise<LocalConvexEnv> {
@@ -888,6 +898,7 @@ async function startLocalConvex(
   timeoutMs: number,
   authOrigin: string,
   deploymentEnv: Readonly<Record<string, string>>,
+  requireAuthDeployment: boolean,
 ): Promise<LocalConvexHandle> {
   const reviewedBackend = await assertCurrentBackendBinary()
   const configured = await readLocalConvexEnv(cwd)
@@ -918,16 +929,22 @@ async function startLocalConvex(
   }
   devArguments.push('--local-backend-version', reviewedBackend.version)
 
-  // Prime auth.config.ts for a clean deployment's first push. Once the local
-  // port and selector exist, use a derived local-only selector file to persist
-  // the same values into that backend before accepting its auth route. Never
-  // give a subprocess the application's broader .env.local file.
-  const child = spawnConvex(cwd, devArguments, {
-    SITE_URL: authOrigin,
-    BETTER_AUTH_SECRETS: localAuthSecret,
-    BCN_AUTH_PROXY_IP_SECRET: localProxyIpSecret,
-    ...deploymentEnv,
-  })
+  // Prime auth.config.ts only for fixtures that explicitly require the Better
+  // Auth readiness gate. Provider-neutral fixtures receive only their reviewed
+  // deployment values. Never give a subprocess the application's broader
+  // .env.local file.
+  const child = spawnConvex(
+    cwd,
+    devArguments,
+    requireAuthDeployment
+      ? {
+          SITE_URL: authOrigin,
+          BETTER_AUTH_SECRETS: localAuthSecret,
+          BCN_AUTH_PROXY_IP_SECRET: localProxyIpSecret,
+          ...deploymentEnv,
+        }
+      : deploymentEnv,
+  )
   const getOutput = createChildOutputReader(child, [
     localAuthSecret,
     localProxyIpSecret,
@@ -943,22 +960,29 @@ async function startLocalConvex(
       throw new Error('Local Convex changed deployment selection during E2E startup.')
     }
     selectionEnv ??= await createLocalConvexSelectionEnv(selected.deployment)
-    await configureLocalAuthEnvironment(cwd, selectionEnv.path, authOrigin, deploymentEnv)
+    if (requireAuthDeployment) {
+      await configureLocalAuthEnvironment(cwd, selectionEnv.path, authOrigin, deploymentEnv)
+    } else {
+      await configureLocalDeploymentEnvironment(cwd, selectionEnv.path, deploymentEnv)
+    }
     await waitForLocalConvexFunctions(child, timeoutMs, getOutput)
-    await waitForLocalAuthDeployment(
-      cwd,
-      selected.url,
-      selected.siteUrl,
-      timeoutMs,
-      authOrigin,
-      getOutput,
-    )
+    if (requireAuthDeployment) {
+      await waitForLocalAuthDeployment(
+        cwd,
+        selected.url,
+        selected.siteUrl,
+        timeoutMs,
+        authOrigin,
+        getOutput,
+      )
+    }
 
     const handle: LocalConvexHandle = {
       authOrigin,
       cwd,
       deploymentEnv,
       process: child,
+      requireAuthDeployment,
       selectionEnvDirectory: selectionEnv.directory,
       url: selected.url,
       siteUrl: selected.siteUrl,
@@ -1004,11 +1028,16 @@ export async function ensureLocalConvex(
   const autoStart = process.env.CONVEX_E2E_AUTO_START === 'true'
   const authOrigin = normalizeLocalAuthOrigin(options.authOrigin ?? 'http://localhost:3050')
   const deploymentEnv = normalizeLocalDeploymentEnv(options.deploymentEnv)
+  const requireAuthDeployment = options.requireAuthDeployment ?? true
 
   if (activeHandle) {
-    if (activeHandle.cwd !== cwd || activeHandle.authOrigin !== authOrigin) {
+    if (
+      activeHandle.cwd !== cwd ||
+      activeHandle.authOrigin !== authOrigin ||
+      activeHandle.requireAuthDeployment !== requireAuthDeployment
+    ) {
       throw new Error(
-        `A local Convex backend is already managed for ${activeHandle.cwd} at ${activeHandle.authOrigin}; cannot also manage ${cwd} at ${authOrigin}.`,
+        `A local Convex backend is already managed with different fixture readiness requirements.`,
       )
     }
     if (!localDeploymentEnvMatches(activeHandle.deploymentEnv, deploymentEnv)) {
@@ -1038,7 +1067,11 @@ export async function ensureLocalConvex(
       deriveSiteUrlFromConvexUrl(explicitUrl) ??
       undefined)
     : undefined
-  const key = startupKey(cwd, `${explicitUrl ?? 'auto'}:${authOrigin}`, deploymentEnv)
+  const key = startupKey(
+    cwd,
+    `${explicitUrl ?? 'auto'}:${authOrigin}:${requireAuthDeployment ? 'auth' : 'functions'}`,
+    deploymentEnv,
+  )
   const previousFailure = startupFailures.get(key)
   if (previousFailure) throw previousFailure
 
@@ -1107,7 +1140,13 @@ export async function ensureLocalConvex(
   }
 
   try {
-    const handle = await startLocalConvex(cwd, timeoutMs, authOrigin, deploymentEnv)
+    const handle = await startLocalConvex(
+      cwd,
+      timeoutMs,
+      authOrigin,
+      deploymentEnv,
+      requireAuthDeployment,
+    )
     assertRequiredLocalUrls(cwd, handle.url, handle.siteUrl)
     return {
       env: installResolvedLocalEnv(handle.url, handle.siteUrl),
