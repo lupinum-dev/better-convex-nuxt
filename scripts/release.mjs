@@ -32,6 +32,7 @@ import {
   selectProductionManifestContract,
 } from './package-check/production-manifest-contract.mjs'
 import { buildContentManifest, packAndExtract } from './package-check/tarball.mjs'
+import { getPackageRuntimeFingerprintProfile } from './package-runtime-fingerprint-profile.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const releasePackageId = 'nuxt'
@@ -54,12 +55,7 @@ const tag = `v${version}`
 const expectedArtifactFiles = artifactCoordinates.files
 const command = process.argv[2]
 const verifyPath = process.argv[3]
-const runtimeFingerprintToken = '__BCN_RELEASE_RUNTIME_FINGERPRINT__'
-const runtimeFingerprintBuildFiles = [
-  join(packageRoot, 'dist', 'runtime', 'shared', 'release-fingerprint.js'),
-]
-const runtimeFingerprintPackedFiles = ['dist/runtime/shared/release-fingerprint.js']
-const runtimeFingerprintModulePackedFile = 'dist/module.mjs'
+const { profile: runtimeFingerprintProfile } = getPackageRuntimeFingerprintProfile(releasePackageId)
 const maxPackedFingerprintFileBytes = 16 * 1024 * 1024
 
 if (
@@ -152,7 +148,8 @@ function verifyFileEvidence(directory, evidence, label) {
 }
 
 function verifyRuntimeFingerprintBinding(tarballPath, runtimeFingerprint) {
-  for (const packagePath of runtimeFingerprintPackedFiles) {
+  if (runtimeFingerprintProfile.mode === 'forbidden') return
+  for (const packagePath of runtimeFingerprintProfile.packedFiles) {
     let source
     try {
       source = execFileSync('tar', ['-xOf', tarballPath, `package/${packagePath}`], {
@@ -163,34 +160,37 @@ function verifyRuntimeFingerprintBinding(tarballPath, runtimeFingerprint) {
     } catch {
       throw new Error(`Artifact tarball is missing bounded fingerprint input ${packagePath}.`)
     }
-    if (source.split(runtimeFingerprint).length !== 2 || source.includes(runtimeFingerprintToken)) {
+    if (
+      source.split(runtimeFingerprint).length !== 2 ||
+      source.includes(runtimeFingerprintProfile.token)
+    ) {
       throw new Error(`Artifact runtime fingerprint is not bound to packed ${packagePath}.`)
     }
   }
-  let moduleSource
-  try {
-    moduleSource = execFileSync(
-      'tar',
-      ['-xOf', tarballPath, `package/${runtimeFingerprintModulePackedFile}`],
-      {
+  for (const binding of runtimeFingerprintProfile.moduleBindings) {
+    let moduleSource
+    try {
+      moduleSource = execFileSync('tar', ['-xOf', tarballPath, `package/${binding.packedFile}`], {
         encoding: 'utf8',
         maxBuffer: maxPackedFingerprintFileBytes,
         stdio: ['ignore', 'pipe', 'pipe'],
-      },
+      })
+    } catch {
+      throw new Error(
+        `Artifact tarball is missing bounded fingerprint input ${binding.packedFile}.`,
+      )
+    }
+    const escapedImport = binding.helperImport.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')
+    const importPattern = new RegExp(
+      `import\\s*\\{\\s*getPackedRuntimeFingerprint\\s*\\}\\s*from\\s*['"]${escapedImport}['"]`,
+      'gu',
     )
-  } catch {
-    throw new Error(
-      `Artifact tarball is missing bounded fingerprint input ${runtimeFingerprintModulePackedFile}.`,
-    )
-  }
-  const bindings =
-    moduleSource.match(
-      /import\s*\{\s*getPackedRuntimeFingerprint\s*\}\s*from\s*['"]\.\.\/dist\/runtime\/shared\/release-fingerprint\.js['"]/gu,
-    ) ?? []
-  if (bindings.length !== 1 || moduleSource.includes(runtimeFingerprintToken)) {
-    throw new Error(
-      `Artifact runtime fingerprint helper is not bound to packed ${runtimeFingerprintModulePackedFile}.`,
-    )
+    const bindings = moduleSource.match(importPattern) ?? []
+    if (bindings.length !== 1 || moduleSource.includes(runtimeFingerprintProfile.token)) {
+      throw new Error(
+        `Artifact runtime fingerprint helper is not bound to packed ${binding.packedFile}.`,
+      )
+    }
   }
 }
 
@@ -329,10 +329,16 @@ function verifyArtifact(evidenceFile) {
 }
 
 function packBoundRuntimeArtifact(artifactsDir) {
-  const runtimeFingerprint = `bcn-release-v1-${randomBytes(32).toString('hex')}`
-  const originals = runtimeFingerprintBuildFiles.map((path) => {
+  const runtimeFingerprint =
+    runtimeFingerprintProfile.mode === 'required'
+      ? `bcn-release-v1-${randomBytes(32).toString('hex')}`
+      : null
+  const originals = (
+    runtimeFingerprintProfile.mode === 'required' ? runtimeFingerprintProfile.buildFiles : []
+  ).map((relativePath) => {
+    const path = join(packageRoot, relativePath)
     const source = readFileSync(path, 'utf8')
-    if (source.split(runtimeFingerprintToken).length !== 2) {
+    if (source.split(runtimeFingerprintProfile.token).length !== 2) {
       throw new Error(`Release fingerprint token must occur exactly once in ${path}.`)
     }
     return { path, source }
@@ -340,7 +346,7 @@ function packBoundRuntimeArtifact(artifactsDir) {
 
   try {
     for (const { path, source } of originals) {
-      writeFileSync(path, source.replace(runtimeFingerprintToken, runtimeFingerprint))
+      writeFileSync(path, source.replace(runtimeFingerprintProfile.token, runtimeFingerprint))
     }
     // npm must not rerun prepack here: dist above is the one reviewed build.
     const packResult = JSON.parse(

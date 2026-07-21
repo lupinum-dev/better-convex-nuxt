@@ -1,6 +1,11 @@
 import { basename } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
+import {
+  assertRuntimeFingerprintEvidence,
+  getPackageRuntimeFingerprintProfile,
+} from './package-runtime-fingerprint-profile.mjs'
+
 export const packageArtifactEvidenceSchemaVersion = 3
 
 const artifactEvidenceFields = Object.freeze([
@@ -25,7 +30,6 @@ const fileEvidenceFields = Object.freeze(['file', 'bytes', 'sha256'])
 const tarballEvidenceFields = Object.freeze([...fileEvidenceFields, 'integrity'])
 const fullGitCommitPattern = /^[0-9a-f]{40}$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
-const runtimeFingerprintPattern = /^bcn-release-v1-[0-9a-f]{64}$/u
 
 /**
  * Parse the one strict artifact-evidence schema and bind it to a closed,
@@ -33,6 +37,9 @@ const runtimeFingerprintPattern = /^bcn-release-v1-[0-9a-f]{64}$/u
  * profile, path, or command.
  */
 export function parsePackageArtifactEvidence(value, coordinates) {
+  const { profile: runtimeFingerprintProfile } = getPackageRuntimeFingerprintProfile(
+    coordinates.packageId,
+  )
   if (
     !hasExactFields(value, artifactEvidenceFields) ||
     value.schemaVersion !== packageArtifactEvidenceSchemaVersion ||
@@ -46,9 +53,13 @@ export function parsePackageArtifactEvidence(value, coordinates) {
     !isNonemptyString(value.node) ||
     !isNonemptyString(value.npm) ||
     !isNonemptyString(value.pnpm) ||
-    value.sourceTree !== 'clean' ||
-    !matches(value.runtimeFingerprint, runtimeFingerprintPattern)
+    value.sourceTree !== 'clean'
   ) {
+    throw new Error('Artifact identity does not match the checked-out package and source commit.')
+  }
+  try {
+    assertRuntimeFingerprintEvidence(runtimeFingerprintProfile, value.runtimeFingerprint)
+  } catch {
     throw new Error('Artifact identity does not match the checked-out package and source commit.')
   }
 
