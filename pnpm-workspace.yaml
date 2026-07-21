@@ -1,5 +1,6 @@
 packages:
   - playground
+  - packages/*
 
 overrides:
   vite: 7.3.6
