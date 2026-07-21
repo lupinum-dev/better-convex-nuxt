@@ -9,11 +9,33 @@ import { z } from 'zod'
 
 import { internal } from './_generated/api'
 import { httpAction, type ActionCtx } from './_generated/server'
+import { NOTES_DASHBOARD_HTML } from './notes_dashboard'
 import { labOAuthMetadataResponse, labOAuthSubject, requireLabOAuthAccess } from './oauth_fixture'
 
 const MAX_REQUEST_BODY_BYTES = 64 * 1024
 const REQUEST_BODY_TIMEOUT_MS = 1_000
 const BEARER_BOUNDARY_HEADER = 'x-bcn-lab-bearer-boundary'
+const NOTES_DASHBOARD_RESOURCE_URI = 'ui://notes/dashboard.html'
+const NOTES_DASHBOARD_RESOURCE_MIME_TYPE = 'text/html;profile=mcp-app'
+const NOTES_DASHBOARD_MAX_HTML_BYTES = 512 * 1024
+if (
+  !NOTES_DASHBOARD_HTML.startsWith('<!doctype html>') ||
+  new TextEncoder().encode(NOTES_DASHBOARD_HTML).byteLength > NOTES_DASHBOARD_MAX_HTML_BYTES
+) {
+  throw new Error('MCP_APP_BUILD_INVALID')
+}
+const notesDashboardResourceMeta = Object.freeze({
+  ui: Object.freeze({
+    csp: Object.freeze({
+      baseUriDomains: Object.freeze([]),
+      connectDomains: Object.freeze([]),
+      frameDomains: Object.freeze([]),
+      resourceDomains: Object.freeze([]),
+    }),
+    permissions: Object.freeze({}),
+    prefersBorder: true,
+  }),
+})
 
 class RequestBoundaryError extends Error {
   readonly code: string
@@ -202,6 +224,12 @@ function createNotesServer(ctx: ActionCtx, principal: LabPrincipal): McpServer {
         })
         .strict(),
       outputSchema: z.object({ matches: z.array(noteSchema) }),
+      _meta: {
+        ui: {
+          resourceUri: NOTES_DASHBOARD_RESOURCE_URI,
+          visibility: ['model', 'app'],
+        },
+      },
     },
     async (input) =>
       projectToolResult(
@@ -264,6 +292,26 @@ function createNotesServer(ctx: ActionCtx, principal: LabPrincipal): McpServer {
       if (!result.ok) throw new Error('MCP_RESOURCE_UNAVAILABLE')
       return { contents: [result.value] }
     },
+  )
+
+  server.registerResource(
+    'notes-dashboard',
+    NOTES_DASHBOARD_RESOURCE_URI,
+    {
+      _meta: notesDashboardResourceMeta,
+      description: 'Credential-free interactive view for the neutral notes search result.',
+      mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+    },
+    async (uri) => ({
+      contents: [
+        {
+          _meta: notesDashboardResourceMeta,
+          mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+          text: NOTES_DASHBOARD_HTML,
+          uri: uri.href,
+        },
+      ],
+    }),
   )
 
   return server

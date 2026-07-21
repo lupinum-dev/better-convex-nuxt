@@ -1,9 +1,13 @@
-import { cp, mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import {
+  McpUiResourceMetaSchema,
+  McpUiToolMetaSchema,
+} from '@modelcontextprotocol/ext-apps/app-bridge'
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -12,6 +16,8 @@ import {
   ensureLocalConvex,
   type EnsureLocalConvexResult,
 } from '../../../../test/helpers/local-convex'
+import { proveNotesDashboardBrowserBoundary } from '../apps/notes-dashboard/browser-proof'
+import { buildNotesDashboard } from '../apps/notes-dashboard/build'
 import { topologyConformanceVectors } from '../conformance-vectors'
 import {
   abortRawHttp,
@@ -43,6 +49,7 @@ const managedEnvironmentNames = [
 
 let fixtureDirectory = ''
 let local: EnsureLocalConvexResult | undefined
+let notesDashboardHtml = ''
 const savedEnvironment = new Map<string, string | undefined>()
 
 function saveAndSetLabEnvironment(): void {
@@ -60,10 +67,14 @@ function restoreEnvironment(): void {
   }
 }
 
-async function materializeFixture(): Promise<string> {
+async function materializeFixture(appHtml: string): Promise<string> {
   const directory = await mkdtemp(path.join(tmpdir(), 'better-convex-vnext-mcp-'))
   await cp(sourceFixture, directory, { recursive: true })
   await cp(sharedOAuthFixture, path.join(directory, 'convex', 'oauth_fixture.ts'))
+  await writeFile(
+    path.join(directory, 'convex', 'notes_dashboard.ts'),
+    `export const NOTES_DASHBOARD_HTML = ${JSON.stringify(appHtml)}\n`,
+  )
   await symlink(path.join(root, 'node_modules'), path.join(directory, 'node_modules'), 'dir')
   return directory
 }
@@ -73,9 +84,13 @@ function connectClient(
   token: string,
   name: string,
   responseBodies: string[],
-): { client: Client; connect: Promise<void> } {
+  supportsApps: boolean,
+): { client: Client; connect: Promise<void>; requestBodies: string[] } {
+  const requestBodies: string[] = []
   const fetch: typeof globalThis.fetch = async (input, init) => {
-    const response = await globalThis.fetch(input, init)
+    const request = new Request(input, init)
+    requestBodies.push(await request.clone().text())
+    const response = await globalThis.fetch(request)
     responseBodies.push(await response.clone().text())
     return response
   }
@@ -83,13 +98,27 @@ function connectClient(
     authProvider: { token: async () => token },
     fetch,
   })
-  const client = new Client({ name, version: '0.0.0' })
-  return { client, connect: client.connect(transport) }
+  const client = new Client(
+    { name, version: '0.0.0' },
+    supportsApps
+      ? {
+          capabilities: {
+            extensions: {
+              'io.modelcontextprotocol/ui': {
+                mimeTypes: ['text/html;profile=mcp-app'],
+              },
+            },
+          },
+        }
+      : undefined,
+  )
+  return { client, connect: client.connect(transport), requestBodies }
 }
 
 beforeAll(async () => {
   saveAndSetLabEnvironment()
-  fixtureDirectory = await materializeFixture()
+  notesDashboardHtml = (await buildNotesDashboard()).appHtml
+  fixtureDirectory = await materializeFixture(notesDashboardHtml)
   local = await ensureLocalConvex({
     cwd: fixtureDirectory,
     requireAuthDeployment: false,
@@ -124,18 +153,15 @@ describe('vNext Convex-native MCP topology probe', () => {
       zod: '4.3.6',
     })
     const sources = await Promise.all(
-      ['fixture.ts', 'http.ts', 'mcp.ts', 'operations.ts', 'schema.ts'].map((file) =>
-        readFile(path.join(sourceFixture, 'convex', file), 'utf8'),
+      ['fixture.ts', 'http.ts', 'mcp.ts', 'operations.ts', 'schema.ts', 'notes_dashboard.ts'].map(
+        (file) => readFile(path.join(sourceFixture, 'convex', file), 'utf8'),
       ),
     )
-    const fixtureControlSource = sources[0]!
     const httpSource = sources[1]!
     const mcpSource = sources[2]!
     const operationsSource = sources[3]!
-    const schemaSource = sources[4]!
-    const fixtureSource =
-      [fixtureControlSource, httpSource, mcpSource, operationsSource, schemaSource].join('\n') +
-      (await readFile(sharedOAuthFixture, 'utf8'))
+    const notesDashboardSource = sources[5]!
+    const fixtureSource = sources.join('\n') + (await readFile(sharedOAuthFixture, 'utf8'))
     expect(fixtureSource.includes("from 'node:")).toBe(false)
     expect(fixtureSource.includes('@modelcontextprotocol/client')).toBe(false)
     expect(fixtureSource.includes('polyfill')).toBe(false)
@@ -143,6 +169,10 @@ describe('vNext Convex-native MCP topology probe', () => {
     expect(httpSource.match(/handler: handleMcp/gu)).toHaveLength(1)
     expect(mcpSource.match(/requireLabOAuthAccess/gu)).toHaveLength(2)
     expect(operationsSource).not.toMatch(/\b(?:AuthInfo|Request|authorization|bearer|token)\b/iu)
+    expect(notesDashboardSource).toContain(
+      "export const NOTES_DASHBOARD_HTML = '__BCN_NOTES_DASHBOARD_BUILD_REQUIRED__'",
+    )
+    expect(notesDashboardSource).not.toContain('<!doctype html>')
 
     const responsesA: string[] = []
     const responsesB: string[] = []
@@ -151,12 +181,14 @@ describe('vNext Convex-native MCP topology probe', () => {
       OWNER_TOKEN,
       'convex-owner-client',
       responsesA,
+      true,
     )
     const connectionB = connectClient(
       local.env.CONVEX_SITE_URL!,
       EDITOR_TOKEN,
       'convex-editor-client',
       responsesB,
+      false,
     )
 
     try {
@@ -409,6 +441,89 @@ describe('vNext Convex-native MCP topology probe', () => {
         topologyConformanceVectors.expectedTools,
       )
       expect(JSON.stringify(toolsA.tools)).not.toContain('subject')
+      const supportedSearch = toolsA.tools.find((tool) => tool.name === 'search_notes')
+      const unsupportedSearch = toolsB.tools.find((tool) => tool.name === 'search_notes')
+      expect(supportedSearch?._meta).toEqual({
+        ui: {
+          resourceUri: 'ui://notes/dashboard.html',
+          visibility: ['model', 'app'],
+        },
+      })
+      expect(unsupportedSearch?._meta).toEqual(supportedSearch?._meta)
+      expect(
+        McpUiToolMetaSchema.parse((supportedSearch?._meta as { ui?: unknown } | undefined)?.ui),
+      ).toEqual(supportedSearch?._meta?.ui)
+
+      const supportedRequests = connectionA.requestBodies
+        .filter(Boolean)
+        .map((body) => JSON.parse(body) as { method?: string; params?: Record<string, unknown> })
+      const unsupportedRequests = connectionB.requestBodies
+        .filter(Boolean)
+        .map((body) => JSON.parse(body) as { method?: string; params?: Record<string, unknown> })
+      expect(supportedRequests[0]).toMatchObject({
+        method: 'initialize',
+        params: {
+          capabilities: {
+            extensions: {
+              'io.modelcontextprotocol/ui': {
+                mimeTypes: ['text/html;profile=mcp-app'],
+              },
+            },
+          },
+        },
+      })
+      expect(unsupportedRequests[0]).toMatchObject({
+        method: 'initialize',
+        params: { capabilities: {} },
+      })
+
+      const dashboard = await connectionA.client.readResource({
+        uri: 'ui://notes/dashboard.html',
+      })
+      expect(dashboard.contents).toEqual([
+        {
+          _meta: {
+            ui: {
+              csp: {
+                baseUriDomains: [],
+                connectDomains: [],
+                frameDomains: [],
+                resourceDomains: [],
+              },
+              permissions: {},
+              prefersBorder: true,
+            },
+          },
+          mimeType: 'text/html;profile=mcp-app',
+          text: notesDashboardHtml,
+          uri: 'ui://notes/dashboard.html',
+        },
+      ])
+      expect(
+        McpUiResourceMetaSchema.parse(
+          (dashboard.contents[0]!._meta as { ui?: unknown } | undefined)?.ui,
+        ),
+      ).toEqual(dashboard.contents[0]!._meta?.ui)
+      const unsupportedFallback = await connectionB.client.callTool({
+        arguments: { query: 'beta', workspaceId: 'workspace-b' },
+        name: 'search_notes',
+      })
+      expect(unsupportedFallback).toMatchObject({
+        content: [{ type: 'text' }],
+        structuredContent: {
+          matches: [{ id: 'note-b', title: 'Beta' }],
+        },
+      })
+      const appsProof = await proveNotesDashboardBrowserBoundary({
+        build: await buildNotesDashboard(),
+        callTool: (call) => connectionA.client.callTool(call),
+      })
+      expect(appsProof.toolCalls).toEqual([
+        {
+          arguments: { limit: 5, query: '', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        },
+      ])
 
       const concurrentSearches = await Promise.all(
         Array.from({ length: 16 }, (_, index) =>

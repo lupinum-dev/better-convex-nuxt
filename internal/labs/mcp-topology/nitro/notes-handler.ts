@@ -51,6 +51,22 @@ const deletedWorkspaceSchema = z.object({
 const ACTOR_EXTRA_KEY = 'betterConvexLabActor'
 export const NITRO_MCP_LAB_MAX_BODY_BYTES = 64 * 1024
 export const NITRO_MCP_LAB_BODY_TIMEOUT_MS = 1_000
+export const NOTES_DASHBOARD_RESOURCE_URI = 'ui://notes/dashboard.html'
+export const NOTES_DASHBOARD_RESOURCE_MIME_TYPE = 'text/html;profile=mcp-app'
+const NOTES_DASHBOARD_MAX_HTML_BYTES = 512 * 1024
+
+const notesDashboardResourceMeta = Object.freeze({
+  ui: Object.freeze({
+    csp: Object.freeze({
+      baseUriDomains: Object.freeze([]),
+      connectDomains: Object.freeze([]),
+      frameDomains: Object.freeze([]),
+      resourceDomains: Object.freeze([]),
+    }),
+    permissions: Object.freeze({}),
+    prefersBorder: true,
+  }),
+})
 
 class RequestBoundaryError extends Error {
   readonly code: string
@@ -225,6 +241,7 @@ async function runTool<T>(operation: () => T | Promise<T>) {
 function createNotesServer(
   application: NeutralNotesApplication,
   actor: NotesApplicationActor,
+  notesDashboardHtml?: string,
 ): McpServer {
   const server = new McpServer({ name: 'better-convex-nitro-topology-lab', version: '0.0.0' })
 
@@ -240,6 +257,16 @@ function createNotesServer(
         })
         .strict(),
       outputSchema: z.object({ matches: z.array(noteSchema) }),
+      ...(notesDashboardHtml
+        ? {
+            _meta: {
+              ui: {
+                resourceUri: NOTES_DASHBOARD_RESOURCE_URI,
+                visibility: ['model', 'app'],
+              },
+            },
+          }
+        : {}),
     },
     async (input) => runTool(() => ({ matches: application.searchNotes(actor, input) })),
   )
@@ -292,6 +319,28 @@ function createNotesServer(
     async (uri) => ({ contents: [application.readNoteResource(actor, { uri: uri.href })] }),
   )
 
+  if (notesDashboardHtml) {
+    server.registerResource(
+      'notes-dashboard',
+      NOTES_DASHBOARD_RESOURCE_URI,
+      {
+        _meta: notesDashboardResourceMeta,
+        description: 'Credential-free interactive view for the neutral notes search result.',
+        mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+      },
+      async (uri) => ({
+        contents: [
+          {
+            _meta: notesDashboardResourceMeta,
+            mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+            text: notesDashboardHtml,
+            uri: uri.href,
+          },
+        ],
+      }),
+    )
+  }
+
   return server
 }
 
@@ -313,12 +362,21 @@ function withActor(authInfo: AuthInfo, actor: NotesApplicationActor): AuthInfo {
 export function createNitroNotesMcpHandler(
   application: NeutralNotesApplication,
   expectedPath = '/mcp',
+  notesDashboardHtml?: string,
 ): NitroNotesMcpHandler {
   if (!expectedPath.startsWith('/') || expectedPath.includes('?') || expectedPath.includes('#')) {
     throw new TypeError('The private MCP lab path must be one exact pathname')
   }
+  if (
+    notesDashboardHtml !== undefined &&
+    (!notesDashboardHtml.startsWith('<!doctype html>') ||
+      new TextEncoder().encode(notesDashboardHtml).byteLength > NOTES_DASHBOARD_MAX_HTML_BYTES)
+  ) {
+    throw new TypeError('The private MCP App must be one bounded HTML document')
+  }
   const handler: McpHttpHandler = createMcpHandler(
-    ({ authInfo }) => createNotesServer(application, actorFromAuthInfo(authInfo)),
+    ({ authInfo }) =>
+      createNotesServer(application, actorFromAuthInfo(authInfo), notesDashboardHtml),
     { legacy: 'stateless', responseMode: 'json' },
   )
 

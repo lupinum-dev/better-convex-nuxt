@@ -57,9 +57,15 @@ importers:
       '@modelcontextprotocol/conformance':
         specifier: 0.1.16
         version: 0.1.16
+      '@modelcontextprotocol/ext-apps':
+        specifier: 1.7.4
+        version: 1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@3.25.76)
       '@modelcontextprotocol/inspector':
         specifier: 0.22.0
         version: 0.22.0(@types/node@22.20.1)(typescript@5.9.3)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.29.0
+        version: 1.29.0(zod@4.3.6)
       '@modelcontextprotocol/server':
         specifier: 2.0.0-beta.4
         version: 2.0.0-beta.4
@@ -120,6 +126,9 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+      vite:
+        specifier: 7.3.6
+        version: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.0)
       vitest:
         specifier: ^4.1.8
         version: 4.1.10(@edge-runtime/vm@5.0.0)(@types/node@22.20.1)(@vitest/browser-playwright@4.1.10)(happy-dom@20.10.6)(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.0))
