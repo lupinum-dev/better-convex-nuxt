@@ -2,23 +2,21 @@ import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  createCallableController,
+  type CallableControllerHandlers,
+} from '../../src/runtime/client-core/callable-controller'
+import {
   createIdentityChangedError,
   isIdentityChangedError,
 } from '../../src/runtime/client-core/identity-changed-error'
 import { ConvexCallError } from '../../src/runtime/errors'
-import {
-  createCallableLifecycle,
-  type CallableLifecycleHandlers,
-} from '../../src/runtime/utils/callable-lifecycle'
 
 function makeLifecycle<Result = string>(
-  handlers: CallableLifecycleHandlers<Record<string, unknown>, Result>,
+  handlers: CallableControllerHandlers<Record<string, unknown>, Result>,
   getIdentityGeneration: () => number = () => 0,
 ) {
-  return createCallableLifecycle<Record<string, unknown>, Result>({
-    devtoolsKind: 'mutation',
-    fnName: 'test:fn',
-    hasOptimisticUpdate: false,
+  return createCallableController<Record<string, unknown>, Result>({
+    operation: 'mutation',
     getIdentityGeneration,
     handlers,
   })
@@ -171,5 +169,119 @@ describe('callable lifecycle: identity-change stale rejection (architecture inva
     expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(ConvexCallError)
     expect(lifecycle.status.value).toBe('error')
     expect(lifecycle.error.value?.message).toBe('genuine failure')
+  })
+})
+
+describe('callable lifecycle: settlement binding', () => {
+  it('binds the generation after initial settlement and dispatches under the settled identity', async () => {
+    let generation = 0
+    let releaseSettlement!: () => void
+    const invoke = vi.fn(async () => 'alice-result')
+    const onSuccess = vi.fn()
+    const lifecycle = makeLifecycle(
+      {
+        settle: () =>
+          new Promise<void>((resolve) => {
+            releaseSettlement = resolve
+          }),
+        invoke,
+        onSuccess,
+      },
+      () => generation,
+    )
+
+    const pending = lifecycle.run({ request: 'before-settlement' })
+    expect(lifecycle.pending.value).toBe(true)
+    expect(invoke).not.toHaveBeenCalled()
+
+    generation = 1
+    lifecycle.onIdentityMaybeChanged()
+    expect(lifecycle.status.value).toBe('idle')
+    releaseSettlement()
+
+    await expect(pending).resolves.toBe('alice-result')
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(lifecycle.status.value).toBe('success')
+    expect(lifecycle.data.value).toBe('alice-result')
+  })
+
+  it('does not dispatch before settlement completes', async () => {
+    let releaseSettlement!: () => void
+    const invoke = vi.fn(async () => 'done')
+    const lifecycle = makeLifecycle({
+      settle: () =>
+        new Promise<void>((resolve) => {
+          releaseSettlement = resolve
+        }),
+      invoke,
+    })
+
+    const pending = lifecycle.run({})
+    await Promise.resolve()
+    expect(invoke).not.toHaveBeenCalled()
+
+    releaseSettlement()
+    await expect(pending).resolves.toBe('done')
+    expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps reset final while settlement is pending', async () => {
+    let releaseSettlement!: () => void
+    const onSuccess = vi.fn()
+    const lifecycle = makeLifecycle({
+      settle: () =>
+        new Promise<void>((resolve) => {
+          releaseSettlement = resolve
+        }),
+      invoke: async () => 'wire-result',
+      onSuccess,
+    })
+
+    const pending = lifecycle.run({})
+    lifecycle.reset()
+    releaseSettlement()
+
+    await expect(pending).resolves.toBe('wire-result')
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(lifecycle.status.value).toBe('idle')
+    expect(lifecycle.data.value).toBeUndefined()
+  })
+
+  it('normalizes a settlement failure without dispatching', async () => {
+    const invoke = vi.fn(async () => 'unreachable')
+    const lifecycle = makeLifecycle({
+      settle: async () => {
+        throw new ConvexCallError({ kind: 'authentication', message: 'Authentication failed' })
+      },
+      invoke,
+    })
+
+    await expect(lifecycle.run({})).rejects.toMatchObject({ kind: 'authentication' })
+    expect(invoke).not.toHaveBeenCalled()
+    expect(lifecycle.status.value).toBe('error')
+  })
+
+  it('disposal retires pending completion and rejects later calls', async () => {
+    let releaseInvoke!: (value: string) => void
+    const onSuccess = vi.fn()
+    const lifecycle = makeLifecycle({
+      invoke: () =>
+        new Promise<string>((resolve) => {
+          releaseInvoke = resolve
+        }),
+      onSuccess,
+    })
+
+    const pending = lifecycle.run({})
+    lifecycle.dispose()
+    lifecycle.dispose()
+    releaseInvoke('late-result')
+
+    await expect(pending).resolves.toBe('late-result')
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(lifecycle.status.value).toBe('idle')
+    expect(lifecycle.data.value).toBeUndefined()
+    await expect(lifecycle.run({})).rejects.toMatchObject({ code: 'CALL_DISPOSED' })
   })
 })

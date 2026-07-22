@@ -1,24 +1,26 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 
 import type { ConvexCallError } from '../errors'
-import type { ConvexCallStatus } from './types'
 
-export interface ConvexCallState<Result> {
+export type ClientCallStatus = 'idle' | 'pending' | 'success' | 'error'
+
+export interface ClientCallState<Result> {
   data: Ref<Result | undefined>
-  status: ComputedRef<ConvexCallStatus>
+  status: ComputedRef<ClientCallStatus>
   pending: ComputedRef<boolean>
   error: Ref<ConvexCallError | null>
-  start: () => number
-  commitSuccess: (requestId: number, result: Result) => boolean
-  commitError: (requestId: number, error: ConvexCallError) => boolean
-  /** Synchronously mask retained data/error and retire pending (identity change). */
-  mask: () => void
-  reset: () => void
+  start(): number
+  isCurrent(requestId: number): boolean
+  commitSuccess(requestId: number, result: Result): boolean
+  commitError(requestId: number, error: ConvexCallError): boolean
+  /** Synchronously mask retained data/error and retire pending work. */
+  mask(): void
+  reset(): void
 }
 
-export function createConvexCallState<Result>(): ConvexCallState<Result> {
+export function createClientCallState<Result>(): ClientCallState<Result> {
   let activeRequestId = 0
-  const currentStatus = ref<ConvexCallStatus>('idle')
+  const currentStatus = ref<ClientCallStatus>('idle')
   const error = ref<ConvexCallError | null>(null) as Ref<ConvexCallError | null>
   const data = ref<Result | undefined>(undefined) as Ref<Result | undefined>
 
@@ -32,27 +34,20 @@ export function createConvexCallState<Result>(): ConvexCallState<Result> {
     return requestId
   }
 
+  const isCurrent = (requestId: number) => requestId === activeRequestId
+
   const commitSuccess = (requestId: number, result: Result) => {
-    if (requestId !== activeRequestId) return false
+    if (!isCurrent(requestId)) return false
     currentStatus.value = 'success'
     data.value = result
     return true
   }
 
   const commitError = (requestId: number, err: ConvexCallError) => {
-    if (requestId !== activeRequestId) return false
+    if (!isCurrent(requestId)) return false
     currentStatus.value = 'error'
     error.value = err
     return true
-  }
-
-  // Identity change: drop retained data/error and retire any pending call so a
-  // later stale completion cannot commit (its requestId is now superseded).
-  const mask = () => {
-    activeRequestId += 1
-    currentStatus.value = 'idle'
-    error.value = null
-    data.value = undefined
   }
 
   const reset = () => {
@@ -68,9 +63,10 @@ export function createConvexCallState<Result>(): ConvexCallState<Result> {
     pending,
     error,
     start,
+    isCurrent,
     commitSuccess,
     commitError,
-    mask,
+    mask: reset,
     reset,
   }
 }

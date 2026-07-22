@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
+import { createClientCallState } from '../../src/runtime/client-core/call-state'
 import { ConvexCallError } from '../../src/runtime/errors'
-import { createConvexCallState } from '../../src/runtime/utils/call-state'
 
 const callError = (message: string) => new ConvexCallError({ kind: 'unknown', message })
 
-describe('createConvexCallState', () => {
+describe('createClientCallState', () => {
   it('tracks pending, success, error, and reset state', () => {
-    const state = createConvexCallState<string>()
+    const state = createClientCallState<string>()
 
     expect(state.status.value).toBe('idle')
     expect(state.pending.value).toBe(false)
@@ -38,7 +38,7 @@ describe('createConvexCallState', () => {
   })
 
   it('rejects stale success and error commits after newer starts or reset', () => {
-    const state = createConvexCallState<string>()
+    const state = createClientCallState<string>()
 
     const stale = state.start()
     const current = state.start()
@@ -68,7 +68,7 @@ describe('createConvexCallState', () => {
     // Consumers (useConvexMutation/useConvexAction) must only invoke onSuccess/onError
     // when commitSuccess/commitError report the commit actually landed. A superseded
     // or reset request must fire neither callback.
-    const state = createConvexCallState<string>()
+    const state = createClientCallState<string>()
 
     const superseded = state.start()
     state.start() // supersedes `superseded`

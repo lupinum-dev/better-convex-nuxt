@@ -8,9 +8,10 @@ import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue
 
 import { useNuxtApp } from '#imports'
 
+import { createCallableController } from '../client-core/callable-controller'
+import type { DevtoolsSink } from '../devtools/sink'
 import type { ConvexCallError, CallResult } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
-import { createCallableLifecycle } from '../utils/callable-lifecycle'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-shared'
 import { createLogger } from '../utils/logger'
@@ -136,20 +137,18 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   // Route through the per-app client owner's stable handle , never
   // the raw replaceable `$convex` seam. A retired-generation in-flight action
   // rejects with IDENTITY_CHANGED rather than resolving under a new identity.
-  const lifecycle = createCallableLifecycle<Args, Result>({
-    devtoolsKind: 'action',
-    fnName,
-    hasOptimisticUpdate: false,
+  type DevtoolsEvent = { sink: DevtoolsSink; id: string }
+  const lifecycle = createCallableController<Args, Result>({
+    operation: 'action',
     getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
-    getDevtoolsSink: () => runtime?.getDevtoolsSink() ?? null,
     handlers: {
+      settle: () => ensureConvexAuthReady(coordinator, 'useConvexAction'),
       invoke: async (args) => {
         if (!owner) {
           throw new Error(
             '[useConvexAction] Convex client is unavailable. Call actions from the browser after configuring a Convex URL.',
           )
         }
-        await ensureConvexAuthReady(coordinator, 'useConvexAction')
         return (await owner.handle.action(action, args as never)) as Result
       },
       onSuccess: options?.onSuccess,
@@ -158,12 +157,51 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
       logError: (_args, duration, error) =>
         logger.action({ name: fnName, event: 'error', duration, error }),
       logCallbackError: (error) => logger.action({ name: fnName, event: 'error', error }),
+      startEvent: (args, startedAt): DevtoolsEvent | undefined => {
+        const sink = runtime?.getDevtoolsSink()
+        if (!sink) return undefined
+        const id = sink.registerMutation({
+          name: fnName,
+          type: 'action',
+          args,
+          state: 'pending',
+          hasOptimisticUpdate: false,
+          startedAt,
+        })
+        return id ? { sink, id } : undefined
+      },
+      finishEvent: (rawEvent, result, startedAt) => {
+        const event = rawEvent as DevtoolsEvent | undefined
+        if (!event) return
+        const settledAt = Date.now()
+        event.sink.updateMutation(event.id, {
+          state: 'success',
+          result,
+          settledAt,
+          duration: settledAt - startedAt,
+        })
+      },
+      failEvent: (rawEvent, error, startedAt) => {
+        const event = rawEvent as DevtoolsEvent | undefined
+        if (!event) return
+        const settledAt = Date.now()
+        event.sink.updateMutation(event.id, {
+          state: 'error',
+          error: error.message,
+          settledAt,
+          duration: settledAt - startedAt,
+        })
+      },
     },
   })
 
   // Mask retained state synchronously on identity change (architecture invariant).
-  if (identityObserver && getCurrentScope()) {
-    onScopeDispose(identityObserver.subscribe(() => lifecycle.onIdentityMaybeChanged()))
+  if (getCurrentScope()) {
+    const stopIdentity = identityObserver?.subscribe(() => lifecycle.onIdentityMaybeChanged())
+    onScopeDispose(() => {
+      stopIdentity?.()
+      lifecycle.dispose()
+    })
   }
 
   const execute = (...callArgs: OptionalRestArgs<Action>): Promise<Result> =>
