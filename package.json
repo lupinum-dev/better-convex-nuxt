@@ -126,6 +126,7 @@
     "check:package-exports": "pnpm run build:package && pnpm run check:package-exports:dist",
     "check:package-exports:dist": "node scripts/check-package-exports.mjs --package nuxt",
     "check:vue-anonymous-consumer": "node scripts/check-vue-anonymous-consumer.mjs",
+    "check:vue-auth-consumer": "node scripts/check-vue-auth-consumer.mjs",
     "check:auth-provenance": "node scripts/check-auth-provenance.mjs",
     "check:auth-schema": "node scripts/check-auth-schema.mjs",
     "check:auth-logical-ids": "node scripts/check-auth-logical-ids.mjs",
