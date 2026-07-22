@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   commitPaginationPageError,
   commitPaginationPageResult,
+  createPaginationGeneration,
   createPendingPaginationPage,
   getLastLoadedPaginationResult,
   type PaginationPageState,
@@ -21,6 +22,12 @@ function pageResult<T>(page: T[], isDone = false): PaginationResult<T> {
 }
 
 describe('paginated query page state', () => {
+  it('creates positive safe cache-busting generations', () => {
+    const generations = Array.from({ length: 4 }, () => createPaginationGeneration())
+    expect(generations.every((value) => Number.isSafeInteger(value) && value > 0)).toBe(true)
+    expect(new Set(generations).size).toBe(generations.length)
+  })
+
   it('creates a pending page with no result or error', () => {
     const pending = createPendingPaginationPage({ numItems: 10, cursor: 'c1', id: 7 })
 

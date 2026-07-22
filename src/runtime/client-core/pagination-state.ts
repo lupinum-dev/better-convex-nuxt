@@ -2,6 +2,11 @@ import type { PaginationResult } from 'convex/server'
 
 import { normalizeConvexError, type ConvexCallError } from '../errors'
 
+/** Cache-busting generation; random avoids SSR-global sequential state. */
+export function createPaginationGeneration(): number {
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
+}
+
 export interface PaginationPageOptions {
   numItems: number
   cursor: string | null

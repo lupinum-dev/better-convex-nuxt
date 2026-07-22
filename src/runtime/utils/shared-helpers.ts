@@ -258,21 +258,3 @@ export function hasSetCookieDomainAttribute(setCookie: string): boolean {
   }
   return false
 }
-
-// ============================================================================
-// Pagination ID Generation
-// ============================================================================
-
-/**
- * Generate a new unique pagination ID.
- * Uses random numbers to avoid SSR global state issues.
- * Each call returns a new ID, suitable for cache-busting.
- *
- * @returns A unique numeric ID
- */
-export function generatePaginationId(): number {
-  // Use random number to avoid SSR global state leak
-  // Math.random() is sufficient since this is only used for cache-busting
-  // Guarantees range [1, MAX_SAFE_INTEGER] - never returns 0
-  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
-}

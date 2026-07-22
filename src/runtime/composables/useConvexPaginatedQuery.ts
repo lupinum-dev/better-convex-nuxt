@@ -19,6 +19,7 @@ import {
   commitPaginationPageResult,
   computePaginationStale,
   computePaginationStatus,
+  createPaginationGeneration,
   createPendingPaginationPage,
   getLastLoadedPaginationResult,
   type PaginationFirstPageState,
@@ -40,7 +41,6 @@ import { executeQueryHttp } from '../utils/query-execution'
 import { createQueryExecutionGate } from '../utils/query-execution-gate'
 import { createConvexQueryAuthContext, selectLiveQueryClient } from '../utils/query-foundation'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
-import { generatePaginationId } from '../utils/shared-helpers'
 import type {
   PaginatedQueryReference,
   PaginatedQueryArgs,
@@ -188,7 +188,7 @@ export function createConvexPaginatedQueryState<
   const identity = useConvexIdentityState()
   const cachedToken = computed(() => identityToken(identity.value))
 
-  const currentPaginationId = ref(generatePaginationId())
+  const currentPaginationId = ref(createPaginationGeneration())
   const pages = shallowRef<PaginationPageState<Item>[]>([])
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
   const isManualRefreshPending = ref(false)
@@ -648,7 +648,7 @@ export function createConvexPaginatedQueryState<
     isManualRefreshPending.value = true
     if (import.meta.client) teardownAllSubscriptions()
     firstPageRealtimeData.value = null
-    currentPaginationId.value = generatePaginationId()
+    currentPaginationId.value = createPaginationGeneration()
     pages.value = []
     setBoundaryError(null)
     try {
@@ -672,7 +672,7 @@ export function createConvexPaginatedQueryState<
         if (prev && !sameTag(next.tag, prev.tag)) {
           invalidateOperations()
           teardownAllSubscriptions()
-          currentPaginationId.value = generatePaginationId()
+          currentPaginationId.value = createPaginationGeneration()
           isManualRefreshPending.value = false
           firstPageRealtimeData.value = null
           pages.value = []
@@ -701,7 +701,7 @@ export function createConvexPaginatedQueryState<
           setBoundaryError(null)
           return
         }
-        currentPaginationId.value = generatePaginationId()
+        currentPaginationId.value = createPaginationGeneration()
         pages.value = []
         setBoundaryError(null)
         if (next.live) subscribeFirstPage()
