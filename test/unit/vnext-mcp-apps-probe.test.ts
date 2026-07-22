@@ -3,25 +3,33 @@ import {
   McpUiResourceMetaSchema,
   McpUiToolMetaSchema,
 } from '@modelcontextprotocol/ext-apps/app-bridge'
+import { McpServer } from '@modelcontextprotocol/server'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { proveNotesDashboardBrowserBoundary } from '../../internal/labs/mcp-topology/apps/notes-dashboard/browser-proof'
 import { buildNotesDashboard } from '../../internal/labs/mcp-topology/apps/notes-dashboard/build'
 import { NeutralNotesApplication } from '../../internal/labs/mcp-topology/neutral/notes-application'
-import {
-  createNitroNotesMcpHandler,
-  NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
-  NOTES_DASHBOARD_RESOURCE_URI,
-  type NitroNotesVerifiedAccess,
-} from '../../internal/labs/mcp-topology/nitro/notes-handler'
+import { noteSchema } from '../../internal/labs/mcp-topology/neutral/notes-schemas'
+import { createConvexMcpHandler } from '../../packages/mcp/src/handler'
 
-const ACCESS = Object.freeze<NitroNotesVerifiedAccess>({
-  actor: { role: 'owner', subject: 'alice', tenantId: 'tenant-a' },
-  authInfo: {
-    clientId: 'apps-client',
-    scopes: ['notes:read', 'notes:write'],
-    token: 'nitro-apps-token-must-not-escape',
-  },
+const RESOURCE = new URL('https://mcp-apps.invalid/mcp')
+const ISSUER = 'https://mcp-apps.invalid/credentials/'
+const TOKEN = 'convex-apps-token-must-not-escape'
+const NOTES_DASHBOARD_RESOURCE_URI = 'ui://notes/dashboard.html'
+const NOTES_DASHBOARD_RESOURCE_MIME_TYPE = 'text/html;profile=mcp-app'
+const ACTOR = Object.freeze({ role: 'owner' as const, subject: 'alice', tenantId: 'tenant-a' })
+const notesDashboardResourceMeta = Object.freeze({
+  ui: Object.freeze({
+    csp: Object.freeze({
+      baseUriDomains: Object.freeze([]),
+      connectDomains: Object.freeze([]),
+      frameDomains: Object.freeze([]),
+      resourceDomains: Object.freeze([]),
+    }),
+    permissions: Object.freeze({}),
+    prefersBorder: true,
+  }),
 })
 
 function createApplication(): NeutralNotesApplication {
@@ -42,7 +50,7 @@ function createApplication(): NeutralNotesApplication {
 }
 
 function connectClient(
-  handler: ReturnType<typeof createNitroNotesMcpHandler>,
+  handler: ReturnType<typeof createConvexMcpHandler<NeutralNotesApplication>>,
   supportsApps: boolean,
 ): { client: Client; connect: Promise<void>; requestBodies: string[]; responseBodies: string[] } {
   const requestBodies: string[] = []
@@ -50,11 +58,13 @@ function connectClient(
   const fetch: typeof globalThis.fetch = async (input, init) => {
     const request = new Request(input, init)
     requestBodies.push(await request.clone().text())
-    const response = await handler.fetch(request, ACCESS)
+    const headers = new Headers(request.headers)
+    headers.set('authorization', `Bearer ${TOKEN}`)
+    const response = await handler.fetch(createApplication(), new Request(request, { headers }))
     responseBodies.push(await response.clone().text())
     return response
   }
-  const transport = new StreamableHTTPClientTransport(new URL('https://mcp-apps.invalid/mcp'), {
+  const transport = new StreamableHTTPClientTransport(RESOURCE, {
     fetch,
   })
   const client = new Client(
@@ -74,24 +84,80 @@ function connectClient(
   return { client, connect: client.connect(transport), requestBodies, responseBodies }
 }
 
-describe('vNext MCP Apps private topology probe', () => {
-  it('rejects malformed or oversized App resources before creating the Nitro handler', () => {
-    const application = createApplication()
-    expect(() => createNitroNotesMcpHandler(() => application, '/mcp', '<html></html>')).toThrow(
-      'The private MCP App must be one bounded HTML document',
-    )
-    expect(() =>
-      createNitroNotesMcpHandler(
-        () => application,
-        '/mcp',
-        `<!doctype html>${'x'.repeat(512 * 1024)}`,
-      ),
-    ).toThrow('The private MCP App must be one bounded HTML document')
+function createHandler(appHtml: string) {
+  return createConvexMcpHandler<NeutralNotesApplication>({
+    resource: RESOURCE,
+    authorization: { mode: 'preconfigured-bearer', issuer: ISSUER },
+    verifier: {
+      async verifyAccessToken(token, expectedResource) {
+        if (token !== TOKEN || expectedResource.href !== RESOURCE.href) throw new Error('invalid')
+        return {
+          access: {
+            clientId: 'apps-client',
+            issuer: ISSUER,
+            resource: RESOURCE.href,
+            scopes: ['notes:read', 'notes:write'],
+            subject: ACTOR.subject,
+          },
+          expiresAt: Math.floor(Date.now() / 1_000) + 300,
+        }
+      },
+    },
+    createServer(application) {
+      const server = new McpServer({ name: 'better-convex-apps-probe', version: '0.0.0' })
+      server.registerTool(
+        'search_notes',
+        {
+          inputSchema: z
+            .object({
+              limit: z.number().int().min(1).max(50).optional(),
+              query: z.string().max(200),
+              workspaceId: z.string(),
+            })
+            .strict(),
+          outputSchema: z.object({ matches: z.array(noteSchema) }),
+          _meta: {
+            ui: {
+              resourceUri: NOTES_DASHBOARD_RESOURCE_URI,
+              visibility: ['model', 'app'],
+            },
+          },
+        },
+        async (input) => {
+          const output = { matches: await application.searchNotes(ACTOR, input) }
+          return {
+            content: [{ type: 'text', text: `${output.matches.length} note matched.` }],
+            structuredContent: output,
+          }
+        },
+      )
+      server.registerResource(
+        'notes-dashboard',
+        NOTES_DASHBOARD_RESOURCE_URI,
+        {
+          _meta: notesDashboardResourceMeta,
+          mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+        },
+        async (uri) => ({
+          contents: [
+            {
+              _meta: notesDashboardResourceMeta,
+              mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+              text: appHtml,
+              uri: uri.href,
+            },
+          ],
+        }),
+      )
+      return server
+    },
   })
+}
 
-  it('serves one credential-free Vue App with useful fallback through the Nitro candidate', async () => {
+describe('vNext MCP Apps private topology probe', () => {
+  it('serves one credential-free Vue App with useful fallback through the selected package', async () => {
     const build = await buildNotesDashboard()
-    const handler = createNitroNotesMcpHandler(() => createApplication(), '/mcp', build.appHtml)
+    const handler = createHandler(build.appHtml)
     const supported = connectClient(handler, true)
     const unsupported = connectClient(handler, false)
 
@@ -176,10 +242,10 @@ describe('vNext MCP Apps private topology probe', () => {
           /\/node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?(?:@modelcontextprotocol\/(?:client|server)|better-auth|convex|h3|nitro|nuxt)(?:\/|$)/u,
         )
       }
-      expect(build.appHtml).not.toContain(ACCESS.authInfo.token)
-      expect(JSON.stringify(dashboard)).not.toContain(ACCESS.authInfo.token)
+      expect(build.appHtml).not.toContain(TOKEN)
+      expect(JSON.stringify(dashboard)).not.toContain(TOKEN)
       expect([...supported.responseBodies, ...unsupported.responseBodies].join('\n')).not.toContain(
-        ACCESS.authInfo.token,
+        TOKEN,
       )
 
       const supportedInitialize = JSON.parse(supported.requestBodies[0]!) as unknown
@@ -202,7 +268,6 @@ describe('vNext MCP Apps private topology probe', () => {
       })
     } finally {
       await Promise.allSettled([supported.client.close(), unsupported.client.close()])
-      await handler.close()
     }
   }, 120_000)
 })
