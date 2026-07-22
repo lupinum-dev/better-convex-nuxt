@@ -13,6 +13,9 @@
   identity, production manifests, entry purity, dependency direction, SBOMs,
   maintained consumers, and runtime fingerprints while preserving the existing
   Nuxt package behavior.
+- Refresh vulnerable build and protocol-laboratory transitive dependencies to
+  their patched releases after the release advisory gate identified newly
+  published archive, URL-parser, SVG, shell-parser, and Hono advisories.
 
 ## v0.7.0-beta.1
 
