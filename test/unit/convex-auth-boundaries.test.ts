@@ -13,6 +13,7 @@ import {
 } from '../../scripts/check-boundaries.mjs'
 
 type BoundaryEdge = {
+  fromAbsPath: string
   isRelative: boolean
   isTypeOnly: boolean
   resolvedAbsPath: string | null
@@ -27,6 +28,7 @@ function rule(name: string) {
 
 function bare(specifier: string): BoundaryEdge {
   return {
+    fromAbsPath: resolve('test/unit/convex-auth-boundaries.test.ts'),
     isRelative: false,
     isTypeOnly: false,
     resolvedAbsPath: null,
@@ -35,7 +37,13 @@ function bare(specifier: string): BoundaryEdge {
 }
 
 function relativeEdge(specifier: string, resolvedAbsPath: string): BoundaryEdge {
-  return { isRelative: true, isTypeOnly: false, resolvedAbsPath, specifier }
+  return {
+    fromAbsPath: resolve('test/unit/convex-auth-boundaries.test.ts'),
+    isRelative: true,
+    isTypeOnly: false,
+    resolvedAbsPath,
+    specifier,
+  }
 }
 
 describe('Convex auth dependency boundaries', () => {
@@ -106,6 +114,7 @@ describe('Convex auth dependency boundaries', () => {
 
       expect(buildEdges(source)).toEqual([
         {
+          fromAbsPath: source,
           isRelative: true,
           isTypeOnly: false,
           resolvedAbsPath: target,

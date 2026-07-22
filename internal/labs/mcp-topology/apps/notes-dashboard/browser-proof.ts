@@ -428,7 +428,10 @@ export async function proveNotesDashboardBrowserBoundary(
       (value) => value === 'error',
       'revoked bearer denial',
     )
-    assert(toolCalls.length === 3, 'The App authorization probes did not reach MCP exactly once')
+    assert(
+      toolCalls.slice().length === 3,
+      'The App authorization probes did not reach MCP exactly once',
+    )
 
     await frame.getByTestId('denied-tool').click()
     await waitForValue(
@@ -436,7 +439,7 @@ export async function proveNotesDashboardBrowserBoundary(
       (value) => value === 'tool-denied',
       'denied App write',
     )
-    assert(toolCalls.length === 3, 'A denied App tool escaped the host allowlist')
+    assert(toolCalls.slice().length === 3, 'A denied App tool escaped the host allowlist')
     assert(await frame.getByTestId('open-link').isDisabled(), 'Link capability was fabricated')
 
     const appOuterHtml = await frame.locator('html').evaluate((element) => element.outerHTML)
