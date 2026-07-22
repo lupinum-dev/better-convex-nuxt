@@ -15,7 +15,6 @@ interface MockStats {
   clients: number
   closed: number
   setAuth: number
-  clearAuth: number
   tokenFetches: number
   queryCalls: number
   mutationCalls: number
@@ -27,7 +26,6 @@ const stats: Omit<MockStats, 'activeSubscriptions'> = {
   clients: 0,
   closed: 0,
   setAuth: 0,
-  clearAuth: 0,
   tokenFetches: 0,
   queryCalls: 0,
   mutationCalls: 0,
@@ -147,11 +145,6 @@ export class ConvexClient {
       stats.tokenFetches += 1
       queueMicrotask(() => onChange(typeof token === 'string' && token.length > 0))
     })
-  }
-
-  clearAuth(): void {
-    stats.clearAuth += 1
-    currentAuthChange = null
   }
 
   query = async (reference: FunctionReference<'query'>, _args: Record<string, unknown>) => {

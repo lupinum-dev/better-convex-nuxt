@@ -26,7 +26,6 @@ class Adapter implements BrowserAuthAdapter {
 
 interface Client extends OwnedConvexClient {
   setAuthCalls: number
-  clearAuthCalls: number
   confirm(value: boolean): void
 }
 
@@ -50,13 +49,9 @@ function client(): Client {
     subscribeToConnectionState: () => () => {},
     close: vi.fn(async () => {}),
     setAuthCalls: 0,
-    clearAuthCalls: 0,
     setAuth(_fetch: AuthTokenFetcher, onChange: (value: boolean) => void) {
       result.setAuthCalls += 1
       authChange = onChange
-    },
-    clearAuth() {
-      result.clearAuthCalls += 1
     },
     confirm(value: boolean) {
       authChange?.(value)

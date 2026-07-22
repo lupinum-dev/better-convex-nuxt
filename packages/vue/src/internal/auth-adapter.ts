@@ -28,7 +28,6 @@ interface AuthCapableClient extends ConvexClient {
     onChange: (isAuthenticated: boolean) => void,
     onRefreshChange?: (isRefreshing: boolean) => void,
   ): void
-  clearAuth(): void
 }
 
 export interface AuthAdapterIdentityPort extends ClientIdentityPort {
@@ -286,7 +285,9 @@ export function createAuthAdapterIdentityPort(
       currentClient = client
       currentClientGeneration = generation
       if (desired.status !== 'authenticated') {
-        client.clearAuth()
+        // Replacement candidates are freshly constructed and therefore
+        // anonymous. `convex/browser` exposes no `clearAuth()` on ConvexClient;
+        // authenticated generations are retired by replacing the whole client.
         publish({ ...snapshot, settled: true })
         return
       }

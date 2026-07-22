@@ -46,7 +46,6 @@ interface FakeClient extends OwnedConvexClient {
   confirm(value: boolean): Promise<void>
   authChange(value: boolean): void
   setAuthCalls: number
-  clearAuthCalls: number
 }
 
 function fakeClient(): FakeClient {
@@ -72,7 +71,6 @@ function fakeClient(): FakeClient {
     subscribeToConnectionState: () => () => {},
     close: vi.fn(async () => {}),
     setAuthCalls: 0,
-    clearAuthCalls: 0,
     confirm: async (value) => {
       confirmation?.(value)
       await vi.waitFor(() => expect(confirmation).toBeNull())
@@ -88,9 +86,6 @@ function fakeClient(): FakeClient {
         onChange(value)
       }
     },
-    clearAuth() {
-      client.clearAuthCalls += 1
-    },
   })
   return client
 }
@@ -101,6 +96,21 @@ async function settleOwner() {
 }
 
 describe('provider-neutral auth adapter identity port', () => {
+  it('settles a fresh anonymous client through the exact Convex public auth surface', async () => {
+    const adapter = new FakeAdapter(anonymousSnapshot(0))
+    const port = createAuthAdapterIdentityPort(adapter)
+    const client = fakeClient()
+
+    await expect(port.initializePrimary(client as unknown as ConvexClient)).resolves.toBeUndefined()
+    expect(client.setAuthCalls).toBe(0)
+    expect(port.snapshot()).toMatchObject({
+      settled: true,
+      identityKey: 'anonymous',
+      error: null,
+    })
+    port.dispose()
+  })
+
   it('maps Better Auth-style session changes without exposing its session token', async () => {
     let session: { token: string; user: { id: string } } | null = null
     let generation = 0
