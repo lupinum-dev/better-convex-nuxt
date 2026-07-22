@@ -2,6 +2,7 @@ import type { ConvexClient } from 'convex/browser'
 import { computed } from 'vue'
 
 import { createIdentityChangedError } from '../client-core/identity-changed-error'
+import type { ClientIdentityPort, ClientIdentitySnapshot } from '../client-core/identity-port'
 import { ConvexCallError } from '../errors'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'
@@ -20,7 +21,6 @@ import type {
   ConvexAuthCoordinator,
   ConvexAuthCoordinatorState,
 } from './client-engine-types'
-import type { AuthIdentityPort, AuthIdentitySnapshot } from './identity-port'
 import { createIntegratedAuthNamespace } from './integrated-namespace'
 import { createPendingOperations } from './pending-operations'
 import { createSerialQueue } from './serial-queue'
@@ -832,8 +832,8 @@ export function createConvexAuthCoordinator(input: {
   }
 
   // ---- port ----------------------------------------------------------------
-  const port: AuthIdentityPort = {
-    snapshot(): AuthIdentitySnapshot {
+  const port: ClientIdentityPort = {
+    snapshot(): ClientIdentitySnapshot {
       const usableIdentity =
         stagedKey !== 'anonymous' ? stagedKey : identityKeyOf(state.identity.value)
       const settledNow = settled

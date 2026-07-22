@@ -156,7 +156,7 @@ function createHarness(input: {
   const coordinator = createConvexAuthCoordinator({ authClient, state })
 
   coordinator.attachPrimary(client as unknown as ConvexClient)
-  owner.attachAuthPort(coordinator.port)
+  owner.attachIdentityPort(coordinator.port)
 
   return { client, coordinator, owner }
 }

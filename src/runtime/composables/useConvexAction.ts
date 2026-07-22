@@ -130,7 +130,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const runtime = readConvexRuntimeContext(nuxtApp)
   const owner = runtime?.owner
   const coordinator = runtime?.getAuthCoordinator() ?? undefined
-  const port = coordinator?.port
+  const identityObserver = runtime?.getIdentityObserver()
   const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle , never
@@ -140,7 +140,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     devtoolsKind: 'action',
     fnName,
     hasOptimisticUpdate: false,
-    getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
+    getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
     getDevtoolsSink: () => runtime?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
@@ -162,8 +162,8 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   })
 
   // Mask retained state synchronously on identity change (architecture invariant).
-  if (port && getCurrentScope()) {
-    onScopeDispose(port.subscribe(() => lifecycle.onIdentityMaybeChanged()))
+  if (identityObserver && getCurrentScope()) {
+    onScopeDispose(identityObserver.subscribe(() => lifecycle.onIdentityMaybeChanged()))
   }
 
   const execute = (...callArgs: OptionalRestArgs<Action>): Promise<Result> =>

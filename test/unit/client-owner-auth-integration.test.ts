@@ -81,7 +81,7 @@ describe('client owner + auth coordinator failure boundary', () => {
       authError: ref(null),
     }
     const coordinator = createConvexAuthCoordinator({ authClient, state })
-    owner.attachAuthPort(coordinator.port)
+    owner.attachIdentityPort(coordinator.port)
     coordinator.attachPrimary(owner.getPrimary()!.client as ConvexClient)
 
     await expect(coordinator.ready({ timeoutMs: 0 })).resolves.toBe('authenticated')

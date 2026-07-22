@@ -200,7 +200,7 @@ function createHarness(initialClockMs: number): ModelHarness {
     primaryFactory: makeClient,
     anonymousFactory: makeClient,
   })
-  owner.attachAuthPort(coordinator.port)
+  owner.attachIdentityPort(coordinator.port)
   coordinator.attachPrimary(owner.getPrimary()!.client as ConvexClient)
 
   return {

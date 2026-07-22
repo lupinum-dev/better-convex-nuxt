@@ -8,8 +8,8 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
-import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
 import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
+import type { ClientIdentityPort } from '../../src/runtime/client-core/identity-port'
 
 // ---- JWT helpers ---------------------------------------------------------
 function toBase64Url(value: string): string {
@@ -45,8 +45,8 @@ function deferred<Value>() {
 type TokenResponse = { data?: { token: string | null } | null; error?: unknown }
 type ScriptedResponse = TokenResponse | (() => Promise<TokenResponse>)
 
-// ---- fake owner (mirrors client-owner.attachAuthPort) --------------------
-function attachFakeOwner(port: AuthIdentityPort, makeClient: () => ConvexClient) {
+// ---- fake owner (mirrors client-owner.attachIdentityPort) --------------------
+function attachFakeOwner(port: ClientIdentityPort, makeClient: () => ConvexClient) {
   let lastGeneration = port.snapshot().identityGeneration
   port.subscribe(() => {
     const snapshot = port.snapshot()
@@ -201,12 +201,22 @@ function createHarness(
 
 describe('auth coordinator generation races ', () => {
   it('loading → authenticated on initial settlement (SSR-less)', async () => {
+    const initialToken = makeJwt('A')
     const h = createHarness({
-      initial: { data: { token: makeJwt('A') }, error: null },
+      initial: { data: { token: initialToken }, error: null },
     })
     await h.settle()
     expect(h.subject()).toBe('A')
     expect(h.coordinator.status.value).toBe('authenticated')
+    expect(Object.keys(h.coordinator.port.snapshot()).sort()).toEqual([
+      'authEnabled',
+      'authEpoch',
+      'error',
+      'identityGeneration',
+      'identityKey',
+      'settled',
+    ])
+    expect(JSON.stringify(h.coordinator.port.snapshot())).not.toContain(initialToken)
   })
 
   it('settles anonymous when the initial token is immediately rejected', async () => {

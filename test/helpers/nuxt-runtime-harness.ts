@@ -5,8 +5,8 @@ import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 
 import { ANONYMOUS_IDENTITY, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
-import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
 import type { ConvexClientOwner } from '../../src/runtime/client-core/client-owner'
+import type { ClientIdentityPort } from '../../src/runtime/client-core/identity-port'
 import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
 import { createLogger } from '../../src/runtime/utils/logger'
 
@@ -66,6 +66,7 @@ const runtimeProxy: ConvexRuntimeContext = {
   },
   logger: createLogger(false),
   getAuthCoordinator: () => currentAuthCoordinator,
+  getIdentityObserver: () => currentAuthCoordinator?.port ?? null,
   attachAuthCoordinator: (coordinator) => {
     currentAuthCoordinator = coordinator
   },
@@ -126,7 +127,7 @@ function createSyntheticOwner(): Record<PropertyKey, unknown> {
     },
     getAnonymous: () => primary(),
     replacePrimary: async () => primary(),
-    attachAuthPort: () => {},
+    attachIdentityPort: () => {},
     connection: {
       state: { value: { ...DEFAULT_OWNER_CONNECTION_STATE } },
       addConsumer: () => () => {},
@@ -142,7 +143,7 @@ const syntheticOwner: Record<PropertyKey, unknown> = createSyntheticOwner()
 export function installIdentityPortHarness() {
   let identityGeneration = 0
   const listeners = new Set<() => void>()
-  const port: AuthIdentityPort = {
+  const port: ClientIdentityPort = {
     snapshot: () => ({
       authEnabled: true,
       settled: true,

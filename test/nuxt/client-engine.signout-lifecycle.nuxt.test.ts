@@ -127,7 +127,7 @@ function buildHarness(pendingRef: { value: boolean }, initial?: TokenResponse) {
     void coordinator.reconcileSession(sessionToken)
   }
 
-  owner.attachAuthPort(coordinator.port)
+  owner.attachIdentityPort(coordinator.port)
   coordinator.attachPrimary(
     owner.getPrimary()!.client as unknown as import('convex/browser').ConvexClient,
   )

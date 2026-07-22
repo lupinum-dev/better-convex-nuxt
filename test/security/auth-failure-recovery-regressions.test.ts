@@ -201,7 +201,7 @@ describe('auth failure recovery regressions', () => {
       const coordinator = createConvexAuthCoordinator({ authClient, state })
 
       try {
-        owner.attachAuthPort(coordinator.port)
+        owner.attachIdentityPort(coordinator.port)
         coordinator.attachPrimary(owner.getPrimary()!.client as ConvexClient)
         await vi.waitFor(() => expect(coordinator.status.value).toBe('authenticated'))
 

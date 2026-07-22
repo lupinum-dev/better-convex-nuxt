@@ -13,7 +13,7 @@ import {
   type ConvexAuthCoordinator,
   type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
-import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
+import type { ClientIdentityPort } from '../../src/runtime/client-core/identity-port'
 
 type Subject = 'anonymous' | 'A' | 'B'
 type TokenResponse = { data?: { token: string | null } | null; error?: unknown }
@@ -101,7 +101,7 @@ interface Harness {
   configurations: AuthConfiguration[]
   enqueueResponse(response: TokenResponse | Promise<TokenResponse>): void
   subject(): Subject
-  snapshot(): ReturnType<AuthIdentityPort['snapshot']>
+  snapshot(): ReturnType<ClientIdentityPort['snapshot']>
   dispose(): void
 }
 

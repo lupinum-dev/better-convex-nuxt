@@ -9,7 +9,7 @@ import { effectScope } from 'vue'
  * resolves the typed auth-client definition, creates exactly one Better Auth
  * client for this Nuxt app, constructs the
  * per-app auth coordinator, attaches it to the primary, and hands the client
- * owner the coordinator's frozen {@link AuthIdentityPort}.
+ * owner the coordinator's frozen {@link ClientIdentityPort}.
  */
 import { defineNuxtPlugin, useRuntimeConfig, useState, clearNuxtData } from '#app'
 import convexAuthClientDefinition from '#convex/auth-client'
@@ -151,7 +151,7 @@ export default defineNuxtPlugin({
 
     // Hand the client owner the frozen port so it retires and replaces the
     // identity-scoped primary on every stable identity-key change .
-    clientOwner.attachAuthPort(coordinator.port)
+    clientOwner.attachIdentityPort(coordinator.port)
     clientOwner.addDisposer(() => {
       sessionScope.stop()
       coordinator.dispose()

@@ -158,7 +158,7 @@ test('real Chromium session events converge cross-tab identity through one obser
       return client as unknown as OwnedConvexClient
     },
   })
-  owner.attachAuthPort(coordinator.port)
+  owner.attachIdentityPort(coordinator.port)
   coordinator.attachPrimary(owner.getPrimary()!.client as ConvexClient)
 
   const scope = effectScope()

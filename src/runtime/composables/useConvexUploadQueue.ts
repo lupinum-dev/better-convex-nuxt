@@ -112,8 +112,8 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   assertConvexComposableScope('useConvexUploadQueue', import.meta.client, currentScope)
   const nuxtApp = useNuxtApp()
   const runtime = readConvexRuntimeContext(nuxtApp)
-  const authPort = runtime?.getAuthCoordinator()?.port
-  const getIdentityGeneration = () => authPort?.snapshot().identityGeneration ?? 0
+  const identityObserver = runtime?.getIdentityObserver()
+  const getIdentityGeneration = () => identityObserver?.snapshot().identityGeneration ?? 0
   const convexConfig = getConvexRuntimeConfig()
   const client = useConvex()
   const fnName = getFunctionName(generateUploadUrlMutation)
@@ -487,7 +487,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   }
 
   if (currentScope) {
-    const stopIdentitySubscription = authPort?.subscribe(() => {
+    const stopIdentitySubscription = identityObserver?.subscribe(() => {
       const generation = getIdentityGeneration()
       if (generation === observedIdentityGeneration) return
       observedIdentityGeneration = generation

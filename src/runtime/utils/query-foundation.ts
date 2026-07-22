@@ -4,8 +4,8 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef } from 'vue'
 import { useState } from '#imports'
 
 import { identityKeyOf } from '../auth/auth-identity'
-import type { AuthIdentityPort } from '../auth/identity-port'
 import type { ConvexClientHandle, ConvexClientOwner } from '../client-core/client-owner'
+import type { ClientIdentityObserver } from '../client-core/identity-port'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { useConvexIdentityState } from './auth-identity-state'
@@ -22,7 +22,7 @@ import { getConvexRuntimeConfig } from './runtime-config'
  *
  * Derived from the SSR-seeded reactive state (`convex:pending` / `convex:identity` /
  * `convex:authError`) so it is correct on both server and client, plus the
- * frozen {@link AuthIdentityPort} for the monotonic `identityGeneration` used as
+ * frozen {@link ClientIdentityObserver} for the monotonic `identityGeneration` used as
  * the isolation dimension. Auth-disabled and server contexts have no port and
  * report generation `0`.
  */
@@ -42,8 +42,8 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
   const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
-  const port: AuthIdentityPort | undefined = authEnabled
-    ? readConvexRuntimeContext(nuxtApp)?.getAuthCoordinator()?.port
+  const port: ClientIdentityObserver | undefined = authEnabled
+    ? (readConvexRuntimeContext(nuxtApp)?.getIdentityObserver() ?? undefined)
     : undefined
 
   // Mirror the port's monotonic identity generation reactively. Subscribing keeps

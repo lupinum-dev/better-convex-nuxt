@@ -1,5 +1,6 @@
 import type { ConvexAuthCoordinator } from './auth/client-engine'
 import type { ConvexClientOwner } from './client-core/client-owner'
+import type { ClientIdentityObserver } from './client-core/identity-port'
 import type { DevtoolsSink } from './devtools/sink'
 import type { Logger } from './utils/logger'
 
@@ -8,6 +9,7 @@ export interface ConvexRuntimeContext {
   readonly owner: ConvexClientOwner
   readonly logger: Logger
   getAuthCoordinator(): ConvexAuthCoordinator | null
+  getIdentityObserver(): ClientIdentityObserver | null
   attachAuthCoordinator(coordinator: ConvexAuthCoordinator): void
   getDevtoolsSink(): DevtoolsSink | null
   attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null
@@ -41,6 +43,7 @@ export function createConvexRuntimeContext(
     owner,
     logger,
     getAuthCoordinator: () => authCoordinator,
+    getIdentityObserver: () => authCoordinator?.port ?? null,
     attachAuthCoordinator(coordinator) {
       if (authCoordinator && authCoordinator !== coordinator) {
         throw new Error('[convex-runtime] auth coordinator is already attached')

@@ -246,9 +246,9 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   const nuxtApp = useNuxtApp()
   const runtime = readConvexRuntimeContext(nuxtApp)
   const owner = runtime?.owner
-  const authPort = runtime?.getAuthCoordinator()?.port
+  const identityObserver = runtime?.getIdentityObserver()
   const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
-  const getIdentityGeneration = () => authPort?.snapshot().identityGeneration ?? 0
+  const getIdentityGeneration = () => identityObserver?.snapshot().identityGeneration ?? 0
 
   // One snapshot is the canonical upload view state. Publishing a transition
   // atomically prevents a synchronous watcher from observing (or re-entering
@@ -282,7 +282,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   // Cleanup on scope dispose (component unmount), and retire all retained or
   // in-flight state synchronously when the authenticated principal changes.
   if (currentScope) {
-    const stopIdentitySubscription = authPort?.subscribe(() => {
+    const stopIdentitySubscription = identityObserver?.subscribe(() => {
       const generation = getIdentityGeneration()
       if (generation === observedIdentityGeneration) return
       observedIdentityGeneration = generation

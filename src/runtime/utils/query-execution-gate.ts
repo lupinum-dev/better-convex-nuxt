@@ -5,7 +5,7 @@ import { isAuthenticatedIdentityKey, type ConvexIdentityKey } from './identity-k
  * Canonical query execution gate ("Required execution-gate behavior").
  *
  * The gate is driven by the canonical auth status and the stable identity key
- * published by the frozen {@link AuthIdentityPort} adapter — never by raw engine
+ * published by the frozen {@link ClientIdentityPort} adapter — never by raw engine
  * state and never by `isPending`. Background auth work must not idle an already
  * usable identity, so `isPending` is deliberately absent from the input.
  *

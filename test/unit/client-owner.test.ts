@@ -1,12 +1,15 @@
 import type { ConnectionState } from 'convex/browser'
 import { describe, expect, it, vi } from 'vitest'
 
-import type { AuthIdentityPort, AuthIdentitySnapshot } from '../../src/runtime/auth/identity-port'
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
 } from '../../src/runtime/client-core/client-owner'
 import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
+import type {
+  ClientIdentityPort,
+  ClientIdentitySnapshot,
+} from '../../src/runtime/client-core/identity-port'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 type RuntimeUnsubscribe = ReturnType<OwnedConvexClient['onUpdate']> & {
@@ -75,8 +78,8 @@ function resetCounts() {
 }
 
 /** Minimal fake auth port emitting identity-generation transitions on demand. */
-function fakePort(initial: Partial<AuthIdentitySnapshot> = {}) {
-  let snap: AuthIdentitySnapshot = {
+function fakePort(initial: Partial<ClientIdentitySnapshot> = {}) {
+  let snap: ClientIdentitySnapshot = {
     authEnabled: true,
     settled: true,
     identityKey: 'anonymous',
@@ -88,7 +91,7 @@ function fakePort(initial: Partial<AuthIdentitySnapshot> = {}) {
   const listeners = new Set<() => void>()
   const initializePrimary = vi.fn(async () => {})
   const failPrimary = vi.fn()
-  const port: AuthIdentityPort = {
+  const port: ClientIdentityPort = {
     snapshot: () => snap,
     waitForInitialSettlement: () => Promise.resolve(),
     subscribe: (l) => {
@@ -98,7 +101,7 @@ function fakePort(initial: Partial<AuthIdentitySnapshot> = {}) {
     initializePrimary,
     failPrimary,
   }
-  const emit = (next: Partial<AuthIdentitySnapshot>) => {
+  const emit = (next: Partial<ClientIdentitySnapshot>) => {
     snap = { ...snap, ...next }
     for (const l of [...listeners]) l()
   }
@@ -419,7 +422,7 @@ describe('createConvexClientOwner', () => {
       resetCounts()
       const { port, emit } = fakePort()
       const o = owner()
-      o.attachAuthPort(port)
+      o.attachIdentityPort(port)
       const a = o.getPrimary()!.client as unknown as CountingClient
       a.setQueryHandler('q', () => 'ok')
       // Same-user token rotation: epoch bumps, generation unchanged.
@@ -430,12 +433,12 @@ describe('createConvexClientOwner', () => {
     })
   })
 
-  describe('attachAuthPort reactive replacement', () => {
+  describe('attachIdentityPort reactive replacement', () => {
     it('replaces the primary exactly on identityGeneration changes, not epoch-only changes', async () => {
       resetCounts()
       const { port, emit, initializePrimary } = fakePort()
       const o = owner()
-      o.attachAuthPort(port)
+      o.attachIdentityPort(port)
 
       // epoch-only change → no replacement
       emit({ authEpoch: 1 })
@@ -607,7 +610,7 @@ describe('createConvexClientOwner', () => {
     const { port, emit, initializePrimary, failPrimary } = fakePort()
     initializePrimary.mockRejectedValue(new Error('persistent confirmation failure'))
     const o = owner()
-    o.attachAuthPort(port)
+    o.attachIdentityPort(port)
 
     emit({ identityKey: 'user:alice', identityGeneration: 1, authEpoch: 1 })
     await vi.waitFor(() => expect(initializePrimary).toHaveBeenCalledTimes(1))

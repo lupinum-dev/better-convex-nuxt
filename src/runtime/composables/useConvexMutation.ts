@@ -242,7 +242,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const runtime = readConvexRuntimeContext(nuxtApp)
   const owner = runtime?.owner
   const coordinator = runtime?.getAuthCoordinator() ?? undefined
-  const port = coordinator?.port
+  const identityObserver = runtime?.getIdentityObserver()
   const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle , never
@@ -253,7 +253,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     devtoolsKind: 'mutation',
     fnName,
     hasOptimisticUpdate,
-    getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
+    getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
     getDevtoolsSink: () => runtime?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
@@ -281,8 +281,8 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   })
 
   // Mask retained state synchronously on identity change (architecture invariant).
-  if (port && getCurrentScope()) {
-    onScopeDispose(port.subscribe(() => lifecycle.onIdentityMaybeChanged()))
+  if (identityObserver && getCurrentScope()) {
+    onScopeDispose(identityObserver.subscribe(() => lifecycle.onIdentityMaybeChanged()))
   }
 
   const execute = (...callArgs: OptionalRestArgs<Mutation>): Promise<Result> =>

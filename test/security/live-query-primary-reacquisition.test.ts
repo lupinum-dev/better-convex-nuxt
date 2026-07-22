@@ -117,7 +117,7 @@ describe('live primary query reacquisition', () => {
       },
     ]
 
-    owner.attachAuthPort(coordinator.port)
+    owner.attachIdentityPort(coordinator.port)
     const clientA = primaries[0]!
     coordinator.attachPrimary(clientA as unknown as ConvexClient)
 

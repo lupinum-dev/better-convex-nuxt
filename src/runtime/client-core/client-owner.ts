@@ -2,19 +2,7 @@ import type { ConnectionState, ConvexClient } from 'convex/browser'
 import { shallowRef, readonly, type Ref } from 'vue'
 
 import { createIdentityChangedError } from './identity-changed-error'
-
-export interface ClientIdentitySnapshot {
-  readonly identityGeneration: number
-  readonly settled: boolean
-}
-
-export interface ClientIdentityPort {
-  snapshot(): ClientIdentitySnapshot
-  waitForInitialSettlement(): Promise<void>
-  subscribe(listener: () => void): () => void
-  initializePrimary(candidate: ConvexClient): Promise<void>
-  failPrimary(identityGeneration: number, cause: unknown): void
-}
+import type { ClientIdentityPort } from './identity-port'
 
 /**
  * The per-integration client owner (architecture invariant `clients`).
@@ -34,7 +22,7 @@ export interface ClientIdentityPort {
  *
  * The owner allocates NEITHER counter: `authEpoch`/`identityGeneration` are
  * supplied by the auth coordinator through {@link replacePrimary} /
- * {@link attachAuthPort} (architecture invariant). The owner interprets no tokens.
+ * {@link attachIdentityPort} (architecture invariant). The owner interprets no tokens.
  */
 export interface ConvexClientOwner {
   /** Stable replacement-safe public handle returned by `useConvex()`. */
@@ -57,7 +45,7 @@ export interface ConvexClientOwner {
    * `identityGeneration` change the owner replaces the primary; an
    * `authEpoch`-only change (same-user token rotation) is ignored.
    */
-  attachAuthPort(port: ClientIdentityPort): void
+  attachIdentityPort(port: ClientIdentityPort): void
   /** Connection-state observation surface for `useConvexConnectionState`. */
   readonly connection: {
     readonly state: Readonly<Ref<ConnectionState>>
@@ -420,7 +408,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     const run = (async () => {
       try {
         // Keep factory construction inside this promise boundary. In particular,
-        // attachAuthPort must receive a rejected promise (and call failPrimary),
+        // attachIdentityPort must receive a rejected promise (and call failPrimary),
         // never a synchronous exception escaping the auth-port listener.
         candidate = primaryFactory()
         replacementCandidates.add(candidate)
@@ -478,7 +466,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     return run
   }
 
-  function attachAuthPort(port: ClientIdentityPort): void {
+  function attachIdentityPort(port: ClientIdentityPort): void {
     authPort = port
     // A generation represents one security boundary and receives one candidate
     // attempt. Persistent factory/confirmation failure is terminal for that
@@ -593,7 +581,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     },
     getAnonymous,
     replacePrimary,
-    attachAuthPort,
+    attachIdentityPort,
     connection: {
       state: readonly(connectionState) as Readonly<Ref<ConnectionState>>,
       addConsumer() {
