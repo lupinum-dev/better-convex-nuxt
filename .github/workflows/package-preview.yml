@@ -61,8 +61,9 @@ jobs:
         env:
           EXPECTED_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          node --input-type=module <<'NODE'
-          import { appendFileSync, readFileSync } from 'node:fs'
+          node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"
+          node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import { readFileSync } from 'node:fs'
 
           import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
 
@@ -84,13 +85,7 @@ jobs:
             throw new Error('Artifact evidence has no valid tarball SHA-256.')
           }
 
-          appendFileSync(process.env.GITHUB_OUTPUT, `evidence=${evidencePath}\n`)
-          appendFileSync(process.env.GITHUB_OUTPUT, `package=${coordinates.packageName}\n`)
-          appendFileSync(
-            process.env.GITHUB_OUTPUT,
-            `tarball=${coordinates.relativePaths.tarball}\n`,
-          )
-          appendFileSync(process.env.GITHUB_OUTPUT, `sha256=${evidence.tarball.sha256}\n`)
+          console.log(`sha256=${evidence.tarball.sha256}`)
           NODE
 
       - name: Upload the exact prebuilt tarball to pkg.pr.new
@@ -107,7 +102,7 @@ jobs:
       - name: Verify the hosted preview bytes
         env:
           ARTIFACT_SHA256: ${{ steps.artifact.outputs.sha256 }}
-          PACKAGE_NAME: ${{ steps.artifact.outputs.package }}
+          PACKAGE_NAME: ${{ steps.artifact.outputs.package_name }}
           PREVIEW_SHA: ${{ steps.publish.outputs.sha }}
           PREVIEW_URL: ${{ steps.publish.outputs.urls }}
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -139,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: package-preview-${{ github.run_id }}
-          path: .release-artifacts/
+          path: ${{ steps.artifact.outputs.directory }}/
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 14

@@ -43,13 +43,18 @@ jobs:
         run: pnpm check:security-governance --prerelease
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Resolve the reviewed package descriptor
+        id: artifact
+        run: node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"
+
       - run: pnpm release:artifact
 
       - name: Upload one immutable artifact set
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-candidate
-          path: .release-artifacts/
+          name: ${{ steps.artifact.outputs.artifact_name }}
+          path: ${{ steps.artifact.outputs.directory }}/
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 90
@@ -66,12 +71,6 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Download the exact candidate artifact set
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: release-candidate
-          path: .release-artifacts
 
       - name: Scan the release source for verified secrets
         uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
@@ -111,26 +110,15 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm check:auth-backend --install
 
+      - name: Resolve the reviewed package descriptor
+        id: artifact
+        run: node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"
+
       - name: Download the build job's exact artifact set
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-candidate
-          path: .release-artifacts
-
-      - name: Resolve artifact identity
-        id: artifact
-        run: |
-          node --input-type=module <<'NODE'
-          import { appendFileSync } from 'node:fs'
-
-          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
-
-          const coordinates = getPackageArtifactCoordinates('nuxt')
-          appendFileSync(
-            process.env.GITHUB_OUTPUT,
-            `evidence=${coordinates.relativePaths.evidence}\n`,
-          )
-          NODE
+          name: ${{ steps.artifact.outputs.artifact_name }}
+          path: ${{ steps.artifact.outputs.directory }}
 
       - name: Verify source-integrity and exact-artifact release gates
         run: pnpm release:verify --artifact-manifest "${{ steps.artifact.outputs.evidence }}"
@@ -163,26 +151,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
 
+      - name: Resolve the reviewed package descriptor
+        id: artifact
+        run: node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"
+
       - name: Download the exact verified candidate artifact set
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-candidate
-          path: .release-artifacts
-
-      - name: Resolve artifact identity
-        id: artifact
-        run: |
-          node --input-type=module <<'NODE'
-          import { appendFileSync } from 'node:fs'
-
-          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
-
-          const coordinates = getPackageArtifactCoordinates('nuxt')
-          appendFileSync(
-            process.env.GITHUB_OUTPUT,
-            `evidence=${coordinates.relativePaths.evidence}\n`,
-          )
-          NODE
+          name: ${{ steps.artifact.outputs.artifact_name }}
+          path: ${{ steps.artifact.outputs.directory }}
 
       - name: Install and deploy the exact candidate, then run protected cloud-staging races
         env:
@@ -232,31 +209,15 @@ jobs:
       - name: Install the locked SBOM verification graph
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve the reviewed package descriptor
+        id: artifact
+        run: node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"
+
       - name: Download the verified artifact set
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-candidate
-          path: .release-artifacts
-
-      - name: Resolve safe artifact coordinates
-        id: artifact
-        run: |
-          node --input-type=module <<'NODE'
-          import { appendFileSync } from 'node:fs'
-
-          import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'
-
-          const coordinates = getPackageArtifactCoordinates('nuxt')
-          appendFileSync(
-            process.env.GITHUB_OUTPUT,
-            `evidence=${coordinates.relativePaths.evidence}\n`,
-          )
-          appendFileSync(
-            process.env.GITHUB_OUTPUT,
-            `tarball=${coordinates.relativePaths.tarball}\n`,
-          )
-          appendFileSync(process.env.GITHUB_OUTPUT, `version=${coordinates.version}\n`)
-          NODE
+          name: ${{ steps.artifact.outputs.artifact_name }}
+          path: ${{ steps.artifact.outputs.directory }}
 
       - name: Reverify bytes before protected publication
         run: node scripts/release.mjs verify "${{ steps.artifact.outputs.evidence }}"
@@ -268,11 +229,13 @@ jobs:
 
       - name: Compare registry bytes with tested bytes
         env:
+          PACKAGE_NAME: ${{ steps.artifact.outputs.package_name }}
+          TARBALL_FILENAME: ${{ steps.artifact.outputs.tarball_filename }}
           VERSION: ${{ steps.artifact.outputs.version }}
         run: |
           mkdir -p "$RUNNER_TEMP/registry"
           for attempt in $(seq 1 15); do
-            if npm pack "better-convex-nuxt@$VERSION" --pack-destination "$RUNNER_TEMP/registry"; then
+            if npm pack "$PACKAGE_NAME@$VERSION" --pack-destination "$RUNNER_TEMP/registry"; then
               break
             fi
             if [ "$attempt" -eq 15 ]; then
@@ -283,4 +246,4 @@ jobs:
           done
           cmp --silent \
             "${{ steps.artifact.outputs.tarball }}" \
-            "$RUNNER_TEMP/registry/better-convex-nuxt-$VERSION.tgz"
+            "$RUNNER_TEMP/registry/$TARBALL_FILENAME"

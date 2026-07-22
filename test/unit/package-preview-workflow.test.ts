@@ -42,11 +42,14 @@ describe('pkg.pr.new package preview workflow', () => {
     expect(workflow).toContain('pnpm install --frozen-lockfile')
     expect(workflow).toContain('pnpm check:auth-backend --install')
     expect(workflow).toContain(
+      'node scripts/print-package-artifact-coordinates.mjs --package nuxt >> "$GITHUB_OUTPUT"',
+    )
+    expect(workflow).toContain(
       "import { getPackageArtifactCoordinates } from './scripts/package-artifact-coordinates.mjs'",
     )
     expect(workflow).toContain("getPackageArtifactCoordinates('nuxt')")
     expect(workflow).toContain('const evidencePath = coordinates.relativePaths.evidence')
-    expect(workflow).toContain('`tarball=${coordinates.relativePaths.tarball}\\n`')
+    expect(workflow).toContain('PACKAGE_NAME: ${{ steps.artifact.outputs.package_name }}')
     expect(workflow).toContain('evidence.sourceCommit !== expectedSourceCommit')
     expect(workflow).toContain('evidence.tarball?.file !== coordinates.files.tarball')
     expect(workflow).toContain(
@@ -71,7 +74,8 @@ describe('pkg.pr.new package preview workflow', () => {
 
   it('retains the exact evidence and reports the install URL and candidate hash', () => {
     expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
-    expect(workflow).toContain('path: .release-artifacts/')
+    expect(workflow).toContain('path: ${{ steps.artifact.outputs.directory }}/')
+    expect(workflow).not.toContain('path: .release-artifacts/')
     expect(workflow).toContain('PREVIEW_URLS: ${{ steps.publish.outputs.urls }}')
     expect(workflow).toContain('ARTIFACT_SHA256: ${{ steps.artifact.outputs.sha256 }}')
     expect(workflow).toContain(

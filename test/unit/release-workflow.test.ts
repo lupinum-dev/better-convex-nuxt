@@ -16,21 +16,38 @@ describe('trusted prerelease workflow', () => {
   const cloudGate = read('scripts/run-auth-cloud-staging.mjs')
   const candidateApps = read('scripts/check-candidate-apps.mjs')
   const candidateProfiles = read('scripts/maintained-candidate-apps.mjs')
+  const artifactCoordinateCli = read('scripts/print-package-artifact-coordinates.mjs')
   const releaseBuilder = read('scripts/release.mjs')
   const releaseVerify = read('scripts/verify-release.mjs')
 
   it('builds one artifact and passes the same bytes through verification and publication', () => {
     expect(workflow.match(/pnpm release:artifact/g)).toHaveLength(1)
-    expect(workflow).toContain('name: release-candidate')
+    expect(workflow.match(/print-package-artifact-coordinates\.mjs --package nuxt/g)).toHaveLength(
+      4,
+    )
+    expect(
+      workflow.match(/name: \$\{\{ steps\.artifact\.outputs\.artifact_name \}\}/g),
+    ).toHaveLength(4)
+    expect(workflow).toContain('path: ${{ steps.artifact.outputs.directory }}/')
+    expect(workflow.match(/path: \$\{\{ steps\.artifact\.outputs\.directory \}\}/g)).toHaveLength(4)
+    expect(workflow.match(/path: \$\{\{ steps\.artifact\.outputs\.directory \}\}\//g)).toHaveLength(
+      1,
+    )
+    expect(workflow.match(/path: \.release-artifacts\//g)).toHaveLength(1)
+    expect(workflow).toContain('path: .release-artifacts/bcn-auth-staging.report.json')
     expect(workflow.match(/include-hidden-files: true/g)).toHaveLength(2)
     expect(workflow.slice(0, workflow.indexOf('  release-security:'))).toContain('fetch-depth: 0')
     expect(workflow).toContain('pnpm release:verify --artifact-manifest')
     expect(workflow.match(/node scripts\/release\.mjs verify/g)).toHaveLength(1)
     expect(workflow).toContain('cmp --silent')
-    expect(workflow.match(/getPackageArtifactCoordinates\('nuxt'\)/g)).toHaveLength(3)
-    expect(workflow).toContain('`evidence=${coordinates.relativePaths.evidence}\\n`')
-    expect(workflow).toContain('`tarball=${coordinates.relativePaths.tarball}\\n`')
-    expect(workflow).toContain('`version=${coordinates.version}\\n`')
+    expect(artifactCoordinateCli).toContain('getPackageArtifactCoordinates(arguments_[1])')
+    expect(artifactCoordinateCli).toContain(
+      'artifact_name: `release-candidate-${coordinates.packageId}`',
+    )
+    expect(artifactCoordinateCli).toContain('directory: coordinates.relativeDirectory')
+    expect(artifactCoordinateCli).toContain('tarball: coordinates.relativePaths.tarball')
+    expect(workflow).toContain('npm pack "$PACKAGE_NAME@$VERSION"')
+    expect(workflow).toContain('"$RUNNER_TEMP/registry/$TARBALL_FILENAME"')
     expect(workflow).not.toContain('`v${pkg.version}.artifact.json`')
     expect(workflow).not.toContain('`${pkg.name}-${pkg.version}.tgz`')
     expect(workflow).not.toContain('value.tarball.file')
@@ -44,6 +61,16 @@ describe('trusted prerelease workflow', () => {
     expect(releaseVerify).toContain("BCN_E2E_REQUIRE_LOCAL: 'true'")
     expect(releaseVerify).not.toContain('every release suite')
     expect(workflow).not.toContain('npm publish .')
+  })
+
+  it('does not transfer an artifact into the source-only security job', () => {
+    const releaseSecurityJob = workflow.slice(
+      workflow.indexOf('  release-security:'),
+      workflow.indexOf('  verify-artifact:'),
+    )
+
+    expect(releaseSecurityJob).not.toContain('actions/download-artifact')
+    expect(releaseSecurityJob).not.toContain('.release-artifacts')
   })
 
   it('accepts only the reviewed Nuxt artifact coordinate in the release verifier', () => {
