@@ -193,18 +193,28 @@ watch(phase, (value) => {
       <p data-testid="status">{{ status }}</p>
     </header>
 
-    <section aria-label="Search context">
+    <form aria-label="Search notes" @submit.prevent="refresh">
       <p data-testid="workspace">{{ input.workspaceId || 'No workspace' }}</p>
-      <p data-testid="query">{{ input.query }}</p>
+      <label>
+        Search
+        <input v-model="input.query" data-testid="query" maxlength="200" type="search" />
+      </label>
+      <label>
+        Result limit
+        <input v-model.number="input.limit" data-testid="limit" max="50" min="1" type="number" />
+      </label>
+      <button data-testid="refresh" type="submit" :disabled="!canRefresh" @click.prevent="refresh">
+        Refresh through host
+      </button>
       <p data-testid="partial-query" hidden>
         {{ toolInputPartial?.arguments?.query ?? '' }}
       </p>
       <p data-testid="cancel-reason" hidden>
         {{ toolCancelled?.reason ?? '' }}
       </p>
-    </section>
+    </form>
 
-    <ul data-testid="notes">
+    <ul aria-label="Note previews" data-testid="notes">
       <li v-for="note in notes" :key="note.id">
         <strong>{{ note.title }}</strong>
         <p>{{ note.body }}</p>
@@ -213,9 +223,6 @@ watch(phase, (value) => {
     </ul>
 
     <nav aria-label="Dashboard actions">
-      <button data-testid="refresh" type="button" :disabled="!canRefresh" @click="refresh">
-        Refresh through host
-      </button>
       <button data-testid="denied-tool" type="button" @click="tryDeniedTool">
         Try denied write
       </button>
@@ -252,10 +259,23 @@ watch(phase, (value) => {
   background: #171717;
 }
 
-main {
+main,
+form,
+label {
   display: grid;
+}
+
+main {
   gap: 1rem;
   padding: 1rem;
+}
+
+form {
+  gap: 0.75rem;
+}
+
+label {
+  gap: 0.25rem;
 }
 
 h1,
@@ -291,5 +311,10 @@ nav {
 
 button {
   padding: 0.5rem 0.75rem;
+}
+
+input {
+  max-width: 24rem;
+  padding: 0.5rem;
 }
 </style>

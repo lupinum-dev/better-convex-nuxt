@@ -357,7 +357,14 @@ export async function proveNotesDashboardBrowserBoundary(
       'host theme update',
     )
 
+    await frame.getByTestId('query').fill('alpha')
+    await frame.getByTestId('limit').fill('5')
     await frame.getByTestId('refresh').click()
+    await waitForValue(
+      () => snapshot(page),
+      (value) => value.toolNames.length >= 1,
+      'host-mediated MCP tool request',
+    )
     const refreshStatus = await waitForValue(
       () => frame.getByTestId('status').textContent(),
       (value) => value === 'ready' || value === 'error',

@@ -277,7 +277,7 @@ describe('vNext MCP Apps private topology probe', () => {
       expect(proof.appHtmlBytes).toBeLessThanOrEqual(512 * 1024)
       expect(proof.toolCalls).toEqual([
         {
-          arguments: { limit: 5, query: '', workspaceId: 'workspace-a' },
+          arguments: { limit: 5, query: 'alpha', workspaceId: 'workspace-a' },
           name: 'search_notes',
         },
         {
