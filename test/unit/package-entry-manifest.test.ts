@@ -27,6 +27,7 @@ const nuxtEntrySubpaths = [
   './server',
   './server/createUserSyncTriggers',
 ]
+const vueEntrySubpaths = ['.', './errors', './embedded']
 
 type PackageEntry = {
   kind: 'runtime' | 'types-only'
@@ -75,6 +76,23 @@ describe('package entry manifest', () => {
     })
   })
 
+  it('selects the exact reviewed Vue owner and exports-only entry profile', () => {
+    const manifest = getPackageEntryManifest('vue')
+
+    expect(manifest).toMatchObject({
+      packageId: 'vue',
+      packageName: 'better-convex-vue',
+      packageDirectory: 'packages/vue',
+      profileId: 'vue-public-entries',
+    })
+    expect(manifest.entries.map((entry: PackageEntry) => entry.subpath)).toEqual(vueEntrySubpaths)
+    expect(manifest.bins).toEqual({})
+    expect(getPackageCheckerProfile('vue')).toMatchObject({
+      manifestPolicy: { requireLegacyRootFields: false },
+      sourceRoots: ['src'],
+    })
+  })
+
   it('returns a deeply immutable reviewed manifest', () => {
     const manifest = getPackageEntryManifest('nuxt')
 
@@ -90,8 +108,8 @@ describe('package entry manifest', () => {
   })
 
   it('rejects unknown package owners and subpaths', () => {
-    expect(() => getPackageEntryManifest('vue')).toThrow(
-      /Unknown package certification descriptor: vue/,
+    expect(() => getPackageEntryManifest('mcp')).toThrow(
+      /Unknown package certification descriptor: mcp/,
     )
     expect(() => getPackageEntry('nuxt', './not-reviewed')).toThrow(
       /Unknown package entry for nuxt: \.\/not-reviewed/,
@@ -322,9 +340,27 @@ describe('package entry manifest', () => {
         ...detachedRules.slice(1),
       ]),
     ).toThrow(/invalid purity policy/)
-    expect(() => getPackageCheckerEntries('vue')).toThrow(
-      /Unknown package certification descriptor: vue/,
+    expect(() => getPackageCheckerEntries('mcp')).toThrow(
+      /Unknown package certification descriptor: mcp/,
     )
+  })
+
+  it('keeps Vue checker rules in exact bijection with the reviewed package manifest', () => {
+    const packageEntries = getPackageEntryManifest('vue').entries
+    const checkerEntries = getPackageCheckerEntries('vue')
+
+    expect(checkerEntries.map((entry: CheckerEntry) => entry.subpath)).toEqual(vueEntrySubpaths)
+    expect(checkerEntries).toHaveLength(packageEntries.length)
+    expect(checkerEntries[0]?.purity).toEqual({
+      runtimeExternalSpecifiers: [
+        'convex/browser',
+        'convex/server',
+        'convex/values',
+        'ohash',
+        'vue',
+      ],
+      typeExternalSpecifiers: ['convex/browser', 'convex/server', 'vue'],
+    })
   })
 
   it('keeps the Convex auth packed dependency surface backend-only', () => {

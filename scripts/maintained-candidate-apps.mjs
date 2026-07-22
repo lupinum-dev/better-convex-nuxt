@@ -2,6 +2,7 @@ import { getPackageCertificationDescriptor } from './package-certification-manif
 
 const candidateTestProfiles = Object.freeze({
   'nuxt-maintained-consumers': Object.freeze({
+    kind: 'apps',
     npmConsumer: Object.freeze({
       name: 'npm-consumer-smoke',
       path: 'test/fixtures/consumer-smoke',
@@ -19,6 +20,15 @@ const candidateTestProfiles = Object.freeze({
     ),
     tarballFilename: 'better-convex-nuxt.tgz',
   }),
+  'vue-maintained-consumers': Object.freeze({
+    kind: 'runners',
+    runners: Object.freeze([
+      'scripts/check-vue-anonymous-consumer.mjs',
+      'scripts/check-vue-auth-consumer.mjs',
+      'scripts/check-vue-embedded-consumer.mjs',
+    ]),
+    tarballFilename: 'better-convex-vue.tgz',
+  }),
 })
 
 function assertFixture(fixture, label) {
@@ -35,9 +45,28 @@ function assertFixture(fixture, label) {
 }
 
 function assertCandidateTestProfile(profile, profileId) {
+  if (profile?.kind === 'runners') {
+    const reviewedRunners = [
+      'scripts/check-vue-anonymous-consumer.mjs',
+      'scripts/check-vue-auth-consumer.mjs',
+      'scripts/check-vue-embedded-consumer.mjs',
+    ]
+    if (
+      Object.keys(profile).sort().join(',') !== 'kind,runners,tarballFilename' ||
+      !Array.isArray(profile.runners) ||
+      JSON.stringify(profile.runners) !== JSON.stringify(reviewedRunners) ||
+      typeof profile.tarballFilename !== 'string' ||
+      !/^[a-z0-9-]+\.tgz$/u.test(profile.tarballFilename)
+    ) {
+      throw new Error(`Candidate-test profile ${profileId} is invalid.`)
+    }
+    return
+  }
   if (
     !profile ||
     typeof profile !== 'object' ||
+    profile.kind !== 'apps' ||
+    Object.keys(profile).sort().join(',') !== 'kind,npmConsumer,pnpmApps,tarballFilename' ||
     !Array.isArray(profile.pnpmApps) ||
     profile.pnpmApps.length === 0 ||
     typeof profile.tarballFilename !== 'string' ||

@@ -103,6 +103,33 @@ const packedArtifactProfiles = Object.freeze({
     }),
     buildHint: 'pnpm exec nuxt-module-build build',
   }),
+  'vue-runtime-artifact': Object.freeze({
+    allowedPackageRootFiles: Object.freeze(['LICENSE', 'package.json']),
+    requiredPackedFiles: Object.freeze([
+      'dist/index.mjs',
+      'dist/index.d.mts',
+      'dist/errors.mjs',
+      'dist/errors.d.mts',
+      'dist/embedded.mjs',
+      'dist/embedded.d.mts',
+    ]),
+    requiredBuildFiles: Object.freeze([
+      'dist/index.mjs',
+      'dist/index.d.mts',
+      'dist/errors.mjs',
+      'dist/errors.d.mts',
+      'dist/embedded.mjs',
+      'dist/embedded.d.mts',
+    ]),
+    allowedHostPackages: Object.freeze([]),
+    allowedVirtualSpecifiers: Object.freeze([]),
+    archiveLimits: Object.freeze({
+      maxEntries: 256,
+      maxFileBytes: 2 * 1024 * 1024,
+      maxTotalBytes: 8 * 1024 * 1024,
+    }),
+    buildHint: 'pnpm run build',
+  }),
 })
 
 function getPackedArtifactProfile(packageId) {

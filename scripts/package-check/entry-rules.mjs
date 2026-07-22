@@ -142,8 +142,39 @@ const NUXT_CHECKER_ENTRY_RULES = [
   },
 ]
 
+const VUE_CHECKER_ENTRY_RULES = [
+  {
+    subpath: '.',
+    purity: {
+      runtimeExternalSpecifiers: [
+        'convex/browser',
+        'convex/server',
+        'convex/values',
+        'ohash',
+        'vue',
+      ],
+      typeExternalSpecifiers: ['convex/browser', 'convex/server', 'vue'],
+    },
+  },
+  {
+    subpath: './errors',
+    purity: {
+      runtimeExternalSpecifiers: ['convex/values'],
+      typeExternalSpecifiers: [],
+    },
+  },
+  {
+    subpath: './embedded',
+    purity: {
+      runtimeExternalSpecifiers: ['convex/values', 'vue'],
+      typeExternalSpecifiers: ['convex/browser'],
+    },
+  },
+]
+
 const checkerProfiles = {
   'nuxt-public-entries': {
+    manifestPolicy: { requireLegacyRootFields: true },
     sourceRoots: ['src/module.ts', 'src/runtime'],
     sourceScan: {
       allowedVirtualImports: ['#app', '#imports', '#build', '#components', 'nitropack/runtime'],
@@ -151,6 +182,16 @@ const checkerProfiles = {
       allowedFrameworkPackages: ['vue', 'vue-router'],
     },
     rules: NUXT_CHECKER_ENTRY_RULES,
+  },
+  'vue-public-entries': {
+    manifestPolicy: { requireLegacyRootFields: false },
+    sourceRoots: ['src'],
+    sourceScan: {
+      allowedVirtualImports: [],
+      allowedVirtualPrefixes: [],
+      allowedFrameworkPackages: ['vue'],
+    },
+    rules: VUE_CHECKER_ENTRY_RULES,
   },
 }
 
@@ -193,9 +234,17 @@ function validateSourceScanPolicy(profileId, policy) {
 function freezeCheckerProfile(profileId, profile) {
   validateSourceRoots(profileId, profile.sourceRoots)
   validateSourceScanPolicy(profileId, profile.sourceScan)
+  if (
+    !profile.manifestPolicy ||
+    Object.keys(profile.manifestPolicy).length !== 1 ||
+    typeof profile.manifestPolicy.requireLegacyRootFields !== 'boolean'
+  ) {
+    throw new TypeError(`Package checker profile ${profileId} has invalid manifest policy`)
+  }
   Object.freeze(profile.sourceRoots)
   for (const values of Object.values(profile.sourceScan)) Object.freeze(values)
   Object.freeze(profile.sourceScan)
+  Object.freeze(profile.manifestPolicy)
   for (const rule of profile.rules) {
     if (rule.purity) {
       Object.freeze(rule.purity.runtimeExternalSpecifiers)
@@ -236,6 +285,7 @@ export function getPackageCheckerProfile(packageId, options) {
     ...manifest,
     sourceRoots: profile.sourceRoots,
     sourceScan: profile.sourceScan,
+    manifestPolicy: profile.manifestPolicy,
     entries: joinPackageCheckerEntries(manifest, profile.rules),
   })
 }

@@ -47,6 +47,7 @@ export function checkPackageJsonManifestConsistency({
   expectedBins,
   artifactRoot,
   checkBinFiles = true,
+  requireLegacyRootFields = true,
 }) {
   const failures = []
   const exportsMap = manifest.exports ?? {}
@@ -59,7 +60,7 @@ export function checkPackageJsonManifestConsistency({
   const rootEntry = entries.find((entry) => entry.subpath === '.')
   if (!rootEntry || rootEntry.kind !== 'runtime') {
     failures.push('package entry contract must contain one runtime root entry')
-  } else if (manifest.main !== `./${rootEntry.distJs}`) {
+  } else if (requireLegacyRootFields && manifest.main !== `./${rootEntry.distJs}`) {
     failures.push(`package.json main must be "./${rootEntry.distJs}" (manifest source of truth)`)
   }
 
@@ -165,6 +166,8 @@ export function checkPackageJsonManifestConsistency({
       failures.push(`package.json bin["${command}"] target must start with a Node shebang`)
     }
   }
+
+  if (!requireLegacyRootFields) return failures
 
   const typesVersions = isPlainRecord(manifest.typesVersions) ? manifest.typesVersions : {}
   const selectors = Object.keys(typesVersions)

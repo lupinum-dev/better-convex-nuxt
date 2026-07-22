@@ -186,9 +186,30 @@ describe('packed artifact path classes', () => {
   })
 
   it('rejects an unreviewed package owner instead of applying the Nuxt policy', () => {
-    expect(() => checkPackedPathClasses('vue', { files: [] }, [])).toThrow(
-      'Unknown package certification descriptor: vue',
+    expect(() => checkPackedPathClasses('mcp', { files: [] }, [])).toThrow(
+      'Unknown package certification descriptor: mcp',
     )
+  })
+
+  it('applies the smaller reviewed Vue artifact policy independently', () => {
+    const accepted: string[] = []
+    checkPackedPathClasses(
+      'vue',
+      {
+        files: [
+          { path: 'LICENSE' },
+          { path: 'package.json' },
+          { path: 'dist/index.mjs' },
+          { path: 'dist/index.d.mts' },
+        ],
+      },
+      accepted,
+    )
+    expect(accepted).toEqual([])
+
+    const rejected: string[] = []
+    checkPackedPathClasses('vue', { files: [{ path: 'README.md' }] }, rejected)
+    expect(rejected).toContainEqual(expect.stringContaining('unplanned root path: README.md'))
   })
 
   it('allows package metadata, declarations, runtime files, and built DevTools assets', () => {

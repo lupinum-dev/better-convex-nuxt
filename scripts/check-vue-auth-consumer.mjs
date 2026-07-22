@@ -8,8 +8,9 @@ import { join, resolve } from 'node:path'
 
 import { chromium } from 'playwright'
 
+import { prepareVueCandidate } from './vue-candidate-consumer.mjs'
+
 const repositoryRoot = resolve(import.meta.dirname, '..')
-const packageRoot = join(repositoryRoot, 'packages/vue')
 const fixtureRoot = join(repositoryRoot, 'test/fixtures/vue-authenticated')
 const scratchRoot = mkdtempSync(join(tmpdir(), 'better-convex-vue-auth-'))
 const consumerRoot = join(scratchRoot, 'consumer')
@@ -17,7 +18,11 @@ const tokenSentinel = `proof-${crypto.randomUUID()}`
 const providerErrorSentinel = `provider-${crypto.randomUUID()}`
 
 function run(command, args, cwd) {
-  return execFileSync(command, args, { cwd, encoding: 'utf8', stdio: 'inherit' })
+  return execFileSync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: 'inherit',
+  })
 }
 
 async function reservePort() {
@@ -75,21 +80,14 @@ function assertDeepEqual(actual, expected, label) {
 
 let preview = null
 let browser = null
+let candidate
 try {
-  run('pnpm', ['run', 'build'], packageRoot)
-  const packResult = JSON.parse(
-    execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchRoot], {
-      cwd: packageRoot,
-      encoding: 'utf8',
-    }),
-  )
-  if (!Array.isArray(packResult) || packResult.length !== 1 || !packResult[0]?.filename) {
-    throw new Error('Vue package pack must produce exactly one tarball')
-  }
+  candidate = prepareVueCandidate(process.argv.slice(2), scratchRoot)
 
   cpSync(fixtureRoot, consumerRoot, { recursive: true })
-  cpSync(join(scratchRoot, packResult[0].filename), join(consumerRoot, 'better-convex-vue.tgz'))
+  cpSync(candidate.tarballPath, join(consumerRoot, 'better-convex-vue.tgz'))
   run('pnpm', ['install', '--frozen-lockfile=false', '--ignore-scripts'], consumerRoot)
+  candidate.assertInstalled(join(consumerRoot, 'node_modules/better-convex-vue'))
   run('pnpm', ['run', 'typecheck'], consumerRoot)
   run('pnpm', ['run', 'build'], consumerRoot)
   const assetsDirectory = join(consumerRoot, 'dist/assets')
@@ -331,5 +329,6 @@ try {
 } finally {
   await browser?.close()
   if (preview && preview.exitCode === null) preview.kill('SIGTERM')
+  candidate?.cleanup()
   rmSync(scratchRoot, { recursive: true, force: true })
 }

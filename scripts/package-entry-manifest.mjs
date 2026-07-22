@@ -169,6 +169,86 @@ const nuxtPackageBins = {
   'better-convex-nuxt-convex': './dist/runtime/cli/convex.js',
 }
 
+const vuePackageEntries = [
+  {
+    kind: 'runtime',
+    subpath: '.',
+    distJs: 'dist/index.mjs',
+    distDts: 'dist/index.d.mts',
+    valueExports: [
+      'ConvexCallError',
+      'createBetterConvex',
+      'useConvex',
+      'useConvexAction',
+      'useConvexConnectionState',
+      'useConvexMutation',
+      'useConvexPaginatedQuery',
+      'useConvexQuery',
+    ],
+    typeExports: [
+      'BetterConvexAuthAdapter',
+      'BetterConvexAuthSnapshot',
+      'BetterConvexIdentitySnapshot',
+      'BetterConvexPlugin',
+      'CallResult',
+      'ConvexAuthMode',
+      'ConvexCallErrorKind',
+      'ConvexClientHandle',
+      'ConvexQueryArgs',
+      'ConvexQuerySkip',
+      'CreateBetterConvexOptions',
+      'PaginatedQueryArgs',
+      'PaginatedQueryItem',
+      'PaginatedQueryReference',
+      'UseConvexActionOptions',
+      'UseConvexCallableReturn',
+      'UseConvexMutationOptions',
+      'UseConvexPaginatedQueryOptions',
+      'UseConvexQueryOptions',
+      'UseConvexQueryResult',
+    ],
+    exactDeclaredExports: true,
+    forbiddenNames: [
+      'attachClientIdentity',
+      'createBetterConvexBrowserRuntime',
+      'createCallableController',
+      'createClientOwner',
+      'createPaginationController',
+      'createQueryController',
+    ],
+  },
+  {
+    kind: 'runtime',
+    subpath: './errors',
+    distJs: 'dist/errors.mjs',
+    distDts: 'dist/errors.d.mts',
+    valueExports: ['ConvexCallError', 'isSerializedConvexCallError', 'normalizeConvexError'],
+    typeExports: [
+      'CallResult',
+      'ConvexCallErrorInput',
+      'ConvexCallErrorKind',
+      'SerializedConvexCallError',
+    ],
+    exactDeclaredExports: true,
+    forbiddenNames: ['isConvexApplicationError', 'readStructuredData'],
+  },
+  {
+    kind: 'runtime',
+    subpath: './embedded',
+    distJs: 'dist/embedded.mjs',
+    distDts: 'dist/embedded.d.mts',
+    valueExports: ['createBetterConvexAttachment'],
+    typeExports: [
+      'BetterConvexAttachedRuntime',
+      'BetterConvexIdentityObserver',
+      'BetterConvexIdentitySnapshot',
+      'ConvexClientHandle',
+    ],
+    exactDeclaredExports: true,
+    forbiddenNames: ['attachClientIdentity', 'createAttachedBrowserFacade'],
+  },
+]
+
 const entryKinds = new Set(['runtime', 'types-only'])
 const runtimeEntryFields = new Set([
   'kind',
@@ -195,6 +275,10 @@ const entryProfiles = {
   'nuxt-public-entries': {
     entries: nuxtPackageEntries,
     bins: nuxtPackageBins,
+  },
+  'vue-public-entries': {
+    entries: vuePackageEntries,
+    bins: {},
   },
 }
 
@@ -299,13 +383,8 @@ function validatePackageEntries(entries) {
 }
 
 function validatePackageBins(bins) {
-  if (
-    bins === null ||
-    typeof bins !== 'object' ||
-    Array.isArray(bins) ||
-    Object.keys(bins).length === 0
-  ) {
-    throw new TypeError('Package bins must be a non-empty command map')
+  if (bins === null || typeof bins !== 'object' || Array.isArray(bins)) {
+    throw new TypeError('Package bins must be a command map')
   }
   for (const [command, target] of Object.entries(bins)) {
     if (!/^[a-z0-9][a-z0-9._-]*$/u.test(command)) {

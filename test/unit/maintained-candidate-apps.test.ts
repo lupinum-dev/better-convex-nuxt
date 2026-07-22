@@ -11,6 +11,7 @@ describe('maintained candidate-test profiles', () => {
       profiles: { candidateTests: 'nuxt-maintained-consumers' },
     })
     expect(selected.profile).toEqual({
+      kind: 'apps',
       npmConsumer: {
         name: 'npm-consumer-smoke',
         path: 'test/fixtures/consumer-smoke',
@@ -36,9 +37,28 @@ describe('maintained candidate-test profiles', () => {
     expect(Object.isFrozen(selected.profile.pnpmApps[0])).toBe(true)
   })
 
+  it('selects the closed Vue runner matrix through its reviewed descriptor', () => {
+    const selected = getMaintainedCandidateProfile('vue')
+    expect(selected.descriptor).toMatchObject({
+      id: 'vue',
+      packageName: 'better-convex-vue',
+      profiles: { candidateTests: 'vue-maintained-consumers' },
+    })
+    expect(selected.profile).toEqual({
+      kind: 'runners',
+      runners: [
+        'scripts/check-vue-anonymous-consumer.mjs',
+        'scripts/check-vue-auth-consumer.mjs',
+        'scripts/check-vue-embedded-consumer.mjs',
+      ],
+      tarballFilename: 'better-convex-vue.tgz',
+    })
+    expect(Object.isFrozen(selected.profile.runners)).toBe(true)
+  })
+
   it('rejects package IDs outside the certification manifest', () => {
-    expect(() => getMaintainedCandidateProfile('vue')).toThrow(
-      'Unknown package certification descriptor: vue',
+    expect(() => getMaintainedCandidateProfile('mcp')).toThrow(
+      'Unknown package certification descriptor: mcp',
     )
   })
 })

@@ -304,6 +304,7 @@ function main() {
       expectedBins: checkerProfile.bins,
       artifactRoot: packageRoot,
       checkBinFiles: !suppliedTarball,
+      requireLegacyRootFields: checkerProfile.manifestPolicy.requireLegacyRootFields,
     }),
   )
 
@@ -339,6 +340,7 @@ function main() {
           entries,
           expectedBins: checkerProfile.bins,
           artifactRoot: packageDir,
+          requireLegacyRootFields: checkerProfile.manifestPolicy.requireLegacyRootFields,
         }),
       )
 

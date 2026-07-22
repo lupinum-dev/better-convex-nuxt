@@ -46,7 +46,10 @@ describe('package runtime-fingerprint profiles', () => {
   })
 
   it('requires null evidence for a library-only forbidden profile', () => {
-    const profile = Object.freeze({ mode: 'forbidden' })
+    const selected = getPackageRuntimeFingerprintProfile('vue')
+    expect(selected.descriptor.profiles.runtimeFingerprint).toBe('vue-no-runtime-fingerprint')
+    expect(selected.profile).toEqual({ mode: 'forbidden' })
+    const profile = selected.profile
     expect(() => assertRuntimeFingerprintEvidence(profile, null)).not.toThrow()
     for (const value of [
       undefined,

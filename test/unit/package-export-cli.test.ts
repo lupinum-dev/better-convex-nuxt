@@ -40,8 +40,8 @@ describe('package export checker CLI authority', () => {
     },
     {
       label: 'unknown package owner',
-      args: ['--package', 'vue', '--dist-only'],
-      expected: 'Unknown package certification descriptor: vue',
+      args: ['--package', 'mcp', '--dist-only'],
+      expected: 'Unknown package certification descriptor: mcp',
     },
     {
       label: 'duplicate package owner',
@@ -90,5 +90,15 @@ describe('package export checker CLI authority', () => {
         /(?:check:package-exports requires a built dist\/|Package export validation failed)/u,
       )
     }
+  }, 45_000)
+
+  it('allows the reviewed Vue package to reach its strict dist checker', () => {
+    const result = runChecker(['--package', 'vue', '--dist-only'])
+    const output = combinedOutput(result)
+
+    expect(result.error).toBeUndefined()
+    expect(result.signal).toBeNull()
+    expect(result.status, output).toBe(0)
+    expect(output).toMatch(/vue dist-entry gate passed/u)
   }, 45_000)
 })

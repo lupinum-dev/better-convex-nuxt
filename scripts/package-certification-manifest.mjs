@@ -32,6 +32,20 @@ const reviewedDescriptors = [
       runtimeFingerprint: 'nuxt-runtime-binding',
     },
   },
+  {
+    id: 'vue',
+    packageName: 'better-convex-vue',
+    packageDirectory: 'packages/vue',
+    profiles: {
+      build: 'vue-unbuild',
+      exports: 'vue-public-entries',
+      packedFiles: 'vue-runtime-artifact',
+      sbom: 'vue-production-dependencies',
+      provenance: 'vue-repository-origin',
+      candidateTests: 'vue-maintained-consumers',
+      runtimeFingerprint: 'vue-no-runtime-fingerprint',
+    },
+  },
 ]
 
 const reviewedProfileIds = Object.freeze(

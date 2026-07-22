@@ -67,6 +67,43 @@ describe('package-profile SBOM generation', () => {
     }
   }, 120_000)
 
+  it('roots the Vue SBOM in exactly its three production components', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'bcv-sbom-output-'))
+    try {
+      const output = join(directory, 'sbom.cdx.json')
+      const result = run(['--package', 'vue', '--output', output])
+      expect(result.status, result.stderr).toBe(0)
+
+      const sbom = JSON.parse(readFileSync(output, 'utf8')) as {
+        components: Array<{
+          name: string
+          version: string
+          properties?: Array<{ name: string; value: string }>
+        }>
+        metadata: { component: { name: string } }
+      }
+      expect(sbom.metadata.component.name).toBe('better-convex-vue')
+      expect(sbom.components.map(({ name }) => name).sort()).toEqual(['convex', 'ohash', 'vue'])
+      expect(sbom.components.find(({ name }) => name === 'convex')?.version).toBe('1.42.2')
+      expect(sbom.components.find(({ name }) => name === 'vue')?.version).toBe('3.5.39')
+      for (const peer of ['convex', 'vue']) {
+        expect(sbom.components).toContainEqual(
+          expect.objectContaining({
+            name: peer,
+            properties: [
+              {
+                name: 'better-convex-vue:dependency-kind',
+                value: 'required-peer',
+              },
+            ],
+          }),
+        )
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }, 120_000)
+
   it('rejects unknown package selectors before generating evidence', () => {
     const result = run(['--package', 'not-reviewed', '--check'])
     expect(result.status).toBe(1)

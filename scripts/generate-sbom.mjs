@@ -45,6 +45,15 @@ const sbomProfiles = Object.freeze({
       ),
     ),
   }),
+  'vue-production-dependencies': Object.freeze({
+    componentPropertyNamespace: 'better-convex-vue',
+    generatorName: 'better-convex-vue-sbom-generator',
+    requiredComponents: Object.freeze(['convex', 'ohash', 'vue']),
+    requiredPhysicalVersions: Object.freeze({
+      convex: '1.42.2',
+      vue: '3.5.39',
+    }),
+  }),
 })
 const sbomProfile = resolveSbomProfile(descriptor)
 
@@ -179,7 +188,7 @@ for (const dependencyName of Object.keys(pkg.dependencies ?? {})) {
 // components of the published contract and must be visible in its SBOM. Their
 // transitive closure belongs to the consuming application's resolved SBOM.
 for (const [name, version] of Object.entries(pkg.peerDependencies ?? {})) {
-  addComponent(name, version, 'required-peer')
+  addComponent(name, sbomProfile.requiredPhysicalVersions[name] ?? version, 'required-peer')
 }
 for (const [name, version] of Object.entries(sbomProfile.requiredPhysicalVersions)) {
   addComponent(name, version, pkg.peerDependencies?.[name] ? 'required-peer' : 'required-runtime')

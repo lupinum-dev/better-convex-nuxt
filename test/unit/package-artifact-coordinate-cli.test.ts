@@ -31,10 +31,27 @@ describe('package artifact coordinate CLI', () => {
     ])
   })
 
+  it('prints Vue artifact coordinates from the reviewed nested package', () => {
+    const result = run(['--package', 'vue'])
+
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(result.stdout.trim().split('\n')).toEqual([
+      'artifact_name=release-candidate-vue',
+      'directory=.release-artifacts/vue/0.8.0-beta.0',
+      'evidence=.release-artifacts/vue/0.8.0-beta.0/artifact.json',
+      'package_id=vue',
+      'package_name=better-convex-vue',
+      'tarball=.release-artifacts/vue/0.8.0-beta.0/better-convex-vue-0.8.0-beta.0.tgz',
+      'tarball_filename=better-convex-vue-0.8.0-beta.0.tgz',
+      'version=0.8.0-beta.0',
+    ])
+  })
+
   it.each([
     { label: 'missing selector', args: [] },
     { label: 'missing value', args: ['--package'] },
-    { label: 'unknown selector', args: ['--package', 'vue'] },
+    { label: 'unknown selector', args: ['--package', 'mcp'] },
     { label: 'path selector', args: ['--package', '../packages/vue'] },
     { label: 'duplicate selector', args: ['--package', 'nuxt', '--package', 'nuxt'] },
     { label: 'extra option', args: ['--package', 'nuxt', '--directory', '/tmp/output'] },

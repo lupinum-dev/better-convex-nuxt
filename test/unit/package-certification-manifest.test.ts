@@ -31,6 +31,12 @@ function createRepository(
     join(absolutePackageDirectory, 'package.json'),
     `${JSON.stringify({ name, private: options.private, version: '1.0.0' })}\n`,
   )
+  const vuePackageDirectory = join(root, 'packages/vue')
+  mkdirSync(vuePackageDirectory, { recursive: true })
+  writeFileSync(
+    join(vuePackageDirectory, 'package.json'),
+    `${JSON.stringify({ name: 'better-convex-vue', version: '1.0.0' })}\n`,
+  )
   return root
 }
 
@@ -38,8 +44,12 @@ function cloneDescriptor() {
   return structuredClone(packageCertificationDescriptors[0])
 }
 
+function cloneDescriptors(replacement = cloneDescriptor()) {
+  return [replacement, structuredClone(packageCertificationDescriptors[1])]
+}
+
 describe('package certification manifest', () => {
-  it('authorizes exactly the current root Nuxt package and closed profile tuple', () => {
+  it('authorizes exactly the reviewed Nuxt and Vue packages with closed profile tuples', () => {
     expect(packageCertificationDescriptors).toEqual([
       {
         id: 'nuxt',
@@ -55,14 +65,29 @@ describe('package certification manifest', () => {
           runtimeFingerprint: 'nuxt-runtime-binding',
         },
       },
+      {
+        id: 'vue',
+        packageName: 'better-convex-vue',
+        packageDirectory: 'packages/vue',
+        profiles: {
+          build: 'vue-unbuild',
+          exports: 'vue-public-entries',
+          packedFiles: 'vue-runtime-artifact',
+          sbom: 'vue-production-dependencies',
+          provenance: 'vue-repository-origin',
+          candidateTests: 'vue-maintained-consumers',
+          runtimeFingerprint: 'vue-no-runtime-fingerprint',
+        },
+      },
     ])
     expect(Object.isFrozen(packageCertificationDescriptors)).toBe(true)
     expect(Object.isFrozen(packageCertificationDescriptors[0])).toBe(true)
     expect(Object.isFrozen(packageCertificationDescriptors[0].profiles)).toBe(true)
     expect(getPackageCertificationDescriptor('nuxt')).toBe(packageCertificationDescriptors[0])
+    expect(getPackageCertificationDescriptor('vue')).toBe(packageCertificationDescriptors[1])
   })
 
-  it.each(['vue', 'better-convex-nuxt', '.', '../playground', 'packages/vue', 'NUXT'])(
+  it.each(['mcp', 'better-convex-nuxt', '.', '../playground', 'packages/vue', 'NUXT'])(
     'rejects unknown or path-like selector %j',
     (selector) => {
       expect(() => getPackageCertificationDescriptor(selector)).toThrow(
@@ -82,19 +107,27 @@ describe('package certification manifest', () => {
 
     const extraDescriptor = { ...cloneDescriptor(), command: 'npm publish' }
     expect(() =>
-      validatePackageCertificationDescriptors([extraDescriptor], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(extraDescriptor), {
+        repositoryRoot: root,
+      }),
     ).toThrow('descriptor nuxt: unexpected fields: command')
 
     const missingProfile = cloneDescriptor()
     delete (missingProfile.profiles as Partial<typeof missingProfile.profiles>).sbom
     expect(() =>
-      validatePackageCertificationDescriptors([missingProfile], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(missingProfile), {
+        repositoryRoot: root,
+      }),
     ).toThrow('descriptor nuxt profiles: missing fields: sbom')
 
     const extraProfile = cloneDescriptor()
-    Object.assign(extraProfile.profiles, { command: 'node scripts/release.mjs' })
+    Object.assign(extraProfile.profiles, {
+      command: 'node scripts/release.mjs',
+    })
     expect(() =>
-      validatePackageCertificationDescriptors([extraProfile], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(extraProfile), {
+        repositoryRoot: root,
+      }),
     ).toThrow('descriptor nuxt profiles: unexpected fields: command')
   })
 
@@ -111,7 +144,9 @@ describe('package certification manifest', () => {
     const descriptor = cloneDescriptor()
     descriptor.profiles[profile] = 'unreviewed-profile'
     expect(() =>
-      validatePackageCertificationDescriptors([descriptor], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(descriptor), {
+        repositoryRoot: root,
+      }),
     ).toThrow(`descriptor nuxt has unreviewed ${profile} profile`)
   })
 
@@ -120,7 +155,9 @@ describe('package certification manifest', () => {
     const descriptor = cloneDescriptor()
     descriptor.profiles.build = descriptor.profiles.exports
     expect(() =>
-      validatePackageCertificationDescriptors([descriptor], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(descriptor), {
+        repositoryRoot: root,
+      }),
     ).toThrow('descriptor nuxt has unreviewed build profile')
   })
 
@@ -133,7 +170,9 @@ describe('package certification manifest', () => {
     const root = createRepository()
     const descriptor = { ...cloneDescriptor(), [field]: value }
     expect(() =>
-      validatePackageCertificationDescriptors([descriptor], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(descriptor), {
+        repositoryRoot: root,
+      }),
     ).toThrow(`has invalid ${field}`)
   })
 
@@ -154,7 +193,9 @@ describe('package certification manifest', () => {
     const root = createRepository()
     const descriptor = { ...cloneDescriptor(), packageDirectory }
     expect(() =>
-      validatePackageCertificationDescriptors([descriptor], { repositoryRoot: root }),
+      validatePackageCertificationDescriptors(cloneDescriptors(descriptor), {
+        repositoryRoot: root,
+      }),
     ).toThrow('descriptor nuxt has invalid packageDirectory')
   })
 
@@ -192,17 +233,21 @@ describe('package certification manifest', () => {
   it('binds the reviewed identity to a real in-repository package manifest', () => {
     const wrongNameRoot = createRepository('renamed-package')
     expect(() =>
-      getPackageCertificationDescriptor('nuxt', { repositoryRoot: wrongNameRoot }),
+      getPackageCertificationDescriptor('nuxt', {
+        repositoryRoot: wrongNameRoot,
+      }),
     ).toThrow('declares renamed-package; descriptor nuxt requires better-convex-nuxt')
     expect(() =>
-      validatePackageCertificationDescriptors([cloneDescriptor()], {
+      validatePackageCertificationDescriptors(cloneDescriptors(), {
         repositoryRoot: wrongNameRoot,
       }),
     ).toThrow('declares renamed-package; descriptor nuxt requires better-convex-nuxt')
 
-    const privateRoot = createRepository('better-convex-nuxt', { private: true })
+    const privateRoot = createRepository('better-convex-nuxt', {
+      private: true,
+    })
     expect(() =>
-      validatePackageCertificationDescriptors([cloneDescriptor()], {
+      validatePackageCertificationDescriptors(cloneDescriptors(), {
         repositoryRoot: privateRoot,
       }),
     ).toThrow('descriptor nuxt cannot certify a private package')
@@ -210,7 +255,7 @@ describe('package certification manifest', () => {
     const missingRoot = createRepository()
     rmSync(join(missingRoot, 'package.json'))
     expect(() =>
-      validatePackageCertificationDescriptors([cloneDescriptor()], {
+      validatePackageCertificationDescriptors(cloneDescriptors(), {
         repositoryRoot: missingRoot,
       }),
     ).toThrow('descriptor nuxt package.json is missing')
@@ -218,9 +263,12 @@ describe('package certification manifest', () => {
 
   it('rejects jointly drifted package identities and directories', () => {
     const renamedRoot = createRepository('renamed-package')
-    const renamedDescriptor = { ...cloneDescriptor(), packageName: 'renamed-package' }
+    const renamedDescriptor = {
+      ...cloneDescriptor(),
+      packageName: 'renamed-package',
+    }
     expect(() =>
-      validatePackageCertificationDescriptors([renamedDescriptor], {
+      validatePackageCertificationDescriptors(cloneDescriptors(renamedDescriptor), {
         repositoryRoot: renamedRoot,
       }),
     ).toThrow('descriptor nuxt has unreviewed packageName')
@@ -228,9 +276,12 @@ describe('package certification manifest', () => {
     const movedRoot = createRepository('better-convex-nuxt', {
       directory: 'packages/rogue',
     })
-    const movedDescriptor = { ...cloneDescriptor(), packageDirectory: 'packages/rogue' }
+    const movedDescriptor = {
+      ...cloneDescriptor(),
+      packageDirectory: 'packages/rogue',
+    }
     expect(() =>
-      validatePackageCertificationDescriptors([movedDescriptor], {
+      validatePackageCertificationDescriptors(cloneDescriptors(movedDescriptor), {
         repositoryRoot: movedRoot,
       }),
     ).toThrow('descriptor nuxt has unreviewed packageDirectory')
@@ -243,7 +294,7 @@ describe('package certification manifest', () => {
     const root = createRepository()
     writeFileSync(join(root, 'package.json'), `${contents}\n`)
     expect(() =>
-      validatePackageCertificationDescriptors([cloneDescriptor()], {
+      validatePackageCertificationDescriptors(cloneDescriptors(), {
         repositoryRoot: root,
       }),
     ).toThrow(expected)
@@ -252,7 +303,7 @@ describe('package certification manifest', () => {
   it('returns an immutable canonical copy independent from caller mutation', () => {
     const root = createRepository()
     const descriptor = cloneDescriptor()
-    const validated = validatePackageCertificationDescriptors([descriptor], {
+    const validated = validatePackageCertificationDescriptors(cloneDescriptors(descriptor), {
       repositoryRoot: root,
     })
     descriptor.packageName = 'changed-after-validation'

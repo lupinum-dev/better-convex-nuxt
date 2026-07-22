@@ -67,6 +67,62 @@ const contractProfiles = Object.freeze({
     requiredLifecycleScripts: Object.freeze(['prepack']),
     validate: assertNuxtManifestShapes,
   }),
+  'vue-production-dependencies': Object.freeze({
+    requiredPackageFields: Object.freeze([
+      'name',
+      'version',
+      'description',
+      'license',
+      'files',
+      'type',
+      'sideEffects',
+      'exports',
+      'dependencies',
+      'peerDependencies',
+      'engines',
+    ]),
+    forbiddenPackageFields: Object.freeze([
+      'private',
+      'main',
+      'module',
+      'browser',
+      'types',
+      'typings',
+      'typesVersions',
+      'imports',
+      'bin',
+      'man',
+      'directories',
+      'gypfile',
+      'optionalDependencies',
+      'peerDependenciesMeta',
+      'bundleDependencies',
+      'bundledDependencies',
+      'os',
+      'cpu',
+      'libc',
+      'publishConfig',
+      'packageManager',
+    ]),
+    forbiddenLifecycleScripts: Object.freeze([
+      'preinstall',
+      'install',
+      'postinstall',
+      'prepublish',
+      'prepublishOnly',
+      'preprepare',
+      'prepare',
+      'postprepare',
+      'predependencies',
+      'dependencies',
+      'postdependencies',
+      'postpack',
+      'publish',
+      'postpublish',
+    ]),
+    requiredLifecycleScripts: Object.freeze(['prepack']),
+    validate: assertVueManifestShapes,
+  }),
 })
 
 export function selectProductionManifestContract(packageId, manifest) {
@@ -160,6 +216,42 @@ function assertNuxtManifestShapes(manifest, profile) {
     manifest.files.some((file) => typeof file !== 'string' || file.length === 0)
   ) {
     throw new Error('Production package manifest field files must be non-empty strings.')
+  }
+  if (Object.keys(manifest.engines).length !== 1 || typeof manifest.engines.node !== 'string') {
+    throw new Error('Production package manifest engines must declare only node.')
+  }
+  assertStringMap(manifest.scripts, 'scripts')
+  for (const script of profile.requiredLifecycleScripts) {
+    if (!Object.hasOwn(manifest.scripts, script)) {
+      throw new Error(`Production package manifest is missing required lifecycle script ${script}.`)
+    }
+  }
+  for (const script of profile.forbiddenLifecycleScripts) {
+    if (Object.hasOwn(manifest.scripts, script)) {
+      throw new Error(`Production package manifest uses forbidden lifecycle script ${script}.`)
+    }
+  }
+}
+
+function assertVueManifestShapes(manifest, profile) {
+  for (const field of ['name', 'version', 'description', 'license', 'type']) {
+    if (typeof manifest[field] !== 'string' || manifest[field].length === 0) {
+      throw new Error(`Production package manifest field ${field} must be a non-empty string.`)
+    }
+  }
+  if (manifest.type !== 'module' || manifest.sideEffects !== false) {
+    throw new Error('Vue package must be ESM-only and side-effect free.')
+  }
+  if (
+    !Array.isArray(manifest.files) ||
+    manifest.files.length !== 1 ||
+    manifest.files[0] !== 'dist'
+  ) {
+    throw new Error('Vue package files must contain only dist.')
+  }
+  for (const field of ['exports']) assertPlainRecord(manifest[field], field)
+  for (const field of ['dependencies', 'peerDependencies', 'engines']) {
+    assertStringMap(manifest[field], field)
   }
   if (Object.keys(manifest.engines).length !== 1 || typeof manifest.engines.node !== 'string') {
     throw new Error('Production package manifest engines must declare only node.')

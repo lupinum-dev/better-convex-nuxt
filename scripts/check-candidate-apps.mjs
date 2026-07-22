@@ -86,7 +86,10 @@ function parseArguments(args) {
   if (!values.has('--package')) {
     throw new Error('Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>]')
   }
-  return { packageId: values.get('--package'), tarball: values.get('--tarball') }
+  return {
+    packageId: values.get('--package'),
+    tarball: values.get('--tarball'),
+  }
 }
 
 function run(command, commandArgs, options = {}) {
@@ -260,7 +263,9 @@ function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, 
   console.log(
     `\n=== ${fixture.path} with npm against ${candidateManifest.name}@${candidateManifest.version} ===`,
   )
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: appDir })
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], {
+    cwd: appDir,
+  })
 
   const lock = readFileSync(join(appDir, 'package-lock.json'), 'utf8')
   if (!lock.includes(candidateProfile.tarballFilename)) {
@@ -423,9 +428,11 @@ const scratchDir = mkdtempSync(join(tmpdir(), 'bcn-candidate-apps-'))
 try {
   let tarballPath = suppliedTarball
   if (!tarballPath) {
-    run('pnpm', ['run', 'prepack'])
+    const packageRoot = resolve(repoRoot, packageDescriptor.packageDirectory)
+    run('pnpm', ['run', 'prepack'], { cwd: packageRoot })
     const packResult = JSON.parse(
       run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchDir], {
+        cwd: packageRoot,
         capture: true,
       }),
     )
@@ -436,124 +443,144 @@ try {
     throw new Error(`Candidate tarball does not exist: ${tarballPath}`)
   }
 
-  const extractedDir = join(scratchDir, 'extracted')
-  mkdirSync(extractedDir)
-  run('tar', ['-xzf', tarballPath, '-C', extractedDir])
-  const extractedPackageDir = join(extractedDir, 'package')
-  const candidateManifest = readJson(join(extractedPackageDir, 'package.json'))
-  if (candidateManifest.name !== packageDescriptor.packageName) {
-    throw new Error(
-      `Candidate package is ${String(candidateManifest.name)}; expected ${packageDescriptor.packageName}`,
-    )
-  }
-  const expectedFingerprint = packageFingerprint(extractedPackageDir)
-  const tarballIntegrity = sha512(tarballPath)
-
-  for (const app of candidateProfile.pnpmApps) {
-    assertNoRepositoryOverride(app)
-    const sourceDir = join(repoRoot, app.path)
-    const sourceManifest = readJson(join(sourceDir, 'package.json'))
-    const sourceVersion = dependencySpecifier(sourceManifest, packageDescriptor.packageName)
-    if (sourceVersion !== candidateManifest.version) {
-      throw new Error(
-        `${app.path}/package.json declares ${packageDescriptor.packageName}@${sourceVersion ?? '<missing>'}; expected ${candidateManifest.version}`,
-      )
+  if (candidateProfile.kind === 'runners') {
+    run(process.execPath, [
+      'scripts/check-package-exports.mjs',
+      '--package',
+      packageDescriptor.id,
+      '--tarball',
+      tarballPath,
+    ])
+    for (const runner of candidateProfile.runners) {
+      run(process.execPath, [runner, '--tarball', tarballPath])
     }
-    const sourceLockPath = join(sourceDir, 'pnpm-lock.yaml')
-    if (!existsSync(sourceLockPath)) {
-      throw new Error(`${app.path}/pnpm-lock.yaml is missing`)
-    }
-    const appDir = join(scratchDir, 'apps', app.name)
-    copyApp(app, appDir)
-    const localTarball = join(appDir, candidateProfile.tarballFilename)
-    copyFileSync(tarballPath, localTarball)
-    if (sha512(localTarball) !== tarballIntegrity) {
-      throw new Error(`${app.path}: copied candidate tarball differs from the release artifact`)
-    }
-
-    const manifestPath = join(appDir, 'package.json')
-    const manifest = readJson(manifestPath)
-    if (manifest.dependencies?.[packageDescriptor.packageName]) {
-      manifest.dependencies[packageDescriptor.packageName] =
-        `file:./${candidateProfile.tarballFilename}`
-    } else if (manifest.devDependencies?.[packageDescriptor.packageName]) {
-      manifest.devDependencies[packageDescriptor.packageName] =
-        `file:./${candidateProfile.tarballFilename}`
-    } else {
-      throw new Error(`${app.path}/package.json does not declare ${packageDescriptor.packageName}`)
-    }
-    writeJson(manifestPath, manifest)
-
     console.log(
-      `\n=== ${app.path} against ${candidateManifest.name}@${candidateManifest.version} ===`,
+      `\nCandidate runner matrix passed (${candidateProfile.runners.length} maintained consumers, one exact tarball).`,
     )
-    // Preserve every committed transitive resolution. Only replace the module
-    // package entry with the exact local tarball, then prove that resulting
-    // candidate lock is internally frozen-installable.
-    run('pnpm', ['install', '--lockfile-only', '--no-frozen-lockfile', '--ignore-scripts'], {
-      cwd: appDir,
-    })
-    run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], { cwd: appDir })
-
-    const lock = readFileSync(join(appDir, 'pnpm-lock.yaml'), 'utf8')
-    if (!lock.includes(candidateProfile.tarballFilename)) {
-      throw new Error(`${app.path}: the fresh lock does not resolve the candidate tarball`)
-    }
-
-    const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
-    const installedManifest = readJson(join(installedPackageDir, 'package.json'))
-    if (installedManifest.version !== candidateManifest.version) {
+  } else {
+    const extractedDir = join(scratchDir, 'extracted')
+    mkdirSync(extractedDir)
+    run('tar', ['-xzf', tarballPath, '-C', extractedDir])
+    const extractedPackageDir = join(extractedDir, 'package')
+    const candidateManifest = readJson(join(extractedPackageDir, 'package.json'))
+    if (candidateManifest.name !== packageDescriptor.packageName) {
       throw new Error(
-        `${app.path}: installed ${installedManifest.version}; expected ${candidateManifest.version}`,
+        `Candidate package is ${String(candidateManifest.name)}; expected ${packageDescriptor.packageName}`,
       )
     }
-    const installedFingerprint = packageFingerprint(installedPackageDir)
-    if (JSON.stringify(installedFingerprint) !== JSON.stringify(expectedFingerprint)) {
-      throw new Error(`${app.path}: installed package bytes differ from the candidate tarball`)
-    }
+    const expectedFingerprint = packageFingerprint(extractedPackageDir)
+    const tarballIntegrity = sha512(tarballPath)
 
-    if (app.name === 'agency' && agencyConvexDeployKey) {
-      const codegenAuthorityPath = join(appDir, '.env.local')
-      writeFileSync(
-        codegenAuthorityPath,
-        `CONVEX_DEPLOY_KEY=${JSON.stringify(agencyConvexDeployKey)}\n`,
-        { encoding: 'utf8', mode: 0o600 },
-      )
-      try {
-        run('pnpm', ['run', 'convex:codegen'], {
-          cwd: appDir,
-          env: deterministicEnvironment,
-        })
-      } finally {
-        rmSync(codegenAuthorityPath, { force: true })
+    for (const app of candidateProfile.pnpmApps) {
+      assertNoRepositoryOverride(app)
+      const sourceDir = join(repoRoot, app.path)
+      const sourceManifest = readJson(join(sourceDir, 'package.json'))
+      const sourceVersion = dependencySpecifier(sourceManifest, packageDescriptor.packageName)
+      if (sourceVersion !== candidateManifest.version) {
+        throw new Error(
+          `${app.path}/package.json declares ${packageDescriptor.packageName}@${sourceVersion ?? '<missing>'}; expected ${candidateManifest.version}`,
+        )
       }
-      compareGeneratedTree(
-        join(sourceDir, 'convex', '_generated'),
-        join(appDir, 'convex', '_generated'),
+      const sourceLockPath = join(sourceDir, 'pnpm-lock.yaml')
+      if (!existsSync(sourceLockPath)) {
+        throw new Error(`${app.path}/pnpm-lock.yaml is missing`)
+      }
+      const appDir = join(scratchDir, 'apps', app.name)
+      copyApp(app, appDir)
+      const localTarball = join(appDir, candidateProfile.tarballFilename)
+      copyFileSync(tarballPath, localTarball)
+      if (sha512(localTarball) !== tarballIntegrity) {
+        throw new Error(`${app.path}: copied candidate tarball differs from the release artifact`)
+      }
+
+      const manifestPath = join(appDir, 'package.json')
+      const manifest = readJson(manifestPath)
+      if (manifest.dependencies?.[packageDescriptor.packageName]) {
+        manifest.dependencies[packageDescriptor.packageName] =
+          `file:./${candidateProfile.tarballFilename}`
+      } else if (manifest.devDependencies?.[packageDescriptor.packageName]) {
+        manifest.devDependencies[packageDescriptor.packageName] =
+          `file:./${candidateProfile.tarballFilename}`
+      } else {
+        throw new Error(
+          `${app.path}/package.json does not declare ${packageDescriptor.packageName}`,
+        )
+      }
+      writeJson(manifestPath, manifest)
+
+      console.log(
+        `\n=== ${app.path} against ${candidateManifest.name}@${candidateManifest.version} ===`,
       )
+      // Preserve every committed transitive resolution. Only replace the module
+      // package entry with the exact local tarball, then prove that resulting
+      // candidate lock is internally frozen-installable.
+      run('pnpm', ['install', '--lockfile-only', '--no-frozen-lockfile', '--ignore-scripts'], {
+        cwd: appDir,
+      })
+      run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], {
+        cwd: appDir,
+      })
+
+      const lock = readFileSync(join(appDir, 'pnpm-lock.yaml'), 'utf8')
+      if (!lock.includes(candidateProfile.tarballFilename)) {
+        throw new Error(`${app.path}: the fresh lock does not resolve the candidate tarball`)
+      }
+
+      const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
+      const installedManifest = readJson(join(installedPackageDir, 'package.json'))
+      if (installedManifest.version !== candidateManifest.version) {
+        throw new Error(
+          `${app.path}: installed ${installedManifest.version}; expected ${candidateManifest.version}`,
+        )
+      }
+      const installedFingerprint = packageFingerprint(installedPackageDir)
+      if (JSON.stringify(installedFingerprint) !== JSON.stringify(expectedFingerprint)) {
+        throw new Error(`${app.path}: installed package bytes differ from the candidate tarball`)
+      }
+
+      if (app.name === 'agency' && agencyConvexDeployKey) {
+        const codegenAuthorityPath = join(appDir, '.env.local')
+        writeFileSync(
+          codegenAuthorityPath,
+          `CONVEX_DEPLOY_KEY=${JSON.stringify(agencyConvexDeployKey)}\n`,
+          { encoding: 'utf8', mode: 0o600 },
+        )
+        try {
+          run('pnpm', ['run', 'convex:codegen'], {
+            cwd: appDir,
+            env: deterministicEnvironment,
+          })
+        } finally {
+          rmSync(codegenAuthorityPath, { force: true })
+        }
+        compareGeneratedTree(
+          join(sourceDir, 'convex', '_generated'),
+          join(appDir, 'convex', '_generated'),
+        )
+      }
+
+      if (app.name === 'mcp-oauth-agent') addMcpConsumerExtensionProbe(appDir)
+
+      run('pnpm', ['run', 'typecheck'], { cwd: appDir })
+      if (manifest.scripts?.test) run('pnpm', ['run', 'test'], { cwd: appDir })
+      run('pnpm', ['run', 'build'], {
+        cwd: appDir,
+        env: { ...deterministicEnvironment, NODE_ENV: 'production' },
+      })
+      if (app.name === 'mcp-oauth-agent') await assertProductionSourceMapsArePrivate(appDir)
     }
 
-    if (app.name === 'mcp-oauth-agent') addMcpConsumerExtensionProbe(appDir)
+    verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, tarballIntegrity)
 
-    run('pnpm', ['run', 'typecheck'], { cwd: appDir })
-    if (manifest.scripts?.test) run('pnpm', ['run', 'test'], { cwd: appDir })
-    run('pnpm', ['run', 'build'], {
-      cwd: appDir,
-      env: { ...deterministicEnvironment, NODE_ENV: 'production' },
-    })
-    if (app.name === 'mcp-oauth-agent') await assertProductionSourceMapsArePrivate(appDir)
-  }
-
-  verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, tarballIntegrity)
-
-  if (!agencyConvexDeployKey) {
+    if (!agencyConvexDeployKey) {
+      console.log(
+        '\nAgency live codegen freshness skipped: set AGENCY_CONVEX_DEPLOY_KEY to enable it.',
+      )
+    }
     console.log(
-      '\nAgency live codegen freshness skipped: set AGENCY_CONVEX_DEPLOY_KEY to enable it.',
+      `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact tarball).`,
     )
   }
-  console.log(
-    `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact tarball).`,
-  )
 } finally {
   rmSync(scratchDir, { recursive: true, force: true })
 }

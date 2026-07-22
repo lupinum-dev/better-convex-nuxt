@@ -14,8 +14,9 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { prepareVueCandidate } from './vue-candidate-consumer.mjs'
+
 const repositoryRoot = resolve(import.meta.dirname, '..')
-const packageRoot = join(repositoryRoot, 'packages/vue')
 const fixtureRoot = join(repositoryRoot, 'test/fixtures/vue-anonymous')
 const scratchRoot = mkdtempSync(join(tmpdir(), 'better-convex-vue-anonymous-'))
 const consumerRoot = join(scratchRoot, 'consumer')
@@ -67,18 +68,10 @@ function collectDependencyNames(graph) {
   return names
 }
 
+let candidate
 try {
-  run('pnpm', ['run', 'build'], packageRoot)
-  const packOutput = execFileSync(
-    'npm',
-    ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchRoot],
-    { cwd: packageRoot, encoding: 'utf8' },
-  )
-  const packResult = JSON.parse(packOutput)
-  if (!Array.isArray(packResult) || packResult.length !== 1 || !packResult[0]?.filename) {
-    throw new Error('Vue package pack must produce exactly one tarball')
-  }
-  const packedTarball = join(scratchRoot, packResult[0].filename)
+  candidate = prepareVueCandidate(process.argv.slice(2), scratchRoot)
+  const packedTarball = candidate.tarballPath
   const tarballBytes = readFileSync(packedTarball)
   const tarballSha256 = createHash('sha256').update(tarballBytes).digest('hex')
 
@@ -93,10 +86,11 @@ try {
   )
   if (
     installedManifest.name !== 'better-convex-vue' ||
-    installedManifest.version !== '0.8.0-beta.0'
+    installedManifest.version !== candidate.version
   ) {
     throw new Error('Anonymous consumer installed an unexpected Vue package identity')
   }
+  candidate.assertInstalled(join(consumerRoot, 'node_modules/better-convex-vue'))
   const graph = JSON.parse(
     execFileSync('pnpm', ['list', '--prod', '--depth', 'Infinity', '--json'], {
       cwd: consumerRoot,
@@ -126,5 +120,6 @@ try {
 
   console.log(`Anonymous Vue consumer passed (tarball sha256 ${tarballSha256}).`)
 } finally {
+  candidate?.cleanup()
   rmSync(scratchRoot, { recursive: true, force: true })
 }

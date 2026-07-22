@@ -15,6 +15,7 @@ const runtimeFingerprintProfiles = Object.freeze({
     packedFiles: Object.freeze(['dist/runtime/shared/release-fingerprint.js']),
     token: '__BCN_RELEASE_RUNTIME_FINGERPRINT__',
   }),
+  'vue-no-runtime-fingerprint': Object.freeze({ mode: 'forbidden' }),
 })
 
 function assertExactFields(value, fields, label) {
