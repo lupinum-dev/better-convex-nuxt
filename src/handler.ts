@@ -18,6 +18,13 @@ import {
 
 import { verifyAndNormalizeMcpAccess } from './access.js'
 import type { McpAccessContext, McpAccessVerifier, VerifiedMcpAccess } from './index.js'
+import {
+  boundMcpResponse,
+  McpTransportFailure,
+  mcpTransportFailureResponse,
+  prepareBoundedMcpRequest,
+  runMcpRequestDeadline,
+} from './transport.js'
 
 export interface ConvexMcpRequestContext {
   readonly era: McpRequestContext['era']
@@ -57,22 +64,30 @@ export function createConvexMcpHandler<ActionContext>(
 
   return Object.freeze({
     async fetch(context: ActionContext, request: Request): Promise<Response> {
-      const metadataResponse = oauthMetadataResponse(request, metadataOptions)
-      if (metadataResponse) return metadataResponse
-      const authenticated = await authenticateRequest(
-        request.headers.get('authorization'),
-        options.verifier,
-        metadataOptions.oauthMetadata.issuer,
-        expectedResource,
-        resourceMetadataUrl,
-      )
-      if (authenticated instanceof Response) return authenticated
+      try {
+        return await runMcpRequestDeadline(request.signal, async (signal) => {
+          const metadataResponse = oauthMetadataResponse(request, metadataOptions)
+          if (metadataResponse) return await boundMcpResponse(metadataResponse)
+          const authenticated = await authenticateRequest(
+            request.headers.get('authorization'),
+            options.verifier,
+            metadataOptions.oauthMetadata.issuer,
+            expectedResource,
+            resourceMetadataUrl,
+          )
+          if (authenticated instanceof Response) return await boundMcpResponse(authenticated)
 
-      const handler = createMcpHandler(
-        ({ era }) => options.createServer(context, authenticated.access, { era }),
-        { legacy: 'stateless' },
-      )
-      return handler.fetch(request)
+          const boundedRequest = await prepareBoundedMcpRequest(request, signal)
+          const handler = createMcpHandler(
+            ({ era }) => options.createServer(context, authenticated.access, { era }),
+            { legacy: 'stateless' },
+          )
+          return await boundMcpResponse(await handler.fetch(boundedRequest))
+        })
+      } catch (error) {
+        if (error instanceof McpTransportFailure) return mcpTransportFailureResponse(error)
+        throw error
+      }
     },
   })
 }
