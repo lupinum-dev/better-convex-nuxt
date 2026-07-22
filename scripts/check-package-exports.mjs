@@ -110,6 +110,12 @@ const suppliedVueTarball = parsedOptions.get('--vue-tarball')
 if (distOnly && (suppliedTarball || manifestOutput || suppliedVueTarball)) {
   failCli('--dist-only cannot be combined with --tarball, --manifest, or --vue-tarball.')
 }
+if (packageId === 'nuxt' && suppliedTarball && !suppliedVueTarball) {
+  failCli('--vue-tarball is required when verifying a supplied Nuxt tarball.')
+}
+if (suppliedVueTarball && packageId !== 'nuxt') {
+  failCli('--vue-tarball is valid only for the reviewed Nuxt package.')
+}
 
 let checkerProfile
 try {
@@ -122,25 +128,37 @@ const p = (...segments) => resolve(packageRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
 const entries = checkerProfile.entries
 
+const temporaryCompanionScratchDirs = []
+
 function prepareCompanionTarballs() {
-  if (!suppliedVueTarball) return []
-  if (packageId !== 'nuxt') {
-    failCli('--vue-tarball is valid only for the reviewed Nuxt package.')
-  }
+  if (packageId !== 'nuxt' || distOnly) return []
 
   const descriptor = getPackageCertificationDescriptor('vue')
-  const tarballPath = resolve(repoRoot, suppliedVueTarball)
-  let stats
-  try {
-    stats = lstatSync(tarballPath)
-  } catch {
-    failCli(`Supplied Vue companion tarball does not exist: ${tarballPath}`)
-  }
-  if (!stats.isFile() || stats.isSymbolicLink()) {
-    failCli('Supplied Vue companion must be a regular, non-symlink tarball.')
+  let tarballPath
+  let extracted
+  let removeAfterInspection = true
+
+  if (suppliedVueTarball) {
+    tarballPath = resolve(repoRoot, suppliedVueTarball)
+    let stats
+    try {
+      stats = lstatSync(tarballPath)
+    } catch {
+      failCli(`Supplied Vue companion tarball does not exist: ${tarballPath}`)
+    }
+    if (!stats.isFile() || stats.isSymbolicLink()) {
+      failCli('Supplied Vue companion must be a regular, non-symlink tarball.')
+    }
+    extracted = packAndExtract('vue', tarballPath)
+  } else {
+    requireDistBuilt('vue')
+    console.log('Packing the reviewed workspace Vue package as the local companion…')
+    extracted = packAndExtract('vue')
+    tarballPath = extracted.tarballPath
+    temporaryCompanionScratchDirs.push(extracted.scratchDir)
+    removeAfterInspection = false
   }
 
-  const extracted = packAndExtract('vue', tarballPath)
   try {
     const manifest = JSON.parse(readFileSync(resolve(extracted.packageDir, 'package.json'), 'utf8'))
     if (manifest.name !== descriptor.packageName) {
@@ -164,11 +182,13 @@ function prepareCompanionTarballs() {
       }),
     ]
   } finally {
-    rmSync(extracted.scratchDir, { recursive: true, force: true })
+    if (removeAfterInspection) {
+      rmSync(extracted.scratchDir, { recursive: true, force: true })
+    }
   }
 }
 
-const companionTarballs = prepareCompanionTarballs()
+let companionTarballs = []
 
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
@@ -374,6 +394,7 @@ function main() {
     checkEntryExportShapes(entries, failures, packageRoot)
     checkEntryPurities(entries, failures, packageRoot)
   } else {
+    companionTarballs = prepareCompanionTarballs()
     console.log(
       suppliedTarball
         ? `Extracting the supplied tarball for packed-probe evidence: ${suppliedTarball}`
@@ -446,5 +467,11 @@ function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main()
+  try {
+    main()
+  } finally {
+    for (const scratchDir of temporaryCompanionScratchDirs) {
+      rmSync(scratchDir, { recursive: true, force: true })
+    }
+  }
 }

@@ -83,6 +83,11 @@ describe('package export checker CLI authority', () => {
       args: ['--package', 'nuxt', '--vue-tarball', 'first.tgz', '--vue-tarball=second.tgz'],
       expected: '--vue-tarball may be supplied only once.',
     },
+    {
+      label: 'supplied Nuxt candidate without its reviewed Vue companion',
+      args: ['--package', 'nuxt', '--tarball', 'unreviewed.tgz'],
+      expected: '--vue-tarball is required when verifying a supplied Nuxt tarball.',
+    },
   ])('rejects $label before artifact work', ({ args, expected }) => {
     expectPreflightFailure(args, expected)
   })
