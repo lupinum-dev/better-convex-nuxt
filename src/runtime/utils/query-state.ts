@@ -41,22 +41,6 @@ export function computeConvexQueryPending(input: ConvexQueryPendingInput): boole
   return input.asyncDataPending
 }
 
-export interface ConvexQueryStaleInput {
-  keepPreviousData: boolean
-  isSkipped: boolean
-  hasLastSettledData: boolean
-  hasLastSettledArgsHash: boolean
-  pending: boolean
-  argsHash: string
-  lastSettledArgsHash: string | null
-}
-
-export function computeConvexQueryStale(input: ConvexQueryStaleInput): boolean {
-  if (!input.keepPreviousData || input.isSkipped) return false
-  if (!input.hasLastSettledData || !input.hasLastSettledArgsHash) return false
-  return input.pending && input.argsHash !== input.lastSettledArgsHash
-}
-
 export interface PaginatedQueryStatusState {
   disabled: boolean
   refresh: 'idle' | 'pending'

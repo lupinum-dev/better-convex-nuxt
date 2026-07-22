@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   computeConvexQueryPending,
-  computeConvexQueryStale,
   computePaginatedQueryStale,
   computePaginatedQueryStatus,
   type PaginatedQueryStatusState,
@@ -74,48 +73,6 @@ describe('query state helpers', () => {
           isServer: false,
           isClient: true,
           asyncDataPending: false,
-        }),
-      ).toBe(false)
-    })
-  })
-
-  describe('computeConvexQueryStale', () => {
-    it('requires previous data, previous args, pending state, and changed args', () => {
-      expect(
-        computeConvexQueryStale({
-          keepPreviousData: true,
-          isSkipped: false,
-          hasLastSettledData: true,
-          hasLastSettledArgsHash: true,
-          pending: true,
-          argsHash: 'next',
-          lastSettledArgsHash: 'previous',
-        }),
-      ).toBe(true)
-    })
-
-    it('is false without keepPreviousData or while skipped', () => {
-      expect(
-        computeConvexQueryStale({
-          keepPreviousData: false,
-          isSkipped: false,
-          hasLastSettledData: true,
-          hasLastSettledArgsHash: true,
-          pending: true,
-          argsHash: 'next',
-          lastSettledArgsHash: 'previous',
-        }),
-      ).toBe(false)
-
-      expect(
-        computeConvexQueryStale({
-          keepPreviousData: true,
-          isSkipped: true,
-          hasLastSettledData: true,
-          hasLastSettledArgsHash: true,
-          pending: true,
-          argsHash: 'next',
-          lastSettledArgsHash: 'previous',
         }),
       ).toBe(false)
     })
