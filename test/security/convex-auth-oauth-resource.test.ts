@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { verifyOAuthBearerToken } from '../../src/runtime/convex-auth/oauth-resource'
+import {
+  createBetterAuthMcpAccessVerifier,
+  verifyOAuthBearerToken,
+} from '../../src/runtime/convex-auth/oauth-resource'
 
 const { verifyBearerToken } = vi.hoisted(() => ({ verifyBearerToken: vi.fn() }))
 
@@ -82,6 +85,108 @@ describe('official OAuth resource-client integration', () => {
         typ: 'at+jwt',
       },
     })
+  })
+
+  it('adapts the strict verifier to a resource-bound MCP identity without provider-private state', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const allowedScopes = ['mcp:read']
+    const requiredScopes = ['mcp:read']
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes,
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+      requiredScopes,
+    })
+    allowedScopes.push('attacker:scope')
+    requiredScopes[0] = 'attacker:scope'
+
+    const token = compactToken({ exp: now + 300, iat: now - 10 })
+    await expect(verifier.verifyAccessToken(token, new URL(audience))).resolves.toEqual({
+      access: {
+        clientId: 'client-1',
+        issuer,
+        resource: audience,
+        scopes: ['mcp:read'],
+        subject: 'user-1',
+      },
+      expiresAt: now + 300,
+    })
+
+    const result = await verifier.verifyAccessToken(token, new URL(audience))
+    expect(result).not.toHaveProperty('sessionId')
+    expect(result.access).not.toHaveProperty('sessionId')
+    expect(result).not.toHaveProperty('token')
+    expect(Object.isFrozen(result)).toBe(true)
+    expect(Object.isFrozen(result.access)).toBe(true)
+    expect(Object.isFrozen(result.access.scopes)).toBe(true)
+    expect(verifyBearerToken).toHaveBeenLastCalledWith(token, {
+      jwksUrl: `${issuer}/jwks`,
+      verifyOptions: {
+        algorithms: ['RS256'],
+        audience,
+        clockTolerance: 0,
+        currentDate: undefined,
+        issuer,
+        maxTokenAge: '600s',
+        typ: 'at+jwt',
+      },
+    })
+  })
+
+  it.each([
+    ['Convex session token class', { token_use: 'convex-session' }],
+    ['missing token class', { token_use: undefined }],
+    ['foreign issuer', { iss: 'https://foreign.example.test/api/auth' }],
+    ['foreign resource', { aud: 'https://other.example.test/mcp' }],
+    ['array audience', { aud: [audience] }],
+    ['conflicting client identity', { client_id: 'attacker-client' }],
+  ])('rejects %s through the Better Auth MCP adapter', async (_label, overrides) => {
+    const now = Math.floor(Date.now() / 1000)
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes: ['mcp:read'],
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+    })
+
+    await expect(
+      verifier.verifyAccessToken(
+        compactToken({ exp: now + 300, iat: now - 10, ...overrides }),
+        new URL(audience),
+      ),
+    ).rejects.toThrow('AUTH_OAUTH_TOKEN_INVALID')
+  })
+
+  it('rejects expired and malformed tokens through the Better Auth MCP adapter', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes: ['mcp:read'],
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+    })
+
+    await expect(
+      verifier.verifyAccessToken(compactToken({ exp: now - 1, iat: now - 100 }), new URL(audience)),
+    ).rejects.toThrow('AUTH_OAUTH_TOKEN_INVALID')
+    await expect(verifier.verifyAccessToken('not-a-jwt', new URL(audience))).rejects.toThrow(
+      'AUTH_OAUTH_TOKEN_INVALID',
+    )
+  })
+
+  it.each([
+    'http://app.example.test/mcp',
+    'https://user@app.example.test/mcp',
+    'https://app.example.test/mcp#fragment',
+  ])('rejects an unsafe expected MCP resource before token verification: %s', async (resource) => {
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes: ['mcp:read'],
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+    })
+
+    await expect(verifier.verifyAccessToken(compactToken(), new URL(resource))).rejects.toThrow(
+      'AUTH_OAUTH_TOKEN_INVALID',
+    )
+    expect(verifyBearerToken).not.toHaveBeenCalled()
   })
 
   it('installs URL.canParse at the isolated resource-verification boundary', async () => {

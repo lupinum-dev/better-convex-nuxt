@@ -183,7 +183,7 @@ describe('provider-neutral MCP access verification boundary', () => {
             throw new Error(`${secrets[1]} ${secrets[2]}`)
           },
         },
-        token: secrets[0],
+        token: secrets[0]!,
         expectedIssuer: 'https://issuer.example.test/',
         expectedResource,
       })

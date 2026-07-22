@@ -12,6 +12,11 @@ export interface VerifyOAuthBearerTokenOptions extends OAuthAccessTokenExpectati
   jwksUrl: string
 }
 
+export type BetterAuthMcpAccessVerifierOptions = Omit<
+  VerifyOAuthBearerTokenOptions,
+  'audience' | 'nowSeconds'
+>
+
 const COMPACT_JWT_PATTERN = /^[\w-]+\.[\w-]+\.[\w-]+$/u
 const MAX_COMPACT_JWT_BYTES = 8192
 
@@ -95,4 +100,53 @@ export async function verifyOAuthBearerToken(
   // conflicting signed client_id (or another raw unknown claim) cannot be
   // hidden by that normalization.
   return assertOAuthAccessTokenClaims(decodeVerifiedPayload(token), options)
+}
+
+/**
+ * Adapts BCN's strict Better Auth OAuth access-token profile to the provider-neutral MCP verifier
+ * contract without importing the MCP package or exposing provider-private session state.
+ */
+export function createBetterAuthMcpAccessVerifier(options: BetterAuthMcpAccessVerifierOptions) {
+  const fixedOptions: BetterAuthMcpAccessVerifierOptions = Object.freeze({
+    allowedScopes: Object.freeze([...options.allowedScopes]),
+    issuer: options.issuer,
+    jwksUrl: options.jwksUrl,
+    ...(options.clientId === undefined ? {} : { clientId: options.clientId }),
+    ...(options.maxLifetimeSeconds === undefined
+      ? {}
+      : { maxLifetimeSeconds: options.maxLifetimeSeconds }),
+    ...(options.requiredScopes === undefined
+      ? {}
+      : { requiredScopes: Object.freeze([...options.requiredScopes]) }),
+    ...(options.subject === undefined ? {} : { subject: options.subject }),
+  })
+
+  return Object.freeze({
+    async verifyAccessToken(token: string, expectedResource: URL) {
+      if (
+        !(expectedResource instanceof URL) ||
+        expectedResource.protocol !== 'https:' ||
+        expectedResource.username ||
+        expectedResource.password ||
+        expectedResource.hash
+      ) {
+        invalidToken()
+      }
+      const resource = expectedResource.href
+      const principal = await verifyOAuthBearerToken(token, {
+        ...fixedOptions,
+        audience: resource,
+      })
+      return Object.freeze({
+        access: Object.freeze({
+          issuer: fixedOptions.issuer,
+          subject: principal.subject,
+          clientId: principal.clientId,
+          resource,
+          scopes: Object.freeze([...principal.scopes]),
+        }),
+        expiresAt: principal.expiresAt,
+      })
+    },
+  })
 }

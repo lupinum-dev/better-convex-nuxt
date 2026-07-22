@@ -82,6 +82,7 @@ const nuxtPackageEntries = [
     distDts: 'dist/runtime/convex-auth/index.d.ts',
     valueExports: [
       'convexAuth',
+      'createBetterAuthMcpAccessVerifier',
       'createAuthComponent',
       'defineAuthAdapterFunctions',
       'getConvexAuthProvider',
@@ -92,6 +93,7 @@ const nuxtPackageEntries = [
       'AuthComponentTriggers',
       'AuthCtx',
       'AuthFunctions',
+      'BetterAuthMcpAccessVerifierOptions',
       'CreateAuth',
       'VerifyOAuthBearerTokenOptions',
     ],

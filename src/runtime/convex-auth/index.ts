@@ -3,8 +3,11 @@ export { createAuthComponent } from './create-auth-component'
 export { requireAuthOrigin } from './origin'
 export { convexAuth } from './plugin'
 export { getConvexAuthProvider } from './provider'
-export { verifyOAuthBearerToken } from './oauth-resource'
+export { createBetterAuthMcpAccessVerifier, verifyOAuthBearerToken } from './oauth-resource'
 
 export type { AuthCtx } from './context'
 export type { AuthComponentTriggers, AuthFunctions, CreateAuth } from './types'
-export type { VerifyOAuthBearerTokenOptions } from './oauth-resource'
+export type {
+  BetterAuthMcpAccessVerifierOptions,
+  VerifyOAuthBearerTokenOptions,
+} from './oauth-resource'

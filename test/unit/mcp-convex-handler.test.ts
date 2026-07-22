@@ -46,7 +46,7 @@ describe('Convex-native official MCP handler composition', () => {
     }
     const observedAccess: unknown[] = []
     const observedOfficialAuth: unknown[] = []
-    const handler = createConvexMcpHandler({
+    const handler = createConvexMcpHandler<typeof application>({
       resource,
       verifier: accessVerifier(),
       oauthMetadata,
