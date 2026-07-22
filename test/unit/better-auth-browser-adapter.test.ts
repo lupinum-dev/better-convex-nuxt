@@ -56,7 +56,7 @@ describe('Better Auth browser adapter', () => {
     }
     expect(adapter.snapshot()).toMatchObject({
       status: 'authenticated',
-      identityKey: 'user:alice',
+      identityKey: 'alice',
       sessionGeneration: 1,
     })
     expect(JSON.stringify(adapter.snapshot())).not.toContain('session-secret')

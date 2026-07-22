@@ -34,10 +34,7 @@ class FakeAdapter implements BrowserAuthAdapter {
   }
 }
 
-function authSnapshot(
-  identityKey: `user:${string}`,
-  sessionGeneration: number,
-): BrowserAuthSnapshot {
+function authSnapshot(identityKey: string, sessionGeneration: number): BrowserAuthSnapshot {
   return { status: 'authenticated', identityKey, sessionGeneration, error: null }
 }
 
@@ -110,9 +107,7 @@ describe('provider-neutral auth adapter identity port', () => {
     const listeners = new Set<() => void>()
     const adapter: BrowserAuthAdapter = {
       snapshot: () =>
-        session
-          ? authSnapshot(`user:${session.user.id}`, generation)
-          : anonymousSnapshot(generation),
+        session ? authSnapshot(session.user.id, generation) : anonymousSnapshot(generation),
       subscribe(listener) {
         listeners.add(listener)
         return () => listeners.delete(listener)
@@ -156,7 +151,7 @@ describe('provider-neutral auth adapter identity port', () => {
     owner.attachIdentityPort(port)
 
     const oldClient = clients[0]!
-    adapter.emit(authSnapshot('user:alice', 1))
+    adapter.emit(authSnapshot('alice', 1))
 
     expect(port.snapshot()).toMatchObject({
       settled: false,
@@ -179,7 +174,7 @@ describe('provider-neutral auth adapter identity port', () => {
   })
 
   it('keeps the client for same-session refresh and replaces for same-user new session', async () => {
-    const adapter = new FakeAdapter(authSnapshot('user:alice', 4))
+    const adapter = new FakeAdapter(authSnapshot('alice', 4))
     const client = fakeClient()
     const port = createAuthAdapterIdentityPort(adapter)
 
@@ -188,12 +183,12 @@ describe('provider-neutral auth adapter identity port', () => {
     await initial
     const initialGeneration = port.snapshot().identityGeneration
 
-    adapter.emit(authSnapshot('user:alice', 4))
+    adapter.emit(authSnapshot('alice', 4))
     expect(port.snapshot().identityGeneration).toBe(initialGeneration)
     expect(client.setAuthCalls).toBe(2)
     await client.confirm(true)
 
-    adapter.emit(authSnapshot('user:alice', 5))
+    adapter.emit(authSnapshot('alice', 5))
     expect(port.snapshot()).toMatchObject({
       settled: false,
       identityGeneration: initialGeneration + 1,
@@ -202,7 +197,7 @@ describe('provider-neutral auth adapter identity port', () => {
   })
 
   it('fails closed when Convex later rejects a confirmed credential', async () => {
-    const adapter = new FakeAdapter(authSnapshot('user:alice', 1))
+    const adapter = new FakeAdapter(authSnapshot('alice', 1))
     const client = fakeClient()
     const port = createAuthAdapterIdentityPort(adapter)
     const initial = port.initializePrimary(client as unknown as ConvexClient)
@@ -220,10 +215,10 @@ describe('provider-neutral auth adapter identity port', () => {
   })
 
   it('retires Alice for Bob and for revocation before either replacement settles', () => {
-    const adapter = new FakeAdapter(authSnapshot('user:alice', 1))
+    const adapter = new FakeAdapter(authSnapshot('alice', 1))
     const port = createAuthAdapterIdentityPort(adapter)
 
-    adapter.emit(authSnapshot('user:bob', 2))
+    adapter.emit(authSnapshot('bob', 2))
     expect(port.snapshot()).toMatchObject({
       identityKey: 'user:bob',
       identityGeneration: 1,
@@ -251,7 +246,7 @@ describe('provider-neutral auth adapter identity port', () => {
       fetchToken: async () => 'custom-provider-token-sentinel',
     }
     const port = createAuthAdapterIdentityPort(customProvider)
-    providerState = authSnapshot('user:custom-subject', 1)
+    providerState = authSnapshot('custom-subject', 1)
     for (const listener of [...listeners]) listener()
 
     const serialized = JSON.stringify(port.snapshot())

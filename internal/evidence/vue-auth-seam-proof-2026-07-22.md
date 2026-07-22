@@ -1,8 +1,8 @@
-# Vue auth seam proof — stage 1
+# Vue auth seam admission proof
 
 Date: 2026-07-22
 
-Task: `P4-002` (still in progress)
+Task: `P4-002`
 
 ## Outcome
 
@@ -68,10 +68,9 @@ pnpm run check:boundaries
 Results: 5 unit files / 71 tests and 8 security files / 29 tests passed; module, server, and fixture
 typechecks passed; 12 architecture rules over 247 files passed; focused lint and format passed.
 
-## Remaining before `P4-002` is done
+## Required next cutover proof
 
-This stage intentionally does not replace the current production coordinator. The next stage must drive
+This proof intentionally does not replace the current production coordinator. `P4-003` must drive
 the existing Better Auth sign-in, sign-out, refresh, SSR hydration, transient-retention, and
-session-correlation suites through the new seam. Only equivalent executed behavior permits amending the
-public API admission and performing the atomic Vue package/Nuxt cut. No temporary cross-package source
-import is allowed.
+session-correlation suites through the new seam while performing the atomic Vue package/Nuxt cut. No
+temporary cross-package source import is allowed.

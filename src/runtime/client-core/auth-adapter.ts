@@ -1,7 +1,6 @@
 import type { AuthTokenFetcher, ConvexClient } from 'convex/browser'
 
 import { ConvexCallError } from '../errors'
-import type { ConvexIdentityKey } from './identity-key'
 import type { ClientIdentityPort, ClientIdentitySnapshot } from './identity-port'
 
 export type BrowserAuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'error'
@@ -9,7 +8,8 @@ export type BrowserAuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'err
 /** Candidate provider-neutral boundary. Kept private until the Phase 4 proof passes. */
 export interface BrowserAuthSnapshot {
   readonly status: BrowserAuthStatus
-  readonly identityKey: ConvexIdentityKey | null
+  /** Stable, non-secret provider subject used only for local state isolation. */
+  readonly identityKey: string | null
   /** Non-secret monotonic credential lifecycle owned by the provider adapter. */
   readonly sessionGeneration: number
   readonly error: Error | null
@@ -42,10 +42,12 @@ function validateSnapshot(snapshot: BrowserAuthSnapshot): BrowserAuthSnapshot {
     throw new TypeError('Auth adapter sessionGeneration must be a non-negative safe integer.')
   }
   if (snapshot.status === 'authenticated') {
-    if (!snapshot.identityKey || snapshot.identityKey === 'anonymous') {
-      throw new TypeError('An authenticated auth adapter snapshot requires a user identityKey.')
+    if (typeof snapshot.identityKey !== 'string' || snapshot.identityKey.length === 0) {
+      throw new TypeError(
+        'An authenticated auth adapter snapshot requires a non-empty identityKey.',
+      )
     }
-  } else if (snapshot.identityKey !== null && snapshot.identityKey !== 'anonymous') {
+  } else if (snapshot.identityKey !== null) {
     throw new TypeError(
       'A non-authenticated auth adapter snapshot cannot carry a user identityKey.',
     )
@@ -54,6 +56,10 @@ function validateSnapshot(snapshot: BrowserAuthSnapshot): BrowserAuthSnapshot {
     throw new TypeError('An error auth adapter snapshot requires an Error.')
   }
   return snapshot
+}
+
+function clientIdentityKey(snapshot: BrowserAuthSnapshot): ClientIdentitySnapshot['identityKey'] {
+  return snapshot.status === 'authenticated' ? `user:${snapshot.identityKey}` : 'anonymous'
 }
 
 function publicError(snapshot: BrowserAuthSnapshot): ConvexCallError | null {
@@ -83,7 +89,7 @@ export function createAuthAdapterIdentityPort(
   let snapshot: ClientIdentitySnapshot = {
     authEnabled: true,
     settled: initialSettled,
-    identityKey: desired.status === 'authenticated' ? desired.identityKey : 'anonymous',
+    identityKey: clientIdentityKey(desired),
     authEpoch,
     identityGeneration,
     error: publicError(desired),
@@ -215,7 +221,7 @@ export function createAuthAdapterIdentityPort(
       publish({
         authEnabled: true,
         settled: next.status === 'anonymous' || next.status === 'error',
-        identityKey: next.status === 'authenticated' ? next.identityKey : 'anonymous',
+        identityKey: clientIdentityKey(next),
         authEpoch,
         identityGeneration,
         error: publicError(next),

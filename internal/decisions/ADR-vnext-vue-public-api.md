@@ -1,6 +1,6 @@
 # ADR: minimum `better-convex-vue` public API
 
-- Status: accepted for Phase 4 implementation
+- Status: accepted for Phase 4 implementation; auth seam amended by `D-014`
 - Date: 2026-07-22
 - Task: `P4-001`
 - Depends on: `D-011`, `D-012`, completed Phase 3 lifecycle and packed Nuxt evidence
@@ -12,10 +12,10 @@ composables, one safe error class, and one isolated embedded-host subpath. Contr
 identity machinery, query gates, normalizers, test harnesses, and provider-specific auth clients stay
 private.
 
-The initial package supports anonymous and attached-runtime installation. A provider-neutral browser
-auth adapter is deliberately **not** admitted by this decision: `P4-005` must prove the exact adapter
-with the existing Nuxt/Better Auth behavior and a materially different provider callback, then amend
-this admission record before exporting it.
+The initial package supports anonymous, provider-authenticated, and attached-runtime installation.
+`P4-002` subsequently proved and admitted the provider-neutral browser auth adapter with the existing
+Better Auth session/token contracts and a materially different callback provider. `D-014` records why
+that proof had to precede the atomic source move.
 
 ### Accepted value exports
 
@@ -38,6 +38,10 @@ ConvexCallError
 {
   convexUrl: string
 } // standalone anonymous runtime
+{
+  convexUrl: string
+  auth: BetterConvexAuthAdapter
+} // standalone provider-authenticated runtime
 {
   runtime: BetterConvexAttachedRuntime
 } // host-owned opaque runtime
@@ -87,7 +91,7 @@ do not create parallel runtime entry points.
 - `enabled` alongside `'skip'`;
 - pagination `pageData`, facets, or arbitrary metadata merge;
 - auth provider/client methods, user objects, session IDs, or token refs;
-- a public provider-neutral auth adapter before `P4-005` passes two-provider evidence;
+- provider clients, provider user/session objects, token refs, raw clients, roles, or permissions;
 - Nuxt-only file upload, storage URL, shared-SSR-query, config, user, and Better Auth composables;
 - optimistic helper convenience exports in the Vue package. The official `OptimisticLocalStore` API is
   sufficient; Nuxt may retain its existing compatibility helpers without making them a new Vue
@@ -196,6 +200,56 @@ of the value they describe.
     Ginko custom lifecycle only after external authorization and proof.
 12. **Failure/rollback:** detach the embedded runtime and retain the host; no token or persistent state
     crosses the seam.
+
+### E. Provider-neutral browser auth adapter (`D-014` amendment)
+
+The only additional public declarations admitted are:
+
+```ts
+interface BetterConvexAuthSnapshot {
+  status: 'loading' | 'authenticated' | 'anonymous' | 'error'
+  identityKey: string | null
+  sessionGeneration: number
+  error: Error | null
+}
+
+interface BetterConvexAuthAdapter {
+  snapshot(): BetterConvexAuthSnapshot
+  subscribe(listener: () => void): () => void
+  fetchToken(input: { forceRefreshToken: boolean }): Promise<string | null>
+}
+```
+
+1. **Repeated problem:** Better Auth, a callback provider, and embedded hosts all need identity-safe
+   lifecycle without making the Vue package depend on a provider SDK.
+2. **Official direct solution:** Convex accepts a token fetcher but does not supply a Vue provider
+   boundary with identity/session generations or replacement-safe state retirement.
+3. **Existing simplification:** use the official token-fetcher signature plus one plain snapshot and
+   subscription; do not expose a provider client, raw Convex client, or auth state machine controls.
+4. **Two consumers:** the existing Better Auth public session/token contracts and an independent
+   callback-style provider passed the private proof.
+5. **Source of truth:** the provider session remains authentication source; the adapter snapshot is a
+   disposable local observation and never application authorization.
+6. **New expensive state:** one in-memory session counter and cached still-usable token inside the
+   first-party adapter; no persistence, table, registry, job, or provider model.
+7. **Discard:** adapter/runtime disposal unsubscribes once and drops the cached token, listeners, and
+   raw client references.
+8. **Invalid states prevented:** authenticated requires a non-empty key; every other state requires a
+   null key; the non-negative safe-integer generation must change for replacement/revocation.
+9. **Authorization:** none. The identity key partitions local state only; Convex functions re-read and
+   enforce application authority.
+10. **Packed proof:** authenticated exact-tarball Vite plus unchanged Nuxt auth/SSR/revocation suites in
+    the atomic cut.
+11. **Deletion:** current coordinator-to-owner private control seam and proof-only provider adapters
+    after maintained package consumers replace them.
+12. **Failure/rollback:** reject the adapter before publication or roll both beta packages to the last
+    certified pair; no persistent state migration exists.
+
+The adapter never receives `setAuth`, a raw client, replacement/disposal controls, provider user/session
+objects, roles, permissions, or server secrets. `identityKey` is a non-secret provider subject used only
+for local isolation. `sessionGeneration` changes on replacement/revocation, including same-user new
+sessions; safe over-retirement is allowed when a provider cannot distinguish refresh from replacement.
+Better Convex owns raw clients, server confirmation, identity retirement, and disposal.
 
 ## Consequence
 

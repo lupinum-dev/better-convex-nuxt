@@ -1,7 +1,6 @@
 import { watch, type Ref } from 'vue'
 
 import type { BrowserAuthAdapter, BrowserAuthSnapshot } from '../client-core/auth-adapter'
-import { getConvexIdentityKey } from '../utils/identity-key'
 import { fetchConvexToken, isTokenUsable, type ConvexTokenSource } from './token-fetcher'
 
 interface BetterAuthSessionState {
@@ -30,7 +29,7 @@ export function createBetterAuthBrowserAdapter(
   let disposed = false
   let sessionGeneration = 0
   let observedSessionToken: string | null | undefined
-  let observedIdentityKey: `user:${string}` | null | undefined
+  let observedIdentityKey: string | null | undefined
   let cachedToken: string | null = null
   let snapshot: BrowserAuthSnapshot = {
     status: 'loading',
@@ -55,8 +54,7 @@ export function createBetterAuthBrowserAdapter(
       typeof rawSessionToken === 'string' && rawSessionToken.length > 0 ? rawSessionToken : null
     const rawUserId = value.data?.user?.id
     const userId = typeof rawUserId === 'string' && rawUserId.length > 0 ? rawUserId : null
-    const identityKey = userId ? getConvexIdentityKey({ id: userId }) : null
-    const key = identityKey && identityKey !== 'anonymous' ? identityKey : null
+    const key = userId
 
     if (value.isPending === true) {
       snapshot = { status: 'loading', identityKey: null, sessionGeneration, error: null }
@@ -130,7 +128,7 @@ export function createBetterAuthBrowserAdapter(
         return null
       }
       if (outcome.identity) {
-        const fetchedKey = getConvexIdentityKey(outcome.identity.user)
+        const fetchedKey = outcome.identity.user.id
         if (fetchedKey !== expectedKey) {
           cachedToken = null
           return null
