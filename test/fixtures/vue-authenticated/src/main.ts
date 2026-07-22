@@ -1,13 +1,65 @@
 import {
   createBetterConvex,
+  useConvexAction,
+  useConvexMutation,
+  useConvexPaginatedQuery,
+  useConvexQuery,
   type BetterConvexAuthAdapter,
   type BetterConvexAuthSnapshot,
 } from 'better-convex-vue'
-import { createApp, defineComponent, h, onUnmounted, ref } from 'vue'
+import {
+  makeFunctionReference,
+  type FunctionReference,
+  type PaginationOptions,
+  type PaginationResult,
+} from 'convex/server'
+import { createApp, defineComponent, h, nextTick, onUnmounted, ref } from 'vue'
 
-import { readMockStats, rejectCurrentCredential } from './mock-convex-browser'
+import {
+  emitLatestSubscription,
+  failLatestSubscription,
+  failNextCall,
+  readMockStats,
+  readSubscriptions,
+  rejectCurrentCredential,
+  resolveDeferredMutation,
+} from './mock-convex-browser'
 
 type AuthStatus = BetterConvexAuthSnapshot['status']
+interface Note {
+  id: string
+}
+interface OperationValue {
+  operation: 'mutation' | 'action'
+  value: string
+}
+
+const notesQuery = makeFunctionReference<'query'>('notes:list') as FunctionReference<
+  'query',
+  'public',
+  { owner: string },
+  Note[]
+>
+const paginatedNotesQuery = makeFunctionReference<'query'>(
+  'notes:listPaginated',
+) as FunctionReference<
+  'query',
+  'public',
+  { owner: string; paginationOpts: PaginationOptions },
+  PaginationResult<Note>
+>
+const writeNote = makeFunctionReference<'mutation'>('notes:write') as FunctionReference<
+  'mutation',
+  'public',
+  { value: string; defer?: boolean },
+  OperationValue
+>
+const generateNote = makeFunctionReference<'action'>('notes:generate') as FunctionReference<
+  'action',
+  'public',
+  { value: string },
+  OperationValue
+>
 
 let authSnapshot: BetterConvexAuthSnapshot = {
   status: 'loading',
@@ -31,6 +83,9 @@ const plugin = createBetterConvex({
   auth: adapter,
 })
 const renderedSnapshot = ref('loading')
+const queryOwner = ref('alice')
+let operations: ReturnType<typeof createOperations> | null = null
+let deferredMutation: Promise<OperationValue> | null = null
 
 function safeSnapshot() {
   return plugin.attachment().identity.snapshot()
@@ -40,9 +95,75 @@ function renderSnapshot(): void {
   renderedSnapshot.value = JSON.stringify(safeSnapshot())
 }
 
+function serializeError(error: unknown) {
+  if (!error || typeof error !== 'object') return null
+  const candidate = error as {
+    name?: unknown
+    kind?: unknown
+    message?: unknown
+    code?: unknown
+    status?: unknown
+    data?: unknown
+  }
+  return {
+    name: candidate.name,
+    kind: candidate.kind,
+    message: candidate.message,
+    code: candidate.code,
+    status: candidate.status,
+    data: candidate.data,
+  }
+}
+
+function createOperations() {
+  const query = useConvexQuery(notesQuery, () => ({ owner: queryOwner.value }))
+  const pagination = useConvexPaginatedQuery(
+    paginatedNotesQuery,
+    () => ({ owner: queryOwner.value }),
+    { initialNumItems: 1 },
+  )
+  const mutation = useConvexMutation(writeNote)
+  const action = useConvexAction(generateNote)
+  return { query, pagination, mutation, action }
+}
+
+function operationSnapshot() {
+  if (!operations) throw new Error('Operation composables are not mounted')
+  return {
+    owner: queryOwner.value,
+    query: {
+      data: operations.query.data.value,
+      status: operations.query.status.value,
+      pending: operations.query.pending.value,
+      error: serializeError(operations.query.error.value),
+    },
+    pagination: {
+      results: operations.pagination.results.value,
+      status: operations.pagination.status.value,
+      loading: operations.pagination.isLoading.value,
+      stale: operations.pagination.isStale.value,
+      hasNextPage: operations.pagination.hasNextPage.value,
+      error: serializeError(operations.pagination.error.value),
+    },
+    mutation: {
+      data: operations.mutation.data.value,
+      status: operations.mutation.status.value,
+      pending: operations.mutation.pending.value,
+      error: serializeError(operations.mutation.error.value),
+    },
+    action: {
+      data: operations.action.data.value,
+      status: operations.action.status.value,
+      pending: operations.action.pending.value,
+      error: serializeError(operations.action.error.value),
+    },
+  }
+}
+
 const AuthenticatedConsumer = defineComponent({
   setup() {
     const stop = plugin.attachment().identity.subscribe(renderSnapshot)
+    operations = createOperations()
     onUnmounted(stop)
     renderSnapshot()
     return () =>
@@ -75,6 +196,7 @@ async function transition(
   }
   for (const listener of [...authListeners]) listener()
   await plugin.ready()
+  await nextTick()
   renderSnapshot()
   return safeSnapshot()
 }
@@ -82,10 +204,64 @@ async function transition(
 Object.assign(window, {
   __betterConvexAuthProof: {
     snapshot: safeSnapshot,
+    operationSnapshot,
+    subscriptions: readSubscriptions,
     attachmentKeys: () => Object.keys(plugin.attachment()).sort(),
     clientKeys: () => Object.keys(plugin.attachment().client).sort(),
     stats: readMockStats,
     transition,
+    emitQuery(value: Note[]) {
+      emitLatestSubscription('notes:list', value)
+      return operationSnapshot()
+    },
+    emitPage(cursor: string | null, value: PaginationResult<Note>) {
+      emitLatestSubscription('notes:listPaginated', value, cursor)
+      return operationSnapshot()
+    },
+    loadMore(count = 1) {
+      if (!operations) throw new Error('Operation composables are not mounted')
+      operations.pagination.loadMore(count)
+      return operationSnapshot()
+    },
+    async setOwner(owner: string) {
+      queryOwner.value = owner
+      await nextTick()
+      return operationSnapshot()
+    },
+    failQuery(message: string) {
+      failLatestSubscription('notes:list', message)
+      return operationSnapshot()
+    },
+    async runMutation(value: string) {
+      if (!operations) throw new Error('Operation composables are not mounted')
+      return await operations.mutation({ value })
+    },
+    async runAction(value: string) {
+      if (!operations) throw new Error('Operation composables are not mounted')
+      return await operations.action({ value })
+    },
+    async safeMutation(kind: 'plain' | 'application', message: string) {
+      if (!operations) throw new Error('Operation composables are not mounted')
+      failNextCall('mutation', kind, message)
+      const result = await operations.mutation.safe({ value: 'denied' })
+      return result.ok ? result : { ok: false, error: serializeError(result.error) }
+    },
+    startDeferredMutation() {
+      if (!operations) throw new Error('Operation composables are not mounted')
+      deferredMutation = operations.mutation({ value: 'late', defer: true })
+      return operationSnapshot()
+    },
+    async finishDeferredMutation(value: string) {
+      if (!deferredMutation) throw new Error('No deferred mutation promise is pending')
+      const pending = deferredMutation
+      resolveDeferredMutation({ operation: 'mutation', value })
+      deferredMutation = null
+      try {
+        return { ok: true, data: await pending }
+      } catch (error) {
+        return { ok: false, error: serializeError(error) }
+      }
+    },
     async refresh() {
       await plugin.refreshAuth()
       renderSnapshot()

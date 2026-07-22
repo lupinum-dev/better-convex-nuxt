@@ -179,6 +179,26 @@ describe('query controller', () => {
     expect(controller.defaultValue()).toEqual({ owner: 'alice', count: 1 })
   })
 
+  it('clears the prior result on an args boundary when previous data is disabled', () => {
+    const { controller, state } = makeHarness({ keepPreviousData: false })
+    controller.setupSubscription()
+    state.active?.value({ owner: 'alice', count: 1 })
+
+    state.setArgs({ page: 2 }, 'page:2', 'notes:list:alice:page:2')
+    controller.handleExecutionBoundary({
+      nextBoundaryKey: 'notes:list:alice:page:2',
+      previousBoundaryKey: 'notes:list:alice:page:1',
+      nextLive: true,
+      previousLive: true,
+      nextIdle: false,
+    })
+
+    expect(state.data).toBeNull()
+    expect(controller.isStale({ idle: false, pending: true })).toBe(false)
+    expect(state.unsubscribes).toBe(1)
+    expect(state.active).toBeDefined()
+  })
+
   it('clears protected and previous data when the execution gate becomes idle', () => {
     const { controller, state } = makeHarness()
     controller.setupSubscription()

@@ -65,6 +65,14 @@ function assertSnapshot(snapshot, expected) {
   }
 }
 
+function assertDeepEqual(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(
+      `${label} expected ${JSON.stringify(expected)}; received ${JSON.stringify(actual)}`,
+    )
+  }
+}
+
 let preview = null
 let browser = null
 try {
@@ -127,11 +135,127 @@ try {
     identityKey: 'anonymous',
     identityGeneration: 1,
   })
+
+  let operations = await invoke('operationSnapshot')
+  assertDeepEqual(
+    operations.query,
+    {
+      data: null,
+      status: 'pending',
+      pending: true,
+      error: null,
+    },
+    'Initial live query state',
+  )
+  assertDeepEqual(
+    operations.pagination,
+    {
+      results: [],
+      status: 'loading-first-page',
+      loading: true,
+      stale: false,
+      hasNextPage: false,
+      error: null,
+    },
+    'Initial pagination state',
+  )
+
+  operations = await invoke('emitQuery', [{ id: 'query-a' }])
+  assertDeepEqual(operations.query.data, [{ id: 'query-a' }], 'Live query result')
+  assertDeepEqual(operations.query.status, 'success', 'Live query status')
+
+  operations = await invoke('emitPage', null, {
+    page: [{ id: 'page-a' }],
+    continueCursor: 'cursor-empty',
+    isDone: false,
+  })
+  assertDeepEqual(operations.pagination.results, [{ id: 'page-a' }], 'First page')
+  assertDeepEqual(operations.pagination.hasNextPage, true, 'First page continuation')
+  await invoke('loadMore', 1)
+  operations = await invoke('emitPage', 'cursor-empty', {
+    page: [],
+    continueCursor: 'cursor-tail',
+    isDone: false,
+  })
+  assertDeepEqual(operations.pagination.results, [{ id: 'page-a' }], 'Empty continuation page')
+  assertDeepEqual(operations.pagination.hasNextPage, true, 'Empty page continuation')
+  await invoke('loadMore', 1)
+  operations = await invoke('emitPage', 'cursor-tail', {
+    page: [{ id: 'page-b' }],
+    continueCursor: '',
+    isDone: true,
+  })
+  assertDeepEqual(
+    operations.pagination.results,
+    [{ id: 'page-a' }, { id: 'page-b' }],
+    'Pagination cursor chain',
+  )
+  assertDeepEqual(operations.pagination.status, 'exhausted', 'Pagination exhaustion')
+
+  const subscriptionsBeforeArgsChange = await invoke('subscriptions')
+  operations = await invoke('setOwner', 'bob')
+  assertDeepEqual(operations.query.data, null, 'Query data after argument boundary')
+  assertDeepEqual(operations.pagination.results, [], 'Pagination after argument boundary')
+  const subscriptionsAfterArgsChange = await invoke('subscriptions')
+  if (
+    subscriptionsAfterArgsChange
+      .filter((subscription) =>
+        subscriptionsBeforeArgsChange.some((previous) => previous.id === subscription.id),
+      )
+      .some((subscription) => subscription.active)
+  ) {
+    throw new Error('Argument change left a prior subscription active')
+  }
+  operations = await invoke('failQuery', 'Fixture query failure')
+  assertDeepEqual(operations.query.status, 'error', 'Query error status')
+  assertDeepEqual(operations.query.error.kind, 'unknown', 'Query error classification')
+  operations = await invoke('setOwner', 'bob-recovered')
+  assertDeepEqual(operations.query.error, null, 'Query error recovery')
+  operations = await invoke('emitQuery', [{ id: 'query-b' }])
+  assertDeepEqual(operations.query.data, [{ id: 'query-b' }], 'Query after argument change')
+  operations = await invoke('emitPage', null, {
+    page: [{ id: 'page-bob' }],
+    continueCursor: '',
+    isDone: true,
+  })
+  assertDeepEqual(operations.pagination.results, [{ id: 'page-bob' }], 'Page after args change')
+
+  assertDeepEqual(
+    await invoke('runMutation', 'write'),
+    { operation: 'mutation', value: 'write' },
+    'Mutation result',
+  )
+  assertDeepEqual(
+    await invoke('runAction', 'work'),
+    { operation: 'action', value: 'work' },
+    'Action result',
+  )
+  let safeFailure = await invoke('safeMutation', 'plain', 'Fixture client failure')
+  assertDeepEqual(safeFailure.ok, false, 'Plain error safe result')
+  assertDeepEqual(safeFailure.error.kind, 'unknown', 'Plain error classification')
+  safeFailure = await invoke('safeMutation', 'application', 'ignored')
+  assertDeepEqual(safeFailure.ok, false, 'Application error safe result')
+  assertDeepEqual(safeFailure.error.kind, 'server', 'Application error classification')
+  assertDeepEqual(
+    safeFailure.error.data,
+    { code: 'FIXTURE_DENIED', reason: 'fixture-policy' },
+    'Application error data',
+  )
+
+  operations = await invoke('startDeferredMutation')
+  assertDeepEqual(operations.mutation.status, 'pending', 'Deferred mutation pending state')
   assertSnapshot(await invoke('transition', 'authenticated', 'alice', 2, tokenSentinel), {
     settled: true,
     identityKey: 'user:alice',
     identityGeneration: 2,
   })
+  operations = await invoke('operationSnapshot')
+  assertDeepEqual(operations.query.data, null, 'Query retirement across identity')
+  assertDeepEqual(operations.pagination.results, [], 'Pagination retirement across identity')
+  assertDeepEqual(operations.mutation.status, 'idle', 'Mutation retirement across identity')
+  const retiredMutation = await invoke('finishDeferredMutation', 'should-not-commit')
+  assertDeepEqual(retiredMutation.ok, false, 'Retired mutation completion')
+  assertDeepEqual(retiredMutation.error.code, 'IDENTITY_CHANGED', 'Retired mutation code')
   const beforeProviderRefresh = await invoke('stats')
   assertSnapshot(await invoke('transition', 'authenticated', 'alice', 2, tokenSentinel), {
     settled: true,

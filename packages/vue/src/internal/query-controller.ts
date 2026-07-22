@@ -260,6 +260,9 @@ export function createQueryController<RawT, DataT = RawT>(
       input.boundary.clearAsyncError()
       return
     }
+    if (!input.keepPreviousData && boundary.nextBoundaryKey !== boundary.previousBoundaryKey) {
+      input.boundary.clearData()
+    }
     if (boundary.nextLive) setupSubscription()
   }
 
