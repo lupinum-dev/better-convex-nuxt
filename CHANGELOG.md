@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.8.0-beta.4
+
+- Bind auth-schema release certification to the exact immutable Nuxt and Vue
+  candidate tarballs, so unpublished companion versions never fall through to
+  the public registry during packed deployment proof.
+
 ## v0.8.0-beta.3
 
 - Settle auth-enabled anonymous Vue clients through the exact
