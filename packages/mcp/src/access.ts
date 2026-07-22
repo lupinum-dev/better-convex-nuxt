@@ -81,7 +81,7 @@ function normalizeVerifiedAccess(
 function canonicalIssuer(value: string): string {
   const issuer = new URL(value)
   if (
-    issuer.protocol !== 'https:' ||
+    !isSecureResource(issuer) ||
     issuer.username ||
     issuer.password ||
     issuer.search ||

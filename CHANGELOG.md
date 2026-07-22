@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.1.0-beta.0 (`@better-convex/mcp`)
+
+- Add the experimental provider-neutral Convex-native MCP package on the locked
+  `2026-07-28` release candidate and exact official TypeScript SDK beta.
+- Certify one immutable package through direct public-client PKCE with Better
+  Auth and an independent signed-token verifier, both deployed through real
+  Convex HTTP Actions without bearer-token passthrough.
+- Prove locked-RC stateless discovery, tools, live authorization and revocation,
+  safe application failures, transport bounds, and explicit unsupported
+  capabilities while retaining truthful legacy conformance evidence.
+
 ## v0.8.0-beta.4
 
 - Bind auth-schema release certification to the exact immutable Nuxt and Vue

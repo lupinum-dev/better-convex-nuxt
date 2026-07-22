@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { createServer } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { createHash, randomBytes } from 'node:crypto'
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { oauthProviderResourceClient } from '@better-auth/oauth-provider/resource-client'
@@ -18,12 +15,7 @@ import {
   MCP_FIXTURE_SCOPE,
   MCP_REMOTE_CALLBACK,
   MCP_TOOL_NAMES,
-  assertNoJwtShapedValue,
-  buildMcpRemoteArgs,
-  buildMcpRemoteClientInfo,
-  buildMcpRemoteClientMetadata,
   normalizeEvidenceOrigin,
-  redactEvidenceLog,
 } from './mcp-auth-contracts.mjs'
 import {
   parseMcpEvidenceFixtureConfiguration,
@@ -33,64 +25,7 @@ import {
 
 const INSPECTOR_ORIGIN = 'http://localhost:6274'
 const AUTH_TIMEOUT_MS = 60_000
-const PROCESS_TIMEOUT_MS = 90_000
-const MAX_CAPTURE_BYTES = 1024 * 1024
 const SIGN_IN_RATE_LIMIT_WINDOW_MS = 10_000
-
-function capture(stream) {
-  let text = ''
-  stream?.setEncoding('utf8')
-  stream?.on('data', (chunk) => {
-    text = (text + chunk).slice(-MAX_CAPTURE_BYTES)
-  })
-  return () => text
-}
-
-function safeEvidenceLog(value, secrets = []) {
-  assertNoJwtShapedValue(value)
-  return redactEvidenceLog(value, secrets)
-}
-
-async function waitUntil(check, description, timeout = PROCESS_TIMEOUT_MS) {
-  const deadline = Date.now() + timeout
-  while (Date.now() < deadline) {
-    const value = await check()
-    if (value) return value
-    await new Promise((ready) => setTimeout(ready, 100))
-  }
-  throw new Error(`Timed out waiting for ${description}`)
-}
-
-async function assertPortAvailable(port, host) {
-  const server = createServer()
-  await new Promise((ready, reject) => {
-    server.once('error', reject)
-    server.listen(port, host, ready)
-  }).catch((error) => {
-    throw new Error(`Required MCP fixture port ${host}:${port} is unavailable: ${error.message}`)
-  })
-  await new Promise((ready, reject) => server.close((error) => (error ? reject(error) : ready())))
-}
-
-function terminate(child, signal = 'SIGTERM') {
-  if (!child.pid || child.exitCode !== null) return
-  if (process.platform === 'win32') return child.kill(signal)
-  try {
-    process.kill(-child.pid, signal)
-  } catch {
-    child.kill(signal)
-  }
-}
-
-async function stopProcess(child) {
-  if (child.exitCode !== null) return
-  terminate(child)
-  const exited = await Promise.race([
-    new Promise((ready) => child.once('exit', () => ready(true))),
-    new Promise((ready) => setTimeout(() => ready(false), 2_000)),
-  ])
-  if (!exited) terminate(child, 'SIGKILL')
-}
 
 function safeChildEnvironment() {
   return safeMcpFixtureChildEnvironment()
@@ -213,121 +148,147 @@ async function runLocalMcpTests(root) {
   }
 }
 
-async function waitForInspector() {
-  await waitUntil(async () => {
-    try {
-      const response = await fetch(INSPECTOR_ORIGIN, { redirect: 'manual' })
-      await response.body?.cancel().catch(() => {})
-      return response.status >= 200 && response.status < 500
-    } catch {
-      return false
-    }
-  }, 'MCP Inspector UI readiness')
-}
-
-async function readInspectorAccessToken(page) {
-  try {
-    return await page.evaluate(() => {
-      if (typeof globalThis.__bcnMcpAccessToken === 'string') {
-        return globalThis.__bcnMcpAccessToken
-      }
-      for (let index = 0; index < sessionStorage.length; index += 1) {
-        const key = sessionStorage.key(index)
-        const value = key ? sessionStorage.getItem(key) : null
-        if (!value) continue
-        try {
-          const accessToken = JSON.parse(value)?.access_token
-          if (typeof accessToken === 'string') return accessToken
-        } catch {
-          // Non-JSON Inspector settings cannot hold OAuth tokens.
-        }
-      }
-      return undefined
-    })
-  } catch {
-    // OAuth callback navigation can replace the execution context between the
-    // URL read and this storage read. The next bounded poll observes it.
-    return undefined
-  }
-}
-
-async function completeAuthorization(
-  page,
-  origin,
+async function acquirePublicClientToken({
+  browser,
   callback,
-  {
-    email: fixtureEmail,
-    password: fixturePassword,
-    readCapturedAccessToken,
-    readOAuthFailure,
-  } = {},
-) {
-  const expectedCallback = new URL(callback)
-  const deadline = Date.now() + AUTH_TIMEOUT_MS
-  let signedIn = false
-  let approved = false
-  while (Date.now() < deadline) {
-    const current = new URL(page.url())
-    const callbackReached =
-      current.origin === expectedCallback.origin &&
-      current.pathname === expectedCallback.pathname &&
-      current.hash === expectedCallback.hash &&
-      current.username === '' &&
-      current.password === '' &&
-      current.search.length <= 4096 &&
-      [...current.searchParams.keys()].every(
-        (name) =>
-          ['code', 'error', 'error_description', 'error_uri', 'iss', 'state'].includes(name) &&
-          current.searchParams.getAll(name).length === 1,
-      )
-    if (callbackReached) {
-      if (current.searchParams.get('iss') !== `${origin}/api/auth`) {
-        throw new Error('OAuth callback did not preserve the exact authorization issuer')
-      }
-      if (current.origin !== INSPECTOR_ORIGIN) return undefined
-    }
-    if (current.origin !== origin && current.origin !== INSPECTOR_ORIGIN) {
-      throw new Error(`OAuth browser escaped the fixed fixture origins to ${current.origin}`)
-    }
-    if (current.origin === INSPECTOR_ORIGIN) {
-      const accessToken = readCapturedAccessToken?.() ?? (await readInspectorAccessToken(page))
-      if (accessToken) return accessToken
-      const oauthFailure = readOAuthFailure?.()
-      if (oauthFailure) throw new Error(`Inspector OAuth token exchange rejected (${oauthFailure})`)
-    }
-
-    const email = page.getByTestId('email')
-    if (!signedIn && (await email.isVisible().catch(() => false))) {
-      await email.fill(fixtureEmail)
-      await page.getByTestId('password').fill(fixturePassword)
-      await page.getByTestId('sign-in').click()
-      signedIn = true
-      continue
-    }
-    const approve = page.getByTestId('approve-consent')
-    if (!approved && (await approve.isVisible().catch(() => false))) {
-      await approve.click()
-      approved = true
-      continue
-    }
-    const alert = page.getByRole('alert').first()
-    if (await alert.isVisible().catch(() => false)) {
-      const text = (await alert.textContent())?.trim()
-      throw new Error(
-        text === 'Sign in failed'
-          ? 'Fixture administrator sign-in failed on the OAuth login page'
-          : 'Provider-signed OAuth transaction verification failed on the authorization page',
-      )
-    }
-    await page.waitForTimeout(100)
-  }
-  const location = new URL(page.url())
-  throw new Error(
-    `Timed out completing fixture login and consent at ${location.origin}${location.pathname}`,
+  clientId,
+  email,
+  origin,
+  password,
+  resource,
+  scope = MCP_FIXTURE_SCOPE,
+}) {
+  const context = await browser.newContext({ viewport: { height: 900, width: 1440 } })
+  const page = await context.newPage()
+  const assertBrowserClean = monitorBrowserPage(page, origin)
+  const callbackUrl = new URL(callback)
+  const verifier = randomBytes(32).toString('base64url')
+  const challenge = createHash('sha256').update(verifier).digest('base64url')
+  const state = randomBytes(32).toString('base64url')
+  let callbackHref
+  await page.route(
+    (url) => url.origin === callbackUrl.origin && url.pathname === callbackUrl.pathname,
+    async (route) => {
+      callbackHref = route.request().url()
+      await route.fulfill({
+        body: '<!doctype html><title>OAuth complete</title>',
+        contentType: 'text/html; charset=utf-8',
+        status: 200,
+      })
+    },
   )
+  const authorization = new URL(`${origin}/api/auth/oauth2/authorize`)
+  for (const [name, value] of [
+    ['response_type', 'code'],
+    ['client_id', clientId],
+    ['redirect_uri', callback],
+    ['code_challenge', challenge],
+    ['code_challenge_method', 'S256'],
+    ['resource', resource],
+    ['scope', scope],
+    ['state', state],
+  ]) {
+    authorization.searchParams.set(name, value)
+  }
+
+  try {
+    await page.goto(authorization.href, { waitUntil: 'domcontentloaded' })
+    const deadline = Date.now() + AUTH_TIMEOUT_MS
+    let signedIn = false
+    let approved = false
+    while (!callbackHref && Date.now() < deadline) {
+      const current = new URL(page.url())
+      if (![origin, callbackUrl.origin].includes(current.origin)) {
+        throw new Error(`OAuth browser escaped the fixed fixture origins to ${current.origin}`)
+      }
+      const emailInput = page.getByTestId('email')
+      if (!signedIn && (await emailInput.isVisible().catch(() => false))) {
+        await emailInput.fill(email)
+        await page.getByTestId('password').fill(password)
+        await page.getByTestId('sign-in').click()
+        signedIn = true
+        continue
+      }
+      const approve = page.getByTestId('approve-consent')
+      if (!approved && (await approve.isVisible().catch(() => false))) {
+        await approve.click()
+        approved = true
+        continue
+      }
+      const alert = page.getByRole('alert').first()
+      if (await alert.isVisible().catch(() => false)) {
+        const text = (await alert.textContent())?.trim()
+        throw new Error(
+          text === 'Sign in failed'
+            ? 'Fixture administrator sign-in failed on the OAuth login page'
+            : 'Provider-signed OAuth transaction verification failed on the authorization page',
+        )
+      }
+      await page.waitForTimeout(100)
+    }
+    if (!callbackHref) throw new Error('Timed out completing the direct PKCE authorization')
+    const returned = new URL(callbackHref)
+    if (
+      returned.origin !== callbackUrl.origin ||
+      returned.pathname !== callbackUrl.pathname ||
+      returned.searchParams.get('state') !== state ||
+      returned.searchParams.get('iss') !== `${origin}/api/auth` ||
+      returned.searchParams.has('error')
+    ) {
+      throw new Error('OAuth callback escaped its exact redirect, state, or issuer binding')
+    }
+    const code = returned.searchParams.get('code')
+    if (!code || code.length > 4096) throw new Error('OAuth callback omitted a bounded code')
+    const tokenResponse = await context.request.post(`${origin}/api/auth/oauth2/token`, {
+      form: {
+        client_id: clientId,
+        code,
+        code_verifier: verifier,
+        grant_type: 'authorization_code',
+        redirect_uri: callback,
+        resource,
+      },
+      headers: { origin },
+    })
+    const tokenBody = await tokenResponse.json().catch(() => null)
+    if (!tokenResponse.ok() || typeof tokenBody?.access_token !== 'string') {
+      throw new Error(
+        `Direct PKCE token exchange failed (${tokenResponse.status()}:${String(tokenBody?.error ?? 'invalid_response')})`,
+      )
+    }
+    verifyPublicClientTokenBindings(tokenBody.access_token, {
+      clientId,
+      origin,
+      resource,
+      scope,
+    })
+    try {
+      const verifyBearerToken = oauthProviderResourceClient().getActions().verifyBearerToken
+      await verifyBearerToken(tokenBody.access_token, {
+        jwksUrl: `${origin}/api/auth/jwks`,
+        verifyOptions: {
+          algorithms: ['RS256'],
+          audience: resource,
+          clockTolerance: 0,
+          issuer: `${origin}/api/auth`,
+          maxTokenAge: '600s',
+          typ: 'at+jwt',
+        },
+      })
+    } catch {
+      throw new Error('Direct PKCE token failed the official resource verifier')
+    }
+    assertBrowserClean('direct public-client OAuth journey')
+    return { accessToken: tokenBody.access_token, context }
+  } catch (error) {
+    await context.close().catch(() => {})
+    throw error
+  } finally {
+    await page.close().catch(() => {})
+  }
 }
 
-function verifyInspectorTokenBindings(
+function verifyPublicClientTokenBindings(
   accessToken,
   { clientId, origin, resource, scope = MCP_FIXTURE_SCOPE },
 ) {
@@ -380,7 +341,9 @@ function verifyInspectorTokenBindings(
     .filter(([, valid]) => valid !== true)
     .map(([name]) => name)
   if (failures.length > 0) {
-    throw new Error(`Inspector received an OAuth token with invalid ${failures.join(', ')} binding`)
+    throw new Error(
+      `Public OAuth client received a token with invalid ${failures.join(', ')} binding`,
+    )
   }
 }
 
@@ -395,12 +358,29 @@ function decodeJwtPart(token, index) {
 }
 
 async function postMcpJson(context, url, accessToken, message) {
+  const requestBody = {
+    ...message,
+    params: {
+      ...message.params,
+      _meta: {
+        'io.modelcontextprotocol/clientCapabilities': {},
+        'io.modelcontextprotocol/clientInfo': {
+          name: 'better-convex-live-evidence',
+          version: '1.0.0',
+        },
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      },
+    },
+  }
+  const operationName = typeof message.params?.name === 'string' ? message.params.name : undefined
   const response = await context.request.post(url, {
-    data: message,
+    data: requestBody,
     headers: {
       accept: 'application/json',
       authorization: `Bearer ${accessToken}`,
-      'mcp-protocol-version': '2025-11-25',
+      'mcp-method': message.method,
+      ...(operationName === undefined ? {} : { 'mcp-name': operationName }),
+      'mcp-protocol-version': '2026-07-28',
     },
   })
   const text = await response.text()
@@ -426,7 +406,8 @@ function requireExactToolNames(snapshot, description) {
     !Array.isArray(names) ||
     JSON.stringify(names) !== JSON.stringify(MCP_TOOL_NAMES)
   ) {
-    const code = typeof snapshot.body?.code === 'string' ? `:${snapshot.body.code}` : ''
+    const errorCode = snapshot.body?.code ?? snapshot.body?.error
+    const code = typeof errorCode === 'string' ? `:${errorCode}` : ''
     throw new Error(
       `${description} did not return the exact fixed MCP tool surface (${snapshot.status}${code})`,
     )
@@ -434,10 +415,25 @@ function requireExactToolNames(snapshot, description) {
 }
 
 function requireApplicationFailure(snapshot, code, description) {
+  const content = snapshot.body?.result?.content
+  let projected
+  try {
+    projected =
+      Array.isArray(content) &&
+      content.length === 1 &&
+      content[0]?.type === 'text' &&
+      typeof content[0].text === 'string'
+        ? JSON.parse(content[0].text)
+        : undefined
+  } catch {
+    projected = undefined
+  }
   if (
-    snapshot.status !== 403 ||
+    snapshot.status !== 200 ||
     snapshot.challenge !== null ||
-    JSON.stringify(snapshot.body) !== JSON.stringify({ code })
+    snapshot.body?.result?.resultType !== 'complete' ||
+    snapshot.body?.result?.isError !== true ||
+    JSON.stringify(projected) !== JSON.stringify({ code })
   ) {
     throw new Error(`${description} did not fail with ${code}`)
   }
@@ -596,175 +592,6 @@ async function provisionTerminalEvidence(context, origin, resource, organization
     throw new Error('MCP terminal evidence profile response was invalid')
   }
   return clients
-}
-
-async function chooseSelect(page, selector, option) {
-  await page.locator(selector).click()
-  await page.getByRole('option', { exact: true, name: option }).click()
-}
-
-async function verifyInspector({
-  clientId,
-  context,
-  email,
-  inspectorToken,
-  origin,
-  password,
-  resource,
-  scope = MCP_FIXTURE_SCOPE,
-}) {
-  const registrationRequests = []
-  let capturedAccessToken
-  let inspectorToolsListDispatched = false
-  context.on('request', (request) => {
-    const requestUrl = new URL(request.url())
-    const path = requestUrl.pathname
-    if (/\/(?:oauth2\/)?register$/.test(path))
-      registrationRequests.push(`${request.method()} ${path}`)
-    if (requestUrl.origin !== 'http://localhost:6277' || path !== '/mcp') return
-    const authorization = request.headers().authorization
-    if (!authorization?.startsWith('Bearer ')) return
-    const candidate = authorization.slice('Bearer '.length)
-    if (/^[\w-]+\.[\w-]+\.[\w-]+$/u.test(candidate)) {
-      capturedAccessToken = candidate
-    }
-    try {
-      if (request.postDataJSON()?.method === 'tools/list') inspectorToolsListDispatched = true
-    } catch {
-      // Non-JSON Inspector proxy requests cannot be the tools/list evidence.
-    }
-  })
-
-  const page = await context.newPage()
-  const assertBrowserClean = monitorBrowserPage(page, origin)
-  let tokenExchangeFailure
-  const tokenEndpoint = `${origin}/api/auth/oauth2/token`
-  const devtools = await context.newCDPSession(page)
-  await devtools.send('DOMStorage.enable')
-  const captureStoredToken = ({ newValue }) => {
-    try {
-      const accessToken = JSON.parse(newValue)?.access_token
-      if (typeof accessToken === 'string') capturedAccessToken = accessToken
-    } catch {
-      // Inspector stores unrelated non-JSON settings in the same storage area.
-    }
-  }
-  devtools.on('DOMStorage.domStorageItemAdded', captureStoredToken)
-  devtools.on('DOMStorage.domStorageItemUpdated', captureStoredToken)
-  page.on('response', async (response) => {
-    const responseUrl = new URL(response.url())
-    const responseOrigin = responseUrl.origin
-    if (![origin, 'http://localhost:6277'].includes(responseOrigin)) return
-    if (response.request().method() !== 'POST') return
-    try {
-      const payload = await response.json()
-      let tokenPayload = payload
-      let isTokenExchange = response.url() === tokenEndpoint
-      if (responseOrigin === 'http://localhost:6277' && responseUrl.pathname === '/fetch') {
-        const request = response.request().postDataJSON()
-        if (request?.url !== tokenEndpoint) return
-        isTokenExchange = true
-        if (typeof payload?.body !== 'string' || payload.body.length > 16_384) return
-        tokenPayload = JSON.parse(payload.body)
-      }
-      if (!isTokenExchange) return
-      const accessToken = tokenPayload?.access_token
-      if (typeof accessToken === 'string') capturedAccessToken = accessToken
-      else if (response.status() >= 400 && response.status() <= 599) {
-        const allowedErrors = new Set([
-          'invalid_client',
-          'invalid_grant',
-          'invalid_request',
-          'invalid_scope',
-          'server_error',
-          'temporarily_unavailable',
-          'unsupported_grant_type',
-        ])
-        const code = allowedErrors.has(tokenPayload?.error) ? tokenPayload.error : 'oauth_error'
-        tokenExchangeFailure = `${response.status()}:${code}`
-      }
-    } catch {
-      // A malformed token response is reported by the bounded authorization loop.
-    }
-  })
-  await page.goto(
-    `${INSPECTOR_ORIGIN}/?MCP_PROXY_AUTH_TOKEN=${encodeURIComponent(inspectorToken)}`,
-    { waitUntil: 'domcontentloaded' },
-  )
-  await chooseSelect(page, '#transport-type-select', 'Streamable HTTP')
-  await page.locator('#sse-url-input').fill(resource)
-  await chooseSelect(page, '#connection-type-select', 'Via Proxy')
-
-  await page.getByTestId('auth-button').click()
-  await page.getByTestId('oauth-client-id-input').fill(clientId)
-  await page.getByTestId('oauth-client-secret-input').fill('')
-  await page.getByTestId('oauth-scope-input').fill(scope)
-  if ((await page.getByTestId('oauth-client-secret-input').inputValue()) !== '') {
-    throw new Error('Inspector public-client secret field was not empty')
-  }
-
-  await page.getByTestId('config-button').click()
-  await page.getByTestId('MCP_PROXY_AUTH_TOKEN-input').fill(inspectorToken)
-  await page.getByRole('button', { exact: true, name: 'Connect' }).click()
-  let accessToken = await completeAuthorization(
-    page,
-    origin,
-    `${INSPECTOR_ORIGIN}/oauth/callback`,
-    {
-      email,
-      password,
-      readCapturedAccessToken: () => capturedAccessToken,
-      readOAuthFailure: () => tokenExchangeFailure,
-    },
-  )
-  if (!accessToken) throw new Error('Inspector OAuth callback did not produce an access token')
-  await page.getByText('Connected', { exact: true }).waitFor({ timeout: PROCESS_TIMEOUT_MS })
-
-  await page.getByRole('tab', { exact: true, name: 'Tools' }).click()
-  await page.getByRole('button', { exact: true, name: 'List Tools' }).click()
-  await waitUntil(() => inspectorToolsListDispatched, 'Inspector UI tools/list dispatch', 10_000)
-  if (!capturedAccessToken) {
-    throw new Error('Inspector tools/list dispatch did not carry a compact access token')
-  }
-  accessToken = capturedAccessToken
-  verifyInspectorTokenBindings(accessToken, {
-    clientId,
-    origin,
-    resource,
-    scope,
-  })
-  try {
-    const verifier = oauthProviderResourceClient().getActions().verifyBearerToken
-    await verifier(accessToken, {
-      jwksUrl: `${origin}/api/auth/jwks`,
-      verifyOptions: {
-        algorithms: ['RS256'],
-        audience: resource,
-        clockTolerance: 0,
-        issuer: `${origin}/api/auth`,
-        maxTokenAge: '600s',
-        typ: 'at+jwt',
-      },
-    })
-  } catch {
-    throw new Error('Inspector token failed the runner-side official resource verifier')
-  }
-  const toolListMessage = {
-    id: 'bcn-inspector-tool-list-evidence',
-    jsonrpc: '2.0',
-    method: 'tools/list',
-    params: {},
-  }
-  const tools = await postMcpJson(context, resource, accessToken, toolListMessage)
-  requireExactToolNames(tools, 'Inspector-bearer Convex tools/list')
-  if (registrationRequests.length !== 0) {
-    throw new Error(
-      `Inspector attempted forbidden dynamic registration: ${registrationRequests.join(', ')}`,
-    )
-  }
-  assertBrowserClean('MCP Inspector OAuth journey')
-  await page.close()
-  return accessToken
 }
 
 async function verifyRevocationProtocol(context, accessToken, clientId, origin, resource) {
@@ -1036,9 +863,7 @@ async function runLiveAuthorizationEvidence({
     accessToken,
     execute('execute-unapproved', project.id, approval.approvalId),
   )
-  if (blocked.status !== 403 || blocked.body?.code !== 'MCP_APPROVAL_REQUIRED') {
-    throw new Error('Unapproved destructive operation did not fail closed')
-  }
+  requireApplicationFailure(blocked, 'MCP_APPROVAL_REQUIRED', 'unapproved destructive operation')
 
   const convexTokenResponse = await context.request.get(`${origin}/api/auth/convex/token`, {
     headers: { origin },
@@ -1078,9 +903,9 @@ async function runLiveAuthorizationEvidence({
 
 async function runTerminalRevocationEvidence({
   browser,
+  callback,
   clients,
   email,
-  inspectorToken,
   organizationId,
   origin,
   password,
@@ -1090,20 +915,19 @@ async function runTerminalRevocationEvidence({
   const seenSessions = new Set()
   const seenTokenIds = new Set()
   const acquire = async (clientId, scope = MCP_FIXTURE_SCOPE) => {
-    const context = await browser.newContext({
-      viewport: { height: 900, width: 1440 },
-    })
+    let evidence
     try {
-      const accessToken = await verifyInspector({
+      evidence = await acquirePublicClientToken({
+        browser,
+        callback,
         clientId,
-        context,
         email,
-        inspectorToken,
         origin,
         password,
         resource,
         scope,
       })
+      const { accessToken, context } = evidence
       const claims = decodeJwtPart(accessToken, 1)
       if (
         claims.client_id !== clientId ||
@@ -1131,7 +955,7 @@ async function runTerminalRevocationEvidence({
       }
       return { accessToken, context }
     } catch (error) {
-      await context.close().catch(() => {})
+      await evidence?.context.close().catch(() => {})
       throw error
     }
   }
@@ -1207,154 +1031,6 @@ async function runTerminalRevocationEvidence({
   return await acquire(clients.conformance, 'mcp:read')
 }
 
-function extractAuthorizationUrl(log) {
-  const marker = 'Please authorize this client by visiting:'
-  const index = log.lastIndexOf(marker)
-  if (index === -1) return undefined
-  return log.slice(index + marker.length).match(/https?:\/\/\S+/)?.[0]
-}
-
-function jsonRpcReader(stream) {
-  const messages = []
-  let pending = ''
-  stream.setEncoding('utf8')
-  stream.on('data', (chunk) => {
-    pending += chunk
-    while (pending.includes('\n')) {
-      const index = pending.indexOf('\n')
-      const line = pending.slice(0, index).trim()
-      pending = pending.slice(index + 1)
-      if (!line) continue
-      try {
-        const parsed = JSON.parse(line)
-        if (parsed && typeof parsed === 'object') messages.push(parsed)
-      } catch {
-        // mcp-remote reserves stdout for JSON-RPC. Non-JSON output is retained
-        // by the process capture and causes the expected response to time out.
-      }
-    }
-  })
-  return async (id) =>
-    waitUntil(() => {
-      const index = messages.findIndex((message) => message.id === id)
-      return index === -1 ? undefined : messages.splice(index, 1)[0]
-    }, `mcp-remote JSON-RPC response ${id}`)
-}
-
-async function createBrowserOpenShim(directory) {
-  const path = join(directory, process.platform === 'win32' ? 'open.cmd' : 'open')
-  const source = process.platform === 'win32' ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n'
-  await writeFile(path, source, { mode: 0o700 })
-  await chmod(path, 0o700)
-  return path
-}
-
-async function verifyMcpRemote({ clientId, context, email, origin, password, resource, tempRoot }) {
-  const remoteRoot = join(tempRoot, 'mcp-remote')
-  await chmod(tempRoot, 0o700)
-  await mkdtemp(`${remoteRoot}-`).then(async (directory) => {
-    await chmod(directory, 0o700)
-    const configDirectory = join(directory, 'config')
-    const infoPath = join(directory, 'client-info.json')
-    const metadataPath = join(directory, 'client-metadata.json')
-    const shimDirectory = join(directory, 'bin')
-    await Promise.all([
-      mkdir(configDirectory, { mode: 0o700 }),
-      mkdir(shimDirectory, { mode: 0o700 }),
-    ])
-    await writeFile(infoPath, JSON.stringify(buildMcpRemoteClientInfo(clientId)), { mode: 0o600 })
-    await writeFile(metadataPath, JSON.stringify(buildMcpRemoteClientMetadata()), { mode: 0o600 })
-    const shim = await createBrowserOpenShim(shimDirectory)
-
-    const env = {
-      ...safeChildEnvironment(),
-      BROWSER: shim,
-      MCP_REMOTE_CONFIG_DIR: configDirectory,
-      PATH: `${shimDirectory}:${process.env.PATH ?? ''}`,
-    }
-    const child = spawn('pnpm', buildMcpRemoteArgs(resource, infoPath, metadataPath), {
-      cwd: process.cwd(),
-      detached: process.platform !== 'win32',
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-    const stdoutLog = capture(child.stdout)
-    const stderrLog = capture(child.stderr)
-    const responseFor = jsonRpcReader(child.stdout)
-    try {
-      const authorizationUrl = await waitUntil(() => {
-        if (child.exitCode !== null) {
-          throw new Error(`mcp-remote exited before OAuth (${child.exitCode})`)
-        }
-        return extractAuthorizationUrl(stderrLog())
-      }, 'mcp-remote authorization URL')
-      const authorization = new URL(authorizationUrl)
-      if (
-        authorization.origin !== origin ||
-        authorization.searchParams.get('resource') !== resource
-      ) {
-        throw new Error(
-          'mcp-remote authorization request escaped the fixed issuer/resource topology',
-        )
-      }
-      if (authorization.searchParams.get('client_id') !== clientId) {
-        throw new Error('mcp-remote did not use the preregistered public client')
-      }
-      const page = await context.newPage()
-      const assertBrowserClean = monitorBrowserPage(page, origin)
-      await page.goto(authorization.href, { waitUntil: 'domcontentloaded' })
-      await completeAuthorization(page, origin, MCP_REMOTE_CALLBACK, {
-        email,
-        password,
-      })
-      assertBrowserClean('mcp-remote OAuth journey')
-      await page.close()
-
-      await waitUntil(
-        () => stderrLog().includes('Proxy established successfully'),
-        'mcp-remote connection',
-      )
-      child.stdin.write(
-        `${JSON.stringify({
-          id: 1,
-          jsonrpc: '2.0',
-          method: 'initialize',
-          params: {
-            capabilities: {},
-            clientInfo: { name: 'bcn-mcp-remote-evidence', version: '1.0.0' },
-            protocolVersion: '2025-11-25',
-          },
-        })}\n`,
-      )
-      const initialized = await responseFor(1)
-      if (initialized.error || initialized.result?.protocolVersion !== '2025-11-25') {
-        throw new Error('mcp-remote initialization did not negotiate MCP 2025-11-25')
-      }
-      child.stdin.write(
-        `${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} })}\n`,
-      )
-      child.stdin.write(
-        `${JSON.stringify({ id: 2, jsonrpc: '2.0', method: 'tools/list', params: {} })}\n`,
-      )
-      const listed = await responseFor(2)
-      const names = listed.result?.tools?.map((tool) => tool.name)
-      if (!Array.isArray(names) || MCP_TOOL_NAMES.some((name) => !names.includes(name))) {
-        throw new Error('mcp-remote did not observe the fixed MCP tool surface')
-      }
-      safeEvidenceLog(`${stderrLog()}\n${stdoutLog()}`)
-    } catch (error) {
-      const logs = safeEvidenceLog(`${stderrLog()}\n${stdoutLog()}`)
-      throw new Error(`${error instanceof Error ? error.message : String(error)}\n${logs}`, {
-        cause: error,
-      })
-    } finally {
-      child.stdin.end()
-      await stopProcess(child)
-      await rm(directory, { force: true, recursive: true })
-    }
-  })
-}
-
 export async function runMcpEvidence({ conformanceRunner, includeConformance = false } = {}) {
   if (includeConformance && typeof conformanceRunner !== 'function') {
     throw new Error('Self-contained MCP conformance requires the dedicated conformance runner')
@@ -1367,131 +1043,115 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
     const origin = normalizeEvidenceOrigin(fixture.origin)
     const convexSiteUrl = normalizeEvidenceOrigin(fixture.convexSiteUrl)
     const resource = `${convexSiteUrl}/mcp`
-    await Promise.all([
-      assertPortAvailable(3334, '127.0.0.1'),
-      assertPortAvailable(6274, 'localhost'),
-      assertPortAvailable(6277, 'localhost'),
-    ])
-
-    const tempRoot = await mkdtemp(join(tmpdir(), 'bcn-mcp-auth-'))
-    await chmod(tempRoot, 0o700)
-    const inspectorToken = randomBytes(32).toString('base64url')
-    const inspector = spawn('pnpm', ['exec', 'mcp-inspector'], {
-      cwd: root,
-      detached: process.platform !== 'win32',
-      env: {
-        ...safeChildEnvironment(),
-        CLIENT_PORT: '6274',
-        HOST: 'localhost',
-        MCP_AUTO_OPEN_ENABLED: 'false',
-        MCP_PROXY_AUTH_TOKEN: inspectorToken,
-        SERVER_PORT: '6277',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const inspectorStdout = capture(inspector.stdout)
-    const inspectorStderr = capture(inspector.stderr)
     let browser
-    let context
     try {
-      await waitForInspector()
       browser = await chromium.launch({ headless: true })
-      context = await browser.newContext({
+      const setupContext = await browser.newContext({
         viewport: { height: 900, width: 1440 },
       })
-      await verifyDiscoveryDocuments(context, origin, resource)
-      const clients = await provisionInteropProfile(
-        context,
-        origin,
-        resource,
-        convexSiteUrl,
-        fixture.email,
-        fixture.password,
-      )
-      const inspectorAccessToken = await verifyInspector({
-        clientId: clients.inspector,
-        context,
-        email: fixture.email,
-        inspectorToken,
-        origin,
-        password: fixture.password,
-        resource,
-      })
-      await verifyMcpRemote({
-        clientId: clients.mcpRemote,
-        context,
-        email: fixture.email,
-        origin,
-        password: fixture.password,
-        resource,
-        tempRoot,
-      })
-      await runLiveAuthorizationEvidence({
-        accessToken: inspectorAccessToken,
-        clientId: clients.inspector,
-        context,
-        convexUrl: fixture.convexUrl,
-        fixture,
-        organizationId: clients.organizationId,
-        origin,
-        resource,
-      })
-      await verifyRevocationProtocol(
-        context,
-        inspectorAccessToken,
-        clients.inspector,
-        origin,
-        resource,
-      )
-      const terminalClients = await provisionTerminalEvidence(
-        context,
-        origin,
-        resource,
-        clients.organizationId,
-        [clients.inspector, clients.mcpRemote],
-      )
-      const conformance = await runTerminalRevocationEvidence({
+      let clients
+      try {
+        await verifyDiscoveryDocuments(setupContext, origin, resource)
+        clients = await provisionInteropProfile(
+          setupContext,
+          origin,
+          resource,
+          convexSiteUrl,
+          fixture.email,
+          fixture.password,
+        )
+      } finally {
+        await setupContext.close().catch(() => {})
+      }
+      const primary = await acquirePublicClientToken({
         browser,
-        clients: terminalClients,
+        callback: `${INSPECTOR_ORIGIN}/oauth/callback`,
+        clientId: clients.inspector,
         email: fixture.email,
-        inspectorToken,
-        organizationId: clients.organizationId,
         origin,
         password: fixture.password,
         resource,
       })
       try {
-        if (includeConformance) {
-          await conformanceRunner({
-            bearer: conformance.accessToken,
-            origin: convexSiteUrl,
-            root,
-          })
+        const secondary = await acquirePublicClientToken({
+          browser,
+          callback: MCP_REMOTE_CALLBACK,
+          clientId: clients.mcpRemote,
+          email: fixture.email,
+          origin,
+          password: fixture.password,
+          resource,
+        })
+        try {
+          requireExactToolNames(
+            await postMcpJson(secondary.context, resource, secondary.accessToken, {
+              id: 'secondary-public-client-tools',
+              jsonrpc: '2.0',
+              method: 'tools/list',
+              params: {},
+            }),
+            'second public-client tools/list',
+          )
+        } finally {
+          await secondary.context.close().catch(() => {})
         }
+        await runLiveAuthorizationEvidence({
+          accessToken: primary.accessToken,
+          clientId: clients.inspector,
+          context: primary.context,
+          convexUrl: fixture.convexUrl,
+          fixture,
+          organizationId: clients.organizationId,
+          origin,
+          resource,
+        })
+        await verifyRevocationProtocol(
+          primary.context,
+          primary.accessToken,
+          clients.inspector,
+          origin,
+          resource,
+        )
+        const terminalClients = await provisionTerminalEvidence(
+          primary.context,
+          origin,
+          resource,
+          clients.organizationId,
+          [clients.inspector, clients.mcpRemote],
+        )
+        // The two interoperability transactions above consume two of the
+        // provider's three sign-ins per ten-second fixed window. Start the
+        // terminal-revocation matrix in a fresh canonical window.
+        await new Promise((ready) => setTimeout(ready, SIGN_IN_RATE_LIMIT_WINDOW_MS + 100))
+        const conformance = await runTerminalRevocationEvidence({
+          browser,
+          callback: `${INSPECTOR_ORIGIN}/oauth/callback`,
+          clients: terminalClients,
+          email: fixture.email,
+          organizationId: clients.organizationId,
+          origin,
+          password: fixture.password,
+          resource,
+        })
+        try {
+          if (includeConformance) {
+            await conformanceRunner({
+              bearer: conformance.accessToken,
+              origin: convexSiteUrl,
+              root,
+            })
+          }
+        } finally {
+          await conformance.context.close().catch(() => {})
+        }
+        console.log(
+          `MCP direct PKCE interoperability, live Convex authorization, and terminal revocation passed${includeConformance ? ' with server conformance' : ''}.`,
+        )
       } finally {
-        await conformance.context.close().catch(() => {})
+        await primary.context.close().catch(() => {})
       }
-      safeEvidenceLog(`${inspectorStderr()}\n${inspectorStdout()}`, [
-        inspectorToken,
-        fixture.email,
-        fixture.password,
-      ])
-      console.log(
-        `MCP OAuth interoperability, live Convex authorization, and terminal revocation passed${includeConformance ? ' with server conformance' : ''}.`,
-      )
-    } catch (error) {
-      const logs = safeEvidenceLog(`${inspectorStderr()}\n${inspectorStdout()}`, [
-        inspectorToken,
-        fixture.email,
-        fixture.password,
-      ])
-      throw new Error(`${error instanceof Error ? error.message : String(error)}\n${logs}`, {
-        cause: error,
-      })
     } finally {
       await browser?.close().catch(() => {})
-      await stopProcess(inspector)
-      await rm(tempRoot, { force: true, recursive: true })
     }
   } finally {
     await fixture.release()

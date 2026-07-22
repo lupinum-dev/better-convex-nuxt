@@ -32,7 +32,11 @@ const candidateTestProfiles = Object.freeze({
   }),
   'mcp-maintained-consumers': Object.freeze({
     kind: 'runners',
-    runners: Object.freeze(['scripts/check-mcp-package-consumer.mjs']),
+    runners: Object.freeze([
+      'scripts/check-mcp-package-consumer.mjs',
+      'scripts/check-mcp-better-auth-consumer.mjs',
+      'scripts/check-mcp-external-convex-consumer.mjs',
+    ]),
     tarballFilename: 'better-convex-mcp.tgz',
   }),
 })
@@ -58,7 +62,11 @@ function assertCandidateTestProfile(profile, profileId) {
         'scripts/check-vue-auth-consumer.mjs',
         'scripts/check-vue-embedded-consumer.mjs',
       ],
-      'mcp-maintained-consumers': ['scripts/check-mcp-package-consumer.mjs'],
+      'mcp-maintained-consumers': [
+        'scripts/check-mcp-package-consumer.mjs',
+        'scripts/check-mcp-better-auth-consumer.mjs',
+        'scripts/check-mcp-external-convex-consumer.mjs',
+      ],
     }[profileId]
     if (
       !reviewedRunners ||

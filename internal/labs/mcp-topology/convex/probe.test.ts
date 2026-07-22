@@ -1,4 +1,15 @@
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import {
+  copyFile,
+  cp,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,6 +27,7 @@ import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { inspectConsumerCandidate } from '../../../../scripts/package-consumer-candidate.mjs'
 import {
   ensureLocalConvex,
   type EnsureLocalConvexResult,
@@ -56,6 +68,7 @@ const managedEnvironmentNames = [
 let fixtureDirectory = ''
 let local: EnsureLocalConvexResult | undefined
 let notesDashboardHtml = ''
+let packedCandidate: ReturnType<typeof inspectConsumerCandidate> | undefined
 const savedEnvironment = new Map<string, string | undefined>()
 
 function saveAndSetLabEnvironment(): void {
@@ -81,7 +94,37 @@ async function materializeFixture(appHtml: string): Promise<string> {
     path.join(directory, 'convex', 'notes_dashboard.ts'),
     `export const NOTES_DASHBOARD_HTML = ${JSON.stringify(appHtml)}\n`,
   )
-  await symlink(path.join(root, 'node_modules'), path.join(directory, 'node_modules'), 'dir')
+  const suppliedTarball = process.env.BCN_MCP_RELEASE_TARBALL
+  if (suppliedTarball) {
+    const tarballPath = await realpath(path.resolve(root, suppliedTarball))
+    if (!(await stat(tarballPath)).isFile() || !tarballPath.endsWith('.tgz')) {
+      throw new Error('BCN_MCP_RELEASE_TARBALL must reference one existing .tgz file')
+    }
+    const localTarball = path.join(directory, 'better-convex-mcp.tgz')
+    await copyFile(tarballPath, localTarball)
+    const manifestPath = path.join(directory, 'package.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as {
+      dependencies: Record<string, string>
+    }
+    manifest.dependencies['@better-convex/mcp'] = 'file:./better-convex-mcp.tgz'
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+    execFileSync('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
+      cwd: directory,
+      stdio: 'inherit',
+    })
+    const lock = await readFile(path.join(directory, 'pnpm-lock.yaml'), 'utf8')
+    if (!lock.includes('better-convex-mcp.tgz')) {
+      throw new Error('External Convex consumer lock omitted the exact MCP tarball')
+    }
+    packedCandidate = inspectConsumerCandidate({
+      packageId: 'mcp',
+      packageName: '@better-convex/mcp',
+      tarballPath,
+    })
+    packedCandidate.assertInstalled(path.join(directory, 'node_modules/@better-convex/mcp'))
+  } else {
+    await symlink(path.join(root, 'node_modules'), path.join(directory, 'node_modules'), 'dir')
+  }
   return directory
 }
 
@@ -148,6 +191,7 @@ afterAll(async () => {
   try {
     await local?.release()
   } finally {
+    packedCandidate?.cleanup()
     restoreEnvironment()
     if (fixtureDirectory) await rm(fixtureDirectory, { force: true, recursive: true })
   }

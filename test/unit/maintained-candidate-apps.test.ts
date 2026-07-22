@@ -68,7 +68,11 @@ describe('maintained candidate-test profiles', () => {
     })
     expect(selected.profile).toEqual({
       kind: 'runners',
-      runners: ['scripts/check-mcp-package-consumer.mjs'],
+      runners: [
+        'scripts/check-mcp-package-consumer.mjs',
+        'scripts/check-mcp-better-auth-consumer.mjs',
+        'scripts/check-mcp-external-convex-consumer.mjs',
+      ],
       tarballFilename: 'better-convex-mcp.tgz',
     })
   })

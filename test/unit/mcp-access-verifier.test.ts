@@ -36,14 +36,25 @@ function verifier(result: VerifiedMcpAccess = verified()): McpAccessVerifier {
 describe('provider-neutral MCP access verification boundary', () => {
   it('permits loopback HTTP for local Convex development but rejects remote plaintext resources', async () => {
     const loopback = new URL('http://127.0.0.1:3210/mcp')
+    const loopbackIssuer = 'http://127.0.0.1:3200/api/auth'
     await expect(
       verifyAndNormalizeMcpAccess({
-        verifier: verifier(verified({ access: { ...verified().access, resource: loopback.href } })),
+        verifier: verifier(
+          verified({
+            access: {
+              ...verified().access,
+              issuer: loopbackIssuer,
+              resource: loopback.href,
+            },
+          }),
+        ),
         token: 'loopback-token',
-        expectedIssuer: verified().access.issuer,
+        expectedIssuer: loopbackIssuer,
         expectedResource: loopback,
       }),
-    ).resolves.toMatchObject({ access: { resource: loopback.href } })
+    ).resolves.toMatchObject({
+      access: { issuer: loopbackIssuer, resource: loopback.href },
+    })
 
     const plaintext = new URL('http://resource.example.test/mcp')
     await expect(
@@ -56,6 +67,15 @@ describe('provider-neutral MCP access verification boundary', () => {
         expectedResource: plaintext,
       }),
     ).rejects.toThrow('Invalid access resource')
+
+    await expect(
+      verifyAndNormalizeMcpAccess({
+        verifier: verifier(),
+        token: 'plaintext-issuer-token',
+        expectedIssuer: 'http://issuer.example.test/',
+        expectedResource,
+      }),
+    ).rejects.toThrow('Invalid access issuer')
   })
 
   it('normalizes and freezes the exact allowlisted access context', async () => {

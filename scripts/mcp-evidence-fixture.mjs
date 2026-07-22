@@ -28,6 +28,7 @@ const externalVariableNames = Object.freeze([
 const childCredentialVariableNames = Object.freeze([
   'BCN_AUTH_PROXY_IP_SECRET',
   'BCN_MCP_CONFORMANCE_BEARER',
+  'BCN_MCP_RELEASE_TARBALL',
   'BCN_MCP_TEST_MODE',
   ...externalVariableNames,
   'BETTER_AUTH_SECRET',

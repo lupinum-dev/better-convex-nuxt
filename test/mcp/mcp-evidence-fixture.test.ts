@@ -111,6 +111,7 @@ describe('MCP evidence fixture selection', () => {
       ...validExternalEnvironment(),
       BCN_AUTH_PROXY_IP_SECRET: 'proxy-secret',
       BCN_MCP_CONFORMANCE_BEARER: 'bearer-secret',
+      BCN_MCP_RELEASE_TARBALL: '/tmp/mcp-candidate.tgz',
       BETTER_AUTH_SECRETS: '1:better-auth-secret',
       Better_Auth_Secret: 'windows-case-insensitive-better-auth-secret',
       Bcn_Mcp_Test_Password: 'windows-case-insensitive-fixture-secret',
@@ -329,13 +330,14 @@ describe('MCP evidence fixture selection', () => {
     expect(source).not.toContain('rm(configuration.appDir')
   })
 
-  it('redacts external fixture credentials from Inspector evidence logs', async () => {
+  it('keeps direct PKCE evidence independent of Inspector and credential logging', async () => {
     const source = await readFile(
       fileURLToPath(new URL('../../scripts/run-mcp-auth.mjs', import.meta.url)),
       'utf8',
     )
-    expect(
-      source.match(/inspectorToken,\n\s+fixture\.email,\n\s+fixture\.password,/gu),
-    ).toHaveLength(2)
+    expect(source).toContain('acquirePublicClientToken')
+    expect(source).not.toContain('mcp-inspector')
+    expect(source).not.toContain('inspectorToken')
+    expect(source).not.toMatch(/console\.\w+\([^)]*fixture\.(?:email|password)/u)
   })
 })

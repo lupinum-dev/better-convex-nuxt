@@ -32,6 +32,7 @@ function cleanEnvironment() {
     'BCN_AUTH_PROXY_IP_SECRET',
     'BCN_AUTH_TRUSTED_CLIENT_IP_HEADER',
     'BCN_MCP_CONFORMANCE_BEARER',
+    'BCN_MCP_RELEASE_TARBALL',
     'BCN_MCP_TEST_APP_DIR',
     'BCN_MCP_TEST_CONVEX_URL',
     'BCN_MCP_TEST_CONVEX_SITE_URL',
@@ -159,7 +160,18 @@ async function resolveReleaseTarball() {
   return path
 }
 
-async function linkDependencies(cwd, releaseTarball) {
+async function resolveMcpReleaseTarball() {
+  const value = process.env.BCN_MCP_RELEASE_TARBALL
+  if (!value) return undefined
+  const path = await realpath(resolve(root, value))
+  const metadata = await stat(path)
+  if (!metadata.isFile() || !path.endsWith('.tgz')) {
+    throw new Error('BCN_MCP_RELEASE_TARBALL must reference one existing .tgz file')
+  }
+  return path
+}
+
+async function linkDependencies(cwd, releaseTarball, mcpReleaseTarball) {
   const modules = join(cwd, 'node_modules')
   await mkdir(modules, { mode: 0o700 })
   const [productManifest, starterManifest] = await Promise.all(
@@ -183,6 +195,7 @@ async function linkDependencies(cwd, releaseTarball) {
     if (!/^(?:@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/iu.test(name)) {
       throw new Error('Invalid fixture dependency name')
     }
+    if (name === '@better-convex/mcp' && mcpReleaseTarball) continue
     const source = join(root, 'node_modules', name)
     const destination = join(modules, name)
     await access(source)
@@ -204,6 +217,27 @@ async function linkDependencies(cwd, releaseTarball) {
   } else {
     await ensureWorkspacePackageBuild()
     await symlink(root, installedModule, 'dir')
+  }
+  if (mcpReleaseTarball) {
+    const installedMcp = join(modules, '@better-convex/mcp')
+    await mkdir(installedMcp, { mode: 0o700, recursive: true })
+    await runCommand(
+      'tar',
+      ['-xzf', mcpReleaseTarball, '--strip-components=1', '-C', installedMcp],
+      { cwd, env: cleanEnvironment(), secrets: [] },
+    )
+    const [installedManifest, sourceManifest] = await Promise.all(
+      [join(installedMcp, 'package.json'), join(root, 'packages/mcp/package.json')].map((path) =>
+        readFile(path, 'utf8').then(JSON.parse),
+      ),
+    )
+    if (
+      installedManifest.name !== '@better-convex/mcp' ||
+      installedManifest.version !== sourceManifest.version ||
+      installedManifest.dependencies?.['@modelcontextprotocol/server'] !== '2.0.0-beta.5'
+    ) {
+      throw new Error('BCN_MCP_RELEASE_TARBALL did not contain the reviewed MCP package')
+    }
   }
 }
 
@@ -253,6 +287,7 @@ function isEnvironmentOccConflict(error) {
 export async function startLocalMcpOAuthFixture(options = {}) {
   const reviewedBackend = await assertCurrentBackendBinary()
   const releaseTarball = await resolveReleaseTarball()
+  const mcpReleaseTarball = await resolveMcpReleaseTarball()
   const tempRoot = await mkdtemp(join(tmpdir(), 'bcn-mcp-oauth-fixture-'))
   const cwd = join(tempRoot, 'app')
   let convex
@@ -325,7 +360,7 @@ export async function startLocalMcpOAuthFixture(options = {}) {
       filter: (source) => source === starter || !copiedArtifactNames.has(basename(source)),
       recursive: true,
     })
-    await linkDependencies(cwd, releaseTarball)
+    await linkDependencies(cwd, releaseTarball, mcpReleaseTarball)
     const installedClientIpModule = await import(
       pathToFileURL(join(cwd, 'node_modules/better-convex-nuxt/dist/runtime/shared/client-ip.js'))
         .href

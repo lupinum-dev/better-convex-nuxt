@@ -82,8 +82,13 @@ describe('self-contained MCP OAuth fixture contracts', () => {
 
   it('consumes immutable release bytes directly and never repacks them', () => {
     expect(fixtureSource).toContain('process.env.BCN_RELEASE_TARBALL')
+    expect(fixtureSource).toContain('process.env.BCN_MCP_RELEASE_TARBALL')
     expect(fixtureSource).toContain("['-xzf', releaseTarball, '--strip-components=1'")
+    expect(fixtureSource).toContain(
+      "['-xzf', mcpReleaseTarball, '--strip-components=1', '-C', installedMcp]",
+    )
     expect(fixtureSource).toContain("await symlink(root, installedModule, 'dir')")
+    expect(fixtureSource).toContain("name === '@better-convex/mcp' && mcpReleaseTarball")
     expect(fixtureSource).not.toMatch(/(?:npm|pnpm)[^\n]+\bpack\b/u)
   })
 
