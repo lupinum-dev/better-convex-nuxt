@@ -17,9 +17,11 @@ export class McpAccessVerificationFailure extends Error {
 export async function verifyAndNormalizeMcpAccess(options: {
   verifier: McpAccessVerifier
   token: string
+  expectedIssuer: string
   expectedResource: URL
   now?: () => number
 }): Promise<VerifiedMcpAccess> {
+  const issuer = canonicalIssuer(options.expectedIssuer)
   const resource = canonicalResource(options.expectedResource)
   let verified: VerifiedMcpAccess
 
@@ -30,7 +32,12 @@ export async function verifyAndNormalizeMcpAccess(options: {
   }
 
   try {
-    return normalizeVerifiedAccess(verified, resource, options.now?.() ?? Date.now() / 1_000)
+    return normalizeVerifiedAccess(
+      verified,
+      issuer,
+      resource,
+      options.now?.() ?? Date.now() / 1_000,
+    )
   } catch {
     throw new McpAccessVerificationFailure('invalid_result')
   }
@@ -38,6 +45,7 @@ export async function verifyAndNormalizeMcpAccess(options: {
 
 function normalizeVerifiedAccess(
   verified: VerifiedMcpAccess,
+  expectedIssuer: string,
   expectedResource: string,
   nowSeconds: number,
 ): VerifiedMcpAccess {
@@ -53,6 +61,7 @@ function normalizeVerifiedAccess(
   }
 
   const issuer = canonicalIssuer(verified.access.issuer)
+  if (issuer !== expectedIssuer) throw new TypeError('Unexpected access issuer')
   const subject = safeIdentity(verified.access.subject)
   const clientId = safeIdentity(verified.access.clientId)
   const resource = canonicalResourceString(verified.access.resource)

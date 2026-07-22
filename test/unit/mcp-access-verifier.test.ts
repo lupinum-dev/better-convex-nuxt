@@ -38,6 +38,7 @@ describe('provider-neutral MCP access verification boundary', () => {
     const result = await verifyAndNormalizeMcpAccess({
       verifier: verifier(),
       token: 'raw-bearer-sentinel',
+      expectedIssuer: 'https://issuer.example.test/',
       expectedResource,
       now: () => 1_800_000_000,
     })
@@ -73,6 +74,7 @@ describe('provider-neutral MCP access verification boundary', () => {
     const result = await verifyAndNormalizeMcpAccess({
       verifier: betterAuthFake,
       token: bearer,
+      expectedIssuer: 'https://issuer.example.test/',
       expectedResource,
       now: () => 1_800_000_000,
     })
@@ -129,6 +131,7 @@ describe('provider-neutral MCP access verification boundary', () => {
       verifyAndNormalizeMcpAccess({
         verifier: externalVerifier,
         token,
+        expectedIssuer: 'https://external.example.test/',
         expectedResource,
         now: () => 1_800_000_000,
       }),
@@ -154,6 +157,7 @@ describe('provider-neutral MCP access verification boundary', () => {
         verifyAndNormalizeMcpAccess({
           verifier: verifier(candidate),
           token: 'invalid-result-token-sentinel',
+          expectedIssuer: 'https://issuer.example.test/',
           expectedResource,
           now: () => 1_800_000_000,
         }),
@@ -180,6 +184,7 @@ describe('provider-neutral MCP access verification boundary', () => {
           },
         },
         token: secrets[0],
+        expectedIssuer: 'https://issuer.example.test/',
         expectedResource,
       })
     } catch (error) {

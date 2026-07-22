@@ -236,4 +236,67 @@ describe('Convex-native official MCP handler composition', () => {
       }),
     ).toThrow()
   })
+
+  it('rejects foreign issuers and never accepts a bearer from query or body', async () => {
+    let factoryCalls = 0
+    const foreignIssuerVerifier: McpAccessVerifier = {
+      async verifyAccessToken() {
+        return {
+          access: {
+            issuer: 'https://foreign-issuer.example.test/',
+            subject: 'foreign-subject',
+            clientId: 'foreign-client',
+            resource: resource.href,
+            scopes: ['notes:read'],
+          },
+          expiresAt: Math.floor(Date.now() / 1_000) + 300,
+        }
+      },
+    }
+    const foreignHandler = createConvexMcpHandler({
+      resource,
+      verifier: foreignIssuerVerifier,
+      oauthMetadata,
+      createServer() {
+        factoryCalls += 1
+        return new McpServer({ name: 'must-not-run', version: '0.1.0' })
+      },
+    })
+    const foreignResponse = await foreignHandler.fetch(
+      {},
+      new Request(resource, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
+        body: '{}',
+      }),
+    )
+    expect(foreignResponse.status).toBe(401)
+
+    const headerOnlyHandler = createConvexMcpHandler({
+      resource,
+      verifier: accessVerifier(),
+      oauthMetadata,
+      createServer() {
+        factoryCalls += 1
+        return new McpServer({ name: 'must-not-run', version: '0.1.0' })
+      },
+    })
+    for (const request of [
+      new Request(`${resource.href}?access_token=${bearer}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }),
+      new Request(resource, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ access_token: bearer }),
+      }),
+    ]) {
+      const response = await headerOnlyHandler.fetch({}, request)
+      expect(response.status).toBe(401)
+      expect(await response.text()).not.toContain(bearer)
+    }
+    expect(factoryCalls).toBe(0)
+  })
 })

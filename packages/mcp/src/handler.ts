@@ -62,6 +62,7 @@ export function createConvexMcpHandler<ActionContext>(
       const authenticated = await authenticateRequest(
         request.headers.get('authorization'),
         options.verifier,
+        metadataOptions.oauthMetadata.issuer,
         expectedResource,
         resourceMetadataUrl,
       )
@@ -79,6 +80,7 @@ export function createConvexMcpHandler<ActionContext>(
 async function authenticateRequest(
   authorizationHeader: string | null,
   verifier: McpAccessVerifier,
+  expectedIssuer: string,
   expectedResource: URL,
   resourceMetadataUrl: string,
 ): Promise<VerifiedMcpAccess | Response> {
@@ -86,7 +88,12 @@ async function authenticateRequest(
   const officialVerifier: OAuthTokenVerifier = {
     async verifyAccessToken(token): Promise<AuthInfo> {
       try {
-        verified = await verifyAndNormalizeMcpAccess({ verifier, token, expectedResource })
+        verified = await verifyAndNormalizeMcpAccess({
+          verifier,
+          token,
+          expectedIssuer,
+          expectedResource,
+        })
       } catch {
         throw new OAuthError(OAuthErrorCode.InvalidToken, 'Invalid access token')
       }
