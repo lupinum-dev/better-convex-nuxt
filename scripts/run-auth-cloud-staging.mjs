@@ -33,7 +33,9 @@ import {
 import { runExternalAuthorizationCodeRace } from './run-oauth-code-concurrency.mjs'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const artifactCoordinates = getPackageArtifactCoordinates('nuxt', { repositoryRoot: root })
+const artifactCoordinates = getPackageArtifactCoordinates('nuxt', {
+  repositoryRoot: root,
+})
 const sourceCloudFixture = join(root, 'starters', 'mcp-oauth-agent')
 const reportPath = join(root, '.release-artifacts', 'bcn-auth-staging.report.json')
 const convexCli = join(root, 'node_modules', 'convex', 'bin', 'main.js')
@@ -210,7 +212,12 @@ export function parseConvexDeploymentDescription(source, expected) {
   )
   assert(team === expected.team, 'AUTH_CLOUD_STAGING_TEAM_MISMATCH')
   assert(project === PROJECT, 'AUTH_CLOUD_STAGING_PROJECT_MISMATCH')
-  return Object.freeze({ deploymentName: deployment[1], project, team, type: 'prod' })
+  return Object.freeze({
+    deploymentName: deployment[1],
+    project,
+    team,
+    type: 'prod',
+  })
 }
 
 function runConvexCli(args, adminKey, failureCode, cwd = root) {
@@ -329,7 +336,11 @@ async function fetchWithTimeout(url, init, failureCode) {
   const timer = setTimeout(() => controller.abort(), 30_000)
   try {
     try {
-      return await fetch(url, { ...init, redirect: 'error', signal: controller.signal })
+      return await fetch(url, {
+        ...init,
+        redirect: 'error',
+        signal: controller.signal,
+      })
     } catch {
       fail(failureCode)
     }
@@ -347,12 +358,6 @@ async function assertClosedPublicIngress(config) {
       headers: { 'content-type': 'application/json', origin: config.origin },
       method: 'POST',
       path: '/api/auth/sign-up/email',
-    },
-    {
-      body: '{}',
-      headers: { 'content-type': 'application/json', origin: config.origin },
-      method: 'POST',
-      path: '/mcp',
     },
   ]
   for (const probe of probes) {
@@ -644,7 +649,12 @@ async function prepareCloudFixture(artifact) {
       join(fixtureDirectory, 'convex', 'releaseProof.ts'),
       generatedReleaseProofSource(artifact.identity.runtimeFingerprint, authModels, appTables),
     )
-    return Object.freeze({ appTables, authModels, directory: fixtureDirectory, temporaryRoot })
+    return Object.freeze({
+      appTables,
+      authModels,
+      directory: fixtureDirectory,
+      temporaryRoot,
+    })
   } catch (error) {
     rmSync(temporaryRoot, { force: true, recursive: true })
     throw error
@@ -747,7 +757,11 @@ async function bootstrapCloudOwner(config, client, artifact) {
     config,
     artifact,
     '/sign-up/email',
-    { email: config.email, name: 'BCN release gate', password: config.password },
+    {
+      email: config.email,
+      name: 'BCN release gate',
+      password: config.password,
+    },
     'AUTH_CLOUD_STAGING_OWNER_BOOTSTRAP_FAILED',
   )
   assert(signUp.status === 200, 'AUTH_CLOUD_STAGING_OWNER_BOOTSTRAP_FAILED')
@@ -961,21 +975,29 @@ async function verifyCloudSessionJwt(config, authCookie, artifact) {
       identity.tokenUse === 'convex-session',
     'AUTH_CLOUD_STAGING_SESSION_JWT_CONVEX_REJECTED',
   )
-  return Object.freeze({ ...verified.evidence, acceptedByConvex: true, subjectMatched: true })
+  return Object.freeze({
+    ...verified.evidence,
+    acceptedByConvex: true,
+    subjectMatched: true,
+  })
 }
 
-async function verifyCloudMcpRoute(config, artifact) {
-  const endpoint = `${config.origin}/mcp`
+async function verifyCloudMcpRoute(config) {
+  const endpoint = `${config.convexSiteUrl}/mcp`
   const response = await fetchWithTimeout(
     endpoint,
     {
-      body: JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'initialize', params: {} }),
+      body: JSON.stringify({
+        id: 1,
+        jsonrpc: '2.0',
+        method: 'initialize',
+        params: {},
+      }),
       cache: 'no-store',
       headers: {
         accept: 'application/json',
         'cache-control': 'no-cache',
         'content-type': 'application/json',
-        cookie: config.ingressCookie,
         origin: config.origin,
       },
       method: 'POST',
@@ -986,10 +1008,9 @@ async function verifyCloudMcpRoute(config, artifact) {
     response.status === 401 && response.url === endpoint,
     'AUTH_CLOUD_STAGING_MCP_ROUTE_FAILED',
   )
-  assertCloudRouteFingerprint(response, artifact, 'AUTH_CLOUD_STAGING_MCP_ROUTE_FAILED')
   assert(
     response.headers.get('www-authenticate') ===
-      `Bearer resource_metadata="${config.origin}/.well-known/oauth-protected-resource/mcp"`,
+      `Bearer resource_metadata="${config.convexSiteUrl}/.well-known/oauth-protected-resource/mcp"`,
     'AUTH_CLOUD_STAGING_MCP_ROUTE_FAILED',
   )
   await readBoundedResponse(response, MAX_SIGNUP_BYTES, 'AUTH_CLOUD_STAGING_MCP_ROUTE_FAILED')
@@ -1302,7 +1323,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     // Only an environment proven empty becomes owned by this run. From here
     // every partial bootstrap or race is paired with exhaustive cleanup below.
     cleanupRequired = true
-    await verifyCloudMcpRoute(config, artifact.identity)
+    await verifyCloudMcpRoute(config)
     const authCookie = await bootstrapCloudOwner(config, client, artifact.identity)
     sessionJwt = await verifyCloudSessionJwt(config, authCookie, artifact.identity)
     criticalRaces = await runCloudRaces(config, artifact.identity)
@@ -1356,7 +1377,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
       authProxyFingerprintMatched: true,
       deployedFixtureFingerprintMatched: true,
       installedFromManifestTarball: true,
-      mcpProxyFingerprintMatched: true,
+      mcpResourceChallengeVerified: true,
       publicOriginFingerprintMatched: true,
     },
     deployment: {

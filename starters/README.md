@@ -8,8 +8,9 @@ Auth owns human identity and sessions; Convex product data refers to people by
 Better Auth logical string IDs.** Tenant authorization has one explicit owner
 per starter. `team` and `agentic-saas` use the Better Auth Organization plugin;
 `agency` models its product-specific client/workspace delegation directly in
-Convex; `mcp-agent` is a separate private service-actor trust model. None keeps
-a second copy of Better Auth user or session state.
+Convex. None keeps a second copy of Better Auth user or session state. The
+provider-neutral MCP package and its packed neutral/Ginko consumers replace the
+former private service-actor starter instead of preserving a competing bridge.
 
 | Starter        | Authorization model                   | Status                                  |
 | -------------- | ------------------------------------- | --------------------------------------- |
@@ -17,7 +18,6 @@ a second copy of Better Auth user or session state.
 | `team`         | Better Auth Organization              | Canonical human B2B reference           |
 | `agentic-saas` | Better Auth Organization + delegation | Canonical in-product agent reference    |
 | `agency`       | app-owned client/workspace graph      | Intentional product-authorization model |
-| `mcp-agent`    | private service actors                | Intentional separate trust model        |
 
 ## `public`
 
@@ -63,20 +63,6 @@ delegated project access.
   Better Auth Organization plugin because its client/workspace links are the
   canonical product-authorization graph, not a mirror of Better Auth tenant
   rows. Logical Better Auth user IDs identify the humans in that graph.
-
-## `mcp-agent`
-
-A private service-actor starter with credential hashes, an MCP-style `POST /mcp`
-route, project tools, and approval-gated deletes.
-
-- **Owns:** app-owned `organizations`/`memberships`, service-actor credentials,
-  MCP tool adapters, and approval audit. Its ~service-actor/approval suites are
-  the valuable, well-tested part.
-- **Does not own:** Better Auth identity/session. Like `agency`, it does **not**
-  enable the Better Auth Organization plugin. It demonstrates a private
-  service-actor boundary, intentionally separate from the delegated-human OAuth
-  starter; its app-owned workspace membership is canonical for that trust
-  model, not duplicated tenant state.
 
 ## Starter-family design principles
 

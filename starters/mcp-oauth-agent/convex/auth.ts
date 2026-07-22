@@ -20,7 +20,11 @@ export const authComponent = createAuthComponent<DataModel>(components.betterAut
   triggers: {
     user: {
       onCreate: async (ctx, input) => {
-        const user = input as { email?: unknown; id?: unknown; name?: unknown }
+        const user = input as {
+          email?: unknown
+          id?: unknown
+          name?: unknown
+        }
         if (
           typeof user.id !== 'string' ||
           typeof user.email !== 'string' ||
@@ -46,7 +50,11 @@ export const authComponent = createAuthComponent<DataModel>(components.betterAut
         if (user) await ctx.db.patch(user._id, { active: false })
       },
       onUpdate: async (ctx, input) => {
-        const user = input as { email?: unknown; id?: unknown; name?: unknown }
+        const user = input as {
+          email?: unknown
+          id?: unknown
+          name?: unknown
+        }
         if (
           typeof user.id !== 'string' ||
           typeof user.email !== 'string' ||
@@ -59,7 +67,10 @@ export const authComponent = createAuthComponent<DataModel>(components.betterAut
           .withIndex('by_auth_id', (q) => q.eq('authId', user.id as string))
           .unique()
         if (projected) {
-          await ctx.db.patch(projected._id, { email: user.email, name: user.name })
+          await ctx.db.patch(projected._id, {
+            email: user.email,
+            name: user.name,
+          })
         }
       },
     },
@@ -165,7 +176,11 @@ export async function createAuth(ctx: AuthCtx<DataModel>) {
       '/oauth2/client/rotate-secret',
       '/oauth2/delete-client',
     ],
-    emailAndPassword: { autoSignIn: false, enabled: true, minPasswordLength: 15 },
+    emailAndPassword: {
+      autoSignIn: false,
+      enabled: true,
+      minPasswordLength: 15,
+    },
     plugins: [
       jwt({
         disableSettingJwtHeader: true,
@@ -178,7 +193,7 @@ export async function createAuth(ctx: AuthCtx<DataModel>) {
       }),
       convexPlugin,
       provider,
-      mcpOAuthAdminPlugin(ctx, provider, siteUrl),
+      mcpOAuthAdminPlugin(ctx, provider, convexSiteUrl),
     ],
     rateLimit: { enabled: true, modelName: 'rateLimit', storage: 'database' },
     trustedOrigins: [siteUrl],

@@ -1,164 +1,297 @@
-import { requireAuthOrigin } from 'better-convex-nuxt/convex-auth'
+import { createConvexMcpHandler, runMcpTool, type McpAccessContext } from '@better-convex/mcp'
+import { McpServer } from '@modelcontextprotocol/server'
+import { requireAuthOrigin, verifyOAuthBearerToken } from 'better-convex-nuxt/convex-auth'
 import { ConvexError } from 'convex/values'
+import { z } from 'zod'
 
 import { internal } from './_generated/api'
-import { httpAction } from './_generated/server'
-import { serializePrincipal, type McpScope } from './mcp/policy'
+import { httpAction, type ActionCtx } from './_generated/server'
 import {
-  MCP_PROTOCOL_VERSION,
-  MCP_TOOLS,
-  McpProtocolError,
-  jsonRpcError,
-  jsonRpcResult,
-  readMcpRequest,
-} from './mcp/protocol'
-import { McpTokenError, extractBearerToken, verifyMcpAccessToken } from './mcp/security'
+  MCP_SCOPES,
+  serializePrincipal,
+  type McpScope,
+  type SerializableOAuthPrincipal,
+} from './mcp/policy'
 
-function challenge(origin: string, scope?: McpScope): string {
-  const metadata = `${origin}/.well-known/oauth-protected-resource/mcp`
-  return `Bearer resource_metadata="${metadata}"${scope ? `, scope="${scope}"` : ''}`
+const SAFE_APPLICATION_CODES = new Set([
+  'MCP_ACCESS_REVOKED',
+  'MCP_APPROVAL_REQUIRED',
+  'MCP_INPUT_INVALID',
+  'MCP_RATE_LIMITED',
+  'MCP_RESOURCE_NOT_FOUND',
+  'MCP_SCOPE_REQUIRED',
+])
+const idSchema = z.string().min(1).max(128)
+
+function authorizationServerMetadata(issuer: string) {
+  return {
+    authorization_endpoint: `${issuer}/oauth2/authorize`,
+    authorization_response_iss_parameter_supported: true,
+    code_challenge_methods_supported: ['S256'],
+    grant_types_supported: ['authorization_code'],
+    issuer,
+    jwks_uri: `${issuer}/jwks`,
+    response_types_supported: ['code'],
+    revocation_endpoint: `${issuer}/oauth2/revoke`,
+    scopes_supported: [...MCP_SCOPES],
+    token_endpoint: `${issuer}/oauth2/token`,
+    token_endpoint_auth_methods_supported: ['none', 'client_secret_basic'],
+  }
 }
 
-function authorizationFailure(
-  origin: string,
-  error: McpTokenError,
-  requiredScope?: McpScope,
-): Response {
-  return Response.json(
-    { code: error.code },
-    {
-      headers: {
-        'cache-control': 'no-store',
-        'content-type': 'application/json',
-        'www-authenticate': challenge(origin, requiredScope),
+function applicationFailure(error: unknown) {
+  const code =
+    error instanceof ConvexError &&
+    typeof error.data === 'string' &&
+    SAFE_APPLICATION_CODES.has(error.data)
+      ? error.data
+      : undefined
+  if (!code) throw error
+  return {
+    content: [{ text: JSON.stringify({ code }), type: 'text' as const }],
+    isError: true,
+  }
+}
+
+async function invokeTool(
+  operation: () => Promise<unknown>,
+  metadata: {
+    functionName: string
+    operation: 'mutation'
+    toolName: string
+  },
+) {
+  return await runMcpTool(async () => {
+    try {
+      const value = await operation()
+      return {
+        content: [{ text: JSON.stringify(value), type: 'text' as const }],
+        structuredContent: value as Record<string, unknown>,
+      }
+    } catch (error) {
+      return applicationFailure(error)
+    }
+  }, metadata)
+}
+
+function requireScope(access: McpAccessContext, scope: McpScope) {
+  if (access.scopes.includes(scope)) return undefined
+  return {
+    content: [
+      {
+        text: JSON.stringify({ code: 'MCP_SCOPE_REQUIRED' }),
+        type: 'text' as const,
       },
-      status: error.code === 'MCP_SCOPE_REQUIRED' ? 403 : 401,
+    ],
+    isError: true,
+  }
+}
+
+export function createDelegatedMcpServer(
+  ctx: ActionCtx,
+  access: McpAccessContext,
+  principal: SerializableOAuthPrincipal,
+) {
+  const server = new McpServer({
+    name: 'better-convex-nuxt-mcp-oauth-agent',
+    version: '0.1.0',
+  })
+
+  server.registerTool(
+    'projects.list',
+    {
+      description: 'List up to 100 active projects in an organization.',
+      inputSchema: z.object({ organizationId: idSchema }).strict(),
+    },
+    async ({ organizationId }) => {
+      const denied = requireScope(access, 'mcp:read')
+      if (denied) return denied
+      return await invokeTool(
+        () =>
+          ctx.runMutation(internal.mcpTools.listProjects, {
+            organizationId,
+            principal,
+          }),
+        {
+          functionName: 'mcpTools:listProjects',
+          operation: 'mutation',
+          toolName: 'projects.list',
+        },
+      )
     },
   )
-}
 
-function applicationFailure(error: unknown): Response {
-  const code =
-    error instanceof ConvexError && typeof error.data === 'string'
-      ? error.data
-      : 'MCP_APPLICATION_AUTHORIZATION_FAILED'
-  const status = code === 'MCP_RATE_LIMITED' ? 429 : code === 'MCP_INPUT_INVALID' ? 400 : 403
-  return Response.json(
-    { code },
-    { headers: { 'cache-control': 'no-store', 'content-type': 'application/json' }, status },
+  server.registerTool(
+    'projects.create',
+    {
+      description: 'Create one project after live member authorization.',
+      inputSchema: z
+        .object({
+          name: z.string().trim().min(1).max(100),
+          organizationId: idSchema,
+        })
+        .strict(),
+    },
+    async ({ name, organizationId }) => {
+      const denied = requireScope(access, 'mcp:write')
+      if (denied) return denied
+      return await invokeTool(
+        () =>
+          ctx.runMutation(internal.mcpTools.createProject, {
+            name,
+            organizationId,
+            principal,
+          }),
+        {
+          functionName: 'mcpTools:createProject',
+          operation: 'mutation',
+          toolName: 'projects.create',
+        },
+      )
+    },
   )
-}
 
-function toolResult(value: unknown) {
-  return {
-    content: [{ text: JSON.stringify(value), type: 'text' }],
-    structuredContent: value,
-  }
+  const projectInput = z.object({ organizationId: idSchema, projectId: idSchema }).strict()
+  server.registerTool(
+    'projects.delete.preview',
+    {
+      description: 'Preview a reversible project deletion without changing state.',
+      inputSchema: projectInput,
+    },
+    async ({ organizationId, projectId }) => {
+      const denied = requireScope(access, 'mcp:write')
+      if (denied) return denied
+      return await invokeTool(
+        () =>
+          ctx.runMutation(internal.mcpTools.previewProjectDelete, {
+            organizationId,
+            principal,
+            projectId,
+          }),
+        {
+          functionName: 'mcpTools:previewProjectDelete',
+          operation: 'mutation',
+          toolName: 'projects.delete.preview',
+        },
+      )
+    },
+  )
+
+  server.registerTool(
+    'projects.delete.requestApproval',
+    {
+      description: 'Request a short-lived human approval for one project deletion.',
+      inputSchema: projectInput,
+    },
+    async ({ organizationId, projectId }) => {
+      const denied = requireScope(access, 'mcp:write')
+      if (denied) return denied
+      return await invokeTool(
+        () =>
+          ctx.runMutation(internal.mcpTools.requestProjectDeleteApproval, {
+            organizationId,
+            principal,
+            projectId,
+          }),
+        {
+          functionName: 'mcpTools:requestProjectDeleteApproval',
+          operation: 'mutation',
+          toolName: 'projects.delete.requestApproval',
+        },
+      )
+    },
+  )
+
+  server.registerTool(
+    'projects.delete.execute',
+    {
+      description: 'Soft-delete one project using its bound, approved request.',
+      inputSchema: z
+        .object({
+          approvalId: idSchema,
+          organizationId: idSchema,
+          projectId: idSchema,
+        })
+        .strict(),
+    },
+    async ({ approvalId, organizationId, projectId }) => {
+      const denied = requireScope(access, 'mcp:write')
+      if (denied) return denied
+      return await invokeTool(
+        () =>
+          ctx.runMutation(internal.mcpTools.executeProjectDelete, {
+            approvalId,
+            organizationId,
+            principal,
+            projectId,
+          }),
+        {
+          functionName: 'mcpTools:executeProjectDelete',
+          operation: 'mutation',
+          toolName: 'projects.delete.execute',
+        },
+      )
+    },
+  )
+
+  return server
 }
 
 export const handleMcp = httpAction(async (ctx, request) => {
-  const origin = requireAuthOrigin('SITE_URL')
-  const issuer = `${origin}/api/auth`
-  const resource = `${origin}/mcp`
-  let principal
-  try {
-    principal = await verifyMcpAccessToken(extractBearerToken(request.headers), {
-      issuer,
-      resource,
-    })
-  } catch (error) {
-    return authorizationFailure(
-      origin,
-      error instanceof McpTokenError ? error : new McpTokenError('MCP_INVALID_TOKEN'),
-    )
-  }
-
-  if (request.method !== 'POST') {
-    return new Response(null, {
-      headers: { allow: 'POST', 'cache-control': 'no-store' },
-      status: 405,
-    })
-  }
-
-  try {
-    const message = await readMcpRequest(request)
-    if (message.kind === 'initialized') return new Response(null, { status: 202 })
-    if (message.kind === 'initialize') {
-      return jsonRpcResult(message.id, {
-        capabilities: { tools: { listChanged: false } },
-        protocolVersion: MCP_PROTOCOL_VERSION,
-        serverInfo: { name: 'better-convex-nuxt-mcp-oauth-agent', version: '0.1.0' },
-      })
-    }
-    if (message.kind === 'ping') return jsonRpcResult(message.id, {})
-    if (message.kind === 'tools/list') {
-      if (!principal.scopes.has('mcp:read')) {
-        return authorizationFailure(origin, new McpTokenError('MCP_SCOPE_REQUIRED'), 'mcp:read')
-      }
-      return jsonRpcResult(message.id, {
-        tools: MCP_TOOLS.map(({ requiredScope: _scope, ...tool }) => tool),
-      })
-    }
-    if (!principal.scopes.has(message.requiredScope)) {
-      return Response.json(
-        { code: 'MCP_SCOPE_REQUIRED' },
-        {
-          headers: {
-            'cache-control': 'no-store',
-            'content-type': 'application/json',
-            'www-authenticate': challenge(origin, message.requiredScope),
+  const issuer = `${requireAuthOrigin('SITE_URL')}/api/auth`
+  const resource = new URL('/mcp', requireAuthOrigin('CONVEX_SITE_URL'))
+  let verifiedPrincipal: Awaited<ReturnType<typeof verifyOAuthBearerToken>> | undefined
+  const handler = createConvexMcpHandler<ActionCtx>({
+    resource,
+    authorization: {
+      metadata: authorizationServerMetadata(issuer),
+      mode: 'oauth',
+      resourceName: 'Better Convex Nuxt MCP',
+      scopesSupported: MCP_SCOPES,
+    },
+    verifier: {
+      async verifyAccessToken(token, expectedResource) {
+        const principal = await verifyOAuthBearerToken(token, {
+          allowedScopes: MCP_SCOPES,
+          audience: expectedResource.href,
+          issuer,
+          jwksUrl: `${issuer}/jwks`,
+          maxLifetimeSeconds: 600,
+        })
+        verifiedPrincipal = principal
+        return {
+          access: {
+            clientId: principal.clientId,
+            issuer,
+            resource: expectedResource.href,
+            scopes: [...principal.scopes],
+            subject: principal.subject,
           },
-          status: 403,
-        },
+          expiresAt: principal.expiresAt,
+        }
+      },
+    },
+    createServer(actionCtx, access) {
+      const principal = verifiedPrincipal
+      if (
+        !principal ||
+        principal.clientId !== access.clientId ||
+        principal.subject !== access.subject
+      ) {
+        throw new Error('MCP_ACCESS_CONTEXT_INVALID')
+      }
+      return createDelegatedMcpServer(
+        actionCtx,
+        access,
+        serializePrincipal({
+          clientId: principal.clientId,
+          resource: access.resource,
+          scopes: new Set(principal.scopes),
+          sessionId: principal.sessionId,
+          subject: principal.subject,
+        }),
       )
-    }
-
-    const args = message.arguments
-    const requiredArgument = (name: string): string => {
-      const value = args[name]
-      if (!value) throw new McpProtocolError(-32602, message.id)
-      return value
-    }
-    const shared = {
-      organizationId: requiredArgument('organizationId'),
-      principal: serializePrincipal(principal),
-    }
-    let result: unknown
-    // This switch is the complete dispatch surface. No caller value is ever
-    // treated as a Convex function reference.
-    switch (message.name) {
-      case 'projects.list':
-        result = await ctx.runMutation(internal.mcpTools.listProjects, shared)
-        break
-      case 'projects.create':
-        result = await ctx.runMutation(internal.mcpTools.createProject, {
-          ...shared,
-          name: requiredArgument('name'),
-        })
-        break
-      case 'projects.delete.preview':
-        result = await ctx.runMutation(internal.mcpTools.previewProjectDelete, {
-          ...shared,
-          projectId: requiredArgument('projectId'),
-        })
-        break
-      case 'projects.delete.requestApproval':
-        result = await ctx.runMutation(internal.mcpTools.requestProjectDeleteApproval, {
-          ...shared,
-          projectId: requiredArgument('projectId'),
-        })
-        break
-      case 'projects.delete.execute':
-        result = await ctx.runMutation(internal.mcpTools.executeProjectDelete, {
-          ...shared,
-          approvalId: requiredArgument('approvalId'),
-          projectId: requiredArgument('projectId'),
-        })
-        break
-    }
-    return jsonRpcResult(message.id, toolResult(result))
-  } catch (error) {
-    if (error instanceof McpProtocolError) return jsonRpcError(error)
-    return applicationFailure(error)
-  }
+    },
+  })
+  return await handler.fetch(ctx, request)
 })

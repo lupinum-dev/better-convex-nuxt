@@ -104,7 +104,7 @@ describe('self-contained MCP OAuth fixture contracts', () => {
   it('separates stateless JWT revoke behavior from live authorization revocation', () => {
     expect(runnerSource).toContain("body?.error !== 'unsupported_token_type'")
     expect(runnerSource).toContain('post-revoke-self-contained-token')
-    expect(runnerSource).toContain('runLiveAuthorizationParity')
+    expect(runnerSource).toContain('runLiveAuthorizationEvidence')
     expect(runnerSource).toContain('verifyDiscoveryDocuments')
     expect(runnerSource).toContain('assertBrowserClean')
   })

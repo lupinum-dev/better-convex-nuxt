@@ -9,7 +9,6 @@ const authApps = [
   'playground',
   'starters/agency',
   'starters/agentic-saas',
-  'starters/mcp-agent',
   'starters/team',
 ] as const
 const passwordApps = authApps.filter((app) => app !== 'demo')
@@ -17,7 +16,6 @@ const authEnvExamples = [
   'demo/.env.example',
   'starters/agency/.env.example',
   'starters/agentic-saas/.env.example',
-  'starters/mcp-agent/.env.example',
   'starters/mcp-oauth-agent/.env.example',
   'starters/team/.env.example',
 ] as const
@@ -25,7 +23,6 @@ const passwordForms = [
   'playground/pages/auth/signup.vue',
   'starters/agency/app/pages/agency.vue',
   'starters/agentic-saas/app/pages/index.vue',
-  'starters/mcp-agent/app/components/demo/AuthSection.vue',
   'starters/team/app/components/AuthPanel.vue',
 ] as const
 const passwordRecipeDocs = ['docs/content/docs/3.get-started/5.add-authentication.md'] as const
@@ -41,7 +38,6 @@ const proxySecretDocs = [
 const genericSignInForms = [
   'playground/pages/auth/signin.vue',
   'starters/team/app/components/AuthPanel.vue',
-  'starters/mcp-agent/app/composables/useMcpDemoAuth.ts',
   'starters/agentic-saas/app/pages/index.vue',
 ] as const
 const convexManagedEnvDocs = [
@@ -238,14 +234,7 @@ describe('shipped Better Auth factory invariants', () => {
   })
 
   it('keeps starter package scripts on explicit dotenv and deployment authorities', () => {
-    for (const starter of [
-      'agency',
-      'agentic-saas',
-      'mcp-agent',
-      'mcp-oauth-agent',
-      'public',
-      'team',
-    ]) {
+    for (const starter of ['agency', 'agentic-saas', 'mcp-oauth-agent', 'public', 'team']) {
       const manifest = JSON.parse(read(`starters/${starter}/package.json`)) as {
         scripts?: Record<string, string>
       }
@@ -318,12 +307,8 @@ describe('shipped Better Auth factory invariants', () => {
 
   it('does not prefill reusable passwords in maintained starter UI', () => {
     const agentic = read('starters/agentic-saas/app/pages/index.vue')
-    const mcp = read('starters/mcp-agent/app/composables/useMcpDemoAuth.ts')
-
     expect(agentic).toContain("const ownerPassword = ref('')")
-    expect(mcp).toContain("const password = ref('')")
     expect(agentic).not.toContain("const ownerPassword = ref('Password")
-    expect(mcp).not.toContain("const password = ref('Password")
   })
 
   it.each(passwordRecipeDocs)('%s keeps copyable password factories hardened', (path) => {
@@ -370,9 +355,6 @@ describe('shipped Better Auth factory invariants', () => {
     expect(operationsGuide).not.toContain("console.error('Sign in failed:', error.message)")
     expect(read('playground/pages/auth/signin.vue')).not.toContain('result.error.message')
     expect(read('starters/team/app/components/AuthPanel.vue')).not.toContain('result.error.message')
-    expect(read('starters/mcp-agent/app/composables/useMcpDemoAuth.ts')).not.toContain(
-      'result.error.message',
-    )
     expect(read('starters/agentic-saas/app/pages/index.vue')).not.toContain(
       "new Error(error.message || 'Sign in failed')",
     )
@@ -417,14 +399,6 @@ describe('shipped Better Auth factory invariants', () => {
     expect(auth).toContain('trustedOrigins: [siteUrl]')
     expect(auth).not.toContain('http://localhost:*')
     expect(auth).not.toContain('http://127.0.0.1:*')
-  })
-
-  it('keeps schema-only placeholders out of the MCP request factory', () => {
-    const auth = read('starters/mcp-agent/convex/auth.ts')
-
-    expect(auth).not.toContain('localSecret')
-    expect(auth).not.toContain('createAuthOptions')
-    expect(auth).not.toMatch(/BETTER_AUTH_SECRET\s*\?\?/)
   })
 
   it('pins the conservative demo OAuth storage and account-linking policy', () => {

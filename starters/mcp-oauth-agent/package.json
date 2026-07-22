@@ -13,12 +13,15 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.0-rc.1",
+    "@better-convex/mcp": "0.1.0-beta.0",
+    "@modelcontextprotocol/server": "2.0.0-beta.5",
     "better-auth": "1.7.0-rc.1",
     "better-convex-nuxt": "0.8.0-beta.4",
     "convex": "1.42.2",
     "kysely": "0.28.17",
     "nuxt": "4.4.8",
-    "vue": "3.5.39"
+    "vue": "3.5.39",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/node": "22.20.1",

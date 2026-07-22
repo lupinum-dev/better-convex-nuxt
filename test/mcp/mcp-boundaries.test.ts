@@ -17,9 +17,11 @@ describe('delegated MCP static trust boundaries', () => {
   it('has one public HTTP verifier and only tool-specific internal operations', () => {
     const action = readFileSync(join(starter, 'convex/mcp.ts'), 'utf8')
     const tools = readFileSync(join(starter, 'convex/mcpTools.ts'), 'utf8')
-    expect(action.match(/verifyMcpAccessToken\(/g)).toHaveLength(1)
-    expect(action).toContain('switch (message.name)')
-    expect(action).not.toMatch(/run(?:Query|Mutation|Action)\([^,\n]*message\./)
+    expect(action.match(/verifyOAuthBearerToken\(/g)).toHaveLength(1)
+    expect(action).toContain("from '@better-convex/mcp'")
+    expect(action).toContain("from '@modelcontextprotocol/server'")
+    expect(action.match(/server\.registerTool\(/g)).toHaveLength(5)
+    expect(action).not.toMatch(/run(?:Query|Mutation|Action)\([^,\n]*(?:message|input)\./)
     expect(tools).not.toMatch(/export const \w+\s*=\s*(?:query|mutation)\s*\(/)
     expect(tools.match(/internalMutation\s*\(/g)).toHaveLength(5)
     expect(tools).not.toMatch(/bearerToken|authorizationHeader|rawToken/)
@@ -35,15 +37,15 @@ describe('delegated MCP static trust boundaries', () => {
     expect(source).not.toContain('MCP_SERVER_SECRET')
     expect(source).not.toMatch(/bearerToken|rawToken|accessToken\s*:/)
     expect(source).not.toMatch(/principal\s*:\s*v\.any/)
-    expect(source).not.toMatch(/functionName|functionHandle|callAny|genericBridge/)
+    expect(source).not.toMatch(/functionHandle|callAny|genericBridge/)
   })
 
   it('keeps OAuth cryptography in the shared package verifier', () => {
-    const security = readFileSync(join(starter, 'convex/mcp/security.ts'), 'utf8')
-    expect(security).toContain("from 'better-convex-nuxt/convex-auth'")
-    expect(security).toContain('verifyOAuthBearerToken')
-    expect(security).not.toContain('@better-auth/oauth-provider/resource-client')
-    expect(security).not.toMatch(/jose|subtle|createRemoteJWKSet|jwtVerify/)
+    const action = readFileSync(join(starter, 'convex/mcp.ts'), 'utf8')
+    expect(action).toContain("from 'better-convex-nuxt/convex-auth'")
+    expect(action).toContain('verifyOAuthBearerToken')
+    expect(action).not.toContain('@better-auth/oauth-provider/resource-client')
+    expect(action).not.toMatch(/jose|subtle|createRemoteJWKSet|jwtVerify/)
   })
 
   it('provisions only through provider-owned admin endpoints behind live app authorization', () => {
@@ -75,7 +77,7 @@ describe('delegated MCP static trust boundaries', () => {
 
     expect(transaction).toContain('/api/auth/oauth2/public-client-prelogin')
     expect(transaction).toContain('oauth_query: signedQuery')
-    expect(transaction).toContain('resource !== `${window.location.origin}/mcp`')
+    expect(transaction).toContain('resource !== `${runtimeConfig.public.convex.siteUrl}/mcp`')
     expect(transaction).not.toMatch(/parameters\.get(?:All)?\(['"]client_name['"]\)/)
     expect(login).toContain('transaction.clientName')
     expect(consent).toContain("transaction.value.scopes.join(' ')")

@@ -101,7 +101,11 @@ function monitorBrowserPage(page, applicationOrigin) {
   const location = (value) => {
     try {
       const url = new URL(value)
-      return { label: `${url.origin}${url.pathname}`, origin: url.origin, pathname: url.pathname }
+      return {
+        label: `${url.origin}${url.pathname}`,
+        origin: url.origin,
+        pathname: url.pathname,
+      }
     } catch {
       return { label: '<invalid-url>', origin: '', pathname: '' }
     }
@@ -143,6 +147,7 @@ function monitorBrowserPage(page, applicationOrigin) {
 
 async function verifyDiscoveryDocuments(context, origin, resource) {
   const issuer = `${origin}/api/auth`
+  const resourceOrigin = new URL(resource).origin
   const authorizationResponse = await context.request.get(
     `${origin}/.well-known/oauth-authorization-server/api/auth`,
   )
@@ -164,7 +169,7 @@ async function verifyDiscoveryDocuments(context, origin, resource) {
   }
 
   const resourceResponse = await context.request.get(
-    `${origin}/.well-known/oauth-protected-resource/mcp`,
+    `${resourceOrigin}/.well-known/oauth-protected-resource/mcp`,
   )
   if (resourceResponse.status() !== 200) {
     throw new Error('OAuth protected-resource discovery was unavailable')
@@ -414,12 +419,6 @@ async function postMcpJson(context, url, accessToken, message) {
   }
 }
 
-function assertEquivalentMcpSnapshots(proxy, direct, description) {
-  if (JSON.stringify(proxy) !== JSON.stringify(direct)) {
-    throw new Error(`Nuxt and direct Convex ${description} evidence diverged`)
-  }
-}
-
 function requireExactToolNames(snapshot, description) {
   const names = snapshot.body?.result?.tools?.map((tool) => tool?.name)
   if (
@@ -434,20 +433,11 @@ function requireExactToolNames(snapshot, description) {
   }
 }
 
-async function postMcpPair(context, proxyUrl, directUrl, accessToken, message) {
-  const [proxy, direct] = await Promise.all([
-    postMcpJson(context, proxyUrl, accessToken, message),
-    postMcpJson(context, directUrl, accessToken, message),
-  ])
-  return { direct, proxy }
-}
-
-function requireApplicationFailure(pair, code, description) {
-  assertEquivalentMcpSnapshots(pair.proxy, pair.direct, description)
+function requireApplicationFailure(snapshot, code, description) {
   if (
-    pair.proxy.status !== 403 ||
-    pair.proxy.challenge !== null ||
-    JSON.stringify(pair.proxy.body) !== JSON.stringify({ code })
+    snapshot.status !== 403 ||
+    snapshot.challenge !== null ||
+    JSON.stringify(snapshot.body) !== JSON.stringify({ code })
   ) {
     throw new Error(`${description} did not fail with ${code}`)
   }
@@ -615,7 +605,6 @@ async function chooseSelect(page, selector, option) {
 
 async function verifyInspector({
   clientId,
-  convexSiteUrl,
   context,
   email,
   inspectorToken,
@@ -738,7 +727,12 @@ async function verifyInspector({
     throw new Error('Inspector tools/list dispatch did not carry a compact access token')
   }
   accessToken = capturedAccessToken
-  verifyInspectorTokenBindings(accessToken, { clientId, origin, resource, scope })
+  verifyInspectorTokenBindings(accessToken, {
+    clientId,
+    origin,
+    resource,
+    scope,
+  })
   try {
     const verifier = oauthProviderResourceClient().getActions().verifyBearerToken
     await verifier(accessToken, {
@@ -761,16 +755,8 @@ async function verifyInspector({
     method: 'tools/list',
     params: {},
   }
-  const directTools = await postMcpJson(
-    context,
-    `${convexSiteUrl}/mcp`,
-    accessToken,
-    toolListMessage,
-  )
-  const proxyTools = await postMcpJson(context, resource, accessToken, toolListMessage)
-  requireExactToolNames(proxyTools, 'Inspector-bearer Nuxt tools/list')
-  requireExactToolNames(directTools, 'Inspector-bearer direct Convex tools/list')
-  assertEquivalentMcpSnapshots(proxyTools, directTools, 'Inspector-bearer tools/list')
+  const tools = await postMcpJson(context, resource, accessToken, toolListMessage)
+  requireExactToolNames(tools, 'Inspector-bearer Convex tools/list')
   if (registrationRequests.length !== 0) {
     throw new Error(
       `Inspector attempted forbidden dynamic registration: ${registrationRequests.join(', ')}`,
@@ -824,33 +810,31 @@ async function requireProviderOperation(response, description) {
   if (!response.ok()) throw new Error(`${description} failed with ${response.status()}`)
 }
 
-async function runLiveAuthorizationParity({
+async function runLiveAuthorizationEvidence({
   accessToken,
   clientId,
   context,
-  convexSiteUrl,
   convexUrl,
   fixture,
   organizationId,
   origin,
   resource,
 }) {
-  const direct = `${convexSiteUrl}/mcp`
+  const convexSiteUrl = new URL(resource).origin
   const claims = decodeJwtPart(accessToken, 1)
   const authUserId = claims.sub
   if (typeof authUserId !== 'string' || authUserId.length === 0) {
     throw new Error('Live MCP evidence token had no subject')
   }
   const list = (id = 'bcn-live-list') => toolCall(id, 'projects.list', { organizationId })
-  const create = (id, name = 'MCP parity project') =>
+  const create = (id, name = 'MCP authorization project') =>
     toolCall(id, 'projects.create', { name, organizationId })
   const expectDenied = async (message, code, description) => {
-    const pair = await postMcpPair(context, resource, direct, accessToken, message)
-    requireApplicationFailure(pair, code, description)
+    const snapshot = await postMcpJson(context, resource, accessToken, message)
+    requireApplicationFailure(snapshot, code, description)
   }
-  const baseline = await postMcpPair(context, resource, direct, accessToken, list())
-  assertEquivalentMcpSnapshots(baseline.proxy, baseline.direct, 'baseline live authorization')
-  if (baseline.proxy.status !== 200) throw new Error('Baseline live MCP authorization failed')
+  const baseline = await postMcpJson(context, resource, accessToken, list())
+  if (baseline.status !== 200) throw new Error('Baseline live MCP authorization failed')
 
   const alternateOrganizationId = await fixture.runConvex(
     'mcpAdmin:createFixtureAlternateOrganization',
@@ -921,8 +905,16 @@ async function runLiveAuthorizationParity({
     () => expectDenied(list('tenant-changed'), 'MCP_ACCESS_REVOKED', 'delegation tenant change'),
   )
   await runWithFixtureState(
-    () => fixture.runConvex('mcpAdmin:setFixtureUserActive', { active: false, authUserId }),
-    () => fixture.runConvex('mcpAdmin:setFixtureUserActive', { active: true, authUserId }),
+    () =>
+      fixture.runConvex('mcpAdmin:setFixtureUserActive', {
+        active: false,
+        authUserId,
+      }),
+    () =>
+      fixture.runConvex('mcpAdmin:setFixtureUserActive', {
+        active: true,
+        authUserId,
+      }),
     () => expectDenied(list('user-disabled'), 'MCP_ACCESS_REVOKED', 'product capability removal'),
   )
 
@@ -963,21 +955,16 @@ async function runLiveAuthorizationParity({
       expectDenied(list('resource-unlinked'), 'MCP_ACCESS_REVOKED', 'resource ownership unlink'),
   )
 
-  const projectName = 'MCP destructive parity fixture'
-  const [proxyCreate, directCreate] = await Promise.all([
-    postMcpJson(context, resource, accessToken, create('create-proxy-project', projectName)),
-    postMcpJson(context, direct, accessToken, create('create-direct-project', projectName)),
-  ])
-  const proxyProject = structuredToolResult(proxyCreate, 'Nuxt project create')
-  const directProject = structuredToolResult(directCreate, 'direct Convex project create')
-  if (
-    typeof proxyProject.id !== 'string' ||
-    typeof directProject.id !== 'string' ||
-    proxyProject.id === directProject.id ||
-    proxyProject.name !== projectName ||
-    directProject.name !== projectName
-  ) {
-    throw new Error('Nuxt/direct project creation state changes were not equivalent')
+  const projectName = 'MCP destructive fixture'
+  const createResponse = await postMcpJson(
+    context,
+    resource,
+    accessToken,
+    create('create-project', projectName),
+  )
+  const project = structuredToolResult(createResponse, 'Convex project create')
+  if (typeof project.id !== 'string' || project.name !== projectName) {
+    throw new Error('Convex project creation evidence was invalid')
   }
 
   await runWithFixtureState(
@@ -985,117 +972,72 @@ async function runLiveAuthorizationParity({
       fixture.runConvex('mcpAdmin:setFixtureProjectOrganization', {
         authUserId,
         organizationId: alternateOrganizationId,
-        projectId: proxyProject.id,
+        projectId: project.id,
       }),
     () =>
       fixture.runConvex('mcpAdmin:setFixtureProjectOrganization', {
         authUserId,
         organizationId,
-        projectId: proxyProject.id,
+        projectId: project.id,
       }),
     () =>
       expectDenied(
         toolCall('project-owner-changed', 'projects.delete.preview', {
           organizationId,
-          projectId: proxyProject.id,
+          projectId: project.id,
         }),
         'MCP_RESOURCE_NOT_FOUND',
         'project resource ownership change',
       ),
   )
 
-  const [proxyPreview, directPreview] = await Promise.all([
-    postMcpJson(
-      context,
-      resource,
-      accessToken,
-      toolCall('preview-proxy', 'projects.delete.preview', {
-        organizationId,
-        projectId: proxyProject.id,
-      }),
-    ),
-    postMcpJson(
-      context,
-      direct,
-      accessToken,
-      toolCall('preview-direct', 'projects.delete.preview', {
-        organizationId,
-        projectId: directProject.id,
-      }),
-    ),
-  ])
-  const normalizedPreview = (snapshot, description) => {
-    const value = structuredToolResult(snapshot, description)
-    return {
-      name: value.project?.name,
-      operation: value.operation,
-      requiresApproval: value.requiresApproval,
-      reversible: value.reversible,
-      status: value.status,
-    }
-  }
+  const previewResponse = await postMcpJson(
+    context,
+    resource,
+    accessToken,
+    toolCall('preview', 'projects.delete.preview', {
+      organizationId,
+      projectId: project.id,
+    }),
+  )
+  const preview = structuredToolResult(previewResponse, 'Convex deletion preview')
   if (
-    JSON.stringify(normalizedPreview(proxyPreview, 'Nuxt deletion preview')) !==
-    JSON.stringify(normalizedPreview(directPreview, 'direct Convex deletion preview'))
+    preview.project?.name !== projectName ||
+    preview.operation !== 'projects.delete' ||
+    preview.requiresApproval !== true ||
+    preview.reversible !== true
   ) {
-    throw new Error('Nuxt/direct destructive preview evidence diverged')
+    throw new Error('Convex destructive preview evidence was invalid')
   }
 
-  const [proxyApprovalResponse, directApprovalResponse] = await Promise.all([
-    postMcpJson(
-      context,
-      resource,
-      accessToken,
-      toolCall('approval-proxy', 'projects.delete.requestApproval', {
-        organizationId,
-        projectId: proxyProject.id,
-      }),
-    ),
-    postMcpJson(
-      context,
-      direct,
-      accessToken,
-      toolCall('approval-direct', 'projects.delete.requestApproval', {
-        organizationId,
-        projectId: directProject.id,
-      }),
-    ),
-  ])
-  const proxyApproval = structuredToolResult(proxyApprovalResponse, 'Nuxt approval request')
-  const directApproval = structuredToolResult(directApprovalResponse, 'direct approval request')
-  if (
-    typeof proxyApproval.approvalId !== 'string' ||
-    typeof directApproval.approvalId !== 'string' ||
-    proxyApproval.approvalId === directApproval.approvalId ||
-    proxyApproval.status !== 'waiting_for_approval' ||
-    directApproval.status !== 'waiting_for_approval'
-  ) {
-    throw new Error('Nuxt/direct approval-request state changes were not equivalent')
+  const approvalResponse = await postMcpJson(
+    context,
+    resource,
+    accessToken,
+    toolCall('approval', 'projects.delete.requestApproval', {
+      organizationId,
+      projectId: project.id,
+    }),
+  )
+  const approval = structuredToolResult(approvalResponse, 'Convex approval request')
+  if (typeof approval.approvalId !== 'string' || approval.status !== 'waiting_for_approval') {
+    throw new Error('Convex approval-request evidence was invalid')
   }
 
   const execute = (id, projectId, approvalId) =>
-    toolCall(id, 'projects.delete.execute', { approvalId, organizationId, projectId })
-  const [proxyBlocked, directBlocked] = await Promise.all([
-    postMcpJson(
-      context,
-      resource,
-      accessToken,
-      execute('execute-unapproved-proxy', proxyProject.id, proxyApproval.approvalId),
-    ),
-    postMcpJson(
-      context,
-      direct,
-      accessToken,
-      execute('execute-unapproved-direct', directProject.id, directApproval.approvalId),
-    ),
-  ])
-  if (
-    JSON.stringify({ ...proxyBlocked, body: proxyBlocked.body }) !==
-      JSON.stringify({ ...directBlocked, body: directBlocked.body }) ||
-    proxyBlocked.status !== 403 ||
-    proxyBlocked.body?.code !== 'MCP_APPROVAL_REQUIRED'
-  ) {
-    throw new Error('Nuxt/direct unapproved destructive operation evidence diverged')
+    toolCall(id, 'projects.delete.execute', {
+      approvalId,
+      organizationId,
+      projectId,
+    })
+  const blocked = await postMcpJson(
+    context,
+    resource,
+    accessToken,
+    execute('execute-unapproved', project.id, approval.approvalId),
+  )
+  if (blocked.status !== 403 || blocked.body?.code !== 'MCP_APPROVAL_REQUIRED') {
+    throw new Error('Unapproved destructive operation did not fail closed')
   }
 
   const convexTokenResponse = await context.request.get(`${origin}/api/auth/convex/token`, {
@@ -1107,43 +1049,25 @@ async function runLiveAuthorizationParity({
   const convex = new ConvexHttpClient(convexUrl)
   convex.setAuth(convexToken)
   const approve = makeFunctionReference('approvals:approveProjectDelete')
-  await Promise.all([
-    convex.mutation(approve, { approvalId: proxyApproval.approvalId }),
-    convex.mutation(approve, { approvalId: directApproval.approvalId }),
-  ])
+  await convex.mutation(approve, { approvalId: approval.approvalId })
 
-  const [proxyExecuted, directExecuted] = await Promise.all([
-    postMcpJson(
-      context,
-      resource,
-      accessToken,
-      execute('execute-approved-proxy', proxyProject.id, proxyApproval.approvalId),
-    ),
-    postMcpJson(
-      context,
-      direct,
-      accessToken,
-      execute('execute-approved-direct', directProject.id, directApproval.approvalId),
-    ),
-  ])
-  const proxyExecution = structuredToolResult(proxyExecuted, 'Nuxt approved deletion')
-  const directExecution = structuredToolResult(directExecuted, 'direct approved deletion')
-  if (proxyExecution.status !== 'deleted' || directExecution.status !== 'deleted') {
-    throw new Error('Nuxt/direct approved deletion state changes were not equivalent')
+  const executed = await postMcpJson(
+    context,
+    resource,
+    accessToken,
+    execute('execute-approved', project.id, approval.approvalId),
+  )
+  const execution = structuredToolResult(executed, 'Convex approved deletion')
+  if (execution.status !== 'deleted') {
+    throw new Error('Convex approved deletion evidence was invalid')
   }
 
   const state = await fixture.runConvex('mcpAdmin:readFixtureDestructiveState', {
-    approvalIds: [proxyApproval.approvalId, directApproval.approvalId],
-    projectIds: [proxyProject.id, directProject.id],
+    approvalIds: [approval.approvalId],
+    projectIds: [project.id],
   })
-  const expectedProjects = [
-    { exists: true, hasDeletedAt: true, status: 'deleted' },
-    { exists: true, hasDeletedAt: true, status: 'deleted' },
-  ]
-  const expectedApprovals = [
-    { exists: true, hasUsedAt: true, status: 'used' },
-    { exists: true, hasUsedAt: true, status: 'used' },
-  ]
+  const expectedProjects = [{ exists: true, hasDeletedAt: true, status: 'deleted' }]
+  const expectedApprovals = [{ exists: true, hasUsedAt: true, status: 'used' }]
   if (
     JSON.stringify(state?.projects) !== JSON.stringify(expectedProjects) ||
     JSON.stringify(state?.approvals) !== JSON.stringify(expectedApprovals)
@@ -1152,10 +1076,9 @@ async function runLiveAuthorizationParity({
   }
 }
 
-async function runTerminalRevocationParity({
+async function runTerminalRevocationEvidence({
   browser,
   clients,
-  convexSiteUrl,
   email,
   inspectorToken,
   organizationId,
@@ -1163,16 +1086,16 @@ async function runTerminalRevocationParity({
   password,
   resource,
 }) {
-  const direct = `${convexSiteUrl}/mcp`
   const seenTokens = new Set()
   const seenSessions = new Set()
   const seenTokenIds = new Set()
   const acquire = async (clientId, scope = MCP_FIXTURE_SCOPE) => {
-    const context = await browser.newContext({ viewport: { height: 900, width: 1440 } })
+    const context = await browser.newContext({
+      viewport: { height: 900, width: 1440 },
+    })
     try {
       const accessToken = await verifyInspector({
         clientId,
-        convexSiteUrl,
         context,
         email,
         inspectorToken,
@@ -1195,19 +1118,15 @@ async function runTerminalRevocationParity({
       seenTokens.add(accessToken)
       seenSessions.add(claims.sid)
       seenTokenIds.add(claims.jti)
-      const baseline = await postMcpPair(
+      const baseline = await postMcpJson(
         context,
         resource,
-        direct,
         accessToken,
-        toolCall(`terminal-baseline-${seenTokens.size}`, 'projects.list', { organizationId }),
+        toolCall(`terminal-baseline-${seenTokens.size}`, 'projects.list', {
+          organizationId,
+        }),
       )
-      assertEquivalentMcpSnapshots(
-        baseline.proxy,
-        baseline.direct,
-        'terminal-case baseline authorization',
-      )
-      if (baseline.proxy.status !== 200) {
+      if (baseline.status !== 200) {
         throw new Error('Fresh terminal-case OAuth transaction was not live-authorized')
       }
       return { accessToken, context }
@@ -1217,14 +1136,13 @@ async function runTerminalRevocationParity({
     }
   }
   const requireRevoked = async (evidence, description) => {
-    const pair = await postMcpPair(
+    const snapshot = await postMcpJson(
       evidence.context,
       resource,
-      direct,
       evidence.accessToken,
       toolCall(`terminal-${description}`, 'projects.list', { organizationId }),
     )
-    requireApplicationFailure(pair, 'MCP_ACCESS_REVOKED', description)
+    requireApplicationFailure(snapshot, 'MCP_ACCESS_REVOKED', description)
   }
   const postAdminTransition = async (context, path, description) => {
     const response = await context.request.post(`${origin}/api/auth/mcp/admin/${path}`, {
@@ -1385,7 +1303,10 @@ async function verifyMcpRemote({ clientId, context, email, origin, password, res
       const page = await context.newPage()
       const assertBrowserClean = monitorBrowserPage(page, origin)
       await page.goto(authorization.href, { waitUntil: 'domcontentloaded' })
-      await completeAuthorization(page, origin, MCP_REMOTE_CALLBACK, { email, password })
+      await completeAuthorization(page, origin, MCP_REMOTE_CALLBACK, {
+        email,
+        password,
+      })
       assertBrowserClean('mcp-remote OAuth journey')
       await page.close()
 
@@ -1445,7 +1366,7 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
   try {
     const origin = normalizeEvidenceOrigin(fixture.origin)
     const convexSiteUrl = normalizeEvidenceOrigin(fixture.convexSiteUrl)
-    const resource = `${origin}/mcp`
+    const resource = `${convexSiteUrl}/mcp`
     await Promise.all([
       assertPortAvailable(3334, '127.0.0.1'),
       assertPortAvailable(6274, 'localhost'),
@@ -1475,7 +1396,9 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
     try {
       await waitForInspector()
       browser = await chromium.launch({ headless: true })
-      context = await browser.newContext({ viewport: { height: 900, width: 1440 } })
+      context = await browser.newContext({
+        viewport: { height: 900, width: 1440 },
+      })
       await verifyDiscoveryDocuments(context, origin, resource)
       const clients = await provisionInteropProfile(
         context,
@@ -1487,7 +1410,6 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
       )
       const inspectorAccessToken = await verifyInspector({
         clientId: clients.inspector,
-        convexSiteUrl,
         context,
         email: fixture.email,
         inspectorToken,
@@ -1504,11 +1426,10 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
         resource,
         tempRoot,
       })
-      await runLiveAuthorizationParity({
+      await runLiveAuthorizationEvidence({
         accessToken: inspectorAccessToken,
         clientId: clients.inspector,
         context,
-        convexSiteUrl,
         convexUrl: fixture.convexUrl,
         fixture,
         organizationId: clients.organizationId,
@@ -1529,10 +1450,9 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
         clients.organizationId,
         [clients.inspector, clients.mcpRemote],
       )
-      const conformance = await runTerminalRevocationParity({
+      const conformance = await runTerminalRevocationEvidence({
         browser,
         clients: terminalClients,
-        convexSiteUrl,
         email: fixture.email,
         inspectorToken,
         organizationId: clients.organizationId,
@@ -1542,7 +1462,11 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
       })
       try {
         if (includeConformance) {
-          await conformanceRunner({ bearer: conformance.accessToken, origin, root })
+          await conformanceRunner({
+            bearer: conformance.accessToken,
+            origin: convexSiteUrl,
+            root,
+          })
         }
       } finally {
         await conformance.context.close().catch(() => {})
@@ -1553,7 +1477,7 @@ export async function runMcpEvidence({ conformanceRunner, includeConformance = f
         fixture.password,
       ])
       console.log(
-        `MCP OAuth interoperability, live Nuxt/direct parity, and terminal revocation passed${includeConformance ? ' with server conformance' : ''}.`,
+        `MCP OAuth interoperability, live Convex authorization, and terminal revocation passed${includeConformance ? ' with server conformance' : ''}.`,
       )
     } catch (error) {
       const logs = safeEvidenceLog(`${inspectorStderr()}\n${inspectorStdout()}`, [

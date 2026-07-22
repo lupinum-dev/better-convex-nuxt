@@ -23,7 +23,6 @@ export default defineNuxtConfig({
     url: process.env.NUXT_PUBLIC_CONVEX_URL,
     siteUrl: process.env.NUXT_PUBLIC_CONVEX_SITE_URL,
     auth: {
-      mcp: true,
       publicOrigin: process.env.SITE_URL,
       proxy: {
         trustedClientIpHeader: process.env.BCN_AUTH_TRUSTED_CLIENT_IP_HEADER,

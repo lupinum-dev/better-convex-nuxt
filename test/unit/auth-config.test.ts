@@ -9,9 +9,11 @@ describe('auth config normalization ', () => {
     expect(auth).not.toBe(false)
     if (auth === false) throw new Error('expected enabled')
     expect(auth.publicOrigin).toBe('')
-    expect(auth.mcp).toBe(false)
     expect(auth.proxy.trustedClientIpHeader).toBe('')
-    expect(auth.routeProtection).toEqual({ redirectTo: '/auth/signin', preserveReturnTo: true })
+    expect(auth.routeProtection).toEqual({
+      redirectTo: '/auth/signin',
+      preserveReturnTo: true,
+    })
     expect(isConvexAuthEnabled(auth)).toBe(true)
   })
 
@@ -28,18 +30,26 @@ describe('auth config normalization ', () => {
   it('materializes proxy, debug, and routeProtection overrides', () => {
     const auth = normalizeConvexAuthConfig({
       publicOrigin: 'https://app.example.test/',
-      mcp: true,
-      proxy: { maxRequestBodyBytes: 10, trustedClientIpHeader: 'CF-Connecting-IP' },
+      proxy: {
+        maxRequestBodyBytes: 10,
+        trustedClientIpHeader: 'CF-Connecting-IP',
+      },
       debug: { clientAuthFlow: true },
       routeProtection: { redirectTo: '/login', preserveReturnTo: false },
     })
     if (auth === false) throw new Error('expected enabled')
     expect(auth.publicOrigin).toBe('https://app.example.test')
-    expect(auth.mcp).toBe(true)
     expect(auth.proxy.maxRequestBodyBytes).toBe(10)
     expect(auth.proxy.trustedClientIpHeader).toBe('cf-connecting-ip')
-    expect(auth.debug).toEqual({ authFlow: false, clientAuthFlow: true, serverAuthFlow: false })
-    expect(auth.routeProtection).toEqual({ redirectTo: '/login', preserveReturnTo: false })
+    expect(auth.debug).toEqual({
+      authFlow: false,
+      clientAuthFlow: true,
+      serverAuthFlow: false,
+    })
+    expect(auth.routeProtection).toEqual({
+      redirectTo: '/login',
+      preserveReturnTo: false,
+    })
   })
 
   it('strips the build-only client path from the runtime shape', () => {
@@ -50,7 +60,9 @@ describe('auth config normalization ', () => {
 
   it('rejects malformed trusted ingress header names', () => {
     expect(() =>
-      normalizeConvexAuthConfig({ proxy: { trustedClientIpHeader: 'bad\nheader' } }),
+      normalizeConvexAuthConfig({
+        proxy: { trustedClientIpHeader: 'bad\nheader' },
+      }),
     ).toThrow('valid HTTP header name')
     expect(() =>
       normalizeConvexAuthConfig({
@@ -120,8 +132,9 @@ function _moduleOptionsTypeContracts() {
   assertModuleOptions({ auth: {} })
   assertModuleOptions({ auth: { publicOrigin: 'https://app.example.test' } })
   assertModuleOptions({ auth: { routeProtection: { redirectTo: '/login' } } })
-  assertModuleOptions({ auth: { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } } })
-  assertModuleOptions({ auth: { mcp: true } })
+  assertModuleOptions({
+    auth: { proxy: { trustedClientIpHeader: 'cf-connecting-ip' } },
+  })
   // Positive: `auth: false` is a Convex-only build.
   assertModuleOptions({ auth: false })
 

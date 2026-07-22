@@ -22,6 +22,7 @@ function one(parameters: URLSearchParams, name: string): string {
 
 export function useVerifiedOAuthTransaction() {
   const route = useRoute()
+  const runtimeConfig = useRuntimeConfig()
   const transaction = ref<VerifiedOAuthTransaction | null>(null)
   const loading = ref(true)
   const errorMessage = ref('')
@@ -39,7 +40,7 @@ export function useVerifiedOAuthTransaction() {
       const scope = one(parameters, 'scope')
       const scopes = scope.split(' ')
       if (
-        resource !== `${window.location.origin}/mcp` ||
+        resource !== `${runtimeConfig.public.convex.siteUrl}/mcp` ||
         scopes.length === 0 ||
         new Set(scopes).size !== scopes.length ||
         scopes.some((entry) => !entry || !ALLOWED_SCOPES.has(entry))

@@ -48,7 +48,6 @@ export interface ConvexRuntimeConfig {
     | false
     | {
         readonly publicOrigin: string
-        readonly mcp: boolean
         readonly proxy: Readonly<{
           maxRequestBodyBytes: number
           maxResponseBodyBytes: number
@@ -85,7 +84,10 @@ export function normalizeConvexRuntimeConfig(input: unknown): NormalizedConvexRu
       : undefined
   const explicitSiteUrl =
     typeof raw?.siteUrl === 'string' && raw.siteUrl.length > 0 ? raw.siteUrl : undefined
-  const candidateSiteUrl = resolveConvexSiteUrl({ url, siteUrl: explicitSiteUrl }).siteUrl
+  const candidateSiteUrl = resolveConvexSiteUrl({
+    url,
+    siteUrl: explicitSiteUrl,
+  }).siteUrl
   const resolvedSiteUrl = candidateSiteUrl ? normalizeConvexSiteUrl(candidateSiteUrl) : undefined
 
   return {
@@ -116,7 +118,6 @@ export function toPublicConvexRuntimeConfig(
       ? (false as const)
       : {
           publicOrigin: internal.auth.publicOrigin,
-          mcp: internal.auth.mcp,
           proxy: internal.auth.proxy,
           routeProtection: internal.auth.routeProtection,
         }

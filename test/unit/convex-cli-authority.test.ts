@@ -8,10 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const convexCli = path.join(root, 'node_modules/convex/bin/main.js')
-const localBrowserSources = [
-  'starters/mcp-agent/scripts/verify-browser-happy-path.mjs',
-  'starters/team/scripts/verify-browser-happy-path.mjs',
-] as const
+const localBrowserSources = ['starters/team/scripts/verify-browser-happy-path.mjs'] as const
 
 function source(relativePath: string): string {
   return readFileSync(path.join(root, relativePath), 'utf8')
@@ -73,6 +70,5 @@ describe('Convex CLI authority boundaries', () => {
       )
       expect(value, relativePath).toContain('delete env.BETTER_AUTH_SECRETS')
     }
-    expect(source(localBrowserSources[0])).toContain('delete env.MCP_SERVER_SECRET')
   })
 })

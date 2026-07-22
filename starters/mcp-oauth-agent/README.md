@@ -2,22 +2,14 @@
 
 This starter is the public, delegated-human MCP model. Better Auth is the OAuth
 authorization server, Better Convex Nuxt exposes it through the same-origin
-`/api/auth` proxy, and the fixed `/mcp` resource accepts short-lived OAuth
-access tokens. Convex remains the product-authorization authority.
+`/api/auth` proxy, and the deployment-owned Convex `/mcp` HTTP Action accepts
+short-lived OAuth access tokens. Convex remains the product-authorization authority.
 
-It is not a variant of the private service-actor starter:
-
-| Property          | This starter                                              | `starters/mcp-agent`             |
-| ----------------- | --------------------------------------------------------- | -------------------------------- |
-| Credential owner  | A human Better Auth user                                  | An app-owned service actor       |
-| User involvement  | Interactive sign-in and explicit OAuth consent            | An admin provisions a credential |
-| Public exposure   | Public OAuth authorization server and MCP resource        | Private MCP deployment           |
-| Revocation source | Session, client, consent, membership, and live delegation | App-owned service credential     |
-| Intended use      | External MCP clients acting for a user                    | Controlled internal automation   |
-
-Do not add `MCP_SERVER_SECRET` to this starter. Do not expose the private
-starter using this starter's public topology. They intentionally have different
-trust boundaries.
+It is a delegated-human example, not a universal machine-identity model. For
+controlled service automation, supply a provider-neutral bearer verifier to
+`@better-convex/mcp` and keep credential state and authorization in the
+application. Do not combine service credentials with this OAuth profile or add
+an `MCP_SERVER_SECRET` bridge.
 
 ## What the starter proves
 
@@ -25,12 +17,12 @@ trust boundaries.
   canonical component database. There is no second OAuth table set.
 - OAuth supports only authorization code, mandatory PKCE, exact HTTPS or RFC
   8252 loopback-IP redirects, explicit consent, the fixed
-  `mcp:read`/`mcp:write` scopes, and the exact same-origin `/mcp` resource.
-- The Nuxt `/mcp` route is a bounded fixed-target proxy. It does not parse the
-  token, choose a Convex function, or make product-authorization decisions.
-- One Convex HTTP action verifies the issuer, resource, token class, algorithm,
-  subject, session, client, and scopes. It maps five fixed tool names to five
-  tool-specific internal mutations and never passes the raw token onward.
+  `mcp:read`/`mcp:write` scopes, and the exact Convex HTTP Actions `/mcp` resource.
+- There is no Nuxt MCP relay. The official MCP SDK and `@better-convex/mcp`
+  terminate the bearer in one deployment-owned Convex HTTP Action.
+- The action verifies the issuer, resource, token class, algorithm, subject,
+  session, client, and scopes. Five explicit official-SDK registrations map to
+  five tool-specific internal mutations and never pass the raw token onward.
 - Each tool transaction re-reads the active Better Auth session, OAuth client,
   resource link, consent, app user, organization membership, delegation,
   resource ownership, and approval state before reading or changing product
@@ -99,7 +91,8 @@ no legacy component migration or compatibility path.
    the Nuxt origin so public traffic cannot bypass that ingress, or independently
    authenticate ingress requests at the origin.
 
-   Convex supplies `CONVEX_SITE_URL` to functions as a deployment-owned built-in;
+   Convex supplies `CONVEX_SITE_URL` to functions as a deployment-owned built-in
+   and uses its exact `/mcp` URL as the OAuth resource;
    the CLI rejects attempts to set it manually. Keep the selected deployment's
    generated value in `.env.local` for Nuxt, but set only the application-owned
    variables above. `SITE_URL` must exactly match the public Nuxt origin. Now
@@ -255,7 +248,7 @@ conformance.
 The provider signs the bounded continuation query. Before either page displays
 client data, the browser submits that signed value to the provider's
 `/oauth2/public-client-prelogin` endpoint. The UI then renders only the returned
-client ID/name plus the exact same-origin resource and allowlisted scopes from
+client ID/name plus the exact deployment-owned Convex resource and allowlisted scopes from
 the verified transaction. It never accepts display names from query input and
 cannot widen consent. Login and consent responses are no-store, deny framing,
 and use a no-referrer policy.
@@ -304,5 +297,6 @@ pnpm build
 ```
 
 The supported tuple is exact: Better Auth and OAuth Provider `1.7.0-rc.1`,
-Convex `1.42.2`, Kysely `0.28.17`, and Better Convex Nuxt `0.8.0-beta.4`. Kysely
-`0.29.2` is not compatible with this pinned beta adapter tuple.
+Convex `1.42.2`, Kysely `0.28.17`, Better Convex Nuxt `0.8.0-beta.4`,
+`@better-convex/mcp@0.1.0-beta.0`, and official MCP server SDK
+`2.0.0-beta.5`. Kysely `0.29.2` is not compatible with this pinned beta adapter tuple.

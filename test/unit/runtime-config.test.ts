@@ -17,7 +17,6 @@ describe('runtime config normalization', () => {
     expect(config.auth).not.toBe(false)
     if (config.auth === false) throw new Error('expected auth enabled')
     expect(config.auth.publicOrigin).toBe('')
-    expect(config.auth.mcp).toBe(false)
     expect(config.auth.proxy.trustedClientIpHeader).toBe('')
   })
 
@@ -27,7 +26,9 @@ describe('runtime config normalization', () => {
   })
 
   it('uses explicit upload maxConcurrent when valid', () => {
-    const config = normalizeConvexRuntimeConfig({ upload: { maxConcurrent: 5 } })
+    const config = normalizeConvexRuntimeConfig({
+      upload: { maxConcurrent: 5 },
+    })
     expect(config.upload.maxConcurrent).toBe(5)
   })
 
@@ -52,7 +53,9 @@ describe('runtime config normalization', () => {
 
   it('uses explicit auth proxy limits when valid', () => {
     const config = normalizeConvexRuntimeConfig({
-      auth: { proxy: { maxRequestBodyBytes: 2048, maxResponseBodyBytes: 4096 } },
+      auth: {
+        proxy: { maxRequestBodyBytes: 2048, maxResponseBodyBytes: 4096 },
+      },
     })
     if (config.auth === false) throw new Error('expected auth enabled')
     expect(config.auth.proxy.maxRequestBodyBytes).toBe(2048)
@@ -68,18 +71,6 @@ describe('runtime config normalization', () => {
     })
     if (config.auth === false) throw new Error('expected auth enabled')
     expect(config.auth.publicOrigin).toBe('https://app.example.test')
-  })
-
-  it('enables only the fixed MCP resource switch', () => {
-    const config = normalizeConvexRuntimeConfig({
-      auth: {
-        mcp: true,
-        publicOrigin: 'https://app.example.test',
-        proxy: { trustedClientIpHeader: 'cf-connecting-ip' },
-      },
-    })
-    if (config.auth === false) throw new Error('expected auth enabled')
-    expect(config.auth.mcp).toBe(true)
   })
 
   it('defaults query waitTimeoutMs to 10000ms', () => {

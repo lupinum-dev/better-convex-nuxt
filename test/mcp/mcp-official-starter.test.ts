@@ -1,0 +1,97 @@
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { describe, expect, it } from 'vitest'
+
+import { createConvexMcpHandler } from '../../packages/mcp/src/handler'
+import { createDelegatedMcpServer } from '../../starters/mcp-oauth-agent/convex/mcp'
+
+const resource = new URL('https://starter.example.test/mcp')
+const issuer = 'https://starter.example.test/credentials/'
+const bearer = 'delegated-starter-bearer-must-not-escape'
+
+describe('delegated OAuth starter official MCP composition', () => {
+  it('lists the exact catalog and maps one tool without bearer passthrough', async () => {
+    const calls: unknown[] = []
+    const application = {
+      async runMutation(_reference: unknown, args: unknown) {
+        calls.push(args)
+        return [{ id: 'project-1', name: 'Example' }]
+      },
+    }
+    const handler = createConvexMcpHandler<typeof application>({
+      resource,
+      authorization: { mode: 'preconfigured-bearer', issuer },
+      verifier: {
+        async verifyAccessToken(token, expectedResource) {
+          if (token !== bearer || expectedResource.href !== resource.href)
+            throw new Error('invalid')
+          return {
+            access: {
+              clientId: 'client-1',
+              issuer,
+              resource: resource.href,
+              scopes: ['mcp:read', 'mcp:write'],
+              subject: 'user-1',
+            },
+            expiresAt: Math.floor(Date.now() / 1_000) + 300,
+          }
+        },
+      },
+      createServer(context, access) {
+        return createDelegatedMcpServer(context as never, access, {
+          clientId: access.clientId,
+          resource: access.resource,
+          scopes: [...access.scopes],
+          sessionId: 'session-1',
+          subject: access.subject,
+        })
+      },
+    })
+    const responseBodies: string[] = []
+    const transport = new StreamableHTTPClientTransport(resource, {
+      requestInit: { headers: { authorization: `Bearer ${bearer}` } },
+      fetch: async (input, init) => {
+        const response = await handler.fetch(application, new Request(input, init))
+        responseBodies.push(await response.clone().text())
+        return response
+      },
+    })
+    const client = new Client(
+      { name: 'delegated-starter-proof', version: '1' },
+      { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+    )
+
+    try {
+      await client.connect(transport)
+      expect((await client.listTools()).tools.map(({ name }) => name)).toEqual([
+        'projects.list',
+        'projects.create',
+        'projects.delete.preview',
+        'projects.delete.requestApproval',
+        'projects.delete.execute',
+      ])
+      const result = await client.callTool({
+        arguments: { organizationId: 'organization-1' },
+        name: 'projects.list',
+      })
+      expect(result).toMatchObject({
+        structuredContent: [{ id: 'project-1', name: 'Example' }],
+      })
+      expect(result.isError).not.toBe(true)
+      expect(calls).toEqual([
+        {
+          organizationId: 'organization-1',
+          principal: {
+            clientId: 'client-1',
+            resource: resource.href,
+            scopes: ['mcp:read', 'mcp:write'],
+            sessionId: 'session-1',
+            subject: 'user-1',
+          },
+        },
+      ])
+      expect(JSON.stringify({ calls, responseBodies })).not.toContain(bearer)
+    } finally {
+      await client.close()
+    }
+  })
+})

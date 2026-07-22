@@ -13,8 +13,6 @@ import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcp_policy from "../mcp/policy.js";
-import type * as mcp_protocol from "../mcp/protocol.js";
-import type * as mcp_security from "../mcp/security.js";
 import type * as mcpAdmin from "../mcpAdmin.js";
 import type * as mcpOAuthAdmin from "../mcpOAuthAdmin.js";
 import type * as mcpOAuthEvidence from "../mcpOAuthEvidence.js";
@@ -33,8 +31,6 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   mcp: typeof mcp;
   "mcp/policy": typeof mcp_policy;
-  "mcp/protocol": typeof mcp_protocol;
-  "mcp/security": typeof mcp_security;
   mcpAdmin: typeof mcpAdmin;
   mcpOAuthAdmin: typeof mcpOAuthAdmin;
   mcpOAuthEvidence: typeof mcpOAuthEvidence;

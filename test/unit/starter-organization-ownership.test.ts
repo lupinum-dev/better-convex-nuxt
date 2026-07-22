@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 const repoRoot = join(import.meta.dirname, '../..')
 
-const appOwnedOrganizationStarters = ['agency', 'mcp-agent'] as const
+const appOwnedOrganizationStarters = ['agency'] as const
 
 function readStarterFile(starter: string, path: string): string {
   return readFileSync(join(repoRoot, 'starters', starter, path), 'utf8')

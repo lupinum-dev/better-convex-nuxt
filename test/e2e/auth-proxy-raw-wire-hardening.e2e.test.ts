@@ -238,7 +238,10 @@ function requestProxyRaw(payload: string): Promise<Buffer> {
 
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    const socket = createConnection({ host: target.hostname, port: Number(target.port) })
+    const socket = createConnection({
+      host: target.hostname,
+      port: Number(target.port),
+    })
     socket.setTimeout(5_000, () => socket.destroy(new Error('Raw proxy request timed out')))
     socket.on('connect', () => socket.end(payload))
     socket.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -252,7 +255,10 @@ function requestProxyRawIncomplete(payload: string): Promise<Buffer> {
 
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    const socket = createConnection({ host: target.hostname, port: Number(target.port) })
+    const socket = createConnection({
+      host: target.hostname,
+      port: Number(target.port),
+    })
     socket.setTimeout(5_000, () => socket.destroy(new Error('Raw proxy request timed out')))
     socket.on('connect', () => socket.write(payload))
     socket.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -289,7 +295,6 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
         url: 'https://demo.convex.cloud',
         siteUrl: upstream.url,
         auth: {
-          mcp: true,
           publicOrigin: PUBLIC_ORIGIN,
           proxy: {
             maxRequestBodyBytes: BODY_LIMIT,
@@ -318,13 +323,6 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
     expect(authorizationMetadata.headers['access-control-allow-credentials']).toBeUndefined()
     expect(capturedSince(metadataStart)).toHaveLength(1)
     expect(capturedRequests.at(-1)?.url).toBe('/api/auth/.well-known/oauth-authorization-server')
-
-    const resourceMetadata = await requestProxy('/.well-known/oauth-protected-resource/mcp', {
-      headers: { origin: clientOrigin },
-    })
-    expect(resourceMetadata.status).toBe(200)
-    expect(resourceMetadata.headers['access-control-allow-origin']).toBe('*')
-    expect(resourceMetadata.headers['access-control-allow-credentials']).toBeUndefined()
 
     const preflightStart = capturedRequests.length
     const preflight = await requestProxy('/api/auth/oauth2/token', {
@@ -529,7 +527,10 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
   it('preserves empty, binary, random, content-typed, and slow chunked request bytes', async () => {
     const cases = [
       { contentType: 'application/json', body: Buffer.from('{"value":"π"}') },
-      { contentType: 'application/x-www-form-urlencoded', body: Buffer.from('a=1&a=2&b=%2F') },
+      {
+        contentType: 'application/x-www-form-urlencoded',
+        body: Buffer.from('a=1&a=2&b=%2F'),
+      },
       {
         contentType: 'multipart/form-data; boundary=bcn-boundary',
         body: Buffer.from(
@@ -537,7 +538,10 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
         ),
       },
       { contentType: 'text/plain', body: Buffer.from('plain\u0000text') },
-      { contentType: 'application/octet-stream', body: Buffer.from([0, 255, 128, 13, 10, 1]) },
+      {
+        contentType: 'application/octet-stream',
+        body: Buffer.from([0, 255, 128, 13, 10, 1]),
+      },
     ]
 
     for (const [index, testCase] of cases.entries()) {
@@ -558,7 +562,10 @@ describe('auth proxy direct Node/Nitro raw-wire hardening matrix', async () => {
 
     const emptyResponse = await requestProxy('/api/auth/_capture?case=empty', {
       body: Buffer.alloc(0),
-      headers: { 'content-length': '0', 'content-type': 'application/octet-stream' },
+      headers: {
+        'content-length': '0',
+        'content-type': 'application/octet-stream',
+      },
       method: 'POST',
     })
     expect(emptyResponse.status).toBe(200)

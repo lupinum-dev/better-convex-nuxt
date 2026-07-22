@@ -384,20 +384,6 @@ export default defineNuxtModule<ModuleOptions>({
         route: '/.well-known/oauth-authorization-server/api/auth',
         handler: resolver.resolve('./runtime/server/api/auth/authorization-server-metadata'),
       })
-
-      // Delegated OAuth MCP is opt-in. Both routes use one fixed topology
-      // derived from validated runtime config; no request can select an
-      // upstream URL, resource, or Convex function.
-      if (normalizedAuthConfig.mcp) {
-        addServerHandler({
-          route: '/mcp',
-          handler: resolver.resolve('./runtime/server/mcp/route'),
-        })
-        addServerHandler({
-          route: '/.well-known/oauth-protected-resource/mcp',
-          handler: resolver.resolve('./runtime/server/mcp/protected-resource'),
-        })
-      }
     }
 
     // 3. Type augmentation for IDE support.

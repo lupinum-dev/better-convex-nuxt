@@ -66,11 +66,11 @@ change proxy success or failure.
 Better Auth establishes identity. Convex functions still enforce every
 authorization rule from canonical backend state.
 
-Delegated MCP traffic may enter through the fixed Nuxt `/mcp` relay or the
-documented Convex HTTP action directly. The Convex action is the only bearer
-verifier and dispatches a closed tool allowlist. Each tool-specific internal
-function recomputes effective access from current Better Auth protocol state
-and current application authorization state; token scopes are only a ceiling.
+Delegated MCP traffic enters the deployment-owned Convex HTTP Action directly.
+The official-SDK-backed `@better-convex/mcp` handler is the only bearer verifier;
+the Nuxt package owns no MCP relay or protocol parser. Explicit application tool
+registrations map to named internal operations. Each effect recomputes access
+from current provider and application state; token scopes are only a ceiling.
 
 ## Query lifecycle
 

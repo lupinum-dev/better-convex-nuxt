@@ -62,13 +62,6 @@ export interface ConvexAuthOptions {
   publicOrigin?: string
   /** Auth proxy body-size limits. */
   proxy?: AuthProxyDefaults
-  /**
-   * Expose the delegated OAuth MCP resource at the fixed same-origin `/mcp`
-   * route. The target is always the configured Convex HTTP Actions origin plus
-   * `/mcp`; callers cannot select an upstream or Convex function.
-   * @default false
-   */
-  mcp?: boolean
   /** High-verbosity auth trace channels. */
   debug?: ConvexDebugOptions
   /** Opt-in route protection redirect behavior. */
@@ -84,7 +77,6 @@ export type NormalizedConvexAuthConfig =
   | false
   | {
       publicOrigin: string
-      mcp: boolean
       proxy: Readonly<{
         maxRequestBodyBytes: number
         maxResponseBodyBytes: number
@@ -199,7 +191,6 @@ export function normalizeConvexAuthConfig(
 
   return {
     publicOrigin,
-    mcp: options.mcp === true,
     proxy,
     debug: normalizeDebug(options.debug),
     routeProtection: normalizeRouteProtection(options.routeProtection),

@@ -220,7 +220,7 @@ describe('trusted prerelease workflow', () => {
     expect(cloudGate).toContain('closedIngressProved: true')
     expect(cloudGate).toContain('acceptedByConvex: true')
     expect(cloudGate).toContain('authProxyFingerprintMatched: true')
-    expect(cloudGate).toContain('mcpProxyFingerprintMatched: true')
+    expect(cloudGate).toContain('mcpResourceChallengeVerified: true')
     expect(cloudGate).toContain("'AUTH_CLOUD_STAGING_POST_CLEANUP_STATE_NOT_EMPTY'")
     expect(cloudGate).toContain('await client.mutation(releaseProofFunctions.cleanup, {})')
     expect(cloudGate).not.toContain('process.env.BCN_RELEASE_')
