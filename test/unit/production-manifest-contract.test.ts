@@ -13,6 +13,7 @@ const root = resolve(import.meta.dirname, '../..')
 const packageId = 'nuxt'
 const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
 const vueManifest = JSON.parse(readFileSync(resolve(root, 'packages/vue/package.json'), 'utf8'))
+const mcpManifest = JSON.parse(readFileSync(resolve(root, 'packages/mcp/package.json'), 'utf8'))
 
 function candidate(mutate: (value: Record<string, unknown>) => void) {
   const value = structuredClone(manifest) as Record<string, unknown>
@@ -65,6 +66,33 @@ describe('production manifest certification profiles', () => {
       'scripts',
     ])
     expect(contract.manifest).toMatchObject({
+      files: ['dist'],
+      sideEffects: false,
+      scripts: { prepack: 'pnpm run build' },
+    })
+  })
+
+  it('selects the minimal MCP contract with one exact official SDK dependency', () => {
+    const contract = selectProductionManifestContract('mcp', mcpManifest)
+    expect(contract).toMatchObject({
+      schemaVersion: 1,
+      profile: 'mcp-production-dependencies',
+    })
+    expect(Object.keys(contract.manifest)).toEqual([
+      'name',
+      'version',
+      'description',
+      'license',
+      'files',
+      'type',
+      'sideEffects',
+      'exports',
+      'dependencies',
+      'engines',
+      'scripts',
+    ])
+    expect(contract.manifest).toMatchObject({
+      dependencies: { '@modelcontextprotocol/server': '2.0.0-beta.5' },
       files: ['dist'],
       sideEffects: false,
       scripts: { prepack: 'pnpm run build' },
@@ -178,7 +206,10 @@ describe('production manifest certification profiles', () => {
     'postpublish',
   ])('rejects lifecycle script %s even when both manifests match', (script) => {
     const hooked = candidate((value) => {
-      value.scripts = { ...(value.scripts as object), [script]: 'node forged.js' }
+      value.scripts = {
+        ...(value.scripts as object),
+        [script]: 'node forged.js',
+      }
     })
     expect(() => assertProductionManifestContract(packageId, hooked, hooked)).toThrow(
       `uses forbidden lifecycle script ${script}`,
@@ -205,7 +236,10 @@ describe('production manifest certification profiles', () => {
     const reordered = candidate((value) => {
       value.description = 'Descriptive text is not an installation contract.'
       value.devDependencies = { 'ignored-dev-only-change': '1.0.0' }
-      value.scripts = { ...(value.scripts as object), 'ignored-dev-only-change': 'true' }
+      value.scripts = {
+        ...(value.scripts as object),
+        'ignored-dev-only-change': 'true',
+      }
       value.dependencies = Object.fromEntries(
         Object.entries(value.dependencies as Record<string, unknown>).reverse(),
       )

@@ -40,8 +40,8 @@ describe('package export checker CLI authority', () => {
     },
     {
       label: 'unknown package owner',
-      args: ['--package', 'mcp', '--dist-only'],
-      expected: 'Unknown package certification descriptor: mcp',
+      args: ['--package', 'react', '--dist-only'],
+      expected: 'Unknown package certification descriptor: react',
     },
     {
       label: 'duplicate package owner',

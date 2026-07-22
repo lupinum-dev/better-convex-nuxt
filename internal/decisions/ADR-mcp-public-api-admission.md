@@ -20,32 +20,29 @@ Candidate surface for `P5-002` and `P5-003` proof:
 
 ```ts
 export interface McpAccessContext {
-  readonly issuer: string;
-  readonly subject: string;
-  readonly clientId: string;
-  readonly resource: string;
-  readonly scopes: readonly string[];
+  readonly issuer: string
+  readonly subject: string
+  readonly clientId: string
+  readonly resource: string
+  readonly scopes: readonly string[]
 }
 
 export interface McpAccessVerifier {
-  verifyAccessToken(
-    token: string,
-    expectedResource: URL,
-  ): Promise<VerifiedMcpAccess>;
+  verifyAccessToken(token: string, expectedResource: URL): Promise<VerifiedMcpAccess>
 }
 
 export const mcp = createConvexMcpHandler({
-  resource: "https://deployment.example/mcp",
-  allowedOrigins: ["https://app.example"],
+  resource: 'https://deployment.example/mcp',
+  allowedOrigins: ['https://app.example'],
   verifier,
   createServer(ctx, access) {
-    const server = new McpServer({ name: "my-app", version: "0.1.0" });
-    server.registerTool(/* official SDK API */);
-    return server;
+    const server = new McpServer({ name: 'my-app', version: '0.1.0' })
+    server.registerTool(/* official SDK API */)
+    return server
   },
-});
+})
 
-export const handleMcp = httpAction((ctx, request) => mcp.fetch(ctx, request));
+export const handleMcp = httpAction((ctx, request) => mcp.fetch(ctx, request))
 ```
 
 Names and the verifier's non-public result shape remain subject to implementation proof. No other

@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+
+import { execFileSync } from 'node:child_process'
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+import { inspectConsumerCandidate } from './package-consumer-candidate.mjs'
+
+const repositoryRoot = resolve(import.meta.dirname, '..')
+const scratchRoot = mkdtempSync(join(tmpdir(), 'better-convex-mcp-consumer-'))
+const tarballPath = parseTarball(process.argv.slice(2))
+const candidate = inspectConsumerCandidate({
+  packageId: 'mcp',
+  packageName: '@better-convex/mcp',
+  tarballPath,
+})
+
+function parseTarball(args) {
+  if (args.length !== 2 || args[0] !== '--tarball' || !args[1]) {
+    throw new Error('Usage: check-mcp-package-consumer.mjs --tarball <path>')
+  }
+  return resolve(repositoryRoot, args[1])
+}
+
+function run(command, args) {
+  execFileSync(command, args, { cwd: scratchRoot, stdio: 'inherit' })
+}
+
+try {
+  cpSync(tarballPath, join(scratchRoot, 'better-convex-mcp.tgz'))
+  writeFileSync(
+    join(scratchRoot, 'package.json'),
+    `${JSON.stringify(
+      {
+        private: true,
+        type: 'module',
+        dependencies: {
+          '@better-convex/mcp': 'file:./better-convex-mcp.tgz',
+          typescript: '5.9.3',
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  writeFileSync(
+    join(scratchRoot, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          noEmit: true,
+          strict: true,
+          target: 'ES2022',
+        },
+        include: ['consumer.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  writeFileSync(
+    join(scratchRoot, 'consumer.ts'),
+    `import type { McpAccessContext, McpAccessVerifier, VerifiedMcpAccess } from '@better-convex/mcp'\n\nconst access: McpAccessContext = { issuer: 'https://issuer.example', subject: 'alice', clientId: 'client', resource: 'https://resource.example/mcp', scopes: ['notes:read'] }\nconst verifier: McpAccessVerifier = { async verifyAccessToken(_token, _resource): Promise<VerifiedMcpAccess> { return { access, expiresAt: 4_102_444_800 } } }\nvoid verifier\n`,
+  )
+
+  run('pnpm', ['install', '--frozen-lockfile=false', '--ignore-scripts'])
+  run('pnpm', ['exec', 'tsc', '--noEmit'])
+
+  const installedRoot = join(scratchRoot, 'node_modules/@better-convex/mcp')
+  candidate.assertInstalled(installedRoot)
+  const imported = await import(pathToFileURL(join(installedRoot, 'dist/index.mjs')).href)
+  if (Object.keys(imported).length !== 0) {
+    throw new Error('MCP type-contract entry unexpectedly exports runtime values.')
+  }
+  const manifest = JSON.parse(readFileSync(join(installedRoot, 'package.json'), 'utf8'))
+  if (manifest.dependencies?.['@modelcontextprotocol/server'] !== '2.0.0-beta.5') {
+    throw new Error('MCP consumer did not install the exact official SDK contract.')
+  }
+  console.log(`MCP exact-tarball contract consumer passed (${candidate.manifest.version}).`)
+} finally {
+  candidate.cleanup()
+  rmSync(scratchRoot, { recursive: true, force: true })
+}

@@ -172,6 +172,16 @@ const VUE_CHECKER_ENTRY_RULES = [
   },
 ]
 
+const MCP_CHECKER_ENTRY_RULES = [
+  {
+    subpath: '.',
+    purity: {
+      runtimeExternalSpecifiers: [],
+      typeExternalSpecifiers: [],
+    },
+  },
+]
+
 const checkerProfiles = {
   'nuxt-public-entries': {
     manifestPolicy: { requireLegacyRootFields: true },
@@ -192,6 +202,16 @@ const checkerProfiles = {
       allowedFrameworkPackages: ['vue'],
     },
     rules: VUE_CHECKER_ENTRY_RULES,
+  },
+  'mcp-public-entries': {
+    manifestPolicy: { requireLegacyRootFields: false },
+    sourceRoots: ['src'],
+    sourceScan: {
+      allowedVirtualImports: [],
+      allowedVirtualPrefixes: [],
+      allowedFrameworkPackages: [],
+    },
+    rules: MCP_CHECKER_ENTRY_RULES,
   },
 }
 

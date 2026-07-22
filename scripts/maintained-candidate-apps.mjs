@@ -31,6 +31,11 @@ const candidateTestProfiles = Object.freeze({
     ]),
     tarballFilename: 'better-convex-vue.tgz',
   }),
+  'mcp-maintained-consumers': Object.freeze({
+    kind: 'runners',
+    runners: Object.freeze(['scripts/check-mcp-package-consumer.mjs']),
+    tarballFilename: 'better-convex-mcp.tgz',
+  }),
 })
 
 function assertFixture(fixture, label) {
@@ -48,12 +53,16 @@ function assertFixture(fixture, label) {
 
 function assertCandidateTestProfile(profile, profileId) {
   if (profile?.kind === 'runners') {
-    const reviewedRunners = [
-      'scripts/check-vue-anonymous-consumer.mjs',
-      'scripts/check-vue-auth-consumer.mjs',
-      'scripts/check-vue-embedded-consumer.mjs',
-    ]
+    const reviewedRunners = {
+      'vue-maintained-consumers': [
+        'scripts/check-vue-anonymous-consumer.mjs',
+        'scripts/check-vue-auth-consumer.mjs',
+        'scripts/check-vue-embedded-consumer.mjs',
+      ],
+      'mcp-maintained-consumers': ['scripts/check-mcp-package-consumer.mjs'],
+    }[profileId]
     if (
+      !reviewedRunners ||
       Object.keys(profile).sort().join(',') !== 'kind,runners,tarballFilename' ||
       !Array.isArray(profile.runners) ||
       JSON.stringify(profile.runners) !== JSON.stringify(reviewedRunners) ||

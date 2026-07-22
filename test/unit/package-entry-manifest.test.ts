@@ -28,6 +28,7 @@ const nuxtEntrySubpaths = [
   './server/createUserSyncTriggers',
 ]
 const vueEntrySubpaths = ['.', './errors', './embedded']
+const mcpEntrySubpaths = ['.']
 
 type PackageEntry = {
   kind: 'runtime' | 'types-only'
@@ -93,6 +94,28 @@ describe('package entry manifest', () => {
     })
   })
 
+  it('selects the exact reviewed MCP type-contract entry profile', () => {
+    const manifest = getPackageEntryManifest('mcp')
+
+    expect(manifest).toMatchObject({
+      packageId: 'mcp',
+      packageName: '@better-convex/mcp',
+      packageDirectory: 'packages/mcp',
+      profileId: 'mcp-public-entries',
+    })
+    expect(manifest.entries.map((entry: PackageEntry) => entry.subpath)).toEqual(mcpEntrySubpaths)
+    expect(manifest.bins).toEqual({})
+    expect(getPackageCheckerProfile('mcp')).toMatchObject({
+      manifestPolicy: { requireLegacyRootFields: false },
+      sourceRoots: ['src'],
+    })
+    expect(manifest.entries[0]).toMatchObject({
+      kind: 'runtime',
+      valueExports: [],
+      typeExports: ['McpAccessContext', 'McpAccessVerifier', 'VerifiedMcpAccess'],
+    })
+  })
+
   it('returns a deeply immutable reviewed manifest', () => {
     const manifest = getPackageEntryManifest('nuxt')
 
@@ -108,8 +131,8 @@ describe('package entry manifest', () => {
   })
 
   it('rejects unknown package owners and subpaths', () => {
-    expect(() => getPackageEntryManifest('mcp')).toThrow(
-      /Unknown package certification descriptor: mcp/,
+    expect(() => getPackageEntryManifest('react')).toThrow(
+      /Unknown package certification descriptor: react/,
     )
     expect(() => getPackageEntry('nuxt', './not-reviewed')).toThrow(
       /Unknown package entry for nuxt: \.\/not-reviewed/,
@@ -340,8 +363,8 @@ describe('package entry manifest', () => {
         ...detachedRules.slice(1),
       ]),
     ).toThrow(/invalid purity policy/)
-    expect(() => getPackageCheckerEntries('mcp')).toThrow(
-      /Unknown package certification descriptor: mcp/,
+    expect(() => getPackageCheckerEntries('react')).toThrow(
+      /Unknown package certification descriptor: react/,
     )
   })
 
@@ -360,6 +383,18 @@ describe('package entry manifest', () => {
         'vue',
       ],
       typeExternalSpecifiers: ['convex/browser', 'convex/server', 'vue'],
+    })
+  })
+
+  it('keeps the MCP checker rules in exact bijection with its reviewed type contract', () => {
+    const packageEntries = getPackageEntryManifest('mcp').entries
+    const checkerEntries = getPackageCheckerEntries('mcp')
+
+    expect(checkerEntries.map((entry: CheckerEntry) => entry.subpath)).toEqual(mcpEntrySubpaths)
+    expect(checkerEntries).toHaveLength(packageEntries.length)
+    expect(checkerEntries[0]?.purity).toEqual({
+      runtimeExternalSpecifiers: [],
+      typeExternalSpecifiers: [],
     })
   })
 

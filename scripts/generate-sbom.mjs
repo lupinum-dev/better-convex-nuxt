@@ -54,6 +54,14 @@ const sbomProfiles = Object.freeze({
       vue: '3.5.39',
     }),
   }),
+  'mcp-production-dependencies': Object.freeze({
+    componentPropertyNamespace: 'better-convex-mcp',
+    generatorName: 'better-convex-mcp-sbom-generator',
+    requiredComponents: Object.freeze(['@modelcontextprotocol/server']),
+    requiredPhysicalVersions: Object.freeze({
+      '@modelcontextprotocol/server': '2.0.0-beta.5',
+    }),
+  }),
 })
 const sbomProfile = resolveSbomProfile(descriptor)
 

@@ -129,7 +129,11 @@ describe('packed artifact path classes', () => {
     ).toThrow(/unsupported Directory/)
     expect(() =>
       validateTarballEntryHeaders('nuxt', [
-        { path: 'package/dist/node_modules/convex/index.js', size: 1, type: 'File' },
+        {
+          path: 'package/dist/node_modules/convex/index.js',
+          size: 1,
+          type: 'File',
+        },
       ]),
     ).toThrow(/must stay under package/)
     expect(() =>
@@ -186,8 +190,8 @@ describe('packed artifact path classes', () => {
   })
 
   it('rejects an unreviewed package owner instead of applying the Nuxt policy', () => {
-    expect(() => checkPackedPathClasses('mcp', { files: [] }, [])).toThrow(
-      'Unknown package certification descriptor: mcp',
+    expect(() => checkPackedPathClasses('react', { files: [] }, [])).toThrow(
+      'Unknown package certification descriptor: react',
     )
   })
 
@@ -265,7 +269,11 @@ describe('packed artifact path classes', () => {
       writeArtifact(
         packageRoot,
         'package.json',
-        JSON.stringify({ name: 'better-convex-nuxt', type: 'module', dependencies: {} }),
+        JSON.stringify({
+          name: 'better-convex-nuxt',
+          type: 'module',
+          dependencies: {},
+        }),
       )
       writeArtifact(packageRoot, 'dist/runtime/devtools/ui/dist/index.html', '<!doctype html>')
       writeArtifact(

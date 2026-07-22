@@ -37,6 +37,12 @@ function createRepository(
     join(vuePackageDirectory, 'package.json'),
     `${JSON.stringify({ name: 'better-convex-vue', version: '1.0.0' })}\n`,
   )
+  const mcpPackageDirectory = join(root, 'packages/mcp')
+  mkdirSync(mcpPackageDirectory, { recursive: true })
+  writeFileSync(
+    join(mcpPackageDirectory, 'package.json'),
+    `${JSON.stringify({ name: '@better-convex/mcp', version: '1.0.0' })}\n`,
+  )
   return root
 }
 
@@ -45,11 +51,15 @@ function cloneDescriptor() {
 }
 
 function cloneDescriptors(replacement = cloneDescriptor()) {
-  return [replacement, structuredClone(packageCertificationDescriptors[1])]
+  return [
+    replacement,
+    structuredClone(packageCertificationDescriptors[1]),
+    structuredClone(packageCertificationDescriptors[2]),
+  ]
 }
 
 describe('package certification manifest', () => {
-  it('authorizes exactly the reviewed Nuxt and Vue packages with closed profile tuples', () => {
+  it('authorizes exactly the reviewed Nuxt, Vue, and MCP packages with closed profile tuples', () => {
     expect(packageCertificationDescriptors).toEqual([
       {
         id: 'nuxt',
@@ -79,15 +89,30 @@ describe('package certification manifest', () => {
           runtimeFingerprint: 'vue-no-runtime-fingerprint',
         },
       },
+      {
+        id: 'mcp',
+        packageName: '@better-convex/mcp',
+        packageDirectory: 'packages/mcp',
+        profiles: {
+          build: 'mcp-unbuild',
+          exports: 'mcp-public-entries',
+          packedFiles: 'mcp-runtime-artifact',
+          sbom: 'mcp-production-dependencies',
+          provenance: 'mcp-repository-origin',
+          candidateTests: 'mcp-maintained-consumers',
+          runtimeFingerprint: 'mcp-no-runtime-fingerprint',
+        },
+      },
     ])
     expect(Object.isFrozen(packageCertificationDescriptors)).toBe(true)
     expect(Object.isFrozen(packageCertificationDescriptors[0])).toBe(true)
     expect(Object.isFrozen(packageCertificationDescriptors[0].profiles)).toBe(true)
     expect(getPackageCertificationDescriptor('nuxt')).toBe(packageCertificationDescriptors[0])
     expect(getPackageCertificationDescriptor('vue')).toBe(packageCertificationDescriptors[1])
+    expect(getPackageCertificationDescriptor('mcp')).toBe(packageCertificationDescriptors[2])
   })
 
-  it.each(['mcp', 'better-convex-nuxt', '.', '../playground', 'packages/vue', 'NUXT'])(
+  it.each(['react', 'better-convex-nuxt', '.', '../playground', 'packages/vue', 'NUXT'])(
     'rejects unknown or path-like selector %j',
     (selector) => {
       expect(() => getPackageCertificationDescriptor(selector)).toThrow(

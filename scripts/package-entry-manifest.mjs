@@ -249,6 +249,25 @@ const vuePackageEntries = [
   },
 ]
 
+const mcpPackageEntries = [
+  {
+    kind: 'runtime',
+    subpath: '.',
+    distJs: 'dist/index.mjs',
+    distDts: 'dist/index.d.mts',
+    valueExports: [],
+    typeExports: ['McpAccessContext', 'McpAccessVerifier', 'VerifiedMcpAccess'],
+    exactDeclaredExports: true,
+    forbiddenNames: [
+      'McpPrincipal',
+      'definePermissions',
+      'registerConvexTools',
+      'requireMcpScope',
+      'withBetterConvex',
+    ],
+  },
+]
+
 const entryKinds = new Set(['runtime', 'types-only'])
 const runtimeEntryFields = new Set([
   'kind',
@@ -278,6 +297,10 @@ const entryProfiles = {
   },
   'vue-public-entries': {
     entries: vuePackageEntries,
+    bins: {},
+  },
+  'mcp-public-entries': {
+    entries: mcpPackageEntries,
     bins: {},
   },
 }

@@ -130,6 +130,19 @@ const packedArtifactProfiles = Object.freeze({
     }),
     buildHint: 'pnpm run build',
   }),
+  'mcp-runtime-artifact': Object.freeze({
+    allowedPackageRootFiles: Object.freeze(['LICENSE', 'package.json']),
+    requiredPackedFiles: Object.freeze(['dist/index.mjs', 'dist/index.d.mts']),
+    requiredBuildFiles: Object.freeze(['dist/index.mjs', 'dist/index.d.mts']),
+    allowedHostPackages: Object.freeze([]),
+    allowedVirtualSpecifiers: Object.freeze([]),
+    archiveLimits: Object.freeze({
+      maxEntries: 128,
+      maxFileBytes: 2 * 1024 * 1024,
+      maxTotalBytes: 4 * 1024 * 1024,
+    }),
+    buildHint: 'pnpm run build',
+  }),
 })
 
 function getPackedArtifactProfile(packageId) {

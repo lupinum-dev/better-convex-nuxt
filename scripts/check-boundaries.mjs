@@ -88,6 +88,7 @@ const ERRORS_DIR = p('packages/vue/src/errors.ts')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
 const CLIENT_LIFECYCLE_DIR = p('packages/vue/src')
+const MCP_PACKAGE_DIR = p('packages/mcp/src')
 const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
 const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
 const SHARED_CLIENT_IP_FILE = p('src/runtime/shared/client-ip.ts')
@@ -109,6 +110,7 @@ const isModuleBuild = (absPath) => isAnyFile(absPath, MODULE_BUILD_FILES)
 const isRuntimeEntry = (absPath) => inDir(absPath, RUNTIME_ROOT)
 const isConvexAuth = (absPath) => inDir(absPath, CONVEX_AUTH_DIR)
 const isClientLifecycle = (absPath) => inDir(absPath, CLIENT_LIFECYCLE_DIR)
+const isMcpPackage = (absPath) => inDir(absPath, MCP_PACKAGE_DIR)
 const isSharedAuthCookie = (absPath) => absPath === SHARED_AUTH_COOKIE_FILE
 const isSharedAuthOrigin = (absPath) => absPath === SHARED_AUTH_ORIGIN_FILE
 const isSharedClientIp = (absPath) => absPath === SHARED_CLIENT_IP_FILE
@@ -172,6 +174,13 @@ function isAllowedClientLifecycleBareSpecifier(specifier) {
   )
 }
 
+function isAllowedMcpBareSpecifier(specifier) {
+  return (
+    specifier === '@modelcontextprotocol/server' ||
+    specifier.startsWith('@modelcontextprotocol/server/')
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Edge table (architecture invariant)
 // ---------------------------------------------------------------------------
@@ -193,6 +202,18 @@ function isAllowedClientLifecycleBareSpecifier(specifier) {
 
 /** @type {Rule[]} */
 const RULES = [
+  {
+    name: 'mcp-package-official-sdk-only',
+    description:
+      'packages/mcp/src/** may import only its own package and the exact official MCP server SDK; Nuxt, Nitro, H3, Better Auth, Vue, Node built-ins, aliases, and sibling workspace packages are forbidden.',
+    from: isMcpPackage,
+    disallow: (edge) => {
+      if (!edge.isRelative) return !isAllowedMcpBareSpecifier(edge.specifier)
+      if (edge.resolvedAbsPath === null) return false
+      return !isMcpPackage(edge.resolvedAbsPath)
+    },
+    typeOnlyExempt: false,
+  },
   {
     name: 'client-lifecycle-island-browser-only',
     description:

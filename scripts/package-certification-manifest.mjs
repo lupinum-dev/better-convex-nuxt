@@ -46,6 +46,20 @@ const reviewedDescriptors = [
       runtimeFingerprint: 'vue-no-runtime-fingerprint',
     },
   },
+  {
+    id: 'mcp',
+    packageName: '@better-convex/mcp',
+    packageDirectory: 'packages/mcp',
+    profiles: {
+      build: 'mcp-unbuild',
+      exports: 'mcp-public-entries',
+      packedFiles: 'mcp-runtime-artifact',
+      sbom: 'mcp-production-dependencies',
+      provenance: 'mcp-repository-origin',
+      candidateTests: 'mcp-maintained-consumers',
+      runtimeFingerprint: 'mcp-no-runtime-fingerprint',
+    },
+  },
 ]
 
 const reviewedProfileIds = Object.freeze(

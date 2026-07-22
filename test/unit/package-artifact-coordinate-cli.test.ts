@@ -51,10 +51,16 @@ describe('package artifact coordinate CLI', () => {
   it.each([
     { label: 'missing selector', args: [] },
     { label: 'missing value', args: ['--package'] },
-    { label: 'unknown selector', args: ['--package', 'mcp'] },
+    { label: 'unknown selector', args: ['--package', 'react'] },
     { label: 'path selector', args: ['--package', '../packages/vue'] },
-    { label: 'duplicate selector', args: ['--package', 'nuxt', '--package', 'nuxt'] },
-    { label: 'extra option', args: ['--package', 'nuxt', '--directory', '/tmp/output'] },
+    {
+      label: 'duplicate selector',
+      args: ['--package', 'nuxt', '--package', 'nuxt'],
+    },
+    {
+      label: 'extra option',
+      args: ['--package', 'nuxt', '--directory', '/tmp/output'],
+    },
   ])('rejects $label', ({ args }) => {
     const result = run(args)
 

@@ -63,12 +63,22 @@ describe('package runtime-fingerprint profiles', () => {
     }
   })
 
+  it('forbids a runtime fingerprint in the MCP library package', () => {
+    const selected = getPackageRuntimeFingerprintProfile('mcp')
+    expect(selected.descriptor.profiles.runtimeFingerprint).toBe('mcp-no-runtime-fingerprint')
+    expect(selected.profile).toEqual({ mode: 'forbidden' })
+    expect(() => assertRuntimeFingerprintEvidence(selected.profile, null)).not.toThrow()
+  })
+
   it('rejects permissive or malformed profile shapes', () => {
     expect(() => assertRuntimeFingerprintProfile({ mode: 'optional' })).toThrow(
       'Required runtime-fingerprint profile is invalid',
     )
     expect(() =>
-      assertRuntimeFingerprintProfile({ mode: 'forbidden', token: 'unexpected' }),
+      assertRuntimeFingerprintProfile({
+        mode: 'forbidden',
+        token: 'unexpected',
+      }),
     ).toThrow('Forbidden runtime-fingerprint profile is invalid')
     expect(() => getPackageRuntimeFingerprintProfile('not-reviewed')).toThrow(
       'Unknown package certification descriptor: not-reviewed',

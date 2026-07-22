@@ -60,9 +60,23 @@ describe('maintained candidate-test profiles', () => {
     expect(Object.isFrozen(selected.profile.runners)).toBe(true)
   })
 
+  it('selects the closed MCP exact-tarball consumer through its reviewed descriptor', () => {
+    const selected = getMaintainedCandidateProfile('mcp')
+    expect(selected.descriptor).toMatchObject({
+      id: 'mcp',
+      packageName: '@better-convex/mcp',
+      profiles: { candidateTests: 'mcp-maintained-consumers' },
+    })
+    expect(selected.profile).toEqual({
+      kind: 'runners',
+      runners: ['scripts/check-mcp-package-consumer.mjs'],
+      tarballFilename: 'better-convex-mcp.tgz',
+    })
+  })
+
   it('rejects package IDs outside the certification manifest', () => {
-    expect(() => getMaintainedCandidateProfile('mcp')).toThrow(
-      'Unknown package certification descriptor: mcp',
+    expect(() => getMaintainedCandidateProfile('react')).toThrow(
+      'Unknown package certification descriptor: react',
     )
   })
 })

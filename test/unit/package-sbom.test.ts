@@ -104,6 +104,34 @@ describe('package-profile SBOM generation', () => {
     }
   }, 120_000)
 
+  it('roots the MCP SBOM in the exact official server SDK', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'bcm-sbom-output-'))
+    try {
+      const output = join(directory, 'sbom.cdx.json')
+      const result = run(['--package', 'mcp', '--output', output])
+      expect(result.status, result.stderr).toBe(0)
+
+      const sbom = JSON.parse(readFileSync(output, 'utf8')) as {
+        components: Array<{ name: string; version: string }>
+        metadata: { component: { name: string } }
+      }
+      expect(sbom.metadata.component.name).toBe('@better-convex/mcp')
+      expect(sbom.components.map(({ name }) => name).sort()).toEqual([
+        '@modelcontextprotocol/core',
+        '@modelcontextprotocol/server',
+        'zod',
+      ])
+      expect(sbom.components).toContainEqual(
+        expect.objectContaining({
+          name: '@modelcontextprotocol/server',
+          version: '2.0.0-beta.5',
+        }),
+      )
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }, 120_000)
+
   it('rejects unknown package selectors before generating evidence', () => {
     const result = run(['--package', 'not-reviewed', '--check'])
     expect(result.status).toBe(1)
