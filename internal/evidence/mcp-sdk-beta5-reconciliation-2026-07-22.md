@@ -39,14 +39,17 @@ beta.5. No compatibility adapter, parser fork, or application-facing option was 
 
 `test/unit/vnext-mcp-sdk-transport.test.ts` pins modern negotiation to `2026-07-28` and proves:
 
-- discovery and `tools/list` omit top-level `serverInfo`;
-- both results contain the exact server identity under the official server-info metadata key;
+- discovery, `tools/list`, `tools/call`, and `resources/read` omit top-level `serverInfo`;
+- every one of those results contains the exact server identity under the official server-info metadata
+  key;
 - an otherwise valid modern request remains accepted after the official client-info metadata is removed;
 - existing official in-memory discovery, tool, and resource behavior remains green.
 
 Both independent production topology probes also create an additional pinned-modern client while
-retaining their legacy clients. Each modern client performs discovery and `tools/list`, observes the
-server-info metadata, and receives the same four explicit neutral tools.
+retaining their legacy clients. Each modern client performs discovery, `tools/list`, `search_notes`, and
+the `note://note-a` resource read. Every captured modern response carries server-info metadata, the tool
+returns the expected structured note, the resource returns one bounded content item, and both candidates
+still expose the same four explicit neutral tools.
 
 | Proof                                 | Command                                                                            | Result                                                                 |
 | ------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |

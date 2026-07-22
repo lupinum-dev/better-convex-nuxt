@@ -83,6 +83,9 @@ describe('vNext MCP SDK transport laboratory', () => {
             content: [{ type: 'text', text: 'No notes matched.' }],
           }),
         )
+        server.registerResource('note-alpha', 'note://note-alpha', {}, async (uri) => ({
+          contents: [{ mimeType: 'text/plain', text: 'Alpha', uri: uri.href }],
+        }))
         return server
       },
       { legacy: 'reject', responseMode: 'json' },
@@ -113,12 +116,20 @@ describe('vNext MCP SDK transport laboratory', () => {
     try {
       await client.connect(transport)
       await client.listTools()
+      await client.callTool({ arguments: { query: 'alpha' }, name: 'search_notes' })
+      await client.readResource({ uri: 'note://note-alpha' })
 
       const discover = exchanges.find(({ request }) => request.method === 'server/discover')
       const toolsList = exchanges.find(({ request }) => request.method === 'tools/list')
       expect(discover).toBeDefined()
       expect(toolsList).toBeDefined()
-      for (const exchange of [discover!, toolsList!]) {
+      expect(exchanges.map(({ request }) => request.method)).toEqual([
+        'server/discover',
+        'tools/list',
+        'tools/call',
+        'resources/read',
+      ])
+      for (const exchange of exchanges) {
         const result = exchange.response.result as Record<string, unknown>
         expect(result.serverInfo).toBeUndefined()
         expect((result._meta as Record<string, unknown>)[SERVER_INFO_META_KEY]).toEqual(serverInfo)

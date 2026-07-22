@@ -354,7 +354,15 @@ describe('vNext Nitro MCP production runtime purity', () => {
         'rename_note',
         'search_notes',
       ])
-      expect(modernResponseBodies.some((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
+      const modernSearch = await modernClient.callTool({
+        arguments: { query: 'alpha', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(modernSearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      const modernResource = await modernClient.readResource({ uri: 'note://note-a' })
+      expect(modernResource.contents).toHaveLength(1)
+      expect(modernResponseBodies).toHaveLength(4)
+      expect(modernResponseBodies.every((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
       const search = await client.callTool({
         arguments: { query: 'alpha', workspaceId: 'workspace-a' },
         name: 'search_notes',

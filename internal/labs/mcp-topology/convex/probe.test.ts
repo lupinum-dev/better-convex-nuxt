@@ -478,7 +478,16 @@ describe('vNext Convex-native MCP topology probe', () => {
       expect(toolsModern.tools.map((tool) => tool.name).sort()).toEqual(
         topologyConformanceVectors.expectedTools,
       )
-      expect(responsesModern.some((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
+      const modernSearch = await connectionModern.client.callTool(
+        topologyConformanceVectors.search.allowed,
+      )
+      expect(modernSearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      const modernResource = await connectionModern.client.readResource(
+        topologyConformanceVectors.resource,
+      )
+      expect(modernResource.contents).toHaveLength(1)
+      expect(responsesModern).toHaveLength(4)
+      expect(responsesModern.every((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
       expect(connectionModern.requestBodies.some((body) => body.includes('server/discover'))).toBe(
         true,
       )
