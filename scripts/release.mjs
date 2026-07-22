@@ -79,7 +79,10 @@ function parseArguments(args) {
     if (argument.startsWith('--')) throw new Error(`Unknown release argument: ${argument}`)
     positional.push(argument)
   }
-  if ((command === 'verify' && positional.length !== 1) || (command !== 'verify' && positional.length)) {
+  if (
+    (command === 'verify' && positional.length !== 1) ||
+    (command !== 'verify' && positional.length)
+  ) {
     throw new Error(
       'Usage: node scripts/release.mjs artifact|prepare [--package <reviewed-id>] | verify <artifact.json> [--package <reviewed-id>]',
     )

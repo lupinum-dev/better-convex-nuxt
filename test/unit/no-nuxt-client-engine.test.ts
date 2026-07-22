@@ -21,13 +21,22 @@ describe('Nuxt client-engine absence gate', () => {
   }
 
   afterEach(() => {
-    for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
+    for (const directory of directories.splice(0))
+      rmSync(directory, { recursive: true, force: true })
   })
 
   it('accepts public Vue package facades without a second engine', () => {
     const root = createRoot()
-    write(root, 'src/runtime/composables/useConvexMutation.ts', "import { useConvexMutation } from 'better-convex-vue'\n")
-    write(root, 'dist/runtime/composables/useConvexMutation.js', "import { useConvexMutation } from 'better-convex-vue'\n")
+    write(
+      root,
+      'src/runtime/composables/useConvexMutation.ts',
+      "import { useConvexMutation } from 'better-convex-vue'\n",
+    )
+    write(
+      root,
+      'dist/runtime/composables/useConvexMutation.js',
+      "import { useConvexMutation } from 'better-convex-vue'\n",
+    )
 
     expect(findNuxtClientEngineViolations(root, { dist: true })).toEqual([])
   })
@@ -35,7 +44,11 @@ describe('Nuxt client-engine absence gate', () => {
   it('rejects removed source paths, private imports, controller ownership, and bundled engines', () => {
     const root = createRoot()
     write(root, 'src/runtime/client-core/query-controller.ts', 'export const old = true\n')
-    write(root, 'src/runtime/private.ts', "import 'better-convex-vue/internal'\ncreateClientOwner()\n")
+    write(
+      root,
+      'src/runtime/private.ts',
+      "import 'better-convex-vue/internal'\ncreateClientOwner()\n",
+    )
     write(root, 'dist/runtime/plugin.js', 'createCallableController()\n')
 
     expect(findNuxtClientEngineViolations(root, { dist: true })).toEqual(

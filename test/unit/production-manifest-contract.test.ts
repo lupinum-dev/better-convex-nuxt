@@ -12,9 +12,7 @@ import {
 const root = resolve(import.meta.dirname, '../..')
 const packageId = 'nuxt'
 const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
-const vueManifest = JSON.parse(
-  readFileSync(resolve(root, 'packages/vue/package.json'), 'utf8'),
-)
+const vueManifest = JSON.parse(readFileSync(resolve(root, 'packages/vue/package.json'), 'utf8'))
 
 function candidate(mutate: (value: Record<string, unknown>) => void) {
   const value = structuredClone(manifest) as Record<string, unknown>

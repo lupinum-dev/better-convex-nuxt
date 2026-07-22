@@ -40,7 +40,7 @@ Results:
 - configured starter test suites, production builds/renders, MCP generated-API probe, and private
   production source-map checks passed;
 - final runner result: `Candidate app matrix passed (7 pnpm apps and one npm consumer, one exact
-  package set).`
+package set).`
 
 The optional live Agency codegen freshness check was not part of this local run because
 `AGENCY_CONVEX_DEPLOY_KEY` was absent. The candidate runner reported that omission explicitly; it
@@ -68,4 +68,3 @@ The final exact-tarball run passed only after both fixes were included in the pa
 - No workspace/source resolution can satisfy the certification run unnoticed.
 - SSR setup does not instantiate or require a browser runtime.
 - The old Nuxt client lifecycle is not reintroduced by the SSR fixes.
-

@@ -26,11 +26,15 @@ function main() {
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index]
     if (!['--package', '--artifact-manifest'].includes(argument) || values.has(argument)) {
-      fail('usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>')
+      fail(
+        'usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>',
+      )
     }
     const value = arguments_[index + 1]
     if (!value || value.startsWith('--')) {
-      fail('usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>')
+      fail(
+        'usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>',
+      )
     }
     values.set(argument, value)
     index += 1
@@ -65,13 +69,7 @@ function main() {
   }
 
   const vueCoordinates = getPackageArtifactCoordinates('vue', { repositoryRoot: root })
-  run('node', [
-    'scripts/release.mjs',
-    'verify',
-    vueCoordinates.paths.evidence,
-    '--package',
-    'vue',
-  ])
+  run('node', ['scripts/release.mjs', 'verify', vueCoordinates.paths.evidence, '--package', 'vue'])
 
   console.log('\n[release-verify] Source-integrity and source-runtime behavior gates')
   // These gates intentionally exercise the checked-out source. They never pack

@@ -66,7 +66,8 @@ export function prepareVueCandidate(args, scratchRoot) {
         const actualFiles = new Map(actualIdentity.files.map((file) => [file.path, file]))
         const expectedFiles = new Map(expectedIdentity.files.map((file) => [file.path, file]))
         const changedPaths = [...new Set([...actualFiles.keys(), ...expectedFiles.keys()])].filter(
-          (path) => JSON.stringify(actualFiles.get(path)) !== JSON.stringify(expectedFiles.get(path)),
+          (path) =>
+            JSON.stringify(actualFiles.get(path)) !== JSON.stringify(expectedFiles.get(path)),
         )
         throw new Error(
           `Installed Vue package bytes differ from the candidate tarball: ${changedPaths.join(', ')}`,

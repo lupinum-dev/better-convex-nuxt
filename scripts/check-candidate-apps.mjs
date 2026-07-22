@@ -270,10 +270,7 @@ function addPnpmCompanionOverrides(appDir, companions) {
     }
   }
   const rules = companions
-    .map(
-      (companion) =>
-        `  '${companion.descriptor.packageName}': 'file:./${companion.filename}'`,
-    )
+    .map((companion) => `  '${companion.descriptor.packageName}': 'file:./${companion.filename}'`)
     .join('\n')
   const overrideHeader = /^overrides:\s*$/mu
   const next = overrideHeader.test(current)
@@ -294,7 +291,9 @@ function verifyInstalledCompanions(appDir, lock, companions, label) {
         `${label}: installed ${companion.descriptor.packageName}@${installedManifest.version}; expected ${companion.manifest.version}`,
       )
     }
-    if (JSON.stringify(packageFingerprint(installedDir)) !== JSON.stringify(companion.fingerprint)) {
+    if (
+      JSON.stringify(packageFingerprint(installedDir)) !== JSON.stringify(companion.fingerprint)
+    ) {
       throw new Error(`${label}: installed ${companion.descriptor.packageName} bytes differ`)
     }
   }

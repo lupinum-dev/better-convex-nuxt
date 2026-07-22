@@ -69,10 +69,14 @@ export function runNuxtClientEngineCheck(root, options = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const args = process.argv.slice(2)
-  if (args.some((argument) => argument !== '--dist') || args.filter((v) => v === '--dist').length > 1) {
+  if (
+    args.some((argument) => argument !== '--dist') ||
+    args.filter((v) => v === '--dist').length > 1
+  ) {
     throw new Error('Usage: check-no-nuxt-client-engine.mjs [--dist]')
   }
   runNuxtClientEngineCheck(process.cwd(), { dist: args.includes('--dist') })
-  console.log(`Nuxt client-engine absence check passed${args.includes('--dist') ? ' for source and dist' : ''}.`)
+  console.log(
+    `Nuxt client-engine absence check passed${args.includes('--dist') ? ' for source and dist' : ''}.`,
+  )
 }
-

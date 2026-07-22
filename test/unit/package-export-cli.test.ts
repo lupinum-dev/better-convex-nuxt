@@ -80,13 +80,7 @@ describe('package export checker CLI authority', () => {
     },
     {
       label: 'duplicate Vue companion',
-      args: [
-        '--package',
-        'nuxt',
-        '--vue-tarball',
-        'first.tgz',
-        '--vue-tarball=second.tgz',
-      ],
+      args: ['--package', 'nuxt', '--vue-tarball', 'first.tgz', '--vue-tarball=second.tgz'],
       expected: '--vue-tarball may be supplied only once.',
     },
   ])('rejects $label before artifact work', ({ args, expected }) => {

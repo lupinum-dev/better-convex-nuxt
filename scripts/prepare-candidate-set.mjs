@@ -46,13 +46,7 @@ function ensureClean() {
 function verifySet(manifest) {
   const evidence = assertCandidateSetManifest(manifest, root)
   for (const entry of evidence.packages) {
-    run('node', [
-      'scripts/release.mjs',
-      'verify',
-      entry.evidence,
-      '--package',
-      entry.packageId,
-    ])
+    run('node', ['scripts/release.mjs', 'verify', entry.evidence, '--package', entry.packageId])
   }
   return evidence
 }
@@ -84,7 +78,9 @@ function createSet() {
     if (!parentStats.isDirectory() || parentStats.isSymbolicLink()) {
       throw new Error('Candidate-set parent must be a real directory.')
     }
-    stagingDirectory = mkdtempSync(join(coordinates.parentDirectory, `.tmp-${coordinates.version}-`))
+    stagingDirectory = mkdtempSync(
+      join(coordinates.parentDirectory, `.tmp-${coordinates.version}-`),
+    )
     writeFileSync(
       join(stagingDirectory, 'artifact-set.json'),
       `${JSON.stringify(evidence, null, 2)}\n`,
@@ -123,4 +119,3 @@ if (command === 'verify') {
   }
   console.log(`\nImmutable candidate set: ${manifest}`)
 }
-

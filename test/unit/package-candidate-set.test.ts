@@ -55,8 +55,7 @@ function createRepository(version = '0.8.0-beta.0') {
         npm: '11.6.2',
         pnpm: '10.30.3',
         sourceTree: 'clean',
-        runtimeFingerprint:
-          packageId === 'nuxt' ? `bcn-release-v1-${'0'.repeat(64)}` : null,
+        runtimeFingerprint: packageId === 'nuxt' ? `bcn-release-v1-${'0'.repeat(64)}` : null,
         tarball: {
           file: coordinates.files.tarball,
           bytes: 1,

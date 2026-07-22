@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { isDeepStrictEqual } from 'node:util'
 import { relative, resolve, sep } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 
 import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'
 import { parsePackageArtifactEvidence } from './package-artifact-evidence.mjs'
@@ -27,10 +27,10 @@ const packageFields = Object.freeze([
 function exactFields(value, fields) {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      Object.keys(value).length === fields.length &&
-      fields.every((field) => Object.hasOwn(value, field)),
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === fields.length &&
+    fields.every((field) => Object.hasOwn(value, field)),
   )
 }
 

@@ -19,15 +19,15 @@ content. The package itself remains byte-exact.
 
 ## Closed profiles
 
-| Boundary | Reviewed Vue profile |
-| --- | --- |
-| Build | `vue-unbuild` |
-| Public exports | `vue-public-entries` (`.`, `./errors`, `./embedded`) |
-| Packed files | `vue-runtime-artifact` |
-| Production/SBOM | `vue-production-dependencies` |
-| Provenance identity | `vue-repository-origin` |
-| Maintained consumers | `vue-maintained-consumers` |
-| Runtime fingerprint | `vue-no-runtime-fingerprint` (`forbidden`) |
+| Boundary             | Reviewed Vue profile                                 |
+| -------------------- | ---------------------------------------------------- |
+| Build                | `vue-unbuild`                                        |
+| Public exports       | `vue-public-entries` (`.`, `./errors`, `./embedded`) |
+| Packed files         | `vue-runtime-artifact`                               |
+| Production/SBOM      | `vue-production-dependencies`                        |
+| Provenance identity  | `vue-repository-origin`                              |
+| Maintained consumers | `vue-maintained-consumers`                           |
+| Runtime fingerprint  | `vue-no-runtime-fingerprint` (`forbidden`)           |
 
 The packed package contains `LICENSE`, `package.json`, and the reviewed `dist` graph only. It cannot
 gain Nuxt, Nitro, H3, Better Auth server, MCP, lifecycle-install, legacy root export, or package-local

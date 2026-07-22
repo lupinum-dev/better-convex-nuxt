@@ -1,13 +1,6 @@
 // Packed consumer probes
 import { execFileSync } from 'node:child_process'
-import {
-  copyFileSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
@@ -148,10 +141,7 @@ export function probeRootEntry(ctx) {
   })
   writeFile(join(dir, '.npmrc'), 'ignore-scripts=true\n')
   const companionOverrides = ctx.companionTarballs
-    .map(
-      (companion) =>
-        `  '${companion.packageName}': 'file:${companion.tarballPath}'`,
-    )
+    .map((companion) => `  '${companion.packageName}': 'file:${companion.tarballPath}'`)
     .join('\n')
   writeFile(
     join(dir, 'pnpm-workspace.yaml'),

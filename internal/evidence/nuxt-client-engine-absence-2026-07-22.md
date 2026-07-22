@@ -59,4 +59,3 @@ shape.
 Nuxt still owns the pieces that cannot be framework-neutral: request-isolated SSR HTTP execution,
 auth-partitioned payload keys, hydration reconciliation, Better Auth presentation, server utilities,
 and DevTools event projection. These are adapters and server concerns, not a second client lifecycle.
-

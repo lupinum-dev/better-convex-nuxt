@@ -41,6 +41,8 @@ import { builtinModules } from 'node:module'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { canonicalNpmTarballFilename } from './package-artifact-coordinates.mjs'
+import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 import { checkEntryExportShapes } from './package-check/declarations.mjs'
 import { getPackageCheckerProfile } from './package-check/entry-rules.mjs'
 import {
@@ -49,8 +51,6 @@ import {
 } from './package-check/manifest-consistency.mjs'
 import { assertProductionManifestContract } from './package-check/production-manifest-contract.mjs'
 import { checkEntryPurities } from './package-check/purity.mjs'
-import { canonicalNpmTarballFilename } from './package-artifact-coordinates.mjs'
-import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 import {
   buildContentManifest,
   packAndExtract,
