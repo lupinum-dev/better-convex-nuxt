@@ -157,7 +157,9 @@ client-resource-link endpoints. It never writes OAuth component models through
 the raw adapter.
 
 The provider generates the client IDs. Stable `software_id` values let a rerun
-find the two fixture profiles without creating a second source of truth:
+find the preregistered fixture profiles without creating a second source of truth.
+The release runner uses two independent public clients through direct S256 PKCE;
+legacy profile names remain fixture identifiers, not release-tool dependencies:
 
 - MCP Inspector: `http://localhost:6274/oauth/callback`;
 - `mcp-remote`: `http://127.0.0.1:3334/oauth/callback`.
@@ -177,11 +179,10 @@ That default command creates its own temporary starter copy, pinned local
 Convex backend, Nuxt server, administrator, and random secrets. It removes only
 that self-contained temporary fixture when the run ends.
 
-The harness drives the pinned MCP Inspector UI and `mcp-remote` with static
-public-client information. It leaves client-secret fields empty, rejects any
-dynamic-registration request, uses isolated mode-0700 client/browser storage,
-redacts authorization URLs and runner secrets, and removes that isolated client
-state after every run.
+The harness drives the authorization code flow directly for both public clients,
+leaves client-secret fields empty, rejects dynamic registration, validates exact
+redirect/state/resource/issuer binding, redacts authorization URLs and runner
+secrets, and removes its isolated client state after every run.
 
 ### External disposable deployment evidence
 
@@ -228,7 +229,7 @@ private generated env file passed explicitly; the CLI cannot auto-load the
 app's dotenv files. Fixture credentials and every case variant of an ambient
 Convex override are stripped from every child process environment.
 
-The selected official MCP server-mode protocol suite is a one-shot alternative
+The selected MCP protocol suite is a one-shot alternative
 entry to the same destructive harness. On a fresh external deployment, use the
 exact environment block above but replace its final command with:
 
@@ -239,9 +240,10 @@ pnpm test:mcp-conformance
 That command runs the complete OAuth/MCP evidence and the selected protocol
 scenarios in one fixture lifecycle, using the freshly issued least-scope bearer
 internally. Do not run `test:mcp-auth` first and do not run both commands against
-one deployment; either run consumes it. This validates MCP protocol behavior
-through the fixed loopback relay. It is not OAuth certification or OAuth
-conformance.
+one deployment; either run consumes it. This validates the locked RC request
+envelope with the official beta.5 client and retains the older official
+conformance package only for its published `2025-11-25` scenarios. It is not
+OAuth certification or OAuth conformance.
 
 ## Login and consent boundary
 

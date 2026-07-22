@@ -22,7 +22,7 @@ Better Convex Nuxt is ESM-only and supports Node `^22.12.0 || ^24.11.0 || >=26.0
 - **One query lifecycle:** render during SSR, reuse the payload during hydration, and continue as a browser subscription.
 - **Identity isolation:** query state is partitioned across anonymous, signed-in, signed-out, and user-switch boundaries.
 - **Better Auth integration:** session and Convex identity stay synchronized through a bounded same-origin auth proxy.
-- **Delegated agents:** the optional official OAuth Provider profile serves preregistered MCP clients while authorization remains live in Convex.
+- **Agents and MCP:** the provider-neutral `@better-convex/mcp` boundary serves explicit Convex operations; the optional OAuth Provider profile adds delegated human access while authorization remains live in Convex.
 - **Nuxt server support:** call queries, mutations, and actions through one request-scoped `serverConvex` API.
 - **Application behavior:** optimistic state, pagination, uploads, connection state, DevTools, and structured errors use the same runtime model.
 - **Explicit security ownership:** the library transports identity; Convex functions remain the source of truth for authorization.
