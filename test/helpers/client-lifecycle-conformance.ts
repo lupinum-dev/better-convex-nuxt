@@ -39,12 +39,3 @@ export const EXPECTED_CLIENT_LIFECYCLE_REPORT: ClientLifecycleConformanceReport 
     identityListeners: 0,
   },
 }
-
-export const EXPECTED_EMBEDDED_IDENTITY_REPORT = {
-  clientMethods: ['action', 'mutation', 'onUpdate', 'query'],
-  initialIdentity: 'user:alice',
-  nextIdentity: 'user:bob',
-  identityAfterDispose: 'user:bob',
-  listenersAfterDispose: 0,
-  detachCount: 1,
-} as const
