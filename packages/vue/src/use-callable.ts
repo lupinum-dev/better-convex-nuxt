@@ -10,7 +10,7 @@ import { getCurrentScope, onScopeDispose, type ComputedRef, type Ref } from 'vue
 import type { CallResult, ConvexCallError } from './errors'
 import type { ClientCallStatus } from './internal/call-state'
 import { createCallableController } from './internal/callable-controller'
-import { useBetterConvexRuntime } from './runtime-context'
+import { useOptionalBetterConvexRuntime } from './runtime-context'
 
 interface CallableOptions<Args, Result> {
   onSuccess?: (result: Result, args: Args) => void
@@ -46,14 +46,21 @@ function createCallable<Reference extends FunctionReference<'mutation' | 'action
   }
   type Args = FunctionArgs<Reference>
   type Result = FunctionReturnType<Reference>
-  const runtime = useBetterConvexRuntime()
+  const runtime = useOptionalBetterConvexRuntime()
   const lifecycle = createCallableController<Args, Result>({
     operation,
-    getIdentityGeneration: () => runtime.identity.snapshot.value.identityGeneration,
-    subscribeIdentityChange: (listener) => runtime.browser.identity.subscribe(listener),
+    getIdentityGeneration: () => runtime?.identity.snapshot.value.identityGeneration ?? 0,
+    subscribeIdentityChange: runtime
+      ? (listener) => runtime.browser.identity.subscribe(listener)
+      : undefined,
     handlers: {
-      settle: () => runtime.browser.ready(),
+      settle: () => runtime?.browser.ready() ?? Promise.resolve(),
       invoke: async (args) => {
+        if (!runtime) {
+          throw new Error(
+            `[better-convex-vue] useConvex${operation === 'mutation' ? 'Mutation' : 'Action'} cannot execute without an installed browser runtime`,
+          )
+        }
         if (operation === 'mutation') {
           return (await runtime.browser.handle.mutation(reference as never, args as never, {
             optimisticUpdate: options?.optimisticUpdate,

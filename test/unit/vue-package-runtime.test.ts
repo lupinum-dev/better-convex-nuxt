@@ -67,6 +67,45 @@ function attachedRuntime(label: string) {
 }
 
 describe('better-convex-vue package runtime', () => {
+  it('allows callable setup during SSR without installing a browser runtime', async () => {
+    const app = createApp({})
+    const scope = effectScope()
+    const operation = app.runWithContext(() =>
+      scope.run(() => ({
+        mutation: useConvexMutation(
+          makeFunctionReference<'mutation'>('notes:write') as FunctionReference<
+            'mutation',
+            'public',
+            { value: string },
+            string
+          >,
+        ),
+        action: useConvexAction(
+          makeFunctionReference<'action'>('notes:work') as FunctionReference<
+            'action',
+            'public',
+            { value: string },
+            string
+          >,
+        ),
+      })),
+    )!
+
+    expect(operation.mutation.status.value).toBe('idle')
+    expect(operation.action.status.value).toBe('idle')
+    await expect(operation.mutation({ value: 'write' })).rejects.toMatchObject({
+      kind: 'unknown',
+      message:
+        '[better-convex-vue] useConvexMutation cannot execute without an installed browser runtime',
+    })
+    await expect(operation.action({ value: 'work' })).rejects.toMatchObject({
+      kind: 'unknown',
+      message:
+        '[better-convex-vue] useConvexAction cannot execute without an installed browser runtime',
+    })
+    scope.stop()
+  })
+
   it('isolates two app roots and keeps captured handles stable', async () => {
     const alice = attachedRuntime('alice')
     const bob = attachedRuntime('bob')

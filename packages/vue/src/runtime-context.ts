@@ -142,7 +142,12 @@ function disconnectedState() {
 }
 
 export function useBetterConvexRuntime(): BetterConvexVueRuntime {
-  const runtime = inject(BETTER_CONVEX_KEY, null)
+  const runtime = useOptionalBetterConvexRuntime()
   if (!runtime) throw new Error('[better-convex-vue] plugin is not installed in this Vue app')
   return runtime
+}
+
+/** Internal SSR seam: callable composables may be created during render but cannot execute there. */
+export function useOptionalBetterConvexRuntime(): BetterConvexVueRuntime | null {
+  return inject(BETTER_CONVEX_KEY, null)
 }
