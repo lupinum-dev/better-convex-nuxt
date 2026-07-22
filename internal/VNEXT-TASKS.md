@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 3 — private Vue lifecycle boundary proof; Phase 1 final-spec/external-host gates remain open        |
 | Current task          | `P3-010` — extract the framework-neutral pagination controller                                            |
-| Last verified commit  | `725b8cd0` plus P3-009 working tree; adapter matrix passed (5 files / 34 tests)                           |
+| Last verified commit  | `b5471427` plus P3-010 primitive cut; pagination matrix passed (3 files / 20 tests)                       |
 | Next executable tasks | `P3-010`, `P3-013`, `P3-014`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | Exactly one task is `in_progress`; `done` requires its named proof                                        |

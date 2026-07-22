@@ -1,14 +1,14 @@
 import type { PaginationResult } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
 
-import { ConvexCallError } from '../../src/runtime/errors'
 import {
-  commitPaginatedPageError,
-  commitPaginatedPageResult,
-  createPendingPaginatedPage,
-  getLastLoadedPaginatedResult,
-  type PaginatedPageState,
-} from '../../src/runtime/utils/paginated-query-pages'
+  commitPaginationPageError,
+  commitPaginationPageResult,
+  createPendingPaginationPage,
+  getLastLoadedPaginationResult,
+  type PaginationPageState,
+} from '../../src/runtime/client-core/pagination-state'
+import { ConvexCallError } from '../../src/runtime/errors'
 
 function pageResult<T>(page: T[], isDone = false): PaginationResult<T> {
   return {
@@ -22,7 +22,7 @@ function pageResult<T>(page: T[], isDone = false): PaginationResult<T> {
 
 describe('paginated query page state', () => {
   it('creates a pending page with no result or error', () => {
-    const pending = createPendingPaginatedPage({ numItems: 10, cursor: 'c1', id: 7 })
+    const pending = createPendingPaginationPage({ numItems: 10, cursor: 'c1', id: 7 })
 
     expect(pending).toMatchObject({
       paginationOpts: { numItems: 10, cursor: 'c1', id: 7 },
@@ -35,12 +35,12 @@ describe('paginated query page state', () => {
 
   it('commits results immutably while preserving unsubscribe handles', () => {
     const unsubscribe = vi.fn()
-    const pages: PaginatedPageState<string>[] = [
-      { ...createPendingPaginatedPage({ numItems: 1, cursor: 'a', id: 1 }), unsubscribe },
+    const pages: PaginationPageState<string>[] = [
+      { ...createPendingPaginationPage({ numItems: 1, cursor: 'a', id: 1 }), unsubscribe },
     ]
     const result = pageResult(['a'])
 
-    const nextPages = commitPaginatedPageResult(pages, 0, result)
+    const nextPages = commitPaginationPageResult(pages, 0, result)
 
     expect(nextPages).not.toBe(pages)
     expect(nextPages[0]).toMatchObject({
@@ -54,14 +54,14 @@ describe('paginated query page state', () => {
 
   it('commits errors immutably without dropping existing page results', () => {
     const result = pageResult(['a'])
-    const pages = commitPaginatedPageResult(
-      [createPendingPaginatedPage<string>({ numItems: 1, cursor: 'a', id: 1 })],
+    const pages = commitPaginationPageResult(
+      [createPendingPaginationPage<string>({ numItems: 1, cursor: 'a', id: 1 })],
       0,
       result,
     )
     const error = new Error('boom')
 
-    const nextPages = commitPaginatedPageError(pages, 0, error)
+    const nextPages = commitPaginationPageError(pages, 0, error)
 
     expect(nextPages).not.toBe(pages)
     expect(nextPages[0]?.result).toBe(result)
@@ -78,14 +78,14 @@ describe('paginated query page state', () => {
   it('returns the first page until additional pages exist and ignores pending tails', () => {
     const firstPage = pageResult(['first'])
     const loadedPage = {
-      ...createPendingPaginatedPage<string>({ numItems: 1, cursor: 'b', id: 1 }),
+      ...createPendingPaginationPage<string>({ numItems: 1, cursor: 'b', id: 1 }),
       result: pageResult(['second']),
       pending: false,
     }
-    const pendingPage = createPendingPaginatedPage<string>({ numItems: 1, cursor: 'c', id: 1 })
+    const pendingPage = createPendingPaginationPage<string>({ numItems: 1, cursor: 'c', id: 1 })
 
-    expect(getLastLoadedPaginatedResult(firstPage, [])).toBe(firstPage)
-    expect(getLastLoadedPaginatedResult(firstPage, [loadedPage])).toBe(loadedPage.result)
-    expect(getLastLoadedPaginatedResult(firstPage, [loadedPage, pendingPage])).toBeUndefined()
+    expect(getLastLoadedPaginationResult(firstPage, [])).toBe(firstPage)
+    expect(getLastLoadedPaginationResult(firstPage, [loadedPage])).toBe(loadedPage.result)
+    expect(getLastLoadedPaginationResult(firstPage, [loadedPage, pendingPage])).toBeUndefined()
   })
 })

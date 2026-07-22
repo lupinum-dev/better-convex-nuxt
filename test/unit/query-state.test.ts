@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  computeConvexQueryPending,
-  computePaginatedQueryStale,
-  computePaginatedQueryStatus,
-  type PaginatedQueryStatusState,
-} from '../../src/runtime/utils/query-state'
+  computePaginationStale,
+  computePaginationStatus,
+  type PaginationStatusState,
+} from '../../src/runtime/client-core/pagination-state'
+import { computeConvexQueryPending } from '../../src/runtime/utils/query-state'
 
-const readyPaginatedState: PaginatedQueryStatusState = {
+const readyPaginatedState: PaginationStatusState = {
   disabled: false,
   refresh: 'idle',
   hasError: false,
@@ -78,14 +78,14 @@ describe('query state helpers', () => {
     })
   })
 
-  describe('computePaginatedQueryStatus', () => {
+  describe('computePaginationStatus', () => {
     it('returns idle when skipped', () => {
-      expect(computePaginatedQueryStatus({ ...readyPaginatedState, disabled: true })).toBe('idle')
+      expect(computePaginationStatus({ ...readyPaginatedState, disabled: true })).toBe('idle')
     })
 
     it('prioritizes manual refresh loading before existing data state', () => {
       expect(
-        computePaginatedQueryStatus({
+        computePaginationStatus({
           ...readyPaginatedState,
           refresh: 'pending',
         }),
@@ -93,12 +93,12 @@ describe('query state helpers', () => {
     })
 
     it('returns error for any query error', () => {
-      expect(computePaginatedQueryStatus({ ...readyPaginatedState, hasError: true })).toBe('error')
+      expect(computePaginationStatus({ ...readyPaginatedState, hasError: true })).toBe('error')
     })
 
     it('reports first-page loading until the first page is ready', () => {
       expect(
-        computePaginatedQueryStatus({
+        computePaginationStatus({
           ...readyPaginatedState,
           firstPage: { state: 'loading' },
         }),
@@ -106,15 +106,15 @@ describe('query state helpers', () => {
     })
 
     it('distinguishes ready, loading-more, and exhausted', () => {
-      expect(computePaginatedQueryStatus(readyPaginatedState)).toBe('ready')
+      expect(computePaginationStatus(readyPaginatedState)).toBe('ready')
       expect(
-        computePaginatedQueryStatus({ ...readyPaginatedState, nextPage: { state: 'loading' } }),
+        computePaginationStatus({ ...readyPaginatedState, nextPage: { state: 'loading' } }),
       ).toBe('loading-more')
       expect(
-        computePaginatedQueryStatus({ ...readyPaginatedState, nextPage: { state: 'exhausted' } }),
+        computePaginationStatus({ ...readyPaginatedState, nextPage: { state: 'exhausted' } }),
       ).toBe('exhausted')
       expect(
-        computePaginatedQueryStatus({
+        computePaginationStatus({
           ...readyPaginatedState,
           firstPage: { state: 'ready', isDone: true },
         }),
@@ -123,7 +123,7 @@ describe('query state helpers', () => {
 
     it('keeps a first-page-only exhausted result out of loading-more', () => {
       expect(
-        computePaginatedQueryStatus({
+        computePaginationStatus({
           ...readyPaginatedState,
           firstPage: { state: 'ready', isDone: true },
           nextPage: { state: 'loading' },
@@ -132,10 +132,10 @@ describe('query state helpers', () => {
     })
   })
 
-  describe('computePaginatedQueryStale', () => {
+  describe('computePaginationStale', () => {
     it('is stale only when previous rows are shown during first-page reload', () => {
       expect(
-        computePaginatedQueryStale({
+        computePaginationStale({
           keepPreviousData: true,
           status: 'loading-first-page',
           transformedResultCount: 0,
@@ -144,7 +144,7 @@ describe('query state helpers', () => {
       ).toBe(true)
 
       expect(
-        computePaginatedQueryStale({
+        computePaginationStale({
           keepPreviousData: true,
           status: 'loading-more',
           transformedResultCount: 0,

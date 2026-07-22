@@ -14,6 +14,18 @@ import {
 import { useNuxtApp, useRequestEvent, useAsyncData, useState } from '#imports'
 
 import { identityToken } from '../auth/auth-identity'
+import {
+  commitPaginationPageError,
+  commitPaginationPageResult,
+  computePaginationStale,
+  computePaginationStatus,
+  createPendingPaginationPage,
+  getLastLoadedPaginationResult,
+  type PaginationFirstPageState,
+  type PaginationNextPageState,
+  type PaginationPageState,
+  type PaginationStatus,
+} from '../client-core/pagination-state'
 import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import type { ConvexQueryRest } from '../utils/args-tuple'
@@ -23,24 +35,10 @@ import { assertConvexComposableScope } from '../utils/composable-scope'
 import { fetchAuthToken, withAuthDimension } from '../utils/convex-cache'
 import { createConvexQueryKey, getFunctionName, hashArgs } from '../utils/convex-shared'
 import type { ConvexIdentityKey } from '../utils/identity-key'
-import {
-  commitPaginatedPageError,
-  commitPaginatedPageResult,
-  createPendingPaginatedPage,
-  getLastLoadedPaginatedResult,
-  type PaginatedPageState,
-} from '../utils/paginated-query-pages'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp } from '../utils/query-execution'
 import { createQueryExecutionGate } from '../utils/query-execution-gate'
 import { createConvexQueryAuthContext, selectLiveQueryClient } from '../utils/query-foundation'
-import {
-  computePaginatedQueryStale,
-  computePaginatedQueryStatus,
-  type PaginatedFirstPageState,
-  type PaginatedNextPageState,
-  type PaginatedQueryStatus,
-} from '../utils/query-state'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { generatePaginationId } from '../utils/shared-helpers'
 import type {
@@ -68,7 +66,7 @@ export {
   type DeleteFromPaginatedQueryOptions,
 } from './optimistic-updates'
 
-export type { PaginatedQueryStatus }
+export type PaginatedQueryStatus = PaginationStatus
 
 export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
   /** Number of items to load in the initial page. */
@@ -191,7 +189,7 @@ export function createConvexPaginatedQueryState<
   const cachedToken = computed(() => identityToken(identity.value))
 
   const currentPaginationId = ref(generatePaginationId())
-  const pages = shallowRef<PaginatedPageState<Item>[]>([])
+  const pages = shallowRef<PaginationPageState<Item>[]>([])
   const firstPageRealtimeData = shallowRef<PaginationResult<Item> | null>(null)
   const isManualRefreshPending = ref(false)
   let firstPageUnsub: (() => void) | null = null
@@ -368,13 +366,13 @@ export function createConvexPaginatedQueryState<
         if (!isOperationCurrent(operation)) return
         const idx = pages.value.findIndex((p) => p.paginationOpts.id === requestId)
         if (idx < 0) return
-        pages.value = commitPaginatedPageResult(pages.value, idx, result as PaginationResult<Item>)
+        pages.value = commitPaginationPageResult(pages.value, idx, result as PaginationResult<Item>)
       },
       (err: Error) => {
         if (!isOperationCurrent(operation)) return
         const idx = pages.value.findIndex((p) => p.paginationOpts.id === requestId)
         if (idx < 0) return
-        pages.value = commitPaginatedPageError(pages.value, idx, err)
+        pages.value = commitPaginationPageError(pages.value, idx, err)
       },
     )
     page.unsubscribe = () => unsub()
@@ -450,15 +448,15 @@ export function createConvexPaginatedQueryState<
     const usingPrev = isPreviousDataForCurrentArgs()
     const firstPageData = usingPrev ? null : (firstPageRealtimeData.value ?? asyncData.data.value)
     const lastPage = pages.value.length > 0 ? pages.value[pages.value.length - 1] : null
-    const firstPage: PaginatedFirstPageState = firstPageData
+    const firstPage: PaginationFirstPageState = firstPageData
       ? { state: 'ready', isDone: firstPageData.isDone }
       : { state: 'loading' }
-    const nextPage: PaginatedNextPageState = lastPage?.pending
+    const nextPage: PaginationNextPageState = lastPage?.pending
       ? { state: 'loading' }
       : lastPage?.result?.isDone
         ? { state: 'exhausted' }
         : { state: 'idle' }
-    return computePaginatedQueryStatus({
+    return computePaginationStatus({
       disabled: gate.value.outcome === 'idle',
       refresh: isManualRefreshPending.value ? 'pending' : 'idle',
       hasError: boundaryError.value != null || pages.value.some((page) => page.error != null),
@@ -488,7 +486,7 @@ export function createConvexPaginatedQueryState<
   })
 
   const isStale = computed(() =>
-    computePaginatedQueryStale({
+    computePaginationStale({
       keepPreviousData,
       status: status.value,
       transformedResultCount: transformedResults.value.length,
@@ -531,13 +529,13 @@ export function createConvexPaginatedQueryState<
 
   const loadMore = (numItems: number) => {
     if (gate.value.outcome !== 'execute' || isManualRefreshPending.value) return
-    const lastPageResult = getLastLoadedPaginatedResult(
+    const lastPageResult = getLastLoadedPaginationResult(
       firstPageRealtimeData.value ?? asyncData.data.value,
       pages.value,
     )
     if (!lastPageResult || lastPageResult.isDone) return
 
-    const newPage = createPendingPaginatedPage<Item>({
+    const newPage = createPendingPaginationPage<Item>({
       numItems,
       cursor: lastPageResult.continueCursor,
       id: currentPaginationId.value,
@@ -570,12 +568,12 @@ export function createConvexPaginatedQueryState<
           (p) => p.paginationOpts.id === requestPaginationId && p === pages.value[newPageIndex],
         )
         if (idx < 0 || !result) return
-        pages.value = commitPaginatedPageResult(pages.value, newPageIndex, result)
+        pages.value = commitPaginationPageResult(pages.value, newPageIndex, result)
       })
       .catch((e) => {
         if (!isOperationCurrent(operation) || currentPaginationId.value !== requestPaginationId)
           return
-        pages.value = commitPaginatedPageError(pages.value, newPageIndex, e)
+        pages.value = commitPaginationPageError(pages.value, newPageIndex, e)
       })
   }
 
@@ -593,7 +591,7 @@ export function createConvexPaginatedQueryState<
       if (!firstPageResult) return
 
       // Re-chain sequentially off each fresh continueCursor; commit atomically.
-      const refreshedPages: PaginatedPageState<Item>[] = [...loadedPages]
+      const refreshedPages: PaginationPageState<Item>[] = [...loadedPages]
       let previousResult: PaginationResult<Item> = firstPageResult
       for (let i = 0; i < loadedPages.length; i++) {
         const page = loadedPages[i]
