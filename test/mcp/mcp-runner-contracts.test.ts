@@ -1,4 +1,6 @@
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   MCP_FIXTURE_SCOPE,
@@ -14,6 +16,8 @@ import {
   MCP_CONFORMANCE_ORIGIN,
   MCP_CONFORMANCE_SCENARIOS,
   MCP_CONFORMANCE_URL,
+  MCP_RC_EXPECTED_CAPABILITIES,
+  MCP_RC_PROTOCOL_VERSION,
   buildConformanceArgs,
   buildRelayRequestHeaders,
   buildRelayResponseHeaders,
@@ -21,6 +25,7 @@ import {
   isRedirectResponse,
   normalizeEvidenceOrigin,
   relayAuthorityError,
+  runRcProtocolConformance,
 } from '../../scripts/run-mcp-conformance.mjs'
 
 describe('pinned MCP client runner contracts', () => {
@@ -105,6 +110,38 @@ describe('official MCP conformance runner contracts', () => {
     expect(() => buildConformanceArgs('tools-call-simple-text')).toThrow(/Unknown/)
   })
 
+  it('proves the locked RC stateless envelope and exact advertised capability surface', async () => {
+    const handler = createMcpHandler(
+      () => {
+        const server = new McpServer({ name: 'bcn-rc-conformance', version: '1.0.0' })
+        server.registerTool(
+          'search_notes',
+          { inputSchema: z.object({ query: z.string().optional() }) },
+          () => ({ content: [{ type: 'text', text: 'No notes matched.' }] }),
+        )
+        return server
+      },
+      { legacy: 'reject', responseMode: 'json' },
+    )
+    try {
+      await expect(
+        runRcProtocolConformance({
+          bearer: 'rc-conformance-bearer',
+          endpoint: 'https://notes.example.test/mcp',
+          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+            handler.fetch(new Request(input, init)),
+        }),
+      ).resolves.toEqual({
+        capabilities: MCP_RC_EXPECTED_CAPABILITIES,
+        protocolVersion: MCP_RC_PROTOCOL_VERSION,
+        requests: 2,
+        toolCount: 1,
+      })
+    } finally {
+      await handler.close()
+    }
+  })
+
   it('accepts only exact secure or loopback fixture origins', () => {
     expect(normalizeEvidenceOrigin('https://app.example.test')).toBe('https://app.example.test')
     expect(normalizeEvidenceOrigin('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000')
@@ -120,12 +157,16 @@ describe('official MCP conformance runner contracts', () => {
       cookie: 'session=caller',
       forwarded: 'for=evil',
       'mcp-protocol-version': '2025-11-25',
+      'mcp-method': 'tools/list',
+      'mcp-name': 'search_notes',
       'x-bcn-internal': 'evil',
       'x-forwarded-for': 'evil',
     })
     expect(Object.fromEntries(buildRelayRequestHeaders(input, 'runner-token'))).toEqual({
       accept: 'application/json',
       authorization: 'Bearer runner-token',
+      'mcp-method': 'tools/list',
+      'mcp-name': 'search_notes',
       'mcp-protocol-version': '2025-11-25',
     })
     expect(
