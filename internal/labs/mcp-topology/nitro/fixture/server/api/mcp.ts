@@ -24,7 +24,7 @@ const application = new NeutralNotesApplication({
     { id: 'workspace-b', name: 'Workspace B', tenantId: 'tenant-b' },
   ],
 })
-const handler = createNitroNotesMcpHandler(application, '/api/mcp')
+const handler = createNitroNotesMcpHandler(() => application, '/api/mcp')
 
 function resourceServerUrl(): URL {
   const origin = process.env.BCN_VNEXT_MCP_PUBLIC_ORIGIN

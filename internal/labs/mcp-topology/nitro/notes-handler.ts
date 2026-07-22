@@ -10,7 +10,7 @@ import { z } from 'zod'
 
 import {
   NotesApplicationError,
-  type NeutralNotesApplication,
+  type NeutralNotesOperations,
   type NotesApplicationActor,
 } from '../neutral/notes-application'
 
@@ -239,7 +239,7 @@ async function runTool<T>(operation: () => T | Promise<T>) {
 }
 
 function createNotesServer(
-  application: NeutralNotesApplication,
+  application: NeutralNotesOperations,
   actor: NotesApplicationActor,
   notesDashboardHtml?: string,
 ): McpServer {
@@ -316,7 +316,9 @@ function createNotesServer(
     'note',
     new ResourceTemplate('note://{id}', { list: undefined }),
     { description: 'Read one note visible to the current application actor.' },
-    async (uri) => ({ contents: [application.readNoteResource(actor, { uri: uri.href })] }),
+    async (uri) => ({
+      contents: [await application.readNoteResource(actor, { uri: uri.href })],
+    }),
   )
 
   if (notesDashboardHtml) {
@@ -360,7 +362,7 @@ function withActor(authInfo: AuthInfo, actor: NotesApplicationActor): AuthInfo {
 
 /** Private Nitro/Web-standard topology probe. It is not a public runtime adapter. */
 export function createNitroNotesMcpHandler(
-  application: NeutralNotesApplication,
+  createApplication: (access: NitroNotesVerifiedAccess) => NeutralNotesOperations,
   expectedPath = '/mcp',
   notesDashboardHtml?: string,
 ): NitroNotesMcpHandler {
@@ -375,8 +377,12 @@ export function createNitroNotesMcpHandler(
     throw new TypeError('The private MCP App must be one bounded HTML document')
   }
   const handler: McpHttpHandler = createMcpHandler(
-    ({ authInfo }) =>
-      createNotesServer(application, actorFromAuthInfo(authInfo), notesDashboardHtml),
+    ({ authInfo }) => {
+      if (!authInfo) throw new Error('MCP lab access context is missing')
+      const actor = actorFromAuthInfo(authInfo)
+      const access = Object.freeze({ actor, authInfo })
+      return createNotesServer(createApplication(access), actor, notesDashboardHtml)
+    },
     { legacy: 'stateless', responseMode: 'json' },
   )
 

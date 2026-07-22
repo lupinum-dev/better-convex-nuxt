@@ -77,17 +77,21 @@ function connectClient(
 describe('vNext MCP Apps private topology probe', () => {
   it('rejects malformed or oversized App resources before creating the Nitro handler', () => {
     const application = createApplication()
-    expect(() => createNitroNotesMcpHandler(application, '/mcp', '<html></html>')).toThrow(
+    expect(() => createNitroNotesMcpHandler(() => application, '/mcp', '<html></html>')).toThrow(
       'The private MCP App must be one bounded HTML document',
     )
     expect(() =>
-      createNitroNotesMcpHandler(application, '/mcp', `<!doctype html>${'x'.repeat(512 * 1024)}`),
+      createNitroNotesMcpHandler(
+        () => application,
+        '/mcp',
+        `<!doctype html>${'x'.repeat(512 * 1024)}`,
+      ),
     ).toThrow('The private MCP App must be one bounded HTML document')
   })
 
   it('serves one credential-free Vue App with useful fallback through the Nitro candidate', async () => {
     const build = await buildNotesDashboard()
-    const handler = createNitroNotesMcpHandler(createApplication(), '/mcp', build.appHtml)
+    const handler = createNitroNotesMcpHandler(() => createApplication(), '/mcp', build.appHtml)
     const supported = connectClient(handler, true)
     const unsupported = connectClient(handler, false)
 

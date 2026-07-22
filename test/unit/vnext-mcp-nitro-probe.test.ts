@@ -64,7 +64,7 @@ function connectClient(
 
 describe('vNext Nitro-native MCP topology probe', () => {
   it('fails closed at the fetch boundary before the SDK parses an unbounded body', async () => {
-    const handler = createNitroNotesMcpHandler(createApplication())
+    const handler = createNitroNotesMcpHandler(() => createApplication())
 
     try {
       const rejectedOrigin = await handler.fetch(
@@ -151,7 +151,7 @@ describe('vNext Nitro-native MCP topology probe', () => {
 
   it('keeps identity request-scoped across official HTTP tool and resource traffic', async () => {
     const application = createApplication()
-    const handler = createNitroNotesMcpHandler(application)
+    const handler = createNitroNotesMcpHandler(() => application)
     const responsesA: string[] = []
     const responsesB: string[] = []
     const tokenA = 'token-a-must-not-escape'

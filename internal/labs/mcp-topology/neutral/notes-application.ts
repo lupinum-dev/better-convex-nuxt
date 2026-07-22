@@ -79,6 +79,52 @@ export interface RenameNoteReceipt {
   readonly title: string
 }
 
+export interface NoteResourceResult {
+  readonly mimeType: 'application/json'
+  readonly text: string
+  readonly uri: string
+}
+
+export interface NotesReportResult {
+  readonly generatedAt: number
+  readonly noteCount: number
+  readonly reportId: string
+  readonly titles: readonly string[]
+  readonly workspaceId: string
+  readonly workspaceRevision: number
+}
+
+export interface DeletedWorkspaceResult {
+  readonly deletedAt: number
+  readonly deletedNoteCount: number
+  readonly revision: number
+  readonly workspaceId: string
+}
+
+/** Canonical application boundary used independently by each private topology probe. */
+export interface NeutralNotesOperations {
+  deleteWorkspace(
+    actor: NotesApplicationActor,
+    input: { readonly expectedRevision: number; readonly workspaceId: string },
+  ): DeletedWorkspaceResult | Promise<DeletedWorkspaceResult>
+  generateReport(
+    actor: NotesApplicationActor,
+    input: { readonly workspaceId: string },
+  ): NotesReportResult | Promise<NotesReportResult>
+  readNoteResource(
+    actor: NotesApplicationActor,
+    input: { readonly uri: string },
+  ): NoteResourceResult | Promise<NoteResourceResult>
+  renameNote(
+    actor: NotesApplicationActor,
+    input: { readonly noteId: string; readonly requestKey: string; readonly title: string },
+  ): RenameNoteReceipt | Promise<RenameNoteReceipt>
+  searchNotes(
+    actor: NotesApplicationActor,
+    input: { readonly limit?: number; readonly query: string; readonly workspaceId: string },
+  ): readonly NoteResult[] | Promise<readonly NoteResult[]>
+}
+
 interface StoredRenameReceipt extends RenameNoteReceipt {
   readonly subject: string
   readonly tenantId: string
@@ -109,7 +155,7 @@ function noteUri(noteId: string): string {
  * Reference application for the topology lab. It owns canonical state and policy;
  * it contains no MCP, HTTP, Convex, Nuxt, OAuth, or framework integration.
  */
-export class NeutralNotesApplication {
+export class NeutralNotesApplication implements NeutralNotesOperations {
   readonly #notes = new Map<string, StoredNote>()
   readonly #renameReceipts = new Map<string, StoredRenameReceipt>()
   readonly #workspaces = new Map<string, StoredWorkspace>()
@@ -172,7 +218,7 @@ export class NeutralNotesApplication {
   readNoteResource(
     actor: NotesApplicationActor,
     input: { readonly uri: string },
-  ): { readonly mimeType: 'application/json'; readonly text: string; readonly uri: string } {
+  ): NoteResourceResult {
     const match = /^note:\/\/([\w-]{1,128})$/.exec(input.uri)
     if (!match?.[1]) fail('INPUT_INVALID')
     const note = this.#requireNote(actor, match[1])
@@ -227,14 +273,7 @@ export class NeutralNotesApplication {
   generateReport(
     actor: NotesApplicationActor,
     input: { readonly workspaceId: string },
-  ): {
-    readonly generatedAt: number
-    readonly noteCount: number
-    readonly reportId: string
-    readonly titles: readonly string[]
-    readonly workspaceId: string
-    readonly workspaceRevision: number
-  } {
+  ): NotesReportResult {
     const workspace = this.#requireWorkspace(actor, input.workspaceId)
     const titles = [...this.#notes.values()]
       .filter((note) => note.workspaceId === workspace.id && note.deletedAt === undefined)
@@ -253,12 +292,7 @@ export class NeutralNotesApplication {
   deleteWorkspace(
     actor: NotesApplicationActor,
     input: { readonly expectedRevision: number; readonly workspaceId: string },
-  ): {
-    readonly deletedAt: number
-    readonly deletedNoteCount: number
-    readonly revision: number
-    readonly workspaceId: string
-  } {
+  ): DeletedWorkspaceResult {
     if (actor.role !== 'owner') fail('ACCESS_DENIED')
     const workspace = this.#requireWorkspace(actor, input.workspaceId)
     if (workspace.revision !== input.expectedRevision) fail('WORKSPACE_STALE')
