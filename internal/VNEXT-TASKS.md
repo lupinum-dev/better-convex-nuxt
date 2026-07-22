@@ -6,14 +6,14 @@ replace the RFC's product decisions.
 
 ## Working state
 
-| Field                 | Value                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 9 client stabilization alongside Phase 1 final-spec/external-host gates                              |
-| Current task          | None; local lifecycle and topology proof is complete while final-spec and external-host gates remain       |
-| Last verified commit  | `e20f77e9`; exact Vue/Nuxt production lifecycle candidate matrices and full repository gate pass           |
-| Next executable tasks | `P1-015` after final publication; then finish `P1-016`/`P1-017` with real hosts/cloud; `P9-008` with Ginko |
-| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad`  |
-| Ledger rule           | Exactly one task is `in_progress`; `done` requires its named proof                                         |
+| Field                 | Value                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Current phase         | Phase 4 embedded-host seam closure alongside Phase 1 final-spec/external-host gates                       |
+| Current task          | `P4-017` — expose and prove the existing token-free attachment to Nuxt host applications                  |
+| Last verified commit  | `e20f77e9`; exact Vue/Nuxt production lifecycle candidate matrices and full repository gate pass          |
+| Next executable tasks | Finish `P4-017`; migrate Ginko under `P4-011`/`P4-012` when authorized; `P1-015` after final publication  |
+| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
+| Ledger rule           | Exactly one task is `in_progress`; `done` requires its named proof                                        |
 
 ## External and human blockers
 
@@ -203,9 +203,11 @@ and repository rename remain gated as `G-001`–`G-005` rather than implied publ
 | `P4-011` | `P4-007` | Migrate authorized Ginko Studio fixture to exact Vue package and identify measured generic code deletion. | Ginko fixture/external checkout | Ginko retains policy/contracts only; gets opaque runtime. | Existing Studio operation tests plus identity/pagination/callable matrix. | Ginko generic subscriptions/generations/callable lifecycle | pending | `EXT-004` for external changes | — |
 | `P4-012` | `P4-011` | Delete Ginko generic lifecycle paths after migrated tests pass. | Ginko external repository | Hard cut, no compatibility engine. | Ginko invariant sentinel rejects reintroduction. | Listed Ginko lifecycle code | pending | `EXT-004` | — |
 | `P4-013` | `P4-008`–`P4-010` | Build immutable Vue and unchanged Nuxt candidate pair once and certify together. | Package-qualified release artifacts | Candidate set frozen before first publication. | Both hashes, locks, installed-byte equality, Nitro/Vite matrices. | Repacking paths | done | — | `be64776e`; `internal/evidence/vue-nuxt-immutable-candidate-set-2026-07-22.md` |
-| `P4-014` | `P4-013` | Publish Vue under non-default staging tag, compare registry bytes, then certify unchanged Nuxt candidate against registry Vue. | Protected publishing workflow | Non-atomic publication cannot create untested Nuxt bytes. | Registry equality and post-Vue/pre-Nuxt consumer gate. | No manual publish path | blocked | `EXT-005` until explicit authorization/protected setup | — |
+| `P4-014` | `P4-018` | Publish Vue under non-default staging tag, compare registry bytes, then certify unchanged Nuxt candidate against registry Vue. | Protected publishing workflow | Non-atomic publication cannot create untested Nuxt bytes. | Registry equality and post-Vue/pre-Nuxt consumer gate. | No manual publish path | blocked | `EXT-005` until explicit authorization/protected setup | — |
 | `P4-015` | `P4-014` | Publish unchanged Nuxt candidate and move shared dist-tags only after pair equality. | Protected publishing workflow | Users never receive mismatched package pair. | Registry byte equality and dist-tag evidence. | None | blocked | `EXT-005` | — |
 | `P4-016` | `P4-015` | Rebrand docs/product and rename repository only after package cutover succeeds. | Docs/metadata/GitHub repository | Product rename does not create catch-all npm package or relocate root Nuxt. | Link/metadata/consumer verification. | Old brand references where no historical need | blocked | `EXT-005` | — |
+| `P4-017` | `P4-007`, `P4-013` | Expose the already-owned frozen attachment to Nuxt host applications through one narrow composable. | Nuxt composable auto-import and embedded-host fixture | Hosts pass one token-free runtime; consumers never read the internal Nuxt runtime context or reconstruct identity generations. | API admission record, exact allowlists, credential sentinels, focused Nuxt proof; exact installed production proof belongs to `P4-018`. | Direct `$convexRuntime` access and client/auth-ref bridge construction in consumers | in_progress | — | — |
+| `P4-018` | `P4-011`, `P4-012`, `P4-017` | Build a new immutable Vue/Nuxt candidate pair from the clean post-Ginko-cutover HEAD. | Package-qualified release artifacts | Historical `0.8.0-beta.0` proof is never repacked or published as the changed source. | New version, hashes, locks, installed-byte equality, Nitro/Vite/Ginko matrices. | Publication of the historical pre-attachment pair | pending | `EXT-004` before final candidate build | — |
 
 ## Phase 5 — base `@better-convex/mcp`
 

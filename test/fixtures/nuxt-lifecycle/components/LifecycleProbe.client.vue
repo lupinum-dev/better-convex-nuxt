@@ -9,6 +9,7 @@ import { nextTick, onMounted, ref } from 'vue'
 
 import {
   useConvexAction,
+  useConvexAttachment,
   useConvexMutation,
   useConvexPaginatedQuery,
   useConvexQuery,
@@ -32,6 +33,7 @@ interface OperationValue {
 }
 
 const props = defineProps<{ dispose: () => void }>()
+const attachment = useConvexAttachment()
 const owner = ref('alice')
 const notesQuery = makeFunctionReference<'query'>('notes:list') as FunctionReference<
   'query',
@@ -126,6 +128,18 @@ function snapshot() {
 
 onMounted(() => {
   window.__betterConvexNuxtLifecycle = {
+    attachment() {
+      const identity = attachment.identity.snapshot()
+      return {
+        frozen: Object.isFrozen(attachment),
+        runtimeKeys: Object.keys(attachment).sort(),
+        clientKeys: Object.keys(attachment.client).sort(),
+        anonymousClientKeys: Object.keys(attachment.anonymousClient).sort(),
+        identityKeys: Object.keys(attachment.identity).sort(),
+        identitySnapshotKeys: Object.keys(identity).sort(),
+        identity,
+      }
+    },
     snapshot,
     subscriptions: readSubscriptions,
     emitQuery(value: Note[]) {

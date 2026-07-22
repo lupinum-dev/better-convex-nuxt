@@ -19,12 +19,19 @@ describe('module auto-import surface', () => {
 
     expect(autoImportNames).toContain('useConvexAuth')
     expect(autoImportNames).toContain('useConvexUser')
+    expect(composableAutoImports).toContainEqual({
+      name: 'useConvexAttachment',
+      from: './runtime/composables/useConvexAttachment',
+    })
     expect(autoImportNames.size).toBe(composableAutoImports.length + authAutoImports.length)
   })
 
   it('exposes only the request-bound server caller as a Nitro auto-import', () => {
     expect(serverAutoImports).toEqual([
-      { name: 'serverConvex', from: './runtime/server/utils/server-convex-caller' },
+      {
+        name: 'serverConvex',
+        from: './runtime/server/utils/server-convex-caller',
+      },
     ])
   })
 

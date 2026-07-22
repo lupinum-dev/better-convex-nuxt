@@ -40,7 +40,12 @@ function parseArguments(args) {
 }
 
 function run(command, args, cwd, env = process.env) {
-  return execFileSync(command, args, { cwd, encoding: 'utf8', env, stdio: 'inherit' })
+  return execFileSync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    env,
+    stdio: 'inherit',
+  })
 }
 
 async function availablePort() {
@@ -61,7 +66,9 @@ async function waitForServer(origin, child) {
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`Production Nitro exited with ${child.exitCode}`)
     try {
-      const response = await fetch(origin, { signal: AbortSignal.timeout(1_000) })
+      const response = await fetch(origin, {
+        signal: AbortSignal.timeout(1_000),
+      })
       if (response.ok) return await response.text()
     } catch {
       // Nitro is still starting.
@@ -133,7 +140,9 @@ try {
   }
 
   cpSync(fixtureRoot, consumerRoot, { recursive: true })
-  cpSync(browserRuntimeFixture, join(scratchRoot, 'browser-runtime'), { recursive: true })
+  cpSync(browserRuntimeFixture, join(scratchRoot, 'browser-runtime'), {
+    recursive: true,
+  })
   cpSync(options.nuxtTarball, join(consumerRoot, 'better-convex-nuxt.tgz'))
   cpSync(options.vueTarball, join(consumerRoot, 'better-convex-vue.tgz'))
   run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], consumerRoot)
@@ -204,6 +213,48 @@ try {
       ({ methodName, methodArgs }) => window.__betterConvexNuxtLifecycle[methodName](...methodArgs),
       { methodName: method, methodArgs: args },
     )
+  const attachment = await invoke('attachment')
+  assertDeepEqual(attachment.frozen, true, 'Frozen Nuxt host attachment')
+  assertDeepEqual(
+    attachment.runtimeKeys,
+    ['anonymousClient', 'client', 'connection', 'identity'],
+    'Nuxt host attachment allowlist',
+  )
+  assertDeepEqual(
+    attachment.clientKeys,
+    ['action', 'mutation', 'onUpdate', 'query'],
+    'Nuxt host client allowlist',
+  )
+  assertDeepEqual(
+    attachment.anonymousClientKeys,
+    ['action', 'mutation', 'onUpdate', 'query'],
+    'Nuxt host anonymous client allowlist',
+  )
+  assertDeepEqual(
+    attachment.identityKeys,
+    ['snapshot', 'subscribe', 'waitForInitialSettlement'],
+    'Nuxt host identity observer allowlist',
+  )
+  assertDeepEqual(
+    attachment.identitySnapshotKeys,
+    ['authEnabled', 'authEpoch', 'error', 'identityGeneration', 'identityKey', 'settled'],
+    'Nuxt host identity snapshot allowlist',
+  )
+  assertDeepEqual(
+    attachment.identity,
+    {
+      authEnabled: false,
+      settled: true,
+      identityKey: 'anonymous',
+      authEpoch: 0,
+      identityGeneration: 0,
+      error: null,
+    },
+    'Nuxt host identity snapshot',
+  )
+  if (/token|cookie|authorization|secret|credential/iu.test(JSON.stringify(attachment))) {
+    throw new Error('Nuxt host attachment inspection exposed a credential-shaped field')
+  }
   let snapshot = await invoke('snapshot')
   assertDeepEqual(snapshot.query.data, [], 'Initial query data')
   assertDeepEqual(snapshot.pagination.results, [], 'Initial pagination data')
