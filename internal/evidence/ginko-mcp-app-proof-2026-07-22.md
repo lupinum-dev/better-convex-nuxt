@@ -3,7 +3,7 @@
 ## Outcome
 
 Ginko CMS branch `codex/better-convex-mcp-apps` is pushed at commit
-`3368af0e`. It proves that the shared Vue MCP App lifecycle can present a real
+`7babc915` (implementation commit `3368af0e`). It proves that the shared Vue MCP App lifecycle can present a real
 application-owned publish preview without moving publish or review authority
 into Better Convex or the iframe.
 
@@ -44,7 +44,8 @@ tool's authorization.
 
 ## Executed evidence
 
-On Ginko commit `3368af0e`:
+On Ginko implementation commit `3368af0e`, with the disclosure scan strengthened
+at `7babc915`:
 
 - full Vitest suite: 188 files passed, one skipped; 1,247 tests passed, one
   skipped;

@@ -3,6 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 interface HostMountOptions {
   html: string
+  initialInput?: Record<string, unknown>
   openLinks: boolean
 }
 
@@ -120,12 +121,18 @@ async function mount(options: HostMountOptions): Promise<void> {
   }
 
   let resolveInitialized: (() => void) | undefined
-  const ready = new Promise<void>((resolve) => {
+  let rejectInitialized: ((error: unknown) => void) | undefined
+  const ready = new Promise<void>((resolve, reject) => {
     resolveInitialized = resolve
+    rejectInitialized = reject
   })
   bridge.oninitialized = () => {
     initialized += 1
-    resolveInitialized?.()
+    void (
+      options.initialInput === undefined
+        ? Promise.resolve()
+        : bridge.sendToolInput({ arguments: options.initialInput })
+    ).then(resolveInitialized, rejectInitialized)
   }
 
   const messageListener = (event: MessageEvent) => {

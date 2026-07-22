@@ -81,15 +81,21 @@ async function snapshot(page: Page): Promise<HostSnapshot> {
   return page.evaluate(() => window.__BCN_MCP_APPS_HOST__.snapshot())
 }
 
-async function mount(page: Page, html: string, openLinks: boolean): Promise<void> {
+async function mount(
+  page: Page,
+  html: string,
+  openLinks: boolean,
+  initialInput?: Record<string, unknown>,
+): Promise<void> {
   await page.evaluate(
-    async ({ appHtml, links }) => {
+    async ({ appHtml, input, links }) => {
       await window.__BCN_MCP_APPS_HOST__.mount({
         html: appHtml,
+        ...(input === undefined ? {} : { initialInput: input }),
         openLinks: links,
       })
     },
-    { appHtml: html, links: openLinks },
+    { appHtml: html, input: initialInput, links: openLinks },
   )
 }
 
@@ -208,7 +214,11 @@ export async function proveNotesDashboardBrowserBoundary(
     })
 
     await page.goto(`${HOST_ORIGIN}/`)
-    await mount(page, options.build.appHtml, false)
+    await mount(page, options.build.appHtml, false, {
+      limit: 1,
+      query: 'initial',
+      workspaceId: 'workspace-initial',
+    })
 
     const iframe = page.locator('iframe[data-testid="notes-dashboard-frame"]')
     await iframe.waitFor({ state: 'attached' })
@@ -222,6 +232,11 @@ export async function proveNotesDashboardBrowserBoundary(
     })
     const frame = page.frameLocator('iframe[data-testid="notes-dashboard-frame"]')
     await frame.getByTestId('notes-dashboard').waitFor()
+    await waitForValue(
+      () => frame.getByTestId('workspace').textContent(),
+      (value) => value === 'workspace-initial',
+      'initial tool input delivered during initialization',
+    )
 
     const input = { limit: 5, query: '', workspaceId: 'workspace-a' }
     await page.evaluate(async () =>
