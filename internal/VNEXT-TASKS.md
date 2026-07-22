@@ -9,9 +9,9 @@ replace the RFC's product decisions.
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 4 — public Vue package and Nuxt hard cut; Phase 1 final-spec/external-host gates remain open        |
-| Current task          | `P4-001` — admit the minimum public Vue API from executed consumer evidence                               |
-| Last verified commit  | `9e65c3bd` plus lifecycle cleanup; full `pnpm check` passed 164 files / 1,832 tests                       |
-| Next executable tasks | `P4-001`, `P4-002`, `P4-003`                                                                              |
+| Current task          | `P4-002` — move the proven lifecycle source once into `packages/vue`                                      |
+| Last verified commit  | `80894f48` plus `D-013` minimum Vue public API admission                                                  |
+| Next executable tasks | `P4-002`, `P4-003`, `P4-004`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | Exactly one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -175,8 +175,8 @@ and repository rename remain gated as `G-001`–`G-005` rather than implied publ
 
 | ID | Depends on | Exact outcome | Expected boundary/files | Invariant | Acceptance proof/evidence | Delete/replace | Status | Blocker | Completion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `P4-001` | `P3-020`, `P2-015` | Admit the minimum Vue public API through the 12-question RFC test with two-consumer evidence. | API admission record | No future-flexibility exports. | Nuxt + neutral Vite + embedded need mapped to each symbol. | Rejected candidate exports | in_progress | — | — |
-| `P4-002` | `P4-001` | Move the proven source island once into `packages/vue`; create exact package manifest/build config. | `packages/vue/**` | No permanent private core or copied source. | Package boundaries, build, types, exports pass. | Private source-island old path | pending | — | — |
+| `P4-001` | `P3-020`, `P2-015` | Admit the minimum Vue public API through the 12-question RFC test with two-consumer evidence. | API admission record | No future-flexibility exports. | Nuxt + neutral Vite + embedded need mapped to each symbol. | Rejected candidate exports | done | — | `internal/decisions/ADR-vnext-vue-public-api.md`; `D-013`; completion commit is the commit that records this row as done |
+| `P4-002` | `P4-001` | Move the proven source island once into `packages/vue`; create exact package manifest/build config. | `packages/vue/**` | No permanent private core or copied source. | Package boundaries, build, types, exports pass. | Private source-island old path | in_progress | — | — |
 | `P4-003` | `P4-002` | Implement minimal Vue plugin/injection context and synchronous composable construction. | `packages/vue` plugin/runtime | Multiple app roots isolated; disposal owned. | Two-root and install/dispose tests. | Fixture-only provider glue | pending | — | — |
 | `P4-004` | `P4-003` | Ship anonymous mode without auth dependencies. | Vue package auth-neutral entry | Anonymous apps install no auth/server stack. | Production Vite anonymous fixture and dependency graph. | Private fixture adapter | pending | — | — |
 | `P4-005` | `P4-003` | Ship provider-neutral browser auth adapter proven by Better Auth-style callback and another/custom provider. | Vue auth adapter | No provider role/policy leakage or secrets. | Settlement, refresh, failure, identity generation fixtures. | Proof-only auth adapters after maintained fixtures exist | pending | — | — |
