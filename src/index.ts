@@ -12,7 +12,12 @@ export interface McpAccessContext {
   readonly scopes: readonly string[]
 }
 
-/** Safe result returned by a provider-neutral access-token verifier. */
+/**
+ * Safe result returned by a provider-neutral access-token verifier.
+ *
+ * Implementations return exactly these fields. Provider-private references stay in the verifier's
+ * request-local closure and must not be attached to this value.
+ */
 export interface VerifiedMcpAccess {
   readonly access: McpAccessContext
   readonly expiresAt: number
