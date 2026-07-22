@@ -186,7 +186,7 @@ function resolveSchemaTarball(isolatedRoot, parent) {
   }
 
   const artifacts = path.join(parent, 'artifacts')
-  mkdirSync(artifacts)
+  mkdirSync(artifacts, { recursive: true })
   const packed = JSON.parse(
     output(
       'npm',
@@ -200,7 +200,34 @@ function resolveSchemaTarball(isolatedRoot, parent) {
   return tarball
 }
 
-function preparePackagedDemo(isolatedRoot, parent, tarball) {
+function resolveSchemaVueTarball(isolatedRoot, parent) {
+  const supplied = process.env.BCN_RELEASE_VUE_TARBALL
+  if (supplied) {
+    if (!path.isAbsolute(supplied) || !existsSync(supplied)) {
+      fail('BCN_RELEASE_VUE_TARBALL must be an existing absolute tarball path')
+    }
+    return supplied
+  }
+
+  const packageRoot = path.join(isolatedRoot, 'packages/vue')
+  run('pnpm', ['run', 'build'], packageRoot)
+  const artifacts = path.join(parent, 'artifacts', 'vue')
+  mkdirSync(artifacts, { recursive: true })
+  const packed = JSON.parse(
+    output(
+      'npm',
+      ['pack', '--json', '--ignore-scripts', '--pack-destination', artifacts],
+      packageRoot,
+    ),
+  )
+  if (!Array.isArray(packed) || packed.length !== 1)
+    fail('Vue schema companion pack was not singular')
+  const tarball = path.join(artifacts, packed[0].filename)
+  if (!existsSync(tarball)) fail(`Vue schema companion tarball is missing: ${tarball}`)
+  return tarball
+}
+
+function preparePackagedDemo(isolatedRoot, parent, tarball, vueTarball) {
   const packaged = path.join(parent, 'packaged-demo')
   cpSync(path.join(isolatedRoot, 'demo'), packaged, {
     recursive: true,
@@ -213,10 +240,16 @@ function preparePackagedDemo(isolatedRoot, parent, tarball) {
   })
   const localTarball = path.join(packaged, 'better-convex-nuxt.tgz')
   copyFileSync(tarball, localTarball)
+  const localVueTarball = path.join(packaged, 'better-convex-vue.tgz')
+  copyFileSync(vueTarball, localVueTarball)
   const manifestPath = path.join(packaged, 'package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
   manifest.dependencies['better-convex-nuxt'] = 'file:./better-convex-nuxt.tgz'
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  writeFileSync(
+    path.join(packaged, 'pnpm-workspace.yaml'),
+    "overrides:\n  'better-convex-vue': 'file:./better-convex-vue.tgz'\n",
+  )
   run('pnpm', ['install', '--lockfile-only', '--no-frozen-lockfile', '--ignore-scripts'], packaged)
   run('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], packaged)
   return packaged
@@ -243,7 +276,8 @@ async function main() {
     run('pnpm', ['exec', 'nuxt-module-build', 'prepare'], isolatedRoot)
     run('pnpm', ['exec', 'nuxt-module-build', 'build'], isolatedRoot)
     const tarball = resolveSchemaTarball(isolatedRoot, parent)
-    const packagedDemo = preparePackagedDemo(isolatedRoot, parent, tarball)
+    const vueTarball = resolveSchemaVueTarball(isolatedRoot, parent)
+    const packagedDemo = preparePackagedDemo(isolatedRoot, parent, tarball, vueTarball)
     await runRealCodegen(packagedDemo, {
       GITHUB_CLIENT_ID: 'bcn-auth-schema-inert-github-client',
       GITHUB_CLIENT_SECRET: 'bcn-auth-schema-inert-github-secret',

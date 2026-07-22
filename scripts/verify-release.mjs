@@ -87,7 +87,11 @@ function main() {
     '\n[release-verify] Hybrid auth gates (source behavior plus explicit candidate input)',
   )
   run('pnpm', ['run', 'verify:auth'], {
-    env: { ...process.env, BCN_RELEASE_TARBALL: tarball },
+    env: {
+      ...process.env,
+      BCN_RELEASE_TARBALL: tarball,
+      BCN_RELEASE_VUE_TARBALL: vueCoordinates.paths.tarball,
+    },
   })
 
   console.log('\n[release-verify] Artifact-dependent package and consumer gates')
