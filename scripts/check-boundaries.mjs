@@ -87,6 +87,7 @@ const RUNTIME_ROOT = p('src/runtime')
 const ERRORS_DIR = p('src/runtime/errors')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
+const CLIENT_LIFECYCLE_DIR = p('src/runtime/client-core')
 const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
 const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
 const SHARED_CLIENT_IP_FILE = p('src/runtime/shared/client-ip.ts')
@@ -107,6 +108,7 @@ const isBrowserRuntime = (absPath) =>
 const isModuleBuild = (absPath) => isAnyFile(absPath, MODULE_BUILD_FILES)
 const isRuntimeEntry = (absPath) => inDir(absPath, RUNTIME_ROOT)
 const isConvexAuth = (absPath) => inDir(absPath, CONVEX_AUTH_DIR)
+const isClientLifecycle = (absPath) => inDir(absPath, CLIENT_LIFECYCLE_DIR)
 const isSharedAuthCookie = (absPath) => absPath === SHARED_AUTH_COOKIE_FILE
 const isSharedAuthOrigin = (absPath) => absPath === SHARED_AUTH_ORIGIN_FILE
 const isSharedClientIp = (absPath) => absPath === SHARED_CLIENT_IP_FILE
@@ -160,6 +162,15 @@ function isForbiddenConvexAuthBareSpecifier(specifier) {
   )
 }
 
+function isAllowedClientLifecycleBareSpecifier(specifier) {
+  return (
+    specifier === 'vue' ||
+    specifier === 'convex/browser' ||
+    specifier === 'convex/server' ||
+    specifier === 'convex/values'
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Edge table (architecture invariant)
 // ---------------------------------------------------------------------------
@@ -181,6 +192,18 @@ function isForbiddenConvexAuthBareSpecifier(specifier) {
 
 /** @type {Rule[]} */
 const RULES = [
+  {
+    name: 'client-lifecycle-island-browser-only',
+    description:
+      'src/runtime/client-core/** may import only its own private island, the existing framework-neutral error authority, Vue, and reviewed Convex browser/value/type entries; Nuxt, Nitro, H3, Better Auth, server/MCP runtime, aliases, Node built-ins, and unreviewed utility leaves are forbidden.',
+    from: isClientLifecycle,
+    disallow: (edge) => {
+      if (!edge.isRelative) return !isAllowedClientLifecycleBareSpecifier(edge.specifier)
+      if (edge.resolvedAbsPath === null) return false
+      return !isClientLifecycle(edge.resolvedAbsPath) && !inDir(edge.resolvedAbsPath, ERRORS_DIR)
+    },
+    typeOnlyExempt: false,
+  },
   {
     name: 'convex-auth-island-framework-free',
     description:
@@ -408,7 +431,11 @@ function discoverWorkspacePackages(root = repoRoot) {
       throw new Error(`Duplicate workspace package name: ${manifest.name}`)
     }
     names.add(manifest.name)
-    packages.push({ directory: resolve(directory), manifest, name: manifest.name })
+    packages.push({
+      directory: resolve(directory),
+      manifest,
+      name: manifest.name,
+    })
   }
   return packages.sort((left, right) => right.directory.length - left.directory.length)
 }

@@ -26,7 +26,12 @@ function rule(name: string) {
 }
 
 function bare(specifier: string): BoundaryEdge {
-  return { isRelative: false, isTypeOnly: false, resolvedAbsPath: null, specifier }
+  return {
+    isRelative: false,
+    isTypeOnly: false,
+    resolvedAbsPath: null,
+    specifier,
+  }
 }
 
 function relativeEdge(specifier: string, resolvedAbsPath: string): BoundaryEdge {
@@ -133,6 +138,59 @@ describe('Convex auth dependency boundaries', () => {
   })
 })
 
+describe('private client lifecycle dependency boundary', () => {
+  const clientCoreFile = resolve('src/runtime/client-core/client-owner.ts')
+  const clientCoreSibling = resolve('src/runtime/client-core/identity-port.ts')
+  const errorAuthority = resolve('src/runtime/errors/index.ts')
+  const nuxtRuntime = resolve('src/runtime/runtime-context.ts')
+  const serverRuntime = resolve('src/runtime/server/utils/server-convex-caller.ts')
+  const mcpRuntime = resolve('src/runtime/mcp/route.ts')
+
+  it('admits only the private island, existing errors, Vue, and reviewed Convex entries', () => {
+    const boundary = rule('client-lifecycle-island-browser-only')
+    expect(boundary.from(clientCoreFile)).toBe(true)
+    expect(boundary.from(resolve('src/runtime/composables/useConvexQuery.ts'))).toBe(false)
+    expect(boundary.disallow(relativeEdge('./identity-port', clientCoreSibling))).toBe(false)
+    expect(boundary.disallow(relativeEdge('../errors', errorAuthority))).toBe(false)
+
+    for (const specifier of ['vue', 'convex/browser', 'convex/server', 'convex/values']) {
+      expect(boundary.disallow(bare(specifier)), specifier).toBe(false)
+    }
+  })
+
+  it('rejects framework, auth, server, MCP, Node, alias, and unreviewed utility edges', () => {
+    const boundary = rule('client-lifecycle-island-browser-only')
+
+    for (const specifier of [
+      '#imports',
+      '#app',
+      'nuxt',
+      '@nuxt/kit',
+      'nitropack/runtime',
+      'h3',
+      'better-auth/vue',
+      'node:crypto',
+      'fs',
+      '~/runtime/utils/logger',
+      '@/runtime/auth/client-engine',
+      'better-convex-nuxt/server',
+      '<computed dynamic import>',
+    ]) {
+      expect(boundary.disallow(bare(specifier)), specifier).toBe(true)
+    }
+
+    expect(boundary.disallow(relativeEdge('../runtime-context', nuxtRuntime))).toBe(true)
+    expect(
+      boundary.disallow(relativeEdge('../server/utils/server-convex-caller', serverRuntime)),
+    ).toBe(true)
+    expect(boundary.disallow(relativeEdge('../mcp/route', mcpRuntime))).toBe(true)
+    expect(
+      boundary.disallow(relativeEdge('../utils/logger', resolve('src/runtime/utils/logger.ts'))),
+    ).toBe(true)
+    expect(boundary.typeOnlyExempt).toBe(false)
+  })
+})
+
 describe('workspace package dependency direction', () => {
   function workspacePackage(
     directory: string,
@@ -206,7 +264,9 @@ describe('workspace package dependency direction', () => {
         findWorkspaceDependencyViolations(
           [source],
           [
-            workspacePackage(packageA, '@fixture/a', { '@fixture/b': 'workspace:*' }),
+            workspacePackage(packageA, '@fixture/a', {
+              '@fixture/b': 'workspace:*',
+            }),
             workspacePackage(packageB, '@fixture/b'),
           ],
         ),
@@ -219,8 +279,12 @@ describe('workspace package dependency direction', () => {
   it('rejects cycles in the declared workspace package graph', () => {
     const directory = resolve('/tmp/bcn-workspace-cycle')
     const packages = [
-      workspacePackage(directory + '/a', '@fixture/a', { '@fixture/b': 'workspace:*' }),
-      workspacePackage(directory + '/b', '@fixture/b', { '@fixture/a': 'workspace:*' }),
+      workspacePackage(directory + '/a', '@fixture/a', {
+        '@fixture/b': 'workspace:*',
+      }),
+      workspacePackage(directory + '/b', '@fixture/b', {
+        '@fixture/a': 'workspace:*',
+      }),
     ]
     expect(findWorkspaceDependencyCycles(packages)).toEqual([
       ['@fixture/a', '@fixture/b', '@fixture/a'],
