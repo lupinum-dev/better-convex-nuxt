@@ -23,6 +23,7 @@ import {
   LAB_OAUTH_TOKENS,
   labOAuthResourceMetadataUrl,
 } from '../oauth-fixture'
+import { runOfficialMcpToolProbe } from '../official-tools'
 import { NITRO_MCP_LAB_MAX_BODY_BYTES } from './notes-handler'
 
 const execFile = promisify(execFileCallback)
@@ -272,6 +273,27 @@ describe('vNext Nitro MCP production runtime purity', () => {
         name: 'search_notes',
       })
       expect(search.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+
+      if (process.env.BCN_VNEXT_MCP_OFFICIAL_TOOLS === 'true') {
+        const officialTools = await runOfficialMcpToolProbe({
+          endpoint: mcpUrl,
+          label: 'Nitro-native',
+          repositoryRoot: root,
+          token: OWNER_TOKEN,
+        })
+        expect(officialTools.inspectorMethods).toEqual([
+          'tools/list',
+          'tools/call',
+          'resources/templates/list',
+          'resources/read',
+        ])
+        expect(officialTools.conformanceScenarios).toEqual([
+          'server-initialize',
+          'ping',
+          'tools-list',
+          'resources-list',
+        ])
+      }
 
       const hostileOrigin = await fetch(mcpUrl, {
         body: '{}',

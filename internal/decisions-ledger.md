@@ -27,12 +27,12 @@ ledger points here instead of maintaining a second architectural history.
 
 ## Pending decision gates
 
-| ID      | Decision required                                                               | Entry evidence                                                                | Current status                                |
-| ------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
-| `G-001` | Select Convex-native or Nitro-native as the one MCP topology.                   | `P1-007`–`P1-017`, final spec/SDK, conformance, hosts, latency and operations | Open; Candidate A preferred but not accepted. |
-| `G-003` | Place the optional Better Auth MCP adapter at the smallest dependency boundary. | Phase 5 provider graph plus one external verifier                             | Open.                                         |
-| `G-004` | Decide whether Tasks is admitted at all.                                        | Every `P8-001` entry condition                                                | Blocked; Tasks do not block 1.0.              |
-| `G-005` | Rename/rebrand the repository after package cutover.                            | Phase 4 exact-package cutover and owner authority                             | Deferred; no early symmetry move.             |
+| ID      | Decision required                                                               | Entry evidence                                                                | Current status                                                                                                                                   |
+| ------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `G-001` | Select Convex-native or Nitro-native as the one MCP topology.                   | `P1-007`–`P1-017`, final spec/SDK, conformance, hosts, latency and operations | Open; Candidate A preferred but not accepted. Published Inspector `1.0.0` and current-final conformance `0.1.16` preflight pass both candidates. |
+| `G-003` | Place the optional Better Auth MCP adapter at the smallest dependency boundary. | Phase 5 provider graph plus one external verifier                             | Open.                                                                                                                                            |
+| `G-004` | Decide whether Tasks is admitted at all.                                        | Every `P8-001` entry condition                                                | Blocked; Tasks do not block 1.0.                                                                                                                 |
+| `G-005` | Rename/rebrand the repository after package cutover.                            | Phase 4 exact-package cutover and owner authority                             | Deferred; no early symmetry move.                                                                                                                |
 
 ## Rejected product paths
 

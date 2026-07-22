@@ -32,6 +32,7 @@ import {
   LAB_OAUTH_TOKENS,
   labOAuthResourceMetadataUrl,
 } from '../oauth-fixture'
+import { runOfficialMcpToolProbe } from '../official-tools'
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const sourceFixture = fileURLToPath(new URL('./fixture', import.meta.url))
@@ -557,6 +558,27 @@ describe('vNext Convex-native MCP topology probe', () => {
         { text: JSON.stringify(searchA.structuredContent), type: 'text' },
       ])
       expect(searchB.structuredContent).toMatchObject({ matches: [{ id: 'note-b' }] })
+
+      if (process.env.BCN_VNEXT_MCP_OFFICIAL_TOOLS === 'true') {
+        const officialTools = await runOfficialMcpToolProbe({
+          endpoint: new URL('/mcp', local.env.CONVEX_SITE_URL!),
+          label: 'Convex-native',
+          repositoryRoot: root,
+          token: OWNER_TOKEN,
+        })
+        expect(officialTools.inspectorMethods).toEqual([
+          'tools/list',
+          'tools/call',
+          'resources/templates/list',
+          'resources/read',
+        ])
+        expect(officialTools.conformanceScenarios).toEqual([
+          'server-initialize',
+          'ping',
+          'tools-list',
+          'resources-list',
+        ])
+      }
 
       const [renameA, renameB] = await Promise.all([
         connectionA.client.callTool(topologyConformanceVectors.rename.first),
