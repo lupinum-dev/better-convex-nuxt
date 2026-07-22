@@ -1,7 +1,8 @@
-# MCP topology comparison — evidence in progress
+# MCP topology comparison — provisional implementation decision
 
-This is the canonical `P1-017` comparison record. It is deliberately incomplete until `P1-015` and
-`P1-016` finish. No winner may be inferred from the current table.
+This is the canonical `P1-017` comparison record. The owner accepted Convex-native for experimental
+implementation on 2026-07-22. Final certification remains incomplete until `P1-015` and `P1-016`
+finish; `G-001` preserves that re-entry gate.
 
 | Gate                            | Convex-native                           | Nitro-native                                                   | Current evidence / remaining proof                                                                  |
 | ------------------------------- | --------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -18,11 +19,13 @@ This is the canonical `P1-017` comparison record. It is deliberately incomplete 
 | Failure recovery                | Single runtime failure                  | Nitro can survive and report stopped Convex coarsely           | Cloud retries/timeouts/operator recovery remain                                                     |
 | Deletion cost if losing         | Convex MCP fixture and beta relay path  | Nitro MCP server, exact-call signer/verifier/routes/key config | Final ADR must name exact files/dependencies                                                        |
 
-Current interpretation:
+Accepted implementation interpretation:
 
-- Candidate A remains structurally simpler and framework-neutral.
+- Candidate A is selected because it remains structurally simpler and framework-neutral.
 - Candidate B is now a real fallback rather than two disconnected proofs and is materially faster in
   the local warm-read sample.
 - The performance result does not outweigh the additional credential, deployment, timeout, and recovery
   ownership without production evidence.
-- The final protocol may still invalidate either candidate. `G-001` remains open.
+- Candidate B is frozen at `988b40f1` on `codex/archive-mcp-nitro-beta5`, not maintained as a peer.
+- The final protocol may still invalidate the selected path. `G-001` remains open and the restoration
+  capsule is defined in `internal/decisions/ADR-vnext-mcp-topology.md`.
