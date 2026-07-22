@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import {
+  Client,
+  SERVER_INFO_META_KEY,
+  StreamableHTTPClientTransport,
+} from '@modelcontextprotocol/client'
 import {
   McpUiResourceMetaSchema,
   McpUiToolMetaSchema,
@@ -87,6 +91,7 @@ function connectClient(
   name: string,
   responseBodies: string[],
   supportsApps: boolean,
+  modern = false,
 ): { client: Client; connect: Promise<void>; requestBodies: string[] } {
   const requestBodies: string[] = []
   const fetch: typeof globalThis.fetch = async (input, init) => {
@@ -102,15 +107,20 @@ function connectClient(
   })
   const client = new Client(
     { name, version: '0.0.0' },
-    supportsApps
+    supportsApps || modern
       ? {
-          capabilities: {
-            extensions: {
-              'io.modelcontextprotocol/ui': {
-                mimeTypes: ['text/html;profile=mcp-app'],
+          ...(supportsApps && {
+            capabilities: {
+              extensions: {
+                'io.modelcontextprotocol/ui': {
+                  mimeTypes: ['text/html;profile=mcp-app'],
+                },
               },
             },
-          },
+          }),
+          ...(modern && {
+            versionNegotiation: { mode: { pin: '2026-07-28' as const } },
+          }),
         }
       : undefined,
   )
@@ -150,7 +160,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       await readFile(path.join(sourceFixture, 'package.json'), 'utf8'),
     ) as { dependencies?: Record<string, string> }
     expect(fixtureManifest.dependencies).toEqual({
-      '@modelcontextprotocol/server': '2.0.0-beta.4',
+      '@modelcontextprotocol/server': '2.0.0-beta.5',
       convex: '1.42.2',
       zod: '4.3.6',
     })
@@ -179,6 +189,7 @@ describe('vNext Convex-native MCP topology probe', () => {
     const responsesA: string[] = []
     const responsesB: string[] = []
     const responsesReadOnly: string[] = []
+    const responsesModern: string[] = []
     const connectionA = connectClient(
       local.env.CONVEX_SITE_URL!,
       OWNER_TOKEN,
@@ -200,9 +211,22 @@ describe('vNext Convex-native MCP topology probe', () => {
       responsesReadOnly,
       false,
     )
+    const connectionModern = connectClient(
+      local.env.CONVEX_SITE_URL!,
+      OWNER_TOKEN,
+      'convex-modern-client',
+      responsesModern,
+      false,
+      true,
+    )
 
     try {
-      await Promise.all([connectionA.connect, connectionB.connect, connectionReadOnly.connect])
+      await Promise.all([
+        connectionA.connect,
+        connectionB.connect,
+        connectionReadOnly.connect,
+        connectionModern.connect,
+      ])
 
       const mcpUrl = new URL('/mcp', local.env.CONVEX_SITE_URL!)
       const bearerBoundaryHeader = 'x-bcn-lab-bearer-boundary'
@@ -440,15 +464,23 @@ describe('vNext Convex-native MCP topology probe', () => {
         `[vnext-convex-http] origin=${hostileOrigin.status} encoding=${encoded.status} contentType=${wrongContentType.status} oversized=${oversized.status} path=${wrongPath.status} query=${queryDisagreement.status} method=${wrongMethod.status} duplicateLength=${duplicateLength.status} conflictingFraming=${conflictingFraming.status} streamed=${streamed.status} streamedOversized=${oversizedStream.status} stalled=${stalled.status}`,
       )
 
-      const [toolsA, toolsB] = await Promise.all([
+      const [toolsA, toolsB, toolsModern] = await Promise.all([
         connectionA.client.listTools(),
         connectionB.client.listTools(),
+        connectionModern.client.listTools(),
       ])
       expect(toolsA.tools.map((tool) => tool.name).sort()).toEqual(
         topologyConformanceVectors.expectedTools,
       )
       expect(toolsB.tools.map((tool) => tool.name).sort()).toEqual(
         topologyConformanceVectors.expectedTools,
+      )
+      expect(toolsModern.tools.map((tool) => tool.name).sort()).toEqual(
+        topologyConformanceVectors.expectedTools,
+      )
+      expect(responsesModern.some((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
+      expect(connectionModern.requestBodies.some((body) => body.includes('server/discover'))).toBe(
+        true,
       )
       expect(JSON.stringify(toolsA.tools)).not.toContain('subject')
       const supportedSearch = toolsA.tools.find((tool) => tool.name === 'search_notes')
@@ -736,7 +768,12 @@ describe('vNext Convex-native MCP topology probe', () => {
         workspaceId: 'workspace-a',
       })
 
-      const responseText = [...responsesA, ...responsesB, ...responsesReadOnly].join('\n')
+      const responseText = [
+        ...responsesA,
+        ...responsesB,
+        ...responsesReadOnly,
+        ...responsesModern,
+      ].join('\n')
       for (const token of Object.values(LAB_OAUTH_TOKENS)) {
         expect(responseText).not.toContain(token)
       }
@@ -745,6 +782,7 @@ describe('vNext Convex-native MCP topology probe', () => {
         connectionA.client.close(),
         connectionB.client.close(),
         connectionReadOnly.client.close(),
+        connectionModern.client.close(),
       ])
     }
   })

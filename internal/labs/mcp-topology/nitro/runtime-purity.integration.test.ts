@@ -7,7 +7,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import {
+  Client,
+  SERVER_INFO_META_KEY,
+  StreamableHTTPClientTransport,
+} from '@modelcontextprotocol/client'
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
@@ -123,6 +127,7 @@ describe('vNext Nitro MCP production runtime purity', () => {
     let restoreEnvironment: (() => void) | undefined
     let server: ChildProcess | undefined
     let client: Client | undefined
+    let modernClient: Client | undefined
     let readOnlyClient: Client | undefined
     let bobClient: Client | undefined
 
@@ -212,8 +217,8 @@ describe('vNext Nitro MCP production runtime purity', () => {
         await readFile(path.join(outputDir, 'server', 'package.json'), 'utf8'),
       ) as { dependencies?: Record<string, string> }
       expect(serverManifest.dependencies).toMatchObject({
-        '@modelcontextprotocol/core': '2.0.0-beta.4',
-        '@modelcontextprotocol/server': '2.0.0-beta.4',
+        '@modelcontextprotocol/core': '2.0.0-beta.5',
+        '@modelcontextprotocol/server': '2.0.0-beta.5',
         zod: '4.3.6',
       })
       expect(serverManifest.dependencies?.['@modelcontextprotocol/client']).toBeUndefined()
@@ -238,6 +243,7 @@ describe('vNext Nitro MCP production runtime purity', () => {
       await waitUntilReady(origin, server)
 
       const responseBodies: string[] = []
+      const modernResponseBodies: string[] = []
       const mcpUrl = new URL('/api/mcp', origin)
       const protectedMetadataUrl = new URL(labOAuthResourceMetadataUrl(mcpUrl))
       const protectedMetadataResponse = await fetch(protectedMetadataUrl)
@@ -328,6 +334,27 @@ describe('vNext Nitro MCP production runtime purity', () => {
         'rename_note',
         'search_notes',
       ])
+      const modernTransport = new StreamableHTTPClientTransport(mcpUrl, {
+        authProvider: { token: async () => OWNER_TOKEN },
+        fetch: async (input, init) => {
+          const response = await fetch(input, init)
+          modernResponseBodies.push(await response.clone().text())
+          return response
+        },
+      })
+      modernClient = new Client(
+        { name: 'nitro-modern-production-probe', version: '0.0.0' },
+        { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+      )
+      await modernClient.connect(modernTransport)
+      const modernTools = await modernClient.listTools()
+      expect(modernTools.tools.map((tool) => tool.name).sort()).toEqual([
+        'delete_workspace',
+        'generate_report',
+        'rename_note',
+        'search_notes',
+      ])
+      expect(modernResponseBodies.some((body) => body.includes(SERVER_INFO_META_KEY))).toBe(true)
       const search = await client.callTool({
         arguments: { query: 'alpha', workspaceId: 'workspace-a' },
         name: 'search_notes',
@@ -665,6 +692,7 @@ describe('vNext Nitro MCP production runtime purity', () => {
       )
     } finally {
       await client?.close().catch(() => {})
+      await modernClient?.close().catch(() => {})
       await readOnlyClient?.close().catch(() => {})
       await bobClient?.close().catch(() => {})
       await stop(server)

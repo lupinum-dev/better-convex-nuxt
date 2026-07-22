@@ -1,5 +1,10 @@
-import { Client } from '@modelcontextprotocol/client'
-import { InMemoryTransport, McpServer } from '@modelcontextprotocol/server'
+import {
+  CLIENT_INFO_META_KEY,
+  Client,
+  SERVER_INFO_META_KEY,
+  StreamableHTTPClientTransport,
+} from '@modelcontextprotocol/client'
+import { createMcpHandler, InMemoryTransport, McpServer } from '@modelcontextprotocol/server'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -63,6 +68,84 @@ describe('vNext MCP SDK transport laboratory', () => {
     } finally {
       await client.close()
       await server.close()
+    }
+  })
+
+  it('matches the beta.5 re-sealed 2026 result identity and optional client-info envelope', async () => {
+    const serverInfo = { name: 'better-convex-vnext-modern-lab', version: '0.0.0' }
+    const handler = createMcpHandler(
+      () => {
+        const server = new McpServer(serverInfo)
+        server.registerTool(
+          'search_notes',
+          { inputSchema: z.object({ query: z.string() }) },
+          () => ({
+            content: [{ type: 'text', text: 'No notes matched.' }],
+          }),
+        )
+        return server
+      },
+      { legacy: 'reject', responseMode: 'json' },
+    )
+    const exchanges: Array<{
+      request: Record<string, unknown>
+      requestHeaders: Headers
+      response: Record<string, unknown>
+    }> = []
+    const transport = new StreamableHTTPClientTransport(new URL('https://mcp-lab.invalid/mcp'), {
+      fetch: async (input, init) => {
+        const request = new Request(input, init)
+        const requestBody = JSON.parse(await request.clone().text()) as Record<string, unknown>
+        const response = await handler.fetch(request)
+        exchanges.push({
+          request: requestBody,
+          requestHeaders: new Headers(request.headers),
+          response: (await response.clone().json()) as Record<string, unknown>,
+        })
+        return response
+      },
+    })
+    const client = new Client(
+      { name: 'better-convex-vnext-modern-client', version: '0.0.0' },
+      { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+    )
+
+    try {
+      await client.connect(transport)
+      await client.listTools()
+
+      const discover = exchanges.find(({ request }) => request.method === 'server/discover')
+      const toolsList = exchanges.find(({ request }) => request.method === 'tools/list')
+      expect(discover).toBeDefined()
+      expect(toolsList).toBeDefined()
+      for (const exchange of [discover!, toolsList!]) {
+        const result = exchange.response.result as Record<string, unknown>
+        expect(result.serverInfo).toBeUndefined()
+        expect((result._meta as Record<string, unknown>)[SERVER_INFO_META_KEY]).toEqual(serverInfo)
+      }
+
+      const requestWithoutClientInfo = structuredClone(toolsList!.request)
+      const params = requestWithoutClientInfo.params as Record<string, unknown>
+      const meta = params._meta as Record<string, unknown>
+      Reflect.deleteProperty(meta, CLIENT_INFO_META_KEY)
+      const directResponse = await handler.fetch(
+        new Request('https://mcp-lab.invalid/mcp', {
+          method: 'POST',
+          headers: toolsList!.requestHeaders,
+          body: JSON.stringify(requestWithoutClientInfo),
+        }),
+      )
+      const directBody = (await directResponse.json()) as {
+        error?: unknown
+        result?: { tools?: unknown[]; _meta?: Record<string, unknown> }
+      }
+      expect(directResponse.status).toBe(200)
+      expect(directBody.error).toBeUndefined()
+      expect(directBody.result?.tools).toHaveLength(1)
+      expect(directBody.result?._meta?.[SERVER_INFO_META_KEY]).toEqual(serverInfo)
+    } finally {
+      await client.close()
+      await handler.close()
     }
   })
 })
