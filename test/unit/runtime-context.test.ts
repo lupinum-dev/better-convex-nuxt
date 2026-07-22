@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createBetterConvexAttachment } from '../../packages/vue/src/embedded'
 import { createDevtoolsSink } from '../../src/runtime/devtools/sink'
-import { createConvexRuntimeContext } from '../../src/runtime/runtime-context'
+import {
+  createConvexRuntimeContext,
+  readConvexRuntimeContext,
+} from '../../src/runtime/runtime-context'
 import { createLogger } from '../../src/runtime/utils/logger'
 
 function createOwnerHarness() {
@@ -41,6 +44,13 @@ function createOwnerHarness() {
 }
 
 describe('ConvexRuntimeContext diagnostics ownership', () => {
+  it.each([null, undefined, false, 0, 'server'])(
+    'treats non-app server placeholder %j as no client runtime',
+    (value) => {
+      expect(readConvexRuntimeContext(value)).toBeUndefined()
+    },
+  )
+
   it('clears identity-owned diagnostics through the owner event seam', () => {
     const harness = createOwnerHarness()
     const runtime = createConvexRuntimeContext(harness.attachment, createLogger(false))

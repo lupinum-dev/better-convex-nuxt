@@ -28,6 +28,9 @@ export interface ConvexRuntimeContext {
 }
 
 export function readConvexRuntimeContext(nuxtApp: unknown): ConvexRuntimeContext | undefined {
+  if ((typeof nuxtApp !== 'object' && typeof nuxtApp !== 'function') || nuxtApp === null) {
+    return undefined
+  }
   return (nuxtApp as { $convexRuntime?: ConvexRuntimeContext }).$convexRuntime
 }
 
