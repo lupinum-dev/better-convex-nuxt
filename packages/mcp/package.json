@@ -28,10 +28,5 @@
   },
   "engines": {
     "node": ">=22.14.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }
