@@ -27,7 +27,7 @@ const nuxtEntrySubpaths = [
   './server',
   './server/createUserSyncTriggers',
 ]
-const vueEntrySubpaths = ['.', './errors', './embedded']
+const vueEntrySubpaths = ['.', './errors', './embedded', './mcp-app']
 const mcpEntrySubpaths = ['.']
 
 type PackageEntry = {

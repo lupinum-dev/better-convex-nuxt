@@ -170,6 +170,13 @@ const VUE_CHECKER_ENTRY_RULES = [
       typeExternalSpecifiers: ['convex/browser'],
     },
   },
+  {
+    subpath: './mcp-app',
+    purity: {
+      runtimeExternalSpecifiers: ['@modelcontextprotocol/ext-apps', 'vue'],
+      typeExternalSpecifiers: ['@modelcontextprotocol/ext-apps', 'vue'],
+    },
+  },
 ]
 
 const MCP_CHECKER_ENTRY_RULES = [

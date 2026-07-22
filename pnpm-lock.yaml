@@ -172,6 +172,9 @@ importers:
         specifier: ^2.0.11
         version: 2.0.11
     devDependencies:
+      '@modelcontextprotocol/ext-apps':
+        specifier: 1.7.4
+        version: 1.7.4(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod@4.3.6)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@18.3.1)

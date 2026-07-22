@@ -83,7 +83,10 @@ async function snapshot(page: Page): Promise<HostSnapshot> {
 async function mount(page: Page, html: string, openLinks: boolean): Promise<void> {
   await page.evaluate(
     async ({ appHtml, links }) => {
-      await window.__BCN_MCP_APPS_HOST__.mount({ html: appHtml, openLinks: links })
+      await window.__BCN_MCP_APPS_HOST__.mount({
+        html: appHtml,
+        openLinks: links,
+      })
     },
     { appHtml: html, links: openLinks },
   )
@@ -133,7 +136,11 @@ export async function proveNotesDashboardBrowserBoundary(
           try {
             const value = await argument.evaluate((candidate) =>
               candidate instanceof MessageEvent
-                ? { data: candidate.data, origin: candidate.origin, type: candidate.type }
+                ? {
+                    data: candidate.data,
+                    origin: candidate.origin,
+                    type: candidate.type,
+                  }
                 : candidate,
             )
             return JSON.stringify(value) ?? String(value)
@@ -216,6 +223,17 @@ export async function proveNotesDashboardBrowserBoundary(
     await frame.getByTestId('notes-dashboard').waitFor()
 
     const input = { limit: 5, query: '', workspaceId: 'workspace-a' }
+    await page.evaluate(async () =>
+      window.__BCN_MCP_APPS_HOST__.sendPartialInput({
+        query: 'alp',
+        workspaceId: 'workspace-a',
+      }),
+    )
+    await waitForValue(
+      () => frame.getByTestId('partial-query').textContent(),
+      (value) => value?.trim() === 'alp',
+      'partial tool input delivery',
+    )
     await page.evaluate(async (value) => window.__BCN_MCP_APPS_HOST__.sendInput(value), input)
     await waitForValue(
       () => frame.getByTestId('workspace').textContent(),
@@ -228,7 +246,12 @@ export async function proveNotesDashboardBrowserBoundary(
       'input-enabled refresh',
     )
     const maliciousResult = {
-      content: [{ type: 'text' as const, text: 'model-visible fallback remains plain text' }],
+      content: [
+        {
+          type: 'text' as const,
+          text: 'model-visible fallback remains plain text',
+        },
+      ],
       structuredContent: {
         matches: [
           {
@@ -282,6 +305,14 @@ export async function proveNotesDashboardBrowserBoundary(
       () => frame.getByTestId('notes').textContent(),
       (value) => value?.includes('Second result') === true,
       'repeated tool result',
+    )
+    await page.evaluate(async () =>
+      window.__BCN_MCP_APPS_HOST__.sendCancelled('host cancelled the prior request'),
+    )
+    await waitForValue(
+      () => frame.getByTestId('cancel-reason').textContent(),
+      (value) => value?.trim() === 'host cancelled the prior request',
+      'tool cancellation delivery',
     )
 
     const forgedResult = {

@@ -22,6 +22,7 @@ const scratchRoot = mkdtempSync(join(tmpdir(), 'better-convex-vue-anonymous-'))
 const consumerRoot = join(scratchRoot, 'consumer')
 const tarballName = 'better-convex-vue.tgz'
 const forbiddenPackages = new Set([
+  '@modelcontextprotocol/ext-apps',
   'better-auth',
   '@better-auth/core',
   '@better-auth/oauth-provider',
@@ -30,6 +31,7 @@ const forbiddenPackages = new Set([
   'h3',
 ])
 const forbiddenBundleMarkers = [
+  '@modelcontextprotocol/ext-apps',
   'better-auth',
   '@better-auth/',
   'nitropack',

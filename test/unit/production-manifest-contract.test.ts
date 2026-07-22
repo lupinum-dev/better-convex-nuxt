@@ -62,6 +62,7 @@ describe('production manifest certification profiles', () => {
       'exports',
       'dependencies',
       'peerDependencies',
+      'peerDependenciesMeta',
       'engines',
       'scripts',
     ])
@@ -69,7 +70,21 @@ describe('production manifest certification profiles', () => {
       files: ['dist'],
       sideEffects: false,
       scripts: { prepack: 'pnpm run build' },
+      peerDependenciesMeta: {
+        '@modelcontextprotocol/ext-apps': { optional: true },
+      },
     })
+  })
+
+  it('allows only the exact official MCP Apps SDK optional Vue peer', () => {
+    const unreviewed = structuredClone(vueManifest) as Record<string, unknown>
+    unreviewed.peerDependenciesMeta = {
+      '@modelcontextprotocol/ext-apps': { optional: true },
+      'unreviewed-optional-peer': { optional: true },
+    }
+    expect(() => selectProductionManifestContract('vue', unreviewed)).toThrow(
+      'may mark only the exact official MCP Apps SDK peer as optional',
+    )
   })
 
   it('selects the minimal MCP contract with one exact official SDK dependency', () => {

@@ -79,6 +79,7 @@ const contractProfiles = Object.freeze({
       'exports',
       'dependencies',
       'peerDependencies',
+      'peerDependenciesMeta',
       'engines',
     ]),
     forbiddenPackageFields: Object.freeze([
@@ -95,7 +96,6 @@ const contractProfiles = Object.freeze({
       'directories',
       'gypfile',
       'optionalDependencies',
-      'peerDependenciesMeta',
       'bundleDependencies',
       'bundledDependencies',
       'os',
@@ -308,6 +308,15 @@ function assertVueManifestShapes(manifest, profile) {
   for (const field of ['exports']) assertPlainRecord(manifest[field], field)
   for (const field of ['dependencies', 'peerDependencies', 'engines']) {
     assertStringMap(manifest[field], field)
+  }
+  assertPlainRecord(manifest.peerDependenciesMeta, 'peerDependenciesMeta')
+  if (
+    !isDeepStrictEqual(manifest.peerDependenciesMeta, {
+      '@modelcontextprotocol/ext-apps': { optional: true },
+    }) ||
+    manifest.peerDependencies['@modelcontextprotocol/ext-apps'] !== '1.7.4'
+  ) {
+    throw new Error('Vue package may mark only the exact official MCP Apps SDK peer as optional.')
   }
   if (Object.keys(manifest.engines).length !== 1 || typeof manifest.engines.node !== 'string') {
     throw new Error('Production package manifest engines must declare only node.')

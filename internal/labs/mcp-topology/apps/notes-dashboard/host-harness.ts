@@ -26,7 +26,9 @@ declare global {
   interface Window {
     __BCN_MCP_APPS_HOST__: {
       mount(options: HostMountOptions): Promise<void>
+      sendCancelled(reason: string): Promise<void>
       sendInput(input: Record<string, unknown>): Promise<void>
+      sendPartialInput(input: Record<string, unknown>): Promise<void>
       sendResult(result: CallToolResult): Promise<void>
       sendWrongSource(result: CallToolResult): Promise<void>
       setTheme(theme: 'dark' | 'light'): Promise<void>
@@ -183,9 +185,17 @@ async function teardown(): Promise<void> {
 
 window.__BCN_MCP_APPS_HOST__ = {
   mount,
+  sendCancelled: async (reason) => {
+    if (!active) throw new Error('No MCP App is mounted')
+    await active.bridge.sendToolCancelled({ reason })
+  },
   sendInput: async (input) => {
     if (!active) throw new Error('No MCP App is mounted')
     await active.bridge.sendToolInput({ arguments: input })
+  },
+  sendPartialInput: async (input) => {
+    if (!active) throw new Error('No MCP App is mounted')
+    await active.bridge.sendToolInputPartial({ arguments: input })
   },
   sendResult: async (result) => {
     if (!active) throw new Error('No MCP App is mounted')

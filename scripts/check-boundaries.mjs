@@ -88,6 +88,7 @@ const ERRORS_DIR = p('packages/vue/src/errors.ts')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
 const CLIENT_LIFECYCLE_DIR = p('packages/vue/src')
+const MCP_APP_ENTRY = p('packages/vue/src/mcp-app.ts')
 const MCP_PACKAGE_DIR = p('packages/mcp/src')
 const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
 const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
@@ -174,6 +175,13 @@ function isAllowedClientLifecycleBareSpecifier(specifier) {
   )
 }
 
+function isAllowedVueEntryBareSpecifier(absPath, specifier) {
+  return (
+    isAllowedClientLifecycleBareSpecifier(specifier) ||
+    (absPath === MCP_APP_ENTRY && specifier === '@modelcontextprotocol/ext-apps')
+  )
+}
+
 function isAllowedMcpBareSpecifier(specifier) {
   return (
     specifier === '@modelcontextprotocol/server' ||
@@ -194,6 +202,7 @@ function isAllowedMcpBareSpecifier(specifier) {
  * @property {boolean} [typeOnlyExempt] - if true (default), a type-only edge that would
  *   otherwise match `disallow` is allowed because it cannot introduce runtime coupling.
  * @typedef {object} Edge
+ * @property {string} fromAbsPath - absolute importer path
  * @property {boolean} isRelative - whether the specifier is a relative path (`./`, `../`)
  * @property {string|null} resolvedAbsPath - resolved file, if relative and it exists
  * @property {string} specifier - raw module specifier text
@@ -217,10 +226,12 @@ const RULES = [
   {
     name: 'client-lifecycle-island-browser-only',
     description:
-      'packages/vue/src/** may import only its own package, Vue, ohash, and reviewed Convex browser/value/type entries; Nuxt, Nitro, H3, Better Auth, server/MCP runtime, aliases, and Node built-ins are forbidden.',
+      'packages/vue/src/** may import only its own package, Vue, ohash, and reviewed Convex browser/value/type entries; only the isolated mcp-app entry may import the official Apps SDK. Nuxt, Nitro, H3, Better Auth, server/MCP runtime, aliases, and Node built-ins are forbidden.',
     from: isClientLifecycle,
     disallow: (edge) => {
-      if (!edge.isRelative) return !isAllowedClientLifecycleBareSpecifier(edge.specifier)
+      if (!edge.isRelative) {
+        return !isAllowedVueEntryBareSpecifier(edge.fromAbsPath, edge.specifier)
+      }
       if (edge.resolvedAbsPath === null) return false
       return !isClientLifecycle(edge.resolvedAbsPath) && !inDir(edge.resolvedAbsPath, ERRORS_DIR)
     },
@@ -714,7 +725,13 @@ function buildEdges(absoluteFile) {
   return rawEdges.map(({ specifier, isTypeOnly }) => {
     const isRelative = specifier.startsWith('.')
     const resolvedAbsPath = isRelative ? tryResolveRelative(absoluteFile, specifier) : null
-    return { isRelative, resolvedAbsPath, specifier, isTypeOnly }
+    return {
+      fromAbsPath: absoluteFile,
+      isRelative,
+      resolvedAbsPath,
+      specifier,
+      isTypeOnly,
+    }
   })
 }
 

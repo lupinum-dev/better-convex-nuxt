@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import {
-  App,
-  type McpUiHostContext,
-  type McpUiToolInputNotification,
-  type McpUiToolResultNotification,
+import type {
+  McpUiToolInputNotification,
+  McpUiToolResultNotification,
 } from '@modelcontextprotocol/ext-apps'
-import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
+import { useMcpApp } from 'better-convex-vue/mcp-app'
+import { computed, ref, watch, watchEffect } from 'vue'
 
 interface DashboardNote {
   body: string
@@ -22,10 +21,21 @@ interface SearchInput {
   workspaceId: string
 }
 
-let app: App | undefined
-const hostContext = ref<McpUiHostContext>()
+const {
+  app,
+  hostCapabilities,
+  hostContext,
+  phase,
+  toolCancelled,
+  toolInput,
+  toolInputPartial,
+  toolResult,
+} = useMcpApp({
+  autoResize: false,
+  capabilities: {},
+  implementation: { name: 'better-convex-notes-dashboard', version: '0.0.0' },
+})
 const input = ref<SearchInput>({ query: '', workspaceId: '' })
-const linkAvailable = ref(false)
 const notes = ref<DashboardNote[]>([])
 const status = ref<'connecting' | 'ready' | 'refreshing' | 'tool-denied' | 'link-denied' | 'error'>(
   'connecting',
@@ -34,6 +44,7 @@ const status = ref<'connecting' | 'ready' | 'refreshing' | 'tool-denied' | 'link
 const canRefresh = computed(
   () => status.value !== 'connecting' && input.value.workspaceId.length > 0,
 )
+const linkAvailable = computed(() => hostCapabilities.value?.openLinks !== undefined)
 
 function safeInput(value: McpUiToolInputNotification['params']): SearchInput | undefined {
   const candidate = value.arguments
@@ -102,12 +113,8 @@ function handleToolResult(value: McpUiToolResultNotification['params']): void {
   status.value = 'ready'
 }
 
-function handleHostContext(value: Partial<McpUiHostContext>): void {
-  hostContext.value = { ...hostContext.value, ...value }
-}
-
 async function refresh(): Promise<void> {
-  if (!app || !canRefresh.value) return
+  if (!canRefresh.value) return
   status.value = 'refreshing'
   try {
     const arguments_: Record<string, unknown> = {
@@ -126,10 +133,13 @@ async function refresh(): Promise<void> {
 }
 
 async function tryDeniedTool(): Promise<void> {
-  if (!app) return
   try {
     const result = await app.callServerTool({
-      arguments: { noteId: notes.value[0]?.id ?? 'missing', requestKey: 'app', title: 'Denied' },
+      arguments: {
+        noteId: notes.value[0]?.id ?? 'missing',
+        requestKey: 'app',
+        title: 'Denied',
+      },
       name: 'rename_note',
     })
     status.value = result.isError ? 'tool-denied' : 'error'
@@ -139,9 +149,11 @@ async function tryDeniedTool(): Promise<void> {
 }
 
 async function openDocumentation(): Promise<void> {
-  if (!app || !linkAvailable.value) return
+  if (!linkAvailable.value) return
   try {
-    const result = await app.openLink({ url: 'https://docs.example.invalid/notes' })
+    const result = await app.openLink({
+      url: 'https://docs.example.invalid/notes',
+    })
     status.value = result.isError ? 'link-denied' : 'error'
   } catch {
     status.value = 'link-denied'
@@ -152,45 +164,24 @@ watchEffect(() => {
   document.documentElement.dataset.theme = hostContext.value?.theme ?? 'light'
 })
 
-onMounted(async () => {
-  const instance = new App(
-    { name: 'better-convex-notes-dashboard', version: '0.0.0' },
-    {},
-    { allowUnsafeEval: false, autoResize: false, strict: true },
-  )
-  app = instance
-  instance.addEventListener('toolinput', handleToolInput)
-  instance.addEventListener('toolresult', handleToolResult)
-  instance.addEventListener('hostcontextchanged', handleHostContext)
-  instance.onteardown = async () => {
+watch(toolInput, (value) => {
+  if (value) handleToolInput(value)
+})
+
+watch(toolResult, (value) => {
+  if (value) handleToolResult(value)
+})
+
+watch(phase, (value) => {
+  if (value === 'ready') {
+    status.value = 'ready'
+  } else if (value === 'error') {
+    status.value = 'error'
+  } else if (value === 'closed') {
     window.setTimeout(() => {
       window.dispatchEvent(new Event('better-convex:notes-dashboard-teardown'))
     }, 0)
-    return {}
   }
-  instance.onerror = () => {
-    status.value = 'error'
-  }
-
-  try {
-    await instance.connect()
-    hostContext.value = instance.getHostContext()
-    linkAvailable.value = instance.getHostCapabilities()?.openLinks !== undefined
-    status.value = 'ready'
-  } catch {
-    status.value = 'error'
-  }
-})
-
-onBeforeUnmount(() => {
-  const instance = app
-  app = undefined
-  if (!instance) return
-  instance.removeEventListener('toolinput', handleToolInput)
-  instance.removeEventListener('toolresult', handleToolResult)
-  instance.removeEventListener('hostcontextchanged', handleHostContext)
-  instance.onteardown = undefined
-  void instance.close()
 })
 </script>
 
@@ -205,6 +196,12 @@ onBeforeUnmount(() => {
     <section aria-label="Search context">
       <p data-testid="workspace">{{ input.workspaceId || 'No workspace' }}</p>
       <p data-testid="query">{{ input.query }}</p>
+      <p data-testid="partial-query" hidden>
+        {{ toolInputPartial?.arguments?.query ?? '' }}
+      </p>
+      <p data-testid="cancel-reason" hidden>
+        {{ toolCancelled?.reason ?? '' }}
+      </p>
     </section>
 
     <ul data-testid="notes">

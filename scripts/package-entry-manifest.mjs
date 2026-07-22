@@ -249,6 +249,23 @@ const vuePackageEntries = [
     exactDeclaredExports: true,
     forbiddenNames: ['attachClientIdentity', 'createAttachedBrowserFacade'],
   },
+  {
+    kind: 'runtime',
+    subpath: './mcp-app',
+    distJs: 'dist/mcp-app.mjs',
+    distDts: 'dist/mcp-app.d.mts',
+    valueExports: ['useMcpApp'],
+    typeExports: ['McpAppPhase', 'UseMcpAppOptions', 'UseMcpAppReturn'],
+    exactDeclaredExports: true,
+    forbiddenNames: [
+      'callTool',
+      'createMcpAppPlugin',
+      'openLink',
+      'useMcpHostContext',
+      'useMcpToolInput',
+      'useMcpToolResult',
+    ],
+  },
 ]
 
 const mcpPackageEntries = [

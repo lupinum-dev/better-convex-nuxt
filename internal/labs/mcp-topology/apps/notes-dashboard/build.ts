@@ -46,6 +46,15 @@ async function bundleEntry(
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     logLevel: 'silent',
     plugins: options.vue ? [vue()] : [],
+    resolve: options.vue
+      ? {
+          alias: {
+            'better-convex-vue/mcp-app': fileURLToPath(
+              new URL('../../../../../packages/vue/src/mcp-app.ts', import.meta.url),
+            ),
+          },
+        }
+      : undefined,
   })
   const values = outputs(result as Rollup.RollupOutput | Rollup.RollupOutput[])
   const chunk = values.find(
