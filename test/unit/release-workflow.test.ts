@@ -83,7 +83,8 @@ describe('trusted prerelease workflow', () => {
       "import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'",
     )
     expect(releaseVerify).toContain("const releasePackageId = values.get('--package') ?? 'nuxt'")
-    expect(releaseVerify).toContain("releasePackageId === 'vue'")
+    expect(releaseVerify).toContain("releasePackageId === 'vue' || releasePackageId === 'mcp'")
+    expect(releaseVerify).toContain("'--package',\n      releasePackageId")
     expect(releaseVerify).toContain('getPackageArtifactCoordinates(releasePackageId')
     expect(releaseVerify).toContain('evidencePath !== artifactCoordinates.paths.evidence')
     expect(releaseVerify).toContain('artifactCoordinates.relativePaths.evidence')

@@ -56,14 +56,26 @@ function main() {
   run('node', ['scripts/release.mjs', 'verify', evidencePath, '--package', releasePackageId])
   const tarball = artifactCoordinates.paths.tarball
 
-  if (releasePackageId === 'vue') {
-    console.log('\n[release-verify] Vue artifact-dependent package and consumer gates')
-    run('node', ['scripts/check-package-exports.mjs', '--package', 'vue', '--tarball', tarball], {
-      env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
-    })
-    run('node', ['scripts/check-candidate-apps.mjs', '--package', 'vue', '--tarball', tarball])
+  if (releasePackageId === 'vue' || releasePackageId === 'mcp') {
     console.log(
-      `\n[release-verify] PASS: Vue artifact-dependent gates consumed ${tarball}; no gate repacked the candidate.`,
+      `\n[release-verify] ${releasePackageId} artifact-dependent package and consumer gates`,
+    )
+    run(
+      'node',
+      ['scripts/check-package-exports.mjs', '--package', releasePackageId, '--tarball', tarball],
+      {
+        env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
+      },
+    )
+    run('node', [
+      'scripts/check-candidate-apps.mjs',
+      '--package',
+      releasePackageId,
+      '--tarball',
+      tarball,
+    ])
+    console.log(
+      `\n[release-verify] PASS: ${releasePackageId} artifact-dependent gates consumed ${tarball}; no gate repacked the candidate.`,
     )
     return
   }
