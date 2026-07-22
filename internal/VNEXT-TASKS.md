@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 9 client stabilization alongside Phase 1 final-spec/external-host gates                              |
 | Current task          | None; local lifecycle and topology proof is complete while final-spec and external-host gates remain       |
-| Last verified commit  | `b97ceb4f` plus `P9-003` diff; exact Vue/Nuxt production lifecycle candidate matrices pass                 |
+| Last verified commit  | `e20f77e9`; exact Vue/Nuxt production lifecycle candidate matrices and full repository gate pass           |
 | Next executable tasks | `P1-015` after final publication; then finish `P1-016`/`P1-017` with real hosts/cloud; `P9-008` with Ginko |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad`  |
 | Ledger rule           | Exactly one task is `in_progress`; `done` requires its named proof                                         |
@@ -299,7 +299,7 @@ All implementation tasks in this phase remain blocked until `P8-001` is done. Ta
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `P9-001` | `P4-013`, `P5-023`, `P6-014`, `P7-013` | Audit every public symbol through RFC admission test and remove those lacking proof. | All package exports/API reference | Stable API has ownership, two-consumer need, deletion, rollback, packed proof. | Admission ledger complete; export snapshot reviewed. | Unproven exports | pending | — | — |
 | `P9-002` | `P3-020`, `P5-021` | Prove one client lifecycle and one MCP protocol implementation remain. | Source/import/bundle graph | No parallel old/new engines. | AST/source/bundle sentinels and deletion diff. | All superseded engines/parsers | pending | — | — |
-| `P9-003` | `P4-013` | Complete cross-adapter Vue/Nuxt lifecycle matrix from exact packages. | Nuxt browser/SSR, Vue, embedded fixtures | Identity, stale work, pagination, callable, cleanup invariants identical where applicable. | Full RFC Vue/Nuxt matrix. | Redundant adapter-specific lifecycle code | done | — | `internal/evidence/exact-package-cross-adapter-lifecycle-2026-07-22.md` |
+| `P9-003` | `P4-013` | Complete cross-adapter Vue/Nuxt lifecycle matrix from exact packages. | Nuxt browser/SSR, Vue, embedded fixtures | Identity, stale work, pagination, callable, cleanup invariants identical where applicable. | Full RFC Vue/Nuxt matrix. | Redundant adapter-specific lifecycle code | done | — | `e20f77e9`; `internal/evidence/exact-package-cross-adapter-lifecycle-2026-07-22.md` |
 | `P9-004` | `P5-023` | Complete latest-final MCP transport/tool/resource/OAuth conformance from exact package. | Selected runtime and real clients | Version/capability claims exact. | Official suite, Inspector, host matrix. | Unsupported claims/code | pending | — | — |
 | `P9-005` | `P6-014` | Complete high-impact interaction security/concurrency evidence. | Neutral/Ginko production consumers | Current authority/impact, one effect/receipt, host UX independence. | Full RFC URL matrix. | Parallel approval state | pending | — | — |
 | `P9-006` | `P7-013` | Complete MCP Apps production/security/fallback evidence. | Exact Vue/MCP packages | Credential-free iframe, ordinary authorization, useful fallback. | Full RFC Apps matrix. | Unsafe/duplicated bridge paths | pending | — | — |
