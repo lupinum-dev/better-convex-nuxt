@@ -20,11 +20,13 @@ import {
   computePaginationStale,
   computePaginationStatus,
   createPaginationGeneration,
+  createPaginationOperationFence,
   createPendingPaginationPage,
   getLastLoadedPaginationResult,
   type PaginationFirstPageState,
   type PaginationNextPageState,
   type PaginationPageState,
+  type PaginationOperationContext,
   type PaginationStatus,
 } from '../client-core/pagination-state'
 import { ConvexCallError, normalizeConvexError } from '../errors'
@@ -111,13 +113,6 @@ interface BuildConvexPaginatedQueryResult<Item> {
 interface IsolationTag {
   identityKey: ConvexIdentityKey
   identityGeneration: number
-}
-
-interface PaginatedOperationContext extends IsolationTag {
-  argsHash: string
-  boundaryKey: string
-  paginationGeneration: number
-  operationId: number
 }
 
 function sameTag(a: IsolationTag, b: IsolationTag): boolean {
@@ -235,23 +230,16 @@ export function createConvexPaginatedQueryState<
     () => errorStore.value[asyncDataKey.value] ?? null,
   )
 
-  let operationRevision = 0
-  const captureOperation = (): PaginatedOperationContext => ({
-    ...currentTag.value,
-    argsHash: argsHash.value,
-    boundaryKey: asyncDataKey.value,
-    paginationGeneration: currentPaginationId.value,
-    operationId: operationRevision,
+  const operationFence = createPaginationOperationFence({
+    getArgsHash: () => argsHash.value,
+    getBoundaryKey: () => asyncDataKey.value,
+    getPaginationGeneration: () => currentPaginationId.value,
+    getIsolationTag: () => currentTag.value,
+    isDisposed: () => disposed,
   })
-  const invalidateOperations = () => {
-    operationRevision += 1
-  }
-  const isOperationCurrent = (operation: PaginatedOperationContext): boolean =>
-    operation.operationId === operationRevision &&
-    operation.argsHash === argsHash.value &&
-    operation.boundaryKey === asyncDataKey.value &&
-    operation.paginationGeneration === currentPaginationId.value &&
-    sameTag(operation, currentTag.value)
+  const captureOperation = operationFence.capture
+  const invalidateOperations = operationFence.invalidate
+  const isOperationCurrent = operationFence.isCurrent
 
   const selectClient = () => selectLiveQueryClient(owner, gate.value)
 
@@ -261,7 +249,7 @@ export function createConvexPaginatedQueryState<
       cursor: string | null
       id: number
     },
-    operation: PaginatedOperationContext,
+    operation: PaginationOperationContext,
   ): Promise<PaginationResult<Item> | null> {
     const currentArgs = getArgs() as PaginatedQueryArgs<Query>
     const fullArgs = { ...currentArgs, paginationOpts }

@@ -5,6 +5,7 @@ import {
   commitPaginationPageError,
   commitPaginationPageResult,
   createPaginationGeneration,
+  createPaginationOperationFence,
   createPendingPaginationPage,
   getLastLoadedPaginationResult,
   type PaginationPageState,
@@ -26,6 +27,42 @@ describe('paginated query page state', () => {
     const generations = Array.from({ length: 4 }, () => createPaginationGeneration())
     expect(generations.every((value) => Number.isSafeInteger(value) && value > 0)).toBe(true)
     expect(new Set(generations).size).toBe(generations.length)
+  })
+
+  it('rejects operations after args, generation, identity, invalidation, or disposal changes', () => {
+    let argsHash = 'a'
+    let boundaryKey = 'key:a'
+    let generation = 1
+    let identityGeneration = 1
+    let disposed = false
+    const fence = createPaginationOperationFence({
+      getArgsHash: () => argsHash,
+      getBoundaryKey: () => boundaryKey,
+      getPaginationGeneration: () => generation,
+      getIsolationTag: () => ({ identityKey: 'user:alice', identityGeneration }),
+      isDisposed: () => disposed,
+    })
+
+    const argsOperation = fence.capture()
+    argsHash = 'b'
+    boundaryKey = 'key:b'
+    expect(fence.isCurrent(argsOperation)).toBe(false)
+
+    const generationOperation = fence.capture()
+    generation += 1
+    expect(fence.isCurrent(generationOperation)).toBe(false)
+
+    const identityOperation = fence.capture()
+    identityGeneration += 1
+    expect(fence.isCurrent(identityOperation)).toBe(false)
+
+    const invalidatedOperation = fence.capture()
+    fence.invalidate()
+    expect(fence.isCurrent(invalidatedOperation)).toBe(false)
+
+    const disposedOperation = fence.capture()
+    disposed = true
+    expect(fence.isCurrent(disposedOperation)).toBe(false)
   })
 
   it('creates a pending page with no result or error', () => {

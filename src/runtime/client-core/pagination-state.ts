@@ -1,10 +1,55 @@
 import type { PaginationResult } from 'convex/server'
 
 import { normalizeConvexError, type ConvexCallError } from '../errors'
+import type { QueryIsolationTag } from './query-controller'
 
 /** Cache-busting generation; random avoids SSR-global sequential state. */
 export function createPaginationGeneration(): number {
   return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - 1)) + 1
+}
+
+export interface PaginationOperationContext extends QueryIsolationTag {
+  argsHash: string
+  boundaryKey: string
+  paginationGeneration: number
+  operationId: number
+}
+
+export function createPaginationOperationFence(input: {
+  getArgsHash(): string
+  getBoundaryKey(): string
+  getPaginationGeneration(): number
+  getIsolationTag(): QueryIsolationTag
+  isDisposed(): boolean
+}) {
+  let operationRevision = 0
+
+  const capture = (): PaginationOperationContext => ({
+    ...input.getIsolationTag(),
+    argsHash: input.getArgsHash(),
+    boundaryKey: input.getBoundaryKey(),
+    paginationGeneration: input.getPaginationGeneration(),
+    operationId: operationRevision,
+  })
+
+  const invalidate = () => {
+    operationRevision += 1
+  }
+
+  const isCurrent = (operation: PaginationOperationContext): boolean => {
+    const tag = input.getIsolationTag()
+    return (
+      !input.isDisposed() &&
+      operation.operationId === operationRevision &&
+      operation.argsHash === input.getArgsHash() &&
+      operation.boundaryKey === input.getBoundaryKey() &&
+      operation.paginationGeneration === input.getPaginationGeneration() &&
+      operation.identityKey === tag.identityKey &&
+      operation.identityGeneration === tag.identityGeneration
+    )
+  }
+
+  return { capture, invalidate, isCurrent }
 }
 
 export interface PaginationPageOptions {
