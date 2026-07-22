@@ -7,6 +7,7 @@ import { relative, resolve, sep } from 'node:path'
 const root = process.cwd()
 const removedPackage = '@convex-dev/better-auth'
 const excludedDirectories = new Set([
+  '.claude',
   '.git',
   '.audit',
   '.data',
