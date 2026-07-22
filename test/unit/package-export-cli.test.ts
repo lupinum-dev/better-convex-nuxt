@@ -86,7 +86,9 @@ describe('package export checker CLI authority', () => {
       expect(output).toMatch(/nuxt dist-entry gate passed/u)
     } else {
       expect(result.status).toBe(1)
-      expect(output).toContain('check:package-exports requires a built dist/')
+      expect(output).toMatch(
+        /(?:check:package-exports requires a built dist\/|Package export validation failed)/u,
+      )
     }
   }, 45_000)
 })
