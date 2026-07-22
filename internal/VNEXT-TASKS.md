@@ -6,14 +6,14 @@ replace the RFC's product decisions.
 
 ## Working state
 
-| Field                 | Value                                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 1 final-spec/external-host gates plus Phase 4 externally gated Ginko cutover                         |
-| Current task          | None; every remaining dependency-ready task requires final publication, external hosts, or owner authority |
-| Last verified commit  | `34f16f77`; local package companion gate plus full repository verification                                 |
-| Next executable tasks | `P1-015` after final publication; `P4-011`/`P4-012` when Ginko changes are authorized; then `P1-016` hosts |
-| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad`  |
-| Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                         |
+| Field                 | Value                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| Current phase         | Phase 4 public-surface documentation closure alongside Phase 1/4 external gates                           |
+| Current task          | `P4-019` — regenerate and certify the public API reference after the Nuxt attachment admission            |
+| Last verified commit  | `34f16f77`; local package companion gate plus full repository verification                                |
+| Next executable tasks | Finish `P4-019`; `P1-015` after final publication; `P4-011`/`P4-012` when Ginko changes are authorized    |
+| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
+| Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
 ## External and human blockers
 
@@ -211,6 +211,7 @@ and repository rename remain gated as `G-001`–`G-005` rather than implied publ
 | `P4-016` | `P4-015` | Rebrand docs/product and rename repository only after package cutover succeeds. | Docs/metadata/GitHub repository | Product rename does not create catch-all npm package or relocate root Nuxt. | Link/metadata/consumer verification. | Old brand references where no historical need | blocked | `EXT-005` | — |
 | `P4-017` | `P4-007`, `P4-013` | Expose the already-owned frozen attachment to Nuxt host applications through one narrow composable. | Nuxt composable auto-import and embedded-host fixture | Hosts pass one token-free runtime; consumers never read the internal Nuxt runtime context or reconstruct identity generations. | API admission record, exact allowlists, credential sentinels, focused Nuxt proof; exact installed production proof belongs to `P4-018`. | Direct `$convexRuntime` access and client/auth-ref bridge construction in consumers | done | — | `887279a5`; `internal/evidence/nuxt-embedded-attachment-2026-07-22.md` |
 | `P4-018` | `P4-011`, `P4-012`, `P4-017` | Build a new immutable Vue/Nuxt candidate pair from the clean post-Ginko-cutover HEAD. | Package-qualified release artifacts | Historical `0.8.0-beta.0` proof is never repacked or published as the changed source. | New version, hashes, locks, installed-byte equality, Nitro/Vite/Ginko matrices. | Publication of the historical pre-attachment pair | blocked | `P4-011`, `P4-012`; `EXT-004` | — |
+| `P4-019` | `P4-017`, `P2-016` | Regenerate and certify the canonical public API reference after admitting the Nuxt embedded attachment. | Generated API reference and contract gate | Shipped auto-imports and documented public surface cannot drift. | `docs:api-surface --check`; full `check:contracts`. | Stale generated reference | in_progress | — | — |
 
 ## Phase 5 — base `@better-convex/mcp`
 

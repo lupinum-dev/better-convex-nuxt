@@ -2,6 +2,8 @@ import type { BetterConvexAttachedRuntime } from 'better-convex-vue/embedded'
 
 import { useNuxtApp } from '#app'
 
+import { readConvexRuntimeContext } from '../runtime-context'
+
 /**
  * Read the frozen, token-free Vue runtime attachment owned by this Nuxt app.
  *
@@ -13,7 +15,7 @@ export function useConvexAttachment(): BetterConvexAttachedRuntime {
   if (import.meta.server) {
     throw new Error('[useConvexAttachment] Runtime attachment is available only in the browser.')
   }
-  const attachment = useNuxtApp().$convexRuntime?.attachment
+  const attachment = readConvexRuntimeContext(useNuxtApp())?.attachment
   if (!attachment) {
     throw new Error(
       '[useConvexAttachment] Convex browser runtime is unavailable. Configure a Convex URL before attaching an embedded application.',

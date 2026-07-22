@@ -160,6 +160,11 @@ const composableMeta = {
     purpose: 'Runs Convex actions with reactive status and error handling.',
     guide: '/docs/build/write-data/actions',
   },
+  useConvexAttachment: {
+    kind: 'Composable',
+    purpose: 'Returns the frozen token-free runtime boundary for an embedded Vue application.',
+    guide: '/docs/reference/composables#useconvexattachment',
+  },
   useConvexAuth: {
     kind: 'Composable',
     purpose: 'Tracks auth state and user/session information in Nuxt.',
