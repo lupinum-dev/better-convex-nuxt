@@ -1,0 +1,135 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  boundMcpResponse,
+  maximumMcpRequestBytes,
+  maximumMcpResponseBytes,
+  mcpRequestTimeoutMs,
+  McpTransportFailure,
+  mcpTransportFailureResponse,
+  prepareBoundedMcpRequest,
+  runMcpRequestDeadline,
+} from '../../packages/mcp/src/transport'
+
+afterEach(() => vi.useRealTimers())
+
+describe('MCP transport bounds', () => {
+  it('accepts the exact request limit and rejects declared or streamed overflow', async () => {
+    const exactBody = 'a'.repeat(maximumMcpRequestBytes)
+    const exact = await prepareBoundedMcpRequest(
+      new Request('https://notes.example.test/mcp', { body: exactBody, method: 'POST' }),
+      new AbortController().signal,
+    )
+    await expect(exact.text()).resolves.toBe(exactBody)
+
+    for (const request of [
+      new Request('https://notes.example.test/mcp', {
+        body: 'small',
+        headers: { 'content-length': String(maximumMcpRequestBytes + 1) },
+        method: 'POST',
+      }),
+      new Request('https://notes.example.test/mcp', {
+        body: 'a'.repeat(maximumMcpRequestBytes + 1),
+        method: 'POST',
+      }),
+    ]) {
+      await expect(
+        prepareBoundedMcpRequest(request, new AbortController().signal),
+      ).rejects.toMatchObject({ status: 413 })
+    }
+  })
+
+  it.each(['-1', '1.5', 'not-a-number'])(
+    'rejects invalid declared request length: %s',
+    async (length) => {
+      await expect(
+        prepareBoundedMcpRequest(
+          new Request('https://notes.example.test/mcp', {
+            body: 'small',
+            headers: { 'content-length': length },
+            method: 'POST',
+          }),
+          new AbortController().signal,
+        ),
+      ).rejects.toMatchObject({ status: 400 })
+    },
+  )
+
+  it('cancels a stalled request stream when the caller aborts', async () => {
+    let cancelled = false
+    const stream = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true
+      },
+    })
+    const controller = new AbortController()
+    const request = new Request('https://notes.example.test/mcp', {
+      body: stream,
+      duplex: 'half',
+      method: 'POST',
+    } as RequestInit & { duplex: 'half' })
+    const reason = new Error('request-stream-abort-sentinel')
+    const pending = prepareBoundedMcpRequest(request, controller.signal)
+    const rejected = expect(pending).rejects.toBe(reason)
+    controller.abort(reason)
+    await rejected
+    expect(cancelled).toBe(true)
+  })
+
+  it('bounds non-stream responses while preserving intentionally streaming SSE', async () => {
+    const exactBody = 'a'.repeat(maximumMcpResponseBytes)
+    const exact = await boundMcpResponse(new Response(exactBody, { headers: { 'x-test': 'kept' } }))
+    expect(exact.headers.get('x-test')).toBe('kept')
+    await expect(exact.text()).resolves.toBe(exactBody)
+
+    await expect(
+      boundMcpResponse(new Response('a'.repeat(maximumMcpResponseBytes + 1))),
+    ).rejects.toMatchObject({ status: 502 })
+    await expect(
+      boundMcpResponse(
+        new Response('small', {
+          headers: { 'content-length': String(maximumMcpResponseBytes + 1) },
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 502 })
+
+    const stream = new Response('data: alive\n\n', {
+      headers: { 'content-type': 'text/event-stream' },
+    })
+    await expect(boundMcpResponse(stream)).resolves.toBe(stream)
+  })
+
+  it('propagates caller abort and enforces the fixed settlement deadline', async () => {
+    vi.useFakeTimers()
+    const requestController = new AbortController()
+    let operationSignal: AbortSignal | undefined
+    const pending = runMcpRequestDeadline(requestController.signal, async (signal) => {
+      operationSignal = signal
+      return await new Promise<Response>(() => {})
+    })
+    const timedOut = expect(pending).rejects.toMatchObject({ status: 504 })
+    await vi.advanceTimersByTimeAsync(mcpRequestTimeoutMs - 1)
+    expect(operationSignal?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await timedOut
+    expect(operationSignal?.aborted).toBe(true)
+
+    const aborted = new AbortController()
+    const reason = new Error('caller-abort-sentinel')
+    const abortedPending = runMcpRequestDeadline(aborted.signal, async () => {
+      return await new Promise<Response>(() => {})
+    })
+    const callerAborted = expect(abortedPending).rejects.toBe(reason)
+    aborted.abort(reason)
+    await callerAborted
+  })
+
+  it('returns empty no-store transport failures without retaining causes', async () => {
+    const error = new McpTransportFailure(413)
+    const response = mcpTransportFailureResponse(error)
+    expect(response.status).toBe(413)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.text()).resolves.toBe('')
+    expect(JSON.stringify(error)).not.toContain('cause')
+  })
+})

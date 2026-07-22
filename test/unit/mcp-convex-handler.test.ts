@@ -1,10 +1,11 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { McpServer } from '@modelcontextprotocol/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { createConvexMcpHandler } from '../../packages/mcp/src/handler'
 import type { McpAccessVerifier } from '../../packages/mcp/src/index'
+import { maximumMcpRequestBytes, mcpRequestTimeoutMs } from '../../packages/mcp/src/transport'
 
 const resource = new URL('https://notes.example.test/mcp')
 const bearer = 'mcp-handler-bearer-sentinel'
@@ -298,5 +299,183 @@ describe('Convex-native official MCP handler composition', () => {
       expect(await response.text()).not.toContain(bearer)
     }
     expect(factoryCalls).toBe(0)
+  })
+
+  it('enforces request bounds before protocol parsing or application construction', async () => {
+    let factoryCalls = 0
+    const handler = createConvexMcpHandler({
+      resource,
+      verifier: accessVerifier(),
+      oauthMetadata,
+      createServer() {
+        factoryCalls += 1
+        return new McpServer({ name: 'must-not-run', version: '0.1.0' })
+      },
+    })
+    const response = await handler.fetch(
+      {},
+      new Request(resource, {
+        body: 'a'.repeat(maximumMcpRequestBytes + 1),
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+      }),
+    )
+
+    expect(response.status).toBe(413)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.text()).resolves.toBe('')
+    expect(factoryCalls).toBe(0)
+  })
+
+  it('returns an opaque timeout when the official handler cannot settle', async () => {
+    vi.useFakeTimers()
+    try {
+      let factoryCalls = 0
+      const handler = createConvexMcpHandler({
+        resource,
+        verifier: accessVerifier(),
+        oauthMetadata,
+        async createServer() {
+          factoryCalls += 1
+          return await new Promise<McpServer>(() => {})
+        },
+      })
+      const pending = handler.fetch(
+        {},
+        new Request(resource, {
+          body: JSON.stringify({
+            id: 1,
+            jsonrpc: '2.0',
+            method: 'initialize',
+            params: {
+              capabilities: {},
+              clientInfo: { name: 'timeout-client', version: '0.1.0' },
+              protocolVersion: '2025-11-25',
+            },
+          }),
+          headers: {
+            authorization: `Bearer ${bearer}`,
+            'content-type': 'application/json',
+          },
+          method: 'POST',
+        }),
+      )
+      const responsePromise = expect(pending).resolves.toMatchObject({ status: 504 })
+      await vi.advanceTimersByTimeAsync(mcpRequestTimeoutMs)
+      await responsePromise
+      const response = await pending
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      await expect(response.text()).resolves.toBe('')
+      expect(factoryCalls).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('composes tool quotas from verified identity and host-trusted context without reading IP headers', async () => {
+    let now = 0
+    const windows = new Map<string, { count: number; startedAt: number }>()
+    const identities = new Map([
+      ['alice-client-1', { subject: 'alice', clientId: 'client-1' }],
+      ['alice-client-2', { subject: 'alice', clientId: 'client-2' }],
+      ['bob-client-1', { subject: 'bob', clientId: 'client-1' }],
+    ])
+    const verifier: McpAccessVerifier = {
+      async verifyAccessToken(token) {
+        const identity = identities.get(token)
+        if (!identity) throw new Error('invalid')
+        return {
+          access: {
+            issuer: oauthMetadata.issuer,
+            subject: identity.subject,
+            clientId: identity.clientId,
+            resource: resource.href,
+            scopes: ['notes:read', 'notes:write'],
+          },
+          expiresAt: Math.floor(Date.now() / 1_000) + 300,
+        }
+      },
+    }
+    const handler = createConvexMcpHandler<{
+      readonly trustedNetworkKey: string
+    }>({
+      resource,
+      verifier,
+      oauthMetadata,
+      createServer(context, access) {
+        const server = new McpServer({ name: 'quota-proof', version: '0.1.0' })
+        for (const tool of ['search_notes', 'rename_note'] as const) {
+          server.registerTool(tool, { inputSchema: z.object({}) }, () => {
+            const key = [
+              access.resource,
+              access.issuer,
+              access.subject,
+              access.clientId,
+              tool,
+              context.trustedNetworkKey,
+            ].join('\u0000')
+            const existing = windows.get(key)
+            if (!existing || now - existing.startedAt >= 10_000) {
+              windows.set(key, { count: 1, startedAt: now })
+              return { content: [{ type: 'text', text: 'allowed' }] }
+            }
+            if (existing.count >= 1) {
+              return { content: [{ type: 'text', text: 'rate limited' }], isError: true }
+            }
+            existing.count += 1
+            return { content: [{ type: 'text', text: 'allowed' }] }
+          })
+        }
+        return server
+      },
+    })
+
+    const call = async (
+      token: string,
+      trustedNetworkKey: string,
+      tool: 'search_notes' | 'rename_note',
+      spoofedIp = '203.0.113.1',
+    ) => {
+      const transport = new StreamableHTTPClientTransport(resource, {
+        requestInit: {
+          headers: {
+            authorization: `Bearer ${token}`,
+            'x-forwarded-for': spoofedIp,
+          },
+        },
+        fetch: async (input, init) =>
+          await handler.fetch({ trustedNetworkKey }, new Request(input, init)),
+      })
+      const client = new Client(
+        { name: 'quota-client', version: '0.1.0' },
+        { versionNegotiation: { mode: { pin: '2026-07-28' } } },
+      )
+      try {
+        await client.connect(transport)
+        return await client.callTool({ name: tool, arguments: {} })
+      } finally {
+        await client.close()
+      }
+    }
+
+    expect((await call('alice-client-1', 'edge-a', 'search_notes')).isError).not.toBe(true)
+    expect((await call('alice-client-1', 'edge-a', 'search_notes', '198.51.100.99')).isError).toBe(
+      true,
+    )
+    expect((await call('alice-client-1', 'edge-a', 'rename_note')).isError).not.toBe(true)
+    expect((await call('alice-client-2', 'edge-a', 'search_notes')).isError).not.toBe(true)
+    expect((await call('bob-client-1', 'edge-a', 'search_notes')).isError).not.toBe(true)
+    expect((await call('alice-client-1', 'edge-b', 'search_notes')).isError).not.toBe(true)
+
+    now = 10_000
+    expect((await call('alice-client-1', 'edge-a', 'search_notes')).isError).not.toBe(true)
+    const concurrent = await Promise.all([
+      call('alice-client-1', 'edge-a', 'rename_note'),
+      call('alice-client-1', 'edge-a', 'rename_note'),
+    ])
+    expect(concurrent.filter((result) => result.isError === true)).toHaveLength(1)
   })
 })
