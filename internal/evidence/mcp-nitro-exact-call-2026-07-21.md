@@ -24,7 +24,7 @@ code.
   The digest is SHA-256 over its recursively sorted wire representation. The internal HTTP hop also
   requires that exact canonical representation, rejecting alternative object order and `__proto__`
   encodings even when their semantic digest could otherwise match.
-- Three fixed HTTP routes invoke three fixed generated references. No proof claim constructs or selects
+- Five fixed HTTP routes invoke five fixed generated references. No proof claim constructs or selects
   a function dynamically.
 - Only `(MCP issuer, subject)` crosses into the application actor resolver. Client, scope, call, proof,
   and private authorization-reference data are absent from application results.
@@ -35,15 +35,14 @@ code.
 
 The proof authenticates an invocation; it does not claim generic exactly-once execution.
 
-| Wrapper  | Replay invariant                                                                                                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Query    | Read-only; proof replay creates no effect.                                                                                                                                                                    |
-| Mutation | Application `requestKey`, receipt, and note write commit in one Convex mutation.                                                                                                                              |
-| Action   | The neutral action has no external side effect; its application report receipt is claimed and created in one internal mutation. A real external API would require its own idempotency key and reconciliation. |
+| Wrapper  | Replay invariant                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Query    | Read-only; proof replay creates no effect.                                                                                                                                 |
+| Mutation | Application `requestKey`, receipt, and note write commit in one Convex mutation.                                                                                           |
+| Action   | The neutral report has no external side effect and reads current state. A real external API would require its own application intent, idempotency key, and reconciliation. |
 
 Eight concurrent calls carrying the identical signed mutation proof produced one rename receipt and one
-note revision. Eight concurrent calls carrying the identical action proof produced one report receipt.
-Every caller received the same application result.
+note revision. Repeated action calls produced no write or replay state.
 
 ## Executed evidence
 
@@ -66,7 +65,8 @@ A fresh anonymous local Convex deployment then proved:
   deployed Convex action runtime;
 - Ed25519 key import and verification execute in Convex without Node imports, a polyfill, or HMAC
   fallback;
-- explicit query, mutation, and action routes call current application functions;
+- explicit search/resource queries, rename/delete mutations, and report action routes call current
+  application functions;
 - live member removal denies a still-cryptographically-valid call;
 - concurrent replay produces one canonical application effect/receipt;
 - issuer, audience, service, operation, function, arguments, delegated issuer/resource/scope, time,
@@ -96,6 +96,10 @@ Convex-native MCP regression passed. Focused lint and root type checking passed.
 attempt exposed that the shared helper assumed every local Convex fixture served Better Auth; the helper
 was narrowed as described above, after which both the provider-neutral mode and the existing default
 Better Auth readiness mode passed.
+
+On 2026-07-22, `P1-020` hard-cut the deployed fixture to the complete neutral operation contract and
+deleted the unnecessary report receipt. The same proof then passed through the production Nitro MCP
+edge; see `internal/evidence/mcp-nitro-integrated-path-2026-07-22.md`.
 
 ## Decision input
 

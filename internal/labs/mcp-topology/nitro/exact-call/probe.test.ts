@@ -1,7 +1,5 @@
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { ConvexHttpClient } from 'convex/browser'
 import { makeFunctionReference } from 'convex/server'
@@ -14,15 +12,18 @@ import {
 } from '../../../../../test/helpers/local-convex'
 import { canonicalConvexJson, digestConvexValue } from './canonical-convex'
 import {
+  enterExactCallLocalEnvironment,
+  exactCallSourceFixture,
+  exactCallVerifierJwk,
+  materializeExactCallFixture,
+} from './deployment-fixture'
+import {
   signServiceCallProof,
   type ServiceCallOperation,
   type ServiceCallProofV1,
 } from './service-call-proof'
 
-const root = fileURLToPath(new URL('../../../../../', import.meta.url))
-const sourceFixture = fileURLToPath(new URL('./fixture', import.meta.url))
-const canonicalSource = fileURLToPath(new URL('./canonical-convex.ts', import.meta.url))
-const proofSource = fileURLToPath(new URL('./service-call-proof.ts', import.meta.url))
+const sourceFixture = exactCallSourceFixture
 
 const PROOF_ISSUER = 'better-convex-nitro-lab'
 const PROOF_AUDIENCE = 'convex-lab-deployment'
@@ -47,7 +48,6 @@ const inspect = makeFunctionReference<
   {
     note: { revision: number; title: string } | null
     renameReceipts: number
-    reportReceipts: number
   }
 >('fixture:inspect')
 const canonicalDigest = makeFunctionReference<
@@ -63,56 +63,11 @@ let activePrivateKey: CryptoKey
 let retainedPrivateKey: CryptoKey
 let retiredPrivateKey: CryptoKey
 let callSequence = 0
-const savedEnvironment = new Map<string, string | undefined>()
-const managedEnvironmentNames = [
-  'CONVEX_DEPLOYMENT',
-  'CONVEX_E2E_AUTO_START',
-  'CONVEX_SITE_URL',
-  'CONVEX_URL',
-  'NUXT_PUBLIC_CONVEX_SITE_URL',
-  'NUXT_PUBLIC_CONVEX_URL',
-] as const
-
-function useAnonymousLocalEnvironment(): void {
-  for (const name of managedEnvironmentNames) {
-    savedEnvironment.set(name, process.env[name])
-    Reflect.deleteProperty(process.env, name)
-  }
-  process.env.CONVEX_E2E_AUTO_START = 'true'
-}
-
-function restoreEnvironment(): void {
-  for (const [name, value] of savedEnvironment) {
-    if (value === undefined) Reflect.deleteProperty(process.env, name)
-    else process.env[name] = value
-  }
-}
+let restoreEnvironment: (() => void) | undefined
 
 function nextCallId(): string {
   callSequence += 1
   return `call_${String(callSequence).padStart(20, '0')}`
-}
-
-async function verifierJwk(key: CryptoKey): Promise<JsonWebKey> {
-  return {
-    ...(await crypto.subtle.exportKey('jwk', key)),
-    alg: 'EdDSA',
-    key_ops: ['verify'],
-    use: 'sig',
-  }
-}
-
-async function materializeFixture(): Promise<string> {
-  const directory = await mkdtemp(path.join(tmpdir(), 'better-convex-vnext-exact-call-'))
-  await cp(sourceFixture, directory, { recursive: true })
-  await cp(canonicalSource, path.join(directory, 'convex', 'canonical_convex.ts'))
-  const proof = (await readFile(proofSource, 'utf8')).replace(
-    "from './canonical-convex'",
-    "from './canonical_convex'",
-  )
-  await writeFile(path.join(directory, 'convex', 'service_call_proof.ts'), proof, 'utf8')
-  await symlink(path.join(root, 'node_modules'), path.join(directory, 'node_modules'), 'dir')
-  return directory
 }
 
 async function makeClaims(
@@ -205,7 +160,7 @@ async function invoke(
 }
 
 beforeAll(async () => {
-  useAnonymousLocalEnvironment()
+  restoreEnvironment = enterExactCallLocalEnvironment()
   const [active, retained, retired] = await Promise.all([
     crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']),
     crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify']),
@@ -215,14 +170,16 @@ beforeAll(async () => {
   retainedPrivateKey = retained.privateKey
   retiredPrivateKey = retired.privateKey
   const publicKeys = {
-    [ACTIVE_KEY_ID]: await verifierJwk(active.publicKey),
-    [RETAINED_KEY_ID]: await verifierJwk(retained.publicKey),
+    [ACTIVE_KEY_ID]: await exactCallVerifierJwk(active.publicKey),
+    [RETAINED_KEY_ID]: await exactCallVerifierJwk(retained.publicKey),
   }
 
-  fixtureDirectory = await materializeFixture()
+  fixtureDirectory = await materializeExactCallFixture()
   local = await ensureLocalConvex({
     cwd: fixtureDirectory,
     deploymentEnv: {
+      BCN_VNEXT_EXACT_CALL_MCP_ISSUER: MCP_ISSUER,
+      BCN_VNEXT_EXACT_CALL_MCP_RESOURCE: MCP_RESOURCE,
       BCN_VNEXT_EXACT_CALL_PUBLIC_KEYS: JSON.stringify(publicKeys),
     },
     requireAuthDeployment: false,
@@ -236,7 +193,7 @@ afterAll(async () => {
   try {
     await local?.release()
   } finally {
-    restoreEnvironment()
+    restoreEnvironment?.()
     if (fixtureDirectory) await rm(fixtureDirectory, { force: true, recursive: true })
   }
 })
@@ -294,8 +251,26 @@ describe('vNext Nitro exact-call deployed proof', () => {
     expect(query.response.status).toBe(200)
     expect(query.json).toEqual({
       ok: true,
-      value: [{ id: 'note-a', revision: 1, title: 'Alpha' }],
+      value: [
+        {
+          body: 'Alpha body',
+          id: 'note-a',
+          revision: 1,
+          title: 'Alpha',
+          uri: 'note://note-a',
+          workspaceId: 'workspace-a',
+        },
+      ],
     })
+
+    const readArgs = { noteId: 'note-a' }
+    const readClaims = await makeClaims(readArgs, {
+      functionName: 'application:readNote',
+      operation: 'query',
+    })
+    const read = await invoke('/exact-call/query/read-note', readArgs, { claims: readClaims })
+    expect(read.response.status).toBe(200)
+    expect(read.json).toMatchObject({ ok: true, value: { id: 'note-a', uri: 'note://note-a' } })
 
     const renameArgs = { noteId: 'note-a', requestKey: 'rename-1', title: 'Renamed' }
     const renameClaims = await makeClaims(renameArgs, {
@@ -311,11 +286,18 @@ describe('vNext Nitro exact-call deployed proof', () => {
       expect(result.response.status).toBe(200)
       expect(result.json).toEqual({
         ok: true,
-        value: { noteId: 'note-a', requestKey: 'rename-1', revision: 2, title: 'Renamed' },
+        value: {
+          changed: true,
+          noteId: 'note-a',
+          previousTitle: 'Alpha',
+          requestKey: 'rename-1',
+          revision: 2,
+          title: 'Renamed',
+        },
       })
     }
 
-    const reportArgs = { requestKey: 'report-1', workspaceId: 'workspace-a' }
+    const reportArgs = { workspaceId: 'workspace-a' }
     const reportClaims = await makeClaims(reportArgs, {
       functionName: 'application_action:generateReport',
       operation: 'action',
@@ -327,21 +309,24 @@ describe('vNext Nitro exact-call deployed proof', () => {
     )
     for (const result of actionCalls) {
       expect(result.response.status).toBe(200)
-      expect(result.json).toEqual({
+      expect(result.json).toMatchObject({
         ok: true,
         value: {
           noteCount: 1,
-          reportId: 'workspace-a:report-1',
-          requestKey: 'report-1',
+          reportId: 'workspace-a-r1',
+          titles: ['Renamed'],
           workspaceId: 'workspace-a',
+          workspaceRevision: 1,
         },
       })
+      expect((result.json as { value: { generatedAt: number } }).value.generatedAt).toEqual(
+        expect.any(Number),
+      )
     }
 
     expect(await convex.query(inspect, {})).toEqual({
       note: { revision: 2, title: 'Renamed' },
       renameReceipts: 1,
-      reportReceipts: 1,
     })
 
     const beforeRevocation = await makeClaims(queryArgs, {
@@ -356,7 +341,7 @@ describe('vNext Nitro exact-call deployed proof', () => {
     expect(revoked.json).toEqual({ code: 'ACCESS_DENIED', ok: false })
     await convex.mutation(setMemberStatus, { status: 'active', subject: 'alice' })
 
-    const allBodies = [query, ...mutationCalls, ...actionCalls, revoked]
+    const allBodies = [query, read, ...mutationCalls, ...actionCalls, revoked]
       .map((value) => value.body)
       .join('\n')
     for (const forbidden of [
@@ -365,6 +350,7 @@ describe('vNext Nitro exact-call deployed proof', () => {
       MCP_ISSUER,
       MCP_RESOURCE,
       queryClaims.callId,
+      readClaims.callId,
       renameClaims.callId,
       reportClaims.callId,
     ]) {

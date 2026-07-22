@@ -11,6 +11,8 @@ export default defineSchema({
   }).index('by_issuer_subject', ['issuer', 'subject']),
 
   notes: defineTable({
+    body: v.string(),
+    deletedAt: v.optional(v.number()),
     externalId: v.string(),
     revision: v.number(),
     title: v.string(),
@@ -20,8 +22,10 @@ export default defineSchema({
     .index('by_workspace', ['workspaceExternalId']),
 
   renameReceipts: defineTable({
+    changed: v.boolean(),
     issuer: v.string(),
     noteId: v.string(),
+    previousTitle: v.string(),
     requestKey: v.string(),
     revision: v.number(),
     subject: v.string(),
@@ -29,17 +33,8 @@ export default defineSchema({
     title: v.string(),
   }).index('by_tenant_request', ['tenantId', 'requestKey']),
 
-  reportReceipts: defineTable({
-    issuer: v.string(),
-    noteCount: v.number(),
-    reportId: v.string(),
-    requestKey: v.string(),
-    subject: v.string(),
-    tenantId: v.string(),
-    workspaceId: v.string(),
-  }).index('by_tenant_request', ['tenantId', 'requestKey']),
-
   workspaces: defineTable({
+    deletedAt: v.optional(v.number()),
     externalId: v.string(),
     revision: v.number(),
     tenantId: v.string(),

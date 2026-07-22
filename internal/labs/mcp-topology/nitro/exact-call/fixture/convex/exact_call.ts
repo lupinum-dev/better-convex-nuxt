@@ -11,13 +11,17 @@ import {
 const PROOF_ISSUER = 'better-convex-nitro-lab'
 const PROOF_AUDIENCE = 'convex-lab-deployment'
 const SERVICE_ID = 'nitro-mcp-gateway'
-const MCP_ISSUER = 'https://auth.example.test/'
-const MCP_RESOURCE = 'https://app.example.test/mcp'
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_BODY_TIME_MS = 1_000
 
 type ExactActor = { issuer: string; subject: string }
 type ParsedArgs = Record<string, Value>
+
+function requiredEnvironment(name: string): string {
+  const value = process.env[name]
+  if (!value || value.length > 1_024) throw new ServiceCallProofError()
+  return value
+}
 
 class BoundaryError extends Error {
   readonly code: string
@@ -62,10 +66,44 @@ function boundedString(value: unknown, maximum: number): value is string {
   return true
 }
 
+function boundedSearchQuery(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length > 200) return false
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code < 32 || code === 127) return false
+  }
+  return true
+}
+
 function parseSearchArgs(value: unknown) {
-  if (!isRecord(value) || !hasExactKeys(value, ['query', 'workspaceId'])) return null
-  if (!boundedString(value.query, 200) || !boundedString(value.workspaceId, 128)) return null
-  return { query: value.query, workspaceId: value.workspaceId }
+  if (
+    !isRecord(value) ||
+    (!hasExactKeys(value, ['query', 'workspaceId']) &&
+      !hasExactKeys(value, ['limit', 'query', 'workspaceId']))
+  ) {
+    return null
+  }
+  if (!boundedSearchQuery(value.query) || !boundedString(value.workspaceId, 128)) return null
+  if (
+    value.limit !== undefined &&
+    (typeof value.limit !== 'number' ||
+      !Number.isInteger(value.limit) ||
+      value.limit < 1 ||
+      value.limit > 50)
+  ) {
+    return null
+  }
+  return {
+    ...(value.limit === undefined ? {} : { limit: value.limit }),
+    query: value.query,
+    workspaceId: value.workspaceId,
+  }
+}
+
+function parseReadArgs(value: unknown) {
+  if (!isRecord(value) || !hasExactKeys(value, ['noteId'])) return null
+  if (!boundedString(value.noteId, 128)) return null
+  return { noteId: value.noteId }
 }
 
 function parseRenameArgs(value: unknown) {
@@ -81,9 +119,22 @@ function parseRenameArgs(value: unknown) {
 }
 
 function parseReportArgs(value: unknown) {
-  if (!isRecord(value) || !hasExactKeys(value, ['requestKey', 'workspaceId'])) return null
-  if (!boundedString(value.requestKey, 128) || !boundedString(value.workspaceId, 128)) return null
-  return { requestKey: value.requestKey, workspaceId: value.workspaceId }
+  if (!isRecord(value) || !hasExactKeys(value, ['workspaceId'])) return null
+  if (!boundedString(value.workspaceId, 128)) return null
+  return { workspaceId: value.workspaceId }
+}
+
+function parseDeleteArgs(value: unknown) {
+  if (!isRecord(value) || !hasExactKeys(value, ['expectedRevision', 'workspaceId'])) return null
+  if (
+    typeof value.expectedRevision !== 'number' ||
+    !Number.isInteger(value.expectedRevision) ||
+    value.expectedRevision < 1 ||
+    !boundedString(value.workspaceId, 128)
+  ) {
+    return null
+  }
+  return { expectedRevision: value.expectedRevision, workspaceId: value.workspaceId }
 }
 
 async function readBoundedConvexValue(request: Request): Promise<Value> {
@@ -230,8 +281,8 @@ function createExactCallHandler<Args extends ParsedArgs>(
         audience: PROOF_AUDIENCE,
         functionName: definition.functionName,
         issuer: PROOF_ISSUER,
-        mcpIssuer: MCP_ISSUER,
-        mcpResource: MCP_RESOURCE,
+        mcpIssuer: requiredEnvironment('BCN_VNEXT_EXACT_CALL_MCP_ISSUER'),
+        mcpResource: requiredEnvironment('BCN_VNEXT_EXACT_CALL_MCP_RESOURCE'),
         nowSeconds: Math.floor(Date.now() / 1_000),
         operation: definition.operation,
         publicKeys: await loadPublicKeys(),
@@ -259,6 +310,15 @@ export const searchNotes = createExactCallHandler({
   requiredScope: 'notes:read',
 })
 
+export const readNote = createExactCallHandler({
+  functionName: 'application:readNote',
+  invoke: async (ctx, actor, args): Promise<unknown> =>
+    ctx.runQuery(internal.application.readNote, { actor, ...args }),
+  operation: 'query',
+  parse: parseReadArgs,
+  requiredScope: 'notes:read',
+})
+
 export const renameNote = createExactCallHandler({
   functionName: 'application:renameNote',
   invoke: async (ctx, actor, args): Promise<unknown> =>
@@ -275,4 +335,13 @@ export const generateReport = createExactCallHandler({
   operation: 'action',
   parse: parseReportArgs,
   requiredScope: 'notes:read',
+})
+
+export const deleteWorkspace = createExactCallHandler({
+  functionName: 'application:deleteWorkspace',
+  invoke: async (ctx, actor, args): Promise<unknown> =>
+    ctx.runMutation(internal.application.deleteWorkspace, { actor, ...args }),
+  operation: 'mutation',
+  parse: parseDeleteArgs,
+  requiredScope: 'notes:write',
 })

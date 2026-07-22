@@ -19,7 +19,7 @@ const ACCESS = Object.freeze<NitroNotesVerifiedAccess>({
   actor: { role: 'owner', subject: 'alice', tenantId: 'tenant-a' },
   authInfo: {
     clientId: 'apps-client',
-    scopes: ['notes'],
+    scopes: ['notes:read', 'notes:write'],
     token: 'nitro-apps-token-must-not-escape',
   },
 })

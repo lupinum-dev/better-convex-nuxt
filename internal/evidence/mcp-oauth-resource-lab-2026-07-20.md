@@ -38,6 +38,8 @@ Both the production Nitro node server and freshly deployed local Convex HTTP act
 - expired, revoked, session-class, wrong-issuer, wrong-resource/audience, and unregistered-client tokens
   receive `401`;
 - insufficient scope receives `403` and a `scope="notes:read"` challenge;
+- a valid read-only delegated token can search but receives structured `ACCESS_DENIED` for write tools
+  in both candidates;
 - putting the valid token in the query string or JSON body, without the Authorization header, still
   receives `401`;
 - the valid Alice and Bob tokens continue through official MCP initialize/tools/resources with current
@@ -62,6 +64,9 @@ Result on 2026-07-20: the production Nitro test, deployed local Convex test, and
 passed; root type checking and focused lint passed. A first Convex attempt exposed that Convex module
 filenames reject hyphens; the materialized filename was corrected to `oauth_fixture.ts`, after which the
 fresh deployment passed. No runtime or security gate was weakened.
+
+The 2026-07-22 integrated-topology rerun added operation-level write-scope ceilings to both candidates.
+Current application membership and role still grant authority; OAuth scopes only narrow it.
 
 ## Boundaries of the claim
 

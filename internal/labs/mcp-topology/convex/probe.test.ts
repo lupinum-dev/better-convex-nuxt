@@ -26,6 +26,7 @@ import {
   legacyInitializeBody,
   rawHttpRequest,
 } from '../http-adversarial'
+import { formatLatencySummary, measureSequentialLatency } from '../latency-measure'
 import {
   LAB_OAUTH_ISSUER,
   LAB_OAUTH_SCOPES,
@@ -177,6 +178,7 @@ describe('vNext Convex-native MCP topology probe', () => {
 
     const responsesA: string[] = []
     const responsesB: string[] = []
+    const responsesReadOnly: string[] = []
     const connectionA = connectClient(
       local.env.CONVEX_SITE_URL!,
       OWNER_TOKEN,
@@ -191,9 +193,16 @@ describe('vNext Convex-native MCP topology probe', () => {
       responsesB,
       false,
     )
+    const connectionReadOnly = connectClient(
+      local.env.CONVEX_SITE_URL!,
+      LAB_OAUTH_TOKENS.readOnly,
+      'convex-read-only-client',
+      responsesReadOnly,
+      false,
+    )
 
     try {
-      await Promise.all([connectionA.connect, connectionB.connect])
+      await Promise.all([connectionA.connect, connectionB.connect, connectionReadOnly.connect])
 
       const mcpUrl = new URL('/mcp', local.env.CONVEX_SITE_URL!)
       const bearerBoundaryHeader = 'x-bcn-lab-bearer-boundary'
@@ -559,6 +568,27 @@ describe('vNext Convex-native MCP topology probe', () => {
       ])
       expect(searchB.structuredContent).toMatchObject({ matches: [{ id: 'note-b' }] })
 
+      const readOnlySearch = await connectionReadOnly.client.callTool({
+        arguments: { query: 'alpha', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(readOnlySearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      const readOnlyRename = await connectionReadOnly.client.callTool({
+        arguments: { noteId: 'note-a', requestKey: 'scope-denied', title: 'Denied' },
+        name: 'rename_note',
+      })
+      expect(readOnlyRename).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
+        isError: true,
+      })
+      const latency = await measureSequentialLatency(() =>
+        connectionA.client.callTool({
+          arguments: { query: 'alpha', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        }),
+      )
+      console.info(formatLatencySummary('vnext-convex-native-latency', latency))
+
       if (process.env.BCN_VNEXT_MCP_OFFICIAL_TOOLS === 'true') {
         const officialTools = await runOfficialMcpToolProbe({
           endpoint: new URL('/mcp', local.env.CONVEX_SITE_URL!),
@@ -706,12 +736,16 @@ describe('vNext Convex-native MCP topology probe', () => {
         workspaceId: 'workspace-a',
       })
 
-      const responseText = [...responsesA, ...responsesB].join('\n')
+      const responseText = [...responsesA, ...responsesB, ...responsesReadOnly].join('\n')
       for (const token of Object.values(LAB_OAUTH_TOKENS)) {
         expect(responseText).not.toContain(token)
       }
     } finally {
-      await Promise.allSettled([connectionA.client.close(), connectionB.client.close()])
+      await Promise.allSettled([
+        connectionA.client.close(),
+        connectionB.client.close(),
+        connectionReadOnly.client.close(),
+      ])
     }
   })
 })

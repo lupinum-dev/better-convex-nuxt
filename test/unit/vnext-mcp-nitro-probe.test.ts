@@ -13,7 +13,11 @@ import {
 const AUTHORIZATION_HEADER_SENTINEL = 'authorization-header-must-not-escape'
 const OWNER_ACCESS = Object.freeze<NitroNotesVerifiedAccess>({
   actor: { role: 'owner', subject: 'alice', tenantId: 'tenant-a' },
-  authInfo: { clientId: 'client-a', scopes: ['notes'], token: 'token-must-not-escape' },
+  authInfo: {
+    clientId: 'client-a',
+    scopes: ['notes:read', 'notes:write'],
+    token: 'token-must-not-escape',
+  },
 })
 
 function createApplication(): NeutralNotesApplication {
@@ -158,11 +162,11 @@ describe('vNext Nitro-native MCP topology probe', () => {
     const tokenB = 'token-b-must-not-escape'
     const accessA: NitroNotesVerifiedAccess = {
       actor: { role: 'owner', subject: 'alice', tenantId: 'tenant-a' },
-      authInfo: { clientId: 'client-a', scopes: ['notes'], token: tokenA },
+      authInfo: { clientId: 'client-a', scopes: ['notes:read', 'notes:write'], token: tokenA },
     }
     const accessB: NitroNotesVerifiedAccess = {
       actor: { role: 'editor', subject: 'bob', tenantId: 'tenant-b' },
-      authInfo: { clientId: 'client-b', scopes: ['notes'], token: tokenB },
+      authInfo: { clientId: 'client-b', scopes: ['notes:read', 'notes:write'], token: tokenB },
     }
     const connectionA = connectClient(handler, accessA, responsesA)
     const connectionB = connectClient(handler, accessB, responsesB)

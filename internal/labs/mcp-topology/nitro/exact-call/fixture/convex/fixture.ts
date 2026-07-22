@@ -3,29 +3,27 @@ import { v } from 'convex/values'
 import { action, mutation, query } from './_generated/server'
 import { canonicalConvexJson, digestConvexValue } from './canonical_convex'
 
-const TOKEN_ISSUER = 'https://auth.example.test/'
+function tokenIssuer(): string {
+  const value = process.env.BCN_VNEXT_EXACT_CALL_MCP_ISSUER
+  if (!value || value.length > 1_024) throw new Error('TOKEN_ISSUER_MISSING')
+  return value
+}
 
 export const seed = mutation({
   args: {},
   handler: async (ctx) => {
-    for (const table of [
-      'members',
-      'notes',
-      'renameReceipts',
-      'reportReceipts',
-      'workspaces',
-    ] as const) {
+    for (const table of ['members', 'notes', 'renameReceipts', 'workspaces'] as const) {
       for (const row of await ctx.db.query(table).collect()) await ctx.db.delete(row._id)
     }
     await ctx.db.insert('members', {
-      issuer: TOKEN_ISSUER,
+      issuer: tokenIssuer(),
       role: 'owner',
       status: 'active',
       subject: 'alice',
       tenantId: 'tenant-a',
     })
     await ctx.db.insert('members', {
-      issuer: TOKEN_ISSUER,
+      issuer: tokenIssuer(),
       role: 'editor',
       status: 'active',
       subject: 'bob',
@@ -42,12 +40,14 @@ export const seed = mutation({
       tenantId: 'tenant-b',
     })
     await ctx.db.insert('notes', {
+      body: 'Alpha body',
       externalId: 'note-a',
       revision: 1,
       title: 'Alpha',
       workspaceExternalId: 'workspace-a',
     })
     await ctx.db.insert('notes', {
+      body: 'Beta body',
       externalId: 'note-b',
       revision: 1,
       title: 'Beta',
@@ -63,7 +63,7 @@ export const setMemberStatus = mutation({
     const member = await ctx.db
       .query('members')
       .withIndex('by_issuer_subject', (query) =>
-        query.eq('issuer', TOKEN_ISSUER).eq('subject', args.subject),
+        query.eq('issuer', tokenIssuer()).eq('subject', args.subject),
       )
       .unique()
     if (!member) throw new Error('MEMBER_NOT_FOUND')
@@ -82,7 +82,6 @@ export const inspect = query({
     return {
       note: note ? { revision: note.revision, title: note.title } : null,
       renameReceipts: (await ctx.db.query('renameReceipts').collect()).length,
-      reportReceipts: (await ctx.db.query('reportReceipts').collect()).length,
     }
   },
 })

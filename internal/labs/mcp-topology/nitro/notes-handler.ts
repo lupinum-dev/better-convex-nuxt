@@ -13,40 +13,12 @@ import {
   type NeutralNotesOperations,
   type NotesApplicationActor,
 } from '../neutral/notes-application'
-
-const noteSchema = z.object({
-  body: z.string(),
-  id: z.string(),
-  revision: z.number().int().positive(),
-  title: z.string(),
-  uri: z.string(),
-  workspaceId: z.string(),
-})
-
-const renameReceiptSchema = z.object({
-  changed: z.boolean(),
-  noteId: z.string(),
-  previousTitle: z.string(),
-  requestKey: z.string(),
-  revision: z.number().int().positive(),
-  title: z.string(),
-})
-
-const reportSchema = z.object({
-  generatedAt: z.number().int(),
-  noteCount: z.number().int().nonnegative(),
-  reportId: z.string(),
-  titles: z.array(z.string()),
-  workspaceId: z.string(),
-  workspaceRevision: z.number().int().positive(),
-})
-
-const deletedWorkspaceSchema = z.object({
-  deletedAt: z.number().int(),
-  deletedNoteCount: z.number().int().nonnegative(),
-  revision: z.number().int().positive(),
-  workspaceId: z.string(),
-})
+import {
+  deletedWorkspaceSchema,
+  noteSchema,
+  renameReceiptSchema,
+  reportSchema,
+} from '../neutral/notes-schemas'
 
 const ACTOR_EXTRA_KEY = 'betterConvexLabActor'
 export const NITRO_MCP_LAB_MAX_BODY_BYTES = 64 * 1024
@@ -241,6 +213,7 @@ async function runTool<T>(operation: () => T | Promise<T>) {
 function createNotesServer(
   application: NeutralNotesOperations,
   actor: NotesApplicationActor,
+  authInfo: AuthInfo,
   notesDashboardHtml?: string,
 ): McpServer {
   const server = new McpServer({ name: 'better-convex-nitro-topology-lab', version: '0.0.0' })
@@ -268,7 +241,8 @@ function createNotesServer(
           }
         : {}),
     },
-    async (input) => runTool(() => ({ matches: application.searchNotes(actor, input) })),
+    async (input) =>
+      runTool(async () => ({ matches: await application.searchNotes(actor, input) })),
   )
 
   server.registerTool(
@@ -284,7 +258,13 @@ function createNotesServer(
         .strict(),
       outputSchema: renameReceiptSchema,
     },
-    async (input) => runTool(() => application.renameNote(actor, input)),
+    async (input) =>
+      runTool(() => {
+        if (!authInfo.scopes.includes('notes:write')) {
+          throw new NotesApplicationError('ACCESS_DENIED')
+        }
+        return application.renameNote(actor, input)
+      }),
   )
 
   server.registerTool(
@@ -299,7 +279,13 @@ function createNotesServer(
         .strict(),
       outputSchema: deletedWorkspaceSchema,
     },
-    async (input) => runTool(() => application.deleteWorkspace(actor, input)),
+    async (input) =>
+      runTool(() => {
+        if (!authInfo.scopes.includes('notes:write')) {
+          throw new NotesApplicationError('ACCESS_DENIED')
+        }
+        return application.deleteWorkspace(actor, input)
+      }),
   )
 
   server.registerTool(
@@ -381,7 +367,7 @@ export function createNitroNotesMcpHandler(
       if (!authInfo) throw new Error('MCP lab access context is missing')
       const actor = actorFromAuthInfo(authInfo)
       const access = Object.freeze({ actor, authInfo })
-      return createNotesServer(createApplication(access), actor, notesDashboardHtml)
+      return createNotesServer(createApplication(access), actor, authInfo, notesDashboardHtml)
     },
     { legacy: 'stateless', responseMode: 'json' },
   )

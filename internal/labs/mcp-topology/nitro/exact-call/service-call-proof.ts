@@ -139,6 +139,25 @@ function isHttpsUrl(value: unknown): value is string {
   }
 }
 
+function isMcpResourceUrl(value: unknown): value is string {
+  if (!boundedText(value, 1_024)) return false
+  try {
+    const url = new URL(value)
+    const loopbackHttp =
+      url.protocol === 'http:' &&
+      (url.hostname === '127.0.0.1' || url.hostname === '::1' || url.hostname === 'localhost')
+    return (
+      (url.protocol === 'https:' || loopbackHttp) &&
+      !url.username &&
+      !url.password &&
+      !url.hash &&
+      url.href === value
+    )
+  } catch {
+    return false
+  }
+}
+
 function isSortedScopes(value: unknown): value is string[] {
   if (!Array.isArray(value) || value.length > 32) return false
   let previous: string | undefined
@@ -197,7 +216,7 @@ function parseClaims(value: unknown): ServiceCallProofV1 {
     !isHttpsUrl(value.mcp.issuer) ||
     !boundedText(value.mcp.subject, 256) ||
     !boundedText(value.mcp.clientId, 256) ||
-    !isHttpsUrl(value.mcp.resource) ||
+    !isMcpResourceUrl(value.mcp.resource) ||
     !isSortedScopes(value.mcp.scopes)
   ) {
     rejectProof()

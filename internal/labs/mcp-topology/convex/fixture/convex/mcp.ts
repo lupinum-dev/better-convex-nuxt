@@ -209,7 +209,7 @@ function projectToolResult(result: OperationResult) {
   }
 }
 
-function createNotesServer(ctx: ActionCtx, principal: LabPrincipal): McpServer {
+function createNotesServer(ctx: ActionCtx, principal: LabPrincipal, authInfo: AuthInfo): McpServer {
   const server = new McpServer({ name: 'better-convex-convex-topology-lab', version: '0.0.0' })
 
   server.registerTool(
@@ -246,10 +246,14 @@ function createNotesServer(ctx: ActionCtx, principal: LabPrincipal): McpServer {
         .strict(),
       outputSchema: renameReceiptSchema,
     },
-    async (input) =>
-      projectToolResult(
+    async (input) => {
+      if (!authInfo.scopes.includes('notes:write')) {
+        return projectToolResult({ code: 'ACCESS_DENIED', ok: false })
+      }
+      return projectToolResult(
         await ctx.runMutation(internal.operations.renameNote, { ...input, principal }),
-      ),
+      )
+    },
   )
 
   server.registerTool(
@@ -261,10 +265,14 @@ function createNotesServer(ctx: ActionCtx, principal: LabPrincipal): McpServer {
         .strict(),
       outputSchema: deletedWorkspaceSchema,
     },
-    async (input) =>
-      projectToolResult(
+    async (input) => {
+      if (!authInfo.scopes.includes('notes:write')) {
+        return projectToolResult({ code: 'ACCESS_DENIED', ok: false })
+      }
+      return projectToolResult(
         await ctx.runMutation(internal.operations.deleteWorkspace, { ...input, principal }),
-      ),
+      )
+    },
   )
 
   server.registerTool(
@@ -358,7 +366,10 @@ export const handleMcp = httpAction(async (ctx, request) => {
   }
 
   const handler = createMcpHandler(
-    ({ authInfo }) => createNotesServer(ctx, principalFromAuthInfo(authInfo)),
+    ({ authInfo }) => {
+      if (!authInfo) throw new Error('MCP access context is missing')
+      return createNotesServer(ctx, principalFromAuthInfo(authInfo), authInfo)
+    },
     { legacy: 'stateless', responseMode: 'json' },
   )
   try {

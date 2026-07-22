@@ -8,8 +8,14 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
+import { ConvexHttpClient } from 'convex/browser'
+import { makeFunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import {
+  ensureLocalConvex,
+  type EnsureLocalConvexResult,
+} from '../../../../test/helpers/local-convex'
 import {
   abortRawHttp,
   chunkedBody,
@@ -17,6 +23,7 @@ import {
   legacyInitializeBody,
   rawHttpRequest,
 } from '../http-adversarial'
+import { formatLatencySummary, measureSequentialLatency } from '../latency-measure'
 import {
   LAB_OAUTH_ISSUER,
   LAB_OAUTH_SCOPES,
@@ -24,12 +31,26 @@ import {
   labOAuthResourceMetadataUrl,
 } from '../oauth-fixture'
 import { runOfficialMcpToolProbe } from '../official-tools'
+import {
+  enterExactCallLocalEnvironment,
+  exactCallVerifierJwk,
+  materializeExactCallFixture,
+} from './exact-call/deployment-fixture'
 import { NITRO_MCP_LAB_MAX_BODY_BYTES } from './notes-handler'
 
 const execFile = promisify(execFileCallback)
 const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const fixture = fileURLToPath(new URL('./fixture', import.meta.url))
 const OWNER_TOKEN = LAB_OAUTH_TOKENS.alice
+const EXACT_CALL_KEY_ID = 'active-2026-07'
+const seedExactCall = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+  'fixture:seed',
+)
+const setExactCallMemberStatus = makeFunctionReference<
+  'mutation',
+  { status: 'active' | 'removed'; subject: string },
+  { status: 'active' | 'removed'; subject: string }
+>('fixture:setMemberStatus')
 
 async function availablePort(): Promise<number> {
   const server = createServer()
@@ -97,16 +118,55 @@ describe('vNext Nitro MCP production runtime purity', () => {
     const temporary = await mkdtemp(path.join(tmpdir(), 'better-convex-vnext-nitro-'))
     const buildDir = path.join(temporary, 'build')
     const outputDir = path.join(temporary, 'output')
+    let exactCallFixture = ''
+    let exactCallLocal: EnsureLocalConvexResult | undefined
+    let restoreEnvironment: (() => void) | undefined
     let server: ChildProcess | undefined
     let client: Client | undefined
+    let readOnlyClient: Client | undefined
+    let bobClient: Client | undefined
 
     try {
+      restoreEnvironment = enterExactCallLocalEnvironment()
+      const port = await availablePort()
+      const origin = `http://127.0.0.1:${port}`
+      const mcpResource = new URL('/api/mcp', origin).href
+      const keyPair = await crypto.subtle.generateKey('Ed25519', true, ['sign', 'verify'])
+      const privateJwk = {
+        ...(await crypto.subtle.exportKey('jwk', keyPair.privateKey)),
+        alg: 'EdDSA',
+        key_ops: ['sign'],
+        use: 'sig',
+      }
+      const privateJwkJson = JSON.stringify(privateJwk)
+      exactCallFixture = await materializeExactCallFixture()
+      exactCallLocal = await ensureLocalConvex({
+        cwd: exactCallFixture,
+        deploymentEnv: {
+          BCN_VNEXT_EXACT_CALL_MCP_ISSUER: LAB_OAUTH_ISSUER,
+          BCN_VNEXT_EXACT_CALL_MCP_RESOURCE: mcpResource,
+          BCN_VNEXT_EXACT_CALL_PUBLIC_KEYS: JSON.stringify({
+            [EXACT_CALL_KEY_ID]: await exactCallVerifierJwk(keyPair.publicKey),
+          }),
+        },
+        requireAuthDeployment: false,
+        timeoutMs: 60_000,
+      })
+      const exactCallConvex = new ConvexHttpClient(exactCallLocal.env.CONVEX_URL!)
+      expect(await exactCallConvex.mutation(seedExactCall, {})).toEqual({ seeded: true })
+
+      const exactCallEnvironment = {
+        BCN_VNEXT_EXACT_CALL_ENDPOINT: exactCallLocal.env.CONVEX_SITE_URL!,
+        BCN_VNEXT_EXACT_CALL_KEY_ID: EXACT_CALL_KEY_ID,
+        BCN_VNEXT_EXACT_CALL_PRIVATE_JWK: privateJwkJson,
+      }
       await execFile('pnpm', ['exec', 'nuxt', 'build', fixture], {
         cwd: root,
         env: {
           ...process.env,
           BCN_VNEXT_NITRO_BUILD_DIR: buildDir,
           BCN_VNEXT_NITRO_OUTPUT_DIR: outputDir,
+          ...exactCallEnvironment,
           NODE_ENV: 'production',
         },
         maxBuffer: 16 * 1024 * 1024,
@@ -145,6 +205,7 @@ describe('vNext Nitro MCP production runtime purity', () => {
       expect(applicationText.includes('better-convex-nitro-topology-lab')).toBe(true)
       expect(applicationText.includes('@modelcontextprotocol/client')).toBe(false)
       expect(applicationText.includes('vnext-convex-lab-owner-token')).toBe(false)
+      expect(applicationText.includes(privateJwkJson)).toBe(false)
       expect(applicationText.includes('parseMcpRequest')).toBe(false)
 
       const serverManifest = JSON.parse(
@@ -162,8 +223,6 @@ describe('vNext Nitro MCP production runtime purity', () => {
         ),
       ).toBe(false)
 
-      const port = await availablePort()
-      const origin = `http://127.0.0.1:${port}`
       server = spawn(process.execPath, [serverEntry], {
         cwd: outputDir,
         env: {
@@ -172,6 +231,7 @@ describe('vNext Nitro MCP production runtime purity', () => {
           NITRO_PORT: String(port),
           NODE_ENV: 'production',
           BCN_VNEXT_MCP_PUBLIC_ORIGIN: origin,
+          ...exactCallEnvironment,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       })
@@ -272,7 +332,127 @@ describe('vNext Nitro MCP production runtime purity', () => {
         arguments: { query: 'alpha', workspaceId: 'workspace-a' },
         name: 'search_notes',
       })
-      expect(search.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      expect(search).toMatchObject({ structuredContent: { matches: [{ id: 'note-a' }] } })
+
+      const readOnlyTransport = new StreamableHTTPClientTransport(mcpUrl, {
+        authProvider: { token: async () => LAB_OAUTH_TOKENS.readOnly },
+        fetch: async (input, init) => {
+          const response = await fetch(input, init)
+          responseBodies.push(await response.clone().text())
+          return response
+        },
+      })
+      readOnlyClient = new Client({ name: 'nitro-read-only-probe', version: '0.0.0' })
+      await readOnlyClient.connect(readOnlyTransport)
+      const readOnlySearch = await readOnlyClient.callTool({
+        arguments: { query: 'alpha', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(readOnlySearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      const readOnlyRename = await readOnlyClient.callTool({
+        arguments: { noteId: 'note-a', requestKey: 'scope-denied', title: 'Denied' },
+        name: 'rename_note',
+      })
+      expect(readOnlyRename).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
+        isError: true,
+      })
+
+      const bobTransport = new StreamableHTTPClientTransport(mcpUrl, {
+        authProvider: { token: async () => LAB_OAUTH_TOKENS.bob },
+        fetch: async (input, init) => {
+          const response = await fetch(input, init)
+          responseBodies.push(await response.clone().text())
+          return response
+        },
+      })
+      bobClient = new Client({ name: 'nitro-bob-probe', version: '0.0.0' })
+      await bobClient.connect(bobTransport)
+      const [aliceIsolated, bobIsolated] = await Promise.all([
+        client.callTool({
+          arguments: { query: '', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        }),
+        bobClient.callTool({
+          arguments: { query: '', workspaceId: 'workspace-b' },
+          name: 'search_notes',
+        }),
+      ])
+      expect(aliceIsolated.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      expect(bobIsolated.structuredContent).toMatchObject({ matches: [{ id: 'note-b' }] })
+      const bobCrossTenant = await bobClient.callTool({
+        arguments: { query: '', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(bobCrossTenant).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
+        isError: true,
+      })
+      const bobDelete = await bobClient.callTool({
+        arguments: { expectedRevision: 1, workspaceId: 'workspace-b' },
+        name: 'delete_workspace',
+      })
+      expect(bobDelete).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
+        isError: true,
+      })
+      const latency = await measureSequentialLatency(() =>
+        client!.callTool({
+          arguments: { query: 'alpha', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        }),
+      )
+      console.info(formatLatencySummary('vnext-nitro-integrated-latency', latency))
+
+      const resource = await client.readResource({ uri: 'note://note-a' })
+      expect(resource.contents).toMatchObject([
+        { mimeType: 'application/json', uri: 'note://note-a' },
+      ])
+      expect(JSON.parse((resource.contents[0] as { text: string }).text)).toMatchObject({
+        body: 'Alpha body',
+        id: 'note-a',
+      })
+      const rename = await client.callTool({
+        arguments: { noteId: 'note-a', requestKey: 'nitro-integrated-rename', title: 'Renamed' },
+        name: 'rename_note',
+      })
+      expect(rename.structuredContent).toMatchObject({
+        changed: true,
+        noteId: 'note-a',
+        previousTitle: 'Alpha',
+        title: 'Renamed',
+      })
+      const renameReplay = await client.callTool({
+        arguments: { noteId: 'note-a', requestKey: 'nitro-integrated-rename', title: 'Renamed' },
+        name: 'rename_note',
+      })
+      expect(renameReplay.structuredContent).toEqual(rename.structuredContent)
+      const report = await client.callTool({
+        arguments: { workspaceId: 'workspace-a' },
+        name: 'generate_report',
+      })
+      expect(report.structuredContent).toMatchObject({
+        noteCount: 1,
+        titles: ['Renamed'],
+        workspaceId: 'workspace-a',
+      })
+
+      await exactCallConvex.mutation(setExactCallMemberStatus, {
+        status: 'removed',
+        subject: 'alice',
+      })
+      const revoked = await client.callTool({
+        arguments: { query: '', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(revoked).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
+        isError: true,
+      })
+      await exactCallConvex.mutation(setExactCallMemberStatus, {
+        status: 'active',
+        subject: 'alice',
+      })
 
       if (process.env.BCN_VNEXT_MCP_OFFICIAL_TOOLS === 'true') {
         const officialTools = await runOfficialMcpToolProbe({
@@ -438,9 +618,40 @@ describe('vNext Nitro MCP production runtime purity', () => {
             ) && (result.structuredContent as { matches: unknown[] }).matches.length === 1,
         ),
       ).toBe(true)
+      const deleted = await client.callTool({
+        arguments: { expectedRevision: 1, workspaceId: 'workspace-a' },
+        name: 'delete_workspace',
+      })
+      expect(deleted.structuredContent).toMatchObject({
+        deletedNoteCount: 1,
+        revision: 2,
+        workspaceId: 'workspace-a',
+      })
+      const afterDelete = await client.callTool({
+        arguments: { query: '', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(afterDelete).toMatchObject({ isError: true })
+
+      await exactCallLocal.release()
+      exactCallLocal = undefined
+      const unavailableConvex = await client.callTool({
+        arguments: { query: '', workspaceId: 'workspace-a' },
+        name: 'search_notes',
+      })
+      expect(unavailableConvex).toMatchObject({
+        content: [{ text: JSON.stringify({ code: 'OPERATION_FAILED' }), type: 'text' }],
+        isError: true,
+      })
+      const serializedResponses = responseBodies.join('\n')
       for (const token of Object.values(LAB_OAUTH_TOKENS)) {
-        expect(responseBodies.join('\n')).not.toContain(token)
+        expect(serializedResponses).not.toContain(token)
       }
+      expect(serializedResponses).not.toContain(privateJwk.d)
+      expect(serializedResponses).not.toContain('ServiceCall ')
+      expect(serializedResponses).not.toContain('"callId"')
+      expect(serializedResponses).not.toContain('"authorizationReference"')
+      expect(serializedResponses).not.toContain('better-convex-nitro-lab')
 
       console.info(
         `[vnext-nitro-http] origin=${hostileOrigin.status} encoding=${encoded.status} contentType=${wrongContentType.status} oversized=${oversized.status} routerMiss=${wrongPath.status} query=${queryDisagreement.status} method=${wrongMethod.status} duplicateLength=${duplicateLength.status} conflictingFraming=${conflictingFraming.status} streamed=${streamed.status} streamedOversized=${oversizedStream.status} stalled=${stalled.status}`,
@@ -454,7 +665,12 @@ describe('vNext Nitro MCP production runtime purity', () => {
       )
     } finally {
       await client?.close().catch(() => {})
+      await readOnlyClient?.close().catch(() => {})
+      await bobClient?.close().catch(() => {})
       await stop(server)
+      await exactCallLocal?.release()
+      restoreEnvironment?.()
+      if (exactCallFixture) await rm(exactCallFixture, { force: true, recursive: true })
       await rm(temporary, { force: true, recursive: true })
     }
   })
