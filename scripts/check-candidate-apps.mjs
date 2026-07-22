@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 
 import { getMaintainedCandidateProfile } from './maintained-candidate-apps.mjs'
+import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
 const agencyConvexDeployKey = process.env.AGENCY_CONVEX_DEPLOY_KEY
@@ -182,6 +183,99 @@ function packageFingerprint(directory) {
   return files
 }
 
+function prepareCompanionCandidates(mainManifest) {
+  return candidateProfile.companionPackages.map((packageId) => {
+    const descriptor = getPackageCertificationDescriptor(packageId)
+    const packageRoot = resolve(repoRoot, descriptor.packageDirectory)
+    run('pnpm', ['run', 'prepack'], { cwd: packageRoot })
+    const packResult = JSON.parse(
+      run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchDir], {
+        cwd: packageRoot,
+        capture: true,
+      }),
+    )
+    if (!Array.isArray(packResult) || packResult.length !== 1 || !packResult[0]?.filename) {
+      throw new Error(`Companion package ${packageId} must produce exactly one tarball`)
+    }
+    const tarballPath = join(scratchDir, packResult[0].filename)
+    const extractedDir = join(scratchDir, `companion-${descriptor.id}`)
+    mkdirSync(extractedDir)
+    run('tar', ['-xzf', tarballPath, '-C', extractedDir])
+    const packageDir = join(extractedDir, 'package')
+    const manifest = readJson(join(packageDir, 'package.json'))
+    if (manifest.name !== descriptor.packageName) {
+      throw new Error(`Companion package ${packageId} has unexpected packed identity`)
+    }
+    if (mainManifest.dependencies?.[descriptor.packageName] !== manifest.version) {
+      throw new Error(
+        `${packageDescriptor.packageName} must depend on exact ${descriptor.packageName}@${manifest.version}`,
+      )
+    }
+    return {
+      descriptor,
+      filename: packResult[0].filename,
+      fingerprint: packageFingerprint(packageDir),
+      integrity: sha512(tarballPath),
+      manifest,
+      tarballPath,
+    }
+  })
+}
+
+function addCompanionCandidates(appDir, manifest, companions, label) {
+  manifest.devDependencies ??= {}
+  for (const companion of companions) {
+    const localTarball = join(appDir, companion.filename)
+    copyFileSync(companion.tarballPath, localTarball)
+    if (sha512(localTarball) !== companion.integrity) {
+      throw new Error(`${label}: copied ${companion.descriptor.packageName} tarball differs`)
+    }
+    manifest.devDependencies[companion.descriptor.packageName] = `file:./${companion.filename}`
+  }
+}
+
+function addPnpmCompanionOverrides(appDir, companions) {
+  if (companions.length === 0) return
+  const workspacePath = join(appDir, 'pnpm-workspace.yaml')
+  const current = existsSync(workspacePath) ? readFileSync(workspacePath, 'utf8') : ''
+  for (const companion of companions) {
+    if (current.includes(`${companion.descriptor.packageName}:`)) {
+      throw new Error(
+        `Candidate fixture already controls ${companion.descriptor.packageName} resolution`,
+      )
+    }
+  }
+  const rules = companions
+    .map(
+      (companion) =>
+        `  '${companion.descriptor.packageName}': 'file:./${companion.filename}'`,
+    )
+    .join('\n')
+  const overrideHeader = /^overrides:\s*$/mu
+  const next = overrideHeader.test(current)
+    ? current.replace(overrideHeader, (header) => `${header}\n${rules}`)
+    : `${current}${current.endsWith('\n') || current.length === 0 ? '' : '\n'}overrides:\n${rules}\n`
+  writeFileSync(workspacePath, next)
+}
+
+function verifyInstalledCompanions(appDir, lock, companions, label) {
+  for (const companion of companions) {
+    if (!lock.includes(companion.filename)) {
+      throw new Error(`${label}: lock does not resolve ${companion.filename}`)
+    }
+    const installedDir = join(appDir, 'node_modules', companion.descriptor.packageName)
+    const installedManifest = readJson(join(installedDir, 'package.json'))
+    if (installedManifest.version !== companion.manifest.version) {
+      throw new Error(
+        `${label}: installed ${companion.descriptor.packageName}@${installedManifest.version}; expected ${companion.manifest.version}`,
+      )
+    }
+    if (JSON.stringify(packageFingerprint(installedDir)) !== JSON.stringify(companion.fingerprint)) {
+      throw new Error(`${label}: installed ${companion.descriptor.packageName} bytes differ`)
+    }
+  }
+}
+
 function dependencySpecifier(packageJson, name) {
   return (
     packageJson.dependencies?.[name] ??
@@ -242,7 +336,13 @@ function compareGeneratedTree(sourceDir, candidateDir) {
   }
 }
 
-function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, integrity) {
+function verifyNpmConsumer(
+  tarballPath,
+  candidateManifest,
+  expectedFingerprint,
+  integrity,
+  companions,
+) {
   const fixture = candidateProfile.npmConsumer
   const appDir = join(scratchDir, 'apps', fixture.name)
   copyApp(fixture, appDir)
@@ -258,6 +358,7 @@ function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, 
     ...manifest.devDependencies,
     [packageDescriptor.packageName]: `file:./${candidateProfile.tarballFilename}`,
   }
+  addCompanionCandidates(appDir, manifest, companions, 'npm consumer')
   writeJson(manifestPath, manifest)
 
   console.log(
@@ -271,6 +372,7 @@ function verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, 
   if (!lock.includes(candidateProfile.tarballFilename)) {
     throw new Error('npm consumer: package-lock does not resolve the candidate tarball')
   }
+  verifyInstalledCompanions(appDir, lock, companions, 'npm consumer')
   const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
   const installedManifest = readJson(join(installedPackageDir, 'package.json'))
   if (installedManifest.version !== candidateManifest.version) {
@@ -470,6 +572,7 @@ try {
     }
     const expectedFingerprint = packageFingerprint(extractedPackageDir)
     const tarballIntegrity = sha512(tarballPath)
+    const companionCandidates = prepareCompanionCandidates(candidateManifest)
 
     for (const app of candidateProfile.pnpmApps) {
       assertNoRepositoryOverride(app)
@@ -506,7 +609,9 @@ try {
           `${app.path}/package.json does not declare ${packageDescriptor.packageName}`,
         )
       }
+      addCompanionCandidates(appDir, manifest, companionCandidates, app.path)
       writeJson(manifestPath, manifest)
+      addPnpmCompanionOverrides(appDir, companionCandidates)
 
       console.log(
         `\n=== ${app.path} against ${candidateManifest.name}@${candidateManifest.version} ===`,
@@ -525,6 +630,7 @@ try {
       if (!lock.includes(candidateProfile.tarballFilename)) {
         throw new Error(`${app.path}: the fresh lock does not resolve the candidate tarball`)
       }
+      verifyInstalledCompanions(appDir, lock, companionCandidates, app.path)
 
       const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
       const installedManifest = readJson(join(installedPackageDir, 'package.json'))
@@ -570,7 +676,13 @@ try {
       if (app.name === 'mcp-oauth-agent') await assertProductionSourceMapsArePrivate(appDir)
     }
 
-    verifyNpmConsumer(tarballPath, candidateManifest, expectedFingerprint, tarballIntegrity)
+    verifyNpmConsumer(
+      tarballPath,
+      candidateManifest,
+      expectedFingerprint,
+      tarballIntegrity,
+      companionCandidates,
+    )
 
     if (!agencyConvexDeployKey) {
       console.log(
@@ -578,7 +690,7 @@ try {
       )
     }
     console.log(
-      `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact tarball).`,
+      `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact package set).`,
     )
   }
 } finally {
