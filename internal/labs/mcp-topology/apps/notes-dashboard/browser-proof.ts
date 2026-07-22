@@ -26,6 +26,7 @@ export interface NotesDashboardBrowserProof {
 }
 
 export interface NotesDashboardBrowserProofOptions {
+  readonly additionalSecretSentinels?: readonly string[]
   readonly build: NotesDashboardBuild
   readonly callTool: (call: ToolCall) => Promise<unknown>
 }
@@ -502,7 +503,7 @@ export async function proveNotesDashboardBrowserBoundary(
       consoleMessages.join('\n'),
       pageErrors.join('\n'),
     ]
-    for (const sentinel of SECRET_SENTINELS) {
+    for (const sentinel of [...SECRET_SENTINELS, ...(options.additionalSecretSentinels ?? [])]) {
       assert(
         leakSurfaces.every((surface) => !surface.includes(sentinel)),
         `Credential sentinel escaped into the MCP App boundary: ${sentinel}`,

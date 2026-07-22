@@ -11,6 +11,12 @@ export interface NotesDashboardBuild {
   readonly hostModules: readonly string[]
 }
 
+export interface NotesDashboardBuildOptions {
+  readonly extAppsBridgeEntry?: string
+  readonly extAppsEntry?: string
+  readonly mcpAppEntry?: string
+}
+
 function outputs(
   value: Rollup.RollupOutput | Rollup.RollupOutput[],
 ): Array<Rollup.OutputAsset | Rollup.OutputChunk> {
@@ -19,7 +25,11 @@ function outputs(
 
 async function bundleEntry(
   entry: string,
-  options: { name: string; vue: boolean },
+  options: {
+    aliases?: Record<string, string>
+    name: string
+    vue: boolean
+  },
 ): Promise<{ css: string; javaScript: string; modules: string[] }> {
   const result = await build({
     build: {
@@ -46,15 +56,10 @@ async function bundleEntry(
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
     logLevel: 'silent',
     plugins: options.vue ? [vue()] : [],
-    resolve: options.vue
-      ? {
-          alias: {
-            'better-convex-vue/mcp-app': fileURLToPath(
-              new URL('../../../../../packages/vue/src/mcp-app.ts', import.meta.url),
-            ),
-          },
-        }
-      : undefined,
+    resolve: {
+      alias: options.aliases,
+      dedupe: ['vue'],
+    },
   })
   const values = outputs(result as Rollup.RollupOutput | Rollup.RollupOutput[])
   const chunk = values.find(
@@ -99,13 +104,27 @@ function inlineHtml(javaScript: string, css: string): string {
 let cachedBuild: Promise<NotesDashboardBuild> | undefined
 
 /** Builds the private app and host from source; no generated bundle is committed. */
-export function buildNotesDashboard(): Promise<NotesDashboardBuild> {
-  cachedBuild ??= Promise.all([
+export function buildNotesDashboard(
+  options: NotesDashboardBuildOptions = {},
+): Promise<NotesDashboardBuild> {
+  const build = Promise.all([
     bundleEntry(fileURLToPath(new URL('./main.ts', import.meta.url)), {
+      aliases: {
+        ...(options.extAppsEntry === undefined
+          ? {}
+          : { '@modelcontextprotocol/ext-apps': options.extAppsEntry }),
+        'better-convex-vue/mcp-app':
+          options.mcpAppEntry ??
+          fileURLToPath(new URL('../../../../../packages/vue/src/mcp-app.ts', import.meta.url)),
+      },
       name: 'BetterConvexNotesDashboard',
       vue: true,
     }),
     bundleEntry(fileURLToPath(new URL('./host-harness.ts', import.meta.url)), {
+      aliases:
+        options.extAppsBridgeEntry === undefined
+          ? undefined
+          : { '@modelcontextprotocol/ext-apps/app-bridge': options.extAppsBridgeEntry },
       name: 'BetterConvexMcpAppsHostProof',
       vue: false,
     }),
@@ -120,5 +139,7 @@ export function buildNotesDashboard(): Promise<NotesDashboardBuild> {
       hostModules: host.modules,
     }
   })
+  if (Object.keys(options).length > 0) return build
+  cachedBuild ??= build
   return cachedBuild
 }
