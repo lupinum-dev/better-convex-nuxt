@@ -21,7 +21,7 @@
     "@convex-dev/rate-limiter": "^0.3.2",
     "@nuxtjs/mcp-toolkit": "^0.17.2",
     "better-auth": "1.7.0-rc.1",
-    "better-convex-nuxt": "0.8.0-beta.2",
+    "better-convex-nuxt": "0.8.0-beta.3",
     "convex": "1.42.2",
     "h3": "^1.15.5",
     "kysely": "0.28.17",

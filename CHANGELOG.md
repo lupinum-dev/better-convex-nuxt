@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.8.0-beta.3
+
+- Settle auth-enabled anonymous Vue clients through the exact
+  `convex@1.42.2` public browser-client surface, without relying on an
+  unavailable `clearAuth()` method.
+- Prove anonymous settlement and cross-tab realtime updates against one exact
+  trusted Better Auth/Nuxt origin before rebuilding the Vue/Nuxt candidate pair.
+
 ## v0.8.0-beta.2
 
 - Add the provider-neutral `better-convex-vue` embedded-runtime attachment used
