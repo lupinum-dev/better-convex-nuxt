@@ -196,7 +196,10 @@ for (const dependencyName of Object.keys(pkg.dependencies ?? {})) {
 // components of the published contract and must be visible in its SBOM. Their
 // transitive closure belongs to the consuming application's resolved SBOM.
 for (const [name, version] of Object.entries(pkg.peerDependencies ?? {})) {
-  addComponent(name, sbomProfile.requiredPhysicalVersions[name] ?? version, 'required-peer')
+  const dependencyKind = pkg.peerDependenciesMeta?.[name]?.optional
+    ? 'optional-peer'
+    : 'required-peer'
+  addComponent(name, sbomProfile.requiredPhysicalVersions[name] ?? version, dependencyKind)
 }
 for (const [name, version] of Object.entries(sbomProfile.requiredPhysicalVersions)) {
   addComponent(name, version, pkg.peerDependencies?.[name] ? 'required-peer' : 'required-runtime')

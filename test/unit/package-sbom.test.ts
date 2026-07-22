@@ -67,7 +67,7 @@ describe('package-profile SBOM generation', () => {
     }
   }, 120_000)
 
-  it('roots the Vue SBOM in exactly its three production components', () => {
+  it('roots the Vue SBOM in exactly its four production components', () => {
     const directory = mkdtempSync(join(tmpdir(), 'bcv-sbom-output-'))
     try {
       const output = join(directory, 'sbom.cdx.json')
@@ -83,7 +83,23 @@ describe('package-profile SBOM generation', () => {
         metadata: { component: { name: string } }
       }
       expect(sbom.metadata.component.name).toBe('better-convex-vue')
-      expect(sbom.components.map(({ name }) => name).sort()).toEqual(['convex', 'ohash', 'vue'])
+      expect(sbom.components.map(({ name }) => name).sort()).toEqual([
+        '@modelcontextprotocol/ext-apps',
+        'convex',
+        'ohash',
+        'vue',
+      ])
+      expect(sbom.components.find(({ name }) => name === '@modelcontextprotocol/ext-apps')).toEqual(
+        expect.objectContaining({
+          version: '1.7.4',
+          properties: [
+            {
+              name: 'better-convex-vue:dependency-kind',
+              value: 'optional-peer',
+            },
+          ],
+        }),
+      )
       expect(sbom.components.find(({ name }) => name === 'convex')?.version).toBe('1.42.2')
       expect(sbom.components.find(({ name }) => name === 'vue')?.version).toBe('3.5.39')
       for (const peer of ['convex', 'vue']) {
