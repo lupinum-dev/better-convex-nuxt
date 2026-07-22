@@ -1,12 +1,17 @@
 import {
   bearerAuthChallengeResponse,
+  buildOAuthProtectedResourceMetadata,
   createMcpHandler,
+  getOAuthProtectedResourceMetadataUrl,
   OAuthError,
   OAuthErrorCode,
+  oauthMetadataResponse,
   verifyBearerToken,
   type AuthInfo,
+  type AuthMetadataOptions,
   type McpRequestContext,
   type McpServer,
+  type OAuthMetadata,
   type OAuthTokenVerifier,
   type Server,
 } from '@modelcontextprotocol/server'
@@ -21,6 +26,9 @@ export interface ConvexMcpRequestContext {
 export interface ConvexMcpHandlerOptions<ActionContext> {
   readonly resource: URL
   readonly verifier: McpAccessVerifier
+  readonly oauthMetadata: OAuthMetadata
+  readonly resourceName?: string
+  readonly scopesSupported?: readonly string[]
   readonly createServer: (
     context: ActionContext,
     access: McpAccessContext,
@@ -36,13 +44,26 @@ export function createConvexMcpHandler<ActionContext>(
   options: ConvexMcpHandlerOptions<ActionContext>,
 ): ConvexMcpHandler<ActionContext> {
   const expectedResource = new URL(options.resource.href)
+  const metadataOptions: AuthMetadataOptions = {
+    oauthMetadata: structuredClone(options.oauthMetadata),
+    resourceServerUrl: new URL(expectedResource.href),
+    ...(options.resourceName === undefined ? {} : { resourceName: options.resourceName }),
+    ...(options.scopesSupported === undefined
+      ? {}
+      : { scopesSupported: [...options.scopesSupported] }),
+  }
+  buildOAuthProtectedResourceMetadata(metadataOptions)
+  const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(expectedResource)
 
   return Object.freeze({
     async fetch(context: ActionContext, request: Request): Promise<Response> {
+      const metadataResponse = oauthMetadataResponse(request, metadataOptions)
+      if (metadataResponse) return metadataResponse
       const authenticated = await authenticateRequest(
         request.headers.get('authorization'),
         options.verifier,
         expectedResource,
+        resourceMetadataUrl,
       )
       if (authenticated instanceof Response) return authenticated
 
@@ -59,6 +80,7 @@ async function authenticateRequest(
   authorizationHeader: string | null,
   verifier: McpAccessVerifier,
   expectedResource: URL,
+  resourceMetadataUrl: string,
 ): Promise<VerifiedMcpAccess | Response> {
   let verified: VerifiedMcpAccess | undefined
   const officialVerifier: OAuthTokenVerifier = {
@@ -81,7 +103,12 @@ async function authenticateRequest(
   try {
     await verifyBearerToken(authorizationHeader, { verifier: officialVerifier })
   } catch (error) {
-    return bearerAuthChallengeResponse(error)
+    return bearerAuthChallengeResponse(error, { resourceMetadataUrl })
   }
-  return verified ?? bearerAuthChallengeResponse(new Error('Missing verified access result'))
+  return (
+    verified ??
+    bearerAuthChallengeResponse(new Error('Missing verified access result'), {
+      resourceMetadataUrl,
+    })
+  )
 }

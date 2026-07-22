@@ -8,6 +8,17 @@ import type { McpAccessVerifier } from '../../packages/mcp/src/index'
 
 const resource = new URL('https://notes.example.test/mcp')
 const bearer = 'mcp-handler-bearer-sentinel'
+const oauthMetadata = {
+  authorization_endpoint: 'https://issuer.example.test/authorize',
+  code_challenge_methods_supported: ['S256'],
+  grant_types_supported: ['authorization_code'],
+  issuer: 'https://issuer.example.test/',
+  response_types_supported: ['code'],
+  revocation_endpoint: 'https://issuer.example.test/revoke',
+  scopes_supported: ['notes:read', 'notes:write'],
+  token_endpoint: 'https://issuer.example.test/token',
+  token_endpoint_auth_methods_supported: ['none'],
+}
 
 function accessVerifier(): McpAccessVerifier {
   return {
@@ -38,6 +49,9 @@ describe('Convex-native official MCP handler composition', () => {
     const handler = createConvexMcpHandler({
       resource,
       verifier: accessVerifier(),
+      oauthMetadata,
+      resourceName: 'Neutral notes',
+      scopesSupported: ['notes:read', 'notes:write'],
       createServer(context, access) {
         observedAccess.push(access)
         const server = new McpServer({ name: 'neutral-notes', version: '0.1.0' })
@@ -134,6 +148,7 @@ describe('Convex-native official MCP handler composition', () => {
     const handler = createConvexMcpHandler({
       resource,
       verifier: accessVerifier(),
+      oauthMetadata,
       createServer() {
         factoryCalls += 1
         return new McpServer({ name: 'must-not-run', version: '0.1.0' })
@@ -158,5 +173,67 @@ describe('Convex-native official MCP handler composition', () => {
     const body = await response.text()
     expect(body).not.toContain('wrong-token-sentinel')
     expect(body).not.toContain('mcp-handler-bearer-sentinel')
+  })
+
+  it('serves fixed RFC 9728 metadata and binds every challenge to its exact URL', async () => {
+    const handler = createConvexMcpHandler({
+      resource,
+      verifier: accessVerifier(),
+      oauthMetadata,
+      resourceName: 'Neutral notes',
+      scopesSupported: ['notes:read', 'notes:write'],
+      createServer() {
+        return new McpServer({ name: 'metadata-proof', version: '0.1.0' })
+      },
+    })
+    const protectedResourceUrl = new URL(
+      'https://notes.example.test/.well-known/oauth-protected-resource/mcp',
+    )
+    const protectedResponse = await handler.fetch({}, new Request(protectedResourceUrl))
+    expect(protectedResponse.status).toBe(200)
+    await expect(protectedResponse.json()).resolves.toEqual({
+      authorization_servers: ['https://issuer.example.test/'],
+      resource: resource.href,
+      resource_name: 'Neutral notes',
+      scopes_supported: ['notes:read', 'notes:write'],
+    })
+
+    const authorizationResponse = await handler.fetch(
+      {},
+      new Request('https://notes.example.test/.well-known/oauth-authorization-server'),
+    )
+    expect(authorizationResponse.status).toBe(200)
+    await expect(authorizationResponse.json()).resolves.toEqual(oauthMetadata)
+
+    const denied = await handler.fetch(
+      {},
+      new Request('https://attacker-selected.invalid/mcp?resource=https://attacker.invalid', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer wrong',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ resource: 'https://attacker.invalid' }),
+      }),
+    )
+    expect(denied.status).toBe(401)
+    const challenge = denied.headers.get('www-authenticate')
+    expect(challenge).toContain(
+      'resource_metadata="https://notes.example.test/.well-known/oauth-protected-resource/mcp"',
+    )
+    expect(challenge).not.toContain('attacker')
+  })
+
+  it('fails at construction for an insecure or malformed authorization-server issuer', () => {
+    expect(() =>
+      createConvexMcpHandler({
+        resource,
+        verifier: accessVerifier(),
+        oauthMetadata: { ...oauthMetadata, issuer: 'http://issuer.example.test/' },
+        createServer() {
+          return new McpServer({ name: 'invalid', version: '0.1.0' })
+        },
+      }),
+    ).toThrow()
   })
 })
