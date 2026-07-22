@@ -95,10 +95,20 @@ function canonicalIssuer(value: string): string {
 
 function canonicalResource(value: URL): string {
   if (!(value instanceof URL)) throw new TypeError('Invalid expected resource')
-  if (value.protocol !== 'https:' || value.username || value.password || value.hash) {
+  if (!isSecureResource(value) || value.username || value.password || value.hash) {
     throw new TypeError('Invalid access resource')
   }
   return value.href
+}
+
+function isSecureResource(value: URL): boolean {
+  return (
+    value.protocol === 'https:' ||
+    (value.protocol === 'http:' &&
+      (value.hostname === '127.0.0.1' ||
+        value.hostname === 'localhost' ||
+        value.hostname === '[::1]'))
+  )
 }
 
 function canonicalResourceString(value: string): string {

@@ -14,7 +14,10 @@ out of application callbacks.
 
 The application continues to create `McpServer` directly and calls official `registerTool` and
 `registerResource` APIs directly. Better Convex does not create a second registry or tool-definition
-abstraction.
+abstraction. The neutral package migration admitted one `runMcpTool` callback boundary because the
+official SDK deliberately serializes unexpected callback throws and cannot emit application-safe
+diagnostics without seeing the callback failure. The helper only returns an existing official
+`CallToolResult`; it owns no registration, schema, operation mapping, or domain result vocabulary.
 
 Candidate surface for `P5-002` and `P5-003` proof:
 
@@ -121,7 +124,9 @@ and `P5-012` must prove the exact mechanism before the Better Auth adapter is ad
 
 ## Rejected helpers
 
-- `withBetterConvex()` around each tool: a short closure is clearer and keeps registration official.
+- `withBetterConvex()` registration wrappers remain rejected. `runMcpTool()` is the narrower admitted
+  exception for opaque unexpected failures and optional allowlisted diagnostics; registration remains
+  direct and official.
 - Better Convex tool definitions or registries: second source of truth.
 - automatic Convex function exposure or generic dispatcher: violates explicit operation mapping.
 - `requireMcpScope()`: checking a normalized array does not justify a public function; revisit only if

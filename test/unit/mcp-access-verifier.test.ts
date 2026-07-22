@@ -34,6 +34,30 @@ function verifier(result: VerifiedMcpAccess = verified()): McpAccessVerifier {
 }
 
 describe('provider-neutral MCP access verification boundary', () => {
+  it('permits loopback HTTP for local Convex development but rejects remote plaintext resources', async () => {
+    const loopback = new URL('http://127.0.0.1:3210/mcp')
+    await expect(
+      verifyAndNormalizeMcpAccess({
+        verifier: verifier(verified({ access: { ...verified().access, resource: loopback.href } })),
+        token: 'loopback-token',
+        expectedIssuer: verified().access.issuer,
+        expectedResource: loopback,
+      }),
+    ).resolves.toMatchObject({ access: { resource: loopback.href } })
+
+    const plaintext = new URL('http://resource.example.test/mcp')
+    await expect(
+      verifyAndNormalizeMcpAccess({
+        verifier: verifier(
+          verified({ access: { ...verified().access, resource: plaintext.href } }),
+        ),
+        token: 'plaintext-token',
+        expectedIssuer: verified().access.issuer,
+        expectedResource: plaintext,
+      }),
+    ).rejects.toThrow('Invalid access resource')
+  })
+
   it('normalizes and freezes the exact allowlisted access context', async () => {
     const result = await verifyAndNormalizeMcpAccess({
       verifier: verifier(),

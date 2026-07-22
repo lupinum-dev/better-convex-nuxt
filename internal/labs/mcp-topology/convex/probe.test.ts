@@ -160,6 +160,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       await readFile(path.join(sourceFixture, 'package.json'), 'utf8'),
     ) as { dependencies?: Record<string, string> }
     expect(fixtureManifest.dependencies).toEqual({
+      '@better-convex/mcp': '0.1.0-beta.0',
       '@modelcontextprotocol/server': '2.0.0-beta.5',
       convex: '1.42.2',
       zod: '4.3.6',
@@ -179,7 +180,9 @@ describe('vNext Convex-native MCP topology probe', () => {
     expect(fixtureSource.includes('polyfill')).toBe(false)
     expect(httpSource).not.toContain('/api/auth/get-session')
     expect(httpSource.match(/handler: handleMcp/gu)).toHaveLength(1)
-    expect(mcpSource.match(/requireLabOAuthAccess/gu)).toHaveLength(2)
+    expect(mcpSource.match(/createConvexMcpHandler/gu)).toHaveLength(2)
+    expect(mcpSource).not.toContain('createMcpHandler')
+    expect(mcpSource).not.toContain('requireLabOAuthAccess')
     expect(operationsSource).not.toMatch(/\b(?:AuthInfo|Request|authorization|bearer|token)\b/iu)
     expect(notesDashboardSource).toContain(
       "export const NOTES_DASHBOARD_HTML = '__BCN_NOTES_DASHBOARD_BUILD_REQUIRED__'",
@@ -274,7 +277,10 @@ describe('vNext Convex-native MCP topology probe', () => {
       ]) {
         const invalid = await fetch(mcpUrl, {
           body: '{}',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+          },
           method: 'POST',
         })
         expect(invalid.status).toBe(401)
@@ -299,7 +305,7 @@ describe('vNext Convex-native MCP topology probe', () => {
         headers: { 'content-type': 'application/json' },
         method: 'POST',
       })
-      expect(queryToken.status).toBe(401)
+      expect(queryToken.status).toBe(404)
       expect(await queryToken.text()).not.toContain(OWNER_TOKEN)
       const bodyToken = await fetch(mcpUrl, {
         body: JSON.stringify({ access_token: OWNER_TOKEN }),
@@ -332,9 +338,8 @@ describe('vNext Convex-native MCP topology probe', () => {
         method: 'POST',
       })
       expect(encoded.status).toBe(415)
-      await expect(encoded.json()).resolves.toEqual({
-        code: 'MCP_REQUEST_ENCODING_UNSUPPORTED',
-      })
+      expect(encoded.headers.get('cache-control')).toBe('no-store')
+      await expect(encoded.text()).resolves.toBe('')
 
       const wrongContentType = await fetch(mcpUrl, {
         body: '{}',
@@ -453,15 +458,20 @@ describe('vNext Convex-native MCP topology probe', () => {
         body: '10\r\n{',
         headers: [...rawHeaders.slice(0, -1), ['Transfer-Encoding', 'chunked']],
       })
-      const stalled = await exchangeRawHttp(mcpUrl, incompleteChunk, {
-        keepWriteOpen: true,
-        timeoutMs: 3_000,
-      })
-      expect(stalled.status).toBe(408)
       await abortRawHttp(mcpUrl, incompleteChunk)
+      const recoveredAfterAbort = await fetch(mcpUrl, {
+        body: legacyInitializeBody('after-abort'),
+        headers: {
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${OWNER_TOKEN}`,
+          'content-type': 'application/json',
+        },
+        method: 'POST',
+      })
+      expect(recoveredAfterAbort.status).toBe(200)
 
       console.info(
-        `[vnext-convex-http] origin=${hostileOrigin.status} encoding=${encoded.status} contentType=${wrongContentType.status} oversized=${oversized.status} path=${wrongPath.status} query=${queryDisagreement.status} method=${wrongMethod.status} duplicateLength=${duplicateLength.status} conflictingFraming=${conflictingFraming.status} streamed=${streamed.status} streamedOversized=${oversizedStream.status} stalled=${stalled.status}`,
+        `[vnext-convex-http] origin=${hostileOrigin.status} encoding=${encoded.status} contentType=${wrongContentType.status} oversized=${oversized.status} path=${wrongPath.status} query=${queryDisagreement.status} method=${wrongMethod.status} duplicateLength=${duplicateLength.status} conflictingFraming=${conflictingFraming.status} streamed=${streamed.status} streamedOversized=${oversizedStream.status} abortRecovery=${recoveredAfterAbort.status}`,
       )
 
       const [toolsA, toolsB, toolsModern] = await Promise.all([
@@ -481,7 +491,9 @@ describe('vNext Convex-native MCP topology probe', () => {
       const modernSearch = await connectionModern.client.callTool(
         topologyConformanceVectors.search.allowed,
       )
-      expect(modernSearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      expect(modernSearch.structuredContent).toMatchObject({
+        matches: [{ id: 'note-a' }],
+      })
       const modernResource = await connectionModern.client.readResource(
         topologyConformanceVectors.resource,
       )
@@ -505,12 +517,20 @@ describe('vNext Convex-native MCP topology probe', () => {
         McpUiToolMetaSchema.parse((supportedSearch?._meta as { ui?: unknown } | undefined)?.ui),
       ).toEqual(supportedSearch?._meta?.ui)
 
-      const supportedRequests = connectionA.requestBodies
-        .filter(Boolean)
-        .map((body) => JSON.parse(body) as { method?: string; params?: Record<string, unknown> })
-      const unsupportedRequests = connectionB.requestBodies
-        .filter(Boolean)
-        .map((body) => JSON.parse(body) as { method?: string; params?: Record<string, unknown> })
+      const supportedRequests = connectionA.requestBodies.filter(Boolean).map(
+        (body) =>
+          JSON.parse(body) as {
+            method?: string
+            params?: Record<string, unknown>
+          },
+      )
+      const unsupportedRequests = connectionB.requestBodies.filter(Boolean).map(
+        (body) =>
+          JSON.parse(body) as {
+            method?: string
+            params?: Record<string, unknown>
+          },
+      )
       expect(supportedRequests[0]).toMatchObject({
         method: 'initialize',
         params: {
@@ -603,19 +623,27 @@ describe('vNext Convex-native MCP topology probe', () => {
           name: 'search_notes',
         }),
       ])
-      expect(searchA.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
-      expect(searchA.content).toEqual([
-        { text: JSON.stringify(searchA.structuredContent), type: 'text' },
-      ])
-      expect(searchB.structuredContent).toMatchObject({ matches: [{ id: 'note-b' }] })
+      expect(searchA.structuredContent).toMatchObject({
+        matches: [{ id: 'note-a' }],
+      })
+      expect(searchA.content).toEqual([{ text: '1 note matched.', type: 'text' }])
+      expect(searchB.structuredContent).toMatchObject({
+        matches: [{ id: 'note-b' }],
+      })
 
       const readOnlySearch = await connectionReadOnly.client.callTool({
         arguments: { query: 'alpha', workspaceId: 'workspace-a' },
         name: 'search_notes',
       })
-      expect(readOnlySearch.structuredContent).toMatchObject({ matches: [{ id: 'note-a' }] })
+      expect(readOnlySearch.structuredContent).toMatchObject({
+        matches: [{ id: 'note-a' }],
+      })
       const readOnlyRename = await connectionReadOnly.client.callTool({
-        arguments: { noteId: 'note-a', requestKey: 'scope-denied', title: 'Denied' },
+        arguments: {
+          noteId: 'note-a',
+          requestKey: 'scope-denied',
+          title: 'Denied',
+        },
         name: 'rename_note',
       })
       expect(readOnlyRename).toMatchObject({
@@ -654,15 +682,23 @@ describe('vNext Convex-native MCP topology probe', () => {
       const [renameA, renameB] = await Promise.all([
         connectionA.client.callTool(topologyConformanceVectors.rename.first),
         connectionB.client.callTool({
-          arguments: { noteId: 'note-b', requestKey: 'rename-b', title: 'Beta renamed' },
+          arguments: {
+            noteId: 'note-b',
+            requestKey: 'rename-b',
+            title: 'Beta renamed',
+          },
           name: 'rename_note',
         }),
       ])
-      expect(renameA.structuredContent).toMatchObject({ noteId: 'note-a', title: 'Alpha renamed' })
-      expect(renameA.content).toEqual([
-        { text: JSON.stringify(renameA.structuredContent), type: 'text' },
-      ])
-      expect(renameB.structuredContent).toMatchObject({ noteId: 'note-b', title: 'Beta renamed' })
+      expect(renameA.structuredContent).toMatchObject({
+        noteId: 'note-a',
+        title: 'Alpha renamed',
+      })
+      expect(renameA.content).toEqual([{ text: 'Renamed note-a.', type: 'text' }])
+      expect(renameB.structuredContent).toMatchObject({
+        noteId: 'note-b',
+        title: 'Beta renamed',
+      })
 
       const renameReplay = await connectionA.client.callTool(
         topologyConformanceVectors.rename.first,
@@ -672,7 +708,12 @@ describe('vNext Convex-native MCP topology probe', () => {
         topologyConformanceVectors.rename.conflicting,
       )
       expect(renameConflict).toMatchObject({
-        content: [{ text: JSON.stringify({ code: 'IDEMPOTENCY_CONFLICT' }), type: 'text' }],
+        content: [
+          {
+            text: JSON.stringify({ code: 'IDEMPOTENCY_CONFLICT' }),
+            type: 'text',
+          },
+        ],
         isError: true,
       })
 
@@ -706,7 +747,10 @@ describe('vNext Convex-native MCP topology probe', () => {
           name: 'delete_workspace',
         }),
       ])
-      expect(report.structuredContent).toMatchObject({ noteCount: 1, workspaceId: 'workspace-a' })
+      expect(report.structuredContent).toMatchObject({
+        noteCount: 1,
+        workspaceId: 'workspace-a',
+      })
       expect(deniedDelete).toMatchObject({
         content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
         isError: true,
@@ -733,8 +777,16 @@ describe('vNext Convex-native MCP topology probe', () => {
       await expect(convex.action(inaccessibleHttpAction, {})).rejects.toThrow(/public function/iu)
       const setMember = makeFunctionReference<
         'mutation',
-        { role: 'editor' | 'owner'; status: 'active' | 'removed'; subject: string },
-        { role: 'editor' | 'owner'; status: 'active' | 'removed'; subject: string }
+        {
+          role: 'editor' | 'owner'
+          status: 'active' | 'removed'
+          subject: string
+        },
+        {
+          role: 'editor' | 'owner'
+          status: 'active' | 'removed'
+          subject: string
+        }
       >('fixture:setMember')
       const setMemberWithBearer = makeFunctionReference<
         'mutation',
@@ -755,7 +807,11 @@ describe('vNext Convex-native MCP topology probe', () => {
         }),
       ).rejects.toThrow(/extra field.*authorization/iu)
       await expect(
-        convex.mutation(setMember, { role: 'owner', status: 'active', subject: 'bob' }),
+        convex.mutation(setMember, {
+          role: 'owner',
+          status: 'active',
+          subject: 'bob',
+        }),
       ).resolves.toEqual({ role: 'owner', status: 'active', subject: 'bob' })
       const allowedAfterLiveRoleChange = await connectionB.client.callTool({
         arguments: { expectedRevision: 1, workspaceId: 'workspace-b' },

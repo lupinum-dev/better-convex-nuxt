@@ -6,6 +6,7 @@ import {
   OAuthError,
   OAuthErrorCode,
   oauthMetadataResponse,
+  originValidationResponse,
   verifyBearerToken,
   type AuthInfo,
   type AuthMetadataOptions,
@@ -35,6 +36,7 @@ export interface ConvexMcpHandlerOptions<ActionContext> {
   readonly verifier: McpAccessVerifier
   readonly oauthMetadata: OAuthMetadata
   readonly resourceName?: string
+  readonly requiredScopes?: readonly string[]
   readonly scopesSupported?: readonly string[]
   readonly createServer: (
     context: ActionContext,
@@ -61,6 +63,8 @@ export function createConvexMcpHandler<ActionContext>(
   }
   buildOAuthProtectedResourceMetadata(metadataOptions)
   const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(expectedResource)
+  const requiredScopes =
+    options.requiredScopes === undefined ? undefined : [...options.requiredScopes]
 
   return Object.freeze({
     async fetch(context: ActionContext, request: Request): Promise<Response> {
@@ -68,12 +72,15 @@ export function createConvexMcpHandler<ActionContext>(
         return await runMcpRequestDeadline(request.signal, async (signal) => {
           const metadataResponse = oauthMetadataResponse(request, metadataOptions)
           if (metadataResponse) return await boundMcpResponse(metadataResponse)
+          const boundaryResponse = requestBoundaryResponse(request, expectedResource)
+          if (boundaryResponse) return boundaryResponse
           const authenticated = await authenticateRequest(
             request.headers.get('authorization'),
             options.verifier,
             metadataOptions.oauthMetadata.issuer,
             expectedResource,
             resourceMetadataUrl,
+            requiredScopes,
           )
           if (authenticated instanceof Response) return await boundMcpResponse(authenticated)
 
@@ -82,7 +89,11 @@ export function createConvexMcpHandler<ActionContext>(
             ({ era }) => options.createServer(context, authenticated.access, { era }),
             { legacy: 'stateless' },
           )
-          return await boundMcpResponse(await handler.fetch(boundedRequest))
+          try {
+            return await boundMcpResponse(await handler.fetch(boundedRequest))
+          } finally {
+            await handler.close()
+          }
         })
       } catch (error) {
         if (error instanceof McpTransportFailure) return mcpTransportFailureResponse(error)
@@ -92,12 +103,28 @@ export function createConvexMcpHandler<ActionContext>(
   })
 }
 
+function requestBoundaryResponse(request: Request, expectedResource: URL): Response | undefined {
+  const url = new URL(request.url)
+  if (url.href !== expectedResource.href) return emptyFailure(404)
+  if (request.headers.has('content-encoding')) return emptyFailure(415)
+  const originRejected = originValidationResponse(request, [])
+  return originRejected ? emptyFailure(originRejected.status) : undefined
+}
+
+function emptyFailure(status: number): Response {
+  return new Response(null, {
+    headers: { 'cache-control': 'no-store' },
+    status,
+  })
+}
+
 async function authenticateRequest(
   authorizationHeader: string | null,
   verifier: McpAccessVerifier,
   expectedIssuer: string,
   expectedResource: URL,
   resourceMetadataUrl: string,
+  requiredScopes: string[] | undefined,
 ): Promise<VerifiedMcpAccess | Response> {
   let verified: VerifiedMcpAccess | undefined
   const officialVerifier: OAuthTokenVerifier = {
@@ -123,9 +150,12 @@ async function authenticateRequest(
   }
 
   try {
-    await verifyBearerToken(authorizationHeader, { verifier: officialVerifier })
+    await verifyBearerToken(authorizationHeader, {
+      verifier: officialVerifier,
+      requiredScopes,
+    })
   } catch (error) {
-    return bearerAuthChallengeResponse(error, { resourceMetadataUrl })
+    return bearerAuthChallengeResponse(error, { resourceMetadataUrl, requiredScopes })
   }
   return (
     verified ??

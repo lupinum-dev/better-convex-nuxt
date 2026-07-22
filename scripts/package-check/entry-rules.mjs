@@ -176,8 +176,8 @@ const MCP_CHECKER_ENTRY_RULES = [
   {
     subpath: '.',
     purity: {
-      runtimeExternalSpecifiers: [],
-      typeExternalSpecifiers: [],
+      runtimeExternalSpecifiers: ['@modelcontextprotocol/server'],
+      typeExternalSpecifiers: ['@modelcontextprotocol/server'],
     },
   },
 ]

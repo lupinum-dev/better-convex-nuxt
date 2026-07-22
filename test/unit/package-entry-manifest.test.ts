@@ -111,8 +111,17 @@ describe('package entry manifest', () => {
     })
     expect(manifest.entries[0]).toMatchObject({
       kind: 'runtime',
-      valueExports: [],
-      typeExports: ['McpAccessContext', 'McpAccessVerifier', 'VerifiedMcpAccess'],
+      valueExports: ['createConvexMcpHandler', 'runMcpTool'],
+      typeExports: [
+        'ConvexMcpHandler',
+        'ConvexMcpHandlerOptions',
+        'ConvexMcpRequestContext',
+        'McpAccessContext',
+        'McpAccessVerifier',
+        'McpToolDiagnostic',
+        'McpToolDiagnosticOptions',
+        'VerifiedMcpAccess',
+      ],
     })
   })
 
@@ -393,8 +402,8 @@ describe('package entry manifest', () => {
     expect(checkerEntries.map((entry: CheckerEntry) => entry.subpath)).toEqual(mcpEntrySubpaths)
     expect(checkerEntries).toHaveLength(packageEntries.length)
     expect(checkerEntries[0]?.purity).toEqual({
-      runtimeExternalSpecifiers: [],
-      typeExternalSpecifiers: [],
+      runtimeExternalSpecifiers: ['@modelcontextprotocol/server'],
+      typeExternalSpecifiers: ['@modelcontextprotocol/server'],
     })
   })
 
