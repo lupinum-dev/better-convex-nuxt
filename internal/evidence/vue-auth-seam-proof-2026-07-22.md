@@ -68,6 +68,11 @@ pnpm run check:boundaries
 Results: 5 unit files / 71 tests and 8 security files / 29 tests passed; module, server, and fixture
 typechecks passed; 12 architecture rules over 247 files passed; focused lint and format passed.
 
+The listed security commands describe the pre-cutover proof at the task's completion commit. The
+Nuxt-owned `client-auth-regressions.test.ts` file was subsequently deleted with the old client engine;
+current ASVS ownership and replacement proof are recorded in
+[`asvs-client-lifecycle-cutover-2026-07-22.md`](./asvs-client-lifecycle-cutover-2026-07-22.md).
+
 ## Required next cutover proof
 
 This proof intentionally does not replace the current production coordinator. `P4-003` must drive
