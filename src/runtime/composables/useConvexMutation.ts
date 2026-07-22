@@ -10,9 +10,9 @@ import { getCurrentScope, onScopeDispose, type Ref, type ComputedRef } from 'vue
 import { useNuxtApp } from '#imports'
 
 import { createCallableController } from '../client-core/callable-controller'
-import type { DevtoolsSink } from '../devtools/sink'
 import type { ConvexCallError, CallResult } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
+import { createCallableDevtoolsEvents } from '../utils/callable-devtools'
 import { ensureConvexAuthReady } from '../utils/convex-auth-ready'
 import { getFunctionName } from '../utils/convex-shared'
 import { createLogger } from '../utils/logger'
@@ -250,7 +250,6 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   // the raw replaceable `$convex` seam: after an identity switch a captured raw
   // client would be closed/stale, and a retired-generation in-flight call must
   // reject with IDENTITY_CHANGED instead of returning under the new identity.
-  type DevtoolsEvent = { sink: DevtoolsSink; id: string }
   const lifecycle = createCallableController<Args, Result>({
     operation: 'mutation',
     getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
@@ -276,41 +275,12 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
       logError: (args, duration, error) =>
         logger.mutation({ name: fnName, event: 'error', args, duration, error }),
       logCallbackError: (error) => logger.mutation({ name: fnName, event: 'error', error }),
-      startEvent: (args, startedAt): DevtoolsEvent | undefined => {
-        const sink = runtime?.getDevtoolsSink()
-        if (!sink) return undefined
-        const id = sink.registerMutation({
-          name: fnName,
-          type: 'mutation',
-          args,
-          state: hasOptimisticUpdate ? 'optimistic' : 'pending',
-          hasOptimisticUpdate,
-          startedAt,
-        })
-        return id ? { sink, id } : undefined
-      },
-      finishEvent: (rawEvent, result, startedAt) => {
-        const event = rawEvent as DevtoolsEvent | undefined
-        if (!event) return
-        const settledAt = Date.now()
-        event.sink.updateMutation(event.id, {
-          state: 'success',
-          result,
-          settledAt,
-          duration: settledAt - startedAt,
-        })
-      },
-      failEvent: (rawEvent, error, startedAt) => {
-        const event = rawEvent as DevtoolsEvent | undefined
-        if (!event) return
-        const settledAt = Date.now()
-        event.sink.updateMutation(event.id, {
-          state: 'error',
-          error: error.message,
-          settledAt,
-          duration: settledAt - startedAt,
-        })
-      },
+      ...createCallableDevtoolsEvents<Args, Result>({
+        operation: 'mutation',
+        fnName,
+        hasOptimisticUpdate,
+        getSink: () => runtime?.getDevtoolsSink() ?? null,
+      }),
     },
   })
 

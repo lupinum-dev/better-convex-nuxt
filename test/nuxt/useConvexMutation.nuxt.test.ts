@@ -117,6 +117,23 @@ describe('useConvexMutation (Nuxt runtime)', () => {
     expect(convex.calls.mutation).toHaveLength(1)
   })
 
+  it('passes the optimistic update only through the mutation transport', async () => {
+    const convex = new MockConvexClient()
+    const mutation = mockFnRef<'mutation'>('testing:optimistic-transport')
+    convex.setMutationHandler('testing:optimistic-transport', async () => ({ ok: true }))
+    const mutationSpy = vi.spyOn(convex, 'mutation')
+    const optimisticUpdate = vi.fn()
+
+    const { result } = await captureInNuxt(
+      () => useConvexMutation(mutation, { optimisticUpdate }),
+      { convex },
+    )
+
+    await expect(result({ value: 'next' } as never)).resolves.toEqual({ ok: true })
+    const transportArgs = mutationSpy.mock.calls[0] as unknown[]
+    expect(transportArgs[2]).toEqual({ optimisticUpdate })
+  })
+
   it('calls argless mutations with empty args', async () => {
     const convex = new MockConvexClient()
     const mutation = mockFnRef<'mutation'>('testing:argless')
