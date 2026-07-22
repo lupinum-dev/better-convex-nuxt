@@ -81,6 +81,7 @@ export interface QueryController<RawT, DataT> {
     previousBoundaryKey: string
     nextLive: boolean
     previousLive: boolean
+    nextIdle: boolean
   }): void
   clear(): void
   dispose(): void
@@ -241,6 +242,7 @@ export function createQueryController<RawT, DataT = RawT>(
     previousBoundaryKey: string
     nextLive: boolean
     previousLive: boolean
+    nextIdle: boolean
   }): void {
     if (
       boundary.nextBoundaryKey === boundary.previousBoundaryKey &&
@@ -252,6 +254,12 @@ export function createQueryController<RawT, DataT = RawT>(
     if (subscribedKey === boundary.nextBoundaryKey) return
     invalidateOperations()
     teardownSubscription()
+    if (boundary.nextIdle) {
+      resetSettled()
+      input.boundary.clearData()
+      input.boundary.clearAsyncError()
+      return
+    }
     if (boundary.nextLive) setupSubscription()
   }
 

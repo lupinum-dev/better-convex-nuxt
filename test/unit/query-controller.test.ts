@@ -170,12 +170,32 @@ describe('query controller', () => {
       previousBoundaryKey: 'notes:list:alice:page:1',
       nextLive: true,
       previousLive: true,
+      nextIdle: false,
     })
 
     expect(state.unsubscribes).toBe(1)
     expect(state.active).toBeDefined()
     expect(controller.isStale({ idle: false, pending: true })).toBe(true)
     expect(controller.defaultValue()).toEqual({ owner: 'alice', count: 1 })
+  })
+
+  it('clears protected and previous data when the execution gate becomes idle', () => {
+    const { controller, state } = makeHarness()
+    controller.setupSubscription()
+    state.active?.value({ owner: 'alice', count: 1 })
+
+    state.setArgs('skip', 'skip', 'notes:list:idle')
+    controller.handleExecutionBoundary({
+      nextBoundaryKey: 'notes:list:idle',
+      previousBoundaryKey: 'notes:list:alice:page:1',
+      nextLive: false,
+      previousLive: true,
+      nextIdle: true,
+    })
+
+    expect(state.data).toBeNull()
+    expect(controller.defaultValue()).toBeNull()
+    expect(state.unsubscribes).toBe(1)
   })
 
   it('normalizes current errors but ignores errors from retired operations', () => {

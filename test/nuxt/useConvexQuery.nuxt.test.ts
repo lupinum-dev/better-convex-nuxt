@@ -203,6 +203,7 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     await flush()
 
     await waitFor(() => convex.activeListenerCount(query, {}) === 0)
+    expect(result.queryResult.data.value).toBeNull()
     expect(result.queryResult.status.value).toBe('idle')
     expect(result.queryResult.pending.value).toBe(false)
     expect(result.queryResult.isStale.value).toBe(false)

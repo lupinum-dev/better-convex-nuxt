@@ -441,6 +441,7 @@ export function createConvexQueryState<
       () => ({
         key: asyncDataKey.value,
         live: gate.value.outcome === 'execute' && gate.value.subscribe,
+        idle: gate.value.outcome === 'idle',
       }),
       (next, prev) => {
         controller.handleExecutionBoundary({
@@ -448,6 +449,7 @@ export function createConvexQueryState<
           previousBoundaryKey: prev.key,
           nextLive: next.live,
           previousLive: prev.live,
+          nextIdle: next.idle,
         })
       },
     )
