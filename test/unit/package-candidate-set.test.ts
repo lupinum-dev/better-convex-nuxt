@@ -35,11 +35,13 @@ function createRepository(version = '0.8.0-beta.0') {
     join(root, 'packages/vue/package.json'),
     `${JSON.stringify({ name: 'better-convex-vue', version })}\n`,
   )
-  for (const packageId of ['vue', 'nuxt']) {
+  for (const packageId of ['vue', 'nuxt'] as const) {
     const coordinates = getPackageArtifactCoordinates(packageId, { repositoryRoot: root })
-    mkdirSync(dirname(coordinates.paths.evidence), { recursive: true })
+    const evidencePath = coordinates.paths.evidence
+    if (!evidencePath) throw new Error(`Missing ${packageId} evidence coordinate`)
+    mkdirSync(dirname(evidencePath), { recursive: true })
     writeFileSync(
-      coordinates.paths.evidence,
+      evidencePath,
       `${JSON.stringify({
         schemaVersion: packageArtifactEvidenceSchemaVersion,
         packageId: coordinates.packageId,
