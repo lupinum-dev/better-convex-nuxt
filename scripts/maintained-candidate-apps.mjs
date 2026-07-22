@@ -3,6 +3,7 @@ import { getPackageCertificationDescriptor } from './package-certification-manif
 const candidateTestProfiles = Object.freeze({
   'nuxt-maintained-consumers': Object.freeze({
     kind: 'apps',
+    browserRunners: Object.freeze(['scripts/check-nuxt-lifecycle-consumer.mjs']),
     companionPackages: Object.freeze(['vue']),
     npmConsumer: Object.freeze({
       name: 'npm-consumer-smoke',
@@ -68,7 +69,10 @@ function assertCandidateTestProfile(profile, profileId) {
     typeof profile !== 'object' ||
     profile.kind !== 'apps' ||
     Object.keys(profile).sort().join(',') !==
-      'companionPackages,kind,npmConsumer,pnpmApps,tarballFilename' ||
+      'browserRunners,companionPackages,kind,npmConsumer,pnpmApps,tarballFilename' ||
+    !Array.isArray(profile.browserRunners) ||
+    JSON.stringify(profile.browserRunners) !==
+      JSON.stringify(['scripts/check-nuxt-lifecycle-consumer.mjs']) ||
     !Array.isArray(profile.companionPackages) ||
     JSON.stringify(profile.companionPackages) !== JSON.stringify(['vue']) ||
     !Array.isArray(profile.pnpmApps) ||

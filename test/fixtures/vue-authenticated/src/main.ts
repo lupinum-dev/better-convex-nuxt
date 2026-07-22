@@ -23,7 +23,7 @@ import {
   readSubscriptions,
   rejectCurrentCredential,
   resolveDeferredMutation,
-} from './mock-convex-browser'
+} from '../../browser-runtime/mock-convex-browser'
 
 type AuthStatus = BetterConvexAuthSnapshot['status']
 interface Note {

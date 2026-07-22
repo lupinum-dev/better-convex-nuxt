@@ -154,11 +154,13 @@ export class ConvexClient {
     currentAuthChange = null
   }
 
-  query = async (_reference: FunctionReference<'query'>, _args: Record<string, unknown>) => {
+  query = async (reference: FunctionReference<'query'>, _args: Record<string, unknown>) => {
     stats.queryCalls += 1
     const failure = consumeFailure('query')
     if (failure) throw failure
-    return null
+    return getFunctionName(reference).endsWith('listPaginated')
+      ? { page: [], continueCursor: '', isDone: true }
+      : []
   }
 
   mutation = async (_reference: FunctionReference<'mutation'>, args: Record<string, unknown>) => {

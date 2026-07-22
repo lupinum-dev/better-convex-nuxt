@@ -12,6 +12,7 @@ describe('maintained candidate-test profiles', () => {
     })
     expect(selected.profile).toEqual({
       kind: 'apps',
+      browserRunners: ['scripts/check-nuxt-lifecycle-consumer.mjs'],
       companionPackages: ['vue'],
       npmConsumer: {
         name: 'npm-consumer-smoke',
@@ -37,6 +38,7 @@ describe('maintained candidate-test profiles', () => {
     expect(Object.isFrozen(selected.profile.pnpmApps)).toBe(true)
     expect(Object.isFrozen(selected.profile.pnpmApps[0])).toBe(true)
     expect(Object.isFrozen(selected.profile.companionPackages)).toBe(true)
+    expect(Object.isFrozen(selected.profile.browserRunners)).toBe(true)
   })
 
   it('selects the closed Vue runner matrix through its reviewed descriptor', () => {

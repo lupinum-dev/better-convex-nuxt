@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawn } from 'node:child_process'
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -12,6 +12,7 @@ import { prepareVueCandidate } from './vue-candidate-consumer.mjs'
 
 const repositoryRoot = resolve(import.meta.dirname, '..')
 const fixtureRoot = join(repositoryRoot, 'test/fixtures/vue-authenticated')
+const browserRuntimeFixture = join(repositoryRoot, 'test/fixtures/browser-runtime')
 const scratchRoot = mkdtempSync(join(tmpdir(), 'better-convex-vue-auth-'))
 const consumerRoot = join(scratchRoot, 'consumer')
 const tokenSentinel = `proof-${crypto.randomUUID()}`
@@ -85,8 +86,10 @@ try {
   candidate = prepareVueCandidate(process.argv.slice(2), scratchRoot)
 
   cpSync(fixtureRoot, consumerRoot, { recursive: true })
+  cpSync(browserRuntimeFixture, join(scratchRoot, 'browser-runtime'), { recursive: true })
   cpSync(candidate.tarballPath, join(consumerRoot, 'better-convex-vue.tgz'))
   run('pnpm', ['install', '--frozen-lockfile=false', '--ignore-scripts'], consumerRoot)
+  symlinkSync(join(consumerRoot, 'node_modules'), join(scratchRoot, 'node_modules'), 'dir')
   candidate.assertInstalled(join(consumerRoot, 'node_modules/better-convex-vue'))
   run('pnpm', ['run', 'typecheck'], consumerRoot)
   run('pnpm', ['run', 'build'], consumerRoot)

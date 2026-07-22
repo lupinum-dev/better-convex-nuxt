@@ -707,13 +707,25 @@ try {
       companionCandidates,
     )
 
+    const vueCandidate = companionCandidates.find((candidate) => candidate.descriptor.id === 'vue')
+    if (!vueCandidate) throw new Error('Nuxt candidate profile requires one Vue companion')
+    for (const runner of candidateProfile.browserRunners) {
+      run(process.execPath, [
+        runner,
+        '--nuxt-tarball',
+        tarballPath,
+        '--vue-tarball',
+        vueCandidate.tarballPath,
+      ])
+    }
+
     if (!agencyConvexDeployKey) {
       console.log(
         '\nAgency live codegen freshness skipped: set AGENCY_CONVEX_DEPLOY_KEY to enable it.',
       )
     }
     console.log(
-      `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps and one npm consumer, one exact package set).`,
+      `\nCandidate app matrix passed (${candidateProfile.pnpmApps.length} pnpm apps, one npm consumer, and ${candidateProfile.browserRunners.length} production browser runner; one exact package set).`,
     )
   }
 } finally {
