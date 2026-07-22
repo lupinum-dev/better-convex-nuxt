@@ -36,8 +36,11 @@ export interface McpAccessVerifier {
 
 export const mcp = createConvexMcpHandler({
   resource: 'https://deployment.example/mcp',
-  allowedOrigins: ['https://app.example'],
   verifier,
+  authorization: {
+    mode: 'oauth',
+    metadata: oauthMetadata,
+  },
   createServer(ctx, access) {
     const server = new McpServer({ name: 'my-app', version: '0.1.0' })
     server.registerTool(/* official SDK API */)
@@ -50,6 +53,25 @@ export const handleMcp = httpAction((ctx, request) => mcp.fetch(ctx, request))
 
 Names and the verifier's non-public result shape remain subject to implementation proof. No other
 helper is admitted by this decision.
+
+## Preconfigured bearer credentials
+
+Ginko supplied the required materially different credential model: an application-managed API key
+already configured in the MCP client, rather than a token obtained through MCP OAuth discovery. The
+official client permits callers to supply externally managed bearer tokens, while the authorization
+specification requires RFC 9728 metadata when the server participates in OAuth discovery. Advertising a
+fictional authorization server or relabelling an API key as OAuth would therefore be incorrect.
+
+Admit one explicit `preconfigured-bearer` authorization profile. It uses the same header-only bearer
+verification, exact resource binding, scope ceiling, sanitized challenge, transport boundary, and access
+context as OAuth mode, but serves no OAuth metadata and emits no `resource_metadata` challenge parameter.
+The application supplies one canonical HTTPS credential issuer for provenance. This is not interactive
+authorization, token exchange, or an OAuth compatibility mode.
+
+The two profiles are a discriminated union. OAuth metadata cannot be partially combined with a
+preconfigured credential, and switching modes is an intentional construction-time decision. This adds no
+token store, credential format, provisioning API, provider dependency, or application authorization
+policy.
 
 ## Direct official SDK comparison
 

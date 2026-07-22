@@ -34,10 +34,23 @@ export interface ConvexMcpRequestContext {
 export interface ConvexMcpHandlerOptions<ActionContext> {
   readonly resource: URL
   readonly verifier: McpAccessVerifier
-  readonly oauthMetadata: OAuthMetadata
-  readonly resourceName?: string
-  readonly requiredScopes?: readonly string[]
-  readonly scopesSupported?: readonly string[]
+  readonly authorization:
+    | {
+        readonly mode: 'oauth'
+        readonly metadata: OAuthMetadata
+        readonly resourceName?: string
+        readonly requiredScopes?: readonly string[]
+        readonly scopesSupported?: readonly string[]
+      }
+    | {
+        /**
+         * Preconfigured bearer credentials are provisioned out of band by the application. This
+         * mode deliberately does not publish OAuth discovery metadata.
+         */
+        readonly mode: 'preconfigured-bearer'
+        readonly issuer: string
+        readonly requiredScopes?: readonly string[]
+      }
   readonly createServer: (
     context: ActionContext,
     access: McpAccessContext,
@@ -53,33 +66,27 @@ export function createConvexMcpHandler<ActionContext>(
   options: ConvexMcpHandlerOptions<ActionContext>,
 ): ConvexMcpHandler<ActionContext> {
   const expectedResource = new URL(options.resource.href)
-  const metadataOptions: AuthMetadataOptions = {
-    oauthMetadata: structuredClone(options.oauthMetadata),
-    resourceServerUrl: new URL(expectedResource.href),
-    ...(options.resourceName === undefined ? {} : { resourceName: options.resourceName }),
-    ...(options.scopesSupported === undefined
-      ? {}
-      : { scopesSupported: [...options.scopesSupported] }),
-  }
-  buildOAuthProtectedResourceMetadata(metadataOptions)
-  const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(expectedResource)
+  const authorization = normalizeAuthorization(options.authorization, expectedResource)
   const requiredScopes =
-    options.requiredScopes === undefined ? undefined : [...options.requiredScopes]
+    authorization.requiredScopes === undefined ? undefined : [...authorization.requiredScopes]
 
   return Object.freeze({
     async fetch(context: ActionContext, request: Request): Promise<Response> {
       try {
         return await runMcpRequestDeadline(request.signal, async (signal) => {
-          const metadataResponse = oauthMetadataResponse(request, metadataOptions)
+          const metadataResponse =
+            authorization.mode === 'oauth'
+              ? oauthMetadataResponse(request, authorization.metadataOptions)
+              : undefined
           if (metadataResponse) return await boundMcpResponse(metadataResponse)
           const boundaryResponse = requestBoundaryResponse(request, expectedResource)
           if (boundaryResponse) return boundaryResponse
           const authenticated = await authenticateRequest(
             request.headers.get('authorization'),
             options.verifier,
-            metadataOptions.oauthMetadata.issuer,
+            authorization.issuer,
             expectedResource,
-            resourceMetadataUrl,
+            authorization.resourceMetadataUrl,
             requiredScopes,
           )
           if (authenticated instanceof Response) return await boundMcpResponse(authenticated)
@@ -103,6 +110,74 @@ export function createConvexMcpHandler<ActionContext>(
   })
 }
 
+type NormalizedAuthorization =
+  | {
+      readonly mode: 'oauth'
+      readonly issuer: string
+      readonly metadataOptions: AuthMetadataOptions
+      readonly resourceMetadataUrl: string
+      readonly requiredScopes?: readonly string[]
+    }
+  | {
+      readonly mode: 'preconfigured-bearer'
+      readonly issuer: string
+      readonly resourceMetadataUrl: undefined
+      readonly requiredScopes?: readonly string[]
+    }
+
+function normalizeAuthorization(
+  authorization: ConvexMcpHandlerOptions<unknown>['authorization'],
+  expectedResource: URL,
+): NormalizedAuthorization {
+  if (authorization.mode === 'preconfigured-bearer') {
+    const issuer = canonicalAuthorizationIssuer(authorization.issuer)
+    return Object.freeze({
+      mode: authorization.mode,
+      issuer,
+      resourceMetadataUrl: undefined,
+      ...(authorization.requiredScopes === undefined
+        ? {}
+        : { requiredScopes: Object.freeze([...authorization.requiredScopes]) }),
+    })
+  }
+
+  const metadataOptions: AuthMetadataOptions = {
+    oauthMetadata: structuredClone(authorization.metadata),
+    resourceServerUrl: new URL(expectedResource.href),
+    ...(authorization.resourceName === undefined
+      ? {}
+      : { resourceName: authorization.resourceName }),
+    ...(authorization.scopesSupported === undefined
+      ? {}
+      : { scopesSupported: [...authorization.scopesSupported] }),
+  }
+  buildOAuthProtectedResourceMetadata(metadataOptions)
+  return Object.freeze({
+    mode: authorization.mode,
+    issuer: metadataOptions.oauthMetadata.issuer,
+    metadataOptions,
+    resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(expectedResource),
+    ...(authorization.requiredScopes === undefined
+      ? {}
+      : { requiredScopes: Object.freeze([...authorization.requiredScopes]) }),
+  })
+}
+
+function canonicalAuthorizationIssuer(value: string): string {
+  const issuer = new URL(value)
+  if (
+    issuer.protocol !== 'https:' ||
+    issuer.username ||
+    issuer.password ||
+    issuer.search ||
+    issuer.hash ||
+    issuer.href !== value
+  ) {
+    throw new TypeError('Invalid access issuer')
+  }
+  return value
+}
+
 function requestBoundaryResponse(request: Request, expectedResource: URL): Response | undefined {
   const url = new URL(request.url)
   if (url.href !== expectedResource.href) return emptyFailure(404)
@@ -123,7 +198,7 @@ async function authenticateRequest(
   verifier: McpAccessVerifier,
   expectedIssuer: string,
   expectedResource: URL,
-  resourceMetadataUrl: string,
+  resourceMetadataUrl: string | undefined,
   requiredScopes: string[] | undefined,
 ): Promise<VerifiedMcpAccess | Response> {
   let verified: VerifiedMcpAccess | undefined
@@ -155,12 +230,16 @@ async function authenticateRequest(
       requiredScopes,
     })
   } catch (error) {
-    return bearerAuthChallengeResponse(error, { resourceMetadataUrl, requiredScopes })
+    return bearerAuthChallengeResponse(error, {
+      ...(resourceMetadataUrl === undefined ? {} : { resourceMetadataUrl }),
+      requiredScopes,
+    })
   }
   return (
     verified ??
-    bearerAuthChallengeResponse(new Error('Missing verified access result'), {
-      resourceMetadataUrl,
-    })
+    bearerAuthChallengeResponse(
+      new Error('Missing verified access result'),
+      resourceMetadataUrl === undefined ? undefined : { resourceMetadataUrl },
+    )
   )
 }

@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Experimental Phase 5 Convex-native MCP productization                                                     |
 | Current task          | `P5-020`; migrate one Ginko read and ordinary draft write                                                 |
-| Last verified commit  | `25bbdf63` plus `P5-019` diff; deployed neutral and exact packed package migration passed                 |
+| Last verified commit  | `927f5de2` plus preconfigured-bearer profile diff; focused MCP tests and package build passed             |
 | Next executable tasks | `P5-020`; `P5-015`; `P5-021`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
@@ -27,7 +27,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-023`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-024`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
@@ -261,7 +261,7 @@ remain gated rather than implied stable contracts.
 | `P5-017` | `P5-006` | Implement trusted-context rate-limit integration points and bounded transport defaults without attacker header keys. | MCP package selected runtime | Abuse resistance never becomes authorization. | Distinct subjects/clients/tools/IP context; reset/concurrency; body/timeout tests. | Beta-specific fixed scope-only limit glue as appropriate | done | — | `internal/evidence/mcp-transport-and-rate-limits-2026-07-22.md`; completion commit is the commit that records this row as done |
 | `P5-018` | `P5-008` | Emit optional allowlisted server-only diagnostics that cannot alter behavior. | MCP diagnostics/testing surface if API admission passes | No args/messages/stacks/tokens/cookies/provider refs/locators. | Sentinel scanning; logger throws without changing call result. | Unsafe/raw logging paths | done | — | `internal/evidence/mcp-safe-diagnostics-2026-07-22.md`; internal until two-consumer registration proof fixes final export shape |
 | `P5-019` | `P5-006`–`P5-018` | Migrate neutral search and rename operations to exact MCP package. | Agentic SaaS/neutral notes fixture | Direct semantics unchanged; adapter removes measured protocol glue. | Official tools/resource/OAuth/error/current-auth tests. | Neutral lab protocol glue | done | — | `internal/evidence/mcp-neutral-package-migration-2026-07-22.md`; deployed Convex plus exact packed consumer passed |
-| `P5-020` | `P5-006`–`P5-018` | Migrate one Ginko read and `save-entry-draft` ordinary write without confirmation dependency. | Authorized Ginko fixture/external repository | Current contract/member/role/delegation checks; drafts do not publish. | Conflict/retry/revocation/cross-tenant/public-output tests. | Ginko custom MCP transport/auth/bridge for migrated paths | pending | `EXT-004` for external changes | — |
+| `P5-020` | `P5-006`–`P5-018` | Migrate one Ginko read and `save-entry-draft` ordinary write without confirmation dependency. | Authorized Ginko fixture/external repository | Current contract/member/role/delegation checks; drafts do not publish. | Conflict/retry/revocation/cross-tenant/public-output tests. | Ginko custom MCP transport/auth/bridge for migrated paths | in_progress | Owner authorized Ginko changes and push on 2026-07-22 | `D-024` admits the standards-honest preconfigured credential profile; Ginko pilot branch `codex/better-convex-mcp-pilot` |
 | `P5-021` | `P5-019`, `P5-020` | Delete supported hand-written parser, losing topology, and duplicate starter protocol code. | Current `mcp/protocol.ts`, runner/starter paths | One official-SDK-backed stack. | Search sentinels, conformance, both consumers. | Named old parser/relay/bridge | pending | — | — |
 | `P5-022` | `P5-002`–`P5-021` | Add official and BCN conformance runner pinned to exact protocol/SDK/conformance versions. | Package testing subpath/internal runner | Capabilities advertised only when implemented; no UA branching. | Official suite, Inspector, supported/unsupported matrix. | Selected-scenario beta runner where replaced | pending | — | — |
 | `P5-023` | `P5-022` | Certify exact MCP tarball in selected production runtime with Better Auth and external verifier consumers. | Generalized certifier/package consumers | Installed bytes, not source, passed protocol/OAuth behavior. | Locks, byte comparison, production deployment/build. | Workspace-link-only tests | pending | External protected deployment for final gate | — |

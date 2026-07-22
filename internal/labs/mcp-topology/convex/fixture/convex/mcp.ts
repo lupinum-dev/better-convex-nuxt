@@ -305,10 +305,13 @@ async function handleRequest(ctx: ActionCtx, request: Request): Promise<Response
   const handler = createConvexMcpHandler({
     resource,
     verifier: createVerifier(resource),
-    oauthMetadata: metadata.oauthMetadata,
-    resourceName: metadata.resourceName,
-    requiredScopes: ['notes:read'],
-    scopesSupported: metadata.scopesSupported,
+    authorization: {
+      mode: 'oauth',
+      metadata: metadata.oauthMetadata,
+      resourceName: metadata.resourceName,
+      requiredScopes: ['notes:read'],
+      scopesSupported: metadata.scopesSupported,
+    },
     createServer: (_context, access) =>
       createNotesServer(ctx, Object.freeze({ subject: access.subject }), access),
   })
