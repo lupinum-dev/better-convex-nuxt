@@ -147,9 +147,19 @@ export function probeRootEntry(ctx) {
     },
   })
   writeFile(join(dir, '.npmrc'), 'ignore-scripts=true\n')
+  const companionOverrides = ctx.companionTarballs
+    .map(
+      (companion) =>
+        `  '${companion.packageName}': 'file:${companion.tarballPath}'`,
+    )
+    .join('\n')
   writeFile(
     join(dir, 'pnpm-workspace.yaml'),
-    '# isolated root for the ephemeral packed-root probe\n',
+    [
+      '# isolated root for the ephemeral packed-root probe',
+      ...(companionOverrides ? ['overrides:', companionOverrides] : []),
+      '',
+    ].join('\n'),
   )
   writeFile(
     join(dir, 'index.mjs'),
