@@ -2,9 +2,26 @@ import { describe, expect, it } from 'vitest'
 
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import {
+  captureInNuxt,
+  installIdentityPortHarness,
+} from '../helpers/nuxt-runtime-harness'
 
 describe('useConvexAction (Nuxt runtime)', () => {
+  it('disposes its controller and identity listener with the component scope', async () => {
+    const action = mockFnRef<'action'>('testing:disposed-action')
+    const { result, wrapper } = await captureInNuxt(() => {
+      const identity = installIdentityPortHarness()
+      return { action: useConvexAction(action), identity }
+    })
+
+    wrapper.unmount()
+    result.identity.advance()
+    await expect(result.action({} as never)).rejects.toMatchObject({
+      code: 'CALL_DISPOSED',
+    })
+  })
+
   it('dispatches through the action transport and exposes the shared call lifecycle', async () => {
     const convex = new MockConvexClient()
     const action = mockFnRef<'action'>('testing:echo-action')

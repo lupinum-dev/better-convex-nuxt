@@ -253,6 +253,9 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const lifecycle = createCallableController<Args, Result>({
     operation: 'mutation',
     getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
+    subscribeIdentityChange: identityObserver
+      ? (listener) => identityObserver.subscribe(listener)
+      : undefined,
     handlers: {
       settle: () => ensureConvexAuthReady(coordinator, 'useConvexMutation'),
       invoke: async (args) => {
@@ -286,11 +289,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
 
   // Mask retained state synchronously on identity change (architecture invariant).
   if (getCurrentScope()) {
-    const stopIdentity = identityObserver?.subscribe(() => lifecycle.onIdentityMaybeChanged())
-    onScopeDispose(() => {
-      stopIdentity?.()
-      lifecycle.dispose()
-    })
+    onScopeDispose(lifecycle.dispose)
   }
 
   const execute = (...callArgs: OptionalRestArgs<Mutation>): Promise<Result> =>

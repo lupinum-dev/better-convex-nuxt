@@ -6,7 +6,10 @@ import { useNuxtApp } from '#imports'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import {
+  captureInNuxt,
+  installIdentityPortHarness,
+} from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 function deferred<T>() {
@@ -32,6 +35,20 @@ function provideFakeCoordinator(ready: () => Promise<unknown>) {
 }
 
 describe('useConvexMutation (Nuxt runtime)', () => {
+  it('disposes its controller and identity listener with the component scope', async () => {
+    const mutation = mockFnRef<'mutation'>('testing:disposed-mutation')
+    const { result, wrapper } = await captureInNuxt(() => {
+      const identity = installIdentityPortHarness()
+      return { mutation: useConvexMutation(mutation), identity }
+    })
+
+    wrapper.unmount()
+    result.identity.advance()
+    await expect(result.mutation({} as never)).rejects.toMatchObject({
+      code: 'CALL_DISPOSED',
+    })
+  })
+
   it('can be created during SSR setup without a Convex client and fails when called', async () => {
     const mutation = mockFnRef<'mutation'>('testing:ssr-safe-mutation')
 

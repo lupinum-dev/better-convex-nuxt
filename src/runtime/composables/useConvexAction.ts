@@ -140,6 +140,9 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const lifecycle = createCallableController<Args, Result>({
     operation: 'action',
     getIdentityGeneration: () => identityObserver?.snapshot().identityGeneration ?? 0,
+    subscribeIdentityChange: identityObserver
+      ? (listener) => identityObserver.subscribe(listener)
+      : undefined,
     handlers: {
       settle: () => ensureConvexAuthReady(coordinator, 'useConvexAction'),
       invoke: async (args) => {
@@ -167,11 +170,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
 
   // Mask retained state synchronously on identity change (architecture invariant).
   if (getCurrentScope()) {
-    const stopIdentity = identityObserver?.subscribe(() => lifecycle.onIdentityMaybeChanged())
-    onScopeDispose(() => {
-      stopIdentity?.()
-      lifecycle.dispose()
-    })
+    onScopeDispose(lifecycle.dispose)
   }
 
   const execute = (...callArgs: OptionalRestArgs<Action>): Promise<Result> =>

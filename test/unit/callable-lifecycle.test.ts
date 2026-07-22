@@ -284,4 +284,30 @@ describe('callable lifecycle: settlement binding', () => {
     expect(lifecycle.data.value).toBeUndefined()
     await expect(lifecycle.run({})).rejects.toMatchObject({ code: 'CALL_DISPOSED' })
   })
+
+  it('owns and releases its identity subscription exactly once', async () => {
+    let generation = 1
+    let notifyIdentityChange: (() => void) | undefined
+    const stopIdentity = vi.fn()
+    const controller = createCallableController<Record<string, unknown>, string>({
+      operation: 'mutation',
+      getIdentityGeneration: () => generation,
+      subscribeIdentityChange(listener) {
+        notifyIdentityChange = listener
+        return stopIdentity
+      },
+      handlers: { invoke: async () => 'done' },
+    })
+
+    await expect(controller.run({})).resolves.toBe('done')
+    expect(controller.data.value).toBe('done')
+    generation = 2
+    notifyIdentityChange?.()
+    expect(controller.status.value).toBe('idle')
+    expect(controller.data.value).toBeUndefined()
+
+    controller.dispose()
+    controller.dispose()
+    expect(stopIdentity).toHaveBeenCalledTimes(1)
+  })
 })

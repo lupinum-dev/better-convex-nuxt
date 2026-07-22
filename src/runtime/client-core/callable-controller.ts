@@ -25,6 +25,7 @@ export interface CallableControllerHandlers<Args, Result> {
 export interface CallableControllerInput<Args, Result> {
   operation: CallableOperation
   getIdentityGeneration: () => number
+  subscribeIdentityChange?: (listener: () => void) => () => void
   handlers: CallableControllerHandlers<Args, Result>
 }
 
@@ -56,6 +57,7 @@ export function createCallableController<Args, Result>(
   let lastSeenGeneration = getIdentityGeneration()
   let attemptRevision = 0
   let disposed = false
+  let stopIdentity: (() => void) | null = null
 
   const runCallback = (callback: () => void) => {
     try {
@@ -140,6 +142,8 @@ export function createCallableController<Args, Result>(
     callState.mask()
   }
 
+  stopIdentity = input.subscribeIdentityChange?.(onIdentityMaybeChanged) ?? null
+
   const reset = () => {
     attemptRevision += 1
     callState.reset()
@@ -149,6 +153,8 @@ export function createCallableController<Args, Result>(
     if (disposed) return
     disposed = true
     attemptRevision += 1
+    stopIdentity?.()
+    stopIdentity = null
     callState.mask()
   }
 
