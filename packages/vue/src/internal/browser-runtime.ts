@@ -1,4 +1,5 @@
 import type { ConnectionState, ConvexClient } from 'convex/browser'
+import { watch } from 'vue'
 
 import { createAttachedClientRuntime, type AttachedClientRuntime } from './attached-runtime'
 import {
@@ -19,7 +20,10 @@ export interface BetterConvexBrowserRuntime {
   readonly identity: ClientIdentityObserver
   readonly attachment: AttachedClientRuntime
   readonly connection: ConvexClientOwner['connection']
+  /** Internal transport selection; never exposed by the public stable handle. */
+  clientFor(mode: 'required' | 'optional' | 'none'): ConvexClientHandle
   ready(): Promise<void>
+  refreshAuth(): Promise<void>
   dispose(): Promise<void>
 }
 
@@ -44,7 +48,7 @@ const ANONYMOUS_OBSERVER: ClientIdentityObserver = Object.freeze({
   subscribe: () => () => {},
 })
 
-/** Private single constructor that moves intact into the Vue package. */
+/** Single browser-runtime constructor shared by standalone and attached Vue integrations. */
 export function createBetterConvexBrowserRuntime(
   input: CreateBetterConvexBrowserRuntimeInput,
 ): BetterConvexBrowserRuntime {
@@ -70,16 +74,48 @@ export function createBetterConvexBrowserRuntime(
       : Promise.resolve()
 
   owner.addDisposer(() => authPort?.dispose())
-  const attachment = createAttachedClientRuntime({ client: owner.handle, identity })
+  const anonymousHandle: ConvexClientHandle = Object.freeze({
+    query: ((...args: Parameters<ConvexClientHandle['query']>) =>
+      owner.getAnonymous().query(...args)) as ConvexClientHandle['query'],
+    mutation: ((...args: Parameters<ConvexClientHandle['mutation']>) =>
+      owner.getAnonymous().mutation(...args)) as ConvexClientHandle['mutation'],
+    action: ((...args: Parameters<ConvexClientHandle['action']>) =>
+      owner.getAnonymous().action(...args)) as ConvexClientHandle['action'],
+    onUpdate: ((...args: Parameters<ConvexClientHandle['onUpdate']>) =>
+      owner.getAnonymous().onUpdate(...args)) as ConvexClientHandle['onUpdate'],
+  }) as ConvexClientHandle
+  const attachment = createAttachedClientRuntime({
+    client: owner.handle,
+    anonymousClient: anonymousHandle,
+    identity,
+    connection: {
+      snapshot: () => owner.connection.state.value,
+      subscribe(listener) {
+        const remove = owner.connection.addConsumer()
+        const stop = watch(owner.connection.state, listener, { flush: 'sync' })
+        listener(owner.connection.state.value)
+        return () => {
+          stop()
+          remove()
+        }
+      },
+    },
+  })
 
   return Object.freeze({
     handle: owner.handle,
     identity,
     attachment,
     connection: owner.connection,
+    clientFor(mode: 'required' | 'optional' | 'none') {
+      return mode === 'none' ? anonymousHandle : owner.handle
+    },
     async ready() {
       await initial
       await identity.waitForInitialSettlement()
+    },
+    async refreshAuth() {
+      await authPort?.refresh()
     },
     async dispose() {
       if (disposed) return

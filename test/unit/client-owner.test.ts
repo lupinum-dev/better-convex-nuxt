@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client-core/client-owner'
-import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
+} from '../../packages/vue/src/internal/client-owner'
+import { IDENTITY_CHANGED } from '../../packages/vue/src/internal/identity-changed-error'
 import type {
   ClientIdentityPort,
   ClientIdentitySnapshot,
-} from '../../src/runtime/client-core/identity-port'
+} from '../../packages/vue/src/internal/identity-port'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 type RuntimeUnsubscribe = ReturnType<OwnedConvexClient['onUpdate']> & {

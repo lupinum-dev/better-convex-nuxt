@@ -108,6 +108,13 @@ describe('Nuxt shared client lifecycle conformance', () => {
       },
     }
 
-    expect(report).toEqual(EXPECTED_CLIENT_LIFECYCLE_REPORT)
+    expect(report).toEqual({
+      ...EXPECTED_CLIENT_LIFECYCLE_REPORT,
+      afterDispose: {
+        ...EXPECTED_CLIENT_LIFECYCLE_REPORT.afterDispose,
+        // The app-owned identity projection outlives an individual component.
+        identityListeners: 1,
+      },
+    })
   })
 })

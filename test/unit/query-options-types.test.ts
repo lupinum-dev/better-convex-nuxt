@@ -40,6 +40,9 @@ type _QueryUsesInitialData = Assert<
 type _PaginatedUsesInitialData = Assert<
   IsEqual<PaginatedOptions['initialData'], { id: string }[] | (() => { id: string }[]) | undefined>
 >
+type _NuxtPaginationDoesNotExposeAdapterInitialPage = Assert<
+  IsEqual<HasKey<PaginatedOptions, 'initialPage'>, false>
+>
 
 type _QueryHasNoDefaultOption = Assert<IsEqual<HasKey<QueryOptions, 'default'>, false>>
 type _PaginatedHasNoDefaultOption = Assert<IsEqual<HasKey<PaginatedOptions, 'default'>, false>>

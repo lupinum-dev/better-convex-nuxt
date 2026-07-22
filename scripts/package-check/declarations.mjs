@@ -274,7 +274,11 @@ function getExportSpaces(program, filePath, failures, subpath, artifactRoot) {
     }
     const typeOnlyAlias = isExplicitTypeOnlyAlias(exportedSymbol)
     if (!typeOnlyAlias && (target.flags & ts.SymbolFlags.Value) !== 0) values.add(name)
-    if ((target.flags & ts.SymbolFlags.Type) !== 0) types.add(name)
+    // The isolated artifact program deliberately does not install sibling
+    // packages. An explicit `export type` still proves that the declaration
+    // occupies only the type space even when TypeScript cannot resolve its
+    // external target in that program.
+    if (typeOnlyAlias || (target.flags & ts.SymbolFlags.Type) !== 0) types.add(name)
   }
   return { names, types, values }
 }

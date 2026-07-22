@@ -8,35 +8,39 @@ import {
   type AuthIdentity,
 } from '../../src/runtime/auth/auth-identity'
 import { useConvexUser } from '../../src/runtime/composables/useConvexUser'
-import { mockFnRef } from '../helpers/mock-convex-client'
+import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 describe('useConvexUser composable (Nuxt runtime)', () => {
   it('seeds from session user and upgrades to canonical Better Auth user data', async () => {
     const viewer = mockFnRef<'query'>('users:viewer')
+    const convex = new MockConvexClient()
     let resolveFetch: ((value: unknown) => void) | undefined
-    const fetchMock = vi.fn(
+    convex.setQueryHandler(
+      'users:viewer',
       () =>
         new Promise((resolve) => {
           resolveFetch = resolve
         }),
     )
-    vi.stubGlobal('$fetch', fetchMock)
 
-    const { result } = await captureInNuxt(() => {
-      const identity = useState<AuthIdentity>('convex:identity')
-      const pending = useState<boolean>('convex:pending')
+    const { result } = await captureInNuxt(
+      () => {
+        const identity = useState<AuthIdentity>('convex:identity')
+        const pending = useState<boolean>('convex:pending')
 
-      identity.value = toAuthenticatedIdentity('jwt.token', {
-        id: 'auth-user-1',
-        name: 'Session Name',
-        email: 'session@example.com',
-      })
-      pending.value = false
+        identity.value = toAuthenticatedIdentity('jwt.token', {
+          id: 'auth-user-1',
+          name: 'Session Name',
+          email: 'session@example.com',
+        })
+        pending.value = false
 
-      return useConvexUser(viewer, {}, { subscribe: false })
-    })
+        return useConvexUser(viewer, {}, { subscribe: false })
+      },
+      { convex },
+    )
 
     expect(result.source.value).toBe('session')
     expect(result.state.value).toEqual({
@@ -53,7 +57,7 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
       email: 'session@example.com',
     })
 
-    resolveFetch?.({ value: { id: 'auth-user-1', displayName: 'Canonical Name' } })
+    resolveFetch?.({ id: 'auth-user-1', displayName: 'Canonical Name' })
 
     await waitFor(() => result.source.value === 'better-auth')
     expect(result.state.value).toEqual({
@@ -72,10 +76,11 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
   it('uses configured default subscribe:false when no per-call subscribe option is passed', async () => {
     const viewer = mockFnRef<'query'>('users:viewer-default-subscribe')
-    const fetchMock = vi.fn(async () => ({
-      value: { id: 'auth-user-defaults', displayName: 'Configured Default' },
+    const convex = new MockConvexClient()
+    convex.setQueryHandler('users:viewer-default-subscribe', async () => ({
+      id: 'auth-user-defaults',
+      displayName: 'Configured Default',
     }))
-    vi.stubGlobal('$fetch', fetchMock)
 
     const { result } = await captureInNuxt(
       () => {
@@ -91,11 +96,11 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
         return useConvexUser(viewer, {})
       },
-      { convexConfig: { defaults: { subscribe: false } } },
+      { convex, convexConfig: { defaults: { subscribe: false } } },
     )
 
     await waitFor(() => result.source.value === 'better-auth')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(convex.calls.query).toHaveLength(1)
     expect(result.data.value).toEqual({
       id: 'auth-user-defaults',
       displayName: 'Configured Default',
@@ -104,26 +109,28 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
   it('marks explicitly derived profile queries as projection sourced', async () => {
     const profile = mockFnRef<'query'>('profiles:viewer')
-    vi.stubGlobal(
-      '$fetch',
-      vi.fn(async () => ({
-        value: { authId: 'auth-user-2', handle: 'canonical' },
-      })),
+    const convex = new MockConvexClient()
+    convex.setQueryHandler('profiles:viewer', async () => ({
+      authId: 'auth-user-2',
+      handle: 'canonical',
+    }))
+
+    const { result } = await captureInNuxt(
+      () => {
+        const identity = useState<AuthIdentity>('convex:identity')
+        const pending = useState<boolean>('convex:pending')
+
+        identity.value = toAuthenticatedIdentity('jwt.token', {
+          id: 'auth-user-2',
+          name: 'Session Name',
+          email: 'session@example.com',
+        })
+        pending.value = false
+
+        return useConvexUser(profile, {}, { source: 'projection', subscribe: false })
+      },
+      { convex },
     )
-
-    const { result } = await captureInNuxt(() => {
-      const identity = useState<AuthIdentity>('convex:identity')
-      const pending = useState<boolean>('convex:pending')
-
-      identity.value = toAuthenticatedIdentity('jwt.token', {
-        id: 'auth-user-2',
-        name: 'Session Name',
-        email: 'session@example.com',
-      })
-      pending.value = false
-
-      return useConvexUser(profile, {}, { source: 'projection', subscribe: false })
-    })
 
     await waitFor(() => result.source.value === 'projection')
     expect(result.state.value).toEqual({
@@ -157,38 +164,40 @@ describe('useConvexUser composable (Nuxt runtime)', () => {
 
   it('ignores stale canonical user results after sign-out clears session state', async () => {
     const viewer = mockFnRef<'query'>('users:viewer')
+    const convex = new MockConvexClient()
     let resolveFetch: ((value: unknown) => void) | undefined
-    vi.stubGlobal(
-      '$fetch',
-      vi.fn(
-        () =>
-          new Promise((resolve) => {
-            resolveFetch = resolve
-          }),
-      ),
+    convex.setQueryHandler(
+      'users:viewer',
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = resolve
+        }),
     )
 
-    const { result } = await captureInNuxt(() => {
-      const identity = useState<AuthIdentity>('convex:identity')
-      const pending = useState<boolean>('convex:pending')
+    const { result } = await captureInNuxt(
+      () => {
+        const identity = useState<AuthIdentity>('convex:identity')
+        const pending = useState<boolean>('convex:pending')
 
-      identity.value = toAuthenticatedIdentity('jwt.token', {
-        id: 'auth-user-3',
-        name: 'Session Name',
-        email: 'session@example.com',
-      })
-      pending.value = false
+        identity.value = toAuthenticatedIdentity('jwt.token', {
+          id: 'auth-user-3',
+          name: 'Session Name',
+          email: 'session@example.com',
+        })
+        pending.value = false
 
-      return {
-        identity,
-        currentUser: useConvexUser(viewer, {}, { subscribe: false }),
-      }
-    })
+        return {
+          identity,
+          currentUser: useConvexUser(viewer, {}, { subscribe: false }),
+        }
+      },
+      { convex },
+    )
 
     await waitFor(() => Boolean(resolveFetch))
 
     result.identity.value = ANONYMOUS_IDENTITY
-    resolveFetch?.({ value: { id: 'auth-user-3', displayName: 'Late Result' } })
+    resolveFetch?.({ id: 'auth-user-3', displayName: 'Late Result' })
 
     await Promise.resolve()
 

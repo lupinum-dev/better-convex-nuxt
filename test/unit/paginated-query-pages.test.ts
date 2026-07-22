@@ -1,6 +1,7 @@
 import type { PaginationResult } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ConvexCallError } from '../../packages/vue/src/errors'
 import {
   commitPaginationPageError,
   commitPaginationPageResult,
@@ -9,8 +10,7 @@ import {
   createPendingPaginationPage,
   getLastLoadedPaginationResult,
   type PaginationPageState,
-} from '../../src/runtime/client-core/pagination-state'
-import { ConvexCallError } from '../../src/runtime/errors'
+} from '../../packages/vue/src/internal/pagination-state'
 
 function pageResult<T>(page: T[], isDone = false): PaginationResult<T> {
   return {

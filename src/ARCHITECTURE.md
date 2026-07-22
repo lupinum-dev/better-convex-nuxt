@@ -12,11 +12,11 @@ runtime. Public usage belongs in the generated API reference and guides.
 | Application authorization and product data               | Convex functions                            |
 | Public auth/OAuth origin                                 | Explicit validated application config       |
 | JWT signing keys and rotation                            | One Better Auth JWKS graph in the component |
-| Active browser Convex client                             | Per-Nuxt-app client owner                   |
-| Auth transitions and identity generation                 | Per-Nuxt-app auth coordinator               |
+| Active browser Convex client                             | Per-Vue-root Better Convex runtime          |
+| Auth transitions and identity generation                 | Provider-neutral Vue auth adapter/runtime   |
 | Query transport, wire deduplication, and transport cache | Pinned Convex client                        |
 | SSR payload and Vue-visible query state                  | Each query composable                       |
-| Public error shape and normalization                     | `runtime/errors`                            |
+| Public error shape and normalization                     | `better-convex-vue/errors`                  |
 | Public runtime configuration                             | Module schema and runtime config normalizer |
 
 The module does not maintain a second session store, authorization model,
@@ -24,10 +24,12 @@ subscription registry, or raw-client public surface.
 
 ## Module graph
 
-The core client plugin creates one client owner per Nuxt application. When auth
-is enabled, the auth plugin adds one auth coordinator and replaces the owner's
-primary client at identity boundaries. The server plugin exchanges the request
-session once and hydrates the canonical identity state before page setup.
+The Nuxt client plugin installs one `better-convex-vue` runtime per Nuxt
+application. When auth is enabled, the Better Auth adapter supplies only a
+provider-neutral session snapshot and token callback; the Vue runtime owns
+client replacement and identity generations. The server plugin exchanges the
+request session once and hydrates the canonical identity state before page
+setup.
 
 `auth: false` excludes the auth client plugin, server auth plugin, auth proxy,
 and auth middleware from the generated application. Auth composables remain
@@ -35,10 +37,10 @@ available and return their documented disabled state.
 
 ## Client ownership
 
-`client-owner.ts` is the only code that creates, replaces, and closes browser
-Convex clients. Consumers receive a stable handle containing exactly `query`,
-`mutation`, `action`, and `onUpdate`. The handle never exposes client lifecycle
-methods.
+`packages/vue/src/internal/client-owner.ts` is the only code that creates,
+replaces, and closes browser Convex clients. Consumers receive a stable handle
+containing exactly `query`, `mutation`, `action`, and `onUpdate`. The handle
+never exposes client lifecycle methods.
 
 An identity change retires operations bound to the previous generation,
 rebinds active listeners to the replacement client, publishes that client, and
@@ -47,10 +49,11 @@ selected by the canonical query execution gate.
 
 ## Authentication
 
-The auth coordinator serializes identity-changing operations and owns the
-identity generation. Session observation, token refresh, sign-in, and sign-out
-all converge on that coordinator. Operation progress is separate from settled
-identity state.
+The Vue runtime serializes identity-changing operations and owns the identity
+generation. A provider adapter reports settled authentication snapshots and
+supplies short-lived tokens without receiving a raw Convex client. Session
+observation, token refresh, sign-in, and sign-out all converge on that single
+runtime. Operation progress is separate from settled identity state.
 
 The browser talks to Better Auth only through the fixed same-origin
 `/api/auth` proxy. The proxy accepts GET and POST, validates origin and body
@@ -115,6 +118,10 @@ identity or authorization source.
 ## Public boundaries
 
 The supported package entry points are:
+
+- `better-convex-vue`
+- `better-convex-vue/errors`
+- `better-convex-vue/embedded`
 
 - `better-convex-nuxt`
 - `better-convex-nuxt/auth-client`

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { makeFunctionReference } from 'convex/server'
+
 import { ConvexCallError } from '../../../../src/runtime/errors'
 
 // Drives public error boundary end to end: a real Nuxt page, the
@@ -24,9 +26,7 @@ import { ConvexCallError } from '../../../../src/runtime/errors'
 // error contract. The e2e test does the sentinel substring check itself,
 // against the raw `jsonString`/`toJSONString` this page exposes.
 //
-// A plain Convex function reference shape: only `_path` is read by the
-// library's `getFunctionName`.
-const query = { _path: 'fixture:query' } as unknown as Parameters<typeof useConvexQuery>[0]
+const query = makeFunctionReference<'query'>('fixture:query')
 
 const result = await useConvexQuery(query, {}, { subscribe: false })
 

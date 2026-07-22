@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type {
   BrowserAuthAdapter,
   BrowserAuthSnapshot,
-} from '../../src/runtime/client-core/auth-adapter'
-import { createBetterConvexBrowserRuntime } from '../../src/runtime/client-core/browser-runtime'
-import type { OwnedConvexClient } from '../../src/runtime/client-core/client-owner'
+} from '../../packages/vue/src/internal/auth-adapter'
+import { createBetterConvexBrowserRuntime } from '../../packages/vue/src/internal/browser-runtime'
+import type { OwnedConvexClient } from '../../packages/vue/src/internal/client-owner'
 
 class Adapter implements BrowserAuthAdapter {
   private listeners = new Set<() => void>()
@@ -116,6 +116,11 @@ describe('Better Convex browser runtime', () => {
       settled: true,
       identityKey: 'user:alice',
     })
+    const refresh = runtime.refreshAuth()
+    expect(initialClient.setAuthCalls).toBe(2)
+    initialClient.confirm(true)
+    await refresh
+    expect(runtime.identity.snapshot().identityGeneration).toBe(0)
     await runtime.dispose()
     expect(adapter.listenerCount()).toBe(0)
   })
@@ -154,5 +159,20 @@ describe('Better Convex browser runtime', () => {
     await ready
     expect(runtime.identity.snapshot().settled).toBe(true)
     await runtime.dispose()
+  })
+
+  it('cancels an unconfirmed initial credential during disposal', async () => {
+    const adapter = new Adapter({
+      status: 'authenticated',
+      identityKey: 'alice',
+      sessionGeneration: 1,
+      error: null,
+    })
+    const runtime = createBetterConvexBrowserRuntime({ clientFactory: client, auth: adapter })
+    const ready = runtime.ready()
+
+    await runtime.dispose()
+    await expect(ready).resolves.toBeUndefined()
+    expect(adapter.listenerCount()).toBe(0)
   })
 })

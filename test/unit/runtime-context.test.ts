@@ -1,30 +1,41 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { ConvexClientOwner } from '../../src/runtime/client-core/client-owner'
+import { createBetterConvexAttachment } from '../../packages/vue/src/embedded'
 import { createDevtoolsSink } from '../../src/runtime/devtools/sink'
 import { createConvexRuntimeContext } from '../../src/runtime/runtime-context'
 import { createLogger } from '../../src/runtime/utils/logger'
 
 function createOwnerHarness() {
   const identityListeners = new Set<() => void>()
-  const disposers = new Set<() => void>()
-  const owner = {
-    subscribeIdentityChange(listener: () => void) {
-      identityListeners.add(listener)
-      return () => identityListeners.delete(listener)
+  const client = {
+    query: vi.fn(),
+    mutation: vi.fn(),
+    action: vi.fn(),
+    onUpdate: vi.fn(),
+  } as never
+  const attachment = createBetterConvexAttachment({
+    client,
+    identity: {
+      snapshot: () => ({
+        authEnabled: true,
+        settled: true,
+        identityKey: 'user:test',
+        authEpoch: 0,
+        identityGeneration: 0,
+        error: null,
+      }),
+      waitForInitialSettlement: async () => {},
+      subscribe(listener) {
+        identityListeners.add(listener)
+        return () => identityListeners.delete(listener)
+      },
     },
-    addDisposer(disposer: () => void) {
-      disposers.add(disposer)
-    },
-  } as unknown as ConvexClientOwner
+  })
 
   return {
-    owner,
+    attachment,
     changeIdentity() {
       for (const listener of [...identityListeners]) listener()
-    },
-    dispose() {
-      for (const disposer of [...disposers]) disposer()
     },
   }
 }
@@ -32,7 +43,7 @@ function createOwnerHarness() {
 describe('ConvexRuntimeContext diagnostics ownership', () => {
   it('clears identity-owned diagnostics through the owner event seam', () => {
     const harness = createOwnerHarness()
-    const runtime = createConvexRuntimeContext(harness.owner, createLogger(false))
+    const runtime = createConvexRuntimeContext(harness.attachment, createLogger(false))
     const sink = createDevtoolsSink()
     runtime.attachDevtoolsSink(sink)
     sink.registerMutation({
@@ -51,7 +62,7 @@ describe('ConvexRuntimeContext diagnostics ownership', () => {
 
   it('disposes replaced, detached, owner-disposed, and late sinks exactly once', () => {
     const harness = createOwnerHarness()
-    const runtime = createConvexRuntimeContext(harness.owner, createLogger(false))
+    const runtime = createConvexRuntimeContext(harness.attachment, createLogger(false))
     const first = createDevtoolsSink()
     const firstDispose = vi.spyOn(first, 'dispose')
     const detachFirst = runtime.attachDevtoolsSink(first)
@@ -64,7 +75,7 @@ describe('ConvexRuntimeContext diagnostics ownership', () => {
     detachFirst?.()
     expect(firstDispose).toHaveBeenCalledTimes(1)
 
-    harness.dispose()
+    runtime.dispose()
     expect(secondDispose).toHaveBeenCalledTimes(1)
     expect(runtime.getDevtoolsSink()).toBeNull()
 

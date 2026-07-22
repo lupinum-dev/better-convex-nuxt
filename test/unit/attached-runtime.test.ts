@@ -6,8 +6,8 @@ import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
 import { describe, expect, it } from 'vitest'
 
-import type { AttachedClientRuntime } from '../../src/runtime/client-core/attached-runtime'
-import type { ClientIdentitySnapshot } from '../../src/runtime/client-core/identity-port'
+import type { AttachedClientRuntime } from '../../packages/vue/src/internal/attached-runtime'
+import type { ClientIdentitySnapshot } from '../../packages/vue/src/internal/identity-port'
 import { EXPECTED_EMBEDDED_IDENTITY_REPORT } from '../helpers/client-lifecycle-conformance'
 
 type HostModule = {

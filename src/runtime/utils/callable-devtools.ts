@@ -1,8 +1,5 @@
-import type {
-  CallableControllerHandlers,
-  CallableOperation,
-} from '../client-core/callable-controller'
 import type { DevtoolsSink } from '../devtools/sink'
+import type { ConvexCallError } from '../errors'
 
 interface CallableDevtoolsEvent {
   sink: DevtoolsSink
@@ -10,11 +7,15 @@ interface CallableDevtoolsEvent {
 }
 
 export function createCallableDevtoolsEvents<Args, Result>(input: {
-  operation: CallableOperation
+  operation: 'mutation' | 'action'
   fnName: string
   hasOptimisticUpdate: boolean
   getSink: () => DevtoolsSink | null
-}): Pick<CallableControllerHandlers<Args, Result>, 'startEvent' | 'finishEvent' | 'failEvent'> {
+}): {
+  startEvent(args: Args, startedAt: number): CallableDevtoolsEvent | undefined
+  finishEvent(event: unknown, result: Result, startedAt: number): void
+  failEvent(event: unknown, error: ConvexCallError, startedAt: number): void
+} {
   return {
     startEvent(args, startedAt): CallableDevtoolsEvent | undefined {
       const sink = input.getSink()

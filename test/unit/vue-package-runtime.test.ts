@@ -1,0 +1,262 @@
+import {
+  makeFunctionReference,
+  type FunctionReference,
+  type PaginationOptions,
+  type PaginationResult,
+} from 'convex/server'
+import { describe, expect, it, vi } from 'vitest'
+import { createApp, effectScope } from 'vue'
+
+import {
+  createBetterConvex,
+  useConvex,
+  useConvexAction,
+  useConvexMutation,
+  useConvexPaginatedQuery,
+  useConvexQuery,
+} from '../../packages/vue/src'
+import { createBetterConvexAttachment } from '../../packages/vue/src/embedded'
+import type { ClientIdentitySnapshot } from '../../packages/vue/src/internal/identity-port'
+
+function attachedRuntime(label: string) {
+  let snapshot: ClientIdentitySnapshot = {
+    authEnabled: true,
+    settled: true,
+    identityKey: `user:${label}`,
+    authEpoch: 1,
+    identityGeneration: 1,
+    error: null,
+  }
+  const listeners = new Set<() => void>()
+  const mutation = vi.fn(async (_fn: unknown, args: unknown) => ({ label, args }))
+  const action = vi.fn(async (_fn: unknown, args: unknown) => ({ label, args }))
+  const subscriptions: Array<{ active: boolean; emit(value: unknown): void }> = []
+  const runtime = createBetterConvexAttachment({
+    client: {
+      query: vi.fn(async () => label) as never,
+      mutation: mutation as never,
+      action: action as never,
+      onUpdate: vi.fn((_fn, _args, onValue) => {
+        const subscription = { active: true, emit: onValue }
+        subscriptions.push(subscription)
+        return () => {
+          subscription.active = false
+        }
+      }) as never,
+    },
+    identity: {
+      snapshot: () => snapshot,
+      waitForInitialSettlement: async () => {},
+      subscribe(listener) {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+    },
+  })
+  return {
+    runtime,
+    mutation,
+    action,
+    subscriptions,
+    listeners,
+    emit(next: ClientIdentitySnapshot) {
+      snapshot = next
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
+
+describe('better-convex-vue package runtime', () => {
+  it('isolates two app roots and keeps captured handles stable', async () => {
+    const alice = attachedRuntime('alice')
+    const bob = attachedRuntime('bob')
+    const aliceApp = createApp({})
+    const bobApp = createApp({})
+    aliceApp.use(createBetterConvex({ runtime: alice.runtime }))
+    bobApp.use(createBetterConvex({ runtime: bob.runtime }))
+
+    const aliceHandle = aliceApp.runWithContext(() => useConvex())
+    const bobHandle = bobApp.runWithContext(() => useConvex())
+    const read = makeFunctionReference<'query'>('notes:read') as FunctionReference<
+      'query',
+      'public',
+      Record<string, never>,
+      string
+    >
+    await expect(aliceHandle.query(read, {})).resolves.toBe('alice')
+    await expect(bobHandle.query(read, {})).resolves.toBe('bob')
+    expect(aliceHandle).not.toBe(bobHandle)
+  })
+
+  it('runs mutation and action through one identity-fenced callable lifecycle', async () => {
+    const host = attachedRuntime('alice')
+    const app = createApp({})
+    app.use(createBetterConvex({ runtime: host.runtime }))
+    const scope = effectScope()
+    const operation = app.runWithContext(() =>
+      scope.run(() => ({
+        mutation: useConvexMutation(
+          makeFunctionReference<'mutation'>('notes:write') as FunctionReference<
+            'mutation',
+            'public',
+            { value: string },
+            { label: string; args: unknown }
+          >,
+        ),
+        action: useConvexAction(
+          makeFunctionReference<'action'>('notes:work') as FunctionReference<
+            'action',
+            'public',
+            { value: string },
+            { label: string; args: unknown }
+          >,
+        ),
+      })),
+    )!
+
+    await expect(operation.mutation({ value: 'write' })).resolves.toEqual({
+      label: 'alice',
+      args: { value: 'write' },
+    })
+    await expect(operation.action({ value: 'work' })).resolves.toEqual({
+      label: 'alice',
+      args: { value: 'work' },
+    })
+    expect(operation.mutation.status.value).toBe('success')
+    expect(operation.action.status.value).toBe('success')
+
+    let resolvePending: ((value: { label: string; args: unknown }) => void) | null = null
+    host.mutation.mockImplementationOnce(
+      () => new Promise<{ label: string; args: unknown }>((resolve) => (resolvePending = resolve)),
+    )
+    const retired = operation.mutation({ value: 'late' })
+    await vi.waitFor(() => expect(resolvePending).not.toBeNull())
+    host.emit({
+      ...host.runtime.identity.snapshot(),
+      identityKey: 'user:bob',
+      identityGeneration: 2,
+    })
+    ;(resolvePending as ((value: { label: string; args: unknown }) => void) | null)?.({
+      label: 'alice',
+      args: { value: 'late' },
+    })
+    await expect(retired).rejects.toMatchObject({ code: 'IDENTITY_CHANGED' })
+    expect(operation.mutation.status.value).toBe('idle')
+
+    scope.stop()
+    expect(host.listeners.size).toBe(1) // plugin identity projection remains; callable listener is gone
+  })
+
+  it('subscribes synchronously and clears protected query state on identity change', () => {
+    const host = attachedRuntime('alice')
+    const app = createApp({})
+    app.use(createBetterConvex({ runtime: host.runtime }))
+    const scope = effectScope()
+    const query = app.runWithContext(() =>
+      scope.run(() =>
+        useConvexQuery(makeFunctionReference<'query'>('notes:list'), { owner: 'current' }),
+      ),
+    )!
+
+    expect(host.subscriptions).toHaveLength(1)
+    host.subscriptions[0]!.emit([{ id: 'alice-result' }])
+    expect(query.data.value).toEqual([{ id: 'alice-result' }])
+    const retired = host.subscriptions[0]!
+
+    host.emit({
+      ...host.runtime.identity.snapshot(),
+      identityKey: 'user:bob',
+      identityGeneration: 2,
+    })
+    expect(query.data.value).toBeNull()
+    expect(retired.active).toBe(false)
+    expect(host.subscriptions).toHaveLength(2)
+    retired.emit([{ id: 'late-alice' }])
+    expect(query.data.value).toBeNull()
+
+    host.subscriptions[1]!.emit([{ id: 'bob-result' }])
+    expect(query.data.value).toEqual([{ id: 'bob-result' }])
+    scope.stop()
+    expect(host.subscriptions[1]!.active).toBe(false)
+  })
+
+  it('owns the live pagination cursor chain and retires every page across identity', () => {
+    const host = attachedRuntime('alice')
+    const app = createApp({})
+    app.use(createBetterConvex({ runtime: host.runtime }))
+    const scope = effectScope()
+    const query = app.runWithContext(() =>
+      scope.run(() =>
+        useConvexPaginatedQuery(
+          makeFunctionReference<'query'>('notes:listPaginated') as FunctionReference<
+            'query',
+            'public',
+            { owner: string; paginationOpts: PaginationOptions },
+            PaginationResult<{ id: string }>
+          >,
+          { owner: 'current' },
+          { initialNumItems: 1 },
+        ),
+      ),
+    )!
+
+    host.subscriptions[0]!.emit({
+      page: [{ id: 'a' }],
+      continueCursor: 'cursor-1',
+      isDone: false,
+    })
+    expect(query.results.value).toEqual([{ id: 'a' }])
+    query.loadMore(1)
+    expect(host.subscriptions).toHaveLength(2)
+    host.subscriptions[1]!.emit({
+      page: [{ id: 'b' }],
+      continueCursor: '',
+      isDone: true,
+    })
+    expect(query.results.value).toEqual([{ id: 'a' }, { id: 'b' }])
+
+    host.emit({
+      ...host.runtime.identity.snapshot(),
+      identityKey: 'user:bob',
+      identityGeneration: 2,
+    })
+    expect(query.results.value).toEqual([])
+    expect(host.subscriptions.slice(0, 2).every((subscription) => !subscription.active)).toBe(true)
+    expect(host.subscriptions).toHaveLength(3)
+    scope.stop()
+  })
+
+  it('accepts a complete first-page seed for SSR adapters without losing its cursor', () => {
+    const host = attachedRuntime('alice')
+    const app = createApp({})
+    app.use(createBetterConvex({ runtime: host.runtime }))
+    const scope = effectScope()
+    const query = app.runWithContext(() =>
+      scope.run(() =>
+        useConvexPaginatedQuery(
+          makeFunctionReference<'query'>('notes:ssrPaginated') as FunctionReference<
+            'query',
+            'public',
+            { paginationOpts: PaginationOptions },
+            PaginationResult<{ id: string }>
+          >,
+          {},
+          {
+            initialNumItems: 1,
+            initialPage: {
+              page: [{ id: 'ssr' }],
+              continueCursor: 'ssr-cursor',
+              isDone: false,
+            },
+          },
+        ),
+      ),
+    )!
+
+    expect(query.results.value).toEqual([{ id: 'ssr' }])
+    expect(query.hasNextPage.value).toBe(true)
+    query.loadMore(1)
+    expect(host.subscriptions[1]).toBeDefined()
+    scope.stop()
+  })
+})

@@ -1,8 +1,12 @@
-import type { ConvexIdentityKey } from '../client-core/identity-key'
+import type { BetterConvexIdentitySnapshot } from 'better-convex-vue'
+
 import type { ConvexUser } from './types'
 
-export { isAuthenticatedIdentityKey } from '../client-core/identity-key'
-export type { ConvexIdentityKey } from '../client-core/identity-key'
+export type ConvexIdentityKey = NonNullable<BetterConvexIdentitySnapshot['identityKey']>
+
+export function isAuthenticatedIdentityKey(key: ConvexIdentityKey | null): key is `user:${string}` {
+  return typeof key === 'string' && key.startsWith('user:')
+}
 
 /**
  * The single stable-user-ID extraction function.

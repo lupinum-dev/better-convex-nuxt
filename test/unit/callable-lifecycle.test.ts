@@ -1,15 +1,15 @@
 import { ConvexError } from 'convex/values'
 import { describe, expect, it, vi } from 'vitest'
 
+import { ConvexCallError } from '../../packages/vue/src/errors'
 import {
   createCallableController,
   type CallableControllerHandlers,
-} from '../../src/runtime/client-core/callable-controller'
+} from '../../packages/vue/src/internal/callable-controller'
 import {
   createIdentityChangedError,
   isIdentityChangedError,
-} from '../../src/runtime/client-core/identity-changed-error'
-import { ConvexCallError } from '../../src/runtime/errors'
+} from '../../packages/vue/src/internal/identity-changed-error'
 
 function makeLifecycle<Result = string>(
   handlers: CallableControllerHandlers<Record<string, unknown>, Result>,

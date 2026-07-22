@@ -1,14 +1,14 @@
-import type { FunctionReference, PaginationResult } from 'convex/server'
+import { makeFunctionReference, type PaginationResult } from 'convex/server'
 
-import { createCallableController } from '../../../src/runtime/client-core/callable-controller'
-import { createPaginationController } from '../../../src/runtime/client-core/pagination-controller'
-import { createQueryController } from '../../../src/runtime/client-core/query-controller'
+import { createCallableController } from '../../../packages/vue/src/internal/callable-controller'
+import { createPaginationController } from '../../../packages/vue/src/internal/pagination-controller'
+import { createQueryController } from '../../../packages/vue/src/internal/query-controller'
 
 interface Row {
   id: string
 }
 
-const query = { _path: 'notes:list' } as unknown as FunctionReference<'query'>
+const query = makeFunctionReference<'query'>('notes:list')
 
 function page(ids: string[], continueCursor: string, isDone = false): PaginationResult<Row> {
   return { page: ids.map((id) => ({ id })), continueCursor, isDone }

@@ -1,8 +1,8 @@
 import { shallowRef } from 'vue'
 
-import { createAttachedClientRuntime } from '../../../src/runtime/client-core/attached-runtime'
-import type { ClientIdentitySnapshot } from '../../../src/runtime/client-core/identity-port'
-import { ConvexCallError } from '../../../src/runtime/errors'
+import { ConvexCallError } from '../../../packages/vue/src/errors'
+import { createAttachedClientRuntime } from '../../../packages/vue/src/internal/attached-runtime'
+import type { ClientIdentitySnapshot } from '../../../packages/vue/src/internal/identity-port'
 
 export const hostVueIdentity = shallowRef
 

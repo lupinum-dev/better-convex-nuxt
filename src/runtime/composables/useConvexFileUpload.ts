@@ -9,14 +9,11 @@ import { computed, getCurrentScope, onScopeDispose, shallowRef, type ComputedRef
 
 import { useNuxtApp } from '#imports'
 
-import {
-  createIdentityChangedError,
-  isIdentityChangedError,
-} from '../client-core/identity-changed-error'
 import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { getFunctionName } from '../utils/convex-shared'
+import { createIdentityChangedError, isIdentityChangedError } from '../utils/identity-changed-error'
 import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
@@ -245,8 +242,8 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
 
   const nuxtApp = useNuxtApp()
   const runtime = readConvexRuntimeContext(nuxtApp)
-  const owner = runtime?.owner
-  const identityObserver = runtime?.getIdentityObserver()
+  const attachment = runtime?.attachment
+  const identityObserver = attachment?.identity
   const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
   const getIdentityGeneration = () => identityObserver?.snapshot().identityGeneration ?? 0
 
@@ -386,7 +383,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       }
       requireCurrentUpload()
 
-      if (!owner) {
+      if (!attachment || typeof attachment.client.mutation !== 'function') {
         throw new ConvexCallError({
           kind: 'unknown',
           message:
@@ -402,7 +399,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
       })
       const postUrl = await Promise.race([
         requestUploadUrl(
-          owner.handle,
+          attachment.client,
           generateUploadUrlMutation,
           (mutationArgs ?? {}) as FunctionArgs<Mutation>,
         ),

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 
-import { isConvexArgsSkipped, normalizeConvexArgs } from '../../src/runtime/utils/query-args'
+import {
+  isConvexArgsSkipped,
+  normalizeConvexArgs,
+} from '../../packages/vue/src/internal/query-args'
 
 describe('query args normalization', () => {
   it('uses an empty object when no args parameter is provided', () => {

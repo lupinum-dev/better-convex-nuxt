@@ -56,7 +56,7 @@ export type {
   NormalizedConvexAuthConfig,
 } from './runtime/utils/auth-config'
 export type { ConvexAuthMode, ConvexAuthStatus } from './runtime/utils/auth-status'
-export type { ConvexClientHandle } from './runtime/client-core/client-owner'
+export type { ConvexClientHandle } from 'better-convex-vue'
 export type { ConvexIdentityKey } from './runtime/utils/identity-key'
 export type { ConvexRuntimeConfig } from './runtime/utils/runtime-config'
 export type {
@@ -275,8 +275,10 @@ export default defineNuxtModule<ModuleOptions>({
       })
     }
 
-    // 1. Core client plugin — always installed, imports no Better Auth code.
-    addPlugin(resolver.resolve('./runtime/plugin.client'))
+    // Exactly one browser-runtime plugin is installed. The auth-disabled entry
+    // has no Better Auth imports; the auth-enabled entry constructs the same
+    // Vue-owned runtime with the first-party provider adapter.
+    if (!isAuthEnabled) addPlugin(resolver.resolve('./runtime/plugin.client'))
 
     // Universal ConvexCallError payload plugin . Registered on both
     // server and client with a negative order so the reviver is installed before

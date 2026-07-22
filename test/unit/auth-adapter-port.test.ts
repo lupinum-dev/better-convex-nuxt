@@ -5,11 +5,11 @@ import {
   createAuthAdapterIdentityPort,
   type BrowserAuthAdapter,
   type BrowserAuthSnapshot,
-} from '../../src/runtime/client-core/auth-adapter'
+} from '../../packages/vue/src/internal/auth-adapter'
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client-core/client-owner'
+} from '../../packages/vue/src/internal/client-owner'
 
 class FakeAdapter implements BrowserAuthAdapter {
   private listeners = new Set<() => void>()

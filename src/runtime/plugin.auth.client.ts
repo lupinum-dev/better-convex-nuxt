@@ -1,128 +1,67 @@
 import { createAuthClient } from 'better-auth/vue'
-import type { ConvexClient } from 'convex/browser'
-import { effectScope } from 'vue'
+import { createBetterConvex } from 'better-convex-vue'
+import { computed } from 'vue'
 
-/**
- * Auth-enabled-only client plugin ("Client instantiation").
- * Registered by the module ONLY when `auth !== false`, so a Convex-only build
- * never pulls this file — or any Better Auth runtime — into its client graph. It
- * resolves the typed auth-client definition, creates exactly one Better Auth
- * client for this Nuxt app, constructs the
- * per-app auth coordinator, attaches it to the primary, and hands the client
- * owner the coordinator's frozen {@link ClientIdentityPort}.
- */
-import { defineNuxtPlugin, useRuntimeConfig, useState, clearNuxtData } from '#app'
+import { clearNuxtData, defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 import convexAuthClientDefinition from '#convex/auth-client'
 
 import { convexClientPlugin } from './auth-client/convex-client-plugin'
 import {
-  createConvexAuthCoordinator,
-  type AuthClientWithConvex,
-  type ConvexAuthCoordinator,
-} from './auth/client-engine'
+  ANONYMOUS_IDENTITY,
+  identityToken,
+  identityUser,
+  toAuthenticatedIdentity,
+} from './auth/auth-identity'
+import { createBetterAuthBrowserAdapter } from './auth/better-auth-browser-adapter'
+import type { AuthClientWithConvex } from './auth/client-engine-types'
+import { createIntegratedAuthNamespace } from './auth/integrated-namespace'
+import { createPendingOperations } from './auth/pending-operations'
 import { observeBetterAuthSession } from './auth/session-observer'
+import { createSessionSynchronization } from './auth/session-synchronization'
 import { validateConvexAuthClientDefinition } from './auth/validate-auth-client-definition'
-import type { AuthWaterfall } from './devtools/types'
-import { readConvexRuntimeContext } from './runtime-context'
+import { setupNuxtDevtoolsClient } from './devtools/setup-client'
+import { ConvexCallError } from './errors'
+import { createConvexRuntimeContext, type NuxtConvexAuthController } from './runtime-context'
 import { useConvexIdentityState } from './utils/auth-identity-state'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
 import { readAuthMode } from './utils/convex-cache'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 
+const SESSION_RECONCILIATION_TIMEOUT_MS = 5_000
+
+/** Auth-enabled entry: Better Auth is an adapter around the one Vue-owned runtime. */
 export default defineNuxtPlugin({
-  // Must run AFTER `plugin.client` provides `$convexRuntime`: this plugin
-  // attaches the auth coordinator to the owner's primary. The async module
-  // `setup` registers the core plugin first but Nuxt does not preserve that
-  // order across the `await` between `addPlugin` calls, so pin it explicitly.
   name: 'convex:auth-client',
-  dependsOn: ['convex:core-client'],
   setup(nuxtApp) {
     const config = useRuntimeConfig()
     const convexConfig = getConvexRuntimeConfig()
-    const authConfig = convexConfig.auth
-    if (authConfig === false) return // Defensive: module never registers this when disabled.
+    if (convexConfig.auth === false || !convexConfig.url) return
 
-    const runtime = readConvexRuntimeContext(nuxtApp)
     const publicConvex = config.public.convex as Record<string, unknown> | undefined
-    const logLevel = getLogLevel(publicConvex)
-    const logger = runtime?.logger ?? createLogger(logLevel)
-    const endInit = logger.time('plugin:init (client auth)')
-    const traceEnabled =
-      logLevel === 'debug' && (authConfig.debug.authFlow || authConfig.debug.clientAuthFlow)
-    const trace = (
-      phase: string,
-      outcome: 'success' | 'error' | 'skip' | 'miss',
-      details: Record<string, boolean> = {},
-    ) => {
-      if (!traceEnabled) return
-      logger.auth({ phase, outcome, details: { component: 'client-auth', ...details } })
-    }
-
-    // HMR-safe: the coordinator is provided only by this plugin. Reuse per-app.
-    if (runtime?.getAuthCoordinator()) {
-      trace('client.auth.initialization', 'skip', { alreadyInitialized: true })
-      logger.debug('plugin:init (client auth) skipped; already initialized')
-      endInit()
-      return
-    }
-
-    // Read the current primary through the per-app client owner.
-    const clientOwner = runtime?.owner
-    const client = clientOwner?.getPrimary()?.client as ConvexClient | undefined
-    if (!runtime || !clientOwner || !client) {
-      trace('client.auth.initialization', 'error', { coreClientAvailable: false })
-      logger.debug('Core Convex client owner is unavailable; auth plugin cannot initialize')
-      endInit()
-      return
-    }
-
-    const convexUrl = convexConfig.url
-    const resolvedSiteUrl = convexConfig.siteUrl
-
-    const convexIdentity = useConvexIdentityState()
-    const convexAuthError = useState<string | null>('convex:authError', () => null)
-    const convexPending = useConvexAuthPendingState()
-    useState<AuthWaterfall | null>('convex:authWaterfall', () => null)
-
-    // 1–2. Resolve and runtime-validate the typed definition (JS/untyped safety).
+    const logger = createLogger(getLogLevel(publicConvex))
     const definitionOptions = validateConvexAuthClientDefinition(convexAuthClientDefinition)
+    const { plugins: consumerPlugins, ...baseOptions } = definitionOptions
+    const authClient = createAuthClient({
+      ...baseOptions,
+      baseURL: `${window.location.origin}/api/auth`,
+      plugins: [convexClientPlugin(), ...(consumerPlugins ?? [])],
+      fetchOptions: { credentials: 'include' },
+    }) as unknown as AuthClientWithConvex
 
-    let authClient: AuthClientWithConvex | null = null
-    trace('client.auth.initialization', 'success', { coreClientAvailable: true })
-    if (resolvedSiteUrl) {
-      // Fixed same-origin proxy contract.
-      const authBaseURL = `${window.location.origin}/api/auth`
-      // 3/5/6. One client per app; the library owns credentials and transport.
-      const { plugins: consumerPlugins, ...baseOptions } = definitionOptions
-      authClient = createAuthClient({
-        ...baseOptions,
-        baseURL: authBaseURL,
-        plugins: [convexClientPlugin(), ...(consumerPlugins ?? [])],
-        fetchOptions: { credentials: 'include' },
-        // The ambient definition's `plugins` is the broad `BetterAuthClientPlugin[]`,
-        // so `createAuthClient` infers a widened client whose static `signIn`/etc.
-        // collapse; the runtime instance is correct. Cast through `unknown`.
-      }) as unknown as AuthClientWithConvex
-    } else {
-      convexAuthError.value =
-        convexAuthError.value ??
-        `[better-convex-nuxt] Missing Convex site URL; cannot initialize auth for ${convexUrl ?? 'the configured deployment'}`
-    }
-
-    const coordinator: ConvexAuthCoordinator = createConvexAuthCoordinator({
-      authClient,
-      state: {
-        identity: convexIdentity,
-        pending: convexPending,
-        authError: convexAuthError,
+    const identity = useConvexIdentityState()
+    const authError = useState<string | null>('convex:authError', () => null)
+    const pendingState = useConvexAuthPendingState()
+    const adapter = createBetterAuthBrowserAdapter(authClient, {
+      authenticated(token, user) {
+        identity.value = toAuthenticatedIdentity(token, user)
+        authError.value = null
+        pendingState.value = false
       },
-      logger,
-      // Identity purge (architecture invariant): drop `required`/`optional` Convex payload
-      // keys on a stable identity-key change; `none` keys are identity-independent
-      // and retained. Query composables clear their own local state via the
-      // identityGeneration watch; this only sweeps SSR payload namespaces.
-      purgeIdentityPayloads: () => {
+      anonymous(error) {
+        identity.value = ANONYMOUS_IDENTITY
+        authError.value = error
+        pendingState.value = false
         clearNuxtData((key) => {
           const mode = readAuthMode(key)
           return mode === 'required' || mode === 'optional'
@@ -130,34 +69,118 @@ export default defineNuxtPlugin({
       },
     })
 
-    // 7. Provide the instance on nuxtApp; 8. the coordinator got the same instance.
+    const vuePlugin = createBetterConvex({ convexUrl: convexConfig.url, auth: adapter })
+    nuxtApp.vueApp.use(vuePlugin)
+    const runtime = createConvexRuntimeContext(vuePlugin.attachment(), logger)
+    nuxtApp.provide('convexRuntime', runtime)
     nuxtApp.provide('auth', authClient)
-    runtime.attachAuthCoordinator(coordinator)
 
-    // Install the initial setAuth on the owner's primary and drive settlement.
-    coordinator.attachPrimary(client)
-
-    // Better Auth's public session hook is the sole live session source. Raw
-    // plugin calls, MFA completion, expiry, and cross-tab logout all converge
-    // through this watcher; wrappers are ergonomics only.
-    const sessionScope = effectScope()
-    if (authClient) {
-      sessionScope.run(() => {
-        observeBetterAuthSession(authClient, (sessionToken, errorMessage) => {
-          void coordinator.reconcileSession(sessionToken, errorMessage)
-        })
-      })
-    }
-
-    // Hand the client owner the frozen port so it retires and replaces the
-    // identity-scoped primary on every stable identity-key change .
-    clientOwner.attachIdentityPort(coordinator.port)
-    clientOwner.addDisposer(() => {
-      sessionScope.stop()
-      coordinator.dispose()
+    let disposed = false
+    const operations = createPendingOperations()
+    const synchronization = createSessionSynchronization({
+      timeoutMs: SESSION_RECONCILIATION_TIMEOUT_MS,
+      isDisposed: () => disposed,
+      async failClosed(failure) {
+        adapter.failClosed(failure.message)
+      },
+    })
+    const stopSession = observeBetterAuthSession(authClient, (sessionToken, errorMessage) => {
+      const revision = synchronization.advance()
+      if (errorMessage) adapter.failClosed(errorMessage)
+      synchronization.complete(revision, errorMessage ? null : sessionToken)
     })
 
-    endInit()
-    trace('client.auth.initialization', 'success', { authClientConfigured: authClient !== null })
+    const execute = <T>(operation: () => Promise<T>) => operations.run(operation)
+    const integratedSignIn = createIntegratedAuthNamespace(
+      authClient.signIn as object,
+      synchronization.createBarrier,
+      execute,
+    )
+    const integratedSignUp = createIntegratedAuthNamespace(
+      authClient.signUp as object,
+      synchronization.createBarrier,
+      execute,
+    )
+
+    const controller: NuxtConvexAuthController = {
+      isPending: computed(() => pendingState.value || operations.isPending.value),
+      integratedSignIn,
+      integratedSignUp,
+      async ready(options) {
+        const ready = vuePlugin.ready()
+        const timeoutMs = options?.timeoutMs ?? 0
+        if (timeoutMs <= 0) await ready
+        else {
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(resolve, timeoutMs)
+            void ready.then(
+              () => {
+                clearTimeout(timer)
+                resolve()
+              },
+              (error) => {
+                clearTimeout(timer)
+                reject(error)
+              },
+            )
+          })
+        }
+        const snapshot = runtime.attachment.identity.snapshot()
+        if (!snapshot.settled) return 'loading'
+        if (snapshot.error) return 'error'
+        return snapshot.identityKey === 'anonymous' ? 'anonymous' : 'authenticated'
+      },
+      refresh() {
+        return operations.run(async () => {
+          await adapter.refresh()
+          await vuePlugin.refreshAuth()
+        })
+      },
+      signOut() {
+        return operations.run(async () => {
+          const barrier = synchronization.createBarrier()
+          try {
+            const result = await authClient.signOut()
+            const error =
+              result && typeof result === 'object' && 'error' in result ? result.error : null
+            if (error) {
+              barrier.cancel()
+              throw new ConvexCallError({ kind: 'authentication', message: 'Sign out failed' })
+            }
+            await barrier.wait(null)
+            return result
+          } catch (error) {
+            barrier.cancel()
+            throw error
+          }
+        })
+      },
+      dispose() {
+        if (disposed) return
+        disposed = true
+        stopSession()
+        synchronization.dispose()
+        adapter.dispose()
+      },
+    }
+    runtime.attachAuthController(controller)
+    nuxtApp.vueApp.onUnmount(runtime.dispose)
+
+    if (typeof window !== 'undefined' && import.meta.dev) {
+      const waterfall = useState('convex:authWaterfall', () => null)
+      const instanceId = useState<string>(
+        'convex:devtoolsInstanceId',
+        () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+      )
+      setupNuxtDevtoolsClient({
+        runtime,
+        token: computed(() => identityToken(identity.value)),
+        user: computed(() => identityUser(identity.value)),
+        waterfall,
+        instanceId: instanceId.value,
+        logger,
+        onDispose: (dispose) => nuxtApp.vueApp.onUnmount(dispose),
+      })
+    }
   },
 })

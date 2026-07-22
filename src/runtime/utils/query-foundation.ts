@@ -1,11 +1,13 @@
+import type {
+  BetterConvexAttachedRuntime,
+  BetterConvexIdentityObserver,
+} from 'better-convex-vue/embedded'
 import type { ComputedRef } from 'vue'
 import { computed, getCurrentScope, onScopeDispose, shallowRef } from 'vue'
 
 import { useState } from '#imports'
 
 import { identityKeyOf } from '../auth/auth-identity'
-import type { ConvexClientHandle, ConvexClientOwner } from '../client-core/client-owner'
-import type { ClientIdentityObserver } from '../client-core/identity-port'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { useConvexIdentityState } from './auth-identity-state'
@@ -42,8 +44,8 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
   const pending = useConvexAuthPendingState()
   const authError = useState<string | null>('convex:authError', () => null)
 
-  const port: ClientIdentityObserver | undefined = authEnabled
-    ? (readConvexRuntimeContext(nuxtApp)?.getIdentityObserver() ?? undefined)
+  const port: BetterConvexIdentityObserver | undefined = authEnabled
+    ? readConvexRuntimeContext(nuxtApp)?.attachment.identity
     : undefined
 
   // Mirror the port's monotonic identity generation reactively. Subscribing keeps
@@ -103,10 +105,10 @@ export function createConvexQueryAuthContext(nuxtApp: unknown): ConvexQueryAuthC
  * Returns `null` when no client owner exists (SSR uses HTTP, never a WS client).
  */
 export function selectLiveQueryClient(
-  owner: ConvexClientOwner | undefined,
+  runtime: BetterConvexAttachedRuntime | undefined,
   gate: QueryExecutionGate,
-): Pick<ConvexClientHandle, 'query' | 'onUpdate'> | null {
-  if (!owner || gate.outcome !== 'execute') return null
-  if (gate.useAnonymousClient) return owner.getAnonymous()
-  return owner.handle
+): Pick<BetterConvexAttachedRuntime['client'], 'query' | 'onUpdate'> | null {
+  if (!runtime || gate.outcome !== 'execute') return null
+  if (gate.useAnonymousClient) return runtime.anonymousClient
+  return runtime.client
 }

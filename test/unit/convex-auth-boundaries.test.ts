@@ -139,9 +139,9 @@ describe('Convex auth dependency boundaries', () => {
 })
 
 describe('private client lifecycle dependency boundary', () => {
-  const clientCoreFile = resolve('src/runtime/client-core/client-owner.ts')
-  const clientCoreSibling = resolve('src/runtime/client-core/identity-port.ts')
-  const errorAuthority = resolve('src/runtime/errors/index.ts')
+  const clientCoreFile = resolve('packages/vue/src/internal/client-owner.ts')
+  const clientCoreSibling = resolve('packages/vue/src/internal/identity-port.ts')
+  const errorAuthority = resolve('packages/vue/src/errors.ts')
   const nuxtRuntime = resolve('src/runtime/runtime-context.ts')
   const serverRuntime = resolve('src/runtime/server/utils/server-convex-caller.ts')
   const mcpRuntime = resolve('src/runtime/mcp/route.ts')
@@ -209,6 +209,7 @@ describe('workspace package dependency direction', () => {
     expect(packages.map((item) => item.name).sort()).toEqual([
       'better-convex-nuxt',
       'better-convex-nuxt-playground',
+      'better-convex-vue',
     ])
   })
 

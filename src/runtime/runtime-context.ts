@@ -1,54 +1,57 @@
-import type { ConvexAuthCoordinator } from './auth/client-engine'
-import type { ConvexClientOwner } from './client-core/client-owner'
-import type { ClientIdentityObserver } from './client-core/identity-port'
+import type { BetterConvexAttachedRuntime } from 'better-convex-vue/embedded'
+import type { ComputedRef } from 'vue'
+
 import type { DevtoolsSink } from './devtools/sink'
+import type { ConvexAuthStatus } from './utils/auth-status'
 import type { Logger } from './utils/logger'
 
-/** The single mutable attachment owned by one Nuxt application. */
-export interface ConvexRuntimeContext {
-  readonly owner: ConvexClientOwner
-  readonly logger: Logger
-  getAuthCoordinator(): ConvexAuthCoordinator | null
-  getIdentityObserver(): ClientIdentityObserver | null
-  attachAuthCoordinator(coordinator: ConvexAuthCoordinator): void
-  getDevtoolsSink(): DevtoolsSink | null
-  attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null
+/** Nuxt-owned Better Auth presentation; it never controls a Convex client. */
+export interface NuxtConvexAuthController {
+  readonly isPending: ComputedRef<boolean>
+  readonly integratedSignIn: object | null
+  readonly integratedSignUp: object | null
+  ready(options?: { timeoutMs?: number }): Promise<ConvexAuthStatus>
+  refresh(): Promise<void>
+  signOut(): Promise<unknown>
+  dispose(): void
 }
 
-/** Read the internal Nuxt attachment without requiring consumer augmentations. */
+/** Nuxt adapters around the one Vue-owned browser runtime. */
+export interface ConvexRuntimeContext {
+  readonly attachment: BetterConvexAttachedRuntime
+  readonly logger: Logger
+  getAuthController(): NuxtConvexAuthController | null
+  attachAuthController(controller: NuxtConvexAuthController): void
+  getDevtoolsSink(): DevtoolsSink | null
+  attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null
+  dispose(): void
+}
+
 export function readConvexRuntimeContext(nuxtApp: unknown): ConvexRuntimeContext | undefined {
   return (nuxtApp as { $convexRuntime?: ConvexRuntimeContext }).$convexRuntime
 }
 
 export function createConvexRuntimeContext(
-  owner: ConvexClientOwner,
+  attachment: BetterConvexAttachedRuntime,
   logger: Logger,
 ): ConvexRuntimeContext {
-  let authCoordinator: ConvexAuthCoordinator | null = null
+  let authController: NuxtConvexAuthController | null = null
   let devtoolsSink: DevtoolsSink | null = null
   let disposed = false
 
-  const stopIdentityObservation = owner.subscribeIdentityChange(() => {
+  const stopIdentityObservation = attachment.identity.subscribe(() => {
     devtoolsSink?.clearIdentityOwned()
   })
 
-  owner.addDisposer(() => {
-    disposed = true
-    stopIdentityObservation()
-    devtoolsSink?.dispose()
-    devtoolsSink = null
-  })
-
   const context: ConvexRuntimeContext = {
-    owner,
+    attachment,
     logger,
-    getAuthCoordinator: () => authCoordinator,
-    getIdentityObserver: () => authCoordinator?.port ?? null,
-    attachAuthCoordinator(coordinator) {
-      if (authCoordinator && authCoordinator !== coordinator) {
-        throw new Error('[convex-runtime] auth coordinator is already attached')
+    getAuthController: () => authController,
+    attachAuthController(controller) {
+      if (authController && authController !== controller) {
+        throw new Error('[convex-runtime] auth controller is already attached')
       }
-      authCoordinator = coordinator
+      authController = controller
     },
     getDevtoolsSink: () => devtoolsSink,
     attachDevtoolsSink(sink) {
@@ -63,6 +66,14 @@ export function createConvexRuntimeContext(
         devtoolsSink = null
         sink.dispose()
       }
+    },
+    dispose() {
+      if (disposed) return
+      disposed = true
+      stopIdentityObservation()
+      authController?.dispose()
+      devtoolsSink?.dispose()
+      devtoolsSink = null
     },
   }
   return Object.freeze(context)

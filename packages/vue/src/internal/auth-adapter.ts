@@ -5,7 +5,7 @@ import type { ClientIdentityPort, ClientIdentitySnapshot } from './identity-port
 
 export type BrowserAuthStatus = 'loading' | 'authenticated' | 'anonymous' | 'error'
 
-/** Candidate provider-neutral boundary. Kept private until the Phase 4 proof passes. */
+/** Provider-neutral browser identity snapshot. It contains no credential or client control. */
 export interface BrowserAuthSnapshot {
   readonly status: BrowserAuthStatus
   /** Stable, non-secret provider subject used only for local state isolation. */
@@ -15,7 +15,7 @@ export interface BrowserAuthSnapshot {
   readonly error: Error | null
 }
 
-/** Candidate provider-neutral boundary. It deliberately contains no client controls. */
+/** Provider-neutral auth adapter. It deliberately contains no client controls. */
 export interface BrowserAuthAdapter {
   snapshot(): BrowserAuthSnapshot
   subscribe(listener: () => void): () => void
@@ -32,6 +32,7 @@ interface AuthCapableClient extends ConvexClient {
 }
 
 export interface AuthAdapterIdentityPort extends ClientIdentityPort {
+  refresh(): Promise<void>
   dispose(): void
 }
 
@@ -72,7 +73,7 @@ function publicError(snapshot: BrowserAuthSnapshot): ConvexCallError | null {
 }
 
 /**
- * Private Phase 4 proof adapter. It translates provider state into the existing
+ * Translates provider state into the shared
  * token-free identity port while retaining ownership of `setAuth` and raw clients.
  */
 export function createAuthAdapterIdentityPort(
@@ -96,6 +97,7 @@ export function createAuthAdapterIdentityPort(
   }
   const listeners = new Set<() => void>()
   const settlementWaiters = new Set<() => void>()
+  const activeConfirmations = new Set<(error: ConvexCallError) => void>()
 
   const notify = () => {
     for (const listener of [...listeners]) {
@@ -141,6 +143,12 @@ export function createAuthAdapterIdentityPort(
   }
 
   const confirm = (client: AuthCapableClient, expectedGeneration: number): Promise<void> => {
+    const superseded = new ConvexCallError({
+      kind: 'authentication',
+      code: 'IDENTITY_CHANGED',
+      message: 'Identity changed while authenticating',
+    })
+    for (const cancel of [...activeConfirmations]) cancel(superseded)
     const configuration = {}
     activeAuthConfiguration.set(client, configuration)
     return new Promise<void>((resolve, reject) => {
@@ -149,9 +157,11 @@ export function createAuthAdapterIdentityPort(
         if (done) return
         done = true
         clearTimeout(timer)
+        activeConfirmations.delete(finish)
         if (error) reject(error)
         else resolve()
       }
+      activeConfirmations.add(finish)
       const timer = setTimeout(
         () =>
           finish(
@@ -215,6 +225,12 @@ export function createAuthAdapterIdentityPort(
       previous.sessionGeneration !== next.sessionGeneration
 
     if (crossedIdentity) {
+      const retired = new ConvexCallError({
+        kind: 'authentication',
+        code: 'IDENTITY_CHANGED',
+        message: 'Identity changed while authenticating',
+      })
+      for (const cancel of [...activeConfirmations]) cancel(retired)
       identityGeneration += 1
       currentClient = null
       currentClientGeneration = -1
@@ -279,9 +295,19 @@ export function createAuthAdapterIdentityPort(
     failPrimary(failedGeneration: number, cause: unknown) {
       failClosed(failedGeneration, cause)
     },
+    async refresh() {
+      if (disposed || desired.status !== 'authenticated' || !currentClient) return
+      await confirm(currentClient, currentClientGeneration)
+    },
     dispose() {
       if (disposed) return
       disposed = true
+      const cancellation = new ConvexCallError({
+        kind: 'authentication',
+        code: 'IDENTITY_CHANGED',
+        message: 'Authentication runtime was disposed',
+      })
+      for (const cancel of [...activeConfirmations]) cancel(cancellation)
       unsubscribeAdapter()
       listeners.clear()
       snapshot = Object.freeze({ ...snapshot, settled: true })

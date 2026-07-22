@@ -1,10 +1,10 @@
 import type { FunctionReference, PaginationResult } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
-import { createPaginationController } from '../../src/runtime/client-core/pagination-controller'
-import type { PaginationPageOptions } from '../../src/runtime/client-core/pagination-state'
-import type { QueryIsolationTag } from '../../src/runtime/client-core/query-controller'
-import type { ConvexCallError } from '../../src/runtime/errors'
+import type { ConvexCallError } from '../../packages/vue/src/errors'
+import { createPaginationController } from '../../packages/vue/src/internal/pagination-controller'
+import type { PaginationPageOptions } from '../../packages/vue/src/internal/pagination-state'
+import type { QueryIsolationTag } from '../../packages/vue/src/internal/query-controller'
 import { mockFnRef } from '../helpers/mock-convex-client'
 
 interface Row {

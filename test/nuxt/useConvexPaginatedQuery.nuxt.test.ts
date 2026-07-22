@@ -5,6 +5,8 @@ import { useState } from '#imports'
 
 import { toAuthenticatedIdentity, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import { createConvexPaginatedQueryState } from '../../src/runtime/composables/useConvexPaginatedQuery'
+import { withAuthDimension } from '../../src/runtime/utils/convex-cache'
+import { createConvexQueryKey } from '../../src/runtime/utils/convex-shared'
 import { makeMockOwner } from '../helpers/mock-client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
@@ -200,6 +202,40 @@ describe('useConvexPaginatedQuery controller', () => {
     expect(anon.calls.onUpdate.length).toBe(1)
     expect(primary.calls.onUpdate.length).toBe(0)
 
+    wrapper.unmount()
+  })
+
+  it('hydrates the complete first page so loadMore retains the SSR cursor', async () => {
+    const primary = new MockConvexClient()
+    const query = mockFnRef<'query'>('feed:hydrated')
+    const key = withAuthDimension(
+      createConvexQueryKey(
+        query,
+        { paginationOpts: { numItems: 2, cursor: null } },
+        'convex-paginated',
+      ),
+      'none',
+      'anonymous',
+    )
+
+    const { result, flush, wrapper } = await captureInNuxt(
+      () =>
+        createConvexPaginatedQueryState(query, {}, { auth: 'none', initialNumItems: 2 }, true)
+          .resultData,
+      {
+        owner: makeMockOwner(primary),
+        payloadData: { [key]: page(['ssr-a', 'ssr-b'], false, 'ssr-cursor') },
+      },
+    )
+
+    expect(result.results.value).toEqual(['ssr-a', 'ssr-b'])
+    expect(result.hasNextPage.value).toBe(true)
+    result.loadMore(2)
+    await flush()
+    expect(primary.calls.onUpdate).toHaveLength(2)
+    expect(primary.calls.onUpdate[1]?.args).toMatchObject({
+      paginationOpts: { cursor: 'ssr-cursor' },
+    })
     wrapper.unmount()
   })
 })

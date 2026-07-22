@@ -8,7 +8,7 @@ import { toAuthenticatedIdentity, type AuthIdentity } from '../../src/runtime/au
 import { defineSharedConvexQuery } from '../../src/runtime/composables/defineSharedConvexQuery'
 import type { UseConvexQueryData } from '../../src/runtime/composables/useConvexQuery'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
+import { captureInNuxt, createNuxtHarnessVuePlugin } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 // The shared query defaults to auth:'optional'; module auth is enabled by default
@@ -100,6 +100,7 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
           return () => [showA.value ? h(ChildA) : null, h(ChildB)]
         },
       }),
+      { global: { plugins: [createNuxtHarnessVuePlugin()] } },
     )
 
     await waitFor(() => convex.activeListenerCount(query, {}) === 1)

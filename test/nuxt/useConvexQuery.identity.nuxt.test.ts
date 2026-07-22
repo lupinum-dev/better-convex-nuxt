@@ -124,9 +124,10 @@ describe('useConvexQuery identity isolation', () => {
     // Capture A's live callback set, switch to B, then fire the stale A callback.
     // Because the composable tears down A's listener on the identity change, and
     // any surviving A-tagged commit is masked, no A value reappears under B.
+    const lateA = primary.queuedQueryResultByPath('notes:stale', { owner: 'A-stale' })
     result.identity.value = toAuthenticatedIdentity('jwt-B', { id: 'B' })
     // A late emission targeting the (now-removed) A listener must not commit.
-    primary.emitQueryResultWhere(() => true, { owner: 'A-stale' })
+    lateA()
     await flush()
     expect(result.q.data.value).not.toEqual({ owner: 'A-stale' })
     expect(result.q.data.value).toBeNull()

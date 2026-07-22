@@ -4,7 +4,6 @@ import { useState, computed, readonly, ref, useNuxtApp } from '#imports'
 
 import type { BaseAuthClient, InferRegisteredConvexAuthClient } from '../auth-client'
 import { identityKeyOf, identityToken, identityUser } from '../auth/auth-identity'
-import type { ConvexAuthCoordinator } from '../auth/client-engine'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { useConvexIdentityState } from '../utils/auth-identity-state'
@@ -134,7 +133,7 @@ export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthCl
   const authError = useState<string | null>('convex:authError', () => null)
   const pending = useState<boolean>('convex:pending', () => import.meta.client)
 
-  const coordinator = readConvexRuntimeContext(nuxtApp)?.getAuthCoordinator() ?? undefined
+  const coordinator = readConvexRuntimeContext(nuxtApp)?.getAuthController() ?? undefined
   const client = ((nuxtApp as { $auth?: unknown }).$auth ??
     null) as InferRegisteredConvexAuthClient | null
 
@@ -156,7 +155,7 @@ export function useConvexAuth(): UseConvexAuthReturn<InferRegisteredConvexAuthCl
       : null,
   )
 
-  const requireCoordinator = (label: string): ConvexAuthCoordinator => {
+  const requireCoordinator = (label: string) => {
     if (!coordinator) {
       throw new Error(
         `[useConvexAuth] ${label} is client-only — call it from a browser event handler after the auth plugin has initialized.`,

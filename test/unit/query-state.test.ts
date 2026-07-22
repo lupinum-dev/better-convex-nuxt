@@ -4,7 +4,7 @@ import {
   computePaginationStale,
   computePaginationStatus,
   type PaginationStatusState,
-} from '../../src/runtime/client-core/pagination-state'
+} from '../../packages/vue/src/internal/pagination-state'
 import { computeConvexQueryPending } from '../../src/runtime/utils/query-state'
 
 const readyPaginatedState: PaginationStatusState = {

@@ -2,6 +2,8 @@ packages:
   - playground
   - packages/*
 
+linkWorkspacePackages: true
+
 overrides:
   vite: 7.3.6
   c12: 3.3.4

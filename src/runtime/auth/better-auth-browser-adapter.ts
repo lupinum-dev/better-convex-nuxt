@@ -1,6 +1,7 @@
+import type { BetterConvexAuthAdapter, BetterConvexAuthSnapshot } from 'better-convex-vue'
 import { watch, type Ref } from 'vue'
 
-import type { BrowserAuthAdapter, BrowserAuthSnapshot } from '../client-core/auth-adapter'
+import type { ConvexUser } from '../utils/types'
 import { fetchConvexToken, isTokenUsable, type ConvexTokenSource } from './token-fetcher'
 
 interface BetterAuthSessionState {
@@ -21,7 +22,13 @@ const UNAVAILABLE = 'Authentication is temporarily unavailable'
 /** Private first-party adapter proof. It becomes a Nuxt adapter only after the atomic package cut. */
 export function createBetterAuthBrowserAdapter(
   source: BetterAuthBrowserSource,
-): BrowserAuthAdapter & {
+  callbacks: {
+    authenticated(token: string, user: ConvexUser): void
+    anonymous(error: string | null): void
+  } = { authenticated: () => {}, anonymous: () => {} },
+): BetterConvexAuthAdapter & {
+  refresh(): Promise<void>
+  failClosed(message: string): void
   dispose(): void
 } {
   const session = source.useSession()
@@ -31,7 +38,7 @@ export function createBetterAuthBrowserAdapter(
   let observedSessionToken: string | null | undefined
   let observedIdentityKey: string | null | undefined
   let cachedToken: string | null = null
-  let snapshot: BrowserAuthSnapshot = {
+  let snapshot: BetterConvexAuthSnapshot = {
     status: 'loading',
     identityKey: null,
     sessionGeneration,
@@ -76,6 +83,7 @@ export function createBetterAuthBrowserAdapter(
         sessionGeneration,
         error: new Error(UNAVAILABLE),
       }
+      callbacks.anonymous(UNAVAILABLE)
       notify()
       return
     }
@@ -94,6 +102,7 @@ export function createBetterAuthBrowserAdapter(
       sessionToken && key
         ? { status: 'authenticated', identityKey: key, sessionGeneration, error: null }
         : { status: 'anonymous', identityKey: null, sessionGeneration, error: null }
+    if (!sessionToken) callbacks.anonymous(null)
     notify()
   }
 
@@ -134,11 +143,30 @@ export function createBetterAuthBrowserAdapter(
           return null
         }
         cachedToken = outcome.identity.token
+        callbacks.authenticated(outcome.identity.token, outcome.identity.user)
         return cachedToken
       }
       if (!outcome.definitive && isTokenUsable(cachedToken)) return cachedToken
       cachedToken = null
+      callbacks.anonymous(outcome.authError)
       return null
+    },
+    async refresh() {
+      if (disposed) return
+      notify()
+    },
+    failClosed(message: string) {
+      if (disposed) return
+      cachedToken = null
+      sessionGeneration += 1
+      snapshot = {
+        status: 'error',
+        identityKey: null,
+        sessionGeneration,
+        error: new Error(UNAVAILABLE),
+      }
+      callbacks.anonymous(message)
+      notify()
     },
     dispose() {
       if (disposed) return

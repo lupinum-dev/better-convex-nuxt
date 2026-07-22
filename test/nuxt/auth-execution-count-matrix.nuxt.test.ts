@@ -113,8 +113,7 @@ describe('auth execution-count matrix — browser contexts ', () => {
       if (mode === 'none') {
         expect(delta).toBe(0) // zero auth-driven reruns
       } else {
-        // See the "client navigation" test above for why the delta is 2, not 1.
-        expect(delta).toBe(2)
+        expect(delta).toBe(1)
       }
     }
   })
@@ -145,8 +144,7 @@ describe('auth execution-count matrix — browser contexts ', () => {
       if (mode === 'none') {
         expect(delta).toBe(0)
       } else if (mode === 'optional') {
-        // See the "client navigation" test above for why the delta is 2, not 1.
-        expect(delta).toBe(2)
+        expect(delta).toBe(1)
       } else {
         expect(delta).toBe(0) // zero new calls; release to idle
         expect(primary.activeListenerCount(query, {})).toBe(0)
@@ -210,8 +208,7 @@ describe('auth execution-count matrix — browser contexts ', () => {
       if (mode === 'none') {
         expect(delta).toBe(0) // identity-blind transport
       } else {
-        // See the "client navigation" test above for why the delta is 2, not 1.
-        expect(delta).toBe(2)
+        expect(delta).toBe(1)
       }
     }
   })

@@ -178,6 +178,7 @@
   "dependencies": {
     "@better-auth/oauth-provider": "1.7.0-rc.1",
     "@nuxt/kit": "^4.4.8",
+    "better-convex-vue": "0.8.0-beta.0",
     "convex-helpers": "0.1.114",
     "defu": "^6.1.5",
     "h3": "1.15.11",

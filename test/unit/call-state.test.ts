@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { createClientCallState } from '../../src/runtime/client-core/call-state'
-import { ConvexCallError } from '../../src/runtime/errors'
+import { ConvexCallError } from '../../packages/vue/src/errors'
+import { createClientCallState } from '../../packages/vue/src/internal/call-state'
 
 const callError = (message: string) => new ConvexCallError({ kind: 'unknown', message })
 

@@ -1,11 +1,11 @@
 import type { FunctionReference } from 'convex/server'
 import { describe, expect, it } from 'vitest'
 
+import type { ConvexCallError } from '../../packages/vue/src/errors'
 import {
   createQueryController,
   type QueryIsolationTag,
-} from '../../src/runtime/client-core/query-controller'
-import type { ConvexCallError } from '../../src/runtime/errors'
+} from '../../packages/vue/src/internal/query-controller'
 import { mockFnRef } from '../helpers/mock-convex-client'
 
 interface Value {

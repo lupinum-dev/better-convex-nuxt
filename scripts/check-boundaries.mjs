@@ -84,10 +84,10 @@ const MODULE_BUILD_FILES = readdirSync(p('src'))
 const RUNTIME_ROOT = p('src/runtime')
 
 /** Public framework-boundary implementation roots. */
-const ERRORS_DIR = p('src/runtime/errors')
+const ERRORS_DIR = p('packages/vue/src/errors.ts')
 const AUTH_CLIENT_DIR = p('src/runtime/auth-client')
 const CONVEX_AUTH_DIR = p('src/runtime/convex-auth')
-const CLIENT_LIFECYCLE_DIR = p('src/runtime/client-core')
+const CLIENT_LIFECYCLE_DIR = p('packages/vue/src')
 const SHARED_AUTH_COOKIE_FILE = p('src/runtime/shared/auth-cookie.ts')
 const SHARED_AUTH_ORIGIN_FILE = p('src/runtime/shared/auth-origin.ts')
 const SHARED_CLIENT_IP_FILE = p('src/runtime/shared/client-ip.ts')
@@ -167,7 +167,8 @@ function isAllowedClientLifecycleBareSpecifier(specifier) {
     specifier === 'vue' ||
     specifier === 'convex/browser' ||
     specifier === 'convex/server' ||
-    specifier === 'convex/values'
+    specifier === 'convex/values' ||
+    specifier === 'ohash'
   )
 }
 
@@ -195,7 +196,7 @@ const RULES = [
   {
     name: 'client-lifecycle-island-browser-only',
     description:
-      'src/runtime/client-core/** may import only its own private island, the existing framework-neutral error authority, Vue, and reviewed Convex browser/value/type entries; Nuxt, Nitro, H3, Better Auth, server/MCP runtime, aliases, Node built-ins, and unreviewed utility leaves are forbidden.',
+      'packages/vue/src/** may import only its own package, Vue, ohash, and reviewed Convex browser/value/type entries; Nuxt, Nitro, H3, Better Auth, server/MCP runtime, aliases, and Node built-ins are forbidden.',
     from: isClientLifecycle,
     disallow: (edge) => {
       if (!edge.isRelative) return !isAllowedClientLifecycleBareSpecifier(edge.specifier)

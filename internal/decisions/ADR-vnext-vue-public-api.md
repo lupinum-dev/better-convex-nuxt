@@ -49,7 +49,20 @@ ConvexCallError
 
 The options are a discriminated exclusive union. There is no raw-client, client-factory, token,
 logger, auth-provider, defaults registry, or catch-all client-options escape hatch in the first cut.
-The returned Vue plugin owns per-app state and teardown. It exposes no manual lifecycle controller.
+The returned Vue plugin owns per-app state and teardown. The atomic Nuxt/embedded proof admits three
+safe host-adapter methods on that plugin:
+
+```ts
+attachment(): BetterConvexAttachedRuntime
+ready(): Promise<void>
+refreshAuth(): Promise<void>
+```
+
+`attachment()` is available only after installation and returns the already admitted frozen,
+token-free attachment. `ready()` observes initial authentication settlement. `refreshAuth()` asks the
+Vue-owned runtime to re-confirm the current provider token without exposing the token, client, or
+confirmation callback. These are not owner/replacement/disposal controls, and normal application
+components do not need them.
 
 From `better-convex-vue/embedded`:
 
@@ -73,6 +86,8 @@ do not create parallel runtime entry points.
 - Vue query options omit Nuxt-only `server`, payload, cookie, and `useAsyncData` concerns;
 - query and pagination expose transform, initial data, previous-data policy, and the existing
   `required | optional | none` execution modes needed by attached authenticated hosts;
+- pagination also accepts a complete `initialPage` only so SSR framework adapters can preserve the
+  authoritative continuation cursor during hydration; the Nuxt public facade does not expose it;
 - mutation/action retain the callable function plus `safe`, `data`, `status`, `pending`, `error`, and
   `reset` shape;
 - mutation retains the official Convex optimistic-update callback;
@@ -89,7 +104,7 @@ do not create parallel runtime entry points.
 - `createConvexQueryState`, query execution gates, cache-key helpers, and Nuxt async-data builders;
 - a public core package or private workspace runtime package;
 - `enabled` alongside `'skip'`;
-- pagination `pageData`, facets, or arbitrary metadata merge;
+- pagination `pageData`, facets, arbitrary metadata merge, or a second pagination store;
 - auth provider/client methods, user objects, session IDs, or token refs;
 - provider clients, provider user/session objects, token refs, raw clients, roles, or permissions;
 - Nuxt-only file upload, storage URL, shared-SSR-query, config, user, and Better Auth composables;

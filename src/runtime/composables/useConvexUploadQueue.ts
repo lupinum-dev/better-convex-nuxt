@@ -11,15 +11,12 @@ import {
 
 import { useNuxtApp } from '#imports'
 
-import {
-  createIdentityChangedError,
-  isIdentityChangedError,
-} from '../client-core/identity-changed-error'
 import { normalizeConvexError, type CallResult, type ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { normalizeMaxConcurrent } from '../utils/config-defaults'
 import { getFunctionName } from '../utils/convex-shared'
+import { createIdentityChangedError, isIdentityChangedError } from '../utils/identity-changed-error'
 import { createLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
@@ -112,7 +109,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   assertConvexComposableScope('useConvexUploadQueue', import.meta.client, currentScope)
   const nuxtApp = useNuxtApp()
   const runtime = readConvexRuntimeContext(nuxtApp)
-  const identityObserver = runtime?.getIdentityObserver()
+  const identityObserver = runtime?.attachment.identity
   const getIdentityGeneration = () => identityObserver?.snapshot().identityGeneration ?? 0
   const convexConfig = getConvexRuntimeConfig()
   const client = useConvex()
