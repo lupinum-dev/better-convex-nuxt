@@ -10,6 +10,7 @@ interface HostSnapshot {
   initialized: number
   messageBytes: string
   openLinkCalls: number
+  openLinkUrls: string[]
   teardownResponses: number
   toolArgumentKeys: string[][]
   toolNames: string[]
@@ -41,6 +42,7 @@ declare global {
 let active: ActiveHost | undefined
 let initialized = 0
 let openLinkCalls = 0
+const openLinkUrls: string[] = []
 let teardownResponses = 0
 let messageBytes = ''
 let wrongSourcePosts = 0
@@ -50,6 +52,7 @@ const toolNames: string[] = []
 function resetMetrics(): void {
   initialized = 0
   openLinkCalls = 0
+  openLinkUrls.length = 0
   teardownResponses = 0
   messageBytes = ''
   wrongSourcePosts = 0
@@ -110,8 +113,9 @@ async function mount(options: HostMountOptions): Promise<void> {
       name: params.name,
     })
   }
-  bridge.onopenlink = async () => {
+  bridge.onopenlink = async (params) => {
     openLinkCalls += 1
+    openLinkUrls.push(params.url)
     return { isError: true }
   }
 
@@ -255,6 +259,7 @@ window.__BCN_MCP_APPS_HOST__ = {
     initialized,
     messageBytes,
     openLinkCalls,
+    openLinkUrls: [...openLinkUrls],
     teardownResponses,
     toolArgumentKeys: toolArgumentKeys.map((keys) => [...keys]),
     toolNames: [...toolNames],

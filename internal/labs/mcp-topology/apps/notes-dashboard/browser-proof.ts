@@ -11,6 +11,7 @@ interface HostSnapshot {
   readonly initialized: number
   readonly messageBytes: string
   readonly openLinkCalls: number
+  readonly openLinkUrls: string[]
   readonly teardownResponses: number
   readonly toolArgumentKeys: string[][]
   readonly toolNames: string[]
@@ -373,13 +374,46 @@ export async function proveNotesDashboardBrowserBoundary(
     )
     assert(toolCalls.length === 1, 'The allowed App tool call did not reach the host exactly once')
 
+    await page.evaluate(async () =>
+      window.__BCN_MCP_APPS_HOST__.sendInput({
+        limit: 5,
+        query: '',
+        workspaceId: 'workspace-b',
+      }),
+    )
+    await frame.getByTestId('refresh').click()
+    await waitForValue(
+      () => frame.getByTestId('status').textContent(),
+      (value) => value === 'error',
+      'cross-tenant application denial',
+    )
+    assert(
+      !(await frame.getByTestId('notes').textContent())?.includes('CROSS TENANT SECRET'),
+      'A cross-tenant App result escaped application authorization',
+    )
+
+    await page.evaluate(async () =>
+      window.__BCN_MCP_APPS_HOST__.sendInput({
+        limit: 5,
+        query: 'revoked',
+        workspaceId: 'workspace-a',
+      }),
+    )
+    await frame.getByTestId('refresh').click()
+    await waitForValue(
+      () => frame.getByTestId('status').textContent(),
+      (value) => value === 'error',
+      'revoked bearer denial',
+    )
+    assert(toolCalls.length === 3, 'The App authorization probes did not reach MCP exactly once')
+
     await frame.getByTestId('denied-tool').click()
     await waitForValue(
       () => frame.getByTestId('status').textContent(),
       (value) => value === 'tool-denied',
       'denied App write',
     )
-    assert(toolCalls.length === 1, 'A denied App tool escaped the host allowlist')
+    assert(toolCalls.length === 3, 'A denied App tool escaped the host allowlist')
     assert(await frame.getByTestId('open-link').isDisabled(), 'Link capability was fabricated')
 
     const appOuterHtml = await frame.locator('html').evaluate((element) => element.outerHTML)
@@ -387,13 +421,19 @@ export async function proveNotesDashboardBrowserBoundary(
     assert(firstBeforeTeardown.initialized === 1, 'The App initialized more than once')
     assert(firstBeforeTeardown.openLinkCalls === 0, 'A missing link capability was invoked')
     assert(
+      firstBeforeTeardown.openLinkUrls.length === 0,
+      'A link target escaped without capability',
+    )
+    assert(
       JSON.stringify(firstBeforeTeardown.toolNames) ===
-        JSON.stringify(['search_notes', 'rename_note']),
+        JSON.stringify(['search_notes', 'search_notes', 'search_notes', 'rename_note']),
       'Unexpected tools crossed the App Bridge',
     )
     assert(
       JSON.stringify(firstBeforeTeardown.toolArgumentKeys) ===
         JSON.stringify([
+          ['limit', 'query', 'workspaceId'],
+          ['limit', 'query', 'workspaceId'],
           ['limit', 'query', 'workspaceId'],
           ['noteId', 'requestKey', 'title'],
         ]),
@@ -420,6 +460,11 @@ export async function proveNotesDashboardBrowserBoundary(
     const secondMount = await teardown(page)
     assert(secondMount.initialized === 1, 'A fresh App mount initialized more than once')
     assert(secondMount.openLinkCalls === 1, 'The negotiated link request was not host-mediated')
+    assert(
+      JSON.stringify(secondMount.openLinkUrls) ===
+        JSON.stringify(['https://docs.example.invalid/notes']),
+      'The App requested an unexpected external link target',
+    )
     assert(secondMount.teardownResponses === 1, 'The remounted App did not tear down cleanly')
 
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -452,6 +497,10 @@ export async function proveNotesDashboardBrowserBoundary(
         (url) => url === `${HOST_ORIGIN}/` || url === `${HOST_ORIGIN}${HOST_TOOL_PATH}`,
       ),
       `The MCP App made an unexpected network request: ${requestUrls.join(', ')}`,
+    )
+    assert(
+      !options.build.appHtml.includes('window.open'),
+      'The App bundle bypasses host navigation',
     )
 
     return {

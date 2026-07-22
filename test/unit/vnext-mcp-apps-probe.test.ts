@@ -42,8 +42,17 @@ function createApplication(): NeutralNotesApplication {
           title: 'Alpha',
           workspaceId: 'workspace-a',
         },
+        {
+          body: 'Cross-tenant body must not escape',
+          id: 'note-b',
+          title: 'CROSS TENANT SECRET',
+          workspaceId: 'workspace-b',
+        },
       ],
-      workspaces: [{ id: 'workspace-a', name: 'Workspace A', tenantId: 'tenant-a' }],
+      workspaces: [
+        { id: 'workspace-a', name: 'Workspace A', tenantId: 'tenant-a' },
+        { id: 'workspace-b', name: 'Workspace B', tenantId: 'tenant-b' },
+      ],
     },
     () => 1_800_000_000_000,
   )
@@ -84,13 +93,15 @@ function connectClient(
   return { client, connect: client.connect(transport), requestBodies, responseBodies }
 }
 
-function createHandler(appHtml: string) {
+function createHandler(appHtml: string, isRevoked: () => boolean, onSearch: () => void) {
   return createConvexMcpHandler<NeutralNotesApplication>({
     resource: RESOURCE,
     authorization: { mode: 'preconfigured-bearer', issuer: ISSUER },
     verifier: {
       async verifyAccessToken(token, expectedResource) {
-        if (token !== TOKEN || expectedResource.href !== RESOURCE.href) throw new Error('invalid')
+        if (token !== TOKEN || expectedResource.href !== RESOURCE.href || isRevoked()) {
+          throw new Error('invalid')
+        }
         return {
           access: {
             clientId: 'apps-client',
@@ -124,6 +135,7 @@ function createHandler(appHtml: string) {
           },
         },
         async (input) => {
+          onSearch()
           const output = { matches: await application.searchNotes(ACTOR, input) }
           return {
             content: [{ type: 'text', text: `${output.matches.length} note matched.` }],
@@ -157,7 +169,15 @@ function createHandler(appHtml: string) {
 describe('vNext MCP Apps private topology probe', () => {
   it('serves one credential-free Vue App with useful fallback through the selected package', async () => {
     const build = await buildNotesDashboard()
-    const handler = createHandler(build.appHtml)
+    let revoked = false
+    let searchExecutions = 0
+    const handler = createHandler(
+      build.appHtml,
+      () => revoked,
+      () => {
+        searchExecutions += 1
+      },
+    )
     const supported = connectClient(handler, true)
     const unsupported = connectClient(handler, false)
 
@@ -181,7 +201,18 @@ describe('vNext MCP Apps private topology probe', () => {
         McpUiToolMetaSchema.parse((supportedSearch?._meta as { ui?: unknown } | undefined)?.ui),
       ).toEqual(supportedSearch?._meta?.ui)
 
-      const dashboard = await supported.client.readResource({ uri: NOTES_DASHBOARD_RESOURCE_URI })
+      const [dashboard, baselineDashboard, listedResources] = await Promise.all([
+        supported.client.readResource({ uri: NOTES_DASHBOARD_RESOURCE_URI }),
+        unsupported.client.readResource({ uri: NOTES_DASHBOARD_RESOURCE_URI }),
+        supported.client.listResources(),
+      ])
+      expect(baselineDashboard).toEqual(dashboard)
+      expect(listedResources.resources).toContainEqual({
+        _meta: notesDashboardResourceMeta,
+        mimeType: NOTES_DASHBOARD_RESOURCE_MIME_TYPE,
+        name: 'notes-dashboard',
+        uri: NOTES_DASHBOARD_RESOURCE_URI,
+      })
       expect(dashboard.contents).toHaveLength(1)
       const dashboardContent = dashboard.contents[0]!
       expect(dashboardContent).toEqual({
@@ -204,18 +235,43 @@ describe('vNext MCP Apps private topology probe', () => {
       expect(
         McpUiResourceMetaSchema.parse((dashboardContent._meta as { ui?: unknown } | undefined)?.ui),
       ).toEqual(dashboardContent._meta?.ui)
+      await expect(
+        unsupported.client.readResource({ uri: 'ui://notes/not-registered.html' }),
+      ).rejects.toThrow()
 
       const fallback = await unsupported.client.callTool({
         arguments: { query: 'alpha', workspaceId: 'workspace-a' },
         name: 'search_notes',
       })
-      expect(fallback).toMatchObject({
-        content: [{ type: 'text' }],
-        structuredContent: { matches: [{ id: 'note-a', title: 'Alpha' }] },
+      expect(fallback).toEqual({
+        content: [{ type: 'text', text: '1 note matched.' }],
+        structuredContent: {
+          matches: [
+            {
+              body: 'Alpha body',
+              id: 'note-a',
+              revision: 1,
+              title: 'Alpha',
+              uri: 'note://note-a',
+              workspaceId: 'workspace-a',
+            },
+          ],
+        },
       })
+      searchExecutions = 0
       const proof = await proveNotesDashboardBrowserBoundary({
         build,
-        callTool: (call) => supported.client.callTool(call),
+        callTool: async (call) => {
+          if (call.arguments?.query === 'revoked') revoked = true
+          try {
+            return await supported.client.callTool(call)
+          } catch {
+            return {
+              content: [{ type: 'text', text: 'Authentication failed.' }],
+              isError: true,
+            }
+          }
+        },
       })
       expect(proof.appHtmlBytes).toBeGreaterThan(0)
       expect(proof.appHtmlBytes).toBeLessThanOrEqual(512 * 1024)
@@ -224,11 +280,27 @@ describe('vNext MCP Apps private topology probe', () => {
           arguments: { limit: 5, query: '', workspaceId: 'workspace-a' },
           name: 'search_notes',
         },
+        {
+          arguments: { limit: 5, query: '', workspaceId: 'workspace-b' },
+          name: 'search_notes',
+        },
+        {
+          arguments: { limit: 5, query: 'revoked', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        },
       ])
+      expect(searchExecutions).toBe(2)
 
       const appModules = build.appModules.join('\n')
       expect(appModules).toMatch(/node_modules\/\.pnpm\/@vue\+/u)
       expect(appModules).toContain('@modelcontextprotocol/ext-apps')
+      expect(build.appHtml).toContain(
+        "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'",
+      )
+      expect(build.appHtml).not.toContain('unsafe-eval')
+      expect(build.appHtml).not.toContain('allow-same-origin')
+      expect(build.appHtml).not.toContain('allow-popups')
+      expect(build.appHtml).not.toContain('allow-forms')
       for (const moduleId of build.appModules) {
         expect(moduleId).not.toContain('/src/runtime/')
         expect(moduleId).not.toContain('@modelcontextprotocol/sdk/dist/esm/client/')
