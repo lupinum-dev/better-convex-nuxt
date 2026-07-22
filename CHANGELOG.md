@@ -13,7 +13,7 @@
   safe application failures, transport bounds, and explicit unsupported
   capabilities while retaining truthful legacy conformance evidence.
 
-## v0.8.0-beta.5
+## v0.8.0-beta.6
 
 - Add the optional `better-convex-vue/mcp-app` lifecycle entry on the exact
   official MCP Apps SDK without pulling MCP dependencies into ordinary Vue.
