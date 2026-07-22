@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.8.0-beta.1
+## v0.8.0-beta.2
 
 - Add the provider-neutral `better-convex-vue` embedded-runtime attachment used
   by separately bundled Vue applications without exposing tokens or a
@@ -12,6 +12,8 @@
   SSR and authentication behavior.
 - Accept Convex's nullable terminal pagination cursor and certify the shared
   lifecycle through the Ginko Studio proving consumer.
+- Render deterministic connection telemetry during Nuxt SSR before the
+  client-only shared Vue runtime is installed.
 
 ## v0.8.0-beta.0
 
