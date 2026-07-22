@@ -13,6 +13,14 @@
   safe application failures, transport bounds, and explicit unsupported
   capabilities while retaining truthful legacy conformance evidence.
 
+## v0.8.0-beta.5
+
+- Add the optional `better-convex-vue/mcp-app` lifecycle entry on the exact
+  official MCP Apps SDK without pulling MCP dependencies into ordinary Vue.
+- Prove progressive fallback, host-mediated tool and link behavior, restrictive
+  iframe boundaries, exact teardown, and credential-free production bundles
+  through neutral and Ginko CMS consumers.
+
 ## v0.8.0-beta.4
 
 - Bind auth-schema release certification to the exact immutable Nuxt and Vue
