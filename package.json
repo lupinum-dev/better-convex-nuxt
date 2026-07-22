@@ -125,6 +125,7 @@
     "check:contract-fixtures:dist": "pnpm run check:api-surface-docs && pnpm run check:workspace-deps && pnpm run check:consumer-smoke:dist && pnpm run check:missing-convex-api && pnpm run check:auth-disabled-build-graph && pnpm run check:better-auth-local-component && pnpm run check:better-auth-two-factor && pnpm run check:auth-security-plugins",
     "check:package-exports": "pnpm run build:package && pnpm run check:package-exports:dist",
     "check:package-exports:dist": "node scripts/check-package-exports.mjs --package nuxt",
+    "check:vue-anonymous-consumer": "node scripts/check-vue-anonymous-consumer.mjs",
     "check:auth-provenance": "node scripts/check-auth-provenance.mjs",
     "check:auth-schema": "node scripts/check-auth-schema.mjs",
     "check:auth-logical-ids": "node scripts/check-auth-logical-ids.mjs",
