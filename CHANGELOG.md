@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.8.0-beta.1
+
+- Add the provider-neutral `better-convex-vue` embedded-runtime attachment used
+  by separately bundled Vue applications without exposing tokens or a
+  replaceable raw Convex client.
+- Complete the Nuxt-to-Vue lifecycle hard cut for client ownership, identity
+  fencing, queries, pagination, mutations, and actions while preserving Nuxt
+  SSR and authentication behavior.
+- Accept Convex's nullable terminal pagination cursor and certify the shared
+  lifecycle through the Ginko Studio proving consumer.
+
 ## v0.8.0-beta.0
 
 - Establish the Better Convex vNext architecture and executable implementation
