@@ -1,10 +1,4 @@
-import type {
-  FunctionArgs,
-  FunctionReference,
-  FunctionReturnType,
-  PaginationOptions,
-  PaginationResult,
-} from 'convex/server'
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server'
 import { getFunctionName } from 'convex/server'
 import { hash } from 'ohash'
 import {
@@ -18,30 +12,26 @@ import {
 
 import { normalizeConvexError, type ConvexCallError } from './errors'
 import { createPaginationController } from './internal/pagination-controller'
+import type { BetterPaginationResult } from './internal/pagination-state'
 import { normalizeConvexArgs, isConvexArgsSkipped } from './internal/query-args'
 import type { QueryIsolationTag } from './internal/query-controller'
 import { useBetterConvexRuntime } from './runtime-context'
 import type { ConvexAuthMode } from './use-query'
 
-export type PaginatedQueryReference = FunctionReference<
-  'query',
-  'public',
-  { paginationOpts: PaginationOptions },
-  PaginationResult<unknown>
->
+export type PaginatedQueryReference = FunctionReference<'query'>
 export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
   FunctionArgs<Query>,
   'paginationOpts'
 >
 export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
-  FunctionReturnType<Query>['page'][number]
+  FunctionReturnType<Query> extends { page: Array<infer Item> } ? Item : never
 
 export interface UseConvexPaginatedQueryOptions<Item, TransformedItem = Item> {
   initialNumItems?: number
   subscribe?: boolean
   initialData?: Item[] | (() => Item[])
   /** Complete first-page seed for SSR adapters that must preserve continuation state. */
-  initialPage?: PaginationResult<Item> | (() => PaginationResult<Item> | undefined)
+  initialPage?: BetterPaginationResult<Item> | (() => BetterPaginationResult<Item> | undefined)
   transform?: (items: Item[]) => TransformedItem[]
   keepPreviousData?: boolean
   auth?: ConvexAuthMode
@@ -70,7 +60,7 @@ export function useConvexPaginatedQuery<
   const argsHash = computed(() => hash(currentArgs.value))
   const functionName = getFunctionName(query)
   const initialPage = options?.initialPage
-  const boundaryFirstPage = shallowRef<PaginationResult<Item> | null>(
+  const boundaryFirstPage = shallowRef<BetterPaginationResult<Item> | null>(
     (typeof initialPage === 'function' ? initialPage() : initialPage) ?? null,
   )
   const boundaryError = shallowRef<ConvexCallError | null>(null)
@@ -96,12 +86,12 @@ export function useConvexPaginatedQuery<
     numItems: number
     cursor: string | null
     id: number
-  }): Promise<PaginationResult<Item> | null> => {
+  }): Promise<BetterPaginationResult<Item> | null> => {
     if (idle.value || isConvexArgsSkipped(currentArgs.value)) return null
     return (await runtime.browser.clientFor(auth).query(query, {
       ...(currentArgs.value as PaginatedQueryArgs<Query>),
       paginationOpts,
-    } as FunctionArgs<Query>)) as PaginationResult<Item>
+    } as FunctionArgs<Query>)) as BetterPaginationResult<Item>
   }
 
   async function refreshBoundary() {

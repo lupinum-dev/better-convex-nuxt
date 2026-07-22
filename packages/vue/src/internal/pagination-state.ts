@@ -1,7 +1,11 @@
-import type { PaginationResult } from 'convex/server'
-
 import { normalizeConvexError, type ConvexCallError } from '../errors'
 import type { QueryIsolationTag } from './query-controller'
+
+export interface BetterPaginationResult<T> {
+  page: T[]
+  isDone: boolean
+  continueCursor: string | null
+}
 
 /** Cache-busting generation; random avoids SSR-global sequential state. */
 export function createPaginationGeneration(): number {
@@ -60,7 +64,7 @@ export interface PaginationPageOptions {
 
 export interface PaginationPageState<T> {
   paginationOpts: PaginationPageOptions
-  result: PaginationResult<T> | undefined
+  result: BetterPaginationResult<T> | undefined
   error: ConvexCallError | null
   pending: boolean
   unsubscribe: (() => void) | null
@@ -81,7 +85,7 @@ export function createPendingPaginationPage<T>(
 export function commitPaginationPageResult<T>(
   pages: PaginationPageState<T>[],
   pageIndex: number,
-  result: PaginationResult<T>,
+  result: BetterPaginationResult<T>,
 ): PaginationPageState<T>[] {
   const page = pages[pageIndex]
   if (!page) return pages
@@ -114,9 +118,9 @@ export function commitPaginationPageError<T>(
 }
 
 export function getLastLoadedPaginationResult<T>(
-  firstPage: PaginationResult<T> | null | undefined,
+  firstPage: BetterPaginationResult<T> | null | undefined,
   additionalPages: PaginationPageState<T>[],
-): PaginationResult<T> | undefined {
+): BetterPaginationResult<T> | undefined {
   const lastPage = additionalPages[additionalPages.length - 1]
   if (!lastPage) return firstPage ?? undefined
   if (lastPage.pending) return undefined

@@ -1,4 +1,4 @@
-import type { FunctionReference, PaginationResult } from 'convex/server'
+import type { FunctionReference } from 'convex/server'
 import { computed, shallowRef, watch, type ComputedRef, type Ref } from 'vue'
 
 import { normalizeConvexError, type ConvexCallError } from '../errors'
@@ -17,6 +17,7 @@ import {
   type PaginationPageOptions,
   type PaginationPageState,
   type PaginationStatus,
+  type BetterPaginationResult,
 } from './pagination-state'
 import type { QueryIsolationTag, QuerySubscriptionClient } from './query-controller'
 
@@ -34,11 +35,11 @@ export interface PaginationControllerInput<Item, TransformedItem> {
   isIdle(): boolean
   isLive(): boolean
   isBoundaryPending(): boolean
-  getBoundaryFirstPage(): PaginationResult<Item> | null
+  getBoundaryFirstPage(): BetterPaginationResult<Item> | null
   getBoundaryError(): ConvexCallError | null
   setBoundaryError(error: ConvexCallError | null, key: string): void
   getClient(): QuerySubscriptionClient | null
-  fetchPage(options: PaginationPageOptions): Promise<PaginationResult<Item> | null>
+  fetchPage(options: PaginationPageOptions): Promise<BetterPaginationResult<Item> | null>
   refreshBoundary(): Promise<void>
 }
 
@@ -58,7 +59,7 @@ export interface PaginationController<Item, TransformedItem> {
   fetchForOperation(
     options: PaginationPageOptions,
     operation: PaginationOperationContext,
-  ): Promise<PaginationResult<Item> | null>
+  ): Promise<BetterPaginationResult<Item> | null>
   subscribeFirstPage(): void
   loadMore(numItems: number): void
   refresh(): Promise<void>
@@ -86,7 +87,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
 ): PaginationController<Item, TransformedItem> {
   const generation = shallowRef(createPaginationGeneration())
   const pages = shallowRef<PaginationPageState<Item>[]>([])
-  const firstPageRealtime = shallowRef<PaginationResult<Item> | null>(null)
+  const firstPageRealtime = shallowRef<BetterPaginationResult<Item> | null>(null)
   const manualRefreshPending = shallowRef(false)
   const lastSettledResults = shallowRef<TransformedItem[]>([])
   const lastSettledArgsHash = shallowRef<string | null>(null)
@@ -113,7 +114,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
   async function fetchForOperation(
     options: PaginationPageOptions,
     operation: PaginationOperationContext,
-  ): Promise<PaginationResult<Item> | null> {
+  ): Promise<BetterPaginationResult<Item> | null> {
     const result = await input.fetchPage(options)
     return result && fence.isCurrent(operation) ? result : null
   }
@@ -135,7 +136,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
       { ...args, paginationOpts: initialOptions.value },
       (raw) => {
         if (!fence.isCurrent(operation)) return
-        const result = raw as PaginationResult<Item>
+        const result = raw as BetterPaginationResult<Item>
         const previous = firstPage()
         if (previous && previous.continueCursor !== result.continueCursor && pages.value.length > 0)
           retirePagesFrom(0)
@@ -165,7 +166,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
         if (!fence.isCurrent(operation)) return
         const index = pages.value.findIndex((candidate) => candidate.paginationOpts === pageOptions)
         if (index < 0) return
-        const result = raw as PaginationResult<Item>
+        const result = raw as BetterPaginationResult<Item>
         const previous = pages.value[index]?.result
         const nextPages = commitPaginationPageResult(pages.value, index, result)
         if (

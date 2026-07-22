@@ -230,8 +230,8 @@ describe('better-convex-vue package runtime', () => {
           makeFunctionReference<'query'>('notes:listPaginated') as FunctionReference<
             'query',
             'public',
-            { owner: string; paginationOpts: PaginationOptions },
-            PaginationResult<{ id: string }>
+            { owner: string; paginationOpts?: PaginationOptions },
+            { page: Array<{ id: string }>; isDone: boolean; continueCursor: string | null }
           >,
           { owner: 'current' },
           { initialNumItems: 1 },
@@ -249,7 +249,7 @@ describe('better-convex-vue package runtime', () => {
     expect(host.subscriptions).toHaveLength(2)
     host.subscriptions[1]!.emit({
       page: [{ id: 'b' }],
-      continueCursor: '',
+      continueCursor: null,
       isDone: true,
     })
     expect(query.results.value).toEqual([{ id: 'a' }, { id: 'b' }])
