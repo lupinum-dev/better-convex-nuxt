@@ -218,6 +218,7 @@
     "convex-test": "^0.0.54",
     "eslint": "^10.7.0",
     "happy-dom": "^20.8.9",
+    "jose": "6.2.3",
     "kysely": "0.28.17",
     "mcp-remote": "0.1.38",
     "nuxt": "4.4.8",

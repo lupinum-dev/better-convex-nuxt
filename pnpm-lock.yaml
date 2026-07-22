@@ -113,6 +113,9 @@ importers:
       happy-dom:
         specifier: ^20.8.9
         version: 20.10.6
+      jose:
+        specifier: 6.2.3
+        version: 6.2.3
       kysely:
         specifier: 0.28.17
         version: 0.28.17
