@@ -11,7 +11,7 @@ import { ConvexCallError } from '../errors'
 export const IDENTITY_CHANGED = 'IDENTITY_CHANGED' as const
 
 /**
- * The identity-boundary rejection as the real framework-free
+ * The identity-boundary rejection as the framework-neutral
  * {@link ConvexCallError} (`kind: 'authentication'`, `code: 'IDENTITY_CHANGED'`).
  * The old result is never placed in `data` or `cause`: a stale
  * settlement must never be presented as a safely retryable value.

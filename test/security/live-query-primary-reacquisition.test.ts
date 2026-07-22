@@ -11,7 +11,7 @@ import {
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
+} from '../../src/runtime/client-core/client-owner'
 import { createQueryExecutionGate } from '../../src/runtime/utils/query-execution-gate'
 import { selectLiveQueryClient } from '../../src/runtime/utils/query-foundation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'

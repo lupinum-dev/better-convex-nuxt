@@ -6,8 +6,9 @@ import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 import { ANONYMOUS_IDENTITY, type AuthIdentity } from '../../src/runtime/auth/auth-identity'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
 import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
-import type { ConvexClientOwner } from '../../src/runtime/client/client-owner'
+import type { ConvexClientOwner } from '../../src/runtime/client-core/client-owner'
 import type { ConvexRuntimeContext } from '../../src/runtime/runtime-context'
+import { createLogger } from '../../src/runtime/utils/logger'
 
 let previousWrapper: { unmount: () => void } | null = null
 let currentConvexTarget: Record<PropertyKey, unknown> | null = null
@@ -49,8 +50,6 @@ const ownerProxy = new Proxy<Record<PropertyKey, unknown>>(
       const target = currentOwnerTarget
       if (!target) return undefined
       const value = target[key]
-      if (value === undefined && key === 'getDevtoolsSink') return () => null
-      if (value === undefined && key === 'attachDevtoolsSink') return () => null
       return typeof value === 'function' ? value.bind(target) : value
     },
   },
@@ -65,9 +64,19 @@ const runtimeProxy: ConvexRuntimeContext = {
       ? (ownerProxy as unknown as ConvexClientOwner)
       : (undefined as unknown as ConvexClientOwner)
   },
+  logger: createLogger(false),
   getAuthCoordinator: () => currentAuthCoordinator,
   attachAuthCoordinator: (coordinator) => {
     currentAuthCoordinator = coordinator
+  },
+  getDevtoolsSink: () => null,
+  attachDevtoolsSink: (sink) => {
+    let active = true
+    return () => {
+      if (!active) return
+      active = false
+      sink.dispose()
+    }
   },
 }
 
@@ -123,8 +132,7 @@ function createSyntheticOwner(): Record<PropertyKey, unknown> {
       addConsumer: () => () => {},
     },
     addDisposer: () => {},
-    getDevtoolsSink: () => null,
-    attachDevtoolsSink: () => null,
+    subscribeIdentityChange: () => () => {},
     dispose: async () => {},
   }
 }

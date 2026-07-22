@@ -1,7 +1,7 @@
 import type { ConvexClient } from 'convex/browser'
 import { computed } from 'vue'
 
-import { createIdentityChangedError } from '../client/identity-changed-error'
+import { createIdentityChangedError } from '../client-core/identity-changed-error'
 import { ConvexCallError } from '../errors'
 import { deriveConvexAuthStatus, type ConvexAuthStatus } from '../utils/auth-status'
 import { getConvexIdentityKey, type ConvexIdentityKey } from '../utils/identity-key'

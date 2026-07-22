@@ -12,7 +12,7 @@ import {
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
+} from '../../src/runtime/client-core/client-owner'
 import { MockConvexClient } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'
 

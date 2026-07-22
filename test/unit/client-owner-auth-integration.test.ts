@@ -11,8 +11,8 @@ import {
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
-import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
+} from '../../src/runtime/client-core/client-owner'
+import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 function toBase64Url(value: string): string {

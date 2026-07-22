@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
+} from '../../src/runtime/client-core/client-owner'
 import { useConvexConnectionState } from '../../src/runtime/composables/useConvexConnectionState'
 import { MockConvexClient } from '../helpers/mock-convex-client'
 import { captureInNuxt } from '../helpers/nuxt-runtime-harness'

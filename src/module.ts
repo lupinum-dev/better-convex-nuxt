@@ -56,7 +56,7 @@ export type {
   NormalizedConvexAuthConfig,
 } from './runtime/utils/auth-config'
 export type { ConvexAuthMode, ConvexAuthStatus } from './runtime/utils/auth-status'
-export type { ConvexClientHandle } from './runtime/client/client-owner'
+export type { ConvexClientHandle } from './runtime/client-core/client-owner'
 export type { ConvexIdentityKey } from './runtime/utils/identity-key'
 export type { ConvexRuntimeConfig } from './runtime/utils/runtime-config'
 export type {

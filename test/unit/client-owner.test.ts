@@ -5,9 +5,8 @@ import type { AuthIdentityPort, AuthIdentitySnapshot } from '../../src/runtime/a
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
-import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
-import { createDevtoolsSink } from '../../src/runtime/devtools/sink'
+} from '../../src/runtime/client-core/client-owner'
+import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 type RuntimeUnsubscribe = ReturnType<OwnedConvexClient['onUpdate']> & {
@@ -136,19 +135,11 @@ describe('createConvexClientOwner', () => {
   })
 
   describe('replacePrimary', () => {
-    it('clears identity-owned diagnostics when publishing a replacement', async () => {
+    it('notifies adapter observers only when publishing a replacement', async () => {
       resetCounts()
       const o = owner()
-      const sink = createDevtoolsSink()
-      o.attachDevtoolsSink(sink)
-      sink.registerMutation({
-        name: 'notes:create',
-        type: 'mutation',
-        args: {},
-        state: 'pending',
-        hasOptimisticUpdate: false,
-        startedAt: 1,
-      })
+      const observer = vi.fn()
+      const unsubscribe = o.subscribeIdentityChange(observer)
 
       await o.replacePrimary({
         identityGeneration: 1,
@@ -156,7 +147,14 @@ describe('createConvexClientOwner', () => {
         initialize: async () => {},
       })
 
-      expect(sink.getMutations()).toEqual([])
+      expect(observer).toHaveBeenCalledTimes(1)
+      unsubscribe()
+      await o.replacePrimary({
+        identityGeneration: 2,
+        isCurrent: () => true,
+        initialize: async () => {},
+      })
+      expect(observer).toHaveBeenCalledTimes(1)
       await o.dispose()
     })
 
@@ -175,6 +173,36 @@ describe('createConvexClientOwner', () => {
       expect(a.closeCalls).toBe(1) // A retired exactly once
       expect(b.closeCalls).toBe(0)
       expect(CountingClient.created).toBe(2) // A + B, no anonymous
+    })
+
+    it('contains adapter diagnostics when retired client close rejects', async () => {
+      class RejectingCloseClient extends MockConvexClient {
+        close = async (): Promise<void> => {
+          throw new Error('close failed')
+        }
+      }
+      let factoryCalls = 0
+      const onRetiredClientCloseError = vi.fn(() => {
+        throw new Error('diagnostic observer failed')
+      })
+      const o = createConvexClientOwner({
+        primaryFactory: () => {
+          factoryCalls += 1
+          return (factoryCalls === 1
+            ? new RejectingCloseClient()
+            : new CountingClient()) as unknown as OwnedConvexClient
+        },
+        onRetiredClientCloseError,
+      })
+
+      const replacement = await o.replacePrimary({
+        identityGeneration: 1,
+        isCurrent: () => true,
+        initialize: async () => {},
+      })
+      expect(replacement).toBe(o.getPrimary()?.client)
+      await vi.waitFor(() => expect(onRetiredClientCloseError).toHaveBeenCalledTimes(1))
+      await o.dispose()
     })
 
     it('rejects an in-flight consumer-held mutation with IDENTITY_CHANGED on retirement', async () => {
@@ -491,36 +519,15 @@ describe('createConvexClientOwner', () => {
       expect(callback).not.toHaveBeenCalled()
     })
 
-    it('disposes the attached diagnostics sink and rejects late attachment', async () => {
+    it('drops identity observers on disposal and makes late subscriptions inert', async () => {
       resetCounts()
       const o = owner()
-      const attached = createDevtoolsSink()
-      expect(o.attachDevtoolsSink(attached)).toBeTypeOf('function')
+      const observer = vi.fn()
+      o.subscribeIdentityChange(observer)
 
       await o.dispose()
-      expect(
-        attached.registerMutation({
-          name: 'after-dispose',
-          type: 'mutation',
-          args: {},
-          state: 'pending',
-          hasOptimisticUpdate: false,
-          startedAt: 1,
-        }),
-      ).toBe('')
-
-      const late = createDevtoolsSink()
-      expect(o.attachDevtoolsSink(late)).toBeNull()
-      expect(
-        late.registerMutation({
-          name: 'late',
-          type: 'mutation',
-          args: {},
-          state: 'pending',
-          hasOptimisticUpdate: false,
-          startedAt: 2,
-        }),
-      ).toBe('')
+      expect(o.subscribeIdentityChange(observer)).toBeTypeOf('function')
+      expect(observer).not.toHaveBeenCalled()
     })
 
     it('closes every allocated client and is idempotent (create/close balance)', async () => {

@@ -12,7 +12,7 @@ import { useNuxtApp } from '#imports'
 import {
   createIdentityChangedError,
   isIdentityChangedError,
-} from '../client/identity-changed-error'
+} from '../client-core/identity-changed-error'
 import { ConvexCallError, normalizeConvexError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { assertConvexComposableScope } from '../utils/composable-scope'
@@ -247,7 +247,7 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
   const runtime = readConvexRuntimeContext(nuxtApp)
   const owner = runtime?.owner
   const authPort = runtime?.getAuthCoordinator()?.port
-  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
+  const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
   const getIdentityGeneration = () => authPort?.snapshot().identityGeneration ?? 0
 
   // One snapshot is the canonical upload view state. Publishing a transition

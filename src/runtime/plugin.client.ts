@@ -12,7 +12,7 @@ import { computed } from 'vue'
 import { defineNuxtPlugin, useRuntimeConfig, useState } from '#app'
 
 import { identityToken, identityUser } from './auth/auth-identity'
-import { createConvexClientOwner, type OwnedConvexClient } from './client/client-owner'
+import { createConvexClientOwner, type OwnedConvexClient } from './client-core/client-owner'
 import { createConvexRuntimeContext, readConvexRuntimeContext } from './runtime-context'
 import { useConvexIdentityState } from './utils/auth-identity-state'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
@@ -72,9 +72,10 @@ export default defineNuxtPlugin({
     const owner = createConvexClientOwner({
       primaryFactory: makeClient,
       ...(isAuthEnabled ? { anonymousFactory: makeClient } : {}),
-      logger,
+      onRetiredClientCloseError: (error) =>
+        logger.debug('[client-owner] retired primary close failed', error),
     })
-    const runtime = createConvexRuntimeContext(owner)
+    const runtime = createConvexRuntimeContext(owner, logger)
 
     // Pending state for auth operations. Auth-disabled builds settle immediately;
     // the auth plugin owns settlement when auth is enabled.
@@ -99,7 +100,7 @@ export default defineNuxtPlugin({
       void Promise.all([import('./devtools/bridge-setup'), import('./devtools/sink')])
         .then(async ([{ setupDevToolsBridge }, { createDevtoolsSink }]) => {
           const sink = createDevtoolsSink()
-          const detachSink = owner.attachDevtoolsSink(sink)
+          const detachSink = runtime.attachDevtoolsSink(sink)
           if (!detachSink) return
           let disposeBridge: () => void
           try {

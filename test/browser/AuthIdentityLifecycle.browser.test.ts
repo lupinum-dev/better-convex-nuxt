@@ -13,7 +13,7 @@ import { observeBetterAuthSession } from '../../src/runtime/auth/session-observe
 import {
   createConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
+} from '../../src/runtime/client-core/client-owner'
 
 const BETTER_AUTH_STORAGE_KEY = 'better-auth.message'
 

@@ -5,7 +5,7 @@ import { useState } from '#imports'
 
 import { identityKeyOf } from '../auth/auth-identity'
 import type { AuthIdentityPort } from '../auth/identity-port'
-import type { ConvexClientHandle, ConvexClientOwner } from '../client/client-owner'
+import type { ConvexClientHandle, ConvexClientOwner } from '../client-core/client-owner'
 import { ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { useConvexIdentityState } from './auth-identity-state'

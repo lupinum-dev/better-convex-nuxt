@@ -3,7 +3,7 @@ import type { ComputedRef, Ref } from 'vue'
 import {
   createIdentityChangedError,
   isIdentityChangedError,
-} from '../client/identity-changed-error'
+} from '../client-core/identity-changed-error'
 import type { DevtoolsSink } from '../devtools/sink'
 import type { CallResult, ConvexCallError } from '../errors'
 import { normalizeConvexError } from '../errors'

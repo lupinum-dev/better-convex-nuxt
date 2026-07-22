@@ -1,13 +1,23 @@
 import type { ConnectionState, ConvexClient } from 'convex/browser'
 import { shallowRef, readonly, type Ref } from 'vue'
 
-import type { AuthIdentityPort } from '../auth/identity-port'
-import type { DevtoolsSink } from '../devtools/sink'
-import { createLogger, type Logger } from '../utils/logger'
 import { createIdentityChangedError } from './identity-changed-error'
 
+export interface ClientIdentitySnapshot {
+  readonly identityGeneration: number
+  readonly settled: boolean
+}
+
+export interface ClientIdentityPort {
+  snapshot(): ClientIdentitySnapshot
+  waitForInitialSettlement(): Promise<void>
+  subscribe(listener: () => void): () => void
+  initializePrimary(candidate: ConvexClient): Promise<void>
+  failPrimary(identityGeneration: number, cause: unknown): void
+}
+
 /**
- * The per-Nuxt-app client owner (architecture invariant `clients`).
+ * The per-integration client owner (architecture invariant `clients`).
  *
  * This is the single source of truth for the current primary `ConvexClient` and
  * the lazy anonymous `none` client. It owns:
@@ -27,8 +37,6 @@ import { createIdentityChangedError } from './identity-changed-error'
  * {@link attachAuthPort} (architecture invariant). The owner interprets no tokens.
  */
 export interface ConvexClientOwner {
-  /** Immutable logger owned by this Nuxt application. */
-  readonly logger: Logger
   /** Stable replacement-safe public handle returned by `useConvex()`. */
   readonly handle: ConvexClientHandle
   /** The current primary and its identity generation, or null if none exists. */
@@ -49,7 +57,7 @@ export interface ConvexClientOwner {
    * `identityGeneration` change the owner replaces the primary; an
    * `authEpoch`-only change (same-user token rotation) is ignored.
    */
-  attachAuthPort(port: AuthIdentityPort): void
+  attachAuthPort(port: ClientIdentityPort): void
   /** Connection-state observation surface for `useConvexConnectionState`. */
   readonly connection: {
     readonly state: Readonly<Ref<ConnectionState>>
@@ -58,10 +66,8 @@ export interface ConvexClientOwner {
   }
   /** Register a teardown callback run by {@link dispose}. */
   addDisposer(dispose: () => void): void
-  /** Current per-app diagnostics sink, present only while DevTools is active. */
-  getDevtoolsSink(): DevtoolsSink | null
-  /** Attach the per-app diagnostics sink; returns a detach function or null after disposal. */
-  attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null
+  /** Observe committed identity-generation changes; listeners never own authority. */
+  subscribeIdentityChange(listener: () => void): () => void
   /** Idempotent teardown: closes primary + anonymous, drops all listeners. */
   dispose(): Promise<void>
 }
@@ -119,8 +125,8 @@ export interface CreateConvexClientOwnerInput {
    * build so `getAnonymous()` reuses the already-anonymous primary.
    */
   anonymousFactory?: () => OwnedConvexClient
-  /** Per-app logger. Tests and silent consumers default to the no-op logger. */
-  logger?: Logger
+  /** Optional adapter-owned observer for a retired client's background close failure. */
+  onRetiredClientCloseError?: (cause: unknown) => void
 }
 
 const DEFAULT_CONNECTION_STATE: ConnectionState = {
@@ -154,7 +160,7 @@ interface PendingCall {
 }
 
 export function createConvexClientOwner(input: CreateConvexClientOwnerInput): ConvexClientOwner {
-  const { primaryFactory, anonymousFactory, logger = createLogger(false) } = input
+  const { primaryFactory, anonymousFactory, onRetiredClientCloseError } = input
 
   let primary: OwnedConvexClient | null = primaryFactory()
   let currentIdentityGeneration = 0
@@ -166,14 +172,14 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   })
   let disposePromise: Promise<void> | null = null
   let replacementInFlight: Promise<OwnedConvexClient> | null = null
-  let authPort: AuthIdentityPort | null = null
+  let authPort: ClientIdentityPort | null = null
   const replacementCandidates = new Set<OwnedConvexClient>()
   const closedReplacementCandidates = new WeakSet<OwnedConvexClient>()
-  let devtoolsSink: DevtoolsSink | null = null
 
   const listeners = new Set<OnUpdateEntry>()
   const pendingCalls = new Set<PendingCall>()
   const disposers = new Set<() => void>()
+  const identityListeners = new Set<() => void>()
 
   function closeReplacementCandidate(candidate: OwnedConvexClient): Promise<void> {
     if (closedReplacementCandidates.has(candidate)) return Promise.resolve()
@@ -182,15 +188,20 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
   }
 
   function closeRetiredPrimary(client: OwnedConvexClient): void {
+    const reportCloseError = (error: unknown) => {
+      try {
+        onRetiredClientCloseError?.(error)
+      } catch {
+        // Adapter diagnostics must never affect client retirement.
+      }
+    }
     try {
-      void client
-        .close()
-        .catch((error) => logger.debug('[client-owner] retired primary close failed', error))
+      void client.close().catch(reportCloseError)
     } catch (error) {
       // Retirement is the synchronous `primary = null` boundary below. A
       // non-conforming client that throws from close must not reopen that path
       // or prevent the replacement failure from reaching the auth port.
-      logger.debug('[client-owner] retired primary close failed', error)
+      reportCloseError(error)
     }
   }
 
@@ -441,7 +452,13 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       currentIdentityGeneration = replaceInput.identityGeneration
       rebindListeners(candidate)
       resetConnectionForReplacement()
-      devtoolsSink?.clearIdentityOwned()
+      for (const listener of [...identityListeners]) {
+        try {
+          listener()
+        } catch {
+          // Adapter observers must never affect identity publication.
+        }
+      }
       // Defensive second sweep for a call that captured the prior generation
       // immediately before retirement and registered at its edge.
       rejectPendingForGeneration(previousGeneration)
@@ -461,7 +478,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     return run
   }
 
-  function attachAuthPort(port: AuthIdentityPort): void {
+  function attachAuthPort(port: ClientIdentityPort): void {
     authPort = port
     // A generation represents one security boundary and receives one candidate
     // attempt. Persistent factory/confirmation failure is terminal for that
@@ -521,17 +538,14 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
     disposers.add(dispose)
   }
 
-  function attachDevtoolsSink(sink: DevtoolsSink): (() => void) | null {
-    if (disposed) {
-      sink.dispose()
-      return null
-    }
-    devtoolsSink?.dispose()
-    devtoolsSink = sink
+  function subscribeIdentityChange(listener: () => void): () => void {
+    if (disposed) return () => {}
+    identityListeners.add(listener)
+    let active = true
     return () => {
-      if (devtoolsSink !== sink) return
-      devtoolsSink = null
-      sink.dispose()
+      if (!active) return
+      active = false
+      identityListeners.delete(listener)
     }
   }
 
@@ -555,8 +569,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       }
       listeners.clear()
       rejectAllPending()
-      devtoolsSink?.dispose()
-      devtoolsSink = null
+      identityListeners.clear()
       // Candidate confirmation is controlled by an external auth client and may
       // never settle. Closing all allocated candidates is the cancellation
       // boundary; disposal itself must remain bounded.
@@ -574,7 +587,6 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
 
   return {
     handle,
-    logger,
     getPrimary() {
       if (!primary) return null
       return { client: primary, identityGeneration: currentIdentityGeneration }
@@ -597,8 +609,7 @@ export function createConvexClientOwner(input: CreateConvexClientOwnerInput): Co
       },
     },
     addDisposer,
-    getDevtoolsSink: () => devtoolsSink,
-    attachDevtoolsSink,
+    subscribeIdentityChange,
     dispose,
   }
 }

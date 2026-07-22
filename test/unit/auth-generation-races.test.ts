@@ -9,7 +9,7 @@ import {
   type ConvexAuthCoordinatorState,
 } from '../../src/runtime/auth/client-engine'
 import type { AuthIdentityPort } from '../../src/runtime/auth/identity-port'
-import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
+import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
 
 // ---- JWT helpers ---------------------------------------------------------
 function toBase64Url(value: string): string {

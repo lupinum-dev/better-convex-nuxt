@@ -243,7 +243,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
   const owner = runtime?.owner
   const coordinator = runtime?.getAuthCoordinator() ?? undefined
   const port = coordinator?.port
-  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
+  const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle , never
   // the raw replaceable `$convex` seam: after an identity switch a captured raw
@@ -254,7 +254,7 @@ export function useConvexMutation<Mutation extends FunctionReference<'mutation'>
     fnName,
     hasOptimisticUpdate,
     getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
-    getDevtoolsSink: () => owner?.getDevtoolsSink() ?? null,
+    getDevtoolsSink: () => runtime?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
         if (!owner) {

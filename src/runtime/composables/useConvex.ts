@@ -1,9 +1,9 @@
 import { useNuxtApp } from '#imports'
 
-import type { ConvexClientHandle } from '../client/client-owner'
+import type { ConvexClientHandle } from '../client-core/client-owner'
 import { readConvexRuntimeContext } from '../runtime-context'
 
-export type { ConvexClientHandle } from '../client/client-owner'
+export type { ConvexClientHandle } from '../client-core/client-owner'
 
 /**
  * Access the stable, replacement-safe Convex client handle .

@@ -17,7 +17,7 @@ import {
   type ConvexClientHandle,
   type ConvexClientOwner,
   type OwnedConvexClient,
-} from '../../src/runtime/client/client-owner'
+} from '../../src/runtime/client-core/client-owner'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
 
 function deferred<T>() {

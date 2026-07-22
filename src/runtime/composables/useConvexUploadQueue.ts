@@ -14,7 +14,7 @@ import { useNuxtApp } from '#imports'
 import {
   createIdentityChangedError,
   isIdentityChangedError,
-} from '../client/identity-changed-error'
+} from '../client-core/identity-changed-error'
 import { normalizeConvexError, type CallResult, type ConvexCallError } from '../errors'
 import { readConvexRuntimeContext } from '../runtime-context'
 import { assertConvexComposableScope } from '../utils/composable-scope'
@@ -117,7 +117,7 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
   const convexConfig = getConvexRuntimeConfig()
   const client = useConvex()
   const fnName = getFunctionName(generateUploadUrlMutation)
-  const logger = runtime?.owner?.logger ?? createLogger(convexConfig.logging)
+  const logger = runtime?.logger ?? createLogger(convexConfig.logging)
 
   const maxConcurrent = normalizeMaxConcurrent(
     options?.maxConcurrent ?? convexConfig.upload.maxConcurrent,

@@ -124,7 +124,8 @@ export function createConvexQueryState<
 
   const nuxtApp = useNuxtApp()
   const convexConfig = getConvexRuntimeConfig()
-  const owner = readConvexRuntimeContext(nuxtApp)?.owner
+  const runtime = readConvexRuntimeContext(nuxtApp)
+  const owner = runtime?.owner
 
   const defaults = convexConfig.defaults
   const server = options?.server ?? defaults.server
@@ -134,7 +135,7 @@ export function createConvexQueryState<
 
   const fnName = getFunctionName(query)
 
-  const logger = owner?.logger ?? createLogger(convexConfig.logging)
+  const logger = runtime?.logger ?? createLogger(convexConfig.logging)
 
   const normalizedArgs = computed((): Args => normalizeConvexArgs(args) as Args)
   const getArgs = (): Args => normalizedArgs.value
@@ -276,7 +277,7 @@ export function createConvexQueryState<
     firstValue?.resolve(null)
     firstValue = null
     liveKey = null
-    if (previousKey) owner?.getDevtoolsSink()?.removeQuery(previousKey)
+    if (previousKey) runtime?.getDevtoolsSink()?.removeQuery(previousKey)
   }
 
   function recordQuery(
@@ -288,7 +289,7 @@ export function createConvexQueryState<
   ) {
     const currentArgs = getArgs()
     if (currentArgs === 'skip') return
-    owner?.getDevtoolsSink()?.upsertQuery({
+    runtime?.getDevtoolsSink()?.upsertQuery({
       id: asyncDataKey.value,
       name: fnName,
       args: currentArgs,
@@ -560,7 +561,7 @@ export function createConvexQueryState<
     onScopeDispose(() => {
       invalidateOperations()
       teardownLive()
-      owner?.getDevtoolsSink()?.removeQuery(asyncDataKey.value)
+      runtime?.getDevtoolsSink()?.removeQuery(asyncDataKey.value)
     })
   }
 

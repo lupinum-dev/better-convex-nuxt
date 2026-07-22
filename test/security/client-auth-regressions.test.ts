@@ -8,7 +8,7 @@ import {
   type AuthClientWithConvex,
   type ConvexAuthCoordinator,
 } from '../../src/runtime/auth/client-engine'
-import { IDENTITY_CHANGED } from '../../src/runtime/client/identity-changed-error'
+import { IDENTITY_CHANGED } from '../../src/runtime/client-core/identity-changed-error'
 
 function jwt(subject: string): string {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')

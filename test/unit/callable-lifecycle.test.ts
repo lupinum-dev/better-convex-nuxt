@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createIdentityChangedError,
   isIdentityChangedError,
-} from '../../src/runtime/client/identity-changed-error'
+} from '../../src/runtime/client-core/identity-changed-error'
 import { ConvexCallError } from '../../src/runtime/errors'
 import {
   createCallableLifecycle,

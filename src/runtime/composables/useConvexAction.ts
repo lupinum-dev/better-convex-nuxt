@@ -131,7 +131,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
   const owner = runtime?.owner
   const coordinator = runtime?.getAuthCoordinator() ?? undefined
   const port = coordinator?.port
-  const logger = owner?.logger ?? createLogger(getConvexRuntimeConfig().logging)
+  const logger = runtime?.logger ?? createLogger(getConvexRuntimeConfig().logging)
 
   // Route through the per-app client owner's stable handle , never
   // the raw replaceable `$convex` seam. A retired-generation in-flight action
@@ -141,7 +141,7 @@ export function useConvexAction<Action extends FunctionReference<'action'>>(
     fnName,
     hasOptimisticUpdate: false,
     getIdentityGeneration: () => (port ? port.snapshot().identityGeneration : 0),
-    getDevtoolsSink: () => owner?.getDevtoolsSink() ?? null,
+    getDevtoolsSink: () => runtime?.getDevtoolsSink() ?? null,
     handlers: {
       invoke: async (args) => {
         if (!owner) {

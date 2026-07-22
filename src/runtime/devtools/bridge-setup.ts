@@ -8,7 +8,7 @@
 import { toRaw } from 'vue'
 import type { Ref } from 'vue'
 
-import type { ConvexClientOwner } from '../client/client-owner'
+import type { ConvexClientOwner } from '../client-core/client-owner'
 import { decodeJwtPayload } from '../utils/convex-shared'
 import type { DevtoolsSink } from './sink'
 import { createAppDevtoolsTransport, cloneDevtoolsPayload } from './transport'

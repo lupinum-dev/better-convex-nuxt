@@ -46,7 +46,7 @@ export default defineNuxtPlugin({
     const runtime = readConvexRuntimeContext(nuxtApp)
     const publicConvex = config.public.convex as Record<string, unknown> | undefined
     const logLevel = getLogLevel(publicConvex)
-    const logger = runtime?.owner.logger ?? createLogger(logLevel)
+    const logger = runtime?.logger ?? createLogger(logLevel)
     const endInit = logger.time('plugin:init (client auth)')
     const traceEnabled =
       logLevel === 'debug' && (authConfig.debug.authFlow || authConfig.debug.clientAuthFlow)
