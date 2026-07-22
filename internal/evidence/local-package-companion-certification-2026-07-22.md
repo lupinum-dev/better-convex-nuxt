@@ -40,10 +40,16 @@ pnpm check:package-exports
   PASS — 150 Nuxt source files scanned, 9 entries deep-checked
   PASS — root runtime, generated auth schema, errors, auth-client typing,
          production Nitro server caller, and user-sync trigger consumers
+
+pnpm check
+  PASS — formatting, lint, module/server/fixture typechecks
+  PASS — 12 architecture rules across 3 packages and 259 files
+  PASS — 156 test files, 1,797 tests
 ```
 
 The CLI tests also prove that a supplied Nuxt candidate without a supplied Vue candidate fails before
 artifact work. Existing tests continue to reject companion use for another package, duplicate options,
 dist-only conflicts, path-like package selectors, and unknown package profiles.
 
-The full repository gate is recorded with the completion commit after this focused proof.
+The full gate was run after the implementation commit so immutable release-evidence tests compared the
+new `package.json` bytes with the same `HEAD`. All release artifact tamper and source-binding tests pass.
