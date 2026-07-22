@@ -162,12 +162,18 @@ export function installIdentityPortHarness() {
   }
   const nuxtApp = useNuxtApp()
   if (!nuxtApp.$convexRuntime) throw new Error('Convex runtime was not installed')
-  nuxtApp.$convexRuntime.attachAuthCoordinator({ port } as ConvexAuthCoordinator)
+  nuxtApp.$convexRuntime.attachAuthCoordinator({
+    port,
+    ready: async () => 'authenticated',
+  } as ConvexAuthCoordinator)
 
   return {
     advance() {
       identityGeneration += 1
       for (const listener of [...listeners]) listener()
+    },
+    listenerCount() {
+      return listeners.size
     },
   }
 }

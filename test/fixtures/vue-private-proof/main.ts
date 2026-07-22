@@ -150,11 +150,11 @@ export async function runPrivateVueLifecycleProof() {
     afterIdentityChange,
     afterDispose: {
       query: queryController.transformedData(),
+      activeQuerySubscriptions: queryStops === 1 ? 0 : 1,
       activePaginationSubscriptions: paginationSubscriptions.filter(
         (subscription) => subscription.active,
       ).length,
       identityListeners: identityListeners.size,
-      queryStops,
     },
   }
 }

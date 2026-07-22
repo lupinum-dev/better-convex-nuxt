@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AttachedClientRuntime } from '../../src/runtime/client-core/attached-runtime'
 import type { ClientIdentitySnapshot } from '../../src/runtime/client-core/identity-port'
+import { EXPECTED_EMBEDDED_IDENTITY_REPORT } from '../helpers/client-lifecycle-conformance'
 
 type HostModule = {
   hostVueIdentity: unknown
@@ -86,6 +87,7 @@ describe('cross-Vue-copy attached runtime', () => {
       const attached = embedded.attachEmbeddedRuntime(harness.runtime)
       expect(harness.listenerCount()).toBe(1)
       expect(attached.snapshot.value.identityKey).toBe('user:alice')
+      const initialIdentity = attached.snapshot.value.identityKey
 
       harness.emit({
         authEnabled: true,
@@ -96,6 +98,8 @@ describe('cross-Vue-copy attached runtime', () => {
         error: null,
       })
       expect(attached.snapshot.value.identityKey).toBe('user:bob')
+
+      const nextIdentity = attached.snapshot.value.identityKey
       expect(attached.snapshot.value.identityGeneration).toBe(2)
 
       attached.dispose()
@@ -112,6 +116,15 @@ describe('cross-Vue-copy attached runtime', () => {
         error: null,
       })
       expect(attached.snapshot.value.identityKey).toBe('user:bob')
+
+      expect({
+        clientMethods: Object.keys(harness.runtime.client).sort(),
+        initialIdentity,
+        nextIdentity,
+        identityAfterDispose: attached.snapshot.value.identityKey,
+        listenersAfterDispose: harness.listenerCount(),
+        detachCount: harness.detachCount(),
+      }).toEqual(EXPECTED_EMBEDDED_IDENTITY_REPORT)
 
       expect(readFileSync(hostBundle, 'utf8')).not.toContain(secret)
       expect(readFileSync(embeddedBundle, 'utf8')).not.toContain(secret)
