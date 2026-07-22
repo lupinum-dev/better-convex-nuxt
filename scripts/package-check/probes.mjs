@@ -1,6 +1,13 @@
 // Packed consumer probes
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
@@ -71,7 +78,46 @@ function assertProductionGraph(directory, expectedRuntimeNames, label) {
 
 // ---------------------------------------------------------------------------
 
-/** @typedef {{ packageName: string, repositoryRoot: string, packageManifest: object, tarballPath: string, failures: string[] }} ProbeContext */
+/** @typedef {{ filename: string, packageName: string, tarballPath: string, version: string }} CompanionTarball */
+/** @typedef {{ packageName: string, repositoryRoot: string, packageManifest: object, tarballPath: string, companionTarballs: CompanionTarball[], failures: string[] }} ProbeContext */
+
+function companionDependencies(ctx) {
+  return Object.fromEntries(
+    ctx.companionTarballs.map((companion) => [
+      companion.packageName,
+      `file:${companion.tarballPath}`,
+    ]),
+  )
+}
+
+function prepareFixtureTarballs(ctx, fixtureDir) {
+  const workspacePath = join(fixtureDir, 'pnpm-workspace.yaml')
+  const originalWorkspace = readFileSync(workspacePath, 'utf8')
+  const copiedTarballs = []
+  const rules = []
+
+  for (const companion of ctx.companionTarballs) {
+    if (originalWorkspace.includes(`${companion.packageName}:`)) {
+      throw new Error(`Fixture already controls ${companion.packageName} resolution.`)
+    }
+    const localTarball = join(fixtureDir, companion.filename)
+    copyFileSync(companion.tarballPath, localTarball)
+    copiedTarballs.push(localTarball)
+    rules.push(`  '${companion.packageName}': 'file:./${companion.filename}'`)
+  }
+
+  if (rules.length > 0) {
+    writeFileSync(
+      workspacePath,
+      `${originalWorkspace}${originalWorkspace.endsWith('\n') ? '' : '\n'}overrides:\n${rules.join('\n')}\n`,
+    )
+  }
+
+  return () => {
+    writeFileSync(workspacePath, originalWorkspace)
+    for (const tarball of copiedTarballs) rmSync(tarball, { force: true })
+  }
+}
 
 /**
  * Package-root probe: an ephemeral (non-repo, non-committed) consumer that
@@ -92,6 +138,7 @@ export function probeRootEntry(ctx) {
     packageManager: ctx.packageManifest.packageManager,
     dependencies: {
       ...consumerPeers,
+      ...companionDependencies(ctx),
       [ctx.packageName]: `file:${ctx.tarballPath}`,
     },
     devDependencies: {
@@ -273,6 +320,7 @@ export function probeErrorsEntry(ctx) {
   const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/errors-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
+  const restoreFixture = prepareFixtureTarballs(ctx, fixtureDir)
 
   try {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
@@ -287,6 +335,7 @@ export function probeErrorsEntry(ctx) {
     rmSync(join(fixtureDir, 'dist'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+    restoreFixture()
   }
 }
 
@@ -305,6 +354,7 @@ export function probeAuthClientTyping(ctx) {
   const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/auth-client-typing')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
+  const restoreFixture = prepareFixtureTarballs(ctx, fixtureDir)
 
   try {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
@@ -321,6 +371,7 @@ export function probeAuthClientTyping(ctx) {
     rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+    restoreFixture()
   }
 }
 
@@ -335,6 +386,7 @@ export function probeServerEntry(ctx) {
   const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/server-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
+  const restoreFixture = prepareFixtureTarballs(ctx, fixtureDir)
 
   try {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
@@ -360,6 +412,7 @@ export function probeServerEntry(ctx) {
     rmSync(join(fixtureDir, '.output'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+    restoreFixture()
   }
 }
 
@@ -374,6 +427,7 @@ export function probeCreateUserSyncTriggersEntry(ctx) {
   const fixtureDir = resolve(ctx.repositoryRoot, 'test/fixtures/user-sync-triggers-consumer')
   const localTarball = join(fixtureDir, 'better-convex-nuxt.tgz')
   copyFileSync(ctx.tarballPath, localTarball)
+  const restoreFixture = prepareFixtureTarballs(ctx, fixtureDir)
 
   try {
     run('pnpm', ['install', '--no-frozen-lockfile', '--ignore-scripts'], {
@@ -390,6 +444,7 @@ export function probeCreateUserSyncTriggersEntry(ctx) {
     rmSync(join(fixtureDir, 'dist'), { recursive: true, force: true })
     rmSync(localTarball, { force: true })
     rmSync(join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
+    restoreFixture()
   }
 }
 

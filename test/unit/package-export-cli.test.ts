@@ -61,12 +61,33 @@ describe('package export checker CLI authority', () => {
     {
       label: 'tarball conflict',
       args: ['--package', 'nuxt', '--dist-only', '--tarball', 'unreviewed.tgz'],
-      expected: '--dist-only cannot be combined with --tarball or --manifest.',
+      expected: '--dist-only cannot be combined with --tarball, --manifest, or --vue-tarball.',
     },
     {
       label: 'manifest conflict',
       args: ['--package', 'nuxt', '--manifest', 'unreviewed.json', '--dist-only'],
-      expected: '--dist-only cannot be combined with --tarball or --manifest.',
+      expected: '--dist-only cannot be combined with --tarball, --manifest, or --vue-tarball.',
+    },
+    {
+      label: 'Vue companion dist conflict',
+      args: ['--package', 'nuxt', '--vue-tarball', 'unreviewed.tgz', '--dist-only'],
+      expected: '--dist-only cannot be combined with --tarball, --manifest, or --vue-tarball.',
+    },
+    {
+      label: 'Vue package companion',
+      args: ['--package', 'vue', '--vue-tarball', 'unreviewed.tgz'],
+      expected: '--vue-tarball is valid only for the reviewed Nuxt package.',
+    },
+    {
+      label: 'duplicate Vue companion',
+      args: [
+        '--package',
+        'nuxt',
+        '--vue-tarball',
+        'first.tgz',
+        '--vue-tarball=second.tgz',
+      ],
+      expected: '--vue-tarball may be supplied only once.',
     },
   ])('rejects $label before artifact work', ({ args, expected }) => {
     expectPreflightFailure(args, expected)

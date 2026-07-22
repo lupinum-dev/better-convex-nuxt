@@ -427,7 +427,7 @@ function createArtifact() {
     if (!existsSync(tarballPath)) throw new Error(`Expected tarball is missing: ${tarballPath}`)
 
     const contentsPath = join(stagingDirectory, expectedArtifactFiles.contents)
-    run('node', [
+    const packageExportArguments = [
       'scripts/check-package-exports.mjs',
       '--package',
       releasePackageId,
@@ -435,7 +435,14 @@ function createArtifact() {
       tarballPath,
       '--manifest',
       contentsPath,
-    ])
+    ]
+    if (releasePackageId === 'nuxt') {
+      packageExportArguments.push(
+        '--vue-tarball',
+        getPackageArtifactCoordinates('vue', { repositoryRoot: repoRoot }).paths.tarball,
+      )
+    }
+    run('node', packageExportArguments)
     const contents = JSON.parse(readFileSync(contentsPath, 'utf8'))
     if (contents.version !== version) {
       throw new Error(

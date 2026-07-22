@@ -97,7 +97,15 @@ function main() {
   // from discovering or packing a replacement candidate.
   run(
     'node',
-    ['scripts/check-package-exports.mjs', '--package', releasePackageId, '--tarball', tarball],
+    [
+      'scripts/check-package-exports.mjs',
+      '--package',
+      releasePackageId,
+      '--tarball',
+      tarball,
+      '--vue-tarball',
+      vueCoordinates.paths.tarball,
+    ],
     {
       env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
     },

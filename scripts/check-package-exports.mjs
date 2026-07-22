@@ -29,6 +29,7 @@
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -37,7 +38,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { builtinModules } from 'node:module'
-import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { checkEntryExportShapes } from './package-check/declarations.mjs'
@@ -48,6 +49,8 @@ import {
 } from './package-check/manifest-consistency.mjs'
 import { assertProductionManifestContract } from './package-check/production-manifest-contract.mjs'
 import { checkEntryPurities } from './package-check/purity.mjs'
+import { canonicalNpmTarballFilename } from './package-artifact-coordinates.mjs'
+import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 import {
   buildContentManifest,
   packAndExtract,
@@ -81,12 +84,17 @@ for (let index = 0; index < cliArgs.length; index += 1) {
     distOnly = true
     continue
   }
-  if (argument === '--package' || argument === '--tarball' || argument === '--manifest') {
+  if (
+    argument === '--package' ||
+    argument === '--tarball' ||
+    argument === '--manifest' ||
+    argument === '--vue-tarball'
+  ) {
     setOption(argument, cliArgs[index + 1])
     index += 1
     continue
   }
-  const inlineMatch = /^(--(?:package|tarball|manifest))=(.*)$/u.exec(argument)
+  const inlineMatch = /^(--(?:package|tarball|manifest|vue-tarball))=(.*)$/u.exec(argument)
   if (inlineMatch) {
     setOption(inlineMatch[1], inlineMatch[2])
     continue
@@ -98,8 +106,9 @@ const packageId = parsedOptions.get('--package')
 if (!packageId) failCli('--package requires a reviewed package identifier.')
 const suppliedTarball = parsedOptions.get('--tarball')
 const manifestOutput = parsedOptions.get('--manifest')
-if (distOnly && (suppliedTarball || manifestOutput)) {
-  failCli('--dist-only cannot be combined with --tarball or --manifest.')
+const suppliedVueTarball = parsedOptions.get('--vue-tarball')
+if (distOnly && (suppliedTarball || manifestOutput || suppliedVueTarball)) {
+  failCli('--dist-only cannot be combined with --tarball, --manifest, or --vue-tarball.')
 }
 
 let checkerProfile
@@ -112,6 +121,54 @@ const packageRoot = resolve(repoRoot, checkerProfile.packageDirectory)
 const p = (...segments) => resolve(packageRoot, ...segments)
 const packageJson = JSON.parse(readFileSync(p('package.json'), 'utf8'))
 const entries = checkerProfile.entries
+
+function prepareCompanionTarballs() {
+  if (!suppliedVueTarball) return []
+  if (packageId !== 'nuxt') {
+    failCli('--vue-tarball is valid only for the reviewed Nuxt package.')
+  }
+
+  const descriptor = getPackageCertificationDescriptor('vue')
+  const tarballPath = resolve(repoRoot, suppliedVueTarball)
+  let stats
+  try {
+    stats = lstatSync(tarballPath)
+  } catch {
+    failCli(`Supplied Vue companion tarball does not exist: ${tarballPath}`)
+  }
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    failCli('Supplied Vue companion must be a regular, non-symlink tarball.')
+  }
+
+  const extracted = packAndExtract('vue', tarballPath)
+  try {
+    const manifest = JSON.parse(readFileSync(resolve(extracted.packageDir, 'package.json'), 'utf8'))
+    if (manifest.name !== descriptor.packageName) {
+      failCli('Supplied Vue companion has an unexpected packed package name.')
+    }
+    const expectedFilename = canonicalNpmTarballFilename(descriptor.packageName, manifest.version)
+    if (basename(tarballPath) !== expectedFilename) {
+      failCli(`Supplied Vue companion must use canonical filename ${expectedFilename}.`)
+    }
+    if (packageJson.dependencies?.[descriptor.packageName] !== manifest.version) {
+      failCli(
+        `${checkerProfile.packageName} must depend on exact ${descriptor.packageName}@${manifest.version}.`,
+      )
+    }
+    return [
+      Object.freeze({
+        filename: expectedFilename,
+        packageName: descriptor.packageName,
+        tarballPath,
+        version: manifest.version,
+      }),
+    ]
+  } finally {
+    rmSync(extracted.scratchDir, { recursive: true, force: true })
+  }
+}
+
+const companionTarballs = prepareCompanionTarballs()
 
 const nodeBuiltins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 
@@ -353,6 +410,7 @@ function main() {
           repositoryRoot: repoRoot,
           packageManifest: packageJson,
           tarballPath,
+          companionTarballs,
           failures,
         }
         for (const entry of entries) {
