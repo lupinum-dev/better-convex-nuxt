@@ -9,9 +9,9 @@ replace the RFC's product decisions.
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Experimental Phase 5 Convex-native MCP productization                                                     |
-| Current task          | `P5-001`; admit the minimal provider-neutral MCP surface against direct official SDK composition          |
-| Last verified commit  | `988b40f1`; immutable beta.4 pair, exact Ginko proof, and frozen Nitro beta.5 restoration branch          |
-| Next executable tasks | `P5-001`; `P5-002`; `P5-003`                                                                              |
+| Current task          | `P5-002`; create the strict experimental MCP package and prove its dependency/export boundary             |
+| Last verified commit  | `e8f60a83`; Convex-native ADR plus frozen Nitro beta.5 restoration branch and exact Ginko proof           |
+| Next executable tasks | `P5-002`; `P5-003`; `P5-005`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -230,7 +230,7 @@ Tasks, and repository rename remain gated as `G-001`–`G-005` rather than impli
 
 | ID | Depends on | Exact outcome | Expected boundary/files | Invariant | Acceptance proof/evidence | Delete/replace | Status | Blocker | Completion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `P5-001` | `P1-018`, `P2-015` | Admit the minimal provider-neutral MCP package surface against official SDK composition. | API admission record | Safe handler context, not a second tool framework. | Official SDK direct-vs-adapter comparison and two consumers. | Rejected convenience wrappers | pending | — | — |
+| `P5-001` | `P1-018`, `P2-015` | Admit the minimal provider-neutral MCP package surface against official SDK composition. | API admission record | Safe handler context, not a second tool framework. | Official SDK direct-vs-adapter comparison and two consumers. | Rejected convenience wrappers | done | — | `D-022`; `internal/decisions/ADR-mcp-public-api-admission.md`; completion commit is the commit that records this row as done |
 | `P5-002` | `P5-001` | Create `packages/mcp` with selected official SDK and strict package profile. | `packages/mcp/**` | Optional package; no Nuxt/Better Auth required base dependency. | Build, exports, dependency graph, exact package checks. | Lab package scaffolding | pending | — | — |
 | `P5-003` | `P5-002` | Define narrow provider-neutral verifier contract preserving issuer/subject/client/resource/scopes and private provider reference. | MCP server internals/public surface if admitted | Credential provenance is not a universal principal; provider reference never leaks. | Better Auth fake + external signature-only verifier tests. | Ad hoc verifier shapes | pending | — | — |
 | `P5-004` | `P5-003` | Decide Better Auth adapter location using dependency graph and non-Nuxt consumer proof. | ADR and optional subpath or existing auth integration | Better Auth stays optional to MCP base. | Clean non-Nuxt consumer plus no dependency leakage. | Losing adapter placement | pending | — | — |
