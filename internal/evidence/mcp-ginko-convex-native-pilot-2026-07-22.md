@@ -2,7 +2,7 @@
 
 ## Scope
 
-Ginko CMS branch `codex/better-convex-mcp-pilot` at commit `1023ef40` consumes the reproducible
+Ginko CMS branch `codex/better-convex-mcp-pilot` at commit `4dc7727b` consumes the reproducible
 `@better-convex/mcp@0.1.0-beta.0` source candidate at package-only commit
 `83b7f3f91901caececc356c078f2eb8c80ec710e`.
 
@@ -47,7 +47,15 @@ The MCP-focused suite additionally proves:
 - opaque unexpected application failures;
 - no bearer value in Convex arguments or public results.
 
+The release consumer additionally packed all seven application and framework packages, installed the
+exact `@better-convex/mcp@0.1.0-beta.0` tarball into a temporary application, and executed the packed
+Ginko `get-entry` and `save-entry-draft` tool catalog through the official SDK-backed handler. The
+behavioral probe preserved the exact hyphenated Ginko tool names, returned the read and draft-write
+results, and proved the bearer sentinel did not enter the captured application calls or results. The
+same consumer generated all 28 host setup files and completed a production Nuxt/Nitro build.
+
 The full check used the already certified local Vue/Nuxt beta.4 artifacts because those versions are
-not published. Pnpm therefore reported that local `node_modules` did not match the registry-oriented
-lockfile before running; the complete checks then passed against the exact local artifacts. A clean
-fresh-install and packed/live proof remain required before the Ginko hard cut is complete.
+not published. The package consumer installed their exact certified tarballs and the exact MCP
+tarball, rather than workspace links. A protected deployed-endpoint run remains a separate `P5-023`
+release gate; it is not claimed by this consumer proof. Deletion of the old supported protocol stack
+remains coupled to `P5-021`, where the neutral and Ginko replacement evidence can guard one hard cut.
