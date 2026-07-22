@@ -22,18 +22,11 @@ import { useConvexIdentityState } from '../utils/auth-identity-state'
 import type { ConvexAuthMode } from '../utils/auth-status'
 import { assertConvexComposableScope } from '../utils/composable-scope'
 import { fetchAuthToken, withAuthDimension } from '../utils/convex-cache'
-import {
-  createConvexQueryKey,
-  getFunctionName,
-  hashArgs,
-} from '../utils/convex-shared'
+import { createConvexQueryKey, getFunctionName, hashArgs } from '../utils/convex-shared'
 import { isConvexArgsSkipped, normalizeConvexArgs } from '../utils/query-args'
 import { executeQueryHttp } from '../utils/query-execution'
 import { createQueryExecutionGate } from '../utils/query-execution-gate'
-import {
-  createConvexQueryAuthContext,
-  selectLiveQueryClient,
-} from '../utils/query-foundation'
+import { createConvexQueryAuthContext, selectLiveQueryClient } from '../utils/query-foundation'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
 import type {
   PaginatedQueryReference,
@@ -62,10 +55,7 @@ export {
 
 export type PaginatedQueryStatus = PaginationStatus
 
-export interface UseConvexPaginatedQueryOptions<
-  Item = unknown,
-  TransformedItem = Item,
-> {
+export interface UseConvexPaginatedQueryOptions<Item = unknown, TransformedItem = Item> {
   /** Number of items to load in the initial page. */
   initialNumItems?: number
   /** Run query on server during SSR. @default true */
@@ -114,16 +104,12 @@ interface BuildConvexPaginatedQueryResult<Item> {
  */
 export function createConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
-  Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> =
-    PaginatedQueryArgs<Query>,
+  Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,
   args?: MaybeRefOrGetter<Args>,
-  options?: UseConvexPaginatedQueryOptions<
-    PaginatedQueryItem<Query>,
-    TransformedItem
-  >,
+  options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
   resolveImmediately = false,
 ): BuildConvexPaginatedQueryResult<TransformedItem> {
   type Item = PaginatedQueryItem<Query>
@@ -139,11 +125,7 @@ export function createConvexPaginatedQueryState<
   const authMode: ConvexAuthMode = options?.auth ?? 'optional'
   const keepPreviousData = options?.keepPreviousData ?? false
   const cleanupScope = import.meta.client ? getCurrentScope() : undefined
-  assertConvexComposableScope(
-    'useConvexPaginatedQuery',
-    import.meta.client,
-    cleanupScope,
-  )
+  assertConvexComposableScope('useConvexPaginatedQuery', import.meta.client, cleanupScope)
   const fnName = getFunctionName(query)
 
   const normalizedArgs = computed((): Args => normalizeConvexArgs(args) as Args)
@@ -163,8 +145,7 @@ export function createConvexPaginatedQueryState<
   )
 
   const currentTag = computed<QueryIsolationTag>(() => {
-    if (authMode === 'none')
-      return { identityKey: 'anonymous', identityGeneration: 0 }
+    if (authMode === 'none') return { identityKey: 'anonymous', identityGeneration: 0 }
     return {
       identityKey: gate.value.cacheIdentity,
       identityGeneration: authCtx.identityGeneration.value,
@@ -178,13 +159,9 @@ export function createConvexPaginatedQueryState<
 
   // Identity-partitioned key (paginationOpts kept stable so SSR/client match).
   const asyncDataKey = computed((): string => {
-    if (gate.value.outcome !== 'execute')
-      return `convex-paginated:${gate.value.outcome}:${fnName}`
-    const currentArgs = getArgs() as ConvexPaginatedQueryArgs<
-      PaginatedQueryArgs<Query>
-    >
-    if (currentArgs == null || currentArgs === 'skip')
-      return `convex-paginated:idle:${fnName}`
+    if (gate.value.outcome !== 'execute') return `convex-paginated:${gate.value.outcome}:${fnName}`
+    const currentArgs = getArgs() as ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>>
+    if (currentArgs == null || currentArgs === 'skip') return `convex-paginated:idle:${fnName}`
     const base = createConvexQueryKey(
       query,
       {
@@ -205,10 +182,7 @@ export function createConvexPaginatedQueryState<
     'convex:query-errors',
     () => ({}),
   )
-  const setBoundaryError = (
-    err: ConvexCallError | null,
-    key = asyncDataKey.value,
-  ) => {
+  const setBoundaryError = (err: ConvexCallError | null, key = asyncDataKey.value) => {
     const store = errorStore.value
     if (err) {
       errorStore.value = { ...store, [key]: err }
@@ -235,28 +209,23 @@ export function createConvexPaginatedQueryState<
     if (import.meta.client) {
       const client = selectClient()
       if (client) {
-        const result = (await (
-          client.query as (f: unknown, a: unknown) => Promise<unknown>
-        )(query, fullArgs)) as PaginationResult<Item>
+        const result = (await (client.query as (f: unknown, a: unknown) => Promise<unknown>)(
+          query,
+          fullArgs,
+        )) as PaginationResult<Item>
         return result
       }
     }
 
     const convexUrl = convexConfig.url
-    if (!convexUrl)
-      throw new Error('[useConvexPaginatedQuery] Convex URL not configured')
+    if (!convexUrl) throw new Error('[useConvexPaginatedQuery] Convex URL not configured')
     let authToken: string | undefined
     if (import.meta.server) {
       authToken = fetchAuthToken({ auth: authMode, cookieHeader, cachedToken })
     } else if (authMode !== 'none') {
       authToken = cachedToken.value ?? undefined
     }
-    if (
-      authMode !== 'none' &&
-      gate.value.cacheIdentity !== 'anonymous' &&
-      !authToken
-    )
-      return null
+    if (authMode !== 'none' && gate.value.cacheIdentity !== 'anonymous' && !authToken) return null
     const result = await executeQueryHttp<PaginationResult<Item>>(
       convexUrl,
       fnName,
@@ -281,18 +250,13 @@ export function createConvexPaginatedQueryState<
     initialData: options?.initialData,
     getArgs: () => {
       const currentArgs = getArgs()
-      return currentArgs === 'skip'
-        ? 'skip'
-        : (currentArgs as Record<string, unknown>)
+      return currentArgs === 'skip' ? 'skip' : (currentArgs as Record<string, unknown>)
     },
     getArgsHash: () => argsHash.value,
     getBoundaryKey: () => asyncDataKey.value,
     getIsolationTag: () => currentTag.value,
     isIdle: () => gate.value.outcome === 'idle',
-    isLive: () =>
-      import.meta.client &&
-      gate.value.outcome === 'execute' &&
-      gate.value.subscribe,
+    isLive: () => import.meta.client && gate.value.outcome === 'execute' && gate.value.subscribe,
     isBoundaryPending: () => boundaryPort.pending(),
     getBoundaryFirstPage: () => boundaryPort.firstPage(),
     getBoundaryError: () => boundaryError.value,
@@ -320,23 +284,16 @@ export function createConvexPaginatedQueryState<
       }
       // Client live mode: the first page arrives through the composable-owned
       // subscription (`firstPageRealtimeData`), not a one-shot fetch here.
-      if (import.meta.client && g.outcome === 'execute' && g.subscribe)
-        return null
+      if (import.meta.client && g.outcome === 'execute' && g.subscribe) return null
       setBoundaryError(null)
       const operation = controller.captureOperation()
       try {
-        return await controller.fetchForOperation(
-          controller.initialOptions.value,
-          operation,
-        )
+        return await controller.fetchForOperation(controller.initialOptions.value, operation)
       } catch (rawError) {
         // Normalize once and store in the library-owned state; resolve null so
         // Nuxt never manufactures an H3Error from a handler rejection.
         if (controller.isOperationCurrent(operation))
-          setBoundaryError(
-            normalizeConvexError(rawError),
-            operation.boundaryKey,
-          )
+          setBoundaryError(normalizeConvexError(rawError), operation.boundaryKey)
         return null
       }
     },
@@ -357,8 +314,7 @@ export function createConvexPaginatedQueryState<
 
   // ---- client reactivity --------------------------------------------------
   if (import.meta.client && cleanupScope) {
-    if (gate.value.outcome === 'execute' && gate.value.subscribe)
-      controller.subscribeFirstPage()
+    if (gate.value.outcome === 'execute' && gate.value.subscribe) controller.subscribeFirstPage()
 
     // Synchronous identity-change clearing (architecture invariant).
     watch(
@@ -402,16 +358,10 @@ export function createConvexPaginatedQueryState<
     resolvePromise = server ? asyncData.then(() => {}) : Promise.resolve()
   } else {
     const hasExistingData = asyncData.data.value != null
-    if (
-      hasExistingData ||
-      resolveImmediately ||
-      (!server && nuxtApp.isHydrating)
-    ) {
+    if (hasExistingData || resolveImmediately || (!server && nuxtApp.isHydrating)) {
       resolvePromise = Promise.resolve()
     } else if (gate.value.outcome === 'wait') {
-      resolvePromise = authCtx
-        .waitForInitialSettlement()
-        .then(() => asyncData.refresh())
+      resolvePromise = authCtx.waitForInitialSettlement().then(() => asyncData.refresh())
     } else {
       resolvePromise = asyncData.then(() => {})
     }
@@ -434,8 +384,7 @@ export function createConvexPaginatedQueryState<
 
 export async function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
-  Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> =
-    PaginatedQueryArgs<Query>,
+  Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
   query: Query,

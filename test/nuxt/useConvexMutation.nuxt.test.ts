@@ -6,10 +6,7 @@ import { useNuxtApp } from '#imports'
 import type { ConvexAuthCoordinator } from '../../src/runtime/auth/client-engine'
 import { useConvexMutation } from '../../src/runtime/composables/useConvexMutation'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import {
-  captureInNuxt,
-  installIdentityPortHarness,
-} from '../helpers/nuxt-runtime-harness'
+import { captureInNuxt, installIdentityPortHarness } from '../helpers/nuxt-runtime-harness'
 import { waitFor } from '../helpers/wait-for'
 
 function deferred<T>() {

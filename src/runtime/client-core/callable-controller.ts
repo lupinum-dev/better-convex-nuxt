@@ -38,7 +38,6 @@ export interface CallableController<Args, Result> {
   error: Ref<ConvexCallError | null>
   reset(): void
   dispose(): void
-  onIdentityMaybeChanged(): void
 }
 
 /**
@@ -167,6 +166,5 @@ export function createCallableController<Args, Result>(
     error: callState.error,
     reset,
     dispose,
-    onIdentityMaybeChanged,
   }
 }

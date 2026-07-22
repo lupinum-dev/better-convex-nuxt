@@ -11,11 +11,7 @@ interface Row {
   id: string
 }
 
-function page(
-  ids: string[],
-  continueCursor: string,
-  isDone = false,
-): PaginationResult<Row> {
+function page(ids: string[], continueCursor: string, isDone = false): PaginationResult<Row> {
   return { page: ids.map((id) => ({ id })), continueCursor, isDone }
 }
 
@@ -124,11 +120,7 @@ function makeHarness(options?: { live?: boolean }) {
       setIdle(value: boolean) {
         idle = value
       },
-      setArgs(
-        nextArgs: Record<string, unknown> | 'skip',
-        hash: string,
-        key: string,
-      ) {
+      setArgs(nextArgs: Record<string, unknown> | 'skip', hash: string, key: string) {
         args = nextArgs
         argsHash = hash
         boundaryKey = key
@@ -157,9 +149,7 @@ describe('pagination controller', () => {
     state.subscriptions[2]?.value(page(['c'], '', true))
 
     expect(controller.results.value.map((row) => row.id)).toEqual(['b', 'c'])
-    expect(
-      controller.pages.value.map((entry) => entry.result?.page[0]?.id),
-    ).toEqual(['b', 'c'])
+    expect(controller.pages.value.map((entry) => entry.result?.page[0]?.id)).toEqual(['b', 'c'])
     expect(controller.status.value).toBe('exhausted')
   })
 
@@ -179,16 +169,8 @@ describe('pagination controller', () => {
     )
     await controller.refresh()
 
-    expect(state.fetches.map((options) => options.cursor)).toEqual([
-      null,
-      'new-1',
-      'new-2',
-    ])
-    expect(controller.results.value.map((row) => row.id)).toEqual([
-      'a2',
-      'b2',
-      'c2',
-    ])
+    expect(state.fetches.map((options) => options.cursor)).toEqual([null, 'new-1', 'new-2'])
+    expect(controller.results.value.map((row) => row.id)).toEqual(['a2', 'b2', 'c2'])
   })
 
   it('retires only the tail invalidated by a live cursor-boundary change', () => {
@@ -233,9 +215,7 @@ describe('pagination controller', () => {
     })
 
     expect(controller.results.value).toEqual([])
-    expect(
-      state.subscriptions.every((subscription) => !subscription.active),
-    ).toBe(true)
+    expect(state.subscriptions.every((subscription) => !subscription.active)).toBe(true)
     pending.resolve(page(['stale-alice'], '', true))
     await refresh
     expect(controller.results.value).toEqual([])

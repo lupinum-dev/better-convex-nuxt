@@ -18,10 +18,7 @@ import {
   type PaginationPageState,
   type PaginationStatus,
 } from './pagination-state'
-import type {
-  QueryIsolationTag,
-  QuerySubscriptionClient,
-} from './query-controller'
+import type { QueryIsolationTag, QuerySubscriptionClient } from './query-controller'
 
 export interface PaginationControllerInput<Item, TransformedItem> {
   query: FunctionReference<'query'>
@@ -41,9 +38,7 @@ export interface PaginationControllerInput<Item, TransformedItem> {
   getBoundaryError(): ConvexCallError | null
   setBoundaryError(error: ConvexCallError | null, key: string): void
   getClient(): QuerySubscriptionClient | null
-  fetchPage(
-    options: PaginationPageOptions,
-  ): Promise<PaginationResult<Item> | null>
+  fetchPage(options: PaginationPageOptions): Promise<PaginationResult<Item> | null>
   refreshBoundary(): Promise<void>
 }
 
@@ -83,10 +78,7 @@ export interface PaginationController<Item, TransformedItem> {
 }
 
 function sameTag(a: QueryIsolationTag, b: QueryIsolationTag): boolean {
-  return (
-    a.identityKey === b.identityKey &&
-    a.identityGeneration === b.identityGeneration
-  )
+  return a.identityKey === b.identityKey && a.identityGeneration === b.identityGeneration
 }
 
 export function createPaginationController<Item, TransformedItem = Item>(
@@ -116,8 +108,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
     isDisposed: () => disposed,
   })
 
-  const firstPage = () =>
-    firstPageRealtime.value ?? input.getBoundaryFirstPage()
+  const firstPage = () => firstPageRealtime.value ?? input.getBoundaryFirstPage()
 
   async function fetchForOperation(
     options: PaginationPageOptions,
@@ -146,21 +137,14 @@ export function createPaginationController<Item, TransformedItem = Item>(
         if (!fence.isCurrent(operation)) return
         const result = raw as PaginationResult<Item>
         const previous = firstPage()
-        if (
-          previous &&
-          previous.continueCursor !== result.continueCursor &&
-          pages.value.length > 0
-        )
+        if (previous && previous.continueCursor !== result.continueCursor && pages.value.length > 0)
           retirePagesFrom(0)
         firstPageRealtime.value = result
         input.setBoundaryError(null, operation.boundaryKey)
       },
       (error) => {
         if (!fence.isCurrent(operation)) return
-        input.setBoundaryError(
-          normalizeConvexError(error),
-          operation.boundaryKey,
-        )
+        input.setBoundaryError(normalizeConvexError(error), operation.boundaryKey)
       },
     )
   }
@@ -179,9 +163,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
       { ...args, paginationOpts: page.paginationOpts },
       (raw) => {
         if (!fence.isCurrent(operation)) return
-        const index = pages.value.findIndex(
-          (candidate) => candidate.paginationOpts === pageOptions,
-        )
+        const index = pages.value.findIndex((candidate) => candidate.paginationOpts === pageOptions)
         if (index < 0) return
         const result = raw as PaginationResult<Item>
         const previous = pages.value[index]?.result
@@ -191,8 +173,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
           previous.continueCursor !== result.continueCursor &&
           nextPages.length > index + 1
         ) {
-          for (const laterPage of nextPages.slice(index + 1))
-            laterPage.unsubscribe?.()
+          for (const laterPage of nextPages.slice(index + 1)) laterPage.unsubscribe?.()
           pages.value = nextPages.slice(0, index + 1)
           return
         }
@@ -200,9 +181,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
       },
       (error) => {
         if (!fence.isCurrent(operation)) return
-        const index = pages.value.findIndex(
-          (candidate) => candidate.paginationOpts === pageOptions,
-        )
+        const index = pages.value.findIndex((candidate) => candidate.paginationOpts === pageOptions)
         if (index < 0) return
         pages.value = commitPaginationPageError(pages.value, index, error)
       },
@@ -241,8 +220,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
       disabled: input.isIdle(),
       refresh: manualRefreshPending.value ? 'pending' : 'idle',
       hasError:
-        input.getBoundaryError() !== null ||
-        pages.value.some((page) => page.error !== null),
+        input.getBoundaryError() !== null || pages.value.some((page) => page.error !== null),
       firstPage: firstPageState,
       nextPage: nextPageState,
     })
@@ -253,22 +231,15 @@ export function createPaginationController<Item, TransformedItem = Item>(
     const items: Item[] = []
     const currentFirstPage = firstPage()
     if (currentFirstPage) items.push(...currentFirstPage.page)
-    for (const page of pages.value)
-      if (page.result) items.push(...page.result.page)
+    for (const page of pages.value) if (page.result) items.push(...page.result.page)
     if (items.length > 0) return transform(items)
     const initial =
-      typeof input.initialData === 'function'
-        ? input.initialData()
-        : input.initialData
-    return status.value === 'loading-first-page' && initial
-      ? transform(initial)
-      : transform([])
+      typeof input.initialData === 'function' ? input.initialData() : input.initialData
+    return status.value === 'loading-first-page' && initial ? transform(initial) : transform([])
   })
 
   function transform(items: Item[]): TransformedItem[] {
-    return input.transform
-      ? input.transform(items)
-      : (items as unknown as TransformedItem[])
+    return input.transform ? input.transform(items) : (items as unknown as TransformedItem[])
   }
 
   const isStale = computed(() =>
@@ -283,8 +254,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
     isStale.value ? lastSettledResults.value : transformedResults.value,
   )
   const isLoading = computed(
-    () =>
-      status.value === 'loading-first-page' || status.value === 'loading-more',
+    () => status.value === 'loading-first-page' || status.value === 'loading-more',
   )
   const hasNextPage = computed(() => status.value === 'ready')
   const error = computed<ConvexCallError | null>(() => {
@@ -325,12 +295,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
     }
     void fetchForOperation(page.paginationOpts, operation)
       .then((result) => {
-        if (
-          !result ||
-          !fence.isCurrent(operation) ||
-          pages.value[index] !== page
-        )
-          return
+        if (!result || !fence.isCurrent(operation) || pages.value[index] !== page) return
         pages.value = commitPaginationPageResult(pages.value, index, result)
       })
       .catch((cause) => {
@@ -346,10 +311,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
     const loadedPages = [...pages.value]
     const operation = fence.capture()
     try {
-      const firstResult = await fetchForOperation(
-        initialOptions.value,
-        operation,
-      )
+      const firstResult = await fetchForOperation(initialOptions.value, operation)
       if (!firstResult) return
       const refreshed = [...loadedPages]
       let previous = firstResult
@@ -378,18 +340,13 @@ export function createPaginationController<Item, TransformedItem = Item>(
         }
         previous = result
       }
-      if (
-        !fence.isCurrent(operation) ||
-        pages.value.length !== loadedPages.length
-      )
-        return
+      if (!fence.isCurrent(operation) || pages.value.length !== loadedPages.length) return
       firstPageRealtime.value = firstResult
       pages.value = refreshed
       if (input.isLive()) {
         for (let index = 0; index < refreshed.length; index += 1) {
           if (
-            loadedPages[index]?.paginationOpts.cursor !==
-            refreshed[index]?.paginationOpts.cursor
+            loadedPages[index]?.paginationOpts.cursor !== refreshed[index]?.paginationOpts.cursor
           ) {
             subscribePage(index)
           }
@@ -398,10 +355,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
       input.setBoundaryError(null, operation.boundaryKey)
     } catch (cause) {
       if (fence.isCurrent(operation)) {
-        input.setBoundaryError(
-          normalizeConvexError(cause),
-          operation.boundaryKey,
-        )
+        input.setBoundaryError(normalizeConvexError(cause), operation.boundaryKey)
       }
     } finally {
       if (fence.isCurrent(operation)) manualRefreshPending.value = false

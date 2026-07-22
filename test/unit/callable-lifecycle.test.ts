@@ -14,10 +14,12 @@ import { ConvexCallError } from '../../src/runtime/errors'
 function makeLifecycle<Result = string>(
   handlers: CallableControllerHandlers<Record<string, unknown>, Result>,
   getIdentityGeneration: () => number = () => 0,
+  subscribeIdentityChange?: (listener: () => void) => () => void,
 ) {
   return createCallableController<Record<string, unknown>, Result>({
     operation: 'mutation',
     getIdentityGeneration,
+    subscribeIdentityChange,
     handlers,
   })
 }
@@ -61,6 +63,7 @@ describe('callable lifecycle: identity-change stale rejection (architecture inva
     const onError = vi.fn()
     const logSuccess = vi.fn()
     const logError = vi.fn()
+    let notifyIdentityChange!: () => void
 
     const lifecycle = makeLifecycle(
       {
@@ -74,13 +77,17 @@ describe('callable lifecycle: identity-change stale rejection (architecture inva
         logError,
       },
       () => generation,
+      (listener) => {
+        notifyIdentityChange = listener
+        return () => {}
+      },
     )
 
     const pending = lifecycle.run({})
 
     // Identity switches while the wire call is still in flight.
     generation = 1
-    lifecycle.onIdentityMaybeChanged()
+    notifyIdentityChange()
 
     // The wire call then succeeds — but under the retired identity, so it is
     // retired rather than committed.
@@ -108,6 +115,7 @@ describe('callable lifecycle: identity-change stale rejection (architecture inva
   it('.safe() returns the IDENTITY_CHANGED error for a stale call, never the old result', async () => {
     let generation = 0
     let releaseInvoke!: (value: string) => void
+    let notifyIdentityChange!: () => void
 
     const lifecycle = makeLifecycle(
       {
@@ -117,11 +125,15 @@ describe('callable lifecycle: identity-change stale rejection (architecture inva
           }),
       },
       () => generation,
+      (listener) => {
+        notifyIdentityChange = listener
+        return () => {}
+      },
     )
 
     const pending = lifecycle.safe({})
     generation = 1
-    lifecycle.onIdentityMaybeChanged()
+    notifyIdentityChange()
     releaseInvoke('wire-ok')
 
     const result = await pending
@@ -176,6 +188,7 @@ describe('callable lifecycle: settlement binding', () => {
   it('binds the generation after initial settlement and dispatches under the settled identity', async () => {
     let generation = 0
     let releaseSettlement!: () => void
+    let notifyIdentityChange!: () => void
     const invoke = vi.fn(async () => 'alice-result')
     const onSuccess = vi.fn()
     const lifecycle = makeLifecycle(
@@ -188,6 +201,10 @@ describe('callable lifecycle: settlement binding', () => {
         onSuccess,
       },
       () => generation,
+      (listener) => {
+        notifyIdentityChange = listener
+        return () => {}
+      },
     )
 
     const pending = lifecycle.run({ request: 'before-settlement' })
@@ -195,7 +212,7 @@ describe('callable lifecycle: settlement binding', () => {
     expect(invoke).not.toHaveBeenCalled()
 
     generation = 1
-    lifecycle.onIdentityMaybeChanged()
+    notifyIdentityChange()
     expect(lifecycle.status.value).toBe('idle')
     releaseSettlement()
 

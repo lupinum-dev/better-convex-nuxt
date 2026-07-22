@@ -2,10 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { useConvexAction } from '../../src/runtime/composables/useConvexAction'
 import { MockConvexClient, mockFnRef } from '../helpers/mock-convex-client'
-import {
-  captureInNuxt,
-  installIdentityPortHarness,
-} from '../helpers/nuxt-runtime-harness'
+import { captureInNuxt, installIdentityPortHarness } from '../helpers/nuxt-runtime-harness'
 
 describe('useConvexAction (Nuxt runtime)', () => {
   it('disposes its controller and identity listener with the component scope', async () => {
