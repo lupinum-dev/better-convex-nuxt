@@ -7,7 +7,6 @@ import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mj
 
 const root = path.resolve(import.meta.dirname, '..')
 const arguments_ = process.argv.slice(2)
-const releasePackageId = 'nuxt'
 
 function fail(message) {
   throw new Error(`[release-verify] ${message}`)
@@ -23,21 +22,56 @@ function run(command, args, options = {}) {
 }
 
 function main() {
-  if (arguments_.length !== 2 || arguments_[0] !== '--artifact-manifest') {
-    fail('usage: pnpm release:verify --artifact-manifest <artifact.json>')
+  const values = new Map()
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index]
+    if (!['--package', '--artifact-manifest'].includes(argument) || values.has(argument)) {
+      fail('usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>')
+    }
+    const value = arguments_[index + 1]
+    if (!value || value.startsWith('--')) {
+      fail('usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>')
+    }
+    values.set(argument, value)
+    index += 1
   }
+  if (!values.has('--artifact-manifest')) {
+    fail('usage: pnpm release:verify [--package <reviewed-id>] --artifact-manifest <artifact.json>')
+  }
+  const releasePackageId = values.get('--package') ?? 'nuxt'
 
   const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId, {
     repositoryRoot: root,
   })
-  const evidencePath = path.resolve(root, arguments_[1])
+  const evidencePath = path.resolve(root, values.get('--artifact-manifest'))
   if (evidencePath !== artifactCoordinates.paths.evidence) {
     fail(
       `artifact manifest must be the reviewed ${releasePackageId} coordinate: ${artifactCoordinates.relativePaths.evidence}`,
     )
   }
-  run('node', ['scripts/release.mjs', 'verify', evidencePath])
+  run('node', ['scripts/release.mjs', 'verify', evidencePath, '--package', releasePackageId])
   const tarball = artifactCoordinates.paths.tarball
+
+  if (releasePackageId === 'vue') {
+    console.log('\n[release-verify] Vue artifact-dependent package and consumer gates')
+    run('node', ['scripts/check-package-exports.mjs', '--package', 'vue', '--tarball', tarball], {
+      env: { ...process.env, BCN_RELEASE_PRODUCTION_AUDIT: 'true' },
+    })
+    run('node', ['scripts/check-candidate-apps.mjs', '--package', 'vue', '--tarball', tarball])
+    console.log(
+      `\n[release-verify] PASS: Vue artifact-dependent gates consumed ${tarball}; no gate repacked the candidate.`,
+    )
+    return
+  }
+
+  const vueCoordinates = getPackageArtifactCoordinates('vue', { repositoryRoot: root })
+  run('node', [
+    'scripts/release.mjs',
+    'verify',
+    vueCoordinates.paths.evidence,
+    '--package',
+    'vue',
+  ])
 
   console.log('\n[release-verify] Source-integrity and source-runtime behavior gates')
   // These gates intentionally exercise the checked-out source. They never pack
@@ -75,6 +109,8 @@ function main() {
     releasePackageId,
     '--tarball',
     tarball,
+    '--vue-tarball',
+    vueCoordinates.paths.tarball,
   ])
 
   console.log(

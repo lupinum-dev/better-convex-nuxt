@@ -35,7 +35,7 @@ import { buildContentManifest, packAndExtract } from './package-check/tarball.mj
 import { getPackageRuntimeFingerprintProfile } from './package-runtime-fingerprint-profile.mjs'
 
 const repoRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
-const releasePackageId = 'nuxt'
+const { command, packageId: releasePackageId, verifyPath } = parseArguments(process.argv.slice(2))
 const artifactCoordinates = getPackageArtifactCoordinates(releasePackageId)
 const packageRoot = artifactCoordinates.sourceDirectory
 const packageJson = JSON.parse(readFileSync(artifactCoordinates.manifestPath, 'utf8'))
@@ -53,17 +53,42 @@ if (
 const version = artifactCoordinates.version
 const tag = `v${version}`
 const expectedArtifactFiles = artifactCoordinates.files
-const command = process.argv[2]
-const verifyPath = process.argv[3]
 const { profile: runtimeFingerprintProfile } = getPackageRuntimeFingerprintProfile(releasePackageId)
 const maxPackedFingerprintFileBytes = 16 * 1024 * 1024
 
-if (
-  !['artifact', 'prepare', 'verify'].includes(command) ||
-  (command === 'verify' ? process.argv.length !== 4 : process.argv.length !== 3)
-) {
-  console.error('Usage: node scripts/release.mjs artifact | prepare | verify <artifact.json>')
-  process.exit(1)
+function parseArguments(args) {
+  const command = args[0]
+  if (!['artifact', 'prepare', 'verify'].includes(command)) {
+    throw new Error(
+      'Usage: node scripts/release.mjs artifact|prepare [--package <reviewed-id>] | verify <artifact.json> [--package <reviewed-id>]',
+    )
+  }
+  const values = new Map()
+  const positional = []
+  for (let index = 1; index < args.length; index += 1) {
+    const argument = args[index]
+    if (argument === '--package') {
+      const value = args[index + 1]
+      if (!value || value.startsWith('--') || values.has(argument)) {
+        throw new Error('--package requires one reviewed package identifier.')
+      }
+      values.set(argument, value)
+      index += 1
+      continue
+    }
+    if (argument.startsWith('--')) throw new Error(`Unknown release argument: ${argument}`)
+    positional.push(argument)
+  }
+  if ((command === 'verify' && positional.length !== 1) || (command !== 'verify' && positional.length)) {
+    throw new Error(
+      'Usage: node scripts/release.mjs artifact|prepare [--package <reviewed-id>] | verify <artifact.json> [--package <reviewed-id>]',
+    )
+  }
+  return {
+    command,
+    packageId: values.get('--package') ?? 'nuxt',
+    verifyPath: positional[0],
+  }
 }
 function run(executable, args, options = {}) {
   console.log(`\n> ${[executable, ...args].join(' ')}`)
@@ -86,7 +111,7 @@ function ensureCleanWorkingTree() {
 }
 
 function requirePreparedChangelog() {
-  const changelog = readFileSync(join(packageRoot, 'CHANGELOG.md'), 'utf8')
+  const changelog = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8')
   if (!changelog.includes(`## ${tag}`)) {
     throw new Error(`CHANGELOG.md must contain a prepared ${tag} release entry.`)
   }
@@ -377,7 +402,7 @@ function createArtifact() {
   assertPackageManifestMatchesCommit(releasePackageId, sourceCommit)
   assertPackageArtifactWriteTarget(releasePackageId)
   rmSync(distDir, { recursive: true, force: true })
-  run('pnpm', ['run', 'prepack'])
+  run('pnpm', ['run', 'prepack'], { cwd: packageRoot })
 
   assertPackageArtifactWriteTarget(releasePackageId)
   mkdirSync(artifactCoordinates.packageArtifactDirectory, { recursive: true })
@@ -478,7 +503,13 @@ function main() {
   requirePreparedChangelog()
   const artifact = createArtifact()
   if (command === 'prepare') {
-    run('pnpm', ['run', 'release:verify', '--artifact-manifest', artifact.evidencePath])
+    run('node', [
+      'scripts/verify-release.mjs',
+      '--package',
+      releasePackageId,
+      '--artifact-manifest',
+      artifact.evidencePath,
+    ])
   }
   ensureCleanWorkingTree()
   console.log(

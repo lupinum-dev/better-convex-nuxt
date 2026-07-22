@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 
 import { getMaintainedCandidateProfile } from './maintained-candidate-apps.mjs'
+import { canonicalNpmTarballFilename } from './package-artifact-coordinates.mjs'
 import { getPackageCertificationDescriptor } from './package-certification-manifest.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '..')
@@ -70,12 +71,15 @@ const { descriptor: packageDescriptor, profile: candidateProfile } = getMaintain
   options.packageId,
 )
 const suppliedTarball = options.tarball ? resolve(repoRoot, options.tarball) : undefined
+if (options.vueTarball && !candidateProfile.companionPackages?.includes('vue')) {
+  throw new Error('--vue-tarball is valid only for a reviewed profile with the Vue companion')
+}
 
 function parseArguments(args) {
   const values = new Map()
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
-    if (!['--package', '--tarball'].includes(argument)) {
+    if (!['--package', '--tarball', '--vue-tarball'].includes(argument)) {
       throw new Error(`Unknown candidate-app argument: ${String(argument)}`)
     }
     const value = args[index + 1]
@@ -85,11 +89,14 @@ function parseArguments(args) {
     index += 1
   }
   if (!values.has('--package')) {
-    throw new Error('Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>]')
+    throw new Error(
+      'Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>] [--vue-tarball <path>]',
+    )
   }
   return {
     packageId: values.get('--package'),
     tarball: values.get('--tarball'),
+    vueTarball: values.get('--vue-tarball'),
   }
 }
 
@@ -187,17 +194,30 @@ function prepareCompanionCandidates(mainManifest) {
   return candidateProfile.companionPackages.map((packageId) => {
     const descriptor = getPackageCertificationDescriptor(packageId)
     const packageRoot = resolve(repoRoot, descriptor.packageDirectory)
-    run('pnpm', ['run', 'prepack'], { cwd: packageRoot })
-    const packResult = JSON.parse(
-      run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchDir], {
-        cwd: packageRoot,
-        capture: true,
-      }),
-    )
-    if (!Array.isArray(packResult) || packResult.length !== 1 || !packResult[0]?.filename) {
-      throw new Error(`Companion package ${packageId} must produce exactly one tarball`)
+    const suppliedCompanion = packageId === 'vue' ? options.vueTarball : undefined
+    let tarballPath
+    let filename
+    if (suppliedCompanion) {
+      tarballPath = resolve(repoRoot, suppliedCompanion)
+      const stats = existsSync(tarballPath) ? lstatSync(tarballPath) : undefined
+      if (!stats?.isFile() || stats.isSymbolicLink()) {
+        throw new Error(`Supplied ${packageId} companion must be a regular tarball`)
+      }
+      filename = tarballPath.split(/[\\/]/u).at(-1)
+    } else {
+      run('pnpm', ['run', 'prepack'], { cwd: packageRoot })
+      const packResult = JSON.parse(
+        run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', scratchDir], {
+          cwd: packageRoot,
+          capture: true,
+        }),
+      )
+      if (!Array.isArray(packResult) || packResult.length !== 1 || !packResult[0]?.filename) {
+        throw new Error(`Companion package ${packageId} must produce exactly one tarball`)
+      }
+      filename = packResult[0].filename
+      tarballPath = join(scratchDir, filename)
     }
-    const tarballPath = join(scratchDir, packResult[0].filename)
     const extractedDir = join(scratchDir, `companion-${descriptor.id}`)
     mkdirSync(extractedDir)
     run('tar', ['-xzf', tarballPath, '-C', extractedDir])
@@ -206,6 +226,10 @@ function prepareCompanionCandidates(mainManifest) {
     if (manifest.name !== descriptor.packageName) {
       throw new Error(`Companion package ${packageId} has unexpected packed identity`)
     }
+    const expectedFilename = canonicalNpmTarballFilename(descriptor.packageName, manifest.version)
+    if (filename !== expectedFilename) {
+      throw new Error(`Companion package ${packageId} has unexpected tarball filename`)
+    }
     if (mainManifest.dependencies?.[descriptor.packageName] !== manifest.version) {
       throw new Error(
         `${packageDescriptor.packageName} must depend on exact ${descriptor.packageName}@${manifest.version}`,
@@ -213,7 +237,7 @@ function prepareCompanionCandidates(mainManifest) {
     }
     return {
       descriptor,
-      filename: packResult[0].filename,
+      filename,
       fingerprint: packageFingerprint(packageDir),
       integrity: sha512(tarballPath),
       manifest,
