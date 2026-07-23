@@ -19,6 +19,15 @@ const verifier = createBetterAuthMcpAccessVerifier({
   issuer,
   jwksUrl,
   allowedScopes,
+  validateLiveAccess: async ({ sessionId, subject, clientId, resource, scopes }) => {
+    return await validateCurrentBetterAuthGrant({
+      sessionId,
+      subject,
+      clientId,
+      resource,
+      scopes,
+    })
+  },
 })
 ```
 
@@ -35,6 +44,11 @@ The existing Convex-auth entry already owns:
 - raw signed-claim re-decoding after the provider client normalizes `azp`;
 - fixed `at+jwt`, issuer, audience, lifetime, token-use, client, subject, and scope checks;
 - the mandatory OAuth provider-profile hardening and privilege callbacks.
+
+Signature validation is necessary but not sufficient for the maintained adapter. Its construction
+requires one request-local, server-only callback that re-reads the current Better Auth session, user,
+client, consent, and resource grant. The callback receives the provider-private session ID inside this
+adapter boundary; the returned provider-neutral MCP access context does not.
 
 The MCP package owns none of those provider rules. Moving them into MCP would copy a high-consequence
 verifier or make Better Auth part of the provider-neutral dependency graph.

@@ -91,11 +91,13 @@ describe('official OAuth resource-client integration', () => {
     const now = Math.floor(Date.now() / 1000)
     const allowedScopes = ['mcp:read']
     const requiredScopes = ['mcp:read']
+    const validateLiveAccess = vi.fn(async (_access: unknown) => true)
     const verifier = createBetterAuthMcpAccessVerifier({
       allowedScopes,
       issuer,
       jwksUrl: `${issuer}/jwks`,
       requiredScopes,
+      validateLiveAccess,
     })
     allowedScopes.push('attacker:scope')
     requiredScopes[0] = 'attacker:scope'
@@ -119,6 +121,19 @@ describe('official OAuth resource-client integration', () => {
     expect(Object.isFrozen(result)).toBe(true)
     expect(Object.isFrozen(result.access)).toBe(true)
     expect(Object.isFrozen(result.access.scopes)).toBe(true)
+    expect(validateLiveAccess).toHaveBeenLastCalledWith({
+      clientId: 'client-1',
+      issuer,
+      resource: audience,
+      scopes: ['mcp:read'],
+      sessionId: 'session-1',
+      subject: 'user-1',
+    })
+    const liveAccess = validateLiveAccess.mock.calls.at(-1)?.[0] as
+      | { scopes: readonly string[] }
+      | undefined
+    expect(Object.isFrozen(liveAccess)).toBe(true)
+    expect(Object.isFrozen(liveAccess?.scopes)).toBe(true)
     expect(verifyBearerToken).toHaveBeenLastCalledWith(token, {
       jwksUrl: `${issuer}/jwks`,
       verifyOptions: {
@@ -131,6 +146,83 @@ describe('official OAuth resource-client integration', () => {
         typ: 'at+jwt',
       },
     })
+  })
+
+  it('fails construction when request-local Better Auth validation is absent', () => {
+    expect(() =>
+      createBetterAuthMcpAccessVerifier({
+        allowedScopes: ['mcp:read'],
+        issuer,
+        jwksUrl: `${issuer}/jwks`,
+      } as never),
+    ).toThrow('AUTH_OAUTH_CONFIG_INVALID')
+  })
+
+  it.each([
+    ['denied', async () => false],
+    [
+      'failed',
+      async () => {
+        throw new Error('private-live-check-sentinel')
+      },
+    ],
+  ])('rejects a cryptographically valid token when live authority is %s', async (_label, check) => {
+    const now = Math.floor(Date.now() / 1000)
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes: ['mcp:read'],
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+      validateLiveAccess: check,
+    })
+
+    await expect(
+      verifier.verifyAccessToken(
+        compactToken({ exp: now + 300, iat: now - 10 }),
+        new URL(audience),
+      ),
+    ).rejects.toThrow('AUTH_OAUTH_TOKEN_INVALID')
+  })
+
+  it('rechecks current Better Auth authority on every use of the same signed token', async () => {
+    const now = Math.floor(Date.now() / 1000)
+    const authority = {
+      client: true,
+      consent: true,
+      resource: true,
+      session: true,
+      user: true,
+    }
+    const validateLiveAccess = vi.fn(
+      async (access: { clientId: string; resource: string; sessionId: string; subject: string }) =>
+        authority.session &&
+        authority.user &&
+        authority.client &&
+        authority.consent &&
+        authority.resource &&
+        access.sessionId === 'session-1' &&
+        access.subject === 'user-1' &&
+        access.clientId === 'client-1' &&
+        access.resource === audience,
+    )
+    const verifier = createBetterAuthMcpAccessVerifier({
+      allowedScopes: ['mcp:read'],
+      issuer,
+      jwksUrl: `${issuer}/jwks`,
+      validateLiveAccess,
+    })
+    const token = compactToken({ exp: now + 300, iat: now - 10 })
+
+    await expect(verifier.verifyAccessToken(token, new URL(audience))).resolves.toMatchObject({
+      access: { subject: 'user-1' },
+    })
+    for (const key of ['session', 'user', 'client', 'consent', 'resource'] as const) {
+      authority[key] = false
+      await expect(verifier.verifyAccessToken(token, new URL(audience))).rejects.toThrow(
+        'AUTH_OAUTH_TOKEN_INVALID',
+      )
+      authority[key] = true
+    }
+    expect(validateLiveAccess).toHaveBeenCalledTimes(6)
   })
 
   it.each([
@@ -146,6 +238,7 @@ describe('official OAuth resource-client integration', () => {
       allowedScopes: ['mcp:read'],
       issuer,
       jwksUrl: `${issuer}/jwks`,
+      validateLiveAccess: async () => true,
     })
 
     await expect(
@@ -162,6 +255,7 @@ describe('official OAuth resource-client integration', () => {
       allowedScopes: ['mcp:read'],
       issuer,
       jwksUrl: `${issuer}/jwks`,
+      validateLiveAccess: async () => true,
     })
 
     await expect(
@@ -181,6 +275,7 @@ describe('official OAuth resource-client integration', () => {
       allowedScopes: ['mcp:read'],
       issuer,
       jwksUrl: `${issuer}/jwks`,
+      validateLiveAccess: async () => true,
     })
 
     await expect(verifier.verifyAccessToken(compactToken(), new URL(resource))).rejects.toThrow(

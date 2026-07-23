@@ -15,7 +15,21 @@ export interface VerifyOAuthBearerTokenOptions extends OAuthAccessTokenExpectati
 export type BetterAuthMcpAccessVerifierOptions = Omit<
   VerifyOAuthBearerTokenOptions,
   'audience' | 'nowSeconds'
->
+> & {
+  /**
+   * Required request-local Better Auth authority check. The callback runs only on the server and
+   * must validate the current session, user, client, consent, and resource grant from canonical
+   * state. Provider-private session identity never enters the MCP access context.
+   */
+  readonly validateLiveAccess: (access: {
+    readonly clientId: string
+    readonly issuer: string
+    readonly resource: string
+    readonly scopes: readonly string[]
+    readonly sessionId: string
+    readonly subject: string
+  }) => Promise<boolean>
+}
 
 const COMPACT_JWT_PATTERN = /^[\w-]+\.[\w-]+\.[\w-]+$/u
 const MAX_COMPACT_JWT_BYTES = 8192
@@ -107,6 +121,9 @@ export async function verifyOAuthBearerToken(
  * contract without importing the MCP package or exposing provider-private session state.
  */
 export function createBetterAuthMcpAccessVerifier(options: BetterAuthMcpAccessVerifierOptions) {
+  if (typeof options.validateLiveAccess !== 'function') {
+    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
+  }
   const fixedOptions: BetterAuthMcpAccessVerifierOptions = Object.freeze({
     allowedScopes: Object.freeze([...options.allowedScopes]),
     issuer: options.issuer,
@@ -119,6 +136,7 @@ export function createBetterAuthMcpAccessVerifier(options: BetterAuthMcpAccessVe
       ? {}
       : { requiredScopes: Object.freeze([...options.requiredScopes]) }),
     ...(options.subject === undefined ? {} : { subject: options.subject }),
+    validateLiveAccess: options.validateLiveAccess,
   })
 
   return Object.freeze({
@@ -137,6 +155,22 @@ export function createBetterAuthMcpAccessVerifier(options: BetterAuthMcpAccessVe
         ...fixedOptions,
         audience: resource,
       })
+      let live = false
+      try {
+        live = await fixedOptions.validateLiveAccess(
+          Object.freeze({
+            clientId: principal.clientId,
+            issuer: fixedOptions.issuer,
+            resource,
+            scopes: Object.freeze([...principal.scopes]),
+            sessionId: principal.sessionId,
+            subject: principal.subject,
+          }),
+        )
+      } catch {
+        invalidToken()
+      }
+      if (live !== true) invalidToken()
       return Object.freeze({
         access: Object.freeze({
           issuer: fixedOptions.issuer,
