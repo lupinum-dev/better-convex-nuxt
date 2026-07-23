@@ -41,6 +41,7 @@ export interface SigningKeyRotationMetadata {
 }
 
 type BetterAuthEndpointContext = Parameters<typeof createJwk>[0]['context']
+type CreateJwkAdapter = NonNullable<NonNullable<JwtOptions['adapter']>['createJwk']>
 
 function assertBoundedString(value: string, maximum: number, code: string): void {
   if (value.length === 0 || value.length > maximum) throw new Error(code)
@@ -124,6 +125,10 @@ export function sanitizeStoredJwk(jwk: Jwk): Jwk {
   return { ...jwk, publicKey: canonicalizePublicRsaJwk(jwk.publicKey) }
 }
 
+export const rejectImplicitSigningKeyCreation: CreateJwkAdapter = async () => {
+  throw new Error('AUTH_JWKS_OPERATOR_SETUP_REQUIRED')
+}
+
 export function assertSupportedJwksOptions(options: JwtOptions | undefined, code: string): void {
   if (
     !options ||
@@ -135,7 +140,8 @@ export function assertSupportedJwksOptions(options: JwtOptions | undefined, code
     options.jwks.remoteUrl !== undefined ||
     (options.jwks.jwksPath !== undefined && options.jwks.jwksPath !== '/jwks') ||
     (options.jwks.keyPairConfigs !== undefined && options.jwks.keyPairConfigs.length !== 0) ||
-    options.adapter?.createJwk !== undefined
+    (options.adapter?.createJwk !== undefined &&
+      options.adapter.createJwk !== rejectImplicitSigningKeyCreation)
   ) {
     throw new Error(code)
   }

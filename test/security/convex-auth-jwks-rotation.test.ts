@@ -88,6 +88,47 @@ function endpointContext(context: Awaited<ReturnType<typeof contextAndOptions>>[
   return { context } as unknown as Parameters<typeof createJwk>[0]
 }
 
+async function rotateInMemory(
+  database: MemoryDB,
+  context: Awaited<ReturnType<typeof contextAndOptions>>['context'],
+  options: JwtOptions,
+) {
+  let keyId = ''
+  await rotateSigningKeyWithOfficialJwt(
+    context as unknown as Parameters<typeof createJwk>[0]['context'],
+    options,
+    async (next) => {
+      const rotatedAt = Date.now()
+      const existing = database.jwks ?? []
+      for (const key of existing) {
+        if (!key.expiresAt || key.expiresAt.getTime() > rotatedAt) {
+          key.expiresAt = new Date(rotatedAt)
+        }
+      }
+      database.jwks = [
+        ...existing,
+        {
+          ...next,
+          createdAt: new Date(rotatedAt + 1),
+          crv: undefined,
+          expiresAt: undefined,
+        },
+      ]
+      keyId = next.id
+      return {
+        createdAt: rotatedAt + 1,
+        newKid: next.id,
+        previousKids: existing.map((key) => key.id),
+        previousVerifyUntil: rotatedAt + JWKS_GRACE_PERIOD_SECONDS * 1_000,
+        rotatedAt,
+      }
+    },
+  )
+  const key = database.jwks?.find((candidate) => candidate.id === keyId)
+  if (!key) throw new Error('Expected operator-provisioned signing key.')
+  return key
+}
+
 function recursivelyContainsPrivateMember(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(recursivelyContainsPrivateMember)
   if (!value || typeof value !== 'object') return false
@@ -262,7 +303,7 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
     const database: MemoryDB = {}
     const value = createAuth(database, [{ value: currentSecret, version: 1 }])
     const { context, options } = await contextAndOptions(value)
-    await createJwk(endpointContext(context), options)
+    await rotateInMemory(database, context, options)
     const stored = database.jwks?.[0]
     if (!stored) throw new Error('Expected a stored signing key.')
     stored.privateKey = 'PRIVATE_ROW_SENTINEL'
@@ -275,6 +316,43 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
     expect(response.headers.get('cache-control')).toBe(JWKS_CACHE_CONTROL)
     expect(raw).not.toContain('PRIVATE_ROW_SENTINEL')
     expect(recursivelyContainsPrivateMember(body)).toBe(false)
+  })
+
+  it('keeps anonymous empty and concurrent discovery read-only', async () => {
+    const database: MemoryDB = { jwks: [] }
+    const value = createAuth(database, [{ value: currentSecret, version: 1 }])
+    const { context, options } = await contextAndOptions(value)
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () => value.auth.handler(new Request(`${issuer}/jwks`))),
+    )
+
+    expect(responses.map((response) => response.status)).toEqual(Array(8).fill(503))
+    expect(
+      responses.every((response) => response.headers.get('cache-control') === 'private, no-store'),
+    ).toBe(true)
+    expect(database.jwks ?? []).toHaveLength(0)
+    await expect(createJwk(endpointContext(context), options)).rejects.toThrow(
+      'AUTH_JWKS_OPERATOR_SETUP_REQUIRED',
+    )
+    expect(database.jwks ?? []).toHaveLength(0)
+  })
+
+  it('keeps HEAD and unsupported JWKS methods read-only', async () => {
+    const database: MemoryDB = {}
+    const value = createAuth(database, [{ value: currentSecret, version: 1 }])
+    const { context, options } = await contextAndOptions(value)
+    await rotateInMemory(database, context, options)
+    const before = structuredClone(database.jwks)
+
+    const head = await value.auth.handler(new Request(`${issuer}/jwks`, { method: 'HEAD' }))
+    const post = await value.auth.handler(new Request(`${issuer}/jwks`, { method: 'POST' }))
+
+    expect(head.status).toBe(200)
+    expect(await head.text()).toBe('')
+    expect(post.status).toBe(405)
+    expect(post.headers.get('allow')).toBe('GET, HEAD')
+    expect(database.jwks).toEqual(before)
   })
 
   it('fails closed instead of reflecting a recursively embedded private JWK member', async () => {
@@ -309,7 +387,7 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
     const database: MemoryDB = {}
     const value = createAuth(database, [{ value: currentSecret, version: 1 }])
     const { context, options } = await contextAndOptions(value)
-    const k1 = await createJwk(endpointContext(context), options)
+    const k1 = await rotateInMemory(database, context, options)
     const token = await signJWT(endpointContext(context), {
       options,
       payload: {
@@ -322,7 +400,7 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
     })
 
     vi.setSystemTime(20_000)
-    const k2 = await createJwk(endpointContext(context), options)
+    const k2 = await rotateInMemory(database, context, options)
     const storedK1 = database.jwks?.find((key) => key.id === k1.id)
     if (!storedK1) throw new Error('Expected K1.')
     storedK1.expiresAt = new Date(20_000)
@@ -356,7 +434,7 @@ describe('official Better Auth JWKS lifecycle hardening', () => {
     const database: MemoryDB = {}
     const first = createAuth(database, [{ value: previousSecret, version: 1 }])
     const firstContext = await contextAndOptions(first)
-    const k1 = await createJwk(endpointContext(firstContext.context), firstContext.options)
+    const k1 = await rotateInMemory(database, firstContext.context, firstContext.options)
 
     const retained = createAuth(database, [
       { value: currentSecret, version: 2 },

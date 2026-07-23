@@ -13,7 +13,13 @@ import type { Jwk, JwtOptions } from 'better-auth/plugins/jwt'
 import { hasBetterAuthCookie } from '../shared/auth-cookie'
 import { VERIFIED_CLIENT_IP_HEADER } from '../shared/client-ip'
 import { INTERNAL_SESSION_HEADER } from './internal-session'
-import { JWKS_CACHE_CONTROL, assertSupportedJwksOptions, sanitizeStoredJwk } from './jwks-rotation'
+import {
+  JWKS_CACHE_CONTROL,
+  JWKS_GRACE_PERIOD_SECONDS,
+  assertSupportedJwksOptions,
+  rejectImplicitSigningKeyCreation,
+  sanitizeStoredJwk,
+} from './jwks-rotation'
 import {
   OAuthSecurityError,
   assertSafeStoredOAuthClient,
@@ -141,6 +147,7 @@ function configureSharedJwks(
   }
 
   jwtOptions.adapter = {
+    createJwk: rejectImplicitSigningKeyCreation,
     getJwks: async (endpointContext) => {
       const rows = (await endpointContext.context.adapter.findMany({
         model: 'jwks',
@@ -148,6 +155,62 @@ function configureSharedJwks(
       return rows.map((row) => sanitizeStoredJwk(row))
     },
   }
+}
+
+interface JwksReadContext {
+  adapter: {
+    findMany<T>(input: { model: string }): Promise<T[]>
+  }
+}
+
+function publicJwksResponse(rows: Jwk[], method: string, now = Date.now()): Response {
+  const live = rows.filter((row) => {
+    if (row.expiresAt === null || row.expiresAt === undefined) return true
+    if (!(row.expiresAt instanceof Date) || !Number.isFinite(row.expiresAt.getTime())) {
+      throw new TypeError('AUTH_JWKS_EXPIRY_INVALID')
+    }
+    return row.expiresAt.getTime() + JWKS_GRACE_PERIOD_SECONDS * 1_000 > now
+  })
+  if (live.length === 0) {
+    return new Response(
+      method === 'HEAD'
+        ? null
+        : JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'Signing keys are not ready' }),
+      {
+        headers: {
+          'Cache-Control': 'private, no-store',
+          'Content-Type': 'application/json',
+        },
+        status: 503,
+      },
+    )
+  }
+
+  const keys = live.map((stored) => {
+    const row = sanitizeStoredJwk(stored)
+    if (
+      typeof row.id !== 'string' ||
+      row.id.length === 0 ||
+      row.id.length > 256 ||
+      /\p{C}/u.test(row.id) ||
+      row.alg !== 'RS256' ||
+      (row.crv !== null && row.crv !== undefined)
+    ) {
+      throw new Error('AUTH_JWKS_PUBLIC_KEY_INVALID')
+    }
+    return {
+      alg: 'RS256' as const,
+      ...(JSON.parse(row.publicKey) as Record<string, unknown>),
+      kid: row.id,
+    }
+  })
+  const headers = {
+    'Cache-Control': JWKS_CACHE_CONTROL,
+    'Content-Type': 'application/json',
+  }
+  return method === 'HEAD'
+    ? new Response(null, { headers, status: 200 })
+    : Response.json({ keys }, { headers })
 }
 
 const officialBearerBefore = bearer().hooks.before[0]!
@@ -816,6 +879,29 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
     onRequest: async (request, context) => {
       const path = oauthRequestPath(request, context.baseURL)
       const issuerPath = new URL(context.baseURL).pathname
+      if (path === `${issuerPath}/jwks`) {
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+          return {
+            response: new Response(null, {
+              headers: { Allow: 'GET, HEAD', 'Cache-Control': 'private, no-store' },
+              status: 405,
+            }),
+          }
+        }
+        try {
+          const rows = await (context as unknown as JwksReadContext).adapter.findMany<Jwk>({
+            model: 'jwks',
+          })
+          return { response: publicJwksResponse(rows, request.method) }
+        } catch {
+          return {
+            response: new Response(null, {
+              headers: { 'Cache-Control': 'private, no-store' },
+              status: 500,
+            }),
+          }
+        }
+      }
       if (
         path === `${issuerPath}/convex/token` &&
         request.headers.has('authorization') &&
@@ -895,12 +981,6 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
     },
     hooks: {
       after: [
-        {
-          matcher: (context) => context.path === '/jwks',
-          handler: createAuthMiddleware(async (context) => {
-            context.setHeader('Cache-Control', JWKS_CACHE_CONTROL)
-          }),
-        },
         {
           matcher: (context) => context.path === '/convex/token',
           handler: createAuthMiddleware(async (context) => {
