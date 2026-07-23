@@ -9,9 +9,9 @@ replace the RFC's product decisions.
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Stabilization; feature work and successor artifacts are frozen until re-entry gate `S6-005`               |
-| Current task          | `S6-003`; build beta.11/beta.2 as the exact immutable local candidates                                    |
-| Last verified commit  | BCN beta.10 exact Vue/Nuxt candidate proof at `5bf1bc4d`; Ginko CI/artifact authority `80a326a4`          |
-| Next executable tasks | `S6-003`; `S6-004`; `S6-005`                                                                              |
+| Current task          | `S6-004`; install the exact beta.11/beta.2 candidate set into Ginko                                       |
+| Last verified commit  | BCN candidate source `59495d04`; Ginko CI/artifact authority `80a326a4`                                  |
+| Next executable tasks | `S6-004`; `S6-005`; resume `P7-013` only after R0                                                         |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -27,7 +27,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-029`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-034`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
@@ -140,6 +140,7 @@ remain gated rather than implied stable contracts.
 | 2026-07-23 | Ginko `80a326a4` | 7 focused candidate-authority tests, focused ESLint, diff check; `internal/evidence/ginko-ci-artifact-authority-stabilization-2026-07-23.md` | Untrusted CI is pinned/read-only/credential-free; candidate input is immutable artifact evidence rather than upstream source; MCP Git override is explicitly deferred to the fresh beta.2 tuple |
 | 2026-07-23 | `S6-003` pre-candidate package set | `pnpm verify`; real OAuth authorization-code concurrency rerun | All source, package-boundary, tracked-lock, packed-export, and production Nitro checks pass; the code-race fixture now verifies the Convex-native resource origin and proves one issuance winner, replay denial, PKCE/client/redirect/resource binding, secret rejection, and key-rotation recovery |
 | 2026-07-23 | `S6-003` MCP conformance correction | 5 runner-contract tests; deployed `pnpm test:mcp-conformance`; `internal/evidence/mcp-rc-conformance-2026-07-22.md` | Exact official v2 client proves the locked stateless RC, live PKCE, authorization, and revocation; the impossible `2025-11-25` relay and 391 lines of obsolete evidence machinery were deleted |
+| 2026-07-23 | `59495d04`; Vue/Nuxt beta.11 and MCP beta.2 | `pnpm release:prepare:set`; `node scripts/release.mjs prepare --package mcp`; `internal/evidence/vnext-beta11-beta2-candidate-certification-2026-07-23.md` | One clean commit produced three immutable artifacts; all source, exact-tarball, production, OAuth, concurrency, RC MCP, Better Auth, and independent external-verifier consumers passed without repacking |
 
 ## Status vocabulary
 
@@ -190,8 +191,8 @@ preliminary exact-tarball consumers pass from one clean source commit.
 | `S5-006` | `S1-005`                    | Fix Ginko facets execution and stale publish-preview state.                                                                                | Valid query is not skipped and old assessment is never current; mounted/transition tests.                            | Undefined-args skip and retained preview                                         | done        | Ginko `2303909f`; `internal/evidence/ginko-query-preview-state-stabilization-2026-07-23.md`; exact candidate repetition remains `S6-004`     |
 | `S6-001` | `S1-001`–`S5-006`           | Replace protected Nuxt-only publication with closed Vue→Nuxt candidate flow and a separate static MCP lane.                                | Certified immutable graph equals published graph; clean-runner and registry/tag-order proof.                         | Nuxt-only publish path                                                           | done        | `internal/evidence/vnext-closed-release-lanes-stabilization-2026-07-23.md`; publication remains external                                     |
 | `S6-002` | `S1-001`–`S5-006`           | Pin Ginko CI authority and remove source/Git/workspace substitutions from candidate evidence.                                              | Untrusted code gets no private credential and candidates use exact bytes; workflow and isolated-store proof.         | Floating tooling, persisted credentials and source aliases                       | done        | Ginko `80a326a4`; `internal/evidence/ginko-ci-artifact-authority-stabilization-2026-07-23.md`; successor MCP tuple remains `S6-003`/`S6-004` |
-| `S6-003` | `S6-001`, `S6-002`          | Build beta.11/beta.2 as exact local immutable candidates; retain all earlier immutable candidate evidence without rebuilding a coordinate. | SHA-256/SRI/SBOM/content/fingerprint and installed-byte proof from one clean source commit.                          | beta.6/beta.0, failed beta.7/beta.8/beta.9/beta.1, superseded beta.10 identities | in_progress | `D-031`–`D-034`; beta.10 Vue/Nuxt passed; beta.1 MCP failed the external consumer; corrected RC topology lab passes                          |
-| `S6-004` | `S6-003`                    | Install the exact candidate set into Ginko and pass production Vite/Nitro/Convex/MCP/App consumers from isolated stores.                   | Proving consumer runs exact distributable package graph; compatibility record complete.                              | Local source-linked proof                                                        | pending     | Local/live infrastructure                                                                                                                    |
+| `S6-003` | `S6-001`, `S6-002`          | Build beta.11/beta.2 as exact local immutable candidates; retain all earlier immutable candidate evidence without rebuilding a coordinate. | SHA-256/SRI/SBOM/content/fingerprint and installed-byte proof from one clean source commit.                          | beta.6/beta.0, failed beta.7/beta.8/beta.9/beta.1, superseded beta.10 identities | done        | `59495d04`; `internal/evidence/vnext-beta11-beta2-candidate-certification-2026-07-23.md`                                                       |
+| `S6-004` | `S6-003`                    | Install the exact candidate set into Ginko and pass production Vite/Nitro/Convex/MCP/App consumers from isolated stores.                   | Proving consumer runs exact distributable package graph; compatibility record complete.                              | Local source-linked proof                                                        | in_progress | Exact beta.11/beta.2 artifacts from `59495d04`; local/live infrastructure                                                                     |
 | `S6-005` | `S6-003`, `S6-004`          | Re-review accepted High/Medium boundaries, close the audit crosswalk, and reopen RFC work only if R0 passes.                               | No unresolved protected-effect High/Medium; full matrices and clean worktrees.                                       | Stabilization freeze                                                             | pending     | External publication gates do not block R0                                                                                                   |
 
 ## Phase 0 — preserve and close the 0.7 baseline
