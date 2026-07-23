@@ -104,23 +104,15 @@ try {
     throw new Error('Production App bundle fell back to Vue package source.')
   }
 
-  const [
-    { createConvexMcpHandler },
-    { Client, StreamableHTTPClientTransport },
-    { McpServer },
-    { z },
-  ] = await Promise.all([
-    import(pathToFileURL(join(installedMcp, 'dist/index.mjs')).href),
-    import(
-      pathToFileURL(join(scratchRoot, 'node_modules/@modelcontextprotocol/client/dist/index.mjs'))
-        .href
-    ),
-    import(
-      pathToFileURL(join(scratchRoot, 'node_modules/@modelcontextprotocol/server/dist/index.mjs'))
-        .href
-    ),
-    import(pathToFileURL(join(scratchRoot, 'node_modules/zod/index.js')).href),
-  ])
+  const [{ createConvexMcpHandler }, { Client, StreamableHTTPClientTransport }, { z }] =
+    await Promise.all([
+      import(pathToFileURL(join(installedMcp, 'dist/index.mjs')).href),
+      import(
+        pathToFileURL(join(scratchRoot, 'node_modules/@modelcontextprotocol/client/dist/index.mjs'))
+          .href
+      ),
+      import(pathToFileURL(join(scratchRoot, 'node_modules/zod/index.js')).href),
+    ])
   const handler = createConvexMcpHandler({
     authorization: { issuer: 'https://packed-app.invalid/issuer/', mode: 'preconfigured-bearer' },
     resource: new URL('https://packed-app.invalid/mcp'),
@@ -141,8 +133,7 @@ try {
         }
       },
     },
-    createServer() {
-      const server = new McpServer({ name: 'packed-app-consumer', version: '0.0.0' })
+    configureServer(_context, _access, _request, server) {
       server.registerTool(
         'search_notes',
         {
@@ -179,7 +170,6 @@ try {
           }
         },
       )
-      return server
     },
   })
 
