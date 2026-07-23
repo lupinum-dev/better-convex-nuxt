@@ -178,10 +178,8 @@ export function createConvexQueryState<
           name: getFunctionName(query),
           args: resolveConvexReactiveValue(toValue(args)),
           status: currentStatus,
-          dataSource: subscribe ? 'websocket' : 'client',
           data,
           error: currentError?.message,
-          hasSubscription: subscribe,
           options: { immediate: true, server, subscribe, auth },
         })
       },
