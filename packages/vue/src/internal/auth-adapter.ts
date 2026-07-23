@@ -96,7 +96,12 @@ export function createAuthAdapterIdentityPort(
   }
   const listeners = new Set<() => void>()
   const settlementWaiters = new Set<() => void>()
-  const activeConfirmations = new Set<(error: ConvexCallError) => void>()
+  let activeConfirmation: {
+    client: AuthCapableClient
+    generation: number
+    promise: Promise<void>
+    cancel(error: ConvexCallError): void
+  } | null = null
 
   const notify = () => {
     for (const listener of [...listeners]) {
@@ -121,6 +126,14 @@ export function createAuthAdapterIdentityPort(
 
   const failClosed = (failedGeneration: number, cause: unknown) => {
     if (disposed || failedGeneration !== identityGeneration) return
+    const rejection =
+      cause instanceof ConvexCallError
+        ? cause
+        : new ConvexCallError({
+            kind: 'authentication',
+            message: 'Convex authentication failed',
+            cause,
+          })
     authEpoch += 1
     identityGeneration += 1
     currentClient = null
@@ -129,7 +142,7 @@ export function createAuthAdapterIdentityPort(
       status: 'error',
       identityKey: null,
       sessionGeneration: desired.sessionGeneration + 1,
-      error: cause instanceof Error ? cause : new Error('Convex authentication failed'),
+      error: rejection,
     }
     publish({
       authEnabled: true,
@@ -139,78 +152,98 @@ export function createAuthAdapterIdentityPort(
       identityGeneration,
       error: publicError(desired),
     })
+    activeConfirmation?.cancel(rejection)
   }
 
   const confirm = (client: AuthCapableClient, expectedGeneration: number): Promise<void> => {
+    if (
+      activeConfirmation?.client === client &&
+      activeConfirmation.generation === expectedGeneration
+    ) {
+      return activeConfirmation.promise
+    }
     const superseded = new ConvexCallError({
       kind: 'authentication',
       code: 'IDENTITY_CHANGED',
       message: 'Identity changed while authenticating',
     })
-    for (const cancel of [...activeConfirmations]) cancel(superseded)
+    activeConfirmation?.cancel(superseded)
     const configuration = {}
     activeAuthConfiguration.set(client, configuration)
-    return new Promise<void>((resolve, reject) => {
-      let done = false
-      const finish = (error?: ConvexCallError) => {
-        if (done) return
-        done = true
-        clearTimeout(timer)
-        activeConfirmations.delete(finish)
-        if (error) reject(error)
-        else resolve()
-      }
-      activeConfirmations.add(finish)
-      const timer = setTimeout(
-        () =>
+    let resolvePromise!: () => void
+    let rejectPromise!: (error: ConvexCallError) => void
+    const promise = new Promise<void>((resolve, reject) => {
+      resolvePromise = resolve
+      rejectPromise = reject
+    })
+    let done = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const confirmation = {
+      client,
+      generation: expectedGeneration,
+      promise,
+      cancel(error: ConvexCallError) {
+        finish(error)
+      },
+    }
+    const finish = (error?: ConvexCallError) => {
+      if (done) return
+      done = true
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+      if (activeConfirmation === confirmation) activeConfirmation = null
+      if (error) rejectPromise(error)
+      else resolvePromise()
+    }
+    activeConfirmation = confirmation
+    timer = setTimeout(() => {
+      const timeout = new ConvexCallError({
+        kind: 'authentication',
+        code: 'AUTH_CONFIRMATION_TIMEOUT',
+        message: 'Convex authentication confirmation timed out',
+      })
+      failClosed(expectedGeneration, timeout)
+      finish(timeout)
+    }, CONFIRMATION_TIMEOUT_MS)
+    try {
+      client.setAuth(adapter.fetchToken, (authenticated) => {
+        if (
+          disposed ||
+          expectedGeneration !== identityGeneration ||
+          client !== currentClient ||
+          activeAuthConfiguration.get(client) !== configuration
+        ) {
           finish(
             new ConvexCallError({
               kind: 'authentication',
-              code: 'AUTH_CONFIRMATION_TIMEOUT',
-              message: 'Convex authentication confirmation timed out',
+              code: 'IDENTITY_CHANGED',
+              message: 'Identity changed while authenticating',
             }),
-          ),
-        CONFIRMATION_TIMEOUT_MS,
-      )
-      try {
-        client.setAuth(adapter.fetchToken, (authenticated) => {
-          if (
-            disposed ||
-            expectedGeneration !== identityGeneration ||
-            client !== currentClient ||
-            activeAuthConfiguration.get(client) !== configuration
-          ) {
-            finish(
-              new ConvexCallError({
-                kind: 'authentication',
-                code: 'IDENTITY_CHANGED',
-                message: 'Identity changed while authenticating',
-              }),
-            )
-            return
-          }
-          if (!authenticated) {
-            const rejection = new ConvexCallError({
-              kind: 'authentication',
-              message: 'Convex rejected the authentication token',
-            })
-            if (done) failClosed(expectedGeneration, rejection)
-            else finish(rejection)
-            return
-          }
-          publish({ ...snapshot, settled: true, error: null })
-          finish()
-        })
-      } catch (cause) {
-        finish(
-          new ConvexCallError({
+          )
+          return
+        }
+        if (!authenticated) {
+          const rejection = new ConvexCallError({
             kind: 'authentication',
-            message: 'Convex authentication setup failed',
-            cause,
-          }),
-        )
-      }
-    })
+            message: 'Convex rejected the authentication token',
+          })
+          failClosed(expectedGeneration, rejection)
+          finish(rejection)
+          return
+        }
+        publish({ ...snapshot, settled: true, error: null })
+        finish()
+      })
+    } catch (cause) {
+      const rejection = new ConvexCallError({
+        kind: 'authentication',
+        message: 'Convex authentication setup failed',
+        cause,
+      })
+      failClosed(expectedGeneration, rejection)
+      finish(rejection)
+    }
+    return promise
   }
 
   const transition = (nextValue: BrowserAuthSnapshot) => {
@@ -229,7 +262,7 @@ export function createAuthAdapterIdentityPort(
         code: 'IDENTITY_CHANGED',
         message: 'Identity changed while authenticating',
       })
-      for (const cancel of [...activeConfirmations]) cancel(retired)
+      activeConfirmation?.cancel(retired)
       identityGeneration += 1
       currentClient = null
       currentClientGeneration = -1
@@ -308,7 +341,7 @@ export function createAuthAdapterIdentityPort(
         code: 'IDENTITY_CHANGED',
         message: 'Authentication runtime was disposed',
       })
-      for (const cancel of [...activeConfirmations]) cancel(cancellation)
+      activeConfirmation?.cancel(cancellation)
       unsubscribeAdapter()
       listeners.clear()
       snapshot = Object.freeze({ ...snapshot, settled: true })

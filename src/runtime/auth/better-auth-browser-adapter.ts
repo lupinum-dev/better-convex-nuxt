@@ -25,9 +25,9 @@ export function createBetterAuthBrowserAdapter(
   callbacks: {
     authenticated(token: string, user: ConvexUser): void
     anonymous(error: string | null): void
+    sessionChanged?(sessionToken: string | null, error: string | null): void
   } = { authenticated: () => {}, anonymous: () => {} },
 ): BetterConvexAuthAdapter & {
-  refresh(): Promise<void>
   failClosed(message: string): void
   dispose(): void
 } {
@@ -64,7 +64,12 @@ export function createBetterAuthBrowserAdapter(
     const key = userId
 
     if (value.isPending === true) {
-      snapshot = { status: 'loading', identityKey: null, sessionGeneration, error: null }
+      snapshot = {
+        status: 'loading',
+        identityKey: null,
+        sessionGeneration,
+        error: null,
+      }
       notify()
       return
     }
@@ -84,6 +89,7 @@ export function createBetterAuthBrowserAdapter(
         error: new Error(UNAVAILABLE),
       }
       callbacks.anonymous(UNAVAILABLE)
+      callbacks.sessionChanged?.(null, UNAVAILABLE)
       notify()
       return
     }
@@ -100,9 +106,20 @@ export function createBetterAuthBrowserAdapter(
     observedIdentityKey = key
     snapshot =
       sessionToken && key
-        ? { status: 'authenticated', identityKey: key, sessionGeneration, error: null }
-        : { status: 'anonymous', identityKey: null, sessionGeneration, error: null }
+        ? {
+            status: 'authenticated',
+            identityKey: key,
+            sessionGeneration,
+            error: null,
+          }
+        : {
+            status: 'anonymous',
+            identityKey: null,
+            sessionGeneration,
+            error: null,
+          }
     if (!sessionToken) callbacks.anonymous(null)
+    callbacks.sessionChanged?.(sessionToken, null)
     notify()
   }
 
@@ -150,10 +167,6 @@ export function createBetterAuthBrowserAdapter(
       cachedToken = null
       callbacks.anonymous(outcome.authError)
       return null
-    },
-    async refresh() {
-      if (disposed) return
-      notify()
     },
     failClosed(message: string) {
       if (disposed) return

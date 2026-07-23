@@ -1,35 +1,47 @@
 import { computed, ref, type ComputedRef } from 'vue'
 
 /**
- * Independent operation-progress accounting.
+ * Per-Nuxt-app identity-operation coordinator.
  *
- * `isPending` is derived from a COUNTER, never a boolean, because integrated
- * sign-in nests `refresh()` inside the sign-in operation and independent
- * `true`/`false` assignments would clear pending before the outer operation
- * finished. Deduplicated refresh callers await one shared promise, so the
- * underlying refresh is counted once (the coordinator runs `run()` around the
- * shared promise, not around each waiter).
+ * Sign-in, sign-up, sign-out, and refresh share one invocation-order queue.
+ * Rejection never wedges the tail. Refresh is deduplicated by the identity
+ * generation visible when it was requested.
  */
-export interface PendingOperations {
+export interface AuthOperationCoordinator {
   readonly isPending: ComputedRef<boolean>
   run<T>(operation: () => Promise<T>): Promise<T>
+  refresh(identityGeneration: number, operation: () => Promise<void>): Promise<void>
 }
 
-export function createPendingOperations(): PendingOperations {
-  const activeCount = ref(0)
-  const isPending = computed(() => activeCount.value > 0)
+export function createAuthOperationCoordinator(): AuthOperationCoordinator {
+  const pendingCount = ref(0)
+  const isPending = computed(() => pendingCount.value > 0)
+  const refreshes = new Map<number, Promise<void>>()
+  let tail: Promise<unknown> = Promise.resolve()
 
-  async function run<T>(operation: () => Promise<T>): Promise<T> {
-    activeCount.value += 1
-    try {
-      return await operation()
-    } finally {
-      activeCount.value -= 1
-      // Self-heal a negative count (a symptom of unbalanced run() calls) rather
-      // than throwing from `finally`, which would mask the operation's result.
-      if (activeCount.value < 0) activeCount.value = 0
-    }
+  function run<T>(operation: () => Promise<T>): Promise<T> {
+    pendingCount.value += 1
+    const result = tail.then(operation, operation)
+    tail = result.then(
+      () => {},
+      () => {},
+    )
+    return result.finally(() => {
+      pendingCount.value -= 1
+    })
   }
 
-  return { isPending, run }
+  function refresh(identityGeneration: number, operation: () => Promise<void>): Promise<void> {
+    const existing = refreshes.get(identityGeneration)
+    if (existing) return existing
+    const pending = run(operation).finally(() => {
+      if (refreshes.get(identityGeneration) === pending) {
+        refreshes.delete(identityGeneration)
+      }
+    })
+    refreshes.set(identityGeneration, pending)
+    return pending
+  }
+
+  return { isPending, run, refresh }
 }

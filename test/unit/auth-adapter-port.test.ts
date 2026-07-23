@@ -35,11 +35,21 @@ class FakeAdapter implements BrowserAuthAdapter {
 }
 
 function authSnapshot(identityKey: string, sessionGeneration: number): BrowserAuthSnapshot {
-  return { status: 'authenticated', identityKey, sessionGeneration, error: null }
+  return {
+    status: 'authenticated',
+    identityKey,
+    sessionGeneration,
+    error: null,
+  }
 }
 
 function anonymousSnapshot(sessionGeneration: number): BrowserAuthSnapshot {
-  return { status: 'anonymous', identityKey: null, sessionGeneration, error: null }
+  return {
+    status: 'anonymous',
+    identityKey: null,
+    sessionGeneration,
+    error: null,
+  }
 }
 
 interface FakeClient extends OwnedConvexClient {
@@ -138,7 +148,10 @@ describe('provider-neutral auth adapter identity port', () => {
     expect(JSON.stringify(port.snapshot())).not.toContain('better-auth-session-secret')
     expect(JSON.stringify(port.snapshot())).not.toContain('convex-jwt-sentinel')
 
-    session = { token: 'better-auth-new-session-secret', user: { id: 'alice' } }
+    session = {
+      token: 'better-auth-new-session-secret',
+      user: { id: 'alice' },
+    }
     generation += 1
     for (const listener of [...listeners]) listener()
     expect(port.snapshot().identityGeneration).toBe(2)
@@ -177,7 +190,10 @@ describe('provider-neutral auth adapter identity port', () => {
     await candidate.confirm(true)
     await settleOwner()
 
-    expect(port.snapshot()).toMatchObject({ settled: true, identityKey: 'user:alice' })
+    expect(port.snapshot()).toMatchObject({
+      settled: true,
+      identityKey: 'user:alice',
+    })
     expect(owner.getPrimary()?.client).toBe(candidate)
     await owner.dispose()
     port.dispose()
@@ -196,12 +212,32 @@ describe('provider-neutral auth adapter identity port', () => {
     adapter.emit(authSnapshot('alice', 4))
     expect(port.snapshot().identityGeneration).toBe(initialGeneration)
     expect(client.setAuthCalls).toBe(2)
+    const explicitRefresh = port.refresh()
+    expect(client.setAuthCalls).toBe(2)
     await client.confirm(true)
+    await explicitRefresh
 
     adapter.emit(authSnapshot('alice', 5))
     expect(port.snapshot()).toMatchObject({
       settled: false,
       identityGeneration: initialGeneration + 1,
+    })
+    port.dispose()
+  })
+
+  it('fails closed when Convex rejects the first credential confirmation', async () => {
+    const adapter = new FakeAdapter(authSnapshot('alice', 1))
+    const client = fakeClient()
+    const port = createAuthAdapterIdentityPort(adapter)
+
+    const initial = port.initializePrimary(client as unknown as ConvexClient)
+    await client.confirm(false)
+    await expect(initial).rejects.toMatchObject({ kind: 'authentication' })
+    expect(port.snapshot()).toMatchObject({
+      settled: true,
+      identityKey: 'anonymous',
+      identityGeneration: 1,
+      error: { kind: 'authentication' },
     })
     port.dispose()
   })
@@ -215,6 +251,30 @@ describe('provider-neutral auth adapter identity port', () => {
     await initial
 
     client.authChange(false)
+    client.authChange(false)
+    expect(port.snapshot()).toMatchObject({
+      settled: true,
+      identityKey: 'anonymous',
+      identityGeneration: 1,
+      error: { kind: 'authentication' },
+    })
+    port.dispose()
+  })
+
+  it('fails a refresh closed once and rejects every deduplicated waiter', async () => {
+    const adapter = new FakeAdapter(authSnapshot('alice', 1))
+    const client = fakeClient()
+    const port = createAuthAdapterIdentityPort(adapter)
+    const initial = port.initializePrimary(client as unknown as ConvexClient)
+    await client.confirm(true)
+    await initial
+
+    const first = port.refresh()
+    const second = port.refresh()
+    expect(client.setAuthCalls).toBe(2)
+    await client.confirm(false)
+    await expect(first).rejects.toMatchObject({ kind: 'authentication' })
+    await expect(second).rejects.toMatchObject({ kind: 'authentication' })
     expect(port.snapshot()).toMatchObject({
       settled: true,
       identityKey: 'anonymous',

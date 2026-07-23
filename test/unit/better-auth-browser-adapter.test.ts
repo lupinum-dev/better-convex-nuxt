@@ -1,3 +1,5 @@
+import { inspect } from 'node:util'
+
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -34,6 +36,47 @@ function source(
 }
 
 describe('Better Auth browser adapter', () => {
+  it('uses the same session parser for identity and reconciliation', () => {
+    const stableData = {
+      session: { token: 'session-a' },
+      user: { id: 'alice' },
+    }
+    const fixture = source({ isPending: true, data: null, error: null }, [])
+    const sessionChanged = vi.fn()
+    const adapter = createBetterAuthBrowserAdapter(fixture.client, {
+      authenticated: vi.fn(),
+      anonymous: vi.fn(),
+      sessionChanged,
+    })
+
+    expect(sessionChanged).not.toHaveBeenCalled()
+    fixture.session.value = { isPending: false, data: stableData, error: null }
+    expect(sessionChanged.mock.calls).toEqual([['session-a', null]])
+    expect(adapter.snapshot()).toMatchObject({
+      status: 'authenticated',
+      identityKey: 'alice',
+    })
+
+    fixture.session.value = { ...fixture.session.value }
+    expect(sessionChanged).toHaveBeenCalledTimes(1)
+
+    fixture.session.value = {
+      ...fixture.session.value,
+      data: {
+        session: stableData.session,
+        user: { ...stableData.user },
+      },
+    }
+    expect(sessionChanged.mock.calls).toEqual([
+      ['session-a', null],
+      ['session-a', null],
+    ])
+
+    fixture.session.value = { isPending: false, data: null, error: null }
+    expect(sessionChanged).toHaveBeenLastCalledWith(null, null)
+    adapter.dispose()
+  })
+
   it('derives only a stable key and generation from public session state', () => {
     const fixture = source(
       {
@@ -44,7 +87,10 @@ describe('Better Auth browser adapter', () => {
       [],
     )
     const adapter = createBetterAuthBrowserAdapter(fixture.client)
-    expect(adapter.snapshot()).toMatchObject({ status: 'loading', sessionGeneration: 0 })
+    expect(adapter.snapshot()).toMatchObject({
+      status: 'loading',
+      sessionGeneration: 0,
+    })
 
     fixture.session.value = {
       isPending: false,
@@ -126,12 +172,39 @@ describe('Better Auth browser adapter', () => {
     const adapter = createBetterAuthBrowserAdapter(fixture.client)
     const listener = vi.fn()
     adapter.subscribe(listener)
-    expect(adapter.snapshot()).toMatchObject({ status: 'error', identityKey: null })
+    expect(adapter.snapshot()).toMatchObject({
+      status: 'error',
+      identityKey: null,
+    })
     expect(JSON.stringify(adapter.snapshot())).not.toContain('session-secret')
 
     adapter.dispose()
     adapter.dispose()
     fixture.session.value = { isPending: false, data: null, error: null }
     expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('never forwards a raw Better Auth error through session reconciliation', () => {
+    const sentinels = {
+      message: 'SESSION_MESSAGE_SENTINEL_723e6a',
+      cause: 'SESSION_CAUSE_SENTINEL_a52b11',
+      stack: 'SESSION_STACK_SENTINEL_0c418f',
+    }
+    const error = new Error(sentinels.message, {
+      cause: new Error(sentinels.cause),
+    })
+    error.stack = sentinels.stack
+    const fixture = source({ isPending: false, data: null, error }, [])
+    const sessionChanged = vi.fn()
+    const adapter = createBetterAuthBrowserAdapter(fixture.client, {
+      authenticated: vi.fn(),
+      anonymous: vi.fn(),
+      sessionChanged,
+    })
+
+    expect(sessionChanged).toHaveBeenCalledWith(null, 'Authentication is temporarily unavailable')
+    const rendered = inspect(sessionChanged.mock.calls, { depth: null })
+    for (const sentinel of Object.values(sentinels)) expect(rendered).not.toContain(sentinel)
+    adapter.dispose()
   })
 })

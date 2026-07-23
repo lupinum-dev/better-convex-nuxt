@@ -15,8 +15,7 @@ import {
 import { createBetterAuthBrowserAdapter } from './auth/better-auth-browser-adapter'
 import type { AuthClientWithConvex } from './auth/client-engine-types'
 import { createIntegratedAuthNamespace } from './auth/integrated-namespace'
-import { createPendingOperations } from './auth/pending-operations'
-import { observeBetterAuthSession } from './auth/session-observer'
+import { createAuthOperationCoordinator } from './auth/pending-operations'
 import { createSessionSynchronization } from './auth/session-synchronization'
 import { validateConvexAuthClientDefinition } from './auth/validate-auth-client-definition'
 import { setupNuxtDevtoolsClient } from './devtools/setup-client'
@@ -52,6 +51,7 @@ export default defineNuxtPlugin({
     const identity = useConvexIdentityState()
     const authError = useState<string | null>('convex:authError', () => null)
     const pendingState = useConvexAuthPendingState()
+    let synchronization: ReturnType<typeof createSessionSynchronization> | null = null
     const adapter = createBetterAuthBrowserAdapter(authClient, {
       authenticated(token, user) {
         identity.value = toAuthenticatedIdentity(token, user)
@@ -67,27 +67,30 @@ export default defineNuxtPlugin({
           return mode === 'required' || mode === 'optional'
         })
       },
+      sessionChanged(sessionToken, errorMessage) {
+        if (!synchronization) return
+        const revision = synchronization.advance()
+        synchronization.complete(revision, errorMessage ? null : sessionToken)
+      },
     })
 
-    const vuePlugin = createBetterConvex({ convexUrl: convexConfig.url, auth: adapter })
+    const vuePlugin = createBetterConvex({
+      convexUrl: convexConfig.url,
+      auth: adapter,
+    })
     nuxtApp.vueApp.use(vuePlugin)
     const runtime = createConvexRuntimeContext(vuePlugin.attachment(), logger)
     nuxtApp.provide('convexRuntime', runtime)
     nuxtApp.provide('auth', authClient)
 
     let disposed = false
-    const operations = createPendingOperations()
-    const synchronization = createSessionSynchronization({
+    const operations = createAuthOperationCoordinator()
+    synchronization = createSessionSynchronization({
       timeoutMs: SESSION_RECONCILIATION_TIMEOUT_MS,
       isDisposed: () => disposed,
       async failClosed(failure) {
         adapter.failClosed(failure.message)
       },
-    })
-    const stopSession = observeBetterAuthSession(authClient, (sessionToken, errorMessage) => {
-      const revision = synchronization.advance()
-      if (errorMessage) adapter.failClosed(errorMessage)
-      synchronization.complete(revision, errorMessage ? null : sessionToken)
     })
 
     const execute = <T>(operation: () => Promise<T>) => operations.run(operation)
@@ -131,21 +134,25 @@ export default defineNuxtPlugin({
         return snapshot.identityKey === 'anonymous' ? 'anonymous' : 'authenticated'
       },
       refresh() {
-        return operations.run(async () => {
-          await adapter.refresh()
+        const generation = runtime.attachment.identity.snapshot().identityGeneration
+        return operations.refresh(generation, async () => {
+          if (runtime.attachment.identity.snapshot().identityGeneration !== generation) return
           await vuePlugin.refreshAuth()
         })
       },
       signOut() {
         return operations.run(async () => {
-          const barrier = synchronization.createBarrier()
+          const barrier = synchronization!.createBarrier()
           try {
             const result = await authClient.signOut()
             const error =
               result && typeof result === 'object' && 'error' in result ? result.error : null
             if (error) {
               barrier.cancel()
-              throw new ConvexCallError({ kind: 'authentication', message: 'Sign out failed' })
+              throw new ConvexCallError({
+                kind: 'authentication',
+                message: 'Sign out failed',
+              })
             }
             await barrier.wait(null)
             return result
@@ -158,8 +165,7 @@ export default defineNuxtPlugin({
       dispose() {
         if (disposed) return
         disposed = true
-        stopSession()
-        synchronization.dispose()
+        synchronization?.dispose()
         adapter.dispose()
       },
     }
