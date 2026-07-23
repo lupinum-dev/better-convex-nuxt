@@ -4,25 +4,17 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const repoRoot = join(import.meta.dirname, '../..')
-const authApps = [
-  'demo',
-  'playground',
-  'starters/agency',
-  'starters/agentic-saas',
-  'starters/team',
-] as const
+const authApps = ['demo', 'playground', 'starters/agency', 'starters/team'] as const
 const passwordApps = authApps.filter((app) => app !== 'demo')
 const authEnvExamples = [
   'demo/.env.example',
   'starters/agency/.env.example',
-  'starters/agentic-saas/.env.example',
   'starters/mcp-oauth-agent/.env.example',
   'starters/team/.env.example',
 ] as const
 const passwordForms = [
   'playground/pages/auth/signup.vue',
   'starters/agency/app/pages/agency.vue',
-  'starters/agentic-saas/app/pages/index.vue',
   'starters/team/app/components/AuthPanel.vue',
 ] as const
 const passwordRecipeDocs = ['docs/content/docs/3.get-started/5.add-authentication.md'] as const
@@ -38,7 +30,6 @@ const proxySecretDocs = [
 const genericSignInForms = [
   'playground/pages/auth/signin.vue',
   'starters/team/app/components/AuthPanel.vue',
-  'starters/agentic-saas/app/pages/index.vue',
 ] as const
 const convexManagedEnvDocs = [
   'starters/mcp-oauth-agent/README.md',
@@ -234,7 +225,7 @@ describe('shipped Better Auth factory invariants', () => {
   })
 
   it('keeps starter package scripts on explicit dotenv and deployment authorities', () => {
-    for (const starter of ['agency', 'agentic-saas', 'mcp-oauth-agent', 'public', 'team']) {
+    for (const starter of ['agency', 'mcp-oauth-agent', 'public', 'team']) {
       const manifest = JSON.parse(read(`starters/${starter}/package.json`)) as {
         scripts?: Record<string, string>
       }
@@ -305,12 +296,6 @@ describe('shipped Better Auth factory invariants', () => {
     expect(read(form)).not.toContain('minlength="8"')
   })
 
-  it('does not prefill reusable passwords in maintained starter UI', () => {
-    const agentic = read('starters/agentic-saas/app/pages/index.vue')
-    expect(agentic).toContain("const ownerPassword = ref('')")
-    expect(agentic).not.toContain("const ownerPassword = ref('Password")
-  })
-
   it.each(passwordRecipeDocs)('%s keeps copyable password factories hardened', (path) => {
     const source = read(path)
     const factoryCount = source.match(/emailAndPassword:\s*\{/g)?.length ?? 0
@@ -355,9 +340,6 @@ describe('shipped Better Auth factory invariants', () => {
     expect(operationsGuide).not.toContain("console.error('Sign in failed:', error.message)")
     expect(read('playground/pages/auth/signin.vue')).not.toContain('result.error.message')
     expect(read('starters/team/app/components/AuthPanel.vue')).not.toContain('result.error.message')
-    expect(read('starters/agentic-saas/app/pages/index.vue')).not.toContain(
-      "new Error(error.message || 'Sign in failed')",
-    )
   })
 
   it('documents password blocklist and distributed abuse-control ownership', () => {

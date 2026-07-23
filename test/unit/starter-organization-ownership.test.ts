@@ -13,14 +13,14 @@ function readStarterFile(starter: string, path: string): string {
 
 describe('starter organization ownership', () => {
   it('requires verified email ownership before accepting organization invitations', () => {
-    const starterAuth = readStarterFile('agentic-saas', 'convex/auth.ts')
-    const schemaPlugins = readStarterFile('agentic-saas', 'convex/betterAuth/schemaPlugins.ts')
+    const starterAuth = readStarterFile('team', 'convex/auth.ts')
+    const schemaPlugins = readStarterFile('team', 'convex/betterAuth/schemaPlugins.ts')
     const organizationGuide = readFileSync(
       join(repoRoot, 'docs/content/docs/5.recipes/6.organization-permissions.md'),
       'utf8',
     )
 
-    expect(starterAuth).toContain('createAgenticAuthPlugins(authIssuer)')
+    expect(starterAuth).toContain('createTeamAuthPlugins(authIssuer')
     expect(schemaPlugins).toContain('requireEmailVerificationOnInvitation: true')
     expect(organizationGuide).toContain('requireEmailVerificationOnInvitation: true')
     expect(schemaPlugins).not.toContain('requireEmailVerificationOnInvitation: false')

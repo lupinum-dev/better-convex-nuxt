@@ -6,18 +6,16 @@ smallest starter that matches the product you are building.
 The shared identity rule across the repo is narrower and deliberate: **Better
 Auth owns human identity and sessions; Convex product data refers to people by
 Better Auth logical string IDs.** Tenant authorization has one explicit owner
-per starter. `team` and `agentic-saas` use the Better Auth Organization plugin;
-`agency` models its product-specific client/workspace delegation directly in
-Convex. None keeps a second copy of Better Auth user or session state. The
-provider-neutral MCP package and its packed neutral/Ginko consumers replace the
-former private service-actor starter instead of preserving a competing bridge.
+per starter. `team` uses the Better Auth Organization plugin; `agency` models
+its product-specific client/workspace delegation directly in Convex. None keeps
+a second copy of Better Auth user or session state. Experimental agent work
+remains under `internal/labs` until a real provider-backed path is proven.
 
-| Starter        | Authorization model                   | Status                                  |
-| -------------- | ------------------------------------- | --------------------------------------- |
-| `public`       | none (no auth)                        | Stable baseline                         |
-| `team`         | Better Auth Organization              | Canonical human B2B reference           |
-| `agentic-saas` | Better Auth Organization + delegation | Canonical in-product agent reference    |
-| `agency`       | app-owned client/workspace graph      | Intentional product-authorization model |
+| Starter  | Authorization model              | Status                                  |
+| -------- | -------------------------------- | --------------------------------------- |
+| `public` | none (no auth)                   | Stable baseline                         |
+| `team`   | Better Auth Organization         | Canonical human B2B reference           |
+| `agency` | app-owned client/workspace graph | Intentional product-authorization model |
 
 ## `public`
 
@@ -40,17 +38,6 @@ with static roles (`owner`/`admin`/`member`/`viewer`) and teams.
   live in the Better Auth component. There is no app-owned `organizations` table
   and no `role` column on `users`. Enforced by
   `test/unit/starter-organization-ownership.test.ts`.
-
-## `agentic-saas`
-
-The canonical in-product agent recipe, also on the Better Auth Organization
-plugin. Agents act only through explicit app-owned delegation records.
-
-- **Owns:** the `agentRuns` delegation table (the authority for what an agent may
-  do), agent draft/request rows, product records, and append-only usage events.
-- **Does not own:** organizations, members, or roles (Better Auth). Agent
-  threads/messages are Convex Agent component infrastructure, never authorization
-  state. Verified by `starters/agentic-saas/convex/agentic-saas.test.ts`.
 
 ## `agency`
 

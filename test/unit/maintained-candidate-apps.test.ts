@@ -21,7 +21,6 @@ describe('maintained candidate-test profiles', () => {
       pnpmApps: [
         { name: 'demo', path: 'demo' },
         { name: 'agency', path: 'starters/agency' },
-        { name: 'agentic-saas', path: 'starters/agentic-saas' },
         {
           name: 'mcp-oauth-agent',
           path: 'starters/mcp-oauth-agent',

@@ -3,6 +3,8 @@
 import type { BetterAuthDBSchema, DBFieldAttribute } from 'better-auth/db'
 import { describe, expect, it, vi } from 'vitest'
 
+import agenticSchema from '../../internal/labs/agentic-saas/convex/betterAuth/schema'
+import agenticSchemaMetadata from '../../internal/labs/agentic-saas/convex/betterAuth/schemaMetadata'
 import rootPackage from '../../package.json'
 import lockfile from '../../pnpm-lock.yaml?raw'
 import adapterProvenance from '../../security/upstream-convex-better-auth.json'
@@ -23,8 +25,6 @@ import {
 import packagedSchema from '../../src/runtime/convex-auth/component/schema'
 import packagedSchemaMetadata from '../../src/runtime/convex-auth/component/schemaMetadata'
 import { requireWritableAuthCtx } from '../../src/runtime/convex-auth/context'
-import agenticSchema from '../../starters/agentic-saas/convex/betterAuth/schema'
-import agenticSchemaMetadata from '../../starters/agentic-saas/convex/betterAuth/schemaMetadata'
 import teamSchema from '../../starters/team/convex/betterAuth/schema'
 import teamSchemaMetadata from '../../starters/team/convex/betterAuth/schemaMetadata'
 

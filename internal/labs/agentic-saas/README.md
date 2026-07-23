@@ -1,7 +1,11 @@
-# Agentic SaaS Starter
+# Agentic SaaS Laboratory
 
-Reference starter for tenant-aware SaaS apps where agents are first-class product
-actors without becoming a privileged side door.
+> Internal proof only. This application uses a mock language model and is not a maintained or shipped
+> starter. It may become a starter only after a real provider-backed execution path passes production
+> deployment and exact-package evidence.
+
+This laboratory preserves the tenant and delegation invariants explored for SaaS apps where agents are
+first-class product actors without becoming a privileged side door.
 
 ## Ownership
 
@@ -247,8 +251,7 @@ bypasses that ingress (or independently authenticate ingress requests).
 For non-loopback deployments, set `BCN_AUTH_TRUSTED_CLIENT_IP_HEADER` to a
 header the ingress overwrites with exactly one client IP.
 
-## Template Cutover
+## Possible starter admission
 
-Before using this reference as a shipped SaaS template, retain its public auth
-argument boundary, keep provider mocks confined to tests, and rerun the browser
-flow after product or UX changes.
+Do not present or copy this laboratory as a shipped template. Admission requires a real provider path,
+production deployment, exact-package proof, and a new review of the public auth argument boundary.

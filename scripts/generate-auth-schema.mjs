@@ -6,8 +6,8 @@ import { getAuthTables } from 'better-auth/db'
 import { format } from 'oxfmt'
 
 import { schemaAuthOptions } from '../internal/convex-auth/schema-options.ts'
+import { schemaAuthOptions as agenticSchemaAuthOptions } from '../internal/labs/agentic-saas/convex/betterAuth/schemaOptions.ts'
 import { generateAuthSchemaArtifacts } from '../src/runtime/convex-auth/adapter/generate-schema.ts'
-import { schemaAuthOptions as agenticSchemaAuthOptions } from '../starters/agentic-saas/convex/betterAuth/schemaOptions.ts'
 import { schemaAuthOptions as teamSchemaAuthOptions } from '../starters/team/convex/betterAuth/schemaOptions.ts'
 import localSchemaOptions from '../test/fixtures/better-auth-local-component/convex/betterAuth/schemaOptions.ts'
 import twoFactorSchemaOptions from '../test/fixtures/better-auth-two-factor/convex/betterAuth/schemaOptions.ts'
@@ -31,11 +31,11 @@ const outputSources = new Map([
   [path.join(componentDirectory, 'schema.ts'), curatedArtifacts.schemaCode],
   [path.join(componentDirectory, 'schemaMetadata.ts'), curatedArtifacts.metadataCode],
   [
-    path.join(root, 'starters/agentic-saas/convex/betterAuth/schema.ts'),
+    path.join(root, 'internal/labs/agentic-saas/convex/betterAuth/schema.ts'),
     agenticArtifacts.schemaCode,
   ],
   [
-    path.join(root, 'starters/agentic-saas/convex/betterAuth/schemaMetadata.ts'),
+    path.join(root, 'internal/labs/agentic-saas/convex/betterAuth/schemaMetadata.ts'),
     agenticArtifacts.metadataCode,
   ],
   [path.join(root, 'starters/team/convex/betterAuth/schema.ts'), teamArtifacts.schemaCode],
