@@ -21,25 +21,54 @@ const repoRoot = resolve(import.meta.dirname, '..')
 const { profile: maintainedCandidateProfile } = getMaintainedCandidateProfile('nuxt')
 const maintainedCandidateApps = maintainedCandidateProfile.pnpmApps
 const args = process.argv.slice(2)
-if (args.length !== 2 || args[0] !== '--tarball') {
-  console.error('Usage: pnpm update:candidate-app-locks --tarball <better-convex-nuxt.tgz>')
+if (
+  args.length !== 6 ||
+  args[0] !== '--tarball' ||
+  args[2] !== '--vue-tarball' ||
+  args[4] !== '--mcp-tarball'
+) {
+  console.error(
+    'Usage: pnpm update:candidate-app-locks --tarball <better-convex-nuxt.tgz> --vue-tarball <better-convex-vue.tgz> --mcp-tarball <better-convex-mcp.tgz>',
+  )
   process.exit(1)
 }
 
-const tarballPath = resolve(repoRoot, args[1])
-if (!existsSync(tarballPath)) {
-  console.error(`Candidate tarball does not exist: ${tarballPath}`)
-  process.exit(1)
+function readCandidateTarball(path) {
+  const tarballPath = resolve(repoRoot, path)
+  if (!existsSync(tarballPath)) {
+    throw new Error(`Candidate tarball does not exist: ${tarballPath}`)
+  }
+  const tarball = readFileSync(tarballPath)
+  const packageJson = JSON.parse(
+    execFileSync('tar', ['-xOf', tarballPath, 'package/package.json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }),
+  )
+  return {
+    metadataPath: `/${packageJson.name.replace('/', '%2F')}`,
+    integrity: `sha512-${createHash('sha512').update(tarball).digest('base64')}`,
+    packageJson,
+    tarball,
+    tarballPathname: `/${packageJson.name}/-/${packageJson.name.split('/').at(-1)}-${packageJson.version}.tgz`,
+    tarballPath,
+  }
 }
 
-const tarball = readFileSync(tarballPath)
-const packageJson = JSON.parse(
-  execFileSync('tar', ['-xOf', tarballPath, 'package/package.json'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }),
-)
-const integrity = `sha512-${createHash('sha512').update(tarball).digest('base64')}`
+const candidates = [
+  readCandidateTarball(args[1]),
+  readCandidateTarball(args[3]),
+  readCandidateTarball(args[5]),
+]
+const [nuxtCandidate, vueCandidate, mcpCandidate] = candidates
+if (
+  nuxtCandidate.packageJson.name !== 'better-convex-nuxt' ||
+  vueCandidate.packageJson.name !== 'better-convex-vue' ||
+  mcpCandidate.packageJson.name !== '@better-convex/mcp' ||
+  nuxtCandidate.packageJson.dependencies?.['better-convex-vue'] !== vueCandidate.packageJson.version
+) {
+  throw new Error('Candidate tarballs do not form the reviewed exact Vue/Nuxt/MCP package set.')
+}
 const originalLocks = new Map(
   maintainedCandidateApps.map(({ path: directory }) => {
     const lockPath = join(repoRoot, directory, 'pnpm-lock.yaml')
@@ -67,7 +96,7 @@ function runPnpm(directory, registry, frozen) {
   })
 }
 
-function removeCandidateResolution(lock) {
+function removeCandidateResolution(lock, packageJson) {
   const lines = lock.split('\n')
   const output = []
   const removed = { importers: 0, packages: 0, snapshots: 0 }
@@ -115,7 +144,13 @@ let registry
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', registry)
-    if (url.pathname === `/${packageJson.name}`) {
+    const candidate = candidates.find(
+      ({ metadataPath, tarballPathname }) =>
+        url.pathname.toLowerCase() === metadataPath.toLowerCase() ||
+        url.pathname === tarballPathname,
+    )
+    if (candidate && url.pathname.toLowerCase() === candidate.metadataPath.toLowerCase()) {
+      const { integrity, packageJson } = candidate
       response.setHeader('content-type', 'application/json')
       response.end(
         JSON.stringify({
@@ -126,7 +161,7 @@ const server = createServer(async (request, response) => {
               ...packageJson,
               dist: {
                 integrity,
-                tarball: `${registry}${packageJson.name}/-/${packageJson.name}-${packageJson.version}.tgz`,
+                tarball: new URL(candidate.tarballPathname.slice(1), registry).href,
               },
             },
           },
@@ -134,9 +169,9 @@ const server = createServer(async (request, response) => {
       )
       return
     }
-    if (url.pathname === `/${packageJson.name}/-/${packageJson.name}-${packageJson.version}.tgz`) {
+    if (candidate) {
       response.setHeader('content-type', 'application/octet-stream')
-      response.end(tarball)
+      response.end(candidate.tarball)
       return
     }
 
@@ -189,13 +224,14 @@ try {
   for (const { path: directory } of maintainedCandidateApps) {
     const lockPath = join(repoRoot, directory, 'pnpm-lock.yaml')
     const previousLock = readFileSync(lockPath, 'utf8')
-    const lockWithoutCandidate = removeCandidateResolution(previousLock)
+    const lockWithoutCandidate = removeCandidateResolution(previousLock, nuxtCandidate.packageJson)
     const validationDir = join(validationRoot, directory)
     mkdirSync(validationDir, { recursive: true })
     for (const filename of ['package.json', 'pnpm-workspace.yaml']) {
       const sourcePath = join(repoRoot, directory, filename)
       if (existsSync(sourcePath)) copyFileSync(sourcePath, join(validationDir, filename))
     }
+    const validationManifest = JSON.parse(readFileSync(join(validationDir, 'package.json'), 'utf8'))
     const validationLockPath = join(validationDir, 'pnpm-lock.yaml')
     writeFileSync(validationLockPath, lockWithoutCandidate)
     await runPnpm(validationDir, registry, false)
@@ -203,13 +239,26 @@ try {
     // Requests proxied through the temporary registry otherwise make pnpm
     // spell every ordinary npm resolution with a redundant explicit tarball
     // URL. Strip only that default-registry noise; integrity hashes remain.
-    const normalizedLock = lock.replace(/, tarball: https:\/\/registry\.npmjs\.org\/[^\n]+\}/g, '}')
-    if (
-      !normalizedLock.includes(
-        `\n  ${packageJson.name}@${packageJson.version}:\n    resolution: {integrity: ${integrity}}`,
-      )
-    ) {
-      throw new Error(`${directory}/pnpm-lock.yaml did not adopt the candidate integrity`)
+    const normalizedLock = lock
+      .replace(/, tarball: https:\/\/registry\.npmjs\.org\/[^\n]+\}/g, '}')
+      .replace(/, tarball: http:\/\/127\.0\.0\.1:\d+\/[^\n]+\}/g, '}')
+    const requiredCandidates = candidates.filter(
+      ({ packageJson }) =>
+        packageJson.name !== mcpCandidate.packageJson.name ||
+        validationManifest.dependencies?.[packageJson.name] === packageJson.version ||
+        validationManifest.devDependencies?.[packageJson.name] === packageJson.version,
+    )
+    for (const { integrity, packageJson } of requiredCandidates) {
+      const packageKey = `${packageJson.name}@${packageJson.version}`
+      const serializedPackageKey = packageKey.startsWith('@') ? `'${packageKey}'` : packageKey
+      if (
+        !normalizedLock.includes(`\n  ${serializedPackageKey}:\n`) ||
+        !normalizedLock.includes(`resolution: {integrity: ${integrity}}`)
+      ) {
+        throw new Error(
+          `${directory}/pnpm-lock.yaml did not adopt ${packageJson.name} candidate integrity`,
+        )
+      }
     }
     // The candidate manifests are part of the release contract. Preserve the
     // complete lock pnpm regenerated from those manifests; merging only the
@@ -223,7 +272,7 @@ try {
   }
   for (const [lockPath, updatedLock] of updatedLocks) writeFileSync(lockPath, updatedLock)
   console.log(
-    `\nUpdated ${maintainedCandidateApps.length} candidate app lockfiles from ${tarballPath}.`,
+    `\nUpdated ${maintainedCandidateApps.length} candidate app lockfiles from the exact Vue/Nuxt/MCP candidate set.`,
   )
 } catch (error) {
   for (const [lockPath, originalLock] of originalLocks) {
@@ -231,9 +280,8 @@ try {
   }
   throw error
 } finally {
-  await new Promise((resolvePromise) => {
-    server.close(resolvePromise)
-    server.closeAllConnections()
-  })
+  const closed = new Promise((resolvePromise) => server.close(resolvePromise))
+  server.closeAllConnections()
+  await closed
   rmSync(validationRoot, { recursive: true, force: true })
 }

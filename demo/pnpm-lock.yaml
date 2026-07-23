@@ -26,8 +26,8 @@ importers:
         specifier: 1.7.0-rc.1
         version: 1.7.0-rc.1(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.17)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10(@types/node@25.3.3)(vite@7.3.6(@types/node@25.3.3)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.44.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
       better-convex-nuxt:
-        specifier: 0.8.0-beta.0
-        version: 0.8.0-beta.0(b22228c66d0661d10f839a79bf99d4f8)
+        specifier: 0.8.0-beta.9
+        version: 0.8.0-beta.9(1a9627f7cc14fab01bdd3792fac15d66)
       convex:
         specifier: 1.42.2
         version: 1.42.2(react@19.2.3)
@@ -3166,8 +3166,8 @@ packages:
       zod:
         optional: true
 
-  better-convex-nuxt@0.8.0-beta.0:
-    resolution: {integrity: sha512-0eP8hF9udm9v2y2pxf/weFw5MeQxCJ4EKL0smkWsQLgba24EK1RjVi1oStYf+B5SU3953ryZFiArL6kAuGg2/Q==}
+  better-convex-nuxt@0.8.0-beta.9:
+    resolution: {integrity: sha512-yP8aBAmtp06bWZuf3CEPzCL7lHc+Dla7YZxSa0ot9Iz6G940lAOC5oTP1choUY73CsNhv+loQ33lVxId9uq7iw==}
     engines: {node: ^22.12.0 || ^24.11.0 || >=26.0.0}
     hasBin: true
     peerDependencies:
@@ -3175,6 +3175,17 @@ packages:
       convex: 1.42.2
       kysely: 0.28.17
       nuxt: 4.4.8
+
+  better-convex-vue@0.8.0-beta.9:
+    resolution: {integrity: sha512-fIxFHGpuqMGmL8luQdZkKE+LpTS5H9DH+QY9JhXCKN0bxS+BwK+MV1babrAgfJHgeOeDciF4b9TX8I1gbtGxXQ==}
+    engines: {node: '>=22.14.0'}
+    peerDependencies:
+      '@modelcontextprotocol/ext-apps': 1.7.4
+      convex: 1.42.2
+      vue: ^3.5.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/ext-apps':
+        optional: true
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -3412,9 +3423,6 @@ packages:
         optional: true
       react:
         optional: true
-
-  cookie-es@1.2.2:
-    resolution: {integrity: sha512-+W7VmiVINB+ywl1HGXJXmrqkOhpKrIiVZV6tQuV54ZyQC7MMuBt81Vc336GMLoHBq5hV/F9eXgt5Mnx0Rha5Fg==}
 
   cookie-es@1.2.3:
     resolution: {integrity: sha512-lXVyvUvrNXblMqzIRrxHb57UUVmqsSWlxqt3XIjCkUP0wDAf6uicO6KMbEgYrMNtEvWgWHwe42CKxPu9MYAnWw==}
@@ -5582,11 +5590,6 @@ packages:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
 
-  semver@7.7.3:
-    resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
@@ -7402,7 +7405,7 @@ snapshots:
     dependencies:
       '@antfu/install-pkg': 1.1.0
       '@iconify/types': 2.0.0
-      mlly: 1.8.0
+      mlly: 1.8.2
 
   '@iconify/vue@5.0.0(vue@3.5.39(typescript@5.9.3))':
     dependencies:
@@ -7707,7 +7710,7 @@ snapshots:
       pathe: 2.0.3
       sirv: 3.0.2
       tinyglobby: 0.2.17
-      ufo: 1.6.3
+      ufo: 1.6.4
       unifont: 0.7.4
       unplugin: 3.0.0
       unstorage: 1.17.4(db0@0.3.4(@electric-sql/pglite@0.3.15)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.17)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mysql2@3.15.3))(ioredis@5.11.1)
@@ -7744,7 +7747,7 @@ snapshots:
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       consola: 3.4.2
       local-pkg: 1.1.2
-      mlly: 1.8.0
+      mlly: 1.8.2
       ohash: 2.0.11
       pathe: 2.0.3
       picomatch: 4.0.5
@@ -8101,7 +8104,7 @@ snapshots:
       '@nuxt/kit': 3.21.8(magicast@0.5.3)
       pathe: 1.1.2
       pkg-types: 1.3.1
-      semver: 7.7.4
+      semver: 7.8.5
     transitivePeerDependencies:
       - magicast
 
@@ -9088,7 +9091,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.56.1
       debug: 4.4.3
       minimatch: 10.2.4
-      semver: 7.7.3
+      semver: 7.8.5
       tinyglobby: 0.2.17
       ts-api-utils: 2.4.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -9600,11 +9603,12 @@ snapshots:
     optionalDependencies:
       zod: 4.3.6
 
-  better-convex-nuxt@0.8.0-beta.0(b22228c66d0661d10f839a79bf99d4f8):
+  better-convex-nuxt@0.8.0-beta.9(1a9627f7cc14fab01bdd3792fac15d66):
     dependencies:
       '@better-auth/oauth-provider': 1.7.0-rc.1(ea5f1c785501ba11b34ab37d60c7c748)
       '@nuxt/kit': 4.4.8(magicast@0.5.3)
       better-auth: 1.7.0-rc.1(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.15)(@prisma/client@7.4.2(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3))(kysely@0.28.17)(mysql2@3.15.3)(postgres@3.4.7)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)))(mongodb@7.1.0)(mysql2@3.15.3)(prisma@7.4.2(@types/react@19.2.14)(magicast@0.5.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.10(@types/node@25.3.3)(vite@7.3.6(@types/node@25.3.3)(jiti@2.7.0)(lightningcss@1.31.1)(terser@5.44.1)(yaml@2.9.0)))(vue@3.5.39(typescript@5.9.3))
+      better-convex-vue: 0.8.0-beta.9(convex@1.42.2(react@19.2.3))(vue@3.5.39(typescript@5.9.3))
       convex: 1.42.2(react@19.2.3)
       convex-helpers: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.42.2(react@19.2.3))(hono@4.11.4)(react@19.2.3)(typescript@5.9.3)(zod@4.3.6)
       defu: 6.1.7
@@ -9617,13 +9621,21 @@ snapshots:
       - '@better-auth/core'
       - '@better-auth/utils'
       - '@better-fetch/fetch'
+      - '@modelcontextprotocol/ext-apps'
       - '@standard-schema/spec'
       - better-call
       - hono
       - magicast
       - react
       - typescript
+      - vue
       - zod
+
+  better-convex-vue@0.8.0-beta.9(convex@1.42.2(react@19.2.3))(vue@3.5.39(typescript@5.9.3)):
+    dependencies:
+      convex: 1.42.2(react@19.2.3)
+      ohash: 2.0.11
+      vue: 3.5.39(typescript@5.9.3)
 
   bindings@1.5.0:
     dependencies:
@@ -9834,8 +9846,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  cookie-es@1.2.2: {}
 
   cookie-es@1.2.3: {}
 
@@ -10256,7 +10266,7 @@ snapshots:
       eslint-import-context: 0.1.9(unrs-resolver@1.11.1)
       is-glob: 4.0.3
       minimatch: 10.2.4
-      semver: 7.7.3
+      semver: 7.8.5
       stable-hash-x: 0.2.0
       unrs-resolver: 1.11.1
     optionalDependencies:
@@ -10278,7 +10288,7 @@ snapshots:
       html-entities: 2.6.0
       object-deep-merge: 2.0.0
       parse-imports-exports: 0.2.4
-      semver: 7.7.4
+      semver: 7.8.5
       spdx-expression-parse: 4.0.0
       to-valid-identifier: 1.0.0
     transitivePeerDependencies:
@@ -10312,7 +10322,7 @@ snapshots:
       pluralize: 8.0.0
       regexp-tree: 0.1.27
       regjsparser: 0.13.0
-      semver: 7.7.3
+      semver: 7.8.5
       strip-indent: 4.1.1
 
   eslint-plugin-vue@10.8.0(@stylistic/eslint-plugin@5.9.0(eslint@9.39.4(jiti@2.7.0)))(@typescript-eslint/parser@8.56.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0))(vue-eslint-parser@10.4.0(eslint@9.39.4(jiti@2.7.0))):
@@ -10322,7 +10332,7 @@ snapshots:
       natural-compare: 1.4.0
       nth-check: 2.1.1
       postcss-selector-parser: 7.1.1
-      semver: 7.7.3
+      semver: 7.8.5
       vue-eslint-parser: 10.4.0(eslint@9.39.4(jiti@2.7.0))
       xml-name-validator: 4.0.0
     optionalDependencies:
@@ -10690,14 +10700,14 @@ snapshots:
 
   h3@1.15.4:
     dependencies:
-      cookie-es: 1.2.2
+      cookie-es: 1.2.3
       crossws: 0.3.5
-      defu: 6.1.4
+      defu: 6.1.7
       destr: 2.0.5
       iron-webcrypto: 1.2.1
       node-mock-http: 1.0.4
       radix3: 1.1.2
-      ufo: 1.6.1
+      ufo: 1.6.4
       uncrypto: 0.1.3
 
   has-flag@4.0.0: {}
@@ -11096,7 +11106,7 @@ snapshots:
     dependencies:
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      mlly: 1.8.0
+      mlly: 1.8.2
       regexp-tree: 0.1.27
       type-level-regexp: 0.1.17
       ufo: 1.6.4
@@ -12118,7 +12128,7 @@ snapshots:
 
   rc9@3.0.0:
     dependencies:
-      defu: 6.1.4
+      defu: 6.1.7
       destr: 2.0.5
 
   rc9@3.0.1:
@@ -12295,8 +12305,6 @@ snapshots:
   scule@1.3.0: {}
 
   semver@6.3.1: {}
-
-  semver@7.7.3: {}
 
   semver@7.7.4: {}
 
@@ -12741,7 +12749,7 @@ snapshots:
       chokidar: 5.0.0
       local-pkg: 1.1.2
       magic-string: 0.30.21
-      mlly: 1.8.0
+      mlly: 1.8.2
       obug: 2.1.1
       picomatch: 4.0.5
       tinyglobby: 0.2.17
@@ -12850,8 +12858,8 @@ snapshots:
   untyped@2.0.0:
     dependencies:
       citty: 0.1.6
-      defu: 6.1.4
-      jiti: 2.6.1
+      defu: 6.1.7
+      jiti: 2.7.0
       knitwork: 1.3.0
       scule: 1.3.0
 
@@ -13035,7 +13043,7 @@ snapshots:
       eslint-visitor-keys: 5.0.1
       espree: 11.1.1
       esquery: 1.7.0
-      semver: 7.7.3
+      semver: 7.8.5
     transitivePeerDependencies:
       - supports-color
 
