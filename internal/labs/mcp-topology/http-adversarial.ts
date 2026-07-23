@@ -12,15 +12,20 @@ export interface RawHttpRequestInput {
   readonly path?: string
 }
 
-export function legacyInitializeBody(id: number | string = 1): string {
+export function rcDiscoverBody(id: number | string = 1): string {
   return JSON.stringify({
     id,
     jsonrpc: '2.0',
-    method: 'initialize',
+    method: 'server/discover',
     params: {
-      capabilities: {},
-      clientInfo: { name: 'better-convex-http-lab', version: '0.0.0' },
-      protocolVersion: '2025-11-25',
+      _meta: {
+        'io.modelcontextprotocol/clientCapabilities': {},
+        'io.modelcontextprotocol/clientInfo': {
+          name: 'better-convex-http-lab',
+          version: '0.0.0',
+        },
+        'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+      },
     },
   })
 }

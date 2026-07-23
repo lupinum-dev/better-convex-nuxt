@@ -426,7 +426,7 @@ export async function proveNotesDashboardBrowserBoundary(
     await waitForValue(
       () => frame.getByTestId('status').textContent(),
       (value) => value === 'error',
-      'revoked bearer denial',
+      'revoked access denial',
     )
     assert(
       toolCalls.slice().length === 3,

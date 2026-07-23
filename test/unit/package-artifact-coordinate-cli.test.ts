@@ -21,13 +21,13 @@ describe('package artifact coordinate CLI', () => {
     expect(result.stderr).toBe('')
     expect(result.stdout.trim().split('\n')).toEqual([
       'artifact_name=release-candidate-nuxt',
-      'directory=.release-artifacts/nuxt/0.8.0-beta.10',
-      'evidence=.release-artifacts/nuxt/0.8.0-beta.10/artifact.json',
+      'directory=.release-artifacts/nuxt/0.8.0-beta.11',
+      'evidence=.release-artifacts/nuxt/0.8.0-beta.11/artifact.json',
       'package_id=nuxt',
       'package_name=better-convex-nuxt',
-      'tarball=.release-artifacts/nuxt/0.8.0-beta.10/better-convex-nuxt-0.8.0-beta.10.tgz',
-      'tarball_filename=better-convex-nuxt-0.8.0-beta.10.tgz',
-      'version=0.8.0-beta.10',
+      'tarball=.release-artifacts/nuxt/0.8.0-beta.11/better-convex-nuxt-0.8.0-beta.11.tgz',
+      'tarball_filename=better-convex-nuxt-0.8.0-beta.11.tgz',
+      'version=0.8.0-beta.11',
     ])
   })
 
@@ -38,13 +38,13 @@ describe('package artifact coordinate CLI', () => {
     expect(result.stderr).toBe('')
     expect(result.stdout.trim().split('\n')).toEqual([
       'artifact_name=release-candidate-vue',
-      'directory=.release-artifacts/vue/0.8.0-beta.10',
-      'evidence=.release-artifacts/vue/0.8.0-beta.10/artifact.json',
+      'directory=.release-artifacts/vue/0.8.0-beta.11',
+      'evidence=.release-artifacts/vue/0.8.0-beta.11/artifact.json',
       'package_id=vue',
       'package_name=better-convex-vue',
-      'tarball=.release-artifacts/vue/0.8.0-beta.10/better-convex-vue-0.8.0-beta.10.tgz',
-      'tarball_filename=better-convex-vue-0.8.0-beta.10.tgz',
-      'version=0.8.0-beta.10',
+      'tarball=.release-artifacts/vue/0.8.0-beta.11/better-convex-vue-0.8.0-beta.11.tgz',
+      'tarball_filename=better-convex-vue-0.8.0-beta.11.tgz',
+      'version=0.8.0-beta.11',
     ])
   })
 

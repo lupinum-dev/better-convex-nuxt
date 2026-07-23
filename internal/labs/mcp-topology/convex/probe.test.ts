@@ -39,8 +39,8 @@ import {
   abortRawHttp,
   chunkedBody,
   exchangeRawHttp,
-  legacyInitializeBody,
   rawHttpRequest,
+  rcDiscoverBody,
 } from '../http-adversarial'
 import { formatLatencySummary, measureSequentialLatency } from '../latency-measure'
 import {
@@ -134,7 +134,6 @@ function connectClient(
   name: string,
   responseBodies: string[],
   supportsApps: boolean,
-  modern = false,
 ): { client: Client; connect: Promise<void>; requestBodies: string[] } {
   const requestBodies: string[] = []
   const fetch: typeof globalThis.fetch = async (input, init) => {
@@ -150,22 +149,18 @@ function connectClient(
   })
   const client = new Client(
     { name, version: '0.0.0' },
-    supportsApps || modern
-      ? {
-          ...(supportsApps && {
-            capabilities: {
-              extensions: {
-                'io.modelcontextprotocol/ui': {
-                  mimeTypes: ['text/html;profile=mcp-app'],
-                },
-              },
+    {
+      ...(supportsApps && {
+        capabilities: {
+          extensions: {
+            'io.modelcontextprotocol/ui': {
+              mimeTypes: ['text/html;profile=mcp-app'],
             },
-          }),
-          ...(modern && {
-            versionNegotiation: { mode: { pin: '2026-07-28' as const } },
-          }),
-        }
-      : undefined,
+          },
+        },
+      }),
+      versionNegotiation: { mode: { pin: '2026-07-28' as const } },
+    },
   )
   return { client, connect: client.connect(transport), requestBodies }
 }
@@ -204,7 +199,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       await readFile(path.join(sourceFixture, 'package.json'), 'utf8'),
     ) as { dependencies?: Record<string, string> }
     expect(fixtureManifest.dependencies).toEqual({
-      '@better-convex/mcp': '0.1.0-beta.1',
+      '@better-convex/mcp': '0.1.0-beta.2',
       '@modelcontextprotocol/server': '2.0.0-beta.5',
       convex: '1.42.2',
       zod: '4.3.6',
@@ -264,7 +259,6 @@ describe('vNext Convex-native MCP topology probe', () => {
       'convex-modern-client',
       responsesModern,
       false,
-      true,
     )
 
     try {
@@ -463,24 +457,31 @@ describe('vNext Convex-native MCP topology probe', () => {
       expect(conflictingFraming.status).toBeNull()
       expect(conflictingFraming.responseText).toBe('')
 
-      const initialize = legacyInitializeBody('chunked-initialize')
-      const split = Math.floor(initialize.length / 2)
+      const discovery = rcDiscoverBody('chunked-discovery')
+      const split = Math.floor(discovery.length / 2)
+      const rcDiscoveryHeaders = [
+        ...rawHeaders.slice(0, -1),
+        ['Mcp-Method', 'server/discover'],
+        ['Mcp-Protocol-Version', '2026-07-28'],
+      ] as const
       const streamed = await exchangeRawHttp(
         mcpUrl,
         rawHttpRequest(mcpUrl, {
-          body: chunkedBody([initialize.slice(0, split), initialize.slice(split)]),
-          headers: [...rawHeaders.slice(0, -1), ['Transfer-Encoding', 'chunked']],
+          body: chunkedBody([discovery.slice(0, split), discovery.slice(split)]),
+          headers: [...rcDiscoveryHeaders, ['Transfer-Encoding', 'chunked']],
         }),
         { keepWriteOpen: true },
       )
-      expect(streamed.status).toBe(200)
+      expect(streamed.status, streamed.responseText).toBe(200)
 
       const tracedInitialize = await fetch(mcpUrl, {
-        body: legacyInitializeBody('bearer-boundary-trace'),
+        body: rcDiscoverBody('bearer-boundary-trace'),
         headers: {
           accept: 'application/json, text/event-stream',
           authorization: `Bearer ${OWNER_TOKEN}`,
           'content-type': 'application/json',
+          'mcp-method': 'server/discover',
+          'mcp-protocol-version': '2026-07-28',
         },
         method: 'POST',
       })
@@ -504,11 +505,13 @@ describe('vNext Convex-native MCP topology probe', () => {
       })
       await abortRawHttp(mcpUrl, incompleteChunk)
       const recoveredAfterAbort = await fetch(mcpUrl, {
-        body: legacyInitializeBody('after-abort'),
+        body: rcDiscoverBody('after-abort'),
         headers: {
           accept: 'application/json, text/event-stream',
           authorization: `Bearer ${OWNER_TOKEN}`,
           'content-type': 'application/json',
+          'mcp-method': 'server/discover',
+          'mcp-protocol-version': '2026-07-28',
         },
         method: 'POST',
       })
@@ -576,20 +579,28 @@ describe('vNext Convex-native MCP topology probe', () => {
           },
       )
       expect(supportedRequests[0]).toMatchObject({
-        method: 'initialize',
+        method: 'server/discover',
         params: {
-          capabilities: {
-            extensions: {
-              'io.modelcontextprotocol/ui': {
-                mimeTypes: ['text/html;profile=mcp-app'],
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': {
+              extensions: {
+                'io.modelcontextprotocol/ui': {
+                  mimeTypes: ['text/html;profile=mcp-app'],
+                },
               },
             },
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
           },
         },
       })
       expect(unsupportedRequests[0]).toMatchObject({
-        method: 'initialize',
-        params: { capabilities: {} },
+        method: 'server/discover',
+        params: {
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': {},
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          },
+        },
       })
 
       const dashboard = await connectionA.client.readResource({
@@ -629,13 +640,60 @@ describe('vNext Convex-native MCP topology probe', () => {
           matches: [{ id: 'note-b', title: 'Beta' }],
         },
       })
+      let appRevocationChecks = 0
       const appsProof = await proveNotesDashboardBrowserBoundary({
         build: await buildNotesDashboard(),
-        callTool: (call) => connectionA.client.callTool(call),
+        async callTool(call) {
+          if (call.arguments?.query !== 'revoked') {
+            return await connectionA.client.callTool(call)
+          }
+          appRevocationChecks += 1
+          const revoked = await fetch(mcpUrl, {
+            body: JSON.stringify({
+              id: 'app-revoked-access',
+              jsonrpc: '2.0',
+              method: 'tools/call',
+              params: {
+                _meta: {
+                  'io.modelcontextprotocol/clientCapabilities': {},
+                  'io.modelcontextprotocol/clientInfo': {
+                    name: 'better-convex-app-revocation-proof',
+                    version: '0.0.0',
+                  },
+                  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                },
+                ...call,
+              },
+            }),
+            headers: {
+              accept: 'application/json',
+              authorization: `Bearer ${LAB_OAUTH_TOKENS.revoked}`,
+              'content-type': 'application/json',
+              'mcp-method': 'tools/call',
+              'mcp-name': call.name,
+              'mcp-protocol-version': '2026-07-28',
+            },
+            method: 'POST',
+          })
+          expect(revoked.status).toBe(401)
+          return {
+            content: [{ text: 'Access denied.', type: 'text' }],
+            isError: true,
+          }
+        },
       })
+      expect(appRevocationChecks).toBe(1)
       expect(appsProof.toolCalls).toEqual([
         {
-          arguments: { limit: 5, query: '', workspaceId: 'workspace-a' },
+          arguments: { limit: 5, query: 'alpha', workspaceId: 'workspace-a' },
+          name: 'search_notes',
+        },
+        {
+          arguments: { limit: 5, query: '', workspaceId: 'workspace-b' },
+          name: 'search_notes',
+        },
+        {
+          arguments: { limit: 5, query: 'revoked', workspaceId: 'workspace-a' },
           name: 'search_notes',
         },
       ])

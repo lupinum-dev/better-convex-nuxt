@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.1.0-beta.1 (`@better-convex/mcp`)
+## v0.1.0-beta.2 (`@better-convex/mcp`)
 
 - Add the experimental provider-neutral Convex-native MCP package on the locked
   `2026-07-28` release candidate and exact official TypeScript SDK beta.
@@ -15,8 +15,11 @@
 - Rebuild authenticated requests as credential-free SDK inputs, narrow the
   transport to bounded unary tools/resources, and require live Better Auth
   authority validation.
+- Use the RC-required stateless `server/discover` envelope in every exact
+  external consumer; the unpublished beta.1 artifact was retired after its
+  independent Convex consumer exposed legacy initialize negotiation.
 
-## v0.8.0-beta.10
+## v0.8.0-beta.11
 
 - Add the optional `better-convex-vue/mcp-app` lifecycle entry on the exact
   official MCP Apps SDK without pulling MCP dependencies into ordinary Vue.
@@ -29,6 +32,9 @@
 - Certify the packed Nuxt lifecycle with a complete `convex/browser` fixture
   surface after the beta.9 candidate correctly failed its production bundle
   gate.
+- Coordinate Vue and Nuxt with the same clean source commit as the corrected
+  MCP beta.2 candidate; the passing beta.10 pair remains immutable but is not
+  reused across source commits.
 
 ## v0.8.0-beta.4
 
