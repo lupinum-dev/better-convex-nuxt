@@ -21,12 +21,9 @@ export type McpAppPhase = 'idle' | 'connecting' | 'ready' | 'error' | 'closed'
 export interface UseMcpAppOptions {
   implementation: ConstructorParameters<typeof App>[0]
   capabilities?: ConstructorParameters<typeof App>[1]
-  /** Enable the official SDK's ResizeObserver-based host size reporting. */
-  autoResize?: boolean
 }
 
 export interface UseMcpAppReturn {
-  readonly app: App
   readonly phase: Readonly<ShallowRef<McpAppPhase>>
   readonly hostCapabilities: Readonly<ShallowRef<McpUiHostCapabilities | undefined>>
   readonly hostContext: Readonly<ShallowRef<McpUiHostContext | undefined>>
@@ -37,19 +34,26 @@ export interface UseMcpAppReturn {
   >
   readonly toolResult: Readonly<ShallowRef<McpUiToolResultNotification['params'] | undefined>>
   readonly toolCancelled: Readonly<ShallowRef<McpUiToolCancelledNotification['params'] | undefined>>
+  callServerTool(
+    input: Parameters<App['callServerTool']>[0],
+  ): Promise<Awaited<ReturnType<App['callServerTool']>>>
+  openLink(input: Parameters<App['openLink']>[0]): Promise<Awaited<ReturnType<App['openLink']>>>
 }
 
 /**
  * Own one official MCP App for the current Vue component scope.
  *
- * Host-bound operations remain the official methods on `app`. This composable owns only Vue
- * lifecycle, readonly host/tool projections, late-event retirement, and exact-once close.
+ * The raw SDK App remains private so consumers cannot replace lifecycle handlers or close the
+ * transport behind this composable. Only the two host operations required by the proven consumers
+ * are exposed, with structured-clone boundaries and disposed-scope retirement.
  */
 export function useMcpApp(options: UseMcpAppOptions): UseMcpAppReturn {
   const app = markRaw(
     new App(options.implementation, options.capabilities, {
       allowUnsafeEval: false,
-      autoResize: options.autoResize,
+      // The exact SDK drops the ResizeObserver cleanup returned by
+      // setupSizeChangedNotifications(). Keep it disabled until upstream owns disposal.
+      autoResize: false,
       strict: true,
     }),
   )
@@ -90,6 +94,38 @@ export function useMcpApp(options: UseMcpAppOptions): UseMcpAppReturn {
   function receiveHostContext(): void {
     const value = app.getHostContext()
     if (value !== undefined) receive(hostContext, value)
+  }
+
+  function cloneForBridge<T>(value: T): T {
+    const cloned = snapshot(value)
+    if (cloned === undefined) {
+      throw new Error('MCP App value is not cloneable')
+    }
+    return cloned
+  }
+
+  function requireReady(): void {
+    if (!active || phase.value !== 'ready') {
+      throw new Error('MCP App is not ready')
+    }
+  }
+
+  async function callServerTool(
+    input: Parameters<App['callServerTool']>[0],
+  ): Promise<Awaited<ReturnType<App['callServerTool']>>> {
+    requireReady()
+    const result = await app.callServerTool(cloneForBridge(input))
+    requireReady()
+    return cloneForBridge(result)
+  }
+
+  async function openLink(
+    input: Parameters<App['openLink']>[0],
+  ): Promise<Awaited<ReturnType<App['openLink']>>> {
+    requireReady()
+    const result = await app.openLink(cloneForBridge(input))
+    requireReady()
+    return cloneForBridge(result)
   }
 
   function onToolInput(value: McpUiToolInputNotification['params']): void {
@@ -166,7 +202,8 @@ export function useMcpApp(options: UseMcpAppOptions): UseMcpAppReturn {
   onScopeDispose(close)
 
   return Object.freeze({
-    app,
+    callServerTool,
+    openLink,
     phase: shallowReadonly(phase),
     hostCapabilities: shallowReadonly(hostCapabilities),
     hostContext: shallowReadonly(hostContext),

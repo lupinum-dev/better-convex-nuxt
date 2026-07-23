@@ -22,16 +22,16 @@ interface SearchInput {
 }
 
 const {
-  app,
+  callServerTool,
   hostCapabilities,
   hostContext,
+  openLink,
   phase,
   toolCancelled,
   toolInput,
   toolInputPartial,
   toolResult,
 } = useMcpApp({
-  autoResize: false,
   capabilities: {},
   implementation: { name: 'better-convex-notes-dashboard', version: '0.0.0' },
 })
@@ -122,7 +122,7 @@ async function refresh(): Promise<void> {
       query: input.value.query,
       workspaceId: input.value.workspaceId,
     }
-    const result = await app.callServerTool({
+    const result = await callServerTool({
       arguments: arguments_,
       name: 'search_notes',
     })
@@ -134,7 +134,7 @@ async function refresh(): Promise<void> {
 
 async function tryDeniedTool(): Promise<void> {
   try {
-    const result = await app.callServerTool({
+    const result = await callServerTool({
       arguments: {
         noteId: notes.value[0]?.id ?? 'missing',
         requestKey: 'app',
@@ -151,7 +151,7 @@ async function tryDeniedTool(): Promise<void> {
 async function openDocumentation(): Promise<void> {
   if (!linkAvailable.value) return
   try {
-    const result = await app.openLink({
+    const result = await openLink({
       url: 'https://docs.example.invalid/notes',
     })
     status.value = result.isError ? 'link-denied' : 'error'

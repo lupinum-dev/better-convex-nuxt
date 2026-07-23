@@ -78,17 +78,20 @@ function connectClient(
   })
   const client = new Client(
     { name: supportsApps ? 'apps-capable-client' : 'baseline-client', version: '0.0.0' },
-    supportsApps
-      ? {
-          capabilities: {
-            extensions: {
-              'io.modelcontextprotocol/ui': {
-                mimeTypes: [NOTES_DASHBOARD_RESOURCE_MIME_TYPE],
+    {
+      ...(supportsApps
+        ? {
+            capabilities: {
+              extensions: {
+                'io.modelcontextprotocol/ui': {
+                  mimeTypes: [NOTES_DASHBOARD_RESOURCE_MIME_TYPE],
+                },
               },
             },
-          },
-        }
-      : undefined,
+          }
+        : {}),
+      versionNegotiation: { mode: { pin: '2026-07-28' as const } },
+    },
   )
   return { client, connect: client.connect(transport), requestBodies, responseBodies }
 }
@@ -244,6 +247,12 @@ describe('vNext MCP Apps private topology probe', () => {
         name: 'search_notes',
       })
       expect(fallback).toEqual({
+        _meta: {
+          'io.modelcontextprotocol/serverInfo': {
+            name: 'better-convex-apps-probe',
+            version: '0.0.0',
+          },
+        },
         content: [{ type: 'text', text: '1 note matched.' }],
         structuredContent: {
           matches: [
@@ -320,24 +329,35 @@ describe('vNext MCP Apps private topology probe', () => {
         TOKEN,
       )
 
-      const supportedInitialize = JSON.parse(supported.requestBodies[0]!) as unknown
-      const unsupportedInitialize = JSON.parse(unsupported.requestBodies[0]!) as unknown
-      expect(supportedInitialize).toMatchObject({
-        method: 'initialize',
+      const supportedDiscover = supported.requestBodies
+        .map((body) => JSON.parse(body) as { method?: string })
+        .find((request) => request.method === 'server/discover')
+      const unsupportedDiscover = unsupported.requestBodies
+        .map((body) => JSON.parse(body) as { method?: string })
+        .find((request) => request.method === 'server/discover')
+      expect(supportedDiscover).toMatchObject({
+        method: 'server/discover',
         params: {
-          capabilities: {
-            extensions: {
-              'io.modelcontextprotocol/ui': {
-                mimeTypes: [NOTES_DASHBOARD_RESOURCE_MIME_TYPE],
+          _meta: {
+            'io.modelcontextprotocol/clientCapabilities': {
+              extensions: {
+                'io.modelcontextprotocol/ui': {
+                  mimeTypes: [NOTES_DASHBOARD_RESOURCE_MIME_TYPE],
+                },
               },
             },
           },
         },
       })
-      expect(unsupportedInitialize).toMatchObject({
-        method: 'initialize',
-        params: { capabilities: {} },
+      expect(unsupportedDiscover).toMatchObject({
+        method: 'server/discover',
+        params: {
+          _meta: {
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          },
+        },
       })
+      expect(JSON.stringify(unsupportedDiscover)).not.toContain('io.modelcontextprotocol/ui')
     } finally {
       await Promise.allSettled([supported.client.close(), unsupported.client.close()])
     }

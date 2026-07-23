@@ -1,6 +1,6 @@
 # ADR: minimal Vue MCP App lifecycle admission
 
-- Status: accepted for experimental implementation
+- Status: amended after stabilization audit; experimental only
 - Date checked: 2026-07-22
 - Extension basis: MCP Apps `2026-01-26`
 - SDK basis: exact `@modelcontextprotocol/ext-apps@1.7.4`
@@ -13,10 +13,14 @@ Admit one optional `better-convex-vue/mcp-app` entry and one composable,
 lifecycle and project official host notifications into non-deep reactive,
 structured-clone-safe state.
 
-The composable returns the raw, non-reactive official `App` instance for
-`callServerTool`, `openLink`, `sendMessage`, resource reads, display requests,
-and app-local tool registration. Better Convex will not wrap or rename those
-methods.
+The composable keeps the mutable official `App` private. It exposes only the
+two host operations required by both proving consumers: `callServerTool` and
+`openLink`. Inputs and results cross an explicit structured-clone boundary;
+operations reject before readiness and retire results after disposal.
+
+The exact SDK's automatic resize observer cannot be disposed because
+`connect()` discards the cleanup returned by `setupSizeChangedNotifications()`.
+The wrapper therefore fixes `autoResize: false` and exposes no resize option.
 
 Candidate shape for implementation proof:
 
@@ -27,10 +31,11 @@ const mcp = useMcpApp({
 })
 
 // Official SDK method; no Better Convex tool-call abstraction.
-await mcp.app.callServerTool({ name: 'search_notes', arguments: query })
+await mcp.callServerTool({ name: 'search_notes', arguments: query })
 
 type McpAppLifecycle = {
-  app: App
+  callServerTool: App['callServerTool']
+  openLink: App['openLink']
   phase: Readonly<Ref<'idle' | 'connecting' | 'ready' | 'error' | 'closed'>>
   hostCapabilities: Readonly<ShallowRef<McpUiHostCapabilities | undefined>>
   hostContext: Readonly<ShallowRef<McpUiHostContext | undefined>>
@@ -132,9 +137,9 @@ received envelope.
 6. **Authorization owner?** The host mediates requests and the MCP server
    re-verifies the bearer plus current application authority. Vue state grants
    nothing.
-7. **Invalid states?** Methods remain official; the wrapper exposes one phase,
-   a raw non-reactive App, and readonly shallow projections. It never exposes a
-   Convex client or token.
+7. **Invalid states?** The wrapper exposes one phase, two narrow host
+   operations, and readonly shallow projections. The mutable SDK App, a Convex
+   client, and tokens remain private.
 8. **Persistent mechanism?** None. No table, cache, worker, registry, plugin,
    global singleton, or background job is added.
 9. **Failure model?** Connect/protocol failure moves the lifecycle to `error`
@@ -148,8 +153,11 @@ received envelope.
 - Separate `useMcpToolInput`, `useMcpToolResult`, and `useMcpHostContext`
   composables: one App lifecycle does not justify provide/inject or multiple
   lookup APIs.
-- Wrapped `callTool`, `openLink`, `sendMessage`, resource, display, or download
-  methods: official methods already define the contract.
+- `sendMessage`, resource, display, download, local-tool registration, raw
+  protocol handlers, and a mutable `App`: neither proving consumer needs them,
+  and exposing them would defeat lifecycle ownership.
+- Configurable automatic resize: the exact SDK cannot retire the observer it
+  creates, so the feature remains unavailable until upstream owns cleanup.
 - An MCP App Vue plugin: each iframe root owns one local App; no application-wide
   runtime is needed.
 - Automatic theme mutation: consumers may compose the official theme helpers;
@@ -166,6 +174,11 @@ received envelope.
 
 `P7-002` may add the optional entry with an exact Apps dependency without
 changing the ordinary `better-convex-vue` dependency graph or main bundle.
-`P7-003` proves lifecycle behavior before examples migrate. If implementation
-requires more than this narrow surface, stop and amend this decision with
-executed evidence rather than adding convenience APIs.
+`P7-003` proves lifecycle behavior before examples migrate. The entry remains
+experimental while the exact SDK has no logger control: it logs protocol
+payloads to the browser console. Better Convex's proof forbids credentials in
+those payloads and checks credential sentinels across console output, but a
+stable API still requires upstream logger suppression plus different-origin
+and real-host evidence. If implementation requires more than this narrow
+surface, stop and amend this decision with executed evidence rather than
+adding convenience APIs.
