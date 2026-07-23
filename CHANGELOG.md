@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.1.0-beta.0 (`@better-convex/mcp`)
+## v0.1.0-beta.1 (`@better-convex/mcp`)
 
 - Add the experimental provider-neutral Convex-native MCP package on the locked
   `2026-07-28` release candidate and exact official TypeScript SDK beta.
@@ -12,14 +12,20 @@
 - Prove locked-RC stateless discovery, tools, live authorization and revocation,
   safe application failures, transport bounds, and explicit unsupported
   capabilities while retaining truthful legacy conformance evidence.
+- Rebuild authenticated requests as credential-free SDK inputs, narrow the
+  transport to bounded unary tools/resources, and require live Better Auth
+  authority validation.
 
-## v0.8.0-beta.6
+## v0.8.0-beta.7
 
 - Add the optional `better-convex-vue/mcp-app` lifecycle entry on the exact
   official MCP Apps SDK without pulling MCP dependencies into ordinary Vue.
 - Prove progressive fallback, host-mediated tool and link behavior, restrictive
   iframe boundaries, exact teardown, and credential-free production bundles
   through neutral and Ginko CMS consumers.
+- Repair identity-generation dispatch fencing, authentication coordination,
+  query/pagination state, official-client SSR, Better Auth relationship
+  semantics, read-only JWKS discovery, and raw-cause containment.
 
 ## v0.8.0-beta.4
 
