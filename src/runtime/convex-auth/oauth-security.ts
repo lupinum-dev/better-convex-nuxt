@@ -1,5 +1,3 @@
-import type { OAuthOptions, Scope } from '@better-auth/oauth-provider'
-
 const OAUTH_CONFIG_ERROR = 'AUTH_OAUTH_CONFIG_INVALID'
 const OAUTH_REQUEST_ERROR = 'AUTH_OAUTH_REQUEST_INVALID'
 const OAUTH_TOKEN_ERROR = 'AUTH_OAUTH_TOKEN_INVALID'
@@ -43,7 +41,45 @@ const TOKEN_CLAIMS = new Set([
  * configuration abstraction. Runtime validation intentionally accepts only a
  * strict subset of the exact installed provider's options.
  */
-export type PinnedOAuthProviderProfile = OAuthOptions<Scope[]>
+export interface PinnedOAuthProviderProfile {
+  accessTokenExpiresIn?: number
+  allowDynamicClientRegistration?: boolean
+  allowPublicClientPrelogin?: boolean
+  allowUnauthenticatedClientRegistration?: boolean
+  advertisedMetadata?: {
+    claims_supported?: readonly string[]
+    scopes_supported?: readonly string[]
+  }
+  clientCredentialGrantDefaultScopes?: readonly string[]
+  clientPrivileges?: unknown
+  clientRegistrationRequirePKCE?: boolean
+  codeExpiresIn?: number
+  consentPage?: string
+  customAccessTokenClaims?: unknown
+  customIdTokenClaims?: unknown
+  customTokenResponseFields?: unknown
+  customUserInfoClaims?: unknown
+  disableJwtPlugin?: boolean
+  dpop?: { signingAlgorithms?: readonly string[] }
+  enforcePerClientResources?: boolean
+  extensions?: readonly unknown[]
+  grantTypes?: readonly string[]
+  loginPage?: string
+  m2mAccessTokenExpiresIn?: number
+  pairwiseSecret?: string
+  rateLimit?: {
+    authorize?: false | { max?: number; window?: number }
+    revoke?: false | { max?: number; window?: number }
+    token?: false | { max?: number; window?: number }
+  }
+  requestUriResolver?: unknown
+  resourcePrivileges?: unknown
+  resources?: readonly unknown[]
+  scopes?: readonly string[]
+  storeClientSecret?: unknown
+  storeTokens?: unknown
+  validateInitialAccessToken?: unknown
+}
 
 export interface OAuthClientRecord extends Record<string, unknown> {
   clientId: string
