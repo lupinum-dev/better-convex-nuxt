@@ -20,6 +20,12 @@ import {
   sanitizeStoredJwk,
 } from './jwks-rotation'
 import {
+  assertSafePinnedClientProvisioning,
+  assertSafePinnedClientUpdate,
+  assertSafePinnedResourceProvisioning,
+  validatePinnedOAuthProviderRuntime,
+} from './oauth-provider-compat'
+import {
   OAuthSecurityError,
   assertSafeStoredOAuthClient,
   assertSafeStoredOAuthClientResource,
@@ -30,8 +36,7 @@ import {
   projectOAuthAuthorizationServerMetadata,
   requireSingleParameter,
   validateOAuthProviderProfile,
-  validateOAuthRedirectUris,
-  type ConvexOAuthProviderOptions,
+  type PinnedOAuthProviderProfile,
   type OAuthClientRecord,
   type OAuthClientResourceRecord,
   type OAuthResourceRecord,
@@ -52,27 +57,11 @@ export interface ConvexAuthOptions {
   authConfig: {
     providers: readonly unknown[]
   }
-  oauthProvider?: ConvexOAuthProviderOptions
+  oauthProvider?: PinnedOAuthProviderProfile
   sessionJwt: SessionJwtOptions
 }
 
 const forbiddenCustomClaims = new Set(['aud', 'exp', 'iat', 'iss', 'jti', 'nbf', 'sub'])
-const DISABLED_OAUTH_PATHS = new Set([
-  '/get-access-token',
-  '/refresh-token',
-  '/.well-known/openid-configuration',
-  '/oauth2/client/rotate-secret',
-  '/oauth2/create-client',
-  '/oauth2/delete-client',
-  '/oauth2/end-session',
-  '/oauth2/get-client',
-  '/oauth2/get-clients',
-  '/oauth2/introspect',
-  '/oauth2/register',
-  '/oauth2/update-client',
-  '/oauth2/userinfo',
-  '/token',
-])
 const TOKEN_FIELDS = [
   'client_assertion',
   'client_assertion_type',
@@ -105,10 +94,6 @@ interface OAuthGuardContext {
     }): Promise<T | null>
   }
   baseURL: string
-}
-
-interface OAuthProviderPlugin extends BetterAuthPlugin {
-  options?: Record<string, unknown>
 }
 
 function configureSharedJwks(
@@ -245,17 +230,9 @@ function oauthRequestPath(request: Request, baseURL: string): string | null {
   }
 }
 
-function parseScope(value: string): string[] {
-  const scopes = value.split(' ')
-  if (scopes.some((scope) => scope.length === 0) || new Set(scopes).size !== scopes.length) {
-    throw new OAuthSecurityError('AUTH_OAUTH_REQUEST_INVALID')
-  }
-  return scopes
-}
-
 async function loadSafeOAuthBinding(
   context: OAuthGuardContext,
-  options: ConvexOAuthProviderOptions,
+  options: PinnedOAuthProviderProfile,
   clientId: string,
   resourceId?: string,
 ): Promise<{ client: OAuthClientRecord; resource?: OAuthResourceRecord }> {
@@ -457,7 +434,7 @@ function oauthAuthorizationFailure(
 async function guardAuthorizeProfile(
   request: Request,
   context: OAuthGuardContext,
-  options: ConvexOAuthProviderOptions,
+  options: PinnedOAuthProviderProfile,
 ): Promise<Response | undefined> {
   const parameters = await authorizeParameters(request)
 
@@ -500,7 +477,7 @@ async function guardAuthorizeProfile(
 async function guardTokenRequest(
   request: Request,
   context: OAuthGuardContext,
-  options: ConvexOAuthProviderOptions,
+  options: PinnedOAuthProviderProfile,
 ): Promise<void> {
   if (request.method !== 'POST' || request.headers.has('dpop')) {
     throw new OAuthSecurityError('AUTH_OAUTH_REQUEST_INVALID')
@@ -534,7 +511,7 @@ async function guardTokenRequest(
 async function guardRevokeRequest(
   request: Request,
   context: OAuthGuardContext,
-  options: ConvexOAuthProviderOptions,
+  options: PinnedOAuthProviderProfile,
 ): Promise<void> {
   if (request.method !== 'POST' || request.headers.has('dpop')) {
     throw new OAuthSecurityError('AUTH_OAUTH_REQUEST_INVALID')
@@ -574,223 +551,6 @@ function hasSafeGlobalAuthRuntime(
   )
 }
 
-function validateGlobalOAuthRuntime(
-  context: Parameters<NonNullable<BetterAuthPlugin['init']>>[0],
-  options: ConvexOAuthProviderOptions,
-  hardened: ReturnType<typeof hardenOAuthProviderCallbacks>,
-): OAuthProviderPlugin['options'] {
-  const configuredPlugins = context.options.plugins ?? []
-  const jwtIndexes = configuredPlugins
-    .map((plugin, index) => (plugin.id === 'jwt' ? index : -1))
-    .filter((index) => index >= 0)
-  const convexIndexes = configuredPlugins
-    .map((plugin, index) => (plugin.id === 'better-convex-nuxt' ? index : -1))
-    .filter((index) => index >= 0)
-  const oauthIndexes = configuredPlugins
-    .map((plugin, index) => (plugin.id === 'oauth-provider' ? index : -1))
-    .filter((index) => index >= 0)
-  if (
-    jwtIndexes.length !== 1 ||
-    convexIndexes.length !== 1 ||
-    oauthIndexes.length !== 1 ||
-    !(jwtIndexes[0]! < convexIndexes[0]! && convexIndexes[0]! < oauthIndexes[0]!)
-  ) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-
-  const disabledPaths = new Set(context.options.disabledPaths ?? [])
-  if ([...DISABLED_OAUTH_PATHS].some((path) => !disabledPaths.has(path))) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-  if (
-    context.options.account?.encryptOAuthTokens !== true ||
-    context.options.account.storeAccountCookie !== false ||
-    context.options.verification?.storeIdentifier !== 'hashed'
-  ) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-
-  const issuer = context.baseURL
-  let issuerUrl: URL
-  try {
-    issuerUrl = new URL(issuer)
-  } catch {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-  if (
-    issuerUrl.pathname !== '/api/auth' ||
-    issuerUrl.search ||
-    issuerUrl.hash ||
-    issuerUrl.username ||
-    issuerUrl.password
-  ) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-  const jwtPlugin = configuredPlugins[jwtIndexes[0]!] as OAuthProviderPlugin
-  const jwtOptions = jwtPlugin.options?.jwt
-  const jwksOptions = jwtPlugin.options?.jwks
-  if (
-    !jwtOptions ||
-    typeof jwtOptions !== 'object' ||
-    (jwtOptions as Record<string, unknown>).issuer !== issuer ||
-    (jwtOptions as Record<string, unknown>).audience !== issuer ||
-    (jwtOptions as Record<string, unknown>).expirationTime !== '10m' ||
-    !jwksOptions ||
-    typeof jwksOptions !== 'object' ||
-    ((jwksOptions as Record<string, unknown>).keyPairConfig as Record<string, unknown> | undefined)
-      ?.alg !== 'RS256' ||
-    (jwksOptions as Record<string, unknown>).disablePrivateKeyEncryption !== false
-  ) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-
-  const oauthPlugin = configuredPlugins[oauthIndexes[0]!] as OAuthProviderPlugin
-  const providerOptions = oauthPlugin.options
-  if (
-    !providerOptions ||
-    providerOptions.clientPrivileges !== hardened.clientPrivileges ||
-    providerOptions.resourcePrivileges !== hardened.resourcePrivileges ||
-    providerOptions.customAccessTokenClaims !== hardened.customAccessTokenClaims ||
-    providerOptions.accessTokenExpiresIn !== options.accessTokenExpiresIn ||
-    providerOptions.codeExpiresIn !== options.codeExpiresIn ||
-    !Array.isArray(providerOptions.grantTypes) ||
-    providerOptions.grantTypes.length !== 1 ||
-    providerOptions.grantTypes[0] !== 'authorization_code'
-  ) {
-    throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    const proxySecret = process.env.BCN_AUTH_PROXY_IP_SECRET
-    if (typeof proxySecret !== 'string' || proxySecret.length < 32) {
-      throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-    }
-  }
-  return providerOptions
-}
-
-function assertSafeClientProvisioning(body: unknown, allowedScopes: readonly string[]): void {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_CLIENT_PROFILE_INVALID',
-    })
-  }
-  const input = body as Record<string, unknown>
-  const scopes = typeof input.scope === 'string' ? parseScope(input.scope) : []
-  try {
-    validateOAuthRedirectUris(input.redirect_uris)
-    const publicClient =
-      input.token_endpoint_auth_method === 'none' &&
-      (input.type === 'native' || input.type === 'user-agent-based')
-    const confidentialClient =
-      input.token_endpoint_auth_method === 'client_secret_basic' && input.type === 'web'
-    if (
-      (!publicClient && !confidentialClient) ||
-      input.require_pkce !== true ||
-      input.skip_consent !== false ||
-      input.enable_end_session !== false ||
-      input.dpop_bound_access_tokens !== false ||
-      !Array.isArray(input.grant_types) ||
-      input.grant_types.length !== 1 ||
-      input.grant_types[0] !== 'authorization_code' ||
-      !Array.isArray(input.response_types) ||
-      input.response_types.length !== 1 ||
-      input.response_types[0] !== 'code' ||
-      input.jwks !== undefined ||
-      input.jwks_uri !== undefined ||
-      input.metadata !== undefined ||
-      input.software_statement !== undefined ||
-      input.backchannel_logout_uri !== undefined ||
-      input.backchannel_logout_session_required !== undefined ||
-      input.post_logout_redirect_uris !== undefined ||
-      scopes.length === 0 ||
-      scopes.some((scope) => !allowedScopes.includes(scope))
-    ) {
-      throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-    }
-  } catch {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_CLIENT_PROFILE_INVALID',
-    })
-  }
-}
-
-function assertSafeClientUpdate(body: unknown, allowedScopes: readonly string[]): void {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_CLIENT_PROFILE_INVALID',
-    })
-  }
-  const input = body as Record<string, unknown>
-  try {
-    if (input.redirect_uris !== undefined) validateOAuthRedirectUris(input.redirect_uris)
-    const scopes = typeof input.scope === 'string' ? parseScope(input.scope) : undefined
-    if (
-      (scopes !== undefined && scopes.some((scope) => !allowedScopes.includes(scope))) ||
-      input.token_endpoint_auth_method !== undefined ||
-      input.type !== undefined ||
-      input.require_pkce !== undefined ||
-      (input.skip_consent !== undefined && input.skip_consent !== false) ||
-      (input.enable_end_session !== undefined && input.enable_end_session !== false) ||
-      (input.dpop_bound_access_tokens !== undefined && input.dpop_bound_access_tokens !== false) ||
-      (input.grant_types !== undefined &&
-        (!Array.isArray(input.grant_types) ||
-          input.grant_types.length !== 1 ||
-          input.grant_types[0] !== 'authorization_code')) ||
-      (input.response_types !== undefined &&
-        (!Array.isArray(input.response_types) ||
-          input.response_types.length !== 1 ||
-          input.response_types[0] !== 'code')) ||
-      input.jwks !== undefined ||
-      input.jwks_uri !== undefined ||
-      input.metadata !== undefined ||
-      input.software_statement !== undefined ||
-      input.backchannel_logout_uri !== undefined ||
-      input.backchannel_logout_session_required !== undefined ||
-      input.post_logout_redirect_uris !== undefined
-    ) {
-      throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-    }
-  } catch {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_CLIENT_PROFILE_INVALID',
-    })
-  }
-}
-
-function assertSafeResourceProvisioning(body: unknown, allowedScopes: readonly string[]): void {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_RESOURCE_PROFILE_INVALID',
-    })
-  }
-  const input = body as Record<string, unknown>
-  try {
-    if (
-      input.dpopBoundAccessTokensRequired === true ||
-      input.refreshTokenTtl !== undefined ||
-      input.signingKeyId !== undefined ||
-      input.customClaims !== undefined ||
-      (input.signingAlgorithm !== undefined && input.signingAlgorithm !== 'RS256') ||
-      (input.accessTokenTtl !== undefined &&
-        (!Number.isSafeInteger(input.accessTokenTtl) ||
-          (input.accessTokenTtl as number) <= 0 ||
-          (input.accessTokenTtl as number) > 600)) ||
-      (input.allowedScopes !== undefined &&
-        (!Array.isArray(input.allowedScopes) ||
-          input.allowedScopes.some(
-            (scope) => typeof scope !== 'string' || !allowedScopes.includes(scope),
-          )))
-    ) {
-      throw new OAuthSecurityError('AUTH_OAUTH_CONFIG_INVALID')
-    }
-  } catch {
-    throw new APIError('BAD_REQUEST', {
-      message: 'AUTH_OAUTH_RESOURCE_PROFILE_INVALID',
-    })
-  }
-}
-
 export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
   validateSessionJwt(options)
   const oauthOptions = options.oauthProvider
@@ -823,7 +583,11 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
         return
       }
       validateOAuthProviderProfile(oauthOptions)
-      providerRuntimeOptions = validateGlobalOAuthRuntime(context, oauthOptions, hardenedOAuth)
+      providerRuntimeOptions = validatePinnedOAuthProviderRuntime(
+        context,
+        oauthOptions,
+        hardenedOAuth,
+      )
     },
     onRequest: async (request, context) => {
       const path = oauthRequestPath(request, context.baseURL)
@@ -950,12 +714,12 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
                     context.method === 'PATCH'),
                 handler: createAuthMiddleware(async (context) => {
                   if (context.path === '/admin/oauth2/create-client') {
-                    assertSafeClientProvisioning(context.body, oauthOptions.scopes!)
+                    assertSafePinnedClientProvisioning(context.body, oauthOptions.scopes!)
                   } else if (context.path === '/admin/oauth2/update-client') {
                     const body = context.body as { update?: unknown }
-                    assertSafeClientUpdate(body.update, oauthOptions.scopes!)
+                    assertSafePinnedClientUpdate(body.update, oauthOptions.scopes!)
                   } else if (context.method === 'POST' || context.method === 'PATCH') {
-                    assertSafeResourceProvisioning(context.body, oauthOptions.scopes!)
+                    assertSafePinnedResourceProvisioning(context.body, oauthOptions.scopes!)
                   }
                 }),
               },

@@ -13,7 +13,7 @@ import {
   projectOAuthProtectedResourceMetadata,
   validateOAuthProviderProfile,
   validateOAuthRedirectUris,
-  type ConvexOAuthProviderOptions,
+  type PinnedOAuthProviderProfile,
 } from '../../src/runtime/convex-auth/oauth-security'
 
 const issuer = 'https://app.example.test/api/auth'
@@ -21,8 +21,8 @@ const resource = 'https://app.example.test/mcp'
 const scopes = ['mcp:read', 'mcp:write'] as const
 
 function oauthOptions(
-  overrides: Partial<ConvexOAuthProviderOptions> = {},
-): ConvexOAuthProviderOptions {
+  overrides: Partial<PinnedOAuthProviderProfile> = {},
+): PinnedOAuthProviderProfile {
   return {
     accessTokenExpiresIn: 600,
     allowDynamicClientRegistration: false,
@@ -144,7 +144,7 @@ describe('fixed OAuth provider profile', () => {
   ])('rejects beta profile drift %#', (override) => {
     expect(() =>
       validateOAuthProviderProfile(
-        oauthOptions(override as unknown as Partial<ConvexOAuthProviderOptions>),
+        oauthOptions(override as unknown as Partial<PinnedOAuthProviderProfile>),
       ),
     ).toThrow('AUTH_OAUTH_CONFIG_INVALID')
   })

@@ -12,7 +12,7 @@ import {
   assertSingleParameters,
   hardenOAuthProviderCallbacks,
   validateOAuthRedirectUris,
-  type ConvexOAuthProviderOptions,
+  type PinnedOAuthProviderProfile,
 } from '../../src/runtime/convex-auth/oauth-security'
 import { convexAuth } from '../../src/runtime/convex-auth/plugin'
 import { buildAuthProxyForwardHeaders } from '../../src/runtime/server/api/auth/headers'
@@ -51,8 +51,8 @@ function accepted(
 }
 
 function oauthOptions(
-  overrides: Partial<ConvexOAuthProviderOptions> = {},
-): ConvexOAuthProviderOptions {
+  overrides: Partial<PinnedOAuthProviderProfile> = {},
+): PinnedOAuthProviderProfile {
   return {
     accessTokenExpiresIn: 600,
     allowDynamicClientRegistration: false,
