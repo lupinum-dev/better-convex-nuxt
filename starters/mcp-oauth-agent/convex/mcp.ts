@@ -1,5 +1,5 @@
 import { createConvexMcpHandler, runMcpTool, type McpAccessContext } from '@better-convex/mcp'
-import { McpServer } from '@modelcontextprotocol/server'
+import type { McpServer } from '@modelcontextprotocol/server'
 import { requireAuthOrigin, verifyOAuthBearerToken } from 'better-convex-nuxt/convex-auth'
 import { ConvexError } from 'convex/values'
 import { z } from 'zod'
@@ -91,12 +91,8 @@ export function createDelegatedMcpServer(
   ctx: ActionCtx,
   access: McpAccessContext,
   principal: SerializableOAuthPrincipal,
+  server: McpServer,
 ) {
-  const server = new McpServer({
-    name: 'better-convex-nuxt-mcp-oauth-agent',
-    version: '0.1.0',
-  })
-
   server.registerTool(
     'projects.list',
     {
@@ -233,8 +229,6 @@ export function createDelegatedMcpServer(
       )
     },
   )
-
-  return server
 }
 
 export const handleMcp = httpAction(async (ctx, request) => {
@@ -242,6 +236,10 @@ export const handleMcp = httpAction(async (ctx, request) => {
   const resource = new URL('/mcp', requireAuthOrigin('CONVEX_SITE_URL'))
   let verifiedPrincipal: Awaited<ReturnType<typeof verifyOAuthBearerToken>> | undefined
   const handler = createConvexMcpHandler<ActionCtx>({
+    serverInfo: {
+      name: 'better-convex-nuxt-mcp-oauth-agent',
+      version: '0.1.0',
+    },
     resource,
     authorization: {
       metadata: authorizationServerMetadata(issuer),
@@ -271,7 +269,7 @@ export const handleMcp = httpAction(async (ctx, request) => {
         }
       },
     },
-    createServer(actionCtx, access) {
+    configureServer(actionCtx, access, _request, server) {
       const principal = verifiedPrincipal
       if (
         !principal ||
@@ -280,7 +278,7 @@ export const handleMcp = httpAction(async (ctx, request) => {
       ) {
         throw new Error('MCP_ACCESS_CONTEXT_INVALID')
       }
-      return createDelegatedMcpServer(
+      createDelegatedMcpServer(
         actionCtx,
         access,
         serializePrincipal({
@@ -290,6 +288,7 @@ export const handleMcp = httpAction(async (ctx, request) => {
           sessionId: principal.sessionId,
           subject: principal.subject,
         }),
+        server,
       )
     },
   })

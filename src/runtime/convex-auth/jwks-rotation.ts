@@ -125,6 +125,54 @@ export function sanitizeStoredJwk(jwk: Jwk): Jwk {
   return { ...jwk, publicKey: canonicalizePublicRsaJwk(jwk.publicKey) }
 }
 
+export function createPublicJwksResponse(rows: Jwk[], method: string, now = Date.now()): Response {
+  const live = rows.filter((row) => {
+    if (row.expiresAt === null || row.expiresAt === undefined) return true
+    if (!(row.expiresAt instanceof Date) || !Number.isFinite(row.expiresAt.getTime())) {
+      throw new TypeError('AUTH_JWKS_EXPIRY_INVALID')
+    }
+    return row.expiresAt.getTime() + JWKS_GRACE_PERIOD_SECONDS * 1_000 > now
+  })
+  if (live.length === 0) {
+    return new Response(
+      method === 'HEAD'
+        ? null
+        : JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'Signing keys are not ready' }),
+      {
+        headers: {
+          'Cache-Control': 'private, no-store',
+          'Content-Type': 'application/json',
+        },
+        status: 503,
+      },
+    )
+  }
+
+  const keys = live.map((stored) => {
+    const row = sanitizeStoredJwk(stored)
+    assertBoundedString(row.id, MAX_KEY_ID_LENGTH, 'AUTH_JWKS_PUBLIC_KEY_INVALID')
+    if (
+      /\p{C}/u.test(row.id) ||
+      row.alg !== 'RS256' ||
+      (row.crv !== null && row.crv !== undefined)
+    ) {
+      throw new Error('AUTH_JWKS_PUBLIC_KEY_INVALID')
+    }
+    return {
+      alg: 'RS256' as const,
+      ...(JSON.parse(row.publicKey) as Record<string, unknown>),
+      kid: row.id,
+    }
+  })
+  const headers = {
+    'Cache-Control': JWKS_CACHE_CONTROL,
+    'Content-Type': 'application/json',
+  }
+  return method === 'HEAD'
+    ? new Response(null, { headers, status: 200 })
+    : Response.json({ keys }, { headers })
+}
+
 export const rejectImplicitSigningKeyCreation: CreateJwkAdapter = async () => {
   throw new Error('AUTH_JWKS_OPERATOR_SETUP_REQUIRED')
 }

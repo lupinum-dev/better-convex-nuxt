@@ -14,9 +14,8 @@ import { hasBetterAuthCookie } from '../shared/auth-cookie'
 import { VERIFIED_CLIENT_IP_HEADER } from '../shared/client-ip'
 import { INTERNAL_SESSION_HEADER } from './internal-session'
 import {
-  JWKS_CACHE_CONTROL,
-  JWKS_GRACE_PERIOD_SECONDS,
   assertSupportedJwksOptions,
+  createPublicJwksResponse,
   rejectImplicitSigningKeyCreation,
   sanitizeStoredJwk,
 } from './jwks-rotation'
@@ -161,56 +160,6 @@ interface JwksReadContext {
   adapter: {
     findMany<T>(input: { model: string }): Promise<T[]>
   }
-}
-
-function publicJwksResponse(rows: Jwk[], method: string, now = Date.now()): Response {
-  const live = rows.filter((row) => {
-    if (row.expiresAt === null || row.expiresAt === undefined) return true
-    if (!(row.expiresAt instanceof Date) || !Number.isFinite(row.expiresAt.getTime())) {
-      throw new TypeError('AUTH_JWKS_EXPIRY_INVALID')
-    }
-    return row.expiresAt.getTime() + JWKS_GRACE_PERIOD_SECONDS * 1_000 > now
-  })
-  if (live.length === 0) {
-    return new Response(
-      method === 'HEAD'
-        ? null
-        : JSON.stringify({ code: 'SERVICE_UNAVAILABLE', message: 'Signing keys are not ready' }),
-      {
-        headers: {
-          'Cache-Control': 'private, no-store',
-          'Content-Type': 'application/json',
-        },
-        status: 503,
-      },
-    )
-  }
-
-  const keys = live.map((stored) => {
-    const row = sanitizeStoredJwk(stored)
-    if (
-      typeof row.id !== 'string' ||
-      row.id.length === 0 ||
-      row.id.length > 256 ||
-      /\p{C}/u.test(row.id) ||
-      row.alg !== 'RS256' ||
-      (row.crv !== null && row.crv !== undefined)
-    ) {
-      throw new Error('AUTH_JWKS_PUBLIC_KEY_INVALID')
-    }
-    return {
-      alg: 'RS256' as const,
-      ...(JSON.parse(row.publicKey) as Record<string, unknown>),
-      kid: row.id,
-    }
-  })
-  const headers = {
-    'Cache-Control': JWKS_CACHE_CONTROL,
-    'Content-Type': 'application/json',
-  }
-  return method === 'HEAD'
-    ? new Response(null, { headers, status: 200 })
-    : Response.json({ keys }, { headers })
 }
 
 const officialBearerBefore = bearer().hooks.before[0]!
@@ -892,7 +841,7 @@ export function convexAuth(options: ConvexAuthOptions): BetterAuthPlugin {
           const rows = await (context as unknown as JwksReadContext).adapter.findMany<Jwk>({
             model: 'jwks',
           })
-          return { response: publicJwksResponse(rows, request.method) }
+          return { response: createPublicJwksResponse(rows, request.method) }
         } catch {
           return {
             response: new Response(null, {

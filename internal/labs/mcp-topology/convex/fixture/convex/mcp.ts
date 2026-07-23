@@ -4,7 +4,7 @@ import {
   type McpAccessContext,
   type McpAccessVerifier,
 } from '@better-convex/mcp'
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server'
+import { ResourceTemplate, type McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 
 import { internal } from './_generated/api'
@@ -95,12 +95,8 @@ function createNotesServer(
   ctx: ActionCtx,
   principal: LabPrincipal,
   access: McpAccessContext,
-): McpServer {
-  const server = new McpServer({
-    name: 'better-convex-convex-topology-lab',
-    version: '0.0.0',
-  })
-
+  server: McpServer,
+): void {
   server.registerTool(
     'search_notes',
     {
@@ -263,8 +259,6 @@ function createNotesServer(
       ],
     }),
   )
-
-  return server
 }
 
 function createVerifier(resource: URL): McpAccessVerifier {
@@ -303,6 +297,10 @@ async function handleRequest(ctx: ActionCtx, request: Request): Promise<Response
   const resource = new URL('/mcp', request.url)
   const metadata = labOAuthMetadataOptions(resource)
   const handler = createConvexMcpHandler({
+    serverInfo: {
+      name: 'better-convex-convex-topology-lab',
+      version: '0.0.0',
+    },
     resource,
     verifier: createVerifier(resource),
     authorization: {
@@ -312,8 +310,8 @@ async function handleRequest(ctx: ActionCtx, request: Request): Promise<Response
       requiredScopes: ['notes:read'],
       scopesSupported: metadata.scopesSupported,
     },
-    createServer: (_context, access) =>
-      createNotesServer(ctx, Object.freeze({ subject: access.subject }), access),
+    configureServer: (_context, access, _request, server) =>
+      createNotesServer(ctx, Object.freeze({ subject: access.subject }), access, server),
   })
   const response = await handler.fetch(ctx, request)
   return new URL(request.url).pathname === '/mcp' && !request.headers.has('origin')

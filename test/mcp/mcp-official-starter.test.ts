@@ -18,6 +18,10 @@ describe('delegated OAuth starter official MCP composition', () => {
       },
     }
     const handler = createConvexMcpHandler<typeof application>({
+      serverInfo: {
+        name: 'better-convex-nuxt-mcp-oauth-agent',
+        version: '0.1.0',
+      },
       resource,
       authorization: { mode: 'preconfigured-bearer', issuer },
       verifier: {
@@ -36,14 +40,19 @@ describe('delegated OAuth starter official MCP composition', () => {
           }
         },
       },
-      createServer(context, access) {
-        return createDelegatedMcpServer(context as never, access, {
-          clientId: access.clientId,
-          resource: access.resource,
-          scopes: [...access.scopes],
-          sessionId: 'session-1',
-          subject: access.subject,
-        })
+      configureServer(context, access, _request, server) {
+        createDelegatedMcpServer(
+          context as never,
+          access,
+          {
+            clientId: access.clientId,
+            resource: access.resource,
+            scopes: [...access.scopes],
+            sessionId: 'session-1',
+            subject: access.subject,
+          },
+          server,
+        )
       },
     })
     const responseBodies: string[] = []

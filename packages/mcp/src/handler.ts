@@ -14,7 +14,6 @@ import {
   type McpRequestContext,
   type OAuthMetadata,
   type OAuthTokenVerifier,
-  type Server,
 } from '@modelcontextprotocol/server'
 
 import { verifyAndNormalizeMcpAccess } from './access.js'
@@ -32,6 +31,10 @@ export interface ConvexMcpRequestContext {
 }
 
 export interface ConvexMcpHandlerOptions<ActionContext> {
+  readonly serverInfo: {
+    readonly name: string
+    readonly version: string
+  }
   readonly resource: URL
   readonly verifier: McpAccessVerifier
   readonly authorization:
@@ -51,11 +54,12 @@ export interface ConvexMcpHandlerOptions<ActionContext> {
         readonly issuer: string
         readonly requiredScopes?: readonly string[]
       }
-  readonly createServer: (
+  readonly configureServer: (
     context: ActionContext,
     access: McpAccessContext,
     request: ConvexMcpRequestContext,
-  ) => McpServer | Server | Promise<McpServer | Server>
+    server: McpServer,
+  ) => void | Promise<void>
 }
 
 export interface ConvexMcpHandler<ActionContext> {
@@ -96,8 +100,11 @@ export function createConvexMcpHandler<ActionContext>(
           const boundedRequest = await prepareBoundedMcpRequest(request, signal)
           if (await containsStatefulMcpMethod(boundedRequest)) return emptyFailure(405)
           const handler = createMcpHandler(
-            async ({ era }) =>
-              hardenUnaryServer(await options.createServer(context, authenticated.access, { era })),
+            async ({ era }) => {
+              const server = new McpServer(options.serverInfo)
+              await options.configureServer(context, authenticated.access, { era }, server)
+              return hardenUnaryServer(server)
+            },
             {
               legacy: 'reject',
               responseMode: 'auto',
@@ -279,8 +286,8 @@ async function containsStatefulMcpMethod(request: Request): Promise<boolean> {
   }
 }
 
-function hardenUnaryServer(server: McpServer | Server): McpServer | Server {
-  const protocol = server instanceof McpServer ? server.server : server
+function hardenUnaryServer(server: McpServer): McpServer {
+  const protocol = server.server
   const capabilities = protocol.getCapabilities()
   const unsupported = Object.keys(capabilities).filter(
     (capability) => capability !== 'tools' && capability !== 'resources',

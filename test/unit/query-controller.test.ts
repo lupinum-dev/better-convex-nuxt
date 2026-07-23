@@ -137,7 +137,7 @@ describe('query controller', () => {
 
     state.active?.value({ owner: 'alice', count: 2 })
 
-    await expect(first).resolves.toEqual({ owner: 'alice', count: 2 })
+    await expect(first).resolves.toBeUndefined()
     expect(state.data).toEqual({ owner: 'alice', count: 2 })
     expect(controller.transformedData()).toBe('alice:2')
     expect(controller.defaultValue()).toEqual({ owner: 'alice', count: 2 })
@@ -246,7 +246,7 @@ describe('query controller', () => {
     controller.dispose()
     controller.dispose()
 
-    await expect(first).resolves.toBeNull()
+    await expect(first).resolves.toBeUndefined()
     expect(state.unsubscribes).toBe(1)
     expect(state.active).toBeUndefined()
     expect(controller.setupSubscription()).toBeNull()

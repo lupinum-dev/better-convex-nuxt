@@ -3,7 +3,6 @@ import {
   McpUiResourceMetaSchema,
   McpUiToolMetaSchema,
 } from '@modelcontextprotocol/ext-apps/app-bridge'
-import { McpServer } from '@modelcontextprotocol/server'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -98,6 +97,7 @@ function connectClient(
 
 function createHandler(appHtml: string, isRevoked: () => boolean, onSearch: () => void) {
   return createConvexMcpHandler<NeutralNotesApplication>({
+    serverInfo: { name: 'better-convex-apps-probe', version: '0.0.0' },
     resource: RESOURCE,
     authorization: { mode: 'preconfigured-bearer', issuer: ISSUER },
     verifier: {
@@ -117,8 +117,7 @@ function createHandler(appHtml: string, isRevoked: () => boolean, onSearch: () =
         }
       },
     },
-    createServer(application) {
-      const server = new McpServer({ name: 'better-convex-apps-probe', version: '0.0.0' })
+    configureServer(application, _access, _request, server) {
       server.registerTool(
         'search_notes',
         {
@@ -164,7 +163,6 @@ function createHandler(appHtml: string, isRevoked: () => boolean, onSearch: () =
           ],
         }),
       )
-      return server
     },
   })
 }

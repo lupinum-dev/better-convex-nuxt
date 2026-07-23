@@ -20,6 +20,7 @@ import { executeQueryHttp } from '../utils/query-execution'
 import { createQueryExecutionGate } from '../utils/query-execution-gate'
 import { createConvexQueryAuthContext } from '../utils/query-foundation'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
+import { computeSsrPaginationStatus } from '../utils/ssr-pagination-state'
 import { resolveConvexReactiveValue } from './useConvexQuery'
 
 export type ConvexPaginatedQuerySkip = 'skip'
@@ -218,18 +219,28 @@ export function createConvexPaginatedQueryState<
     const raw = typeof rawResults.value === 'function' ? rawResults.value() : rawResults.value
     return options?.transform ? options.transform(raw) : (raw as unknown as TransformedItem[])
   })
-  const error = computed(() => errors.value[key.value] ?? null)
+  const error = computed(
+    () =>
+      errors.value[key.value] ??
+      (gate.value.outcome === 'error'
+        ? (authContext.error.value ??
+          normalizeConvexError(new Error('Authentication failed before the query could execute')))
+        : null),
+  )
   const status = computed<PaginatedQueryStatus>(() =>
-    asyncData.pending.value
-      ? 'loading-first-page'
-      : asyncData.data.value?.isDone
-        ? 'exhausted'
-        : 'ready',
+    computeSsrPaginationStatus({
+      execution: gate.value.outcome,
+      hasError: error.value !== null,
+      pending: asyncData.pending.value,
+      hasPage: asyncData.data.value !== null,
+      hasInitialData: options?.initialData !== undefined,
+      isDone: asyncData.data.value?.isDone === true,
+    }),
   )
   const resultData: UseConvexPaginatedQueryData<TransformedItem> = {
     results,
     status,
-    isLoading: computed(() => asyncData.pending.value),
+    isLoading: computed(() => status.value === 'loading-first-page'),
     isStale: computed(() => false),
     hasNextPage: computed(() => Boolean(asyncData.data.value && !asyncData.data.value.isDone)),
     loadMore: () => {},

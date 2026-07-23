@@ -1,5 +1,4 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import { McpServer } from '@modelcontextprotocol/server'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
@@ -60,14 +59,11 @@ describe('MCP explicit Convex operation mapping', () => {
       },
     }
     const handler = createConvexMcpHandler<typeof application>({
+      serverInfo: { name: 'mapping-proof', version: '0.1.0' },
       resource,
       verifier,
       authorization: { mode: 'oauth', metadata: oauthMetadata },
-      createServer(context, access) {
-        const server = new McpServer({
-          name: 'mapping-proof',
-          version: '0.1.0',
-        })
+      configureServer(context, access, _request, server) {
         server.registerTool(
           'search_notes',
           {
@@ -102,7 +98,6 @@ describe('MCP explicit Convex operation mapping', () => {
             }
           },
         )
-        return server
       },
     })
     const transport = new StreamableHTTPClientTransport(resource, {

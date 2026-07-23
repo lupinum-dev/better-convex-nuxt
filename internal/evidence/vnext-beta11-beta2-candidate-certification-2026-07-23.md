@@ -14,11 +14,11 @@ No package was published and no tag or dist-tag moved.
 
 ## Immutable artifacts
 
-| Package | Version | SHA-256 | SRI |
-| --- | --- | --- | --- |
-| `better-convex-vue` | `0.8.0-beta.11` | `e2d1461220f3177fad022764605706983b7e368a0e31091b4a6e4cd1e8b5014a` | `sha512-KWmGzHUcqYCQJse4cpIc6iGr+LDfNRg6MR4DKkVtlO2WNscumJ7SL5dxMjgdO3JjxieojsSup75vKbDLd7OM1w==` |
+| Package              | Version         | SHA-256                                                            | SRI                                                                                               |
+| -------------------- | --------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `better-convex-vue`  | `0.8.0-beta.11` | `e2d1461220f3177fad022764605706983b7e368a0e31091b4a6e4cd1e8b5014a` | `sha512-KWmGzHUcqYCQJse4cpIc6iGr+LDfNRg6MR4DKkVtlO2WNscumJ7SL5dxMjgdO3JjxieojsSup75vKbDLd7OM1w==` |
 | `better-convex-nuxt` | `0.8.0-beta.11` | `a01651f5a2aad0087786ec981d18673a61d26133ba2b2cd32e0fc4ce7fd9b5d3` | `sha512-9+zc/3yMHRr0ShZ4A5e9nmy9NIsDeUhWXci4Hogm09ILIJ/zkGrg14FNc/PXJVUgLqVqGXbBg0ETzLp7rYdGYA==` |
-| `@better-convex/mcp` | `0.1.0-beta.2` | `531ccb6a54f81d07b7200bd4c8781b8ec430a2be1b7d5b6249d0c3de7615af10` | `sha512-QgW6eliYqtQbobgFOVWwbzkrpqQ2VSDAIG/SD8PCzjgD2K8Grxo7s511qDJ1LNf+/Ih1jIoBs0wjYfX5rY6ZEw==` |
+| `@better-convex/mcp` | `0.1.0-beta.2`  | `531ccb6a54f81d07b7200bd4c8781b8ec430a2be1b7d5b6249d0c3de7615af10` | `sha512-QgW6eliYqtQbobgFOVWwbzkrpqQ2VSDAIG/SD8PCzjgD2K8Grxo7s511qDJ1LNf+/Ih1jIoBs0wjYfX5rY6ZEw==` |
 
 The Nuxt runtime fingerprint is:
 

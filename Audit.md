@@ -948,3 +948,24 @@ Rejected remediation remains unchanged: do not delete all governance, weaken the
 relational background worker, create another lifecycle engine, or introduce a generic
 workflow/authorization product. Each accepted item is complete only after its stabilization task has an
 executed regression proof.
+
+## 18. Post-candidate thermo-review triage
+
+The beta.11/beta.2 candidate set was subjected to a separate multi-agent maintainability review before
+Ginko exact installation completed. Findings were reproduced against BCN `769d5b72`; implementation
+evidence is recorded in
+`internal/evidence/vnext-thermo-review-corrections-2026-07-23.md`.
+
+| ID     | Disposition                    | Re-verified conclusion                                                                                                 | Consequence                                                                |
+| ------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| TR-001 | **Accepted — Medium**          | Nuxt SSR pagination can report `ready` after skip/auth failure because status ignores the canonical execution gate.    | One reducer now binds gate, error, pending work, page and terminal state.  |
+| TR-002 | **Accepted — Medium**          | MCP accepts consumer-created SDK servers and uses `instanceof`; a second physical SDK copy breaks handler composition. | MCP now owns construction and exposes only `configureServer(..., server)`. |
+| TR-003 | **Accepted — Low**             | Query first-value control still uses `null`, although `null` is valid application data.                                | First-value settlement is now `Promise<void>`.                             |
+| TR-004 | **Accepted — maintainability** | Public JWKS projection duplicates signing-key constraints inside the 1,112-line auth plugin.                           | Projection moved beside canonical JWKS validation/rotation.                |
+| TR-005 | **Accepted — maintainability** | Relationship traversal is embedded in adapter mutations and repeatedly scans metadata.                                 | One construction-time relationship engine precomputes inbound references.  |
+| TR-006 | **Accepted — product truth**   | Ginko `mcp:false` removes the endpoint but Studio still constructs credential reads.                                   | Disabled Studio skips reads and rejects credential changes.                |
+| TR-007 | **Rejected**                   | A normal query returning `null` was claimed to become `idle`.                                                          | The settled query reducer reports success independently of result value.   |
+| TR-008 | **Accepted — evidence state**  | The ledger still treated beta.11/beta.2 exact integration as current after the new defects were found.                 | Those immutable coordinates are superseded; fresh candidates are required. |
+
+No Critical or High protected effect was introduced by these candidates. TR-001 and TR-002 prevent
+R0 re-entry until fresh exact artifacts and Ginko integration repeat the corrected proofs.

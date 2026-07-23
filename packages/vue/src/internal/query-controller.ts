@@ -68,7 +68,7 @@ export interface QueryController<RawT, DataT> {
   setOperationError(error: unknown, operation: QueryOperationContext): ConvexCallError | null
   setupSubscription(): QueryOperationContext | null
   teardownSubscription(): void
-  firstValue(): Promise<RawT | null> | null
+  firstValue(): Promise<void> | null
   hasData(): boolean
   defaultValue(): RawT | null
   transformedData(): DataT | null
@@ -89,9 +89,9 @@ export interface QueryController<RawT, DataT> {
   dispose(): void
 }
 
-interface FirstValue<RawT> {
-  promise: Promise<RawT | null>
-  resolve(value: RawT | null): void
+interface FirstValue {
+  promise: Promise<void>
+  resolve(): void
   reject(error: unknown): void
 }
 
@@ -99,10 +99,10 @@ function sameTag(a: QueryIsolationTag, b: QueryIsolationTag): boolean {
   return a.identityKey === b.identityKey && a.identityGeneration === b.identityGeneration
 }
 
-function deferred<RawT>(): FirstValue<RawT> {
-  let resolve!: (value: RawT | null) => void
+function deferred(): FirstValue {
+  let resolve!: () => void
   let reject!: (error: unknown) => void
-  const promise = new Promise<RawT | null>((resolvePromise, rejectPromise) => {
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise
     reject = rejectPromise
   })
@@ -127,7 +127,7 @@ export function createQueryController<RawT, DataT = RawT>(
   let operationRevision = 0
   let unsubscribe: (() => void) | null = null
   let subscribedKey: string | null = null
-  let pendingFirstValue: FirstValue<RawT> | null = null
+  let pendingFirstValue: FirstValue | null = null
   let disposed = false
 
   function beginOperation(): QueryOperationContext {
@@ -163,7 +163,7 @@ export function createQueryController<RawT, DataT = RawT>(
     const previousKey = subscribedKey
     unsubscribe?.()
     unsubscribe = null
-    pendingFirstValue?.resolve(null)
+    pendingFirstValue?.resolve()
     pendingFirstValue = null
     subscribedKey = null
     if (previousKey) input.events?.onRemove?.(previousKey)
@@ -193,7 +193,7 @@ export function createQueryController<RawT, DataT = RawT>(
 
     const operation = beginOperation()
     subscribedKey = key
-    pendingFirstValue ??= deferred<RawT>()
+    pendingFirstValue ??= deferred()
     unsubscribe = client.onUpdate(
       input.query,
       args,
@@ -205,7 +205,7 @@ export function createQueryController<RawT, DataT = RawT>(
         commitSettled(value, operation)
         const firstValue = pendingFirstValue
         pendingFirstValue = null
-        firstValue?.resolve(value)
+        firstValue?.resolve()
         input.events?.onUpdate?.({ key, args, value })
       },
       (error) => {

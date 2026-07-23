@@ -1,5 +1,4 @@
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
-import { McpServer } from '@modelcontextprotocol/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -57,14 +56,11 @@ describe('MCP credential passthrough absence', () => {
     const responseBodies: string[] = []
     const callbackHeaders: Headers[] = []
     const handler = createConvexMcpHandler({
+      serverInfo: { name: 'absence-proof', version: '0.1.0' },
       resource,
       verifier,
       authorization: { mode: 'oauth', metadata: oauthMetadata },
-      createServer(_context, access) {
-        const server = new McpServer({
-          name: 'absence-proof',
-          version: '0.1.0',
-        })
+      configureServer(_context, access, _request, server) {
         server.registerTool(
           'search_notes',
           {
@@ -104,7 +100,6 @@ describe('MCP credential passthrough absence', () => {
             )
           },
         )
-        return server
       },
     })
     const transport = new StreamableHTTPClientTransport(resource, {
