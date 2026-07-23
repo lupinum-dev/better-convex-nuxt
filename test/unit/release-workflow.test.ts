@@ -17,37 +17,43 @@ describe('trusted prerelease workflow', () => {
   const candidateApps = read('scripts/check-candidate-apps.mjs')
   const candidateProfiles = read('scripts/maintained-candidate-apps.mjs')
   const artifactCoordinateCli = read('scripts/print-package-artifact-coordinates.mjs')
+  const candidateSetCoordinateCli = read('scripts/print-candidate-set-coordinates.mjs')
+  const registryComparator = read('scripts/compare-registry-package.mjs')
+  const registryVueConsumer = read('scripts/check-nuxt-registry-vue-consumer.mjs')
   const releaseBuilder = read('scripts/release.mjs')
   const releaseVerify = read('scripts/verify-release.mjs')
 
-  it('builds one artifact and passes the same bytes through verification and publication', () => {
-    expect(workflow.match(/pnpm release:artifact/g)).toHaveLength(1)
-    expect(workflow.match(/print-package-artifact-coordinates\.mjs --package nuxt/g)).toHaveLength(
-      4,
-    )
+  it('builds the closed candidate set and separate MCP artifact exactly once', () => {
+    expect(workflow.match(/pnpm release:artifact:set/g)).toHaveLength(1)
+    expect(workflow.match(/release\.mjs artifact --package mcp/g)).toHaveLength(1)
     expect(
-      workflow.match(/name: \$\{\{ steps\.artifact\.outputs\.artifact_name \}\}/g),
-    ).toHaveLength(4)
-    expect(workflow).toContain('path: ${{ steps.artifact.outputs.directory }}/')
-    expect(workflow.match(/path: \$\{\{ steps\.artifact\.outputs\.directory \}\}/g)).toHaveLength(4)
-    expect(workflow.match(/path: \$\{\{ steps\.artifact\.outputs\.directory \}\}\//g)).toHaveLength(
-      1,
-    )
+      workflow.match(/name: \$\{\{ steps\.candidate_set\.outputs\.artifact_name \}\}/g),
+    ).toHaveLength(6)
+    expect(workflow.match(/name: \$\{\{ steps\.mcp\.outputs\.artifact_name \}\}/g)).toHaveLength(3)
+    expect(workflow).toContain('${{ steps.candidate_set.outputs.vue_directory }}/')
+    expect(workflow).toContain('${{ steps.candidate_set.outputs.nuxt_directory }}/')
+    expect(workflow).toContain('${{ steps.candidate_set.outputs.set_directory }}/')
     expect(workflow.match(/path: \.release-artifacts\//g)).toHaveLength(1)
     expect(workflow).toContain('path: .release-artifacts/bcn-auth-staging.report.json')
-    expect(workflow.match(/include-hidden-files: true/g)).toHaveLength(2)
+    expect(workflow.match(/include-hidden-files: true/g)).toHaveLength(3)
     expect(workflow.slice(0, workflow.indexOf('  release-security:'))).toContain('fetch-depth: 0')
-    expect(workflow).toContain('pnpm release:verify --artifact-manifest')
-    expect(workflow.match(/node scripts\/release\.mjs verify/g)).toHaveLength(1)
-    expect(workflow).toContain('cmp --silent')
+    expect(workflow).toContain('pnpm release:verify:set')
+    expect(workflow).toContain('--package vue\n          --artifact-manifest')
+    expect(workflow).toContain('--package nuxt\n          --artifact-manifest')
+    expect(workflow).toContain('pnpm release:verify\n          --package mcp')
+    expect(workflow.match(/node scripts\/release\.mjs verify/g)).toHaveLength(2)
     expect(artifactCoordinateCli).toContain('getPackageArtifactCoordinates(arguments_[1])')
     expect(artifactCoordinateCli).toContain(
       'artifact_name: `release-candidate-${coordinates.packageId}`',
     )
     expect(artifactCoordinateCli).toContain('directory: coordinates.relativeDirectory')
     expect(artifactCoordinateCli).toContain('tarball: coordinates.relativePaths.tarball')
-    expect(workflow).toContain('npm pack "$PACKAGE_NAME@$VERSION"')
-    expect(workflow).toContain('"$RUNNER_TEMP/registry/$TARBALL_FILENAME"')
+    expect(candidateSetCoordinateCli).toContain("artifact_name: 'release-candidate-vue-nuxt-set'")
+    expect(candidateSetCoordinateCli).toContain('candidateSetPackageIds.map')
+    expect(registryComparator).toContain('readFileSync(registryTarball).equals(')
+    expect(registryComparator).toContain('readFileSync(coordinates.paths.tarball)')
+    expect(registryVueConsumer).toContain('assertCandidateSetManifest')
+    expect(registryVueConsumer).toContain('https://registry.npmjs.org/')
     expect(workflow).not.toContain('`v${pkg.version}.artifact.json`')
     expect(workflow).not.toContain('`${pkg.name}-${pkg.version}.tgz`')
     expect(workflow).not.toContain('value.tarball.file')
@@ -71,7 +77,7 @@ describe('trusted prerelease workflow', () => {
   it('does not transfer an artifact into the source-only security job', () => {
     const releaseSecurityJob = workflow.slice(
       workflow.indexOf('  release-security:'),
-      workflow.indexOf('  verify-artifact:'),
+      workflow.indexOf('  verify-candidates:'),
     )
 
     expect(releaseSecurityJob).not.toContain('actions/download-artifact')
@@ -144,7 +150,7 @@ describe('trusted prerelease workflow', () => {
   it('uses exact release tooling and commit-pinned artifact actions', () => {
     expect(workflow).toContain("RELEASE_NODE_VERSION: '22.14.0'")
     expect(workflow).toContain("RELEASE_NPM_VERSION: '11.5.1'")
-    expect(workflow.match(/corepack@0\.34\.5 && corepack enable/g)).toHaveLength(4)
+    expect(workflow.match(/corepack@0\.34\.5 && corepack enable/g)).toHaveLength(7)
     expect(workflow).toContain('actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a')
     expect(workflow).toContain('actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c')
     expect(workflow).not.toMatch(/uses:\s+\S+@v\d/u)
@@ -169,7 +175,7 @@ describe('trusted prerelease workflow', () => {
 
   it('gates the artifact verification chain on release-ref secret and CodeQL scans', () => {
     expect(workflow).toContain('release-security:')
-    expect(workflow).toContain('needs: [build-artifact, release-security]')
+    expect(workflow).toContain('needs: [build-candidates, release-security]')
     expect(workflow).toContain(
       'trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55',
     )
@@ -180,25 +186,55 @@ describe('trusted prerelease workflow', () => {
     expect(workflow.match(/security-events: write/g)).toHaveLength(1)
   })
 
-  it('limits OIDC publication authority to the protected publish job', () => {
-    const publishJob = workflow.slice(workflow.indexOf('  publish:'))
-    expect(workflow.match(/id-token: write/g)).toHaveLength(1)
-    expect(workflow).toContain('environment: npm-release')
-    expect(workflow).toContain('npm publish "${{ steps.artifact.outputs.tarball }}"')
-    expect(workflow).toContain("NPM_CONFIG_PROVENANCE: 'true'")
+  it('publishes in dependency order under a non-default staging tag and stops before promotion', () => {
+    expect(workflow.match(/id-token: write/g)).toHaveLength(3)
+    expect(workflow.match(/environment: npm-release/g)).toHaveLength(3)
+    expect(workflow.match(/--tag "\$BCN_STAGING_DIST_TAG"/g)).toHaveLength(3)
+    expect(workflow.match(/NPM_CONFIG_PROVENANCE: 'true'/g)).toHaveLength(3)
+    expect(workflow).toContain("BCN_STAGING_DIST_TAG: 'next-staging'")
+    expect(workflow).toContain('needs: publish-vue-staging')
+    expect(workflow).toContain('needs: registry-vue-nuxt-gate')
+    expect(workflow).toContain('needs: publish-nuxt-staging')
+    expect(workflow).toContain('check-nuxt-registry-vue-consumer.mjs')
+    expect(workflow.match(/compare-registry-package\.mjs --package/g)).toHaveLength(3)
+    expect(workflow).toContain('trusted-publishing OIDC cannot mutate dist-tags')
+    expect(workflow).not.toContain('npm dist-tag')
+    expect(workflow).not.toContain('--tag latest')
+    expect(workflow).not.toContain('--tag next\n')
     expect(workflow).not.toContain('NODE_AUTH_TOKEN')
     expect(workflow).not.toContain('NPM_TOKEN')
     expect(workflow).not.toContain('npm-token')
-    expect(publishJob.indexOf('pnpm install --frozen-lockfile')).toBeLessThan(
-      publishJob.indexOf('node scripts/release.mjs verify'),
+  })
+
+  it('rejects path-selected registry verification before making a network request', () => {
+    const registryConsumerRejected = spawnSync(
+      process.execPath,
+      [
+        'scripts/check-nuxt-registry-vue-consumer.mjs',
+        '--artifact-set',
+        '../unreviewed/artifact-set.json',
+      ],
+      { cwd: root, encoding: 'utf8' },
     )
+    expect(registryConsumerRejected.status).toBe(1)
+    expect(registryConsumerRejected.stderr).toContain(
+      'Candidate-set manifest is not at the reviewed artifact coordinate',
+    )
+
+    const comparatorRejected = spawnSync(
+      process.execPath,
+      ['scripts/compare-registry-package.mjs', '--package', 'unreviewed'],
+      { cwd: root, encoding: 'utf8' },
+    )
+    expect(comparatorRejected.status).toBe(1)
+    expect(comparatorRejected.stderr).toContain('Unknown package certification descriptor')
   })
 
   it('blocks publication on the protected named cloud-staging report', () => {
     expect(workflow).toContain('bcn-auth-staging:')
     expect(workflow).toContain('environment: bcn-auth-staging')
     expect(workflow).toContain('group: bcn-auth-staging')
-    expect(workflow).toContain('needs: [verify-artifact, bcn-auth-staging]')
+    expect(workflow).toContain('needs: [verify-candidates, bcn-auth-staging]')
     expect(workflow).toContain('pnpm test:auth-cloud-staging')
     expect(workflow).not.toContain('pnpm test:auth-cloud-staging --\n')
     expect(workflow).toContain(

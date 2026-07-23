@@ -483,6 +483,18 @@ describe('Better Convex Nuxt auth component adapter invariants', () => {
   it('uses the ordered session compound index without changing filter semantics', async () => {
     const t = initAuthTest()
     const now = Date.now()
+    await createUser(t, {
+      id: 'user_a',
+      name: 'User A',
+      email: 'user-a@example.com',
+      createdAt: now,
+    })
+    await createUser(t, {
+      id: 'user_b',
+      name: 'User B',
+      email: 'user-b@example.com',
+      createdAt: now,
+    })
     for (const [id, userId, expiresAt] of [
       ['session_a', 'user_a', now + 1_000],
       ['session_b', 'user_a', now + 2_000],

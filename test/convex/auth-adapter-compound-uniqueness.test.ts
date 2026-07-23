@@ -30,9 +30,47 @@ async function createAuthRow(
   return await test.mutation(auth.create, { model, data })
 }
 
+async function createUser(test: ReturnType<typeof initCompoundUniqueTest>, id: string) {
+  await createAuthRow(test, 'user', {
+    id,
+    name: id,
+    email: `${id}@example.com`,
+    emailVerified: true,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+async function createOrganization(test: ReturnType<typeof initCompoundUniqueTest>, id: string) {
+  await createAuthRow(test, 'organization', {
+    id,
+    name: id,
+    slug: id,
+    createdAt: now,
+  })
+}
+
+async function createTeam(
+  test: ReturnType<typeof initCompoundUniqueTest>,
+  id: string,
+  organizationId: string,
+) {
+  await createAuthRow(test, 'team', {
+    id,
+    name: id,
+    memberCount: 0,
+    organizationId,
+    createdAt: now,
+  })
+}
+
 describe('Better Auth adapter compound uniqueness', () => {
   it('rejects duplicate account, organization-member, and team-member identities', async () => {
     const test = initCompoundUniqueTest()
+    await createUser(test, 'user_one')
+    await createUser(test, 'user_two')
+    await createOrganization(test, 'organization_one')
+    await createTeam(test, 'team_one', 'organization_one')
 
     await createAuthRow(test, 'account', {
       id: 'account_one',
@@ -94,6 +132,12 @@ describe('Better Auth adapter compound uniqueness', () => {
 
   it('allows multiple null values for nullable unique fields', async () => {
     const test = initCompoundUniqueTest()
+    await createUser(test, 'user_one')
+    await createUser(test, 'user_two')
+    await createOrganization(test, 'organization_one')
+    await createOrganization(test, 'organization_two')
+    await createTeam(test, 'team_one', 'organization_one')
+    await createTeam(test, 'team_two', 'organization_two')
 
     await createAuthRow(test, 'teamMember', {
       id: 'team_member_null_one',
@@ -111,6 +155,10 @@ describe('Better Auth adapter compound uniqueness', () => {
 
   it('checks merged update candidates and rolls back conflicting bulk updates', async () => {
     const test = initCompoundUniqueTest()
+    await createUser(test, 'user_shared')
+    await createOrganization(test, 'organization_one')
+    await createOrganization(test, 'organization_two')
+    await createOrganization(test, 'organization_three')
 
     await createAuthRow(test, 'member', {
       id: 'member_update_one',

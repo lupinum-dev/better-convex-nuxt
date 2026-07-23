@@ -103,29 +103,41 @@ Local artifacts are disposable rehearsal outputs. Do not upload one to npm.
 ## Trusted prerelease workflow
 
 The protected `v*-*` tag must point at the reviewed commit and exactly match the
-prerelease version in `package.json`. The workflow then:
+prerelease version in the root `package.json`. The workflow then:
 
 1. requires distinct named Security Owner/deputy repository variables and a
    notification-delivery test no older than 30 days;
 2. uses Node `22.14.0`, npm `11.5.1`, a frozen pnpm lock, and commit-pinned
    GitHub Actions;
-3. builds and packs one artifact set without lifecycle scripts rerunning the
-   build;
-4. passes that immutable set to a separate job, installs the manifest-reviewed
-   local backend there, runs source-integrity/runtime gates from the checkout,
-   and runs artifact-dependent provenance, package-entry, and maintained
-   clean-consumer gates against the exact tarball;
+3. builds and packs the statically reviewed Vue/Nuxt candidate set once and the
+   statically reviewed MCP candidate once, without accepting package paths or
+   release profiles from workflow input;
+4. passes those immutable artifacts to a separate job, installs the
+   manifest-reviewed local backend there, runs source-integrity/runtime gates
+   from the checkout, and runs artifact-dependent provenance, package-entry,
+   and maintained clean-consumer gates against the exact tarballs;
 5. enters the protected `bcn-auth-staging` environment, reverifies the
-   downloaded artifact, proves the staging ingress is closed to unleased
+   downloaded Nuxt set, proves the staging ingress is closed to unleased
    traffic, requires its fingerprint from the already-deployed public Nuxt
    origin and the real auth/MCP responses, clean-installs and deploys its Convex
    fixture, proves zero persisted staging state, and runs the reduced critical
    races;
 6. waits for approval in the protected `npm-release` environment;
-7. grants `id-token: write` only to the publish job and publishes the tested
-   tarball through npm OIDC under `next`;
-8. downloads the published package and compares its bytes with the tested
-   tarball.
+7. grants `id-token: write` only to protected publication jobs, publishes Vue
+   through npm OIDC under `next-staging`, and byte-compares the registry
+   tarball;
+8. installs the unchanged Nuxt candidate in a tracked production npm consumer
+   against that exact registry Vue version, verifies lock provenance and both
+   installed byte trees, then publishes and compares Nuxt;
+9. publishes and compares MCP through its separate static lane;
+10. stops before changing `latest`, `next`, or another shared user-facing
+    dist-tag.
+
+npm trusted-publishing OIDC authenticates `npm publish` and
+`npm stage publish`, not `npm dist-tag`. Shared tag promotion is therefore a
+separate interactive maintainer action after the complete staged-tag set has
+matching registry bytes. Do not add a long-lived automation token to collapse
+that authority boundary.
 
 ### Protected cloud-staging gate
 

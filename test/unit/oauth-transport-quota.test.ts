@@ -201,7 +201,7 @@ describe('real OAuth transport quota evidence', () => {
         end: '  bcn-auth-staging:',
         path: '.github/workflows/publish-prerelease.yml',
         run: 'pnpm release:verify',
-        start: '  verify-artifact:',
+        start: '  verify-candidates:',
       },
     ]
     for (const job of workflowJobs) {

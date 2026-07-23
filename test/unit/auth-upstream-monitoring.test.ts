@@ -163,6 +163,7 @@ describe('auth upstream monitoring', () => {
     expect(securityWorkflow).toContain('pnpm check:auth-upstream')
     expect(packageJson.scripts['verify:auth']).toContain('pnpm check:auth-upstream')
     expect(releaseVerifier).toContain("['run', 'verify:auth']")
-    expect(publishWorkflow).toContain('pnpm release:verify --artifact-manifest')
+    expect(publishWorkflow).toContain('pnpm release:verify:set')
+    expect(publishWorkflow).toContain('pnpm release:verify\n          --package mcp')
   })
 })

@@ -1,6 +1,7 @@
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -36,7 +37,9 @@ function createRepository(version = '0.8.0-beta.0') {
     `${JSON.stringify({ name: 'better-convex-vue', version })}\n`,
   )
   for (const packageId of ['vue', 'nuxt'] as const) {
-    const coordinates = getPackageArtifactCoordinates(packageId, { repositoryRoot: root })
+    const coordinates = getPackageArtifactCoordinates(packageId, {
+      repositoryRoot: root,
+    })
     const evidencePath = coordinates.paths.evidence
     if (!evidencePath) throw new Error(`Missing ${packageId} evidence coordinate`)
     mkdirSync(dirname(evidencePath), { recursive: true })
@@ -79,6 +82,28 @@ function createRepository(version = '0.8.0-beta.0') {
 }
 
 describe('package candidate set', () => {
+  it('prints only the closed artifact root and reviewed Vue/Nuxt coordinates', () => {
+    const result = spawnSync(process.execPath, ['scripts/print-candidate-set-coordinates.mjs'], {
+      cwd: resolve(import.meta.dirname, '../..'),
+      encoding: 'utf8',
+    })
+
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('artifact_name=release-candidate-vue-nuxt-set\n')
+    expect(result.stdout).toContain('directory=.release-artifacts\n')
+    expect(result.stdout).toContain('vue_directory=.release-artifacts/vue/')
+    expect(result.stdout).toContain('nuxt_directory=.release-artifacts/nuxt/')
+    expect(result.stdout).toContain('set_directory=.release-artifacts/set/')
+
+    const rejected = spawnSync(
+      process.execPath,
+      ['scripts/print-candidate-set-coordinates.mjs', '--path', '../unreviewed'],
+      { cwd: resolve(import.meta.dirname, '../..'), encoding: 'utf8' },
+    )
+    expect(rejected.status).toBe(1)
+    expect(rejected.stderr).toContain('Usage: print-candidate-set-coordinates')
+  })
+
   it('binds the fixed Vue-first pair to one commit, version, and package manager', () => {
     const root = createRepository()
     const evidence = createCandidateSetEvidence(root)
