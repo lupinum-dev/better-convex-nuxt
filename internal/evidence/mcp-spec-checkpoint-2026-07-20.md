@@ -179,3 +179,43 @@ gh api 'repos/modelcontextprotocol/ext-apps/releases?per_page=10'
 gh api repos/modelcontextprotocol/ext-auth/contents/specification
 gh api repos/modelcontextprotocol/ext-tasks/contents/README.md
 ```
+
+## Authority recheck — 2026-07-24
+
+This checkpoint was repeated before starting any final-protocol or stable Apps work.
+
+- The latest published specification release is still `2025-11-25`, published on 2025-11-25. The
+  official release-candidate announcement still schedules the final `2026-07-28` specification for
+  2026-07-28.
+- The latest split TypeScript SDK remains the prerelease
+  `@modelcontextprotocol/server@2.0.0-beta.5` /
+  `@modelcontextprotocol/client@2.0.0-beta.5`. No stable v2 release exists.
+- The latest official conformance package remains `0.1.16`; its published server scenarios do not
+  certify the stateless release candidate. Inspector `1.0.0` remains latest.
+- `@modelcontextprotocol/ext-apps@1.7.5` was published on 2026-07-23. Its exact
+  [`v1.7.4...v1.7.5`](https://github.com/modelcontextprotocol/ext-apps/compare/v1.7.4...v1.7.5)
+  runtime diff adds capability/schema fields but does not change the `App` implementation or provide
+  control over its unconditional browser logging. The release's dependency-security change is a
+  development-only `sharp` bump; the repository's production advisory gate reports zero active
+  exceptions.
+
+Therefore:
+
+1. `EXT-003` remains a real authority gate; `P1-015` and the final interaction surface must not be
+   represented as complete four days early.
+2. `EXT-006` also remains open. Updating Apps from `1.7.4` to `1.7.5` would not satisfy the missing
+   logging-control or real-host evidence, so the exact certified candidate is not churned without a
+   protected invariant benefit.
+3. The next safe product action remains final-spec reconciliation after actual publication. No
+   compatibility parser, provisional URL-interaction API, or console shim is admitted.
+
+Additional exact commands:
+
+```text
+gh api repos/modelcontextprotocol/modelcontextprotocol/releases/latest
+gh api 'repos/modelcontextprotocol/typescript-sdk/releases?per_page=10'
+gh api repos/modelcontextprotocol/ext-apps/releases/tags/v1.7.5
+gh api repos/modelcontextprotocol/ext-apps/compare/v1.7.4...v1.7.5
+pnpm view @modelcontextprotocol/server versions --json
+pnpm view @modelcontextprotocol/client versions --json
+```
