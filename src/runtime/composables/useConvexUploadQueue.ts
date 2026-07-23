@@ -19,7 +19,7 @@ import { getFunctionName } from '../utils/convex-shared'
 import { createIdentityChangedError, isIdentityChangedError } from '../utils/identity-changed-error'
 import { createLogger } from '../utils/logger'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
-import { uploadFileViaXhr, requestUploadUrl } from '../utils/upload-core'
+import { executeFileUpload, isUploadAbortError } from '../utils/upload-core'
 import {
   computeUploadQueueAggregateProgress,
   countUploadQueueItems,
@@ -92,10 +92,6 @@ function createDeferred<T>(): Deferred<T> {
     reject = rej
   })
   return { promise, resolve, reject }
-}
-
-function isUploadAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export function useConvexUploadQueue<Mutation extends FunctionReference<'mutation'>>(
@@ -257,25 +253,24 @@ export function useConvexUploadQueue<Mutation extends FunctionReference<'mutatio
         return
       }
 
-      const postUrl = await requestUploadUrl(
+      const storageId = await executeFileUpload(
         client,
         generateUploadUrlMutation,
         (item.mutationArgs ?? {}) as MutationArgs,
-      )
-
-      requireCurrentItem()
-      const storageId = await uploadFileViaXhr(postUrl, item.file, {
-        signal: controller.signal,
-        onProgress: (progressInfo) => {
-          if (!isCurrentItem()) return
-          mutateItem(itemId, (current) => ({
-            ...current,
-            progress: progressInfo.percent,
-            loadedBytes: progressInfo.loaded,
-            totalBytes: progressInfo.total > 0 ? progressInfo.total : current.totalBytes,
-          }))
+        item.file,
+        {
+          signal: controller.signal,
+          onProgress: (progressInfo) => {
+            if (!isCurrentItem()) return
+            mutateItem(itemId, (current) => ({
+              ...current,
+              progress: progressInfo.percent,
+              loadedBytes: progressInfo.loaded,
+              totalBytes: progressInfo.total > 0 ? progressInfo.total : current.totalBytes,
+            }))
+          },
         },
-      })
+      )
 
       // The upload is complete before success becomes observable. Keep the
       // deferred live until publication so an identity change or reset can still

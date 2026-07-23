@@ -18,6 +18,12 @@ function createAbortError(): Error {
   return new DOMException('Upload cancelled', 'AbortError')
 }
 
+export function isUploadAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+  )
+}
+
 // The XHR upload endpoint is a library-owned HTTP boundary (architecture invariant): it
 // knows the source, so it constructs `transport` errors directly. Network
 // failures, unexpected upstream statuses, and unusable/malformed responses are
@@ -51,6 +57,31 @@ export async function requestUploadUrl<Mutation extends FunctionReference<'mutat
     throw new TypeError('generateUploadUrl mutation must return a string URL')
   }
   return postUrl
+}
+
+export async function executeFileUpload<Mutation extends FunctionReference<'mutation'>>(
+  client: Pick<ConvexClient, 'mutation'> | null,
+  mutation: Mutation,
+  mutationArgs: FunctionArgs<Mutation>,
+  file: File,
+  options?: UploadFileViaXhrOptions,
+): Promise<string> {
+  const signal = options?.signal
+  let rejectAbort: ((reason: unknown) => void) | null = null
+  const aborted = new Promise<never>((_, reject) => {
+    rejectAbort = reject
+  })
+  const onAbort = () => rejectAbort?.(signal?.reason ?? createAbortError())
+
+  if (signal?.aborted) throw signal.reason ?? createAbortError()
+  signal?.addEventListener('abort', onAbort, { once: true })
+
+  try {
+    const postUrl = await Promise.race([requestUploadUrl(client, mutation, mutationArgs), aborted])
+    return await uploadFileViaXhr(postUrl, file, options)
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
+  }
 }
 
 export function uploadFileViaXhr(

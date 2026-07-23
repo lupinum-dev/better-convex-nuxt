@@ -17,7 +17,11 @@ import { createIdentityChangedError, isIdentityChangedError } from '../utils/ide
 import { createLogger } from '../utils/logger'
 import { isFileTypeAllowed } from '../utils/mime-type'
 import { getConvexRuntimeConfig } from '../utils/runtime-config'
-import { requestUploadUrl, uploadFileViaXhr, type UploadProgressInfo } from '../utils/upload-core'
+import {
+  executeFileUpload,
+  isUploadAbortError,
+  type UploadProgressInfo,
+} from '../utils/upload-core'
 
 export type { UploadProgressInfo } from '../utils/upload-core'
 
@@ -391,36 +395,24 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         })
       }
 
-      // Step 1: Get an upload URL through the stable owner handle.
-      const cancelled = new Promise<never>((_, reject) => {
-        attempt.signal.addEventListener('abort', () => reject(attempt.signal.reason), {
-          once: true,
-        })
-      })
-      const postUrl = await Promise.race([
-        requestUploadUrl(
-          attachment.client,
-          generateUploadUrlMutation,
-          (mutationArgs ?? {}) as FunctionArgs<Mutation>,
-        ),
-        cancelled,
-      ])
-
-      requireCurrentUpload()
-
-      // Step 2: Upload file via XHR for progress tracking
-      const storageId = await uploadFileViaXhr(postUrl, file, {
-        signal: attempt.signal,
-        onProgress: (info) => {
-          if (!isCurrentUpload()) return
-          viewState.value = {
-            ...viewState.value,
-            progress: info.percent,
-          }
-          if (!isCurrentUpload()) return
-          options?.onProgress?.(info, file)
+      const storageId = await executeFileUpload(
+        attachment.client,
+        generateUploadUrlMutation,
+        (mutationArgs ?? {}) as FunctionArgs<Mutation>,
+        file,
+        {
+          signal: attempt.signal,
+          onProgress: (info) => {
+            if (!isCurrentUpload()) return
+            viewState.value = {
+              ...viewState.value,
+              progress: info.percent,
+            }
+            if (!isCurrentUpload()) return
+            options?.onProgress?.(info, file)
+          },
         },
-      })
+      )
 
       requireCurrentUpload()
       publishTerminalState({
@@ -449,12 +441,10 @@ export function useConvexFileUpload<Mutation extends FunctionReference<'mutation
         throw isIdentityChangedError(e) ? e : createIdentityChangedError('upload')
       }
       if (currentAttempt !== attempt) {
-        throw e instanceof DOMException && e.name === 'AbortError'
-          ? e
-          : new DOMException('Upload cancelled', 'AbortError')
+        throw isUploadAbortError(e) ? e : new DOMException('Upload cancelled', 'AbortError')
       }
       // Don't set error state for user-initiated cancellation
-      if (e instanceof DOMException && e.name === 'AbortError') {
+      if (isUploadAbortError(e)) {
         throw e
       }
 
