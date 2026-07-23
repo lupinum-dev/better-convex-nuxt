@@ -34,7 +34,10 @@ const stats: Omit<MockStats, 'activeSubscriptions'> = {
 const subscriptions: MockSubscription[] = []
 let nextSubscriptionId = 1
 let currentAuthChange: ((authenticated: boolean) => void) | null = null
-let nextFailure: { operation: 'query' | 'mutation' | 'action'; error: unknown } | null = null
+let nextFailure: {
+  operation: 'query' | 'mutation' | 'action'
+  error: unknown
+} | null = null
 let deferredMutation:
   | {
       resolve(value: unknown): void
@@ -211,5 +214,19 @@ export class ConvexClient {
   async close(): Promise<void> {
     stats.closed += 1
     for (const subscription of subscriptions) subscription.active = false
+  }
+}
+
+/**
+ * Preserve the complete `convex/browser` export shape used by the packed Nuxt
+ * runtime. The lifecycle fixture disables SSR queries, so this client must
+ * remain uninstantiated; throwing makes an accidental server execution visible
+ * instead of silently turning the browser mock into a second SSR protocol.
+ */
+export class ConvexHttpClient {
+  setAuth(_token: string): void {}
+
+  async query(): Promise<never> {
+    throw new Error('The browser lifecycle fixture must not execute SSR queries')
   }
 }

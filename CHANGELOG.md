@@ -16,7 +16,7 @@
   transport to bounded unary tools/resources, and require live Better Auth
   authority validation.
 
-## v0.8.0-beta.9
+## v0.8.0-beta.10
 
 - Add the optional `better-convex-vue/mcp-app` lifecycle entry on the exact
   official MCP Apps SDK without pulling MCP dependencies into ordinary Vue.
@@ -26,6 +26,9 @@
 - Repair identity-generation dispatch fencing, authentication coordination,
   query/pagination state, official-client SSR, Better Auth relationship
   semantics, read-only JWKS discovery, and raw-cause containment.
+- Certify the packed Nuxt lifecycle with a complete `convex/browser` fixture
+  surface after the beta.9 candidate correctly failed its production bundle
+  gate.
 
 ## v0.8.0-beta.4
 
