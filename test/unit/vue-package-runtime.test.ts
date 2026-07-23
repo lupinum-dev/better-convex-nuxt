@@ -5,7 +5,7 @@ import {
   type PaginationResult,
 } from 'convex/server'
 import { describe, expect, it, vi } from 'vitest'
-import { createApp, effectScope } from 'vue'
+import { createApp, effectScope, ref } from 'vue'
 
 import {
   createBetterConvex,
@@ -19,7 +19,7 @@ import { createBetterConvexAttachment } from '../../packages/vue/src/embedded'
 import { normalizeConvexError } from '../../packages/vue/src/errors'
 import type { ClientIdentitySnapshot } from '../../packages/vue/src/internal/identity-port'
 
-function attachedRuntime(label: string) {
+function attachedRuntime(label: string, options?: { queryResult?: unknown }) {
   let snapshot: ClientIdentitySnapshot = {
     authEnabled: true,
     settled: true,
@@ -34,7 +34,7 @@ function attachedRuntime(label: string) {
   const subscriptions: Array<{ active: boolean; emit(value: unknown): void }> = []
   const runtime = createBetterConvexAttachment({
     client: {
-      query: vi.fn(async () => label) as never,
+      query: vi.fn(async () => options?.queryResult ?? label) as never,
       mutation: mutation as never,
       action: action as never,
       onUpdate: vi.fn((_fn, _args, onValue) => {
@@ -410,6 +410,48 @@ describe('better-convex-vue package runtime', () => {
     expect(query.hasNextPage.value).toBe(true)
     query.loadMore(1)
     expect(host.subscriptions[1]).toBeDefined()
+    scope.stop()
+  })
+
+  it('retires a hydrated first page on a same-identity argument change', () => {
+    const host = attachedRuntime('alice', {
+      queryResult: {
+        page: [{ id: 'bob' }],
+        continueCursor: '',
+        isDone: true,
+      },
+    })
+    const app = createApp({})
+    app.use(createBetterConvex({ runtime: host.runtime }))
+    const scope = effectScope()
+    const owner = ref('alice')
+    const query = app.runWithContext(() =>
+      scope.run(() =>
+        useConvexPaginatedQuery(
+          makeFunctionReference<'query'>('notes:ssrPaginatedByOwner') as FunctionReference<
+            'query',
+            'public',
+            { owner: string; paginationOpts: PaginationOptions },
+            PaginationResult<{ id: string }>
+          >,
+          () => ({ owner: owner.value }),
+          {
+            initialNumItems: 1,
+            initialPage: {
+              page: [{ id: 'hydrated-alice' }],
+              continueCursor: 'alice-cursor',
+              isDone: false,
+            },
+          },
+        ),
+      ),
+    )!
+
+    expect(query.results.value).toEqual([{ id: 'hydrated-alice' }])
+    owner.value = 'bob'
+
+    expect(query.results.value).toEqual([])
+    expect(query.status.value).toBe('loading-first-page')
     scope.stop()
   })
 })

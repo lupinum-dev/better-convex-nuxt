@@ -314,9 +314,10 @@ export function createPaginationController<Item, TransformedItem = Item>(
     try {
       const firstResult = await fetchForOperation(initialOptions.value, operation)
       if (!firstResult) return
-      const refreshed = [...loadedPages]
+      const refreshed: PaginationPageState<Item>[] = []
       let previous = firstResult
       for (let index = 0; index < loadedPages.length; index += 1) {
+        if (previous.isDone) break
         const page = loadedPages[index]
         if (!page) continue
         const result = await fetchForOperation(
@@ -329,7 +330,7 @@ export function createPaginationController<Item, TransformedItem = Item>(
         )
         if (!result) return
         const cursor = previous.continueCursor
-        refreshed[index] = {
+        refreshed.push({
           ...page,
           paginationOpts:
             cursor === page.paginationOpts.cursor
@@ -338,10 +339,11 @@ export function createPaginationController<Item, TransformedItem = Item>(
           result,
           error: null,
           pending: false,
-        }
+        })
         previous = result
       }
       if (!fence.isCurrent(operation) || pages.value.length !== loadedPages.length) return
+      for (const retiredPage of loadedPages.slice(refreshed.length)) retiredPage.unsubscribe?.()
       firstPageRealtime.value = firstResult
       pages.value = refreshed
       if (input.isLive()) {

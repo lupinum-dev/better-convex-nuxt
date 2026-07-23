@@ -153,6 +153,7 @@ export function useConvexPaginatedQuery<
       boundaryFirstPage.value = null
       controller.handleIdentityBoundary({ nextTag, previousTag, previousBoundaryKey })
     } else {
+      if (nextBoundaryKey !== previousBoundaryKey) boundaryFirstPage.value = null
       void controller.handleExecutionBoundary({
         nextBoundaryKey,
         previousBoundaryKey,

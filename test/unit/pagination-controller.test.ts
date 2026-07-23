@@ -173,6 +173,23 @@ describe('pagination controller', () => {
     expect(controller.results.value.map((row) => row.id)).toEqual(['a2', 'b2', 'c2'])
   })
 
+  it('retires a loaded tail when refresh makes an earlier page terminal', async () => {
+    const { controller, state } = makeHarness()
+    controller.subscribeFirstPage()
+    state.subscriptions[0]?.value(page(['a'], 'old-1'))
+    controller.loadMore(2)
+    state.subscriptions[1]?.value(page(['b'], '', true))
+
+    state.fetchQueue.push(Promise.resolve(page(['a2'], '', true)))
+    await controller.refresh()
+
+    expect(state.fetches.map((options) => options.cursor)).toEqual([null])
+    expect(controller.results.value.map((row) => row.id)).toEqual(['a2'])
+    expect(controller.pages.value).toEqual([])
+    expect(state.subscriptions[1]?.active).toBe(false)
+    expect(controller.status.value).toBe('exhausted')
+  })
+
   it('retires only the tail invalidated by a live cursor-boundary change', () => {
     const { controller, state } = makeHarness()
     controller.subscribeFirstPage()
