@@ -14,7 +14,11 @@ const candidateTestProfiles = Object.freeze({
         { name: 'demo', path: 'demo' },
         { name: 'agency', path: 'starters/agency' },
         { name: 'agentic-saas', path: 'starters/agentic-saas' },
-        { name: 'mcp-oauth-agent', path: 'starters/mcp-oauth-agent' },
+        {
+          name: 'mcp-oauth-agent',
+          path: 'starters/mcp-oauth-agent',
+          companionPackages: Object.freeze(['mcp']),
+        },
         { name: 'public', path: 'starters/public' },
         { name: 'team', path: 'starters/team' },
       ].map(Object.freeze),
@@ -51,6 +55,18 @@ function assertFixture(fixture, label) {
     !/^(?:demo|starters\/[a-z0-9-]+|test\/fixtures\/[a-z0-9-]+)$/u.test(fixture.path)
   ) {
     throw new Error(`Candidate-test profile has an invalid ${label} fixture.`)
+  }
+  const fields = Object.keys(fixture).sort().join(',')
+  if (
+    fields !== 'name,path' &&
+    !(
+      fields === 'companionPackages,name,path' &&
+      fixture.name === 'mcp-oauth-agent' &&
+      Array.isArray(fixture.companionPackages) &&
+      JSON.stringify(fixture.companionPackages) === JSON.stringify(['mcp'])
+    )
+  ) {
+    throw new Error(`Candidate-test profile has an invalid ${label} fixture contract.`)
   }
 }
 

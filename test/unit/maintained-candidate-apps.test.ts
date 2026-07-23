@@ -22,7 +22,11 @@ describe('maintained candidate-test profiles', () => {
         { name: 'demo', path: 'demo' },
         { name: 'agency', path: 'starters/agency' },
         { name: 'agentic-saas', path: 'starters/agentic-saas' },
-        { name: 'mcp-oauth-agent', path: 'starters/mcp-oauth-agent' },
+        {
+          name: 'mcp-oauth-agent',
+          path: 'starters/mcp-oauth-agent',
+          companionPackages: ['mcp'],
+        },
         { name: 'public', path: 'starters/public' },
         { name: 'team', path: 'starters/team' },
       ],
@@ -36,6 +40,7 @@ describe('maintained candidate-test profiles', () => {
     expect(Object.isFrozen(selected.profile)).toBe(true)
     expect(Object.isFrozen(selected.profile.pnpmApps)).toBe(true)
     expect(Object.isFrozen(selected.profile.pnpmApps[0])).toBe(true)
+    expect(Object.isFrozen(selected.profile.pnpmApps[3].companionPackages)).toBe(true)
     expect(Object.isFrozen(selected.profile.companionPackages)).toBe(true)
     expect(Object.isFrozen(selected.profile.browserRunners)).toBe(true)
   })

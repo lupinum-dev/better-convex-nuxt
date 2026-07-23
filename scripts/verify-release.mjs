@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 import { getPackageArtifactCoordinates } from './package-artifact-coordinates.mjs'
+import { parsePackageArtifactEvidence } from './package-artifact-evidence.mjs'
 
 const root = path.resolve(import.meta.dirname, '..')
 const arguments_ = process.argv.slice(2)
@@ -19,6 +22,35 @@ function run(command, args, options = {}) {
     env: options.env ?? process.env,
     stdio: 'inherit',
   })
+}
+
+function verifyRetainedCompanionArtifact(packageId) {
+  const coordinates = getPackageArtifactCoordinates(packageId, { repositoryRoot: root })
+  const evidence = parsePackageArtifactEvidence(
+    JSON.parse(readFileSync(coordinates.paths.evidence, 'utf8')),
+    coordinates,
+  )
+  for (const [kind, fileEvidence] of Object.entries({
+    contents: evidence.contents,
+    sbom: evidence.sbom,
+    tarball: evidence.tarball,
+  })) {
+    const file = coordinates.paths[kind]
+    const bytes = readFileSync(file)
+    if (
+      statSync(file).size !== fileEvidence.bytes ||
+      createHash('sha256').update(bytes).digest('hex') !== fileEvidence.sha256
+    ) {
+      fail(`retained ${packageId} ${kind} bytes do not match immutable evidence`)
+    }
+    if (
+      kind === 'tarball' &&
+      `sha512-${createHash('sha512').update(bytes).digest('base64')}` !== fileEvidence.integrity
+    ) {
+      fail(`retained ${packageId} tarball SRI does not match immutable evidence`)
+    }
+  }
+  return coordinates
 }
 
 function main() {
@@ -81,7 +113,15 @@ function main() {
   }
 
   const vueCoordinates = getPackageArtifactCoordinates('vue', { repositoryRoot: root })
+  const mcpCoordinates = verifyRetainedCompanionArtifact('mcp')
   run('node', ['scripts/release.mjs', 'verify', vueCoordinates.paths.evidence, '--package', 'vue'])
+  run('node', [
+    'scripts/check-package-exports.mjs',
+    '--package',
+    'mcp',
+    '--tarball',
+    mcpCoordinates.paths.tarball,
+  ])
 
   console.log('\n[release-verify] Source-integrity and source-runtime behavior gates')
   // These gates intentionally exercise the checked-out source. They never pack
@@ -133,6 +173,8 @@ function main() {
     tarball,
     '--vue-tarball',
     vueCoordinates.paths.tarball,
+    '--mcp-tarball',
+    mcpCoordinates.paths.tarball,
   ])
 
   console.log(

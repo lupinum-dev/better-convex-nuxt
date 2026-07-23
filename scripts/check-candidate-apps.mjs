@@ -74,12 +74,15 @@ const suppliedTarball = options.tarball ? resolve(repoRoot, options.tarball) : u
 if (options.vueTarball && !candidateProfile.companionPackages?.includes('vue')) {
   throw new Error('--vue-tarball is valid only for a reviewed profile with the Vue companion')
 }
+if (options.mcpTarball && options.packageId !== 'nuxt') {
+  throw new Error('--mcp-tarball is valid only for the reviewed Nuxt consumer profile')
+}
 
 function parseArguments(args) {
   const values = new Map()
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
-    if (!['--package', '--tarball', '--vue-tarball'].includes(argument)) {
+    if (!['--package', '--tarball', '--vue-tarball', '--mcp-tarball'].includes(argument)) {
       throw new Error(`Unknown candidate-app argument: ${String(argument)}`)
     }
     const value = args[index + 1]
@@ -90,13 +93,14 @@ function parseArguments(args) {
   }
   if (!values.has('--package')) {
     throw new Error(
-      'Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>] [--vue-tarball <path>]',
+      'Usage: check-candidate-apps.mjs --package <reviewed-id> [--tarball <path>] [--vue-tarball <path>] [--mcp-tarball <path>]',
     )
   }
   return {
     packageId: values.get('--package'),
     tarball: values.get('--tarball'),
     vueTarball: values.get('--vue-tarball'),
+    mcpTarball: values.get('--mcp-tarball'),
   }
 }
 
@@ -246,15 +250,55 @@ function prepareCompanionCandidates(mainManifest) {
   })
 }
 
+function prepareFixtureCompanionCandidate(packageId, suppliedTarball, sourceManifest, label) {
+  if (packageId !== 'mcp' || !suppliedTarball) {
+    throw new Error(`${label}: reviewed MCP companion tarball is required`)
+  }
+  const descriptor = getPackageCertificationDescriptor(packageId)
+  const tarballPath = resolve(repoRoot, suppliedTarball)
+  const stats = existsSync(tarballPath) ? lstatSync(tarballPath) : undefined
+  if (!stats?.isFile() || stats.isSymbolicLink()) {
+    throw new Error(`${label}: supplied MCP companion must be a regular tarball`)
+  }
+  const filename = tarballPath.split(/[\\/]/u).at(-1)
+  const extractedDir = join(scratchDir, `companion-${descriptor.id}-${label}`)
+  mkdirSync(extractedDir)
+  run('tar', ['-xzf', tarballPath, '-C', extractedDir])
+  const packageDir = join(extractedDir, 'package')
+  const manifest = readJson(join(packageDir, 'package.json'))
+  if (
+    manifest.name !== descriptor.packageName ||
+    filename !== canonicalNpmTarballFilename(descriptor.packageName, manifest.version) ||
+    dependencySpecifier(sourceManifest, descriptor.packageName) !== manifest.version
+  ) {
+    throw new Error(`${label}: supplied MCP companion identity does not match the fixture`)
+  }
+  return {
+    descriptor,
+    filename,
+    fingerprint: packageFingerprint(packageDir),
+    integrity: sha512(tarballPath),
+    manifest,
+    tarballPath,
+  }
+}
+
 function addCompanionCandidates(appDir, manifest, companions, label) {
-  manifest.devDependencies ??= {}
   for (const companion of companions) {
     const localTarball = join(appDir, companion.filename)
     copyFileSync(companion.tarballPath, localTarball)
     if (sha512(localTarball) !== companion.integrity) {
       throw new Error(`${label}: copied ${companion.descriptor.packageName} tarball differs`)
     }
-    manifest.devDependencies[companion.descriptor.packageName] = `file:./${companion.filename}`
+    const packageName = companion.descriptor.packageName
+    if (manifest.dependencies?.[packageName]) {
+      manifest.dependencies[packageName] = `file:./${companion.filename}`
+    } else if (manifest.devDependencies?.[packageName]) {
+      manifest.devDependencies[packageName] = `file:./${companion.filename}`
+    } else {
+      manifest.devDependencies ??= {}
+      manifest.devDependencies[packageName] = `file:./${companion.filename}`
+    }
   }
 }
 
@@ -632,9 +676,18 @@ try {
           `${app.path}/package.json does not declare ${packageDescriptor.packageName}`,
         )
       }
-      addCompanionCandidates(appDir, manifest, companionCandidates, app.path)
+      const fixtureCompanions = (app.companionPackages ?? []).map((packageId) =>
+        prepareFixtureCompanionCandidate(
+          packageId,
+          packageId === 'mcp' ? options.mcpTarball : undefined,
+          sourceManifest,
+          app.name,
+        ),
+      )
+      const appCompanions = [...companionCandidates, ...fixtureCompanions]
+      addCompanionCandidates(appDir, manifest, appCompanions, app.path)
       writeJson(manifestPath, manifest)
-      addPnpmCompanionOverrides(appDir, companionCandidates)
+      addPnpmCompanionOverrides(appDir, appCompanions)
 
       console.log(
         `\n=== ${app.path} against ${candidateManifest.name}@${candidateManifest.version} ===`,
@@ -653,7 +706,7 @@ try {
       if (!lock.includes(candidateProfile.tarballFilename)) {
         throw new Error(`${app.path}: the fresh lock does not resolve the candidate tarball`)
       }
-      verifyInstalledCompanions(appDir, lock, companionCandidates, app.path)
+      verifyInstalledCompanions(appDir, lock, appCompanions, app.path)
 
       const installedPackageDir = join(appDir, 'node_modules', packageDescriptor.packageName)
       const installedManifest = readJson(join(installedPackageDir, 'package.json'))
