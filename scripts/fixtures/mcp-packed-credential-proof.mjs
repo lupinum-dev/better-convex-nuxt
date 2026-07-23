@@ -1,5 +1,4 @@
 import { createConvexMcpHandler } from '@better-convex/mcp'
-import { McpServer } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 
 const resource = new URL('https://packed-mcp.invalid/mcp')
@@ -29,8 +28,8 @@ const handler = createConvexMcpHandler({
     issuer: 'https://packed-mcp.invalid/issuer/',
     mode: 'preconfigured-bearer',
   },
-  createServer() {
-    const server = new McpServer({ name: 'packed-proof', version: '0.0.0' })
+  serverInfo: { name: 'packed-proof', version: '0.0.0' },
+  configureServer(_context, _access, _request, server) {
     server.registerTool('inspect_headers', { inputSchema: z.object({}) }, (_input, extra) => {
       callbackHeaders = Object.fromEntries(extra.http?.req?.headers ?? [])
       return {
@@ -38,7 +37,6 @@ const handler = createConvexMcpHandler({
         structuredContent: { credentialFree: true },
       }
     })
-    return server
   },
 })
 

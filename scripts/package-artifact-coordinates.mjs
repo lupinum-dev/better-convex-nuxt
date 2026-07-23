@@ -15,7 +15,12 @@ const maximumFilesystemComponentBytes = 255
 const maximumNpmPackageNameBytes = 214
 const fullGitCommitPattern = /^[0-9a-f]{40}$/u
 const retiredUnpublishedVersions = Object.freeze({
-  '@better-convex/mcp': Object.freeze(['0.1.0-beta.0', '0.1.0-beta.1', '0.1.0-beta.2']),
+  '@better-convex/mcp': Object.freeze([
+    '0.1.0-beta.0',
+    '0.1.0-beta.1',
+    '0.1.0-beta.2',
+    '0.1.0-beta.3',
+  ]),
   'better-convex-nuxt': Object.freeze([
     '0.8.0-beta.6',
     '0.8.0-beta.7',

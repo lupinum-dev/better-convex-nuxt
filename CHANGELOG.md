@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.1.0-beta.4 (`@better-convex/mcp`)
+
+- Correct the installed-package credential-boundary proof for the
+  package-owned official SDK server lifecycle.
+- Retire the immutable beta.3 artifact after its stale external consumer
+  correctly failed before release certification completed.
+
 ## v0.1.0-beta.3 (`@better-convex/mcp`)
 
 - Own the official SDK server instance inside the package and expose only a
