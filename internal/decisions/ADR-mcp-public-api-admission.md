@@ -112,7 +112,8 @@ not parse JSON-RPC or implement protocol negotiation.
    metadata behavior. They intentionally expose raw `AuthInfo` and leave the hosting boundary to the
    application, so direct use repeats security-sensitive glue.
 3. **Can Better Convex be simplified instead?** Yes. Delete the existing starter parser/relay and use
-   one adapter around the official SDK; add no generic tool helper.
+   one adapter around the official SDK. Keep registration and domain outcomes in the official SDK;
+   retain only the two-consumer `runMcpTool()` failure/diagnostic boundary.
 4. **Two materially different consumers.** Neutral notes maps `(issuer, subject)` to tenant membership;
    Ginko maps it to an integration, current member/role, contract, and resource authority. Their domain
    policies and operations differ.

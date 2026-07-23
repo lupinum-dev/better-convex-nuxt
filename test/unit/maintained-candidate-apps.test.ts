@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import { getMaintainedCandidateProfile } from '../../scripts/maintained-candidate-apps.mjs'
@@ -39,9 +42,22 @@ describe('maintained candidate-test profiles', () => {
     expect(Object.isFrozen(selected.profile)).toBe(true)
     expect(Object.isFrozen(selected.profile.pnpmApps)).toBe(true)
     expect(Object.isFrozen(selected.profile.pnpmApps[0])).toBe(true)
-    expect(Object.isFrozen(selected.profile.pnpmApps[3].companionPackages)).toBe(true)
+    expect(Object.isFrozen(selected.profile.pnpmApps[2].companionPackages)).toBe(true)
     expect(Object.isFrozen(selected.profile.companionPackages)).toBe(true)
     expect(Object.isFrozen(selected.profile.browserRunners)).toBe(true)
+  })
+
+  it('keeps the mock-provider agent application outside the maintained starter surface', () => {
+    const selected = getMaintainedCandidateProfile('nuxt')
+    expect(selected.profile.pnpmApps.some(({ name }) => name === 'agentic-saas')).toBe(false)
+
+    const laboratoryReadme = readFileSync(
+      join(import.meta.dirname, '../../internal/labs/agentic-saas/README.md'),
+      'utf8',
+    )
+    expect(laboratoryReadme).toContain('Internal proof only')
+    expect(laboratoryReadme).toContain('not a maintained or shipped')
+    expect(laboratoryReadme).toContain('real provider-backed execution path')
   })
 
   it('selects the closed Vue runner matrix through its reviewed descriptor', () => {
