@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.1.0-beta.5 (`@better-convex/mcp`)
+
+- Align the release-only documentation invariant with the package-owned SDK
+  lifecycle after the full MCP project passed.
+- Retire beta.4 after its immutable artifact reached the stale wording check.
+
 ## v0.1.0-beta.4 (`@better-convex/mcp`)
 
 - Correct the installed-package credential-boundary proof for the

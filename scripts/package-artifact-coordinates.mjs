@@ -20,6 +20,7 @@ const retiredUnpublishedVersions = Object.freeze({
     '0.1.0-beta.1',
     '0.1.0-beta.2',
     '0.1.0-beta.3',
+    '0.1.0-beta.4',
   ]),
   'better-convex-nuxt': Object.freeze([
     '0.8.0-beta.6',

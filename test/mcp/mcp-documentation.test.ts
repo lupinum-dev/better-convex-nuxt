@@ -15,7 +15,7 @@ const normalizedGuide = guide.replace(/\s+/gu, ' ')
 describe('MCP package documentation', () => {
   it('states the exact experimental SDK and protocol authority', () => {
     expect(guide).toContain('`@better-convex/mcp`')
-    expect(guide).toContain('`0.1.0-beta.4`')
+    expect(guide).toContain('`0.1.0-beta.5`')
     expect(guide).toContain('`@modelcontextprotocol/server@2.0.0-beta.5`')
     expect(normalizedGuide).toContain('locked MCP `2026-07-28` release candidate')
     expect(normalizedGuide).toContain(
@@ -32,7 +32,7 @@ describe('MCP package documentation', () => {
   })
 
   it('documents one explicit official-SDK topology and the unsupported surface', () => {
-    expect(normalizedGuide).toContain('Register only reviewed application operations')
+    expect(normalizedGuide).toContain('Configure only reviewed application operations')
     expect(guide).toContain('one stateless Convex HTTP Action')
     expect(guide).toContain('automatic Convex-function exposure')
     expect(guide).toContain('prompts, Tasks, MCP Apps, or a URL approval workflow')

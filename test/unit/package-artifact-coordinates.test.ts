@@ -50,6 +50,7 @@ describe('package artifact coordinates', () => {
     ['@better-convex/mcp', '0.1.0-beta.1'],
     ['@better-convex/mcp', '0.1.0-beta.2'],
     ['@better-convex/mcp', '0.1.0-beta.3'],
+    ['@better-convex/mcp', '0.1.0-beta.4'],
   ])('rejects retired unpublished identity %s@%s', (packageName, version) => {
     expect(() => assertReleaseEligiblePackageVersion(packageName, version)).toThrow(
       'retired unpublished source identity',
@@ -60,8 +61,8 @@ describe('package artifact coordinates', () => {
     expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.12')).toBe(
       '0.8.0-beta.12',
     )
-    expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.4')).toBe(
-      '0.1.0-beta.4',
+    expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.5')).toBe(
+      '0.1.0-beta.5',
     )
     expect(assertReleaseEligiblePackageVersion('unrelated-package', '0.8.0-beta.6')).toBe(
       '0.8.0-beta.6',
