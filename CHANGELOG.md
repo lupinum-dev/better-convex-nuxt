@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.8.0-beta.15
+
+- Bind the OAuth/MCP starter's retained `@better-convex/mcp` dependency to
+  exact immutable beta.5 bytes throughout the Nuxt candidate consumer matrix.
+- Retire the immutable beta.14 Vue/Nuxt artifacts after their consumer proof
+  correctly rejected an unpublished MCP registry lookup; MCP beta.5 remains
+  valid in its independently certified release lane.
+
 ## v0.8.0-beta.14
 
 - Record the extracted relationship engine and updated auth-derived targets in
