@@ -215,6 +215,15 @@ function triggerConfigured<DataModel extends GenericDataModel>(
   return typeof triggers?.[model]?.[event] === 'function'
 }
 
+function anyTriggerConfigured<DataModel extends GenericDataModel>(
+  triggers: AuthComponentTriggers<DataModel> | undefined,
+  event: 'onUpdate' | 'onDelete',
+): boolean {
+  return Object.values(triggers ?? {}).some(
+    (configured) => typeof configured?.[event] === 'function',
+  )
+}
+
 export function createConvexAuthAdapter<
   DataModel extends GenericDataModel,
   Api extends AuthAdapterComponentApi,
@@ -230,6 +239,18 @@ export function createConvexAuthAdapter<
     const reference = adapterOptions.authFunctions?.[event]
     const value =
       reference && triggerConfigured(adapterOptions.triggers, model, event)
+        ? createFunctionHandle(reference).then(String)
+        : Promise.resolve(undefined)
+    handleCache.set(cacheKey, value)
+    return value
+  }
+  const relationshipTriggerHandle = (event: 'onUpdate' | 'onDelete') => {
+    const cacheKey = `relationship:${event}`
+    const existing = handleCache.get(cacheKey)
+    if (existing) return existing
+    const reference = adapterOptions.authFunctions?.[event]
+    const value =
+      reference && anyTriggerConfigured(adapterOptions.triggers, event)
         ? createFunctionHandle(reference).then(String)
         : Promise.resolve(undefined)
     handleCache.set(cacheKey, value)
@@ -362,7 +383,8 @@ export function createConvexAuthAdapter<
           await ctx.runMutation(component.adapter.deleteOne, {
             model,
             where: toComponentWhere(where)!,
-            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            onDeleteHandle: await relationshipTriggerHandle('onDelete'),
+            onUpdateHandle: await relationshipTriggerHandle('onUpdate'),
           })
         },
         deleteMany: async ({ model, where }) => {
@@ -370,7 +392,8 @@ export function createConvexAuthAdapter<
           return ctx.runMutation(component.adapter.deleteMany, {
             model,
             where: toComponentWhere(where)!,
-            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            onDeleteHandle: await relationshipTriggerHandle('onDelete'),
+            onUpdateHandle: await relationshipTriggerHandle('onUpdate'),
           })
         },
         consumeOne: async <T>({
@@ -384,7 +407,8 @@ export function createConvexAuthAdapter<
           const consumed = await ctx.runMutation(component.adapter.consumeOne, {
             model,
             where: toComponentWhere(where)!,
-            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+            onDeleteHandle: await relationshipTriggerHandle('onDelete'),
+            onUpdateHandle: await relationshipTriggerHandle('onUpdate'),
           })
           return idTokens.reveal(model, consumed as T | null)
         },

@@ -238,6 +238,164 @@ function oneOrNull(
   return rows[0] ?? null
 }
 
+async function assertReferenceTargets(
+  ctx: any,
+  schema: SchemaDefinition<any, any>,
+  metadata: AuthSchemaMetadata,
+  modelName: string,
+  row: Record<string, unknown>,
+  changedFields?: ReadonlySet<string>,
+): Promise<void> {
+  const model = getAuthModelMetadata(metadata, modelName)
+  for (const field of Object.values(model.fields)) {
+    if (!field.reference || (changedFields && !changedFields.has(field.physicalName))) continue
+    const value = row[field.physicalName]
+    if (value === null) continue
+    const matches = await findAuthRows(
+      ctx,
+      schema,
+      metadata,
+      {
+        model: field.reference.model,
+        where: [{ field: field.reference.field, value: value as never }],
+      },
+      2,
+    )
+    if (matches.length === 0) {
+      throw new Error(`AUTH_REFERENCE_TARGET_MISSING:${modelName}.${field.physicalName}`)
+    }
+    if (matches.length > 1) {
+      throw new Error(`AUTH_REFERENCE_TARGET_AMBIGUOUS:${modelName}.${field.physicalName}`)
+    }
+  }
+}
+
+interface PlannedAuthRow {
+  key: string
+  model: string
+  row: Record<string, unknown>
+}
+
+interface RelationshipTriggerHandles {
+  onDeleteHandle?: string
+  onUpdateHandle?: string
+}
+
+function plannedRow(model: string, row: Record<string, unknown>): PlannedAuthRow {
+  return { key: `${model}:${String(row._id)}`, model, row }
+}
+
+function inboundReferenceFields(metadata: AuthSchemaMetadata, targetModel: string) {
+  const inbound: Array<{ model: string; field: AuthFieldMetadata }> = []
+  for (const model of Object.values(metadata.models)) {
+    for (const field of Object.values(model.fields)) {
+      if (field.reference?.model === targetModel) {
+        inbound.push({ model: model.physicalName, field })
+      }
+    }
+  }
+  return inbound
+}
+
+async function findReferencingRows(
+  ctx: any,
+  schema: SchemaDefinition<any, any>,
+  metadata: AuthSchemaMetadata,
+  parent: PlannedAuthRow,
+  childModel: string,
+  childField: AuthFieldMetadata,
+): Promise<Record<string, unknown>[]> {
+  const parentField = childField.reference!.field
+  return collectAuthRows(ctx, schema, metadata, {
+    model: childModel,
+    where: [{ field: childField.physicalName, value: parent.row[parentField] as never }],
+  })
+}
+
+async function applyRelationshipDeletion(
+  ctx: any,
+  schema: SchemaDefinition<any, any>,
+  metadata: AuthSchemaMetadata,
+  roots: Record<string, unknown>[],
+  rootModel: string,
+  handles: RelationshipTriggerHandles,
+): Promise<void> {
+  const visited = new Set<string>()
+  const deletionOrder: PlannedAuthRow[] = []
+
+  const collectCascade = async (candidate: PlannedAuthRow): Promise<void> => {
+    if (visited.has(candidate.key)) return
+    visited.add(candidate.key)
+    for (const inbound of inboundReferenceFields(metadata, candidate.model)) {
+      if (inbound.field.reference!.onDelete !== 'cascade') continue
+      const children = await findReferencingRows(
+        ctx,
+        schema,
+        metadata,
+        candidate,
+        inbound.model,
+        inbound.field,
+      )
+      for (const child of children) await collectCascade(plannedRow(inbound.model, child))
+    }
+    deletionOrder.push(candidate)
+  }
+
+  for (const root of roots) await collectCascade(plannedRow(rootModel, root))
+
+  const setNullPatches = new Map<string, { planned: PlannedAuthRow; patch: Record<string, null> }>()
+  for (const candidate of deletionOrder) {
+    for (const inbound of inboundReferenceFields(metadata, candidate.model)) {
+      const policy = inbound.field.reference!.onDelete
+      if (policy === 'cascade') continue
+      const children = await findReferencingRows(
+        ctx,
+        schema,
+        metadata,
+        candidate,
+        inbound.model,
+        inbound.field,
+      )
+      for (const child of children) {
+        const planned = plannedRow(inbound.model, child)
+        if (visited.has(planned.key)) continue
+        if (policy === 'restrict') {
+          throw new Error(
+            `AUTH_REFERENCE_DELETE_RESTRICTED:${candidate.model}.${inbound.field.reference!.field}`,
+          )
+        }
+        if (!inbound.field.nullable) {
+          throw new Error(
+            `AUTH_REFERENCE_SET_NULL_REQUIRED:${inbound.model}.${inbound.field.physicalName}`,
+          )
+        }
+        const existing = setNullPatches.get(planned.key) ?? { planned, patch: {} }
+        existing.patch[inbound.field.physicalName] = null
+        setNullPatches.set(planned.key, existing)
+      }
+    }
+  }
+
+  for (const { planned, patch } of setNullPatches.values()) {
+    await ctx.db.patch(planned.row._id as never, patch as never)
+    const updated = await ctx.db.get(planned.row._id as never)
+    if (!updated) throw new Error('AUTH_REFERENCE_SET_NULL_READBACK_FAILED')
+    await runTrigger(ctx, handles.onUpdateHandle, {
+      model: planned.model,
+      oldDoc: toBetterAuthDocument(planned.row),
+      newDoc: toBetterAuthDocument(updated as never),
+    })
+  }
+
+  for (const candidate of deletionOrder) {
+    await ctx.db.delete(candidate.row._id as never)
+    await runTrigger(ctx, handles.onDeleteHandle, {
+      model: candidate.model,
+      doc: toBetterAuthDocument(candidate.row),
+    })
+  }
+}
+
 export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, any>>({
   schema,
   metadata,
@@ -253,6 +411,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
       },
       handler: async (ctx, args) => {
         const row = normalizeCreate(metadata, args.model, args.data)
+        await assertReferenceTargets(ctx, schema, metadata, args.model, row)
         await assertUniqueConstraints(ctx, schema, metadata, args.model, row)
         const storageId = await ctx.db.insert(args.model as never, row as never)
         const created = await ctx.db.get(args.model as never, storageId as never)
@@ -318,6 +477,14 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           'AUTH_UPDATE_ONE',
         )
         if (!current) return null
+        await assertReferenceTargets(
+          ctx,
+          schema,
+          metadata,
+          args.model,
+          { ...current, ...patch },
+          new Set(Object.keys(patch)),
+        )
         await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
         await ctx.db.patch(args.model as never, current._id as never, patch as never)
         const updated = await ctx.db.get(args.model as never, current._id as never)
@@ -346,6 +513,14 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
         })
         const rows = await collectAuthRows(ctx, schema, metadata, readShape(args))
         for (const current of rows) {
+          await assertReferenceTargets(
+            ctx,
+            schema,
+            metadata,
+            args.model,
+            { ...current, ...patch },
+            new Set(Object.keys(patch)),
+          )
           await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
           await ctx.db.patch(args.model as never, current._id as never, patch as never)
           const updated = await ctx.db.get(args.model as never, current._id as never)
@@ -365,6 +540,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
         model: v.string(),
         where: v.array(whereValidator),
         onDeleteHandle: v.optional(v.string()),
+        onUpdateHandle: v.optional(v.string()),
       },
       handler: async (ctx, args) => {
         const current = oneOrNull(
@@ -372,11 +548,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           'AUTH_DELETE_ONE',
         )
         if (!current) return null
-        await ctx.db.delete(args.model as never, current._id as never)
-        await runTrigger(ctx, args.onDeleteHandle, {
-          model: args.model,
-          doc: toBetterAuthDocument(current),
-        })
+        await applyRelationshipDeletion(ctx, schema, metadata, [current], args.model, args)
         return toBetterAuthDocument(current)
       },
     }),
@@ -386,16 +558,11 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
         model: v.string(),
         where: v.array(whereValidator),
         onDeleteHandle: v.optional(v.string()),
+        onUpdateHandle: v.optional(v.string()),
       },
       handler: async (ctx, args) => {
         const rows = await collectAuthRows(ctx, schema, metadata, readShape(args))
-        for (const current of rows) {
-          await ctx.db.delete(args.model as never, current._id as never)
-          await runTrigger(ctx, args.onDeleteHandle, {
-            model: args.model,
-            doc: toBetterAuthDocument(current),
-          })
-        }
+        await applyRelationshipDeletion(ctx, schema, metadata, rows, args.model, args)
         return rows.length
       },
     }),
@@ -405,6 +572,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
         model: v.string(),
         where: v.array(whereValidator),
         onDeleteHandle: v.optional(v.string()),
+        onUpdateHandle: v.optional(v.string()),
       },
       handler: async (ctx, args) => {
         if (args.where.length === 0) throw new Error('AUTH_CONSUME_REQUIRES_GUARD')
@@ -413,11 +581,7 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           'AUTH_CONSUME_ONE',
         )
         if (!current) return null
-        await ctx.db.delete(args.model as never, current._id as never)
-        await runTrigger(ctx, args.onDeleteHandle, {
-          model: args.model,
-          doc: toBetterAuthDocument(current),
-        })
+        await applyRelationshipDeletion(ctx, schema, metadata, [current], args.model, args)
         return toBetterAuthDocument(current)
       },
     }),
@@ -467,6 +631,14 @@ export function defineAuthAdapterFunctions<Schema extends SchemaDefinition<any, 
           patch[fieldName] = next
         }
         await assertUniqueConstraints(ctx, schema, metadata, args.model, patch, current)
+        await assertReferenceTargets(
+          ctx,
+          schema,
+          metadata,
+          args.model,
+          { ...current, ...patch },
+          new Set(Object.keys(patch)),
+        )
         await ctx.db.patch(args.model as never, current._id as never, patch as never)
         const updated = await ctx.db.get(args.model as never, current._id as never)
         if (!updated) throw new Error('AUTH_INCREMENT_READBACK_FAILED')

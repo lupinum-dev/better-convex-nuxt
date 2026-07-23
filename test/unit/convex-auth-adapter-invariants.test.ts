@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { BetterAuthDBSchema } from 'better-auth/db'
+import type { BetterAuthDBSchema, DBFieldAttribute } from 'better-auth/db'
 import { describe, expect, it, vi } from 'vitest'
 
 import rootPackage from '../../package.json'
@@ -29,6 +29,12 @@ import teamSchema from '../../starters/team/convex/betterAuth/schema'
 import teamSchemaMetadata from '../../starters/team/convex/betterAuth/schemaMetadata'
 
 const tables = {
+  user: {
+    modelName: 'authUser',
+    fields: {
+      email: { type: 'string', required: true, unique: true },
+    },
+  },
   session: {
     modelName: 'authSession',
     fields: {
@@ -36,7 +42,7 @@ const tables = {
       userId: {
         type: 'string',
         required: true,
-        references: { model: 'user', field: 'id', onDelete: 'cascade' },
+        references: { model: 'authUser', field: 'id', onDelete: 'cascade' },
       },
       expiresAt: { type: 'date', required: true },
       label: { type: 'string', fieldName: 'displayLabel', sortable: true },
@@ -130,6 +136,57 @@ describe('greenfield Convex auth schema generation', () => {
       'expiresAt',
     ])
     expect(second).toEqual(first)
+  })
+
+  it('materializes pinned relationship targets and deletion policies', () => {
+    const artifacts = generateAuthSchemaArtifacts(tables)
+
+    expect(artifacts.metadata.models.authSession?.fields.userId?.reference).toEqual({
+      model: 'authUser',
+      field: 'id',
+      onDelete: 'cascade',
+    })
+
+    const defaultCascade = structuredClone(tables) as unknown as BetterAuthDBSchema
+    const session = defaultCascade.session
+    if (!session) throw new Error('Expected session schema')
+    const userId = session.fields.userId as DBFieldAttribute
+    if (!userId.references) throw new Error('Expected user reference')
+    delete userId.references.onDelete
+    expect(
+      generateAuthSchemaArtifacts(defaultCascade).metadata.models.authSession?.fields.userId
+        ?.reference,
+    ).toMatchObject({ onDelete: 'cascade' })
+  })
+
+  it('rejects relationship semantics Convex cannot execute exactly', () => {
+    const withPolicy = (onDelete: string, required = false) =>
+      ({
+        user: {
+          modelName: 'user',
+          fields: { email: { type: 'string', required: true } },
+        },
+        child: {
+          modelName: 'child',
+          fields: {
+            userId: {
+              type: 'string',
+              required,
+              references: { model: 'user', field: 'id', onDelete },
+            },
+          },
+        },
+      }) as unknown as BetterAuthDBSchema
+
+    expect(() => generateAuthSchemaArtifacts(withPolicy('no action'))).toThrow(
+      'AUTH_SCHEMA_REFERENCE_DELETE_UNSUPPORTED:child.userId:no action',
+    )
+    expect(() => generateAuthSchemaArtifacts(withPolicy('set default'))).toThrow(
+      'AUTH_SCHEMA_REFERENCE_DELETE_UNSUPPORTED:child.userId:set default',
+    )
+    expect(() => generateAuthSchemaArtifacts(withPolicy('set null', true))).toThrow(
+      'AUTH_SCHEMA_REFERENCE_SET_NULL_REQUIRED:child.userId',
+    )
   })
 
   it('emits the exact ordered verification lookup index required by final-factor MFA', () => {

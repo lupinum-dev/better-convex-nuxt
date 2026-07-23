@@ -146,6 +146,9 @@ function buildIndexes(
 
 function buildMetadata(tables: BetterAuthDBSchema): AuthSchemaMetadata {
   const models: Record<string, AuthModelMetadata> = {}
+  const tableByPhysicalName = new Map(
+    Object.values(tables).map((table) => [table.modelName, table] as const),
+  )
   for (const [logicalModelName, table] of Object.entries(tables)) {
     const physicalModelName = table.modelName
     if (models[physicalModelName]) {
@@ -174,6 +177,43 @@ function buildMetadata(tables: BetterAuthDBSchema): AuthSchemaMetadata {
       if (fields[physicalName]) {
         throw new Error(`AUTH_SCHEMA_DUPLICATE_FIELD:${physicalModelName}.${physicalName}`)
       }
+      let reference: AuthFieldMetadata['reference']
+      if (field.references) {
+        const referencedTable = tableByPhysicalName.get(field.references.model)
+        if (!referencedTable) {
+          throw new Error(
+            `AUTH_SCHEMA_REFERENCE_MODEL_UNKNOWN:${physicalModelName}.${physicalName}`,
+          )
+        }
+        const referencedRawField =
+          field.references.field === 'id'
+            ? undefined
+            : (referencedTable.fields[field.references.field] as DBFieldAttribute | undefined)
+        if (field.references.field !== 'id' && !referencedRawField) {
+          throw new Error(
+            `AUTH_SCHEMA_REFERENCE_FIELD_UNKNOWN:${physicalModelName}.${physicalName}`,
+          )
+        }
+        const onDelete = field.references.onDelete ?? 'cascade'
+        if (onDelete === 'set default' || onDelete === 'no action') {
+          throw new Error(
+            `AUTH_SCHEMA_REFERENCE_DELETE_UNSUPPORTED:${physicalModelName}.${physicalName}:${onDelete}`,
+          )
+        }
+        if (onDelete === 'set null' && field.required === true) {
+          throw new Error(
+            `AUTH_SCHEMA_REFERENCE_SET_NULL_REQUIRED:${physicalModelName}.${physicalName}`,
+          )
+        }
+        reference = {
+          model: referencedTable.modelName,
+          field:
+            field.references.field === 'id'
+              ? 'id'
+              : physicalFieldName(field.references.field, referencedRawField!),
+          onDelete,
+        }
+      }
       fields[physicalName] = {
         logicalName: logicalFieldName,
         physicalName,
@@ -185,15 +225,7 @@ function buildMetadata(tables: BetterAuthDBSchema): AuthSchemaMetadata {
         sortable: field.sortable === true,
         unique: field.unique === true,
         updatable: true,
-        ...(field.references
-          ? {
-              reference: {
-                model: field.references.model,
-                field: field.references.field,
-                ...(field.references.onDelete ? { onDelete: field.references.onDelete } : {}),
-              },
-            }
-          : {}),
+        ...(reference ? { reference } : {}),
       }
     }
 
@@ -202,6 +234,27 @@ function buildMetadata(tables: BetterAuthDBSchema): AuthSchemaMetadata {
       physicalName: physicalModelName,
       fields,
       indexes: buildIndexes(logicalModelName, fields),
+    }
+  }
+  for (const model of Object.values(models)) {
+    for (const field of Object.values(model.fields)) {
+      if (!field.reference) continue
+      const referencedModel = models[field.reference.model]
+      const referencedField = referencedModel?.fields[field.reference.field]
+      if (!referencedModel || !referencedField) {
+        throw new Error(
+          `AUTH_SCHEMA_REFERENCE_TARGET_UNKNOWN:${model.physicalName}.${field.physicalName}`,
+        )
+      }
+      if (
+        !referencedModel.indexes.some(
+          (index) => index.fields.length === 1 && index.fields[0] === referencedField.physicalName,
+        )
+      ) {
+        throw new Error(
+          `AUTH_SCHEMA_REFERENCE_TARGET_UNINDEXED:${model.physicalName}.${field.physicalName}`,
+        )
+      }
     }
   }
   return { fingerprint: fingerprintAuthSchemaModels(models), models }

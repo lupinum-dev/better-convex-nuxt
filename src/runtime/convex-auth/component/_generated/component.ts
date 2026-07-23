@@ -51,7 +51,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
     consumeOne: FunctionReference<
       'mutation',
       'internal',
-      { model: string; where: AuthWhere[]; onDeleteHandle?: string },
+      {
+        model: string
+        where: AuthWhere[]
+        onDeleteHandle?: string
+        onUpdateHandle?: string
+      },
       AuthDocument | null,
       Name
     >
@@ -72,14 +77,24 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
     deleteMany: FunctionReference<
       'mutation',
       'internal',
-      { model: string; where: AuthWhere[]; onDeleteHandle?: string },
+      {
+        model: string
+        where: AuthWhere[]
+        onDeleteHandle?: string
+        onUpdateHandle?: string
+      },
       number,
       Name
     >
     deleteOne: FunctionReference<
       'mutation',
       'internal',
-      { model: string; where: AuthWhere[]; onDeleteHandle?: string },
+      {
+        model: string
+        where: AuthWhere[]
+        onDeleteHandle?: string
+        onUpdateHandle?: string
+      },
       AuthDocument | null,
       Name
     >

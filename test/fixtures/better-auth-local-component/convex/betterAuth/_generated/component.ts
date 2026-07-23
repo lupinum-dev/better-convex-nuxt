@@ -30,6 +30,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           model: string;
           onDeleteHandle?: string;
+          onUpdateHandle?: string;
           where: Array<{
             connector?: "AND" | "OR";
             field: string;
@@ -99,6 +100,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           model: string;
           onDeleteHandle?: string;
+          onUpdateHandle?: string;
           where: Array<{
             connector?: "AND" | "OR";
             field: string;
@@ -128,6 +130,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         {
           model: string;
           onDeleteHandle?: string;
+          onUpdateHandle?: string;
           where: Array<{
             connector?: "AND" | "OR";
             field: string;

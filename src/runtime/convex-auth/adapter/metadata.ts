@@ -10,7 +10,7 @@ export type AuthFieldKind =
 export interface AuthReferenceMetadata {
   model: string
   field: string
-  onDelete?: 'cascade' | 'no action' | 'restrict' | 'set default' | 'set null'
+  onDelete: 'cascade' | 'restrict' | 'set null'
 }
 
 export interface AuthFieldMetadata {
