@@ -116,6 +116,17 @@ describe('package entry manifest', () => {
     })
   })
 
+  it('keeps the experimental Tasks extension outside every public package entry', () => {
+    for (const packageId of ['nuxt', 'vue', 'mcp'] as const) {
+      const manifest = getPackageEntryManifest(packageId)
+      const publicNames = manifest.entries.flatMap((entry: PackageEntry) => [
+        ...entry.valueExports,
+        ...entry.typeExports,
+      ])
+      expect(publicNames.filter((name: string) => /task/iu.test(name))).toEqual([])
+    }
+  })
+
   it('returns a deeply immutable reviewed manifest', () => {
     const manifest = getPackageEntryManifest('nuxt')
 
