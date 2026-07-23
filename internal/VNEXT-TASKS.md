@@ -8,10 +8,10 @@ replace the RFC's product decisions.
 
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 7; local R0 passed, while publication and final protocol/host gates remain external                 |
-| Current task          | `P7-013`; certify the Ginko MCP App from exact installed Vue/MCP candidate bytes                          |
-| Last verified commit  | BCN `c3de9d52`; Ginko `dc9a2ec5`; exact neutral App consumer passed against beta.15/beta.5                |
-| Next executable tasks | `P7-013`; `P7-014`; `P9-002`                                                                              |
+| Current phase         | Phase 9 local hardening; Phase 7 local work is complete while protocol/host gates remain external         |
+| Current task          | `P9-002`; prove one client lifecycle and one MCP protocol implementation remain                           |
+| Last verified commit  | BCN `87eb4c55`; Ginko `f32e28b7`; exact neutral and Ginko App consumers passed beta.15/beta.5             |
+| Next executable tasks | `P9-002`; `P9-019`; `P9-020`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -147,6 +147,7 @@ remain gated rather than implied stable contracts.
 | 2026-07-23 | Ginko `5c589ff6`; evidence `dc9a2ec5` | Focused 85 tests; full 1,202 tests; reproducible candidate pack; isolated pnpm and npm production consumers; `docs/maintenance/better-convex-vnext-candidate.md` | Exact beta.15/beta.5 bytes passed Ginko Vite/Nitro/MCP/package/content behavior; committed resolution remains registry-clean; npm audited 734 installed packages with zero vulnerabilities |
 | 2026-07-23 | R0 focused re-review | 12 security-boundary files/130 tests plus accepted-finding source/evidence crosswalk; `internal/evidence/vnext-r0-security-rereview-2026-07-23.md` | All accepted local High/Medium protected effects are closed; R0 passes for local experimental vNext work while protected staging, final MCP/host evidence, and publication remain gated |
 | 2026-07-23 | Vue beta.15 + MCP beta.5 exact App consumer | `node scripts/check-vue-mcp-app-consumer.mjs ...`; focused format/lint; `internal/evidence/vue-mcp-app-exact-consumer-2026-07-23.md` | Corrected the stale consumer-owned server proof; exact installed bytes now pass production bundle, locked-RC negotiation, capable-host/fallback, and bearer-absence gates; Ginko exact App build remains |
+| 2026-07-23 | Ginko `f32e28b7`; BCN MCP Apps docs | Ginko candidate/package/App boundary suite (3 files, 27 tests); frozen lock-only install; BCN API-surface docs check and production docs build | Ginko now builds the App from exact installed Vue/MCP candidates with no adjacent-source alias; the documented experimental API, credential boundary, fallback, authorization, navigation, and stable-admission limits match the implementation |
 
 ## Status vocabulary
 
@@ -393,8 +394,8 @@ production artifact.
 | `P7-010` | `P7-003`–`P7-008` | Build Ginko publish-impact preview App while final approval stays in authenticated Studio. | Authorized Ginko fixture | App cannot bypass review; no token/client in iframe. | Impact/fallback/navigation/denied approval tests. | Ginko custom bridge UI where replaced | done | — | Ginko `7babc915`; `internal/evidence/ginko-mcp-app-proof-2026-07-22.md` |
 | `P7-011` | `P7-009`, `P7-010` | Run complete MCP Apps conformance/security matrix. | Shared app harness | Capabilities, bridge, disposal, security invariant across consumers. | Entire RFC Apps evidence matrix. | Duplicated low-level app tests | done | — | `internal/evidence/mcp-app-conformance-matrix-2026-07-22.md`; neutral + Ginko production-browser matrix |
 | `P7-012` | `P7-011` | Scan DOM/messages/logs/resources/bundles for all credential, proof, provider-ref, cause, and raw-client sentinels. | Production fixtures | Iframe boundary is credential free. | Unique sentinel absence report. | Any secret-bearing bridge field | done | — | `internal/evidence/mcp-app-disclosure-scan-2026-07-22.md`; Ginko `7babc915` |
-| `P7-013` | `P7-011`, `P7-012`, `S6-009` | Certify exact Vue MCP App and MCP package artifacts in production host/fallback fixtures. | Release certifier/package consumers | Installed UI bytes equal candidate and degrade correctly. | Tarball locks/bytes, production bundle, host matrix. | Workspace-only app fixture | in_progress | Protected host evidence remains required for the final gate | Neutral exact beta.15/beta.5 consumer passed in `internal/evidence/vue-mcp-app-exact-consumer-2026-07-23.md`; Ginko exact installed App build remains |
-| `P7-014` | `P7-013` | Document MCP Apps capabilities, iframe security, fallback, tool auth, and authoritative-review boundary. | Docs | App buttons never represented as extra authority. | Docs/API/link checks. | Obsolete preview/approval guidance | pending | — | — |
+| `P7-013` | `P7-011`, `P7-012`, `S6-009` | Certify exact Vue MCP App and MCP package artifacts in production host/fallback fixtures. | Release certifier/package consumers | Installed UI bytes equal candidate and degrade correctly. | Tarball locks/bytes, production bundle, host matrix. | Workspace-only app fixture | done | Protected host evidence remains required for the final gate | `internal/evidence/vue-mcp-app-exact-consumer-2026-07-23.md`; neutral exact consumer and Ginko `f32e28b7` exact installed App proof |
+| `P7-014` | `P7-013` | Document MCP Apps capabilities, iframe security, fallback, tool auth, and authoritative-review boundary. | Docs | App buttons never represented as extra authority. | Docs/API/link checks. | Obsolete preview/approval guidance | done | — | `docs/content/docs/4.build/7.agents/2.mcp-apps.md`; API-surface docs check and production docs build passed |
 
 ## Phase 8 — optional Tasks and machine clients
 
@@ -419,7 +420,7 @@ All implementation tasks in this phase remain blocked until `P8-001` is done. Ta
 | ID | Depends on | Exact outcome | Expected boundary/files | Invariant | Acceptance proof/evidence | Delete/replace | Status | Blocker | Completion |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `P9-001` | `P4-013`, `P5-023`, `P6-014`, `P7-013` | Audit every public symbol through RFC admission test and remove those lacking proof. | All package exports/API reference | Stable API has ownership, two-consumer need, deletion, rollback, packed proof. | Admission ledger complete; export snapshot reviewed. | Unproven exports | pending | — | — |
-| `P9-002` | `P3-020`, `P5-021` | Prove one client lifecycle and one MCP protocol implementation remain. | Source/import/bundle graph | No parallel old/new engines. | AST/source/bundle sentinels and deletion diff. | All superseded engines/parsers | pending | — | — |
+| `P9-002` | `P3-020`, `P5-021` | Prove one client lifecycle and one MCP protocol implementation remain. | Source/import/bundle graph | No parallel old/new engines. | AST/source/bundle sentinels and deletion diff. | All superseded engines/parsers | in_progress | — | — |
 | `P9-003` | `P4-013` | Complete cross-adapter Vue/Nuxt lifecycle matrix from exact packages. | Nuxt browser/SSR, Vue, embedded fixtures | Identity, stale work, pagination, callable, cleanup invariants identical where applicable. | Full RFC Vue/Nuxt matrix. | Redundant adapter-specific lifecycle code | done | — | `e20f77e9`; `internal/evidence/exact-package-cross-adapter-lifecycle-2026-07-22.md` |
 | `P9-004` | `P5-023` | Complete latest-final MCP transport/tool/resource/OAuth conformance from exact package. | Selected runtime and real clients | Version/capability claims exact. | Official suite, Inspector, host matrix. | Unsupported claims/code | pending | — | — |
 | `P9-005` | `P6-014` | Complete high-impact interaction security/concurrency evidence. | Neutral/Ginko production consumers | Current authority/impact, one effect/receipt, host UX independence. | Full RFC URL matrix. | Parallel approval state | pending | — | — |

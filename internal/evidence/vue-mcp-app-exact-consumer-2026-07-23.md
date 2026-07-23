@@ -45,11 +45,28 @@ Packed MCP App consumer passed Vue 0.8.0-beta.15 with MCP 0.1.0-beta.5.
 
 Focused formatting and ESLint checks for the corrected runner also pass.
 
-## Remaining `P7-013` scope
+## Ginko installed-package proof
 
-This checkpoint proves the neutral exact-package capable-host and fallback
-consumer. `P7-013` remains open until the materially different Ginko
-publish-impact App is also built from the exact installed Vue/MCP candidates
-without its current source alias. Different-origin and real external host
-evidence remains a later protected/experimental stabilization gate; it is not
-fabricated by this local harness.
+Ginko commit `f32e28b7` removes the last adjacent-source alias from its
+publish-impact App fixture. The fixture now:
+
+- resolves `better-convex-vue/mcp-app` from the installed package;
+- resolves the exact `@modelcontextprotocol/ext-apps@1.7.4` peer explicitly;
+- rejects any module path under `packages/vue/src`;
+- no longer passes the removed `autoResize` option; and
+- production-bundles the App through the same narrow lifecycle used by the
+  neutral fixture.
+
+The focused Ginko proof passed 27 tests across the candidate contract, package
+boundaries, and production Chromium App lifecycle. Its frozen lockfile also
+passed a lock-only install check. The committed package resolution remains
+registry-clean; temporary local tarball overrides were used only to materialize
+the unpublished immutable candidates and were removed before commit.
+
+## Scope conclusion
+
+`P7-013` is complete for local exact-package certification: two materially
+different consumers build and exercise the installed Vue/MCP candidate bytes
+without workspace or source fallback. Different-origin and compatible real-host
+evidence remains `P9-006` and a protected experimental-to-stable gate; it is not
+fabricated by either local harness.
