@@ -5,17 +5,19 @@
 The experimental MCP package targets the locked `2026-07-28` release candidate through the exact
 official TypeScript SDK beta. It does not claim final-spec or stable-SDK compliance before July 28.
 
-Conformance is intentionally split into two evidence layers:
+Conformance is intentionally split by protocol support:
 
-1. `@modelcontextprotocol/conformance@0.1.16` remains the official-tool layer for the protocol
-   revisions it actually advertises (`2025-06-18` and `2025-11-25`).
+1. `@modelcontextprotocol/conformance@0.1.16` remains an official-tool checkpoint for the protocol
+   revisions it actually advertises, but is not run against the RC-only product server.
 2. `runRcProtocolConformance` is a BCN black-box locked-RC layer driven by the exact official
    `@modelcontextprotocol/client@2.0.0-beta.5` client. It is not described as the official conformance
    suite.
 
-The existing selected-scenario relay was not deleted because the official conformance package has not
-yet published any `2026-07-28` server scenarios. Treating those scenarios as RC evidence would be a
-false compliance claim. The final official suite remains a separate stabilization gate (`P9-004`).
+The selected-scenario legacy relay is deleted. The official conformance package has no
+`2026-07-28` server scenarios, and its `2025-11-25` initialize handshake cannot truthfully certify an
+RC-only stateless server. Re-enabling the legacy protocol solely to satisfy that tool would contradict
+the selected product boundary. The final matching official suite remains a separate stabilization
+gate (`P9-004`).
 
 ## Exact dependency and publication checkpoint
 
@@ -71,18 +73,22 @@ The current Inspector and official conformance versions previously passed the cu
 preflight against both topology candidates; see
 `internal/evidence/mcp-official-tools-preflight-2026-07-22.md`. They do not certify the locked RC.
 
-A full local OAuth run on 2026-07-22 reached the existing 56-test MCP gate, then Inspector `0.22.0`
+A full local OAuth run on 2026-07-22 reached the existing MCP gate, then Inspector `0.22.0`
 failed to settle its legacy OAuth connection and timed out waiting for `Connected`. Its logs show the
 v1 SDK transport and repeated authorization callbacks. This is recorded as an official-tool version
 gap, not hidden as RC success and not worked around by weakening the stateless server contract. The
-new RC runner itself executes before the legacy conformance relay once a bearer reaches the
-conformance stage; exact deployed execution is owned by `P5-023`.
+RC runner executes against the deployed server once a bearer reaches the conformance stage; exact
+deployed execution is owned by `P5-023`.
 
 ## Executed local proof
 
 ```text
-pnpm exec vitest run --project=mcp test/mcp/mcp-runner-contracts.test.ts --reporter=dot
-  1 file, 10 tests passed
+pnpm exec vitest run test/mcp/mcp-runner-contracts.test.ts
+  1 file, 5 tests passed
+
+pnpm test:mcp-conformance
+  2026-07-28 RC: 2 stateless requests, 5 tools, exact tools-only capability
+  live PKCE, Convex authorization, terminal revocation, and server conformance passed
 
 pnpm exec eslint scripts/run-mcp-conformance.mjs test/mcp/mcp-runner-contracts.test.ts
 pnpm exec oxfmt scripts/run-mcp-conformance.mjs test/mcp/mcp-runner-contracts.test.ts
@@ -91,4 +97,5 @@ git diff --check
 
 The in-memory proof uses the official server handler rather than a BCN protocol double. `P5-023`
 must execute the same RC runner against installed package bytes in the selected production Convex
-runtime and retain the official legacy checks only for the versions they truthfully cover.
+runtime. Matching official conformance scenarios must be added after the tool publishes them; older
+initialize-era scenarios are not retained as a compatibility product.
