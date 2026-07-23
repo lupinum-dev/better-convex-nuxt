@@ -539,7 +539,7 @@ async function provisionOAuthProfile(context, fixture) {
       isRecord(profile.clients) &&
       typeof profile.clients.inspector === 'string' &&
       profile.clients.inspector.length > 0 &&
-      profile.resource === `${fixture.origin}/mcp`,
+      profile.resource === `${fixture.convexSiteUrl}/mcp`,
     'AUTH_EXPORT_OAUTH_PROFILE_INVALID',
   )
 

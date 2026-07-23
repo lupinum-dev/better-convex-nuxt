@@ -371,7 +371,7 @@ async function provisionProfile(context, fixture, { confidential = false } = {})
       typeof profile.clients.mcpRemote === 'string' &&
       profile.clients.mcpRemote.length > 0 &&
       profile.clients.inspector !== profile.clients.mcpRemote &&
-      profile.resource === `${fixture.origin}/mcp`,
+      profile.resource === `${fixture.convexSiteUrl}/mcp`,
     'OAUTH_CODE_FIXTURE_PROFILE_INVALID',
   )
   let confidentialClient
