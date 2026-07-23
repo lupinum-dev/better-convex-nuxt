@@ -135,7 +135,7 @@ async function runWorker() {
           id: `${id}-${workerIndex}-${index}`,
           providerId: compoundAccountProvider,
           updatedAt: 1_700_000_000_000,
-          userId: `${id}-user-${workerIndex}-${index}`,
+          userId: `${id}-user`,
         },
       })
     }
@@ -499,6 +499,21 @@ async function runMain() {
         { field: 'accountId', value: compoundAccount.accountId },
         { field: 'providerId', value: compoundAccountProvider },
       ],
+    })
+    await client.function(authAdapterComponentFunctions.remove, authComponentPath, {
+      model: 'user',
+      where: [{ field: 'id', value: `${compoundAccount.id}-user` }],
+    })
+    await client.function(authAdapterComponentFunctions.create, authComponentPath, {
+      model: 'user',
+      data: {
+        createdAt: 1_700_000_000_000,
+        email: `${compoundAccount.id}@example.test`,
+        emailVerified: true,
+        id: `${compoundAccount.id}-user`,
+        name: compoundAccount.id,
+        updatedAt: 1_700_000_000_000,
+      },
     })
     const sameAccountIdentity = await spawnAuthRaceWorkers(
       url,
