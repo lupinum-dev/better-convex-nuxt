@@ -93,6 +93,17 @@ export function purgeConvexIdentityPayloadKeys(nuxtApp: {
   return purged
 }
 
+/**
+ * Remove identity-bound query errors while retaining anonymous-query errors.
+ * Error state is stored under one Nuxt useState key rather than as individual
+ * payload keys, so it needs the same auth-mode filtering explicitly.
+ */
+export function retainAnonymousConvexQueryErrors<T>(
+  errors: Readonly<Record<string, T>>,
+): Record<string, T> {
+  return Object.fromEntries(Object.entries(errors).filter(([key]) => readAuthMode(key) === 'none'))
+}
+
 // ============================================================================
 // SSR Auth Token Resolution
 // ============================================================================

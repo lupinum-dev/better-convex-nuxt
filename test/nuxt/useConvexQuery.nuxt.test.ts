@@ -274,7 +274,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
     expect(convex.calls.onUpdate.length).toBe(0)
 
     // A settled identity requires a resolved user , not just a token.
-    result.identity.value = toAuthenticatedIdentity('ready.jwt.token', { id: 'u1' })
+    result.identity.value = toAuthenticatedIdentity('ready.jwt.token', {
+      id: 'u1',
+    })
     result.authPending.value = false
     await flush()
 
@@ -435,7 +437,9 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result, flush } = await captureInNuxt(
       () => {
-        const args = reactive({ filter: { tag: 'alpha' as string, sort: 'asc' as string } })
+        const args = reactive({
+          filter: { tag: 'alpha' as string, sort: 'asc' as string },
+        })
         const queryResult = useConvexQueryState(query, args)
         return { args, queryResult }
       },
@@ -482,7 +486,10 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
           {
             initialData: [{ _id: 'initial', title: 'loading' }],
             transform: (items: Array<{ _id: string; title: string }>) =>
-              items.map((item) => ({ ...item, title: item.title.toUpperCase() })),
+              items.map((item) => ({
+                ...item,
+                title: item.title.toUpperCase(),
+              })),
           },
         ),
       { convex },
@@ -549,10 +556,28 @@ describe('useConvexQuery composables (Nuxt runtime)', () => {
 
     const { result } = await captureInNuxt(() => useConvexQueryState(query, {}, { auth: 'none' }), {
       convex,
-      payloadData: { [key]: [{ _id: 'ssr-note' }] },
+      payloadData: { [key]: { value: [{ _id: 'ssr-note' }] } },
     })
 
     expect(result.data.value).toEqual([{ _id: 'ssr-note' }])
     expect(convex.calls.onUpdate).toHaveLength(1)
+  })
+
+  it('hydrates a valid Convex null result as settled data', async () => {
+    const convex = new MockConvexClient()
+    const query = mockFnRef<'query'>('notes:nullable:hydrated')
+    const key = withAuthDimension(createConvexQueryKey(query, {}), 'none', 'anonymous')
+
+    const { result } = await captureInNuxt(() => useConvexQueryState(query, {}, { auth: 'none' }), {
+      convex,
+      payloadData: { [key]: { value: null } },
+    })
+
+    expect(result.data.value).toBeNull()
+    expect(result.pending.value).toBe(true)
+    convex.emitQueryResult(query, {}, null)
+    await waitFor(() => result.pending.value === false)
+    expect(result.pending.value).toBe(false)
+    expect(result.status.value).toBe('success')
   })
 })

@@ -306,42 +306,6 @@ export function decodeUserFromJwt(token: string): ConvexUser | null {
 // ============================================================================
 
 // ============================================================================
-// Response Parsing
-// ============================================================================
-
-/**
- * Parse Convex response, handling both success and error formats.
- *
- * Success formats:
- * - { value: T, status: 'success' }
- * - { value: T }
- * - T (direct value for primitives)
- *
- * Error format (the Convex HTTP API's actual contract):
- * - { status: 'error', errorMessage: string }
- *
- * Only `status === 'error'` is treated as an error. A payload whose `value`
- * legitimately contains a `code` field (e.g. `{ status: 'success', value: {
- * code: 'x' } }`) must not be mistaken for an error response.
- */
-export function parseConvexResponse<T>(response: unknown): T {
-  // Check for error response
-  if (response && typeof response === 'object') {
-    const resp = response as Record<string, unknown>
-    if (resp.status === 'error') {
-      const message = (resp.errorMessage || resp.message || 'Query failed') as string
-      throw new Error(message)
-    }
-    // Check for value wrapper
-    if ('value' in resp) {
-      return resp.value as T
-    }
-  }
-  // Direct value (shouldn't happen with Convex, but handle gracefully)
-  return response as T
-}
-
-// ============================================================================
 // Query Status
 // ============================================================================
 

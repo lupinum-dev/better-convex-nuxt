@@ -198,12 +198,16 @@ export function createConvexPaginatedQueryState<
             paginationOpts: { numItems: initialNumItems, cursor: null },
           },
           token,
+          event?.web?.request?.signal,
         )
         const { [key.value]: _removed, ...rest } = errors.value
         errors.value = rest
         return value
       } catch (error) {
-        errors.value = { ...errors.value, [key.value]: normalizeConvexError(error) }
+        errors.value = {
+          ...errors.value,
+          [key.value]: normalizeConvexError(error),
+        }
         return null
       }
     },

@@ -23,7 +23,11 @@ import { ConvexCallError } from './errors'
 import { createConvexRuntimeContext, type NuxtConvexAuthController } from './runtime-context'
 import { useConvexIdentityState } from './utils/auth-identity-state'
 import { useConvexAuthPendingState } from './utils/auth-pending-state'
-import { readAuthMode } from './utils/convex-cache'
+import {
+  purgeConvexIdentityPayloadKeys,
+  readAuthMode,
+  retainAnonymousConvexQueryErrors,
+} from './utils/convex-cache'
 import { createLogger, getLogLevel } from './utils/logger'
 import { getConvexRuntimeConfig } from './utils/runtime-config'
 
@@ -62,10 +66,6 @@ export default defineNuxtPlugin({
         identity.value = ANONYMOUS_IDENTITY
         authError.value = error
         pendingState.value = false
-        clearNuxtData((key) => {
-          const mode = readAuthMode(key)
-          return mode === 'required' || mode === 'optional'
-        })
       },
       sessionChanged(sessionToken, errorMessage) {
         if (!synchronization) return
@@ -82,6 +82,22 @@ export default defineNuxtPlugin({
     const runtime = createConvexRuntimeContext(vuePlugin.attachment(), logger)
     nuxtApp.provide('convexRuntime', runtime)
     nuxtApp.provide('auth', authClient)
+    const queryErrors = useState<Record<string, ConvexCallError | null>>(
+      'convex:query-errors',
+      () => ({}),
+    )
+    let observedIdentityGeneration = runtime.attachment.identity.snapshot().identityGeneration
+    const stopProtectedPayloadObservation = runtime.attachment.identity.subscribe(() => {
+      const generation = runtime.attachment.identity.snapshot().identityGeneration
+      if (generation === observedIdentityGeneration) return
+      observedIdentityGeneration = generation
+      purgeConvexIdentityPayloadKeys(nuxtApp)
+      queryErrors.value = retainAnonymousConvexQueryErrors(queryErrors.value)
+      clearNuxtData((key) => {
+        const mode = readAuthMode(key)
+        return mode === 'required' || mode === 'optional'
+      })
+    })
 
     let disposed = false
     const operations = createAuthOperationCoordinator()
@@ -170,7 +186,10 @@ export default defineNuxtPlugin({
       },
     }
     runtime.attachAuthController(controller)
-    nuxtApp.vueApp.onUnmount(runtime.dispose)
+    nuxtApp.vueApp.onUnmount(() => {
+      stopProtectedPayloadObservation()
+      runtime.dispose()
+    })
 
     if (typeof window !== 'undefined' && import.meta.dev) {
       const waterfall = useState('convex:authWaterfall', () => null)

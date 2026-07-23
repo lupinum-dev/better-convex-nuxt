@@ -55,6 +55,10 @@ interface BuildConvexQueryResult<DataT> {
   resolvePromise: Promise<void>
 }
 
+interface SsrQueryPayload<T> {
+  value: T
+}
+
 export function resolveConvexReactiveValue(value: unknown): unknown {
   const resolved = isRef(value) ? value.value : value
   if (Array.isArray(resolved)) return resolved.map(resolveConvexReactiveValue)
@@ -132,7 +136,11 @@ export function createConvexQueryState<
         : `convex:${hydrationGate.outcome}:${getFunctionName(query)}`
     const nuxtApp = useNuxtApp()
     const hasHydratedData = Object.hasOwn(nuxtApp.payload.data, hydrationKey)
-    const hydrated = nuxtApp.payload.data[hydrationKey] as RawT | null | undefined
+    const hydratedPayload = nuxtApp.payload.data[hydrationKey] as
+      | SsrQueryPayload<RawT>
+      | null
+      | undefined
+    const hydrated = hydratedPayload?.value
     const hydratedErrors = useState<Record<string, ConvexCallError | null>>(
       'convex:query-errors',
       () => ({}),
@@ -140,7 +148,7 @@ export function createConvexQueryState<
     const result = useVueConvexQuery<Query, DataT>(query, args, {
       auth,
       subscribe,
-      initialData: hydrated ?? options?.initialData,
+      initialData: hasHydratedData ? hydrated : options?.initialData,
       transform: options?.transform,
       keepPreviousData: options?.keepPreviousData,
     })
@@ -228,7 +236,7 @@ export function createConvexQueryState<
   const event = useRequestEvent()
   const identity = useConvexIdentityState()
   const cachedToken = computed(() => identityToken(identity.value))
-  const asyncData = useAsyncData<RawT | null>(
+  const asyncData = useAsyncData<SsrQueryPayload<RawT> | null>(
     key,
     async () => {
       const decision = gate.value
@@ -238,7 +246,10 @@ export function createConvexQueryState<
             ...errors.value,
             [key.value]:
               authContext.error.value ??
-              new ConvexCallError({ kind: 'authentication', message: 'Authentication error' }),
+              new ConvexCallError({
+                kind: 'authentication',
+                message: 'Authentication error',
+              }),
           }
         }
         return null
@@ -257,12 +268,16 @@ export function createConvexQueryState<
           getFunctionName(query),
           currentArgs.value as FunctionArgs<Query>,
           token,
+          event?.web?.request?.signal,
         )
         const { [key.value]: _removed, ...rest } = errors.value
         errors.value = rest
-        return value
+        return { value }
       } catch (error) {
-        errors.value = { ...errors.value, [key.value]: normalizeConvexError(error) }
+        errors.value = {
+          ...errors.value,
+          [key.value]: normalizeConvexError(error),
+        }
         return null
       }
     },
@@ -272,9 +287,9 @@ export function createConvexQueryState<
       deep: false,
       default: () => {
         const initial = options?.initialData
-        return (
-          (typeof initial === 'function' ? (initial as () => RawT | undefined)() : initial) ?? null
-        )
+        const value =
+          typeof initial === 'function' ? (initial as () => RawT | undefined)() : initial
+        return value === undefined ? null : { value }
       },
     },
   )
@@ -293,8 +308,9 @@ export function createConvexQueryState<
     }),
   )
   const data = computed<DataT | null>(() => {
-    const value = asyncData.data.value
-    if (value === null) return null
+    const payload = asyncData.data.value
+    if (payload === null) return null
+    const value = payload.value
     return options?.transform ? options.transform(value) : (value as unknown as DataT)
   })
   const status = computed<ConvexCallStatus>(() =>

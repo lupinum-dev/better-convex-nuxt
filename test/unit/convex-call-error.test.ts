@@ -1,7 +1,7 @@
 import { inspect } from 'node:util'
 import { MessageChannel } from 'node:worker_threads'
 
-import { ConvexError } from 'convex/values'
+import { ConvexError, convexToJson } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -10,7 +10,7 @@ import {
   normalizeConvexError,
   type ConvexCallErrorInput,
 } from '../../src/runtime/errors'
-import { executeQueryHttp } from '../../src/runtime/utils/query-execution'
+import { createSsrConvexFetch, executeQueryHttp } from '../../src/runtime/utils/query-execution'
 
 /**
  * Golden fixtures for the public error contract (architecture invariant).
@@ -124,7 +124,11 @@ describe('ConvexCallError golden fixtures ', () => {
   })
 
   it('6. Convex application error with structured data is server, data verbatim', () => {
-    const data = { code: 'UNAUTHORIZED', reason: 'forbidden', nested: { a: 1 } }
+    const data = {
+      code: 'UNAUTHORIZED',
+      reason: 'forbidden',
+      nested: { a: 1 },
+    }
     const appError = new ConvexError(data)
     const normalized = normalizeConvexError(appError)
 
@@ -147,7 +151,10 @@ describe('ConvexCallError golden fixtures ', () => {
   })
 
   it('6c. mere `data` property presence without the marker stays unknown', () => {
-    const notAnApplicationError = { message: 'looks structured', data: { code: 'NOPE' } }
+    const notAnApplicationError = {
+      message: 'looks structured',
+      data: { code: 'NOPE' },
+    }
     expect(normalizeConvexError(notAnApplicationError).kind).toBe('unknown')
   })
 
@@ -162,7 +169,9 @@ describe('ConvexCallError golden fixtures ', () => {
     expect(fromString.kind).toBe('unknown')
     expect(fromString.message).toBe('a bare string failure')
 
-    const fromMessageObject = normalizeConvexError({ message: 'object with message' })
+    const fromMessageObject = normalizeConvexError({
+      message: 'object with message',
+    })
     expect(fromMessageObject.kind).toBe('unknown')
     expect(fromMessageObject.message).toBe('object with message')
 
@@ -172,7 +181,10 @@ describe('ConvexCallError golden fixtures ', () => {
   })
 
   it('9. an existing ConvexCallError passes through unchanged (identity)', () => {
-    const existing = new ConvexCallError({ kind: 'server', message: 'already normalized' })
+    const existing = new ConvexCallError({
+      kind: 'server',
+      message: 'already normalized',
+    })
     expect(normalizeConvexError(existing)).toBe(existing)
   })
 })
@@ -298,10 +310,18 @@ describe('isSerializedConvexCallError strictness ', () => {
   it('rejects an arbitrary object that only carries the name string', () => {
     expect(isSerializedConvexCallError({ name: 'ConvexCallError' })).toBe(false)
     expect(
-      isSerializedConvexCallError({ name: 'ConvexCallError', kind: 'nope', message: 'x' }),
+      isSerializedConvexCallError({
+        name: 'ConvexCallError',
+        kind: 'nope',
+        message: 'x',
+      }),
     ).toBe(false)
     expect(
-      isSerializedConvexCallError({ name: 'ConvexCallError', kind: 'server', message: 42 }),
+      isSerializedConvexCallError({
+        name: 'ConvexCallError',
+        kind: 'server',
+        message: 42,
+      }),
     ).toBe(false)
     expect(isSerializedConvexCallError('ConvexCallError')).toBe(false)
     expect(isSerializedConvexCallError(null)).toBe(false)
@@ -310,27 +330,21 @@ describe('isSerializedConvexCallError strictness ', () => {
 
 /**
  * Audit gap (W8): the golden fixtures above exercise `normalizeConvexError`
- * directly, but the REAL library-owned HTTP boundary that must construct
- * `transport`/`server` classifications itself — `executeQueryHttp` (public
- * "Integrate the contract": "Normalize errors at query ... boundaries" /
- * "Preserve Convex HTTP `errorData` as `data` before normalization") — had no
- * direct unit coverage anywhere in the suite. These tests close that gap
- * cheaply (no Nuxt/e2e harness) using the same `vi.stubGlobal('$fetch', ...)`
- * pattern already established by `test/unit/convex-cache-auth-token.test.ts`.
+ * directly. The SSR boundary uses the official Convex HTTP client for its wire
+ * format and adds only deadline, abort, cache, and response-size controls.
  */
 describe('executeQueryHttp boundary (architecture invariant)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it('a $fetch rejection becomes a boundary-owned transport ConvexCallError without retaining it', async () => {
+  it('a fetch rejection becomes a boundary-owned transport error without retaining it', async () => {
     const secret = 'query-execution-boundary-secret'
     const fetchRejection = Object.assign(new Error('fetch failed'), {
-      statusCode: 503,
       data: { rawBody: secret },
     })
     vi.stubGlobal(
-      '$fetch',
+      'fetch',
       vi.fn(() => Promise.reject(fetchRejection)),
     )
 
@@ -344,50 +358,81 @@ describe('executeQueryHttp boundary (architecture invariant)', () => {
     expect(caught).toBeInstanceOf(ConvexCallError)
     const error = caught as ConvexCallError
     expect(error.kind).toBe('transport')
-    expect(error.status).toBe(503)
-    // The fixed, safe public message never depends on the raw rejection.
-    expect(error.message).toBe(
-      'The request to Convex failed before a usable response was received.',
-    )
+    expect(error.message).toBe('Convex HTTP request could not complete')
     expect('cause' in error).toBe(false)
     expect(JSON.stringify(error)).not.toContain(secret)
   })
 
-  it('a 200 envelope with structured errorData normalizes to server with data preserved verbatim', async () => {
+  it('uses official Convex encoding for arguments, values, and structured errors', async () => {
+    const value = {
+      id: 'notes:1',
+      bigint: 9_007_199_254_740_993n,
+      bytes: new Uint8Array([0, 1, 255]).buffer,
+      nan: Number.NaN,
+      positiveInfinity: Number.POSITIVE_INFINITY,
+      negativeInfinity: Number.NEGATIVE_INFINITY,
+      negativeZero: -0,
+      nested: { nullable: null },
+    }
+    const calls: Array<{ body: unknown; cache: RequestCache | undefined }> = []
     vi.stubGlobal(
-      '$fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          status: 'error',
-          errorData: { code: 'FORBIDDEN', reason: 'nope' },
-        }),
-      ),
+      'fetch',
+      vi.fn((_input, init) => {
+        calls.push({
+          body: JSON.parse(String(init?.body)) as unknown,
+          cache: init?.cache,
+        })
+        return Promise.resolve(
+          Response.json({
+            status: 'success',
+            value: convexToJson(value),
+            logLines: [],
+          }),
+        )
+      }),
     )
 
-    let caught: unknown
-    try {
-      await executeQueryHttp('https://example.convex.cloud', 'notes:list', {})
-    } catch (error) {
-      caught = error
-    }
+    const result = await executeQueryHttp<typeof value>(
+      'https://example.convex.cloud',
+      'notes:list',
+      { cursor: null, count: 1n },
+      'opaque.jwt',
+    )
 
-    // executeQueryHttp re-throws a ConvexError for the composable to
-    // normalize exactly once at its own boundary (per the module doc-comment).
-    const normalized = normalizeConvexError(caught)
-    expect(normalized.kind).toBe('server')
-    expect(normalized.data).toEqual({ code: 'FORBIDDEN', reason: 'nope' })
+    expect(result).toEqual(value)
+    expect(Object.is(result.negativeZero, -0)).toBe(true)
+    expect(calls).toEqual([
+      {
+        body: {
+          args: [convexToJson({ cursor: null, count: 1n })],
+          format: 'convex_encoded_json',
+          path: 'notes:list',
+        },
+        cache: 'no-store',
+      },
+    ])
   })
 
-  it('a 200 envelope with an unstructured error message normalizes to unknown, never guessed from text', async () => {
-    vi.stubGlobal(
-      '$fetch',
-      vi.fn(() =>
-        Promise.resolve({
+  it('preserves structured Convex errors and makes non-UDF upstream failures opaque', async () => {
+    const responses = [
+      new Response(
+        JSON.stringify({
           status: 'error',
-          errorMessage: 'ArgumentValidationError: bad args',
+          errorMessage: 'safe application error',
+          errorData: convexToJson({ code: 'FORBIDDEN', reason: 'nope' }),
         }),
+        { status: 560 },
       ),
+      new Response('UPSTREAM_BODY_SECRET', { status: 503 }),
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(responses.shift()!)),
     )
+
+    await expect(
+      executeQueryHttp('https://example.convex.cloud', 'notes:list', {}),
+    ).rejects.toMatchObject({ data: { code: 'FORBIDDEN', reason: 'nope' } })
 
     let caught: unknown
     try {
@@ -395,9 +440,90 @@ describe('executeQueryHttp boundary (architecture invariant)', () => {
     } catch (error) {
       caught = error
     }
+    expect(caught).toMatchObject({
+      kind: 'transport',
+      message: 'The request to Convex failed before a usable response was received.',
+      status: 503,
+    })
+    expect(JSON.stringify(caught)).not.toContain('UPSTREAM_BODY_SECRET')
+  })
 
-    const normalized = normalizeConvexError(caught)
-    expect(normalized.kind).toBe('unknown')
-    expect(normalized.message).toBe('ArgumentValidationError: bad args')
+  it('enforces response bounds before and during body consumption', async () => {
+    const declared = createSsrConvexFetch({
+      fetchImpl: () =>
+        Promise.resolve(
+          new Response('small', {
+            headers: { 'content-length': String(1024) },
+          }),
+        ),
+      maxResponseBytes: 4,
+    })
+    await expect(declared('https://example.test')).rejects.toMatchObject({
+      kind: 'transport',
+    })
+
+    const streamed = createSsrConvexFetch({
+      fetchImpl: () => Promise.resolve(new Response('12345')),
+      maxResponseBytes: 4,
+    })
+    await expect((await streamed('https://example.test')).text()).rejects.toMatchObject({
+      kind: 'transport',
+    })
+  })
+
+  it('propagates parent abort and enforces the request deadline', async () => {
+    vi.useFakeTimers()
+    const neverFetch: typeof fetch = async (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), {
+          once: true,
+        })
+      })
+    const parent = new AbortController()
+    const aborted = createSsrConvexFetch({
+      fetchImpl: neverFetch,
+      signal: parent.signal,
+    })
+    const abortedRequest = aborted('https://example.test')
+    const abortedExpectation = expect(abortedRequest).rejects.toMatchObject({
+      kind: 'transport',
+      message: 'Convex HTTP request was aborted',
+    })
+    parent.abort()
+    await abortedExpectation
+
+    const timed = createSsrConvexFetch({
+      fetchImpl: neverFetch,
+      timeoutMs: 25,
+    })
+    const timedRequest = timed('https://example.test')
+    const timedExpectation = expect(timedRequest).rejects.toMatchObject({
+      kind: 'transport',
+      message: 'Convex HTTP request timed out',
+    })
+    await vi.advanceTimersByTimeAsync(25)
+    await timedExpectation
+
+    const bodyTimed = createSsrConvexFetch({
+      fetchImpl: () =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('partial'))
+              },
+            }),
+          ),
+        ),
+      timeoutMs: 25,
+    })
+    const body = await bodyTimed('https://example.test')
+    const bodyExpectation = expect(body.text()).rejects.toMatchObject({
+      kind: 'transport',
+      message: 'Convex HTTP request timed out',
+    })
+    await vi.advanceTimersByTimeAsync(25)
+    await bodyExpectation
+    vi.useRealTimers()
   })
 })
