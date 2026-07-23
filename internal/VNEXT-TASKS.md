@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 9 local hardening is at external protocol/host gates; no blocked feature is represented as complete |
 | Current task          | `P6-001` after `EXT-003`; reconcile the final MCP interaction contract before Phase 6 implementation      |
-| Last verified commit  | BCN `fe7da694`; Ginko `84af23af`; exact public entries, Tasks exclusion, and Ginko proof passed           |
+| Last verified commit  | BCN `6784f186`; Ginko `84af23af`; local source, security, package, and consumer gates passed              |
 | Next executable tasks | `P6-001` after `EXT-003`; `P9-006` after `EXT-006`; then `P9-009` after `P6-006`                          |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
@@ -154,6 +154,7 @@ remain gated rather than implied stable contracts.
 | 2026-07-23 | `6c82e61d`, `7f61370e`, `e5694f3d`, `37c7ac4b`; `P9-020` | Full `pnpm check` (164 files, 1,890 tests); exact anonymous/authenticated/embedded Vue consumers; Nuxt prepack and installed-dist consumer; `internal/evidence/shared-lifecycle-final-cleanup-2026-07-23.md` | Pagination tails and hydrated data retire at their real boundaries; producerless shared-query/logger/DevTools state is deleted; both upload composables use one tested transport pipeline |
 | 2026-07-23 | `ea3e5a08`; `P9-021` | Full `pnpm check` (164 files, 1,882 tests); focused public-API/security tests; exact MCP tarball consumer; `internal/evidence/mcp-api-admission-and-agent-lab-2026-07-23.md` | The mock-provider Agent application is an internal lab, not a maintained starter; `runMcpTool()` remains only because neutral and Ginko consumers prove the same narrow safe failure boundary |
 | 2026-07-23 | Ginko `2a1851f7`; `P9-023` | Focused evidence tests; story-index report; formatting/lint; full Ginko suite (182 files/1,202 tests); `internal/evidence/ginko-evidence-taxonomy-2026-07-23.md` | Story titles are non-blocking traceability, package identity is self-attestation, historical line budgets are gone, and list paging remains a trace without an unsupported p95 claim |
+| 2026-07-24 | `6784f186`; local external-gate checkpoint | Unrestricted `pnpm check` (164 files, 1,884 tests); `check:asvs` (253 controls); `check:sbom` (241 components); unrestricted `check:contracts`; `check:auth-advisories` (zero active exceptions) | The local Vue/Nuxt/MCP foundation remains green after the public-API hard cut; one stale private type import was deleted. Remaining implementation work is dependency-ordered behind final MCP interaction semantics or named external host/publication authority. |
 
 ## Status vocabulary
 
