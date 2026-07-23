@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 9 local hardening; Phase 7 local work is complete while protocol/host gates remain external         |
 | Current task          | `P9-019`; narrow and prove the pinned OAuth compatibility firewall                                        |
-| Last verified commit  | BCN `b74749fb`; Ginko `f32e28b7`; single lifecycle/MCP source and fresh-artifact owner proof passed       |
+| Last verified commit  | BCN `c18aab7c`; Ginko `f32e28b7`; single lifecycle/MCP owner proof and full 1,884-test check passed       |
 | Next executable tasks | `P9-019`; `P9-020`; `P9-021`                                                                              |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
@@ -148,7 +148,7 @@ remain gated rather than implied stable contracts.
 | 2026-07-23 | R0 focused re-review | 12 security-boundary files/130 tests plus accepted-finding source/evidence crosswalk; `internal/evidence/vnext-r0-security-rereview-2026-07-23.md` | All accepted local High/Medium protected effects are closed; R0 passes for local experimental vNext work while protected staging, final MCP/host evidence, and publication remain gated |
 | 2026-07-23 | Vue beta.15 + MCP beta.5 exact App consumer | `node scripts/check-vue-mcp-app-consumer.mjs ...`; focused format/lint; `internal/evidence/vue-mcp-app-exact-consumer-2026-07-23.md` | Corrected the stale consumer-owned server proof; exact installed bytes now pass production bundle, locked-RC negotiation, capable-host/fallback, and bearer-absence gates; Ginko exact App build remains |
 | 2026-07-23 | Ginko `f32e28b7`; BCN MCP Apps docs | Ginko candidate/package/App boundary suite (3 files, 27 tests); frozen lock-only install; BCN API-surface docs check and production docs build | Ginko now builds the App from exact installed Vue/MCP candidates with no adjacent-source alias; the documented experimental API, credential boundary, fallback, authorization, navigation, and stable-admission limits match the implementation |
-| 2026-07-23 | `P9-002` single-owner proof | Fresh Vue/MCP/Nuxt builds; source and dist owner sentinels; 13-rule AST boundary graph; 6 negative/positive gate tests; `internal/evidence/single-runtime-owners-2026-07-23.md` | Exactly one Vue client lifecycle and one official-SDK-backed MCP server runtime remain; the old narrow gate was replaced, not retained beside the consolidated source/artifact proof |
+| 2026-07-23 | `c18aab7c`; `P9-002` single-owner proof | Fresh Vue/MCP/Nuxt builds; source and dist owner sentinels; 13-rule AST boundary graph; 6 focused gate tests; full `pnpm check` (163 files, 1,884 tests); `internal/evidence/single-runtime-owners-2026-07-23.md` | Exactly one Vue client lifecycle and one official-SDK-backed MCP server runtime remain; the old narrow gate was replaced, not retained beside the consolidated source/artifact proof |
 
 ## Status vocabulary
 

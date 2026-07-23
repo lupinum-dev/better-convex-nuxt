@@ -63,9 +63,15 @@ pnpm run check:single-runtime-owners:dist
 pnpm run check:boundaries
 pnpm exec vitest run --project=unit \
   test/unit/single-runtime-owners.test.ts --reporter=verbose
+pnpm check
 ```
 
 The three package builds passed. The source and fresh-artifact ownership gates
 passed, all 13 AST architecture rules passed over 263 files, and the focused
 suite passed 6 tests including deliberately reintroduced duplicate runtime,
-constructor, parser, removed-path, and bundle failures.
+constructor, parser, removed-path, and bundle failures. From committed source,
+the canonical repository gate also passed formatting, lint, module/server/
+fixture typechecks, the architecture graph, and 163 files containing 1,884
+tests. The localhost-dependent tests were run with loopback permission; their
+initial sandbox-denied `EPERM` results were environmental and passed unchanged
+when the required permission was present.
