@@ -96,11 +96,10 @@ export function createClassifiedConvexFetch(): typeof fetch {
   return async (input, init) => {
     try {
       return await fetch(input, init)
-    } catch (cause) {
+    } catch {
       throw new ConvexCallError({
         kind: 'transport',
         message: 'Convex HTTP request could not complete',
-        cause,
       })
     }
   }
@@ -115,9 +114,9 @@ export function createClassifiedConvexFetch(): typeof fetch {
  * - a mechanically recognized Convex application error becomes `server` with its
  *   `data` preserved verbatim, including `data.code === 'UNAUTHORIZED'`;
  * - everything else becomes an OPAQUE `unknown`. `ConvexHttpClient` may place an
- *   arbitrary non-OK upstream body in `Error.message`; that raw object survives
- *   only as the non-serialized `cause` and its message/code/status/data are
- *   never copied into the public error.
+ *   arbitrary non-OK upstream body in `Error.message`; that raw object is
+ *   discarded and its message/code/status/data are never copied into the public
+ *   error.
  */
 export function normalizeServerConvexBoundaryError(
   error: unknown,
@@ -133,7 +132,6 @@ export function normalizeServerConvexBoundaryError(
   return new ConvexCallError({
     kind: 'unknown',
     message: 'Convex server call failed',
-    cause: error,
   })
 }
 

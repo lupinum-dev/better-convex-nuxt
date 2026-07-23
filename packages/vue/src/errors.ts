@@ -51,17 +51,15 @@ export interface ConvexCallErrorInput {
   code?: string
   status?: number
   data?: unknown
-  cause?: unknown
 }
 
 /**
  * The single honest error type every throwing and safe Convex call exposes.
  *
- * `cause` is a runtime-only debugging field. It is never serialized: it is
- * absent from {@link ConvexCallError.toJSON}, from `JSON.stringify(error)`, from
- * SSR HTML, framework payload JSON, and logs. Library-owned credentials,
- * tokens, cookies, request/response objects, and authorization headers must only
- * ever live in `cause`, never in the public fields.
+ * Raw upstream causes are deliberately not retained on this public error
+ * object. Library-owned credentials, tokens, cookies, request/response objects,
+ * authorization headers, stacks, and response bodies must never enter its
+ * public fields.
  */
 export class ConvexCallError extends Error {
   readonly kind: ConvexCallErrorKind
@@ -69,36 +67,18 @@ export class ConvexCallError extends Error {
   readonly status?: number
   readonly data?: unknown
 
-  // Under the module's `useDefineForClassFields: true` target, a plain field
-  // initializer would clobber the `cause` slot `super(...)` installs. The
-  // constructor instead re-installs `cause` as a NON-ENUMERABLE own property so
-  // it is invisible to enumeration, spreads, `JSON.stringify`, and structured
-  // clone — while remaining directly readable as `error.cause` for debugging.
-  // This shape and the custom inspect below are load-bearing for
-  // log-cleanliness: Node's error formatter
-  // prints `[cause]` for a plain Error even when non-enumerable, so the inspect
-  // hook is what actually keeps a `cause`-only secret out of console output.
-  override readonly cause?: unknown
-
   constructor(input: ConvexCallErrorInput) {
-    super(input.message, input.cause === undefined ? undefined : { cause: input.cause })
+    super(input.message)
     this.name = 'ConvexCallError'
     this.kind = input.kind
     this.code = input.code
     this.status = input.status
     this.data = input.data
-    Object.defineProperty(this, 'cause', {
-      value: input.cause,
-      enumerable: false,
-      writable: false,
-      configurable: true,
-    })
   }
 
   /**
    * The public serialized shape. `cause` is intentionally omitted so no
-   * runtime-only debugging value (and therefore no secret that only ever lived
-   * in `cause`) can escape into a payload, log, or DevTools event.
+   * private upstream value can escape into a payload, log, or DevTools event.
    */
   toJSON() {
     return {
@@ -117,9 +97,8 @@ export class ConvexCallError extends Error {
  * from `node:util`, so the framework-free purity guard stays satisfied). When a
  * `ConvexCallError` reaches a server-side `console.*` call, Node renders this
  * redacted public shape instead of the default error format — which would
- * otherwise print `[cause]` (and any credential that only ever lived there) even
- * though `cause` is non-enumerable. Returning `toJSON()` guarantees logs carry
- * exactly the serialized public contract and never the raw `cause`.
+ * Returning `toJSON()` guarantees logs carry exactly the serialized public
+ * contract.
  */
 const NODE_INSPECT_CUSTOM = Symbol.for('nodejs.util.inspect.custom')
 Object.defineProperty(ConvexCallError.prototype, NODE_INSPECT_CUSTOM, {
@@ -236,13 +215,11 @@ export function normalizeConvexError(error: unknown): ConvexCallError {
       code: readCode(error),
       status: readStatus(error),
       data: readStructuredData(error),
-      cause: error,
     })
   }
   return new ConvexCallError({
     kind: 'unknown',
     message: readErrorMessage(error),
-    cause: error,
   })
 }
 

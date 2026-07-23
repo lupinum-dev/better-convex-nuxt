@@ -19,7 +19,9 @@ import { decideQueryExecution } from './internal/query-execution'
 import { useBetterConvexRuntime } from './runtime-context'
 import type { ConvexAuthMode } from './use-query'
 
-export type PaginatedQueryReference = FunctionReference<'query'>
+export type PaginatedQueryReference = FunctionReference<'query'> & {
+  readonly _returnType: BetterPaginationResult<unknown>
+}
 export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
   FunctionArgs<Query>,
   'paginationOpts'
@@ -28,11 +30,7 @@ export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
   FunctionReturnType<Query> extends { page: Array<infer Item> } ? Item : never
 
 type CheckedPaginatedQuery<Query extends PaginatedQueryReference> =
-  FunctionArgs<Query> extends { paginationOpts: unknown }
-    ? FunctionReturnType<Query> extends BetterPaginationResult<unknown>
-      ? Query
-      : never
-    : never
+  FunctionArgs<Query> extends { paginationOpts: unknown } ? Query : never
 
 export interface UseConvexPaginatedQueryOptions<Item, TransformedItem = Item> {
   initialNumItems?: number

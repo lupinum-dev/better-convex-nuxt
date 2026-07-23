@@ -1,4 +1,5 @@
 import { inspect } from 'node:util'
+import { MessageChannel } from 'node:worker_threads'
 
 import { ConvexError } from 'convex/values'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -56,7 +57,6 @@ describe('ConvexCallError golden fixtures ', () => {
       kind: 'authentication',
       message: 'Required identity missing',
       code: 'UNAUTHENTICATED',
-      cause: { token: SECRET },
     })
 
     expect(authError.kind).toBe('authentication')
@@ -84,16 +84,14 @@ describe('ConvexCallError golden fixtures ', () => {
   })
 
   it('3a. boundary-wrapped fetch rejection is transport and passes through', () => {
-    const fetchRejection = new TypeError('Failed to fetch')
     // The HTTP boundary constructs the transport error while it knows the source.
     const boundary = new ConvexCallError({
       kind: 'transport',
       message: 'The request could not reach Convex.',
-      cause: fetchRejection,
     })
     expect(boundary.kind).toBe('transport')
     expect(normalizeConvexError(boundary)).toBe(boundary)
-    expect(boundary.cause).toBe(fetchRejection)
+    expect('cause' in boundary).toBe(false)
   })
 
   it('3b. a plain application TypeError stays unknown (never transport)', () => {
@@ -103,12 +101,10 @@ describe('ConvexCallError golden fixtures ', () => {
   })
 
   it('4. timeout / abort is boundary-owned transport', () => {
-    const abort = new DOMException('The operation was aborted.', 'AbortError')
     const boundary = new ConvexCallError({
       kind: 'transport',
       code: 'ABORTED',
       message: 'The request timed out.',
-      cause: abort,
     })
     expect(boundary.kind).toBe('transport')
     expect(boundary.code).toBe('ABORTED')
@@ -120,7 +116,6 @@ describe('ConvexCallError golden fixtures ', () => {
       kind: 'transport',
       status: 502,
       message: 'Convex returned an unexpected response.',
-      cause: { rawBody: SECRET },
     })
     expect(boundary.kind).toBe('transport')
     expect(boundary.status).toBe(502)
@@ -201,49 +196,69 @@ describe('throwing and safe calls are equivalent ', () => {
   }
 })
 
-describe('ConvexCallError class contract: cause is runtime-only ', () => {
-  const withSecret: ConvexCallErrorInput = {
+describe('ConvexCallError class contract: raw causes are not retained ', () => {
+  const publicInput: ConvexCallErrorInput = {
     kind: 'transport',
     message: 'boundary failure',
     status: 500,
-    cause: { authorization: `Bearer ${SECRET}`, cookie: SECRET },
   }
 
-  it('keeps cause on the runtime instance', () => {
-    const error = new ConvexCallError(withSecret)
-    expect(error.cause).toEqual(withSecret.cause)
+  it('has no native or custom cause state', () => {
+    const error = new ConvexCallError(publicInput)
+    expect('cause' in error).toBe(false)
+    expect(Object.getOwnPropertyDescriptor(error, 'cause')).toBeUndefined()
     expect(error).toBeInstanceOf(Error)
   })
 
   it('toJSON omits cause entirely', () => {
-    const error = new ConvexCallError(withSecret)
+    const error = new ConvexCallError(publicInput)
     const json = error.toJSON()
     expect('cause' in json).toBe(false)
     expect(JSON.stringify(json)).not.toContain(SECRET)
   })
 
   it('JSON.stringify(error) is clean of cause content', () => {
-    const error = new ConvexCallError(withSecret)
+    const raw = new Error('safe upstream failure', {
+      cause: { authorization: `Bearer ${SECRET}`, cookie: SECRET },
+    })
+    const error = normalizeConvexError(raw)
     const serialized = JSON.stringify(error)
     expect(serialized).not.toContain(SECRET)
     expect(serialized).not.toContain('authorization')
   })
 
-  it('keeps cause non-enumerable so it never leaks through enumeration or logs', () => {
-    const error = new ConvexCallError(withSecret)
+  it('keeps raw cause data out of enumeration and logs', () => {
+    const raw = new Error('safe upstream failure', {
+      cause: { authorization: `Bearer ${SECRET}`, cookie: SECRET },
+    })
+    const error = normalizeConvexError(raw)
 
-    // Non-enumerable: absent from own keys, spreads, and default serialization.
     expect(Object.keys(error)).not.toContain('cause')
-    expect(Object.getOwnPropertyDescriptor(error, 'cause')?.enumerable).toBe(false)
     expect(Object.prototype.hasOwnProperty.call({ ...error }, 'cause')).toBe(false)
 
-    // The custom inspect hook renders only the redacted public shape, so a
-    // server-side console.* of this error can never print the cause-only secret
-    // (Node's default error formatter would otherwise show `[cause]`).
     const inspected = inspect(error)
     expect(inspected).not.toContain(SECRET)
     expect(inspected).not.toContain('authorization')
-    expect(inspected).toContain('boundary failure')
+    expect(inspected).toContain('safe upstream failure')
+  })
+
+  it('keeps raw cause data out of structured clone and MessageChannel transfer', async () => {
+    const raw = new Error('safe upstream failure', {
+      cause: { authorization: `Bearer ${SECRET}`, cookie: SECRET },
+    })
+    const error = normalizeConvexError(raw)
+    const cloned = structuredClone(error)
+    expect(inspect(cloned, { depth: null })).not.toContain(SECRET)
+    expect('cause' in cloned).toBe(false)
+
+    const { port1, port2 } = new MessageChannel()
+    const transferred = new Promise<unknown>((resolve) => port2.once('message', resolve))
+    port1.postMessage(error)
+    const received = await transferred
+    port1.close()
+    port2.close()
+    expect(inspect(received, { depth: null })).not.toContain(SECRET)
+    expect(received && typeof received === 'object' && 'cause' in received).toBe(false)
   })
 
   it('survives a payload round-trip as instanceof ConvexCallError without cause', () => {
@@ -253,7 +268,6 @@ describe('ConvexCallError class contract: cause is runtime-only ', () => {
       code: 'FORBIDDEN',
       status: 403,
       data: { code: 'FORBIDDEN', detail: 'nope' },
-      cause: { secret: SECRET },
     })
 
     const revived = payloadRoundTrip(original)
@@ -264,7 +278,7 @@ describe('ConvexCallError class contract: cause is runtime-only ', () => {
     expect(typed.code).toBe('FORBIDDEN')
     expect(typed.status).toBe(403)
     expect(typed.data).toEqual({ code: 'FORBIDDEN', detail: 'nope' })
-    expect(typed.cause).toBeUndefined()
+    expect('cause' in typed).toBe(false)
   })
 })
 
@@ -309,7 +323,7 @@ describe('executeQueryHttp boundary (architecture invariant)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('a $fetch rejection becomes a boundary-owned transport ConvexCallError, cause redacted', async () => {
+  it('a $fetch rejection becomes a boundary-owned transport ConvexCallError without retaining it', async () => {
     const secret = 'query-execution-boundary-secret'
     const fetchRejection = Object.assign(new Error('fetch failed'), {
       statusCode: 503,
@@ -335,9 +349,7 @@ describe('executeQueryHttp boundary (architecture invariant)', () => {
     expect(error.message).toBe(
       'The request to Convex failed before a usable response was received.',
     )
-    // The secret lives only in `cause` (the raw rejection) and never in a
-    // public field or JSON.stringify(error).
-    expect(error.cause).toBe(fetchRejection)
+    expect('cause' in error).toBe(false)
     expect(JSON.stringify(error)).not.toContain(secret)
   })
 

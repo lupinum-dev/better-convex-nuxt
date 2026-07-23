@@ -67,7 +67,6 @@ function publicError(snapshot: BrowserAuthSnapshot): ConvexCallError | null {
   return new ConvexCallError({
     kind: 'authentication',
     message: 'Authentication failed',
-    cause: snapshot.error,
   })
 }
 
@@ -132,7 +131,6 @@ export function createAuthAdapterIdentityPort(
         : new ConvexCallError({
             kind: 'authentication',
             message: 'Convex authentication failed',
-            cause,
           })
     authEpoch += 1
     identityGeneration += 1
@@ -234,11 +232,10 @@ export function createAuthAdapterIdentityPort(
         publish({ ...snapshot, settled: true, error: null })
         finish()
       })
-    } catch (cause) {
+    } catch {
       const rejection = new ConvexCallError({
         kind: 'authentication',
         message: 'Convex authentication setup failed',
-        cause,
       })
       failClosed(expectedGeneration, rejection)
       finish(rejection)

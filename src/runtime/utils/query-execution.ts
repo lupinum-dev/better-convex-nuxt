@@ -48,7 +48,6 @@ export async function executeQueryHttp<T>(
       kind: 'transport',
       message: 'The request to Convex failed before a usable response was received.',
       status,
-      cause: error,
     })
   }
 

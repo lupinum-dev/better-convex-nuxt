@@ -312,11 +312,7 @@ describe('Section 9.6 secret sentinel gate', () => {
     )
     const tokenResponseText = await tokenResponse.text()
 
-    const rawCause = new Error(sentinels['auth-error-message'], {
-      cause: new Error(sentinels['auth-error-cause']),
-    })
     const publicError = new ConvexCallError({
-      cause: rawCause,
       code: 'AUTH_CONFIG_INVALID',
       kind: 'authentication',
       message: 'Authentication failed',

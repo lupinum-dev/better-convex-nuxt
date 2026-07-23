@@ -40,7 +40,6 @@ const proof: EmbeddedHostProof = {
       error: new ConvexCallError({
         kind: 'authentication',
         message: 'Identity unavailable',
-        cause: secret,
       }),
       token: secret,
     }

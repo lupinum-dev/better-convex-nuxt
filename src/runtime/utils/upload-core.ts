@@ -25,14 +25,13 @@ function createAbortError(): Error {
 // it as a non-error cancel rather than a call failure.
 function createUploadTransportError(
   message: string,
-  extra?: { status?: number; code?: string; cause?: unknown },
+  extra?: { status?: number; code?: string },
 ): ConvexCallError {
   return new ConvexCallError({
     kind: 'transport',
     message,
     status: extra?.status,
     code: extra?.code,
-    cause: extra?.cause,
   })
 }
 
@@ -116,12 +115,8 @@ export function uploadFileViaXhr(
             return
           }
           resolve(response.storageId)
-        } catch (parseError) {
-          reject(
-            createUploadTransportError('Invalid response from upload endpoint', {
-              cause: parseError,
-            }),
-          )
+        } catch {
+          reject(createUploadTransportError('Invalid response from upload endpoint'))
         }
       } else {
         reject(

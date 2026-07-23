@@ -4,7 +4,7 @@ import {
   type PaginatedQueryItem,
   type PaginatedQueryReference,
 } from 'better-convex-vue'
-import type { PaginationResult } from 'convex/server'
+import type { FunctionArgs, PaginationResult } from 'convex/server'
 import { computed, toValue, type ComputedRef, type MaybeRefOrGetter, type Ref } from 'vue'
 
 import { useAsyncData, useNuxtApp, useRequestEvent, useState } from '#imports'
@@ -76,12 +76,15 @@ interface BuildConvexPaginatedQueryResult<Item> {
   resolvePromise: Promise<void>
 }
 
+type CheckedPaginatedQuery<Query extends PaginatedQueryReference> =
+  FunctionArgs<Query> extends { paginationOpts: unknown } ? Query : never
+
 export function createConvexPaginatedQueryState<
   Query extends PaginatedQueryReference,
   Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
-  query: Query,
+  query: CheckedPaginatedQuery<Query>,
   args?: MaybeRefOrGetter<Args>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
   resolveImmediately = false,
@@ -245,7 +248,7 @@ export async function useConvexPaginatedQuery<
   Args extends ConvexPaginatedQueryArgs<PaginatedQueryArgs<Query>> = PaginatedQueryArgs<Query>,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
-  query: Query,
+  query: CheckedPaginatedQuery<Query>,
   ...rest: ConvexQueryRest<
     PaginatedQueryArgs<Query>,
     MaybeRefOrGetter<ConvexPaginatedQueryArgs<NoInfer<Args>>>,

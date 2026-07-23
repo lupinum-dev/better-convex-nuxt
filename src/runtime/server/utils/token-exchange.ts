@@ -98,20 +98,19 @@ export function exchangeConvexToken(
         trustedClientIpHeader: input.trustedClientIpHeader,
       })
       return await runTokenExchange(input, { ...clientIpHeaders, Cookie: cookieHeader })
-    } catch (error) {
-      return tokenExchangeTransportFailure(error)
+    } catch {
+      return tokenExchangeTransportFailure()
     }
   })()
 }
 
-function tokenExchangeTransportFailure(error: unknown): ConvexTokenExchangeResult {
+function tokenExchangeTransportFailure(): ConvexTokenExchangeResult {
   return {
     token: null,
     status: undefined,
     error: new ConvexCallError({
       kind: 'transport',
       message: 'Convex token exchange could not complete',
-      cause: error,
     }),
   }
 }
@@ -157,7 +156,7 @@ async function runTokenExchange(
       }
     }
     return { token, status: response.status, error: null }
-  } catch (error) {
-    return tokenExchangeTransportFailure(error)
+  } catch {
+    return tokenExchangeTransportFailure()
   }
 }
