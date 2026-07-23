@@ -14,7 +14,7 @@ export interface McpToolDiagnostic {
 
 export interface McpToolDiagnosticOptions {
   readonly functionName?: string
-  readonly onDiagnostic?: (diagnostic: McpToolDiagnostic) => void
+  readonly onDiagnostic?: (diagnostic: McpToolDiagnostic) => Promise<void> | void
   readonly operation: McpToolDiagnostic['operation']
   readonly toolName: string
 }
@@ -30,7 +30,7 @@ export async function runMcpTool(
   try {
     return await operation()
   } catch (cause) {
-    emitDiagnostic(diagnosticOptions, cause)
+    await emitDiagnostic(diagnosticOptions, cause)
     return {
       content: [{ type: 'text', text: 'Tool execution failed' }],
       isError: true,
@@ -38,7 +38,10 @@ export async function runMcpTool(
   }
 }
 
-function emitDiagnostic(options: McpToolDiagnosticOptions | undefined, cause: unknown): void {
+async function emitDiagnostic(
+  options: McpToolDiagnosticOptions | undefined,
+  cause: unknown,
+): Promise<void> {
   if (!options?.onDiagnostic) return
   const diagnostic = Object.freeze({
     callId: crypto.randomUUID(),
@@ -52,7 +55,7 @@ function emitDiagnostic(options: McpToolDiagnosticOptions | undefined, cause: un
     toolName: options.toolName,
   })
   try {
-    options.onDiagnostic(diagnostic)
+    await options.onDiagnostic(diagnostic)
   } catch {
     // Observability is deliberately non-authoritative.
   }

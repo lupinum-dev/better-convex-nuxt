@@ -47,6 +47,7 @@ describe('Convex-native official MCP handler composition', () => {
     }
     const observedAccess: unknown[] = []
     const observedOfficialAuth: unknown[] = []
+    const observedRequestHeaders: Headers[] = []
     const handler = createConvexMcpHandler<typeof application>({
       resource,
       verifier: accessVerifier(),
@@ -70,6 +71,7 @@ describe('Convex-native official MCP handler composition', () => {
           },
           ({ query }, extra) => {
             observedOfficialAuth.push(extra.http?.authInfo)
+            if (extra.http?.req) observedRequestHeaders.push(new Headers(extra.http.req.headers))
             context.operations.push(`search:${access.issuer}:${access.subject}`)
             const output = {
               titles: [...context.notes.values()].filter((title) =>
@@ -98,6 +100,7 @@ describe('Convex-native official MCP handler composition', () => {
           },
           ({ id, title }, extra) => {
             observedOfficialAuth.push(extra.http?.authInfo)
+            if (extra.http?.req) observedRequestHeaders.push(new Headers(extra.http.req.headers))
             if (!context.notes.has(id)) throw new Error('missing note')
             context.notes.set(id, title)
             context.operations.push(`rename:${id}:${access.clientId}`)
@@ -115,7 +118,8 @@ describe('Convex-native official MCP handler composition', () => {
             description: 'Read one neutral note.',
             mimeType: 'text/plain',
           },
-          async (uri, { id }) => {
+          async (uri, { id }, extra) => {
+            if (extra.http?.req) observedRequestHeaders.push(new Headers(extra.http.req.headers))
             const title = context.notes.get(String(id))
             if (title === undefined) throw new Error('resource unavailable')
             return {
@@ -128,7 +132,14 @@ describe('Convex-native official MCP handler composition', () => {
     })
     const responseBodies: string[] = []
     const transport = new StreamableHTTPClientTransport(resource, {
-      requestInit: { headers: { authorization: `Bearer ${bearer}` } },
+      requestInit: {
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          cookie: 'session=credential-cookie-sentinel',
+          'proxy-authorization': 'Basic proxy-credential-sentinel',
+          'x-forwarded-authorization': 'forwarded-credential-sentinel',
+        },
+      },
       fetch: async (input, init) => {
         const response = await handler.fetch(application, new Request(input, init))
         responseBodies.push(await response.clone().text())
@@ -176,10 +187,22 @@ describe('Convex-native official MCP handler composition', () => {
         'rename:note-1:client-123',
       ])
       expect(observedOfficialAuth).toEqual([undefined, undefined])
+      expect(client.getServerCapabilities()).toMatchObject({
+        resources: { listChanged: false, subscribe: false },
+        tools: { listChanged: false },
+      })
       expect(observedAccess.length).toBeGreaterThanOrEqual(4)
       for (const access of observedAccess) {
         expect(access).not.toHaveProperty('token')
         expect(access).not.toHaveProperty('providerReference')
+      }
+      for (const headers of observedRequestHeaders) {
+        expect(headers.get('accept')).toContain('application/json')
+        expect(headers.get('content-type')).toContain('application/json')
+        expect(headers.get('authorization')).toBeNull()
+        expect(headers.get('cookie')).toBeNull()
+        expect(headers.get('proxy-authorization')).toBeNull()
+        expect(headers.get('x-forwarded-authorization')).toBeNull()
       }
       for (const body of responseBodies) expect(body).not.toContain(bearer)
     } finally {
@@ -327,6 +350,16 @@ describe('Convex-native official MCP handler composition', () => {
           method: 'POST',
           headers: { 'content-encoding': 'gzip' },
           body: 'encoded',
+        }),
+      status: 415,
+    },
+    {
+      label: 'non-JSON body',
+      request: () =>
+        new Request(resource, {
+          method: 'POST',
+          headers: { 'content-type': 'text/plain' },
+          body: '{}',
         }),
       status: 415,
     },
@@ -553,18 +586,25 @@ describe('Convex-native official MCP handler composition', () => {
         {},
         new Request(resource, {
           body: JSON.stringify({
-            id: 1,
+            id: 'server-discover-timeout',
             jsonrpc: '2.0',
-            method: 'initialize',
+            method: 'server/discover',
             params: {
-              capabilities: {},
-              clientInfo: { name: 'timeout-client', version: '0.1.0' },
-              protocolVersion: '2025-11-25',
+              _meta: {
+                'io.modelcontextprotocol/clientCapabilities': {},
+                'io.modelcontextprotocol/clientInfo': {
+                  name: 'timeout-client',
+                  version: '0.1.0',
+                },
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              },
             },
           }),
           headers: {
             authorization: `Bearer ${bearer}`,
             'content-type': 'application/json',
+            'mcp-method': 'server/discover',
+            'mcp-protocol-version': '2026-07-28',
           },
           method: 'POST',
         }),
@@ -582,6 +622,48 @@ describe('Convex-native official MCP handler composition', () => {
       vi.useRealTimers()
     }
   })
+
+  it.each(['resources/subscribe', 'resources/unsubscribe', 'subscriptions/listen'])(
+    'rejects stateful %s requests before application construction',
+    async (method) => {
+      let factoryCalls = 0
+      const handler = createConvexMcpHandler({
+        resource,
+        verifier: accessVerifier(),
+        authorization: { mode: 'oauth', metadata: oauthMetadata },
+        createServer() {
+          factoryCalls += 1
+          return new McpServer({ name: 'must-not-run', version: '0.1.0' })
+        },
+      })
+      const response = await handler.fetch(
+        {},
+        new Request(resource, {
+          body: JSON.stringify({
+            id: 'stateful-request',
+            jsonrpc: '2.0',
+            method,
+            params: {
+              _meta: {
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              },
+            },
+          }),
+          headers: {
+            authorization: `Bearer ${bearer}`,
+            'content-type': 'application/json',
+            'mcp-protocol-version': '2026-07-28',
+          },
+          method: 'POST',
+        }),
+      )
+
+      expect(response.status).toBe(405)
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      await expect(response.text()).resolves.toBe('')
+      expect(factoryCalls).toBe(0)
+    },
+  )
 
   it('composes tool quotas from verified identity and host-trusted context without reading IP headers', async () => {
     let now = 0

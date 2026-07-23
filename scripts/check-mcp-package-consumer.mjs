@@ -38,8 +38,10 @@ try {
         type: 'module',
         dependencies: {
           '@better-convex/mcp': 'file:./better-convex-mcp.tgz',
+          '@modelcontextprotocol/server': '2.0.0-beta.5',
           '@types/node': '22.20.1',
           typescript: '5.9.3',
+          zod: '4.3.6',
         },
       },
       null,
@@ -67,9 +69,14 @@ try {
     join(scratchRoot, 'consumer.ts'),
     `import { createConvexMcpHandler, runMcpTool, type McpAccessContext, type McpAccessVerifier, type VerifiedMcpAccess } from '@better-convex/mcp'\n\nconst access: McpAccessContext = { issuer: 'https://issuer.example', subject: 'alice', clientId: 'client', resource: 'https://resource.example/mcp', scopes: ['notes:read'] }\nconst verifier: McpAccessVerifier = { async verifyAccessToken(_token, _resource): Promise<VerifiedMcpAccess> { return { access, expiresAt: 4_102_444_800 } } }\nvoid createConvexMcpHandler\nvoid runMcpTool\nvoid verifier\n`,
   )
+  cpSync(
+    join(repositoryRoot, 'scripts/fixtures/mcp-packed-credential-proof.mjs'),
+    join(scratchRoot, 'runtime-proof.mjs'),
+  )
 
   run('pnpm', ['install', '--frozen-lockfile=false', '--ignore-scripts'])
   run('pnpm', ['exec', 'tsc', '--noEmit'])
+  run('node', ['runtime-proof.mjs'])
 
   const installedRoot = join(scratchRoot, 'node_modules/@better-convex/mcp')
   candidate.assertInstalled(installedRoot)

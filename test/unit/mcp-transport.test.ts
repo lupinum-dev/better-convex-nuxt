@@ -76,19 +76,30 @@ describe('MCP transport bounds', () => {
     expect(cancelled).toBe(true)
   })
 
-  it('bounds non-stream responses while preserving intentionally streaming SSE', async () => {
+  it('bounds JSON responses and rejects streaming or non-JSON responses', async () => {
     const exactBody = 'a'.repeat(maximumMcpResponseBytes)
-    const exact = await boundMcpResponse(new Response(exactBody, { headers: { 'x-test': 'kept' } }))
+    const exact = await boundMcpResponse(
+      new Response(exactBody, {
+        headers: { 'content-type': 'application/json', 'x-test': 'kept' },
+      }),
+    )
     expect(exact.headers.get('x-test')).toBe('kept')
     await expect(exact.text()).resolves.toBe(exactBody)
 
     await expect(
-      boundMcpResponse(new Response('a'.repeat(maximumMcpResponseBytes + 1))),
+      boundMcpResponse(
+        new Response('a'.repeat(maximumMcpResponseBytes + 1), {
+          headers: { 'content-type': 'application/json' },
+        }),
+      ),
     ).rejects.toMatchObject({ status: 502 })
     await expect(
       boundMcpResponse(
         new Response('small', {
-          headers: { 'content-length': String(maximumMcpResponseBytes + 1) },
+          headers: {
+            'content-length': String(maximumMcpResponseBytes + 1),
+            'content-type': 'application/json',
+          },
         }),
       ),
     ).rejects.toMatchObject({ status: 502 })
@@ -96,7 +107,10 @@ describe('MCP transport bounds', () => {
     const stream = new Response('data: alive\n\n', {
       headers: { 'content-type': 'text/event-stream' },
     })
-    await expect(boundMcpResponse(stream)).resolves.toBe(stream)
+    await expect(boundMcpResponse(stream)).rejects.toMatchObject({ status: 502 })
+    await expect(boundMcpResponse(new Response('plain text'))).rejects.toMatchObject({
+      status: 502,
+    })
   })
 
   it('propagates caller abort and enforces the fixed settlement deadline', async () => {
@@ -122,6 +136,26 @@ describe('MCP transport bounds', () => {
     const callerAborted = expect(abortedPending).rejects.toBe(reason)
     aborted.abort(reason)
     await callerAborted
+  })
+
+  it('keeps the deadline active while a JSON response body is consumed', async () => {
+    vi.useFakeTimers()
+    let cancelled = false
+    const stream = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancelled = true
+      },
+    })
+    const pending = runMcpRequestDeadline(new AbortController().signal, async (signal) => {
+      return await boundMcpResponse(
+        new Response(stream, { headers: { 'content-type': 'application/json' } }),
+        signal,
+      )
+    })
+    const timedOut = expect(pending).rejects.toMatchObject({ status: 504 })
+    await vi.advanceTimersByTimeAsync(mcpRequestTimeoutMs)
+    await timedOut
+    expect(cancelled).toBe(true)
   })
 
   it('returns empty no-store transport failures without retaining causes', async () => {

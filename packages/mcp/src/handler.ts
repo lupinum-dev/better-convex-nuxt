@@ -8,10 +8,10 @@ import {
   oauthMetadataResponse,
   originValidationResponse,
   verifyBearerToken,
+  McpServer,
   type AuthInfo,
   type AuthMetadataOptions,
   type McpRequestContext,
-  type McpServer,
   type OAuthMetadata,
   type OAuthTokenVerifier,
   type Server,
@@ -78,7 +78,7 @@ export function createConvexMcpHandler<ActionContext>(
             authorization.mode === 'oauth'
               ? oauthMetadataResponse(request, authorization.metadataOptions)
               : undefined
-          if (metadataResponse) return await boundMcpResponse(metadataResponse)
+          if (metadataResponse) return await boundMcpResponse(metadataResponse, signal)
           const boundaryResponse = requestBoundaryResponse(request, expectedResource)
           if (boundaryResponse) return boundaryResponse
           const authenticated = await authenticateRequest(
@@ -89,15 +89,22 @@ export function createConvexMcpHandler<ActionContext>(
             authorization.resourceMetadataUrl,
             requiredScopes,
           )
-          if (authenticated instanceof Response) return await boundMcpResponse(authenticated)
+          if (authenticated instanceof Response) {
+            return await boundMcpResponse(authenticated, signal)
+          }
 
           const boundedRequest = await prepareBoundedMcpRequest(request, signal)
+          if (await containsStatefulMcpMethod(boundedRequest)) return emptyFailure(405)
           const handler = createMcpHandler(
-            ({ era }) => options.createServer(context, authenticated.access, { era }),
-            { legacy: 'stateless' },
+            async ({ era }) =>
+              hardenUnaryServer(await options.createServer(context, authenticated.access, { era })),
+            {
+              legacy: 'reject',
+              responseMode: 'auto',
+            },
           )
           try {
-            return await boundMcpResponse(await handler.fetch(boundedRequest))
+            return await boundMcpResponse(await handler.fetch(boundedRequest), signal)
           } finally {
             await handler.close()
           }
@@ -181,9 +188,17 @@ function canonicalAuthorizationIssuer(value: string): string {
 function requestBoundaryResponse(request: Request, expectedResource: URL): Response | undefined {
   const url = new URL(request.url)
   if (url.href !== expectedResource.href) return emptyFailure(404)
+  if (request.method !== 'POST') return emptyFailure(405)
   if (request.headers.has('content-encoding')) return emptyFailure(415)
   const originRejected = originValidationResponse(request, [])
-  return originRejected ? emptyFailure(originRejected.status) : undefined
+  if (originRejected) return emptyFailure(originRejected.status)
+  if (
+    request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !==
+    'application/json'
+  ) {
+    return emptyFailure(415)
+  }
+  return undefined
 }
 
 function emptyFailure(status: number): Response {
@@ -242,4 +257,55 @@ async function authenticateRequest(
       resourceMetadataUrl === undefined ? undefined : { resourceMetadataUrl },
     )
   )
+}
+
+const STATEFUL_MCP_METHODS = new Set([
+  'resources/subscribe',
+  'resources/unsubscribe',
+  'subscriptions/listen',
+])
+
+async function containsStatefulMcpMethod(request: Request): Promise<boolean> {
+  try {
+    const value = (await request.clone().json()) as unknown
+    const messages = Array.isArray(value) ? value : [value]
+    return messages.some((message) => {
+      if (typeof message !== 'object' || message === null) return false
+      const method = Reflect.get(message, 'method')
+      return typeof method === 'string' && STATEFUL_MCP_METHODS.has(method)
+    })
+  } catch {
+    return false
+  }
+}
+
+function hardenUnaryServer(server: McpServer | Server): McpServer | Server {
+  const protocol = server instanceof McpServer ? server.server : server
+  const capabilities = protocol.getCapabilities()
+  const unsupported = Object.keys(capabilities).filter(
+    (capability) => capability !== 'tools' && capability !== 'resources',
+  )
+  if (unsupported.length > 0) {
+    throw new TypeError('MCP_UNSUPPORTED_SERVER_CAPABILITY')
+  }
+  protocol.registerCapabilities({
+    ...(capabilities.resources === undefined
+      ? {}
+      : {
+          resources: {
+            ...capabilities.resources,
+            listChanged: false,
+            subscribe: false,
+          },
+        }),
+    ...(capabilities.tools === undefined
+      ? {}
+      : {
+          tools: {
+            ...capabilities.tools,
+            listChanged: false,
+          },
+        }),
+  })
+  return server
 }

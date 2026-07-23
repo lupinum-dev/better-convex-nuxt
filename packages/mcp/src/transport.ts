@@ -22,23 +22,43 @@ export async function prepareBoundedMcpRequest(
     if (!Number.isSafeInteger(bytes) || bytes < 0) throw new McpTransportFailure(400)
     if (bytes > maximumMcpRequestBytes) throw new McpTransportFailure(413)
   }
-  if (request.body === null) return new Request(request, { signal })
+  const headers = allowlistedMcpHeaders(request.headers)
+  if (request.body === null) {
+    return new Request(request.url, {
+      headers,
+      method: request.method,
+      signal,
+    })
+  }
 
   const body = await readBoundedBody(request.body, maximumMcpRequestBytes, 413, signal)
-  const headers = new Headers(request.headers)
-  headers.delete('content-length')
-  return new Request(request, { body, headers, signal })
+  return new Request(request.url, {
+    body,
+    headers,
+    method: request.method,
+    signal,
+  })
 }
 
-export async function boundMcpResponse(response: Response): Promise<Response> {
-  if (response.body === null || isEventStream(response.headers.get('content-type'))) return response
+export async function boundMcpResponse(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<Response> {
+  if (response.body === null) return response
+  if (
+    response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() !==
+    'application/json'
+  ) {
+    await response.body.cancel().catch(() => undefined)
+    throw new McpTransportFailure(502)
+  }
   const declaredLength = response.headers.get('content-length')
   if (declaredLength !== null) {
     const bytes = Number(declaredLength)
     if (!Number.isSafeInteger(bytes) || bytes < 0) throw new McpTransportFailure(502)
     if (bytes > maximumMcpResponseBytes) throw new McpTransportFailure(502)
   }
-  const body = await readBoundedBody(response.body, maximumMcpResponseBytes, 502)
+  const body = await readBoundedBody(response.body, maximumMcpResponseBytes, 502, signal)
   const headers = new Headers(response.headers)
   headers.delete('content-length')
   return new Response(hasNoResponseBody(response.status) ? null : body, {
@@ -126,8 +146,22 @@ async function readBoundedBody(
   return buffer
 }
 
-function isEventStream(value: string | null): boolean {
-  return value?.split(';', 1)[0]?.trim().toLowerCase() === 'text/event-stream'
+function allowlistedMcpHeaders(input: Headers): Headers {
+  const headers = new Headers()
+  for (const [name, value] of input) {
+    const normalized = name.toLowerCase()
+    if (
+      normalized === 'accept' ||
+      normalized === 'content-type' ||
+      normalized === 'mcp-method' ||
+      normalized === 'mcp-name' ||
+      normalized === 'mcp-protocol-version' ||
+      normalized.startsWith('mcp-param-')
+    ) {
+      headers.append(name, value)
+    }
+  }
+  return headers
 }
 
 function hasNoResponseBody(status: number): boolean {

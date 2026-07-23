@@ -106,6 +106,31 @@ describe('MCP tool failure projection', () => {
     }
   })
 
+  it('awaits an asynchronous diagnostic sink without exposing its failure', async () => {
+    let completed = false
+    const result = await runMcpTool(
+      () => {
+        throw new Error('private-async-diagnostic-cause')
+      },
+      {
+        operation: 'query',
+        toolName: 'search_notes',
+        async onDiagnostic() {
+          await Promise.resolve()
+          completed = true
+          throw new Error('private-async-diagnostic-failure')
+        },
+      },
+    )
+
+    expect(completed).toBe(true)
+    expect(result).toEqual({
+      content: [{ type: 'text', text: 'Tool execution failed' }],
+      isError: true,
+    })
+    expect(JSON.stringify(result)).not.toContain('private-async-diagnostic')
+  })
+
   it('does not invoke hostile cause getters while creating a diagnostic', async () => {
     let getters = 0
     const cause = Object.create(null) as Record<string, unknown>
@@ -125,7 +150,9 @@ describe('MCP tool failure projection', () => {
       {
         operation: 'action',
         toolName: 'generate_report',
-        onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+        onDiagnostic(diagnostic) {
+          diagnostics.push(diagnostic)
+        },
       },
     )
     expect(getters).toBe(0)

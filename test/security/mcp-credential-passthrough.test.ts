@@ -55,6 +55,7 @@ describe('MCP credential passthrough absence', () => {
     const operationArguments: unknown[] = []
     const diagnostics: unknown[] = []
     const responseBodies: string[] = []
+    const callbackHeaders: Headers[] = []
     const handler = createConvexMcpHandler({
       resource,
       verifier,
@@ -70,7 +71,8 @@ describe('MCP credential passthrough absence', () => {
             inputSchema: z.object({ query: z.string() }).strict(),
             outputSchema: z.object({ matches: z.array(z.string()) }).strict(),
           },
-          async (input) => {
+          async (input, extra) => {
+            if (extra.http?.req) callbackHeaders.push(new Headers(extra.http.req.headers))
             const args = {
               actor: { issuer: access.issuer, subject: access.subject },
               input,
@@ -82,24 +84,38 @@ describe('MCP credential passthrough absence', () => {
             }
           },
         )
-        server.registerTool('fail_safely', { inputSchema: z.object({}).strict() }, () =>
-          runMcpTool(
-            () => {
-              throw new Error(`${bearer}:${providerReference}`)
-            },
-            {
-              operation: 'action',
-              toolName: 'fail_safely',
-              functionName: 'notes:failSafely',
-              onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
-            },
-          ),
+        server.registerTool(
+          'fail_safely',
+          { inputSchema: z.object({}).strict() },
+          (_input, extra) => {
+            if (extra.http?.req) callbackHeaders.push(new Headers(extra.http.req.headers))
+            return runMcpTool(
+              () => {
+                throw new Error(`${bearer}:${providerReference}`)
+              },
+              {
+                operation: 'action',
+                toolName: 'fail_safely',
+                functionName: 'notes:failSafely',
+                onDiagnostic(diagnostic) {
+                  diagnostics.push(diagnostic)
+                },
+              },
+            )
+          },
         )
         return server
       },
     })
     const transport = new StreamableHTTPClientTransport(resource, {
-      requestInit: { headers: { authorization: `Bearer ${bearer}` } },
+      requestInit: {
+        headers: {
+          authorization: `Bearer ${bearer}`,
+          cookie: 'session=unique-cookie-credential-sentinel',
+          'proxy-authorization': 'Basic unique-proxy-credential-sentinel',
+          'x-forwarded-authorization': 'unique-forwarded-credential-sentinel',
+        },
+      },
       fetch: async (input, init) => {
         const response = await handler.fetch({}, new Request(input, init))
         responseBodies.push(await response.clone().text())
@@ -152,7 +168,16 @@ describe('MCP credential passthrough absence', () => {
         toolName: 'fail_safely',
       },
     ])
+    expect(callbackHeaders).toHaveLength(2)
+    for (const headers of callbackHeaders) {
+      expect(headers.get('authorization')).toBeNull()
+      expect(headers.get('cookie')).toBeNull()
+      expect(headers.get('proxy-authorization')).toBeNull()
+      expect(headers.get('x-forwarded-authorization')).toBeNull()
+      expect(headers.get('content-type')).toContain('application/json')
+    }
     const observable = JSON.stringify({
+      callbackHeaders: callbackHeaders.map((headers) => Object.fromEntries(headers)),
       diagnostics,
       operationArguments,
       responseBodies,

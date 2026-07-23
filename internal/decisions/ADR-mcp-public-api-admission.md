@@ -78,13 +78,17 @@ policy.
 The exact SDK already provides and must continue to own:
 
 - `McpServer`, tool/resource registration, Standard Schema integration, and output validation;
-- `createMcpHandler`, modern per-request serving, and official stateless legacy fallback;
+- `createMcpHandler`, modern per-request serving, protocol classification, and result projection;
 - protocol-era classification, routing-header/body agreement, discovery, and result metadata;
 - `OAuthTokenVerifier`, bearer parsing, expiration enforcement, RFC 9728 challenges, and metadata
   builders;
 - MCP error classes, result types, cache hints, and future input-required results.
 
 Wrapping those APIs would duplicate a registry, protocol lifecycle, or error model and fails admission.
+
+The admitted Convex-native profile intentionally selects the SDK's strict modern entry and finite JSON
+responses. Its per-request server lifetime cannot truthfully own legacy SSE or stateful subscription
+delivery, so those capabilities are rejected instead of bridged through another registry or transport.
 
 The direct SDK does not solve three selected-runtime problems:
 
