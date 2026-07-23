@@ -36,7 +36,11 @@ export default createConfigForNuxt({
       ignores: ['test/fixtures/**'],
       languageOptions: {
         parserOptions: {
-          projectService: true,
+          projectService: {
+            // MCP tests are a separate Vitest/release program and intentionally
+            // excluded from the Nuxt module TypeScript program.
+            allowDefaultProject: ['test/mcp/*.test.ts'],
+          },
           tsconfigRootDir: import.meta.dirname,
         },
       },

@@ -27,7 +27,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-037`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-038`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
@@ -165,9 +165,11 @@ beta.2 after exposing an SSR status defect and a duplicate-SDK MCP composition b
 then failed its stale installed-package consumer, which still constructed the removed consumer-owned
 SDK server. The corrected proof passed against the immutable beta.3 bytes, but the coordinate remains
 retired. MCP beta.4 then reached a stale release-only documentation wording assertion; the corrected
-complete MCP project passed before another reservation. `0.8.0-beta.12` and `0.1.0-beta.5`
-candidates are eligible only after preliminary exact-tarball consumers pass from one clean source
-commit.
+complete MCP project passed before another reservation. MCP beta.5 then passed its complete independent
+lane. Vue/Nuxt beta.12 failed the newly published High PostCSS advisory after all preceding artifact,
+consumer, unit, E2E, and DAST gates passed. The immutable beta.12 set is retired; Vue/Nuxt beta.13
+must use patched PostCSS. MCP beta.5 remains valid because PostCSS is absent from its production
+artifact.
 
 | ID       | Depends on                  | Exact outcome                                                                                                                              | Invariant / acceptance proof                                                                                                   | Delete/replace                                                                   | Status      | Blocker / completion                                                                                                                       |
 | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |

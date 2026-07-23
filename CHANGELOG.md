@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.8.0-beta.13
+
+- Upgrade the build graph to patched `postcss@8.5.16` after the beta.12
+  candidate failed the High-severity advisory gate.
+- Retire the immutable beta.12 Vue/Nuxt artifacts; MCP beta.5 remains valid in
+  its independent release lane because its production artifact does not
+  contain PostCSS.
+
 ## v0.1.0-beta.5 (`@better-convex/mcp`)
 
 - Align the release-only documentation invariant with the package-owned SDK
