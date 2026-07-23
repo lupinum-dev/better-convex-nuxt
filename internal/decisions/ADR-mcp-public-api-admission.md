@@ -41,10 +41,9 @@ export const mcp = createConvexMcpHandler({
     mode: 'oauth',
     metadata: oauthMetadata,
   },
-  createServer(ctx, access) {
-    const server = new McpServer({ name: 'my-app', version: '0.1.0' })
+  serverInfo: { name: 'my-app', version: '0.1.0' },
+  configureServer(ctx, access, _request, server) {
     server.registerTool(/* official SDK API */)
-    return server
   },
 })
 

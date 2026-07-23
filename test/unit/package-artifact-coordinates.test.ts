@@ -44,8 +44,11 @@ describe('package artifact coordinates', () => {
     ['better-convex-vue', '0.8.0-beta.9'],
     ['better-convex-nuxt', '0.8.0-beta.10'],
     ['better-convex-vue', '0.8.0-beta.10'],
+    ['better-convex-nuxt', '0.8.0-beta.11'],
+    ['better-convex-vue', '0.8.0-beta.11'],
     ['@better-convex/mcp', '0.1.0-beta.0'],
     ['@better-convex/mcp', '0.1.0-beta.1'],
+    ['@better-convex/mcp', '0.1.0-beta.2'],
   ])('rejects retired unpublished identity %s@%s', (packageName, version) => {
     expect(() => assertReleaseEligiblePackageVersion(packageName, version)).toThrow(
       'retired unpublished source identity',
@@ -53,11 +56,11 @@ describe('package artifact coordinates', () => {
   })
 
   it('does not generalize the retirement guard to successor or unrelated versions', () => {
-    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.11')).toBe(
-      '0.8.0-beta.11',
+    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.12')).toBe(
+      '0.8.0-beta.12',
     )
-    expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.2')).toBe(
-      '0.1.0-beta.2',
+    expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.3')).toBe(
+      '0.1.0-beta.3',
     )
     expect(assertReleaseEligiblePackageVersion('unrelated-package', '0.8.0-beta.6')).toBe(
       '0.8.0-beta.6',

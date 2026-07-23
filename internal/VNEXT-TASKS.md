@@ -27,7 +27,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-034`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-035`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
@@ -160,8 +160,10 @@ beta.9 failed the packed production lifecycle consumer because its `convex/brows
 official `ConvexHttpClient` export used by the Nuxt SSR adapter. Beta.10 then passed the complete
 Vue/Nuxt candidate set, but MCP beta.1 failed its independent Convex consumer because that consumer
 negotiated the legacy initialize protocol against the RC-only server. All generated sets remain
-immutable and unpublished. Fresh `0.8.0-beta.11` and `0.1.0-beta.2` candidates are eligible only after
-preliminary exact-tarball consumers pass from one clean source commit.
+immutable and unpublished. The post-candidate thermo review then retired Vue/Nuxt beta.11 and MCP
+beta.2 after exposing an SSR status defect and a duplicate-SDK MCP composition boundary. Fresh
+`0.8.0-beta.12` and `0.1.0-beta.3` candidates are eligible only after preliminary exact-tarball
+consumers pass from one clean source commit.
 
 | ID       | Depends on                  | Exact outcome                                                                                                                              | Invariant / acceptance proof                                                                                                   | Delete/replace                                                                   | Status      | Blocker / completion                                                                                                                       |
 | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |

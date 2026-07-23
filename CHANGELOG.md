@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v0.1.0-beta.3 (`@better-convex/mcp`)
+
+- Own the official SDK server instance inside the package and expose only a
+  configuration callback, eliminating duplicate-SDK identity coupling.
+
+## v0.8.0-beta.12
+
+- Make Nuxt SSR pagination status honor the same execution decision and error
+  state as its data path.
+- Remove `null` as query lifecycle control state and extract JWKS response and
+  relationship-graph machinery from the auth plugin and adapter mutation
+  implementation.
+
 ## v0.1.0-beta.2 (`@better-convex/mcp`)
 
 - Add the experimental provider-neutral Convex-native MCP package on the locked
