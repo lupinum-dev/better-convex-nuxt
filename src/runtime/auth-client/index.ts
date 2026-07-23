@@ -18,25 +18,10 @@
 // instantiation entry), not `better-auth/client`, so session/plugin shapes
 // cannot drift.
 
-import type { BetterAuthClientOptions, BetterAuthClientPlugin } from 'better-auth/client'
+import type { BetterAuthClientOptions } from 'better-auth/client'
 import type { VueAuthClient } from 'better-auth/vue'
 
-/** Additional Better Auth client plugins supplied by a consumer definition. */
-export type AuthClientPlugins = readonly BetterAuthClientPlugin[]
-
-/**
- * Consumer-facing options for a Convex auth-client definition.
- *
- * The consumer supplies additional client plugins only. `baseURL`/`basePath`
- * (the module owns fixed same-origin `/api/auth`), and `fetchOptions` (the library
- * owns credentials and request transport) are all removed from the surface.
- */
-export type ConvexAuthClientDefinitionOptions<Plugins extends AuthClientPlugins> = Omit<
-  BetterAuthClientOptions,
-  'baseURL' | 'basePath' | 'plugins' | 'fetchOptions'
-> & {
-  plugins?: Plugins
-}
+import type { AuthClientPlugins, ConvexAuthClientDefinitionOptions } from './definition-types'
 
 /** A frozen, framework-free description of the consumer's client (no instance). */
 export interface ConvexAuthClientDefinition<Plugins extends AuthClientPlugins> {
@@ -88,7 +73,9 @@ export interface ConvexAuthClientRegistry {}
  * Better Auth's `plugins` option is a MUTABLE array; a definition holds a
  * readonly tuple, so strip `readonly` when spreading into resolved options.
  */
-type MutablePlugins<P extends readonly unknown[]> = { -readonly [I in keyof P]: P[I] }
+type MutablePlugins<P extends readonly unknown[]> = {
+  -readonly [I in keyof P]: P[I]
+}
 
 /** Extract the plugins tuple from a registered definition VALUE (never `ReturnType<typeof factory>`). */
 type PluginsOf<D> = D extends ConvexAuthClientDefinition<infer P> ? P : []

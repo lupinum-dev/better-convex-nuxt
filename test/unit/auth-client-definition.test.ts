@@ -13,7 +13,6 @@ import {
   defineConvexAuthClient,
   type BaseAuthClient,
   type ConvexAuthClientDefinition,
-  type ConvexAuthClientDefinitionOptions,
   type InferRegisteredConvexAuthClient,
 } from '../../src/runtime/auth-client'
 import {
@@ -132,12 +131,6 @@ describe('defineConvexAuthClient', () => {
     merged.push({ id: 'later' } as unknown as BetterAuthClientPlugin)
     expect(merged).toHaveLength(3)
     expect(merged[0]?.id).toBe('convex')
-
-    // Type: the merged tuple is assignable to better-auth's mutable plugins slot.
-    const _mutableOptions: ConvexAuthClientDefinitionOptions<[ApiKeyPlugin]> = {
-      plugins: [apiKeyClientRuntime()],
-    }
-    void _mutableOptions
   })
 })
 

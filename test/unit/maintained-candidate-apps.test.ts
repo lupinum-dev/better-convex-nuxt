@@ -49,7 +49,9 @@ describe('maintained candidate-test profiles', () => {
 
   it('keeps the mock-provider agent application outside the maintained starter surface', () => {
     const selected = getMaintainedCandidateProfile('nuxt')
-    expect(selected.profile.pnpmApps.some(({ name }) => name === 'agentic-saas')).toBe(false)
+    expect(
+      selected.profile.pnpmApps.some((entry: { name: string }) => entry.name === 'agentic-saas'),
+    ).toBe(false)
 
     const laboratoryReadme = readFileSync(
       join(import.meta.dirname, '../../internal/labs/agentic-saas/README.md'),

@@ -35,10 +35,4 @@ export interface McpAccessVerifier {
 }
 
 export { createConvexMcpHandler } from './handler.js'
-export type {
-  ConvexMcpHandler,
-  ConvexMcpHandlerOptions,
-  ConvexMcpRequestContext,
-} from './handler.js'
 export { runMcpTool } from './tools.js'
-export type { McpToolDiagnostic, McpToolDiagnosticOptions } from './tools.js'

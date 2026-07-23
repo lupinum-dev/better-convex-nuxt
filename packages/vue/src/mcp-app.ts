@@ -16,14 +16,14 @@ import {
   type ShallowRef,
 } from 'vue'
 
-export type McpAppPhase = 'idle' | 'connecting' | 'ready' | 'error' | 'closed'
+type McpAppPhase = 'idle' | 'connecting' | 'ready' | 'error' | 'closed'
 
-export interface UseMcpAppOptions {
+interface UseMcpAppOptions {
   implementation: ConstructorParameters<typeof App>[0]
   capabilities?: ConstructorParameters<typeof App>[1]
 }
 
-export interface UseMcpAppReturn {
+interface UseMcpAppReturn {
   readonly phase: Readonly<ShallowRef<McpAppPhase>>
   readonly hostCapabilities: Readonly<ShallowRef<McpUiHostCapabilities | undefined>>
   readonly hostContext: Readonly<ShallowRef<McpUiHostContext | undefined>>

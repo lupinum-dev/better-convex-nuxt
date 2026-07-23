@@ -14,7 +14,7 @@ import {
 } from './server-convex-options'
 import { exchangeConvexToken, type ConvexTokenExchangeResult } from './token-exchange'
 
-export type { ConvexCredential, ServerConvexOptions }
+export type { ServerConvexOptions }
 
 /**
  * One request-scoped server caller ("Caller-owned token promise").
@@ -92,7 +92,7 @@ function readCookieHeader(event: H3Event): string | null {
  * status constant is not exported, so this wrapper must let the client consume
  * every response body itself.
  */
-export function createClassifiedConvexFetch(): typeof fetch {
+function createClassifiedConvexFetch(): typeof fetch {
   return async (input, init) => {
     try {
       return await fetch(input, init)
@@ -118,7 +118,7 @@ export function createClassifiedConvexFetch(): typeof fetch {
  *   discarded and its message/code/status/data are never copied into the public
  *   error.
  */
-export function normalizeServerConvexBoundaryError(
+function normalizeServerConvexBoundaryError(
   error: unknown,
   _normalized: NormalizedServerConvexOptions,
 ): ConvexCallError {

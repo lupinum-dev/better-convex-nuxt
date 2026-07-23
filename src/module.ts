@@ -45,19 +45,10 @@ const releaseRuntimeFingerprint = getPackedRuntimeFingerprint()
 // Re-exported public types . The root default export is the module;
 // stable public types are re-exported here. Do not export the raw
 // `ConvexPublicRuntimeConfig` — consumers read `useConvexConfig()`.
-export type { LogLevel } from './runtime/utils/logger'
-export type { ConvexAuthPageMeta } from './runtime/utils/auth-route-protection'
 export type { ConvexUser } from './runtime/utils/types'
-export type {
-  ConvexAuthOptions,
-  AuthProxyDefaults,
-  ConvexDebugOptions,
-  ConvexRouteProtectionConfig,
-  NormalizedConvexAuthConfig,
-} from './runtime/utils/auth-config'
+export type { ConvexAuthOptions } from './runtime/utils/auth-config'
 export type { ConvexAuthMode, ConvexAuthStatus } from './runtime/utils/auth-status'
 export type { ConvexClientHandle } from 'better-convex-vue'
-export type { ConvexIdentityKey } from './runtime/utils/identity-key'
 export type { ConvexRuntimeConfig } from './runtime/utils/runtime-config'
 export type {
   BaseAuthClient,
@@ -142,7 +133,7 @@ async function resolveAuthClientDefinitionPath(
  * These can be overridden per query. There is no `auth` default: query auth
  * policy is `optional` by default and never a per-build knob .
  */
-export interface QueryDefaults {
+interface QueryDefaults {
   /** Run query on server during SSR. @default true */
   server?: boolean
   /** Subscribe to real-time updates via WebSocket. @default true */
@@ -154,7 +145,7 @@ export interface QueryDefaults {
   waitTimeoutMs?: number
 }
 
-export interface UploadDefaults {
+interface UploadDefaults {
   /** Maximum number of concurrent uploads for useConvexUploadQueue. @default 3 */
   maxConcurrent?: number
 }

@@ -39,7 +39,6 @@ const NUXT_CHECKER_ENTRY_RULES = [
         'convex/values',
         'h3',
         'vue',
-        'vue-router',
       ],
     },
     packedProbe: probeRootEntry,

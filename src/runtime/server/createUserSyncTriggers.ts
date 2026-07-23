@@ -85,7 +85,7 @@ type UserSyncIndexRangeBuilder = {
   eq(field: string, value: unknown): unknown
 }
 
-export interface UserSyncRebuildResult {
+interface UserSyncRebuildResult {
   inserted: number
   patched: number
   skipped: number
@@ -137,7 +137,11 @@ export function createUserSyncTriggers<
         const now = Date.now()
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
-          { table: options.table, index: options.index, authIdField: options.authIdField },
+          {
+            table: options.table,
+            index: options.index,
+            authIdField: options.authIdField,
+          },
           user.id,
         )
         if (existing.length > 0) {
@@ -164,7 +168,11 @@ export function createUserSyncTriggers<
       onUpdate: async (ctx: TCtx, user: TAuthUser, previousUser: TAuthUser) => {
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
-          { table: options.table, index: options.index, authIdField: options.authIdField },
+          {
+            table: options.table,
+            index: options.index,
+            authIdField: options.authIdField,
+          },
           user.id,
         )
         const [retained] = existing
@@ -187,7 +195,11 @@ export function createUserSyncTriggers<
       onDelete: async (ctx: TCtx, user: TAuthUser) => {
         const existing = await findExistingByAuthId<TExistingUser, TCtx>(
           ctx,
-          { table: options.table, index: options.index, authIdField: options.authIdField },
+          {
+            table: options.table,
+            index: options.index,
+            authIdField: options.authIdField,
+          },
           user.id,
         )
         for (const row of existing) {
@@ -195,13 +207,21 @@ export function createUserSyncTriggers<
         }
       },
       rebuild: async (ctx: TCtx, users: readonly TAuthUser[]): Promise<UserSyncRebuildResult> => {
-        const result: UserSyncRebuildResult = { inserted: 0, patched: 0, skipped: 0 }
+        const result: UserSyncRebuildResult = {
+          inserted: 0,
+          patched: 0,
+          skipped: 0,
+        }
 
         for (const user of users) {
           const now = Date.now()
           const existing = await findExistingByAuthId<TExistingUser, TCtx>(
             ctx,
-            { table: options.table, index: options.index, authIdField: options.authIdField },
+            {
+              table: options.table,
+              index: options.index,
+              authIdField: options.authIdField,
+            },
             user.id,
           )
           const [retained] = existing

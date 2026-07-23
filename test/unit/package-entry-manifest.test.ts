@@ -112,16 +112,7 @@ describe('package entry manifest', () => {
     expect(manifest.entries[0]).toMatchObject({
       kind: 'runtime',
       valueExports: ['createConvexMcpHandler', 'runMcpTool'],
-      typeExports: [
-        'ConvexMcpHandler',
-        'ConvexMcpHandlerOptions',
-        'ConvexMcpRequestContext',
-        'McpAccessContext',
-        'McpAccessVerifier',
-        'McpToolDiagnostic',
-        'McpToolDiagnosticOptions',
-        'VerifiedMcpAccess',
-      ],
+      typeExports: ['McpAccessContext', 'McpAccessVerifier', 'VerifiedMcpAccess'],
     })
   })
 
