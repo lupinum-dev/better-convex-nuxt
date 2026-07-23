@@ -123,7 +123,7 @@ async function _arityContracts() {
   // @ts-expect-error options cannot occupy an exact-empty args slot
   void useConvexQuery(noArgQuery, { server: false })
   // @ts-expect-error shared queries always declare args
-  void defineSharedConvexQuery({ key: 'settings', query: noArgQuery })
+  void defineSharedConvexQuery({ query: noArgQuery })
   // @ts-expect-error canonical user queries require positional args
   void useConvexUser(noArgQuery)
 
@@ -176,17 +176,17 @@ async function _arityContracts() {
   void useConvexUser(reqArgQuery, { wrong: 1 })
 
   // --- defineSharedConvexQuery: args field always required ---------------
-  defineSharedConvexQuery({ key: 'k1', query: noArgQuery, args: {} })
-  defineSharedConvexQuery({ key: 'k2', query: reqArgQuery, args: { id: 'x' } })
+  defineSharedConvexQuery({ query: noArgQuery, args: {} })
+  defineSharedConvexQuery({ query: reqArgQuery, args: { id: 'x' } })
   // @ts-expect-error no-arg shared queries still declare args
-  defineSharedConvexQuery({ key: 'k1b', query: noArgQuery })
+  defineSharedConvexQuery({ query: noArgQuery })
   // @ts-expect-error required args field must not be omittable
-  defineSharedConvexQuery({ key: 'k3', query: reqArgQuery })
+  defineSharedConvexQuery({ query: reqArgQuery })
   // @ts-expect-error wrong args field shape must not compile
-  defineSharedConvexQuery({ key: 'k4', query: reqArgQuery, args: { wrong: 1 } })
-  defineSharedConvexQuery({ key: 'k5', query: reqArgQuery, args: 'skip' })
+  defineSharedConvexQuery({ query: reqArgQuery, args: { wrong: 1 } })
+  defineSharedConvexQuery({ query: reqArgQuery, args: 'skip' })
   // @ts-expect-error null is not the skip sentinel (decision 9)
-  defineSharedConvexQuery({ key: 'k6', query: reqArgQuery, args: null })
+  defineSharedConvexQuery({ query: reqArgQuery, args: null })
 }
 
 describe('query option type contracts', () => {

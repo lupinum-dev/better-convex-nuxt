@@ -21,12 +21,11 @@ function signIn(): void {
 }
 
 describe('defineSharedConvexQuery (Nuxt runtime)', () => {
-  it('returns one shared query state per app instance for the same key', async () => {
+  it('returns one shared query state per app instance for one definition', async () => {
     const convex = new MockConvexClient()
     const query = mockFnRef<'query'>('users:get-current:shared')
 
     const useSharedUser = defineSharedConvexQuery({
-      key: 'current-user',
       query,
       args: {},
     })
@@ -60,7 +59,6 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       Record<string, never>,
       { id: string }
     >({
-      key: 'current-user:lifetime',
       query,
       args: {},
     })
@@ -119,15 +117,13 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     expect(captured.b?.data.value?.id).toBe('u2')
   })
 
-  it('different keys create isolated shared query state', async () => {
+  it('different definitions create isolated shared query state', async () => {
     const query = mockFnRef<'query'>('users:get-current:shared:new-app')
     const useSharedUser = defineSharedConvexQuery({
-      key: 'current-user:new-app',
       query,
       args: {},
     })
     const useSharedUserAlt = defineSharedConvexQuery({
-      key: 'current-user:new-app:alt',
       query,
       args: {},
     })
@@ -144,18 +140,15 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
   })
 
   // Internal: the closure IS the definition identity, so two separate
-  // `defineSharedConvexQuery` calls own independent state even with the same
-  // `key` — there is no caller-key registry and no duplicate-key collision check.
-  it('gives separate closures independent state even with the same key', async () => {
+  // `defineSharedConvexQuery` calls own independent state.
+  it('gives separate closures independent state', async () => {
     const query = mockFnRef<'query'>('users:get-current:shared:equivalent')
 
     const useSharedA = defineSharedConvexQuery({
-      key: 'current-user:equivalent',
       query,
       args: {},
     })
     const useSharedB = defineSharedConvexQuery({
-      key: 'current-user:equivalent',
       query,
       args: {},
     })
@@ -171,17 +164,15 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
     expect(result.first).not.toBe(result.second)
   })
 
-  it('does not throw when different closures reuse a key with divergent config', async () => {
+  it('keeps different closures isolated with divergent config', async () => {
     const queryA = mockFnRef<'query'>('users:get-current:shared:collision-a')
     const queryB = mockFnRef<'query'>('users:get-current:shared:collision-b')
 
     const useSharedA = defineSharedConvexQuery({
-      key: 'current-user:collision',
       query: queryA,
       args: {},
     })
     const useSharedB = defineSharedConvexQuery({
-      key: 'current-user:collision',
       query: queryB,
       args: {},
     })
@@ -190,7 +181,6 @@ describe('defineSharedConvexQuery (Nuxt runtime)', () => {
       convex: new MockConvexClient(),
     })
 
-    // No collision check: each closure is its own definition identity.
     expect(result.a).not.toBe(result.b)
   })
 })

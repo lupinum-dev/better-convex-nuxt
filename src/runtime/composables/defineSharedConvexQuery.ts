@@ -22,8 +22,6 @@ export type DefineSharedConvexQueryOptions<
   Args extends FunctionArgs<Query> | 'skip' = FunctionArgs<Query>,
   DataT = FunctionReturnType<Query>,
 > = {
-  /** Stable app-level key for this definition (diagnostics; identity is the closure). */
-  key: string
   /** Convex query reference. */
   query: Query
   /** Same options as useConvexQuery. */
@@ -33,15 +31,13 @@ export type DefineSharedConvexQueryOptions<
 /**
  * Create a shared query composable that initializes once per Nuxt app (internal
  *). The returned closure is the canonical definition identity: it owns one
- * `WeakMap<NuxtApp, SharedState>`; there is no caller-key registry, no config
- * fingerprinting, no duplicate-key collision check, and no mutation of the Nuxt
- * app object. The shared state inherits the same identity isolation as a
+ * `WeakMap<NuxtApp, SharedState>`; there is no caller-key registry and no
+ * mutation of the Nuxt app object. The shared state inherits the same identity isolation as a
  * non-shared query, so it clears on identity change.
  *
  * @example
  * ```ts
  * const useCurrentTeam = defineSharedConvexQuery({
- *   key: 'current-team',
  *   query: api.teams.getCurrent,
  *   args: () => (teamId.value ? { teamId: teamId.value } : 'skip'),
  * })

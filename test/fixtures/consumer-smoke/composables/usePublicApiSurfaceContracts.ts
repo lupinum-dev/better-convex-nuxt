@@ -57,7 +57,6 @@ export async function usePublicApiSurfaceContracts(file: File) {
   assertType<'idle' | 'pending' | 'success' | 'error'>(skipped.status.value)
 
   const sharedList = defineSharedConvexQuery({
-    key: 'consumer-smoke:tasks',
     query: api.tasks.list,
     args: {},
     options: { initialData: [] },
@@ -225,13 +224,13 @@ async function _requiredArgsContracts() {
 
   // --- defineSharedConvexQuery: args field always required, including `{}`
   // for a no-argument query ---
-  defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list, args: {} })
+  defineSharedConvexQuery({ query: api.tasks.list, args: {} })
   // @ts-expect-error shared queries always declare args, even for no-arg queries
-  defineSharedConvexQuery({ key: 'contract:list', query: api.tasks.list })
+  defineSharedConvexQuery({ query: api.tasks.list })
   // @ts-expect-error required args field must not be omittable
-  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl })
+  defineSharedConvexQuery({ query: api.files.getUrl })
   // @ts-expect-error wrong args field shape must not compile
-  defineSharedConvexQuery({ key: 'contract:getUrl', query: api.files.getUrl, args: { wrong: 1 } })
+  defineSharedConvexQuery({ query: api.files.getUrl, args: { wrong: 1 } })
 
   // --- useConvexStorageUrl: query must accept { storageId } and return string | null ---
   // Positive: correctly-typed getUrl query, with optional auth passthrough.
