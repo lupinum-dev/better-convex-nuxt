@@ -36,6 +36,8 @@ describe('package artifact coordinates', () => {
   it.each([
     ['better-convex-nuxt', '0.8.0-beta.6'],
     ['better-convex-vue', '0.8.0-beta.6'],
+    ['better-convex-nuxt', '0.8.0-beta.7'],
+    ['better-convex-vue', '0.8.0-beta.7'],
     ['@better-convex/mcp', '0.1.0-beta.0'],
   ])('rejects retired unpublished identity %s@%s', (packageName, version) => {
     expect(() => assertReleaseEligiblePackageVersion(packageName, version)).toThrow(
@@ -44,8 +46,8 @@ describe('package artifact coordinates', () => {
   })
 
   it('does not generalize the retirement guard to successor or unrelated versions', () => {
-    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.7')).toBe(
-      '0.8.0-beta.7',
+    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.8')).toBe(
+      '0.8.0-beta.8',
     )
     expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.1')).toBe(
       '0.1.0-beta.1',
