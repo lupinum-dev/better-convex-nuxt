@@ -8,7 +8,6 @@ import { normalizeConvexRuntimeConfig } from '../../utils/runtime-config-normali
 import { filterBetterAuthCookies, getBetterAuthSessionToken } from '../../utils/shared-helpers'
 import {
   validateServerConvexOptions,
-  type ConvexCredential,
   type NormalizedServerConvexOptions,
   type ServerConvexOptions,
 } from './server-convex-options'
