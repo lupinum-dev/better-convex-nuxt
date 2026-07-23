@@ -151,9 +151,9 @@ export interface PaginationStatusState {
 }
 
 export function computePaginationStatus(input: PaginationStatusState): PaginationStatus {
+  if (input.hasError) return 'error'
   if (input.disabled) return 'idle'
   if (input.refresh === 'pending') return 'loading-first-page'
-  if (input.hasError) return 'error'
   if (input.firstPage.state === 'loading') return 'loading-first-page'
   if (input.nextPage.state === 'loading') return 'loading-more'
   if (input.nextPage.state === 'exhausted' || input.firstPage.isDone) return 'exhausted'

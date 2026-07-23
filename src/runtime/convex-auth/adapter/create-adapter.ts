@@ -12,12 +12,11 @@ import {
   type JoinConfig,
 } from 'better-auth/adapters'
 import { symmetricDecrypt, symmetricEncrypt, type SecretConfig } from 'better-auth/crypto'
-import { createFunctionHandle, type GenericDataModel } from 'convex/server'
+import { createFunctionHandle, type FunctionArgs, type GenericDataModel } from 'convex/server'
 
 import { isWritableAuthCtx, requireWritableAuthCtx, type AuthCtx } from '../context'
 import type { AuthAdapterComponentApi, AuthComponentTriggers, AuthFunctions } from '../types'
 import { createAuthSchema } from './generate-schema'
-import type { AuthWhere } from './query'
 
 interface AdapterOptions<DataModel extends GenericDataModel> {
   authFunctions?: AuthFunctions
@@ -29,6 +28,23 @@ interface Page<T> {
   continueCursor: string
   isDone: boolean
   page: T[]
+}
+
+type ComponentWhere = NonNullable<
+  FunctionArgs<AuthAdapterComponentApi['adapter']['findOne']>['where']
+>
+type ComponentUpdate = FunctionArgs<AuthAdapterComponentApi['adapter']['updateOne']>['update']
+
+function toComponentWhere(where: CleanedWhere[] | undefined): ComponentWhere | undefined {
+  return where?.map((condition) => ({
+    ...condition,
+    value:
+      condition.value instanceof Date
+        ? condition.value.getTime()
+        : Array.isArray(condition.value)
+          ? [...condition.value]
+          : condition.value,
+  })) as ComponentWhere | undefined
 }
 
 interface IdTokenProtectionOptions {
@@ -256,15 +272,12 @@ export function createConvexAuthAdapter<
           select?: string[]
         }): Promise<T> => {
           requireWritableAuthCtx(ctx)
-          const created = await ctx.runMutation(
-            component.adapter.create as never,
-            {
-              model,
-              data: await idTokens.protect(model, data),
-              select,
-              onCreateHandle: await triggerHandle(model, 'onCreate'),
-            } as never,
-          )
+          const created = await ctx.runMutation(component.adapter.create, {
+            model,
+            data: await idTokens.protect(model, data),
+            select,
+            onCreateHandle: await triggerHandle(model, 'onCreate'),
+          })
           return idTokens.reveal(model, created as T)
         },
         findOne: async <T>({
@@ -277,14 +290,11 @@ export function createConvexAuthAdapter<
           select?: string[]
           where: CleanedWhere[]
         }): Promise<T | null> => {
-          const found = await ctx.runQuery(
-            component.adapter.findOne as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              select,
-            } as never,
-          )
+          const found = await ctx.runQuery(component.adapter.findOne, {
+            model,
+            where: toComponentWhere(where),
+            select,
+          })
           return idTokens.reveal(model, found as T | null)
         },
         findMany: async <T>({
@@ -306,25 +316,19 @@ export function createConvexAuthAdapter<
           if (offset !== undefined && offset !== 0) throw new Error('AUTH_OFFSET_UNSUPPORTED')
           const rows = await collectPages<T>(
             (paginationOpts) =>
-              ctx.runQuery(
-                component.adapter.findMany as never,
-                {
-                  model,
-                  where: where as AuthWhere[] | undefined,
-                  select,
-                  sortBy,
-                  paginationOpts,
-                } as never,
-              ) as Promise<Page<T>>,
+              ctx.runQuery(component.adapter.findMany, {
+                model,
+                where: toComponentWhere(where),
+                select,
+                sortBy,
+                paginationOpts,
+              }) as Promise<Page<T>>,
             limit,
           )
           return Promise.all(rows.map((row) => idTokens.reveal(model, row) as Promise<T>))
         },
         count: ({ model, where }) =>
-          ctx.runQuery(
-            component.adapter.count as never,
-            { model, where: where as AuthWhere[] | undefined } as never,
-          ),
+          ctx.runQuery(component.adapter.count, { model, where: toComponentWhere(where) }),
         update: async <T>({
           model,
           where,
@@ -336,50 +340,38 @@ export function createConvexAuthAdapter<
         }): Promise<T | null> => {
           requireWritableAuthCtx(ctx)
           if (where.length === 0) return null
-          const updated = await ctx.runMutation(
-            component.adapter.updateOne as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              update: await idTokens.protect(model, update),
-              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
-            } as never,
-          )
+          const updated = await ctx.runMutation(component.adapter.updateOne, {
+            model,
+            where: toComponentWhere(where)!,
+            update: (await idTokens.protect(model, update)) as ComponentUpdate,
+            onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+          })
           return idTokens.reveal(model, updated as T | null)
         },
         updateMany: async ({ model, where, update }) => {
           requireWritableAuthCtx(ctx)
-          return ctx.runMutation(
-            component.adapter.updateMany as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              update: await idTokens.protect(model, update),
-              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
-            } as never,
-          )
+          return ctx.runMutation(component.adapter.updateMany, {
+            model,
+            where: toComponentWhere(where)!,
+            update: (await idTokens.protect(model, update)) as ComponentUpdate,
+            onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+          })
         },
         delete: async ({ model, where }) => {
           requireWritableAuthCtx(ctx)
-          await ctx.runMutation(
-            component.adapter.deleteOne as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              onDeleteHandle: await triggerHandle(model, 'onDelete'),
-            } as never,
-          )
+          await ctx.runMutation(component.adapter.deleteOne, {
+            model,
+            where: toComponentWhere(where)!,
+            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+          })
         },
         deleteMany: async ({ model, where }) => {
           requireWritableAuthCtx(ctx)
-          return ctx.runMutation(
-            component.adapter.deleteMany as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              onDeleteHandle: await triggerHandle(model, 'onDelete'),
-            } as never,
-          )
+          return ctx.runMutation(component.adapter.deleteMany, {
+            model,
+            where: toComponentWhere(where)!,
+            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+          })
         },
         consumeOne: async <T>({
           model,
@@ -389,14 +381,11 @@ export function createConvexAuthAdapter<
           where: CleanedWhere[]
         }): Promise<T | null> => {
           requireWritableAuthCtx(ctx)
-          const consumed = await ctx.runMutation(
-            component.adapter.consumeOne as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              onDeleteHandle: await triggerHandle(model, 'onDelete'),
-            } as never,
-          )
+          const consumed = await ctx.runMutation(component.adapter.consumeOne, {
+            model,
+            where: toComponentWhere(where)!,
+            onDeleteHandle: await triggerHandle(model, 'onDelete'),
+          })
           return idTokens.reveal(model, consumed as T | null)
         },
         incrementOne: async <T>({
@@ -411,16 +400,13 @@ export function createConvexAuthAdapter<
           where: CleanedWhere[]
         }): Promise<T | null> => {
           requireWritableAuthCtx(ctx)
-          const incremented = await ctx.runMutation(
-            component.adapter.incrementOne as never,
-            {
-              model,
-              where: where as AuthWhere[],
-              increment,
-              set: await idTokens.protect(model, set),
-              onUpdateHandle: await triggerHandle(model, 'onUpdate'),
-            } as never,
-          )
+          const incremented = await ctx.runMutation(component.adapter.incrementOne, {
+            model,
+            where: toComponentWhere(where)!,
+            increment,
+            set: await idTokens.protect(model, set),
+            onUpdateHandle: await triggerHandle(model, 'onUpdate'),
+          })
           return idTokens.reveal(model, incremented as T | null)
         },
       }

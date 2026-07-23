@@ -15,6 +15,7 @@ import { createPaginationController } from './internal/pagination-controller'
 import type { BetterPaginationResult } from './internal/pagination-state'
 import { normalizeConvexArgs, isConvexArgsSkipped } from './internal/query-args'
 import type { QueryIsolationTag } from './internal/query-controller'
+import { decideQueryExecution } from './internal/query-execution'
 import { useBetterConvexRuntime } from './runtime-context'
 import type { ConvexAuthMode } from './use-query'
 
@@ -25,6 +26,13 @@ export type PaginatedQueryArgs<Query extends PaginatedQueryReference> = Omit<
 >
 export type PaginatedQueryItem<Query extends PaginatedQueryReference> =
   FunctionReturnType<Query> extends { page: Array<infer Item> } ? Item : never
+
+type CheckedPaginatedQuery<Query extends PaginatedQueryReference> =
+  FunctionArgs<Query> extends { paginationOpts: unknown }
+    ? FunctionReturnType<Query> extends BetterPaginationResult<unknown>
+      ? Query
+      : never
+    : never
 
 export interface UseConvexPaginatedQueryOptions<Item, TransformedItem = Item> {
   initialNumItems?: number
@@ -41,8 +49,8 @@ export function useConvexPaginatedQuery<
   Query extends PaginatedQueryReference,
   TransformedItem = PaginatedQueryItem<Query>,
 >(
-  query: Query,
-  args?: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip' | null | undefined>,
+  query: CheckedPaginatedQuery<Query>,
+  args: MaybeRefOrGetter<PaginatedQueryArgs<Query> | 'skip' | null | undefined>,
   options?: UseConvexPaginatedQueryOptions<PaginatedQueryItem<Query>, TransformedItem>,
 ) {
   if (!getCurrentScope()) {
@@ -65,15 +73,15 @@ export function useConvexPaginatedQuery<
   )
   const boundaryError = shallowRef<ConvexCallError | null>(null)
 
-  const idle = computed(() => {
-    if (isConvexArgsSkipped(currentArgs.value)) return true
-    if (auth === 'none') return false
-    const snapshot = identity.value
-    if (!snapshot.authEnabled) return auth === 'required'
-    if (!snapshot.settled || snapshot.error) return true
-    return auth === 'required' && snapshot.identityKey === 'anonymous'
-  })
-  const live = computed(() => !idle.value && subscribe)
+  const gate = computed(() =>
+    decideQueryExecution({
+      auth,
+      skipped: isConvexArgsSkipped(currentArgs.value),
+      identity: identity.value,
+    }),
+  )
+  const idle = computed(() => gate.value === 'idle')
+  const live = computed(() => gate.value === 'execute' && subscribe)
   const tag = computed<QueryIsolationTag>(() => ({
     identityKey: auth === 'none' ? 'anonymous' : (identity.value.identityKey ?? 'anonymous'),
     identityGeneration: auth === 'none' ? 0 : identity.value.identityGeneration,
@@ -87,7 +95,7 @@ export function useConvexPaginatedQuery<
     cursor: string | null
     id: number
   }): Promise<BetterPaginationResult<Item> | null> => {
-    if (idle.value || isConvexArgsSkipped(currentArgs.value)) return null
+    if (gate.value !== 'execute' || isConvexArgsSkipped(currentArgs.value)) return null
     return (await runtime.browser.clientFor(auth).query(query, {
       ...(currentArgs.value as PaginatedQueryArgs<Query>),
       paginationOpts,
@@ -95,7 +103,7 @@ export function useConvexPaginatedQuery<
   }
 
   async function refreshBoundary() {
-    if (idle.value) return
+    if (gate.value !== 'execute') return
     const operation = controller.captureOperation()
     try {
       const result = await controller.fetchForOperation(controller.initialOptions.value, operation)
@@ -128,7 +136,7 @@ export function useConvexPaginatedQuery<
     setBoundaryError: (error) => {
       boundaryError.value = error
     },
-    getClient: () => (idle.value ? null : runtime.browser.clientFor(auth)),
+    getClient: () => (gate.value === 'execute' ? runtime.browser.clientFor(auth) : null),
     fetchPage,
     refreshBoundary,
   })
@@ -158,10 +166,10 @@ export function useConvexPaginatedQuery<
     previousBoundaryKey = nextBoundaryKey
     previousLive = live.value
     if (live.value) controller.subscribeFirstPage()
-    else if (!idle.value) void refreshBoundary()
+    else if (gate.value === 'execute') void refreshBoundary()
   }
   const stop = watch(
-    [argsHash, idle, live, () => identity.value.identityGeneration, () => identity.value.authEpoch],
+    [argsHash, gate, live, () => identity.value.identityGeneration, () => identity.value.authEpoch],
     reconcile,
     { immediate: true, flush: 'sync' },
   )

@@ -16,6 +16,7 @@ import type { ConvexCallError } from './errors'
 import type { ClientCallStatus } from './internal/call-state'
 import { normalizeConvexArgs, isConvexArgsSkipped } from './internal/query-args'
 import { createQueryController, type QueryIsolationTag } from './internal/query-controller'
+import { decideQueryExecution } from './internal/query-execution'
 import { useBetterConvexRuntime } from './runtime-context'
 
 export type ConvexAuthMode = 'required' | 'optional' | 'none'
@@ -40,14 +41,12 @@ export interface UseConvexQueryResult<Data> {
   clear(): void
 }
 
-type Gate = 'execute' | 'idle' | 'wait' | 'error'
-
 export function useConvexQuery<
   Query extends FunctionReference<'query'>,
   Data = FunctionReturnType<Query>,
 >(
   query: Query,
-  args?: MaybeRefOrGetter<ConvexQueryArgs<FunctionArgs<Query>>>,
+  args: MaybeRefOrGetter<ConvexQueryArgs<FunctionArgs<Query>>>,
   options?: UseConvexQueryOptions<FunctionReturnType<Query>, Data>,
 ): UseConvexQueryResult<Data> {
   if (!getCurrentScope()) {
@@ -60,24 +59,24 @@ export function useConvexQuery<
   const currentArgs = computed(() => normalizeConvexArgs(args))
   const argsHash = computed(() => hash(currentArgs.value))
   const initial = options?.initialData
-  const raw = shallowRef<Raw | null>(
-    (typeof initial === 'function' ? (initial as () => Raw | undefined)() : initial) ?? null,
+  const noQueryValue = Symbol('no-query-value')
+  const initialValue =
+    typeof initial === 'function' ? (initial as () => Raw | undefined)() : initial
+  const raw = shallowRef<Raw | typeof noQueryValue>(
+    initialValue === undefined ? noQueryValue : initialValue,
   )
   const boundaryError = shallowRef<ConvexCallError | null>(null)
   const loading = ref(false)
   const identity = runtime.identity.snapshot
   const functionName = getFunctionName(query)
 
-  const gate = computed<Gate>(() => {
-    if (isConvexArgsSkipped(currentArgs.value)) return 'idle'
-    if (auth === 'none') return 'execute'
-    const snapshot = identity.value
-    if (!snapshot.authEnabled) return auth === 'required' ? 'idle' : 'execute'
-    if (!snapshot.settled) return 'wait'
-    if (snapshot.error) return 'error'
-    if (snapshot.identityKey === 'anonymous') return auth === 'required' ? 'idle' : 'execute'
-    return 'execute'
-  })
+  const gate = computed(() =>
+    decideQueryExecution({
+      auth,
+      skipped: isConvexArgsSkipped(currentArgs.value),
+      identity: identity.value,
+    }),
+  )
   const tag = computed<QueryIsolationTag>(() => ({
     identityKey: auth === 'none' ? 'anonymous' : (identity.value.identityKey ?? 'anonymous'),
     identityGeneration: auth === 'none' ? 0 : identity.value.identityGeneration,
@@ -104,7 +103,13 @@ export function useConvexQuery<
         ? (runtime.browser.clientFor(auth) as typeof runtime.browser.handle)
         : null,
     boundary: {
-      readData: () => raw.value,
+      hasData: () => raw.value !== noQueryValue,
+      readData: () => {
+        if (raw.value === noQueryValue) {
+          throw new Error('[better-convex-vue] attempted to read an unsettled query value')
+        }
+        return raw.value
+      },
       writeData: (value) => {
         raw.value = value
       },
@@ -113,7 +118,7 @@ export function useConvexQuery<
         boundaryError.value = error
       },
       clearData: () => {
-        raw.value = null
+        raw.value = noQueryValue
       },
     },
     events: {
@@ -170,9 +175,10 @@ export function useConvexQuery<
     }
     boundaryError.value = null
     if (subscribe) {
-      loading.value = true
       controller.setupSubscription()
-      void controller.firstValue()?.catch(() => {})
+      const firstValue = controller.firstValue()
+      loading.value = firstValue !== null
+      void firstValue?.catch(() => {})
     } else {
       void refresh()
     }
@@ -218,7 +224,7 @@ export function useConvexQuery<
       ? 'pending'
       : boundaryError.value
         ? 'error'
-        : data.value !== null
+        : controller.hasData()
           ? 'success'
           : 'idle',
   )
@@ -235,7 +241,8 @@ export function useConvexQuery<
     refresh,
     clear() {
       boundaryError.value = null
-      raw.value = null
+      raw.value = noQueryValue
+      loading.value = false
       controller.clear()
     },
   }

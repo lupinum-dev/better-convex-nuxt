@@ -1,8 +1,8 @@
 import type { betterAuth } from 'better-auth'
 import type { FunctionReference, GenericDataModel, GenericMutationCtx } from 'convex/server'
 
+import type { ComponentApi } from './component/_generated/component'
 import type { AuthCtx } from './context'
-import type { SigningKeyCandidate, SigningKeyRotationMetadata } from './jwks-rotation'
 
 export type AuthFunctions = {
   onCreate?: FunctionReference<'mutation', 'internal'>
@@ -32,23 +32,4 @@ export type CreateAuth<
   Auth = ReturnType<typeof betterAuth>,
 > = (ctx: AuthCtx<DataModel>) => Auth | Promise<Auth>
 
-export interface AuthAdapterComponentApi {
-  adapter: {
-    count: FunctionReference<'query', 'internal'>
-    create: FunctionReference<'mutation', 'internal'>
-    deleteMany: FunctionReference<'mutation', 'internal'>
-    deleteOne: FunctionReference<'mutation', 'internal'>
-    findMany: FunctionReference<'query', 'internal'>
-    findOne: FunctionReference<'query', 'internal'>
-    incrementOne: FunctionReference<'mutation', 'internal'>
-    rotateSigningKey: FunctionReference<
-      'mutation',
-      'internal',
-      { next: SigningKeyCandidate },
-      SigningKeyRotationMetadata
-    >
-    consumeOne: FunctionReference<'mutation', 'internal'>
-    updateMany: FunctionReference<'mutation', 'internal'>
-    updateOne: FunctionReference<'mutation', 'internal'>
-  }
-}
+export type AuthAdapterComponentApi = ComponentApi

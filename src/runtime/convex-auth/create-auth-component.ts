@@ -178,7 +178,7 @@ export function createAuthComponent<
           const jwtPlugin = authContext.getPlugin('jwt')
           if (!jwtPlugin) throw new Error('AUTH_JWT_PLUGIN_REQUIRED')
           return rotateSigningKeyWithOfficialJwt(authContext, jwtPlugin.options, async (next) =>
-            ctx.runMutation(component.adapter.rotateSigningKey as never, { next } as never),
+            ctx.runMutation(component.adapter.rotateSigningKey, { next }),
           )
         },
       }),

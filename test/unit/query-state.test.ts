@@ -94,6 +94,13 @@ describe('query state helpers', () => {
 
     it('returns error for any query error', () => {
       expect(computePaginationStatus({ ...readyPaginatedState, hasError: true })).toBe('error')
+      expect(
+        computePaginationStatus({
+          ...readyPaginatedState,
+          disabled: true,
+          hasError: true,
+        }),
+      ).toBe('error')
     })
 
     it('reports first-page loading until the first page is ready', () => {

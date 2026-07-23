@@ -27,6 +27,7 @@ function makeHarness(options?: {
     identityGeneration: 1,
   }
   let data: Value | null = null
+  let hasData = false
   let error: ConvexCallError | null = null
   let asyncError: Error | null = null
   let active:
@@ -65,9 +66,14 @@ function makeHarness(options?: {
     getIsolationTag: () => tag,
     getClient: () => client,
     boundary: {
-      readData: () => data,
+      hasData: () => hasData,
+      readData: () => {
+        if (!hasData) throw new Error('test harness read before settlement')
+        return data as Value
+      },
       writeData: (value) => {
         data = value
+        hasData = true
       },
       clearAsyncError: () => {
         asyncError = null
@@ -77,6 +83,7 @@ function makeHarness(options?: {
       },
       clearData: () => {
         data = null
+        hasData = false
       },
     },
     events: { onRemove: (key) => removed.push(key) },
