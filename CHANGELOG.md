@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.8.0-beta.14
+
+- Record the extracted relationship engine and updated auth-derived targets in
+  the upstream provenance ledger.
+- Retire the immutable beta.13 Vue/Nuxt artifacts after the provenance gate
+  correctly rejected stale derived-target hashes; MCP beta.5 remains valid in
+  its independent release lane.
+
 ## v0.8.0-beta.13
 
 - Upgrade the build graph to patched `postcss@8.5.16` after the beta.12

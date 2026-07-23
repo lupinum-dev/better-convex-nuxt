@@ -168,8 +168,11 @@ retired. MCP beta.4 then reached a stale release-only documentation wording asse
 complete MCP project passed before another reservation. MCP beta.5 then passed its complete independent
 lane. Vue/Nuxt beta.12 failed the newly published High PostCSS advisory after all preceding artifact,
 consumer, unit, E2E, and DAST gates passed. The immutable beta.12 set is retired; Vue/Nuxt beta.13
-must use patched PostCSS. MCP beta.5 remains valid because PostCSS is absent from its production
-artifact.
+used patched PostCSS but then failed the auth-provenance gate after immutable artifact creation because
+the extracted relationship engine and three changed auth-derived targets were not reconciled in the
+canonical ledger. The immutable beta.13 set is retired; Vue/Nuxt beta.14 carries the corrected 28-record
+source and packed provenance contract. MCP beta.5 remains valid because PostCSS and the Nuxt auth-derived
+sources are absent from its independent production artifact.
 
 | ID       | Depends on                  | Exact outcome                                                                                                                              | Invariant / acceptance proof                                                                                                   | Delete/replace                                                                   | Status      | Blocker / completion                                                                                                                       |
 | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
