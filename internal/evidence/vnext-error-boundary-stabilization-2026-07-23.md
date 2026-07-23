@@ -2,7 +2,7 @@
 
 ## Scope and decision
 
-This closes audit finding `F-005` and stabilization task `S2-003`.
+This closes audit finding `F-018` and stabilization task `S2-003`.
 
 `ConvexCallError` no longer constructs or exposes native `Error.cause`, and its public input no longer
 accepts a raw cause. Raw upstream errors are classified while held in a local catch binding and then

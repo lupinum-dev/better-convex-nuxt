@@ -969,3 +969,23 @@ evidence is recorded in
 
 No Critical or High protected effect was introduced by these candidates. TR-001 and TR-002 prevent
 R0 re-entry until fresh exact artifacts and Ginko integration repeat the corrected proofs.
+
+## 19. R0 stabilization closure
+
+The focused re-review at
+`internal/evidence/vnext-r0-security-rereview-2026-07-23.md` traces every accepted
+High/Medium finding through its enforcing correction, regression proof, exact
+Vue/Nuxt/MCP artifacts, and exact Ginko consumer. It also covers the accepted
+security-relevant post-audit and thermo-review findings.
+
+The fresh candidate identities are Vue/Nuxt `0.8.0-beta.15` from
+`db5127cdfeb294d003c9ec3d4b712b89d4589319` and MCP `0.1.0-beta.5` from
+`f4fd5d02b814ce8ee46bbaec8c38c40ec1a80d12`. Ginko installed those exact bytes
+at `5c589ff64e179f0e6fd0ba74d1f442ea7aebd4d5` and passed isolated pnpm and npm
+production consumers.
+
+No accepted High or Medium protected-effect issue remains open in the local R0
+scope. R0 therefore passes for resuming local experimental vNext work. This
+does not authorize publication or a stable support claim: protected staging,
+final MCP reconciliation, real-host evidence, registry equality, and human
+release governance remain explicit external gates.

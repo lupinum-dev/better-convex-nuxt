@@ -2,7 +2,7 @@
 
 ## Scope and decision
 
-This closes audit findings `F-006` and `F-007` and stabilization tasks `S2-001` and `S2-002`.
+This closes audit findings `F-003` and `F-004` and stabilization tasks `S2-001` and `S2-002`.
 
 Nuxt SSR queries now use one request-scoped official `ConvexHttpClient`. The deleted handwritten
 protocol no longer encodes arguments, interprets Convex response envelopes, or reconstructs
