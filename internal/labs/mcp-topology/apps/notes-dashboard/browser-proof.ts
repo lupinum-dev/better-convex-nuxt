@@ -32,6 +32,8 @@ export interface NotesDashboardBrowserProofOptions {
 }
 
 const HOST_ORIGIN = 'https://apps-lab.invalid'
+const APP_ORIGIN = 'https://app-frame.invalid'
+const APP_PATH = '/notes-dashboard.html'
 const HOST_TOOL_PATH = '/__better_convex_mcp_tool__'
 const SECRET_SENTINELS = Object.freeze([
   'cookie-sentinel-4e9e9f24',
@@ -50,7 +52,7 @@ function hostHtml(javaScript: string): string {
     '<html lang="en">',
     '<head>',
     '<meta charset="UTF-8">',
-    "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-src 'self'; base-uri 'none'; object-src 'none'\">",
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-src ${APP_ORIGIN}; base-uri 'none'; object-src 'none'">`,
     '</head>',
     '<body>',
     `<script>Object.defineProperty(window,'__BCN_HOST_ONLY_SECRETS__',{value:Object.freeze(${JSON.stringify(SECRET_SENTINELS)}),enumerable:false})</script>`,
@@ -84,19 +86,18 @@ async function snapshot(page: Page): Promise<HostSnapshot> {
 
 async function mount(
   page: Page,
-  html: string,
   openLinks: boolean,
   initialInput?: Record<string, unknown>,
 ): Promise<void> {
   await page.evaluate(
-    async ({ appHtml, input, links }) => {
+    async ({ input, links, url }) => {
       await window.__BCN_MCP_APPS_HOST__.mount({
-        html: appHtml,
         ...(input === undefined ? {} : { initialInput: input }),
         openLinks: links,
+        url,
       })
     },
-    { appHtml: html, input: initialInput, links: openLinks },
+    { input: initialInput, links: openLinks, url: `${APP_ORIGIN}${APP_PATH}` },
   )
 }
 
@@ -134,6 +135,7 @@ export async function proveNotesDashboardBrowserBoundary(
   const requestUrls: string[] = []
   const toolRequestBodies: string[] = []
   let hostCookieObserved = false
+  let appCookieObserved = false
 
   page.on('console', (message) => {
     consoleTexts.push(message.text())
@@ -213,9 +215,23 @@ export async function proveNotesDashboardBrowserBoundary(
       }
       await route.abort('blockedbyclient')
     })
+    await page.route(`${APP_ORIGIN}/**`, async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+      if (url.pathname === APP_PATH && request.method() === 'GET') {
+        appCookieObserved = request.headers().cookie?.includes(SECRET_SENTINELS[0]!) === true
+        await route.fulfill({
+          body: options.build.appHtml,
+          contentType: 'text/html',
+          status: 200,
+        })
+        return
+      }
+      await route.abort('blockedbyclient')
+    })
 
     await page.goto(`${HOST_ORIGIN}/`)
-    await mount(page, options.build.appHtml, false, {
+    await mount(page, false, {
       limit: 1,
       query: 'initial',
       workspaceId: 'workspace-initial',
@@ -469,7 +485,7 @@ export async function proveNotesDashboardBrowserBoundary(
     const firstMount = await teardown(page)
     assert(firstMount.teardownResponses === 1, 'The App did not complete graceful teardown')
 
-    await mount(page, options.build.appHtml, true)
+    await mount(page, true)
     const secondFrame = page.frameLocator('iframe[data-testid="notes-dashboard-frame"]')
     await secondFrame.getByTestId('notes-dashboard').waitFor()
     await waitForValue(
@@ -496,6 +512,7 @@ export async function proveNotesDashboardBrowserBoundary(
     await new Promise((resolve) => setTimeout(resolve, 0))
     await Promise.all([...consoleCaptures])
     assert(hostCookieObserved, 'The host credential sentinel was not present at its outer boundary')
+    assert(!appCookieObserved, 'The host credential cookie crossed into the App origin')
     const leakSurfaces = [
       options.build.appHtml,
       options.build.hostJavaScript,
@@ -520,7 +537,10 @@ export async function proveNotesDashboardBrowserBoundary(
     assert(failedRequests.length === 0, `Unexpected failed requests: ${failedRequests.join('; ')}`)
     assert(
       requestUrls.every(
-        (url) => url === `${HOST_ORIGIN}/` || url === `${HOST_ORIGIN}${HOST_TOOL_PATH}`,
+        (url) =>
+          url === `${HOST_ORIGIN}/` ||
+          url === `${APP_ORIGIN}${APP_PATH}` ||
+          url === `${HOST_ORIGIN}${HOST_TOOL_PATH}`,
       ),
       `The MCP App made an unexpected network request: ${requestUrls.join(', ')}`,
     )

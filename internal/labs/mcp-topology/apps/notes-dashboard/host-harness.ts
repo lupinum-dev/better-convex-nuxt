@@ -2,9 +2,9 @@ import { AppBridge, PostMessageTransport } from '@modelcontextprotocol/ext-apps/
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 interface HostMountOptions {
-  html: string
   initialInput?: Record<string, unknown>
   openLinks: boolean
+  url: string
 }
 
 interface HostSnapshot {
@@ -150,7 +150,7 @@ async function mount(options: HostMountOptions): Promise<void> {
   try {
     await bridge.connect(transport)
     active = { bridge, iframe, messageListener }
-    iframe.srcdoc = options.html
+    iframe.src = options.url
     await Promise.race([
       ready,
       new Promise<never>((_resolve, reject) => {

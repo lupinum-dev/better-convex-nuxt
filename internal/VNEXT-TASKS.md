@@ -8,10 +8,10 @@ replace the RFC's product decisions.
 
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 9 local hardening; Phase 7 local work is complete while protocol/host gates remain external         |
-| Current task          | `P9-006`; close remaining local MCP Apps production/security evidence and isolate the real-host gate      |
-| Last verified commit  | BCN `325bd309`; Ginko `84af23af`; exact Nuxt/Vue/MCP public-entry checks and Ginko proof passed           |
-| Next executable tasks | `P9-006`; `P6-001` after `EXT-003`; `P9-009` after `P6-006`                                               |
+| Current phase         | Phase 9 local hardening is at external protocol/host gates; no blocked feature is represented as complete |
+| Current task          | `P6-001` after `EXT-003`; reconcile the final MCP interaction contract before Phase 6 implementation      |
+| Last verified commit  | BCN `fe7da694`; Ginko `84af23af`; exact public entries, Tasks exclusion, and Ginko proof passed           |
+| Next executable tasks | `P6-001` after `EXT-003`; `P9-006` after `EXT-006`; then `P9-009` after `P6-006`                          |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -24,6 +24,7 @@ replace the RFC's product decisions.
 | `EXT-003` | MCP `2026-07-28` is a locked release candidate, not the final publication. Experimental package/conformance work is authorized; stable API and final compliance claims remain prohibited until the final spec, SDK, changelog, and conformance evidence exist. | `P1-013`, `P1-015`, stable MCP claims            | RC package, consumer, and conformance work        |
 | `EXT-004` | Ginko protected deployment, production MCP cutover, and final live compatibility run require explicit operator authority and deployment credentials. Local work on the authorized stabilization branch remains allowed.                                        | Protected Ginko evidence and final cutover       | Local source/exact-package Ginko proof            |
 | `EXT-005` | Repository rename, npm publication, dist-tag movement, production deployment, and external-provider configuration require explicit owner authorization at the relevant phase.                                                                                  | Phase 4+ external mutations                      | Build, test, pack, and decision evidence          |
+| `EXT-006` | Stable MCP Apps admission needs compatible real-host evidence and upstream control over the exact Apps SDK's unconditional browser logging. Local different-origin, exact-package, hostile-message, disclosure, and fallback evidence is complete.             | `P9-006`; stable Vue MCP App claim               | Base Vue/Nuxt/MCP work and experimental App use   |
 
 ## Accepted decision records
 
@@ -429,7 +430,7 @@ All implementation tasks in this phase remain blocked until `P8-001` is done. Ta
 | `P9-003` | `P4-013` | Complete cross-adapter Vue/Nuxt lifecycle matrix from exact packages. | Nuxt browser/SSR, Vue, embedded fixtures | Identity, stale work, pagination, callable, cleanup invariants identical where applicable. | Full RFC Vue/Nuxt matrix. | Redundant adapter-specific lifecycle code | done | — | `e20f77e9`; `internal/evidence/exact-package-cross-adapter-lifecycle-2026-07-22.md` |
 | `P9-004` | `P5-023` | Complete latest-final MCP transport/tool/resource/OAuth conformance from exact package. | Selected runtime and real clients | Version/capability claims exact. | Official suite, Inspector, host matrix. | Unsupported claims/code | blocked | `EXT-003`; final specification is scheduled for 2026-07-28 | RC evidence complete through `P5-022`/`P5-023`; final claim prohibited before publication |
 | `P9-005` | `P6-014` | Complete high-impact interaction security/concurrency evidence. | Neutral/Ginko production consumers | Current authority/impact, one effect/receipt, host UX independence. | Full RFC URL matrix. | Parallel approval state | pending | — | — |
-| `P9-006` | `P7-013` | Complete MCP Apps production/security/fallback evidence. | Exact Vue/MCP packages | Credential-free iframe, ordinary authorization, useful fallback. | Full RFC Apps matrix. | Unsafe/duplicated bridge paths | in_progress | — | — |
+| `P9-006` | `P7-013` | Complete MCP Apps production/security/fallback evidence. | Exact Vue/MCP packages | Credential-free iframe, ordinary authorization, useful fallback. | Full RFC Apps matrix. | Unsafe/duplicated bridge paths | blocked | `EXT-006`; local different-origin proof complete | `internal/evidence/mcp-app-different-origin-proof-2026-07-23.md`; stable claim awaits real host and upstream logger control |
 | `P9-007` | `P8-001` | Record Tasks as either correctly gated out or fully certified; do not let it block 1.0. | Activation decision/docs | No half-shipped Tasks surface. | No public Task exports if gate unmet, or Phase 8 evidence if met. | Experimental leftovers | done | — | `internal/evidence/tasks-extension-gated-out-2026-07-23.md`; all Phase 8 implementation remains blocked on `P8-001` |
 | `P9-008` | `P4-012`, `P5-020`, `P6-010`, `P7-010` | Close Ginko migration decision ledger against an authorized current baseline. | Ginko external evidence record | Retained concepts have canonical purpose/invariants; deleted paths named. | Agent runs, IDs, confirmations, receipts, bearer issuance, polling all closed. | Unexplained compatibility paths | pending | `EXT-004` | — |
 | `P9-009` | `P5-019`, `P6-006`, `P7-009` | Prove neutral second consumer with different domain/policy and measured shared-glue deletion. | Agentic SaaS starter | Public abstractions are not CMS-shaped. | Read, ordinary write, same-user high-impact flow, App; no second state source. | Fixture-only abstractions that add code | pending | — | — |
