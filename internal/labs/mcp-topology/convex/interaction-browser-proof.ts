@@ -38,7 +38,17 @@ export async function proveInteractionBrowserBoundary(
   const pageErrors: string[] = []
   const failedRequests: Array<{ error: string; method: string; url: string }> = []
   const requestMethods: string[] = []
-  const requestDiagnostics: Array<{ bodyBytes: number; method: string; origin: string | null }> = []
+  const requestUrls: string[] = []
+  const requestDiagnostics: Array<{
+    bodyBytes: number
+    method: string
+    origin: string | null
+  }> = []
+  const responseDiagnostics: Array<{
+    location: string | null
+    method: string
+    status: number
+  }> = []
   const responseBodies: string[] = []
 
   page.on('console', (message) => {
@@ -67,6 +77,7 @@ export async function proveInteractionBrowserBoundary(
     ])
     await page.route(`${INTERACTION_ORIGIN}/**`, async (route) => {
       const browserRequest = route.request()
+      requestUrls.push(browserRequest.url())
       const originalUrl = new URL(browserRequest.url())
       const upstreamUrl = new URL(`${originalUrl.pathname}${originalUrl.search}`, options.siteUrl)
       const headers = new Headers(browserRequest.headers())
@@ -100,10 +111,23 @@ export async function proveInteractionBrowserBoundary(
       })
       const responseBody = Buffer.from(await upstream.arrayBuffer())
       responseBodies.push(responseBody.toString('utf8'))
+      responseDiagnostics.push({
+        location: upstream.headers.get('location'),
+        method: browserRequest.method(),
+        status: upstream.status,
+      })
+      const suppressSyntheticRedirect =
+        browserRequest.method() === 'POST' && upstream.status === 303
       await route.fulfill({
         body: responseBody,
-        headers: Object.fromEntries(upstream.headers),
-        status: upstream.status,
+        headers: suppressSyntheticRedirect
+          ? Object.fromEntries(
+              [...upstream.headers].filter(([name]) => name.toLowerCase() !== 'location'),
+            )
+          : Object.fromEntries(upstream.headers),
+        // Chromium races a route-fulfilled same-URL 303 against the explicit canonical GET below.
+        // Preserve and assert the real upstream response, but suppress only that synthetic redirect.
+        status: suppressSyntheticRedirect ? 204 : upstream.status,
       })
     })
 
@@ -136,11 +160,19 @@ export async function proveInteractionBrowserBoundary(
       page.getByTestId('confirm').click(),
     ])
     assert(
-      confirmationResponse.status() === 303,
-      `Confirmation POST returned ${confirmationResponse.status()}: ${JSON.stringify({ requestDiagnostics, responseBodies })}`,
+      confirmationResponse.status() === 204,
+      `The browser harness did not suppress the synthetic redirect: ${confirmationResponse.status()}`,
     )
-    // Playwright route fulfillment does not follow a synthetic same-URL 303. Perform the canonical
-    // GET explicitly; the direct HTTP proof separately verifies the exact Location header.
+    assert(
+      responseDiagnostics.some(
+        (response) =>
+          response.method === 'POST' &&
+          response.status === 303 &&
+          response.location === interactionUrl,
+      ),
+      `Confirmation POST omitted the canonical upstream redirect: ${JSON.stringify({ requestDiagnostics, responseBodies, responseDiagnostics })}`,
+    )
+    // Perform the canonical GET explicitly after suppressing only Playwright's synthetic redirect.
     await page.goto(interactionUrl, { waitUntil: 'domcontentloaded' })
     const finalStatus = (await page.getByTestId('status').textContent()) ?? ''
     assert(finalStatus === 'applied', `The explicit confirmation settled as ${finalStatus}`)
@@ -151,8 +183,12 @@ export async function proveInteractionBrowserBoundary(
       pendingHtml,
       finalHtml,
       responseBodies.join('\n'),
+      requestUrls.join('\n'),
       consoleErrors.join('\n'),
       pageErrors.join('\n'),
+      JSON.stringify(failedRequests),
+      JSON.stringify(requestDiagnostics),
+      JSON.stringify(responseDiagnostics),
     ]
     for (const sentinel of [
       ...Object.values(INTERACTION_LAB_SESSIONS),
@@ -161,6 +197,19 @@ export async function proveInteractionBrowserBoundary(
       assert(
         leakSurfaces.every((surface) => !surface.includes(sentinel)),
         `Credential sentinel escaped into the interaction page: ${sentinel}`,
+      )
+    }
+    for (const surface of [
+      pendingHtml,
+      finalHtml,
+      responseBodies.join('\n'),
+      consoleErrors.join('\n'),
+      pageErrors.join('\n'),
+      JSON.stringify(requestDiagnostics),
+    ]) {
+      assert(
+        !surface.includes(options.locator),
+        'The opaque locator escaped its fixed URL and redirect boundary',
       )
     }
     assert(

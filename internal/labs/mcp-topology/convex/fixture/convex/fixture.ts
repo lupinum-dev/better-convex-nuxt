@@ -1,12 +1,16 @@
 import { v } from 'convex/values'
 
-import { action, mutation, query } from './_generated/server'
 import { internal } from './_generated/api'
+import { action, mutation, query } from './_generated/server'
 
 export const seed = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    resource: v.string(),
+  },
+  returns: v.object({ seeded: v.boolean() }),
+  handler: async (ctx, args) => {
     for (const table of [
+      'mcpGrants',
       'members',
       'notes',
       'renameReceipts',
@@ -16,6 +20,20 @@ export const seed = mutation({
       for (const row of await ctx.db.query(table).collect()) await ctx.db.delete(row._id)
     }
 
+    await ctx.db.insert('mcpGrants', {
+      active: true,
+      clientId: 'client-a',
+      issuer: 'https://issuer.example/api/auth',
+      resource: args.resource,
+      subject: 'alice',
+    })
+    await ctx.db.insert('mcpGrants', {
+      active: true,
+      clientId: 'client-b',
+      issuer: 'https://issuer.example/api/auth',
+      resource: args.resource,
+      subject: 'bob',
+    })
     await ctx.db.insert('members', {
       role: 'owner',
       status: 'active',
@@ -79,6 +97,32 @@ export const setMember = mutation({
   },
 })
 
+export const setMcpGrantStatusForTest = mutation({
+  args: {
+    active: v.boolean(),
+    clientId: v.string(),
+    issuer: v.string(),
+    resource: v.string(),
+    subject: v.string(),
+  },
+  returns: v.object({ active: v.boolean() }),
+  handler: async (ctx, args) => {
+    const grant = await ctx.db
+      .query('mcpGrants')
+      .withIndex('by_binding', (query) =>
+        query
+          .eq('issuer', args.issuer)
+          .eq('subject', args.subject)
+          .eq('clientId', args.clientId)
+          .eq('resource', args.resource),
+      )
+      .unique()
+    if (!grant) throw new Error('LAB_MCP_GRANT_NOT_FOUND')
+    await ctx.db.patch(grant._id, { active: args.active })
+    return { active: args.active }
+  },
+})
+
 export const addNoteForTest = mutation({
   args: {
     externalId: v.string(),
@@ -93,6 +137,22 @@ export const addNoteForTest = mutation({
       workspaceExternalId: args.workspaceId,
     })
     return { externalId: args.externalId, workspaceId: args.workspaceId }
+  },
+})
+
+export const deleteWorkspaceForTest = mutation({
+  args: {
+    workspaceId: v.string(),
+  },
+  returns: v.object({ deleted: v.boolean(), workspaceId: v.string() }),
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db
+      .query('workspaces')
+      .withIndex('by_external_id', (query) => query.eq('externalId', args.workspaceId))
+      .unique()
+    if (!workspace) throw new Error('LAB_WORKSPACE_NOT_FOUND')
+    await ctx.db.patch(workspace._id, { deletedAt: Date.now() })
+    return { deleted: true, workspaceId: workspace.externalId }
   },
 })
 

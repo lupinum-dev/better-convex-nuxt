@@ -50,12 +50,12 @@ import {
   labOAuthResourceMetadataUrl,
 } from '../oauth-fixture'
 import { runOfficialMcpToolProbe } from '../official-tools'
-import { proveInteractionBrowserBoundary } from './interaction-browser-proof'
 import {
   INTERACTION_LAB_SESSIONS,
   INTERACTION_ORIGIN,
   INTERACTION_SESSION_COOKIE,
 } from './fixture/convex/interaction_page_contract'
+import { proveInteractionBrowserBoundary } from './interaction-browser-proof'
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const sourceFixture = fileURLToPath(new URL('./fixture', import.meta.url))
@@ -188,10 +188,14 @@ beforeAll(async () => {
   })
 
   const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
-  const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+  const seed = makeFunctionReference<'mutation', { resource: string }, { seeded: boolean }>(
     'fixture:seed',
   )
-  expect(await convex.mutation(seed, {})).toEqual({ seeded: true })
+  expect(
+    await convex.mutation(seed, {
+      resource: new URL('/mcp', local.env.CONVEX_SITE_URL!).href,
+    }),
+  ).toEqual({ seeded: true })
 })
 
 afterAll(async () => {
@@ -1011,6 +1015,18 @@ describe('vNext Convex-native MCP topology probe', () => {
           structuredContent: { status: 'pending' },
         },
       })
+      for (const action of ['decline', 'cancel'] as const) {
+        const response = await rawToolCall(`request-state-${action}`, {
+          inputResponses: { review: { action } },
+          requestState: tamperedOperationKey,
+        })
+        expect(response.status).toBe(200)
+        await expect(response.json()).resolves.toMatchObject({
+          result: {
+            structuredContent: { status: 'pending' },
+          },
+        })
+      }
       const rawTamperedResponse = await rawToolCall('request-state-tampered', {
         inputResponses: { review: { action: 'accept' } },
         requestState: 'forged-request-state-000000000000001',
@@ -1027,10 +1043,12 @@ describe('vNext Convex-native MCP topology probe', () => {
           isError: true,
         },
       })
-      const reseed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+      const reseed = makeFunctionReference<'mutation', { resource: string }, { seeded: boolean }>(
         'fixture:seed',
       )
-      expect(await convex.mutation(reseed, {})).toEqual({ seeded: true })
+      expect(await convex.mutation(reseed, { resource: mcpUrl.href })).toEqual({
+        seeded: true,
+      })
 
       const deleteCall = {
         arguments: {
@@ -1146,7 +1164,7 @@ describe('vNext Convex-native MCP topology probe', () => {
   it('keeps high-impact application state current, subject-bound, stale-safe, and replay-safe', async () => {
     if (!local) throw new Error('Local Convex fixture is not ready')
     const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
-    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+    const seed = makeFunctionReference<'mutation', { resource: string }, { seeded: boolean }>(
       'fixture:seed',
     )
     const prepare = makeFunctionReference<
@@ -1200,11 +1218,27 @@ describe('vNext Convex-native MCP topology probe', () => {
       },
       unknown
     >('fixture:setMember')
+    const setMcpGrant = makeFunctionReference<
+      'mutation',
+      {
+        active: boolean
+        clientId: string
+        issuer: string
+        resource: string
+        subject: string
+      },
+      { active: boolean }
+    >('fixture:setMcpGrantStatusForTest')
     const addNote = makeFunctionReference<
       'mutation',
       { externalId: string; workspaceId: string },
       unknown
     >('fixture:addNoteForTest')
+    const deleteWorkspace = makeFunctionReference<
+      'mutation',
+      { workspaceId: string },
+      { deleted: boolean; workspaceId: string }
+    >('fixture:deleteWorkspaceForTest')
     const expire = makeFunctionReference<'mutation', { locator: string }, unknown>(
       'fixture:expireWorkspaceDeletionForTest',
     )
@@ -1214,12 +1248,12 @@ describe('vNext Convex-native MCP topology probe', () => {
     const access = {
       clientId: 'client-a',
       issuer: LAB_OAUTH_ISSUER,
-      resource: 'https://notes.example.invalid/mcp',
+      resource: new URL('/mcp', local.env.CONVEX_SITE_URL!).href,
       subject: 'alice',
     }
     const actor = { issuer: LAB_OAUTH_ISSUER, subject: 'alice' }
 
-    await convex.mutation(seed, {})
+    await convex.mutation(seed, { resource: access.resource })
     const prepared = (await convex.action(prepare, {
       access,
       workspaceId: 'workspace-a',
@@ -1264,10 +1298,75 @@ describe('vNext Convex-native MCP topology probe', () => {
         operationKey: prepared.value.operationKey,
       }),
     ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+    for (const foreignAccess of [
+      { ...access, issuer: 'https://other-issuer.example.invalid' },
+      { ...access, resource: 'https://other-resource.example.invalid/mcp' },
+      { ...access, subject: 'bob' },
+    ]) {
+      await expect(
+        convex.action(status, {
+          access: foreignAccess,
+          operationKey: prepared.value.operationKey,
+        }),
+      ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+    }
+
+    await expect(convex.mutation(setMcpGrant, { ...access, active: false })).resolves.toEqual({
+      active: false,
+    })
+    await expect(
+      convex.action(review, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ code: 'ACCESS_DENIED', ok: false })
+    await expect(
+      convex.action(confirm, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ code: 'ACCESS_DENIED', ok: false })
+    await expect(
+      convex.action(status, {
+        access,
+        operationKey: prepared.value.operationKey,
+      }),
+    ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+    const revokedMcpRequest = await fetch(new URL('/mcp', local.env.CONVEX_SITE_URL!), {
+      body: JSON.stringify({
+        id: 'revoked-live-grant',
+        jsonrpc: '2.0',
+        method: 'tools/list',
+        params: {
+          _meta: {
+            'io.modelcontextprotocol/clientInfo': {
+              name: 'revoked-live-grant-proof',
+              version: '0.0.0',
+            },
+            'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+          },
+        },
+      }),
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${OWNER_TOKEN}`,
+        'content-type': 'application/json',
+        'mcp-method': 'tools/list',
+        'mcp-protocol-version': '2026-07-28',
+      },
+      method: 'POST',
+    })
+    expect(revokedMcpRequest.status).toBe(401)
+    expect(await revokedMcpRequest.text()).not.toContain(OWNER_TOKEN)
+    await expect(convex.mutation(setMcpGrant, { ...access, active: true })).resolves.toEqual({
+      active: true,
+    })
 
     await convex.mutation(setMember, {
       role: 'owner',
       status: 'removed',
+      subject: 'alice',
+    })
+    await expect(
+      convex.action(confirm, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ code: 'ACCESS_DENIED', ok: false })
+    await convex.mutation(setMember, {
+      role: 'editor',
+      status: 'active',
       subject: 'alice',
     })
     await expect(
@@ -1289,7 +1388,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       convex.action(confirm, { actor, locator: prepared.value.locator }),
     ).resolves.toEqual({ ok: true, value: { status: 'stale' } })
 
-    await convex.mutation(seed, {})
+    await convex.mutation(seed, { resource: access.resource })
     const expiring = (await convex.action(prepare, {
       access,
       workspaceId: 'workspace-a',
@@ -1302,7 +1401,19 @@ describe('vNext Convex-native MCP topology probe', () => {
       convex.action(confirm, { actor, locator: expiring.value.locator }),
     ).resolves.toEqual({ ok: true, value: { status: 'expired' } })
 
-    await convex.mutation(seed, {})
+    await convex.mutation(seed, { resource: access.resource })
+    const missingTarget = (await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })) as typeof prepared
+    await expect(convex.mutation(deleteWorkspace, { workspaceId: 'workspace-a' })).resolves.toEqual(
+      { deleted: true, workspaceId: 'workspace-a' },
+    )
+    await expect(
+      convex.action(confirm, { actor, locator: missingTarget.value.locator }),
+    ).resolves.toEqual({ code: 'WORKSPACE_NOT_FOUND', ok: false })
+
+    await convex.mutation(seed, { resource: access.resource })
     const concurrent = (await convex.action(prepare, {
       access,
       workspaceId: 'workspace-a',
@@ -1350,7 +1461,7 @@ describe('vNext Convex-native MCP topology probe', () => {
   it('serves an inert, identity-bound interaction page and confirms only by explicit POST', async () => {
     if (!local) throw new Error('Local Convex fixture is not ready')
     const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
-    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+    const seed = makeFunctionReference<'mutation', { resource: string }, { seeded: boolean }>(
       'fixture:seed',
     )
     const prepare = makeFunctionReference<
@@ -1397,7 +1508,7 @@ describe('vNext Convex-native MCP topology probe', () => {
     const access = {
       clientId: 'client-a',
       issuer: LAB_OAUTH_ISSUER,
-      resource: 'https://notes.example.invalid/mcp',
+      resource: new URL('/mcp', local.env.CONVEX_SITE_URL!).href,
       subject: 'alice',
     }
     const cookie = (session: string) =>
@@ -1423,7 +1534,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       })
     }
 
-    await convex.mutation(seed, {})
+    await convex.mutation(seed, { resource: access.resource })
     const prepared = await convex.action(prepare, {
       access,
       workspaceId: 'workspace-a',
@@ -1433,6 +1544,19 @@ describe('vNext Convex-native MCP topology probe', () => {
     const anonymous = await request(locator)
     expect(anonymous.status).toBe(401)
     await expect(anonymous.text()).resolves.toBe('Sign in required')
+
+    for (const invalidLocator of ['short', '../foreign', 'x'.repeat(129)]) {
+      const invalid = await request(invalidLocator, {
+        session: INTERACTION_LAB_SESSIONS.alice,
+      })
+      expect(invalid.status).toBe(404)
+      await expect(invalid.text()).resolves.not.toContain('Delete workspace')
+    }
+    const guessed = await request('guessed-interaction-locator-0000000000001', {
+      session: INTERACTION_LAB_SESSIONS.alice,
+    })
+    expect(guessed.status).toBe(404)
+    await expect(guessed.text()).resolves.toBe('Interaction unavailable')
 
     for (const session of [
       INTERACTION_LAB_SESSIONS.bob,
@@ -1545,15 +1669,20 @@ describe('vNext Convex-native MCP topology probe', () => {
     expect(replay.status).toBe(303)
     await expect(convex.action(status, { access, operationKey })).resolves.toEqual(recovered)
 
-    const appliedPage = await request(locator, { session: INTERACTION_LAB_SESSIONS.alice })
+    const appliedPage = await request(locator, {
+      session: INTERACTION_LAB_SESSIONS.alice,
+    })
     expect(appliedPage.status).toBe(200)
     const appliedHtml = await appliedPage.text()
     expect(appliedHtml).toContain('<p data-testid="status">applied</p>')
     expect(appliedHtml).toContain('<dd>1</dd>')
     expect(appliedHtml).not.toContain('data-testid="confirm"')
 
-    await convex.mutation(seed, {})
-    const stale = await convex.action(prepare, { access, workspaceId: 'workspace-a' })
+    await convex.mutation(seed, { resource: access.resource })
+    const stale = await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })
     await convex.mutation(addNote, {
       externalId: 'note-added-before-page-confirmation',
       workspaceId: 'workspace-a',
@@ -1572,8 +1701,11 @@ describe('vNext Convex-native MCP topology probe', () => {
     })
     expect(await stalePage.text()).toContain('<p data-testid="status">stale</p>')
 
-    await convex.mutation(seed, {})
-    const expired = await convex.action(prepare, { access, workspaceId: 'workspace-a' })
+    await convex.mutation(seed, { resource: access.resource })
+    const expired = await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })
     await convex.mutation(expire, { locator: expired.value.locator })
     expect(
       (
@@ -1593,7 +1725,7 @@ describe('vNext Convex-native MCP topology probe', () => {
   it('confirms the application-owned operation through a real production browser page', async () => {
     if (!local) throw new Error('Local Convex fixture is not ready')
     const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
-    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+    const seed = makeFunctionReference<'mutation', { resource: string }, { seeded: boolean }>(
       'fixture:seed',
     )
     const prepare = makeFunctionReference<
@@ -1632,17 +1764,23 @@ describe('vNext Convex-native MCP topology probe', () => {
     const access = {
       clientId: 'client-a',
       issuer: LAB_OAUTH_ISSUER,
-      resource: 'https://notes.example.invalid/mcp',
+      resource: new URL('/mcp', local.env.CONVEX_SITE_URL!).href,
       subject: 'alice',
     }
 
-    await convex.mutation(seed, {})
+    await convex.mutation(seed, { resource: access.resource })
     const prepared = await convex.action(prepare, {
       access,
       workspaceId: 'workspace-a',
     })
     const browserProof = await proveInteractionBrowserBoundary({
-      additionalSecretSentinels: Object.values(LAB_OAUTH_TOKENS),
+      additionalSecretSentinels: [
+        ...Object.values(LAB_OAUTH_TOKENS),
+        prepared.value.operationKey,
+        access.clientId,
+        access.issuer,
+        access.subject,
+      ],
       locator: prepared.value.locator,
       siteUrl: local.env.CONVEX_SITE_URL!,
     })

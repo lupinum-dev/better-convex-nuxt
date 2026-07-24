@@ -2,6 +2,14 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 export default defineSchema({
+  mcpGrants: defineTable({
+    active: v.boolean(),
+    clientId: v.string(),
+    issuer: v.string(),
+    resource: v.string(),
+    subject: v.string(),
+  }).index('by_binding', ['issuer', 'subject', 'clientId', 'resource']),
+
   members: defineTable({
     role: v.union(v.literal('editor'), v.literal('owner')),
     status: v.union(v.literal('active'), v.literal('removed')),

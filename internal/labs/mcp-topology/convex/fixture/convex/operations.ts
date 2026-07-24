@@ -169,6 +169,36 @@ function sameBrowserActor(
   return interaction.issuer === actor.issuer && interaction.subject === actor.subject
 }
 
+async function hasLiveMcpGrant(
+  ctx: ReadCtx,
+  access: {
+    clientId: string
+    issuer: string
+    resource: string
+    subject: string
+  },
+): Promise<boolean> {
+  const grant = await ctx.db
+    .query('mcpGrants')
+    .withIndex('by_binding', (query) =>
+      query
+        .eq('issuer', access.issuer)
+        .eq('subject', access.subject)
+        .eq('clientId', access.clientId)
+        .eq('resource', access.resource),
+    )
+    .unique()
+  return grant?.active === true
+}
+
+export const isMcpGrantActive = internalQuery({
+  args: {
+    access: mcpAccessBinding,
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => await hasLiveMcpGrant(ctx, args.access),
+})
+
 async function workspaceAccess(ctx: ReadCtx, subject: string, externalId: string) {
   const id = boundedId(externalId)
   if (!id) return failure('INPUT_INVALID')
@@ -394,6 +424,7 @@ export const prepareWorkspaceDeletion = internalMutation({
     ) {
       return failure('INPUT_INVALID')
     }
+    if (!(await hasLiveMcpGrant(ctx, args.access))) return failure('ACCESS_DENIED')
     const access = await workspaceAccess(ctx, args.access.subject, args.workspaceId)
     if (!access.ok) return access
     if (access.member.role !== 'owner') return failure('ACCESS_DENIED')
@@ -470,6 +501,7 @@ export const getWorkspaceDeletionStatus = internalQuery({
   handler: async (ctx, args) => {
     const operationKey = boundedOpaqueId(args.operationKey)
     if (!operationKey) return failure('INPUT_INVALID')
+    if (!(await hasLiveMcpGrant(ctx, args.access))) return failure('INTERACTION_NOT_FOUND')
     const interaction = await ctx.db
       .query('workspaceDeletionInteractions')
       .withIndex('by_operation_key', (query) => query.eq('operationKey', operationKey))
@@ -506,6 +538,7 @@ export const getWorkspaceDeletionReview = internalQuery({
     if (!interaction || !sameBrowserActor(interaction, args.actor)) {
       return failure('INTERACTION_NOT_FOUND')
     }
+    if (!(await hasLiveMcpGrant(ctx, interaction))) return failure('ACCESS_DENIED')
     return {
       ok: true as const,
       value: {
@@ -533,6 +566,7 @@ export const confirmWorkspaceDeletion = internalMutation({
     if (!interaction || !sameBrowserActor(interaction, args.actor)) {
       return failure('INTERACTION_NOT_FOUND')
     }
+    if (!(await hasLiveMcpGrant(ctx, interaction))) return failure('ACCESS_DENIED')
     if (interaction.status === 'applied') {
       const receipt = interactionReceipt(interaction)
       if (!receipt) throw new Error('LAB_INTERACTION_RECEIPT_INVALID')

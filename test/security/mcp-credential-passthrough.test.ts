@@ -9,6 +9,8 @@ import { runMcpTool } from '../../packages/mcp/src/tools'
 const resource = new URL('https://absence.example.test/mcp')
 const bearer = 'unique-raw-bearer-4f74c5c8'
 const providerReference = 'unique-provider-reference-93bd5701'
+const privateInput = 'unique-private-tool-argument-792fd791'
+const subjectPii = 'unique-user-pii-2b89@example.invalid'
 const oauthMetadata = {
   authorization_endpoint: 'https://issuer.example.test/authorize',
   code_challenge_methods_supported: ['S256'],
@@ -42,7 +44,7 @@ describe('MCP credential passthrough absence', () => {
         return {
           access: {
             issuer: oauthMetadata.issuer,
-            subject: 'credential-123',
+            subject: subjectPii,
             clientId: 'client-123',
             resource: resource.href,
             scopes: ['notes:read'],
@@ -126,7 +128,7 @@ describe('MCP credential passthrough absence', () => {
       await client.connect(transport)
       const success = await client.callTool({
         name: 'search_notes',
-        arguments: { query: 'alpha' },
+        arguments: { query: privateInput },
       })
       expect(success).toMatchObject({
         content: [{ type: 'text', text: 'No notes matched.' }],
@@ -146,8 +148,8 @@ describe('MCP credential passthrough absence', () => {
 
     expect(operationArguments).toEqual([
       {
-        actor: { issuer: oauthMetadata.issuer, subject: 'credential-123' },
-        input: { query: 'alpha' },
+        actor: { issuer: oauthMetadata.issuer, subject: subjectPii },
+        input: { query: privateInput },
       },
     ])
     expect(diagnostics).toEqual([
@@ -179,6 +181,13 @@ describe('MCP credential passthrough absence', () => {
     })
     expect(observable).not.toContain(bearer)
     expect(observable).not.toContain(providerReference)
+    const publicObservable = JSON.stringify({
+      callbackHeaders: callbackHeaders.map((headers) => Object.fromEntries(headers)),
+      diagnostics,
+      responseBodies,
+    })
+    expect(publicObservable).not.toContain(subjectPii)
+    expect(publicObservable).not.toContain(privateInput)
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled()
   })
 })

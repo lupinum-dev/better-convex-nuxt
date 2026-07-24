@@ -99,7 +99,8 @@ interface LabPrincipal {
 }
 
 type OperationResult<Value> =
-  { readonly code: string; readonly ok: false } | { readonly ok: true; readonly value: Value }
+  | { readonly code: string; readonly ok: false }
+  | { readonly ok: true; readonly value: Value }
 
 function projectToolResult<Value>(result: OperationResult<Value>, text: (value: Value) => string) {
   if (!result.ok) {
@@ -116,7 +117,9 @@ function projectToolResult<Value>(result: OperationResult<Value>, text: (value: 
 
 async function runRcMcpTool(
   operation: () =>
-    CallToolResult | InputRequiredResult | Promise<CallToolResult | InputRequiredResult>,
+    | CallToolResult
+    | InputRequiredResult
+    | Promise<CallToolResult | InputRequiredResult>,
 ): Promise<CallToolResult | InputRequiredResult> {
   try {
     return await operation()
@@ -455,7 +458,7 @@ function createNotesServer(
   )
 }
 
-function createVerifier(resource: URL): McpAccessVerifier {
+function createVerifier(ctx: ActionCtx, resource: URL): McpAccessVerifier {
   const verifier = createLabOAuthVerifier(resource)
   return {
     async verifyAccessToken(token, expectedResource) {
@@ -463,12 +466,19 @@ function createVerifier(resource: URL): McpAccessVerifier {
       if (authInfo.resource?.href !== expectedResource.href || authInfo.expiresAt === undefined) {
         throw new Error('MCP_ACCESS_INVALID')
       }
+      const access = {
+        issuer: 'https://issuer.example/api/auth',
+        subject: labOAuthSubject(authInfo),
+        clientId: authInfo.clientId,
+        resource: authInfo.resource.href,
+      }
+      const active = await ctx.runQuery(internal.operations.isMcpGrantActive, {
+        access,
+      })
+      if (!active) throw new Error('MCP_ACCESS_INVALID')
       return {
         access: {
-          issuer: 'https://issuer.example/api/auth',
-          subject: labOAuthSubject(authInfo),
-          clientId: authInfo.clientId,
-          resource: authInfo.resource.href,
+          ...access,
           scopes: authInfo.scopes,
         },
         expiresAt: authInfo.expiresAt,
@@ -496,7 +506,7 @@ async function handleRequest(ctx: ActionCtx, request: Request): Promise<Response
       version: '0.0.0',
     },
     resource,
-    verifier: createVerifier(resource),
+    verifier: createVerifier(ctx, resource),
     authorization: {
       mode: 'oauth',
       metadata: metadata.oauthMetadata,
