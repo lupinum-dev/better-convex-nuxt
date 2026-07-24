@@ -215,7 +215,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       await readFile(path.join(sourceFixture, 'package.json'), 'utf8'),
     ) as { dependencies?: Record<string, string> }
     expect(fixtureManifest.dependencies).toEqual({
-      '@better-convex/mcp': '0.1.0-beta.5',
+      '@better-convex/mcp': '0.1.0-beta.6',
       '@modelcontextprotocol/server': '2.0.0-beta.5',
       convex: '1.42.2',
       zod: '4.3.6',

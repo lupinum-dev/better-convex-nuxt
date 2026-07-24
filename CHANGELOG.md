@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## v0.8.0-beta.17
+
+- Pair the exact Vue/Nuxt candidates with MCP beta.6 after the beta.16
+  candidate gate rejected the retained beta.5 artifact's superseded public
+  declaration surface.
+- Preserve beta.16 as an immutable failed candidate rather than rebuilding it
+  after the current API-admission contract changed.
+
+## v0.1.0-beta.6 (`@better-convex/mcp`)
+
+- Remove the five unadmitted handler and diagnostic type declarations from the
+  packed public entry, matching the current hard-cut source API.
+- Retire beta.5 for new candidate sets after exact package-export validation
+  proved that its declarations predated the public API admission review.
+
 ## v0.8.0-beta.16
 
 - Certify the private locked-RC high-impact interaction through the complete

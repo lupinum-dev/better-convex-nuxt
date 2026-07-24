@@ -10,7 +10,7 @@ replace the RFC's product decisions.
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | Current phase         | Phase 6 internal RC preparation; public interaction API admission remains gated                           |
 | Current task          | `P6-014`; certify the complete interaction lifecycle through exact installed candidate bytes              |
-| Last verified commit  | BCN `58d57f3a`; Ginko `04c67ce2`; Phase 6 adversarial and disclosure matrices passed                      |
+| Last verified commit  | BCN `9bcb907b`; Ginko `04c67ce2`; Phase 6 adversarial and disclosure matrices passed                      |
 | Next executable tasks | local `P6-014`; then `P6-015`; then `P9-009` neutral second-consumer proof                                |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
@@ -29,7 +29,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-045`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-046`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
