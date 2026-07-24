@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.8.0-beta.16
+
+- Certify the private locked-RC high-impact interaction through the complete
+  authorization, live-grant revocation, stale-impact, replay, concurrency,
+  browser, and disclosure matrices.
+- Reserve fresh Vue/Nuxt source identities for exact interaction-lifecycle
+  certification while retaining the independently certified, byte-unchanged
+  `@better-convex/mcp@0.1.0-beta.5` artifact.
+
 ## v0.8.0-beta.15
 
 - Bind the OAuth/MCP starter's retained `@better-convex/mcp` dependency to

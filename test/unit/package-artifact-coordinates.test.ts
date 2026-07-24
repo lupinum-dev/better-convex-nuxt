@@ -64,8 +64,8 @@ describe('package artifact coordinates', () => {
   })
 
   it('does not generalize the retirement guard to successor or unrelated versions', () => {
-    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.15')).toBe(
-      '0.8.0-beta.15',
+    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.16')).toBe(
+      '0.8.0-beta.16',
     )
     expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.5')).toBe(
       '0.1.0-beta.5',
