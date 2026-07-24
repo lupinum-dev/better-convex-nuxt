@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.8.0-beta.18
+
+- Canonically format the deployed interaction fixture before source-integrity
+  certification.
+- Retire beta.17 as an immutable failed candidate after the formatting gate
+  rejected its source commit; retain independently certified MCP beta.6.
+
 ## v0.8.0-beta.17
 
 - Pair the exact Vue/Nuxt candidates with MCP beta.6 after the beta.16

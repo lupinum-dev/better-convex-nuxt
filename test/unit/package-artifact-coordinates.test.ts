@@ -54,6 +54,8 @@ describe('package artifact coordinates', () => {
     ['better-convex-vue', '0.8.0-beta.14'],
     ['better-convex-nuxt', '0.8.0-beta.16'],
     ['better-convex-vue', '0.8.0-beta.16'],
+    ['better-convex-nuxt', '0.8.0-beta.17'],
+    ['better-convex-vue', '0.8.0-beta.17'],
     ['@better-convex/mcp', '0.1.0-beta.0'],
     ['@better-convex/mcp', '0.1.0-beta.1'],
     ['@better-convex/mcp', '0.1.0-beta.2'],
@@ -67,8 +69,8 @@ describe('package artifact coordinates', () => {
   })
 
   it('does not generalize the retirement guard to successor or unrelated versions', () => {
-    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.17')).toBe(
-      '0.8.0-beta.17',
+    expect(assertReleaseEligiblePackageVersion('better-convex-nuxt', '0.8.0-beta.18')).toBe(
+      '0.8.0-beta.18',
     )
     expect(assertReleaseEligiblePackageVersion('@better-convex/mcp', '0.1.0-beta.6')).toBe(
       '0.1.0-beta.6',
