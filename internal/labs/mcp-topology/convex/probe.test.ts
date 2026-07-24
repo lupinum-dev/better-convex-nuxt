@@ -50,6 +50,12 @@ import {
   labOAuthResourceMetadataUrl,
 } from '../oauth-fixture'
 import { runOfficialMcpToolProbe } from '../official-tools'
+import { proveInteractionBrowserBoundary } from './interaction-browser-proof'
+import {
+  INTERACTION_LAB_SESSIONS,
+  INTERACTION_ORIGIN,
+  INTERACTION_SESSION_COOKIE,
+} from './fixture/convex/interaction_page_contract'
 
 const root = fileURLToPath(new URL('../../../..', import.meta.url))
 const sourceFixture = fileURLToPath(new URL('./fixture', import.meta.url))
@@ -1339,5 +1345,326 @@ describe('vNext Convex-native MCP topology probe', () => {
       },
     })
     expect(await convex.query(count, {})).toEqual({ count: 1 })
+  })
+
+  it('serves an inert, identity-bound interaction page and confirms only by explicit POST', async () => {
+    if (!local) throw new Error('Local Convex fixture is not ready')
+    const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
+    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+      'fixture:seed',
+    )
+    const prepare = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        workspaceId: string
+      },
+      {
+        ok: true
+        value: {
+          locator: string
+          operationKey: string
+          status: 'pending'
+        }
+      }
+    >('fixture:prepareWorkspaceDeletionForTest')
+    const status = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        operationKey: string
+      },
+      unknown
+    >('fixture:getWorkspaceDeletionStatusForTest')
+    const addNote = makeFunctionReference<
+      'mutation',
+      { externalId: string; workspaceId: string },
+      unknown
+    >('fixture:addNoteForTest')
+    const expire = makeFunctionReference<'mutation', { locator: string }, unknown>(
+      'fixture:expireWorkspaceDeletionForTest',
+    )
+    const access = {
+      clientId: 'client-a',
+      issuer: LAB_OAUTH_ISSUER,
+      resource: 'https://notes.example.invalid/mcp',
+      subject: 'alice',
+    }
+    const cookie = (session: string) =>
+      `${INTERACTION_SESSION_COOKIE}=${encodeURIComponent(session)}`
+    const request = async (
+      locator: string,
+      options: {
+        body?: string
+        headers?: Record<string, string>
+        method?: 'GET' | 'POST'
+        origin?: string
+        session?: string
+      } = {},
+    ) => {
+      const headers = new Headers(options.headers)
+      if (options.session) headers.set('cookie', cookie(options.session))
+      if (options.origin) headers.set('origin', options.origin)
+      return await fetch(new URL(`/interactions/${locator}`, local!.env.CONVEX_SITE_URL!), {
+        ...(options.body === undefined ? {} : { body: options.body }),
+        headers,
+        method: options.method ?? 'GET',
+        redirect: 'manual',
+      })
+    }
+
+    await convex.mutation(seed, {})
+    const prepared = await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })
+    const { locator, operationKey } = prepared.value
+
+    const anonymous = await request(locator)
+    expect(anonymous.status).toBe(401)
+    await expect(anonymous.text()).resolves.toBe('Sign in required')
+
+    for (const session of [
+      INTERACTION_LAB_SESSIONS.bob,
+      INTERACTION_LAB_SESSIONS.sameSubjectOtherIssuer,
+    ]) {
+      const wrongActor = await request(locator, { session })
+      expect(wrongActor.status).toBe(404)
+      await expect(wrongActor.text()).resolves.toBe('Interaction unavailable')
+    }
+
+    const inertRequests = await Promise.all([
+      request(locator, { session: INTERACTION_LAB_SESSIONS.alice }),
+      request(locator, {
+        headers: { purpose: 'prefetch' },
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+      request(locator, {
+        headers: { 'user-agent': 'NeutralCrawler/1.0' },
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+    ])
+    for (const response of inertRequests) {
+      expect(response.status).toBe(200)
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+      expect(response.headers.get('content-security-policy')).toContain("frame-ancestors 'none'")
+      expect(response.headers.get('referrer-policy')).toBe('no-referrer')
+      expect(response.headers.get('x-frame-options')).toBe('DENY')
+      const html = await response.text()
+      expect(html).toContain('Delete workspace workspace-a')
+      expect(html).toContain('NOTES_WILL_BE_DELETED: 1')
+      expect(html).toContain('data-testid="confirm"')
+      for (const secret of [
+        locator,
+        operationKey,
+        ...Object.values(INTERACTION_LAB_SESSIONS),
+        ...Object.values(LAB_OAUTH_TOKENS),
+      ]) {
+        expect(html).not.toContain(secret)
+      }
+    }
+    await expect(convex.action(status, { access, operationKey })).resolves.toMatchObject({
+      ok: true,
+      value: { status: 'pending' },
+    })
+
+    for (const rejected of [
+      await request(locator, {
+        method: 'POST',
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+      await request(locator, {
+        method: 'POST',
+        origin: 'https://attacker.example.invalid',
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+      await request(locator, {
+        method: 'POST',
+        origin: INTERACTION_ORIGIN,
+        session: INTERACTION_LAB_SESSIONS.bob,
+      }),
+      await request(locator, {
+        body: 'unexpected=body',
+        method: 'POST',
+        origin: INTERACTION_ORIGIN,
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+    ]) {
+      expect([400, 403, 404]).toContain(rejected.status)
+      expect(rejected.headers.get('cache-control')).toBe('private, no-store')
+    }
+    await expect(convex.action(status, { access, operationKey })).resolves.toMatchObject({
+      ok: true,
+      value: { status: 'pending' },
+    })
+
+    const confirmations = await Promise.all([
+      request(locator, {
+        method: 'POST',
+        origin: INTERACTION_ORIGIN,
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+      request(locator, {
+        method: 'POST',
+        origin: INTERACTION_ORIGIN,
+        session: INTERACTION_LAB_SESSIONS.alice,
+      }),
+    ])
+    for (const response of confirmations) {
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe(`${INTERACTION_ORIGIN}/interactions/${locator}`)
+    }
+    const recovered = await convex.action(status, { access, operationKey })
+    expect(recovered).toMatchObject({
+      ok: true,
+      value: {
+        receipt: {
+          deletedNoteCount: 1,
+          revision: 2,
+          workspaceId: 'workspace-a',
+        },
+        status: 'applied',
+      },
+    })
+
+    const replay = await request(locator, {
+      method: 'POST',
+      origin: INTERACTION_ORIGIN,
+      session: INTERACTION_LAB_SESSIONS.alice,
+    })
+    expect(replay.status).toBe(303)
+    await expect(convex.action(status, { access, operationKey })).resolves.toEqual(recovered)
+
+    const appliedPage = await request(locator, { session: INTERACTION_LAB_SESSIONS.alice })
+    expect(appliedPage.status).toBe(200)
+    const appliedHtml = await appliedPage.text()
+    expect(appliedHtml).toContain('<p data-testid="status">applied</p>')
+    expect(appliedHtml).toContain('<dd>1</dd>')
+    expect(appliedHtml).not.toContain('data-testid="confirm"')
+
+    await convex.mutation(seed, {})
+    const stale = await convex.action(prepare, { access, workspaceId: 'workspace-a' })
+    await convex.mutation(addNote, {
+      externalId: 'note-added-before-page-confirmation',
+      workspaceId: 'workspace-a',
+    })
+    expect(
+      (
+        await request(stale.value.locator, {
+          method: 'POST',
+          origin: INTERACTION_ORIGIN,
+          session: INTERACTION_LAB_SESSIONS.alice,
+        })
+      ).status,
+    ).toBe(303)
+    const stalePage = await request(stale.value.locator, {
+      session: INTERACTION_LAB_SESSIONS.alice,
+    })
+    expect(await stalePage.text()).toContain('<p data-testid="status">stale</p>')
+
+    await convex.mutation(seed, {})
+    const expired = await convex.action(prepare, { access, workspaceId: 'workspace-a' })
+    await convex.mutation(expire, { locator: expired.value.locator })
+    expect(
+      (
+        await request(expired.value.locator, {
+          method: 'POST',
+          origin: INTERACTION_ORIGIN,
+          session: INTERACTION_LAB_SESSIONS.alice,
+        })
+      ).status,
+    ).toBe(303)
+    const expiredPage = await request(expired.value.locator, {
+      session: INTERACTION_LAB_SESSIONS.alice,
+    })
+    expect(await expiredPage.text()).toContain('<p data-testid="status">expired</p>')
+  })
+
+  it('confirms the application-owned operation through a real production browser page', async () => {
+    if (!local) throw new Error('Local Convex fixture is not ready')
+    const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
+    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+      'fixture:seed',
+    )
+    const prepare = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        workspaceId: string
+      },
+      {
+        ok: true
+        value: {
+          locator: string
+          operationKey: string
+          status: 'pending'
+        }
+      }
+    >('fixture:prepareWorkspaceDeletionForTest')
+    const status = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        operationKey: string
+      },
+      unknown
+    >('fixture:getWorkspaceDeletionStatusForTest')
+    const access = {
+      clientId: 'client-a',
+      issuer: LAB_OAUTH_ISSUER,
+      resource: 'https://notes.example.invalid/mcp',
+      subject: 'alice',
+    }
+
+    await convex.mutation(seed, {})
+    const prepared = await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })
+    const browserProof = await proveInteractionBrowserBoundary({
+      additionalSecretSentinels: Object.values(LAB_OAUTH_TOKENS),
+      locator: prepared.value.locator,
+      siteUrl: local.env.CONVEX_SITE_URL!,
+    })
+    expect(browserProof).toEqual({
+      finalStatus: 'applied',
+      requestMethods: ['GET', 'POST', 'GET'],
+    })
+    await expect(
+      convex.action(status, {
+        access,
+        operationKey: prepared.value.operationKey,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        receipt: {
+          deletedNoteCount: 1,
+          revision: 2,
+          workspaceId: 'workspace-a',
+        },
+        status: 'applied',
+      },
+    })
   })
 })
