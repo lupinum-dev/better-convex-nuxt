@@ -6,14 +6,14 @@ replace the RFC's product decisions.
 
 ## Working state
 
-| Field                 | Value                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 6 internal RC preparation; public interaction API admission remains gated                           |
-| Current task          | `P6-018`; prove the complete neutral production interaction and exact installed bytes                     |
-| Last verified commit  | BCN `cfc2a020`; Ginko `84af23af`; private operation core and locked-RC adapter passed deployed proof      |
-| Next executable tasks | `P6-018`; then `P6-019`; then `P6-001` after final-spec reconciliation                                    |
-| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
-| Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
+| Field                 | Value                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Current phase         | Phase 6 internal RC preparation; public interaction API admission remains gated                            |
+| Current task          | `P6-019`; project the proven interaction onto Ginko's canonical review records                             |
+| Last verified commit  | BCN `9d6d0d7f`; Ginko `84af23af`; neutral production/browser/exact-tarball interaction proof passed        |
+| Next executable tasks | `P6-019`; then remaining Phase 6 shared security/docs proof; then `P6-001` after final-spec reconciliation |
+| Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad`  |
+| Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                         |
 
 ## External and human blockers
 
@@ -29,7 +29,7 @@ replace the RFC's product decisions.
 ## Accepted decision records
 
 [`internal/decisions-ledger.md`](./decisions-ledger.md) is the single detailed decision history. The
-current accepted records are `D-001`–`D-042`; final topology certification, Tasks, and repository rename
+current accepted records are `D-001`–`D-043`; final topology certification, Tasks, and repository rename
 remain gated rather than implied stable contracts.
 
 ## Verification log
@@ -157,6 +157,7 @@ remain gated rather than implied stable contracts.
 | 2026-07-24 | `6784f186`; local external-gate checkpoint | Unrestricted `pnpm check` (164 files, 1,884 tests); `check:asvs` (253 controls); `check:sbom` (241 components); unrestricted `check:contracts`; `check:auth-advisories` (zero active exceptions) | The local Vue/Nuxt/MCP foundation remains green after the public-API hard cut; one stale private type import was deleted. Remaining implementation work is dependency-ordered behind final MCP interaction semantics or named external host/publication authority. |
 | 2026-07-24 | `f44fc16e`; MCP authority recheck | Official specification/SDK/GitHub releases and exact npm versions; `@modelcontextprotocol/ext-apps@1.7.5` source/release differential; `internal/evidence/mcp-spec-checkpoint-2026-07-20.md` | Final core remains unpublished, split SDK remains beta.5, and Apps 1.7.5 does not add logging control; `EXT-003`/`EXT-006` remain truthful gates rather than excuses for provisional product code. |
 | 2026-07-24 | `cfc2a020`; `P6-016`/`P6-017` private locked-RC proof | Root typecheck; focused lint; deployed local Convex official beta.5 probe; public-boundary scan; `internal/evidence/mcp-high-impact-interaction-rc-proof-2026-07-24.md` | Current authority and impact, expiry, stale detection, one effect/receipt, synchronized replay, recovery, truthful unsupported handling, exact request-state binding, and bearer absence passed; all RC vocabulary remains private. |
+| 2026-07-24 | `9d6d0d7f`; `P6-018` neutral production interaction | Focused lint; root typecheck; deployed Convex direct HTTP and Chromium matrix; immutable MCP beta.5 installed-byte comparison; `internal/evidence/mcp-high-impact-interaction-production-proof-2026-07-24.md` | Inert authenticated GET, fixed-origin explicit POST, wrong-user/issuer/origin/body denial, stale/expiry/replay/concurrency/recovery, strict response headers, and credential/locator redaction passed through exact packed MCP bytes. |
 
 ## Status vocabulary
 
@@ -388,8 +389,8 @@ production artifact.
 | `P6-015` | `P6-014` | Document ordinary writes, same-user URL interaction, application queues, retry/status, and external-effect limits. | Docs | Users do not conflate navigation, approval, review, or authority. | Docs examples/conformance links/API check. | Old generic approval guidance | pending | — | — |
 | `P6-016` | `P5-023` | Implement the neutral application's private high-impact operation record and transactional execution core without importing RC protocol types. | Convex-native topology lab schema/functions | Application state, current authority, current impact, expiry, replay safety, effect, and receipt are one application-owned transaction boundary. | Direct Convex tests for creation, same-subject access, role/revocation, stale impact, expiry, replay, concurrent confirmation, and one receipt. | Immediate `deleteWorkspace` effect path | done | — | `cfc2a020`; `internal/evidence/mcp-high-impact-interaction-rc-proof-2026-07-24.md` |
 | `P6-017` | `P6-016` | Add one private RC adapter that maps capable tool calls to `InputRequiredResult`, binds verified request state, and returns a truthful unsupported result before creating state. | Convex-native topology lab MCP registration only; no package export | RC vocabulary is isolated and cannot become authority; unsupported clients create no operation. | Exact beta.5 capable/unsupported/retry/status tests and source-boundary scan. | Direct high-impact tool dispatch | done | — | `cfc2a020`; `internal/evidence/mcp-high-impact-interaction-rc-proof-2026-07-24.md` |
-| `P6-018` | `P6-017` | Prove the complete neutral RC interaction including fixed-origin opaque URL, inert authenticated page adapter, lost-retry recovery, sentinel absence, and exact packed MCP bytes. | Neutral production fixture and evidence | Navigation grants no authority; explicit operation key recovers state; no locator or credential leaks into general diagnostics. | Browser/MCP/Convex adversarial matrix plus installed-byte proof. | Probe-only shortcuts that bypass the application core | in_progress | — | — |
-| `P6-019` | `P6-016`, `P6-018` | Project the proven interaction onto Ginko's existing canonical review records without adding a second approval source. | Authorized Ginko stabilization branch and BCN evidence | Ginko retains requester/reviewer policy and current-state authorization; protocol mapping is projection only. | Local Ginko wrong-user/stale/replay/concurrency tests and exact local candidate tuple. | Temporary Ginko interaction glue replaced by the projection | pending | `EXT-004` only for protected deployment/cutover | — |
+| `P6-018` | `P6-017` | Prove the complete neutral RC interaction including fixed-origin opaque URL, inert authenticated page adapter, lost-retry recovery, sentinel absence, and exact packed MCP bytes. | Neutral production fixture and evidence | Navigation grants no authority; explicit operation key recovers state; no locator or credential leaks into general diagnostics. | Browser/MCP/Convex adversarial matrix plus installed-byte proof. | Probe-only shortcuts that bypass the application core | done | — | `9d6d0d7f`; `internal/evidence/mcp-high-impact-interaction-production-proof-2026-07-24.md` |
+| `P6-019` | `P6-016`, `P6-018` | Project the proven interaction onto Ginko's existing canonical review records without adding a second approval source. | Authorized Ginko stabilization branch and BCN evidence | Ginko retains requester/reviewer policy and current-state authorization; protocol mapping is projection only. | Local Ginko wrong-user/stale/replay/concurrency tests and exact local candidate tuple. | Temporary Ginko interaction glue replaced by the projection | in_progress | `EXT-004` only for protected deployment/cutover | — |
 
 ## Phase 7 — Vue MCP Apps
 
