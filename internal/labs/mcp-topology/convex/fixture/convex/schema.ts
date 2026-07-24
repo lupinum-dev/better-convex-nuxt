@@ -38,4 +38,30 @@ export default defineSchema({
     revision: v.number(),
     tenantId: v.string(),
   }).index('by_external_id', ['externalId']),
+
+  workspaceDeletionInteractions: defineTable({
+    clientId: v.string(),
+    createdAt: v.number(),
+    deletedAt: v.optional(v.number()),
+    deletedNoteCount: v.optional(v.number()),
+    expiresAt: v.number(),
+    impactNoteIds: v.array(v.string()),
+    issuer: v.string(),
+    locator: v.string(),
+    operationKey: v.string(),
+    resource: v.string(),
+    resultRevision: v.optional(v.number()),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('applied'),
+      v.literal('stale'),
+      v.literal('expired'),
+    ),
+    subject: v.string(),
+    tenantId: v.string(),
+    workspaceExternalId: v.string(),
+    workspaceRevision: v.number(),
+  })
+    .index('by_locator', ['locator'])
+    .index('by_operation_key', ['operationKey']),
 })

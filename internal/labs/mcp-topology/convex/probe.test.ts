@@ -134,6 +134,7 @@ function connectClient(
   name: string,
   responseBodies: string[],
   supportsApps: boolean,
+  supportsUrlInteraction = false,
 ): { client: Client; connect: Promise<void>; requestBodies: string[] } {
   const requestBodies: string[] = []
   const fetch: typeof globalThis.fetch = async (input, init) => {
@@ -150,13 +151,18 @@ function connectClient(
   const client = new Client(
     { name, version: '0.0.0' },
     {
-      ...(supportsApps && {
+      ...((supportsApps || supportsUrlInteraction) && {
         capabilities: {
-          extensions: {
-            'io.modelcontextprotocol/ui': {
-              mimeTypes: ['text/html;profile=mcp-app'],
-            },
-          },
+          ...(supportsUrlInteraction ? { elicitation: { url: {} } } : {}),
+          ...(supportsApps
+            ? {
+                extensions: {
+                  'io.modelcontextprotocol/ui': {
+                    mimeTypes: ['text/html;profile=mcp-app'],
+                  },
+                },
+              }
+            : {}),
         },
       }),
       versionNegotiation: { mode: { pin: '2026-07-28' as const } },
@@ -237,6 +243,7 @@ describe('vNext Convex-native MCP topology probe', () => {
       OWNER_TOKEN,
       'convex-owner-client',
       responsesA,
+      true,
       true,
     )
     const connectionB = connectClient(
@@ -845,7 +852,10 @@ describe('vNext Convex-native MCP topology probe', () => {
           name: 'generate_report',
         }),
         connectionB.client.callTool({
-          arguments: { expectedRevision: 1, workspaceId: 'workspace-b' },
+          arguments: {
+            operationKey: 'delete-workspace-b-0000000000000001',
+            workspaceId: 'workspace-b',
+          },
           name: 'delete_workspace',
         }),
       ])
@@ -854,8 +864,10 @@ describe('vNext Convex-native MCP topology probe', () => {
         workspaceId: 'workspace-a',
       })
       expect(deniedDelete).toMatchObject({
-        content: [{ text: JSON.stringify({ code: 'ACCESS_DENIED' }), type: 'text' }],
-        isError: true,
+        structuredContent: {
+          code: 'CLIENT_INTERACTION_UNSUPPORTED',
+          status: 'interaction_unsupported',
+        },
       })
 
       const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
@@ -916,24 +928,195 @@ describe('vNext Convex-native MCP topology probe', () => {
         }),
       ).resolves.toEqual({ role: 'owner', status: 'active', subject: 'bob' })
       const allowedAfterLiveRoleChange = await connectionB.client.callTool({
-        arguments: { expectedRevision: 1, workspaceId: 'workspace-b' },
+        arguments: {
+          operationKey: 'delete-workspace-b-0000000000000002',
+          workspaceId: 'workspace-b',
+        },
         name: 'delete_workspace',
       })
-      expect(allowedAfterLiveRoleChange.structuredContent).toMatchObject({
-        deletedNoteCount: 1,
-        revision: 2,
-        workspaceId: 'workspace-b',
+      expect(allowedAfterLiveRoleChange.structuredContent).toEqual({
+        code: 'CLIENT_INTERACTION_UNSUPPORTED',
+        status: 'interaction_unsupported',
       })
+      const countWorkspaceDeletionInteractions = makeFunctionReference<
+        'query',
+        Record<string, never>,
+        { count: number }
+      >('fixture:countWorkspaceDeletionInteractionsForTest')
+      expect(await convex.query(countWorkspaceDeletionInteractions, {})).toEqual({ count: 0 })
 
-      const deleted = await connectionA.client.callTool({
-        arguments: { expectedRevision: 1, workspaceId: 'workspace-a' },
+      const tamperedOperationKey = 'delete-workspace-a-tamper-00000000001'
+      const rawToolCall = async (
+        id: string,
+        retry?: {
+          inputResponses: Record<string, unknown>
+          requestState: string
+        },
+      ) =>
+        await fetch(mcpUrl, {
+          body: JSON.stringify({
+            id,
+            jsonrpc: '2.0',
+            method: 'tools/call',
+            params: {
+              _meta: {
+                'io.modelcontextprotocol/clientCapabilities': {
+                  elicitation: { url: {} },
+                },
+                'io.modelcontextprotocol/clientInfo': {
+                  name: 'better-convex-request-state-adversary',
+                  version: '0.0.0',
+                },
+                'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+              },
+              arguments: {
+                operationKey: tamperedOperationKey,
+                workspaceId: 'workspace-a',
+              },
+              name: 'delete_workspace',
+              ...(retry ?? {}),
+            },
+          }),
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${OWNER_TOKEN}`,
+            'content-type': 'application/json',
+            'mcp-method': 'tools/call',
+            'mcp-name': 'delete_workspace',
+            'mcp-protocol-version': '2026-07-28',
+          },
+          method: 'POST',
+        })
+      const rawPendingResponse = await rawToolCall('request-state-original')
+      expect(rawPendingResponse.status).toBe(200)
+      await expect(rawPendingResponse.json()).resolves.toMatchObject({
+        result: {
+          requestState: tamperedOperationKey,
+          resultType: 'input_required',
+        },
+      })
+      const rawAcceptedButUnconfirmedResponse = await rawToolCall('request-state-unconfirmed', {
+        inputResponses: { review: { action: 'accept' } },
+        requestState: tamperedOperationKey,
+      })
+      expect(rawAcceptedButUnconfirmedResponse.status).toBe(200)
+      await expect(rawAcceptedButUnconfirmedResponse.json()).resolves.toMatchObject({
+        result: {
+          structuredContent: { status: 'pending' },
+        },
+      })
+      const rawTamperedResponse = await rawToolCall('request-state-tampered', {
+        inputResponses: { review: { action: 'accept' } },
+        requestState: 'forged-request-state-000000000000001',
+      })
+      expect(rawTamperedResponse.status).toBe(200)
+      await expect(rawTamperedResponse.json()).resolves.toMatchObject({
+        result: {
+          content: [
+            {
+              text: JSON.stringify({ code: 'INPUT_INVALID' }),
+              type: 'text',
+            },
+          ],
+          isError: true,
+        },
+      })
+      const reseed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+        'fixture:seed',
+      )
+      expect(await convex.mutation(reseed, {})).toEqual({ seeded: true })
+
+      const deleteCall = {
+        arguments: {
+          operationKey: 'delete-workspace-a-0000000000000001',
+          workspaceId: 'workspace-a',
+        },
         name: 'delete_workspace',
+      } as const
+      const confirmWorkspaceDeletion = makeFunctionReference<
+        'action',
+        {
+          actor: { issuer: string; subject: string }
+          locator: string
+        },
+        unknown
+      >('fixture:confirmWorkspaceDeletionForTest')
+      let observedReviewUrl: URL | undefined
+      let confirmed:
+        | {
+            ok: true
+            value: {
+              receipt: {
+                deletedNoteCount: number
+                revision: number
+                workspaceId: string
+              }
+              status: 'applied'
+            }
+          }
+        | undefined
+      connectionA.client.setRequestHandler('elicitation/create', async (request) => {
+        expect(request.params).toMatchObject({
+          message: 'Review this workspace deletion in the application.',
+          mode: 'url',
+        })
+        if (request.params.mode !== 'url') {
+          throw new Error('Expected URL interaction')
+        }
+        observedReviewUrl = new URL(request.params.url)
+        expect(observedReviewUrl.origin).toBe('https://notes.example.invalid')
+        expect(observedReviewUrl.pathname).toMatch(/^\/interactions\/[\w-]{32,128}$/u)
+        expect(observedReviewUrl.search).toBe('')
+        expect(observedReviewUrl.hash).toBe('')
+        const locator = observedReviewUrl.pathname.slice('/interactions/'.length)
+        confirmed = (await convex.action(confirmWorkspaceDeletion, {
+          actor: { issuer: LAB_OAUTH_ISSUER, subject: 'alice' },
+          locator,
+        })) as typeof confirmed
+        return { action: 'accept' }
       })
-      expect(deleted.structuredContent).toMatchObject({
-        deletedNoteCount: 1,
-        revision: 2,
-        workspaceId: 'workspace-a',
+      const completed = await connectionA.client.callTool(deleteCall)
+      expect(observedReviewUrl).toBeDefined()
+      expect(confirmed).toMatchObject({
+        ok: true,
+        value: {
+          receipt: {
+            deletedNoteCount: 1,
+            revision: 2,
+            workspaceId: 'workspace-a',
+          },
+          status: 'applied',
+        },
       })
+      expect(responsesA.some((body) => body.includes('"resultType":"input_required"'))).toBe(true)
+      const retryRequest = connectionA.requestBodies
+        .map(
+          (body) =>
+            JSON.parse(body) as {
+              params?: {
+                inputResponses?: Record<string, unknown>
+                requestState?: string
+              }
+            },
+        )
+        .find((request) => request.params?.requestState !== undefined)
+      expect(retryRequest?.params).toMatchObject({
+        inputResponses: { review: { action: 'accept' } },
+        requestState: deleteCall.arguments.operationKey,
+      })
+      expect(completed.structuredContent).toEqual({
+        receipt: expect.objectContaining({
+          deletedNoteCount: 1,
+          revision: 2,
+          workspaceId: 'workspace-a',
+        }),
+        status: 'applied',
+      })
+      const recovered = await connectionA.client.callTool({
+        arguments: { operationKey: deleteCall.arguments.operationKey },
+        name: 'get_workspace_deletion_status',
+      })
+      expect(recovered.structuredContent).toEqual(completed.structuredContent)
 
       const responseText = [
         ...responsesA,
@@ -952,5 +1135,209 @@ describe('vNext Convex-native MCP topology probe', () => {
         connectionModern.client.close(),
       ])
     }
+  })
+
+  it('keeps high-impact application state current, subject-bound, stale-safe, and replay-safe', async () => {
+    if (!local) throw new Error('Local Convex fixture is not ready')
+    const convex = new ConvexHttpClient(local.env.CONVEX_URL!)
+    const seed = makeFunctionReference<'mutation', Record<string, never>, { seeded: boolean }>(
+      'fixture:seed',
+    )
+    const prepare = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        workspaceId: string
+      },
+      unknown
+    >('fixture:prepareWorkspaceDeletionForTest')
+    const review = makeFunctionReference<
+      'action',
+      {
+        actor: { issuer: string; subject: string }
+        locator: string
+      },
+      unknown
+    >('fixture:getWorkspaceDeletionReviewForTest')
+    const confirm = makeFunctionReference<
+      'action',
+      {
+        actor: { issuer: string; subject: string }
+        locator: string
+      },
+      unknown
+    >('fixture:confirmWorkspaceDeletionForTest')
+    const status = makeFunctionReference<
+      'action',
+      {
+        access: {
+          clientId: string
+          issuer: string
+          resource: string
+          subject: string
+        }
+        operationKey: string
+      },
+      unknown
+    >('fixture:getWorkspaceDeletionStatusForTest')
+    const setMember = makeFunctionReference<
+      'mutation',
+      {
+        role: 'editor' | 'owner'
+        status: 'active' | 'removed'
+        subject: string
+      },
+      unknown
+    >('fixture:setMember')
+    const addNote = makeFunctionReference<
+      'mutation',
+      { externalId: string; workspaceId: string },
+      unknown
+    >('fixture:addNoteForTest')
+    const expire = makeFunctionReference<'mutation', { locator: string }, unknown>(
+      'fixture:expireWorkspaceDeletionForTest',
+    )
+    const count = makeFunctionReference<'query', Record<string, never>, { count: number }>(
+      'fixture:countWorkspaceDeletionInteractionsForTest',
+    )
+    const access = {
+      clientId: 'client-a',
+      issuer: LAB_OAUTH_ISSUER,
+      resource: 'https://notes.example.invalid/mcp',
+      subject: 'alice',
+    }
+    const actor = { issuer: LAB_OAUTH_ISSUER, subject: 'alice' }
+
+    await convex.mutation(seed, {})
+    const prepared = (await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })) as {
+      ok: true
+      value: {
+        locator: string
+        operationKey: string
+        review: {
+          effects: Array<{ noteCount: number; workspaceId: string }>
+          warnings: Array<{ code: string; count: number }>
+        }
+        status: 'pending'
+      }
+    }
+    expect(prepared.value).toMatchObject({
+      review: {
+        effects: [{ noteCount: 1, workspaceId: 'workspace-a' }],
+        warnings: [{ code: 'NOTES_WILL_BE_DELETED', count: 1 }],
+      },
+      status: 'pending',
+    })
+    expect(await convex.query(count, {})).toEqual({ count: 1 })
+    await expect(
+      convex.action(review, {
+        actor: {
+          issuer: 'https://other-issuer.example/api/auth',
+          subject: 'alice',
+        },
+        locator: prepared.value.locator,
+      }),
+    ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+    await expect(
+      convex.action(review, {
+        actor: { issuer: LAB_OAUTH_ISSUER, subject: 'bob' },
+        locator: prepared.value.locator,
+      }),
+    ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+    await expect(
+      convex.action(status, {
+        access: { ...access, clientId: 'different-client' },
+        operationKey: prepared.value.operationKey,
+      }),
+    ).resolves.toEqual({ code: 'INTERACTION_NOT_FOUND', ok: false })
+
+    await convex.mutation(setMember, {
+      role: 'owner',
+      status: 'removed',
+      subject: 'alice',
+    })
+    await expect(
+      convex.action(confirm, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ code: 'ACCESS_DENIED', ok: false })
+    await convex.mutation(setMember, {
+      role: 'owner',
+      status: 'active',
+      subject: 'alice',
+    })
+    await convex.mutation(addNote, {
+      externalId: 'note-added-after-review',
+      workspaceId: 'workspace-a',
+    })
+    await expect(
+      convex.action(confirm, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ ok: true, value: { status: 'stale' } })
+    await expect(
+      convex.action(confirm, { actor, locator: prepared.value.locator }),
+    ).resolves.toEqual({ ok: true, value: { status: 'stale' } })
+
+    await convex.mutation(seed, {})
+    const expiring = (await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })) as typeof prepared
+    await convex.mutation(expire, { locator: expiring.value.locator })
+    await expect(
+      convex.action(review, { actor, locator: expiring.value.locator }),
+    ).resolves.toMatchObject({ ok: true, value: { status: 'expired' } })
+    await expect(
+      convex.action(confirm, { actor, locator: expiring.value.locator }),
+    ).resolves.toEqual({ ok: true, value: { status: 'expired' } })
+
+    await convex.mutation(seed, {})
+    const concurrent = (await convex.action(prepare, {
+      access,
+      workspaceId: 'workspace-a',
+    })) as typeof prepared
+    const confirmations = (await Promise.all([
+      convex.action(confirm, { actor, locator: concurrent.value.locator }),
+      convex.action(confirm, { actor, locator: concurrent.value.locator }),
+    ])) as Array<{
+      ok: true
+      value: {
+        receipt: {
+          deletedAt: number
+          deletedNoteCount: number
+          revision: number
+          workspaceId: string
+        }
+        status: 'applied'
+      }
+    }>
+    expect(confirmations).toHaveLength(2)
+    expect(confirmations[0]).toEqual(confirmations[1])
+    expect(confirmations[0]?.value).toMatchObject({
+      receipt: {
+        deletedNoteCount: 1,
+        revision: 2,
+        workspaceId: 'workspace-a',
+      },
+      status: 'applied',
+    })
+    await expect(
+      convex.action(status, {
+        access,
+        operationKey: concurrent.value.operationKey,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: {
+        receipt: confirmations[0]?.value.receipt,
+        status: 'applied',
+      },
+    })
+    expect(await convex.query(count, {})).toEqual({ count: 1 })
   })
 })

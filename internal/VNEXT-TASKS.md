@@ -8,10 +8,10 @@ replace the RFC's product decisions.
 
 | Field                 | Value                                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
-| Current phase         | Phase 9 local hardening is at external protocol/host gates; no blocked feature is represented as complete |
-| Current task          | `P6-001` after `EXT-003`; reconcile the final MCP interaction contract before Phase 6 implementation      |
-| Last verified commit  | BCN `f44fc16e`; Ginko `84af23af`; local gates passed and external MCP authority was rechecked             |
-| Next executable tasks | `P6-001` after `EXT-003`; `P9-006` after `EXT-006`; then `P9-009` after `P6-006`                          |
+| Current phase         | Phase 6 internal RC preparation; public interaction API admission remains gated                           |
+| Current task          | `P6-016`; prove the application-owned high-impact operation core independently of the RC adapter          |
+| Last verified commit  | BCN `4758f2bb`; Ginko `84af23af`; local gates passed and external MCP authority was rechecked             |
+| Next executable tasks | `P6-016`; then `P6-017`; then `P6-018`                                                                    |
 | Baseline release      | `better-convex-nuxt@0.7.0-beta.1`, tag `v0.7.0-beta.1`, commit `a6e76f1f61a483de5dbd3a19003ab35abcf75fad` |
 | Ledger rule           | At most one task is `in_progress`; `done` requires its named proof                                        |
 
@@ -385,6 +385,10 @@ production artifact.
 | `P6-013` | `P6-012` | Prove diagnostics/results/HTML/logs/URLs contain no credentials, PII, args, provider refs, or locators where forbidden. | Sentinel harness | Opaque locator never enters general diagnostics; secrets remain absent. | Unique sentinel scans in production builds and failures. | Unsafe telemetry | pending | — | — |
 | `P6-014` | `P6-012`, `P6-013` | Certify exact MCP/Nuxt artifacts through production interaction lifecycle. | Packed consumers/protected staging | Installed bytes implement reviewed interaction. | Browser + MCP client + concurrent Convex proof. | Workspace/source-only path | pending | Protected environment for final evidence | — |
 | `P6-015` | `P6-014` | Document ordinary writes, same-user URL interaction, application queues, retry/status, and external-effect limits. | Docs | Users do not conflate navigation, approval, review, or authority. | Docs examples/conformance links/API check. | Old generic approval guidance | pending | — | — |
+| `P6-016` | `P5-023` | Implement the neutral application's private high-impact operation record and transactional execution core without importing RC protocol types. | Convex-native topology lab schema/functions | Application state, current authority, current impact, expiry, replay safety, effect, and receipt are one application-owned transaction boundary. | Direct Convex tests for creation, same-subject access, role/revocation, stale impact, expiry, replay, concurrent confirmation, and one receipt. | Immediate `deleteWorkspace` effect path | in_progress | — | — |
+| `P6-017` | `P6-016` | Add one private RC adapter that maps capable tool calls to `InputRequiredResult`, binds verified request state, and returns a truthful unsupported result before creating state. | Convex-native topology lab MCP registration only; no package export | RC vocabulary is isolated and cannot become authority; unsupported clients create no operation. | Exact beta.5 capable/unsupported/retry/status tests and source-boundary scan. | Direct high-impact tool dispatch | pending | — | — |
+| `P6-018` | `P6-017` | Prove the complete neutral RC interaction including fixed-origin opaque URL, inert authenticated page adapter, lost-retry recovery, sentinel absence, and exact packed MCP bytes. | Neutral production fixture and evidence | Navigation grants no authority; explicit operation key recovers state; no locator or credential leaks into general diagnostics. | Browser/MCP/Convex adversarial matrix plus installed-byte proof. | Probe-only shortcuts that bypass the application core | pending | — | — |
+| `P6-019` | `P6-016`, `P6-018` | Project the proven interaction onto Ginko's existing canonical review records without adding a second approval source. | Authorized Ginko stabilization branch and BCN evidence | Ginko retains requester/reviewer policy and current-state authorization; protocol mapping is projection only. | Local Ginko wrong-user/stale/replay/concurrency tests and exact local candidate tuple. | Temporary Ginko interaction glue replaced by the projection | pending | `EXT-004` only for protected deployment/cutover | — |
 
 ## Phase 7 — Vue MCP Apps
 

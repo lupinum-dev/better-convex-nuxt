@@ -1,6 +1,12 @@
 /** Shared data only. Each topology owns its own server, transport, identity, and application adapter. */
 export const topologyConformanceVectors = Object.freeze({
-  expectedTools: ['delete_workspace', 'generate_report', 'rename_note', 'search_notes'] as const,
+  expectedTools: [
+    'delete_workspace',
+    'generate_report',
+    'get_workspace_deletion_status',
+    'rename_note',
+    'search_notes',
+  ] as const,
   malformedSearch: {
     arguments: {
       query: '',

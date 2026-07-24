@@ -4,7 +4,15 @@ import {
   type McpAccessContext,
   type McpAccessVerifier,
 } from '@better-convex/mcp'
-import { ResourceTemplate, type McpServer } from '@modelcontextprotocol/server'
+import {
+  CLIENT_CAPABILITIES_META_KEY,
+  inputRequired,
+  ResourceTemplate,
+  type CallToolResult,
+  type InputRequiredResult,
+  type McpServer,
+  type ServerContext,
+} from '@modelcontextprotocol/server'
 import { z } from 'zod'
 
 import { internal } from './_generated/api'
@@ -16,6 +24,8 @@ const BEARER_BOUNDARY_HEADER = 'x-bcn-lab-bearer-boundary'
 const NOTES_DASHBOARD_RESOURCE_URI = 'ui://notes/dashboard.html'
 const NOTES_DASHBOARD_RESOURCE_MIME_TYPE = 'text/html;profile=mcp-app'
 const NOTES_DASHBOARD_MAX_HTML_BYTES = 512 * 1024
+const WORKSPACE_DELETION_REVIEW_ORIGIN = 'https://notes.example.invalid'
+const WORKSPACE_DELETION_REVIEW_PATH = '/interactions/'
 if (
   !NOTES_DASHBOARD_HTML.startsWith('<!doctype html>') ||
   new TextEncoder().encode(NOTES_DASHBOARD_HTML).byteLength > NOTES_DASHBOARD_MAX_HTML_BYTES
@@ -70,13 +80,26 @@ const deletedWorkspaceSchema = z.object({
   workspaceId: z.string(),
 })
 
+const workspaceDeletionCompleteSchema = z.discriminatedUnion('status', [
+  z.object({
+    receipt: deletedWorkspaceSchema,
+    status: z.literal('applied'),
+  }),
+  z.object({ status: z.literal('expired') }),
+  z.object({ status: z.literal('pending') }),
+  z.object({ status: z.literal('stale') }),
+  z.object({
+    code: z.literal('CLIENT_INTERACTION_UNSUPPORTED'),
+    status: z.literal('interaction_unsupported'),
+  }),
+])
+
 interface LabPrincipal {
   readonly subject: string
 }
 
 type OperationResult<Value> =
-  | { readonly code: string; readonly ok: false }
-  | { readonly ok: true; readonly value: Value }
+  { readonly code: string; readonly ok: false } | { readonly ok: true; readonly value: Value }
 
 function projectToolResult<Value>(result: OperationResult<Value>, text: (value: Value) => string) {
   if (!result.ok) {
@@ -88,6 +111,117 @@ function projectToolResult<Value>(result: OperationResult<Value>, text: (value: 
   return {
     content: [{ text: text(result.value), type: 'text' as const }],
     structuredContent: result.value,
+  }
+}
+
+async function runRcMcpTool(
+  operation: () =>
+    CallToolResult | InputRequiredResult | Promise<CallToolResult | InputRequiredResult>,
+): Promise<CallToolResult | InputRequiredResult> {
+  try {
+    return await operation()
+  } catch {
+    return {
+      content: [{ text: 'Tool execution failed', type: 'text' }],
+      isError: true,
+    }
+  }
+}
+
+interface WorkspaceDeletionState {
+  readonly locator?: string
+  readonly operationKey: string
+  readonly receipt?: z.infer<typeof deletedWorkspaceSchema>
+  readonly status: 'pending' | 'applied' | 'stale' | 'expired'
+  readonly workspaceId: string
+}
+
+function supportsUrlInteraction(context: ServerContext): boolean {
+  const envelope = context.mcpReq.envelope
+  if (!isPlainObject(envelope)) return false
+  const capabilities = Reflect.get(envelope, CLIENT_CAPABILITIES_META_KEY)
+  if (!isPlainObject(capabilities)) return false
+  const elicitation = Reflect.get(capabilities, 'elicitation')
+  return isPlainObject(elicitation) && isPlainObject(Reflect.get(elicitation, 'url'))
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function workspaceDeletionReviewUrl(locator: string): string {
+  const url = new URL(WORKSPACE_DELETION_REVIEW_PATH, WORKSPACE_DELETION_REVIEW_ORIGIN)
+  url.pathname += locator
+  return url.href
+}
+
+function projectWorkspaceDeletionComplete(
+  value:
+    | WorkspaceDeletionState
+    | {
+        readonly code: 'CLIENT_INTERACTION_UNSUPPORTED'
+        readonly status: 'interaction_unsupported'
+      },
+): CallToolResult {
+  if (value.status === 'interaction_unsupported') {
+    return {
+      content: [
+        {
+          text: 'This client cannot open the required application review.',
+          type: 'text',
+        },
+      ],
+      structuredContent: value,
+    }
+  }
+  if (value.status === 'applied') {
+    if (!value.receipt) throw new Error('MCP_WORKSPACE_DELETION_RECEIPT_INVALID')
+    return {
+      content: [
+        {
+          text: `Deleted workspace ${value.receipt.workspaceId}.`,
+          type: 'text',
+        },
+      ],
+      structuredContent: { receipt: value.receipt, status: value.status },
+    }
+  }
+  return {
+    content: [
+      {
+        text:
+          value.status === 'pending'
+            ? 'Workspace deletion is waiting for application review.'
+            : `Workspace deletion is ${value.status}.`,
+        type: 'text',
+      },
+    ],
+    structuredContent: { status: value.status },
+  }
+}
+
+function projectWorkspaceDeletionInput(
+  value: WorkspaceDeletionState,
+): InputRequiredResult | CallToolResult {
+  if (value.status !== 'pending') return projectWorkspaceDeletionComplete(value)
+  if (!value.locator) throw new Error('MCP_WORKSPACE_DELETION_LOCATOR_INVALID')
+  return inputRequired({
+    inputRequests: {
+      review: inputRequired.elicitUrl({
+        message: 'Review this workspace deletion in the application.',
+        url: workspaceDeletionReviewUrl(value.locator),
+      }),
+    },
+    requestState: value.operationKey,
+  })
+}
+
+function applicationAccessBinding(access: McpAccessContext) {
+  return {
+    clientId: access.clientId,
+    issuer: access.issuer,
+    resource: access.resource,
+    subject: access.subject,
   }
 }
 
@@ -173,31 +307,91 @@ function createNotesServer(
   server.registerTool(
     'delete_workspace',
     {
-      description: 'Delete one workspace after current membership and revision checks.',
+      description:
+        'Request deletion of one workspace through an application-owned high-impact review.',
       inputSchema: z
         .object({
-          expectedRevision: z.number().int().positive(),
+          operationKey: z
+            .string()
+            .min(32)
+            .max(128)
+            .regex(/^[\w-]+$/),
           workspaceId: z.string(),
         })
         .strict(),
-      outputSchema: deletedWorkspaceSchema,
+      outputSchema: workspaceDeletionCompleteSchema,
+    },
+    async (input, context) =>
+      runRcMcpTool(async () => {
+        if (!access.scopes.includes('notes:write')) {
+          return projectToolResult({ code: 'ACCESS_DENIED', ok: false }, () => '')
+        }
+        if (!supportsUrlInteraction(context)) {
+          return projectWorkspaceDeletionComplete({
+            code: 'CLIENT_INTERACTION_UNSUPPORTED',
+            status: 'interaction_unsupported',
+          })
+        }
+        const echoedState = context.mcpReq.requestState<string>()
+        if (echoedState !== undefined && echoedState !== input.operationKey) {
+          return projectToolResult({ code: 'INPUT_INVALID', ok: false }, () => '')
+        }
+        const result =
+          echoedState === undefined
+            ? await ctx.runMutation(internal.operations.prepareWorkspaceDeletion, {
+                access: applicationAccessBinding(access),
+                locator: crypto.randomUUID(),
+                operationKey: input.operationKey,
+                workspaceId: input.workspaceId,
+              })
+            : await ctx.runQuery(internal.operations.getWorkspaceDeletionStatus, {
+                access: applicationAccessBinding(access),
+                operationKey: input.operationKey,
+              })
+        if (!result.ok) return projectToolResult(result, () => '')
+        if (result.value.workspaceId !== input.workspaceId) {
+          return projectToolResult({ code: 'INPUT_INVALID', ok: false }, () => '')
+        }
+        if (
+          echoedState !== undefined &&
+          context.mcpReq.inputResponses !== undefined &&
+          result.value.status === 'pending'
+        ) {
+          return projectWorkspaceDeletionComplete(result.value)
+        }
+        return projectWorkspaceDeletionInput(result.value)
+      }),
+  )
+
+  server.registerTool(
+    'get_workspace_deletion_status',
+    {
+      description: 'Read one explicit application-owned workspace deletion operation.',
+      inputSchema: z
+        .object({
+          operationKey: z
+            .string()
+            .min(32)
+            .max(128)
+            .regex(/^[\w-]+$/),
+        })
+        .strict(),
+      outputSchema: workspaceDeletionCompleteSchema,
     },
     async (input) =>
       runMcpTool(
         async () => {
-          if (!access.scopes.includes('notes:write')) {
-            return projectToolResult({ code: 'ACCESS_DENIED', ok: false }, () => '')
-          }
-          const result = await ctx.runMutation(internal.operations.deleteWorkspace, {
-            ...input,
-            principal,
+          const result = await ctx.runQuery(internal.operations.getWorkspaceDeletionStatus, {
+            access: applicationAccessBinding(access),
+            operationKey: input.operationKey,
           })
-          return projectToolResult(result, (value) => `Deleted workspace ${value.workspaceId}.`)
+          if (!result.ok) return projectToolResult(result, () => '')
+          return projectWorkspaceDeletionComplete(result.value)
         },
         {
-          operation: 'mutation',
-          toolName: 'delete_workspace',
-          functionName: 'operations:deleteWorkspace',
+          operation: 'query',
+          toolName: 'get_workspace_deletion_status',
+          functionName: 'operations:getWorkspaceDeletionStatus',
         },
       ),
   )
